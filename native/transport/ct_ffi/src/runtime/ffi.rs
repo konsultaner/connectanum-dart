@@ -46,8 +46,8 @@ use ct_core::{
     ConnectionId, ConnectionProtocol, Error as CoreError, FileSegmentMetricsSnapshot,
     HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
     HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
-    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, WampMessage,
-    RESPONSE_STREAM_BUFFER,
+    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, ResponseStreamWriter,
+    WampMessage, RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -85,20 +85,23 @@ use crate::callbacks::{
 };
 
 use super::constants::*;
+use super::resource_handles::ResourceHandleError;
 use super::state::{
     clear_channels, clone_message, get_e2ee_keyring, get_file, remove_e2ee_keyring,
     remove_e2ee_session, remove_file, remove_http2_handshake, remove_http3_connection,
     remove_http3_handshake, remove_http3_stream, remove_http_body, remove_http_connection_event,
-    remove_http_handshake, remove_http_response_stream, remove_message, remove_websocket_handshake,
-    store_channel, store_e2ee_keyring, store_e2ee_session, store_file, store_http2_handshake,
+    remove_http_handshake, remove_http_response_stream, remove_websocket_handshake, store_channel,
+    store_e2ee_keyring, store_e2ee_session, store_file, store_http2_handshake,
     store_http3_connection, store_http3_handshake, store_http3_stream, store_http_body,
     store_http_connection_event, store_http_request_metadata, store_http_response_stream,
     store_message, store_websocket_handshake, with_channel, with_e2ee_keyring, with_e2ee_session,
     with_http2_handshake, with_http3_handshake, with_http3_stream, with_http_body,
-    with_http_connection_event, with_http_handshake, with_http_response_stream, with_message,
-    with_websocket_handshake, HttpMetadata, StoredHttpHandshakePayload, StoredMessage,
-    StoredRawFrame,
+    with_http_connection_event, with_http_handshake, with_http_response_stream,
+    with_websocket_handshake, HttpMetadata, MessageHandleError, StoredHttpHandshakePayload,
+    StoredMessage, StoredRawFrame,
 };
+#[cfg(test)]
+use super::state::{remove_message, with_message};
 use rmp::encode::{write_array_len, write_u64};
 use serde::Serialize;
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
@@ -735,7 +738,7 @@ static ROUTER_METRICS_BREAKDOWN: OnceLock<Mutex<Option<Box<[CtRouterMetricsBreak
     OnceLock::new();
 
 #[cfg(feature = "ffi-test")]
-type TestMessageQueues = DashMap<ConnectionId, Mutex<VecDeque<u32>>>;
+type TestMessageQueues = DashMap<ConnectionId, Mutex<VecDeque<u64>>>;
 
 #[cfg(feature = "ffi-test")]
 static TEST_MESSAGES: OnceLock<TestMessageQueues> = OnceLock::new();
@@ -746,7 +749,7 @@ fn test_messages() -> &'static TestMessageQueues {
 }
 
 #[cfg(feature = "ffi-test")]
-fn enqueue_test_handle(connection_id: ConnectionId, handle: u32) {
+fn enqueue_test_handle(connection_id: ConnectionId, handle: u64) {
     let queue = test_messages()
         .entry(connection_id)
         .or_insert_with(|| Mutex::new(VecDeque::new()));
@@ -755,10 +758,14 @@ fn enqueue_test_handle(connection_id: ConnectionId, handle: u32) {
 }
 
 #[cfg(feature = "ffi-test")]
-fn pop_test_handle(connection_id: ConnectionId) -> Option<u32> {
+fn pop_test_handle(connection_id: ConnectionId, wide: bool) -> Option<Result<u64, c_int>> {
     test_messages().get(&connection_id).and_then(|entry| {
         let mut guard = entry.value().lock().unwrap();
-        guard.pop_front()
+        if !wide && guard.front().is_some_and(|id| *id > i32::MAX as u64) {
+            // A legacy poll cannot consume a wide test handle by truncation.
+            return Some(Err(ERR_HANDLE_UNAVAILABLE));
+        }
+        guard.pop_front().map(Ok)
     })
 }
 
@@ -770,7 +777,7 @@ fn clear_test_messages() {
             if let Some((_, queue_mutex)) = map.remove(&key) {
                 let mut queue = queue_mutex.lock().unwrap();
                 while let Some(handle) = queue.pop_front() {
-                    drop(remove_message(handle));
+                    drop(super::message_handles::remove(handle));
                 }
             }
         }
@@ -2019,7 +2026,7 @@ pub extern "C" fn ct_external_byte_buffer_free(owner: *mut c_void) {
 
 #[no_mangle]
 pub extern "C" fn ct_e2ee_keyring_new() -> c_int {
-    store_e2ee_keyring() as c_int
+    resource_handle_result(store_e2ee_keyring())
 }
 
 #[no_mangle]
@@ -2086,7 +2093,7 @@ pub extern "C" fn ct_e2ee_session_new(
             return ERR_KEY_NOT_FOUND;
         }
     }
-    store_e2ee_session(keyring, default_key_id) as c_int
+    resource_handle_result(store_e2ee_session(keyring, default_key_id))
 }
 
 #[no_mangle]
@@ -2241,7 +2248,25 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_single_binary_argument(
     cipher_code: c_int,
     out: *mut CtExternalByteBuffer,
 ) -> c_int {
-    #[cfg(feature = "ffi-test")]
+    ct_e2ee_session_decrypt_message_single_binary_argument_wide(
+        session_handle,
+        key_id_ptr,
+        key_id_len,
+        i64::from(message_handle),
+        cipher_code,
+        out,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_decrypt_message_single_binary_argument_wide(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    message_handle: i64,
+    cipher_code: c_int,
+    out: *mut CtExternalByteBuffer,
+) -> c_int {
     if session_handle <= 0 || message_handle <= 0 || out.is_null() {
         return ERR_INVALID_ARGUMENT;
     }
@@ -2254,7 +2279,7 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_single_binary_argument(
         Ok(value) => value,
         Err(code) => return code,
     };
-    let decrypted = with_message(message_handle as u32, |message| {
+    let decrypted = super::message_handles::with_message(message_handle as u64, |message| {
         if message.kwargs.is_some() {
             return Err(ERR_UNSUPPORTED);
         }
@@ -2319,6 +2344,27 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume(
     out: *mut CtExternalByteBuffer,
     out_kind: *mut c_int,
 ) -> c_int {
+    ct_e2ee_session_decrypt_message_payload_consume_wide(
+        session_handle,
+        key_id_ptr,
+        key_id_len,
+        i64::from(message_handle),
+        cipher_code,
+        out,
+        out_kind,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume_wide(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    message_handle: i64,
+    cipher_code: c_int,
+    out: *mut CtExternalByteBuffer,
+    out_kind: *mut c_int,
+) -> c_int {
     if message_handle <= 0 || out.is_null() || out_kind.is_null() {
         return ERR_INVALID_ARGUMENT;
     }
@@ -2328,7 +2374,7 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume(
         (*out).owner = ptr::null_mut();
         *out_kind = 0;
     }
-    let message = match remove_message(message_handle as u32) {
+    let message = match super::message_handles::remove(message_handle as u64) {
         Some(value) => value,
         None => return ERR_HANDLE_UNAVAILABLE,
     };
@@ -2666,7 +2712,7 @@ pub extern "C" fn ct_connection_take_http_handshake(connection_id: c_int) -> c_i
     match connection_http_poll_request(connection_id) {
         Ok(Some((summary, response))) => {
             let metadata = HttpMetadata::from_summary(summary);
-            store_http_request_metadata(metadata, response) as c_int
+            resource_handle_result(store_http_request_metadata(metadata, response))
         }
         Ok(None) => 0,
         Err(err) => map_error(err),
@@ -2680,7 +2726,7 @@ pub extern "C" fn ct_connection_take_http2_handshake(connection_id: c_int) -> c_
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_take_http2_handshake(connection_id) {
-        Ok(handshake) => store_http2_handshake(handshake) as c_int,
+        Ok(handshake) => resource_handle_result(store_http2_handshake(handshake)),
         Err(err) => map_error(err),
     }
 }
@@ -2747,7 +2793,7 @@ pub extern "C" fn ct_connection_take_http3_handshake(connection_id: c_int) -> c_
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_take_http3_handshake(connection_id) {
-        Ok(handshake) => store_http3_handshake(handshake) as c_int,
+        Ok(handshake) => resource_handle_result(store_http3_handshake(handshake)),
         Err(err) => {
             #[cfg(feature = "ffi-test")]
             eprintln!(
@@ -2821,7 +2867,7 @@ pub extern "C" fn ct_connection_get_http3_connection(connection_id: c_int) -> c_
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_http3_connection(connection_id) {
-        Ok(connection) => store_http3_connection(connection) as c_int,
+        Ok(connection) => resource_handle_result(store_http3_connection(connection)),
         Err(err) => map_error(err),
     }
 }
@@ -2842,7 +2888,7 @@ pub extern "C" fn ct_http3_connection_poll_stream(connection_id: c_int) -> c_int
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_http3_poll_stream(connection_id) {
-        Ok(Some(stream)) => store_http3_stream(stream) as c_int,
+        Ok(Some(stream)) => resource_handle_result(store_http3_stream(stream)),
         Ok(None) => 0,
         Err(err) => map_error(err),
     }
@@ -2857,7 +2903,7 @@ pub extern "C" fn ct_http3_connection_poll_request(connection_id: c_int) -> c_in
     match connection_http3_poll_request(connection_id) {
         Ok(Some((summary, response_handle))) => {
             let metadata = HttpMetadata::from_summary(summary);
-            store_http_request_metadata(metadata, response_handle) as c_int
+            resource_handle_result(store_http_request_metadata(metadata, response_handle))
         }
         Ok(None) => 0,
         Err(err) => map_error(err),
@@ -2892,7 +2938,7 @@ pub extern "C" fn ct_http3_stream_release(handle: c_int) -> c_int {
 #[no_mangle]
 pub extern "C" fn ct_connection_poll_http_event() -> c_int {
     match connection_poll_http_event() {
-        Some(event) => store_http_connection_event(event) as c_int,
+        Some(event) => resource_handle_result(store_http_connection_event(event)),
         None => 0,
     }
 }
@@ -3279,17 +3325,43 @@ pub extern "C" fn ct_http_response_stream_open(
     let Some(payload) = stored.take_payload() else {
         return ERR_HANDSHAKE_CONSUMED;
     };
+    match payload {
+        StoredHttpHandshakePayload::Response(handle) => open_http_response_stream_with(
+            status,
+            header_vec,
+            |dispatch| handle.respond(dispatch),
+            store_http_response_stream,
+            |id| {
+                remove_http_response_stream(id);
+            },
+        ),
+    }
+}
+
+fn open_http_response_stream_with(
+    status: c_int,
+    headers: Vec<(String, String)>,
+    respond: impl FnOnce(HttpResponseDispatch) -> Result<(), CoreError>,
+    allocate: impl FnOnce(ResponseStreamWriter) -> Result<u32, ResourceHandleError>,
+    release: impl FnOnce(u32),
+) -> c_int {
     let (writer, reader) = response_stream_channel(RESPONSE_STREAM_BUFFER);
+    // Do not send success headers if the caller cannot receive a writer handle.
+    let stream_handle = match allocate(writer) {
+        Ok(handle) => handle,
+        Err(err) => return resource_handle_result(Err(err)),
+    };
     let dispatch = HttpResponseDispatch {
         status,
-        headers: header_vec,
+        headers,
         body: HttpResponseBody::Streaming(reader),
     };
-    match payload {
-        StoredHttpHandshakePayload::Response(handle) => match handle.respond(dispatch) {
-            Ok(()) => store_http_response_stream(writer) as c_int,
-            Err(err) => map_error(err),
-        },
+    match respond(dispatch) {
+        Ok(()) => stream_handle as c_int,
+        Err(err) => {
+            release(stream_handle);
+            map_error(err)
+        }
     }
 }
 
@@ -3339,7 +3411,7 @@ pub extern "C" fn ct_connection_take_websocket_handshake(connection_id: c_int) -
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_take_websocket_handshake(connection_id) {
-        Ok(handshake) => store_websocket_handshake(handshake) as c_int,
+        Ok(handshake) => resource_handle_result(store_websocket_handshake(handshake)),
         Err(err) => map_error(err),
     }
 }
@@ -4340,7 +4412,22 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
     info
 }
 
-fn store_parsed_message(parsed: ct_core::ParsedMessage) -> c_int {
+fn resource_handle_result(result: Result<u32, ResourceHandleError>) -> c_int {
+    match result {
+        Ok(handle) => handle as c_int,
+        Err(ResourceHandleError::Exhausted) => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
+fn message_handle_result(result: Result<u32, MessageHandleError>) -> c_int {
+    match result {
+        Ok(handle) => handle as c_int,
+        Err(MessageHandleError::Unavailable) => ERR_INVALID_ARGUMENT,
+        Err(MessageHandleError::Exhausted) => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
+fn parsed_message_value(parsed: ct_core::ParsedMessage) -> StoredMessage {
     let ct_core::ParsedMessage {
         message,
         raw,
@@ -4348,7 +4435,7 @@ fn store_parsed_message(parsed: ct_core::ParsedMessage) -> c_int {
     } = parsed;
     let (args, kwargs) = extract_payload_slices(&message);
     let details = extract_detail_bytes(serializer, &message);
-    let info = StoredMessage {
+    StoredMessage {
         serializer,
         code: message.code(),
         raw: StoredRawFrame::from_raw(raw),
@@ -4356,16 +4443,41 @@ fn store_parsed_message(parsed: ct_core::ParsedMessage) -> c_int {
         details,
         args,
         kwargs,
-    };
-    store_message(info) as c_int
+    }
+}
+
+fn store_parsed_message(parsed: ct_core::ParsedMessage) -> c_int {
+    message_handle_result(store_message(parsed_message_value(parsed)))
+}
+
+fn wide_message_handle_result(result: Result<u64, MessageHandleError>) -> i64 {
+    match result {
+        Ok(id) => i64::try_from(id).unwrap_or(i64::from(ERR_HANDLE_UNAVAILABLE)),
+        Err(MessageHandleError::Unavailable) => i64::from(ERR_INVALID_ARGUMENT),
+        Err(MessageHandleError::Exhausted) => i64::from(ERR_HANDLE_UNAVAILABLE),
+    }
+}
+
+fn store_parsed_message_wide(parsed: ct_core::ParsedMessage) -> i64 {
+    wide_message_handle_result(super::message_handles::insert(parsed_message_value(parsed)))
+}
+
+/// Version 1 is the complete additive signed 64-bit message-handle family.
+/// All `_wide` producers/consumers must be selected together by a binding.
+/// Other resource handles, status codes, and WAMP wire IDs are unchanged.
+#[no_mangle]
+pub extern "C" fn ct_message_handle_abi_version() -> c_uint {
+    1
 }
 
 #[no_mangle]
 pub extern "C" fn ct_poll_connection_message(connection_id: c_int) -> c_int {
     let connection_id = ConnectionId(connection_id as u32);
     #[cfg(feature = "ffi-test")]
-    if let Some(handle) = pop_test_handle(connection_id) {
-        return handle as c_int;
+    if let Some(handle) = pop_test_handle(connection_id, false) {
+        return handle
+            .map(|handle| handle as c_int)
+            .unwrap_or_else(|code| code);
     }
     match poll_connection_message(connection_id) {
         Ok(Some(parsed)) => store_parsed_message(parsed),
@@ -4396,6 +4508,75 @@ pub extern "C" fn ct_poll_websocket_message(connection_id: c_int) -> c_int {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn ct_poll_connection_message_wide(connection_id: c_int) -> i64 {
+    let connection_id = ConnectionId(connection_id as u32);
+    #[cfg(feature = "ffi-test")]
+    if let Some(handle) = pop_test_handle(connection_id, true) {
+        return handle.map(|handle| handle as i64).unwrap_or_else(i64::from);
+    }
+    match poll_connection_message(connection_id) {
+        Ok(Some(parsed)) => store_parsed_message_wide(parsed),
+        Ok(None) => 0,
+        Err(err) => i64::from(map_error(err)),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_wait_connection_message_wide(connection_id: c_int, timeout_ms: c_uint) -> i64 {
+    let connection_id = ConnectionId(connection_id as u32);
+    match wait_connection_message(connection_id, duration_from_millis(timeout_ms)) {
+        Ok(Some(parsed)) => store_parsed_message_wide(parsed),
+        Ok(None) => 0,
+        Err(err) => i64::from(map_error(err)),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_poll_websocket_message_wide(connection_id: c_int) -> i64 {
+    match connection_protocol(ConnectionId(connection_id as u32)) {
+        Ok(ConnectionProtocol::WebSocket) => ct_poll_connection_message_wide(connection_id),
+        Ok(_) => i64::from(ERR_UNSUPPORTED),
+        Err(err) => i64::from(map_error(err)),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_retain_wide(handle: i64) -> i64 {
+    if handle <= 0 {
+        return i64::from(ERR_INVALID_ARGUMENT);
+    }
+    wide_message_handle_result(super::message_handles::retain(handle as u64))
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_message_enqueue_wide(
+    connection_id: c_int,
+    serializer_id: c_int,
+    frame_ptr: *const u8,
+    frame_len: c_int,
+) -> i64 {
+    if frame_len <= 0 || frame_ptr.is_null() {
+        return i64::from(ERR_INVALID_ARGUMENT);
+    }
+    let serializer = match serializer_from_id(serializer_id) {
+        Ok(value) => value,
+        Err(code) => return i64::from(code),
+    };
+    let bytes = unsafe { slice::from_raw_parts(frame_ptr, frame_len as usize) };
+    match parse_message(serializer, Bytes::copy_from_slice(bytes)) {
+        Ok(parsed) => {
+            let handle = store_parsed_message_wide(parsed);
+            if handle > 0 {
+                enqueue_test_handle(ConnectionId(connection_id as u32), handle as u64);
+            }
+            handle
+        }
+        Err(_) => i64::from(ERR_INVALID_ARGUMENT),
+    }
+}
+
 #[cfg(feature = "ffi-test")]
 #[no_mangle]
 pub extern "C" fn ct_test_message_enqueue(
@@ -4421,7 +4602,7 @@ pub extern "C" fn ct_test_message_enqueue(
         }) => {
             let (args, kwargs) = extract_payload_slices(&message);
             let details = extract_detail_bytes(serializer, &message);
-            let handle = store_message(StoredMessage {
+            let handle = match store_message(StoredMessage {
                 serializer,
                 code: message.code(),
                 raw: StoredRawFrame::from_raw(raw),
@@ -4429,8 +4610,11 @@ pub extern "C" fn ct_test_message_enqueue(
                 details,
                 args,
                 kwargs,
-            });
-            enqueue_test_handle(ConnectionId(connection_id as u32), handle);
+            }) {
+                Ok(handle) => handle,
+                Err(error) => return message_handle_result(Err(error)),
+            };
+            enqueue_test_handle(ConnectionId(connection_id as u32), u64::from(handle));
             handle as c_int
         }
         Err(_) => ERR_INVALID_ARGUMENT,
@@ -5173,7 +5357,7 @@ pub extern "C" fn ct_file_open(
     match std::fs::File::open(path) {
         Ok(file) => match file.metadata() {
             Ok(metadata) if metadata.is_file() && metadata.len() == expected_len => {
-                store_file(file) as c_int
+                resource_handle_result(store_file(file))
             }
             Ok(_) => ERR_INVALID_ARGUMENT,
             Err(_) => ERR_IO,
@@ -5866,6 +6050,14 @@ pub extern "C" fn ct_message_decode_single_binary_argument(
     message_handle: c_int,
     out: *mut CtExternalByteBuffer,
 ) -> c_int {
+    ct_message_decode_single_binary_argument_wide(i64::from(message_handle), out)
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_decode_single_binary_argument_wide(
+    message_handle: i64,
+    out: *mut CtExternalByteBuffer,
+) -> c_int {
     if message_handle <= 0 || out.is_null() {
         return ERR_INVALID_ARGUMENT;
     }
@@ -5874,7 +6066,7 @@ pub extern "C" fn ct_message_decode_single_binary_argument(
         (*out).len = 0;
         (*out).owner = ptr::null_mut();
     }
-    let decoded = with_message(message_handle as u32, |message| {
+    let decoded = super::message_handles::with_message(message_handle as u64, |message| {
         if message.serializer != RawSocketSerializer::Json
             || message.code != 68
             || message.kwargs.is_some()
@@ -5911,6 +6103,14 @@ pub extern "C" fn ct_sha256_update_message_binary_argument(
     sha256_handle: c_int,
     message_handle: c_int,
 ) -> c_int {
+    ct_sha256_update_message_binary_argument_wide(sha256_handle, i64::from(message_handle))
+}
+
+#[no_mangle]
+pub extern "C" fn ct_sha256_update_message_binary_argument_wide(
+    sha256_handle: c_int,
+    message_handle: i64,
+) -> c_int {
     if sha256_handle <= 0 || message_handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
@@ -5918,7 +6118,7 @@ pub extern "C" fn ct_sha256_update_message_binary_argument(
     let Some(mut state) = store.states.get_mut(&(sha256_handle as u32)) else {
         return ERR_HANDLE_UNAVAILABLE;
     };
-    match with_message(message_handle as u32, |message| {
+    match super::message_handles::with_message(message_handle as u64, |message| {
         if message.code != 68 {
             return Err(ERR_INVALID_ARGUMENT);
         }
@@ -6099,11 +6299,18 @@ pub extern "C" fn ct_sha256_release(sha256_handle: c_int) -> c_int {
 
 #[no_mangle]
 pub extern "C" fn ct_message_get(handle: c_int, out_info: *mut CtMessageInfo) -> c_int {
+    ct_message_get_wide(i64::from(handle), out_info)
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_get_wide(handle: i64, out_info: *mut CtMessageInfo) -> c_int {
     if out_info.is_null() || handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
-    let handle_u32 = handle as u32;
-    match with_message(handle_u32, |message| build_message_info(message, true)) {
+    let handle_u64 = handle as u64;
+    match super::message_handles::with_message(handle_u64, |message| {
+        build_message_info(message, true)
+    }) {
         Some(info) => {
             unsafe {
                 out_info.write(info);
@@ -6114,13 +6321,82 @@ pub extern "C" fn ct_message_get(handle: c_int, out_info: *mut CtMessageInfo) ->
     }
 }
 
+// Test observers never keep the message allocation alive or read its bytes.
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_message_observer_new(handle: c_int) -> *mut c_void {
+    if handle <= 0 {
+        return ptr::null_mut();
+    }
+    super::state::observe_message(handle as u32)
+        .map(|observer| Box::into_raw(Box::new(observer)).cast())
+        .unwrap_or(ptr::null_mut())
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_message_observer_new_wide(handle: i64) -> *mut c_void {
+    if handle <= 0 {
+        return ptr::null_mut();
+    }
+    super::message_handles::retain_allocation(handle as u64)
+        .map(|owner| Arc::downgrade(&owner))
+        .map(|observer| Box::into_raw(Box::new(observer)).cast())
+        .unwrap_or(ptr::null_mut())
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_call_observer_new(procedure: *const u8, len: usize) -> *mut c_void {
+    if procedure.is_null() || len == 0 {
+        return ptr::null_mut();
+    }
+    let Ok(procedure) = std::str::from_utf8(unsafe { slice::from_raw_parts(procedure, len) })
+    else {
+        return ptr::null_mut();
+    };
+    super::state::observe_call(procedure)
+        .or_else(|| super::message_handles::observe_call(procedure))
+        .map(|observer| Box::into_raw(Box::new(observer)).cast())
+        .unwrap_or(ptr::null_mut())
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_message_observer_alive(observer: *mut c_void) -> c_int {
+    if observer.is_null() {
+        return 0;
+    }
+    let observer = unsafe { &*observer.cast::<std::sync::Weak<StoredMessage>>() };
+    c_int::from(observer.strong_count() > 0)
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_message_observer_free(observer: *mut c_void) {
+    if !observer.is_null() {
+        unsafe {
+            drop(Box::from_raw(
+                observer.cast::<std::sync::Weak<StoredMessage>>(),
+            ))
+        };
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn ct_message_peek(handle: c_int, out_info: *mut CtMessageInfo) -> c_int {
+    ct_message_peek_wide(i64::from(handle), out_info)
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_peek_wide(handle: i64, out_info: *mut CtMessageInfo) -> c_int {
     if out_info.is_null() || handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
-    let handle_u32 = handle as u32;
-    match with_message(handle_u32, |message| build_message_info(message, false)) {
+    let handle_u64 = handle as u64;
+    match super::message_handles::with_message(handle_u64, |message| {
+        build_message_info(message, false)
+    }) {
         Some(info) => {
             unsafe {
                 out_info.write(info);
@@ -6133,11 +6409,96 @@ pub extern "C" fn ct_message_peek(handle: c_int, out_info: *mut CtMessageInfo) -
 
 #[no_mangle]
 pub extern "C" fn ct_message_release(handle: c_int) {
+    ct_message_release_wide(i64::from(handle))
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_release_wide(handle: i64) {
     if handle <= 0 {
         return;
     }
-    let handle_u32 = handle as u32;
-    remove_message(handle_u32);
+    let handle_u64 = handle as u64;
+    super::message_handles::remove(handle_u64);
+}
+
+#[repr(C)]
+pub struct CtMessageByteView {
+    pub ptr: *const u8,
+    pub len: usize,
+    pub owner: *mut c_void,
+}
+
+/// Exports a zero-copy slice with ownership independent of routing handles.
+/// Parts: 0 frame, 1 arguments, 2 keyword arguments, 3 details, 4 binary argument.
+/// The caller must release each non-null owner exactly once with
+/// `ct_message_buffer_free`, after every view of that slice is unreachable.
+/// Token addresses may repeat; each successful export owns a separate reference.
+#[no_mangle]
+pub extern "C" fn ct_message_buffer_export(
+    handle: c_int,
+    part: c_uint,
+    out: *mut CtMessageByteView,
+) -> c_int {
+    ct_message_buffer_export_wide(i64::from(handle), part, out)
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_buffer_export_wide(
+    handle: i64,
+    part: c_uint,
+    out: *mut CtMessageByteView,
+) -> c_int {
+    if out.is_null() || handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe {
+        out.write(CtMessageByteView {
+            ptr: ptr::null(),
+            len: 0,
+            owner: ptr::null_mut(),
+        });
+    }
+    let Some(message) = super::message_handles::retain_allocation(handle as u64) else {
+        return ERR_INVALID_ARGUMENT;
+    };
+    let bytes = match part {
+        0 => Some(message.raw.bytes().as_ref()),
+        1 => message.args.as_deref(),
+        2 => message.kwargs.as_deref(),
+        3 => message.details.as_deref(),
+        4 if message.code == 68 && message.kwargs.is_none() => message
+            .args
+            .as_deref()
+            .and_then(|args| single_binary_argument(message.serializer, args).ok()),
+        4 => None,
+        _ => return ERR_INVALID_ARGUMENT,
+    };
+    let Some(bytes) = bytes else {
+        return SUCCESS;
+    };
+    if bytes.is_empty() {
+        return SUCCESS;
+    }
+    let data = bytes.as_ptr();
+    let len = bytes.len();
+    // Transfer the acquired strong reference without another heap allocation.
+    let owner = Arc::into_raw(message).cast_mut().cast();
+    unsafe {
+        out.write(CtMessageByteView {
+            ptr: data,
+            len,
+            owner,
+        });
+    }
+    SUCCESS
+}
+
+/// Native finalizer ABI; the token is not the data pointer or an integer handle.
+#[no_mangle]
+pub extern "C" fn ct_message_buffer_free(owner: *mut c_void) {
+    if !owner.is_null() {
+        unsafe { drop(Arc::from_raw(owner.cast::<StoredMessage>().cast_const())) };
+    }
 }
 
 #[no_mangle]
@@ -6146,10 +6507,7 @@ pub extern "C" fn ct_message_retain(handle: c_int) -> c_int {
         return ERR_INVALID_ARGUMENT;
     }
     let handle_u32 = handle as u32;
-    match clone_message(handle_u32) {
-        Some(new_handle) => new_handle as c_int,
-        None => ERR_INVALID_ARGUMENT,
-    }
+    message_handle_result(clone_message(handle_u32))
 }
 
 #[no_mangle]
@@ -6218,7 +6576,7 @@ pub extern "C" fn ct_http_handshake_body_retain(handle: c_int) -> c_int {
         return ERR_INVALID_ARGUMENT;
     }
     match with_http_handshake(handle as u32, |stored| stored.metadata.body.clone()) {
-        Some(body) => store_http_body(body) as c_int,
+        Some(body) => resource_handle_result(store_http_body(body)),
         None => ERR_HANDSHAKE_CONSUMED,
     }
 }
@@ -6445,6 +6803,29 @@ pub extern "C" fn ct_forward_publish_event(
     topic_ptr: *const c_char,
     topic_len: c_int,
 ) -> c_int {
+    ct_forward_publish_event_wide(
+        i64::from(handle),
+        connection_id,
+        subscription_id,
+        publication_id,
+        publisher_present,
+        publisher_session,
+        topic_ptr,
+        topic_len,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_publish_event_wide(
+    handle: i64,
+    connection_id: c_int,
+    subscription_id: u64,
+    publication_id: u64,
+    publisher_present: c_int,
+    publisher_session: u64,
+    topic_ptr: *const c_char,
+    topic_len: c_int,
+) -> c_int {
     if handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
@@ -6457,8 +6838,8 @@ pub extern "C" fn ct_forward_publish_event(
     } else {
         None
     };
-    let handle_u32 = handle as u32;
-    let segments = match with_message(handle_u32, |msg| {
+    let handle_u64 = handle as u64;
+    let segments = match super::message_handles::with_message(handle_u64, |msg| {
         encode_event_segments(
             msg,
             subscription_id,
@@ -6481,6 +6862,39 @@ pub extern "C" fn ct_forward_publish_event(
 #[no_mangle]
 pub extern "C" fn ct_forward_call_invocation(
     handle: c_int,
+    connection_id: c_int,
+    invocation_id: u64,
+    registration_id: u64,
+    caller_present: c_int,
+    caller_session: u64,
+    caller_authid_ptr: *const c_char,
+    caller_authid_len: c_int,
+    caller_authrole_ptr: *const c_char,
+    caller_authrole_len: c_int,
+    procedure_ptr: *const c_char,
+    procedure_len: c_int,
+    receive_progress_flag: c_int,
+) -> c_int {
+    ct_forward_call_invocation_wide(
+        i64::from(handle),
+        connection_id,
+        invocation_id,
+        registration_id,
+        caller_present,
+        caller_session,
+        caller_authid_ptr,
+        caller_authid_len,
+        caller_authrole_ptr,
+        caller_authrole_len,
+        procedure_ptr,
+        procedure_len,
+        receive_progress_flag,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_call_invocation_wide(
+    handle: i64,
     connection_id: c_int,
     invocation_id: u64,
     registration_id: u64,
@@ -6529,6 +6943,41 @@ pub extern "C" fn ct_forward_call_invocation_v2(
     receive_progress_flag: c_int,
     invocation_progress_flag: c_int,
 ) -> c_int {
+    ct_forward_call_invocation_v2_wide(
+        i64::from(handle),
+        connection_id,
+        invocation_id,
+        registration_id,
+        caller_present,
+        caller_session,
+        caller_authid_ptr,
+        caller_authid_len,
+        caller_authrole_ptr,
+        caller_authrole_len,
+        procedure_ptr,
+        procedure_len,
+        receive_progress_flag,
+        invocation_progress_flag,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_call_invocation_v2_wide(
+    handle: i64,
+    connection_id: c_int,
+    invocation_id: u64,
+    registration_id: u64,
+    caller_present: c_int,
+    caller_session: u64,
+    caller_authid_ptr: *const c_char,
+    caller_authid_len: c_int,
+    caller_authrole_ptr: *const c_char,
+    caller_authrole_len: c_int,
+    procedure_ptr: *const c_char,
+    procedure_len: c_int,
+    receive_progress_flag: c_int,
+    invocation_progress_flag: c_int,
+) -> c_int {
     forward_call_invocation_impl(
         handle,
         connection_id,
@@ -6549,7 +6998,7 @@ pub extern "C" fn ct_forward_call_invocation_v2(
 
 #[allow(clippy::too_many_arguments)]
 fn forward_call_invocation_impl(
-    handle: c_int,
+    handle: i64,
     connection_id: c_int,
     invocation_id: u64,
     registration_id: u64,
@@ -6594,8 +7043,8 @@ fn forward_call_invocation_impl(
         0 => Some(false),
         _ => Some(true),
     };
-    let handle_u32 = handle as u32;
-    let segments = match with_message(handle_u32, |msg| {
+    let handle_u64 = handle as u64;
+    let segments = match super::message_handles::with_message(handle_u64, |msg| {
         encode_invocation_segments(
             msg,
             invocation_id,
@@ -6626,12 +7075,22 @@ pub extern "C" fn ct_forward_result_from_yield(
     request_id: u64,
     progress_flag: c_int,
 ) -> c_int {
+    ct_forward_result_from_yield_wide(i64::from(handle), connection_id, request_id, progress_flag)
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_result_from_yield_wide(
+    handle: i64,
+    connection_id: c_int,
+    request_id: u64,
+    progress_flag: c_int,
+) -> c_int {
     if handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
-    let handle_u32 = handle as u32;
+    let handle_u64 = handle as u64;
     let progress = progress_flag != 0;
-    let segments = match with_message(handle_u32, |msg| {
+    let segments = match super::message_handles::with_message(handle_u64, |msg| {
         encode_result_segments(msg, request_id, progress)
     }) {
         Some(Ok(parts)) => parts,
@@ -6651,11 +7110,20 @@ pub extern "C" fn ct_forward_result_from_call(
     connection_id: c_int,
     request_id: u64,
 ) -> c_int {
+    ct_forward_result_from_call_wide(i64::from(handle), connection_id, request_id)
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_result_from_call_wide(
+    handle: i64,
+    connection_id: c_int,
+    request_id: u64,
+) -> c_int {
     if handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
-    let handle_u32 = handle as u32;
-    let segments = match with_message(handle_u32, |msg| {
+    let handle_u64 = handle as u64;
+    let segments = match super::message_handles::with_message(handle_u64, |msg| {
         encode_result_segments_from_call(msg, request_id)
     }) {
         Some(Ok(parts)) => parts,
@@ -6676,11 +7144,21 @@ pub extern "C" fn ct_forward_error_from_error(
     request_type: u64,
     request_id: u64,
 ) -> c_int {
+    ct_forward_error_from_error_wide(i64::from(handle), connection_id, request_type, request_id)
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_error_from_error_wide(
+    handle: i64,
+    connection_id: c_int,
+    request_type: u64,
+    request_id: u64,
+) -> c_int {
     if handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
-    let handle_u32 = handle as u32;
-    let segments = match with_message(handle_u32, |msg| {
+    let handle_u64 = handle as u64;
+    let segments = match super::message_handles::with_message(handle_u64, |msg| {
         encode_error_segments(msg, request_type, request_id)
     }) {
         Some(Ok(parts)) => parts,
@@ -6720,6 +7198,357 @@ mod tests {
     use std::collections::BTreeMap;
     #[cfg(feature = "ffi-test")]
     use std::collections::HashMap;
+
+    #[test]
+    fn resource_handle_results_preserve_positive_ids_and_report_exhaustion() {
+        assert_eq!(resource_handle_result(Ok(1)), 1);
+        assert_eq!(resource_handle_result(Ok(i32::MAX as u32)), i32::MAX);
+        assert_eq!(
+            resource_handle_result(Err(ResourceHandleError::Exhausted)),
+            ERR_HANDLE_UNAVAILABLE
+        );
+        assert!(ERR_HANDLE_UNAVAILABLE < 0);
+    }
+
+    #[test]
+    fn resource_handle_response_failure_does_not_send_success_headers() {
+        let sent = std::cell::Cell::new(false);
+        let result = open_http_response_stream_with(
+            200,
+            vec![],
+            |_| {
+                sent.set(true);
+                Ok(())
+            },
+            |_| Err(ResourceHandleError::Exhausted),
+            |_| panic!("an unallocated stream must not be released"),
+        );
+        assert_eq!(result, ERR_HANDLE_UNAVAILABLE);
+        assert!(!sent.get(), "success headers preceded failed allocation");
+    }
+
+    #[test]
+    fn resource_handle_response_success_retains_its_writer() {
+        let next = AtomicU32::new(42);
+        let entries = DashMap::new();
+        let response = std::cell::RefCell::new(None);
+        let result = open_http_response_stream_with(
+            201,
+            vec![("content-type".into(), "application/octet-stream".into())],
+            |dispatch| {
+                *response.borrow_mut() = Some(dispatch);
+                Ok(())
+            },
+            |writer| super::super::resource_handles::insert_resource(&next, &entries, writer),
+            |_| panic!("a successfully dispatched stream must remain available"),
+        );
+        assert_eq!(result, 42);
+        assert_eq!(entries.len(), 1);
+        let response = response.into_inner().unwrap();
+        assert_eq!(response.status, 201);
+        assert_eq!(response.headers[0].0, "content-type");
+        assert!(matches!(response.body, HttpResponseBody::Streaming(_)));
+    }
+
+    #[test]
+    fn resource_handle_response_dispatch_failure_does_not_leak_writer() {
+        let next = AtomicU32::new(42);
+        let entries = DashMap::new();
+        let allocated = std::cell::Cell::new(0);
+        let released = std::cell::Cell::new(0);
+        let result = open_http_response_stream_with(
+            200,
+            vec![],
+            |_| Err(CoreError::Http3ResponseSend(ConnectionId(1))),
+            |writer| {
+                allocated.set(allocated.get() + 1);
+                super::super::resource_handles::insert_resource(&next, &entries, writer)
+            },
+            |id| {
+                assert!(entries.remove(&id).is_some());
+                released.set(released.get() + 1);
+            },
+        );
+        assert_eq!(
+            result,
+            map_error(CoreError::Http3ResponseSend(ConnectionId(1)))
+        );
+        assert!(entries.is_empty());
+        assert_eq!(allocated.get(), released.get());
+    }
+
+    #[test]
+    fn message_handle_results_preserve_positive_ids_and_report_exhaustion() {
+        assert_eq!(message_handle_result(Ok(1)), 1);
+        assert_eq!(message_handle_result(Ok(i32::MAX as u32)), i32::MAX);
+        assert_eq!(
+            message_handle_result(Err(MessageHandleError::Unavailable)),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            message_handle_result(Err(MessageHandleError::Exhausted)),
+            ERR_HANDLE_UNAVAILABLE
+        );
+        assert!(ERR_HANDLE_UNAVAILABLE < 0);
+        assert_ne!(ERR_HANDLE_UNAVAILABLE, ERR_INVALID_ARGUMENT);
+    }
+
+    fn wide_test_message(serializer: RawSocketSerializer, frame: Vec<u8>) -> i64 {
+        let parsed = ct_core::parse_message(serializer, Bytes::from(frame)).unwrap();
+        let handle = store_parsed_message_wide(parsed);
+        assert!(handle > u32::MAX as i64);
+        handle
+    }
+
+    #[test]
+    fn wide_handles_preserve_metadata_and_export_owners_across_clear() {
+        let _guard = test_guard();
+        assert_eq!(ct_message_handle_abi_version(), 1);
+        for serializer in [
+            RawSocketSerializer::Json,
+            RawSocketSerializer::MessagePack,
+            RawSocketSerializer::Cbor,
+        ] {
+            let value = json!([50, 77, {"custom": "value"}, ["payload"], {"flag": true}]);
+            let frame = match serializer {
+                RawSocketSerializer::Json => serde_json::to_vec(&value).unwrap(),
+                RawSocketSerializer::MessagePack => to_msgpack(&value).unwrap(),
+                RawSocketSerializer::Cbor => serde_cbor::to_vec(&value).unwrap(),
+                _ => unreachable!(),
+            };
+            let handle = wide_test_message(serializer, frame);
+            let allocation =
+                super::super::message_handles::retain_allocation(handle as u64).unwrap();
+            let observer = Arc::downgrade(&allocation);
+            drop(allocation);
+            let mut info = CtMessageInfo::default();
+            assert_eq!(ct_message_get_wide(handle, &mut info), SUCCESS);
+            assert_eq!(info.message_code, 50);
+            assert_eq!(info.primary_id, 77);
+            assert_eq!(ct_message_peek_wide(handle, &mut info), SUCCESS);
+            assert_eq!(info.message_code, 50);
+            // Peek intentionally does not flatten/export the complete frame.
+            assert_eq!(ct_message_get_wide(handle, &mut info), SUCCESS);
+            let retained = ct_message_retain_wide(handle);
+            assert!(retained > u32::MAX as i64);
+            assert_ne!(retained, handle);
+            let mut exports = Vec::new();
+            for (part, expected_ptr, expected_len) in [
+                (0, info.frame_ptr, info.frame_len),
+                (1, info.args_ptr, info.args_len),
+                (2, info.kwargs_ptr, info.kwargs_len),
+                (3, info.details_ptr, info.details_len),
+            ] {
+                let mut view = CtMessageByteView {
+                    ptr: ptr::null(),
+                    len: 0,
+                    owner: ptr::null_mut(),
+                };
+                assert_eq!(
+                    ct_message_buffer_export_wide(handle, part, &mut view),
+                    SUCCESS
+                );
+                assert_eq!(view.ptr, expected_ptr);
+                assert_eq!(view.len, expected_len);
+                assert!(!view.owner.is_null());
+                let expected = unsafe { slice::from_raw_parts(view.ptr, view.len) }.to_vec();
+                exports.push((view, expected));
+            }
+            ct_message_release_wide(handle);
+            assert_eq!(ct_message_get_wide(handle, &mut info), ERR_INVALID_ARGUMENT);
+            assert_eq!(ct_message_get_wide(retained, &mut info), SUCCESS);
+            super::super::state::clear_messages();
+            assert_eq!(
+                ct_message_get_wide(retained, &mut info),
+                ERR_INVALID_ARGUMENT
+            );
+            assert_eq!(
+                ct_message_retain_wide(retained),
+                i64::from(ERR_INVALID_ARGUMENT)
+            );
+            let next = wide_test_message(
+                serializer,
+                match serializer {
+                    RawSocketSerializer::Json => serde_json::to_vec(&value).unwrap(),
+                    RawSocketSerializer::MessagePack => to_msgpack(&value).unwrap(),
+                    RawSocketSerializer::Cbor => serde_cbor::to_vec(&value).unwrap(),
+                    _ => unreachable!(),
+                },
+            );
+            assert!(next > retained);
+            for (view, expected) in exports {
+                assert!(observer.strong_count() > 0);
+                assert_eq!(
+                    unsafe { slice::from_raw_parts(view.ptr, view.len) },
+                    expected
+                );
+                ct_message_buffer_free(view.owner);
+            }
+            assert_eq!(observer.strong_count(), 0);
+            ct_message_release_wide(next);
+        }
+    }
+
+    #[test]
+    fn wide_handles_never_alias_matching_low_legacy_bits() {
+        let _guard = test_guard();
+        let legacy = store_parsed_message(
+            ct_core::parse_message(
+                RawSocketSerializer::Json,
+                Bytes::from_static(b"[50,123,{}]"),
+            )
+            .unwrap(),
+        );
+        assert!(legacy > 0);
+        let missing = (1_i64 << 60) | i64::from(legacy);
+        let mut info = CtMessageInfo::default();
+        assert_eq!(
+            ct_message_get_wide(missing, &mut info),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            ct_message_retain_wide(missing),
+            i64::from(ERR_INVALID_ARGUMENT)
+        );
+        ct_message_release_wide(missing);
+        assert_eq!(ct_message_get(legacy, &mut info), SUCCESS);
+        assert_eq!(info.primary_id, 123);
+        let retained = ct_message_retain_wide(i64::from(legacy));
+        assert!(retained > u32::MAX as i64);
+        assert!((retained as c_int) < 0);
+        assert_eq!(
+            ct_message_get(retained as c_int, &mut info),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(ct_message_retain(retained as c_int), ERR_INVALID_ARGUMENT);
+        ct_message_release(retained as c_int);
+        assert_eq!(ct_message_get_wide(retained, &mut info), SUCCESS);
+        ct_message_release(legacy);
+        assert_eq!(ct_message_get_wide(retained, &mut info), SUCCESS);
+        assert_eq!(info.primary_id, 123);
+        ct_message_release_wide(retained);
+        for invalid in [0, -1, i64::MIN, i64::MAX] {
+            assert_eq!(
+                ct_message_get_wide(invalid, &mut info),
+                ERR_INVALID_ARGUMENT
+            );
+            assert_eq!(
+                ct_message_peek_wide(invalid, &mut info),
+                ERR_INVALID_ARGUMENT
+            );
+            assert_eq!(
+                ct_message_retain_wide(invalid),
+                i64::from(ERR_INVALID_ARGUMENT)
+            );
+            ct_message_release_wide(invalid);
+        }
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[test]
+    fn wide_test_queue_rejects_legacy_truncation_and_preserves_observers() {
+        let _guard = test_guard();
+        let frame = b"[48,1,{},\"wide.test\",[7]]";
+        let handle = ct_test_message_enqueue_wide(987654, 1, frame.as_ptr(), frame.len() as c_int);
+        assert!(handle > u32::MAX as i64);
+        let observer = ct_test_message_observer_new_wide(handle);
+        assert!(!observer.is_null());
+        assert_eq!(ct_poll_connection_message(987654), ERR_HANDLE_UNAVAILABLE);
+        assert_eq!(ct_poll_connection_message_wide(987654), handle);
+        assert_eq!(ct_test_message_observer_alive(observer), 1);
+        ct_message_release_wide(handle);
+        assert_eq!(ct_test_message_observer_alive(observer), 0);
+        ct_test_message_observer_free(observer);
+        let legacy = ct_test_message_enqueue(987654, 1, frame.as_ptr(), frame.len() as c_int);
+        assert!(legacy > 0);
+        assert_eq!(ct_poll_connection_message_wide(987654), i64::from(legacy));
+        ct_message_release_wide(i64::from(legacy));
+        clear_test_messages();
+    }
+
+    #[test]
+    fn wide_binary_consumers_use_full_handle_and_consume_on_e2ee_failure() {
+        let _guard = test_guard();
+        let json = wide_test_message(
+            RawSocketSerializer::Json,
+            br#"[68,1,2,{},["\u0000YWJj"]]"#.to_vec(),
+        );
+        let mut output = CtExternalByteBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+            owner: ptr::null_mut(),
+        };
+        assert_eq!(
+            ct_message_decode_single_binary_argument_wide(json, &mut output),
+            SUCCESS
+        );
+        assert_eq!(
+            unsafe { slice::from_raw_parts(output.ptr, output.len) },
+            b"abc"
+        );
+        ct_external_byte_buffer_free(output.owner);
+        ct_message_release_wide(json);
+        let handle = wide_test_message(
+            RawSocketSerializer::Cbor,
+            vec![0x85, 0x18, 68, 1, 2, 0xa0, 0x81, 0x43, b'a', b'b', b'c'],
+        );
+        let sha = ct_sha256_new();
+        assert_eq!(
+            ct_sha256_update_message_binary_argument_wide(sha, handle),
+            3
+        );
+        let mut digest = [0u8; 32];
+        assert_eq!(
+            ct_sha256_finalize(sha, digest.as_mut_ptr(), digest.len()),
+            SUCCESS
+        );
+        assert_eq!(
+            digest.as_slice(),
+            ring::digest::digest(&ring::digest::SHA256, b"abc").as_ref()
+        );
+        let retained = ct_message_retain_wide(handle);
+        let mut kind = -1;
+        assert_eq!(
+            ct_e2ee_session_decrypt_message_payload_consume_wide(
+                0,
+                ptr::null(),
+                0,
+                handle,
+                2,
+                &mut output,
+                &mut kind
+            ),
+            ERR_INVALID_ARGUMENT
+        );
+        assert!(output.owner.is_null());
+        assert_eq!(kind, 0);
+        let mut info = CtMessageInfo::default();
+        assert_eq!(ct_message_get_wide(handle, &mut info), ERR_INVALID_ARGUMENT);
+        assert_eq!(ct_message_get_wide(retained, &mut info), SUCCESS);
+        assert_eq!(
+            ct_e2ee_session_decrypt_message_single_binary_argument_wide(
+                0,
+                ptr::null(),
+                0,
+                retained,
+                2,
+                &mut output
+            ),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            ct_e2ee_session_decrypt_message_single_binary_argument(
+                0,
+                ptr::null(),
+                0,
+                1,
+                2,
+                ptr::null_mut()
+            ),
+            ERR_INVALID_ARGUMENT
+        );
+        ct_message_release_wide(retained);
+    }
 
     #[test]
     fn single_binary_argument_parsers_borrow_the_exact_payload() {
@@ -7190,7 +8019,8 @@ mod tests {
             details: None,
             args: Some(Bytes::from(args)),
             kwargs: None,
-        }) as c_int;
+        })
+        .expect("test message handle is available") as c_int;
         let mut output = CtExternalByteBuffer {
             ptr: ptr::null_mut(),
             len: 0,
@@ -7240,7 +8070,8 @@ mod tests {
             details: None,
             args: Some(args),
             kwargs: None,
-        });
+        })
+        .expect("test message handle is available");
         (handle as c_int, raw_ptr)
     }
 
@@ -7303,6 +8134,89 @@ mod tests {
         assert!(with_message(message_handle as u32, |_| ()).is_none());
 
         ct_external_byte_buffer_free(output.owner);
+        assert_eq!(ct_e2ee_session_release(session), SUCCESS);
+        assert_eq!(ct_e2ee_keyring_release(keyring), SUCCESS);
+    }
+
+    #[test]
+    fn wide_e2ee_handles_decrypt_both_ciphers_and_preserve_zero_copy_consume() {
+        let _guard = test_guard();
+        let key = (1_u8..=32).collect::<Vec<_>>();
+        let keyring = ct_e2ee_keyring_new();
+        assert_eq!(
+            ct_e2ee_keyring_add_key(
+                keyring,
+                b"file-key".as_ptr().cast(),
+                8,
+                key.as_ptr(),
+                key.len() as c_int,
+                1
+            ),
+            SUCCESS
+        );
+        let session = ct_e2ee_session_new(keyring, ptr::null(), 0);
+        assert!(session > 0);
+        let plaintext = [
+            0xa2, 0x64, b'a', b'r', b'g', b's', 0x81, 0x44, 2, 3, 4, 5, 0x66, b'k', b'w', b'a',
+            b'r', b'g', b's', 0xf6,
+        ];
+        for cipher in [1, 2] {
+            let ciphertext = if cipher == 1 {
+                encrypt_e2ee_payload(&key, &plaintext).unwrap()
+            } else {
+                encrypt_e2ee_aes256_gcm_payload(&key, &plaintext).unwrap()
+            };
+            let (legacy, raw_ptr) = store_contiguous_e2ee_test_message(&ciphertext);
+            let handle = ct_message_retain_wide(i64::from(legacy));
+            assert!(handle > u32::MAX as i64);
+            ct_message_release(legacy);
+            let mut output = CtExternalByteBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+                owner: ptr::null_mut(),
+            };
+            assert_eq!(
+                ct_e2ee_session_decrypt_message_single_binary_argument_wide(
+                    session,
+                    b"file-key".as_ptr().cast(),
+                    8,
+                    handle,
+                    cipher,
+                    &mut output
+                ),
+                SUCCESS
+            );
+            assert_eq!(
+                unsafe { slice::from_raw_parts(output.ptr, output.len) },
+                &[2, 3, 4, 5]
+            );
+            ct_external_byte_buffer_free(output.owner);
+            let mut kind = 0;
+            assert_eq!(
+                ct_e2ee_session_decrypt_message_payload_consume_wide(
+                    session,
+                    b"file-key".as_ptr().cast(),
+                    8,
+                    handle,
+                    cipher,
+                    &mut output,
+                    &mut kind
+                ),
+                SUCCESS
+            );
+            assert_eq!(kind, 1);
+            assert_eq!(
+                unsafe { slice::from_raw_parts(output.ptr, output.len) },
+                &[2, 3, 4, 5]
+            );
+            if cipher == 2 {
+                assert!(output.ptr as usize >= raw_ptr as usize);
+                assert!((output.ptr as usize) < raw_ptr as usize + ciphertext.len() + 8);
+            }
+            let mut info = CtMessageInfo::default();
+            assert_eq!(ct_message_get_wide(handle, &mut info), ERR_INVALID_ARGUMENT);
+            ct_external_byte_buffer_free(output.owner);
+        }
         assert_eq!(ct_e2ee_session_release(session), SUCCESS);
         assert_eq!(ct_e2ee_keyring_release(keyring), SUCCESS);
     }
@@ -7442,7 +8356,8 @@ mod tests {
             unsafe { slice::from_raw_parts(info.binary_arg_ptr, info.binary_arg_len) },
             b"abc"
         );
-        let message_handle = store_message(message) as c_int;
+        let message_handle =
+            store_message(message).expect("test message handle is available") as c_int;
         let sha256_handle = ct_sha256_new();
         assert!(sha256_handle > 0);
         assert_eq!(
@@ -8202,6 +9117,219 @@ mod tests {
                 {"flag": true}
             ])
         );
+    }
+
+    #[test]
+    fn message_byte_exports_retain_exact_slices_after_handle_release() {
+        let _guard = test_guard();
+        let value = json!([50, 77, {"custom": "value"}, ["payload"], {"flag": true}]);
+        for serializer in [
+            RawSocketSerializer::Json,
+            RawSocketSerializer::MessagePack,
+            RawSocketSerializer::Cbor,
+        ] {
+            let encoded = match serializer {
+                RawSocketSerializer::Json => serde_json::to_vec(&value).unwrap(),
+                RawSocketSerializer::MessagePack => to_msgpack(&value).unwrap(),
+                RawSocketSerializer::Cbor => serde_cbor::to_vec(&value).unwrap(),
+                _ => unreachable!(),
+            };
+            let parsed = ct_core::parse_message(serializer, Bytes::from(encoded)).unwrap();
+            let handle = store_parsed_message(parsed);
+            let allocation = super::super::state::retain_message_allocation(handle as u32).unwrap();
+            let observer = Arc::downgrade(&allocation);
+            drop(allocation);
+            let mut info = CtMessageInfo::default();
+            assert_eq!(ct_message_get(handle, &mut info), SUCCESS);
+            let mut exports = Vec::new();
+            for (part, data, len) in [
+                (0, info.frame_ptr, info.frame_len),
+                (1, info.args_ptr, info.args_len),
+                (2, info.kwargs_ptr, info.kwargs_len),
+                (3, info.details_ptr, info.details_len),
+            ] {
+                let mut view = CtMessageByteView {
+                    ptr: ptr::null(),
+                    len: 0,
+                    owner: ptr::null_mut(),
+                };
+                assert_eq!(ct_message_buffer_export(handle, part, &mut view), SUCCESS);
+                assert!(!view.owner.is_null());
+                assert_eq!(view.ptr, data);
+                assert_eq!(view.len, len);
+                let expected = unsafe { slice::from_raw_parts(view.ptr, view.len) }.to_vec();
+                exports.push((view, expected));
+            }
+            ct_message_release(handle);
+            ct_message_release(handle);
+            assert!(super::super::state::retain_message_allocation(handle as u32).is_none());
+            for (view, expected) in exports {
+                // Check ownership before any post-release payload access.
+                assert!(observer.strong_count() > 0);
+                assert_eq!(
+                    unsafe { slice::from_raw_parts(view.ptr, view.len) },
+                    expected
+                );
+                ct_message_buffer_free(view.owner);
+            }
+            assert_eq!(observer.strong_count(), 0);
+        }
+    }
+
+    #[test]
+    fn message_byte_exports_reuse_the_message_allocation_for_independent_tokens() {
+        let _guard = test_guard();
+        let parsed = ct_core::parse_message(
+            RawSocketSerializer::Json,
+            Bytes::from_static(b"[50,77,{},[\"payload\"],{\"flag\":true}]"),
+        )
+        .unwrap();
+        let handle = store_parsed_message(parsed);
+        let allocation = super::super::state::retain_message_allocation(handle as u32).unwrap();
+        let observer = Arc::downgrade(&allocation);
+        let allocation_address = Arc::as_ptr(&allocation) as usize;
+        drop(allocation);
+        let mut owners = Vec::new();
+        for part in 0..4 {
+            let mut view = CtMessageByteView {
+                ptr: ptr::null(),
+                len: 0,
+                owner: ptr::null_mut(),
+            };
+            assert_eq!(ct_message_buffer_export(handle, part, &mut view), SUCCESS);
+            assert!(!view.owner.is_null());
+            owners.push(view.owner as usize);
+        }
+        ct_message_release(handle);
+        assert_eq!(observer.strong_count(), 4);
+        let reuses_allocation = owners.iter().all(|&owner| owner == allocation_address);
+        // Equal token addresses still represent separate acquired references.
+        ct_message_buffer_free(owners.pop().unwrap() as *mut c_void);
+        assert_eq!(observer.strong_count(), 3);
+        std::thread::scope(|scope| {
+            for owner in owners {
+                scope.spawn(move || ct_message_buffer_free(owner as *mut c_void));
+            }
+        });
+        assert_eq!(observer.strong_count(), 0);
+        assert!(
+            reuses_allocation,
+            "Each export must reuse the existing Arc allocation"
+        );
+    }
+
+    #[test]
+    fn message_byte_export_is_lazy_and_survives_store_clear() {
+        let _guard = test_guard();
+        let value = json!([50, 77, {}, ["payload"], {"flag": true}]);
+        let encoded = Bytes::from(to_msgpack(&value).unwrap());
+        let split = encoded.len() / 2;
+        let parsed = parse_message_segments(
+            RawSocketSerializer::MessagePack,
+            vec![encoded.slice(..split), encoded.slice(split..)],
+        )
+        .unwrap();
+        let handle = store_parsed_message(parsed);
+        let allocation = super::super::state::retain_message_allocation(handle as u32).unwrap();
+        let observer = Arc::downgrade(&allocation);
+        drop(allocation);
+        let mut view = CtMessageByteView {
+            ptr: ptr::null(),
+            len: 0,
+            owner: ptr::null_mut(),
+        };
+        assert_eq!(ct_message_buffer_export(handle, 1, &mut view), SUCCESS);
+        with_message(handle as u32, |message| {
+            assert!(!message.raw.has_contiguous_cache())
+        })
+        .unwrap();
+        let expected = unsafe { slice::from_raw_parts(view.ptr, view.len) }.to_vec();
+        super::super::state::clear_messages();
+        assert_eq!(observer.strong_count(), 1);
+        assert_eq!(
+            unsafe { slice::from_raw_parts(view.ptr, view.len) },
+            expected
+        );
+        ct_message_buffer_free(view.owner);
+        assert_eq!(observer.strong_count(), 0);
+    }
+
+    #[test]
+    fn message_byte_export_rejects_expired_or_invalid_parts_without_owners() {
+        let _guard = test_guard();
+        let parsed =
+            ct_core::parse_message(RawSocketSerializer::Json, Bytes::from_static(b"[50,77,{}]"))
+                .unwrap();
+        let handle = store_parsed_message(parsed);
+        let mut view = CtMessageByteView {
+            ptr: ptr::null(),
+            len: 0,
+            owner: ptr::null_mut(),
+        };
+        for part in [1, 2, 4] {
+            assert_eq!(ct_message_buffer_export(handle, part, &mut view), SUCCESS);
+            assert!(view.ptr.is_null());
+            assert_eq!(view.len, 0);
+            assert!(view.owner.is_null());
+        }
+        assert_eq!(
+            ct_message_buffer_export(handle, 99, &mut view),
+            ERR_INVALID_ARGUMENT
+        );
+        assert!(view.owner.is_null());
+        assert_eq!(
+            ct_message_buffer_export(handle, 0, ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
+        ct_message_release(handle);
+        assert_eq!(
+            ct_message_buffer_export(handle, 0, &mut view),
+            ERR_INVALID_ARGUMENT
+        );
+        assert!(view.owner.is_null());
+        ct_message_buffer_free(ptr::null_mut());
+    }
+
+    #[test]
+    fn message_byte_export_races_handle_release_without_losing_ownership() {
+        let _guard = test_guard();
+        for _ in 0..100 {
+            let parsed = ct_core::parse_message(
+                RawSocketSerializer::Json,
+                Bytes::from_static(b"[50,77,{},[\"payload\"]]"),
+            )
+            .unwrap();
+            let handle = store_parsed_message(parsed);
+            let allocation = super::super::state::retain_message_allocation(handle as u32).unwrap();
+            let observer = Arc::downgrade(&allocation);
+            drop(allocation);
+            let barrier = Arc::new(std::sync::Barrier::new(2));
+            let release_barrier = barrier.clone();
+            let releaser = std::thread::spawn(move || {
+                release_barrier.wait();
+                ct_message_release(handle);
+            });
+            barrier.wait();
+            let mut view = CtMessageByteView {
+                ptr: ptr::null(),
+                len: 0,
+                owner: ptr::null_mut(),
+            };
+            let result = ct_message_buffer_export(handle, 1, &mut view);
+            releaser.join().unwrap();
+            if result == SUCCESS {
+                assert_eq!(observer.strong_count(), 1);
+                assert_eq!(
+                    unsafe { slice::from_raw_parts(view.ptr, view.len) },
+                    b"[\"payload\"]"
+                );
+                ct_message_buffer_free(view.owner);
+            } else {
+                assert_eq!(result, ERR_INVALID_ARGUMENT);
+                assert!(view.owner.is_null());
+            }
+            assert_eq!(observer.strong_count(), 0);
+        }
     }
 
     #[test]

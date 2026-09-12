@@ -1,0 +1,80 @@
+name = "http_dependency_security"
+description = "HTTP dependency upgrade comparison: explicit traffic warmup, serial small messages, and multiplexed large transfers."
+
+[[workloads]]
+name = "h2_warmup"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 128
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+
+[[workloads]]
+name = "h2_serial"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 2000
+concurrency = 1
+streams_per_connection = 1
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h2_multiplex"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 1024
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+
+[[workloads]]
+name = "h3_warmup"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 128
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+
+[[workloads]]
+name = "h3_serial"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 2000
+concurrency = 1
+streams_per_connection = 1
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h3_multiplex"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 1024
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072

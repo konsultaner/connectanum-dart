@@ -2,8 +2,6 @@ import 'dart:typed_data';
 import 'dart:isolate';
 
 import 'package:logging/logging.dart';
-import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
-
 import 'package:connectanum_core/src/message/abstract_message.dart';
 import 'package:connectanum_core/src/message/abort.dart';
 import 'package:connectanum_core/src/message/abstract_message_with_payload.dart';
@@ -35,6 +33,8 @@ import 'package:connectanum_core/src/message/yield.dart';
 
 import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
+import '../limits.dart';
+import 'codec.dart' as msgpack_dart;
 
 /// This is a seralizer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
@@ -43,28 +43,8 @@ class Serializer extends AbstractSerializer {
   static final Uint8List _pptArgsKeyBytes = msgpack_dart.serialize('args');
   static final Uint8List _pptKwargsKeyBytes = msgpack_dart.serialize('kwargs');
   static final Uint8List _nilBytes = msgpack_dart.serialize(null);
-  static const Set<String> _invocationDetailKeys = {
-    'caller',
-    'procedure',
-    'progress',
-    'receive_progress',
-    'timeout',
-    'ppt_scheme',
-    'ppt_serializer',
-    'ppt_cipher',
-    'ppt_keyid',
-  };
   static const Set<String> _resultDetailKeys = {
     'progress',
-    'ppt_scheme',
-    'ppt_serializer',
-    'ppt_cipher',
-    'ppt_keyid',
-  };
-  static const Set<String> _eventDetailKeys = {
-    'publisher',
-    'trustlevel',
-    'topic',
     'ppt_scheme',
     'ppt_serializer',
     'ppt_cipher',
@@ -121,14 +101,25 @@ class Serializer extends AbstractSerializer {
     if (msgPack == null) {
       return null;
     }
+    if (_readMsgPackArrayHeader(msgPack, 0) == null) {
+      _validateCompleteMsgPackValue(msgPack);
+    }
     final fastPathMessage = _deserializeFastPathMessage(msgPack);
     if (fastPathMessage != null) {
       return fastPathMessage;
     }
     Object? message = msgpack_dart.deserialize(msgPack);
     if (message is List) {
-      int messageId = message[0];
+      if (message.isEmpty) {
+        throw const FormatException('WAMP message type must be an integer');
+      }
+      final rawMessageId = message[0];
+      if (rawMessageId is! int) {
+        throw const FormatException('WAMP message type must be an integer');
+      }
+      final messageId = rawMessageId;
       if (messageId == MessageTypes.codeHello) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Hello(
           message[1] as String?,
           _decodeDetailsMap(
@@ -137,6 +128,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeChallenge) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Challenge(
           message[1],
           _decodeChallengeExtraMap(
@@ -145,6 +137,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeAuthenticate) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Authenticate(signature: message[1] as String?)
           ..extra = message[2] is Map
               ? Map<String, Object?>.from(
@@ -157,6 +150,7 @@ class Serializer extends AbstractSerializer {
               : <String, Object?>{};
       }
       if (messageId == MessageTypes.codeWelcome) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Welcome(
           message[1],
           _decodeWelcomeDetailsMap(
@@ -165,36 +159,27 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeRegister) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         return Register(
           message[1],
           message[3],
           options: _decodeRegisterOptions(
-            message[2] is Map
-                ? _normalizeDynamicMap(
-                    Map<dynamic, dynamic>.from(
-                      message[2] as Map<dynamic, dynamic>,
-                    ),
-                  )
-                : null,
+            _decodeRequiredOptionsMap(message[2], 'REGISTER'),
           ),
         );
       }
       if (messageId == MessageTypes.codeUnregister) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Unregister(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeCall) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         return _addPayload(
           Call(
             message[1],
             message[3],
             options: _decodeCallOptions(
-              message[2] is Map
-                  ? _normalizeDynamicMap(
-                      Map<dynamic, dynamic>.from(
-                        message[2] as Map<dynamic, dynamic>,
-                      ),
-                    )
-                  : null,
+              _decodeRequiredOptionsMap(message[2], 'CALL'),
             ),
           ),
           message,
@@ -202,17 +187,12 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeYield) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return _addPayload(
           Yield(
             message[1],
             options: _decodeYieldOptions(
-              message[2] is Map
-                  ? _normalizeDynamicMap(
-                      Map<dynamic, dynamic>.from(
-                        message[2] as Map<dynamic, dynamic>,
-                      ),
-                    )
-                  : null,
+              _decodeRequiredOptionsMap(message[2], 'YIELD'),
             ),
           ),
           message,
@@ -220,18 +200,13 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codePublish) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         return _addPayload(
           Publish(
             message[1],
             message[3],
             options: _decodePublishOptions(
-              message[2] is Map
-                  ? _normalizeDynamicMap(
-                      Map<dynamic, dynamic>.from(
-                        message[2] as Map<dynamic, dynamic>,
-                      ),
-                    )
-                  : null,
+              _decodeRequiredOptionsMap(message[2], 'PUBLISH'),
             ),
           ),
           message,
@@ -239,73 +214,55 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeRegistered) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Registered(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnregistered) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 2);
         return Unregistered(message[1]);
       }
       if (messageId == MessageTypes.codeInvocation) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         final detailsMap = message[3] as Map<dynamic, dynamic>;
-        final caller = detailsMap['caller'];
-        final procedure = detailsMap['procedure'];
-        final progress = detailsMap['progress'];
-        final receiveProgress = detailsMap['receive_progress'];
-        final pptScheme = detailsMap['ppt_scheme'];
-        final pptSerializer = detailsMap['ppt_serializer'];
-        final pptCipher = detailsMap['ppt_cipher'];
-        final pptKeyId = detailsMap['ppt_keyid'];
         return _addPayload(
           Invocation(
             message[1],
             message[2],
-            InvocationDetails(
-                caller,
-                procedure,
-                receiveProgress,
-                pptScheme,
-                pptSerializer,
-                pptCipher,
-                pptKeyId,
-                _extractCustomDetails(detailsMap, _invocationDetailKeys),
-              )
-              ..progress = progress
-              ..timeout = _coerceInt(detailsMap['timeout']),
+            _decodeInvocationDetails(detailsMap),
           ),
           message,
           4,
         );
       }
       if (messageId == MessageTypes.codeInterrupt) {
-        final optionsMap = message.length > 2 && message[2] is Map
-            ? Map<dynamic, dynamic>.from(message[2] as Map<dynamic, dynamic>)
-            : null;
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
+        final optionsMap = _validateRequiredOptionsMap(
+          message[2],
+          'INTERRUPT',
+        );
         return interrupt_msg.Interrupt(
           message[1],
-          options: optionsMap == null
-              ? null
-              : (() {
-                  final options = interrupt_msg.InterruptOptions();
-                  options.mode = optionsMap['mode'] as String?;
-                  return options;
-                })(),
+          options: (() {
+            final options = interrupt_msg.InterruptOptions();
+            options.mode = optionsMap['mode'] as String?;
+            return options;
+          })(),
         );
       }
       if (messageId == MessageTypes.codeCancel) {
-        final optionsMap = message.length > 2 && message[2] is Map
-            ? Map<dynamic, dynamic>.from(message[2] as Map<dynamic, dynamic>)
-            : null;
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
+        final optionsMap = _validateRequiredOptionsMap(message[2], 'CANCEL');
         return cancel_msg.Cancel(
           message[1],
-          options: optionsMap == null
-              ? null
-              : (() {
-                  final options = cancel_msg.CancelOptions();
-                  options.mode = optionsMap['mode'] as String?;
-                  return options;
-                })(),
+          options: (() {
+            final options = cancel_msg.CancelOptions();
+            options.mode = optionsMap['mode'] as String?;
+            return options;
+          })(),
         );
       }
       if (messageId == MessageTypes.codeResult) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         final detailsMap = message[2] as Map<dynamic, dynamic>;
         final progress = detailsMap['progress'];
         final pptScheme = detailsMap['ppt_scheme'];
@@ -329,30 +286,29 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codePublished) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Published(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeSubscribe) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         return Subscribe(
           message[1],
           message[3],
           options: _decodeSubscribeOptions(
-            message[2] is Map
-                ? _normalizeDynamicMap(
-                    Map<dynamic, dynamic>.from(
-                      message[2] as Map<dynamic, dynamic>,
-                    ),
-                  )
-                : null,
+            _decodeRequiredOptionsMap(message[2], 'SUBSCRIBE'),
           ),
         );
       }
       if (messageId == MessageTypes.codeSubscribed) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Subscribed(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnsubscribe) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Unsubscribe(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnsubscribed) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 2);
         return Unsubscribed(
           message[1],
           message.length == 2
@@ -365,34 +321,20 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeEvent) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         final detailsMap = message[3] as Map<dynamic, dynamic>;
-        final publisher = detailsMap['publisher'];
-        final trustlevel = detailsMap['trustlevel'];
-        final topic = detailsMap['topic'];
-        final pptScheme = detailsMap['ppt_scheme'];
-        final pptSerializer = detailsMap['ppt_serializer'];
-        final pptCipher = detailsMap['ppt_cipher'];
-        final pptKeyId = detailsMap['ppt_keyid'];
         return _addPayload(
           Event(
             message[1],
             message[2],
-            EventDetails(
-              publisher: publisher,
-              trustlevel: trustlevel,
-              topic: topic,
-              pptScheme: pptScheme,
-              pptSerializer: pptSerializer,
-              pptCipher: pptCipher,
-              pptKeyid: pptKeyId,
-              custom: _extractCustomDetails(detailsMap, _eventDetailKeys),
-            ),
+            _decodeEventDetails(detailsMap),
           ),
           message,
           4,
         );
       }
       if (messageId == MessageTypes.codeError) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 5);
         return _addPayload(
           Error(
             message[1],
@@ -405,6 +347,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeAbort) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Abort(
           message[2],
           message: _decodeAbortMessageMap(
@@ -417,6 +360,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeGoodbye) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Goodbye(
           _decodeGoodbyeMessageMap(
             message[1] is Map
@@ -429,7 +373,10 @@ class Serializer extends AbstractSerializer {
         );
       }
     }
-    _logger.shout('Could not deserialize the message: $msgPack');
+    _logger.shout(
+      'Could not deserialize MessagePack WAMP message '
+      '(${msgPack.length} bytes)',
+    );
     // TODO respond with an error
     return null;
   }
@@ -443,15 +390,23 @@ class Serializer extends AbstractSerializer {
       final arguments = messageData[argumentsOffset];
       if (arguments is Uint8List) {
         message.transparentBinaryPayload = arguments;
+      } else if (arguments is List) {
+        message.arguments = List<dynamic>.from(arguments);
       } else {
-        message.arguments = arguments as List<dynamic>?;
+        throw const FormatException(
+          'MessagePack arguments must be a list or binary value',
+        );
       }
     }
     if (messageData.length >= argumentsOffset + 2) {
-      message.argumentsKeywords =
-          Map.castFrom<dynamic, dynamic, String, Object>(
-            messageData[argumentsOffset + 1] as Map<dynamic, dynamic>,
-          );
+      final argumentsKeywords = messageData[argumentsOffset + 1];
+      if (argumentsKeywords is! Map ||
+          !argumentsKeywords.keys.every((key) => key is String)) {
+        throw const FormatException(
+          'MessagePack keyword arguments must be a string-keyed map',
+        );
+      }
+      message.argumentsKeywords = Map<String, Object?>.from(argumentsKeywords);
     }
     return message;
   }
@@ -510,18 +465,7 @@ class Serializer extends AbstractSerializer {
       final invocation = Invocation(
         _decodeMsgPackInt(_sliceRange(msgPack, ranges[1])),
         _decodeMsgPackInt(_sliceRange(msgPack, ranges[2])),
-        InvocationDetails(
-            _coerceInt(detailsMap['caller']),
-            detailsMap['procedure'] as String?,
-            detailsMap['receive_progress'] as bool?,
-            detailsMap['ppt_scheme'] as String?,
-            detailsMap['ppt_serializer'] as String?,
-            detailsMap['ppt_cipher'] as String?,
-            detailsMap['ppt_keyid'] as String?,
-            _extractCustomDetails(detailsMap, _invocationDetailKeys),
-          )
-          ..progress = detailsMap['progress'] as bool?
-          ..timeout = _coerceInt(detailsMap['timeout']),
+        _decodeInvocationDetails(detailsMap),
       );
       _setLazyMsgPackPayload(invocation, msgPack, ranges, 4);
       return invocation;
@@ -553,16 +497,7 @@ class Serializer extends AbstractSerializer {
       final event = Event(
         _decodeMsgPackInt(_sliceRange(msgPack, ranges[1])),
         _decodeMsgPackInt(_sliceRange(msgPack, ranges[2])),
-        EventDetails(
-          publisher: _coerceInt(detailsMap['publisher']),
-          trustlevel: _coerceInt(detailsMap['trustlevel']),
-          topic: detailsMap['topic'] as String?,
-          pptScheme: detailsMap['ppt_scheme'] as String?,
-          pptSerializer: detailsMap['ppt_serializer'] as String?,
-          pptCipher: detailsMap['ppt_cipher'] as String?,
-          pptKeyid: detailsMap['ppt_keyid'] as String?,
-          custom: _extractCustomDetails(detailsMap, _eventDetailKeys),
-        ),
+        _decodeEventDetails(detailsMap),
       );
       _setLazyMsgPackPayload(event, msgPack, ranges, 4);
       return event;
@@ -682,6 +617,42 @@ class Serializer extends AbstractSerializer {
     return map.map((key, value) => MapEntry(key.toString(), value));
   }
 
+  Map<String, dynamic> _decodeRequiredOptionsMap(
+    Object? rawOptions,
+    String messageName,
+  ) {
+    if (rawOptions is! Map) {
+      throwInvalidWampOptionsContainer(messageName);
+    }
+    if (rawOptions.isEmpty) {
+      return const <String, dynamic>{};
+    }
+    final options = <String, dynamic>{};
+    for (final entry in rawOptions.entries) {
+      final key = entry.key;
+      if (key is! String) {
+        throwInvalidWampOptionsKey(messageName);
+      }
+      options[key] = entry.value;
+    }
+    return options;
+  }
+
+  Map<dynamic, dynamic> _validateRequiredOptionsMap(
+    Object? rawOptions,
+    String messageName,
+  ) {
+    if (rawOptions is! Map) {
+      throwInvalidWampOptionsContainer(messageName);
+    }
+    for (final key in rawOptions.keys) {
+      if (key is! String) {
+        throwInvalidWampOptionsKey(messageName);
+      }
+    }
+    return rawOptions;
+  }
+
   RegisterOptions? _decodeRegisterOptions(Map<String, dynamic>? optionsMap) {
     if (optionsMap == null || optionsMap.isEmpty) {
       return null;
@@ -704,7 +675,11 @@ class Serializer extends AbstractSerializer {
     return CallOptions(
       progress: optionsMap['progress'] as bool?,
       receiveProgress: optionsMap['receive_progress'] as bool?,
-      timeout: _coerceInt(optionsMap['timeout']),
+      timeout: decodeOptionalWampNonNegativeInteger(
+        optionsMap,
+        'timeout',
+        'CALL.Options.timeout',
+      ),
       discloseMe: optionsMap['disclose_me'] as bool?,
       pptScheme: optionsMap['ppt_scheme'] as String?,
       pptSerializer: optionsMap['ppt_serializer'] as String?,
@@ -729,19 +704,36 @@ class Serializer extends AbstractSerializer {
     );
   }
 
-  PublishOptions? _decodePublishOptions(Map<String, dynamic>? optionsMap) {
-    if (optionsMap == null || optionsMap.isEmpty) {
+  @pragma('vm:prefer-inline')
+  PublishOptions? _decodePublishOptions(Map<String, dynamic> optionsMap) {
+    if (optionsMap.isEmpty) {
       return null;
     }
+    return _decodeNonEmptyPublishOptions(optionsMap);
+  }
+
+  @pragma('vm:never-inline')
+  PublishOptions _decodeNonEmptyPublishOptions(
+    Map<String, dynamic> optionsMap,
+  ) {
     final custom = _copyWithoutKeys(optionsMap, _publishOptionKeys);
     return PublishOptions(
       acknowledge: optionsMap['acknowledge'] as bool?,
-      exclude: _asIntList(optionsMap['exclude']),
-      excludeAuthId: _asStringList(optionsMap['exclude_authid']),
-      excludeAuthRole: _asStringList(optionsMap['exclude_authrole']),
-      eligible: _asIntList(optionsMap['eligible']),
-      eligibleAuthId: _asStringList(optionsMap['eligible_authid']),
-      eligibleAuthRole: _asStringList(optionsMap['eligible_authrole']),
+      exclude: decodeOptionalWampIdList(optionsMap, 'exclude'),
+      excludeAuthId: decodeOptionalWampStringList(optionsMap, 'exclude_authid'),
+      excludeAuthRole: decodeOptionalWampStringList(
+        optionsMap,
+        'exclude_authrole',
+      ),
+      eligible: decodeOptionalWampIdList(optionsMap, 'eligible'),
+      eligibleAuthId: decodeOptionalWampStringList(
+        optionsMap,
+        'eligible_authid',
+      ),
+      eligibleAuthRole: decodeOptionalWampStringList(
+        optionsMap,
+        'eligible_authrole',
+      ),
       excludeMe: optionsMap['exclude_me'] as bool?,
       discloseMe: optionsMap['disclose_me'] as bool?,
       retain: optionsMap['retain'] as bool?,
@@ -773,20 +765,6 @@ class Serializer extends AbstractSerializer {
     final custom = Map<String, dynamic>.from(map);
     custom.removeWhere((key, _) => keys.contains(key));
     return custom;
-  }
-
-  List<int>? _asIntList(Object? value) {
-    if (value is! List) {
-      return null;
-    }
-    return value.whereType<num>().map((entry) => entry.toInt()).toList();
-  }
-
-  List<String>? _asStringList(Object? value) {
-    if (value is! List) {
-      return null;
-    }
-    return value.map((entry) => entry.toString()).toList();
   }
 
   void _setLazyMsgPackPayload(
@@ -826,9 +804,9 @@ class Serializer extends AbstractSerializer {
   }
 
   List<dynamic> _decodeMsgPackArguments(Uint8List bytes) {
-    final ranges = _parseMsgPackTopLevelRanges(bytes);
-    if (ranges?.length == 1) {
-      final binaryFragment = _sliceRange(bytes, ranges!.single);
+    final header = _readMsgPackArrayHeader(bytes, 0);
+    if (header?.length == 1) {
+      final binaryFragment = Uint8List.sublistView(bytes, header!.nextOffset);
       if (_isDirectMessagePackBinaryFragment(binaryFragment)) {
         final binary = _decodeMsgPackFragment(binaryFragment);
         if (binary is Uint8List) {
@@ -840,16 +818,16 @@ class Serializer extends AbstractSerializer {
     if (decoded is List) {
       return List<dynamic>.from(decoded);
     }
-    throw ArgumentError('Expected MessagePack arguments list but got $decoded');
+    throw const FormatException('MessagePack arguments must be a list');
   }
 
   Map<String, dynamic> _decodeMsgPackKeywordArguments(Uint8List bytes) {
     final decoded = _decodeMsgPackFragment(bytes);
-    if (decoded is Map) {
-      return decoded.map((key, value) => MapEntry(key.toString(), value));
+    if (decoded is Map && decoded.keys.every((key) => key is String)) {
+      return Map<String, dynamic>.from(decoded);
     }
-    throw ArgumentError(
-      'Expected MessagePack keyword arguments map but got $decoded',
+    throw const FormatException(
+      'MessagePack keyword arguments must be a string-keyed map',
     );
   }
 
@@ -867,10 +845,10 @@ class Serializer extends AbstractSerializer {
 
   int _decodeMsgPackInt(Uint8List bytes) {
     final decoded = _decodeMsgPackFragment(bytes);
-    if (decoded is num) {
-      return decoded.toInt();
+    if (decoded is int) {
+      return decoded;
     }
-    throw ArgumentError('Expected MessagePack integer but got $decoded');
+    throw const FormatException('Expected MessagePack integer');
   }
 
   String _decodeMsgPackString(Uint8List bytes) {
@@ -1759,6 +1737,136 @@ class Serializer extends AbstractSerializer {
     return value;
   }
 
+  EventDetails _decodeEventDetails(Map<dynamic, dynamic> source) {
+    int? publisher;
+    int? trustlevel;
+    String? topic;
+    String? pptScheme;
+    String? pptSerializer;
+    String? pptCipher;
+    String? pptKeyId;
+    Map<String, dynamic>? custom;
+
+    source.forEach((key, value) {
+      final keyString = key is String ? key : key.toString();
+      switch (keyString) {
+        case 'publisher':
+          publisher = decodeWampIdValue(value, 'EVENT.Details.publisher');
+          break;
+        case 'trustlevel':
+          trustlevel = decodeWampNonNegativeIntegerValue(
+            value,
+            'EVENT.Details.trustlevel',
+          );
+          break;
+        case 'topic':
+          topic = value as String?;
+          break;
+        case 'ppt_scheme':
+          pptScheme = value as String?;
+          break;
+        case 'ppt_serializer':
+          pptSerializer = value as String?;
+          break;
+        case 'ppt_cipher':
+          pptCipher = value as String?;
+          break;
+        case 'ppt_keyid':
+          pptKeyId = value as String?;
+          break;
+        default:
+          custom ??= <String, dynamic>{};
+          custom![keyString] = value;
+      }
+    });
+
+    return EventDetails(
+      publisher: publisher,
+      trustlevel: trustlevel,
+      topic: topic,
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+      pptCipher: pptCipher,
+      pptKeyid: pptKeyId,
+      custom: custom ?? <String, dynamic>{},
+    );
+  }
+
+  InvocationDetails _decodeInvocationDetails(
+    Map<dynamic, dynamic> source,
+  ) {
+    int? caller;
+    String? procedure;
+    bool? progress;
+    bool? receiveProgress;
+    int? timeout;
+    String? pptScheme;
+    String? pptSerializer;
+    String? pptCipher;
+    String? pptKeyId;
+    Map<String, dynamic>? custom;
+
+    source.forEach((key, value) {
+      final keyString = key is String ? key : key.toString();
+      switch (keyString) {
+        case 'caller':
+          caller = decodeWampIdValue(value, 'INVOCATION.Details.caller');
+          break;
+        case 'procedure':
+          procedure = value as String?;
+          break;
+        case 'progress':
+          progress = value as bool?;
+          break;
+        case 'receive_progress':
+          receiveProgress = value as bool?;
+          break;
+        case 'timeout':
+          timeout = decodeWampNonNegativeIntegerValue(
+            value,
+            'INVOCATION.Details.timeout',
+          );
+          break;
+        case 'ppt_scheme':
+          pptScheme = value as String?;
+          break;
+        case 'ppt_serializer':
+          pptSerializer = value as String?;
+          break;
+        case 'ppt_cipher':
+          pptCipher = value as String?;
+          break;
+        case 'ppt_keyid':
+          pptKeyId = value as String?;
+          break;
+        case 'trustlevel':
+          decodeWampNonNegativeIntegerValue(
+            value,
+            'INVOCATION.Details.trustlevel',
+          );
+          custom ??= <String, dynamic>{};
+          custom![keyString] = value;
+          break;
+        default:
+          custom ??= <String, dynamic>{};
+          custom![keyString] = value;
+      }
+    });
+
+    return InvocationDetails(
+        caller,
+        procedure,
+        receiveProgress,
+        pptScheme,
+        pptSerializer,
+        pptCipher,
+        pptKeyId,
+        custom ?? <String, dynamic>{},
+      )
+      ..progress = progress
+      ..timeout = timeout;
+  }
+
   Map<String, dynamic> _extractCustomDetails(
     Map<dynamic, dynamic> source,
     Set<String> knownKeys,
@@ -1781,6 +1889,7 @@ class Serializer extends AbstractSerializer {
     List<dynamic>? arguments;
     Map<String, dynamic>? argumentsKeywords;
 
+    _validateCompleteMsgPackValue(binPayload);
     Object? decodedObject = msgpack_dart.deserialize(binPayload);
 
     if (decodedObject is Map) {
@@ -1800,7 +1909,10 @@ class Serializer extends AbstractSerializer {
       );
     }
 
-    _logger.shout('Could not deserialize the message: $binPayload');
+    _logger.shout(
+      'Could not deserialize MessagePack PPT payload '
+      '(${binPayload.length} bytes)',
+    );
     // TODO respond with an error
     return null;
   }
@@ -1880,16 +1992,32 @@ List<_ByteRange>? _parseMsgPackTopLevelRanges(Uint8List bytes) {
   if (header == null) {
     return null;
   }
+  validateWampMessageFieldCount(header.length);
   var offset = header.nextOffset;
   final ranges = <_ByteRange>[];
-  for (var index = 0; index < header.length; index++) {
-    final start = offset;
-    final next = _skipMsgPackValue(bytes, offset);
-    if (next == null) {
-      return null;
+  if (bytes.length <= serializerMaxPayloadNestingDepth) {
+    for (var index = 0; index < header.length; index++) {
+      final start = offset;
+      final next = _skipMsgPackValue(bytes, offset);
+      if (next == null) {
+        return null;
+      }
+      ranges.add(_ByteRange(start, next));
+      offset = next;
     }
-    ranges.add(_ByteRange(start, next));
-    offset = next;
+  } else {
+    for (var index = 0; index < header.length; index++) {
+      final start = offset;
+      final next = _skipDepthLimitedMsgPackValue(bytes, offset, 0);
+      if (next == null) {
+        return null;
+      }
+      ranges.add(_ByteRange(start, next));
+      offset = next;
+    }
+  }
+  if (offset != bytes.length) {
+    throw const FormatException('Trailing data after MessagePack WAMP message');
   }
   return ranges;
 }
@@ -2009,7 +2137,145 @@ int? _skipMsgPackValue(Uint8List bytes, int offset) {
   }
 }
 
+int? _skipDepthLimitedMsgPackValue(
+  Uint8List bytes,
+  int offset,
+  int parentDepth,
+) {
+  if (offset >= bytes.length) {
+    return null;
+  }
+  final lead = bytes[offset];
+  if (lead <= 0x7f || lead >= 0xe0) {
+    return offset + 1;
+  }
+  if ((lead & 0xe0) == 0xa0) {
+    final length = lead & 0x1f;
+    return _advanceMsgPackOffset(bytes, offset + 1, length);
+  }
+  if ((lead & 0xf0) == 0x90) {
+    return _skipDepthLimitedMsgPackArray(
+      bytes,
+      offset + 1,
+      lead & 0x0f,
+      parentDepth,
+    );
+  }
+  if ((lead & 0xf0) == 0x80) {
+    return _skipDepthLimitedMsgPackMap(
+      bytes,
+      offset + 1,
+      lead & 0x0f,
+      parentDepth,
+    );
+  }
+  switch (lead) {
+    case 0xc0:
+    case 0xc2:
+    case 0xc3:
+      return offset + 1;
+    case 0xcc:
+    case 0xd0:
+      return _advanceMsgPackOffset(bytes, offset + 1, 1);
+    case 0xcd:
+    case 0xd1:
+      return _advanceMsgPackOffset(bytes, offset + 1, 2);
+    case 0xce:
+    case 0xd2:
+    case 0xca:
+      return _advanceMsgPackOffset(bytes, offset + 1, 4);
+    case 0xcf:
+    case 0xd3:
+    case 0xcb:
+      return _advanceMsgPackOffset(bytes, offset + 1, 8);
+    case 0xd9:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 1);
+    case 0xda:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 2);
+    case 0xdb:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 4);
+    case 0xc4:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 1);
+    case 0xc5:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 2);
+    case 0xc6:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 4);
+    case 0xdc:
+      final length = _readMsgPackLength(bytes, offset + 1, 2);
+      return length == null
+          ? null
+          : _skipDepthLimitedMsgPackArray(
+              bytes,
+              offset + 3,
+              length,
+              parentDepth,
+            );
+    case 0xdd:
+      final length = _readMsgPackLength(bytes, offset + 1, 4);
+      return length == null
+          ? null
+          : _skipDepthLimitedMsgPackArray(
+              bytes,
+              offset + 5,
+              length,
+              parentDepth,
+            );
+    case 0xde:
+      final length = _readMsgPackLength(bytes, offset + 1, 2);
+      return length == null
+          ? null
+          : _skipDepthLimitedMsgPackMap(
+              bytes,
+              offset + 3,
+              length,
+              parentDepth,
+            );
+    case 0xdf:
+      final length = _readMsgPackLength(bytes, offset + 1, 4);
+      return length == null
+          ? null
+          : _skipDepthLimitedMsgPackMap(
+              bytes,
+              offset + 5,
+              length,
+              parentDepth,
+            );
+    case 0xd4:
+      return _advanceMsgPackOffset(bytes, offset + 2, 1);
+    case 0xd5:
+      return _advanceMsgPackOffset(bytes, offset + 2, 2);
+    case 0xd6:
+      return _advanceMsgPackOffset(bytes, offset + 2, 4);
+    case 0xd7:
+      return _advanceMsgPackOffset(bytes, offset + 2, 8);
+    case 0xd8:
+      return _advanceMsgPackOffset(bytes, offset + 2, 16);
+    case 0xc7:
+      return _skipMsgPackExt(bytes, offset + 1, 1);
+    case 0xc8:
+      return _skipMsgPackExt(bytes, offset + 1, 2);
+    case 0xc9:
+      return _skipMsgPackExt(bytes, offset + 1, 4);
+    default:
+      return null;
+  }
+}
+
+void _validateCompleteMsgPackValue(Uint8List bytes) {
+  final end = bytes.length <= serializerMaxPayloadNestingDepth
+      ? _skipMsgPackValue(bytes, 0)
+      : _skipDepthLimitedMsgPackValue(bytes, 0, -1);
+  if (end != bytes.length) {
+    throw const FormatException('Invalid MessagePack payload');
+  }
+}
+
 int? _skipMsgPackArray(Uint8List bytes, int offset, int length) {
+  if (length > bytes.length - offset) {
+    throw const FormatException(
+      'MessagePack collection length exceeds available bytes',
+    );
+  }
   var current = offset;
   for (var index = 0; index < length; index++) {
     final next = _skipMsgPackValue(bytes, current);
@@ -2022,6 +2288,11 @@ int? _skipMsgPackArray(Uint8List bytes, int offset, int length) {
 }
 
 int? _skipMsgPackMap(Uint8List bytes, int offset, int length) {
+  if (length > (bytes.length - offset) ~/ 2) {
+    throw const FormatException(
+      'MessagePack collection length exceeds available bytes',
+    );
+  }
   var current = offset;
   for (var index = 0; index < length; index++) {
     final nextKey = _skipMsgPackValue(bytes, current);
@@ -2029,6 +2300,62 @@ int? _skipMsgPackMap(Uint8List bytes, int offset, int length) {
       return null;
     }
     final nextValue = _skipMsgPackValue(bytes, nextKey);
+    if (nextValue == null) {
+      return null;
+    }
+    current = nextValue;
+  }
+  return current;
+}
+
+int? _skipDepthLimitedMsgPackArray(
+  Uint8List bytes,
+  int offset,
+  int length,
+  int parentDepth,
+) {
+  if (length == 0) {
+    return offset;
+  }
+  if (length > bytes.length - offset) {
+    throw const FormatException(
+      'MessagePack collection length exceeds available bytes',
+    );
+  }
+  final depth = enterSerializerContainer(parentDepth);
+  var current = offset;
+  for (var index = 0; index < length; index++) {
+    final next = _skipDepthLimitedMsgPackValue(bytes, current, depth);
+    if (next == null) {
+      return null;
+    }
+    current = next;
+  }
+  return current;
+}
+
+int? _skipDepthLimitedMsgPackMap(
+  Uint8List bytes,
+  int offset,
+  int length,
+  int parentDepth,
+) {
+  if (length == 0) {
+    return offset;
+  }
+  if (length > (bytes.length - offset) ~/ 2) {
+    throw const FormatException(
+      'MessagePack collection length exceeds available bytes',
+    );
+  }
+  final depth = enterSerializerContainer(parentDepth);
+  var current = offset;
+  for (var index = 0; index < length; index++) {
+    final nextKey = _skipDepthLimitedMsgPackValue(bytes, current, depth);
+    if (nextKey == null) {
+      return null;
+    }
+    final nextValue = _skipDepthLimitedMsgPackValue(bytes, nextKey, depth);
     if (nextValue == null) {
       return null;
     }
@@ -2075,8 +2402,8 @@ int? _readMsgPackLength(Uint8List bytes, int offset, int lengthBytes) {
 }
 
 int? _coerceInt(Object? value) {
-  if (value is num) {
-    return value.toInt();
+  if (value is int) {
+    return value;
   }
   return null;
 }

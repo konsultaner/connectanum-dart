@@ -9,7 +9,7 @@ use h2::client;
 use h3::client as h3_client;
 use h3_quinn::Connection as H3QuinnConnection;
 use http::Request;
-use http02::{Request as Http2TestRequest, StatusCode as Http2StatusCode};
+use http::{Request as Http2TestRequest, StatusCode as Http2StatusCode};
 use quinn::{
     crypto::rustls::QuicClientConfig as QuinnRustlsClientConfig, ClientConfig as QuinnClientConfig,
     Endpoint as QuinnEndpoint, TransportConfig,
@@ -2270,7 +2270,7 @@ fn http_body_streaming_can_be_read_via_ffi() {
     state.enqueue_vec(vec![4, 5, 6]);
     state.mark_finished();
     let handle = HttpBodyHandle::streaming(state.clone());
-    let body_id = store_http_body(handle);
+    let body_id = store_http_body(handle).unwrap();
 
     let mut view = CtHttpBodyView::default();
     assert_eq!(
@@ -3808,23 +3808,7 @@ fn http3_idle_timeout_emits_connection_event() {
 #[test]
 fn http2_goaway_event_includes_detail() {
     let _guard = super::test_guard();
-    let config = CString::new(
-        r#"{
-            "schema":"connectanum.router",
-            "version":1,
-            "endpoints":[
-                {
-                    "host":"127.0.0.1",
-                    "port":0,
-                    "tls_mode":"native",
-                    "protocols":["rawsocket","http","http2","http3"],
-                    "http":{"alpn":["http/1.1","h2","h3"],"http3":{"enabled":true}},
-                    "http_routes":[]
-                }
-            ]
-        }"#,
-    )
-    .unwrap();
+    let config = http_event_test_config();
     let bytes = config.as_bytes();
     assert_eq!(
         ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
@@ -3868,26 +3852,35 @@ fn http2_goaway_event_includes_detail() {
 }
 
 #[cfg(feature = "ffi-test")]
+fn http_event_test_config() -> CString {
+    CString::new(
+        json!({
+            "schema": "connectanum.router",
+            "version": 1,
+            "endpoints": [{
+                "host": "127.0.0.1",
+                "port": 0,
+                "tls_mode": "native",
+                "protocols": ["rawsocket", "http", "http2", "http3"],
+                "http": {"alpn": ["http/1.1", "h2", "h3"], "http3": {"enabled": true}},
+                "sni_certificates": [{
+                    "hostname": "localhost",
+                    "certificate_chain_pem": include_str!("../../../../bench/bench_tls.crt"),
+                    "private_key_pem": include_str!("../../../../bench/bench_tls.key")
+                }],
+                "http_routes": []
+            }]
+        })
+        .to_string(),
+    )
+    .unwrap()
+}
+
+#[cfg(feature = "ffi-test")]
 #[test]
 fn http3_idle_timeout_event_push_includes_detail() {
     let _guard = super::test_guard();
-    let config = CString::new(
-        r#"{
-            "schema":"connectanum.router",
-            "version":1,
-            "endpoints":[
-                {
-                    "host":"127.0.0.1",
-                    "port":0,
-                    "tls_mode":"native",
-                    "protocols":["rawsocket","http","http2","http3"],
-                    "http":{"alpn":["http/1.1","h2","h3"],"http3":{"enabled":true}},
-                    "http_routes":[]
-                }
-            ]
-        }"#,
-    )
-    .unwrap();
+    let config = http_event_test_config();
     let bytes = config.as_bytes();
     assert_eq!(
         ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),
@@ -3923,7 +3916,7 @@ fn http3_idle_timeout_event_push_includes_detail() {
     assert_eq!(event.idle_timeouts, 1);
     assert_eq!(event.backpressure_events, 0);
     assert_eq!(event.max_backpressure_depth, 0);
-    assert_eq!(event.goaway_events, 1);
+    assert_eq!(event.goaway_events, 0);
     assert_eq!(
         retrieved_detail.as_deref(),
         Some("http/3 body idle timeout")
@@ -3936,23 +3929,7 @@ fn http3_idle_timeout_event_push_includes_detail() {
 #[test]
 fn http3_goaway_event_includes_detail() {
     let _guard = super::test_guard();
-    let config = CString::new(
-        r#"{
-            "schema":"connectanum.router",
-            "version":1,
-            "endpoints":[
-                {
-                    "host":"127.0.0.1",
-                    "port":0,
-                    "tls_mode":"native",
-                    "protocols":["rawsocket","http","http2","http3"],
-                    "http":{"alpn":["http/1.1","h2","h3"],"http3":{"enabled":true}},
-                    "http_routes":[]
-                }
-            ]
-        }"#,
-    )
-    .unwrap();
+    let config = http_event_test_config();
     let bytes = config.as_bytes();
     assert_eq!(
         ct_apply_router_config(bytes.as_ptr(), bytes.len() as i32),

@@ -52,12 +52,10 @@ and version-sequencing decisions.
   matching native tag from hosted package metadata while preserving source
   checkout builds. Public dependency constraints use `^3.0.0-beta.2`, and the
   strict release gate rejects future package-version drift.
-- Six modular `3.0.0-beta.4` packages and the matching native assets are live,
-  and all seven package pages are verified under `dart.konsultaner.de`. The
-  compatibility facade beta.4 remains blocked by its pub.dev automated tag
-  rule. The source graph now prepares synchronized `3.0.0-beta.5` packages and
-  Rust crates with atomic native-hook publication, canonical score examples,
-  and a visible benchmark result matrix.
+- All seven `3.0.0-beta.5` packages and the matching native assets are live
+  under the verified `dart.konsultaner.de` publisher. The source graph now
+  prepares synchronized `3.0.0-beta.6` packages and Rust crates with the
+  security-audit fixes recorded in the active execution plan.
 
 ## Latest Evidence
 
@@ -126,11 +124,11 @@ When that decision exists, use this sequence:
 
 - No code-owned archive-readiness or private workspace dependency blockers
   remain for the workspace package graph.
-- Promotion of the synchronized `3.0.0-beta.5` manifests through protected
+- Promotion of the synchronized `3.0.0-beta.6` manifests through protected
   `master` and the hosted deployment chain must complete before publish tags
   are created.
 - Package ownership and GitHub OIDC publication are proven by the public
-  packages and verified publisher pages. Beta.5 still requires its matching
+  packages and verified publisher pages. Beta.6 still requires its matching
   native release assets before package-specific tags are pushed.
 - The published `3.0.0-beta.1` native hook default is unsuitable for external
   native execution; testers should use `3.0.0-beta.2` or newer.

@@ -56,6 +56,42 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_client_resource_restart_runs_in_both_gates(self) -> None:
+        command = (
+            "dart test packages/connectanum_client/test/transport/native/"
+            "resource_restart_test.dart --concurrency=1"
+        )
+        for script in [TEST_FAST, TEST_ALL]:
+            with self.subTest(script=script.name):
+                self.assertIn(
+                    command,
+                    [line.strip() for line in script.read_text().splitlines()],
+                )
+
+    def test_client_message_abi_negotiation_runs_in_both_gates(self) -> None:
+        command = (
+            "dart test packages/connectanum_client/test/transport/native/"
+            "message_handle_abi_test.dart"
+        )
+        for script in [TEST_FAST, TEST_ALL]:
+            with self.subTest(script=script.name):
+                self.assertIn(
+                    command,
+                    [line.strip() for line in script.read_text().splitlines()],
+                )
+
+    def test_full_verify_runs_native_benchmark_regressions(self) -> None:
+        self.assertIn(
+            "cargo_with_retry test --manifest-path native/bench/Cargo.toml",
+            TEST_ALL.read_text(),
+        )
+
+    def test_full_verify_runs_complete_native_test_hook_suite(self) -> None:
+        script = TEST_ALL.read_text()
+        command = script.split("--features ffi-test", 1)[1].splitlines()[:2]
+        self.assertNotIn("router_metrics_snapshot_", "\n".join(command))
+        self.assertIn("-- --test-threads=1", "\n".join(command))
+
     def test_coverage_isolates_pub_download_auth_from_codecov_oidc(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
         coverage = workflow.split("\n  coverage:\n", 1)[1]
@@ -587,17 +623,21 @@ class VerificationScriptsTest(unittest.TestCase):
         )
         self.assertIn('return "$status"', script)
 
-    def test_full_verify_runs_browser_scram_worker_tests(self) -> None:
+    def test_full_verify_runs_core_browser_security_tests(self) -> None:
         script = TEST_ALL.read_text(encoding="utf-8")
 
-        self.assertIn("run_core_browser_scram_test()", script)
+        self.assertIn("run_core_browser_tests()", script)
         self.assertIn(
             "test/authentication/scram_key_derivation_web_test.dart",
             script,
         )
-        self.assertIn('"Browser SCRAM Worker tests"', script)
         self.assertIn(
-            "run_core_browser_scram_test\n  run_client_browser_websocket_test",
+            "test/serializer/serializer_optional_numeric_security_test.dart",
+            script,
+        )
+        self.assertIn('"Core browser tests"', script)
+        self.assertIn(
+            "run_core_browser_tests\n  run_client_browser_websocket_test",
             script,
         )
 

@@ -1,12 +1,611 @@
 # Project State
 
-Last updated: 2026-09-10
-Current branch: `codex/coverage-pub-auth-isolation`
-Current milestone: the WAMP Meta discovery authorization fix is implemented
-and merged into both master remotes; repair the post-merge coverage bootstrap
-authentication failure before further release work. Its implementation plan is
-`docs/exec-plans/2026-09-09-meta-discovery-authorization.md`; the broader active
-consumer plan remains `docs/exec-plans/2026-08-24-wamp-app.md`.
+Last updated: 2026-09-12
+Current branch: `codex/security-audit`
+Current milestone: deep component security audit with before/after performance
+evidence for hardening changes. The active plan is
+`docs/exec-plans/2026-09-10-component-security-audit.md`; the WampApp feature
+plan is paused during this review. Baseline `733c6d91` has green hosted CI and
+fresh `bin/test-fast` passes. The first confirmed fix (SA-001) validates remote
+service credentials before either pending-challenge map is touched and before
+claimed-user failure accounting. All 25 auth-service tests and eight mTLS RPC
+integration tests, static analysis, and full `bin/verify` pass. Twelve alternating
+JIT/AOT benchmark passes complete 60,000 measured logins without errors. JIT
+shows +3.1% concurrent and -3.1% serial throughput; AOT confirmation shows
++2.7% serial and +5.4% concurrent, with lower median tail latency. No consistent
+slowdown reproduced, but shared-host results are not proof of identical timing.
+SA-002 shipping transport manifests now require patched h2/QUIC versions; the
+local candidate resolves h2 0.4.19 and quinn-proto 0.11.17 with zero published
+transport dependency vulnerabilities. Four bounded H2 regressions fail before
+and pass after the upgrade; a separate upstream-source QUIC probe confirms
+fragment rejection without breaking ordinary reordering. All 97 feature-enabled
+FFI tests pass after correcting stale event fixtures, and `bin/verify` now runs
+that entire suite. Twenty-four verification-script tests and fresh full
+`bin/verify` pass, including live MCP, all 482 router tests, remote auth,
+zero-copy, and Chrome/Dart2Wasm. Six native-library comparison passes completed 73,152
+measured requests without errors, but shared-host contention and a 4.9% serial
+H2 median decrease mean performance is not yet cleared. Keep the initial
+evidence and repeat under quieter conditions. A lower-load attempt completed
+another two processes without errors but stopped between processes because
+unrelated inference stayed busy; its partial results are retained. The benchmark
+harness now uses patched h2/QUIC minima, reqwest 0.13.5, and anyhow >=1.0.103;
+its resolved audit has zero vulnerabilities and warnings. All 29 Rust artifact
+tests, 74 HTTP-driver tests, and 24 verification-script tests pass. The full
+native benchmark suite is now part of `bin/verify`; final full verification
+passes after a test-only Rustls initialization isolation fix. All
+nine canonical scenarios (102 workloads), the 24 GiB large-frame matrix (24
+workloads), and 25.5 GiB file-transfer matrix (30 workloads) pass their existing
+artifact and performance gates. Native/driver before-after performance
+confirmation and broader component review remain required work. Both Rust
+lockfiles are ignored local resolution artifacts;
+patched minimums are enforced in manifests rather than assumed from local pins.
+The [security report](security/2026-09-10-component-audit.md)
+records prerequisites, evidence, and remaining component coverage. This audit
+is not complete and no new release has been published.
+
+The operator has approved a synchronized `3.0.0-beta.6` tester release of the
+locally verified SA-001 through SA-018 fixes without declaring the broader
+security audit or final 3.0.0 production readiness complete. All seven Dart
+packages and three Rust crates are being advanced together. Publication must
+still proceed through protected `master`, a green hosted deployment chain, the
+`v3.0.0-beta.6` native prerelease, and sequential package tags. Hosted example
+pins remain on beta.5 until the complete beta.6 graph is indexed and smoke-tested.
+Release PR #91 initially passed hosted package dry-runs, Fast Checks, and
+consumer smoke but failed the Codecov patch gate at 80.61% against an 83.50%
+target. Focused authentication-failure, trusted-abort, and signed-handle ABI
+coverage now exercises all 14 targeted changed production lines. The canonical
+local report rises from 83.4778% to 83.5278% overall. Hosted project coverage
+then passed at 83.51%, while patch coverage reached 83.29% and remained one
+executable line below the target. A live router-to-auth-server regression now
+also covers fail-closed rejection of an unknown requested realm; protected-master
+publication remains blocked until hosted CI confirms the completed repair.
+
+SA-003 authentication lifecycle hardening is locally implemented. Six
+fail-first regressions reproduced late post-abort results, challenge overwrites,
+missing in-flight capacity enforcement, and an expiry boundary error. A shared
+service/binding registry now covers admission through deferred cleanup; all 41
+auth-service tests and 11 live mTLS tests pass. A separate live abort experiment
+reproduced in-process RPC head-of-line blocking. Its dispatch change was removed
+pending native lazy-payload cancellation/lifetime review; router code is unchanged.
+The authentication-only live suite tests deadline expiry, duplicate challenges,
+and binding-scoped shutdown. All 85 worker-session tests also pass. The initial
+full verification failed the experimental worker completion assertion and an
+HTTP/3 handshake timeout. Fresh separated `bin/verify` now passes, including all
+router, live MCP, zero-copy, package/CLI, and Chrome/Dart2Wasm checks.
+Six alternating AOT passes completed 30,000 measured logins and 7,200 warmups
+without errors. Median serial throughput fell 1.4%; concurrent improved 3.3%,
+with similar memory and lower median tail latency. Ranges overlap, and unrelated
+inference appeared around two baseline passes, so zero overhead is not proven.
+The comparison is retained; quiet confirmation remains required before a strict
+no-regression claim. Neither this work nor the earlier audit commits have been
+pushed or published. The complete component audit remains active.
+
+SA-004 native payload lifetime hardening is locally implemented, not published.
+Six safe fail-first probes reproduced allocation destruction while client/router
+byte views remained live. Independent native slice owners now preserve zero-copy
+views beyond routing-handle release; legacy libraries use owned copies. Internal
+CALL receivers acquire their own handle before reading, and expired transfers
+fail closed instead of reconstructing dangling addresses. Four Rust ownership
+tests and all 11 focused Dart tests pass, including sole-binary views, old-library
+fallback, and subview cleanup at normal isolate-group exit. A live WebSocket
+internal-service regression passes after reply and router shutdown. Full
+`bin/verify` passes with 494 router tests and the existing live/package/browser
+gates. A transient integration compile error and a separate test-lock collision
+were corrected/retested; they are not passing baseline evidence. Six alternating
+AOT native/client/router passes completed 184,176 measured operations and 11,160
+warmups without errors. Performance is not cleared: 64 KiB CBOR RawSocket RPC
+falls 12.1%, 32 MiB MessagePack RPC 9.7%, and 64 MiB CBOR RPC 8.3%; other RPC
+results are mixed. The 64 MiB server RSS observation rises from about 173 MiB to
+315 MiB. All runs and shared-host caveats are retained in the security report's
+machine-readable comparison. Profile and optimize ownership/materialization
+without weakening safety before publishing. Additional cancellation paths and other external-buffer owners remain
+under review, as do all pending rows of the full component audit.
+
+SA-004 follow-up: six additional fail-first probes confirmed that lazy metadata
+kept native storage alive unnecessarily. Client/router metadata now uses a Dart
+copy made under a temporary native owner, which also protects synchronous string
+copying; argument, frame, and binary views remain zero-copy. All 20 focused tests
+pass, including callback failure, stale/mismatched exports, and the previous
+lifetime cases. The legacy path passes 17 applicable cases. Fresh `bin/verify`
+passes with 503 router tests and all existing native/live/package/browser gates.
+Two more six-pass comparisons each complete 184,176 measured operations and
+11,160 warmups without errors. The first has heavy unrelated inference; the
+lower-inference repeat still shows 8.3%/8.6% decreases for 32/64 MiB RPC and
+observed server RSS around 169 MiB baseline versus 309 MiB candidate. Metadata
+retention is fixed, but payload ownership costs are not performance-cleared.
+The full 24-workload large-frame, eight-workload heavy file-transfer, and
+30-workload file matrix absolute gates pass: 24 GiB of large-frame payload and
+49.5 GiB of file transfers without errors. Preserve all
+comparisons and do not publish this candidate. Next: reduce redundant receiver
+materialization and native owner allocations without losing escaped-view safety,
+then repeat performance evidence and continue the remaining component review.
+
+SA-004 allocation follow-up: byte exports now use direct Arc references rather
+than allocating boxed owner tokens. A fail-first test verifies allocation reuse,
+partial release, and concurrent cleanup of independent same-address tokens.
+All five focused Rust tests and fresh `bin/verify` pass, including 102 test-hook
+FFI and 503 router tests. Two further six-pass comparisons each complete
+184,176 measured operations and 11,160 warmups without errors. The incremental
+native-only result is mixed; the full baseline comparison still shows 11.4% and
+11.1% large-frame decreases, with higher memory and shared VM contention.
+All 62 large-frame and file workloads pass their unchanged absolute gates,
+covering 73.5 GiB application payload. This is not relative performance clearance.
+The report retains both comparisons and the exact verified `ffi-test` binary.
+Keep the audit changes local; reduce redundant receiver materialization next
+without weakening lifetime safety. The full component audit remains active.
+
+SA-004 receiver follow-up: internal native CALL delivery now reads only owned
+argument/keyword views and validates message type/serializer under a temporary
+handle lease, instead of materializing a full message. The independent byte
+owners, legacy copies, and external-memory accounting are preserved. All 31
+focused lifetime tests pass (legacy: 28 plus three skips), all 14 live WebSocket
+tests pass, and fresh `bin/verify` passes with 514 router tests. The first fast
+gate caught absolute paths in the previous evidence artifact; path normalization
+fixed that without changing measurements, and the corrected fast gate passes.
+New artifacts are checked after generation, not only before they are added.
+Full-baseline and incremental comparisons each complete 184,176 operations plus
+11,160 warmups without errors. The full repeat has +2.3%/+2.4% large-frame
+throughput, but baseline speeds moved under contention, p99 and memory remain
+higher, and the incremental 32 MiB result falls 3.4%. Six separate AOT GC runs
+confirm external-memory collection pressure remains with both safe readers;
+these instrumented results do not prove throughput causality. All 62 unchanged
+large-frame/file gates pass, covering 73.5 GiB. Preserve earlier unfavorable
+comparisons: performance is not cleared and nothing has been pushed/published.
+Continue bounded handle-allocation/cancellation and external-buffer review,
+alongside outstanding performance confirmation and all pending component rows.
+
+SA-005: four bounded fail-first tests confirm negative/sentinel native message
+handles and live-entry replacement at counter wrap. Checked allocation now
+rejects exhaustion/collisions, preserves existing entries, and drops rejected
+owners. The last positive ID is usable once; clearing does not recycle stale
+IDs. Existing FFI -4/-14 errors are preserved and no public ABI changes. All 112
+FFI tests pass on confirmation. The initial run had an HTTP/3 handshake timeout;
+isolated and full reruns pass, with no established root cause. Fresh `bin/verify`
+passes, including 105 default FFI and 514 router tests plus the live/browser
+gates. Six longer native-only passes complete 188,640 operations and 11,160
+warmups without errors, including 384 GiB of large-frame payload. Results remain
+mixed: large frames improve, but WebSocket pub/sub falls 6.5%, and late background
+inference exceeds 2200% CPU. All 62 unchanged frame/file gates pass over 73.5 GiB;
+relative performance is not cleared. Full evidence is retained and public-artifact
+checks pass after generation. This is a fail-closed mitigation, not the final
+availability solution: an additive wide
+message-handle family must cover all poll/read/export/forward/E2EE/hash consumers
+and retain safe legacy adapters. The wider migration and other native stores'
+reset/wrap review are required next work. No audit changes are published and the
+full component audit remains active.
+
+SA-005 native-wide checkpoint: an additive 64-bit family now covers every native
+routing-message consumer and producer while preserving the old C ABI. Separate
+monotonic allocation avoids consuming the legacy budget; a bit-31 marker also
+makes accidental signed-32-bit narrowing fail closed. Two new fail-first cases
+cover that marker and low-word carry. All 17 focused wide cases pass, including
+six live RawSocket/WebSocket serializer combinations and both E2EE ciphers.
+Final `bin/verify` passes with 121 default/129 test-hook FFI, 514 router tests,
+and all existing package/live/browser gates. Initial new-test and default-build
+fixture errors were corrected and retained separately. The next implementation
+step is all-or-nothing wide-family adoption in both Dart bindings and the shared
+byte exporter, with partial-library, legacy-library and actual high-ID transfer
+tests. Native compatibility benchmarks do not substitute for wide application
+performance. The dynamic C-ABI smoke verifies all 18 exports, full-width handles,
+narrowing rejection, and escaped-owner lifetime against the frozen library.
+Six legacy-adapter comparison passes complete 188,640 measured operations plus
+11,160 warmups without errors. Results are mixed, including -2.3% MessagePack
+64 KiB RPC, +0.7%/+1.4% large-frame throughput, and higher sampled 64 MiB server
+RSS (280.6 to 318.5 MiB); performance is not cleared. The first absolute run
+passes the large-frame/heavy-file gates but fails buffered Dart WebSocket JSON
+file lifecycle throughput (1.952 versus 2.0 GBit/s). A fixed four-pass ABBA
+confirmation of the unchanged full file matrix passes all four gates, 1,632
+samples and 102 GiB without errors; candidate lifecycle results are 2.169 and
+2.167 GBit/s. Both the failure and confirmation are retained, without claiming
+a proven cause or replacing unfavorable evidence. The security audit and earlier
+performance questions remain open; nothing is pushed or released.
+
+SA-005 Dart-wide adoption is locally implemented. Both bindings and the byte
+exporter negotiate the complete family before use, reject unknown/partial ABIs,
+and guard legacy consumers against signed-32-bit truncation. High-ID transfers,
+hashing, both E2EE ciphers, consuming decrypt and escaped byte owners pass.
+Older libraries pass 35 owner-API and 32 copy-fallback cases. The first full
+`bin/verify` passes with 526 router tests and existing live/package/browser gates;
+both client test runners now include the new 25-case capability suite after a
+fail-first gate regression. Updated-runner verification then hits two HTTP/3
+handshake timeouts. All eight H3 cases and the full 526-case diagnostic router
+run pass in isolation with the identical native library. Final ordinary full
+`bin/verify` also passes, including the updated capability gate and all
+live/package/zero-copy/Chrome checks. The earlier failure remains visible and
+its cause is unproven; no timeout or retry policy was changed.
+Six same-native-library AOT passes complete 188,640 measured operations plus
+11,160 warmups without errors, including 384 GiB large-frame payload. Performance
+is not cleared: RawSocket pub/sub falls 8.0%, Dart CBOR RPC 11.6%, and 64 MiB RPC
+6.7%, with variable host load. All 62 large/file gates pass over 73.5 GiB; all
+nine canonical WAMP scenarios also pass (102 workloads). Preserve every result,
+profile the decreases rather than assume noise, and continue the pending resource
+and component reviews, including bounded half-open HTTP/3 admission coverage.
+The report links complete normalized evidence. No push,
+version change or publication has occurred.
+
+SA-006 HTTP/3 admission is locally hardened. Two fail-first loopback regressions
+confirm that an incomplete QUIC handshake blocks unrelated clients and ignores
+the configured handshake deadline. Concurrent listener-owned admission tasks
+are now bounded by the existing backlog, time out, refuse excess peers, and
+cancel on listener/receiver shutdown. Six focused tests and `bin/test-fast` /
+full `bin/verify` pass, including 148 core, 121/129 FFI and 526 router tests plus
+the existing live/package/zero-copy/browser checks. The original new shutdown
+fixture needed to allow QUIC's three-PTO closing interval; the corrected baseline
+control passes while both real defect cases still fail. Earlier intermittent
+HTTP/3 failures are not proven to have this cause.
+Six native-only ABBAAB AOT passes complete 103,728 measured requests plus 7,680
+warmups without errors or unexpected reconnects. Fresh parallel connection
+throughput improves 26.9%, but request p99 rises from 2.95 to 8.89 ms and sampled
+RSS from 141.5 to 151.6 MiB. Reused multiplexed H3 throughput falls 2.3% with
+overlapping ranges. All five existing H3 pressure gates pass (640 requests).
+The setup-inclusive follow-up now adds optional fresh-connection H1/H2/H3
+sample timing without redefining request latency or gate policies. Three new
+tests pass, including delayed QUIC setup, concurrent clients and legacy JSON;
+full `bin/verify` exits zero with 77 benchmark-driver and 526 router tests.
+Six further ABBAAB runs complete 103,728 measured requests plus 7,680 warmups
+without errors or unexpected reconnects. Fresh parallel throughput improves
+20.8% and setup-inclusive p99 falls 15.791 to 13.860 ms (-12.2%), despite the
+request-only p99 rising 3.184 to 10.423 ms. This resolves that measurement
+ambiguity for the observed workload, not every latency or performance question.
+Sampled server RSS still increases 140.0 to 150.5 MiB; profile live/closing
+connections, retained tasks, allocations and post-drain memory next, without
+weakening handshake isolation. Reused multiplexed H3 is -0.39% in the follow-up
+(overlapping ranges); the earlier -2.32% observation remains preserved.
+Performance remains uncleared alongside earlier audit questions and remaining
+component review. Both comparisons are linked from the audit report. No
+versions, remotes or publications changed.
+
+SA-006 memory follow-up adds a native owner-lifetime regression and a diagnostic
+connection-churn scenario without changing production code. The regression
+checks 32 real TLS/QUIC clients, including requestless connections, and confirms
+native connection/stream owners and registry entries drain while the listener
+remains open. Six ABBAAB frozen-binary runs pass 98,304 measured fresh connections,
+3,072 warmups and 30 idle probes without byte/count errors or transport errors.
+Final post-idle RSS remains higher: 68.938 versus 83.281 MiB baseline/candidate
+medians with non-overlapping ranges. Allocator snapshots show much smaller
+allocated-byte growth than resident-zone growth, supporting retention/fragmentation
+as a contributor but not establishing leak freedom or clearing Dart/FFI ownership.
+The initial empty-response probe failed strict validation and is retained;
+explicit 1 KiB probes correct only the new scenario. Initial full verification
+and final `bin/verify` exit zero, including 149 core, 121/129 FFI, 77 driver,
+526 router (one skip), 124 Dart benchmark, consumer/MCP and browser checks.
+Evidence is linked from the audit report.
+Continue allocator/resource ownership and the remaining component reviews;
+performance remains uncleared and all audit work stays local and unpublished.
+
+SA-007 resource restart isolation is locally fixed. Twelve fail-first regressions
+confirm stale native handles alias replacement files, keyrings/sessions and HTTP
+connection-event metadata after explicit runtime shutdown/restart. For both E2EE
+ciphers, surviving Dart providers could use a replacement key and stale release
+could destroy the replacement. This requires in-process owners surviving the
+restart, not a demonstrated remote-only attack. Four counter resets are removed
+while all resource maps still clear; no crypto, traffic hotpath or ABI change.
+Six native and 13 focused Dart cases pass; both root scripts run the new suite.
+Full `bin/verify` passes with 149 core, 127/135 FFI and existing live/package/
+browser gates. Six native-only ABBAAB comparisons complete 63,648 measured
+operations plus 5,160 warmups without errors, including 42 GiB of files. File
+throughput medians improve, but two E2EE medians fall 0.7%/1.7% and one Dart AES
+pub/sub p99 rises 19.5%, with overlapping ranges and variable host load.
+All 70 unchanged absolute workload gates pass over 2,040 samples, including
+24 GiB combined frame payload and 25.5 GiB file payload. Full normalized evidence
+is linked from the audit report. Counter exhaustion/wrap remains separately
+open, along with other resource owners and the full component matrix. Keep this
+local and performance provisional; no earlier audit regression is cleared.
+
+SA-008 checked resource allocation is locally implemented. Eight fail-first
+assertions reproduce signed/sentinel IDs, unsigned wrap, occupied-entry
+replacement, rejected-owner retention, and response headers preceding failed
+writer allocation. Thirteen focused regressions pass. All twelve FFI resource
+stores now reject exhaustion/collisions with existing -14 errors, preserve live
+owners, and never wrap or recycle IDs; response streaming allocates its writer
+before dispatch and cleans up failed dispatch. Finite legacy allocation capacity
+is not solved, and core listener/connection IDs remain separate review work.
+Initial full `bin/verify` passes after an HTTP/3 test retry; fresh final
+verification passes on its first attempt. The native suites have 149 core and
+140/148 FFI tests. During benchmarking, three deterministic fail-first tests
+also expose missing Hyper HTTP/1 sender readiness in the benchmark client.
+Plain, protected and JSON helpers now wait; all 80 driver tests and the
+27-workload/126-request HTTP authentication smoke pass.
+Three old-library comparison attempts still expose HTTP/1 reconnects, including
+one with the readiness fix. An isolated 4,096-request diagnostic captures TLS
+response-body EOF followed by a successful retry. Root cause remains open; no
+product-stack fix or retry-free performance claim is made. Six native-only
+ABBAAB passes complete 136,512 measured operations and 8,904 warmups. The strict
+comparison exits one on eight HTTP/1 streaming connection-count findings
+(eleven extra connections). Both variants are affected. TLS file throughput
+falls 8.4%, native XSalsa RPC 5.3%, and HTTP/2 streaming 4.5%; all ranges overlap,
+but several tails and sampled RSS also increase under variable host load.
+Performance is not cleared. Unchanged absolute budgets pass 74 of 75 workloads
+over 2,680 samples; buffered Dart/JSON WebSocket file transfer misses its
+2.000 GBit/s lifecycle minimum at 1.952 GBit/s. Full file-matrix confirmation
+fails the same sole budget at 1.900 GBit/s; the previous SA-007 library also
+fails it at 1.921 GBit/s. Each extra matrix completes 408 samples and passes
+the other 29 file workloads. This is not unique to SA-008, but does not clear
+the budget or relative regressions. Full normalized evidence is linked from
+the audit report. Keep all comparisons and these changes local; the complete
+audit and earlier performance questions remain open. Do not publish.
+
+SA-009 reproduces missing HTTP/1 response-boundary flushes with six fail-first
+assertions and one plain-byte positive control. Buffered and chunked helpers
+could return while TLS ciphertext remained buffered under socket backpressure,
+then wait for a next request the client cannot send. Both now flush once at
+response completion, propagate errors and preserve keep-alive; all seven
+focused tests pass with real TLS and a bounded in-memory channel. Production
+TLS settings, payloads, ABI and versions are unchanged. The initial fixture's
+handshake timeout was corrected separately by disabling session tickets only
+in that tiny test channel. `bin/test-fast` passes; initial full verification
+fails one protected HTTP/3 MCP handshake timeout after 156 core, 140/148 FFI,
+80 driver and 525 router passes. Correct `ffi-test` isolated reproduction passes
+without code/timeout changes; an earlier wrong-library skip is not a pass.
+Fresh full `bin/verify` passes, including 526 router tests (one explicit skip),
+11 remote-auth, 13 zero-copy, live MCP/package and Chrome/Dart2Wasm gates. The
+initial HTTP comparison exits one on baseline streaming warmup: its TLS body
+is truncated even after the existing reconnect attempt. That failed process
+and its two completed serial workloads are retained, not rerun or counted as
+a complete comparison. The remaining five planned runs complete the ABBAAB
+campaign with another baseline streaming failure and two unexpected baseline
+connection counts. All three patched processes pass strict checks over 36,432
+measured requests and 1,872 warmups. Complete rows across both variants contain
+52,576 measured requests and 2,592 warmups; partial failed attempts are unknown.
+Both collectors exit one, retaining every failure. Only HTTP/1 serial has three
+complete runs per variant: median throughput +0.079%, p99 3.060 to 3.088 ms.
+Patched HTTP/1 streaming is 8.153-9.288 GBit/s without reconnects; the sole
+completed baseline has retries, so it is not a clean speedup comparison.
+The other rows need balanced performance evidence. All 27 HTTP authentication
+smoke workloads (126 samples) pass across HTTP/1/2/3. Full normalized evidence
+is linked from the audit report. Keep this checkpoint local, with versions
+unchanged. Next review paused HTTP/1 producers and ambiguous transfer-coding
+framing with fail-first tests before making any further security claims.
+Earlier retry root causes are not retrospectively proven, and all previous
+performance questions stay open.
+
+SA-010 confirms and fixes ambiguous HTTP/1 request framing. Before the fix,
+non-exact or repeated `Transfer-Encoding` fields could coexist with
+`Content-Length`; a gzip, chunked body containing an embedded request was then
+dispatched as two requests over parser, real TCP and generated TLS initial and
+keep-alive cases. The confirmed before suite has six passes and 17 failures.
+The parser now combines transfer-coding fields, rejects CL+TE and invalid coding
+orders, rejects unsupported final chunked requests with 501 without boundary
+fallback, and accepts Content-Length only as strict ASCII digits. Malformed
+keep-alive requests receive a generic mapped response and connection close. The
+first after run failed to compile after accidentally removing a shared
+WebSocket helper and is retained as failure; corrected confirmation passes 23
+tests and an expanded suite passes 28. A final-review form-feed length case then
+fails first because its httparse rejection is not mapped to a 400 response;
+generic malformed-request mapping fixes it and the final focused suite passes
+all 29. Coverage includes ordinary gzip bodies and complete draining of an
+ignored body larger than the 64 KiB inline limit. The final production release
+build and fresh full `bin/verify` pass with 526 router passes and one skip, 11
+remote-auth, 13 native-router integration and browser gates. The primary
+24,288-request ABBAAB comparison reports serial +2.01%,
+streaming +0.51% and a retained short fresh-connection signal of -5.24%. A
+longer follow-up stops once on `EADDRNOTAVAIL` after an 8,192-request baseline;
+that failed candidate entry is retained and not rerun. A separate reverse-order
+campaign uses a 35-second two-MSL cooldown and completes 49,152 measured fresh
+connections plus 768 warmups with no errors or connection findings. Its median
+throughput delta is -0.25% inside overlapping roughly 2.4-2.5% ranges;
+setup-inclusive p50/p99 and median server RSS are slightly lower. No material
+SA-010 valid-path regression is reproduced. Those successful comparisons use
+candidate `6ca3966f`; final candidate `1a6d317f` changes only malformed httparse
+error classification. Two final-binary attempts retain 31 quiet-host snapshots
+each and stop before any timing because unrelated inference remains above the
+unchanged threshold. Direct final-binary timing therefore remains pending, and
+this scoped clearance does not resolve earlier performance findings or complete
+the audit. Evidence is
+`docs/security/2026-09-11-http1-request-framing-benchmarks.json` (SHA-256
+`1f450bbec6c95e3f380d4bf1cc0ad514b60a5401bd52158d0cc865ea98f59e73`).
+Keep this checkpoint local. Next inspect paused HTTP/1 SSE producer delivery;
+request chunked compatibility, direct final-binary timing, proxy-specific
+differential tests and every remaining component row stay open.
+
+SA-011 confirms and fixes paused-producer HTTP/1 stream delivery. Before the
+fix, deterministic real-TLS tests time out because neither response headers nor
+a complete SSE chunk become readable while the producer is paused. The writer
+now flushes headers before its first producer wait, drains immediately queued
+frames in exact order, flushes before awaiting a paused producer, and bounds a
+continuously ready batch to 64 chunks or 16 KiB. Terminal framing and all errors
+remain flushed or fail closed. A direct per-chunk version passes ten tests but
+fails a new coalescing assertion with five flushes instead of two; the retained
+bounded implementation passes all 12 focused cases. All 190 `ct_core` unit and
+three serializer integration tests, `bin/test-fast`, a release build and fresh
+full `bin/verify` pass. Full verification includes 526 router tests with one
+explicit skip, 11 remote-auth, 13 native-router integration and browser gates.
+The sandbox-only core run retains 66 socket `PermissionDenied` failures; the
+identical command passes outside that restriction. The first frozen benchmark
+campaign stops before timing on 31 busy-host snapshots and is retained. A new
+ABBAAB campaign completes 24,288 measured requests and 864 warmups with exact
+byte/sample/connection accounting, zero errors or selected counter deltas, and
+no strict findings. Median TLS HTTP/1 lifecycle throughput changes +1.00% for
+one response chunk, +0.56% for eight large chunks and +37.49% for 256 small
+chunks; p99 and RSS show no material regression. Evidence is
+`docs/security/2026-09-11-http1-stream-delivery-benchmarks.json` (SHA-256
+`64c7368e63d697e4765e1520fb3e08a89bdc8f31866cd211e6b4b4b3efd9c267`).
+This clears SA-011 affected-path performance only; the full audit, earlier
+performance questions, direct SA-010 final-binary timing, finite resource
+availability and all unreviewed component rows remain open. Keep the checkpoint
+local and unpublished. Next inspect attacker-controlled serializer nesting,
+collection sizes, integer boundaries and lazy-payload consistency across JSON,
+MessagePack and CBOR with fail-first resource-bound tests.
+
+SA-012 confirms serializer stack-exhaustion, framing, integer, and diagnostic
+defects. Frozen-source probes crash on 8,192-level MessagePack/CBOR and
+65,536-level JSON payloads; valid indefinite CBOR bypasses the first seven-field
+guard, binary fast paths accept trailing objects and truncate core integer
+fragments, and malformed JSON exceptions can contain source secrets. The final
+JSON, MessagePack, and CBOR paths enforce depth 64, complete binary value
+consumption, exact core integers, seven WAMP fields for recognized messages,
+and length-only diagnostics. RFC 8949 indefinite arrays remain compatible via a
+bounded direct range scan. Nine focused and all 192 serializer tests pass, as do
+extreme post-fix probes, core analysis, and `git diff --check`.
+
+The first long AOT candidate showed a 5.08% tiny-JSON median decrease, so it was
+not accepted. Diagnostics isolated the unconditional pre-dispatch arity check;
+moving validation into recognized fixed/payload paths restored the control while
+keeping the security invariant. The final ABBAAB campaign completes 296,062,200
+measured deserializations and 478,914 warmups with valid checksums. All ordinary
+ranges overlap and medians are -4.72% to -0.13%; indefinite CBOR is +21.39% and
+median max RSS differs by +0.43%. Earlier opposite MessagePack movement for
+unchanged code remains visible as shared-host variability. This clears measured
+SA-012 paths under the fixed -5%/range rule, not identical timing or the full
+audit. Evidence is
+`docs/security/2026-09-11-serializer-resource-benchmarks.json`. The first full
+verification run hit one HTTP/3 handshake timeout; the exact test then passed
+six isolated runs and a fresh complete `bin/verify` exited zero. Continue
+decoded collection amplification, optional numeric strictness, short-array
+normalization, and all other component rows. Nothing is pushed or published.
+
+SA-013 reproduces decoded collection amplification in the MessagePack path. A
+9-byte WAMP `RESULT` declaring a nested array32 of 1,000,000 items falls through
+the frozen scanner into `msgpack_dart`, which allocates a fixed-length list
+before reading elements. The frozen AOT probe grows max RSS from 14,565,376 to
+22,593,536 bytes and raises `RangeError`. MessagePack ordinary and depth-limited
+array/map scans now reject declarations that cannot fit in the remaining frame;
+definite CBOR scans use the same lower bound even though the reviewed CBOR
+dependency grows collections incrementally. No arbitrary item cap is added, so
+valid wire compatibility remains governed by frame and depth limits. The
+candidate probe rejects before allocation with payload-free `FormatException`.
+
+Ten focused and all 193 serializer tests pass, core analysis is clean, and
+`git diff --check` passes. The first implementation caused a repeatable CBOR
+`array_1024` slowdown (-4.46% complete, -3.83% focused with non-overlapping
+ranges) and was not accepted. Outlining exception construction from the hot
+recursive scanner recovered the focused path. The final fresh ABBAAB campaign
+completes 313,030,914 measured deserializations plus 825,186 warmups across 16
+scenarios. Every slower range overlaps baseline, the largest negative median is
+-2.07%, and median max RSS is unchanged. MessagePack array/map medians are
++7.72%/+8.90%; treat them as host observations, not universal throughput
+claims. Evidence is
+`docs/security/2026-09-11-serializer-collection-allocation-benchmarks.json`.
+Final repository-wide `bin/verify` exits zero, including native, Dart,
+package-consumer, router/MCP, and Chrome Dart2Wasm coverage.
+Keep this checkpoint local and unpublished. Next inspect optional numeric
+strictness, malformed short-array normalization, and lazy-payload consistency;
+the complete component audit remains active.
+
+SA-014 confirms cross-serializer lazy-payload integrity defects. The frozen
+`fbd29c37` probe shows valid eight-item MessagePack/CBOR argument lists failing
+only on lazy access, a malformed MessagePack argument error containing probe
+text, and numeric keyword keys being silently stringified by both binary
+serializers. JSON also silently discarded malformed keyword maps. Positional
+payloads now use payload-specific binary decoders, direct single-binary views
+remain intact, and all three serializers validate argument/keyword shapes,
+require string keyword keys, and return payload-free diagnostics.
+
+Thirteen focused and all 196 serializer tests pass, and core analysis is clean.
+The first implementation's separated slower JSON argument/keyword ranges were
+not accepted; removing an unnecessary list copy and redundant key scan recovered
+both paths without weakening validation. The final ABBAAB AOT campaign completes
+658,056,000 measured deserialize-plus-materialize operations plus 7,200 warmups
+across 12 serializer/scenario pairs. No scenario triggers the fixed
+-5%/separated-slower-range rule; the largest negative median is -0.12% with
+overlapping ranges, and candidate median maximum RSS is slightly lower. Evidence
+is `docs/security/2026-09-12-serializer-lazy-payload-benchmarks.json`.
+Final repository-wide `bin/verify` exits zero across native, Dart,
+package-consumer, router/MCP, live transport, and Chrome Dart2Wasm coverage.
+Keep the checkpoint local and unpublished; next inspect optional numeric
+strictness and malformed short-array normalization while the full component
+audit remains active.
+
+SA-015 confirms cross-serializer message-shape and PUBLISH recipient-filter
+integrity defects. The frozen `6b579bc0` baseline produced serializer-specific
+indexing/cast failures for recognized short WAMP arrays, silently dropped or
+truncated malformed numeric recipient filters, accepted invalid WAMP ID ranges,
+and stringified non-string identity/role filters. JSON, MessagePack, and CBOR now
+normalize every recognized supported short message to one payload-free
+`FormatException`; numeric recipient filters require integral IDs in inclusive
+`[1, 2^53]`, and identity/role filters require actual strings. The dart2js path
+also checks numeric integrality explicitly.
+
+Fourteen focused VM tests, the same 14 Chrome/dart2js tests, all 311
+serializer/conformance tests, and core analysis pass. The exact-source ABBAAB
+AOT campaign completes 1,442,700,000 measured deserialize-and-consume operations
+plus 216,000 warmups across 18 serializer/scenario pairs with no separated
+slowdown or invariant failure. The largest negative median is -2.37% with
+overlapping ranges; median maximum RSS changes by about 0.7%. Evidence is
+`docs/security/2026-09-12-serializer-message-shape-benchmarks.json`. Final
+full-workspace `bin/verify` exits zero across native transport/serializer,
+default and feature-enabled FFI, Dart workspace, package-consumer, router/MCP,
+live transport, benchmark, and Chrome Dart2Wasm coverage. Keep this checkpoint
+local and unpublished. Field-type and optional numeric validation outside
+PUBLISH recipient filters, browser MessagePack Uint64 compatibility, the
+broader protocol review, and every other component row remain open.
+
+SA-016 confirms cross-serializer WAMP Options dictionary integrity defects.
+The frozen `61595d92` baseline silently treated scalar, null, boolean, and list
+Options values as absent for PUBLISH, SUBSCRIBE, CALL, CANCEL, REGISTER,
+INTERRUPT, and YIELD. MessagePack and CBOR also stringified non-string option
+keys. This violates the official WAMP definition of `dict` and each affected
+message's `Options|dict` field. All three serializers now reject non-dictionary
+Options with payload-free message-scoped `FormatException`s; MessagePack and
+CBOR additionally reject actual non-string keys before conversion. JSON relies
+on the JSON grammar and `jsonDecode` guarantee that object keys are strings.
+Valid empty and implementation-specific string-keyed options remain compatible.
+
+Thirty-six focused VM tests, the same 36 Chrome/dart2js tests, all 246
+serializer tests, and core analysis pass. The exact-source ABBAAB AOT campaign
+completes 441,000,000 measured deserializations plus 1,260,000 warmups across 42
+serializer/scenario pairs. There are no correctness-invariant or performance
+gate failures: the worst median is -3.08% with overlapping ranges, the median
+scenario improves 2.22%, and the best improves 33.98%. Evidence is
+`docs/security/2026-09-12-serializer-option-container-benchmarks.json`. Final
+full-workspace `bin/verify` exits zero across native transport and serializers,
+default and feature-enabled FFI, Dart packages, package-consumer smokes,
+router/MCP integration, live transport and benchmark suites, and Chrome
+Dart2Wasm coverage. Keep this checkpoint local and unpublished. Message
+field-type and optional numeric strictness, browser MessagePack Uint64
+compatibility, broader protocol review, and every other component row remain
+open.
+
+SA-017 confirms cross-serializer standardized optional numeric integrity
+defects. The frozen `34592c0a` baseline accepted or silently discarded malformed
+caller, publisher, timeout, and trustlevel values, while CBOR could truncate
+numbers and lose the maximum valid `2^53` WAMP ID. JSON, MessagePack, and CBOR
+now distinguish absence from explicit null, enforce WAMP-ID or non-negative
+integer semantics, preserve valid CBOR `BigInt` boundaries, and emit stable
+payload-free field-scoped `FormatException`s. JSON and MessagePack decode EVENT
+and INVOCATION typed/custom details in one pass; Invocation trustlevel remains
+in `details.custom` for public API compatibility.
+
+Thirty-six focused VM tests, the same 36 Chrome/dart2js tests, all 282
+serializer tests, and core analysis pass. The exact-source ABBAAB AOT campaign
+completes 283,500,000 measured deserializations plus 810,000 warmups across 27
+serializer/scenario pairs with no correctness-invariant or performance-gate
+failures. The worst median is -2.27% with overlapping ranges, median scenario
+delta is +4.14%, and the best improves 24.08%. Evidence is
+`docs/security/2026-09-12-serializer-optional-numeric-benchmarks.json`. Final
+repository-wide `bin/verify` exits zero across native transport and serializers,
+default and feature-enabled FFI, Dart packages, package-consumer smokes,
+router/MCP integration, live transport and benchmark suites, and Chrome
+Dart2Wasm coverage. Keep this checkpoint local and unpublished. Browser
+MessagePack Uint64 compatibility, broader field-type/protocol review, and every
+other component row remain open.
+
+SA-018 confirms MessagePack browser Uint64 incompatibility at valid WAMP-ID
+boundaries. The frozen `e0e3293c` baseline throws through unsupported
+`ByteData` 64-bit accessors under dart2js and can round an over-range Uint64.
+The serializer now delegates unchanged on normal runtimes and uses a bounded
+two-Uint32 compatibility codec only where 64-bit accessors are unavailable.
+It preserves standard MessagePack wire bytes and exact inclusive `[-2^53,
+2^53]` values, rejects lossy integers and malformed lengths, and retains the
+shared nesting limit.
+
+All 41 focused tests pass on the VM, Chrome/dart2js, and Chrome/Dart2Wasm; all
+285 VM serializer tests pass. The full browser gate now protects this suite
+beside SCRAM Worker coverage. The exact-source ABBAAB AOT campaign completes
+67,500,000 operations plus 300,000 warmups across five production serializer
+scenarios with zero correctness or performance-gate failures. Ranges overlap,
+the worst median delta is -2.63%, and candidate median maximum RSS is slightly
+lower. Evidence is
+`docs/security/2026-09-12-msgpack-browser-uint64-benchmarks.json`. Final
+repository-wide `bin/verify` exits zero. Keep this checkpoint local and
+unpublished; required top-level IDs, remaining field-type/protocol review, and
+all other component rows remain open.
+
+Previous milestone: the WAMP Meta discovery authorization fix is implemented
+and merged into both master remotes, together with the post-merge coverage
+bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is
+`docs/exec-plans/2026-09-09-meta-discovery-authorization.md`; the broader paused
+consumer plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 Live WebSocket, RawSocket, MCP direct JSON, and
 MCP Streamable HTTP regressions reproduced subscription disclosure to callers
 with publish permission but no subscribe permission. Subscription snapshots now
@@ -51,9 +650,18 @@ Two fail-first regressions verify step ordering, unchanged Codecov/strict
 artifact settings, real Dart token removal, another registry's preservation,
 and repeated cleanup. The fixture isolates both cache and platform configuration
 directories and confirms the temporary token path before writes. Baseline
-`bin/test-fast` and all 22 verification-script tests pass; fresh `bin/verify`
-for the workflow follow-up is running. Master CI remains red until this fix is
-independently reviewed and merged.
+`bin/test-fast`, all 22 verification-script tests, and fresh `bin/verify` pass.
+Both hosted follow-up CI runs (`34475872067` and `34475902747`) pass all four
+jobs, including Codecov and coverage artifact uploads. Exact-head CI/log audits
+pass, and master package/benchmark evidence still covers unchanged inputs.
+[PR #90](https://github.com/konsultaner/connectanum-dart/pull/90) was merged by
+the user at `733c6d91`; local master and both remotes are synchronized. Its tree
+matches verified `87f1a60b` exactly. Master CI `34478086614` passes all four jobs,
+including coverage collection and upload. The final strict master audit passes
+exact-head CI/log cleanliness, baseline protection, workflow/router-package
+visibility, and relevant package publish dry-run and WAMP benchmark evidence.
+These post-merge evidence notes remain uncommitted until the next implementation
+commit, per policy; no package version or release tag changed.
 
 Previous milestone: harden the standalone WampApp as a consumer-facing
 application on top of the merged and published `3.0.0-beta.5` graph. The main

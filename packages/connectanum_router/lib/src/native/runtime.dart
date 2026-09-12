@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:connectanum_client/native_message_bytes.dart';
 import 'package:connectanum_core/connectanum_core.dart' show AbstractMessage;
 import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
@@ -1589,13 +1590,58 @@ void _finalizeNativeMessage(_MessageFinalizerToken token) {
 }
 
 class _MessageBindings {
-  _MessageBindings(this._bindings)
+  _MessageBindings(this._bindings, this._messageBytes)
     : _messageFinalizer = Finalizer<_MessageFinalizerToken>(
         _finalizeNativeMessage,
       );
 
   final CtFfiBindings _bindings;
+  final NativeMessageBytes _messageBytes;
   final Finalizer<_MessageFinalizerToken> _messageFinalizer;
+
+  NativeCallPayloadBytes readCallPayload(
+    int handle, {
+    required NativeMessageSerializer serializer,
+  }) {
+    ffi.Pointer<CtMessageInfo> infoPtr = ffi.nullptr;
+    try {
+      infoPtr = calloc<CtMessageInfo>();
+      final result = _bindings.ctMessagePeek(handle, infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        throw NativeTransportException(result, 'Failed to peek CALL payload');
+      }
+      final info = infoPtr.ref;
+      if (info.messageCode != 48 || info.serializer != serializer.id) {
+        throw NativeTransportException(
+          NativeTransportErrorCode.invalidArgument,
+          'Expected a CALL with the transferred serializer',
+        );
+      }
+      return NativeCallPayloadBytes._(
+        serializer: serializer,
+        argumentsBytes: info.argsLen == 0
+            ? null
+            : _messageBytes.read(
+                handle,
+                NativeMessageBytePart.arguments,
+                borrowed: info.argsPtr,
+                length: info.argsLen,
+              ),
+        argumentsKeywordsBytes: info.kwargsLen == 0
+            ? null
+            : _messageBytes.read(
+                handle,
+                NativeMessageBytePart.argumentsKeywords,
+                borrowed: info.kwargsPtr,
+                length: info.kwargsLen,
+              ),
+      );
+    } finally {
+      // Returned backing stores own their slices; no routing handle escapes.
+      _bindings.ctMessageRelease(handle);
+      if (infoPtr != ffi.nullptr) calloc.free(infoPtr);
+    }
+  }
 
   NativeIncomingMessage materialize(int handle) {
     final infoPtr = calloc<CtMessageInfo>();
@@ -1615,11 +1661,21 @@ class _MessageBindings {
       final kwargsAddress = info.kwargsLen == 0 ? 0 : info.kwargsPtr.address;
       final args = info.argsLen == 0
           ? null
-          : info.argsPtr.asTypedList(info.argsLen);
+          : _messageBytes.read(
+              handle,
+              NativeMessageBytePart.arguments,
+              borrowed: info.argsPtr,
+              length: info.argsLen,
+            );
       final kwargs = info.kwargsLen == 0
           ? null
-          : info.kwargsPtr.asTypedList(info.kwargsLen);
-      final metadata = _metadataFromFfi(info);
+          : _messageBytes.read(
+              handle,
+              NativeMessageBytePart.argumentsKeywords,
+              borrowed: info.kwargsPtr,
+              length: info.kwargsLen,
+            );
+      final metadata = _metadataFromFfi(info, handle, _messageBytes);
 
       Uint8List frame;
       int frameAddress;
@@ -1664,9 +1720,12 @@ class _MessageBindings {
           }
           info = infoPtr.ref;
           frameAddress = info.framePtr.address;
-          frame = info.frameLen == 0
-              ? Uint8List(0)
-              : info.framePtr.asTypedList(info.frameLen);
+          frame = _messageBytes.read(
+            handle,
+            NativeMessageBytePart.frame,
+            borrowed: info.framePtr,
+            length: info.frameLen,
+          );
           message = bindMessage(
             serializer,
             frame,
@@ -1725,19 +1784,21 @@ class _MessageBindings {
   }
 }
 
-_NativeMessageMetadata _metadataFromFfi(CtMessageInfo info) {
+_NativeMessageMetadata _metadataFromFfi(
+  CtMessageInfo info,
+  int handle,
+  NativeMessageBytes bytes,
+) {
   final flags = info.flags;
   final metadataBind = (flags & _NativeMessageMetadata.flagMetadataBind) != 0;
-  return _NativeMessageMetadata(
+  _NativeMessageMetadata build(Uint8List? details) => _NativeMessageMetadata(
     messageCode: info.messageCode,
     primaryId: info.primaryId,
     secondaryId: info.secondaryId,
     detailNumberA: info.detailNumberA,
     detailNumberB: info.detailNumberB,
     flags: flags,
-    detailsBytes: metadataBind
-        ? _readOptionalBytes(info.detailsPtr, info.detailsLen)
-        : null,
+    detailsBytes: details,
     stringA: metadataBind
         ? _readOptionalString(info.stringAPtr, info.stringALen)
         : null,
@@ -1754,13 +1815,14 @@ _NativeMessageMetadata _metadataFromFfi(CtMessageInfo info) {
         ? _readOptionalString(info.stringEPtr, info.stringELen)
         : null,
   );
-}
-
-Uint8List? _readOptionalBytes(ffi.Pointer<ffi.Uint8> ptr, int len) {
-  if (len <= 0 || ptr.address == 0) {
-    return null;
-  }
-  return ptr.asTypedList(len);
+  if (!metadataBind || info.detailsLen == 0) return build(null);
+  return bytes.withCopiedBytes(
+    handle,
+    NativeMessageBytePart.details,
+    borrowed: info.detailsPtr,
+    length: info.detailsLen,
+    consume: build,
+  );
 }
 
 String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
@@ -1823,6 +1885,20 @@ NativeHttpConnectionCloseReason _connectionReasonFromCode(int code) {
   }
 }
 
+/// Independently owned CALL argument views, without a materialized message.
+/// Legacy native libraries produce Dart-owned copies instead of native views.
+class NativeCallPayloadBytes {
+  const NativeCallPayloadBytes._({
+    required this.serializer,
+    required this.argumentsBytes,
+    required this.argumentsKeywordsBytes,
+  });
+
+  final NativeMessageSerializer serializer;
+  final Uint8List? argumentsBytes;
+  final Uint8List? argumentsKeywordsBytes;
+}
+
 class NativeMessageHandleDecoder {
   factory NativeMessageHandleDecoder({String? libraryPath}) {
     final resolvedPath = NativeLibraryLoader.resolvePath(libraryPath);
@@ -1832,7 +1908,10 @@ class NativeMessageHandleDecoder {
   }
 
   NativeMessageHandleDecoder._(this.libraryPath, this._library, this._bindings)
-    : _messageBindings = _MessageBindings(_bindings);
+    : _messageBindings = _MessageBindings(
+        _bindings,
+        NativeMessageBytes(_library),
+      );
 
   final String libraryPath;
   // ignore: unused_field
@@ -1842,6 +1921,35 @@ class NativeMessageHandleDecoder {
 
   NativeIncomingMessage materialize(int handle) =>
       _messageBindings.materialize(handle);
+
+  /// Retains a transferred CALL only while acquiring its owned argument views.
+  /// Rejects expired handles and mismatched message types or serializers.
+  NativeCallPayloadBytes readRetainedCallPayload(
+    int handle, {
+    required NativeMessageSerializer serializer,
+  }) {
+    final retained = _bindings.ctMessageRetain(handle);
+    if (retained <= 0) {
+      throw NativeTransportException(
+        retained,
+        'Native message transfer has expired',
+      );
+    }
+    return _messageBindings.readCallPayload(retained, serializer: serializer);
+  }
+
+  /// Acquires independent ownership before reading a handle sent by an isolate.
+  /// An expired transfer fails without dereferencing its former byte addresses.
+  NativeIncomingMessage materializeRetained(int handle) {
+    final retained = _bindings.ctMessageRetain(handle);
+    if (retained <= 0) {
+      throw NativeTransportException(
+        retained,
+        'Native message transfer has expired',
+      );
+    }
+    return materialize(retained);
+  }
 
   void release(int handle) => _bindings.ctMessageRelease(handle);
 }
@@ -1992,7 +2100,10 @@ class NativeTransportRuntime
   }
 
   NativeTransportRuntime._(this._libraryPath, this._library, this._bindings)
-    : _messageBindings = _MessageBindings(_bindings);
+    : _messageBindings = _MessageBindings(
+        _bindings,
+        NativeMessageBytes(_library),
+      );
 
   final String _libraryPath;
   // ignore: unused_field

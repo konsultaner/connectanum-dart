@@ -45,11 +45,36 @@ extra router workers only helped the lowest-multiplex point, while the deeper
 
 ## What It Measures
 
+`native/bench/scenarios/http3_connection_churn.toml` diagnoses fresh-connection
+memory behavior with four 4,096-connection bursts, 16 concurrent clients,
+eight-second idle probes and a final fifteen-second idle probe. Compare the
+probe rows' `metrics_before` process RSS with the preceding burst's
+`metrics_after`, and compare successive bursts rather than just one peak.
+Idle time is outside each workload's throughput window. These observations are
+not an allocator-independent leak test or an absolute performance gate; the
+router's `active_connections` gauge counts worker-owned connections, not all
+native QUIC connections. Native owner-lifetime tests provide separate evidence.
+The small HTTP/2 probes request explicit 1 KiB synthetic responses; a zero
+response-size header selects the handler's echo/default path, not an empty body.
+
 - HTTP/1.1, HTTP/2, and HTTP/3 throughput and latency
 - RawSocket and WebSocket WAMP workloads
 - auth and authz paths
 - router metrics deltas and OpenMetrics snapshots
 - scaling sweeps across router workers and native runtime threads
+
+Raw JSONL samples for plain HTTP/1.1, HTTP/2, and HTTP/3 workloads with
+`reuse_connections = false` also contain `http_fresh_connection_timing`:
+`connection_setup_ms` measures from before connection setup until the protocol
+sender is returned, including DNS and the applicable TCP/TLS/QUIC handshake.
+`operation_total_ms` runs from the same start through response-body drain,
+including any later stream-readiness wait, but excluding connection close and
+per-worker payload preparation. Sender creation is not a promise that every
+background protocol exchange has completed. Existing `latency_ms`, aggregate
+latency summaries, and gate policies are unchanged. Reused connections, auth
+flows, and legacy reports omit this optional timing rather than invent zero
+setup costs. Compare percentiles of the per-sample totals, not sums of phase
+percentiles; whole-workload throughput additionally includes workload overhead.
 
 ## Typical Usage
 

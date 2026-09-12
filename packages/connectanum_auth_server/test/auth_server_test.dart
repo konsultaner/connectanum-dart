@@ -254,66 +254,69 @@ void main() {
       expect(ok.status, RemoteHelloStatus.success);
     });
 
-    test('emits fake challenge on denial when enabled', () async {
-      final settings = _buildSettings(
-        authenticators: {
-          'ticket-basic': const AuthenticatorDefinition(
-            type: 'ticket',
-            options: {
-              'secrets': {
-                'ticket-user': {'ticket': 'ticket-secret', 'role': 'member'},
+    test(
+      'emits fake challenge on identity denial after service admission',
+      () async {
+        final settings = _buildSettings(
+          authenticators: {
+            'ticket-basic': const AuthenticatorDefinition(
+              type: 'ticket',
+              options: {
+                'secrets': {
+                  'ticket-user': {'ticket': 'ticket-secret', 'role': 'member'},
+                },
               },
-            },
+            ),
+          },
+          realmAuthMethods: const ['ticket'],
+          realmAuthOptions: const {
+            'ticket': {'authenticator': 'ticket-basic'},
+          },
+        );
+
+        final server = AuthServer(
+          settings: settings,
+          authTokens: const ['expected'],
+          fakeChallengeOnHelloFailure: true,
+        );
+
+        final helloResponse = await server.onHello(
+          RemoteHelloRequest(
+            realmSettings: settings.realms.first,
+            context: _helloContext(
+              realm: settings.realms.first,
+              authId: '',
+              methods: const ['ticket'],
+            ),
+            options: const {'auth_token': 'expected'},
+            transactionId: 'tx-fake',
           ),
-        },
-        realmAuthMethods: const ['ticket'],
-        realmAuthOptions: const {
-          'ticket': {'authenticator': 'ticket-basic'},
-        },
-      );
+        );
 
-      final server = AuthServer(
-        settings: settings,
-        authTokens: const ['expected'],
-        fakeChallengeOnHelloFailure: true,
-      );
+        expect(helloResponse.status, RemoteHelloStatus.challenge);
 
-      final helloResponse = await server.onHello(
-        RemoteHelloRequest(
-          realmSettings: settings.realms.first,
-          context: _helloContext(
-            realm: settings.realms.first,
-            authId: 'ticket-user',
-            methods: const ['ticket'],
+        final authResponse = await server.onAuthenticate(
+          RemoteAuthenticateRequest(
+            realmSettings: settings.realms.first,
+            context: _helloContext(
+              realm: settings.realms.first,
+              authId: '',
+              methods: const ['ticket'],
+            ),
+            authId: helloResponse.challenge!.authId,
+            authenticate: AuthenticateMessage(signature: 'ignored'),
+            options: const {'auth_token': 'expected'},
+            transactionId: 'tx-fake',
           ),
-          options: const {'auth_token': 'wrong'},
-          transactionId: 'tx-fake',
-        ),
-      );
+        );
 
-      expect(helloResponse.status, RemoteHelloStatus.challenge);
-
-      final authResponse = await server.onAuthenticate(
-        RemoteAuthenticateRequest(
-          realmSettings: settings.realms.first,
-          context: _helloContext(
-            realm: settings.realms.first,
-            authId: 'ticket-user',
-            methods: const ['ticket'],
-          ),
-          authId: 'ticket-user',
-          authenticate: AuthenticateMessage(signature: 'ignored'),
-          options: const {},
-          transactionId: 'tx-fake',
-        ),
-      );
-
-      expect(authResponse.status, RemoteAuthenticateStatus.failure);
-      expect(
-        authResponse.failure?.reason,
-        wamp_core.Error.authenticationFailed,
-      );
-    });
+        expect(authResponse.status, RemoteAuthenticateStatus.failure);
+        expect(
+          authResponse.failure?.reason,
+          wamp_core.Error.authenticationFailed,
+        );
+      },
+    );
 
     test('validates auth token on authenticate as well', () async {
       final settings = _buildSettings(
@@ -371,7 +374,155 @@ void main() {
         equals(wamp_core.Error.notAuthorized),
       );
       expect(authResponse.failure?.message, contains('token rejected'));
+      final retry = await server.onAuthenticate(
+        RemoteAuthenticateRequest(
+          realmSettings: settings.realms.first,
+          context: helloContext,
+          authId: 'ticket-user',
+          authenticate: AuthenticateMessage(signature: 'ticket-secret'),
+          options: const {'auth_token': 'expected'},
+          transactionId: 'tx-auth-token',
+        ),
+      );
+      expect(retry.status, RemoteAuthenticateStatus.success);
     });
+
+    for (final fakeChallenge in [false, true]) {
+      for (final operation in ['hello', 'authenticate', 'abort']) {
+        for (final token in [null, 'wrong', 42]) {
+          test('rejects $operation token $token before state or identity '
+              'mutation (fake challenge $fakeChallenge)', () async {
+            final settings = _buildSettings(
+              authenticators: {
+                'ticket-basic': const AuthenticatorDefinition(
+                  type: 'ticket',
+                  options: {
+                    'secrets': {
+                      'ticket-user': {
+                        'ticket': 'ticket-secret',
+                        'role': 'member',
+                      },
+                    },
+                  },
+                ),
+              },
+              realmAuthMethods: const ['ticket'],
+              realmAuthOptions: const {
+                'ticket': {'authenticator': 'ticket-basic'},
+              },
+              limits: const RealmLimitSettings(
+                maxFailedAuth: 1,
+                lockoutMs: 60000,
+              ),
+            );
+            final realm = settings.realms.first;
+            final context = _helloContext(
+              realm: realm,
+              authId: 'ticket-user',
+              methods: const ['ticket'],
+            );
+            final server = AuthServer(
+              settings: settings,
+              authTokens: const ['expected'],
+              fakeChallengeOnHelloFailure: fakeChallenge,
+            );
+            final events = <AuthAuditEvent>[];
+            AuthAuditLogger.registerSink(events.add);
+            final hello = await server.onHello(
+              RemoteHelloRequest(
+                realmSettings: realm,
+                context: context,
+                options: const {'auth_token': 'expected'},
+                transactionId: 'protected',
+              ),
+            );
+            expect(hello.status, RemoteHelloStatus.challenge);
+            final options = <String, Object?>{
+              'auth_token': ?token,
+            };
+            switch (operation) {
+              case 'hello':
+                for (final id in ['protected', 'unsolicited']) {
+                  final response = await server.onHello(
+                    RemoteHelloRequest(
+                      realmSettings: realm,
+                      context: context,
+                      options: options,
+                      transactionId: id,
+                    ),
+                  );
+                  expect(response.status, RemoteHelloStatus.failure);
+                  expect(
+                    response.failure?.reason,
+                    wamp_core.Error.notAuthorized,
+                  );
+                }
+              case 'authenticate':
+                final response = await server.onAuthenticate(
+                  RemoteAuthenticateRequest(
+                    realmSettings: realm,
+                    context: context,
+                    authId: 'ticket-user',
+                    authenticate: AuthenticateMessage(
+                      signature: 'ticket-secret',
+                    ),
+                    options: options,
+                    transactionId: 'protected',
+                  ),
+                );
+                expect(response.failure?.reason, wamp_core.Error.notAuthorized);
+              case 'abort':
+                await server.onAbort(
+                  RemoteAbortRequest(
+                    realmSettings: realm,
+                    context: context,
+                    authId: 'ticket-user',
+                    options: options,
+                    transactionId: 'protected',
+                  ),
+                );
+            }
+            expect(
+              AuthSecurityTracker.isLocked(
+                realm.name,
+                'ticket-user',
+                realm.limits,
+              ),
+              isFalse,
+            );
+            expect(
+              events.where((event) => event.authId == 'ticket-user'),
+              isEmpty,
+            );
+            final success = await server.onAuthenticate(
+              RemoteAuthenticateRequest(
+                realmSettings: realm,
+                context: context,
+                authId: 'ticket-user',
+                authenticate: AuthenticateMessage(signature: 'ticket-secret'),
+                options: const {'auth_token': 'expected'},
+                transactionId: 'protected',
+              ),
+            );
+            expect(success.status, RemoteAuthenticateStatus.success);
+            final unsolicited = await server.onAuthenticate(
+              RemoteAuthenticateRequest(
+                realmSettings: realm,
+                context: context,
+                authId: 'ticket-user',
+                authenticate: AuthenticateMessage(signature: 'ticket-secret'),
+                options: const {'auth_token': 'expected'},
+                transactionId: 'unsolicited',
+              ),
+            );
+            expect(
+              unsolicited.failure?.reason,
+              wamp_core.Error.protocolViolation,
+            );
+          });
+        }
+      }
+    }
 
     test('cleans up pending challenge on abort', () async {
       final settings = _buildSettings(
@@ -444,9 +595,10 @@ RouterSettings _buildSettings({
   required Map<String, AuthenticatorDefinition> authenticators,
   required List<String> realmAuthMethods,
   required Map<String, Map<String, Object?>> realmAuthOptions,
+  RealmLimitSettings limits = const RealmLimitSettings(),
 }) {
   final realmBuilder = RealmSettingsBuilder('realm1')
-    ..setLimits(const RealmLimitSettings())
+    ..setLimits(limits)
     ..addRoleFromBuilder(
       RoleSettingsBuilder('member')..addPermissionFromBuilder(
         PermissionSettingsBuilder('com.example')

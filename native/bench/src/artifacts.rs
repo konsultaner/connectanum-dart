@@ -3622,6 +3622,7 @@ mod tests {
                     latency_ms: 10.0,
                     request_bytes: 100,
                     response_bytes: 200,
+                    http_fresh_connection_timing: None,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 1.0,
                         request_enqueue_ms: 2.0,
@@ -3663,6 +3664,7 @@ mod tests {
                     latency_ms: 20.0,
                     request_bytes: 100,
                     response_bytes: 400,
+                    http_fresh_connection_timing: None,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 3.0,
                         request_enqueue_ms: 4.0,
@@ -3704,6 +3706,7 @@ mod tests {
                     latency_ms: 30.0,
                     request_bytes: 100,
                     response_bytes: 600,
+                    http_fresh_connection_timing: None,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 5.0,
                         request_enqueue_ms: 6.0,

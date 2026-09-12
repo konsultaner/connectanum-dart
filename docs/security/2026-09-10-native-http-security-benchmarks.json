@@ -1,0 +1,2842 @@
+{
+  "scope": "native-library-only dependency comparison; baseline driver and AOT service held constant",
+  "baseline": "227b5b06 (native source identical to 733c6d91)",
+  "resolved_candidate_dependencies": {
+    "h2": "0.4.19",
+    "quinn-proto": "0.11.17"
+  },
+  "host": "shared Apple M3 Ultra / macOS arm64 / 32 logical CPUs / 512 GiB RAM",
+  "native_threads": 4,
+  "router_workers": 1,
+  "dart": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"macos_arm64\"",
+  "hashes": {
+    "driver": "9af049687186c2b2d26de7a27e21065fe3f393b9cf114579ab44549861416ed1",
+    "service": "ce9107a0a7256c3f6d48f12c5e2663c1b673ab6b2b7c6de2e5a97a5147dabb9f",
+    "worker": "8660228f267af779d67282be1c4aa38a1a7745fff383793ac01de9c62d719e30",
+    "scenario": "7613d00405fb1c6a0305f108703fcc7b99944e44ec32fdd06c8f31180f22685e",
+    "baseline_native_lib": "65165bdf1a95d3323de41c17b156d142c9286399f65858ba9e41037febfaae38",
+    "patched_native_lib": "0617efe498fcc78646e6d96ab3d86b624f97716b8f7a0554711abaa57adcbe81"
+  },
+  "run_order": [
+    "baseline",
+    "patched",
+    "patched",
+    "baseline",
+    "baseline",
+    "patched"
+  ],
+  "cooldown_seconds": 3,
+  "quantiles": "sorted index floor((n-1)*p), per process, then median across three runs",
+  "warmup": "512 HTTP2 and 512 HTTP3 actual requests per process; excluded from measured medians",
+  "caveats": [
+    "Shared host; unrelated work may introduce noise.",
+    "No audit builds/tests/companion inference overlap these passes.",
+    "Process-tree time/RSS includes startup and helpers; not isolated allocator profiling.",
+    "Setup pilot 00-baseline omitted from comparison before collecting six timed passes.",
+    "An unrelated VM consumed approximately ten CPU cores during the later passes; baseline multiplex throughput dropped by roughly 70%.",
+    "Median serial HTTP2 throughput fell 4.9%; this is not accepted as a cleared no-regression result."
+  ],
+  "comparison": {
+    "h2_serial": {
+      "baseline": {
+        "requests_per_second": {
+          "median": 425.8037044922291,
+          "min": 292.05607476635515,
+          "max": 426.075841499787
+        },
+        "total_payload_gbit_per_second": {
+          "median": 0.006976367894400682,
+          "min": 0.004785046728971963,
+          "max": 0.00698082658713251
+        },
+        "p50_ms": {
+          "median": 2.3541875,
+          "min": 2.3389165,
+          "max": 2.5918124999999996
+        },
+        "p95_ms": {
+          "median": 2.474541,
+          "min": 2.455042,
+          "max": 8.620458
+        },
+        "p99_ms": {
+          "median": 2.690875,
+          "min": 2.542125,
+          "max": 14.934833
+        }
+      },
+      "patched": {
+        "requests_per_second": {
+          "median": 405.1043143609479,
+          "min": 258.5983966899405,
+          "max": 420.52144659377626
+        },
+        "total_payload_gbit_per_second": {
+          "median": 0.006637229086489771,
+          "min": 0.004236876131367985,
+          "max": 0.00688982338099243
+        },
+        "p50_ms": {
+          "median": 2.4475005,
+          "min": 2.3692919999999997,
+          "max": 2.902646
+        },
+        "p95_ms": {
+          "median": 2.721709,
+          "min": 2.5560840000000002,
+          "max": 7.267208
+        },
+        "p99_ms": {
+          "median": 3.372792,
+          "min": 2.638917,
+          "max": 12.948457999999999
+        }
+      },
+      "throughput_delta_percent": -4.8612517723313875
+    },
+    "h2_multiplex": {
+      "baseline": {
+        "requests_per_second": {
+          "median": 2531.5203955500615,
+          "min": 764.0365603432195,
+          "max": 2639.1752577319585
+        },
+        "total_payload_gbit_per_second": {
+          "median": 26.544915302843012,
+          "min": 8.011504002984518,
+          "max": 27.673758350515463
+        },
+        "p50_ms": {
+          "median": 6.021875,
+          "min": 5.8713335,
+          "max": 16.105667
+        },
+        "p95_ms": {
+          "median": 7.763333,
+          "min": 7.273167,
+          "max": 46.508375
+        },
+        "p99_ms": {
+          "median": 8.97575,
+          "min": 8.610792,
+          "max": 88.701125
+        }
+      },
+      "patched": {
+        "requests_per_second": {
+          "median": 2540.942928039702,
+          "min": 703.9010139199175,
+          "max": 2625.6410256410254
+        },
+        "total_payload_gbit_per_second": {
+          "median": 26.643717717121586,
+          "min": 7.380937095720914,
+          "max": 27.53184164102564
+        },
+        "p50_ms": {
+          "median": 5.9698125,
+          "min": 5.798458,
+          "max": 19.0330625
+        },
+        "p95_ms": {
+          "median": 8.126875,
+          "min": 7.613875,
+          "max": 42.155667
+        },
+        "p99_ms": {
+          "median": 9.9785,
+          "min": 9.744458,
+          "max": 59.985958
+        }
+      },
+      "throughput_delta_percent": 0.3722084367245637
+    },
+    "h3_serial": {
+      "baseline": {
+        "requests_per_second": {
+          "median": 421.40750105351873,
+          "min": 288.8086642599278,
+          "max": 421.674045962471
+        },
+        "total_payload_gbit_per_second": {
+          "median": 0.006904340497260851,
+          "min": 0.004731841155234657,
+          "max": 0.006908707569049125
+        },
+        "p50_ms": {
+          "median": 2.357167,
+          "min": 2.350521,
+          "max": 2.5371875
+        },
+        "p95_ms": {
+          "median": 2.622417,
+          "min": 2.6,
+          "max": 6.808792
+        },
+        "p99_ms": {
+          "median": 2.79625,
+          "min": 2.7728330000000003,
+          "max": 14.193000000000001
+        }
+      },
+      "patched": {
+        "requests_per_second": {
+          "median": 416.9272461955389,
+          "min": 295.6393200295639,
+          "max": 424.8088360237893
+        },
+        "total_payload_gbit_per_second": {
+          "median": 0.0068309360016677095,
+          "min": 0.004843754619364375,
+          "max": 0.006960067969413764
+        },
+        "p50_ms": {
+          "median": 2.3788954999999996,
+          "min": 2.3619375,
+          "max": 2.7258335
+        },
+        "p95_ms": {
+          "median": 2.5616250000000003,
+          "min": 2.4795,
+          "max": 6.502667
+        },
+        "p99_ms": {
+          "median": 2.978458,
+          "min": 2.549125,
+          "max": 13.289875
+        }
+      },
+      "throughput_delta_percent": -1.0631644777986171
+    },
+    "h3_multiplex": {
+      "baseline": {
+        "requests_per_second": {
+          "median": 105.51262235960844,
+          "min": 71.91263738193055,
+          "max": 116.24804881509863
+        },
+        "total_payload_gbit_per_second": {
+          "median": 1.1063800350334878,
+          "min": 0.7540586565539521,
+          "max": 1.2189491403434085
+        },
+        "p50_ms": {
+          "median": 146.033687,
+          "min": 132.5163955,
+          "max": 168.39352099999996
+        },
+        "p95_ms": {
+          "median": 236.756042,
+          "min": 224.37462499999998,
+          "max": 273.191333
+        },
+        "p99_ms": {
+          "median": 297.311417,
+          "min": 278.142,
+          "max": 884.3932920000001
+        }
+      },
+      "patched": {
+        "requests_per_second": {
+          "median": 114.59586492460062,
+          "min": 72.15968148265596,
+          "max": 130.26746811690995
+        },
+        "total_payload_gbit_per_second": {
+          "median": 1.2016247365917803,
+          "min": 0.7566491017035746,
+          "max": 1.3659534064815697
+        },
+        "p50_ms": {
+          "median": 136.093062,
+          "min": 120.99154150000001,
+          "max": 147.2825005
+        },
+        "p95_ms": {
+          "median": 225.445584,
+          "min": 183.299708,
+          "max": 234.732958
+        },
+        "p99_ms": {
+          "median": 275.830167,
+          "min": 217.67075,
+          "max": 317.913583
+        }
+      },
+      "throughput_delta_percent": 8.608678622387611
+    }
+  },
+  "runs": [
+    {
+      "variant": "baseline",
+      "name": "01-baseline",
+      "real_seconds": 50.44,
+      "cpu_seconds": 209.17000000000002,
+      "peak_rss_bytes": 164888576,
+      "workloads": [
+        {
+          "workload": "h2_warmup",
+          "samples": 512,
+          "seconds": 0.213,
+          "requests_per_second": 2403.755868544601,
+          "total_payload_gbit_per_second": 25.205207136150236,
+          "p50_ms": 5.9611255,
+          "p95_ms": 9.061333,
+          "p99_ms": 12.619167000000001,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 90849280,
+            "max_rss_bytes": 91881472,
+            "pid": 7274
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 194,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 4,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "b1d84592674185e778f7df9c96191694e94c394ac783cb40202406a156fd7f6f"
+        },
+        {
+          "workload": "h2_serial",
+          "samples": 2000,
+          "seconds": 4.697,
+          "requests_per_second": 425.8037044922291,
+          "total_payload_gbit_per_second": 0.006976367894400682,
+          "p50_ms": 2.3541875,
+          "p95_ms": 2.455042,
+          "p99_ms": 2.542125,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 91013120,
+            "max_rss_bytes": 91881472,
+            "pid": 7274
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "b1d84592674185e778f7df9c96191694e94c394ac783cb40202406a156fd7f6f"
+        },
+        {
+          "workload": "h2_multiplex",
+          "samples": 4096,
+          "seconds": 1.552,
+          "requests_per_second": 2639.1752577319585,
+          "total_payload_gbit_per_second": 27.673758350515463,
+          "p50_ms": 5.8713335,
+          "p95_ms": 7.273167,
+          "p99_ms": 8.610792,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 98058240,
+            "max_rss_bytes": 99581952,
+            "pid": 7274
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 4,
+            "backpressure_events": 1816,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "b1d84592674185e778f7df9c96191694e94c394ac783cb40202406a156fd7f6f"
+        },
+        {
+          "workload": "h3_warmup",
+          "samples": 512,
+          "seconds": 3.754,
+          "requests_per_second": 136.38785295684602,
+          "total_payload_gbit_per_second": 1.430130293020778,
+          "p50_ms": 112.2601245,
+          "p95_ms": 172.976875,
+          "p99_ms": 197.12887500000002,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 125206528,
+            "max_rss_bytes": 125206528,
+            "pid": 7274
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 278,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "b1d84592674185e778f7df9c96191694e94c394ac783cb40202406a156fd7f6f"
+        },
+        {
+          "workload": "h3_serial",
+          "samples": 2000,
+          "seconds": 4.743,
+          "requests_per_second": 421.674045962471,
+          "total_payload_gbit_per_second": 0.006908707569049125,
+          "p50_ms": 2.350521,
+          "p95_ms": 2.622417,
+          "p99_ms": 2.79625,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 125566976,
+            "max_rss_bytes": 125583360,
+            "pid": 7274
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "b1d84592674185e778f7df9c96191694e94c394ac783cb40202406a156fd7f6f"
+        },
+        {
+          "workload": "h3_multiplex",
+          "samples": 4096,
+          "seconds": 35.235,
+          "requests_per_second": 116.24804881509863,
+          "total_payload_gbit_per_second": 1.2189491403434085,
+          "p50_ms": 132.5163955,
+          "p95_ms": 224.37462499999998,
+          "p99_ms": 278.142,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 163856384,
+            "max_rss_bytes": 164888576,
+            "pid": 7274
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 2197,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "b1d84592674185e778f7df9c96191694e94c394ac783cb40202406a156fd7f6f"
+        }
+      ]
+    },
+    {
+      "variant": "patched",
+      "name": "02-patched",
+      "real_seconds": 47.45,
+      "cpu_seconds": 198.94,
+      "peak_rss_bytes": 148340736,
+      "workloads": [
+        {
+          "workload": "h2_warmup",
+          "samples": 512,
+          "seconds": 0.239,
+          "requests_per_second": 2142.2594142259413,
+          "total_payload_gbit_per_second": 22.463218075313808,
+          "p50_ms": 6.593125000000001,
+          "p95_ms": 10.397125,
+          "p99_ms": 14.196874999999999,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 103432192,
+            "max_rss_bytes": 103956480,
+            "pid": 8069
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 267,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 4,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "3354316161f8ab9a375d4af34d782364a7389b7485000929fb2dcf681ae8df1c"
+        },
+        {
+          "workload": "h2_serial",
+          "samples": 2000,
+          "seconds": 4.756,
+          "requests_per_second": 420.52144659377626,
+          "total_payload_gbit_per_second": 0.00688982338099243,
+          "p50_ms": 2.3692919999999997,
+          "p95_ms": 2.5560840000000002,
+          "p99_ms": 2.638917,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 103481344,
+            "max_rss_bytes": 103956480,
+            "pid": 8069
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "3354316161f8ab9a375d4af34d782364a7389b7485000929fb2dcf681ae8df1c"
+        },
+        {
+          "workload": "h2_multiplex",
+          "samples": 4096,
+          "seconds": 1.612,
+          "requests_per_second": 2540.942928039702,
+          "total_payload_gbit_per_second": 26.643717717121586,
+          "p50_ms": 5.9698125,
+          "p95_ms": 8.126875,
+          "p99_ms": 9.9785,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 112115712,
+            "max_rss_bytes": 113164288,
+            "pid": 8069
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 1616,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 3,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 3,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "3354316161f8ab9a375d4af34d782364a7389b7485000929fb2dcf681ae8df1c"
+        },
+        {
+          "workload": "h3_warmup",
+          "samples": 512,
+          "seconds": 3.991,
+          "requests_per_second": 128.2886494612879,
+          "total_payload_gbit_per_second": 1.345203988975194,
+          "p50_ms": 119.463125,
+          "p95_ms": 189.365417,
+          "p99_ms": 230.444166,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 125976576,
+            "max_rss_bytes": 126992384,
+            "pid": 8069
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 2,
+            "backpressure_events": 254,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "3354316161f8ab9a375d4af34d782364a7389b7485000929fb2dcf681ae8df1c"
+        },
+        {
+          "workload": "h3_serial",
+          "samples": 2000,
+          "seconds": 4.797,
+          "requests_per_second": 416.9272461955389,
+          "total_payload_gbit_per_second": 0.0068309360016677095,
+          "p50_ms": 2.3788954999999996,
+          "p95_ms": 2.5616250000000003,
+          "p99_ms": 2.978458,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 126337024,
+            "max_rss_bytes": 126992384,
+            "pid": 8069
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "3354316161f8ab9a375d4af34d782364a7389b7485000929fb2dcf681ae8df1c"
+        },
+        {
+          "workload": "h3_multiplex",
+          "samples": 4096,
+          "seconds": 31.443,
+          "requests_per_second": 130.26746811690995,
+          "total_payload_gbit_per_second": 1.3659534064815697,
+          "p50_ms": 120.99154150000001,
+          "p95_ms": 183.299708,
+          "p99_ms": 217.67075,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 148340736,
+            "max_rss_bytes": 148340736,
+            "pid": 8069
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 4,
+            "backpressure_events": 2204,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "3354316161f8ab9a375d4af34d782364a7389b7485000929fb2dcf681ae8df1c"
+        }
+      ]
+    },
+    {
+      "variant": "patched",
+      "name": "03-patched",
+      "real_seconds": 51.29,
+      "cpu_seconds": 215.48999999999998,
+      "peak_rss_bytes": 160497664,
+      "workloads": [
+        {
+          "workload": "h2_warmup",
+          "samples": 512,
+          "seconds": 0.208,
+          "requests_per_second": 2461.5384615384614,
+          "total_payload_gbit_per_second": 25.81110153846154,
+          "p50_ms": 5.9391665,
+          "p95_ms": 9.210625,
+          "p99_ms": 12.563625,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 90898432,
+            "max_rss_bytes": 90898432,
+            "pid": 8531
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 249,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 4,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e73b63816d2c0c3ffc2c07d5dd54ed0bfb90fe0dd8ac93da30a02ce2fb298715"
+        },
+        {
+          "workload": "h2_serial",
+          "samples": 2000,
+          "seconds": 4.937,
+          "requests_per_second": 405.1043143609479,
+          "total_payload_gbit_per_second": 0.006637229086489771,
+          "p50_ms": 2.4475005,
+          "p95_ms": 2.721709,
+          "p99_ms": 3.372792,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 90439680,
+            "max_rss_bytes": 90980352,
+            "pid": 8531
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e73b63816d2c0c3ffc2c07d5dd54ed0bfb90fe0dd8ac93da30a02ce2fb298715"
+        },
+        {
+          "workload": "h2_multiplex",
+          "samples": 4096,
+          "seconds": 1.56,
+          "requests_per_second": 2625.6410256410254,
+          "total_payload_gbit_per_second": 27.53184164102564,
+          "p50_ms": 5.798458,
+          "p95_ms": 7.613875,
+          "p99_ms": 9.744458,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 100630528,
+            "max_rss_bytes": 103153664,
+            "pid": 8531
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 4,
+            "backpressure_events": 2339,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e73b63816d2c0c3ffc2c07d5dd54ed0bfb90fe0dd8ac93da30a02ce2fb298715"
+        },
+        {
+          "workload": "h3_warmup",
+          "samples": 512,
+          "seconds": 3.976,
+          "requests_per_second": 128.77263581488933,
+          "total_payload_gbit_per_second": 1.3502789537223339,
+          "p50_ms": 123.9060835,
+          "p95_ms": 183.58266700000001,
+          "p99_ms": 198.44562499999998,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 117211136,
+            "max_rss_bytes": 117424128,
+            "pid": 8531
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 283,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e73b63816d2c0c3ffc2c07d5dd54ed0bfb90fe0dd8ac93da30a02ce2fb298715"
+        },
+        {
+          "workload": "h3_serial",
+          "samples": 2000,
+          "seconds": 4.708,
+          "requests_per_second": 424.8088360237893,
+          "total_payload_gbit_per_second": 0.006960067969413764,
+          "p50_ms": 2.3619375,
+          "p95_ms": 2.4795,
+          "p99_ms": 2.549125,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 117047296,
+            "max_rss_bytes": 117424128,
+            "pid": 8531
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e73b63816d2c0c3ffc2c07d5dd54ed0bfb90fe0dd8ac93da30a02ce2fb298715"
+        },
+        {
+          "workload": "h3_multiplex",
+          "samples": 4096,
+          "seconds": 35.743,
+          "requests_per_second": 114.59586492460062,
+          "total_payload_gbit_per_second": 1.2016247365917803,
+          "p50_ms": 136.093062,
+          "p95_ms": 225.445584,
+          "p99_ms": 275.830167,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 158531584,
+            "max_rss_bytes": 160497664,
+            "pid": 8531
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 4,
+            "backpressure_events": 2195,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e73b63816d2c0c3ffc2c07d5dd54ed0bfb90fe0dd8ac93da30a02ce2fb298715"
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "name": "04-baseline",
+      "real_seconds": 54.04,
+      "cpu_seconds": 202.48000000000002,
+      "peak_rss_bytes": 164839424,
+      "workloads": [
+        {
+          "workload": "h2_warmup",
+          "samples": 512,
+          "seconds": 0.213,
+          "requests_per_second": 2403.755868544601,
+          "total_payload_gbit_per_second": 25.205207136150236,
+          "p50_ms": 6.0415415,
+          "p95_ms": 8.853458,
+          "p99_ms": 14.81375,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 91209728,
+            "max_rss_bytes": 92209152,
+            "pid": 8982
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 2,
+            "backpressure_events": 163,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 3,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 4,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 3,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e0f0f155388cc8e22114419566082ac04af16368e534aa4e31690e8a43cfc383"
+        },
+        {
+          "workload": "h2_serial",
+          "samples": 2000,
+          "seconds": 4.694,
+          "requests_per_second": 426.075841499787,
+          "total_payload_gbit_per_second": 0.00698082658713251,
+          "p50_ms": 2.3389165,
+          "p95_ms": 2.474541,
+          "p99_ms": 2.690875,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 90882048,
+            "max_rss_bytes": 92209152,
+            "pid": 8982
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e0f0f155388cc8e22114419566082ac04af16368e534aa4e31690e8a43cfc383"
+        },
+        {
+          "workload": "h2_multiplex",
+          "samples": 4096,
+          "seconds": 1.618,
+          "requests_per_second": 2531.5203955500615,
+          "total_payload_gbit_per_second": 26.544915302843012,
+          "p50_ms": 6.021875,
+          "p95_ms": 7.763333,
+          "p99_ms": 8.97575,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 101629952,
+            "max_rss_bytes": 103694336,
+            "pid": 8982
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 1322,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 3,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 3,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e0f0f155388cc8e22114419566082ac04af16368e534aa4e31690e8a43cfc383"
+        },
+        {
+          "workload": "h3_warmup",
+          "samples": 512,
+          "seconds": 3.772,
+          "requests_per_second": 135.7370095440085,
+          "total_payload_gbit_per_second": 1.4233057051961824,
+          "p50_ms": 116.6220415,
+          "p95_ms": 168.640333,
+          "p99_ms": 208.600584,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 125091840,
+            "max_rss_bytes": 125517824,
+            "pid": 8982
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 2,
+            "backpressure_events": 267,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e0f0f155388cc8e22114419566082ac04af16368e534aa4e31690e8a43cfc383"
+        },
+        {
+          "workload": "h3_serial",
+          "samples": 2000,
+          "seconds": 4.746,
+          "requests_per_second": 421.40750105351873,
+          "total_payload_gbit_per_second": 0.006904340497260851,
+          "p50_ms": 2.357167,
+          "p95_ms": 2.6,
+          "p99_ms": 2.7728330000000003,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 125468672,
+            "max_rss_bytes": 125517824,
+            "pid": 8982
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e0f0f155388cc8e22114419566082ac04af16368e534aa4e31690e8a43cfc383"
+        },
+        {
+          "workload": "h3_multiplex",
+          "samples": 4096,
+          "seconds": 38.82,
+          "requests_per_second": 105.51262235960844,
+          "total_payload_gbit_per_second": 1.1063800350334878,
+          "p50_ms": 146.033687,
+          "p95_ms": 236.756042,
+          "p99_ms": 297.311417,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 163790848,
+            "max_rss_bytes": 164839424,
+            "pid": 8982
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 4,
+            "backpressure_events": 2131,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "e0f0f155388cc8e22114419566082ac04af16368e534aa4e31690e8a43cfc383"
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "name": "05-baseline",
+      "real_seconds": 82.08,
+      "cpu_seconds": 219.69,
+      "peak_rss_bytes": 174292992,
+      "workloads": [
+        {
+          "workload": "h2_warmup",
+          "samples": 512,
+          "seconds": 0.545,
+          "requests_per_second": 939.4495412844036,
+          "total_payload_gbit_per_second": 9.85084242201835,
+          "p50_ms": 15.571646,
+          "p95_ms": 22.596874999999997,
+          "p99_ms": 26.608458000000002,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 96124928,
+            "max_rss_bytes": 97042432,
+            "pid": 9454
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 270,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 4,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "0714544e346eae7331d86ad133be593a29d866954ff68cf0bc61dcffe52c5d09"
+        },
+        {
+          "workload": "h2_serial",
+          "samples": 2000,
+          "seconds": 6.848,
+          "requests_per_second": 292.05607476635515,
+          "total_payload_gbit_per_second": 0.004785046728971963,
+          "p50_ms": 2.5918124999999996,
+          "p95_ms": 8.620458,
+          "p99_ms": 14.934833,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 96698368,
+            "max_rss_bytes": 97042432,
+            "pid": 9454
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "0714544e346eae7331d86ad133be593a29d866954ff68cf0bc61dcffe52c5d09"
+        },
+        {
+          "workload": "h2_multiplex",
+          "samples": 4096,
+          "seconds": 5.361,
+          "requests_per_second": 764.0365603432195,
+          "total_payload_gbit_per_second": 8.011504002984518,
+          "p50_ms": 16.105667,
+          "p95_ms": 46.508375,
+          "p99_ms": 88.701125,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 120160256,
+            "max_rss_bytes": 120668160,
+            "pid": 9454
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 4,
+            "backpressure_events": 1885,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "0714544e346eae7331d86ad133be593a29d866954ff68cf0bc61dcffe52c5d09"
+        },
+        {
+          "workload": "h3_warmup",
+          "samples": 512,
+          "seconds": 5.173,
+          "requests_per_second": 98.97544944906244,
+          "total_payload_gbit_per_second": 1.037832808815001,
+          "p50_ms": 152.1885835,
+          "p95_ms": 251.91183299999997,
+          "p99_ms": 289.7515,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 140279808,
+            "max_rss_bytes": 140279808,
+            "pid": 9454
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 258,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "0714544e346eae7331d86ad133be593a29d866954ff68cf0bc61dcffe52c5d09"
+        },
+        {
+          "workload": "h3_serial",
+          "samples": 2000,
+          "seconds": 6.925,
+          "requests_per_second": 288.8086642599278,
+          "total_payload_gbit_per_second": 0.004731841155234657,
+          "p50_ms": 2.5371875,
+          "p95_ms": 6.808792,
+          "p99_ms": 14.193000000000001,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 140656640,
+            "max_rss_bytes": 140656640,
+            "pid": 9454
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "0714544e346eae7331d86ad133be593a29d866954ff68cf0bc61dcffe52c5d09"
+        },
+        {
+          "workload": "h3_multiplex",
+          "samples": 4096,
+          "seconds": 56.958,
+          "requests_per_second": 71.91263738193055,
+          "total_payload_gbit_per_second": 0.7540586565539521,
+          "p50_ms": 168.39352099999996,
+          "p95_ms": 273.191333,
+          "p99_ms": 884.3932920000001,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 173801472,
+            "max_rss_bytes": 174292992,
+            "pid": 9454
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 4,
+            "backpressure_events": 2049,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "0714544e346eae7331d86ad133be593a29d866954ff68cf0bc61dcffe52c5d09"
+        }
+      ]
+    },
+    {
+      "variant": "patched",
+      "name": "06-patched",
+      "real_seconds": 84.66,
+      "cpu_seconds": 230.96,
+      "peak_rss_bytes": 171802624,
+      "workloads": [
+        {
+          "workload": "h2_warmup",
+          "samples": 512,
+          "seconds": 0.67,
+          "requests_per_second": 764.1791044776119,
+          "total_payload_gbit_per_second": 8.012998686567164,
+          "p50_ms": 17.492396,
+          "p95_ms": 38.109667,
+          "p99_ms": 48.760167,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 117997568,
+            "max_rss_bytes": 117997568,
+            "pid": 10051
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 279,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 4,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "52593dec3bb944f080ead229313802f3bdef8ca266f7b700e49859e80dcbf904"
+        },
+        {
+          "workload": "h2_serial",
+          "samples": 2000,
+          "seconds": 7.734,
+          "requests_per_second": 258.5983966899405,
+          "total_payload_gbit_per_second": 0.004236876131367985,
+          "p50_ms": 2.902646,
+          "p95_ms": 7.267208,
+          "p99_ms": 12.948457999999999,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 117555200,
+            "max_rss_bytes": 118112256,
+            "pid": 10051
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "52593dec3bb944f080ead229313802f3bdef8ca266f7b700e49859e80dcbf904"
+        },
+        {
+          "workload": "h2_multiplex",
+          "samples": 4096,
+          "seconds": 5.819,
+          "requests_per_second": 703.9010139199175,
+          "total_payload_gbit_per_second": 7.380937095720914,
+          "p50_ms": 19.0330625,
+          "p95_ms": 42.155667,
+          "p99_ms": 59.985958,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 141836288,
+            "max_rss_bytes": 144949248,
+            "pid": 10051
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 4,
+            "backpressure_events": 2094,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "52593dec3bb944f080ead229313802f3bdef8ca266f7b700e49859e80dcbf904"
+        },
+        {
+          "workload": "h3_warmup",
+          "samples": 512,
+          "seconds": 6.661,
+          "requests_per_second": 76.86533553520493,
+          "total_payload_gbit_per_second": 0.8059914607416304,
+          "p50_ms": 182.018958,
+          "p95_ms": 312.789375,
+          "p99_ms": 932.769125,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 153796608,
+            "max_rss_bytes": 153796608,
+            "pid": 10051
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 3,
+            "backpressure_events": 247,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "52593dec3bb944f080ead229313802f3bdef8ca266f7b700e49859e80dcbf904"
+        },
+        {
+          "workload": "h3_serial",
+          "samples": 2000,
+          "seconds": 6.765,
+          "requests_per_second": 295.6393200295639,
+          "total_payload_gbit_per_second": 0.004843754619364375,
+          "p50_ms": 2.7258335,
+          "p95_ms": 6.502667,
+          "p99_ms": 13.289875,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 153665536,
+            "max_rss_bytes": 154189824,
+            "pid": 10051
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 0,
+            "backpressure_events": 0,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 1,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 1,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "52593dec3bb944f080ead229313802f3bdef8ca266f7b700e49859e80dcbf904"
+        },
+        {
+          "workload": "h3_multiplex",
+          "samples": 4096,
+          "seconds": 56.763,
+          "requests_per_second": 72.15968148265596,
+          "total_payload_gbit_per_second": 0.7566491017035746,
+          "p50_ms": 147.2825005,
+          "p95_ms": 234.732958,
+          "p99_ms": 317.913583,
+          "errors": 0,
+          "process_rss": {
+            "current_rss_bytes": 170803200,
+            "max_rss_bytes": 171802624,
+            "pid": 10051
+          },
+          "transport_counter_deltas": {
+            "active_throttles": 0,
+            "backpressure_alerts": 4,
+            "backpressure_events": 2130,
+            "body_timeout_alerts": 0,
+            "body_timeout_events": 0,
+            "buffered_file_segment_bytes_total": 0,
+            "buffered_file_segment_calls_total": 0,
+            "goaway_alerts": 0,
+            "goaway_events": 0,
+            "graceful_events": 4,
+            "idle_timeout_alerts": 0,
+            "idle_timeout_events": 0,
+            "internal_error_alerts": 0,
+            "internal_error_events": 0,
+            "max_backpressure_depth": 0,
+            "protocol_error_alerts": 0,
+            "protocol_error_events": 0,
+            "rawsocket_zero_copy_bytes_total": 0,
+            "rawsocket_zero_copy_calls_total": 0,
+            "total_events": 4,
+            "transport_alerts": 0
+          },
+          "raw_sha256": "52593dec3bb944f080ead229313802f3bdef8ca266f7b700e49859e80dcbf904"
+        }
+      ]
+    }
+  ],
+  "date": "2026-09-10",
+  "status": "Performance confirmation pending due shared-host contention and the serial HTTP2 decrease",
+  "lower_load_confirmation_attempt": {
+    "status": "incomplete_host_contention",
+    "planned_run_order": [
+      "baseline",
+      "patched",
+      "patched",
+      "baseline",
+      "baseline",
+      "patched"
+    ],
+    "completed_processes": 2,
+    "measured_requests": 24384,
+    "warmup_requests": 2048,
+    "reason": "Stopped between processes while waiting for unrelated inference load to fall; no processes or measured samples were interrupted. Two processes are insufficient to resolve the initial comparison.",
+    "raw_evidence_directory": "connectanum-sa002-performance-confirmation",
+    "cpu_sampling": "Category totals from ps before/after processes, not continuous monitoring; 100 percent represents one logical CPU.",
+    "runs": [
+      {
+        "variant": "baseline",
+        "name": "01-baseline",
+        "host_cpu_before": {
+          "virtual_machine": 180.4,
+          "inference": 0.4,
+          "emulator": 117.6,
+          "benchmark": 0.0,
+          "other": 263.7
+        },
+        "host_cpu_after": {
+          "virtual_machine": 278.9,
+          "inference": 2007.2,
+          "emulator": 121.4,
+          "benchmark": 0.0,
+          "other": 116.6
+        },
+        "real_seconds": 47.23,
+        "cpu_seconds": 200.31,
+        "peak_rss_bytes": 149864448,
+        "workloads": [
+          {
+            "workload": "h2_warmup",
+            "samples": 512,
+            "seconds": 0.211,
+            "requests_per_second": 2426.5402843601896,
+            "total_payload_gbit_per_second": 25.444119052132702,
+            "p50_ms": 6.100771,
+            "p95_ms": 7.7048749999999995,
+            "p99_ms": 8.522375,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 88965120,
+              "max_rss_bytes": 89407488,
+              "pid": 46716
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 2,
+              "backpressure_events": 180,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 3,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 4,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 3,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "cdcb9115dcfeed3af21793162ff54ecd63f041abc40c0050bb76d1b43e426ec1"
+          },
+          {
+            "workload": "h2_serial",
+            "samples": 2000,
+            "seconds": 4.796,
+            "requests_per_second": 417.01417848206836,
+            "total_payload_gbit_per_second": 0.006832360300250208,
+            "p50_ms": 2.374729,
+            "p95_ms": 2.621458,
+            "p99_ms": 2.802625,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 89096192,
+              "max_rss_bytes": 89407488,
+              "pid": 46716
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "cdcb9115dcfeed3af21793162ff54ecd63f041abc40c0050bb76d1b43e426ec1"
+          },
+          {
+            "workload": "h2_multiplex",
+            "samples": 4096,
+            "seconds": 1.583,
+            "requests_per_second": 2587.492103600758,
+            "total_payload_gbit_per_second": 27.131821200252684,
+            "p50_ms": 5.938625,
+            "p95_ms": 7.507125,
+            "p99_ms": 8.683290999999999,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 102088704,
+              "max_rss_bytes": 102612992,
+              "pid": 46716
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 1846,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "cdcb9115dcfeed3af21793162ff54ecd63f041abc40c0050bb76d1b43e426ec1"
+          },
+          {
+            "workload": "h3_warmup",
+            "samples": 512,
+            "seconds": 3.997,
+            "requests_per_second": 128.09607205404055,
+            "total_payload_gbit_per_second": 1.3431846685013762,
+            "p50_ms": 120.9997085,
+            "p95_ms": 182.89129200000002,
+            "p99_ms": 210.52491700000002,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 120897536,
+              "max_rss_bytes": 121946112,
+              "pid": 46716
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 2,
+              "backpressure_events": 274,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "cdcb9115dcfeed3af21793162ff54ecd63f041abc40c0050bb76d1b43e426ec1"
+          },
+          {
+            "workload": "h3_serial",
+            "samples": 2000,
+            "seconds": 4.929,
+            "requests_per_second": 405.7618178129438,
+            "total_payload_gbit_per_second": 0.006648001623047271,
+            "p50_ms": 2.4238954999999995,
+            "p95_ms": 2.817208,
+            "p99_ms": 3.282167,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 120733696,
+              "max_rss_bytes": 121946112,
+              "pid": 46716
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "cdcb9115dcfeed3af21793162ff54ecd63f041abc40c0050bb76d1b43e426ec1"
+          },
+          {
+            "workload": "h3_multiplex",
+            "samples": 4096,
+            "seconds": 31.476,
+            "requests_per_second": 130.13089337908247,
+            "total_payload_gbit_per_second": 1.3645213165586478,
+            "p50_ms": 121.47395850000001,
+            "p95_ms": 185.403417,
+            "p99_ms": 210.450417,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 148832256,
+              "max_rss_bytes": 149864448,
+              "pid": 46716
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2177,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "cdcb9115dcfeed3af21793162ff54ecd63f041abc40c0050bb76d1b43e426ec1"
+          }
+        ]
+      },
+      {
+        "variant": "patched",
+        "name": "02-patched",
+        "host_cpu_before": {
+          "virtual_machine": 265.6,
+          "inference": 0.5,
+          "emulator": 116.1,
+          "benchmark": 0.0,
+          "other": 155.9
+        },
+        "host_cpu_after": {
+          "virtual_machine": 202.2,
+          "inference": 262.9,
+          "emulator": 126.4,
+          "benchmark": 0.0,
+          "other": 779.5
+        },
+        "real_seconds": 49.14,
+        "cpu_seconds": 210.23,
+        "peak_rss_bytes": 151715840,
+        "workloads": [
+          {
+            "workload": "h2_warmup",
+            "samples": 512,
+            "seconds": 0.212,
+            "requests_per_second": 2415.0943396226417,
+            "total_payload_gbit_per_second": 25.32409962264151,
+            "p50_ms": 6.040167,
+            "p95_ms": 9.383875,
+            "p99_ms": 12.74325,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 98959360,
+              "max_rss_bytes": 100007936,
+              "pid": 46910
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 2,
+              "backpressure_events": 226,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 4,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "f57d55fc896550520474870c86096b9378a20309ad8ccfd4e5dd9c5bb8b3fa7f"
+          },
+          {
+            "workload": "h2_serial",
+            "samples": 2000,
+            "seconds": 4.792,
+            "requests_per_second": 417.3622704507513,
+            "total_payload_gbit_per_second": 0.006838063439065109,
+            "p50_ms": 2.367938,
+            "p95_ms": 2.634708,
+            "p99_ms": 2.84,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 98992128,
+              "max_rss_bytes": 100007936,
+              "pid": 46910
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "f57d55fc896550520474870c86096b9378a20309ad8ccfd4e5dd9c5bb8b3fa7f"
+          },
+          {
+            "workload": "h2_multiplex",
+            "samples": 4096,
+            "seconds": 1.553,
+            "requests_per_second": 2637.4758531873795,
+            "total_payload_gbit_per_second": 27.655938802318097,
+            "p50_ms": 5.839979,
+            "p95_ms": 7.5611250000000005,
+            "p99_ms": 9.185459,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 107184128,
+              "max_rss_bytes": 108724224,
+              "pid": 46910
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2094,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "f57d55fc896550520474870c86096b9378a20309ad8ccfd4e5dd9c5bb8b3fa7f"
+          },
+          {
+            "workload": "h3_warmup",
+            "samples": 512,
+            "seconds": 3.923,
+            "requests_per_second": 130.51236298750956,
+            "total_payload_gbit_per_second": 1.368521315319908,
+            "p50_ms": 120.6265415,
+            "p95_ms": 172.96758400000002,
+            "p99_ms": 191.471167,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 126812160,
+              "max_rss_bytes": 128909312,
+              "pid": 46910
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 3,
+              "backpressure_events": 278,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "f57d55fc896550520474870c86096b9378a20309ad8ccfd4e5dd9c5bb8b3fa7f"
+          },
+          {
+            "workload": "h3_serial",
+            "samples": 2000,
+            "seconds": 4.781,
+            "requests_per_second": 418.32252666806113,
+            "total_payload_gbit_per_second": 0.006853796276929514,
+            "p50_ms": 2.3758749999999997,
+            "p95_ms": 2.6125,
+            "p99_ms": 2.805166,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 127188992,
+              "max_rss_bytes": 128909312,
+              "pid": 46910
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "f57d55fc896550520474870c86096b9378a20309ad8ccfd4e5dd9c5bb8b3fa7f"
+          },
+          {
+            "workload": "h3_multiplex",
+            "samples": 4096,
+            "seconds": 33.722,
+            "requests_per_second": 121.46373287468121,
+            "total_payload_gbit_per_second": 1.2736395516280172,
+            "p50_ms": 130.40589599999998,
+            "p95_ms": 200.147916,
+            "p99_ms": 239.797167,
+            "errors": 0,
+            "process_rss": {
+              "current_rss_bytes": 150683648,
+              "max_rss_bytes": 151715840,
+              "pid": 46910
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2272,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "raw_sha256": "f57d55fc896550520474870c86096b9378a20309ad8ccfd4e5dd9c5bb8b3fa7f"
+          }
+        ]
+      }
+    ]
+  },
+  "canonical_production_gates": {
+    "status": "passed",
+    "source": "bin/wamp-profile-validate",
+    "raw_evidence_directory": "connectanum-sa002-wamp-profile-validation",
+    "driver_sha256": "183b16e9f689cdfcd5444ad733fa9edac4710b88a4c851af2128bb1c443401e9",
+    "native_sha256": "0617efe498fcc78646e6d96ab3d86b624f97716b8f7a0554711abaa57adcbe81",
+    "router_workers": 1,
+    "native_threads": 1,
+    "scenario_count": 9,
+    "workload_count": 102,
+    "caveat": "Absolute checked-in production gates; not a repeated before/after speed comparison. No audit builds/tests/inference overlap measured workloads.",
+    "gates": [
+      {
+        "scenario": "wamp_control_smoke",
+        "workload_count": 24,
+        "counter_findings": 0,
+        "metric_findings": 0
+      },
+      {
+        "scenario": "wamp_e2ee_smoke",
+        "workload_count": 4,
+        "counter_findings": 0,
+        "metric_findings": 0
+      },
+      {
+        "scenario": "wamp_e2ee_throughput",
+        "workload_count": 16,
+        "counter_findings": 0,
+        "metric_findings": 0
+      },
+      {
+        "scenario": "wamp_final_release_features",
+        "workload_count": 12,
+        "counter_findings": 0,
+        "metric_findings": 0
+      },
+      {
+        "scenario": "wamp_publish_fanout_throughput",
+        "workload_count": 6,
+        "counter_findings": 0,
+        "metric_findings": 0
+      },
+      {
+        "scenario": "wamp_secure_smoke",
+        "workload_count": 4,
+        "counter_findings": 0,
+        "metric_findings": 0
+      },
+      {
+        "scenario": "wamp_secure_throughput",
+        "workload_count": 12,
+        "counter_findings": 0,
+        "metric_findings": 0
+      },
+      {
+        "scenario": "wamp_smoke",
+        "workload_count": 12,
+        "counter_findings": 0,
+        "metric_findings": 0
+      },
+      {
+        "scenario": "wamp_transport_throughput",
+        "workload_count": 12,
+        "counter_findings": 0,
+        "metric_findings": 0
+      }
+    ]
+  },
+  "large_frame_and_file_gates": {
+    "status": "passed",
+    "driver_sha256": "54e69d2f9efc60fdc3febd8b1e49a166da237768e195593908b0f61fca27a60f",
+    "native_sha256": "0617efe498fcc78646e6d96ab3d86b624f97716b8f7a0554711abaa57adcbe81",
+    "router_workers": 1,
+    "native_threads": 1,
+    "caveat": "Absolute checked-in production gates, not repeated before/after comparisons. Throughput follows the canonical dominant-direction metric, unlike the initial HTTP request-plus-response total payload metric.",
+    "large_frames": {
+      "raw_evidence_directory": "connectanum-sa002-large-frames",
+      "workload_count": 24,
+      "counter_findings": 0,
+      "metric_findings": 0,
+      "sample_count": 864,
+      "request_bytes": 12884901888,
+      "response_bytes": 12884901888,
+      "workloads": [
+        {
+          "workload": "rawsocket_rpc_json_64m_native",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 11.487248377865148,
+          "latency_p95_ms": 78.041
+        },
+        {
+          "workload": "rawsocket_rpc_msgpack_64m_native",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 16.89707965882982,
+          "latency_p95_ms": 51.19
+        },
+        {
+          "workload": "rawsocket_rpc_cbor_64m_native",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 15.10318170021978,
+          "latency_p95_ms": 57.357
+        },
+        {
+          "workload": "websocket_rpc_json_8m_native",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 6.704663634064634,
+          "latency_p95_ms": 11.486
+        },
+        {
+          "workload": "websocket_rpc_msgpack_8m_native",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 8.497347493708551,
+          "latency_p95_ms": 9.291
+        },
+        {
+          "workload": "websocket_rpc_cbor_8m_native",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 6.706841336319032,
+          "latency_p95_ms": 11.018
+        },
+        {
+          "workload": "rawsocket_tls_rpc_json_64m_native",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 8.900840966976487,
+          "latency_p95_ms": 70.205
+        },
+        {
+          "workload": "rawsocket_tls_rpc_msgpack_64m_native",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 10.827475769714601,
+          "latency_p95_ms": 61.041
+        },
+        {
+          "workload": "rawsocket_tls_rpc_cbor_64m_native",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 9.953505064854706,
+          "latency_p95_ms": 60.388
+        },
+        {
+          "workload": "websocket_tls_rpc_json_8m_native",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 6.181721390070309,
+          "latency_p95_ms": 12.686
+        },
+        {
+          "workload": "websocket_tls_rpc_msgpack_8m_native",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 7.793105174153184,
+          "latency_p95_ms": 10.303
+        },
+        {
+          "workload": "websocket_tls_rpc_cbor_8m_native",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 5.090349709095262,
+          "latency_p95_ms": 14.74
+        },
+        {
+          "workload": "rawsocket_rpc_json_64m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 2.344209728407999,
+          "latency_p95_ms": 237.936
+        },
+        {
+          "workload": "rawsocket_rpc_msgpack_64m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 17.6809472284544,
+          "latency_p95_ms": 52.012
+        },
+        {
+          "workload": "rawsocket_rpc_cbor_64m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 16.83766057056386,
+          "latency_p95_ms": 50.489
+        },
+        {
+          "workload": "websocket_rpc_json_8m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 2.436688062406921,
+          "latency_p95_ms": 29.12
+        },
+        {
+          "workload": "websocket_rpc_msgpack_8m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 7.177454592853906,
+          "latency_p95_ms": 10.681
+        },
+        {
+          "workload": "websocket_rpc_cbor_8m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 7.01683120430652,
+          "latency_p95_ms": 11.011
+        },
+        {
+          "workload": "rawsocket_tls_rpc_json_64m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 0.7165975083906783,
+          "latency_p95_ms": 791.29
+        },
+        {
+          "workload": "rawsocket_tls_rpc_msgpack_64m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 0.9819420277131526,
+          "latency_p95_ms": 558.539
+        },
+        {
+          "workload": "rawsocket_tls_rpc_cbor_64m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_rawsocket_rpc",
+          "sample_count": 8,
+          "throughput_gbit_per_second": 0.9476685072242899,
+          "latency_p95_ms": 583.47
+        },
+        {
+          "workload": "websocket_tls_rpc_json_8m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 0.6635839205979871,
+          "latency_p95_ms": 126.373
+        },
+        {
+          "workload": "websocket_tls_rpc_msgpack_8m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 0.7884221113792849,
+          "latency_p95_ms": 96.171
+        },
+        {
+          "workload": "websocket_tls_rpc_cbor_8m_dart",
+          "client_impl": "dart",
+          "protocol": "wamp_websocket_rpc",
+          "sample_count": 64,
+          "throughput_gbit_per_second": 0.8194641476458591,
+          "latency_p95_ms": 94.216
+        }
+      ]
+    },
+    "file_transfer": {
+      "raw_evidence_directory": "connectanum-sa002-file-transfer",
+      "workload_count": 30,
+      "counter_findings": 0,
+      "metric_findings": 0,
+      "sample_count": 408,
+      "request_bytes": 27380416512,
+      "response_bytes": 0,
+      "workloads": [
+        {
+          "workload": "rawsocket_file_msgpack_64m_native",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 17.165793233548488,
+          "latency_p95_ms": 82.696
+        },
+        {
+          "workload": "rawsocket_file_cbor_64m_native",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 18.424558669475058,
+          "latency_p95_ms": 60.676
+        },
+        {
+          "workload": "rawsocket_file_json_64m_native_base64_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 7.854911269917472,
+          "latency_p95_ms": 141.942
+        },
+        {
+          "workload": "rawsocket_file_cbor_64m_dart_buffered",
+          "client_impl": "dart",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 4,
+          "throughput_gbit_per_second": 7.563612838692181,
+          "latency_p95_ms": 72.326
+        },
+        {
+          "workload": "rawsocket_file_msgpack_64m_dart_buffered",
+          "client_impl": "dart",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 4,
+          "throughput_gbit_per_second": 7.465379661335122,
+          "latency_p95_ms": 79.796
+        },
+        {
+          "workload": "rawsocket_file_json_64m_dart_buffered",
+          "client_impl": "dart",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 4,
+          "throughput_gbit_per_second": 4.031379573937659,
+          "latency_p95_ms": 135.333
+        },
+        {
+          "workload": "rawsocket_tls_file_cbor_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 9.8890149268852,
+          "latency_p95_ms": 115.166
+        },
+        {
+          "workload": "rawsocket_tls_file_msgpack_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 10.42070690537829,
+          "latency_p95_ms": 132.529
+        },
+        {
+          "workload": "rawsocket_tls_file_json_64m_native_base64_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 5.734563520287758,
+          "latency_p95_ms": 198.71
+        },
+        {
+          "workload": "websocket_file_cbor_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 12.733695619367818,
+          "latency_p95_ms": 103.114
+        },
+        {
+          "workload": "websocket_file_msgpack_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 17.1990977753128,
+          "latency_p95_ms": 72.482
+        },
+        {
+          "workload": "websocket_file_json_64m_native_base64_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 8.429132040071554,
+          "latency_p95_ms": 132.354
+        },
+        {
+          "workload": "websocket_file_cbor_64m_dart_buffered",
+          "client_impl": "dart",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 4,
+          "throughput_gbit_per_second": 8.06242617239269,
+          "latency_p95_ms": 68.649
+        },
+        {
+          "workload": "websocket_file_msgpack_64m_dart_buffered",
+          "client_impl": "dart",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 4,
+          "throughput_gbit_per_second": 8.238544204585997,
+          "latency_p95_ms": 66.812
+        },
+        {
+          "workload": "websocket_file_json_64m_dart_buffered",
+          "client_impl": "dart",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 4,
+          "throughput_gbit_per_second": 2.1895470361107225,
+          "latency_p95_ms": 248.311
+        },
+        {
+          "workload": "websocket_tls_file_cbor_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 8.118731532580556,
+          "latency_p95_ms": 134.44
+        },
+        {
+          "workload": "websocket_tls_file_msgpack_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 10.706022828056723,
+          "latency_p95_ms": 109.277
+        },
+        {
+          "workload": "websocket_tls_file_json_64m_native_base64_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 5.703353379544791,
+          "latency_p95_ms": 197.922
+        },
+        {
+          "workload": "rawsocket_file_cbor_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 20.634199204412244,
+          "latency_p95_ms": 57.46
+        },
+        {
+          "workload": "rawsocket_file_json_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 8.23474532202509,
+          "latency_p95_ms": 138.124
+        },
+        {
+          "workload": "rawsocket_file_msgpack_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 20.480800812562286,
+          "latency_p95_ms": 61.075
+        },
+        {
+          "workload": "rawsocket_tls_file_json_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 6.67101147127599,
+          "latency_p95_ms": 168.546
+        },
+        {
+          "workload": "rawsocket_tls_file_msgpack_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 11.122867302794203,
+          "latency_p95_ms": 113.97
+        },
+        {
+          "workload": "rawsocket_tls_file_cbor_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_rawsocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 10.563516352054306,
+          "latency_p95_ms": 105.892
+        },
+        {
+          "workload": "websocket_file_json_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 8.050434709915043,
+          "latency_p95_ms": 136.194
+        },
+        {
+          "workload": "websocket_file_msgpack_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 19.805116611293382,
+          "latency_p95_ms": 63.774
+        },
+        {
+          "workload": "websocket_file_cbor_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 15.45010619465843,
+          "latency_p95_ms": 73.431
+        },
+        {
+          "workload": "websocket_tls_file_json_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 6.708700831057382,
+          "latency_p95_ms": 174.489
+        },
+        {
+          "workload": "websocket_tls_file_msgpack_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 9.888684785699402,
+          "latency_p95_ms": 115.165
+        },
+        {
+          "workload": "websocket_tls_file_cbor_e2ee_64m_native_segmented",
+          "client_impl": "native",
+          "protocol": "wamp_websocket_file_transfer",
+          "sample_count": 16,
+          "throughput_gbit_per_second": 8.930972716138463,
+          "latency_p95_ms": 133.963
+        }
+      ]
+    }
+  }
+}
