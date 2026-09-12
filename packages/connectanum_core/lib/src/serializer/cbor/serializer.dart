@@ -178,9 +178,7 @@ class Serializer extends AbstractSerializer {
             (decodedMessage[1] as CborInt).toInt(),
             (decodedMessage[3] as CborString).toString(),
             options: _decodeRegisterOptions(
-              decodedMessage[2] is CborMap
-                  ? _cborMapToStringMap(decodedMessage[2] as CborMap)
-                  : null,
+              _decodeRequiredOptionsMap(decodedMessage[2], 'REGISTER'),
             ),
           );
         }
@@ -197,9 +195,7 @@ class Serializer extends AbstractSerializer {
               (decodedMessage[1] as CborInt).toInt(),
               (decodedMessage[3] as CborString).toString(),
               options: _decodeCallOptions(
-                decodedMessage[2] is CborMap
-                    ? _cborMapToStringMap(decodedMessage[2] as CborMap)
-                    : null,
+                _decodeRequiredOptionsMap(decodedMessage[2], 'CALL'),
               ),
             ),
             decodedMessage,
@@ -211,9 +207,7 @@ class Serializer extends AbstractSerializer {
             Yield(
               (decodedMessage[1] as CborInt).toInt(),
               options: _decodeYieldOptions(
-                decodedMessage.length > 2 && decodedMessage[2] is CborMap
-                    ? _cborMapToStringMap(decodedMessage[2] as CborMap)
-                    : null,
+                _decodeRequiredOptionsMap(decodedMessage[2], 'YIELD'),
               ),
             ),
             decodedMessage,
@@ -227,9 +221,7 @@ class Serializer extends AbstractSerializer {
               (decodedMessage[1] as CborInt).toInt(),
               (decodedMessage[3] as CborString).toString(),
               options: _decodePublishOptions(
-                decodedMessage[2] is CborMap
-                    ? _cborMapToStringMap(decodedMessage[2] as CborMap)
-                    : null,
+                _decodeRequiredOptionsMap(decodedMessage[2], 'PUBLISH'),
               ),
             ),
             decodedMessage,
@@ -238,17 +230,12 @@ class Serializer extends AbstractSerializer {
         }
         if (messageId == MessageTypes.codeInterrupt &&
             decodedMessage.length >= 2) {
-          final options =
-              decodedMessage.length > 2 && decodedMessage[2] is CborMap
-              ? (() {
-                  final options = InterruptOptions();
-                  options.mode =
-                      ((decodedMessage[2] as CborMap)[CborString('mode')]
-                              as CborString?)
-                          ?.toString();
-                  return options;
-                })()
-              : null;
+          final optionsMap = _decodeRequiredOptionsMap(
+            decodedMessage[2],
+            'INTERRUPT',
+          );
+          final options = InterruptOptions()
+            ..mode = optionsMap['mode'] as String?;
           return Interrupt(
             (decodedMessage[1] as CborInt).toInt(),
             options: options,
@@ -256,17 +243,11 @@ class Serializer extends AbstractSerializer {
         }
         if (messageId == MessageTypes.codeCancel &&
             decodedMessage.length >= 2) {
-          final options =
-              decodedMessage.length > 2 && decodedMessage[2] is CborMap
-              ? (() {
-                  final options = CancelOptions();
-                  options.mode =
-                      ((decodedMessage[2] as CborMap)[CborString('mode')]
-                              as CborString?)
-                          ?.toString();
-                  return options;
-                })()
-              : null;
+          final optionsMap = _decodeRequiredOptionsMap(
+            decodedMessage[2],
+            'CANCEL',
+          );
+          final options = CancelOptions()..mode = optionsMap['mode'] as String?;
           return Cancel(
             (decodedMessage[1] as CborInt).toInt(),
             options: options,
@@ -377,9 +358,7 @@ class Serializer extends AbstractSerializer {
             (decodedMessage[1] as CborInt).toInt(),
             (decodedMessage[3] as CborString).toString(),
             options: _decodeSubscribeOptions(
-              decodedMessage[2] is CborMap
-                  ? _cborMapToStringMap(decodedMessage[2] as CborMap)
-                  : null,
+              _decodeRequiredOptionsMap(decodedMessage[2], 'SUBSCRIBE'),
             ),
           );
         }
@@ -1565,6 +1544,26 @@ class Serializer extends AbstractSerializer {
       result[resolvedKey] = _cborValueToDart(value);
     });
     return result;
+  }
+
+  Map<String, dynamic> _decodeRequiredOptionsMap(
+    CborValue rawOptions,
+    String messageName,
+  ) {
+    if (rawOptions is! CborMap) {
+      throwInvalidWampOptionsContainer(messageName);
+    }
+    if (rawOptions.isEmpty) {
+      return const <String, dynamic>{};
+    }
+    final options = <String, dynamic>{};
+    rawOptions.forEach((key, value) {
+      if (key is! CborString) {
+        throwInvalidWampOptionsKey(messageName);
+      }
+      options[key.toString()] = _cborValueToDart(value);
+    });
+    return options;
   }
 
   List<dynamic> _cborListToDart(CborList list) {

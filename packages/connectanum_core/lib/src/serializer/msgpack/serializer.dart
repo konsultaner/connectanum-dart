@@ -185,13 +185,7 @@ class Serializer extends AbstractSerializer {
           message[1],
           message[3],
           options: _decodeRegisterOptions(
-            message[2] is Map
-                ? _normalizeDynamicMap(
-                    Map<dynamic, dynamic>.from(
-                      message[2] as Map<dynamic, dynamic>,
-                    ),
-                  )
-                : null,
+            _decodeRequiredOptionsMap(message[2], 'REGISTER'),
           ),
         );
       }
@@ -206,13 +200,7 @@ class Serializer extends AbstractSerializer {
             message[1],
             message[3],
             options: _decodeCallOptions(
-              message[2] is Map
-                  ? _normalizeDynamicMap(
-                      Map<dynamic, dynamic>.from(
-                        message[2] as Map<dynamic, dynamic>,
-                      ),
-                    )
-                  : null,
+              _decodeRequiredOptionsMap(message[2], 'CALL'),
             ),
           ),
           message,
@@ -225,13 +213,7 @@ class Serializer extends AbstractSerializer {
           Yield(
             message[1],
             options: _decodeYieldOptions(
-              message[2] is Map
-                  ? _normalizeDynamicMap(
-                      Map<dynamic, dynamic>.from(
-                        message[2] as Map<dynamic, dynamic>,
-                      ),
-                    )
-                  : null,
+              _decodeRequiredOptionsMap(message[2], 'YIELD'),
             ),
           ),
           message,
@@ -244,7 +226,9 @@ class Serializer extends AbstractSerializer {
           Publish(
             message[1],
             message[3],
-            options: _decodePublishOptions(message[2]),
+            options: _decodePublishOptions(
+              _decodeRequiredOptionsMap(message[2], 'PUBLISH'),
+            ),
           ),
           message,
           4,
@@ -292,34 +276,29 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.codeInterrupt) {
         validateKnownWampMessageMinimumFieldCount(message.length, 3);
-        final optionsMap = message.length > 2 && message[2] is Map
-            ? Map<dynamic, dynamic>.from(message[2] as Map<dynamic, dynamic>)
-            : null;
+        final optionsMap = _validateRequiredOptionsMap(
+          message[2],
+          'INTERRUPT',
+        );
         return interrupt_msg.Interrupt(
           message[1],
-          options: optionsMap == null
-              ? null
-              : (() {
-                  final options = interrupt_msg.InterruptOptions();
-                  options.mode = optionsMap['mode'] as String?;
-                  return options;
-                })(),
+          options: (() {
+            final options = interrupt_msg.InterruptOptions();
+            options.mode = optionsMap['mode'] as String?;
+            return options;
+          })(),
         );
       }
       if (messageId == MessageTypes.codeCancel) {
         validateKnownWampMessageMinimumFieldCount(message.length, 3);
-        final optionsMap = message.length > 2 && message[2] is Map
-            ? Map<dynamic, dynamic>.from(message[2] as Map<dynamic, dynamic>)
-            : null;
+        final optionsMap = _validateRequiredOptionsMap(message[2], 'CANCEL');
         return cancel_msg.Cancel(
           message[1],
-          options: optionsMap == null
-              ? null
-              : (() {
-                  final options = cancel_msg.CancelOptions();
-                  options.mode = optionsMap['mode'] as String?;
-                  return options;
-                })(),
+          options: (() {
+            final options = cancel_msg.CancelOptions();
+            options.mode = optionsMap['mode'] as String?;
+            return options;
+          })(),
         );
       }
       if (messageId == MessageTypes.codeResult) {
@@ -356,13 +335,7 @@ class Serializer extends AbstractSerializer {
           message[1],
           message[3],
           options: _decodeSubscribeOptions(
-            message[2] is Map
-                ? _normalizeDynamicMap(
-                    Map<dynamic, dynamic>.from(
-                      message[2] as Map<dynamic, dynamic>,
-                    ),
-                  )
-                : null,
+            _decodeRequiredOptionsMap(message[2], 'SUBSCRIBE'),
           ),
         );
       }
@@ -720,6 +693,42 @@ class Serializer extends AbstractSerializer {
     return map.map((key, value) => MapEntry(key.toString(), value));
   }
 
+  Map<String, dynamic> _decodeRequiredOptionsMap(
+    Object? rawOptions,
+    String messageName,
+  ) {
+    if (rawOptions is! Map) {
+      throwInvalidWampOptionsContainer(messageName);
+    }
+    if (rawOptions.isEmpty) {
+      return const <String, dynamic>{};
+    }
+    final options = <String, dynamic>{};
+    for (final entry in rawOptions.entries) {
+      final key = entry.key;
+      if (key is! String) {
+        throwInvalidWampOptionsKey(messageName);
+      }
+      options[key] = entry.value;
+    }
+    return options;
+  }
+
+  Map<dynamic, dynamic> _validateRequiredOptionsMap(
+    Object? rawOptions,
+    String messageName,
+  ) {
+    if (rawOptions is! Map) {
+      throwInvalidWampOptionsContainer(messageName);
+    }
+    for (final key in rawOptions.keys) {
+      if (key is! String) {
+        throwInvalidWampOptionsKey(messageName);
+      }
+    }
+    return rawOptions;
+  }
+
   RegisterOptions? _decodeRegisterOptions(Map<String, dynamic>? optionsMap) {
     if (optionsMap == null || optionsMap.isEmpty) {
       return null;
@@ -768,13 +777,11 @@ class Serializer extends AbstractSerializer {
   }
 
   @pragma('vm:prefer-inline')
-  PublishOptions? _decodePublishOptions(Object? rawOptions) {
-    if (rawOptions is! Map || rawOptions.isEmpty) {
+  PublishOptions? _decodePublishOptions(Map<String, dynamic> optionsMap) {
+    if (optionsMap.isEmpty) {
       return null;
     }
-    return _decodeNonEmptyPublishOptions(
-      _normalizeDynamicMap(Map<dynamic, dynamic>.from(rawOptions)),
-    );
+    return _decodeNonEmptyPublishOptions(optionsMap);
   }
 
   @pragma('vm:never-inline')

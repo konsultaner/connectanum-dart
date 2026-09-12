@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-09-11
+Last updated: 2026-09-12
 Current branch: `codex/security-audit`
 Current milestone: deep component security audit with before/after performance
 evidence for hardening changes. The active plan is
@@ -510,9 +510,34 @@ full-workspace `bin/verify` exits zero across native transport/serializer,
 default and feature-enabled FFI, Dart workspace, package-consumer, router/MCP,
 live transport, benchmark, and Chrome Dart2Wasm coverage. Keep this checkpoint
 local and unpublished. Field-type and optional numeric validation outside
-PUBLISH recipient filters, option-container shapes, browser MessagePack Uint64
-compatibility, the broader protocol review, and every other component row
-remain open.
+PUBLISH recipient filters, browser MessagePack Uint64 compatibility, the
+broader protocol review, and every other component row remain open.
+
+SA-016 confirms cross-serializer WAMP Options dictionary integrity defects.
+The frozen `61595d92` baseline silently treated scalar, null, boolean, and list
+Options values as absent for PUBLISH, SUBSCRIBE, CALL, CANCEL, REGISTER,
+INTERRUPT, and YIELD. MessagePack and CBOR also stringified non-string option
+keys. This violates the official WAMP definition of `dict` and each affected
+message's `Options|dict` field. All three serializers now reject non-dictionary
+Options with payload-free message-scoped `FormatException`s; MessagePack and
+CBOR additionally reject actual non-string keys before conversion. JSON relies
+on the JSON grammar and `jsonDecode` guarantee that object keys are strings.
+Valid empty and implementation-specific string-keyed options remain compatible.
+
+Thirty-six focused VM tests, the same 36 Chrome/dart2js tests, all 246
+serializer tests, and core analysis pass. The exact-source ABBAAB AOT campaign
+completes 441,000,000 measured deserializations plus 1,260,000 warmups across 42
+serializer/scenario pairs. There are no correctness-invariant or performance
+gate failures: the worst median is -3.08% with overlapping ranges, the median
+scenario improves 2.22%, and the best improves 33.98%. Evidence is
+`docs/security/2026-09-12-serializer-option-container-benchmarks.json`. Final
+full-workspace `bin/verify` exits zero across native transport and serializers,
+default and feature-enabled FFI, Dart packages, package-consumer smokes,
+router/MCP integration, live transport and benchmark suites, and Chrome
+Dart2Wasm coverage. Keep this checkpoint local and unpublished. Message
+field-type and optional numeric strictness, browser MessagePack Uint64
+compatibility, broader protocol review, and every other component row remain
+open.
 
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage

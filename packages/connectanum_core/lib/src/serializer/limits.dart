@@ -73,6 +73,16 @@ void validateKnownWampMessageMinimumFieldCount(
   }
 }
 
+@pragma('vm:never-inline')
+Never throwInvalidWampOptionsContainer(String messageName) {
+  throw FormatException('$messageName.Options must be a dictionary');
+}
+
+@pragma('vm:never-inline')
+Never throwInvalidWampOptionsKey(String messageName) {
+  throw FormatException('$messageName.Options keys must be strings');
+}
+
 @pragma('vm:prefer-inline')
 @pragma('dart2js:tryInline')
 List<int>? decodeOptionalWampIdList(

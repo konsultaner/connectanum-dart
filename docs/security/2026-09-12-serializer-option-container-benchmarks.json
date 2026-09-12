@@ -1,0 +1,1429 @@
+{
+  "title": "Serializer WAMP Options dictionary integrity",
+  "date": "2026-09-12",
+  "finding": "SA-016",
+  "specification": {
+    "reference": "https://wamp-proto.org/wamp_latest_ietf.html",
+    "requirement": "WAMP defines dict as a map whose keys must be strings and defines PUBLISH, SUBSCRIBE, CALL, CANCEL, REGISTER, INTERRUPT, and YIELD Options fields as dict values."
+  },
+  "threat_model": [
+    "A peer can place a scalar, null, boolean, or list in a required Options slot and have it silently interpreted as absent options.",
+    "MessagePack and CBOR peers can use non-string option keys that were previously stringified, changing an invalid wire message into a different accepted message.",
+    "Malformed option values and keys must not be reflected in diagnostics."
+  ],
+  "fix": {
+    "container_shape": "All seven option-bearing WAMP messages now require a dictionary across JSON, MessagePack, and CBOR.",
+    "key_shape": "MessagePack and CBOR validate actual top-level string keys before conversion. JSON relies on the JSON grammar and jsonDecode, which cannot produce a JSON object with a non-string key.",
+    "diagnostics": "Malformed containers and keys produce stable payload-free FormatException messages scoped to the WAMP message name.",
+    "hot_paths": "PUBLISH normalizes each valid map once. CANCEL and INTERRUPT validate in place rather than copying valid maps. Empty and implementation-specific string-keyed options retain prior behavior."
+  },
+  "baseline_source": {
+    "commit": "61595d9289619a356ba47aac798afa718c1f610f",
+    "candidate": "same commit plus the source hashes recorded below"
+  },
+  "inputs": {
+    "benchmark_driver_sha256": "94f3380895e15a0c77bc739b6aa5525b35d55f51ced37f7527ab4f83db4da04d",
+    "analyzer_sha256": "966505a42bf8ce8a449d64ed71b962f5a1a7cbc17eba797ba4527af0cdce7349",
+    "baseline_executable_sha256": "239ae1e09db21ca9dc2d03e0f63ad4ca1b507aaab08433fe650117007b6f732f",
+    "candidate_executable_sha256": "3ed8b439ec841b6de46c5c9e32c08eac3ec52a039afb15612ed7f409571b371e",
+    "raw_run_sha256": [
+      {
+        "order": 1,
+        "variant": "baseline",
+        "sha256": "24c50590b308366c31e4db05f4127bf8216b2bcb84790d8a87db7e6bd168310b"
+      },
+      {
+        "order": 2,
+        "variant": "candidate",
+        "sha256": "c2ee582261cac158313d31bc34107c92a5c2593c039c57bdeb97c2b6ee371e51"
+      },
+      {
+        "order": 3,
+        "variant": "candidate",
+        "sha256": "8d05cbc3d7d58097bc33f93bbaacb12a2a5446c5fd73f59448527e8afd898a44"
+      },
+      {
+        "order": 4,
+        "variant": "baseline",
+        "sha256": "7c833539b915ae0d0ea6d36330e17c72d5f23de55d6459fe8c4414a6973e5b8e"
+      },
+      {
+        "order": 5,
+        "variant": "baseline",
+        "sha256": "31751d3f80fa793bf27b3468817f5254411128601c6b4799bd45333030518f66"
+      },
+      {
+        "order": 6,
+        "variant": "candidate",
+        "sha256": "7db13fe3bb17d9af4138c3d6a7b49ee121ba6cbd9b9204d12f9b34f7beb4f6e2"
+      }
+    ],
+    "source_sha256": {
+      "limits": "09314445b1b9e9b5706f71cff76987e848e20e9da5dffe8fbb59607d1edbc708",
+      "json": "49c4e95ff459694b3908ae5b251398d2c20e5f6e5f2c885f50c22fae97e06246",
+      "messagepack": "174068d55975754b5b4dc82d3bd8459eacff3aea7b8158ced0e6f7efa7833d68",
+      "cbor": "f8cc1d2206508b8978ab0468ea58286550a39bac5bcbd32817733cb9660fdba3",
+      "security_test": "ede20b82dfaf1c4e0b7a9799893e7fc77a7676e366f169720d5405defaa949e9"
+    }
+  },
+  "performance": {
+    "methodology": {
+      "runtime": "Dart 3.13.1 stable AOT executable on macOS arm64",
+      "host": "Apple M3 Ultra shared host, Darwin 25.6.0 arm64; timed subprocesses ran serially and unrelated shared-host work was not controlled.",
+      "order": [
+        "baseline",
+        "candidate",
+        "candidate",
+        "baseline",
+        "baseline",
+        "candidate"
+      ],
+      "processes_per_variant": 3,
+      "samples_per_process_and_scenario": 7,
+      "samples_per_variant_and_scenario": 21,
+      "iterations_per_sample": 250000,
+      "warmups_per_process_and_scenario": 5000,
+      "serializers": [
+        "json",
+        "msgpack",
+        "cbor"
+      ],
+      "scenarios": [
+        "call_empty",
+        "call_populated",
+        "cancel_empty",
+        "cancel_populated",
+        "interrupt_empty",
+        "interrupt_populated",
+        "publish_empty",
+        "publish_populated",
+        "register_empty",
+        "register_populated",
+        "subscribe_empty",
+        "subscribe_populated",
+        "yield_empty",
+        "yield_populated"
+      ],
+      "serializer_scenario_count": 42,
+      "record_count": 1764,
+      "measured_deserializations": 441000000,
+      "warmup_deserializations": 1260000,
+      "primary_metric": "deserialize operations per second",
+      "gbit_definition": "Encoded frame bytes multiplied by completed deserialize operations and eight, divided by measured loop time and 1e9; this is an in-memory parser rate, not network bandwidth.",
+      "material_regression_percent": -5,
+      "investigation_rule": "Investigate a candidate median below -5%, or any slower candidate whose observed range does not overlap baseline.",
+      "correctness_rule": "Frame size, iteration count, warmup count, sample index, and checksum must match between baseline and candidate for every serializer/scenario."
+    },
+    "results": [
+      {
+        "serializer": "cbor",
+        "scenario": "call_empty",
+        "frame_bytes": [
+          27
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 685910.5737230403,
+          "min_ops_per_second": 678356.0989640146,
+          "max_ops_per_second": 692724.1793989372,
+          "median_gbit_per_second": 0.1481566839241767
+        },
+        "candidate": {
+          "median_ops_per_second": 688384.7464954333,
+          "min_ops_per_second": 680142.5578801316,
+          "max_ops_per_second": 694103.177049062,
+          "median_gbit_per_second": 0.1486911052430136
+        },
+        "delta_percent": 0.3607136071636097,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "call_populated",
+        "frame_bytes": [
+          38
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 407719.26734478533,
+          "min_ops_per_second": 397211.890299609,
+          "max_ops_per_second": 410591.28429668996,
+          "median_gbit_per_second": 0.12394665727281473
+        },
+        "candidate": {
+          "median_ops_per_second": 406562.9009726611,
+          "min_ops_per_second": 396027.0565685048,
+          "max_ops_per_second": 410618.93413179554,
+          "median_gbit_per_second": 0.12359512189568898
+        },
+        "delta_percent": -0.2836182797185227,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "cancel_empty",
+        "frame_bytes": [
+          5
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 794094.4781846366,
+          "min_ops_per_second": 772761.6957482651,
+          "max_ops_per_second": 804841.9290451355,
+          "median_gbit_per_second": 0.03176377912738546
+        },
+        "candidate": {
+          "median_ops_per_second": 1063906.7507011145,
+          "min_ops_per_second": 1037727.6255546655,
+          "max_ops_per_second": 1074252.320385012,
+          "median_gbit_per_second": 0.04255627002804458
+        },
+        "delta_percent": 33.977351553091054,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "cancel_populated",
+        "frame_bytes": [
+          21
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 449769.7179044329,
+          "min_ops_per_second": 439540.34628746647,
+          "max_ops_per_second": 452684.5096793002,
+          "median_gbit_per_second": 0.07556131260794473
+        },
+        "candidate": {
+          "median_ops_per_second": 509564.5261559471,
+          "min_ops_per_second": 500116.026918245,
+          "max_ops_per_second": 513758.4513265243,
+          "median_gbit_per_second": 0.08560684039419912
+        },
+        "delta_percent": 13.29453848740867,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "interrupt_empty",
+        "frame_bytes": [
+          5
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 798581.7188672916,
+          "min_ops_per_second": 773273.2036090207,
+          "max_ops_per_second": 807211.9544861612,
+          "median_gbit_per_second": 0.03194326875469167
+        },
+        "candidate": {
+          "median_ops_per_second": 1065825.3751705321,
+          "min_ops_per_second": 1053500.9945049388,
+          "max_ops_per_second": 1080936.1772043533,
+          "median_gbit_per_second": 0.04263301500682129
+        },
+        "delta_percent": 33.4647851296044,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "interrupt_populated",
+        "frame_bytes": [
+          21
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 449873.3156743061,
+          "min_ops_per_second": 443985.0678941966,
+          "max_ops_per_second": 454062.4971621094,
+          "median_gbit_per_second": 0.07557871703328342
+        },
+        "candidate": {
+          "median_ops_per_second": 509346.5084296847,
+          "min_ops_per_second": 495306.47583498765,
+          "max_ops_per_second": 515975.63769429066,
+          "median_gbit_per_second": 0.08557021341618702
+        },
+        "delta_percent": 13.219986756990764,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "publish_empty",
+        "frame_bytes": [
+          22
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 727433.556218975,
+          "min_ops_per_second": 698415.7137948278,
+          "max_ops_per_second": 734976.3484611065,
+          "median_gbit_per_second": 0.1280283058945396
+        },
+        "candidate": {
+          "median_ops_per_second": 730532.762933352,
+          "min_ops_per_second": 709944.9082751179,
+          "max_ops_per_second": 739111.4106976029,
+          "median_gbit_per_second": 0.12857376627626996
+        },
+        "delta_percent": 0.4260467073427199,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "publish_populated",
+        "frame_bytes": [
+          35
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 415927.009800904,
+          "min_ops_per_second": 409340.83027419285,
+          "max_ops_per_second": 418837.6417765417,
+          "median_gbit_per_second": 0.11645956274425313
+        },
+        "candidate": {
+          "median_ops_per_second": 411839.903003466,
+          "min_ops_per_second": 402367.8543492746,
+          "max_ops_per_second": 413980.6223950269,
+          "median_gbit_per_second": 0.11531517284097048
+        },
+        "delta_percent": -0.9826500085662659,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "register_empty",
+        "frame_bytes": [
+          27
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 689425.0470877307,
+          "min_ops_per_second": 671162.5609415605,
+          "max_ops_per_second": 696411.8078014837,
+          "median_gbit_per_second": 0.14891581017094985
+        },
+        "candidate": {
+          "median_ops_per_second": 691670.0789057226,
+          "min_ops_per_second": 675746.9030519433,
+          "max_ops_per_second": 695404.4889750571,
+          "median_gbit_per_second": 0.14940073704363607
+        },
+        "delta_percent": 0.32563827314882055,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "register_populated",
+        "frame_bytes": [
+          41
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 402088.2857207191,
+          "min_ops_per_second": 394624.27033972414,
+          "max_ops_per_second": 405246.811518087,
+          "median_gbit_per_second": 0.13188495771639586
+        },
+        "candidate": {
+          "median_ops_per_second": 401273.8035620273,
+          "min_ops_per_second": 389203.79800634243,
+          "max_ops_per_second": 405001.27980404417,
+          "median_gbit_per_second": 0.13161780756834496
+        },
+        "delta_percent": -0.20256301603810423,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "subscribe_empty",
+        "frame_bytes": [
+          23
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 710594.682477872,
+          "min_ops_per_second": 694687.5850992291,
+          "max_ops_per_second": 717436.2844835749,
+          "median_gbit_per_second": 0.13074942157592845
+        },
+        "candidate": {
+          "median_ops_per_second": 711057.5131758958,
+          "min_ops_per_second": 689160.8777152938,
+          "max_ops_per_second": 715938.5094732983,
+          "median_gbit_per_second": 0.13083458242436483
+        },
+        "delta_percent": 0.06513286820692965,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "subscribe_populated",
+        "frame_bytes": [
+          35
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 413605.9823969294,
+          "min_ops_per_second": 398520.05592033424,
+          "max_ops_per_second": 418312.02730740915,
+          "median_gbit_per_second": 0.11580967507114023
+        },
+        "candidate": {
+          "median_ops_per_second": 413391.230153087,
+          "min_ops_per_second": 404267.1203082779,
+          "max_ops_per_second": 416834.0950281696,
+          "median_gbit_per_second": 0.11574954444286435
+        },
+        "delta_percent": -0.05192193850723781,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "yield_empty",
+        "frame_bytes": [
+          5
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 1034288.7403190574,
+          "min_ops_per_second": 985031.4619048933,
+          "max_ops_per_second": 1051294.7746444521,
+          "median_gbit_per_second": 0.04137154961276229
+        },
+        "candidate": {
+          "median_ops_per_second": 1051750.3228873492,
+          "min_ops_per_second": 1018238.6914410929,
+          "max_ops_per_second": 1064056.1821664185,
+          "median_gbit_per_second": 0.04207001291549396
+        },
+        "delta_percent": 1.6882696182987766,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "yield_populated",
+        "frame_bytes": [
+          15
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 513588.52519973455,
+          "min_ops_per_second": 503288.4869738874,
+          "max_ops_per_second": 519480.51948051946,
+          "median_gbit_per_second": 0.06163062302396814
+        },
+        "candidate": {
+          "median_ops_per_second": 511541.39699909353,
+          "min_ops_per_second": 499264.0847390946,
+          "max_ops_per_second": 517474.0641999023,
+          "median_gbit_per_second": 0.06138496763989122
+        },
+        "delta_percent": -0.3985930565416962,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "call_empty",
+        "frame_bytes": [
+          33
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3830067.562391801,
+          "min_ops_per_second": 3446421.9247577162,
+          "max_ops_per_second": 3981779.377568248,
+          "median_gbit_per_second": 1.0111378364714354
+        },
+        "candidate": {
+          "median_ops_per_second": 4108193.3808788247,
+          "min_ops_per_second": 3992334.717342702,
+          "max_ops_per_second": 4218056.656937016,
+          "median_gbit_per_second": 1.0845630525520098
+        },
+        "delta_percent": 7.261642620041409,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "call_populated",
+        "frame_bytes": [
+          47
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2025275.4374594947,
+          "min_ops_per_second": 1956303.9939902343,
+          "max_ops_per_second": 2068731.536571036,
+          "median_gbit_per_second": 0.7615035644847701
+        },
+        "candidate": {
+          "median_ops_per_second": 2016893.4999556285,
+          "min_ops_per_second": 1923831.6570346828,
+          "max_ops_per_second": 2037589.4501768628,
+          "median_gbit_per_second": 0.7583519559833163
+        },
+        "delta_percent": -0.4138665461908997,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "cancel_empty",
+        "frame_bytes": [
+          9
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 5990319.643456175,
+          "min_ops_per_second": 5803291.627010841,
+          "max_ops_per_second": 6239860.227130911,
+          "median_gbit_per_second": 0.4313030143288446
+        },
+        "candidate": {
+          "median_ops_per_second": 6131809.374310171,
+          "min_ops_per_second": 5977572.149295842,
+          "max_ops_per_second": 6331518.298087882,
+          "median_gbit_per_second": 0.44149027495033233
+        },
+        "delta_percent": 2.3619729709842607,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "cancel_populated",
+        "frame_bytes": [
+          28
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4047141.099527294,
+          "min_ops_per_second": 3769545.091298382,
+          "max_ops_per_second": 4157450.9836529028,
+          "median_gbit_per_second": 0.9065596062941139
+        },
+        "candidate": {
+          "median_ops_per_second": 4137086.4982045046,
+          "min_ops_per_second": 3800778.3994162004,
+          "max_ops_per_second": 4224971.270195362,
+          "median_gbit_per_second": 0.926707375597809
+        },
+        "delta_percent": 2.222442866835461,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "interrupt_empty",
+        "frame_bytes": [
+          9
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 6042588.161361274,
+          "min_ops_per_second": 5867993.615622946,
+          "max_ops_per_second": 6116507.229711546,
+          "median_gbit_per_second": 0.4350663476180118
+        },
+        "candidate": {
+          "median_ops_per_second": 6141449.873486132,
+          "min_ops_per_second": 6049899.571667111,
+          "max_ops_per_second": 6294058.408862035,
+          "median_gbit_per_second": 0.44218439089100153
+        },
+        "delta_percent": 1.6360822462966995,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "interrupt_populated",
+        "frame_bytes": [
+          28
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4036489.8684104304,
+          "min_ops_per_second": 3691780.619628459,
+          "max_ops_per_second": 4117462.984007774,
+          "median_gbit_per_second": 0.9041737305239363
+        },
+        "candidate": {
+          "median_ops_per_second": 4148757.8618961484,
+          "min_ops_per_second": 4068613.091169482,
+          "max_ops_per_second": 4308042.25327842,
+          "median_gbit_per_second": 0.9293217610647372
+        },
+        "delta_percent": 2.781327270615175,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "publish_empty",
+        "frame_bytes": [
+          29
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4371546.478282157,
+          "min_ops_per_second": 3756122.4796418156,
+          "max_ops_per_second": 4452201.168257587,
+          "median_gbit_per_second": 1.0141987829614605
+        },
+        "candidate": {
+          "median_ops_per_second": 4285371.455997806,
+          "min_ops_per_second": 3750262.5183762866,
+          "max_ops_per_second": 4389584.394149562,
+          "median_gbit_per_second": 0.994206177791491
+        },
+        "delta_percent": -1.9712708697589898,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "publish_populated",
+        "frame_bytes": [
+          47
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 1904109.0673673789,
+          "min_ops_per_second": 1814394.6816463093,
+          "max_ops_per_second": 1920963.8628278123,
+          "median_gbit_per_second": 0.7159450093301344
+        },
+        "candidate": {
+          "median_ops_per_second": 1845427.031815162,
+          "min_ops_per_second": 1831676.2768615326,
+          "max_ops_per_second": 1881864.0993022048,
+          "median_gbit_per_second": 0.693880563962501
+        },
+        "delta_percent": -3.081863143131325,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "register_empty",
+        "frame_bytes": [
+          33
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3960207.8317070077,
+          "min_ops_per_second": 3910955.368177339,
+          "max_ops_per_second": 4097823.236296879,
+          "median_gbit_per_second": 1.04549486757065
+        },
+        "candidate": {
+          "median_ops_per_second": 4373381.848715975,
+          "min_ops_per_second": 4264537.809392218,
+          "max_ops_per_second": 4478681.476173415,
+          "median_gbit_per_second": 1.1545728080610174
+        },
+        "delta_percent": 10.433139738296827,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "register_populated",
+        "frame_bytes": [
+          50
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2069176.7159682505,
+          "min_ops_per_second": 1945949.3119123233,
+          "max_ops_per_second": 2098671.1214459003,
+          "median_gbit_per_second": 0.8276706863873002
+        },
+        "candidate": {
+          "median_ops_per_second": 2101688.075862533,
+          "min_ops_per_second": 2019957.1769078495,
+          "max_ops_per_second": 2118051.731295485,
+          "median_gbit_per_second": 0.8406752303450131
+        },
+        "delta_percent": 1.5712220055148274,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "subscribe_empty",
+        "frame_bytes": [
+          29
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4004677.4632771076,
+          "min_ops_per_second": 3817959.6823457545,
+          "max_ops_per_second": 4082632.4814240225,
+          "median_gbit_per_second": 0.929085171480289
+        },
+        "candidate": {
+          "median_ops_per_second": 4468674.591116275,
+          "min_ops_per_second": 4255174.291938998,
+          "max_ops_per_second": 4519896.58476614,
+          "median_gbit_per_second": 1.0367325051389757
+        },
+        "delta_percent": 11.586379479846265,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "subscribe_populated",
+        "frame_bytes": [
+          44
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2119883.660784696,
+          "min_ops_per_second": 2057189.8786257973,
+          "max_ops_per_second": 2138817.8326075613,
+          "median_gbit_per_second": 0.7461990485962131
+        },
+        "candidate": {
+          "median_ops_per_second": 2155265.31316005,
+          "min_ops_per_second": 2061702.6365053314,
+          "max_ops_per_second": 2207369.0809398093,
+          "median_gbit_per_second": 0.7586533902323377
+        },
+        "delta_percent": 1.6690374585111467,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "yield_empty",
+        "frame_bytes": [
+          9
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4977402.59223127,
+          "min_ops_per_second": 4823740.521349876,
+          "max_ops_per_second": 5125576.627370579,
+          "median_gbit_per_second": 0.3583729866406515
+        },
+        "candidate": {
+          "median_ops_per_second": 5727376.86139748,
+          "min_ops_per_second": 5579485.348271475,
+          "max_ops_per_second": 5870887.443345936,
+          "median_gbit_per_second": 0.41237113402061853
+        },
+        "delta_percent": 15.067583046964494,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "yield_populated",
+        "frame_bytes": [
+          24
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2392001.148160551,
+          "min_ops_per_second": 2263693.0794375176,
+          "max_ops_per_second": 2450620.006861736,
+          "median_gbit_per_second": 0.45926422044682585
+        },
+        "candidate": {
+          "median_ops_per_second": 2412382.2757449434,
+          "min_ops_per_second": 2364155.6181794107,
+          "max_ops_per_second": 2433848.0110594053,
+          "median_gbit_per_second": 0.4631773969430292
+        },
+        "delta_percent": 0.8520534197931084,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "call_empty",
+        "frame_bytes": [
+          26
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4420319.323867956,
+          "min_ops_per_second": 4275477.570844663,
+          "max_ops_per_second": 4699071.463478817,
+          "median_gbit_per_second": 0.9194264193645348
+        },
+        "candidate": {
+          "median_ops_per_second": 5204863.424383745,
+          "min_ops_per_second": 5118650.314285129,
+          "max_ops_per_second": 5267260.813686451,
+          "median_gbit_per_second": 1.082611592271819
+        },
+        "delta_percent": 17.74858427714858,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "call_populated",
+        "frame_bytes": [
+          37
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2058731.492003887,
+          "min_ops_per_second": 1965316.1014417557,
+          "max_ops_per_second": 2086184.4520845155,
+          "median_gbit_per_second": 0.6093845216331506
+        },
+        "candidate": {
+          "median_ops_per_second": 2205752.602788071,
+          "min_ops_per_second": 2166471.6842150874,
+          "max_ops_per_second": 2234936.5278026103,
+          "median_gbit_per_second": 0.652902770425269
+        },
+        "delta_percent": 7.141344626786639,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "cancel_empty",
+        "frame_bytes": [
+          4
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 7060750.699014319,
+          "min_ops_per_second": 6710868.92330819,
+          "max_ops_per_second": 7252052.33080962,
+          "median_gbit_per_second": 0.2259440223684582
+        },
+        "candidate": {
+          "median_ops_per_second": 6914099.231152165,
+          "min_ops_per_second": 6699180.020365507,
+          "max_ops_per_second": 7082955.575702629,
+          "median_gbit_per_second": 0.22125117539686928
+        },
+        "delta_percent": -2.076995409038118,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "cancel_populated",
+        "frame_bytes": [
+          20
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3717029.944393232,
+          "min_ops_per_second": 3625605.476114511,
+          "max_ops_per_second": 3761491.356092864,
+          "median_gbit_per_second": 0.5947247911029171
+        },
+        "candidate": {
+          "median_ops_per_second": 3874287.131167865,
+          "min_ops_per_second": 3739268.29997906,
+          "max_ops_per_second": 4024274.4233214753,
+          "median_gbit_per_second": 0.6198859409868583
+        },
+        "delta_percent": 4.230721547235294,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "interrupt_empty",
+        "frame_bytes": [
+          4
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 7161682.13590008,
+          "min_ops_per_second": 7069535.955659871,
+          "max_ops_per_second": 7286505.39201399,
+          "median_gbit_per_second": 0.22917382834880257
+        },
+        "candidate": {
+          "median_ops_per_second": 7015377.707935795,
+          "min_ops_per_second": 6754748.588257545,
+          "max_ops_per_second": 7073136.228603763,
+          "median_gbit_per_second": 0.22449208665394543
+        },
+        "delta_percent": -2.0428779885509063,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "interrupt_populated",
+        "frame_bytes": [
+          20
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3742458.945225371,
+          "min_ops_per_second": 3638374.665269531,
+          "max_ops_per_second": 3839007.3862502114,
+          "median_gbit_per_second": 0.5987934312360594
+        },
+        "candidate": {
+          "median_ops_per_second": 3903139.685563067,
+          "min_ops_per_second": 3767443.2623044695,
+          "max_ops_per_second": 4002433.47955557,
+          "median_gbit_per_second": 0.6245023496900907
+        },
+        "delta_percent": 4.293453654119372,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "publish_empty",
+        "frame_bytes": [
+          22
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 5425347.222222222,
+          "min_ops_per_second": 5205838.86887533,
+          "max_ops_per_second": 5670991.743036022,
+          "median_gbit_per_second": 0.954861111111111
+        },
+        "candidate": {
+          "median_ops_per_second": 5314399.897963522,
+          "min_ops_per_second": 5154532.896228943,
+          "max_ops_per_second": 5370223.18647563,
+          "median_gbit_per_second": 0.9353343820415798
+        },
+        "delta_percent": -2.0449810807363633,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "publish_populated",
+        "frame_bytes": [
+          35
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 1953277.5998124855,
+          "min_ops_per_second": 1876397.9164477538,
+          "max_ops_per_second": 1969636.0900360048,
+          "median_gbit_per_second": 0.5469177279474959
+        },
+        "candidate": {
+          "median_ops_per_second": 1988545.9751829463,
+          "min_ops_per_second": 1943604.37544217,
+          "max_ops_per_second": 2025751.351176151,
+          "median_gbit_per_second": 0.5567928730512249
+        },
+        "delta_percent": 1.8055997454661021,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "register_empty",
+        "frame_bytes": [
+          26
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4543389.368468878,
+          "min_ops_per_second": 4448002.846721822,
+          "max_ops_per_second": 4681121.971314085,
+          "median_gbit_per_second": 0.9450249886415266
+        },
+        "candidate": {
+          "median_ops_per_second": 5296610.169491526,
+          "min_ops_per_second": 4975025.3726294,
+          "max_ops_per_second": 5432184.607361697,
+          "median_gbit_per_second": 1.1016949152542375
+        },
+        "delta_percent": 16.578389830508478,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "register_populated",
+        "frame_bytes": [
+          40
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2060903.8299836777,
+          "min_ops_per_second": 1913567.9622797482,
+          "max_ops_per_second": 2078448.9782344822,
+          "median_gbit_per_second": 0.6594892255947769
+        },
+        "candidate": {
+          "median_ops_per_second": 2279732.268242418,
+          "min_ops_per_second": 2196585.6273009237,
+          "max_ops_per_second": 2364334.487128563,
+          "median_gbit_per_second": 0.7295143258375738
+        },
+        "delta_percent": 10.618081012565895,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "subscribe_empty",
+        "frame_bytes": [
+          22
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4476275.738585497,
+          "min_ops_per_second": 4383350.282287758,
+          "max_ops_per_second": 4542728.90810968,
+          "median_gbit_per_second": 0.7878245299910475
+        },
+        "candidate": {
+          "median_ops_per_second": 5329240.476647268,
+          "min_ops_per_second": 5030383.5164392935,
+          "max_ops_per_second": 5692167.577413479,
+          "median_gbit_per_second": 0.9379463238899192
+        },
+        "delta_percent": 19.055232248299948,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "subscribe_populated",
+        "frame_bytes": [
+          34
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2088258.1421184961,
+          "min_ops_per_second": 2062740.3092460271,
+          "max_ops_per_second": 2107144.0612251777,
+          "median_gbit_per_second": 0.5680062146562309
+        },
+        "candidate": {
+          "median_ops_per_second": 2301199.3851195243,
+          "min_ops_per_second": 2273636.72741824,
+          "max_ops_per_second": 2339859.9827786307,
+          "median_gbit_per_second": 0.6259262327525107
+        },
+        "delta_percent": 10.197074715341635,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "yield_empty",
+        "frame_bytes": [
+          4
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 6004996.15680246,
+          "min_ops_per_second": 5702814.909439299,
+          "max_ops_per_second": 6319195.187300946,
+          "median_gbit_per_second": 0.1921598770176787
+        },
+        "candidate": {
+          "median_ops_per_second": 7302894.867525487,
+          "min_ops_per_second": 6706188.470720781,
+          "max_ops_per_second": 7559264.634736333,
+          "median_gbit_per_second": 0.2336926357608156
+        },
+        "delta_percent": 21.613647649928435,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "yield_populated",
+        "frame_bytes": [
+          14
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2433563.710697946,
+          "min_ops_per_second": 2357334.1379700527,
+          "max_ops_per_second": 2459492.1640579654,
+          "median_gbit_per_second": 0.27255913559816997
+        },
+        "candidate": {
+          "median_ops_per_second": 2645922.6332222046,
+          "min_ops_per_second": 2402067.6998760533,
+          "max_ops_per_second": 2689762.7629243103,
+          "median_gbit_per_second": 0.29634333492088694
+        },
+        "delta_percent": 8.726252844366833,
+        "ranges_overlap": true
+      }
+    ],
+    "summary": {
+      "invariant_failures": 0,
+      "gate_failures": [],
+      "worst_delta_percent": -3.081863143131325,
+      "median_scenario_delta_percent": 2.222442866835461,
+      "best_delta_percent": 33.977351553091054
+    }
+  }
+}
