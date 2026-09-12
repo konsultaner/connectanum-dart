@@ -563,6 +563,27 @@ Dart2Wasm coverage. Keep this checkpoint local and unpublished. Browser
 MessagePack Uint64 compatibility, broader field-type/protocol review, and every
 other component row remain open.
 
+SA-018 confirms MessagePack browser Uint64 incompatibility at valid WAMP-ID
+boundaries. The frozen `e0e3293c` baseline throws through unsupported
+`ByteData` 64-bit accessors under dart2js and can round an over-range Uint64.
+The serializer now delegates unchanged on normal runtimes and uses a bounded
+two-Uint32 compatibility codec only where 64-bit accessors are unavailable.
+It preserves standard MessagePack wire bytes and exact inclusive `[-2^53,
+2^53]` values, rejects lossy integers and malformed lengths, and retains the
+shared nesting limit.
+
+All 41 focused tests pass on the VM, Chrome/dart2js, and Chrome/Dart2Wasm; all
+285 VM serializer tests pass. The full browser gate now protects this suite
+beside SCRAM Worker coverage. The exact-source ABBAAB AOT campaign completes
+67,500,000 operations plus 300,000 warmups across five production serializer
+scenarios with zero correctness or performance-gate failures. Ranges overlap,
+the worst median delta is -2.63%, and candidate median maximum RSS is slightly
+lower. Evidence is
+`docs/security/2026-09-12-msgpack-browser-uint64-benchmarks.json`. Final
+repository-wide `bin/verify` exits zero. Keep this checkpoint local and
+unpublished; required top-level IDs, remaining field-type/protocol review, and
+all other component rows remain open.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

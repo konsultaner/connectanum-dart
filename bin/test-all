@@ -60,7 +60,7 @@ run_bench_vm_tests() {
   )
 }
 
-run_core_browser_scram_test() {
+run_core_browser_tests() {
   (
     cd packages/connectanum_core
     local browser_compiler
@@ -72,10 +72,11 @@ run_core_browser_scram_test() {
     fi
 
     run_command_with_timeout \
-      "Browser SCRAM Worker tests" \
+      "Core browser tests" \
       "${CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-420}" \
       dart test \
         test/authentication/scram_key_derivation_web_test.dart \
+        test/serializer/serializer_optional_numeric_security_test.dart \
         -p chrome \
         --compiler="$browser_compiler" \
         --timeout=5m \
@@ -193,7 +194,7 @@ run_router_vm_tests
 run_router_zero_copy_publish_tests
 
 if ensure_chrome_env; then
-  run_core_browser_scram_test
+  run_core_browser_tests
   run_client_browser_websocket_test
 else
   printf 'Chrome not found; skipping browser-platform tests.\n'

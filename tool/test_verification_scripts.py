@@ -623,17 +623,21 @@ class VerificationScriptsTest(unittest.TestCase):
         )
         self.assertIn('return "$status"', script)
 
-    def test_full_verify_runs_browser_scram_worker_tests(self) -> None:
+    def test_full_verify_runs_core_browser_security_tests(self) -> None:
         script = TEST_ALL.read_text(encoding="utf-8")
 
-        self.assertIn("run_core_browser_scram_test()", script)
+        self.assertIn("run_core_browser_tests()", script)
         self.assertIn(
             "test/authentication/scram_key_derivation_web_test.dart",
             script,
         )
-        self.assertIn('"Browser SCRAM Worker tests"', script)
         self.assertIn(
-            "run_core_browser_scram_test\n  run_client_browser_websocket_test",
+            "test/serializer/serializer_optional_numeric_security_test.dart",
+            script,
+        )
+        self.assertIn('"Core browser tests"', script)
+        self.assertIn(
+            "run_core_browser_tests\n  run_client_browser_websocket_test",
             script,
         )
 

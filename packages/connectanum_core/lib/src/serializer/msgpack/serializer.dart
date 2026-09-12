@@ -2,8 +2,6 @@ import 'dart:typed_data';
 import 'dart:isolate';
 
 import 'package:logging/logging.dart';
-import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
-
 import 'package:connectanum_core/src/message/abstract_message.dart';
 import 'package:connectanum_core/src/message/abort.dart';
 import 'package:connectanum_core/src/message/abstract_message_with_payload.dart';
@@ -36,6 +34,7 @@ import 'package:connectanum_core/src/message/yield.dart';
 import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
 import '../limits.dart';
+import 'codec.dart' as msgpack_dart;
 
 /// This is a seralizer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.

@@ -15,7 +15,7 @@ narrow fix does not complete this plan.
 
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
-| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening, SA-013 declared-collection allocation hardening, SA-014 lazy argument/keyword shape, key and diagnostic integrity, SA-015 short-array normalization plus PUBLISH recipient-filter strictness, SA-016 option-dictionary integrity, and SA-017 standardized optional numeric integrity are locally regression/performance-verified; MessagePack browser Uint64 compatibility, field-type consistency outside the reviewed paths, and broader protocol review remain pending |
+| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening, SA-013 declared-collection allocation hardening, SA-014 lazy argument/keyword shape, key and diagnostic integrity, SA-015 short-array normalization plus PUBLISH recipient-filter strictness, SA-016 option-dictionary integrity, SA-017 standardized optional numeric integrity, and SA-018 MessagePack browser Uint64 compatibility are locally regression/performance-verified; field-type consistency outside the reviewed paths and broader protocol review remain pending |
 | Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation, SA-009 response completion, SA-010 HTTP/1 request framing and SA-011 paused-producer delivery are locally regression-verified; broader framing/lifetime review, finite ID availability and earlier performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
@@ -807,6 +807,44 @@ scope, including code excluded from the root workspace gates.
   Uint64 compatibility, field-type consistency outside reviewed paths, broader
   protocol review, and every remaining component row.
 
+## SA-018 MessagePack Browser Uint64 Compatibility (2026-09-12)
+
+- The frozen `e0e3293c` baseline cannot encode a valid MessagePack WAMP ID above
+  Uint32 when compiled with dart2js because `msgpack_dart` 1.0.1 calls an
+  unsupported `ByteData.setUint64`. Nested decode reaches the corresponding
+  unsupported accessor, and a direct dart2js Uint64 decode can silently round
+  `2^53 + 1` to `2^53`. Native and Dart2Wasm controls preserve valid values.
+- A local compatibility codec delegates every operation to `msgpack_dart` on
+  runtimes with working 64-bit accessors. Only the unsupported browser path
+  falls back to a bounded recursive MessagePack codec that reads and writes
+  Int64/Uint64 as two Uint32 words. It preserves standard wire bytes and exact
+  values in Dart web's inclusive `[-2^53, 2^53]` range, rejects lossy values,
+  checks declared collection bounds, and retains the shared nesting limit.
+- Production serializer round trips cover maximum INVOCATION request,
+  registration and caller IDs; maximum EVENT subscription, publication and
+  publisher IDs; and slow-path PUBLISH IDs, recipient lists, signed arguments,
+  keyword payloads, signed-positive Int64 WAMP IDs, over-range protocol IDs,
+  and truncated integers. All 41
+  focused cases pass on the VM, Chrome/dart2js, and Chrome/Dart2Wasm. The full
+  285-case VM serializer suite passes. The repository browser gate now runs
+  this suite beside the SCRAM Worker tests on both hosted and local compilers,
+  with a verification-script regression protecting both entries.
+- The exact-source ABBAAB AOT campaign completes 67,500,000 measured operations
+  plus 300,000 warmups across five production serializer scenarios, with zero
+  correctness or performance-gate failures. All observed ranges overlap; the
+  worst median delta is -2.63%, median scenario delta is -2.01%, and candidate
+  median maximum RSS is slightly lower. Evidence is
+  `docs/security/2026-09-12-msgpack-browser-uint64-benchmarks.json`.
+- Local companion review remained unavailable because the managed sandbox
+  blocked both Ollama and GLM loopback endpoints. Manual review covered signed
+  two's-complement sign boundaries, exact-integer limits, recursive collection
+  bounds, complete-value framing, and normal-path delegation. Final
+  repository-wide `bin/verify` exits zero across native, Dart, package-consumer,
+  router/MCP, live transport, benchmark, and Chrome/Dart2Wasm gates.
+- Keep this checkpoint local and unpublished. Continue field-type consistency
+  and broader protocol review, then every remaining component row; this does
+  not complete the core row or the full security audit.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.
@@ -815,13 +853,13 @@ that this audit's other surfaces have been reviewed.
 
 ## Next Implementation Slice
 
-SA-017 closes the reviewed standardized optional numeric fields without
-changing valid wire behavior and with final AOT performance evidence. Continue
-the remaining component matrix rather than repeating SA-012 through SA-017
-serializer benchmarks. The next bounded core review should reproduce and fix
-browser MessagePack Uint64 compatibility at WAMP-ID boundaries, with
-fail-first browser/native parity tests before any behavior change. Broader
-field-type consistency and protocol review remain open after that boundary.
+SA-018 closes the reproduced MessagePack browser Uint64 boundary without
+changing valid wire bytes and with final AOT normal-path performance evidence.
+Continue the remaining component matrix rather than repeating SA-012 through
+SA-018 serializer benchmarks. The next bounded core slice should review
+required top-level WAMP IDs and remaining standardized field types for the same
+cross-serializer consistency and payload-free failure behavior. Broader
+protocol review remains open after that slice.
 
 SA-003 authentication-only hardening is locally verified, not published. Six
 fail-first direct-service lifecycle regressions were reproduced on `1bc60ef1`.
