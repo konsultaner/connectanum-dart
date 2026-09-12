@@ -845,6 +845,22 @@ scope, including code excluded from the root workspace gates.
   and broader protocol review, then every remaining component row; this does
   not complete the core row or the full security audit.
 
+## Beta.6 Release Checkpoint (2026-09-12)
+
+- The operator explicitly requested a synchronized tester release of the
+  verified SA-001 through SA-018 fixes before the broader audit is complete.
+  This authorizes a `3.0.0-beta.6` prerelease; it does not convert provisional
+  relative-performance evidence or pending component rows into final 3.0.0
+  production clearance.
+- All seven Dart packages and three Rust crates advance together. Native assets
+  must publish from `v3.0.0-beta.6` before package tags are pushed in the
+  canonical core, client, MCP, router, compatibility, auth-server, benchmark
+  order. Protected-master review, local `bin/verify`, strict package dry-runs,
+  hosted CI, and the deployment-chain audit remain mandatory release gates.
+- Hosted example dependency pins remain on beta.5 until beta.6 is indexed. They
+  may advance only after the complete hosted graph and matching native assets
+  are available and independently smoke-tested.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.

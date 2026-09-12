@@ -43,6 +43,14 @@ The [security report](security/2026-09-10-component-audit.md)
 records prerequisites, evidence, and remaining component coverage. This audit
 is not complete and no new release has been published.
 
+The operator has approved a synchronized `3.0.0-beta.6` tester release of the
+locally verified SA-001 through SA-018 fixes without declaring the broader
+security audit or final 3.0.0 production readiness complete. All seven Dart
+packages and three Rust crates are being advanced together. Publication must
+still proceed through protected `master`, a green hosted deployment chain, the
+`v3.0.0-beta.6` native prerelease, and sequential package tags. Hosted example
+pins remain on beta.5 until the complete beta.6 graph is indexed and smoke-tested.
+
 SA-003 authentication lifecycle hardening is locally implemented. Six
 fail-first regressions reproduced late post-abort results, challenge overwrites,
 missing in-flight capacity enforcement, and an expiry boundary error. A shared

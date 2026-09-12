@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-beta.6
+
+- Update the native benchmark dependency graph to patched HTTP/2 and QUIC
+  versions and include the complete native benchmark suite in verification.
+- Preserve production gates for canonical WAMP, large-frame, file-transfer,
+  authentication, HTTP, and payload-E2EE workloads during security hardening.
+
 ## 3.0.0-beta.5
 
 - Add the canonical pub.dev example entrypoint and publish the current

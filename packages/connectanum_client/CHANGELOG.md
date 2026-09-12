@@ -1,3 +1,10 @@
+## 3.0.0-beta.6
+
+- Retain native-backed payload views safely beyond routing-handle release and
+  adopt the complete narrowing-safe 64-bit native message-handle API.
+- Isolate native file, HTTP, and payload-E2EE resources across runtime restarts
+  so stale handles fail closed instead of aliasing replacement resources.
+
 ## 3.0.0-beta.5
 
 - Publish native libraries through staged atomic replacement so repeated build

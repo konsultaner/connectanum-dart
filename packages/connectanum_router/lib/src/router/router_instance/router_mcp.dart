@@ -7033,7 +7033,7 @@ mcp.McpServerCapabilities _mcpServerCapabilitiesForOptions(
 mcp.McpServerInfo _mcpServerInfoForOptions(Map<String, Object?> options) {
   return mcp.McpServerInfo(
     name: _stringOptionAny(options, const ['name']) ?? 'connectanum-router',
-    version: _stringOptionAny(options, const ['version']) ?? '3.0.0-beta.5',
+    version: _stringOptionAny(options, const ['version']) ?? '3.0.0-beta.6',
     title: _stringOptionAny(options, const ['title']),
     description: _stringOptionAny(options, const ['description']),
   );
