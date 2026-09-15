@@ -4936,89 +4936,120 @@ pub extern "C" fn ct_test_http3_stream_request(
             QuinnEndpoint::client("[::]:0".parse().map_err(|_| ERR_INVALID_ARGUMENT)?)
                 .map_err(|_| ERR_INTERNAL)?;
         endpoint.set_default_client_config(client_config);
-        let connecting = endpoint.connect(server_addr, &host).map_err(|err| {
-            eprintln!("ffi-test http3 connect failed: {err}");
-            ERR_INTERNAL
-        })?;
-        // Return while the Dart test still owns its listener and isolate. Quinn's
-        // default idle timeout otherwise races the outer 30-second test timeout.
-        let connection = tokio::time::timeout(std::time::Duration::from_secs(5), connecting)
-            .await
-            .map_err(|_| {
-                eprintln!("ffi-test http3 handshake exceeded 5s for {host}:{port}");
-                ERR_INTERNAL
-            })?
-            .map_err(|err| {
-                eprintln!("ffi-test http3 handshake failed: {err}");
-                ERR_INTERNAL
-            })?;
-        let (mut driver, mut send_request) = h3_client::builder()
-            .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
-            .await
-            .map_err(|err| {
-                eprintln!("ffi-test http3 builder failed: {err}");
-                ERR_INTERNAL
-            })?;
-        tokio::spawn(async move {
-            future::poll_fn(|cx| driver.poll_close(cx)).await;
-        });
-        let uri = format!("https://{host}:{port}{path}");
-        let http_method = method
-            .parse::<http::Method>()
-            .map_err(|_| ERR_INVALID_ARGUMENT)?;
-        let mut builder = http::Request::builder().method(http_method).uri(uri);
-        for (name, value) in &headers {
-            builder = builder.header(name.as_str(), value.as_str());
+        let local_addr = endpoint.local_addr().map_err(|_| ERR_INTERNAL)?;
+        let handshake_started = std::time::Instant::now();
+        let debug = std::env::var_os("CONNECTANUM_FFI_TEST_DEBUG").is_some();
+        if debug {
+            eprintln!("ffi-test http3 connecting from {local_addr} to {server_addr}");
         }
-        let request = builder.body(()).map_err(|_| ERR_INVALID_ARGUMENT)?;
-        let mut stream = send_request.send_request(request).await.map_err(|err| {
-            eprintln!("ffi-test http3 send_request failed: {err}");
-            ERR_INTERNAL
-        })?;
-        if body.is_empty() {
-            stream.finish().await.map_err(|err| {
-                eprintln!("ffi-test http3 finish failed: {err}");
+        let result = async {
+            let connecting = endpoint.connect(server_addr, &host).map_err(|err| {
+                eprintln!("ffi-test http3 connect failed: {err}");
                 ERR_INTERNAL
             })?;
-        } else {
-            let mut offset = 0usize;
-            while offset < body.len() {
-                let end = usize::min(offset + 16 * 1024, body.len());
-                let chunk = Bytes::copy_from_slice(&body[offset..end]);
-                stream.send_data(chunk).await.map_err(|err| {
-                    eprintln!("ffi-test http3 send_data failed: {err}");
+            // Return while the Dart test still owns its listener and isolate. Quinn's
+            // default idle timeout otherwise races the outer 30-second test timeout.
+            let connection = tokio::time::timeout(std::time::Duration::from_secs(5), connecting)
+                .await
+                .map_err(|_| {
+                    eprintln!(
+                        "ffi-test http3 handshake exceeded 5s from {local_addr} to {server_addr}"
+                    );
+                    ERR_INTERNAL
+                })?
+                .map_err(|err| {
+                    eprintln!("ffi-test http3 handshake failed: {err}");
                     ERR_INTERNAL
                 })?;
-                offset = end;
+            if debug {
+                eprintln!(
+                    "ffi-test http3 connected from {local_addr} to {server_addr} in {:?}",
+                    handshake_started.elapsed()
+                );
             }
-            stream.finish().await.map_err(|err| {
-                eprintln!("ffi-test http3 finish failed: {err}");
+            let (mut driver, mut send_request) = h3_client::builder()
+                .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
+                .await
+                .map_err(|err| {
+                    eprintln!("ffi-test http3 builder failed: {err}");
+                    ERR_INTERNAL
+                })?;
+            tokio::spawn(async move {
+                future::poll_fn(|cx| driver.poll_close(cx)).await;
+            });
+            let uri = format!("https://{host}:{port}{path}");
+            let http_method = method
+                .parse::<http::Method>()
+                .map_err(|_| ERR_INVALID_ARGUMENT)?;
+            let mut builder = http::Request::builder().method(http_method).uri(uri);
+            for (name, value) in &headers {
+                builder = builder.header(name.as_str(), value.as_str());
+            }
+            let request = builder.body(()).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            let mut stream = send_request.send_request(request).await.map_err(|err| {
+                eprintln!("ffi-test http3 send_request failed: {err}");
                 ERR_INTERNAL
             })?;
+            if body.is_empty() {
+                stream.finish().await.map_err(|err| {
+                    eprintln!("ffi-test http3 finish failed: {err}");
+                    ERR_INTERNAL
+                })?;
+            } else {
+                let mut offset = 0usize;
+                while offset < body.len() {
+                    let end = usize::min(offset + 16 * 1024, body.len());
+                    let chunk = Bytes::copy_from_slice(&body[offset..end]);
+                    stream.send_data(chunk).await.map_err(|err| {
+                        eprintln!("ffi-test http3 send_data failed: {err}");
+                        ERR_INTERNAL
+                    })?;
+                    offset = end;
+                }
+                stream.finish().await.map_err(|err| {
+                    eprintln!("ffi-test http3 finish failed: {err}");
+                    ERR_INTERNAL
+                })?;
+            }
+            let response = stream.recv_response().await.map_err(|err| {
+                eprintln!("ffi-test http3 recv_response failed: {err}");
+                ERR_INTERNAL
+            })?;
+            let mut response_headers = Vec::new();
+            for (name, value) in response.headers() {
+                response_headers.extend_from_slice(name.as_str().as_bytes());
+                response_headers.extend_from_slice(b": ");
+                response_headers.extend_from_slice(value.as_bytes());
+                response_headers.push(b'\n');
+            }
+            let mut response_body = Vec::new();
+            while let Some(chunk) = stream.recv_data().await.map_err(|err| {
+                eprintln!("ffi-test http3 recv_data failed: {err}");
+                ERR_INTERNAL
+            })? {
+                response_body.extend_from_slice(chunk.chunk());
+            }
+            Ok::<(c_int, Vec<u8>, Vec<u8>), c_int>((
+                response.status().as_u16() as c_int,
+                response_headers,
+                response_body,
+            ))
         }
-        let response = stream.recv_response().await.map_err(|err| {
-            eprintln!("ffi-test http3 recv_response failed: {err}");
-            ERR_INTERNAL
-        })?;
-        let mut response_headers = Vec::new();
-        for (name, value) in response.headers() {
-            response_headers.extend_from_slice(name.as_str().as_bytes());
-            response_headers.extend_from_slice(b": ");
-            response_headers.extend_from_slice(value.as_bytes());
-            response_headers.push(b'\n');
+        .await;
+        // Keep the reactor alive long enough to send CONNECTION_CLOSE. Dropping
+        // the per-request runtime immediately leaves the server waiting for its
+        // idle timeout, accumulating peers across unrelated integration checks.
+        endpoint.close(
+            quinn::VarInt::from_u32(h3::error::Code::H3_NO_ERROR.value() as u32),
+            b"test request complete",
+        );
+        let drained =
+            tokio::time::timeout(std::time::Duration::from_secs(2), endpoint.wait_idle()).await;
+        if result.is_ok() && drained.is_err() {
+            eprintln!("ffi-test http3 client cleanup exceeded 2s for {host}:{port}");
+            return Err(ERR_INTERNAL);
         }
-        let mut response_body = Vec::new();
-        while let Some(chunk) = stream.recv_data().await.map_err(|err| {
-            eprintln!("ffi-test http3 recv_data failed: {err}");
-            ERR_INTERNAL
-        })? {
-            response_body.extend_from_slice(chunk.chunk());
-        }
-        Ok::<(c_int, Vec<u8>, Vec<u8>), c_int>((
-            response.status().as_u16() as c_int,
-            response_headers,
-            response_body,
-        ))
+        result
     });
     let (status, response_headers, response_body) = match result {
         Ok(value) => value,

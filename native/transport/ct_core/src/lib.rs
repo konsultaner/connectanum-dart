@@ -2832,6 +2832,14 @@ fn start_http3_listener(
                 Some(_) = handshakes.join_next(), if !handshakes.is_empty() => {},
                 incoming = endpoint_for_task.accept() => {
                     let Some(incoming) = incoming else { break };
+                    #[cfg(feature = "ffi-test")]
+                    if ffi_test_debug_logs_enabled() {
+                        eprintln!(
+                            "http3 incoming on {:?} at {} from {}, pending handshakes {} of {}",
+                            listener_id, local_addr, incoming.remote_address(),
+                            handshakes.len(), max_pending_handshakes
+                        );
+                    }
                     if handshakes.len() >= max_pending_handshakes {
                         incoming.refuse();
                         continue;
@@ -6922,15 +6930,23 @@ async fn serve_http3_requests(
     {
         Ok(conn) => conn,
         Err(err) => {
-            eprintln!(
-                "http3 handshake failed for listener {:?}: {}",
-                listener_id, err
-            );
-            registry.finish_http_connection(
-                connection_id,
-                HttpConnectionCloseReason::ProtocolError,
-                Some(err.to_string()),
-            );
+            if err.is_h3_no_error() {
+                registry.finish_http_connection(
+                    connection_id,
+                    HttpConnectionCloseReason::Graceful,
+                    None,
+                );
+            } else {
+                eprintln!(
+                    "http3 handshake failed for listener {:?}: {}",
+                    listener_id, err
+                );
+                registry.finish_http_connection(
+                    connection_id,
+                    HttpConnectionCloseReason::ProtocolError,
+                    Some(err.to_string()),
+                );
+            }
             return;
         }
     };

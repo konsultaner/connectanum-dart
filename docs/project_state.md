@@ -111,13 +111,38 @@ Twelve individually selected prior CLI survivors replay with eleven kills and
 one compile error, passing clean/restored baselines and no timeouts/errors.
 This diagnostic sample is not a full MCP mutation score; the older complete
 inventory is still running in its existing snapshot. A separate complete
-1,179-mutant CLI inventory is now running against the new tests, after the
-old run finished its CLI portion; no complete CLI score is claimed.
+1,179-mutant CLI inventory has completed against the new tests: 221 killed,
+631 surviving and 327 compile errors, no timeouts/errors, passing clean/restored
+baselines, and 25.94% raw/adjusted score with no equivalences. All source/test
+hashes match the current files. This complete CLI inventory remains far below
+95%; the older full MCP run is still separate diagnostic evidence.
 Local `bin/test-fast` and
 `bin/verify` pass; the final five auth regressions and exit-code test isolation
 adjustment also pass in the fresh 379-test package run. Full VM coverage
-collection is running, serialized after verification. Hosted verification for
-the new CLI changes remains pending. The full coverage goal is active and unmet.
+collection passes, serialized after verification: 34,337/42,324 (81.13%), with
+7,987 uncovered measured lines and 60 unmeasured library files. Client and
+router error/cleanup callback hits vary from the earlier report; the fresh
+count, not a union of favorable hits, is the current single-run measurement.
+Commit `5fa96e89` is pushed to PR #93. Final-state `bin/verify`, CI
+`34990192211`, and publish dry-run `34990192207` were started. The dry-run
+passes, but local verification reproduced the HTTP/3 handshake timeout in
+`serves protected direct JSON WAMP helpers over native HTTP/3`, at POST
+`/mcp/secure`. Hosted CI and the candidate audit remain pending.
+
+HTTP/3 investigation: a new deterministic FFI regression proves that the
+per-request test client destroyed its Tokio runtime without draining QUIC,
+leaving the router waiting for its peer idle timeout. It now closes and drains
+its endpoint on both successful and failed requests; the existing five-second
+handshake deadline is unchanged. A second reproduced production bug classified
+H3_NO_ERROR during HTTP/3 setup as a protocol failure. The router now reports
+that normal peer close as graceful, while H3_INTERNAL_ERROR remains an error.
+Two deterministic closed-peer tests avoid scheduler-dependent setup races and
+assert single close events and registry cleanup. The FFI cleanup/error and
+silent-peer deadline tests pass, as do all 77 native router integration tests.
+Debug-only endpoint/admission traces provide correlation for future handshake
+failures. These fixes do not yet prove the original intermittent handshake
+cause. Fresh `bin/test-fast` passes; final `bin/verify` is running, with no
+overlapping full coverage collector. The full coverage goal remains unmet.
 
 Previous release milestone: clear the final deployment-chain audit blocker, then publish
 the synchronized `3.0.0-beta.6` tester release from protected `master`. The

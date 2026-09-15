@@ -291,8 +291,13 @@ browser inventory. The full coverage goal remains active.
 - The union of the last completed full VM report and this new MCP slice is
   34,354/42,324 (81.17%), with 7,970 uncovered measured lines and 60 unmeasured
   library files. The lower percentage exposes new scope rather than lost
-  coverage. A fresh full VM run is in progress after full verification; this
-  union is not a new single full-run measurement.
+  coverage. The subsequent fresh, serialized full VM run passes at
+  34,337/42,324 (81.13%), with 7,987 uncovered measured lines. That fresh
+  single-run result supersedes the union. Client session/socket error paths
+  and router native HTTP stream cleanup differ between passing collections;
+  add deterministic regressions rather than treating merged hits as stable
+  execution. Fresh package counts: core 6,359/7,211; client 7,835/9,234;
+  router 15,853/19,268; MCP 2,049/3,906; auth 455/455; bench 1,786/2,250.
 - Replayed twelve individually selected CLI survivors in an isolated current
   workspace. Eleven now fail tests; one is a compile error after the CLI is
   actually imported. Clean/restored baselines pass; no timeouts/errors or
@@ -312,9 +317,58 @@ browser inventory. The full coverage goal remains active.
   also pass in the focused 379-test package run. Native HTTP/3's original
   handshake cause remains unproven; package test configuration already uses
   concurrency one, so overlapping package test files do not explain it.
+- CLI checkpoint `5fa96e89` is pushed to PR #93. Final-state `bin/verify`
+  started only after full VM collection finished. It and hosted CI
+  `34990192211` plus package dry-run `34990192207` are running. Required
+  candidate audit for this commit remains pending; no merge/publication.
 
 Evidence is retained under `out/regression-coverage-2026-09-15/mcp-cli-entrypoints/`.
-Next: finish the live full VM collection and diagnostic MCP inventory, verify
-this candidate in hosted CI, and extend CLI coverage to compatibility sessions,
+Next: finish the diagnostic MCP inventories, verify this candidate in hosted
+CI, and extend CLI coverage to compatibility sessions,
 metadata, pub/sub and auth lifecycle operations. Continue the remaining native,
 browser, client/router and consumer scopes; neither target is complete.
+
+### HTTP/3 Cleanup And Early Closure Regressions
+
+- Final-state verification for `5fa96e89` reproduced the intermittent native
+  handshake failure on POST `/mcp/secure` in the protected direct JSON test.
+  This happened without an overlapping full native verification/coverage run.
+  Do not attribute it to shared-runtime contention or call passing retries a fix.
+- A new FFI regression first failed waiting for a peer close event after a
+  successful response. The per-request Tokio runtime was dropped before QUIC
+  could notify its server. The helper now sends H3_NO_ERROR and awaits endpoint
+  draining, bounded at two seconds, before runtime destruction, on success and
+  error paths. It preserves the original request error and never reports success
+  when successful-request draining exceeds its bound. The existing five-second
+  handshake deadline and silent-peer eight-second observation bound are unchanged.
+- Cleanup exposed a production classification bug: a normal peer close during
+  HTTP/3 builder setup was always recorded as ProtocolError. The early return
+  now uses the typed H3_NO_ERROR predicate. Deterministic native tests close the
+  QUIC peer before invoking HTTP/3 setup, then assert Graceful for H3_NO_ERROR
+  and ProtocolError for H3_INTERNAL_ERROR, zero requests/timeouts, exactly one
+  close event, and released registry ownership. Disabling the new predicate
+  reproduces the assertion failure; the error control still passes.
+- These choices follow [RFC 9114 section 8.1](https://www.rfc-editor.org/rfc/rfc9114.html#section-8.1)
+  and [Quinn's endpoint drain contract](https://docs.rs/quinn/0.11.11/quinn/struct.Endpoint.html#method.wait_idle).
+  This is a lifecycle/observability fix, not proof of the original intermittent
+  handshake cause. Conditional ffi-test traces now correlate local/remote
+  endpoint addresses, handshake timing, and pending admission counts, without
+  headers or payloads in the new diagnostics.
+- Both deterministic setup tests and both FFI deadline/cleanup tests pass.
+  All 77 native router integration tests pass with debug traces. Fresh
+  `bin/test-fast` passes, and final `bin/verify` is running. The previous
+  candidate's package dry-run passes; its hosted CI/audit remain pending.
+- The separate full 1,179-mutant CLI inventory has now completed with 221 kills,
+  631 survivors, 327 compile errors, zero timeouts/errors, and passing clean and
+  restored baselines. Raw/adjusted score is 25.94% over 852 viable mutants, with
+  no equivalences. The five operator families are binary, nullFallback, boolean,
+  negation and condition. Source and both test hashes match the worktree; the
+  report retains its actual pre-commit provenance rather than rewriting it.
+  The complete report and per-mutant logs are retained under the preceding
+  MCP CLI evidence directory. This does not replace the still-running older
+  full MCP diagnostic snapshot or establish a passing CLI mutation gate.
+
+Evidence: `out/regression-coverage-2026-09-15/http3-cleanup/` retains the failing
+verification, reproduced assertions, focused passing tests, and router traces.
+The complete coverage goal remains active; no new whole-component score is
+claimed from these focused regressions.

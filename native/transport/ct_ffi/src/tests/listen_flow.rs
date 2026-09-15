@@ -2474,6 +2474,87 @@ fn http3_test_client_bounds_a_silent_peer_handshake() {
     client.join().unwrap();
 }
 
+#[cfg(feature = "ffi-test")]
+#[test]
+fn http3_test_client_closes_connections_after_success_and_request_errors() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".to_owned(), "127.0.0.1".to_owned()]).unwrap();
+    let config = json!({
+        "schema": "connectanum.router",
+        "version": 1,
+        "endpoints": [{
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "native",
+            "protocols": ["rawsocket", "http", "http2", "http3"],
+            "sni_certificates": [{
+                "hostname": "localhost",
+                "certificate_chain_pem": certified.cert.pem(),
+                "private_key_pem": certified.key_pair.serialize_pem()
+            }],
+            "http": {"alpn": ["http/1.1", "h2", "h3"], "http3": {"enabled": true, "port": 0}}
+        }]
+    })
+    .to_string();
+    assert_eq!(
+        ct_apply_router_config(config.as_ptr(), config.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+    let host = CString::new("127.0.0.1").unwrap();
+    let listener = ct_listen(host.as_ptr(), 0, 128);
+    assert!(listener > 0, "listen failed: {listener}");
+    let port = i32::from(require_http3_port(listener));
+    let certificate = CString::new(certified.cert.pem()).unwrap();
+    let path = CString::new("/not-configured").unwrap();
+    let mut previous_id = 0;
+    for (method, expected_code, expected_status, expected_requests) in [
+        ("GET", SUCCESS, 404, 1),
+        ("invalid method", ERR_INVALID_ARGUMENT, 0, 0),
+        ("POST", SUCCESS, 404, 1),
+        ("GET", SUCCESS, 404, 1),
+    ] {
+        let method = CString::new(method).unwrap();
+        let mut status = 0;
+        assert_eq!(
+            crate::runtime::ffi::ct_test_http3_stream_request(
+                host.as_ptr(),
+                port,
+                path.as_ptr(),
+                method.as_ptr(),
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                0,
+                certificate.as_ptr(),
+                &mut status,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            ),
+            expected_code
+        );
+        assert_eq!(status, expected_status);
+        // Completion must release the peer, not leave it waiting for the
+        // listener's much longer idle timeout after the client runtime is gone.
+        let (event, detail) = wait_for_http_event(Duration::from_secs(3));
+        assert!(event.connection_id > previous_id);
+        previous_id = event.connection_id;
+        assert_eq!(event.protocol, PROTOCOL_HTTP3);
+        assert_eq!(event.request_count, expected_requests);
+        assert_eq!(event.idle_timeouts, 0, "{detail:?}");
+        assert_eq!(event.body_timeouts, 0, "{detail:?}");
+        assert_eq!(
+            event.reason,
+            crate::runtime::constants::HTTP_EVENT_REASON_GRACEFUL,
+            "{detail:?}"
+        );
+    }
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
 #[test]
 fn http3_handshake_surfaced_via_ffi() {
     let _guard = super::test_guard();
