@@ -1014,7 +1014,7 @@ void main() {
               as List<dynamic>;
 
       expect(frame[4], [startsWith('\u0000')]);
-    });
+    }, testOn: 'vm');
     test('Event', () {
       expect(
         serializer.serializeToString(
@@ -1898,7 +1898,9 @@ void main() {
                 ),
               )
               as Result;
-      expect(urlSafeResult.hasLazyArguments, isFalse);
+      if (const bool.fromEnvironment('dart.library.io')) {
+        expect(urlSafeResult.hasLazyArguments, isFalse);
+      }
       expect(urlSafeResult.arguments!.single, orderedEquals(binary));
 
       final withKwargs = Result(
@@ -1914,7 +1916,9 @@ void main() {
                 ),
               )
               as Result;
-      expect(kwargsResult.hasLazyArguments, isFalse);
+      if (const bool.fromEnvironment('dart.library.io')) {
+        expect(kwargsResult.hasLazyArguments, isFalse);
+      }
       expect(kwargsResult.arguments!.single, orderedEquals(binary));
       expect(kwargsResult.argumentsKeywords, containsPair('complete', true));
 

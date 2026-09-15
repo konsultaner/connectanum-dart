@@ -1,0 +1,16 @@
+{
+  "router-authorization": {
+    "43a0c1db3504d23fd1eb": {
+      "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
+      "reason": "Both branches return the same non-null providerDecision. Inverting the guard still evaluates allowed exactly once, preserving even an overridden getter's effects and exceptions."
+    },
+    "4f4f902eae3525814996": {
+      "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
+      "reason": "For an empty matches list the following sort and for loop perform no work and the method returns null, exactly as the early return does."
+    },
+    "1050175e1d77a0a226dd": {
+      "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
+      "reason": "The preceding startsWith guard excludes shorter candidates and the preceding length-equality branch already returned; only strictly longer candidates reach this comparison."
+    }
+  }
+}

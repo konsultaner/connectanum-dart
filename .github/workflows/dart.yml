@@ -139,5 +139,52 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: dart-vm-coverage
-          path: out/coverage/lcov.info
+          path: |
+            out/coverage/lcov.info
+            out/coverage/summary.json
+          if-no-files-found: error
+
+  mutation-gates:
+    name: ${{ matrix.target }} Mutation Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [router-authorization, auth-server]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - name: Run the complete target AST mutation inventory
+        run: bin/test-mutations --target "${{ matrix.target }}" --output out/mutations
+      - name: Upload complete inventory, scores and per-mutant logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}
+          path: out/mutations
+          if-no-files-found: error
+
+  browser-coverage:
+    name: Core Browser Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - id: chrome
+        uses: browser-actions/setup-chrome@v2
+      - run: dart pub global activate coverage 1.15.1
+      - name: Measure browser serializers and SCRAM Worker
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_BROWSER_COVERAGE_DIR: out/coverage-browser
+        run: bin/test-browser-coverage
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: core-browser-coverage
+          path: |
+            out/coverage-browser/lcov.info
+            out/coverage-browser/summary.json
           if-no-files-found: error

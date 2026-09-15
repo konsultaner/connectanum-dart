@@ -41,6 +41,11 @@ run_package_coverage connectanum_core connectanum_core test
 run_package_coverage connectanum_mcp connectanum_mcp test
 run_package_coverage connectanum connectanum test
 run_package_coverage connectanum_client connectanum_client_core test/client_test.dart
+run_package_coverage connectanum_client connectanum_client_file test/file_transfer_test.dart
+run_package_coverage connectanum_client connectanum_client_meta test/meta_state_cache_test.dart
+run_package_coverage connectanum_client connectanum_client_base64 test/transport/native/canonical_base64_io_test.dart
+run_package_coverage connectanum_client connectanum_client_external_buffers test/transport/native/external_byte_buffer_test.dart
+run_package_coverage connectanum_client connectanum_client_restart test/transport/native/resource_restart_test.dart --concurrency=1
 run_package_coverage \
   connectanum_client \
   connectanum_client_io_events \
@@ -124,3 +129,6 @@ dart pub global run coverage:format_coverage \
   "${report_on[@]}"
 
 printf 'Dart VM coverage report written to %s\n' "$coverage_root/lcov.info"
+python3 tool/check_coverage.py "$coverage_root/lcov.info" \
+  --output "$coverage_root/summary.json" \
+  --policy tool/coverage_policy.json

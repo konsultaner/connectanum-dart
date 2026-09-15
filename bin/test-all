@@ -76,7 +76,7 @@ run_core_browser_tests() {
       "${CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-420}" \
       dart test \
         test/authentication/scram_key_derivation_web_test.dart \
-        test/serializer/serializer_optional_numeric_security_test.dart \
+        test/serializer \
         -p chrome \
         --compiler="$browser_compiler" \
         --timeout=5m \
@@ -177,6 +177,9 @@ python3 tool/test_public_artifact_references.py
 python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
 python3 tool/test_router_image_mcp_smoke.py
+python3 tool/test_check_coverage.py
+python3 tool/test_run_dart_mutations.py
+python3 tool/test_dart_mutations.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test
 dart test packages/connectanum/test

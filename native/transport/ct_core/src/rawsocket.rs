@@ -867,6 +867,241 @@ mod tests {
         assert!(matches!(err, HandshakeError::Protocol(_)));
     }
 
+    async fn socket_pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let client = TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (peer, _) = listener.accept().await.unwrap();
+        (client, peer)
+    }
+
+    #[tokio::test]
+    async fn client_handshake_serializer_and_exponent_wire_matrix() {
+        for (serializer, wire_id) in [
+            (Serializer::Json, 1),
+            (Serializer::MessagePack, 2),
+            (Serializer::Cbor, 3),
+            (Serializer::Ubjson, 4),
+            (Serializer::Flatbuffers, 5),
+        ] {
+            for exponent in 9..=24 {
+                let (client, mut peer) = socket_pair().await;
+                let expected = [0x7f, ((exponent - 9) as u8) << 4 | wire_id, 0, 0];
+                let server = async {
+                    let mut request = [0; 4];
+                    peer.read_exact(&mut request).await.unwrap();
+                    assert_eq!(request, expected);
+                    peer.write_all(&expected).await.unwrap();
+                    peer.write_all(b"next-frame").await.unwrap();
+                };
+                let client = async {
+                    let mut session = connect(
+                        IoStream::plain(client),
+                        serializer,
+                        exponent,
+                        Duration::from_secs(1),
+                    )
+                    .await
+                    .unwrap();
+                    assert_eq!(session.serializer, serializer);
+                    assert_eq!(session.max_message_size_exponent, exponent);
+                    assert!(!session.upgraded);
+                    assert_eq!(
+                        session.file_sender.is_some(),
+                        cfg!(any(target_os = "linux", target_os = "macos"))
+                            && (wire_id == 2 || wire_id == 3)
+                    );
+                    let mut payload = [0; 10];
+                    session.reader.read_exact(&mut payload).await.unwrap();
+                    assert_eq!(&payload, b"next-frame");
+                    session.writer.write_all(b"reply").await.unwrap();
+                };
+                time::timeout(Duration::from_secs(3), async {
+                    tokio::join!(server, client);
+                })
+                .await
+                .unwrap();
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn client_rejects_invalid_response_fields_independently() {
+        for (response, expected) in [
+            ([0, 1, 0, 0], "invalid rawsocket response magic"),
+            ([0x7f, 1, 1, 0], "rawsocket reserved bits must be zero"),
+            ([0x7f, 1, 0, 1], "rawsocket reserved bits must be zero"),
+            ([0x7f, 0x10, 0, 0], "rawsocket serializer unsupported"),
+            ([0x7f, 0x20, 0, 0], "rawsocket message length exceeded"),
+            ([0x7f, 0x30, 0, 0], "rawsocket reserved bits error"),
+            ([0x7f, 0x40, 0, 0], "rawsocket handshake failed"),
+            ([0x7f, 6, 0, 0], "rawsocket serializer response invalid"),
+            ([0x7f, 2, 0, 0], "rawsocket serializer mismatch"),
+        ] {
+            let (client, mut peer) = socket_pair().await;
+            peer.write_all(&response).await.unwrap();
+            let result = time::timeout(
+                Duration::from_secs(2),
+                connect(
+                    IoStream::plain(client),
+                    Serializer::Json,
+                    16,
+                    Duration::from_millis(100),
+                ),
+            )
+            .await
+            .unwrap()
+            .unwrap_err();
+            assert!(
+                matches!(result, HandshakeError::Protocol(message) if message == expected),
+                "{result:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn server_rejects_invalid_magic_and_each_reserved_byte() {
+        for (request, message) in [
+            ([0, 1, 0, 0], "invalid rawsocket magic"),
+            ([0x7f, 1, 1, 0], "reserved bits must be zero"),
+            ([0x7f, 1, 0, 1], "reserved bits must be zero"),
+        ] {
+            let (client, mut peer) = socket_pair().await;
+            peer.write_all(&request).await.unwrap();
+            let config = runtime_config(Some(Duration::from_millis(100)), 16);
+            let error = negotiate(IoStream::plain(client), &config)
+                .await
+                .unwrap_err();
+            assert!(matches!(error, HandshakeError::Protocol(actual) if actual == message));
+            let mut response = Vec::new();
+            time::timeout(Duration::from_secs(1), peer.read_to_end(&mut response))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(response, [0x7f, 0x30, 0, 0]);
+        }
+    }
+
+    #[tokio::test]
+    async fn client_upgrade_and_server_clamping_are_negotiated_independently() {
+        for (requested, returned, upgrade) in [(40, 30, true), (26, 25, true), (30, 16, false)] {
+            let (client, mut peer) = socket_pair().await;
+            let server = async {
+                let mut header = [0; 4];
+                peer.read_exact(&mut header).await.unwrap();
+                assert_eq!(header, [0x7f, 0xf2, 0, 0]);
+                peer.write_all(&[0x7f, if upgrade { 0xf2 } else { 0x72 }, 0, 0])
+                    .await
+                    .unwrap();
+                if upgrade {
+                    let mut request = [0; 2];
+                    peer.read_exact(&mut request).await.unwrap();
+                    assert_eq!(
+                        request,
+                        [
+                            0x3f,
+                            (requested.min(crate::config::CONNECTANUM_MAX_RAWSOCKET_SIZE_EXPONENT)
+                                - 25) as u8
+                        ]
+                    );
+                    peer.write_all(&[0x3f, (returned - 25) as u8])
+                        .await
+                        .unwrap();
+                }
+            };
+            let client = async {
+                let session = connect(
+                    IoStream::plain(client),
+                    Serializer::MessagePack,
+                    requested,
+                    Duration::from_secs(1),
+                )
+                .await
+                .unwrap();
+                assert_eq!(session.max_message_size_exponent, returned);
+                assert_eq!(session.upgraded, upgrade);
+            };
+            time::timeout(Duration::from_secs(3), async {
+                tokio::join!(server, client);
+            })
+            .await
+            .unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn client_handshake_timeout_and_truncation_fail_closed() {
+        let (client, _silent) = socket_pair().await;
+        let error = connect(
+            IoStream::plain(client),
+            Serializer::Json,
+            16,
+            Duration::from_millis(10),
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            HandshakeError::Protocol("rawsocket handshake timed out")
+        ));
+        let (client, mut peer) = socket_pair().await;
+        peer.write_all(&[0x7f, 1]).await.unwrap();
+        peer.shutdown().await.unwrap();
+        let error = connect(
+            IoStream::plain(client),
+            Serializer::Json,
+            16,
+            Duration::from_secs(1),
+        )
+        .await
+        .unwrap_err();
+        assert!(
+            matches!(error, HandshakeError::Io(ref io) if io.kind() == io::ErrorKind::UnexpectedEof)
+        );
+    }
+
+    #[tokio::test]
+    async fn client_upgrade_rejects_invalid_magic_and_truncated_response() {
+        for response in [vec![0, 0], vec![0x3f]] {
+            let (client, mut peer) = socket_pair().await;
+            let server = async {
+                let mut header = [0; 4];
+                peer.read_exact(&mut header).await.unwrap();
+                peer.write_all(&[0x7f, 0xf1, 0, 0]).await.unwrap();
+                let mut upgrade = [0; 2];
+                peer.read_exact(&mut upgrade).await.unwrap();
+                peer.write_all(&response).await.unwrap();
+                peer.shutdown().await.unwrap();
+            };
+            let client = async {
+                let error = connect(
+                    IoStream::plain(client),
+                    Serializer::Json,
+                    26,
+                    Duration::from_secs(1),
+                )
+                .await
+                .unwrap_err();
+                if response.len() == 2 {
+                    assert!(matches!(
+                        error,
+                        HandshakeError::Protocol("invalid rawsocket upgrade response")
+                    ));
+                } else {
+                    assert!(
+                        matches!(error, HandshakeError::Io(ref io) if io.kind() == io::ErrorKind::UnexpectedEof)
+                    );
+                }
+            };
+            time::timeout(Duration::from_secs(3), async {
+                tokio::join!(server, client);
+            })
+            .await
+            .unwrap();
+        }
+    }
+
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[tokio::test]
     async fn file_sender_transfers_the_requested_file_range() {
@@ -892,6 +1127,13 @@ mod tests {
         ));
         std::fs::write(&path, b"0123456789abcdef").unwrap();
         let file = Arc::new(File::open(&path).unwrap());
+        assert_eq!(format!("{sender:?}"), "RawSocketFileSender { .. }");
+        sender.send_file_segment(&file, u64::MAX, 0).await.unwrap();
+        let invalid = sender
+            .send_file_segment(&file, u64::MAX, 1)
+            .await
+            .unwrap_err();
+        assert_eq!(invalid.kind(), io::ErrorKind::InvalidInput);
 
         let before = crate::file_segment_metrics_snapshot();
         sender.send_file_segment(&file, 3, 8).await.unwrap();
@@ -927,5 +1169,52 @@ mod tests {
                 >= before_partial.rawsocket_zero_copy_bytes_total + partial.len() as u64
         );
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[tokio::test]
+    async fn file_sender_preserves_offsets_under_backpressure() {
+        let (client, mut peer) = socket_pair().await;
+        let stream = IoStream::plain(client);
+        let sender = RawSocketFileSender::from_stream(&stream).unwrap().unwrap();
+        let small_buffer: libc::c_int = 4096;
+        let status = unsafe {
+            libc::setsockopt(
+                sender.socket.get_ref().as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_SNDBUF,
+                (&small_buffer as *const libc::c_int).cast(),
+                std::mem::size_of_val(&small_buffer) as libc::socklen_t,
+            )
+        };
+        assert_eq!(status, 0);
+        let bytes: Vec<u8> = (0..1024 * 1024 + 73)
+            .map(|i| ((i * 17 + i / 251) % 256) as u8)
+            .collect();
+        let path = std::env::temp_dir().join(format!(
+            "connectanum-backpressure-{}-{}.bin",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::write(&path, &bytes).unwrap();
+        let file = Arc::new(File::open(&path).unwrap());
+        std::fs::remove_file(path).unwrap();
+        let expected = &bytes[31..bytes.len() - 19];
+        let send = sender.send_file_segment(&file, 31, expected.len());
+        let receive = async {
+            time::sleep(Duration::from_millis(20)).await;
+            let mut received = vec![0; expected.len()];
+            peer.read_exact(&mut received).await.unwrap();
+            assert_eq!(received, expected);
+        };
+        time::timeout(Duration::from_secs(5), async {
+            let (sent, ()) = tokio::join!(send, receive);
+            sent.unwrap();
+        })
+        .await
+        .expect("file segment must complete with a slow reader");
     }
 }

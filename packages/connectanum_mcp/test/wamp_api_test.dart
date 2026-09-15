@@ -6,6 +6,184 @@ import 'package:test/test.dart';
 
 void main() {
   group('McpWampApi', () {
+    test('direct catalogs preserve schemas, synonyms and event metadata', () {
+      final procedure = McpWampProcedure(
+        procedure: 'app.echo',
+        outputSchema: const {'type': 'object'},
+        metadata: const McpWampApiMetadata(
+          synonyms: ['repeat'],
+          publishesEvents: ['app.events'],
+          inputJsonSchema: {'type': 'object'},
+          outputJsonSchema: {'type': 'string'},
+        ),
+      );
+      final json = procedure.toJson();
+      expect(json['outputSchema'], {'type': 'object'});
+      expect(json['metadata'], {
+        'synonyms': ['repeat'],
+        'publishes_events': ['app.events'],
+        'input_json_schema': {'type': 'object'},
+        'output_json_schema': {'type': 'string'},
+      });
+    });
+
+    test('rejects incomplete invoker wiring and invalid buffer limits', () {
+      final api = McpWampApi(
+        procedures: [McpWampProcedure(procedure: 'app.echo')],
+      );
+      expect(() => api.toTools(), throwsArgumentError);
+      expect(
+        () => McpWampApi().toTools(
+          subscribe: (_, _) => McpWampSubscription(topic: 'app.events'),
+        ),
+        throwsArgumentError,
+      );
+      for (final limit in [0, -1]) {
+        expect(
+          () => McpWampApi().toTools(maxBufferedEventBytes: limit),
+          throwsArgumentError,
+        );
+      }
+    });
+
+    test('invalid pubsub parameters fail before any WAMP operation', () async {
+      var operations = 0;
+      final api = McpWampApi(
+        topics: [
+          McpWampTopic(topic: 'app.events'),
+          McpWampTopic(topic: 'app.readonly', allowPublish: false),
+          McpWampTopic(topic: 'app.writeonly', allowSubscribe: false),
+        ],
+      );
+      final server = _server(
+        api.toTools(
+          publish: (_) {
+            operations++;
+            return const McpWampPublication(
+              publicationId: 1,
+              acknowledged: true,
+            );
+          },
+          subscribe: (request, _) {
+            operations++;
+            return McpWampSubscription(topic: request.topic, subscriptionId: 1);
+          },
+          unsubscribe: (_) {
+            operations++;
+          },
+        ),
+      );
+      addTearDown(server.shutdown);
+      await _initializeAndStart(server);
+      final cases = <(String, Map<String, Object?>)>[
+        ('publish', {}),
+        ('publish', {'topic': 'app.unknown'}),
+        ('publish', {'topic': 'app.readonly'}),
+        ('subscribe', {'topic': 'app.writeonly'}),
+        ('publish', {'topic': 'app.events', 'arguments': 7}),
+        ('publish', {'topic': 'app.events', 'argumentsKeywords': 7}),
+        ('publish', {'topic': 'app.events', 'acknowledge': 'true'}),
+        ('publish', {'topic': 'app.events', 'options': 7}),
+        for (final key in ['exclude', 'eligible'])
+          for (final value in [
+            7,
+            ['not an id'],
+          ])
+            (
+              'publish',
+              {
+                'topic': 'app.events',
+                'options': {key: value},
+              },
+            ),
+        for (final key in ['exclude_authid', 'eligible_authrole'])
+          for (final value in [
+            'not an array',
+            [7],
+          ])
+            (
+              'publish',
+              {
+                'topic': 'app.events',
+                'options': {key: value},
+              },
+            ),
+        for (final key in ['exclude_me', 'retain', 'acknowledge'])
+          (
+            'publish',
+            {
+              'topic': 'app.events',
+              'options': {key: 1},
+            },
+          ),
+        for (final value in ['', 7])
+          (
+            'subscribe',
+            {
+              'topic': 'app.events',
+              'options': {'match': value},
+            },
+          ),
+        (
+          'subscribe',
+          {
+            'topic': 'app.events',
+            'options': {'get_retained': 1},
+          },
+        ),
+      ];
+      for (final (operation, arguments) in cases) {
+        final response = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.$operation',
+            'arguments': arguments,
+          },
+        });
+        expect(response, isNot(contains('error')));
+        final result = response?['result'] as Map;
+        expect(result['isError'], isTrue, reason: '$operation $arguments');
+        expect(result, isNot(contains('structuredContent')));
+      }
+      expect(operations, 0);
+    });
+
+    test(
+      'catalog tools reject malformed filters and unknown entries',
+      () async {
+        final server = _server(
+          McpWampApi(topics: [McpWampTopic(topic: 'app.events')]).toTools(),
+        );
+        addTearDown(server.shutdown);
+        await _initializeAndStart(server);
+        for (final (tool, arguments) in <(String, Map<String, Object?>)>[
+          ('list', {'kind': ''}),
+          ('list', {'tag': 7}),
+          ('list', {'cursor': 'no paging'}),
+          ('describe', {'uri': 'app.unknown'}),
+          ('describe', {'uri': 'app.events', 'kind': 7}),
+        ]) {
+          final response = await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': 1,
+            'method': 'tools/call',
+            'params': {'name': 'connectanum.api.$tool', 'arguments': arguments},
+          });
+          if (arguments.containsKey('cursor')) {
+            expect(
+              (response?['error'] as Map)['code'],
+              McpErrorCodes.invalidParams,
+            );
+            expect(response, isNot(contains('result')));
+          } else {
+            expect((response?['result'] as Map)['isError'], isTrue);
+          }
+        }
+      },
+    );
+
     test('generates procedure tools and API metadata tools', () async {
       late McpWampToolCall capturedCall;
       final api = McpWampApi(

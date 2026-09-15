@@ -1,0 +1,53 @@
+name: Mutation Diagnostics
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dart:
+    name: Dart ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.target == 'mcp' && 360 || 60 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [core-base64-vm, core-base64-web, core-msgpack-vm, core-msgpack-web, mcp]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - id: chrome
+        uses: browser-actions/setup-chrome@v2
+      - name: Run complete target inventory (survivors fail the target)
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+        run: bin/test-mutations --target "${{ matrix.target }}" --output out/mutations
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}
+          path: out/mutations
+          if-no-files-found: error
+
+  rust:
+    name: RawSocket ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-mutants --version 27.1.0 --locked
+      - name: Run complete RawSocket inventory (inactive cfg bodies remain visible)
+        run: bin/test-native-mutations --package ct_core --file rawsocket.rs --timeout 20 --build-timeout 300 --output "$PWD/out/mutations" -- --lib rawsocket::tests
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-rawsocket-${{ matrix.os }}
+          path: out/mutations
+          if-no-files-found: error

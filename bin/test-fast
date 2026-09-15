@@ -63,6 +63,9 @@ python3 tool/test_public_artifact_references.py
 python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
 python3 tool/test_router_image_mcp_smoke.py
+python3 tool/test_check_coverage.py
+python3 tool/test_run_dart_mutations.py
+python3 tool/test_dart_mutations.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test
 dart test packages/connectanum/test
@@ -71,6 +74,7 @@ run_mcp_client_package_smoke
 run_client_consumer_package_smoke
 run_client_fast_tests
 dart test packages/connectanum_auth_server/test
+dart test packages/connectanum_router/test/authorization_test.dart packages/connectanum_router/test/authorization_regression_test.dart
 run_bench_vm_tests
 run_bench_cli_consumer_package_smoke
 dart test packages/connectanum_router/test/native/native_library_loader_test.dart

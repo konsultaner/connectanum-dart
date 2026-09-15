@@ -1,10 +1,80 @@
 # Project State
 
 Last updated: 2026-09-15
-Current branch: `codex/beta6-legacy-abi-audit`
-Current milestone: clear the final deployment-chain audit blocker, then publish
+Current branch: `codex/regression-mutation-coverage`
+Current milestone: near-complete regression and mutation testing, per the
+operator's latest priority. The active plan is
+`docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+Baseline hosted Dart VM coverage is 83.72% (33,515/40,031 measured lines), with
+6,516 uncovered lines and no mutation-testing gate. Rust, browser-only paths and
+standalone application coverage are not represented by that percentage.
+Targets are 98% executable-line coverage per component/runtime and 95% viable
+mutation kills, with security-critical survivors investigated. These are goals,
+not achieved results. The component security audit and beta.6 release remain
+pending; PR #92 merged into master as `f3323e48` on 2026-09-15, with green CI
+`34962388214`, publish dry-run `34962388215`, and WAMP benchmarks `34962388212`.
+Publication is outside the current coverage goal.
+
+Testing checkpoint: the expanded VM collector and additional authentication
+regressions measure 33,891/40,033 lines (84.66%) in the latest full run,
+with 6,142 measured lines still uncovered.
+Authentication-server coverage is 455/455 (100%), including malformed third-party
+authenticator results through the public plugin interface. Browser Base64
+coverage is 144/144 (100%), within a separately measured
+core-browser scope of 4,291/5,201 (82.50%). These are scoped measurements, not
+repository-wide completion. The new browser regressions reproduced and fixed
+invalid-sentinel corruption in Base64 decoding under dart2js.
+Full `bin/test-fast`, `bin/verify`, static analysis, VM coverage collection and
+core Chrome coverage have passed locally. The latest full verification passes
+native integration plus Chrome JavaScript and WASM tests. All 11 mutation-runner
+regressions also pass, including rejection of an empty target configuration.
+One earlier serialized run hit an intermittent HTTP/3 handshake timeout; its
+cause remains unproven despite 20 subsequent five-test HTTP/3 group passes and
+the successful full verification. Retain this reliability risk in the plan.
+The authorization mutation
+inventory has 69 killed, 28 unviable and five survivors, three individually
+justified as equivalent: 93.24% raw and 97.18% adjusted. Authentication-server
+has 181 killed, 105 unviable and eight survivors (95.77%, no exclusions).
+Base64 and native RawSocket mutation gaps remain under investigation; no complete-project
+mutation score is claimed. CI configuration now enforces per-package floors,
+measured-source inventory, focused browser floors and authorization/auth-server mutations.
+The broader diagnostic mutation workflow is manual and is not yet a green gate.
+Coverage changes are on the coverage branch, not released. Hosted evidence
+above covers the merged baseline, not this coverage candidate.
+
+Follow-up checkpoint: 154 MCP package tests pass and measure 1,586/1,615 VM
+library lines (98.20%). The large router-hosted CLI remains unmeasured, so this
+is not complete-component coverage. Real-Session bridge tests exposed WAMP
+failures rendered as `Instance of 'Error'`; the delegate now returns only the
+error URI, not private details or payloads. Registry/cursor lifecycle and
+malformed-request tests verify that invalid operations never reach handlers.
+Core browser coverage now measures 4,345/5,201 (83.54%), with MessagePack codec
+coverage at 180/185 (97.30%) and 381 passing tests. The first full MessagePack
+browser mutation run has 173 kills, nine compile errors and 52 survivors
+(76.89% viable score). The refined complete inventory improves to 193 kills,
+nine compile errors and 32 survivors (85.78%), with passing clean/restored
+baselines and no timeouts or infrastructure errors. The full 2,274-mutant MCP
+inventory is running. No passing mutation claim is made for either scope.
+A silent-peer regression bounds the ffi-test HTTP/3 handshake before the Dart
+test tears down its listener. This improves failure diagnostics but does not
+prove the original intermittent handshake cause. Fresh `bin/test-fast` and
+`bin/verify` pass, including native HTTP/3 and Chrome WASM tests. The separate
+browser coverage command verifies Chrome JavaScript.
+The strict deployment audit now expects the
+new coverage/mutation jobs, with a reproduced-before regression for that
+workflow contract; all 24 audit tests pass. A reproduced mutation-classifier
+bug now rejects signal-terminated processes even if they emitted failure JSON
+before crashing. All 12 runner tests pass, and new reports retain exit codes.
+The live inventories started before that guard and remain diagnostic evidence;
+fresh hosted mutation gates will use the corrected runner. Fresh full VM
+coverage collection passes, serialized after verification, including the
+98% measured MCP floor. Sixty-one library files remain unmeasured; retain
+that inventory separately from the measured percentage.
+The complete repository-wide coverage goal remains unmet.
+
+Previous release milestone: clear the final deployment-chain audit blocker, then publish
 the synchronized `3.0.0-beta.6` tester release from protected `master`. The
-active plan remains
+paused release/security plan is
 `docs/exec-plans/2026-09-10-component-security-audit.md`; the broader audit and
 WampApp feature plan remain open after this prerelease. Release PR #91 merged
 SA-001 through SA-018 at `2e062228`; older checkpoint wording that calls those

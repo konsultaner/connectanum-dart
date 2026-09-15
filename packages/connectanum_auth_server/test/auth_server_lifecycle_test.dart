@@ -103,17 +103,135 @@ void main() {
   });
 
   test('duplicate HELLO cannot replace an existing challenge', () async {
+    final local = AuthServer(
+      settings:
+          (RouterSettingsBuilder()..addRealmFromBuilder(
+                RealmSettingsBuilder('realm1')
+                  ..addAuthMethod('controlled')
+                  ..setLimits(const RealmLimitSettings(maxPendingAuth: 2)),
+              ))
+              .build(),
+    );
+    addTearDown(local.close);
     expect(
-      (await server.onHello(hello('same'))).status,
+      (await local.onHello(hello('same'))).status,
       RemoteHelloStatus.challenge,
     );
-    final duplicate = await server.onHello(hello('same'));
+    final duplicate = await local.onHello(hello('same'));
     expect(duplicate.status, RemoteHelloStatus.failure);
+    expect(duplicate.failure?.reason, 'wamp.error.protocol_violation');
+    expect(local.pendingAuthenticationCounts, {'realm1': 1});
     expect(factory.calls, 1);
     expect(
-      (await server.onAuthenticate(authenticate('same'))).status,
+      (await local.onAuthenticate(authenticate('same'))).status,
       RemoteAuthenticateStatus.success,
     );
+  });
+
+  test('closing an idle server prevents new provider creation', () async {
+    await server.close();
+    final response = await server.onHello(hello('after-close'));
+    expect(response.status, RemoteHelloStatus.failure);
+    expect(response.failure?.message, 'Remote authentication service closed');
+    expect(factory.calls, 0);
+    expect(server.pendingAuthenticationCounts, isEmpty);
+  });
+
+  test(
+    'missing identities are rejected before the selected provider runs',
+    () async {
+      for (final authId in [null, '']) {
+        final response = await server.onHello(
+          RemoteHelloRequest(
+            realmSettings: realm,
+            context: AuthenticatorContext(
+              realm: realm,
+              sessionId: 1,
+              transport: const TransportMetadata(connectionId: 1),
+              helloDetails: {
+                'authid': authId,
+                'authmethods': ['controlled'],
+              },
+            ),
+            options: const {},
+            transactionId: 'missing-$authId',
+          ),
+        );
+        expect(response.status, RemoteHelloStatus.failure);
+        expect(
+          response.failure?.message,
+          'authid is required for remote authentication',
+        );
+        await _drain();
+        expect(server.pendingAuthenticationCounts, isEmpty);
+      }
+      expect(factory.calls, 0);
+    },
+  );
+
+  for (final timeout in [
+    const Duration(milliseconds: 7),
+    Duration.zero,
+    const Duration(milliseconds: -1),
+  ]) {
+    test('explicit timeout $timeout overrides the realm deadline', () {
+      fakeAsync((async) {
+        final local = AuthServer(
+          settings: server.settings,
+          challengeTimeout: timeout,
+          clock: () => now,
+        );
+        final creation = Completer<Authenticator>();
+        factory.creation = creation.future;
+        RemoteHelloResponse? response;
+        local.onHello(hello('override')).then((value) => response = value);
+        async.flushMicrotasks();
+        expect(async.pendingTimers, hasLength(timeout > Duration.zero ? 1 : 0));
+        if (timeout > Duration.zero) {
+          async.elapse(timeout - const Duration(milliseconds: 1));
+          expect(response, isNull);
+          async.elapse(const Duration(milliseconds: 1));
+          expect(response?.status, RemoteHelloStatus.failure);
+          expect(
+            response?.failure?.message,
+            'Remote authentication challenge expired',
+          );
+        } else {
+          async.elapse(const Duration(days: 1));
+          expect(response, isNull);
+        }
+        creation.complete(factory.authenticator);
+        async.flushMicrotasks();
+        expect(
+          factory.authenticator.helloCalls,
+          timeout > Duration.zero ? 0 : 1,
+        );
+        if (timeout <= Duration.zero) {
+          expect(response?.status, RemoteHelloStatus.challenge);
+        }
+        local.close();
+        async.flushMicrotasks();
+        expect(local.pendingAuthenticationCounts, isEmpty);
+        expect(async.pendingTimers, isEmpty);
+      });
+    });
+  }
+
+  test('an unknown realm is rejected before provider creation', () async {
+    final unknown = RealmSettingsBuilder('unknown').build();
+    await expectLater(
+      server.onHello(
+        RemoteHelloRequest(
+          realmSettings: unknown,
+          context: _context(unknown),
+          options: const {},
+          transactionId: 'unknown-realm',
+        ),
+      ),
+      throwsStateError,
+    );
+    expect(factory.calls, 0);
+    expect(server.pendingAuthenticationCounts, isEmpty);
   });
 
   test('pending limit includes an unfinished factory', () async {
@@ -209,7 +327,10 @@ void main() {
     final first = server.onAuthenticate(authenticate('same'));
     await factory.authenticator.authenticateEntered.future;
     expect(
-      (await server.onAuthenticate(authenticate('same'))).status,
+      (await server
+              .onAuthenticate(authenticate('same'))
+              .timeout(const Duration(seconds: 1)))
+          .status,
       RemoteAuthenticateStatus.failure,
     );
     pendingAuth.complete(_success());
@@ -220,6 +341,61 @@ void main() {
       RemoteAuthenticateStatus.failure,
     );
   });
+
+  test(
+    'a masked HELLO denial cannot be changed into provider success',
+    () async {
+      final local = AuthServer(
+        settings: server.settings,
+        fakeChallengeOnHelloFailure: true,
+      );
+      addTearDown(local.close);
+      factory.authenticator.hello = Future.value(
+        AuthResult.failure(
+          const AuthFailure(
+            reason: 'wamp.error.not_authorized',
+            message: 'identity denied',
+          ),
+        ),
+      );
+      final challenge = await local.onHello(hello('masked'));
+      expect(challenge.status, RemoteHelloStatus.challenge);
+      expect(challenge.challenge?.extra, {'fake': true});
+      final response = await local.onAuthenticate(authenticate('masked'));
+      expect(response.status, RemoteAuthenticateStatus.failure);
+      expect(response.failure?.reason, 'wamp.error.authentication_failed');
+      expect(response.failure?.message, 'identity denied');
+      expect(factory.authenticator.authenticateCalls, 0);
+      await _drain();
+      expect(factory.authenticator.abortCalls, 1);
+      expect(local.pendingAuthenticationCounts, isEmpty);
+    },
+  );
+
+  test(
+    'malformed entries do not prevent selecting a valid auth method',
+    () async {
+      final response = await server.onHello(
+        RemoteHelloRequest(
+          realmSettings: realm,
+          context: AuthenticatorContext(
+            realm: realm,
+            sessionId: 1,
+            transport: const TransportMetadata(connectionId: 1),
+            helloDetails: {
+              'authid': 'user',
+              'authmethods': [null, 42, '', <String, Object?>{}, 'controlled'],
+            },
+          ),
+          options: const {},
+          transactionId: 'method-selection',
+        ),
+      );
+      expect(response.status, RemoteHelloStatus.challenge);
+      expect(factory.calls, 1);
+      expect(factory.authenticator.helloCalls, 1);
+    },
+  );
 
   test('authentication failure finalizes the pending attempt', () async {
     const failure = AuthFailure(
@@ -243,6 +419,77 @@ void main() {
     expect(server.pendingAuthenticationCounts, isEmpty);
     expect(factory.authenticator.abortCalls, 1);
   });
+
+  test(
+    'plugin result payloads cannot override their declared HELLO status',
+    () async {
+      for (final (id, result) in [
+        (
+          'extra-success',
+          const _PluginResult(
+            AuthStatus.challenge,
+            challenge: AuthChallenge(extra: {}),
+            success: AuthSuccess(authId: 'unexpected', authRole: 'admin'),
+          ),
+        ),
+        (
+          'extra-failure',
+          const _PluginResult(
+            AuthStatus.challenge,
+            challenge: AuthChallenge(extra: {}),
+            failure: AuthFailure(reason: 'unexpected'),
+          ),
+        ),
+      ]) {
+        factory.authenticator.hello = Future.value(result);
+        final response = await server.onHello(hello(id));
+        expect(response.status, RemoteHelloStatus.challenge);
+        expect(response.success, isNull);
+        server.abort(id);
+        await _drain();
+        expect(server.pendingAuthenticationCounts, isEmpty);
+      }
+    },
+  );
+
+  test(
+    'an incomplete plugin HELLO result fails closed and releases capacity',
+    () async {
+      factory.authenticator.hello = Future.value(
+        const _PluginResult(AuthStatus.success),
+      );
+      final response = await server.onHello(hello('incomplete'));
+      expect(response.status, RemoteHelloStatus.failure);
+      expect(
+        response.failure?.message,
+        'Authenticator did not produce a challenge',
+      );
+      await _drain();
+      expect(factory.authenticator.abortCalls, 1);
+      expect(server.pendingAuthenticationCounts, isEmpty);
+    },
+  );
+
+  test(
+    'an inconsistent plugin AUTHENTICATE result cannot authorize a session',
+    () async {
+      await server.onHello(hello('inconsistent'));
+      factory.authenticator.authenticate = Future.value(
+        const _PluginResult(
+          AuthStatus.challenge,
+          success: AuthSuccess(authId: 'unexpected', authRole: 'admin'),
+        ),
+      );
+      final response = await server.onAuthenticate(
+        authenticate('inconsistent'),
+      );
+      expect(response.status, RemoteAuthenticateStatus.failure);
+      expect(response.success, isNull);
+      await _drain();
+      expect(factory.authenticator.abortCalls, 1);
+      expect(server.pendingAuthenticationCounts, isEmpty);
+    },
+  );
 
   test('trusted abort helper releases a pending challenge', () async {
     expect(
@@ -365,6 +612,8 @@ void main() {
   test(
     'provider and cleanup exceptions release capacity without disclosure',
     () async {
+      final events = <AuthAuditEvent>[];
+      AuthAuditLogger.registerSink(events.add);
       final failed = Completer<AuthResult>();
       factory.authenticator.hello = failed.future;
       factory.authenticator.cleanupError = true;
@@ -376,11 +625,35 @@ void main() {
       expect(result.failure?.message, isNot(contains('private credential')));
       await _drain();
       expect(server.pendingAuthenticationCounts, isEmpty);
+      expect(events, hasLength(1));
+      expect(events.single.outcome, AuthAuditOutcome.failure);
+      expect(events.single.message, isNot(contains('private credential')));
       factory.authenticator.hello = null;
       expect(
         (await server.onHello(hello('retry'))).status,
         RemoteHelloStatus.challenge,
       );
+    },
+  );
+
+  test(
+    'provider failure at the deadline keeps the expiration reason',
+    () async {
+      final failed = Completer<AuthResult>();
+      factory.authenticator.hello = failed.future;
+      final result = server.onHello(hello('deadline-error'));
+      await factory.authenticator.helloEntered.future;
+      now = now.add(Duration(milliseconds: realm.limits.authTimeoutMs));
+      failed.completeError(StateError('late credential error'));
+      final response = await result;
+      expect(response.status, RemoteHelloStatus.failure);
+      expect(
+        response.failure?.message,
+        'Remote authentication challenge expired',
+      );
+      await _drain();
+      expect(server.pendingAuthenticationCounts, isEmpty);
+      expect(factory.authenticator.abortCalls, 1);
     },
   );
 
@@ -514,6 +787,32 @@ class _Factory extends AuthenticatorFactory {
     if (!entered.isCompleted) entered.complete();
     return creation ?? authenticator;
   }
+}
+
+// AuthResult is implementable by third-party authenticators. Exercise malformed
+// plugin output through that public interface, without accessing private state.
+class _PluginResult implements AuthResult {
+  const _PluginResult(
+    this.status, {
+    this.challenge,
+    this.success,
+    this.failure,
+  });
+
+  @override
+  final AuthStatus status;
+  @override
+  final AuthChallenge? challenge;
+  @override
+  final AuthSuccess? success;
+  @override
+  final AuthFailure? failure;
+  @override
+  bool get isChallenge => status == AuthStatus.challenge;
+  @override
+  bool get isSuccess => status == AuthStatus.success;
+  @override
+  bool get isFailure => status == AuthStatus.failure;
 }
 
 class _Authenticator extends Authenticator {

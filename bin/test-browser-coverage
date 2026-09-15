@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+dart_workspace_bootstrap
+if ! ensure_chrome_env; then
+  printf 'Chrome is required for browser coverage; no empty report will be emitted.\n' >&2
+  exit 1
+fi
+coverage_root="${CONNECTANUM_BROWSER_COVERAGE_DIR:-$ROOT_DIR/out/coverage-browser}"
+if [[ "$coverage_root" != /* ]]; then coverage_root="$ROOT_DIR/$coverage_root"; fi
+if [[ -e "$coverage_root" ]]; then
+  printf 'Choose a fresh CONNECTANUM_BROWSER_COVERAGE_DIR.\n' >&2
+  exit 2
+fi
+mkdir -p "$coverage_root"
+(
+  cd packages/connectanum_core
+  run_command_with_timeout "Core browser coverage" 420 dart test \
+    test/authentication/scram_key_derivation_web_test.dart test/serializer \
+    -p chrome --compiler=dart2js --concurrency=1 --timeout=5m \
+    --coverage="$coverage_root/raw/core"
+)
+# VM ignore comments are deliberately not applied to browser source maps.
+dart pub global run coverage:format_coverage --lcov --in="$coverage_root/raw" \
+  --out="$coverage_root/lcov.info" --package="$ROOT_DIR" --base-directory="$ROOT_DIR" \
+  --report-on=packages/connectanum_core/lib
+python3 tool/check_coverage.py "$coverage_root/lcov.info" --runtime chrome \
+  --output "$coverage_root/summary.json" --policy tool/browser_coverage_policy.json

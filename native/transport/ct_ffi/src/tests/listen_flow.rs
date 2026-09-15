@@ -2429,6 +2429,51 @@ fn http2_handshake_surfaced_via_ffi() {
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 
+#[cfg(feature = "ffi-test")]
+#[test]
+fn http3_test_client_bounds_a_silent_peer_handshake() {
+    let _guard = super::test_guard();
+    let socket = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+    socket
+        .set_read_timeout(Some(Duration::from_secs(3)))
+        .unwrap();
+    let port = i32::from(socket.local_addr().unwrap().port());
+    let certified = generate_simple_self_signed(vec!["127.0.0.1".into()]).unwrap();
+    let certificate = CString::new(certified.cert.pem()).unwrap();
+    let (completed, result) = std::sync::mpsc::channel();
+    let client = std::thread::spawn(move || {
+        let host = CString::new("127.0.0.1").unwrap();
+        let path = CString::new("/unresponsive").unwrap();
+        let method = CString::new("GET").unwrap();
+        let code = crate::runtime::ffi::ct_test_http3_stream_request(
+            host.as_ptr(),
+            port,
+            path.as_ptr(),
+            method.as_ptr(),
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+            0,
+            certificate.as_ptr(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        );
+        let _ = completed.send(code);
+    });
+    // A bound, silent socket receives the Initial without returning an ICMP
+    // error, so this exercises a stalled handshake rather than connection refusal.
+    let (received, _) = socket.recv_from(&mut [0; 2048]).unwrap();
+    assert!(received >= 1200, "expected a QUIC Initial datagram");
+    let code = result
+        .recv_timeout(Duration::from_secs(8))
+        .expect("native HTTP/3 handshake outlived its test-client deadline");
+    assert_eq!(code, crate::runtime::constants::ERR_INTERNAL);
+    client.join().unwrap();
+}
+
 #[test]
 fn http3_handshake_surfaced_via_ffi() {
     let _guard = super::test_guard();

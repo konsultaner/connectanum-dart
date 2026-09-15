@@ -1,0 +1,53 @@
+{
+  "router-authorization": {
+    "sources": ["packages/connectanum_router/lib/src/router/auth/authorization.dart"],
+    "tests": ["packages/connectanum_router/test/authorization_test.dart", "packages/connectanum_router/test/authorization_regression_test.dart"]
+  },
+  "core-base64-vm": {
+    "sources": ["packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"],
+    "tests": ["packages/connectanum_core/test/serializer/json/binary_codec_test.dart"]
+  },
+  "core-base64-web": {
+    "sources": ["packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"],
+    "tests": ["packages/connectanum_core/test/serializer/json/binary_codec_test.dart"],
+    "platform": "chrome",
+    "testRoot": "packages/connectanum_core"
+  },
+  "auth-server": {
+    "sources": ["packages/connectanum_auth_server/lib/src/auth_server.dart", "packages/connectanum_auth_server/lib/src/pending_transaction.dart", "packages/connectanum_auth_server/lib/src/selection.dart", "packages/connectanum_auth_server/lib/src/wamp_procedures_impl.dart"],
+    "tests": ["packages/connectanum_auth_server/test"]
+  },
+  "auth-transactions": {
+    "sources": ["packages/connectanum_auth_server/lib/src/pending_transaction.dart", "packages/connectanum_auth_server/lib/src/selection.dart"],
+    "tests": ["packages/connectanum_auth_server/test"]
+  },
+  "mcp": {
+    "sources": [
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
+      "packages/connectanum_mcp/lib/src/prompts/prompt.dart",
+      "packages/connectanum_mcp/lib/src/protocol/capabilities.dart",
+      "packages/connectanum_mcp/lib/src/protocol/constants.dart",
+      "packages/connectanum_mcp/lib/src/protocol/errors.dart",
+      "packages/connectanum_mcp/lib/src/protocol/icons.dart",
+      "packages/connectanum_mcp/lib/src/protocol/json_rpc.dart",
+      "packages/connectanum_mcp/lib/src/protocol/pagination.dart",
+      "packages/connectanum_mcp/lib/src/resources/resource.dart",
+      "packages/connectanum_mcp/lib/src/server/mcp_server.dart",
+      "packages/connectanum_mcp/lib/src/tools/tool.dart",
+      "packages/connectanum_mcp/lib/src/tools/wamp_api.dart",
+      "packages/connectanum_mcp/lib/src/tools/wamp_tool_delegate.dart",
+      "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart"
+    ],
+    "tests": ["packages/connectanum_mcp/test"]
+  },
+  "core-msgpack-vm": {
+    "sources": ["packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"],
+    "tests": ["packages/connectanum_core/test/serializer/msgpack/codec_test.dart"]
+  },
+  "core-msgpack-web": {
+    "sources": ["packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"],
+    "tests": ["packages/connectanum_core/test/serializer/msgpack/codec_test.dart", "packages/connectanum_core/test/serializer/msgpack/codec_fallback_web_test.dart"],
+    "platform": "chrome",
+    "testRoot": "packages/connectanum_core"
+  }
+}

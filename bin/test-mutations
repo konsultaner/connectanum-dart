@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+dart_workspace_bootstrap
+exec python3 tool/run_dart_mutations.py "$@"

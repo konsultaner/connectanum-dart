@@ -632,7 +632,7 @@ class VerificationScriptsTest(unittest.TestCase):
             script,
         )
         self.assertIn(
-            "test/serializer/serializer_optional_numeric_security_test.dart",
+            "test/serializer \\\n",
             script,
         )
         self.assertIn('"Core browser tests"', script)

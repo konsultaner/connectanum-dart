@@ -1,0 +1,8 @@
+{
+  "target": 98,
+  "packages": {"connectanum_core": 83.5},
+  "files": {
+    "packages/connectanum_core/lib/src/serializer/json/binary_codec.dart": 100,
+    "packages/connectanum_core/lib/src/serializer/msgpack/codec.dart": 97.29
+  }
+}

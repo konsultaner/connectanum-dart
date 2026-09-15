@@ -4940,10 +4940,18 @@ pub extern "C" fn ct_test_http3_stream_request(
             eprintln!("ffi-test http3 connect failed: {err}");
             ERR_INTERNAL
         })?;
-        let connection = connecting.await.map_err(|err| {
-            eprintln!("ffi-test http3 handshake failed: {err}");
-            ERR_INTERNAL
-        })?;
+        // Return while the Dart test still owns its listener and isolate. Quinn's
+        // default idle timeout otherwise races the outer 30-second test timeout.
+        let connection = tokio::time::timeout(std::time::Duration::from_secs(5), connecting)
+            .await
+            .map_err(|_| {
+                eprintln!("ffi-test http3 handshake exceeded 5s for {host}:{port}");
+                ERR_INTERNAL
+            })?
+            .map_err(|err| {
+                eprintln!("ffi-test http3 handshake failed: {err}");
+                ERR_INTERNAL
+            })?;
         let (mut driver, mut send_request) = h3_client::builder()
             .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
             .await

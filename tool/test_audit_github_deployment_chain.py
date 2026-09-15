@@ -14,6 +14,17 @@ AUDIT_SCRIPT = REPO_ROOT / "bin" / "audit-github-deployment-chain"
 
 
 class AuditGithubDeploymentChainTest(unittest.TestCase):
+    def test_clean_latest_ci_requires_coverage_and_mutation_jobs(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+        result = self._run_audit(current_head)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        for job in ("Core Browser Coverage", "router-authorization Mutation Gate", "auth-server Mutation Gate"):
+            with self.subTest(job=job):
+                missing = self._run_audit(current_head, ci_jobs_omit=job)
+                self.assertNotEqual(missing.returncode, 0, missing.stdout)
+                self.assertIn(job, missing.stdout)
+                self.assertIn("Latest CI cleanliness audit failed.", missing.stdout)
+
     def test_clean_latest_ci_requires_checked_out_head(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
         stale_head = self._different_sha(current_head)
@@ -703,6 +714,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         github_actions_status: str = "operational",
         ci_log_extra: str = "",
         ci_jobs_extra: str = "",
+        ci_jobs_omit: str = "",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -833,6 +845,9 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             print("WampApp Consumer\\tcompleted\\tsuccess")
                             print("Dart VM Coverage\\tcompleted\\tsuccess")
                             print("Full Verify\\tcompleted\\tsuccess")
+                            for job in ("Core Browser Coverage", "router-authorization Mutation Gate", "auth-server Mutation Gate"):
+                                if job != os.environ.get("FAKE_CI_JOBS_OMIT"):
+                                    print(f"{job}\\tcompleted\\tsuccess")
                             if extra := os.environ.get("FAKE_CI_JOBS_EXTRA"):
                                 print(extra)
                         else:
@@ -886,6 +901,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             env["FAKE_GITHUB_ACTIONS_STATUS"] = github_actions_status
             env["FAKE_CI_LOG_EXTRA"] = ci_log_extra
             env["FAKE_CI_JOBS_EXTRA"] = ci_jobs_extra
+            env["FAKE_CI_JOBS_OMIT"] = ci_jobs_omit
             env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
 
             return subprocess.run(
@@ -1593,6 +1609,9 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 print("WampApp Consumer\\tcompleted\\tsuccess")
                                 print("Dart VM Coverage\\tcompleted\\tsuccess")
                                 print("Full Verify\\tcompleted\\tsuccess")
+                                print("Core Browser Coverage\\tcompleted\\tsuccess")
+                                print("router-authorization Mutation Gate\\tcompleted\\tsuccess")
+                                print("auth-server Mutation Gate\\tcompleted\\tsuccess")
                             elif run_id == "124":
                                 print("Publish Dry Run\\tcompleted\\tsuccess")
                             elif run_id == "125":
@@ -1960,6 +1979,9 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 print("WampApp Consumer\\tcompleted\\tsuccess")
                                 print("Dart VM Coverage\\tcompleted\\tsuccess")
                                 print("Full Verify\\tcompleted\\tsuccess")
+                                print("Core Browser Coverage\\tcompleted\\tsuccess")
+                                print("router-authorization Mutation Gate\\tcompleted\\tsuccess")
+                                print("auth-server Mutation Gate\\tcompleted\\tsuccess")
                             elif run_id == "124":
                                 print("Publish Dry Run\\tcompleted\\tsuccess")
                             elif run_id == "125":

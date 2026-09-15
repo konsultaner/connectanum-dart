@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+ensure_rust_env
+coverage_root="${CONNECTANUM_NATIVE_COVERAGE_DIR:-$ROOT_DIR/out/coverage-native}"
+if [[ "$coverage_root" != /* ]]; then coverage_root="$ROOT_DIR/$coverage_root"; fi
+if [[ -e "$coverage_root" ]]; then
+  printf 'Choose a fresh CONNECTANUM_NATIVE_COVERAGE_DIR.\n' >&2
+  exit 2
+fi
+mkdir -p "$coverage_root"
+# Raw LLVM evidence includes inline unit-test bodies. Do not merge its raw
+# percentages into the Dart production-line badge or call them release coverage.
+cargo llvm-cov --manifest-path native/transport/Cargo.toml --workspace \
+  --features ffi-test --lcov --output-path "$coverage_root/lcov.info"

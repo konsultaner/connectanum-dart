@@ -18184,7 +18184,7 @@ Future<NativeHttpTestResponse> _runHttp3StreamRequestInIsolate(
       if (resultCode != NativeTransportErrorCode.success) {
         throw NativeTransportException(
           resultCode,
-          'HTTP/3 test request failed',
+          'HTTP/3 test request failed ($method ${Uri.parse(path).path}, port $port)',
         );
       }
       final status = statusPtr.value;
