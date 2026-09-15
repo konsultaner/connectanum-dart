@@ -935,3 +935,24 @@ remains open; no merge or publication is authorized by this checkpoint.
 
 Evidence: cli19*, browser19*, lazy19-js-mutations and the earlier preserved
 inventories under out/regression-coverage-2026-09-15. The full goal remains open.
+
+### RawSocket Probe Cancellation
+
+- A paused-time regression fails before the fix: a standard frame's first byte
+  is consumed by read_exact and discarded when the optional upgrade probe times
+  out. Retain the lookahead buffer/count outside the timed future, use read's
+  cancellation-safe partial operation and restore the consumed prefix on timeout.
+- All 20 RawSocket tests pass after the fix. Additional cases preserve immediate
+  EOF rejection with zero/one probe byte and successful upgrade with a buffered
+  magic byte plus socket suffix. Existing file-range/backpressure tests still
+  pass. Add Tokio test-util only as a dev dependency for deterministic time.
+- bin/test-fast finished successfully. Full bin/verify with the real LLVM
+  fixture is running before the serialized native20-rawsocket campaign. Preserve
+  all cargo-mutants outcomes; its caught count is not sufficient to prove an
+  assertion kill. cfg-inactive mutants require separate platform accounting.
+- Discovery lists 3,356 transport and 1,289 benchmark candidates. These include
+  inactive platform code and do not establish a viable production denominator or
+  meet the complete native mutation target. No broad equivalence is justified.
+
+Evidence: native20-before/after logs, native20-rawsocket snapshot and campaign
+output, and coverage20 verification logs. The full goal remains active.

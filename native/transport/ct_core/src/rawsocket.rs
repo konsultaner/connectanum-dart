@@ -266,16 +266,23 @@ pub async fn negotiate(
     let mut upgraded = false;
 
     if desired_exponent > response_exponent && client_exponent >= 24 {
+        // Retain partial lookahead across cancellation: read_exact can consume
+        // a standard frame's first byte before the optional probe times out.
+        let mut buf = [0u8; 2];
+        let mut filled = 0;
         match time::timeout(endpoint.handshake_timeout, async {
-            let mut buf = [0u8; 2];
-            match stream.read_exact(&mut buf).await {
-                Ok(_) => Ok(buf),
-                Err(err) => Err(err),
+            while filled < buf.len() {
+                let read = stream.read(&mut buf[filled..]).await?;
+                if read == 0 {
+                    return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "early eof"));
+                }
+                filled += read;
             }
+            Ok(())
         })
         .await
         {
-            Ok(Ok(buf)) if buf[0] == RAWSOCKET_UPGRADE_MAGIC => {
+            Ok(Ok(())) if buf[0] == RAWSOCKET_UPGRADE_MAGIC => {
                 let client_upgrade = ((buf[1] & 0x0F) as u32) + 25;
                 let negotiated_upgrade = desired_exponent
                     .min(client_upgrade)
@@ -293,14 +300,15 @@ pub async fn negotiate(
                 final_exponent = negotiated_upgrade;
                 upgraded = true;
             }
-            Ok(Ok(buf)) => {
+            Ok(Ok(())) => {
                 // Exponent-24 peers can start WAMP immediately; preserve the
                 // speculative bytes when they did not request the extension.
                 stream.buffer_front(&buf);
             }
             Ok(Err(err)) => return Err(HandshakeError::Io(err)),
             Err(_) => {
-                // No upgrade request within the timeout; continue with base exponent.
+                // Continue with the base exponent without discarding peer bytes.
+                stream.buffer_front(&buf[..filled]);
             }
         }
     }
@@ -617,6 +625,79 @@ mod tests {
         assert_eq!(session.max_message_size_exponent, 24);
         assert!(!session.upgraded);
         assert_eq!(first_frame_bytes, [0x00, 0x05]);
+    }
+
+    #[tokio::test]
+    async fn server_upgrade_timeout_retains_partial_standard_frame() {
+        let frame = [0x00, 0x00, 0x00, 0x03, b'[', b'1', b']'];
+        for prefix_length in [0, 1] {
+            let (socket, mut peer) = socket_pair().await;
+            let mut stream = IoStream::plain(socket);
+            // Model the protocol detector's buffered bytes. This guarantees
+            // the partial probe is consumed before the virtual deadline.
+            let mut buffered = vec![0x7f, 0xf1, 0, 0];
+            buffered.extend_from_slice(&frame[..prefix_length]);
+            stream.buffer_front(&buffered);
+            let config = runtime_config(Some(Duration::from_secs(1)), 30);
+            time::pause();
+            let started = time::Instant::now();
+            let mut session = negotiate(stream, &config).await.unwrap();
+            assert!(started.elapsed() >= config.handshake_timeout);
+            time::resume();
+
+            let mut response = [0; 4];
+            peer.read_exact(&mut response).await.unwrap();
+            assert_eq!(response, [0x7f, 0xf1, 0, 0]);
+            assert_eq!(session.max_message_size_exponent, 24);
+            assert!(!session.upgraded);
+            peer.write_all(&frame[prefix_length..]).await.unwrap();
+            peer.shutdown().await.unwrap();
+            let mut received = Vec::new();
+            time::timeout(
+                Duration::from_secs(1),
+                session.reader.read_to_end(&mut received),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            assert_eq!(received, frame, "buffered prefix length {prefix_length}");
+        }
+    }
+
+    #[tokio::test]
+    async fn server_upgrade_rejects_eof_with_empty_or_partial_probe() {
+        for prefix in [vec![], vec![0x3f]] {
+            let (socket, mut peer) = socket_pair().await;
+            let mut stream = IoStream::plain(socket);
+            let mut buffered = vec![0x7f, 0xf1, 0, 0];
+            buffered.extend_from_slice(&prefix);
+            stream.buffer_front(&buffered);
+            peer.shutdown().await.unwrap();
+            let config = runtime_config(Some(Duration::from_secs(1)), 30);
+            let error = negotiate(stream, &config).await.unwrap_err();
+            assert!(matches!(error, HandshakeError::Io(error)
+                if error.kind() == io::ErrorKind::UnexpectedEof));
+        }
+    }
+
+    #[tokio::test]
+    async fn server_upgrade_joins_buffered_prefix_and_socket_suffix() {
+        let (socket, mut peer) = socket_pair().await;
+        let mut stream = IoStream::plain(socket);
+        stream.buffer_front(&[0x7f, 0xf1, 0, 0, 0x3f]);
+        peer.write_all(&[5, 0, 0, 0, 3, b'[', b'1', b']'])
+            .await
+            .unwrap();
+        let config = runtime_config(Some(Duration::from_secs(1)), 30);
+        let mut session = negotiate(stream, &config).await.unwrap();
+        assert!(session.upgraded);
+        assert_eq!(session.max_message_size_exponent, 30);
+        let mut response = [0; 6];
+        peer.read_exact(&mut response).await.unwrap();
+        assert_eq!(response, [0x7f, 0xf1, 0, 0, 0x3f, 5]);
+        let mut frame = [0; 7];
+        session.reader.read_exact(&mut frame).await.unwrap();
+        assert_eq!(frame, [0, 0, 0, 3, b'[', b'1', b']']);
     }
 
     #[tokio::test]

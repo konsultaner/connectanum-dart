@@ -6,6 +6,21 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+RawSocket cancellation checkpoint (not goal completion): a deterministic
+paused-time regression reproduces loss of the first standard-frame byte when
+the optional two-byte upgrade probe times out after a partial read. The probe
+now retains its buffer/count outside the cancellable future and uses
+cancellation-safe reads; timeout fallback restores the consumed prefix. All
+20 RawSocket tests pass, including empty/partial probe EOF, split upgrade bytes,
+serializer negotiation and zero-copy file delivery. Tokio test-util is a
+dev-only dependency. bin/test-fast finished successfully; a new full bin/verify
+with the real LLVM fixture is running before the first complete RawSocket
+mutation campaign. The campaign is queued, not passing evidence. Earlier
+transport/benchmark discovery enumerated 3,356/1,289 candidates, including
+cfg-inactive candidates; these are inventories, not production mutation scores.
+The MCP/browser checkpoint is committed as 1f64bd04; candidate hosted evidence
+is still required. No whole-component/runtime target is complete by this change.
+
 Batch metadata/browser runner checkpoint (not goal completion): 69 real-router
 CLI regressions and 329 focused CLI tests pass. Adversarial batch responses cover
 session counts/details, registration/subscription discovery and membership,
