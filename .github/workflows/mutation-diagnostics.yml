@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [core-base64-vm, core-base64-web, core-msgpack-vm, core-msgpack-web, mcp, mcp-cli-native]
+        target: [core-base64-vm, core-base64-web, core-msgpack-vm, core-msgpack-web, core-e2ee-web, core-lazy-web, mcp, mcp-cli-native]
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1

@@ -1,4 +1,11 @@
 {
+  "bench-config": {
+    "sources": ["packages/connectanum_bench/lib/src/benchmark_config.dart"],
+    "tests": [
+      "packages/connectanum_bench/test/benchmark_config_test.dart",
+      "packages/connectanum_bench/test/benchmark_config_regression_test.dart"
+    ]
+  },
   "router-authorization": {
     "sources": ["packages/connectanum_router/lib/src/router/auth/authorization.dart"],
     "tests": ["packages/connectanum_router/test/authorization_test.dart", "packages/connectanum_router/test/authorization_regression_test.dart"]
@@ -6,6 +13,40 @@
   "core-base64-vm": {
     "sources": ["packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"],
     "tests": ["packages/connectanum_core/test/serializer/json/binary_codec_test.dart"]
+  },
+  "core-lazy-vm": {
+    "sources": ["packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart"],
+    "tests": [
+      "packages/connectanum_core/test/message_lazy_payload_regression_test.dart",
+      "packages/connectanum_core/test/message_invocation_test.dart",
+      "packages/connectanum_core/test/message_result_test.dart"
+    ]
+  },
+  "core-lazy-web": {
+    "sources": ["packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart"],
+    "tests": [
+      "packages/connectanum_core/test/message_lazy_payload_regression_test.dart",
+      "packages/connectanum_core/test/message_invocation_test.dart",
+      "packages/connectanum_core/test/message_result_test.dart"
+    ],
+    "platform": "chrome",
+    "testRoot": "packages/connectanum_core"
+  },
+  "core-e2ee-vm": {
+    "sources": ["packages/connectanum_core/lib/src/message/e2ee_payload.dart"],
+    "tests": [
+      "packages/connectanum_core/test/message_e2ee_payload_test.dart",
+      "packages/connectanum_core/test/message_e2ee_regression_test.dart"
+    ]
+  },
+  "core-e2ee-web": {
+    "sources": ["packages/connectanum_core/lib/src/message/e2ee_payload.dart"],
+    "tests": [
+      "packages/connectanum_core/test/message_e2ee_payload_test.dart",
+      "packages/connectanum_core/test/message_e2ee_regression_test.dart"
+    ],
+    "platform": "chrome",
+    "testRoot": "packages/connectanum_core"
   },
   "core-base64-web": {
     "sources": ["packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"],

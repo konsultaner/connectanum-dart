@@ -574,7 +574,18 @@ class WampCborXsalsa20Poly1305Provider
       }
     })();
 
-    final decoded = _serializer.deserializePPT(plaintext);
+    PPTPayload? decoded;
+    try {
+      decoded = _serializer.deserializePPT(plaintext);
+    } catch (_) {
+      // Parser errors can retain decrypted input; expose only the envelope
+      // failure, not the parser exception or plaintext.
+      throw WampE2eeInvalidPayloadException(
+        'unpack',
+        options: options,
+        reason: 'Decrypted payload is not a valid CBOR PPT envelope',
+      );
+    }
     if (decoded == null) {
       throw WampE2eeInvalidPayloadException(
         'unpack',
@@ -738,11 +749,20 @@ class WampCborXsalsa20Poly1305Provider
     if (value is Uint8List) {
       return value;
     }
-    if (value is List<int>) {
-      return Uint8List.fromList(value);
-    }
     if (value is List) {
-      return Uint8List.fromList(value.cast<int>());
+      final bytes = Uint8List(value.length);
+      for (var index = 0; index < bytes.length; index++) {
+        final byte = value[index];
+        if (byte is! int || byte < 0 || byte > 255) {
+          throw WampE2eeInvalidPayloadException(
+            'unpack',
+            options: options,
+            reason: 'WAMP E2EE payload bytes must be integers from 0 to 255',
+          );
+        }
+        bytes[index] = byte;
+      }
+      return bytes;
     }
     throw WampE2eeInvalidPayloadException(
       'unpack',
@@ -770,13 +790,23 @@ class WampCborXsalsa20Poly1305Provider
           'E2EE key ids must not be empty',
         );
       }
-      final bytes = Uint8List.fromList(entry.value);
-      if (bytes.length != SecretBox.keyLength) {
+      if (entry.value.length != SecretBox.keyLength) {
         throw ArgumentError.value(
-          entry.value,
-          'keys',
+          entry.value.length,
+          'keyLength',
           'E2EE key "$keyId" must be ${SecretBox.keyLength} bytes long',
         );
+      }
+      final bytes = Uint8List(SecretBox.keyLength);
+      for (var index = 0; index < bytes.length; index++) {
+        final byte = entry.value[index];
+        if (byte < 0 || byte > 255) {
+          throw ArgumentError(
+            'E2EE key "$keyId" bytes must be integers from 0 to 255',
+            'keys',
+          );
+        }
+        bytes[index] = byte;
       }
       normalized[keyId] = bytes;
     }

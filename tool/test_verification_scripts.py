@@ -56,6 +56,19 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_native_coverage_keeps_raw_evidence_and_pins_scopes_before_collection(self):
+        for script in [TEST_FAST, TEST_ALL]:
+            self.assertIn('"$ROOT_DIR/bin/test-native-coverage-tools"', script.read_text())
+        script = (REPO_ROOT / "bin/test-native-coverage").read_text()
+        self.assertLess(script.index("native_coverage.py snapshot"), script.index("cargo llvm-cov"))
+        self.assertLess(script.index("cargo llvm-cov"), script.index("native_coverage.py filter"))
+        self.assertIn('--output-path "$coverage_root/lcov.info"', script)
+        self.assertIn('--output "$coverage_root/production.info"', script)
+        self.assertIn('CONNECTANUM_TEST_LLVM_COVERAGE=1', script)
+        tool_gate = (REPO_ROOT / "bin/test-native-coverage-tools").read_text()
+        self.assertIn('--target-dir "$ROOT_DIR/out/rust-coverage-scope-target"', tool_gate)
+        self.assertNotIn('native/transport/Cargo.toml', tool_gate)
+
     def test_client_hooks_run_in_regression_and_coverage_gates(self) -> None:
         for script in [TEST_FAST, TEST_ALL]:
             with self.subTest(script=script.name):
@@ -659,6 +672,16 @@ class VerificationScriptsTest(unittest.TestCase):
             "run_core_browser_tests\n  run_client_browser_websocket_test",
             script,
         )
+
+    def test_browser_verification_and_coverage_include_e2ee_regressions(self) -> None:
+        for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
+            with self.subTest(script=path.name):
+                script = path.read_text(encoding="utf-8")
+                self.assertIn("test/message_e2ee_payload_test.dart", script)
+                self.assertIn("test/message_e2ee_regression_test.dart", script)
+                self.assertIn("test/message_lazy_payload_regression_test.dart", script)
+                self.assertIn("test/message_invocation_test.dart", script)
+                self.assertIn("test/message_result_test.dart", script)
 
     def test_timeout_helper_does_not_leave_success_watchdog_alive(self) -> None:
         script = textwrap.dedent(

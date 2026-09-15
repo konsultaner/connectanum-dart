@@ -1,4 +1,72 @@
 {
+  "core-lazy-vm": {
+    "e680c448f1398ef0edd3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Forcing the cached-value guard false cannot invoke a completed decoder: the preceding packed-bytes/decoder guard returns once successful decoding clears _packedPayloadDecoder. The packed factory initializes both materialized fields to null; no public setter can populate them, and metadata/owned copies preserve this state. Failed decoding changes none of these fields."
+    },
+    "1b141e9ba244443a7bc3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Changing the cached-value disjunction to conjunction differs only when exactly one materialized field is non-null. Such packed state is created only by successful record assignment followed synchronously by clearing _packedPayloadDecoder, so the preceding guard already returns. Record field reads cannot call user code; the packed factory accepts no materialized fields."
+    },
+    "8a07369c7dd0f33dcad3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The positional _encodedArguments/_argumentsDecoder pair belongs to AbstractMessageWithPayload, not the independently configurable LazyMessagePayload. Its fields start null, its setter clears both, and setLazyPayload assigns both only when both inputs are non-null, with no user callback between writes. All restoration/copy paths use that setter. Thus replacing this pair's && with || preserves the toLazyPayload branch condition."
+    },
+    "1d436cf460d66e17c548": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The keyword _encodedArgumentsKeywords/_argumentsKeywordsDecoder fields are always both null or both non-null: initialized null, cleared together by argumentsKeywords, assigned together by setLazyPayload only with two non-null inputs. Restoration/copy paths call that method; public overrides cannot assign these private fields. The changed keyword &&/|| condition therefore has the same truth value."
+    },
+    "ac2fa2a4d90e30b2b634": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsBytes the private positional bytes/decoder nullness remains paired across every write: initialization, arguments setter, and guarded setLazyPayload. Public restoration and copying delegate through these operations. The early-return OR and AND are therefore identical, and neither tests a virtual getter."
+    },
+    "9e59ad4d0fdf491408ab": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsKeywordsBytes the private keyword bytes/decoder fields are initialized, cleared and assigned in pairs with no intervening callback. setLazyPayload rejects incomplete input pairs without assigning either field. Replacing the missing-pair OR with AND has identical outcomes for every reachable internal state."
+    },
+    "acdfedef187181350d40": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private positional bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing arguments setter. This mutation changes only && to || for that pair, not the whole branch. Both predicates choose the same branch and preserve every overridable target method call."
+    },
+    "3e23f71ba73329058378": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private keyword bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing argumentsKeywords setter. This mutation changes only && to || for that pair. Both predicates select the same branch, including calls into overridable target methods; forced-whole-branch mutations are not covered by this justification."
+    }
+  },
+  "core-lazy-web": {
+    "e680c448f1398ef0edd3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Forcing the cached-value guard false cannot invoke a completed decoder: the preceding packed-bytes/decoder guard returns once successful decoding clears _packedPayloadDecoder. The packed factory initializes both materialized fields to null; no public setter can populate them, and metadata/owned copies preserve this state. Failed decoding changes none of these fields."
+    },
+    "1b141e9ba244443a7bc3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Changing the cached-value disjunction to conjunction differs only when exactly one materialized field is non-null. Such packed state is created only by successful record assignment followed synchronously by clearing _packedPayloadDecoder, so the preceding guard already returns. Record field reads cannot call user code; the packed factory accepts no materialized fields."
+    },
+    "8a07369c7dd0f33dcad3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The positional _encodedArguments/_argumentsDecoder pair belongs to AbstractMessageWithPayload, not the independently configurable LazyMessagePayload. Its fields start null, its setter clears both, and setLazyPayload assigns both only when both inputs are non-null, with no user callback between writes. All restoration/copy paths use that setter. Thus replacing this pair's && with || preserves the toLazyPayload branch condition."
+    },
+    "1d436cf460d66e17c548": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The keyword _encodedArgumentsKeywords/_argumentsKeywordsDecoder fields are always both null or both non-null: initialized null, cleared together by argumentsKeywords, assigned together by setLazyPayload only with two non-null inputs. Restoration/copy paths call that method; public overrides cannot assign these private fields. The changed keyword &&/|| condition therefore has the same truth value."
+    },
+    "ac2fa2a4d90e30b2b634": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsBytes the private positional bytes/decoder nullness remains paired across every write: initialization, arguments setter, and guarded setLazyPayload. Public restoration and copying delegate through these operations. The early-return OR and AND are therefore identical, and neither tests a virtual getter."
+    },
+    "9e59ad4d0fdf491408ab": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsKeywordsBytes the private keyword bytes/decoder fields are initialized, cleared and assigned in pairs with no intervening callback. setLazyPayload rejects incomplete input pairs without assigning either field. Replacing the missing-pair OR with AND has identical outcomes for every reachable internal state."
+    },
+    "acdfedef187181350d40": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private positional bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing arguments setter. This mutation changes only && to || for that pair, not the whole branch. Both predicates choose the same branch and preserve every overridable target method call."
+    },
+    "3e23f71ba73329058378": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private keyword bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing argumentsKeywords setter. This mutation changes only && to || for that pair. Both predicates select the same branch, including calls into overridable target methods; forced-whole-branch mutations are not covered by this justification."
+    }
+  },
   "router-authorization": {
     "43a0c1db3504d23fd1eb": {
       "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",

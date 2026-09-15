@@ -670,3 +670,171 @@ points separately from the current library-only collector scope.
   audit remain pending. Serialize them after that inventory; never rebuild the
   library or start a duplicate campaign just because observation times out.
   The complete regression/mutation goal remains unmet.
+
+### Native Production Coverage Accounting
+
+- Add a standalone, locked syn/proc-macro2 analyzer in tool/rust_coverage_scope,
+  with its own Cargo target outside the native transport build. Parse Rust AST
+  scopes rather than matching braces or test filenames. Treat test and ffi-test
+  as disabled for the release scope; unknown platform/feature predicates remain
+  candidates, not exclusions. Keep each exclusion's source range and reason.
+- Resolve external modules through the parsed graph, including inline modules,
+  explicit paths and files reachable from both test and production contexts.
+  Refuse orphaned/ambiguous modules, opaque source generation, unsupported inner
+  scope attributes and measured lines shared between test and production tokens.
+  Parse tokio::select futures/guards/handlers as Rust expressions instead of
+  excluding its entire production macro body. Production macro definitions need
+  a local production invocation; test-only invocation cannot establish scope.
+- Snapshot source/build-input hashes before collection, check them afterwards,
+  and require the same analyzer and reconstructed scopes. Preserve raw LCOV;
+  filtered output recalculates executable-line totals and does not carry stale
+  function/branch percentages. Report per-crate totals, exclusion lines and every
+  unmeasured candidate source separately. Current graph: 35 Rust sources,
+  22 production candidates / 13 test-only, 39 hashed source/build inputs.
+- Adversarial tests found and fixed three accounting errors during development:
+  statement semicolons outside expression spans, blank/comment LLVM regions
+  inside excluded bodies, and #[path] modules resolving children relative to the
+  containing directory rather than an inferred file-stem directory. A rustc
+  regression proves the path rule. Real cargo-llvm-cov on an owned fixture leaves
+  only its three production lines, excluding inline/external test bodies and its
+  ffi-test-only helper. This fixture does not touch the transport runtime.
+- Eleven Rust tests, 13 Python tests including the real LLVM fixture, and 28 script
+  contract tests pass. Clippy with warnings denied, rustfmt, shell syntax and
+  Python compilation pass. The tool regression gate is in bin/test-fast and
+  bin/test-all; bin/test-native-coverage runs the real LLVM fixture before its
+  source snapshot, transport collection and production filtering.
+- No fresh native component percentage or completed mutation score is claimed.
+  The earlier raw native report lacks matching source hashes and is not reused.
+  mcp-cli-native10 is still live with its unchanged hash-pinned ct_ffi artifact.
+  Full local test-fast, verify and fresh native collection are queued in that
+  order after it; evidence will be retained under native-scope12. New tooling
+  changes stay uncommitted until verification is available. For pushed 9954fc32,
+  CI 35016060507 is now fully green, including VM Coverage and all four mutation
+  gates; publish dry-run 35016060485 and the relevant clean-CI/logs/package audit
+  pass. These do not verify the uncommitted candidate. The complete coverage and
+  mutation goal remains open.
+
+### E2EE Payload And Benchmark Configuration
+
+- Pure-Dart E2EE regressions reproduce out-of-range key/ciphertext integers
+  silently narrowed by Uint8List conversion, key-array retention in invalid-length
+  errors, and raw parser exceptions escaping authenticated malformed CBOR.
+  Validate and copy each list byte once, retain only key length in diagnostics,
+  and normalize invalid plaintext envelopes without retaining parser exceptions.
+  Valid formats remain covered by both ciphers' roundtrips and independent
+  OpenSSL-backed AES-GCM fixtures, including authenticated empty plaintext at
+  exactly the nonce-plus-tag boundary. Narrowing is invalid-input acceptance,
+  not evidence of a cryptographic authentication bypass.
+- Add field-by-field context copy/clear tests, policy precedence/short-circuit
+  checks, trust/URI/auth-identity constraints, malformed input, nonce/tag/data
+  tampering, wrong-key failures, ownership and helper forwarding. Defer context
+  factories to test bodies so mutations do not abort suite registration.
+- Fresh focused line reports: VM 292/295 (98.98%), JavaScript 341/344 (99.13%).
+  Seventy tests pass independently on VM, JavaScript and WASM; WASM runtime test
+  success is not a measured WASM line-coverage claim. The complete core VM suite
+  passes 665 tests. No production lines are removed from the denominator.
+- The first 269-mutant VM inventory passes at 209 kills / 214 viable (97.66%),
+  five survivors and 55 compile errors. Investigate the missing-identity guard:
+  a public List can override contains(null), so its removal is distinguishable,
+  not equivalent. Add the adversarial role-list test. The fresh full inventory
+  e2ee14c-vm-mutations has 210 kills, four survivors, 55 compile errors, no
+  timeouts/errors, clean/restored baselines and raw/adjusted 98.13% scores.
+  Remaining survivors are the empty-context fast path, two private-list
+  growability flags and the Uint8List fast path; none is waived as equivalent.
+  Per-operator outcomes and input hashes are retained in the complete reports.
+- The separate full e2ee14-js-mutations campaign is still live on the 69-test
+  snapshot. Preserve it, retain its test/source hashes and inspect the completed
+  report before claiming a browser mutation score. The added missing-role test
+  independently passes on both browser compilers. Browser mutation remains a
+  diagnostics target rather than an unproven required CI gate.
+- Benchmark configuration regressions cover invalid document shapes and map
+  keys at every tested depth, required-field types, numeric coercion, duration
+  parsing/formatting boundaries, optional-field omission, shallow extra-map
+  ownership, declaration order and JSON/YAML roundtrips. No parser policy change
+  is made. All 86 tests pass at 88/89 lines (98.88%); the remaining private
+  missing-integer/default branch stays measured, not excluded. Complete inventory
+  bench-config14b-mutations: 72 generated, 42 kills, two survivors, 28 compile
+  errors, no timeouts/errors, passing baselines; raw/adjusted 95.45%. The two
+  list-growability survivors stay unwaived.
+- Add 98% VM file floors for E2EE/configuration, the E2EE browser floor, and
+  required VM mutation jobs for both targets. Expand the exact deployment-audit
+  contract to eleven jobs; its regression fails before the contract update, then
+  all 24 audit tests pass. All 29 verification-script tests and 14 coverage-checker
+  tests pass. Browser collectors and full verification now include both E2EE
+  files; a full collector run passes 451 tests and measures 4,693/5,526 core
+  browser lines (84.93%). This is not the 98% core-wide goal.
+- Focused analysis, formatting, shell syntax, diff checks and local advisory
+  reviews complete. Reproductions, coverage, test logs and complete VM inventories
+  are retained under e2ee14*, bench-config14b* and native-scope12. Native CLI
+  campaign mcp-cli-native10 remains live with its unchanged pinned artifact;
+  the existing verification queue remains live and will run bin/test-fast,
+  bin/verify and fresh native production coverage in order after it. Do not
+  rebuild ct_ffi or start duplicate campaigns. Commit/push/PR updates and the
+  current candidate's hosted CI/audit remain pending those checks; keep the
+  complete goal active.
+
+### Lazy Payload Ownership And Mutation Follow-Up
+
+- Regressions independently reproduce empty packed envelopes being decoded
+  repeatedly, generic byte-list narrowing ahead of E2EE validation, and nested
+  mutable payload values remaining aliased after toOwned/copyPayloadTo. Clear
+  the packed callback only after success, retain wire bytes, validate each byte
+  before narrowing, and copy WAMP container/binary graphs with an iterative
+  identity memo. Preserve internal aliases/cycles, lazy decoding and shared
+  providers/contexts/callbacks; no native use-after-free or cryptographic forgery
+  is claimed by these Dart-level reproductions.
+- Eighty-four focused tests pass on VM, JavaScript and WASM. The file measures
+  412/413 VM lines (99.76%) and 482/488 JS lines (98.77%), with 98% file floors.
+  Test owned subviews, partially cached state, packed failure/retry, both cipher
+  byte bounds, provider/context precedence, runtime capability gating, wire-first
+  decoding, in-place PPT serializer detection and repeated access. Browser
+  collection/full verification now include the lazy, invocation and result
+  suites. Fresh full browser collection passes 536 tests at 5,291/6,089 measured
+  core lines (86.89%), with 185 other library files explicitly unmeasured by this
+  browser slice; it is not component completion.
+- The first full lazy VM inventory has 289 generated, 189 killed, 50 survivors,
+  50 compile errors (79.08%); distinguishing tests produce 216 kills and 23
+  survivors (90.38%) in the next full inventory. Both have passing baselines,
+  no timeouts/errors and no equivalence exclusions. More tests distinguish valid
+  byte boundaries, explicit provider/context overrides, required runtime data,
+  decoded-state resets, retained metadata, serializer paths and empty shapes.
+- Record eight individual source-hash-pinned equivalences only after inspecting
+  all state writes: two packed-cache guards are redundant after clearing the
+  successful decoder, and six predicates compare private message byte/decoder
+  fields whose nullness is always paired. Public factory mismatches cannot break
+  the message's guarded setter invariant. The owned copier preserves nullness;
+  packed factories accept no pre-materialized fields. Forced whole branches and
+  public provider/context guards are not waived. The local judge's hypothetical
+  counterexamples were checked against these actual constructors/writes.
+- A JS baseline failed before mutation because Dart 3.13.1 dart2js emitted
+  expect(0, 1) for a scalar spy-field read after an indirect provider call that
+  really incremented it. Keep the minimal repro and generated JS diagnostic;
+  replacing scalar spy storage with a complete event log preserves the exact
+  assertions and passes VM/JS/WASM, rather than skipping a platform or weakening
+  expectations. The failed baseline has no mutation-score claim. New full
+  lazy17-vm-mutations and lazy17-js-mutations use the event-log tests. The complete
+  VM report has 223 killed, 16 survivors and 50 compile errors (289 generated),
+  passing baselines and no timeouts/errors. Raw score 93.31%, adjusted 96.54%
+  after the eight individual equivalences. Eight further survivors remain
+  unwaived, including public provider/factory/restore predicates. Add the VM CI
+  gate and twelve-job deployment-audit contract; a failing-before regression
+  verifies the new contract and all 24 audit tests pass afterwards. Browser
+  mutation remains live and diagnostics-only, not a passing score.
+- Browser E2EE inventory e2ee14-js-mutations has now completed: 269 generated,
+  209 killed, five survived, 55 compile errors, passing clean/restored baselines,
+  raw/adjusted 97.66%, no waivers/timeouts/errors. It uses the original 69 tests;
+  the later identity test passes both browser compilers separately.
+- The original mcp-cli-native10 inventory also completed without replacing its
+  pinned library: 1,179 generated, 560 killed, 292 survivors, 327 compile errors,
+  raw/adjusted 65.73%, passing baselines and no equivalences/timeouts/errors.
+  Security/error-validation survivors and CLI line gaps still require work.
+  The existing queue then passed bin/test-fast, bin/verify and fresh native
+  production collection, in that order. Never overlap those native commands.
+  Native macOS arm64 production report: ct_core 8,348/10,045 (83.11%), ct_ffi
+  4,589/5,808 (79.01%); exclude 4,084 and 3,396 test/helper lines with explicit
+  AST ranges/reasons, preserve raw LCOV and hashes, and retain four unmeasured
+  candidate files. This is not a Linux or native benchmark-crate measurement.
+  The source-scope tool now has real-workspace evidence, not just fixture tests.
+  Candidate commit/push, PR update and hosted CI/audit remain pending. Preserve
+  raw evidence under lazy15*, lazy16*, lazy17*,
+  mcp-cli-native10 and native-scope12. The overall goal remains incomplete.
