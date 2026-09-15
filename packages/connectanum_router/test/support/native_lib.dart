@@ -61,6 +61,35 @@ String? resolveOrBuildNativeLib({bool useFfiTest = true}) {
   return _freshestExisting(root, candidates);
 }
 
+/// Build the current native library without advertising the wide message-handle
+/// ABI so bindings exercise the guarded legacy adapters.
+String? resolveOrBuildLegacyMessageHandleNativeLib() {
+  final root = _findRepoRoot();
+  if (root == null) {
+    stderr.writeln(
+      'Failed to locate repository root (expected native/transport). '
+      'Current directory: ${Directory.current.path}',
+    );
+    return null;
+  }
+
+  final targetDir =
+      '${root.path}/native/transport/target/legacy-message-handles-test';
+  final candidates = <String>[
+    '$targetDir/release/${_nativeLibraryFileName()}',
+  ];
+  final built = _buildNativeLibWithFeatures(
+    root,
+    features: const ['ffi-test'],
+    targetDir: targetDir,
+    rustCfg: 'connectanum_legacy_message_handles_test',
+  );
+  if (!built) {
+    return null;
+  }
+  return _freshestExisting(root, candidates);
+}
+
 String? _freshestExisting(Directory root, List<String> candidates) {
   final latestSourceChange = _latestSourceChange(root);
   File? freshest;
@@ -118,14 +147,43 @@ DateTime? _latestSourceChange(Directory root) {
 }
 
 void _buildNativeLib(Directory root, {required bool useFfiTest}) {
+  _buildNativeLibWithFeatures(
+    root,
+    features: useFfiTest ? const ['ffi-test'] : const [],
+    targetDir: useFfiTest
+        ? '${root.path}/native/transport/target/ffi-test'
+        : null,
+    rustCfg: null,
+  );
+}
+
+bool _buildNativeLibWithFeatures(
+  Directory root, {
+  required List<String> features,
+  required String? targetDir,
+  required String? rustCfg,
+}) {
   final args = <String>['build', '-p', 'ct_ffi', '--release'];
-  if (useFfiTest) {
-    args.addAll(['--features', 'ffi-test']);
+  if (features.isNotEmpty) {
+    args.addAll(['--features', features.join(',')]);
   }
   final environment = <String, String>{...Platform.environment};
-  if (useFfiTest) {
-    environment['CARGO_TARGET_DIR'] =
-        '${root.path}/native/transport/target/ffi-test';
+  if (targetDir != null) {
+    environment['CARGO_TARGET_DIR'] = targetDir;
+  }
+  if (rustCfg != null) {
+    final encoded = environment['CARGO_ENCODED_RUSTFLAGS'];
+    if (encoded != null && encoded.isNotEmpty) {
+      environment['CARGO_ENCODED_RUSTFLAGS'] =
+          '$encoded\u001f--cfg\u001f$rustCfg';
+    } else {
+      final existing = environment['RUSTFLAGS'];
+      environment['RUSTFLAGS'] = [
+        if (existing != null && existing.trim().isNotEmpty) existing.trim(),
+        '--cfg',
+        rustCfg,
+      ].join(' ');
+    }
   }
   final result = Process.runSync(
     'cargo',
@@ -140,4 +198,5 @@ void _buildNativeLib(Directory root, {required bool useFfiTest}) {
       'stderr: ${result.stderr}',
     );
   }
+  return result.exitCode == 0;
 }

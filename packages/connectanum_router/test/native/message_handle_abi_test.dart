@@ -25,8 +25,16 @@ typedef _GetNative =
 typedef _ReleaseNative = ffi.Void Function(ffi.Int64);
 
 void main() {
+  final supportsNativeRuntime =
+      Platform.isMacOS || Platform.isLinux || Platform.isWindows;
   final path = resolveOrBuildNativeLib();
   final library = path == null ? null : ffi.DynamicLibrary.open(path);
+  final legacyPath = supportsNativeRuntime
+      ? resolveOrBuildLegacyMessageHandleNativeLib()
+      : null;
+  final legacyLibrary = legacyPath == null
+      ? null
+      : ffi.DynamicLibrary.open(legacyPath);
   final wide = library?.providesSymbol('ct_test_message_enqueue_wide') ?? false;
 
   test('client, router and exporter select the same complete family', () {
@@ -79,8 +87,14 @@ void main() {
   test(
     'legacy callbacks reject aliasing before the Int32 FFI boundary',
     () {
-      final r = router.CtFfiBindings(library!);
-      final c = client.CtFfiBindings(library);
+      final legacy = legacyLibrary;
+      if (legacy == null) {
+        fail('Legacy message-handle native test library unavailable');
+      }
+      expect(legacy.providesSymbol('ct_message_handle_abi_version'), isFalse);
+      expect(legacy.providesSymbol('ct_test_message_enqueue'), isTrue);
+      final r = router.CtFfiBindings(legacy);
+      final c = client.CtFfiBindings(legacy);
       expect(r.ctStartRuntime(), 0);
       addTearDown(() => r.ctShutdown());
       final encoded = utf8.encode('[50,97,{},["legacy"]]');
@@ -99,7 +113,7 @@ void main() {
       final clientInfo = calloc<client.CtMessageInfo>();
       addTearDown(() => calloc.free(info));
       addTearDown(() => calloc.free(clientInfo));
-      final rawGet = library
+      final rawGet = legacy
           .lookupFunction<router.CtMessageGetNative, router.CtMessageGetDart>(
             'ct_message_get',
           );
@@ -182,7 +196,7 @@ void main() {
         );
         expect(r.ctMessageGet(handle, info), 0, reason: entry.key);
       }
-      final bytes = NativeMessageBytes(library);
+      final bytes = NativeMessageBytes(legacy);
       expect(
         () => bytes.read(
           alias,
@@ -204,12 +218,7 @@ void main() {
       );
       r.ctMessageRelease(handle);
     },
-    skip:
-        library != null &&
-            !library.providesSymbol('ct_message_handle_abi_version') &&
-            library.providesSymbol('ct_test_message_enqueue')
-        ? false
-        : 'Requires a legacy native test library',
+    skip: supportsNativeRuntime ? false : 'Native runtime platform only',
   );
 
   group('wide message handle bindings', () {

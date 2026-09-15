@@ -1,12 +1,16 @@
 # Project State
 
-Last updated: 2026-09-12
-Current branch: `codex/security-audit`
-Current milestone: deep component security audit with before/after performance
-evidence for hardening changes. The active plan is
-`docs/exec-plans/2026-09-10-component-security-audit.md`; the WampApp feature
-plan is paused during this review. Baseline `733c6d91` has green hosted CI and
-fresh `bin/test-fast` passes. The first confirmed fix (SA-001) validates remote
+Last updated: 2026-09-15
+Current branch: `codex/beta6-legacy-abi-audit`
+Current milestone: clear the final deployment-chain audit blocker, then publish
+the synchronized `3.0.0-beta.6` tester release from protected `master`. The
+active plan remains
+`docs/exec-plans/2026-09-10-component-security-audit.md`; the broader audit and
+WampApp feature plan remain open after this prerelease. Release PR #91 merged
+SA-001 through SA-018 at `2e062228`; older checkpoint wording that calls those
+changes local or unpublished is chronological and superseded by this release
+checkpoint. Baseline `733c6d91` has green hosted CI and fresh `bin/test-fast`
+passes. The first confirmed fix (SA-001) validates remote
 service credentials before either pending-challenge map is touched and before
 claimed-user failure accounting. All 25 auth-service tests and eight mTLS RPC
 integration tests, static analysis, and full `bin/verify` pass. Twelve alternating
@@ -43,22 +47,22 @@ The [security report](security/2026-09-10-component-audit.md)
 records prerequisites, evidence, and remaining component coverage. This audit
 is not complete and no new release has been published.
 
-The operator has approved a synchronized `3.0.0-beta.6` tester release of the
-locally verified SA-001 through SA-018 fixes without declaring the broader
-security audit or final 3.0.0 production readiness complete. All seven Dart
-packages and three Rust crates are being advanced together. Publication must
-still proceed through protected `master`, a green hosted deployment chain, the
-`v3.0.0-beta.6` native prerelease, and sequential package tags. Hosted example
-pins remain on beta.5 until the complete beta.6 graph is indexed and smoke-tested.
-Release PR #91 initially passed hosted package dry-runs, Fast Checks, and
-consumer smoke but failed the Codecov patch gate at 80.61% against an 83.50%
-target. Focused authentication-failure, trusted-abort, and signed-handle ABI
-coverage now exercises all 14 targeted changed production lines. The canonical
-local report rises from 83.4778% to 83.5278% overall. Hosted project coverage
-then passed at 83.51%, while patch coverage reached 83.29% and remained one
-executable line below the target. A live router-to-auth-server regression now
-also covers fail-closed rejection of an unknown requested realm; protected-master
-publication remains blocked until hosted CI confirms the completed repair.
+The operator has approved a synchronized `3.0.0-beta.6` tester release without
+declaring the broader security audit or final 3.0.0 production readiness
+complete. All seven Dart packages and three Rust crates already share that
+version. Release PR #91 merged at `2e062228`; exact-master CI `34945185689`,
+Dart Package Publish Dry Run `34945185638`, WAMP Profile Benchmarks
+`34945185641`, and kTLS Validation `34945185656` all pass. The strict audit
+still blocks publication because Coverage and Full Verify each reported one
+skipped legacy message-handle ABI regression. The current branch adds a
+test-only native build mode that compiles the same source without ABI
+advertisement, so supported hosts execute the guarded legacy adapters instead
+of skipping. The focused 13-test wide/legacy suite passes with plain and encoded
+Rust flags; default, all-features, and explicit legacy-cfg Cargo checks plus
+full `bin/verify` pass. After this repair reaches protected `master`, exact-head
+CI and the strict audit must pass before the `v3.0.0-beta.6` native prerelease
+and sequential package tags. Hosted example pins remain on beta.5 until the
+complete beta.6 graph is indexed and independently smoke-tested.
 
 SA-003 authentication lifecycle hardening is locally implemented. Six
 fail-first regressions reproduced late post-abort results, challenge overwrites,
