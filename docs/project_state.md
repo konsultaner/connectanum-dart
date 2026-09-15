@@ -1,10 +1,50 @@
 # Project State
 
-Last updated: 2026-09-15
+Last updated: 2026-09-16
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+MCP CLI adversarial-response checkpoint (not goal completion): public HTTP tests
+now reject inconsistent session counts/IDs, malformed registration/subscription
+metadata, unexpected live members, incorrect publication acknowledgements and
+misrouted/dropped/unobserved events. Positive cases retain integral JSON-number
+and session-detail field compatibility. Three regressions reproduced leaked
+subscriptions when the CLI rejected a returned topic or queue limit before its
+cleanup block. Validation now runs inside the unsubscribe boundary in direct,
+active-direct and Streamable paths. Six real-router fault-proxy cases confirm
+unsubscribe acknowledgement, and session deletion where applicable.
+
+All 329 focused CLI tests and 14 real-router CLI tests pass. Fresh combined CLI
+coverage measures 2,111/2,291 lines (92.14%, previously 89.92%); its CI floor is
+92.1%, not the still-unmet 98% target. A separate verification failure exposed a
+pub-token cleanup pipeline race: early grep exit plus pipefail could skip removal
+and hide listing failures. A deterministic pipe-capacity regression fails both
+cases before the fix; capture-before-grep now preserves failures. The hosted
+aff93292 CI and publishing dry run passed, but strict log audit correctly rejected
+the skipped real LLVM fixture. Fast Checks and Full Verify now install pinned
+LLVM coverage tooling and explicitly run that fixture, without weakening the
+audit. All 31 verification-script regressions and all 13 native coverage
+integration tests pass. No real user token configuration is touched by the
+isolated fixtures.
+
+The completed vm-current17 full collection at aff93292 measures 36,296/42,478
+lines (85.45%), with 59 unmeasured library sources. Core is 90.15%, client 85.10%,
+router 82.40%, bench 81.20%, MCP 93.34%, and auth 100%; those results precede the
+new CLI patch and must not be replaced with a favorable focused-report union.
+The serialized bin/test-fast, final-snapshot CLI collection and bin/verify queue
+passed. The subsequent LLVM workflow/test changes also pass their focused gates;
+new candidate hosted CI/audit evidence is still required. The complete
+lazy17-js-mutations inventory has 222 kills, 16 survivors, 50 compile errors and
+one infrastructure error, with passing clean/restored baselines. Its 92.89% raw
+and 96.10% adjusted scores are not a passing gate: a test process left a live
+descendant after an assertion failure. Preserve that error and investigate the
+browser command lifecycle rather than relabeling it as a kill. A fresh complete
+native CLI inventory is still required; the old 65.73% result is not a score for
+these changes. Evidence is under cli18-final, cli18*, vm-current17 and the
+preserved earlier output directories. The whole-component/runtime coverage and
+mutation goal remains open.
 
 Lazy payload checkpoint (not whole-component completion): independently
 reproduced repeated decoding of empty packed envelopes, invalid integer bytes

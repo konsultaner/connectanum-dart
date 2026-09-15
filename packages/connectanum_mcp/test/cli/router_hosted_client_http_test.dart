@@ -404,6 +404,432 @@ void main() {
         expect(peer.requests.last['id'], id);
       });
     }
+
+    group('WAMP pubsub integrity and cleanup', () {
+      const event = {
+        'text': 'hello',
+        'values': [1, true, null],
+        'nested': {'a': 2},
+      };
+      final options = [
+        '--pubsub-topic',
+        'app.events',
+        '--pubsub-event',
+        jsonEncode(event),
+      ];
+
+      test(
+        'publishes, polls, notifies and releases its subscription',
+        () async {
+          final result = await _run(peer, options);
+          expect(result.err, isEmpty);
+          final transcript = result.lines.singleWhere(
+            (line) => line.containsKey('pubsubTopic'),
+          );
+          expect(transcript['subscription'], {
+            'handle': 'fixture-handle',
+            'topic': 'app.events',
+            'queueLimit': 10,
+            'subscriptionId': 7,
+          });
+          for (final entry in {
+            'events': event,
+            'methodEvents': {'methodEvent': event},
+            'notificationEvents': {'notificationEvent': event},
+            'methodNotificationEvents': {'methodNotificationEvent': event},
+          }.entries) {
+            expect((transcript[entry.key] as List).single, {
+              'subscriptionId': 7,
+              'publicationId': 19,
+              'argumentsKeywords': entry.value,
+            });
+          }
+          expect(transcript['publication'], {
+            'topic': 'app.events',
+            'acknowledged': true,
+            'publicationId': 19,
+          });
+          expect(transcript['dropped'], 0);
+          expect(transcript['remaining'], 0);
+          expect(
+            peer.requests.where((request) => !request.containsKey('id')).length,
+            2,
+          );
+          expect(peer.requests.last['id'], 'direct-pubsub-unsubscribe');
+          expect(peer.subscriptionActive, isFalse);
+        },
+      );
+
+      final faults = <(String, String, Object?, String)>[
+        (
+          'direct-pubsub-subscribe',
+          'topic',
+          'app.other',
+          'returned subscription for',
+        ),
+        ('direct-pubsub-subscribe', 'queueLimit', 11, 'returned queue limit'),
+        ('direct-pubsub-subscribe', 'queueLimit', null, 'returned queue limit'),
+        (
+          'direct-pubsub-publish',
+          'topic',
+          'app.other',
+          'returned publication for',
+        ),
+        ('direct-pubsub-publish', 'acknowledged', false, 'did not acknowledge'),
+        (
+          'direct-pubsub-publish',
+          'publicationId',
+          null,
+          'without a publication id',
+        ),
+        (
+          'direct-pubsub-publish-method',
+          'topic',
+          'app.other',
+          'returned topic',
+        ),
+        (
+          'direct-pubsub-publish-method',
+          'acknowledged',
+          false,
+          'did not acknowledge',
+        ),
+        (
+          'direct-pubsub-publish-method',
+          'publicationId',
+          null,
+          'without a publication id',
+        ),
+        for (final id in [
+          'direct-pubsub-poll',
+          'direct-pubsub-method-poll',
+          'direct-pubsub-notification-poll',
+          'direct-pubsub-method-notification-poll',
+        ]) ...[
+          (id, 'handle', 'wrong-handle', 'returned events for handle'),
+          (id, 'topic', 'app.other', 'returned events for app.other'),
+          (id, 'dropped', 1, 'dropped pub/sub events'),
+          (id, 'remaining', 1, 'events queued after polling'),
+          (id, 'events', [], 'Published event was not observed'),
+          (
+            id,
+            'events',
+            [
+              {
+                'subscriptionId': 7,
+                'publicationId': 19,
+                'argumentsKeywords': {'text': 'not the published event'},
+              },
+            ],
+            'Published event was not observed',
+          ),
+        ],
+      ];
+      for (final (id, field, value, message) in faults) {
+        test(
+          'rejects $id $field=${jsonEncode(value)} and unsubscribes',
+          () async {
+            peer.rewrite = (request, result) => request['id'] == id
+                ? {
+                    ...result,
+                    'structuredContent': {
+                      ...result['structuredContent'] as Map,
+                      field: value,
+                    },
+                  }
+                : result;
+            await expectLater(
+              _run(peer, options),
+              throwsA(
+                isA<StateError>().having(
+                  (error) => error.message,
+                  'diagnostic',
+                  contains(message),
+                ),
+              ),
+            );
+            final faultIndex = peer.requests.indexWhere(
+              (request) => request['id'] == id,
+            );
+            expect(faultIndex, isNonNegative);
+            expect(
+              peer.requests
+                  .skip(faultIndex + 1)
+                  .map((request) => request['id']),
+              ['direct-pubsub-unsubscribe'],
+              reason: 'Only cleanup may follow rejected pubsub metadata',
+            );
+            expect(peer.subscriptionActive, isFalse);
+          },
+        );
+      }
+    });
+
+    group('WAMP metadata integrity', () {
+      const options = [
+        '--wamp-procedure',
+        'app.echo',
+        '--wamp-topic',
+        'app.events',
+      ];
+
+      void rejects(
+        String name,
+        String id,
+        Map<String, Object?> structuredContent,
+        String message,
+      ) {
+        test(name, () async {
+          peer.rewrite = (request, result) => request['id'] == id
+              ? {...result, 'structuredContent': structuredContent}
+              : result;
+          await expectLater(
+            _run(peer, options),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'metadata diagnostic',
+                contains(message),
+              ),
+            ),
+          );
+          expect(
+            peer.requests.last['id'],
+            id,
+            reason: 'Rejected metadata must stop subsequent network actions',
+          );
+        });
+      }
+
+      for (final detailField in ['id', 'session']) {
+        for (final integralDouble in [false, true]) {
+          test(
+            'accepts $detailField and integralDouble=$integralDouble',
+            () async {
+              peer.rewrite = (request, result) {
+                final name = (request['params'] as Map)['name'];
+                if (name is! String || !name.startsWith('wamp.')) return result;
+                final content = Map<String, Object?>.from(
+                  result['structuredContent'] as Map,
+                );
+                if (name == 'wamp.session.get') {
+                  content['argumentsKeywords'] = {
+                    'details': {detailField: integralDouble ? 101.0 : 101},
+                  };
+                }
+                if (integralDouble) {
+                  if (name == 'wamp.session.count') {
+                    content['argumentsKeywords'] = {'count': 1.0};
+                  }
+                  if (name == 'wamp.session.list') {
+                    content['argumentsKeywords'] = {
+                      'session_ids': [101.0],
+                    };
+                  }
+                  if (content['arguments'] case final List arguments) {
+                    content['arguments'] = [
+                      for (final value in arguments) (value as num).toDouble(),
+                    ];
+                  }
+                }
+                return {...result, 'structuredContent': content};
+              };
+              final result = await _run(peer, options);
+              expect(result.err, isEmpty);
+              final metadata =
+                  result.lines.singleWhere(
+                        (line) => line.containsKey('directWampMetadata'),
+                      )['directWampMetadata']
+                      as Map;
+              expect(
+                (metadata['sessionMetadata'] as Map)['selectedSessionId'],
+                101,
+              );
+              final registration =
+                  (metadata['procedure']
+                          as Map)['configuredRegistrationMetadata']
+                      as Map;
+              final subscription =
+                  (metadata['topic'] as Map)['configuredSubscriptionMetadata']
+                      as Map;
+              expect(registration['registrationId'], 11);
+              expect(subscription['subscriptionId'], 7);
+              expect((registration['callees'] as Map)['arguments'], isEmpty);
+              expect(
+                (subscription['subscribers'] as Map)['arguments'],
+                isEmpty,
+              );
+              expect((registration['calleeCount'] as Map)['arguments'], [0]);
+              expect((subscription['subscriberCount'] as Map)['arguments'], [
+                0,
+              ]);
+              expect(
+                (result.lines.last['stateless'] as Map)['sessionless'],
+                isTrue,
+              );
+            },
+          );
+        }
+      }
+
+      for (final count in [null, false, '1', 0, -1, 1.5]) {
+        rejects(
+          'rejects session count ${jsonEncode(count)}',
+          'direct-wamp-session-count',
+          {
+            'argumentsKeywords': {'count': count},
+          },
+          'invalid session count',
+        );
+      }
+      for (final ids in [null, {}, '101']) {
+        rejects(
+          'rejects non-list session ids ${jsonEncode(ids)}',
+          'direct-wamp-session-list',
+          {
+            'argumentsKeywords': {'session_ids': ids},
+          },
+          'was not a list of integer ids',
+        );
+      }
+      for (final id in [null, true, '101', 101.5]) {
+        rejects(
+          'rejects non-integer session id ${jsonEncode(id)}',
+          'direct-wamp-session-list',
+          {
+            'argumentsKeywords': {
+              'session_ids': [id],
+            },
+          },
+          'contained a non-integer id',
+        );
+      }
+      rejects('rejects empty session list', 'direct-wamp-session-list', {
+        'argumentsKeywords': {'session_ids': []},
+      }, 'returned no session ids');
+      rejects(
+        'rejects count smaller than session list',
+        'direct-wamp-session-list',
+        {
+          'argumentsKeywords': {
+            'session_ids': [101, 102],
+          },
+        },
+        'was smaller than listed sessions',
+      );
+      for (final details in [null, [], '101']) {
+        rejects(
+          'rejects non-map session details ${jsonEncode(details)}',
+          'direct-wamp-session-get',
+          {
+            'argumentsKeywords': {'details': details},
+          },
+          'returned no details map',
+        );
+      }
+      for (final details in [
+        {},
+        {'id': 102},
+        {'session': 102},
+        {'id': 101.5},
+        {'id': '101'},
+        {'id': 102, 'session': 101},
+      ]) {
+        rejects(
+          'rejects mismatched session details ${jsonEncode(details)}',
+          'direct-wamp-session-get',
+          {
+            'argumentsKeywords': {'details': details},
+          },
+          'expected 101',
+        );
+      }
+
+      for (final kind in ['registration', 'subscription']) {
+        final prefix = 'direct-wamp-configured-$kind';
+        final members = kind == 'registration' ? 'callees' : 'subscribers';
+        final count = kind == 'registration' ? 'callee' : 'subscriber';
+        rejects('$kind lookup rejects missing entity', '$prefix-lookup', {
+          'arguments': [],
+        }, 'returned no $kind id');
+        for (final value in ['11', null, 11.5]) {
+          rejects(
+            '$kind lookup rejects ${jsonEncode(value)}',
+            '$prefix-lookup',
+            {
+              'arguments': [value],
+            },
+            'contained a non-integer id',
+          );
+        }
+        for (final ids in [
+          [],
+          [999],
+        ]) {
+          rejects('$kind match rejects ${jsonEncode(ids)}', '$prefix-match', {
+            'arguments': ids,
+          }, 'match did not include lookup id');
+          rejects('$kind list rejects ${jsonEncode(ids)}', '$prefix-list', {
+            'argumentsKeywords': {'exact': ids},
+          }, 'list did not include lookup id');
+        }
+        rejects('$kind list rejects non-list exact ids', '$prefix-list', {
+          'argumentsKeywords': {'exact': {}},
+        }, 'was not a list of integer ids');
+        rejects('$kind list rejects non-integer exact id', '$prefix-list', {
+          'argumentsKeywords': {
+            'exact': ['11'],
+          },
+        }, 'contained a non-integer id');
+        for (final uri in [null, 'app.other']) {
+          rejects(
+            '$kind details reject uri ${jsonEncode(uri)}',
+            '$prefix-get',
+            {
+              'argumentsKeywords': {'uri': uri},
+            },
+            'details returned',
+          );
+        }
+        rejects('$kind rejects live members', '$prefix-$members', {
+          'arguments': [101],
+        }, 'exposed live $members');
+        rejects('$kind rejects malformed members', '$prefix-$members', {
+          'arguments': ['101'],
+        }, 'contained a non-integer id');
+        for (final values in [
+          [],
+          [0, 0],
+        ]) {
+          rejects(
+            '$kind rejects count arity ${jsonEncode(values)}',
+            '$prefix-$count-count',
+            {'arguments': values},
+            'expected one integer value',
+          );
+        }
+        for (final value in [1, -1]) {
+          rejects(
+            '$kind rejects nonzero count $value',
+            '$prefix-$count-count',
+            {
+              'arguments': [value],
+            },
+            'expected 0',
+          );
+        }
+        for (final value in ['0', 0.5, null]) {
+          rejects(
+            '$kind rejects count ${jsonEncode(value)}',
+            '$prefix-$count-count',
+            {
+              'arguments': [value],
+            },
+            'contained a non-integer id',
+          );
+        }
+      }
+    });
   });
 }
 
@@ -473,6 +899,10 @@ class _Peer {
         final metadata = (message['params'] as Map)['_meta'] as Map;
         expect(metadata['io.modelcontextprotocol/protocolVersion'], _protocol);
         final result = _result(message);
+        if (!message.containsKey('id')) {
+          request.response.statusCode = HttpStatus.accepted;
+          return;
+        }
         request.response.headers.contentType = ContentType.json;
         request.response.write(
           jsonEncode({
@@ -498,6 +928,8 @@ class _Peer {
   bool requireAuth = false;
   Map<String, Object?> grantOverrides = {};
   _Rewrite? rewrite;
+  bool subscriptionActive = false;
+  final _events = <Map<String, Object?>>[];
 
   static Future<_Peer> start() async =>
       _Peer(await HttpServer.bind(InternetAddress.loopbackIPv4, 0));
@@ -513,6 +945,25 @@ class _Peer {
 
   Map<String, Object?> _result(Map<String, Object?> request) {
     final params = request['params'] as Map;
+    final toolName = params['name'];
+    if (request['method'] == 'connectanum.tool.call' &&
+        toolName is String &&
+        toolName.startsWith('connectanum.pubsub.')) {
+      return _pubsubResult(toolName, params['arguments'] as Map);
+    }
+    if ((request['method'] as String).startsWith('connectanum.pubsub.')) {
+      return _pubsubResult(request['method'] as String, params);
+    }
+    if (request['method'] == 'connectanum.tool.call' &&
+        toolName is String &&
+        (toolName.startsWith('wamp.') ||
+            toolName.startsWith('connectanum.api.'))) {
+      return _metadataResult(toolName, params['arguments'] as Map);
+    }
+    if (request['method'] == 'connectanum.api.list' ||
+        request['method'] == 'connectanum.api.describe') {
+      return _metadataResult(request['method'] as String, params);
+    }
     final secondPage = params['cursor'] == 'page-2';
     Map<String, Object?> catalog(
       String key,
@@ -585,6 +1036,128 @@ class _Peer {
       default:
         fail('Unexpected method: ${request['method']}');
     }
+  }
+
+  Map<String, Object?> _pubsubResult(String name, Map arguments) {
+    final operation = name.split('.').last;
+    if (operation == 'subscribe' || operation == 'publish') {
+      expect(arguments['topic'], 'app.events');
+    } else {
+      expect(arguments['handle'], 'fixture-handle');
+    }
+    final content = <String, Object?>{'topic': 'app.events'};
+    switch (operation) {
+      case 'subscribe':
+        expect(subscriptionActive, isFalse);
+        expect(arguments['queueLimit'], 10);
+        subscriptionActive = true;
+        content.addAll({
+          'handle': 'fixture-handle',
+          'queueLimit': 10,
+          'subscriptionId': 7,
+        });
+      case 'publish':
+        expect(subscriptionActive, isTrue);
+        _events.add({
+          'subscriptionId': 7,
+          'publicationId': 19,
+          'argumentsKeywords': arguments['argumentsKeywords'],
+        });
+        content.addAll({'acknowledged': true, 'publicationId': 19});
+      case 'poll':
+        expect(subscriptionActive, isTrue);
+        expect(arguments['limit'], 10);
+        content.addAll({
+          'handle': 'fixture-handle',
+          'events': List.of(_events),
+          'dropped': 0,
+          'remaining': 0,
+        });
+        _events.clear();
+      case 'unsubscribe':
+        expect(subscriptionActive, isTrue);
+        subscriptionActive = false;
+        content.addAll({'handle': 'fixture-handle', 'unsubscribed': true});
+      default:
+        fail('Unexpected pubsub method: $name');
+    }
+    return {'content': <Object?>[], 'structuredContent': content};
+  }
+
+  Map<String, Object?> _metadataResult(String name, Map arguments) {
+    Map<String, Object?> toolResult(Map<String, Object?> content) => {
+      'content': <Object?>[],
+      'structuredContent': content,
+    };
+    if (name.startsWith('connectanum.api.')) {
+      final kind = arguments['kind'];
+      expect(kind, isIn(['procedure', 'topic']));
+      final uri = kind == 'procedure' ? 'app.echo' : 'app.events';
+      if (name == 'connectanum.api.describe') {
+        expect(arguments['uri'], uri);
+        return toolResult({'uri': uri});
+      }
+      return toolResult({
+        kind == 'procedure' ? 'procedures' : 'topics': [
+          {'uri': uri},
+        ],
+      });
+    }
+    if (name == 'wamp.session.count') {
+      return toolResult({
+        'argumentsKeywords': {'count': 1},
+      });
+    }
+    if (name == 'wamp.session.list') {
+      return toolResult({
+        'argumentsKeywords': {
+          'session_ids': [101],
+        },
+      });
+    }
+    if (name == 'wamp.session.get') {
+      expect(arguments['arguments'], [101]);
+      return toolResult({
+        'argumentsKeywords': {
+          'details': {'id': 101},
+        },
+      });
+    }
+    final registration = name.startsWith('wamp.registration.');
+    expect(
+      name,
+      startsWith(registration ? 'wamp.registration.' : 'wamp.subscription.'),
+    );
+    final id = registration ? 11 : 7;
+    final uri = registration ? 'app.echo' : 'app.events';
+    final operation = name.split('.').last;
+    if (operation == 'lookup' || operation == 'match') {
+      expect(arguments['arguments'], [uri]);
+      if (operation == 'lookup') {
+        expect(arguments['argumentsKeywords'], {'match': 'exact'});
+      }
+      return toolResult({
+        'arguments': [id],
+      });
+    }
+    if (operation == 'list') {
+      return toolResult({
+        'argumentsKeywords': {
+          'exact': [id],
+        },
+      });
+    }
+    expect(arguments['arguments'], [id]);
+    return toolResult(switch (operation) {
+      'get' => {
+        'argumentsKeywords': {'uri': uri},
+      },
+      'list_callees' || 'list_subscribers' => {'arguments': []},
+      'count_callees' || 'count_subscribers' => {
+        'arguments': [0],
+      },
+      _ => throw StateError('Unexpected fixture meta procedure: $name'),
+    });
   }
 }
 

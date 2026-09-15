@@ -838,3 +838,61 @@ points separately from the current library-only collector scope.
   Candidate commit/push, PR update and hosted CI/audit remain pending. Preserve
   raw evidence under lazy15*, lazy16*, lazy17*,
   mcp-cli-native10 and native-scope12. The overall goal remains incomplete.
+
+### MCP CLI Adversarial Responses And Cleanup
+
+- Add public HTTP regressions for malformed session counts/lists/details,
+  registration and subscription lookup/match/list inconsistencies, wrong entity
+  URIs, unexpected live members and malformed member counts. Assert the exact
+  diagnostic category and that no later network action occurs. Keep positive
+  integral-double and both session-detail ID field cases; do not invoke private
+  validators just to increase coverage.
+- Exercise acknowledged publication, method calls, notifications and event
+  polling with nested payloads. Reject incorrect handles/topics, missing
+  acknowledgements/IDs, dropped or remaining events and absent/wrong payloads.
+  The rejected response may be followed only by cleanup.
+- Three HTTP regressions fail before the production change: returned subscription
+  topic/queue-limit validation was outside try/finally and leaked the valid
+  returned handle. Move validation inside the existing unsubscribe boundary for
+  direct, active-direct and Streamable subscriptions. Six real-router tests
+  corrupt one otherwise valid response and require a successful unsubscribe
+  acknowledgement plus active-session DELETE. Requests that fail before a usable
+  handle is parsed are not covered by this cleanup claim.
+- The router fault proxy preserves Content-Length instead of inadvertently using
+  unsupported chunked request framing, passes empty SSE priming data, and waits
+  for its handlers before checking teardown failures. These are fixture repairs,
+  not claims of new transport support. All 329 CLI tests and 14 router CLI tests
+  pass. Fresh combined CLI line coverage is 2,111/2,291 (92.14%); raise the floor
+  from 89.9% to 92.1%, leaving the 98% target explicit.
+- bin/test-fast exposed a separate intermittent workflow regression: piping
+  dart pub token list into grep -q under pipefail can give the producer SIGPIPE,
+  making the conditional silently skip removal. A deterministic fake producer
+  exceeds pipe capacity after the matching line and also exercises exit 17;
+  both cases fail before the fix. Capture the output first, preserving producer
+  failure, then match the complete line. All 31 verification-script tests pass,
+  including real-Dart isolated token cleanup preserving unrelated registries.
+- The completed full vm-current17 report at aff93292 is 36,296/42,478 (85.45%),
+  with 59 unmeasured library sources. Its per-package values are auth 100%, bench
+  81.20%, client 85.10%, core 90.15%, MCP 93.34% and router 82.40%. Keep this
+  earlier whole-workspace snapshot distinct from the newer focused CLI report.
+- The serialized bin/test-fast, final-snapshot CLI collection and bin/verify
+  queue passed. Hosted aff93292 CI passed all twelve jobs and publishing dry run
+  passed, but strict log audit rejected the skipped real LLVM fixture. Configure
+  Fast Checks and Full Verify with llvm-tools-preview, pinned cargo-llvm-cov
+  0.9.1 and CONNECTANUM_TEST_LLVM_COVERAGE=1. The new workflow regression fails
+  before that configuration; all 31 script tests and the real 13-test native
+  coverage integration suite pass after it. These late workflow changes have
+  focused validation; new candidate hosted CI/audit evidence remains required.
+- The complete lazy17-js-mutations inventory has 289 generated mutants: 222
+  kills, 16 survivors, 50 compile errors and one infrastructure error. Both
+  baselines pass. Raw score is 92.89%, adjusted 96.10%, but the campaign fails
+  closed because a live descendant remained after test exit. The assertion
+  failure for 3c9eef1f979b85a272f7 must not be relabeled as a kill. Investigate
+  browser fail-fast/queued-compilation lifecycle before another complete run.
+- A fresh complete native CLI mutation inventory must follow successful full
+  verification; never replace its pinned library while it runs. No new CLI
+  mutation score or complete-goal claim is established by these regression tests.
+
+Evidence: cli18*, vm-current17 and the preserved earlier inventories under
+out/regression-coverage-2026-09-15. The full component/runtime and mutation target
+remains open; no merge or publication is authorized by this checkpoint.

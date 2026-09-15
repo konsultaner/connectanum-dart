@@ -4399,14 +4399,13 @@ Future<void> _runDirectPubSubExample(
     id: 'direct-pubsub-subscribe',
     queueLimit: queueLimit,
   );
-  _expectWampSubscription(
-    subscription,
-    topic: topic,
-    queueLimit: queueLimit,
-    label: 'Direct JSON pub/sub',
-  );
-
   try {
+    _expectWampSubscription(
+      subscription,
+      topic: topic,
+      queueLimit: queueLimit,
+      label: 'Direct JSON pub/sub',
+    );
     final subscriptionMeta = await client.matchWampSubscriptionDirect(
       topic,
       id: 'direct-wamp-subscription-match',
@@ -4662,14 +4661,13 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
     id: 'streamable-active-direct-pubsub-subscribe',
     queueLimit: queueLimit,
   );
-  _expectWampSubscription(
-    subscription,
-    topic: topic,
-    queueLimit: queueLimit,
-    label: 'Streamable active direct JSON pub/sub',
-  );
-
   try {
+    _expectWampSubscription(
+      subscription,
+      topic: topic,
+      queueLimit: queueLimit,
+      label: 'Streamable active direct JSON pub/sub',
+    );
     final publishEvent = <String, Object?>{
       'activeDirectPublishEvent': options.pubsubEvent,
     };
@@ -5791,14 +5789,13 @@ Future<void> _runStreamableSessionExample(
       id: 'streamable-pubsub-subscribe',
       queueLimit: queueLimit,
     );
-    _expectWampSubscription(
-      subscription,
-      topic: pubsubTopic,
-      queueLimit: queueLimit,
-      label: 'Streamable pub/sub',
-    );
-
     try {
+      _expectWampSubscription(
+        subscription,
+        topic: pubsubTopic,
+        queueLimit: queueLimit,
+        label: 'Streamable pub/sub',
+      );
       final subscriptionMeta = await client.matchWampSubscription(
         pubsubTopic,
         id: 'streamable-wamp-subscription-match',

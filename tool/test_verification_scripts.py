@@ -88,6 +88,22 @@ class VerificationScriptsTest(unittest.TestCase):
             self.assertIn(artifact, coverage)
             self.assertIn('out/coverage/' + artifact, workflow)
 
+    def test_hosted_regression_jobs_run_real_llvm_fixture(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
+        for name, next_name, command in [
+            ("fast", "wamp-app", "bin/test-fast"),
+            ("verify", "coverage", "bin/verify"),
+        ]:
+            with self.subTest(job=name):
+                job = workflow.split(f"\n  {name}:\n", 1)[1].split(
+                    f"\n  {next_name}:\n", 1
+                )[0]
+                self.assertIn("components: rustfmt, clippy, llvm-tools-preview", job)
+                installer = "run: cargo install cargo-llvm-cov --locked --version 0.9.1"
+                self.assertIn(installer, job)
+                self.assertLess(job.index(installer), job.index(f"run: {command}"))
+                self.assertIn("CONNECTANUM_TEST_LLVM_COVERAGE: '1'", job)
+
     def test_client_resource_restart_runs_in_both_gates(self) -> None:
         command = (
             "dart test packages/connectanum_client/test/transport/native/"
@@ -208,6 +224,48 @@ class VerificationScriptsTest(unittest.TestCase):
             self.assertIn("https://packages.example.test", remaining)
             cleanup()
             self.assertEqual(remaining, run_dart("pub", "token", "list"))
+
+    def test_coverage_pub_token_cleanup_drains_output_and_fails_closed(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
+        coverage = workflow.split("\n  coverage:\n", 1)[1]
+        step = coverage.split(
+            "      - name: Use anonymous pub.dev downloads\n", 1
+        )[1].split("\n      - ", 1)[0]
+        command = textwrap.dedent(step.split("        run: |\n", 1)[1])
+        for status in (0, 17):
+            with self.subTest(list_exit_status=status), tempfile.TemporaryDirectory() as tmp:
+                dart = Path(tmp) / "dart"
+                removed = Path(tmp) / "removed"
+                dart.write_text(textwrap.dedent("""\
+                    #!/usr/bin/env python3
+                    import os
+                    import signal
+                    import sys
+                    from pathlib import Path
+                    if sys.argv[1:] == ['pub', 'token', 'list']:
+                        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+                        sys.stdout.write('https://pub.dev\\n')
+                        sys.stdout.flush()
+                        # Exceed pipe capacity after the matching first line.
+                        sys.stdout.write('https://packages.example.test\\n' * 10000)
+                        sys.stdout.flush()
+                        sys.exit(int(os.environ['LIST_STATUS']))
+                    if sys.argv[1:] == ['pub', 'token', 'remove', 'https://pub.dev']:
+                        Path(os.environ['REMOVED_MARKER']).touch()
+                    else:
+                        sys.exit(2)
+                    """))
+                dart.chmod(0o755)
+                result = subprocess.run(
+                    ["bash", "-euo", "pipefail", "-c", command],
+                    cwd=REPO_ROOT,
+                    env=dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"],
+                             LIST_STATUS=str(status), REMOVED_MARKER=str(removed)),
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    check=False, timeout=30,
+                )
+                self.assertEqual(result.returncode, status, result.stdout)
+                self.assertEqual(removed.exists(), status == 0, result.stdout)
 
     def test_core_shell_scripts_are_bash_syntax_clean(self) -> None:
         for script_path in [

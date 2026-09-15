@@ -25,6 +25,11 @@ jobs:
       - uses: dart-lang/setup-dart@v1
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Install native coverage tooling
+        run: cargo install cargo-llvm-cov --locked --version 0.9.1
 
       - id: chrome
         uses: browser-actions/setup-chrome@v2
@@ -37,6 +42,7 @@ jobs:
       - name: Run fast regression set
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_TEST_LLVM_COVERAGE: '1'
         run: bin/test-fast
 
   wamp-app:
@@ -75,6 +81,11 @@ jobs:
       - uses: dart-lang/setup-dart@v1
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Install native coverage tooling
+        run: cargo install cargo-llvm-cov --locked --version 0.9.1
 
       - id: chrome
         uses: browser-actions/setup-chrome@v2
@@ -87,6 +98,7 @@ jobs:
       - name: Run full verification
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_TEST_LLVM_COVERAGE: '1'
         run: bin/verify
 
   coverage:
@@ -106,9 +118,11 @@ jobs:
       # Codecov needs OIDC, but public dependency downloads do not need pub auth.
       - name: Use anonymous pub.dev downloads
         run: |
-          if dart pub token list | grep -Fxq 'https://pub.dev'; then
+          pub_token_repositories="$(dart pub token list)"
+          if grep -Fxq 'https://pub.dev' <<< "$pub_token_repositories"; then
             dart pub token remove https://pub.dev
           fi
+          unset pub_token_repositories
 
       - uses: dtolnay/rust-toolchain@stable
 

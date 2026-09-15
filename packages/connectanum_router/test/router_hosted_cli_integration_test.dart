@@ -263,7 +263,215 @@ void main() {
         );
       }
     });
+
+    for (final prefix in [
+      'direct-pubsub',
+      'streamable-active-direct-pubsub',
+      'streamable-pubsub',
+    ]) {
+      for (final field in ['topic', 'queueLimit']) {
+        test('$prefix releases subscription after rejected $field', () async {
+          final proxy = await _SubscriptionFaultProxy.start(
+            router.endpoint('/mcp'),
+            '$prefix-subscribe',
+            field,
+          );
+          try {
+            await expectLater(
+              IOOverrides.runZoned(
+                () => runRouterHostedClient([
+                  '--endpoint',
+                  proxy.endpoint.toString(),
+                  '--protocol-version',
+                  '2025-06-18',
+                  '--pubsub-topic',
+                  _topic,
+                ]),
+                stdout: _Output.new,
+                stderr: _Output.new,
+              ),
+              throwsA(
+                isA<StateError>().having(
+                  (error) => error.message,
+                  'subscription diagnostic',
+                  contains(
+                    field == 'topic'
+                        ? 'returned subscription for'
+                        : 'returned queue limit',
+                  ),
+                ),
+              ),
+            );
+            expect(proxy.changedResponses, 1);
+            expect(proxy.subscriptionHandle, isNotEmpty);
+            expect(proxy.cleanedHandles, contains(proxy.subscriptionHandle));
+            final afterFault = proxy.requests
+                .skipWhile(
+                  (request) => request.$2 != '$prefix-subscribe',
+                )
+                .skip(1);
+            expect(afterFault, [
+              ('POST', '$prefix-unsubscribe'),
+              if (prefix != 'direct-pubsub') ('DELETE', null),
+            ], reason: 'Only cleanup may follow the rejected subscription');
+          } finally {
+            await proxy.close();
+          }
+        });
+      }
+    }
   });
+}
+
+// Forward real router traffic, corrupting exactly one successful subscription
+// response. Cleanup evidence comes from the router's unsubscribe acknowledgement.
+class _SubscriptionFaultProxy {
+  _SubscriptionFaultProxy(
+    this.server,
+    this.upstream,
+    this.targetId,
+    this.field,
+  ) {
+    server.listen((request) {
+      late Future<void> pending;
+      pending = _handle(request).whenComplete(() => _pending.remove(pending));
+      _pending.add(pending);
+    });
+  }
+
+  final HttpServer server;
+  final Uri upstream;
+  final String targetId;
+  final String field;
+  final client = HttpClient();
+  final requests = <(String, Object?)>[];
+  final cleanedHandles = <String>[];
+  final failures = <Object>[];
+  final _pending = <Future<void>>{};
+  String? subscriptionHandle;
+  int changedResponses = 0;
+  bool _closing = false;
+
+  Uri get endpoint => Uri.parse('http://127.0.0.1:${server.port}/mcp');
+
+  static Future<_SubscriptionFaultProxy> start(
+    Uri upstream,
+    String id,
+    String field,
+  ) async => _SubscriptionFaultProxy(
+    await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+    upstream,
+    id,
+    field,
+  );
+
+  Future<void> close() async {
+    _closing = true;
+    client.close(force: true);
+    await server.close(force: true);
+    await Future.wait(List.of(_pending));
+    expect(
+      failures,
+      isEmpty,
+      reason: 'Proxy failures must not masquerade as CLI rejections',
+    );
+  }
+
+  Future<void> _handle(HttpRequest request) async {
+    try {
+      final body = await request.fold<List<int>>(
+        [],
+        (bytes, chunk) => bytes..addAll(chunk),
+      );
+      final message = body.isEmpty ? null : jsonDecode(utf8.decode(body));
+      final id = message is Map ? message['id'] : null;
+      requests.add((request.method, id));
+      final outgoing = await client.openUrl(
+        request.method,
+        upstream.replace(query: request.uri.query),
+      );
+      request.headers.forEach((name, values) {
+        if (![
+          'host',
+          'content-length',
+          'transfer-encoding',
+          'connection',
+        ].contains(name)) {
+          outgoing.headers.set(name, values);
+        }
+      });
+      outgoing.contentLength = body.length;
+      outgoing.add(body);
+      final response = await outgoing.close();
+      request.response.statusCode = response.statusCode;
+      response.headers.forEach((name, values) {
+        if (![
+          'content-length',
+          'transfer-encoding',
+          'connection',
+        ].contains(name)) {
+          request.response.headers.set(name, values);
+        }
+      });
+      if (id == targetId ||
+          (id is String && id.endsWith('-pubsub-unsubscribe'))) {
+        final text = await utf8.decoder.bind(response).join();
+        Map<String, Object?> inspect(Map<String, Object?> envelope) {
+          final result = envelope['result'] as Map;
+          final content = result['structuredContent'] as Map;
+          if (id == targetId) {
+            subscriptionHandle = content['handle'] as String;
+            changedResponses++;
+            return {
+              ...envelope,
+              'result': {
+                ...result,
+                'structuredContent': {
+                  ...content,
+                  field: field == 'topic' ? 'unexpected.topic' : 11,
+                },
+              },
+            };
+          }
+          expect(content['unsubscribed'], isTrue);
+          cleanedHandles.add(content['handle'] as String);
+          return envelope;
+        }
+
+        if (response.headers.contentType?.mimeType == 'text/event-stream') {
+          request.response.write(
+            text
+                .split('\n')
+                .map((line) {
+                  if (!line.startsWith('data:')) return line;
+                  final data = line.substring(5).trim();
+                  if (data.isEmpty) return line;
+                  final envelope = (jsonDecode(data) as Map)
+                      .cast<String, Object?>();
+                  return 'data: ${jsonEncode(inspect(envelope))}';
+                })
+                .join('\n'),
+          );
+        } else {
+          request.response.write(
+            jsonEncode(
+              inspect((jsonDecode(text) as Map).cast<String, Object?>()),
+            ),
+          );
+        }
+      } else {
+        await request.response.addStream(response);
+      }
+      await request.response.close();
+    } catch (error) {
+      if (!_closing || error is! IOException) failures.add(error);
+      try {
+        await request.response.close();
+      } on IOException catch (closeError) {
+        if (!_closing) failures.add(closeError);
+      }
+    }
+  }
 }
 
 List<String> _credentials(String flag, String secret) => [
