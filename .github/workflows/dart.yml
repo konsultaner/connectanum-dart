@@ -31,6 +31,9 @@ jobs:
       - name: Install native coverage tooling
         run: cargo install cargo-llvm-cov --locked --version 0.9.1
 
+      - name: Install native mutation tooling
+        run: cargo install cargo-mutants --locked --version 27.1.0
+
       - id: chrome
         uses: browser-actions/setup-chrome@v2
 
@@ -86,6 +89,9 @@ jobs:
 
       - name: Install native coverage tooling
         run: cargo install cargo-llvm-cov --locked --version 0.9.1
+
+      - name: Install native mutation tooling
+        run: cargo install cargo-mutants --locked --version 27.1.0
 
       - id: chrome
         uses: browser-actions/setup-chrome@v2

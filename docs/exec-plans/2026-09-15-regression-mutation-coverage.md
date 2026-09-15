@@ -956,3 +956,44 @@ inventories under out/regression-coverage-2026-09-15. The full goal remains open
 
 Evidence: native20-before/after logs, native20-rawsocket snapshot and campaign
 output, and coverage20 verification logs. The full goal remains active.
+
+### Native Mutation Evidence And Wire Assertions
+
+- Full coverage20 verification passed at ab4511a6. Native20 failed its clean
+  baseline because cargo-mutants omitted sibling public TLS fixtures; native21
+  failed setup because --in-place cannot be combined with --jobs. Preserve both
+  failures rather than labeling either a mutation campaign pass.
+- The complete isolated native22 RawSocket campaign contains 129 candidates.
+  Strict audit confirms 17 assertion kills, 72 errors, 22 survivors, five compile
+  errors and 13 timeouts, despite Cargo reporting 89 caught. Both baselines pass.
+  Raw/adjusted candidate score is 13.71%, no equivalences. Runtime panics,
+  unwrap/expect failures and hangs are not explicit assertion kills. Inactive
+  platform bodies remain visible; no active-platform denominator is claimed.
+- Add the canonical collector and auditor with input/tool/log hashes, complete
+  inventory correspondence, test-only panic locations, multiline replacement
+  offsets and identical clean/restored test inventories. Materialize symlinks;
+  the new isolation regression fails against preserved links. Include sibling
+  public TLS fixtures and isolate build output. Never mutate the live checkout.
+- All 21 tooling tests and 33 verification-script tests pass, including real
+  rustc/libtest, cargo-mutants and sibling-include fixtures. Fast/Verify install
+  pinned cargo-mutants 27.1.0. Linux/macOS diagnostics collect audited evidence,
+  retain artifacts on failure and continue to fail on survivors or dirty evidence.
+- Strengthen RawSocket response-byte assertions and half-close cases for peers
+  ineligible for an upgrade. Check negotiation results before awaiting response
+  bytes; half-close completed inputs so truncated data cannot leave peers waiting
+  forever. Do not relabel the old timeouts. A proposed below-minimum endpoint
+  test was rejected by configuration validation before negotiation; remove that
+  invalid fixture rather than bypass validation to increase coverage.
+- bin/test-fast and bin/verify pass, including the real LLVM fixture and both
+  browser compilers. The subsequent native23 production collection passes at
+  macOS arm64 ct_core 8,357/10,051 (83.15%), ct_ffi 4,589/5,808 (79.01%) and
+  RawSocket 254/267 (95.13%), with four unmeasured candidate sources retained.
+  Native23's complete mutation inventory is now running after those serialized
+  checks; do not substitute new assertions for its pending measured result.
+- Hosted ab4511a6 CI passed all twelve jobs and publishing dry-run passed.
+  Strict audit retains the known feature-branch/default-workflow constraints.
+  The complete lazy19 inventory retained one cycle-related error; lazy20 is a
+  separate running inventory, not a replacement classification for lazy19.
+
+Evidence: native20/21/22-rawsocket, native23-current/native23-rawsocket when
+completed, and native23 verification/tooling logs. The full goal remains active.

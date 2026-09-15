@@ -8,6 +8,7 @@ cd_repo_root
 dart_workspace_bootstrap
 cargo_workspace_check
 "$ROOT_DIR/bin/test-native-coverage-tools"
+"$ROOT_DIR/bin/test-native-mutation-tools"
 
 run_client_vm_tests() {
   dart test packages/connectanum_client/test/client_test.dart

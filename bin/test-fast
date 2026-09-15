@@ -56,6 +56,7 @@ run_bench_vm_tests() {
 dart analyze
 if ensure_rust_env; then
   "$ROOT_DIR/bin/test-native-coverage-tools"
+  "$ROOT_DIR/bin/test-native-mutation-tools"
 fi
 python3 tool/test_package_native_artifact.py
 python3 tool/test_package_wamp_app.py

@@ -6,6 +6,39 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Native evidence checkpoint (not goal completion): the complete native22 RawSocket
+inventory at ab4511a6 contains 129 candidates. Cargo reports 89 caught, but strict
+libtest/source auditing confirms only 17 explicit assertion kills, with 72 errors,
+22 survivors, five compile errors and 13 timeouts. Raw/adjusted candidate score is
+13.71%, with no equivalences; this is failed evidence, not a production score.
+Platform-inactive bodies remain in the inventory. Preserve the original results.
+Earlier native20 omitted sibling TLS fixtures and failed its baseline; native21
+rejected incompatible --in-place/--jobs flags. Neither established a score.
+
+The new collector preserves sibling fixtures in a private snapshot, materializes
+symlinks, pins inputs/tools/logs and checks clean/restored test identities. A
+symlink regression failed before the isolation fix. All 21 native tooling tests
+and 33 verification-script tests pass, including real rustc/cargo-mutants fixtures.
+Fast/Verify install pinned cargo-mutants; Linux/macOS diagnostic workflows now use
+the auditor rather than Cargo's caught count. Survivors and unclean evidence fail
+the diagnostic command. RawSocket tests now assert complete response bytes,
+reject optional probing for ineligible peers and avoid waiting for responses
+before checking negotiation results. bin/test-fast and bin/verify pass, including
+the real LLVM fixture and both browser compilers. Fresh native23 production
+coverage passes: macOS arm64 ct_core 8,357/10,051 (83.15%), ct_ffi 4,589/5,808
+(79.01%), RawSocket 254/267 (95.13%). Four unmeasured candidate files remain
+explicit. The serialized native23 complete mutation inventory is now running;
+its pending result is not a passing score. New candidate hosted evidence is
+still required for these changes.
+
+Hosted ab4511a6 CI passed all twelve jobs and package publishing dry-run passed.
+Strict release audit still fails because this non-release branch is unprotected
+and mutation-diagnostics.yml is not yet on master. No merge/publication is
+authorized. The completed lazy19 browser inventory retains its cycle-related
+error (222 kills, 16 survivors, 50 compile errors, one error); the independent
+lazy20 inventory with the bounded cycle fixture is still running. Neither that
+pending run nor the older native/VM totals establishes the full milestone.
+
 RawSocket cancellation checkpoint (not goal completion): a deterministic
 paused-time regression reproduces loss of the first standard-frame byte when
 the optional two-byte upgrade probe times out after a partial read. The probe

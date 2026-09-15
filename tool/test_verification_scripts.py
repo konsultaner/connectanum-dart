@@ -104,6 +104,30 @@ class VerificationScriptsTest(unittest.TestCase):
                 self.assertLess(job.index(installer), job.index(f"run: {command}"))
                 self.assertIn("CONNECTANUM_TEST_LLVM_COVERAGE: '1'", job)
 
+    def test_hosted_regression_jobs_run_real_native_mutation_fixture(self) -> None:
+        for script in [TEST_FAST, TEST_ALL]:
+            self.assertIn('"$ROOT_DIR/bin/test-native-mutation-tools"', script.read_text())
+        workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
+        for name, next_name, command in [
+            ("fast", "wamp-app", "bin/test-fast"),
+            ("verify", "coverage", "bin/verify"),
+        ]:
+            with self.subTest(job=name):
+                job = workflow.split(f"\n  {name}:\n", 1)[1].split(
+                    f"\n  {next_name}:\n", 1
+                )[0]
+                installer = "run: cargo install cargo-mutants --locked --version 27.1.0"
+                self.assertIn(installer, job)
+                self.assertLess(job.index(installer), job.index(f"run: {command}"))
+
+    def test_native_diagnostics_audits_instead_of_trusting_cargo_caught_count(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/mutation-diagnostics.yml").read_text()
+        native_job = workflow.split("\n  rust:\n", 1)[1]
+        self.assertIn("bin/collect-native-mutations --output out/mutations", native_job)
+        self.assertNotIn("bin/test-native-mutations", native_job)
+        self.assertIn("os: [ubuntu-latest, macos-latest]", native_job)
+        self.assertIn("if: always()", native_job)
+
     def test_client_resource_restart_runs_in_both_gates(self) -> None:
         command = (
             "dart test packages/connectanum_client/test/transport/native/"

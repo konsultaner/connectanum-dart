@@ -30,9 +30,7 @@ rustup component add llvm-tools-preview
 cargo install cargo-llvm-cov --version 0.9.1 --locked
 CONNECTANUM_NATIVE_COVERAGE_DIR=out/coverage-rust bin/test-native-coverage
 cargo install cargo-mutants --version 27.1.0 --locked
-bin/test-native-mutations --package ct_core --file rawsocket.rs \
-  --timeout 20 --build-timeout 300 --output "$PWD/out/mutations-rawsocket" \
-  -- --lib rawsocket::tests
+bin/collect-native-mutations --output out/mutations-rawsocket
 ```
 
 Use fresh output directories. Browser mutation tests require Chrome. The browser
@@ -54,11 +52,24 @@ dropping a difficult file cannot silently improve the package percentage.
 `tool/check_coverage.py --require-target` fails while measured files
 or unmeasured scopes remain below the complete target.
 
-Raw LLVM LCOV currently includes inline Rust unit-test bodies. It is useful
-diagnostic evidence, **not a production-only Rust percentage**, and is never
-merged into the Dart badge. A production-only native report, native benchmark
-workspace coverage, client/browser coverage, hooks and standalone application
-coverage remain work in the active execution plan.
+Raw LLVM LCOV includes inline Rust unit-test bodies and is retained unchanged.
+`production.info` and `production.summary.json` remove test/helper-only lines
+using source-hash-pinned AST scopes, report unmeasured candidates, and keep each
+native component separate. Neither report is merged into the Dart badge.
+Native benchmark-workspace coverage and the remaining client/browser, hooks
+and standalone application scope remain work in the active execution plan.
+
+The native collector currently covers the complete RawSocket candidate inventory,
+not the complete Rust workspace. It copies the transport workspace and sibling
+public TLS fixtures into a private directory, materializes symlinks and pins
+source, tooling and log hashes. The auditor checks every outcome against the
+inventory, a nonempty clean baseline and an identical restored test inventory.
+Only explicit assertions at verified test-only locations count as kills.
+Compiler failures, signals, runtime panics, unwrap/expect failures, timeouts and
+infrastructure failures remain separate. `audited-results.json` reports raw and
+adjusted candidate scores (no native equivalence waivers yet) and operator counts.
+Platform-inactive candidates remain visible; these are not platform-active
+production scores. Unresolved survivors or unclean evidence fail the command.
 
 `mutation-report.json` records source/test hashes, the base commit, every generated
 mutation, per-mutation outcomes, clean/restored baselines and completion status.

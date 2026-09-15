@@ -46,8 +46,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo install cargo-mutants --version 27.1.0 --locked
-      - name: Run complete RawSocket inventory (inactive cfg bodies remain visible)
-        run: bin/test-native-mutations --package ct_core --file rawsocket.rs --timeout 20 --build-timeout 300 --output "$PWD/out/mutations" -- --lib rawsocket::tests
+      - name: Collect and audit complete RawSocket inventory (inactive cfg bodies remain visible)
+        run: bin/collect-native-mutations --output out/mutations
       - if: always()
         uses: actions/upload-artifact@v7
         with:

@@ -586,13 +586,12 @@ mod tests {
         assert_eq!(response[0], RAWSOCKET_MAGIC);
 
         send_upgrade(&mut client, 30).await;
-        let mut upgrade_resp = [0u8; 2];
-        client.read_exact(&mut upgrade_resp).await.unwrap();
-        assert_eq!(upgrade_resp[0], RAWSOCKET_UPGRADE_MAGIC);
-
         let session = rx.await.unwrap().expect("upgrade succeeds");
         assert_eq!(session.max_message_size_exponent, 30);
         assert!(session.upgraded);
+        let mut upgrade_resp = [0u8; 2];
+        client.read_exact(&mut upgrade_resp).await.unwrap();
+        assert_eq!(upgrade_resp[0], RAWSOCKET_UPGRADE_MAGIC);
     }
 
     #[tokio::test]
@@ -613,8 +612,11 @@ mod tests {
         let mut response = [0u8; 4];
         client.read_exact(&mut response).await.unwrap();
         client.write_all(&[0x00, 0x05]).await.unwrap();
+        client.shutdown().await.unwrap();
 
         let mut session = rx.await.unwrap().expect("standard handshake succeeds");
+        assert_eq!(session.max_message_size_exponent, 24);
+        assert!(!session.upgraded);
         let mut first_frame_bytes = [0u8; 2];
         session
             .reader
@@ -622,8 +624,6 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(session.max_message_size_exponent, 24);
-        assert!(!session.upgraded);
         assert_eq!(first_frame_bytes, [0x00, 0x05]);
     }
 
@@ -688,6 +688,7 @@ mod tests {
         peer.write_all(&[5, 0, 0, 0, 3, b'[', b'1', b']'])
             .await
             .unwrap();
+        peer.shutdown().await.unwrap();
         let config = runtime_config(Some(Duration::from_secs(1)), 30);
         let mut session = negotiate(stream, &config).await.unwrap();
         assert!(session.upgraded);
@@ -721,8 +722,13 @@ mod tests {
         .await
         .expect("native handshake succeeds");
         client.writer.write_all(&[0x00, 0x05]).await.unwrap();
+        client.writer.shutdown().await.unwrap();
 
         let mut server = server.await.unwrap().expect("router handshake succeeds");
+        assert_eq!(client.max_message_size_exponent, 24);
+        assert_eq!(server.max_message_size_exponent, 24);
+        assert!(!client.upgraded);
+        assert!(!server.upgraded);
         let mut first_frame_bytes = [0u8; 2];
         server
             .reader
@@ -730,10 +736,6 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(client.max_message_size_exponent, 24);
-        assert_eq!(server.max_message_size_exponent, 24);
-        assert!(!client.upgraded);
-        assert!(!server.upgraded);
         assert_eq!(first_frame_bytes, [0x00, 0x05]);
     }
 
@@ -884,48 +886,79 @@ mod tests {
         ];
 
         for case in cases {
-            let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
-            let addr = listener.local_addr().unwrap();
+            let (socket, mut peer) = socket_pair().await;
             let config = runtime_config(Some(Duration::from_millis(200)), case.endpoint_exponent);
-            let (tx, rx) = oneshot::channel();
-
-            tokio::spawn(async move {
-                let (stream, _) = listener.accept().await.unwrap();
-                let result = negotiate(IoStream::plain(stream), &config).await;
-                tx.send(result).ok();
-            });
-
-            let mut client = TcpStream::connect(addr).await.unwrap();
-            send_handshake(&mut client, case.handshake_exponent).await;
-
-            let mut handshake_resp = [0u8; 4];
-            let handshake_ok = client.read_exact(&mut handshake_resp).await.is_ok();
-
-            let mut upgrade_resp = [0u8; 2];
-            let mut upgrade_ok = false;
+            send_handshake(&mut peer, case.handshake_exponent).await;
             if let Some(req) = case.upgrade_request {
-                send_upgrade(&mut client, req).await;
-                upgrade_ok = client.read_exact(&mut upgrade_resp).await.is_ok();
+                send_upgrade(&mut peer, req).await;
+            }
+            // Only an eligible peer omitting the optional upgrade needs to
+            // leave its write half open until the server's probe expires.
+            if case.upgrade_request.is_some()
+                || case.handshake_exponent < 24
+                || case.endpoint_exponent <= 24
+            {
+                peer.shutdown().await.unwrap();
             }
 
-            match rx.await.unwrap() {
+            match negotiate(IoStream::plain(socket), &config).await {
                 Ok(session) => {
                     assert!(case.expect_ok, "case should have failed");
-                    assert!(handshake_ok);
-                    assert_eq!(handshake_resp[0], RAWSOCKET_MAGIC);
                     assert_eq!(
                         session.max_message_size_exponent,
                         case.expect_exponent.unwrap()
                     );
                     assert_eq!(session.upgraded, case.expect_upgrade);
+                    drop(session);
+                    let mut response = Vec::new();
+                    time::timeout(Duration::from_secs(1), peer.read_to_end(&mut response))
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    let base = case.handshake_exponent.min(case.endpoint_exponent).min(24);
+                    let mut expected = vec![0x7f, ((base - 9) as u8) << 4 | 1, 0, 0];
                     if case.expect_upgrade {
-                        assert!(upgrade_ok);
-                        assert_eq!(upgrade_resp[0], RAWSOCKET_UPGRADE_MAGIC);
+                        expected.extend([0x3f, (case.expect_exponent.unwrap() - 25) as u8]);
                     }
+                    assert_eq!(response, expected, "complete handshake response");
                 }
                 Err(_) => {
                     assert!(!case.expect_ok, "case should have succeeded");
                 }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn server_does_not_probe_when_upgrade_is_ineligible() {
+        for endpoint in [9, 16, 24, 30] {
+            for requested in [9, 16, 24] {
+                if endpoint > 24 && requested == 24 {
+                    continue;
+                }
+                let (socket, mut peer) = socket_pair().await;
+                let request = [0x7f, ((requested - 9) as u8) << 4 | 1, 0, 0];
+                peer.write_all(&request).await.unwrap();
+                peer.shutdown().await.unwrap();
+                let config = runtime_config(Some(Duration::from_millis(100)), endpoint);
+                let result = negotiate(IoStream::plain(socket), &config).await;
+                assert!(
+                    result.is_ok(),
+                    "base {requested}, cap {endpoint}: {result:?}"
+                );
+                let session = result.unwrap();
+                assert!(!session.upgraded);
+                assert_eq!(session.max_message_size_exponent, requested.min(endpoint));
+                drop(session);
+                let mut response = Vec::new();
+                time::timeout(Duration::from_secs(1), peer.read_to_end(&mut response))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(
+                    response,
+                    [0x7f, ((requested.min(endpoint) - 9) as u8) << 4 | 1, 0, 0]
+                );
             }
         }
     }
