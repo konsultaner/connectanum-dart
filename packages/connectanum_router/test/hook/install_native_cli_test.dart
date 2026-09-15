@@ -1,7 +1,9 @@
 @TestOn('vm')
 library;
 
+import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:connectanum_router/src/native_release_installer.dart' as native;
 import 'package:crypto/crypto.dart';
@@ -15,6 +17,72 @@ void main() {
     root = await Directory.systemTemp.createTemp('connectanum_install_cli_');
   });
   tearDown(() => root.delete(recursive: true));
+
+  test('main forwards help output without network IO', () async {
+    final output = _CapturedStdout();
+    final errors = _CapturedStdout();
+    await IOOverrides.runZoned(
+      () => cli.main(['--help']),
+      stdout: () => output,
+      stderr: () => errors,
+    );
+    expect(output.text.toString(), startsWith('Usage:'));
+    expect(errors.text.toString(), isEmpty);
+  });
+
+  test('executable reports real process exit codes and streams', () async {
+    final source = await Isolate.resolvePackageUri(
+      Uri.parse('package:connectanum_router/connectanum_router.dart'),
+    );
+    final packageConfig = await Isolate.packageConfig;
+    expect(source, isNotNull);
+    expect(packageConfig, isNotNull);
+    final script = source!.resolve('../tool/install_native.dart').toFilePath();
+    final output = '${root.path}/installed';
+    final cachedArgs = ['--tag=v-cli', '--out-dir=$output'];
+    final installed = await _install(cachedArgs, root, []);
+    final blocked = File('${root.path}/not-a-directory')
+      ..writeAsStringSync('keep');
+    for (final (args, code, out, err) in [
+      (['--help'], 0, startsWith('Usage:'), isEmpty),
+      (['--unknown'], 64, isEmpty, contains('Unrecognized argument')),
+      (cachedArgs, 0, equals('${installed.path}\n'), isEmpty),
+      (
+        ['--tag=v-cli', '--out-dir=${blocked.path}'],
+        1,
+        isEmpty,
+        startsWith('Failed to install ct_ffi:'),
+      ),
+    ]) {
+      final result = await Process.run(
+        Platform.resolvedExecutable,
+        ['--packages=${packageConfig!.toFilePath()}', script, ...args],
+        workingDirectory: root.path,
+      );
+      expect(result.exitCode, code, reason: '$args\n${result.stderr}');
+      expect(result.stdout, out);
+      expect(result.stderr, err);
+    }
+    expect(blocked.readAsStringSync(), 'keep');
+    expect(installed.readAsStringSync(), 'verified fixture library');
+  });
+
+  test('concurrent command results keep their own exit status', () async {
+    final bothCompleted = Completer<void>();
+    var completed = 0;
+    Future<void> beforeCapture() {
+      if (++completed == 2) bothCompleted.complete();
+      return bothCompleted.future;
+    }
+
+    final results = await Future.wait([
+      _run(['--help'], root, beforeCapture: beforeCapture),
+      _run(['--unknown'], root, beforeCapture: beforeCapture),
+    ]);
+    expect(results.map((result) => result.code), [0, 64]);
+    expect(results[0].err, isEmpty);
+    expect(results[1].out, isEmpty);
+  });
 
   for (final flag in ['--help', '-h']) {
     test('$flag prints help only to stdout without network IO', () async {
@@ -188,34 +256,30 @@ Future<({int code, String out, String err})> _run(
   List<String> args,
   Directory root, {
   bool failDownload = false,
+  Future<void> Function()? beforeCapture,
 }) async {
   final output = _CapturedStdout();
   final errors = _CapturedStdout();
-  final previousCode = exitCode;
   var networkAttempts = 0;
-  exitCode = 0;
-  try {
-    await IOOverrides.runZoned(
-      () => HttpOverrides.runZoned(
-        () => cli.main(args),
-        createHttpClient: (_) {
-          networkAttempts++;
-          throw StateError('offline fixture');
-        },
-      ),
-      stdout: () => output,
-      stderr: () => errors,
-      getCurrentDirectory: () => root,
-    );
-    expect(networkAttempts, failDownload ? 1 : 0);
-    return (
-      code: exitCode,
-      out: output.text.toString(),
-      err: errors.text.toString(),
-    );
-  } finally {
-    exitCode = previousCode;
-  }
+  final code = await IOOverrides.runZoned(
+    () => HttpOverrides.runZoned(
+      () => cli.runInstallCommand(args),
+      createHttpClient: (_) {
+        networkAttempts++;
+        throw StateError('offline fixture');
+      },
+    ),
+    stdout: () => output,
+    stderr: () => errors,
+    getCurrentDirectory: () => root,
+  );
+  await beforeCapture?.call();
+  expect(networkAttempts, failDownload ? 1 : 0);
+  return (
+    code: code,
+    out: output.text.toString(),
+    err: errors.text.toString(),
+  );
 }
 
 final class _CapturedStdout implements Stdout {

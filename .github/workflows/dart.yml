@@ -153,7 +153,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [router-authorization, auth-server, client-installer]
+        target: [router-authorization, auth-server, client-installer, router-installer]
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1

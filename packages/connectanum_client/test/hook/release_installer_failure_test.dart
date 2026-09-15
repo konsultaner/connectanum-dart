@@ -12,6 +12,28 @@ import 'package:test/test.dart';
 import '../../hook/build.dart' as hook;
 
 void main() {
+  for (final (name, architecture) in [
+    ('library', native.architectureLabelForDartVersion),
+    ('hook', hook.architectureLabelForDartVersion),
+  ]) {
+    test('$name recognizes each supported Dart architecture spelling', () {
+      for (final (target, expected) in [
+        ('linux_x64', 'x64'),
+        ('macos_x64', 'x64'),
+        ('windows_x64', 'x64'),
+        ('linux_arm64', 'arm64'),
+        ('macos_arm64', 'arm64'),
+        ('linux_aarch64', 'arm64'),
+      ]) {
+        expect(
+          architecture('3.13.1 (stable) on "$target"'),
+          expected,
+          reason: target,
+        );
+      }
+    });
+  }
+
   for (final (name, install) in [
     ('library', native.installHostedNativeLibrary),
     ('hook', hook.installHostedNativeLibrary),
@@ -30,6 +52,54 @@ void main() {
         output.writeAsStringSync('previous verified library');
       });
       tearDown(() => root.delete(recursive: true));
+
+      test(
+        'default installation stays inside the consumer working directory',
+        () async {
+          final requested = <Uri>[];
+          final installed = await IOOverrides.runZoned(
+            () => install(
+              tag: ' v-default ',
+              repository: ' example/releases ',
+              artifactDownloader:
+                  ({required source, required destination}) async {
+                    requested.add(source);
+                    if (source.path.endsWith('.sha256')) {
+                      destination.writeAsStringSync('$digest  $bundle.tar.gz');
+                    } else {
+                      destination.writeAsBytesSync(bytes);
+                    }
+                  },
+              archiveExtractor: ({required archive, required destination}) {
+                expect(archive.readAsBytesSync(), bytes);
+                final library = File(
+                  '${destination.path}/$bundle/$libraryName',
+                );
+                library.parent.createSync(recursive: true);
+                library.writeAsStringSync('default installed library');
+              },
+            ),
+            getCurrentDirectory: () => root,
+          );
+          expect(
+            installed.path,
+            '${root.path}/.dart_tool/connectanum/native/'
+            '${native.currentHostTriple()}/$libraryName',
+          );
+          expect(installed.readAsStringSync(), 'default installed library');
+          expect(output.readAsStringSync(), 'previous verified library');
+          expect(requested, [
+            Uri.parse(
+              'https://github.com/example/releases/releases/download/'
+              'v-default/$bundle.tar.gz',
+            ),
+            Uri.parse(
+              'https://github.com/example/releases/releases/download/'
+              'v-default/$bundle.tar.gz.sha256',
+            ),
+          ]);
+        },
+      );
 
       for (final (checksum, reason) in [
         (' \n', 'was empty'),

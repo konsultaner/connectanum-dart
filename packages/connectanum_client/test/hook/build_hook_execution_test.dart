@@ -20,6 +20,70 @@ void main() {
   });
   tearDown(() => root.delete(recursive: true));
 
+  test(
+    'hook entrypoint without code assets does not invoke native tools',
+    () async {
+      final fixture = _BuildFixture(
+        root,
+        codeAssets: false,
+      );
+      await hook.main(['--config=${fixture.config.path}']);
+      final output = BuildOutput(
+        jsonDecode(File.fromUri(fixture.input.outputFile).readAsStringSync())
+            as Map<String, Object?>,
+      );
+      expect(
+        await ProtocolBase.validateBuildOutput(fixture.input, output),
+        isEmpty,
+      );
+      expect(output.assets.code, isEmpty);
+      expect(fixture.library.existsSync(), isFalse);
+      expect(fixture.cargoTarget.existsSync(), isFalse);
+    },
+  );
+
+  test(
+    'source disappearing before Cargo launch preserves infrastructure error',
+    () async {
+      final fixture = _BuildFixture(root);
+      fixture.sourceCheckout();
+      fixture.library.writeAsStringSync('previous installation');
+      fixture.library.setLastModifiedSync(DateTime(2000));
+      final overrides = _DisappearingSource(
+        fixture.cargoTarget.path,
+        fixture.transport,
+      );
+      final output = BuildOutputBuilder();
+      await expectLater(
+        IOOverrides.runWithIOOverrides(
+          () => hook.buildNativeAssets(
+            fixture.input,
+            output,
+            environment: const {},
+          ),
+          overrides,
+        ),
+        throwsA(
+          isA<InfraError>()
+              .having(
+                (error) => error.message,
+                'message',
+                contains('Failed to invoke cargo'),
+              )
+              .having(
+                (error) => error.wrappedException,
+                'cause',
+                isA<ProcessException>(),
+              )
+              .having((error) => error.wrappedTrace, 'trace', isNotNull),
+        ),
+      );
+      expect(overrides.removed, isTrue);
+      expect(BuildOutput(output.json).assets.code, isEmpty);
+      expect(fixture.library.readAsStringSync(), 'previous installation');
+    },
+  );
+
   test('a build without code assets performs no native work', () async {
     final fixture = _BuildFixture(root, codeAssets: false);
     final output = await fixture.run();
@@ -265,7 +329,6 @@ void main() {
   test(
     'default Cargo runner preserves failure diagnostics and receives its environment',
     () async {
-      if (Platform.isWindows) return;
       final fixture = _BuildFixture(root);
       fixture.sourceCheckout();
       final cargo = File('${root.path}/bin/cargo');
@@ -296,6 +359,7 @@ void main() {
       );
       expect(fixture.library.existsSync(), isFalse);
     },
+    testOn: '!windows',
   );
 
   test('missing package manifest reports a release-tag error', () {
@@ -343,6 +407,39 @@ typedef _Cargo =
       required String workingDirectory,
       required Map<String, String> environment,
     });
+
+final class _DisappearingSource extends IOOverrides {
+  _DisappearingSource(this.targetPath, this.source);
+  final String targetPath;
+  final Directory source;
+  var removed = false;
+
+  @override
+  Directory createDirectory(String path) {
+    final directory = super.createDirectory(path);
+    if (path != targetPath) return directory;
+    return _OnCreateDirectory(directory, () {
+      source.deleteSync(recursive: true);
+      removed = true;
+    });
+  }
+}
+
+final class _OnCreateDirectory implements Directory {
+  _OnCreateDirectory(this.directory, this.afterCreate);
+  final Directory directory;
+  final void Function() afterCreate;
+  @override
+  String get path => directory.path;
+  @override
+  void createSync({bool recursive = false}) {
+    directory.createSync(recursive: recursive);
+    afterCreate();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 final class _BuildFixture {
   _BuildFixture(

@@ -132,7 +132,7 @@ Future<void> installReleaseAsset({
 
 String currentHostTriple() => hostTripleForPlatform(
   operatingSystem: Platform.operatingSystem,
-  architectureLabel: _currentArchitectureLabel(),
+  architectureLabel: architectureLabelForDartVersion(Platform.version),
 );
 
 String hostTripleForPlatform({
@@ -159,9 +159,8 @@ String currentPlatformLibraryFileName(String libraryBaseName) =>
       ),
     };
 
-String _currentArchitectureLabel() {
-  if (Platform.version.contains('arm64') ||
-      Platform.version.contains('aarch64')) {
+String architectureLabelForDartVersion(String version) {
+  if (version.contains('arm64') || version.contains('aarch64')) {
     return 'arm64';
   }
   return 'x64';

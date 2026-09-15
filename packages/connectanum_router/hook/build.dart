@@ -571,7 +571,7 @@ String hostTripleForTarget({
 }
 
 String currentHostTriple() {
-  final arch = _currentArchitectureLabel();
+  final arch = architectureLabelForDartVersion(Platform.version);
   return switch ((Platform.operatingSystem, arch)) {
     ('linux', 'x64') => 'x86_64-unknown-linux-gnu',
     ('linux', 'arm64') => 'aarch64-unknown-linux-gnu',
@@ -597,9 +597,8 @@ String currentPlatformLibraryFileName(String libraryBaseName) =>
 String _sanitizePathComponent(String value) =>
     value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
 
-String _currentArchitectureLabel() {
-  if (Platform.version.contains('arm64') ||
-      Platform.version.contains('aarch64')) {
+String architectureLabelForDartVersion(String version) {
+  if (version.contains('arm64') || version.contains('aarch64')) {
     return 'arm64';
   }
   return 'x64';

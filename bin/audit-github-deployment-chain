@@ -130,6 +130,7 @@ expected_ci_jobs=(
   'router-authorization Mutation Gate'
   'auth-server Mutation Gate'
   'client-installer Mutation Gate'
+  'router-installer Mutation Gate'
 )
 dart_package_publish_workflow='Dart Package Publish Dry Run'
 expected_dart_package_publish_jobs=('Publish Dry Run')

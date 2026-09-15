@@ -620,3 +620,53 @@ points separately from the current library-only collector scope.
   consumer app and all three mutation gates; Full Verify / VM Coverage are still
   running. Package dry-run 35010994084 passes. Final follow-up hosted evidence and
   a fresh native CLI inventory remain required. The overall goal is still unmet.
+
+### Packaging Isolation And Linux Evidence
+
+- Reproduce concurrent hook fixtures sharing a real package root, and concurrent
+  CLI tests swapping exit codes (observed [64, 0] instead of [0, 64]). Use owned
+  temporary package roots and zone-local cwd; remove deletion of real checkout
+  caches. Separate command status from main's process-global exitCode. Keep real
+  subprocess checks for exit codes 0/64/1 and stdout/stderr, with an on-disk
+  verified archive/extraction cache and no external download dependency.
+- Add failed-rename staging cleanup, default installation location, unsupported
+  target and source-deletion-before-Cargo-launch regressions. The latter checks
+  InfraError, its ProcessException cause/trace, no emitted assets and preservation
+  of installed bytes. Mark the POSIX Cargo fixture explicitly non-Windows instead
+  of silently passing there. An initial entrypoint test incorrectly assumed skip
+  overrides a configured native library; reproduce with canonical native env and
+  correct the test to use a no-code-assets input, without changing precedence.
+- The earlier Linux x64 router inventory completes below target: 93 killed,
+  six survivors, four compile errors / 103, 93.94%, passing baselines. Merely
+  changing hosts swaps architecture survivors. Extract the unchanged version
+  string decision into a pure helper and test x64, arm64 and aarch64 independently
+  in both installers and hooks. No survivor is waived or rounded into a pass.
+- Fresh complete macOS inventories: client 98 killed, three survivors, four
+  compile errors / 105 (97.03%); router 95 killed, four survivors, four compile
+  errors / 103 (95.96%). Fresh Linux router independently matches 95/4/4. Raw and
+  adjusted scores are identical, no equivalences, timeouts or infrastructure
+  errors, clean/restored baselines pass. Add router-installer to the CI matrix
+  and exact deployment-audit job contract. Retain complete per-mutant/operator
+  records in installers11-macos and router-installer11b-linux.
+- The new nine-job audit contract fails before the audit recognizes the router
+  installer job, then all 24 deployment-audit regressions pass after the change.
+  All 14 coverage-checker regressions, focused static analysis and formatting pass.
+- 184 focused tests pass on both macOS arm64 and Linux x64; macOS also passes
+  with the canonical native-library environment. Focused packaging reports:
+  macOS client 391/402 and router 374/385; Linux client 388/402 and router 371/385.
+  Each CLI covers 53/53 lines. Hook floors increase to Linux-proven 95.9% / 95.7%,
+  below the unchanged 98% goal. Twelve other packaging sources are unmeasured.
+  Do not combine per-platform coverage to conceal platform gaps or replace the
+  full VM report with these focused measurements. Reports/logs are retained in
+  packaging11-macos and packaging11c-linux.
+- CI 35010985044 for 0c1170ea passes Full Verify but fails its packaging floors:
+  Linux executes different OS/architecture branches from the original macOS
+  measurement. The new Linux reports pass stronger floors; do not lower them.
+  For e8a697bc, CI 35012835384 passes Full Verify and existing mutation gates;
+  VM Coverage is still running, package dry-run 35012835188 passes.
+- The native CLI inventory mcp-cli-native10 remains live with its original
+  hash-pinned native library. Latest full bin/test-fast/bin/verify passed before
+  these edits; fresh full local verification, candidate hosted CI and deployment
+  audit remain pending. Serialize them after that inventory; never rebuild the
+  library or start a duplicate campaign just because observation times out.
+  The complete regression/mutation goal remains unmet.

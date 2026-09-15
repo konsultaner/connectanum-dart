@@ -5,6 +5,45 @@ Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Latest packaging checkpoint: deterministic regressions reproduce shared cwd and
+exitCode interference between concurrent hook/installer tests. Hook fixtures now
+own temporary package roots and use zone-local cwd; they no longer delete real
+checkout caches. Installer command execution returns its own status; the process
+entrypoint still sets exitCode. Real subprocess tests verify success, usage and
+failure exit codes and output streams with a preseeded verified archive cache.
+Additional regressions cover failed publication rename cleanup, default consumer
+installation paths, unsupported release targets and source disappearance before
+Cargo launch. Architecture selection retains its behavior in a pure helper with
+independent x64, arm64 and aarch64 vectors, killing the host-dependent survivors.
+
+All 184 focused tests pass on macOS arm64 and isolated Linux x64, including a
+macOS run with the native-library environment used by canonical verification.
+Focused packaging coverage is 391/402 (97.26%) client and 374/385 (97.14%) router
+on macOS; Linux is 388/402 (96.52%) and 371/385 (96.36%). Each CLI is 53/53.
+The Linux-proven hook floors increase to 95.9% client and 95.7% router; the 98%
+target and 12 unmeasured packaging sources remain explicit. These focused
+reports do not replace full VM, browser, Rust or application measurements.
+Complete macOS installer mutations are client 98 killed / 3 survived / 4 compile
+errors (105 generated, 97.03%) and router 95 / 4 / 4 (103, 95.96%). Linux router
+independently confirms 95 / 4 / 4. All clean/restored baselines pass, with no
+timeouts, infrastructure errors or equivalence exclusions. The router installer
+is now a required CI mutation gate and deployment-audit job, not just a local
+diagnostic. Retained evidence: packaging11-macos, packaging11c-linux,
+installers11-macos and router-installer11b-linux under the coverage output root.
+
+Hosted repair still needs confirmation: 0c1170ea passes Full Verify but CI
+35010985044 fails packaging floors derived from macOS rather than Linux branch
+execution. Current Linux measurements pass stronger floors without exclusions.
+For e8a697bc, CI 35012835384 passes Full Verify and the existing mutation gates;
+VM Coverage remains in progress. Its package dry-run 35012835188 passes.
+The last full local bin/test-fast and bin/verify passed before these edits at
+the unchanged e8a697bc checkpoint. Fresh full verification is pending behind the
+live mcp-cli-native10 inventory; do not rebuild its pinned native library or
+claim the new patch has completed full verification. The overall goal is open.
+
+Earlier checkpoints below retain their original scope and evidence.
+
 Hosted checkpoint 3f87906e: CI 35010146390 exposed a Linux mutation-runner
 regression. All three mutation baselines passed their Dart assertions but were
 marked infrastructure errors because killpg also succeeds for zombie-only
@@ -14,7 +53,8 @@ do not invalidate results, live fixtures still do, and inspection failure stays
 fail-closed. Four Linux process regressions pass after the fix, including an
 actual orphan holding a listening socket. Repair 0c1170ea passes all three
 hosted mutation gates, browser coverage and Fast Checks in CI 35010985044;
-Full Verify and VM Coverage are still running. Package dry-run 35010994084 passes.
+Full Verify passes; VM Coverage later fails the packaging floors described
+above. Package dry-run 35010994084 passes.
 
 Build-hook execution checkpoint: each hook now delegates its unchanged native
 operation to buildNativeAssets; the SDK wrapper still reports HookError and exits.
