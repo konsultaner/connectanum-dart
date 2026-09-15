@@ -72,6 +72,7 @@ run_package_coverage \
   connectanum_client_native_binding \
   test/transport/native/message_binding_test.dart
 run_package_coverage connectanum_client connectanum_client_mcp test/mcp
+run_package_coverage connectanum_client connectanum_client_hooks test/hook
 run_package_coverage \
   connectanum_client \
   connectanum_client_native_e2ee \
@@ -132,3 +133,23 @@ printf 'Dart VM coverage report written to %s\n' "$coverage_root/lcov.info"
 python3 tool/check_coverage.py "$coverage_root/lcov.info" \
   --output "$coverage_root/summary.json" \
   --policy tool/coverage_policy.json
+
+# Packaging entry points are a separate denominator, not library coverage.
+packaging_on=()
+for directory in packages/*/bin packages/*/hook packages/*/tool; do
+  if [[ -d "$directory" ]]; then
+    packaging_on+=(--report-on="$directory")
+  fi
+done
+dart pub global run coverage:format_coverage \
+  --lcov \
+  --check-ignore \
+  --in="$coverage_root/raw" \
+  --out="$coverage_root/packaging-lcov.info" \
+  --package="$ROOT_DIR" \
+  --base-directory="$ROOT_DIR" \
+  "${packaging_on[@]}"
+python3 tool/check_coverage.py "$coverage_root/packaging-lcov.info" \
+  --scope packaging \
+  --output "$coverage_root/packaging-summary.json" \
+  --policy tool/coverage_packaging_policy.json

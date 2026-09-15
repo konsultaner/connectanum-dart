@@ -56,6 +56,25 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_client_hooks_run_in_regression_and_coverage_gates(self) -> None:
+        for script in [TEST_FAST, TEST_ALL]:
+            with self.subTest(script=script.name):
+                self.assertIn(
+                    "dart test packages/connectanum_client/test/hook",
+                    [line.strip() for line in script.read_text().splitlines()],
+                )
+        self.assertIn(
+            "run_package_coverage connectanum_client connectanum_client_hooks test/hook",
+            (REPO_ROOT / "bin/test-coverage").read_text().splitlines(),
+        )
+        coverage = (REPO_ROOT / "bin/test-coverage").read_text()
+        self.assertIn('--scope packaging', coverage)
+        self.assertIn('--policy tool/coverage_packaging_policy.json', coverage)
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        for artifact in ('packaging-lcov.info', 'packaging-summary.json'):
+            self.assertIn(artifact, coverage)
+            self.assertIn('out/coverage/' + artifact, workflow)
+
     def test_client_resource_restart_runs_in_both_gates(self) -> None:
         command = (
             "dart test packages/connectanum_client/test/transport/native/"

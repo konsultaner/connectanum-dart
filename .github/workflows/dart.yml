@@ -142,6 +142,8 @@ jobs:
           path: |
             out/coverage/lcov.info
             out/coverage/summary.json
+            out/coverage/packaging-lcov.info
+            out/coverage/packaging-summary.json
           if-no-files-found: error
 
   mutation-gates:
@@ -151,7 +153,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [router-authorization, auth-server]
+        target: [router-authorization, auth-server, client-installer]
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1

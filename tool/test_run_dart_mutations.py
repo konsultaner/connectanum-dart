@@ -1,7 +1,11 @@
 import json
+import os
 from pathlib import Path
+import signal
+import socket
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -16,6 +20,66 @@ def events(*items):
 
 
 class MutationRunnerTests(unittest.TestCase):
+    def test_production_sources_accept_package_entry_points_but_not_test_paths(self):
+        runner.validate_sources([
+            'packages/client/lib/src/installer.dart',
+            'packages/client/hook/build.dart',
+            'packages/client/bin/main.dart',
+            'packages/client/tool/install.dart',
+        ])
+        for sources in ([], 'packages/client/lib/a.dart', [None],
+                        ['packages/client/test/lib/fake.dart'],
+                        ['packages/client/test/hook/build.dart'],
+                        ['packages/client/lib/../test/fake.dart'],
+                        ['packages/client//lib/a.dart'],
+                        ['packages/client/lib/a.py'],
+                        ['/tmp/packages/client/lib/a.dart']):
+            with self.subTest(sources=sources), self.assertRaises(ValueError):
+                runner.validate_sources(sources)
+
+    def test_normal_exit_reaps_orphans_and_invalidates_apparent_test_results(self):
+        child = (
+            "import socket,time; s=socket.socket(); s.bind(('127.0.0.1',0)); "
+            "s.listen(); print(s.getsockname()[1],flush=True); time.sleep(60)"
+        )
+        for exit_code in (0, 1):
+            with self.subTest(exit_code=exit_code):
+                output = events(
+                    {'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+                    {'type': 'testDone', 'testID': 1,
+                     'result': 'success' if exit_code == 0 else 'failure'},
+                    {'type': 'done', 'success': exit_code == 0},
+                )
+                parent = (
+                    'import subprocess,sys,json\n'
+                    f'p=subprocess.Popen([sys.executable,"-c",{child!r}], '
+                    'stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)\n'
+                    'port=int(p.stdout.readline())\n'
+                    'print(json.dumps({"pid":p.pid,"port":port}),flush=True)\n'
+                    f'print({output!r},flush=True)\n'
+                    f'sys.exit({exit_code})\n'
+                )
+                code, actual = run([sys.executable, '-c', parent], runner.ROOT, 5)
+                owned = json.loads(actual.splitlines()[0])
+                try:
+                    self.assertEqual(code, exit_code)
+                    self.assertEqual(classify(code, actual), 'error', actual)
+                    deadline = time.monotonic() + 1
+                    while True:
+                        try:
+                            with socket.socket() as probe:
+                                probe.bind(('127.0.0.1', owned['port']))
+                            break
+                        except OSError:
+                            if time.monotonic() >= deadline:
+                                self.fail('The test-owned child still holds its listening port')
+                            time.sleep(0.01)
+                finally:
+                    try:
+                        os.kill(owned['pid'], signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+
     def test_only_a_real_failed_test_counts_as_a_kill(self):
         output = events(
             {'type': 'testStart', 'test': {'id': 1, 'name': 'denies unknown users'}},
@@ -26,6 +90,47 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(classify(0, output), 'error')
         self.assertEqual(classify(None, output), 'timeout')
         self.assertEqual(classify(-9, ''), 'error')
+
+    def test_isolated_suites_classify_independently_and_stop_after_failure(self):
+        passed = events(
+            {'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+            {'type': 'testDone', 'testID': 1, 'result': 'success'},
+            {'type': 'done', 'success': True},
+        )
+        failed = passed.replace('"result": "success"', '"result": "failure"').replace(
+            '"success": true', '"success": false')
+        setup_failed = failed.replace('"contract"', '"group (setUpAll)"')
+        commands = [['dart', 'test', name] for name in ('a.dart', 'b.dart', 'c.dart')]
+        for code, output, expected in ((1, failed, 'killed'),
+                                       (1, setup_failed, 'error'),
+                                       (None, '', 'timeout')):
+            with self.subTest(status=expected), patch.object(
+                    runner, 'run', side_effect=[(0, passed), (code, output)]) as command:
+                actual_code, log, status = runner.run_test_commands(commands, runner.ROOT, 45)
+                self.assertEqual((actual_code, status), (code, expected))
+                self.assertEqual(command.call_count, 2)
+                self.assertNotIn('c.dart', log)
+                self.assertIn('connectanumTestCommand', log)
+        with patch.object(runner, 'run', return_value=(0, passed)) as command:
+            code, _, status = runner.run_test_commands(commands, runner.ROOT, 45)
+            self.assertEqual((code, status), (0, 'survived'))
+            self.assertEqual(command.call_count, 3)
+
+    def test_isolated_suites_share_one_process_deadline(self):
+        passed = events(
+            {'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+            {'type': 'testDone', 'testID': 1, 'result': 'success'},
+            {'type': 'done', 'success': True},
+        )
+        with patch.object(runner.time, 'monotonic', side_effect=[100, 101, 104]), \
+             patch.object(runner, 'run', side_effect=[(0, passed), (None, '')]) as command:
+            _, _, status = runner.run_test_commands([['first'], ['second']], runner.ROOT, 5)
+        self.assertEqual(status, 'timeout')
+        self.assertEqual([call.args[2] for call in command.call_args_list], [4, 1])
+        for commands, timeout in (([], 5), ([['test']], 0),
+                                  ([['test']], float('nan')), ([['test']], float('inf'))):
+            with self.assertRaises(ValueError):
+                runner.run_test_commands(commands, runner.ROOT, timeout)
 
     def test_compilation_failure_is_never_a_kill(self):
         output = events(
@@ -138,7 +243,7 @@ class MutationRunnerTests(unittest.TestCase):
         self.exercise_main('killed', 0, directory_tests=True)
 
     def test_native_target_records_support_artifact_and_test_deadline(self):
-        self.exercise_main('killed', 0, native=True)
+        self.exercise_main('killed', 0, native=True, directory_tests=True)
 
     def test_native_artifact_change_invalidates_completed_mutants(self):
         self.exercise_main('artifactChanged', None, native=True)
@@ -178,7 +283,7 @@ class MutationRunnerTests(unittest.TestCase):
             library = root / 'native.bin'
             library.write_bytes(b'native baseline')
             if native:
-                target.update(requiresNativeLibrary=True, testTimeoutSeconds=20,
+                target.update(requiresNativeLibrary=True, testTimeoutSeconds=20, isolateTestFiles=True,
                               supportFiles=['packages/core/example/server.dart'])
             config.write_text(json.dumps({'fixture': target}))
             source = 'bool f() => true;'
@@ -207,13 +312,17 @@ class MutationRunnerTests(unittest.TestCase):
                 if command[1] == 'tool/dart_mutations.dart':
                     return 0, json.dumps([mutation])
                 if directory_tests:
-                    self.assertEqual(
-                        [arg for arg in command if arg.startswith('packages/core/test')],
-                        [test_path, 'packages/core/test/z_test.dart'])
+                    selected = [arg for arg in command if arg.startswith('packages/core/test')]
+                    if native:
+                        self.assertEqual(len(selected), 1)
+                        self.assertIn(selected[0], [test_path, 'packages/core/test/z_test.dart'])
+                    else:
+                        self.assertEqual(selected, [test_path, 'packages/core/test/z_test.dart'])
                 current = (work / source_path).read_text()
                 seen.append(current)
                 if native:
                     self.assertIn('--timeout=20s', command)
+                    self.assertNotIn('--fail-fast', command)
                     if status == 'artifactChanged' and len(seen) == 3:
                         library.write_bytes(b'replaced artifact')
                 if (status == 'baselineFailure' or
@@ -234,8 +343,10 @@ class MutationRunnerTests(unittest.TestCase):
                         runner.main()
                 else:
                     self.assertEqual(runner.main(), expected_code)
-            self.assertEqual(seen, [source] if status == 'baselineFailure'
-                             else [source, 'bool f() => false;', source])
+            expected_seen = [source] if status == 'baselineFailure' else [source, 'bool f() => false;', source]
+            if native and directory_tests:
+                expected_seen = [source, source, 'bool f() => false;', source, source]
+            self.assertEqual(seen, expected_seen)
             report = json.loads((root / 'result/mutation-report.json').read_text())
             self.assertEqual(report['complete'], expected_code is not None)
             if status == 'artifactChanged':
@@ -250,6 +361,9 @@ class MutationRunnerTests(unittest.TestCase):
                                      [test_path, 'packages/core/test/z_test.dart'])
                     self.assertIn('packages/core/test/support/helper.dart', target['testHashes'])
                 if native:
+                    self.assertEqual(len(target['testCommands']), 2 if directory_tests else 1)
+                    if directory_tests:
+                        self.assertNotIn('testCommand', target)
                     self.assertTrue(target['nativeArtifactUnchanged'])
                     self.assertEqual(target['nativeArtifact']['sha256'],
                                      runner.hashlib.sha256(b'native baseline').hexdigest())

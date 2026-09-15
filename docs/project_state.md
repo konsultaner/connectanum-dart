@@ -17,11 +17,54 @@ Publication is outside the current coverage goal.
 
 Latest local evidence: the HTTP/3 address-family collision now has deterministic
 before/after regressions and a passing full `bin/verify`. Fresh full VM coverage
-passes its ratchets at 35,930/42,324 lines (84.89%), with 6,394 measured lines
-uncovered and 60 unmeasured library files. MCP including its CLI measures
+passes its ratchets at 36,084/42,451 lines (85.00%), with 6,367 measured lines
+uncovered and 59 unmeasured library files. MCP including its CLI measures
 3,646/3,906 (93.34%); the CLI itself is 2,060/2,291 (89.92%). These are still
-below the goal. The complete native CLI mutation campaign is the next execution
-step, serialized after coverage. Earlier checkpoints below are historical.
+below the goal. The native CLI campaign stopped after 24/1,179 mutants because
+Dart fail-fast orphaned a router: 16 assertion kills and eight infrastructure
+errors, not a complete score. The runner now reaps owned descendants on normal
+exits, rejects leaked-fixture results, and finishes each isolated native test
+file's teardown before stopping. Four diagnostic replays have three assertion
+kills and one survivor, passing clean/restored baselines and no errors/timeouts.
+CI 35003806341 and package dry-run 35003806383 pass for 129c2eda; new changes
+below have passing local verification but still need their own hosted evidence.
+
+Packaging checkpoint: all 52 client installer/build-hook tests pass. New tests
+reproduce interrupted HTTP downloads poisoning both installers' archive caches;
+unique staging plus rename after successful IO now permits a clean retry.
+Archive/checksum truncation, client closure, temporary cleanup, invalid checksums,
+missing libraries, corrupt tar and extraction retry preserve installed output.
+The installer library measures 116/122 (95.08%). Separately measured packaging
+entry points are 297/400 (74.25%): build hook 245/348 (70.40%) and install CLI
+52/52 (100%). Fifteen CLI tests check help/usage output, exact exit codes,
+environment/argument precedence, absolute/relative output paths and cached
+success without network IO. Fourteen other packaging files remain unmeasured in this focused
+run. The root gates now include test/hook, and full VM collection will retain a
+separate packaging LCOV/summary with explicit source-inventory and floor checks.
+These focused measurements do not replace the latest complete VM report.
+The complete 105-mutant installer library/CLI inventory improves from 58 kills
+and 43 survivors (57.43%) to 97 kills and four survivors (96.04%). Both runs
+have four compile errors, no equivalences/timeouts/errors, and passing
+clean/restored baselines. All four remaining survivors are unwaived: three
+recursive-directory flags and an architecture condition matching this arm64
+host. The client installer mutation gate is now required by CI and the audit;
+hook mutation coverage remains separate unfinished work. The same HTTP cache
+bug reproduced in both router installers; their mirrored fix passes all 30
+router hook/installer tests and analysis. Router installer coverage is 105/111
+(94.59%); its separate hook is 228/331 (68.88%) and CLI 22/52 (42.31%).
+A native JSON buffer test
+also lacked the shared global-message-store guard and failed during full Rust
+verification; it now acquires that guard. Fresh full verification and coverage
+finished serially before restarting the native CLI campaign. Fresh
+`bin/test-fast` and final `bin/verify` pass with Cargo retries disabled, including
+698 router tests, isolated remote auth, zero-copy, 374 core WASM tests and two
+WebSocket WASM tests. All 24 updated deployment-audit regressions also pass.
+The fresh full VM/packaging collector passes after verification. Its separate
+packaging report measures 547/783 lines (69.86%), with 12 unmeasured entry points;
+client packaging is 297/400 and router packaging is 250/383. Raw reports and logs
+are retained under out/regression-coverage-2026-09-15/vm-current9 and packaging9.
+No favorable union of prior runs is used. Earlier
+checkpoints below are historical; the overall goal remains unmet.
 
 Testing checkpoint: the expanded VM collector and additional authentication
 regressions measure 33,891/40,033 lines (84.66%) in the latest full run,

@@ -8,23 +8,27 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SOURCE_SCOPES = {'library': ('lib',), 'packaging': ('bin', 'hook', 'tool')}
 
 
-def read_lcov(paths):
+def read_lcov(paths, scope='library'):
+    directories = SOURCE_SCOPES[scope]
     sources = {}
     for path in paths:
         current = None
         for line in path.read_text().splitlines():
             if line.startswith('SF:'):
                 current = line[3:].replace('\\', '/')
-                if current.startswith('/'):
+                if current.startswith('/') or current[1:3] == ':/':
                     marker = '/packages/'
                     if marker not in current:
                         current = None
                         continue
                     current = 'packages/' + current.split(marker, 1)[1]
-                if not (current.startswith('packages/') and '/lib/' in current
-                        and current.endswith('.dart')):
+                parts = current.split('/')
+                if not (len(parts) >= 4 and parts[0] == 'packages'
+                        and parts[2] in directories and current.endswith('.dart')
+                        and not any(part in ('', '.', '..') for part in parts)):
                     current = None
                     continue
                 sources.setdefault(current, {})
@@ -45,7 +49,7 @@ def stats(lines):
     return {'covered': covered, 'total': total, 'percent': 100 * covered / total if total else None}
 
 
-def report(sources, root, runtime='vm'):
+def report(sources, root, runtime='vm', scope='library'):
     files = {name: {**stats(lines), 'uncovered': sorted(n for n, hits in lines.items() if hits == 0)}
              for name, lines in sorted(sources.items())}
     package_lines = {}
@@ -53,13 +57,17 @@ def report(sources, root, runtime='vm'):
         package = name.split('/')[1]
         package_lines.setdefault(package, {}).update({(name, n): hits for n, hits in lines.items()})
     measured = {name for name, lines in sources.items() if lines}
-    unmeasured = sorted(str(path.relative_to(root)) for path in (root / 'packages').glob('*/lib/**/*.dart')
-                        if str(path.relative_to(root)) not in measured)
+    inventory = (path for directory in SOURCE_SCOPES[scope]
+                 for path in (root / 'packages').glob(f'*/{directory}/**/*.dart'))
+    unmeasured = sorted(path.relative_to(root).as_posix() for path in inventory
+                        if path.relative_to(root).as_posix() not in measured)
     return {'schemaVersion': 1, 'measurement': f'Dart {runtime} executable lines in LCOV',
+            'sourceScope': scope,
             'packages': {name: stats(lines) for name, lines in sorted(package_lines.items())},
             'overall': stats({(name, n): h for name, lines in sources.items() for n, h in lines.items()}),
             'files': files, 'unmeasuredSources': unmeasured,
-            'unmeasuredScopes': ['Rust', 'hooks/executables', 'standalone applications']
+            'unmeasuredScopes': ['Rust', 'hooks/executables' if scope == 'library' else 'package libraries',
+                                 'standalone applications']
              + (['browser-only code'] if runtime == 'vm' else ['unselected browser/VM suites'])}
 
 
@@ -87,6 +95,9 @@ def component_stats(result, definitions):
 
 def findings(result, policy, require_target=False):
     problems = []
+    if policy.get('sourceScope', 'library') != result.get('sourceScope', 'library'):
+        problems.append(f'Coverage source scope {result.get("sourceScope")} '
+                        f'does not match policy {policy.get("sourceScope", "library")}')
     for name in policy.get('requiredSources', []):
         if not result['files'].get(name, {}).get('total'):
             problems.append(f'{name}: previously measured source missing from coverage')
@@ -122,7 +133,7 @@ def findings(result, policy, require_target=False):
                 if problem not in problems:
                     problems.append(problem)
         if result['unmeasuredSources']:
-            problems.append(f'{len(result["unmeasuredSources"])} library sources lack executable coverage; classify declarations separately before claiming completeness')
+            problems.append(f'{len(result["unmeasuredSources"])} sources lack executable coverage; classify declarations separately before claiming completeness')
         if result['unmeasuredScopes']:
             problems.append('Unmeasured runtimes/scopes: ' + ', '.join(result['unmeasuredScopes']))
     return problems
@@ -135,8 +146,9 @@ def main():
     parser.add_argument('--policy', type=Path, required=True)
     parser.add_argument('--require-target', action='store_true')
     parser.add_argument('--runtime', choices=['vm', 'chrome', 'combined'], default='vm')
+    parser.add_argument('--scope', choices=SOURCE_SCOPES, default='library')
     args = parser.parse_args()
-    result = report(read_lcov(args.lcov), ROOT, args.runtime)
+    result = report(read_lcov(args.lcov, args.scope), ROOT, args.runtime, args.scope)
     policy = json.loads(args.policy.read_text())
     result['components'] = component_stats(result, policy.get('components', {}))
     problems = findings(result, policy, args.require_target)
@@ -149,7 +161,7 @@ def main():
     for name, item in result['components'].items():
         percent = f'{item["percent"]:.3f}%' if item['percent'] is not None else 'unmeasured'
         print(f'Component {name}: {percent} ({item["covered"]}/{item["total"]})')
-    print(f'Unmeasured library source files: {len(result["unmeasuredSources"])}')
+    print(f'Unmeasured {args.scope} source files: {len(result["unmeasuredSources"])}')
     for problem in problems:
         print('FAIL: ' + problem)
     return int(bool(problems))

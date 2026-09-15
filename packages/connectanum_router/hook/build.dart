@@ -667,6 +667,7 @@ Future<void> _downloadArtifact({
   destination.parent.createSync(recursive: true);
 
   final client = HttpClient();
+  Directory? staging;
   try {
     final request = await client.getUrl(source);
     final response = await request.close();
@@ -678,14 +679,23 @@ Future<void> _downloadArtifact({
       );
     }
 
-    final sink = destination.openWrite();
+    staging = destination.parent.createTempSync('.download-');
+    final partial = File('${staging.path}/artifact');
+    final sink = partial.openWrite();
     try {
-      await response.pipe(sink);
-    } finally {
+      await sink.addStream(response);
       await sink.close();
+    } catch (_) {
+      // Closing an already failed sink must not replace the download error.
+      try {
+        await sink.close();
+      } catch (_) {}
+      rethrow;
     }
+    partial.renameSync(destination.path);
   } finally {
     client.close(force: true);
+    staging?.deleteSync(recursive: true);
   }
 }
 

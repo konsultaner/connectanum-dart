@@ -60,6 +60,56 @@ class CoverageTests(unittest.TestCase):
                 'native/core/lib.rs', 'packages/core/lib/a.dart']))
             self.assertEqual(read_lcov([path]), {'packages/core/lib/a.dart': {1: 1}})
 
+    def test_packaging_scope_is_separate_and_rejects_test_path_inflation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'mixed.info'
+            path.write_text(''.join(f'SF:{name}\nDA:1,1\nDA:2,0\nend_of_record\n' for name in [
+                'packages/core/lib/a.dart', 'packages/core/hook/build.dart',
+                'packages/core/bin/main.dart', 'packages/core/tool/install.dart',
+                'packages/core/test/hook/build_test.dart',
+                'packages/core/test/lib/unit_test.dart',
+                'packages/core/hook/../test/unit_test.dart',
+                'packages/core/lib/../test/unit_test.dart',
+                'examples/app/bin/main.dart']))
+            library = read_lcov([path])
+            packaging = read_lcov([path], scope='packaging')
+            self.assertEqual(list(library), ['packages/core/lib/a.dart'])
+            self.assertEqual(set(packaging), {
+                'packages/core/hook/build.dart', 'packages/core/bin/main.dart',
+                'packages/core/tool/install.dart'})
+            self.assertEqual(report(packaging, Path(directory), scope='packaging')['overall'],
+                             {'covered': 3, 'total': 6, 'percent': 50})
+
+    def test_packaging_inventory_and_floors_fail_closed_for_omitted_entry_points(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for source in ('hook/build.dart', 'tool/install.dart', 'bin/main.dart',
+                           'lib/api.dart', 'test/hook_test.dart'):
+                path = root / 'packages/core' / source
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+            result = report({'packages/core/hook/build.dart': {1: 1}}, root, scope='packaging')
+            self.assertEqual(result['sourceScope'], 'packaging')
+            self.assertEqual(result['unmeasuredSources'], [
+                'packages/core/bin/main.dart', 'packages/core/tool/install.dart'])
+            policy = {'target': 98, 'sourceScope': 'packaging', 'files': {
+                'packages/core/hook/build.dart': 98, 'packages/core/tool/install.dart': 98}}
+            self.assertEqual(findings(result, policy), [
+                'packages/core/tool/install.dart: no executable coverage data'])
+            self.assertTrue(any('Unmeasured runtimes/scopes' in p for p in
+                                findings(result, policy, require_target=True)))
+            policy['sourceScope'] = 'library'
+            self.assertIn('Coverage source scope packaging does not match policy library',
+                          findings(result, policy))
+
+    def test_windows_packaging_source_normalization_matches_unix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'windows.info'
+            path.write_text('SF:C:\\repo\\packages\\core\\hook\\build.dart\nDA:1,1\n'
+                            'end_of_record\nSF:/tmp/repo/packages/core/hook/build.dart\nDA:2,0\n')
+            self.assertEqual(read_lcov([path], scope='packaging'), {
+                'packages/core/hook/build.dart': {1: 1, 2: 0}})
+
     def test_strict_target_reports_unmeasured_scopes_and_unlisted_files(self):
         with tempfile.TemporaryDirectory() as directory:
             result = report({'packages/core/lib/a.dart': {1: 0}}, Path(directory))

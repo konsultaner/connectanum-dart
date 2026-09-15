@@ -24,6 +24,7 @@ run_client_fast_tests() {
   dart test packages/connectanum_client/test/transport/native/message_binding_test.dart
   dart test packages/connectanum_client/test/transport/native/message_handle_abi_test.dart
   dart test packages/connectanum_client/test/mcp
+  dart test packages/connectanum_client/test/hook
 
   if ! native_runtime_supported; then
     printf 'Native client transports require Linux or macOS; skipping native transport fast tests on %s.\n' "$(uname -s)"

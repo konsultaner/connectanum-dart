@@ -18,7 +18,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         current_head = self._git("rev-parse", "HEAD")
         result = self._run_audit(current_head)
         self.assertEqual(result.returncode, 0, result.stdout)
-        for job in ("Core Browser Coverage", "router-authorization Mutation Gate", "auth-server Mutation Gate"):
+        for job in ("Core Browser Coverage", "router-authorization Mutation Gate", "auth-server Mutation Gate", "client-installer Mutation Gate"):
             with self.subTest(job=job):
                 missing = self._run_audit(current_head, ci_jobs_omit=job)
                 self.assertNotEqual(missing.returncode, 0, missing.stdout)
@@ -845,7 +845,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             print("WampApp Consumer\\tcompleted\\tsuccess")
                             print("Dart VM Coverage\\tcompleted\\tsuccess")
                             print("Full Verify\\tcompleted\\tsuccess")
-                            for job in ("Core Browser Coverage", "router-authorization Mutation Gate", "auth-server Mutation Gate"):
+                            for job in ("Core Browser Coverage", "router-authorization Mutation Gate", "auth-server Mutation Gate", "client-installer Mutation Gate"):
                                 if job != os.environ.get("FAKE_CI_JOBS_OMIT"):
                                     print(f"{job}\\tcompleted\\tsuccess")
                             if extra := os.environ.get("FAKE_CI_JOBS_EXTRA"):
@@ -1612,6 +1612,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 print("Core Browser Coverage\\tcompleted\\tsuccess")
                                 print("router-authorization Mutation Gate\\tcompleted\\tsuccess")
                                 print("auth-server Mutation Gate\\tcompleted\\tsuccess")
+                                print("client-installer Mutation Gate\\tcompleted\\tsuccess")
                             elif run_id == "124":
                                 print("Publish Dry Run\\tcompleted\\tsuccess")
                             elif run_id == "125":
@@ -1982,6 +1983,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 print("Core Browser Coverage\\tcompleted\\tsuccess")
                                 print("router-authorization Mutation Gate\\tcompleted\\tsuccess")
                                 print("auth-server Mutation Gate\\tcompleted\\tsuccess")
+                                print("client-installer Mutation Gate\\tcompleted\\tsuccess")
                             elif run_id == "124":
                                 print("Publish Dry Run\\tcompleted\\tsuccess")
                             elif run_id == "125":

@@ -19,6 +19,7 @@ run_client_vm_tests() {
   dart test packages/connectanum_client/test/transport/native/message_binding_test.dart
   dart test packages/connectanum_client/test/transport/native/message_handle_abi_test.dart
   dart test packages/connectanum_client/test/mcp
+  dart test packages/connectanum_client/test/hook
 
   if native_runtime_supported; then
     dart test packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart

@@ -7638,6 +7638,7 @@ mod tests {
 
     #[test]
     fn message_json_binary_argument_decode_returns_owned_external_bytes() {
+        let _guard = test_guard();
         for bytes in [
             Vec::new(),
             (0..4097).map(|index| (index % 251) as u8).collect(),

@@ -486,3 +486,84 @@ while mutations run. Client `test/hook` is another concrete coverage gap:
 existing installer/build-hook tests are omitted from the root test and VM
 coverage commands. Measure and integrate them next, retaining hook/tool entry
 points separately from the current library-only collector scope.
+
+### Mutation Cleanup And Packaging Coverage
+
+- The native CLI inventory at 129c2eda was stopped at 24/1,179 outcomes (16
+  kills, eight infrastructure errors). Dart fail-fast skipped fixture teardown
+  and orphaned a router holding the shared native runtime lock. Only that
+  verified, test-owned orphan was terminated. Keep the incomplete inventory as
+  diagnostics, not a score. A real subprocess regression fails before the runner
+  cleanup fix: apparent success/failure leaves a live listening child. The runner
+  now reaps owned process groups on ordinary exit and flags descendants as
+  infrastructure errors. Native suites run per file without internal fail-fast,
+  with independent reporter IDs and one unchanged whole-mutant deadline.
+- Four formerly problematic mutants replay with three kills and one survivor,
+  clean/restored baselines, unchanged native artifact and no timeouts/errors.
+  All 23 runner regressions pass, including explicit packaging source validation
+  without admitting test paths or traversal. The full native CLI rerun remains
+  pending until full verification/VM coverage finish; no native rebuild may
+  overlap its pinned-artifact campaign.
+- Full verification exposed an unguarded JSON binary-buffer test accessing the
+  global message store while neighboring tests shut it down. The observed -14
+  invalid-handle failure is not accepted as fixed by the script's automatic
+  retry. Add the shared test_guard, and use CONNECTANUM_CARGO_RETRY_ATTEMPTS=1
+  for the next full confirmation. An intermediate verification was also
+  invalidated by editing its shell script while it was executing; rerun on a
+  stable tree, never report that interrupted command as passing.
+- Existing test/hook was absent from test-fast/test-all/test-coverage. A script
+  regression fails before and passes after integrating those suites. Coverage
+  now has separate library and packaging source scopes; tests, traversal and
+  nested test/lib paths cannot enter either metric. The packaging inventory
+  retains absent bin/hook/tool files. Policy-scope mismatch and omitted measured
+  entry points fail closed. All 14 coverage-checker tests pass.
+- Eighteen new tests exercise both release installers. A real loopback HTTP
+  truncation reproduces partially downloaded archives left at the final cache
+  path. Stage each transfer in a unique sibling directory, close the complete
+  stream, then rename. Both archive and checksum interruption now preserve the
+  prior installed library, clean temporary state, close clients, and allow retry.
+  Checksum rejection, corrupt tar, missing library and interrupted extraction
+  also have independent expected errors and output-preservation assertions.
+- All 52 hook/installer tests pass. Focused library installer coverage is
+  116/122 (95.08%), versus 84/117 (71.79%) before new tests. Packaging coverage
+  is separately 297/400 (74.25%): build hook 245/348 (70.40%) and install CLI
+  52/52 (100%), with 14 missing packaging entry points. Fifteen CLI regressions
+  distinguish help/usage output, exact exit codes, environment/argument
+  precedence, output paths and cached success without network access. Floors
+  are 95%, 70.4% and 98% respectively, not whole-goal completion. The collector and
+  hosted artifact upload retain separate packaging LCOV and JSON summaries.
+- The complete 105-mutant client-installer target includes the library installer
+  and install CLI, not the duplicated build-hook implementation. Its first run
+  reports 58 kills, 43 survivors and four compile errors, 57.43% raw/adjusted,
+  no equivalences/timeouts/errors and passing clean/restored baselines. CLI
+  survivors guided the fifteen additional tests. The complete rerun has 97
+  kills, four survivors and four compile errors: 96.04% raw/adjusted, no
+  equivalence exclusions, no timeouts/errors and passing clean/restored baselines.
+  Operator scope remains binary, nullFallback, boolean, negation and condition;
+  this is not a claim about ungenerated statement-deletion mutations. All four
+  survivors are in the library, not the CLI: recursive create flags at lines
+  117/128/201 and the arm64 host condition at 162. Parent creation earlier in the
+  flow explains the directory flags' ordinary-path survival, but unusual
+  filesystem/provider interleavings have not been proved equivalent. The host
+  condition requires other-platform evidence. Keep all four unwaived. Checksum,
+  HTTP-status and CLI-input guard mutants are killed in this declared inventory.
+  CI and the candidate audit now require the client-installer mutation gate.
+- Both router installers contain the same duplicated HTTP downloader. Mirrored
+  regressions fail before their fix and all 30 router hook/installer tests pass
+  after it. Library coverage is 105/111 (94.59%); packaging-only hook coverage is
+  228/331 (68.88%) and router install CLI 22/52 (42.31%). Preserve these independent
+  counts; router installer mutation evidence is still missing. Focused analysis
+  of both packages' changed code/tests passes. The collector protects each
+  measured installer/hook/CLI with a separate floor, and the final full report
+  must retain the newly measured sources rather than union favorable checkpoints.
+- CI 35003806341 and publish dry-run 35003806383 pass for 129c2eda. They do not
+  cover this follow-up. Fresh bin/test-fast passes with Cargo retries disabled.
+  Final bin/verify also passes with the same no-retry setting: 698 router tests,
+  isolated remote auth, zero-copy, 374 core WASM tests and two WebSocket WASM
+  tests. All 24 updated deployment-audit regressions pass separately. The fresh
+  full VM/packaging collector passes after verification completed: 36,084/42,451
+  VM lines (85.00%), 6,367 uncovered measured lines and 59 unmeasured library
+  files. Separate packaging coverage is 547/783 (69.86%), with 12 unmeasured
+  entry points; client is 297/400 and router is 250/383. Reports are retained in
+  out/regression-coverage-2026-09-15/vm-current9. Branch push and candidate hosted
+  audit remain required; the complete-scope coverage goal remains unmet.

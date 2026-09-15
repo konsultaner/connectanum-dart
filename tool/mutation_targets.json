@@ -44,6 +44,13 @@
     "sources": ["packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"],
     "tests": ["packages/connectanum_mcp/test/cli"]
   },
+  "client-installer": {
+    "sources": [
+      "packages/connectanum_client/lib/src/native_release_installer.dart",
+      "packages/connectanum_client/tool/install_native.dart"
+    ],
+    "tests": ["packages/connectanum_client/test/hook"]
+  },
   "mcp-cli-native": {
     "sources": ["packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"],
     "tests": [
@@ -56,6 +63,7 @@
       "packages/connectanum_router/test/support/native_lib.dart"
     ],
     "requiresNativeLibrary": true,
+    "isolateTestFiles": true,
     "testTimeoutSeconds": 20
   },
   "core-msgpack-vm": {

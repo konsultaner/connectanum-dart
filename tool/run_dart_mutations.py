@@ -36,6 +36,17 @@ def run(command, cwd, timeout):
             if isinstance(error, KeyboardInterrupt):
                 raise
             return None, output
+        # A fail-fast test runner can exit while an asynchronously started
+        # fixture is still alive. Reap its process group before the next mutant.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        else:
+            output += '\n' + json.dumps({
+                'type': 'connectanumInfrastructureError',
+                'reason': 'Test command left descendants alive after exit',
+            }) + '\n'
         return process.returncode, output
 
 
@@ -52,6 +63,8 @@ def classify(returncode, output):
                 events.append(event)
         except json.JSONDecodeError:
             pass
+    if any(e.get('type') == 'connectanumInfrastructureError' for e in events):
+        return 'error'
     tests = {e['test']['id']: e['test'] for e in events if e.get('type') == 'testStart'}
     done = [e for e in events if e.get('type') == 'done']
     completed = [e for e in events if e.get('type') == 'testDone' and not e.get('hidden')]
@@ -81,6 +94,28 @@ def classify(returncode, output):
     return 'error'
 
 
+def run_test_commands(commands, cwd, timeout):
+    if not commands or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError('Test commands and a finite positive deadline are required')
+    deadline = time.monotonic() + timeout
+    logs = []
+    for command in commands:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None, '\n'.join(logs), 'timeout'
+        code, output = run(command, cwd, remaining)
+        status = classify(code, output)
+        if len(commands) == 1:
+            return code, output, status
+        logs.append(json.dumps({'type': 'connectanumTestCommand',
+                                'command': command, 'timeoutSeconds': remaining,
+                                'exitCode': code, 'status': status}))
+        logs.append(output)
+        if status != 'survived':
+            return code, '\n'.join(logs), status
+    return 0, '\n'.join(logs), 'survived'
+
+
 def apply_mutation(source, mutation):
     data = source.encode('utf-16-le')
     start = mutation['offset'] * 2
@@ -92,6 +127,18 @@ def apply_mutation(source, mutation):
 
 def mutation_id(mutation):
     return hashlib.sha256(json.dumps(mutation, sort_keys=True).encode()).hexdigest()[:20]
+
+
+def validate_sources(sources):
+    if not isinstance(sources, list) or not sources:
+        raise ValueError('Production mutation sources must be a nonempty list')
+    for source in sources:
+        parts = source.split('/') if isinstance(source, str) else []
+        if not (len(parts) >= 4 and parts[0] == 'packages'
+                and parts[2] in ('lib', 'bin', 'hook', 'tool')
+                and source.endswith('.dart')
+                and not any(part in ('', '.', '..') for part in parts)):
+            raise ValueError(f'Invalid production mutation source: {source}')
 
 
 def native_artifact():
@@ -205,9 +252,7 @@ def main():
         for name in selected:
             target = config[name]
             sources = target['sources']
-            for source in sources:
-                if not source.startswith('packages/') or '/lib/' not in source or '..' in Path(source).parts:
-                    raise ValueError(f'Invalid production mutation source: {source}')
+            validate_sources(sources)
             code, output = run(['dart', 'tool/dart_mutations.dart', *sources], work, 120)
             if code != 0:
                 raise RuntimeError('Mutation generation failed: ' + output[-2000:])
@@ -269,9 +314,22 @@ def main():
                 command = [os.path.relpath(work / arg, work / test_root) if arg in resolved_tests else arg
                            for arg in command]
             test_cwd = work / test_root
-            result['testCommand'] = command
-            code, output = run(command, test_cwd, args.timeout)
-            result['baseline'] = classify(code, output)
+            isolate_files = target.get('isolateTestFiles', False)
+            if not isinstance(isolate_files, bool):
+                raise ValueError('isolateTestFiles must be a boolean')
+            test_arguments = [os.path.relpath(work / arg, test_cwd) for arg in resolved_tests]
+            commands = [command]
+            if isolate_files:
+                # Dart fail-fast can skip tearDownAll even within one suite.
+                # Finish each file's cleanup, then stop before the next file.
+                command = [arg for arg in command if arg != '--fail-fast']
+                commands = [[arg for arg in command if arg not in test_arguments or arg == selected]
+                            for selected in test_arguments]
+            result['testCommands'] = commands
+            if len(commands) == 1:
+                result['testCommand'] = commands[0]
+            code, output, status = run_test_commands(commands, test_cwd, args.timeout)
+            result['baseline'] = status
             result['baselineExitCode'] = code
             (args.output / f'{name}-baseline.log').write_text(output)
             if result['baseline'] != 'survived':
@@ -285,10 +343,9 @@ def main():
                 started = time.monotonic()
                 try:
                     path.write_text(apply_mutation(source, mutation))
-                    code, output = run(command, test_cwd, args.timeout)
+                    code, output, status = run_test_commands(commands, test_cwd, args.timeout)
                 finally:
                     path.write_text(source)
-                status = classify(code, output)
                 outcome = {**mutation, 'id': identifier, 'status': status,
                            'exitCode': code,
                            'seconds': round(time.monotonic() - started, 3)}
@@ -302,8 +359,8 @@ def main():
                 save()
                 print(f'{name} {index + 1}/{len(mutations)} {status}: '
                       f'{mutation["file"]}:{mutation["line"]} {mutation["operator"]}', flush=True)
-            code, output = run(command, test_cwd, args.timeout)
-            result['restoredBaseline'] = classify(code, output)
+            code, output, status = run_test_commands(commands, test_cwd, args.timeout)
+            result['restoredBaseline'] = status
             result['restoredBaselineExitCode'] = code
             (args.output / f'{name}-restored-baseline.log').write_text(output)
             if artifact:
