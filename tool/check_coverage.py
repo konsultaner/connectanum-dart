@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 
@@ -62,6 +63,28 @@ def report(sources, root, runtime='vm'):
              + (['browser-only code'] if runtime == 'vm' else ['unselected browser/VM suites'])}
 
 
+def component_stats(result, definitions):
+    components = {}
+    for name, definition in definitions.items():
+        sources = definition.get('sources')
+        floor = definition.get('floor')
+        if (not isinstance(sources, list) or not sources
+                or not all(isinstance(source, str) and source for source in sources)
+                or len(set(sources)) != len(sources)
+                or isinstance(floor, bool) or not isinstance(floor, (int, float))
+                or not math.isfinite(floor) or not 0 <= floor <= 100):
+            raise ValueError(f'{name}: invalid component sources or floor')
+        measured = [result['files'].get(source, {}) for source in sources]
+        total = sum(item.get('total', 0) for item in measured)
+        covered = sum(item.get('covered', 0) for item in measured)
+        components[name] = {
+            'sources': sources, 'floor': floor, 'covered': covered, 'total': total,
+            'percent': 100 * covered / total if total else None,
+            'missingSources': [source for source, item in zip(sources, measured) if not item.get('total')],
+        }
+    return components
+
+
 def findings(result, policy, require_target=False):
     problems = []
     for name in policy.get('requiredSources', []):
@@ -75,6 +98,23 @@ def findings(result, policy, require_target=False):
                 problems.append(f'{name}: no executable coverage data')
             elif item['covered'] * 100 < threshold * item['total']:
                 problems.append(f'{name}: {item["percent"]:.3f}% below {threshold}%')
+    for name, item in component_stats(result, policy.get('components', {})).items():
+        threshold = policy['target'] if require_target else policy['components'][name]['floor']
+        for source in item['missingSources']:
+            problems.append(f'{name}: missing executable coverage for {source}')
+        if not item['total']:
+            problems.append(f'{name}: no executable coverage data')
+        elif item['covered'] * 100 < threshold * item['total']:
+            problems.append(f'{name}: {item["percent"]:.3f}% below {threshold}%')
+    for package in policy.get('componentPackages', []):
+        if not result['packages'].get(package, {}).get('total'):
+            problems.append(f'{package}: no executable coverage data')
+        for source, item in result['files'].items():
+            if source.startswith(f'packages/{package}/') and item['total']:
+                owners = sum(source in definition['sources']
+                             for definition in policy.get('components', {}).values())
+                if owners != 1:
+                    problems.append(f'{source}: expected exactly one component, found {owners}')
     if require_target:
         for name, item in result['files'].items():
             if item['total'] and item['covered'] * 100 < policy['target'] * item['total']:
@@ -98,6 +138,7 @@ def main():
     args = parser.parse_args()
     result = report(read_lcov(args.lcov), ROOT, args.runtime)
     policy = json.loads(args.policy.read_text())
+    result['components'] = component_stats(result, policy.get('components', {}))
     problems = findings(result, policy, args.require_target)
     result.update({'target': policy['target'], 'findings': problems})
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -105,6 +146,9 @@ def main():
     for name, item in result['packages'].items():
         percent = f'{item["percent"]:.3f}%' if item['percent'] is not None else 'unmeasured'
         print(f'{name}: {percent} ({item["covered"]}/{item["total"]})')
+    for name, item in result['components'].items():
+        percent = f'{item["percent"]:.3f}%' if item['percent'] is not None else 'unmeasured'
+        print(f'Component {name}: {percent} ({item["covered"]}/{item["total"]})')
     print(f'Unmeasured library source files: {len(result["unmeasuredSources"])}')
     for problem in problems:
         print('FAIL: ' + problem)

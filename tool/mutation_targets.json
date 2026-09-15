@@ -40,6 +40,10 @@
     ],
     "tests": ["packages/connectanum_mcp/test"]
   },
+  "mcp-cli": {
+    "sources": ["packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"],
+    "tests": ["packages/connectanum_mcp/test/cli"]
+  },
   "core-msgpack-vm": {
     "sources": ["packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"],
     "tests": ["packages/connectanum_core/test/serializer/msgpack/codec_test.dart"]

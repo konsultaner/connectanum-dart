@@ -67,6 +67,73 @@ class CoverageTests(unittest.TestCase):
             self.assertIn('packages/core/lib/a.dart: 0.000% below 98%', problems)
             self.assertTrue(any('Unmeasured runtimes/scopes' in item for item in problems))
 
+    def test_component_floors_preserve_existing_scope_without_hiding_new_lines(self):
+        policy = {'target': 98, 'components': {
+            'library': {'floor': 98, 'sources': ['packages/core/lib/api.dart']},
+            'cli': {'floor': 10, 'sources': ['packages/core/lib/cli.dart']},
+        }}
+        with tempfile.TemporaryDirectory() as directory:
+            result = report({
+                'packages/core/lib/api.dart': {n: int(n < 98) for n in range(100)},
+                'packages/core/lib/cli.dart': {n: int(n < 10) for n in range(100)},
+            }, Path(directory))
+            self.assertEqual(result['packages']['core']['percent'], 54)
+            self.assertEqual(result['overall']['total'], 200)
+            self.assertEqual(findings(result, policy), [])
+            result['files']['packages/core/lib/api.dart']['covered'] = 97
+            self.assertIn('library: 97.000% below 98%', findings(result, policy))
+            self.assertIn('cli: 10.000% below 98%', findings(result, policy, require_target=True))
+
+    def test_component_missing_source_cannot_be_hidden_by_covered_neighbor(self):
+        policy = {'target': 98, 'components': {
+            'library': {'floor': 98, 'sources': [
+                'packages/core/lib/a.dart', 'packages/core/lib/b.dart']},
+        }}
+        with tempfile.TemporaryDirectory() as directory:
+            result = report({'packages/core/lib/a.dart': {1: 1}}, Path(directory))
+            self.assertIn('library: missing executable coverage for packages/core/lib/b.dart',
+                          findings(result, policy))
+            self.assertIn('library: no executable coverage data',
+                          findings(report({}, Path(directory)), policy))
+
+    def test_invalid_component_scope_or_floor_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = report({}, Path(directory))
+            for definition in [
+                {'floor': 98, 'sources': []},
+                {'floor': 98, 'sources': ['a', 'a']},
+                {'floor': -1, 'sources': ['a']},
+                {'floor': 101, 'sources': ['a']},
+                {'floor': float('nan'), 'sources': ['a']},
+                {'floor': '98', 'sources': ['a']},
+            ]:
+                with self.subTest(definition=definition), self.assertRaises(ValueError):
+                    findings(result, {'target': 98, 'components': {'bad': definition}})
+
+    def test_component_partition_cannot_drop_new_or_existing_production_sources(self):
+        policy = {'target': 98, 'componentPackages': ['core'], 'components': {
+            'library': {'floor': 98, 'sources': ['packages/core/lib/api.dart']},
+        }}
+        with tempfile.TemporaryDirectory() as directory:
+            result = report({
+                'packages/core/lib/api.dart': {1: 1},
+                'packages/core/lib/new_cli.dart': {1: 0},
+            }, Path(directory))
+            self.assertIn('packages/core/lib/new_cli.dart: expected exactly one component, found 0',
+                          findings(result, policy))
+            policy['components']['cli'] = {
+                'floor': 0, 'sources': ['packages/core/lib/new_cli.dart']}
+            self.assertEqual(findings(result, policy), [])
+            policy['components']['duplicate'] = policy['components']['cli']
+            self.assertIn('packages/core/lib/new_cli.dart: expected exactly one component, found 2',
+                          findings(result, policy))
+            self.assertEqual(result['overall'], {'covered': 1, 'total': 2, 'percent': 50})
+
+    def test_required_component_package_needs_measurement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertIn('core: no executable coverage data', findings(
+                report({}, Path(directory)), {'target': 98, 'componentPackages': ['core']}))
+
 
 if __name__ == '__main__':
     unittest.main()

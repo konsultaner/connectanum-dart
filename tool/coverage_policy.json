@@ -104,6 +104,7 @@
     "packages/connectanum_core/lib/src/serializer/limits.dart",
     "packages/connectanum_core/lib/src/serializer/msgpack/codec.dart",
     "packages/connectanum_core/lib/src/serializer/msgpack/serializer.dart",
+    "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
     "packages/connectanum_mcp/lib/src/prompts/prompt.dart",
     "packages/connectanum_mcp/lib/src/protocol/capabilities.dart",
     "packages/connectanum_mcp/lib/src/protocol/constants.dart",
@@ -174,9 +175,33 @@
     "connectanum_core": 88.11,
     "connectanum_client": 84.79,
     "connectanum_router": 82.18,
-    "connectanum_mcp": 98,
     "connectanum_auth_server": 98,
     "connectanum_bench": 79.37
+  },
+  "componentPackages": ["connectanum_mcp"],
+  "components": {
+    "connectanum_mcp_library": {
+      "floor": 98,
+      "sources": [
+        "packages/connectanum_mcp/lib/src/prompts/prompt.dart",
+        "packages/connectanum_mcp/lib/src/protocol/capabilities.dart",
+        "packages/connectanum_mcp/lib/src/protocol/constants.dart",
+        "packages/connectanum_mcp/lib/src/protocol/errors.dart",
+        "packages/connectanum_mcp/lib/src/protocol/icons.dart",
+        "packages/connectanum_mcp/lib/src/protocol/json_rpc.dart",
+        "packages/connectanum_mcp/lib/src/protocol/pagination.dart",
+        "packages/connectanum_mcp/lib/src/resources/resource.dart",
+        "packages/connectanum_mcp/lib/src/server/mcp_server.dart",
+        "packages/connectanum_mcp/lib/src/tools/tool.dart",
+        "packages/connectanum_mcp/lib/src/tools/wamp_api.dart",
+        "packages/connectanum_mcp/lib/src/tools/wamp_tool_delegate.dart",
+        "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart"
+      ]
+    },
+    "connectanum_mcp_cli": {
+      "floor": 20.2,
+      "sources": ["packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"]
+    }
   },
   "files": {
     "packages/connectanum_router/lib/src/router/auth/authorization.dart": 97.95

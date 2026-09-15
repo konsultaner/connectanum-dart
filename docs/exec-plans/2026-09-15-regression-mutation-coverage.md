@@ -247,13 +247,74 @@ The near-complete repository-wide goal remains active and unmet.
   the added reentrancy tests do not distinguish those redundant-looking guards.
 - MessagePack JavaScript tests now assert precise errors at minimal incomplete
   collection and 64-bit integer boundaries. All eight JS fallback tests pass;
-  the complete 234-mutant browser inventory is running. The larger MCP
-  inventory remains live and diagnostic.
+  the complete 234-mutant browser inventory has 197 kills, 28 survivors and nine
+  compile errors (87.56% raw/adjusted), with clean/restored baselines and zero
+  timeouts/errors. Four new kills are verified, but the target remains unmet.
+  This inventory started before deterministic test ordering; retain it as
+  diagnostic evidence. The larger MCP inventory remains live and diagnostic.
 - `bin/test-fast` passes after correcting an initially wrong expected abort
-  URI in a new test; full `bin/verify` is running. Hosted confirmation of the
-  repair and strict candidate audit remain pending. The HTTP/3 reliability
+  URI in a new test; full `bin/verify` also passes, including native HTTP/3,
+  all 84 auth tests, 374 Chrome WASM core tests and two WASM WebSocket tests.
+  Repair `e2f488f7` is pushed to PR #93. New CI `34985212120` is running with
+  green browser coverage, both mutation gates and package dry-run
+  `34985212069`. The hosted authentication artifact confirms 182 kills, seven
+  survivors, 105 compile errors, zero timeouts/errors and 96.30% raw/adjusted,
+  with passing baselines. Full hosted verification and strict candidate audit
+  remain pending. The HTTP/3 reliability
   issue is not claimed fixed by successful repetitions or this CI repair.
 
 Evidence: `out/regression-coverage-2026-09-15/auth-gate-repair/` retains the
 hosted failing inventory, local inventories, exact-mutant replay and runner
-before/after logs. The full coverage goal remains active.
+before/after logs. `msgpack-web-boundary-mutations/` retains the new complete
+browser inventory. The full coverage goal remains active.
+
+### Public MCP CLI Measurement
+
+- Added 199 no-network option regressions and 26 real HTTP CLI tests. They use
+  the public entrypoint, never private parser calls. Exact transcripts cover
+  optional payload defaults, auth combinations, Unicode/control boundaries,
+  secret non-disclosure, discovery, two-page tool/resource/template/prompt
+  catalogs, exhausted/repeated cursors, malformed raw method catalogs, tool
+  errors, explicit/discovered ticket grants and mismatched grant identities.
+  Only the option suite owns process-wide `exitCode`, avoiding interference
+  between independently scheduled test files. All 379 package tests pass.
+- The previously unmeasured CLI has 2,291 executable lines. These tests cover
+  463 (20.21%); whole measured MCP is 2,049/3,906 (52.46%). The existing
+  1,586/1,615 library slice still measures 98.20%. Preserve its 98% floor as an
+  explicit exact-source cohort instead of claiming that the old percentage
+  covers the CLI. The CLI now has a 20.2% floor and required-source entry.
+  All lines remain in package/overall totals; no library or CLI lines are
+  excluded. Every measured MCP source must belong to exactly one component;
+  omitted new files and duplicate ownership fail closed. Cohort regressions
+  reproduce missing-source/invalid-policy/unassigned-source false passes
+  before the checker updates; all eleven checker tests pass afterward.
+- The union of the last completed full VM report and this new MCP slice is
+  34,354/42,324 (81.17%), with 7,970 uncovered measured lines and 60 unmeasured
+  library files. The lower percentage exposes new scope rather than lost
+  coverage. A fresh full VM run is in progress after full verification; this
+  union is not a new single full-run measurement.
+- Replayed twelve individually selected CLI survivors in an isolated current
+  workspace. Eleven now fail tests; one is a compile error after the CLI is
+  actually imported. Clean/restored baselines pass; no timeouts/errors or
+  equivalences. Retain the full definitions, source/test hashes and logs.
+  This is diagnostic survivor investigation, not a full-scope mutation score.
+  Do not restart the older live 2,274-mutant inventory merely because it is slow.
+  After it finished its CLI portion, started the separate complete `mcp-cli`
+  target (1,179 mutants) against the new tests. Its clean baseline passes;
+  the complete CLI score remains pending, with no sampled-score substitution.
+- CI `34985212120` and package dry-run `34985212069` pass for prior candidate
+  `e2f488f7`. Its required CI/log/publish-dry-run audit passes. The non-release
+  branch remains unprotected, and the new manual diagnostic workflow is not
+  yet discoverable on the default branch; no strict release readiness claim.
+  These hosted results do not cover the new CLI tests.
+- Fresh `bin/test-fast` and `bin/verify` pass, including native HTTP/3 and
+  Chrome WASM. The final five auth tests and test-helper isolation adjustment
+  also pass in the focused 379-test package run. Native HTTP/3's original
+  handshake cause remains unproven; package test configuration already uses
+  concurrency one, so overlapping package test files do not explain it.
+
+Evidence is retained under `out/regression-coverage-2026-09-15/mcp-cli-entrypoints/`.
+Next: finish the live full VM collection and diagnostic MCP inventory, verify
+this candidate in hosted CI, and extend CLI coverage to compatibility sessions,
+metadata, pub/sub and auth lifecycle operations. Continue the remaining native,
+browser, client/router and consumer scopes; neither target is complete.

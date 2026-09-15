@@ -83,10 +83,41 @@ All 84 authentication tests and 14 mutation-runner tests pass. A complete
 294-mutant rerun has 182 kills, seven unwaived survivors and 105 compile errors
 (96.30% raw/adjusted), with passing clean/restored baselines and no timeouts or
 infrastructure errors. RPC envelope isolation supplies the additional kill.
-JavaScript MessagePack truncation/admission regressions pass; their full mutation
-rerun remains in progress. `bin/test-fast` passes and `bin/verify` is running.
-Hosted confirmation of this repair is pending; the original HTTP/3 handshake
-cause and complete-component coverage gaps remain open.
+JavaScript MessagePack truncation/admission regressions pass; their complete
+234-mutant inventory has 197 kills, 28 survivors and nine compile errors
+(87.56%), with clean/restored baselines and no timeouts/errors. This inventory
+started before deterministic test ordering and remains diagnostic, below 95%.
+`bin/test-fast` and `bin/verify` pass, including native HTTP/3 and Chrome WASM.
+Repair `e2f488f7` is pushed; hosted CI `34985212120` is running, with green
+browser coverage, both mutation gates and package dry-run `34985212069`.
+The hosted authentication report confirms 182 kills, seven survivors and 105
+compile errors (96.30%), with no timeouts/errors and passing baselines.
+Full hosted CI `34985212120` and the required candidate CI/log/publish-dry-run
+audit pass for `e2f488f7`. The original HTTP/3 handshake cause and
+complete-component coverage gaps remain open.
+
+MCP executable checkpoint: 225 new public CLI tests cover option validation,
+credential redaction, no-network dry runs, real HTTP discovery, paginated
+tool/resource/template/prompt access, malformed catalogs, ticket-auth endpoint
+discovery and grant identity rejection. All 379 MCP tests pass. Newly measuring
+the CLI exposes 2,291 executable lines, of which 463 are covered (20.21%). The
+measured MCP package total is now 2,049/3,906 (52.46%), not the formerly reported
+98.20% library-only slice. That original 1,586/1,615 library scope retains its
+98% gate as an explicit source cohort; the newly measured CLI has a separate
+20.2% regression floor. Package/overall denominators retain all CLI lines, and
+missing cohort sources fail closed. Every measured MCP source must belong to
+exactly one component. All eleven coverage-checker tests pass.
+Twelve individually selected prior CLI survivors replay with eleven kills and
+one compile error, passing clean/restored baselines and no timeouts/errors.
+This diagnostic sample is not a full MCP mutation score; the older complete
+inventory is still running in its existing snapshot. A separate complete
+1,179-mutant CLI inventory is now running against the new tests, after the
+old run finished its CLI portion; no complete CLI score is claimed.
+Local `bin/test-fast` and
+`bin/verify` pass; the final five auth regressions and exit-code test isolation
+adjustment also pass in the fresh 379-test package run. Full VM coverage
+collection is running, serialized after verification. Hosted verification for
+the new CLI changes remains pending. The full coverage goal is active and unmet.
 
 Previous release milestone: clear the final deployment-chain audit blocker, then publish
 the synchronized `3.0.0-beta.6` tester release from protected `master`. The
