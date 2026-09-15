@@ -22,14 +22,17 @@ def events(*items):
 class MutationRunnerTests(unittest.TestCase):
     def test_process_census_distinguishes_live_zombie_and_unrelated_groups(self):
         output = runner.subprocess.CompletedProcess([], 0, stdout=(
-            ' 10 20 S\n 11 20 Z\n 12 20 Z+\n 13 20 X\n'
-            ' 14 20 D\n 15 20 T\n 16 99 R\n\n'), stderr='')
+            ' 10 20 S /sdk/dartvm\n 11 20 Z defunct\n 12 20 Z+ defunct\n 13 20 X dead\n'
+            ' 14 20 D /Applications/Google Chrome\n 15 20 T python\n 16 99 R unrelated\n\n'), stderr='')
         with patch.object(runner.subprocess, 'run', return_value=output) as command:
             self.assertEqual(runner.live_process_group_members(20), [
-                {'pid': 10, 'state': 'S'}, {'pid': 14, 'state': 'D'},
-                {'pid': 15, 'state': 'T'},
+                {'pid': 10, 'state': 'S', 'executable': '/sdk/dartvm'},
+                {'pid': 14, 'state': 'D', 'executable': '/Applications/Google Chrome'},
+                {'pid': 15, 'state': 'T', 'executable': 'python'},
             ])
             self.assertTrue(command.call_args.kwargs['check'])
+            self.assertEqual(command.call_args.args[0],
+                             ['ps', '-eo', 'pid=,pgid=,stat=,comm='])
 
     def test_process_inspection_failure_is_an_infrastructure_error(self):
         with patch.object(runner, 'live_process_group_members',
@@ -126,6 +129,10 @@ class MutationRunnerTests(unittest.TestCase):
                 try:
                     self.assertEqual(code, exit_code)
                     self.assertEqual(classify(code, actual), 'error', actual)
+                    diagnostic = json.loads(actual.splitlines()[-1])
+                    self.assertEqual(diagnostic['processes'][0]['pid'], owned['pid'])
+                    self.assertTrue(diagnostic['processes'][0]['executable'])
+                    self.assertNotIn(child, diagnostic['processes'][0]['executable'])
                     deadline = time.monotonic() + 1
                     while True:
                         try:
@@ -304,6 +311,11 @@ class MutationRunnerTests(unittest.TestCase):
     def test_directory_targets_record_and_run_stable_test_file_order(self):
         self.exercise_main('killed', 0, directory_tests=True)
 
+    def test_browser_commands_finish_suites_instead_of_fail_fast_shutdown(self):
+        for status, expected in [('killed', 0), ('survived', 1)]:
+            with self.subTest(status=status):
+                self.exercise_main(status, expected, directory_tests=True, browser=True)
+
     def test_native_target_records_support_artifact_and_test_deadline(self):
         self.exercise_main('killed', 0, native=True, directory_tests=True)
 
@@ -332,7 +344,8 @@ class MutationRunnerTests(unittest.TestCase):
                     command.assert_not_called()
                 self.assertFalse(output.exists())
 
-    def exercise_main(self, status, expected_code, directory_tests=False, native=False):
+    def exercise_main(self, status, expected_code, directory_tests=False, native=False,
+                      browser=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config = root / 'config.json'
@@ -342,6 +355,8 @@ class MutationRunnerTests(unittest.TestCase):
             test_path = 'packages/core/test/a_test.dart'
             selected = ['packages/core/test'] if directory_tests else [test_path]
             target = {'sources': [source_path], 'tests': selected}
+            if browser:
+                target['platform'] = 'chrome'
             library = root / 'native.bin'
             library.write_bytes(b'native baseline')
             if native:
@@ -382,6 +397,12 @@ class MutationRunnerTests(unittest.TestCase):
                         self.assertEqual(selected, [test_path, 'packages/core/test/z_test.dart'])
                 current = (work / source_path).read_text()
                 seen.append(current)
+                if browser:
+                    self.assertIn('--compiler=dart2js', command)
+                    self.assertEqual(command[command.index('--platform') + 1], 'chrome')
+                    self.assertNotIn('--fail-fast', command)
+                elif not native:
+                    self.assertIn('--fail-fast', command)
                 if native:
                     self.assertIn('--timeout=20s', command)
                     self.assertNotIn('--fail-fast', command)

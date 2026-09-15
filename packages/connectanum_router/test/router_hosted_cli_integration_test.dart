@@ -177,6 +177,283 @@ void main() {
       );
     }
 
+    group('adversarial direct batch metadata', () {
+      final faults = <(String, Map<String, Object?>, String)>[
+        for (final (suffix, key) in [
+          ('standard-tools', 'tools'),
+          ('tools', 'tools'),
+          ('resources', 'resources'),
+          ('prompts', 'prompts'),
+          ('wamp-procedure-api-list', 'procedures'),
+          ('wamp-topic-api-list', 'topics'),
+        ])
+          (suffix, {key: [], 'nextCursor': null}, 'did not advertise'),
+        for (final operation in ['count', 'list', 'get'])
+          (
+            'wamp-session-$operation',
+            {'procedure': 'wamp.other'},
+            'returned procedure wamp.other',
+          ),
+        (
+          'wamp-session-count',
+          {'argumentsKeywords': null},
+          'returned no argumentsKeywords map',
+        ),
+        (
+          'wamp-session-count',
+          {'structuredContent': null, 'procedure': null},
+          'returned no structured content',
+        ),
+        for (final count in [0, -1, null, 1.25, '1'])
+          (
+            'wamp-session-count',
+            {
+              'argumentsKeywords': {'count': count},
+            },
+            'batch returned invalid session count',
+          ),
+        (
+          'wamp-session-list',
+          {
+            'argumentsKeywords': {'session_ids': []},
+          },
+          'batch returned no session ids',
+        ),
+        (
+          'wamp-session-list',
+          {
+            'argumentsKeywords': {
+              'session_ids': List.generate(100, (index) => index + 1),
+            },
+          },
+          'was smaller than listed sessions',
+        ),
+        (
+          'wamp-session-get',
+          {
+            'argumentsKeywords': {'details': null},
+          },
+          'batch session get returned no details map',
+        ),
+        (
+          'wamp-session-get',
+          {
+            'argumentsKeywords': {
+              'details': {'id': -1},
+            },
+          },
+          'batch session get returned session',
+        ),
+        for (final kind in ['registration', 'subscription']) ...[
+          (
+            'wamp-configured-$kind-lookup',
+            {'arguments': null},
+            'returned no arguments list',
+          ),
+          (
+            'wamp-configured-$kind-lookup',
+            {'arguments': []},
+            'lookup returned no $kind id',
+          ),
+          (
+            'wamp-configured-$kind-match',
+            {'arguments': []},
+            'match did not include lookup id',
+          ),
+          (
+            'wamp-configured-$kind-list',
+            {
+              'argumentsKeywords': {'exact': []},
+            },
+            'list did not include lookup id',
+          ),
+          (
+            'wamp-configured-$kind-get',
+            {
+              'argumentsKeywords': {'uri': 'other.uri'},
+            },
+            'details returned other.uri',
+          ),
+          for (final operation in ['lookup', 'match', 'list', 'get'])
+            (
+              'wamp-configured-$kind-$operation',
+              {'procedure': 'wamp.other'},
+              'returned procedure wamp.other',
+            ),
+        ],
+        (
+          'wamp-configured-registration-callees',
+          {
+            'arguments': [42],
+          },
+          'exposed live callees',
+        ),
+        (
+          'wamp-configured-subscription-subscribers',
+          {
+            'arguments': [42],
+          },
+          'exposed live subscribers',
+        ),
+        for (final values in [
+          <int>[],
+          [1],
+        ]) ...[
+          (
+            'wamp-configured-registration-callee-count',
+            {'arguments': values},
+            'configured registration callee count was',
+          ),
+          (
+            'wamp-configured-subscription-subscriber-count',
+            {'arguments': values},
+            'configured subscription subscriber count was',
+          ),
+        ],
+        (
+          'wamp-session-count',
+          {'isError': true, 'content': []},
+          'returned an error',
+        ),
+      ];
+      for (final (suffix, patch, diagnostic) in faults) {
+        test(
+          '$suffix ${jsonEncode(patch)} rejects before further requests',
+          () async {
+            final proxy = await _ResponseFaultProxy.start(
+              router.endpoint('/mcp'),
+              'direct-batch-$suffix',
+              null,
+              rewrite: (envelope) {
+                final result = envelope['result'] as Map;
+                final content = result['structuredContent'];
+                return {
+                  ...envelope,
+                  'result': {
+                    ...result,
+                    if (content is Map &&
+                        !patch.containsKey('structuredContent') &&
+                        !patch.containsKey('isError'))
+                      'structuredContent': {...content, ...patch}
+                    else
+                      ...patch,
+                  },
+                };
+              },
+            );
+            try {
+              await expectLater(
+                IOOverrides.runZoned(
+                  () => runRouterHostedClient([
+                    '--endpoint',
+                    proxy.endpoint.toString(),
+                    '--protocol-version',
+                    '2025-06-18',
+                    ..._selectors,
+                  ]),
+                  stdout: _Output.new,
+                  stderr: _Output.new,
+                ),
+                throwsA(
+                  isA<StateError>().having(
+                    (error) => error.message,
+                    'batch diagnostic',
+                    contains(diagnostic),
+                  ),
+                ),
+              );
+              expect(proxy.changedResponses, 1);
+              expect(proxy.faultRequestIndex, isNotNull);
+              expect(
+                proxy.requests.skip(proxy.faultRequestIndex! + 1),
+                isEmpty,
+                reason: 'No further request may follow a rejected batch',
+              );
+            } finally {
+              await proxy.close();
+            }
+          },
+        );
+      }
+
+      for (final (operation, shape) in [
+        ('get', 'wrapped'),
+        for (final operation in ['count', 'list', 'get']) ...[
+          (operation, 'without procedure'),
+          (operation, 'with procedure'),
+          (operation, 'flat'),
+        ],
+      ]) {
+        test(
+          '$shape $operation batch passes the proxy and reaches session cleanup',
+          () async {
+            final proxy = await _ResponseFaultProxy.start(
+              router.endpoint('/mcp'),
+              'direct-batch-wamp-session-$operation',
+              null,
+              rewrite: (envelope) {
+                if (shape == 'wrapped') return envelope;
+                final result = envelope['result'] as Map;
+                final content = {
+                  ...result['structuredContent'] as Map,
+                };
+                if (shape == 'without procedure') {
+                  content.remove('procedure');
+                } else {
+                  content['procedure'] = 'wamp.session.$operation';
+                }
+                return {
+                  ...envelope,
+                  'result': shape == 'flat'
+                      ? content
+                      : {...result, 'structuredContent': content},
+                };
+              },
+            );
+            final output = _Output();
+            try {
+              await IOOverrides.runZoned(
+                () => runRouterHostedClient([
+                  '--endpoint',
+                  proxy.endpoint.toString(),
+                  '--protocol-version',
+                  '2025-06-18',
+                  ..._selectors,
+                ]),
+                stdout: () => output,
+                stderr: _Output.new,
+              );
+              final transcript = <String, dynamic>{
+                for (final line in const LineSplitter().convert(
+                  output.text.toString(),
+                ))
+                  ...(jsonDecode(line) as Map).cast<String, dynamic>(),
+              };
+              _expectDirect(transcript);
+              expect(transcript['directBatch'], isA<Map>());
+              final metadata =
+                  (transcript['directBatch'] as Map)['wampSessionMetadata']
+                      as Map;
+              final selected =
+                  metadata[operation == 'get' ? 'selectedSession' : operation]
+                      as Map;
+              expect(
+                selected['procedure'],
+                shape == 'without procedure' || shape == 'wrapped'
+                    ? isNull
+                    : 'wamp.session.$operation',
+              );
+              expect(transcript['streamable'], isA<Map>());
+              expect(proxy.changedResponses, 1);
+              expect(proxy.requests.last, ('DELETE', null));
+            } finally {
+              await proxy.close();
+            }
+          },
+        );
+      }
+    });
+
     for (final auth in [
       (flag: '--ticket', secret: 'mcp-demo-ticket', method: 'ticket'),
       (flag: '--wampcra-secret', secret: 'mcp-demo-secret', method: 'wampcra'),
@@ -271,7 +548,7 @@ void main() {
     ]) {
       for (final field in ['topic', 'queueLimit']) {
         test('$prefix releases subscription after rejected $field', () async {
-          final proxy = await _SubscriptionFaultProxy.start(
+          final proxy = await _ResponseFaultProxy.start(
             router.endpoint('/mcp'),
             '$prefix-subscribe',
             field,
@@ -323,15 +600,16 @@ void main() {
   });
 }
 
-// Forward real router traffic, corrupting exactly one successful subscription
-// response. Cleanup evidence comes from the router's unsubscribe acknowledgement.
-class _SubscriptionFaultProxy {
-  _SubscriptionFaultProxy(
+// Corrupt one real router response while retaining its wire shape and siblings.
+// Subscription cleanup evidence comes from the router's acknowledgement.
+class _ResponseFaultProxy {
+  _ResponseFaultProxy(
     this.server,
     this.upstream,
     this.targetId,
-    this.field,
-  ) {
+    this.field, {
+    this.rewrite,
+  }) {
     server.listen((request) {
       late Future<void> pending;
       pending = _handle(request).whenComplete(() => _pending.remove(pending));
@@ -342,7 +620,8 @@ class _SubscriptionFaultProxy {
   final HttpServer server;
   final Uri upstream;
   final String targetId;
-  final String field;
+  final String? field;
+  final Map<String, Object?> Function(Map<String, Object?>)? rewrite;
   final client = HttpClient();
   final requests = <(String, Object?)>[];
   final cleanedHandles = <String>[];
@@ -350,19 +629,22 @@ class _SubscriptionFaultProxy {
   final _pending = <Future<void>>{};
   String? subscriptionHandle;
   int changedResponses = 0;
+  int? faultRequestIndex;
   bool _closing = false;
 
   Uri get endpoint => Uri.parse('http://127.0.0.1:${server.port}/mcp');
 
-  static Future<_SubscriptionFaultProxy> start(
+  static Future<_ResponseFaultProxy> start(
     Uri upstream,
     String id,
-    String field,
-  ) async => _SubscriptionFaultProxy(
+    String? field, {
+    Map<String, Object?> Function(Map<String, Object?>)? rewrite,
+  }) async => _ResponseFaultProxy(
     await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
     upstream,
     id,
     field,
+    rewrite: rewrite,
   );
 
   Future<void> close() async {
@@ -385,6 +667,7 @@ class _SubscriptionFaultProxy {
       );
       final message = body.isEmpty ? null : jsonDecode(utf8.decode(body));
       final id = message is Map ? message['id'] : null;
+      final requestIndex = requests.length;
       requests.add((request.method, id));
       final outgoing = await client.openUrl(
         request.method,
@@ -413,22 +696,34 @@ class _SubscriptionFaultProxy {
           request.response.headers.set(name, values);
         }
       });
+      final targetsBatch =
+          message is List &&
+          message.any((item) => item is Map && item['id'] == targetId);
       if (id == targetId ||
+          targetsBatch ||
           (id is String && id.endsWith('-pubsub-unsubscribe'))) {
         final text = await utf8.decoder.bind(response).join();
         Map<String, Object?> inspect(Map<String, Object?> envelope) {
+          final responseId = envelope['id'];
+          if (responseId == targetId) {
+            changedResponses++;
+            faultRequestIndex = requestIndex;
+            if (rewrite != null) return rewrite!(envelope);
+          } else if (responseId is! String ||
+              !responseId.endsWith('-pubsub-unsubscribe')) {
+            return envelope;
+          }
           final result = envelope['result'] as Map;
           final content = result['structuredContent'] as Map;
-          if (id == targetId) {
+          if (responseId == targetId) {
             subscriptionHandle = content['handle'] as String;
-            changedResponses++;
             return {
               ...envelope,
               'result': {
                 ...result,
                 'structuredContent': {
                   ...content,
-                  field: field == 'topic' ? 'unexpected.topic' : 11,
+                  field!: field == 'topic' ? 'unexpected.topic' : 11,
                 },
               },
             };
@@ -438,6 +733,13 @@ class _SubscriptionFaultProxy {
           return envelope;
         }
 
+        Object inspectBody(Object? body) => body is List
+            ? [
+                for (final envelope in body)
+                  inspect((envelope as Map).cast<String, Object?>()),
+              ]
+            : inspect((body as Map).cast<String, Object?>());
+
         if (response.headers.contentType?.mimeType == 'text/event-stream') {
           request.response.write(
             text
@@ -446,16 +748,14 @@ class _SubscriptionFaultProxy {
                   if (!line.startsWith('data:')) return line;
                   final data = line.substring(5).trim();
                   if (data.isEmpty) return line;
-                  final envelope = (jsonDecode(data) as Map)
-                      .cast<String, Object?>();
-                  return 'data: ${jsonEncode(inspect(envelope))}';
+                  return 'data: ${jsonEncode(inspectBody(jsonDecode(data)))}';
                 })
                 .join('\n'),
           );
         } else {
           request.response.write(
             jsonEncode(
-              inspect((jsonDecode(text) as Map).cast<String, Object?>()),
+              inspectBody(jsonDecode(text)),
             ),
           );
         }

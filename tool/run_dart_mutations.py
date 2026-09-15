@@ -21,16 +21,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def live_process_group_members(group):
     result = subprocess.run(
-        ['ps', '-eo', 'pid=,pgid=,stat='], capture_output=True,
+        ['ps', '-eo', 'pid=,pgid=,stat=,comm='], capture_output=True,
         text=True, check=True, timeout=5,
     )
     members = []
     for line in result.stdout.splitlines():
         if not line.strip():
             continue
-        pid, pgid, state = line.split()
+        pid, pgid, state, executable = line.split(maxsplit=3)
         if int(pgid) == group and state[0] not in ('Z', 'X'):
-            members.append({'pid': int(pid), 'state': state})
+            # Keep executable identity for triage, never command-line arguments.
+            members.append({'pid': int(pid), 'state': state, 'executable': executable})
     return members
 
 
@@ -331,6 +332,9 @@ def main():
                 raise ValueError(f'Unsupported test platform: {platform}')
             command.extend(['--platform', platform])
             if platform == 'chrome':
+                # Complete browser suites and their cleanup before shutting down
+                # the compiler pool, rather than exiting with queued compiles.
+                command.remove('--fail-fast')
                 command.append('--compiler=dart2js')
             test_root = Path(target.get('testRoot', '.'))
             if test_root.is_absolute() or '..' in test_root.parts:

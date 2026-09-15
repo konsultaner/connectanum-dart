@@ -896,3 +896,42 @@ points separately from the current library-only collector scope.
 Evidence: cli18*, vm-current17 and the preserved earlier inventories under
 out/regression-coverage-2026-09-15. The full component/runtime and mutation target
 remains open; no merge or publication is authorized by this checkpoint.
+
+### Batch Metadata And Browser Runner Cleanup
+
+- Extend the real-router fault proxy to one response within a batch, preserving
+  siblings and JSON/SSE framing. Rejections cover malformed/inconsistent session
+  counts/details, registration/subscription discovery and member statistics,
+  omitted catalog entries and tool errors. Require no HTTP request after the
+  rejected direct batch. Keep existing subscription cleanup evidence intact.
+- Three regressions reproduce acceptance of a mismatched procedure identity on
+  session count/list/get batch results. Apply the existing optional identity
+  guard used by registration/subscription metadata. Positive cases retain wrapped
+  responses with/without procedure and named flat response compatibility.
+- All 69 real-router CLI tests and 329 focused CLI tests pass. Fresh cli19d
+  coverage is 2,146/2,297 executable CLI lines (93.43%); enforce a 93.4% floor,
+  keeping the 98% target and whole-workspace denominator separate.
+- A real Chrome fixture demonstrates that fail-fast skips tearDownAll and later
+  tests after an assertion failure. Chrome mutation commands now finish suites
+  before shutdown; no grace period, retry or relaxed leak classification is
+  introduced. The process census adds executable identity (ps comm, not argv).
+  All 27 runner tests pass locally except the explicitly Linux-only zombie case.
+  The lazy17-js error remains an error; the identity/cause of that historical
+  descendant is still unproven. The independent complete lazy19-js inventory is
+  running with the revised command, not yet passing evidence.
+- The live browser inventory correctly classifies the cycle-detection mutant
+  308d9f46d9ca2de88fcf as an error: the ordinary cyclic fixture hangs until the
+  browser disconnects. Add a bounded cyclic-map input before the original
+  ordinary-container case so repeated traversal fails an assertion rather than
+  blocking the event loop. All 55 focused regressions pass on VM, JavaScript and
+  WASM. An isolated exact-mutant replay has passing clean/restored baselines and
+  a bounded assertion kill. Preserve the old inventory unchanged; diagnostic
+  replay is not a replacement score or a complete new campaign.
+- bin/test-fast passed before the new batch/runner changes. Focused collection
+  and bin/verify with CONNECTANUM_TEST_LLVM_COVERAGE=1 passed.
+  e051650b is pushed with its hosted CI still in progress; current uncommitted
+  changes require new candidate hosted evidence. No native mutation campaign
+  pins ct_ffi at this checkpoint.
+
+Evidence: cli19*, browser19*, lazy19-js-mutations and the earlier preserved
+inventories under out/regression-coverage-2026-09-15. The full goal remains open.

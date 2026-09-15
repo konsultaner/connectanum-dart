@@ -2570,6 +2570,11 @@ Map<String, Object?> _expectWampSessionMetaBatchDiscovery(
     _batchResult(responses, countId, label: '$label session count'),
     label: '$label session count',
   );
+  _expectWampMetaBatchProcedure(
+    count,
+    'wamp.session.count',
+    label: '$label session count',
+  );
   final countValue = _integerMetaId(
     _wampMetaBatchArgumentsKeywords(
       count,
@@ -2584,6 +2589,11 @@ Map<String, Object?> _expectWampSessionMetaBatchDiscovery(
 
   final list = _structuredContentFromWampMetaBatchResult(
     _batchResult(responses, listId, label: '$label session list'),
+    label: '$label session list',
+  );
+  _expectWampMetaBatchProcedure(
+    list,
+    'wamp.session.list',
     label: '$label session list',
   );
   final sessionIds = _integerMetaIds(
@@ -2618,6 +2628,11 @@ Map<String, Object?> _expectWampSessionMetaBatchDetails(
 }) {
   final session = _structuredContentFromWampMetaBatchResult(
     _batchResult(responses, getId, label: '$label session get'),
+    label: '$label session get',
+  );
+  _expectWampMetaBatchProcedure(
+    session,
+    'wamp.session.get',
     label: '$label session get',
   );
   final details = _wampMetaBatchArgumentsKeywords(

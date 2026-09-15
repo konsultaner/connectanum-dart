@@ -6,6 +6,35 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Batch metadata/browser runner checkpoint (not goal completion): 69 real-router
+CLI regressions and 329 focused CLI tests pass. Adversarial batch responses cover
+session counts/details, registration/subscription discovery and membership,
+catalog omissions and tool errors, with no further HTTP request after rejection.
+Three wrong-procedure regressions reproduced missing checks on session batch
+metadata; count/list/get now use the existing optional procedure-identity check.
+Positive controls preserve wrapped replies with/without that optional field and
+named flat replies. Fresh cli19d coverage is 2,146/2,297 lines (93.43%); raise the
+CLI floor to 93.4%, not the still-unmet 98% target.
+
+A package-root Chrome fixture independently reproduced fail-fast omitting
+tearDownAll and later tests after an assertion failure. Chrome mutation commands
+now finish their suites. Immediate descendant detection and error classification
+remain strict, and diagnostics record executable identity without arguments.
+All 27 runner tests pass on macOS except the explicitly Linux-only zombie test.
+The original browser campaign's errored outcome is preserved; its specific
+leftover process identity/root cause remains unproven. The new complete lazy19-js
+inventory is running, not a passing score. It exposed a cycle-detection mutant
+that loops until the browser connection closes, correctly classified as an
+error. A bounded cyclic-map fixture now precedes the ordinary cyclic-container
+case. All 55 focused tests pass on VM, JavaScript and WASM; isolated exact-mutant
+replay has passing clean/restored baselines and an assertion kill. This diagnostic
+does not replace the old campaign outcome or establish a new complete score.
+A fresh bin/test-fast passed before these changes; serialized focused collection
+and bin/verify with the real LLVM fixture enabled passed. Hosted e051650b CI is
+running after its Fast
+Checks and mutation/browser/application gates passed. Latest changes are not yet
+committed and still require their own hosted evidence.
+
 MCP CLI adversarial-response checkpoint (not goal completion): public HTTP tests
 now reject inconsistent session counts/IDs, malformed registration/subscription
 metadata, unexpected live members, incorrect publication acknowledgements and

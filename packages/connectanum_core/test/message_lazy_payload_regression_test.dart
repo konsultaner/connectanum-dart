@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
@@ -187,17 +188,22 @@ void main() {
   });
 
   test('owned copies preserve cyclic container identity without recursion', () {
-    final arguments = <dynamic>[];
-    final keywords = <String, dynamic>{'args': arguments};
-    arguments.add(keywords);
-    final owned = LazyMessagePayload.materialized(
-      arguments: arguments,
-      argumentsKeywords: keywords,
-    ).toOwned();
-    expect(owned.arguments, isNot(same(arguments)));
-    expect(owned.argumentsKeywords, isNot(same(keywords)));
-    expect(owned.arguments!.single, same(owned.argumentsKeywords));
-    expect(owned.argumentsKeywords!['args'], same(owned.arguments));
+    // Detect runaway copying before exercising the ordinary cyclic container,
+    // whose synchronous loop cannot be interrupted by browser test timeouts.
+    for (final bounded in [true, false]) {
+      final arguments = <dynamic>[];
+      final keywords = bounded ? _TraversalBudgetMap() : <String, dynamic>{};
+      keywords['args'] = arguments;
+      arguments.add(keywords);
+      final owned = LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: keywords,
+      ).toOwned();
+      expect(owned.arguments, isNot(same(arguments)));
+      expect(owned.argumentsKeywords, isNot(same(keywords)));
+      expect(owned.arguments!.single, same(owned.argumentsKeywords));
+      expect(owned.argumentsKeywords!['args'], same(owned.arguments));
+    }
   });
 
   test('copyPayloadTo detaches transparent and nested materialized bytes', () {
@@ -1011,6 +1017,36 @@ void main() {
     expect(view.arguments, ['new']);
     expect(view.argumentsKeywords, {'new': true});
   });
+}
+
+class _TraversalBudgetMap extends MapBase<String, dynamic> {
+  final _values = <String, dynamic>{};
+  int _traversals = 0;
+
+  @override
+  dynamic operator [](Object? key) => _values[key];
+
+  @override
+  void operator []=(String key, dynamic value) => _values[key] = value;
+
+  @override
+  Iterable<String> get keys => _values.keys;
+
+  @override
+  void clear() => _values.clear();
+
+  @override
+  dynamic remove(Object? key) => _values.remove(key);
+
+  @override
+  void forEach(void Function(String, dynamic) action) {
+    if (++_traversals > 16) {
+      fail(
+        'Cyclic payload was repeatedly traversed instead of preserving identity',
+      );
+    }
+    _values.forEach(action);
+  }
 }
 
 class _CustomSetterPublish extends Publish {

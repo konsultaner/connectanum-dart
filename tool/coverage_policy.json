@@ -199,7 +199,7 @@
       ]
     },
     "connectanum_mcp_cli": {
-      "floor": 92.1,
+      "floor": 93.4,
       "sources": ["packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"]
     }
   },
