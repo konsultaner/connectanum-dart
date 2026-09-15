@@ -7,6 +7,9 @@ edition = "2021"
 default = []
 ffi-test = ["ct_core/ffi-test", "futures-util"]
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(connectanum_legacy_message_handles_test)"] }
+
 [dependencies]
 ct_core = { path = "../ct_core" }
 dashmap = "5.5"

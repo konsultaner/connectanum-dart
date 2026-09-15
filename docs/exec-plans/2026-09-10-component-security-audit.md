@@ -862,13 +862,20 @@ scope, including code excluded from the root workspace gates.
   are available and independently smoke-tested.
 - Release PR #91's initial hosted run passed package dry-runs, Fast Checks, and
   consumer smoke, but Codecov reported 80.61% patch coverage against the 83.50%
-  target. Focused auth lifecycle and native signed-handle ABI coverage now
-  exercises all 14 targeted changed production lines; canonical local project
-  coverage rises from 83.4778% to 83.5278%. The next hosted run passed project
-  coverage at 83.51%, while patch coverage reached 83.29% and remained one
-  executable line below target. A live router-to-auth-server regression now also
-  exercises fail-closed rejection of an unknown requested realm. Keep
-  publication blocked until hosted CI confirms the completed repair.
+  target. Focused auth lifecycle and native signed-handle ABI coverage plus a
+  live unknown-realm regression cleared the hosted coverage gate, and PR #91
+  merged at `2e062228`. Exact-master CI `34945185689`, package dry-run
+  `34945185638`, WAMP benchmark `34945185641`, and kTLS `34945185656` pass.
+- The strict deployment audit then found one skipped legacy message-handle ABI
+  regression in both Coverage and Full Verify. A registered test-only Rust cfg
+  now builds current source without the wide-family advertisement in an isolated
+  target directory; supported native hosts fail if that fixture is unavailable
+  and execute the guarded legacy adapters while the ordinary library still
+  exercises the complete wide family. The focused suite passes all 13 tests
+  with no skip under plain and encoded Rust flags; default, all-features, and
+  explicit legacy-cfg Cargo checks plus full `bin/verify` pass. Keep publication
+  blocked until this repair is reviewed into protected `master`, exact-head
+  hosted gates pass, and the strict audit is clean.
 
 ## Related Plans
 

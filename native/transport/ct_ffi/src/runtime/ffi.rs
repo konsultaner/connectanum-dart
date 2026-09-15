@@ -4465,6 +4465,7 @@ fn store_parsed_message_wide(parsed: ct_core::ParsedMessage) -> i64 {
 /// Version 1 is the complete additive signed 64-bit message-handle family.
 /// All `_wide` producers/consumers must be selected together by a binding.
 /// Other resource handles, status codes, and WAMP wire IDs are unchanged.
+#[cfg(not(all(feature = "ffi-test", connectanum_legacy_message_handles_test)))]
 #[no_mangle]
 pub extern "C" fn ct_message_handle_abi_version() -> c_uint {
     1
