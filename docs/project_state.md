@@ -12,7 +12,33 @@ groups. A deterministic Linux subreaper regression reproduces this without
 Dart timing assumptions. Inspect process states before cleanup: dead Z/X members
 do not invalidate results, live fixtures still do, and inspection failure stays
 fail-closed. Four Linux process regressions pass after the fix, including an
-actual orphan holding a listening socket. Updated hosted evidence is pending.
+actual orphan holding a listening socket. Repair 0c1170ea passes all three
+hosted mutation gates, browser coverage and Fast Checks in CI 35010985044;
+Full Verify and VM Coverage are still running. Package dry-run 35010994084 passes.
+
+Build-hook execution checkpoint: each hook now delegates its unchanged native
+operation to buildNativeAssets; the SDK wrapper still reports HookError and exits.
+Thirty-one tests per package cover supported/unsupported target selection,
+configuration precedence, source dependency inventory, timestamp-driven cache
+reuse/rebuild, missing configuration/source/output, compiler errors and unchanged
+installed output. The default Cargo runner smoke uses an owned POSIX shell
+fixture, not a real native build; Windows execution still needs evidence.
+Router CLI tests now cover all 52 executable lines, like the client CLI.
+Focused packaging coverage is client 381/402 (94.78%) and router 364/385
+(94.55%), including hooks at 329/350 (94.00%) and 312/333 (93.69%). These are
+separate per-package runs with 12 other packaging entry points still unmeasured,
+not a replacement for the last full VM report. The corresponding floors rise
+without reducing the 98% target. A combined concurrent hook run exposed existing
+process-global cwd/exitCode interference; canonical per-package runs pass.
+The complete router installer library/CLI inventory improves from 93 kills and
+six survivors to 94 kills and five survivors after adding real-tar extraction
+with paths containing spaces. Both have 103 generated mutants, four compile
+errors, passing clean/restored baselines and no errors/timeouts. The current
+macOS arm64 score is 94.95%, below 95%, with no equivalence exclusions. Remaining
+survivors are three recursive-directory flags, shell invocation and the host
+architecture condition. Linux x64 evidence is pending; this target is not yet
+a required CI gate. Final bin/verify passes with Cargo retries disabled, including
+745 router tests, isolated remote authentication, zero-copy and browser/WASM.
 Baseline hosted Dart VM coverage is 83.72% (33,515/40,031 measured lines), with
 6,516 uncovered lines and no mutation-testing gate. Rust, browser-only paths and
 standalone application coverage are not represented by that percentage.

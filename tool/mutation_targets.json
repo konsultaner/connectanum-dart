@@ -51,6 +51,13 @@
     ],
     "tests": ["packages/connectanum_client/test/hook"]
   },
+  "router-installer": {
+    "sources": [
+      "packages/connectanum_router/lib/src/native_release_installer.dart",
+      "packages/connectanum_router/tool/install_native.dart"
+    ],
+    "tests": ["packages/connectanum_router/test/hook"]
+  },
   "mcp-cli-native": {
     "sources": ["packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"],
     "tests": [

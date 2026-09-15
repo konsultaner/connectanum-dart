@@ -29,182 +29,116 @@ Future<void> runBuildHook(
   DownloadArtifact? artifactDownloader,
   ExtractArchive? archiveExtractor,
 }) async {
+  await build(
+    args,
+    (input, output) => buildNativeAssets(
+      input,
+      output,
+      environment: environment,
+      cargoRunner: cargoRunner,
+      artifactDownloader: artifactDownloader,
+      archiveExtractor: archiveExtractor,
+    ),
+  );
+}
+
+/// Produces native assets; the SDK wrapper handles reporting build failures.
+Future<void> buildNativeAssets(
+  BuildInput input,
+  BuildOutputBuilder output, {
+  Map<String, String>? environment,
+  ProcessResult Function({
+    required List<String> args,
+    required String workingDirectory,
+    required Map<String, String> environment,
+  })?
+  cargoRunner,
+  DownloadArtifact? artifactDownloader,
+  ExtractArchive? archiveExtractor,
+}) async {
   final buildEnvironment = environment ?? Platform.environment;
   final runCargo = cargoRunner ?? _runCargo;
   final downloadArtifact = artifactDownloader ?? _downloadArtifact;
   final extractArchive = archiveExtractor ?? _extractArchive;
-  await build(args, (input, output) async {
-    if (!input.config.buildCodeAssets) {
-      return;
-    }
+  if (!input.config.buildCodeAssets) {
+    return;
+  }
 
-    final targetOS = input.config.code.targetOS;
-    final targetArch = input.config.code.targetArchitecture;
-    final supportedHost =
-        (targetOS == OS.linux &&
-            (targetArch == Architecture.x64 ||
-                targetArch == Architecture.arm64)) ||
-        (targetOS == OS.macOS &&
-            (targetArch == Architecture.x64 ||
-                targetArch == Architecture.arm64)) ||
-        (targetOS == OS.windows && targetArch == Architecture.x64);
-    if (!supportedHost) {
-      // Unsupported hosts should still be able to run pure Dart/browser flows.
-      return;
-    }
+  final targetOS = input.config.code.targetOS;
+  final targetArch = input.config.code.targetArchitecture;
+  final supportedHost =
+      (targetOS == OS.linux &&
+          (targetArch == Architecture.x64 ||
+              targetArch == Architecture.arm64)) ||
+      (targetOS == OS.macOS &&
+          (targetArch == Architecture.x64 ||
+              targetArch == Architecture.arm64)) ||
+      (targetOS == OS.windows && targetArch == Architecture.x64);
+  if (!supportedHost) {
+    // Unsupported hosts should still be able to run pure Dart/browser flows.
+    return;
+  }
 
-    final dylibName = targetOS.dylibFileName('ct_ffi');
-    final outputLibUri = input.outputDirectory.resolve(dylibName);
-    final outputLibFile = File.fromUri(outputLibUri);
-    final hookSettings = _hookSettingsFor(input, buildEnvironment);
-    final configuredNativeLib = _configuredNativeLibrary(hookSettings);
-    var releaseAsset = _configuredReleaseAsset(
-      hookSettings,
-      targetOS: targetOS,
-      targetArch: targetArch,
+  final dylibName = targetOS.dylibFileName('ct_ffi');
+  final outputLibUri = input.outputDirectory.resolve(dylibName);
+  final outputLibFile = File.fromUri(outputLibUri);
+  final hookSettings = _hookSettingsFor(input, buildEnvironment);
+  final configuredNativeLib = _configuredNativeLibrary(hookSettings);
+  var releaseAsset = _configuredReleaseAsset(
+    hookSettings,
+    targetOS: targetOS,
+    targetArch: targetArch,
+  );
+  if (configuredNativeLib != null && !configuredNativeLib.existsSync()) {
+    throw BuildError(
+      message:
+          '$nativeLibEnv points to ${configuredNativeLib.path}, but that '
+          'file does not exist.',
     );
-    if (configuredNativeLib != null && !configuredNativeLib.existsSync()) {
-      throw BuildError(
-        message:
-            '$nativeLibEnv points to ${configuredNativeLib.path}, but that '
-            'file does not exist.',
-      );
-    }
+  }
 
-    final dependencies = <File>[];
-    if (configuredNativeLib != null) {
-      dependencies.add(configuredNativeLib);
-    }
+  final dependencies = <File>[];
+  if (configuredNativeLib != null) {
+    dependencies.add(configuredNativeLib);
+  }
 
-    Directory? transportDir;
-    if (releaseAsset == null &&
-        configuredNativeLib == null &&
-        !_shouldSkipNativeBuild(hookSettings)) {
-      final packageRoot = Directory.fromUri(input.packageRoot);
-      transportDir = _findTransportWorkspace(packageRoot);
-      if (transportDir == null) {
-        if (isConnectanumSourceCheckout(packageRoot)) {
-          throw BuildError(
-            message:
-                'Failed to locate the native transport workspace in the '
-                'Connectanum source checkout above '
-                '${input.packageRoot.toFilePath()}.',
-          );
-        }
-        releaseAsset = packageReleaseAsset(
-          packageRoot: packageRoot,
-          repository:
-              hookSettings.nativeReleaseRepository ?? defaultReleaseRepository,
-          targetOS: targetOS,
-          targetArch: targetArch,
-        );
-      } else {
-        dependencies.addAll(_collectTransportDependencies(transportDir));
-      }
-    }
-
-    output.dependencies.addAll(dependencies.map((e) => e.uri));
-
-    if (releaseAsset != null) {
-      await installReleaseAsset(
-        releaseAsset: releaseAsset,
-        outputLibFile: outputLibFile,
-        bundledLibName: dylibName,
-        downloadArtifact: downloadArtifact,
-        extractArchive: extractArchive,
-      );
-      output.assets.code.add(
-        CodeAsset(
-          package: input.packageName,
-          name: 'ct_ffi.dart',
-          linkMode: DynamicLoadingBundled(),
-          file: outputLibUri,
-        ),
-      );
-      return;
-    }
-
-    if (_shouldSkipNativeBuild(hookSettings) && configuredNativeLib == null) {
-      return;
-    }
-
-    final latestDependencyChange = _latestModified(dependencies);
-    if (outputLibFile.existsSync() &&
-        latestDependencyChange != null &&
-        outputLibFile.lastModifiedSync().isAfter(latestDependencyChange)) {
-      output.assets.code.add(
-        CodeAsset(
-          package: input.packageName,
-          name: 'ct_ffi.dart',
-          linkMode: DynamicLoadingBundled(),
-          file: outputLibUri,
-        ),
-      );
-      return;
-    }
-
-    if (configuredNativeLib != null) {
-      publishNativeLibrary(
-        source: configuredNativeLib,
-        destination: outputLibFile,
-      );
-      output.assets.code.add(
-        CodeAsset(
-          package: input.packageName,
-          name: 'ct_ffi.dart',
-          linkMode: DynamicLoadingBundled(),
-          file: outputLibUri,
-        ),
-      );
-      return;
-    }
-
-    transportDir ??= _findTransportWorkspace(
-      Directory.fromUri(input.packageRoot),
-    );
+  Directory? transportDir;
+  if (releaseAsset == null &&
+      configuredNativeLib == null &&
+      !_shouldSkipNativeBuild(hookSettings)) {
+    final packageRoot = Directory.fromUri(input.packageRoot);
+    transportDir = _findTransportWorkspace(packageRoot);
     if (transportDir == null) {
-      throw BuildError(
-        message:
-            'Failed to locate native transport workspace. Expected '
-            '`native/transport/Cargo.toml` above ${input.packageRoot.toFilePath()}.',
+      if (isConnectanumSourceCheckout(packageRoot)) {
+        throw BuildError(
+          message:
+              'Failed to locate the native transport workspace in the '
+              'Connectanum source checkout above '
+              '${input.packageRoot.toFilePath()}.',
+        );
+      }
+      releaseAsset = packageReleaseAsset(
+        packageRoot: packageRoot,
+        repository:
+            hookSettings.nativeReleaseRepository ?? defaultReleaseRepository,
+        targetOS: targetOS,
+        targetArch: targetArch,
       );
+    } else {
+      dependencies.addAll(_collectTransportDependencies(transportDir));
     }
+  }
 
-    final cargoTargetDir = Directory.fromUri(
-      input.outputDirectory.resolve('cargo_target/'),
+  output.dependencies.addAll(dependencies.map((e) => e.uri));
+
+  if (releaseAsset != null) {
+    await installReleaseAsset(
+      releaseAsset: releaseAsset,
+      outputLibFile: outputLibFile,
+      bundledLibName: dylibName,
+      downloadArtifact: downloadArtifact,
+      extractArchive: extractArchive,
     );
-    cargoTargetDir.createSync(recursive: true);
-
-    final buildEnv = <String, String>{
-      ...buildEnvironment,
-      'CARGO_TARGET_DIR': cargoTargetDir.path,
-    };
-
-    final result = runCargo(
-      args: const ['build', '-p', 'ct_ffi', '--release'],
-      workingDirectory: transportDir.path,
-      environment: buildEnv,
-    );
-    if (result.exitCode != 0) {
-      throw BuildError(
-        message:
-            'Failed to build ct_ffi (exit ${result.exitCode}).\n'
-            'stdout:\n${result.stdout}\n'
-            'stderr:\n${result.stderr}',
-      );
-    }
-
-    final builtLib = File('${cargoTargetDir.path}/release/$dylibName');
-    if (!builtLib.existsSync()) {
-      throw BuildError(
-        message:
-            'cargo build succeeded but expected output was not found at '
-            '${builtLib.path}.',
-      );
-    }
-
-    publishNativeLibrary(source: builtLib, destination: outputLibFile);
-
     output.assets.code.add(
       CodeAsset(
         package: input.packageName,
@@ -213,7 +147,98 @@ Future<void> runBuildHook(
         file: outputLibUri,
       ),
     );
-  });
+    return;
+  }
+
+  if (_shouldSkipNativeBuild(hookSettings) && configuredNativeLib == null) {
+    return;
+  }
+
+  final latestDependencyChange = _latestModified(dependencies);
+  if (outputLibFile.existsSync() &&
+      latestDependencyChange != null &&
+      outputLibFile.lastModifiedSync().isAfter(latestDependencyChange)) {
+    output.assets.code.add(
+      CodeAsset(
+        package: input.packageName,
+        name: 'ct_ffi.dart',
+        linkMode: DynamicLoadingBundled(),
+        file: outputLibUri,
+      ),
+    );
+    return;
+  }
+
+  if (configuredNativeLib != null) {
+    publishNativeLibrary(
+      source: configuredNativeLib,
+      destination: outputLibFile,
+    );
+    output.assets.code.add(
+      CodeAsset(
+        package: input.packageName,
+        name: 'ct_ffi.dart',
+        linkMode: DynamicLoadingBundled(),
+        file: outputLibUri,
+      ),
+    );
+    return;
+  }
+
+  transportDir ??= _findTransportWorkspace(
+    Directory.fromUri(input.packageRoot),
+  );
+  if (transportDir == null) {
+    throw BuildError(
+      message:
+          'Failed to locate native transport workspace. Expected '
+          '`native/transport/Cargo.toml` above ${input.packageRoot.toFilePath()}.',
+    );
+  }
+
+  final cargoTargetDir = Directory.fromUri(
+    input.outputDirectory.resolve('cargo_target/'),
+  );
+  cargoTargetDir.createSync(recursive: true);
+
+  final buildEnv = <String, String>{
+    ...buildEnvironment,
+    'CARGO_TARGET_DIR': cargoTargetDir.path,
+  };
+
+  final result = runCargo(
+    args: const ['build', '-p', 'ct_ffi', '--release'],
+    workingDirectory: transportDir.path,
+    environment: buildEnv,
+  );
+  if (result.exitCode != 0) {
+    throw BuildError(
+      message:
+          'Failed to build ct_ffi (exit ${result.exitCode}).\n'
+          'stdout:\n${result.stdout}\n'
+          'stderr:\n${result.stderr}',
+    );
+  }
+
+  final builtLib = File('${cargoTargetDir.path}/release/$dylibName');
+  if (!builtLib.existsSync()) {
+    throw BuildError(
+      message:
+          'cargo build succeeded but expected output was not found at '
+          '${builtLib.path}.',
+    );
+  }
+
+  publishNativeLibrary(source: builtLib, destination: outputLibFile);
+
+  output.assets.code.add(
+    CodeAsset(
+      package: input.packageName,
+      name: 'ct_ffi.dart',
+      linkMode: DynamicLoadingBundled(),
+      file: outputLibUri,
+    ),
+  );
 }
 
 void publishNativeLibrary({

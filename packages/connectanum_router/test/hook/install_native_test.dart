@@ -72,6 +72,52 @@ void main() {
     },
   );
 
+  test('release installer extracts inside paths containing spaces', () async {
+    final tempDir = await Directory.systemTemp.createTemp(
+      'connectanum native extraction ',
+    );
+    addTearDown(() => tempDir.delete(recursive: true));
+    final releaseAsset = native_installer.ReleaseAssetSpec(
+      repository: 'konsultaner/connectanum-dart',
+      tag: 'v3.0.0-beta.6',
+      hostTriple: build_hook.currentHostTriple(),
+    );
+    final sourceRoot = Directory('${tempDir.path}/source bundle')
+      ..createSync(recursive: true);
+    final bundledLibrary = File(
+      '${sourceRoot.path}/${releaseAsset.bundleName}/'
+      '${_defaultLibraryFileName()}',
+    );
+    bundledLibrary.parent.createSync(recursive: true);
+    bundledLibrary.writeAsStringSync('verified native archive');
+    final sourceArchive = File('${tempDir.path}/${releaseAsset.archiveName}');
+    final createResult = Process.runSync('tar', [
+      '-czf',
+      sourceArchive.path,
+      '-C',
+      sourceRoot.path,
+      releaseAsset.bundleName,
+    ]);
+    expect(createResult.exitCode, isZero, reason: '${createResult.stderr}');
+    final sourceChecksum = File('${sourceArchive.path}.sha256')
+      ..writeAsStringSync(
+        '${sha256.convert(sourceArchive.readAsBytesSync())}  '
+        '${releaseAsset.archiveName}',
+      );
+    final installed = await native_installer.installHostedNativeLibrary(
+      tag: releaseAsset.tag,
+      installRoot: Directory('${tempDir.path}/installed native'),
+      artifactDownloader: ({required source, required destination}) async {
+        destination.parent.createSync(recursive: true);
+        final sourceFile = source.path.endsWith('.sha256')
+            ? sourceChecksum
+            : sourceArchive;
+        sourceFile.copySync(destination.path);
+      },
+    );
+    expect(installed.readAsStringSync(), 'verified native archive');
+  });
+
   test('release installer maps every hosted native artifact target', () {
     expect(
       native_installer.hostTripleForPlatform(

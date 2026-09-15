@@ -582,3 +582,41 @@ points separately from the current library-only collector scope.
   orphan and preserving failed-test versus successful-test classification for
   zombie-only groups. CI must validate the repaired runner before starting new
   native mutation evidence. No timeout or coverage threshold was relaxed.
+
+### Build-Hook Execution And Router Installer
+
+- Extract each hook's native operation into buildNativeAssets without changing
+  its body. runBuildHook still uses the SDK build wrapper for error reporting and
+  process exit; tests can now assert operational BuildError behavior directly.
+- Thirty-one new tests per package check supported artifact names, unsupported
+  targets, no-code-asset builds, numeric/string/bool skip settings and precedence,
+  dependency inventory, optional source directories, cache timestamps including
+  equal-mtime rebuilds, missing native input/workspace/output, Cargo errors and
+  preservation of installed bytes. An owned shell fixture verifies the default
+  POSIX Cargo invocation and environment, not a real Rust build. Windows execution
+  is not established by that smoke. Existing SDK-wrapper tests still pass.
+- Fifteen router install CLI tests cover 52/52 executable lines. Focused packaging
+  collection passes the raised floors: client 381/402 (94.78%) and router 364/385
+  (94.55%); hooks are 329/350 and 312/333, each CLI 52/52. Twelve other packaging
+  sources remain unmeasured. Keep these per-package results separate from full VM
+  coverage. A combined concurrent diagnostic fails due to existing process-wide
+  cwd and exitCode tests; canonical per-package collection succeeds.
+- Add a complete router-installer mutation target. First inventory: 93 killed,
+  six survivors, four compile errors out of 103. A real-tar success test with
+  spaced paths kills the unconditional extraction-error mutation. Complete rerun:
+  94 killed, five survivors, four compile errors, 94.95% raw/adjusted, passing
+  clean/restored baselines and no timeouts/errors. No equivalences are waived.
+  Remaining IDs: f4b38e0eaca32083e0c9, d96fb05dfb182a9081db, 667cec0ca8602056d235
+  (recursive directory creation), d506118233042e426142 (arm64 host condition),
+  3a8c9e037148ff700121 (shell invocation). Linux x64 evidence is still pending.
+  Do not round 94.95% into a passing result or require this gate without evidence.
+- bin/test-fast and final bin/verify pass with Cargo retries disabled, including
+  745 router tests, isolated remote authentication, zero-copy, 374 core WASM and
+  two WebSocket WASM tests, before any native campaign. Focused analysis, formatting, 14 coverage
+  checker tests and 26 mutation-runner tests pass (Linux-specific case tested in
+  an owned container). Reports/logs are retained under packaging10 and complete
+  router-installer10 / router-installer10b directories.
+- For repair 0c1170ea, CI 35010985044 has passing Fast Checks, browser coverage,
+  consumer app and all three mutation gates; Full Verify / VM Coverage are still
+  running. Package dry-run 35010994084 passes. Final follow-up hosted evidence and
+  a fresh native CLI inventory remain required. The overall goal is still unmet.
