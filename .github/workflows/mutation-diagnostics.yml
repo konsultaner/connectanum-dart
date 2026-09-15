@@ -10,19 +10,22 @@ jobs:
   dart:
     name: Dart ${{ matrix.target }}
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ matrix.target == 'mcp' && 360 || 60 }}
+    timeout-minutes: ${{ (matrix.target == 'mcp' || matrix.target == 'mcp-cli-native') && 360 || 60 }}
     strategy:
       fail-fast: false
       matrix:
-        target: [core-base64-vm, core-base64-web, core-msgpack-vm, core-msgpack-web, mcp]
+        target: [core-base64-vm, core-base64-web, core-msgpack-vm, core-msgpack-web, mcp, mcp-cli-native]
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.target == 'mcp-cli-native'
       - id: chrome
         uses: browser-actions/setup-chrome@v2
       - name: Run complete target inventory (survivors fail the target)
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_MUTATIONS_NATIVE: ${{ matrix.target == 'mcp-cli-native' && '1' || '0' }}
         run: bin/test-mutations --target "${{ matrix.target }}" --output out/mutations
       - if: always()
         uses: actions/upload-artifact@v7

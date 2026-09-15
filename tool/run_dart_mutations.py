@@ -5,6 +5,7 @@ import argparse
 import collections
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -55,7 +56,8 @@ def classify(returncode, output):
     done = [e for e in events if e.get('type') == 'done']
     completed = [e for e in events if e.get('type') == 'testDone' and not e.get('hidden')]
     real = [e for e in completed if e.get('testID') in tests
-            and not tests[e['testID']]['name'].startswith('loading ')]
+            and not tests[e['testID']]['name'].startswith('loading ')
+            and not re.search(r'\((?:setUpAll|tearDownAll)\)$', tests[e['testID']]['name'])]
     if not done or any(e.get('skipped') for e in completed):
         return 'error'
     # Compiler/load errors and infrastructure crashes are not assertion kills.
@@ -90,6 +92,20 @@ def apply_mutation(source, mutation):
 
 def mutation_id(mutation):
     return hashlib.sha256(json.dumps(mutation, sort_keys=True).encode()).hexdigest()[:20]
+
+
+def native_artifact():
+    configured = os.environ.get('CONNECTANUM_NATIVE_LIB')
+    if not configured:
+        raise ValueError('CONNECTANUM_NATIVE_LIB is required for this native integration target; '
+                         'use CONNECTANUM_MUTATIONS_NATIVE=1 bin/test-mutations.')
+    path = Path(configured)
+    if not path.is_absolute():
+        raise ValueError('CONNECTANUM_NATIVE_LIB must identify an absolute path')
+    path = path.resolve()
+    if not path.is_file():
+        raise ValueError('CONNECTANUM_NATIVE_LIB must identify an existing file')
+    return {'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
 def summarize(outcomes):
@@ -164,6 +180,8 @@ def main():
     unknown = set(selected) - config.keys()
     if unknown:
         parser.error(f'Unknown targets: {sorted(unknown)}')
+    if not args.list and any(config[name].get('requiresNativeLibrary') for name in selected):
+        native_artifact()
     if args.output.exists():
         parser.error('output already exists; use a fresh directory')
     args.output.mkdir(parents=True)
@@ -219,13 +237,25 @@ def main():
             result['resolvedTests'] = resolved_tests
             result['testHashes'] = {str(path.relative_to(work)): hashlib.sha256(path.read_bytes()).hexdigest()
                                     for path in sorted(test_files)}
+            support_files = target.get('supportFiles', [])
+            for path in support_files:
+                if Path(path).is_absolute() or '..' in Path(path).parts or not (work / path).is_file():
+                    raise ValueError(f'Invalid mutation support file: {path}')
+            result['supportHashes'] = {path: hashlib.sha256((work / path).read_bytes()).hexdigest()
+                                       for path in support_files}
             report['targets'][name] = result
             if args.list:
                 result['inventory'] = mutations
                 save()
                 continue
+            artifact = native_artifact() if target.get('requiresNativeLibrary') else None
+            if artifact:
+                result['nativeArtifact'] = artifact
+            test_timeout = target.get('testTimeoutSeconds', 5)
+            if isinstance(test_timeout, bool) or not isinstance(test_timeout, (int, float)) or not math.isfinite(test_timeout) or test_timeout <= 0:
+                raise ValueError('testTimeoutSeconds must be finite and positive')
             command = ['dart', 'test', '--reporter=json', '--concurrency=1', '--fail-fast',
-                       '--timeout=5s', *resolved_tests]
+                       f'--timeout={test_timeout}s', *resolved_tests]
             platform = target.get('platform', 'vm')
             if platform not in ('vm', 'chrome'):
                 raise ValueError(f'Unsupported test platform: {platform}')
@@ -276,6 +306,11 @@ def main():
             result['restoredBaseline'] = classify(code, output)
             result['restoredBaselineExitCode'] = code
             (args.output / f'{name}-restored-baseline.log').write_text(output)
+            if artifact:
+                result['nativeArtifactUnchanged'] = native_artifact() == artifact
+                save()
+                if not result['nativeArtifactUnchanged']:
+                    raise RuntimeError('Native artifact changed during the mutation run; evidence is invalid')
             if result['restoredBaseline'] != 'survived':
                 save()
                 raise RuntimeError(f'{name}: restored baseline failed')

@@ -13,7 +13,7 @@ use bytes::Bytes;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::{ptr, slice, str};
 
-#[cfg(feature = "ffi-test")]
+#[cfg(any(feature = "ffi-test", test))]
 use std::net::SocketAddr;
 
 use dashmap::DashMap;
@@ -4852,6 +4852,17 @@ fn build_http3_client_config_from_pem(pem: &str) -> Result<QuinnClientConfig, c_
     build_http3_client_config_from_roots(Arc::new(roots))
 }
 
+#[cfg(any(feature = "ffi-test", test))]
+pub(crate) fn http3_test_client_bind_addr(server_addr: SocketAddr) -> SocketAddr {
+    // A dual-stack ephemeral bind can collide with an existing IPv4 UDP socket
+    // on macOS, silently delivering the peer's replies to the other owner.
+    let ip = match server_addr {
+        SocketAddr::V4(_) => std::net::Ipv4Addr::UNSPECIFIED.into(),
+        SocketAddr::V6(_) => std::net::Ipv6Addr::UNSPECIFIED.into(),
+    };
+    SocketAddr::new(ip, 0)
+}
+
 #[cfg(feature = "ffi-test")]
 #[no_mangle]
 pub extern "C" fn ct_test_http3_stream_request(
@@ -4932,9 +4943,8 @@ pub extern "C" fn ct_test_http3_stream_request(
     let result = runtime.block_on(async {
         let addr = format!("{host}:{port}");
         let server_addr = addr.parse().map_err(|_| ERR_INVALID_ARGUMENT)?;
-        let mut endpoint =
-            QuinnEndpoint::client("[::]:0".parse().map_err(|_| ERR_INVALID_ARGUMENT)?)
-                .map_err(|_| ERR_INTERNAL)?;
+        let mut endpoint = QuinnEndpoint::client(http3_test_client_bind_addr(server_addr))
+            .map_err(|_| ERR_INTERNAL)?;
         endpoint.set_default_client_config(client_config);
         let local_addr = endpoint.local_addr().map_err(|_| ERR_INTERNAL)?;
         let handshake_started = std::time::Instant::now();

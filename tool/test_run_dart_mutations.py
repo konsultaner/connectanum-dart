@@ -47,6 +47,63 @@ class MutationRunnerTests(unittest.TestCase):
             with self.subTest(returncode=signal_exit):
                 self.assertEqual(classify(signal_exit, output), 'error')
 
+    def test_failed_suite_fixtures_never_count_as_mutation_kills(self):
+        for name in ('(setUpAll)', 'router (setUpAll)', 'router (tearDownAll)'):
+            output = events(
+                {'type': 'testStart', 'test': {'id': 1, 'name': name}},
+                {'type': 'testDone', 'testID': 1, 'result': 'failure'},
+                {'type': 'done', 'success': False},
+            )
+            with self.subTest(name=name):
+                self.assertEqual(classify(1, output), 'error')
+
+    def test_real_dart_reporter_distinguishes_fixture_failures_and_kills(self):
+        cases = [
+            ('healthy', '', 'expect(1, 1);', 'survived'),
+            ('assertion', '', 'expect(1, 2);', 'killed'),
+            ('startup', "setUpAll(() => throw StateError('startup'));",
+             'expect(1, 1);', 'error'),
+            ('shutdown', "tearDownAll(() => throw StateError('shutdown'));",
+             'expect(1, 1);', 'error'),
+            ('shutdown_after_failure', "tearDownAll(() => throw StateError('shutdown'));",
+             'expect(1, 2);', 'error'),
+            ('timeout', '', 'await Future<void>.delayed(const Duration(seconds: 5));',
+             'timeout'),
+            ('abrupt_exit', '', 'exit(2);', 'error'),
+        ]
+        with tempfile.TemporaryDirectory(prefix='mutation-reporter-',
+                                         dir=runner.ROOT / '.dart_tool') as directory:
+            for name, lifecycle, body, expected in cases:
+                with self.subTest(case=name):
+                    source = Path(directory) / f'{name}_test.dart'
+                    source.write_text(
+                        "import 'dart:io';\nimport 'package:test/test.dart';\n"
+                        "void main() { group('fixture isolation', () {\n"
+                        f"{lifecycle}\n"
+                        f"test('contract', () async {{ {body} }});\n"
+                        "}); }\n"
+                    )
+                    code, output = run(
+                        ['dart', 'test', str(source), '--reporter=json',
+                         '--concurrency=1', '--timeout=1s'], runner.ROOT, 45,
+                    )
+                    self.assertEqual(classify(code, output), expected, output)
+
+    def test_native_artifact_is_required_and_hashed_not_silently_skipped(self):
+        with tempfile.TemporaryDirectory() as directory:
+            library = Path(directory) / 'library.bin'
+            library.write_bytes(b'native fixture')
+            with patch.dict(runner.os.environ, {}, clear=True):
+                with self.assertRaisesRegex(ValueError, 'CONNECTANUM_NATIVE_LIB'):
+                    runner.native_artifact()
+            with patch.dict(runner.os.environ, {'CONNECTANUM_NATIVE_LIB': str(library)}):
+                artifact = runner.native_artifact()
+                self.assertEqual(artifact['path'], str(library.resolve()))
+                self.assertEqual(artifact['sha256'], runner.hashlib.sha256(b'native fixture').hexdigest())
+                library.unlink()
+                with self.assertRaisesRegex(ValueError, 'existing file'):
+                    runner.native_artifact()
+
     def test_success_requires_nonempty_completed_unskipped_suite(self):
         started = {'type': 'testStart', 'test': {'id': 1, 'name': 'allows valid request'}}
         completed = {'type': 'testDone', 'testID': 1, 'result': 'success', 'skipped': False}
@@ -80,6 +137,12 @@ class MutationRunnerTests(unittest.TestCase):
     def test_directory_targets_record_and_run_stable_test_file_order(self):
         self.exercise_main('killed', 0, directory_tests=True)
 
+    def test_native_target_records_support_artifact_and_test_deadline(self):
+        self.exercise_main('killed', 0, native=True)
+
+    def test_native_artifact_change_invalidates_completed_mutants(self):
+        self.exercise_main('artifactChanged', None, native=True)
+
     def test_empty_or_non_mapping_targets_cannot_pass_without_running_tests(self):
         for invalid in ({}, [], None):
             with self.subTest(config=invalid), tempfile.TemporaryDirectory() as directory:
@@ -102,7 +165,7 @@ class MutationRunnerTests(unittest.TestCase):
                     command.assert_not_called()
                 self.assertFalse(output.exists())
 
-    def exercise_main(self, status, expected_code, directory_tests=False):
+    def exercise_main(self, status, expected_code, directory_tests=False, native=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config = root / 'config.json'
@@ -111,7 +174,13 @@ class MutationRunnerTests(unittest.TestCase):
             source_path = 'packages/core/lib/a.dart'
             test_path = 'packages/core/test/a_test.dart'
             selected = ['packages/core/test'] if directory_tests else [test_path]
-            config.write_text(json.dumps({'fixture': {'sources': [source_path], 'tests': selected}}))
+            target = {'sources': [source_path], 'tests': selected}
+            library = root / 'native.bin'
+            library.write_bytes(b'native baseline')
+            if native:
+                target.update(requiresNativeLibrary=True, testTimeoutSeconds=20,
+                              supportFiles=['packages/core/example/server.dart'])
+            config.write_text(json.dumps({'fixture': target}))
             source = 'bool f() => true;'
             mutation = {'file': source_path, 'offset': 12, 'length': 4, 'line': 1,
                         'original': 'true', 'replacement': 'false', 'operator': 'boolean'}
@@ -121,6 +190,8 @@ class MutationRunnerTests(unittest.TestCase):
             seen = []
             def fake_snapshot(work):
                 files = [(source_path, source)]
+                if native:
+                    files.append(('packages/core/example/server.dart', 'example fixture'))
                 if directory_tests:
                     files.extend([('packages/core/test/z_test.dart', 'last test'),
                                   ('packages/core/test/support/helper.dart', 'helper')])
@@ -141,6 +212,10 @@ class MutationRunnerTests(unittest.TestCase):
                         [test_path, 'packages/core/test/z_test.dart'])
                 current = (work / source_path).read_text()
                 seen.append(current)
+                if native:
+                    self.assertIn('--timeout=20s', command)
+                    if status == 'artifactChanged' and len(seen) == 3:
+                        library.write_bytes(b'replaced artifact')
                 if (status == 'baselineFailure' or
                         status == 'restoredFailure' and len(seen) == 3):
                     return -9, ''
@@ -152,7 +227,8 @@ class MutationRunnerTests(unittest.TestCase):
             args = ['runner', '--config', str(config), '--equivalents', str(equivalents),
                     '--output', str(root / 'result')]
             with patch.object(sys, 'argv', args), patch.object(runner, 'snapshot', fake_snapshot), \
-                 patch.object(runner, 'run', fake_run), patch.object(runner.subprocess, 'check_output', return_value='commit'):
+                 patch.object(runner, 'run', fake_run), patch.object(runner.subprocess, 'check_output', return_value='commit'), \
+                 patch.dict(runner.os.environ, {'CONNECTANUM_NATIVE_LIB': str(library)}):
                 if expected_code is None:
                     with self.assertRaises(RuntimeError):
                         runner.main()
@@ -162,6 +238,8 @@ class MutationRunnerTests(unittest.TestCase):
                              else [source, 'bool f() => false;', source])
             report = json.loads((root / 'result/mutation-report.json').read_text())
             self.assertEqual(report['complete'], expected_code is not None)
+            if status == 'artifactChanged':
+                self.assertFalse(report['targets']['fixture']['nativeArtifactUnchanged'])
             if expected_code is not None:
                 target = report['targets']['fixture']
                 self.assertEqual(target['restoredBaseline'], 'survived')
@@ -171,6 +249,14 @@ class MutationRunnerTests(unittest.TestCase):
                     self.assertEqual(target['resolvedTests'],
                                      [test_path, 'packages/core/test/z_test.dart'])
                     self.assertIn('packages/core/test/support/helper.dart', target['testHashes'])
+                if native:
+                    self.assertTrue(target['nativeArtifactUnchanged'])
+                    self.assertEqual(target['nativeArtifact']['sha256'],
+                                     runner.hashlib.sha256(b'native baseline').hexdigest())
+                    self.assertEqual(target['supportHashes'], {
+                        'packages/core/example/server.dart':
+                            runner.hashlib.sha256(b'example fixture').hexdigest(),
+                    })
                 if status == 'signal':
                     self.assertEqual(target['counts'], {'error': 1})
                     self.assertEqual(target['score'], 0)

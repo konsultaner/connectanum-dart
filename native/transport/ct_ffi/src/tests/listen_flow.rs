@@ -22,6 +22,8 @@ use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::runtime::Runtime as TokioRuntime;
 
+use crate::runtime::ffi::http3_test_client_bind_addr;
+
 const HTTP2_TEST_MAX_CONCURRENT_STREAMS: u32 = 1024;
 const HTTP2_TEST_INITIAL_STREAM_WINDOW: u32 = 8 * 1024 * 1024;
 const HTTP2_TEST_INITIAL_CONNECTION_WINDOW: u32 = 64 * 1024 * 1024;
@@ -2429,6 +2431,34 @@ fn http2_handshake_surfaced_via_ffi() {
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 
+#[test]
+fn http3_test_client_binds_the_destination_address_family() {
+    for peer in ["127.0.0.1:443", "[::1]:443"] {
+        let peer: std::net::SocketAddr = peer.parse().unwrap();
+        let bind = crate::runtime::ffi::http3_test_client_bind_addr(peer);
+        assert_eq!(bind.is_ipv4(), peer.is_ipv4(), "peer {peer}");
+        assert!(bind.ip().is_unspecified());
+        assert_eq!(bind.port(), 0);
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn http3_test_client_cannot_shadow_an_existing_ipv4_udp_socket() {
+    let runtime = TokioRuntime::new().unwrap();
+    let occupied = std::net::UdpSocket::bind("0.0.0.0:0").unwrap();
+    let peer = occupied.local_addr().unwrap();
+    let mut bind = crate::runtime::ffi::http3_test_client_bind_addr(peer);
+    // Force the ephemeral-port collision captured in the failing handshake.
+    // macOS permits a dual-stack socket here, but routes replies to `occupied`.
+    bind.set_port(peer.port());
+    runtime.block_on(async {
+        let error = QuinnEndpoint::client(bind)
+            .expect_err("the IPv4 client must not shadow another socket's reply port");
+        assert_eq!(error.kind(), std::io::ErrorKind::AddrInUse);
+    });
+}
+
 #[cfg(feature = "ffi-test")]
 #[test]
 fn http3_test_client_bounds_a_silent_peer_handshake() {
@@ -2625,7 +2655,7 @@ fn http3_handshake_surfaced_via_ffi() {
             .expect("add root cert");
         let client_config = build_http3_client_config(Arc::new(roots));
 
-        let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+        let mut endpoint = QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
         endpoint.set_default_client_config(client_config);
         let connection = endpoint
             .connect(server_addr, "localhost")
@@ -2749,7 +2779,7 @@ fn http3_multiple_connections_handshake() {
             .expect("add root cert");
         let client_config = build_http3_client_config(Arc::new(roots));
 
-        let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+        let mut endpoint = QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
         endpoint.set_default_client_config(client_config);
         let mut conns = Vec::with_capacity(connection_count);
         for _ in 0..connection_count {
@@ -2844,7 +2874,7 @@ fn http3_stream_poll_returns_handle() {
             .expect("add root cert");
         let client_config = build_http3_client_config(Arc::new(roots));
 
-        let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+        let mut endpoint = QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
         endpoint.set_default_client_config(client_config);
         let connecting = endpoint
             .connect(server_addr, "localhost")
@@ -3085,7 +3115,8 @@ fn http3_request_round_trip_over_network() {
                 .expect("add root cert");
             let client_config = build_http3_client_config(Arc::new(roots));
 
-            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            let mut endpoint =
+                QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
             endpoint.set_default_client_config(client_config);
             let connecting = endpoint
                 .connect(server_addr, "localhost")
@@ -3253,7 +3284,8 @@ fn http3_transport_auth_rejects_bearerless_route() {
                 .expect("add root cert");
             let client_config = build_http3_client_config(Arc::new(roots));
 
-            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            let mut endpoint =
+                QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
             endpoint.set_default_client_config(client_config);
             let connecting = endpoint
                 .connect(server_addr, "localhost")
@@ -3366,7 +3398,8 @@ fn http3_response_streaming_round_trip() {
                 .expect("add root cert");
             let client_config = build_http3_client_config(Arc::new(roots));
 
-            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            let mut endpoint =
+                QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
             endpoint.set_default_client_config(client_config);
             let connecting = endpoint
                 .connect(server_addr, "localhost")
@@ -3748,7 +3781,8 @@ fn http3_body_timeout_emits_connection_event() {
                 .expect("add root cert");
             let client_config = build_http3_client_config(Arc::new(roots));
 
-            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            let mut endpoint =
+                QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
             endpoint.set_default_client_config(client_config);
             let connecting = endpoint
                 .connect(server_addr, "localhost")
@@ -3883,7 +3917,8 @@ fn http3_idle_timeout_emits_connection_event() {
                 .expect("add root cert");
             let client_config = build_http3_client_config(Arc::new(roots));
 
-            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            let mut endpoint =
+                QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
             endpoint.set_default_client_config(client_config);
             let connecting = endpoint
                 .connect(server_addr, "localhost")

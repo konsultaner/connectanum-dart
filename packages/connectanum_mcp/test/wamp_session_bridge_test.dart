@@ -79,9 +79,6 @@ void main() {
   for (final acknowledge in [true, false]) {
     test('session publish honors acknowledge=$acknowledge', () async {
       final server = await _server(_api().toSessionTools(session: session));
-      final observed = peer.transport.sentMessages.firstWhere(
-        (message) => message is wamp.Publish,
-      );
       final result = await _tool(server, 'connectanum.pubsub.publish', {
         'topic': 'app.events',
         'arguments': [7],
@@ -89,14 +86,17 @@ void main() {
         'acknowledge': acknowledge,
         'options': {'exclude_me': false, 'retain': true},
       });
-      final publish = await observed as wamp.Publish;
+      expect(result['isError'], isFalse);
+      // Drain the same WAMP stream even for unacknowledged publishes. A failed
+      // tool result must fail above, not leave an event waiter pending forever.
+      await session.callSinglePayload('app.barrier');
+      final publish = peer.messages.whereType<wamp.Publish>().single;
       expect(publish.topic, 'app.events');
       expect(publish.arguments, [7]);
       expect(publish.argumentsKeywords, {'text': 'hello'});
       expect(publish.options?.acknowledge, acknowledge);
       expect(publish.options?.excludeMe, isFalse);
       expect(publish.options?.retain, isTrue);
-      expect(result['isError'], isFalse);
       final content = result['structuredContent'] as Map;
       expect(content['acknowledged'], acknowledge);
       expect(content['publicationId'], acknowledge ? 91 : null);

@@ -15,6 +15,14 @@ pending; PR #92 merged into master as `f3323e48` on 2026-09-15, with green CI
 `34962388214`, publish dry-run `34962388215`, and WAMP benchmarks `34962388212`.
 Publication is outside the current coverage goal.
 
+Latest local evidence: the HTTP/3 address-family collision now has deterministic
+before/after regressions and a passing full `bin/verify`. Fresh full VM coverage
+passes its ratchets at 35,930/42,324 lines (84.89%), with 6,394 measured lines
+uncovered and 60 unmeasured library files. MCP including its CLI measures
+3,646/3,906 (93.34%); the CLI itself is 2,060/2,291 (89.92%). These are still
+below the goal. The complete native CLI mutation campaign is the next execution
+step, serialized after coverage. Earlier checkpoints below are historical.
+
 Testing checkpoint: the expanded VM collector and additional authentication
 regressions measure 33,891/40,033 lines (84.66%) in the latest full run,
 with 6,142 measured lines still uncovered.
@@ -127,7 +135,10 @@ Commit `5fa96e89` is pushed to PR #93. Final-state `bin/verify`, CI
 `34990192211`, and publish dry-run `34990192207` were started. The dry-run
 passes, but local verification reproduced the HTTP/3 handshake timeout in
 `serves protected direct JSON WAMP helpers over native HTTP/3`, at POST
-`/mcp/secure`. Hosted CI and the candidate audit remain pending.
+`/mcp/secure`. Hosted CI `34990192211` has since passed all seven jobs.
+Its Linux VM artifact measures 34,345/42,324 (81.15%), including MCP
+2,049/3,906 (52.46%) and 60 unmeasured library files. Keep it separate from
+the local VM measurement; it does not establish the 98% target.
 
 HTTP/3 investigation: a new deterministic FFI regression proves that the
 per-request test client destroyed its Tokio runtime without draining QUIC,
@@ -141,8 +152,65 @@ assert single close events and registry cleanup. The FFI cleanup/error and
 silent-peer deadline tests pass, as do all 77 native router integration tests.
 Debug-only endpoint/admission traces provide correlation for future handshake
 failures. These fixes do not yet prove the original intermittent handshake
-cause. Fresh `bin/test-fast` passes; final `bin/verify` is running, with no
-overlapping full coverage collector. The full coverage goal remains unmet.
+cause. Fresh `bin/test-fast` and final `bin/verify` pass, including all 671
+router tests, isolated remote-auth integration and Chrome WASM checks, with no
+overlapping full coverage collector. Commit `d097afaf` is pushed to draft
+PR #93. Its package dry-run `34992820507` passes; CI `34992820252` is running
+and the required candidate CI/log/publish-dry-run audit remains pending.
+The full coverage goal remains unmet.
+
+Public CLI integration checkpoint: nine new tests invoke the CLI in-process
+against the real, child-process public router example. They exercise both
+compatibility versions, public and bearer-protected SSE/JSON-response sessions,
+session deletion, registration/subscription metadata, pub/sub, resource updates,
+ticket/WAMP-CRA/SCRAM grants, refresh and revocation. The integration-only
+measurement covers 1,932/2,291 CLI lines (84.33%). A fresh combined run of all
+234 CLI unit/integration tests passes and measures 2,060/2,291 (89.92%), with
+231 uncovered lines; its regression floor rises to 89.9%. Full VM collection
+is still required. No repository-wide increase is inferred from this slice.
+The tests reproduced an example shutdown leak: Future.any over two signal
+subscriptions left the unused listener alive after shutdown. Explicitly
+cancelling both subscriptions fixes normal SIGTERM and SIGINT exit, with
+bounded, idempotent child cleanup in the tests. Native fixtures remain serial.
+The new complete `mcp-cli-native` inventory has 1,179 mutants and includes
+both CLI unit tests and these integration tests. Execution is pending; its
+required native library and support files are hash-recorded, and missing or
+changed native artifacts invalidate evidence. Suite-fixture failures now count
+as infrastructure errors, not kills; all 18 mutation-runner regressions pass.
+The older full MCP diagnostic inventory completed with 659 kills, 1,349
+survivors, 262 compile errors and four timeouts: 32.75% raw/adjusted, no
+equivalences, with passing clean/restored baselines. It predates the latest
+tests and runner guards and is not a passing/current mutation claim. The four
+timeouts came from a publish test awaiting an event after tool failure. It now
+asserts success before a same-stream WAMP barrier; all four targeted replay
+mutants produce assertion kills with passing clean/restored baselines and no
+timeouts/errors. This replay is not a complete inventory score.
+Candidate `d097afaf` now has all seven CI jobs green and passes the required
+CI/log/publish-dry-run audit. That evidence does not cover the uncommitted CLI
+integration checkpoint. Fresh `bin/test-fast` passes; final `bin/verify` is
+running, with full VM coverage and native mutation execution to follow serially.
+
+HTTP/3 causal regression checkpoint: that verification failed again in the
+protected native HTTP/3 test. Temporary socket-level diagnostics then captured
+the client sending Initial packets and the server successfully replying, but
+no replies arriving at the client. On macOS its dual-stack ephemeral bind had
+overlapped an existing IPv4 UDP socket, which owned the reply port. A probe using
+only fresh test-owned sockets reproduces the misdelivery. The test client now
+binds the destination address family; both new regressions fail with the old
+bind and pass with the fix. They check IPv4/IPv6 selection and rejection of a
+forced occupied IPv4 port. All eight Rust HTTP/3 test clients use the same
+helper. The five-second handshake deadline is unchanged; temporary packet
+instrumentation is removed. All four focused FFI regressions and a fresh
+`bin/test-fast` pass. Full `bin/verify` passes on the fixed tree, including 152
+ffi-test cases, 680 router tests, isolated remote auth, zero-copy, 374 core WASM
+tests and two WebSocket WASM tests. Fresh full VM collection also passes at
+35,930/42,324 lines (84.89%), retaining all CLI lines and validating its 89.9%
+floor after fixture extraction. The complete native CLI mutation campaign
+remains the next step; no complete native CLI mutation score is claimed.
+Mutation classification is additionally checked against actual Dart reporter
+output for healthy/assertion-failing tests, setup/teardown failures, teardown
+after assertion failure, timeouts and abrupt exits. All 19 runner tests pass.
+The latest hosted green evidence still covers d097afaf, not this local fix.
 
 Previous release milestone: clear the final deployment-chain audit blocker, then publish
 the synchronized `3.0.0-beta.6` tester release from protected `master`. The

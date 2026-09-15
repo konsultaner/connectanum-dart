@@ -356,8 +356,11 @@ browser, client/router and consumer scopes; neither target is complete.
   headers or payloads in the new diagnostics.
 - Both deterministic setup tests and both FFI deadline/cleanup tests pass.
   All 77 native router integration tests pass with debug traces. Fresh
-  `bin/test-fast` passes, and final `bin/verify` is running. The previous
-  candidate's package dry-run passes; its hosted CI/audit remain pending.
+  `bin/test-fast` and final `bin/verify` pass, including 671 router tests,
+  isolated remote-auth integration and Chrome WASM checks. The previous
+  candidate's CI `34990192211` and package dry-run both pass. Its Linux VM
+  artifact measures 34,345/42,324 (81.15%), with 60 unmeasured library files;
+  retain it separately from the local 34,337/42,324 measurement.
 - The separate full 1,179-mutant CLI inventory has now completed with 221 kills,
   631 survivors, 327 compile errors, zero timeouts/errors, and passing clean and
   restored baselines. Raw/adjusted score is 25.94% over 852 viable mutants, with
@@ -367,8 +370,119 @@ browser, client/router and consumer scopes; neither target is complete.
   The complete report and per-mutant logs are retained under the preceding
   MCP CLI evidence directory. This does not replace the still-running older
   full MCP diagnostic snapshot or establish a passing CLI mutation gate.
+- Native fixes are pushed as `d097afaf` to draft PR #93. Package dry-run
+  `34992820507` passes; current CI `34992820252` is running, so the required
+  candidate CI/log/publish-dry-run audit remains pending. No merge/publication.
 
 Evidence: `out/regression-coverage-2026-09-15/http3-cleanup/` retains the failing
 verification, reproduced assertions, focused passing tests, and router traces.
 The complete coverage goal remains active; no new whole-component score is
 claimed from these focused regressions.
+
+### Public CLI Integration And Signal Cleanup
+
+- Nine new Dart integration tests run the public CLI in the coverage process
+  against the real public router example in a child. They cover 2025-03-26 and
+  2025-06-18 compatibility, protected SSE and JSON-response routes, authenticated
+  session deletion, WAMP metadata, pub/sub and resource notifications. Modern
+  ticket/WAMP-CRA/SCRAM flows verify refresh, request-scoped resource updates,
+  revocation and sessionlessness; wrong-realm/unprotected auth discovery fails
+  closed. The standalone MCP package tests remain native-independent.
+- Initial teardown required SIGKILL after a successful SIGTERM request. An
+  independent stuck example exited immediately when subsequently sent SIGINT:
+  Future.any did not cancel the untriggered signal stream. The example now
+  registers both listeners before readiness and explicitly cancels them on
+  shutdown. Both normal SIGTERM and SIGINT exit-zero tests pass. The fixture
+  registers idempotent cleanup before awaiting readiness, bounds termination,
+  and serializes children because NativeTransportRuntime uses an OS-wide lock.
+- The integration-only coverage run measures 1,932/2,291 CLI lines (84.33%).
+  The subsequent fresh combined 234-test CLI run passes at 2,060/2,291 lines
+  (89.92%), leaving 231 uncovered lines and raising its regression floor to
+  89.9%. This is not a fresh whole-workspace score; full collection remains
+  required to validate the candidate before push.
+- `mcp-cli-native` declares all 1,179 CLI mutants, both CLI unit-test files and
+  the router integration test. It records support-file and native-artifact
+  hashes; missing native inputs fail instead of skipping. Native bytes must
+  remain unchanged through the restored baseline. Run it with
+  `CONNECTANUM_MUTATIONS_NATIVE=1 bin/test-mutations --target mcp-cli-native --output <fresh-directory>`.
+  The manual diagnostic workflow includes this target. Its complete execution
+  is pending; the inventory alone establishes no score. Keep it serialized
+  with full native verification and coverage collection.
+  The example-only SIGINT regression lives in a separate lifecycle test file:
+  full verification includes it, but CLI mutation scoring does not credit
+  failures in unrelated example code. The shared child fixture is hash-recorded
+  as a support file. Repeat combined collection after this helper extraction.
+- Mutation-runner tests reproduced suite setup/teardown failures classified as
+  kills. Such failures now remain infrastructure errors. Eighteen runner tests
+  pass, including support hashes, native input validation, configured test
+  deadlines and changed-artifact rejection with incomplete evidence.
+- The older complete MCP diagnostic run finished at 659 killed, 1,349 survived,
+  262 compile errors and four timeouts (2,012 viable; 32.75% raw/adjusted; no
+  equivalences). Its clean/restored baselines pass. This snapshot predates the
+  latest CLI tests and runner guards. The four timeout mutants force the null
+  validation guards at wamp_api.dart lines 1766, 1777, 1790 and 1813 false;
+  the publish test awaited a message even after an error result. Assert success
+  before a same-stream WAMP barrier and inspect the recorded publish instead.
+  All six session bridge tests pass; isolated replay of those four exact
+  mutants produces four assertion kills, no timeouts/errors, and passing
+  clean/restored baselines. The replay records its four-mutant diagnostic scope
+  explicitly; it is not a new complete MCP score.
+- Prior candidate d097afaf passes all seven hosted CI jobs (34992820252),
+  package dry-run 34992820507, and the required candidate audit. The new code is
+  not yet covered by that hosted result. Fresh `bin/test-fast` passes and final
+  `bin/verify` is running. Full VM collection and the native CLI mutation target
+  must follow serially, not overlap the native runtime lock.
+
+Evidence is retained under `out/regression-coverage-2026-09-15/mcp-cli-live/`.
+Continue toward the full original coverage and mutation targets; no completion
+or release readiness claim is made from this checkpoint.
+
+### HTTP/3 Address-Family Collision
+
+- The previous full verification failed again at the protected MCP HTTP/3 GET.
+  A 50-attempt diagnostic group stopped at its first failure, attempt 16;
+  the server received the client's Initial with zero pending admissions. A
+  second instrumented group also stopped at attempt 16: server replies were
+  successfully sent but the dual-stack client received no datagrams. Another
+  IPv4 socket owned the same local port. Neither increased timeouts nor passing
+  retries establish a fix for this failure.
+- An independent, test-owned socket probe reproduces the macOS collision:
+  an IPv4 wildcard bind and a dual-stack IPv6 bind can share a port, but IPv4
+  replies reach the original IPv4 owner. Binding the client in the destination's
+  address family rejects that occupied port with AddrInUse instead.
+- `http3_test_client_bind_addr` now selects IPv4/IPv6 unspecified addresses from
+  the peer address. The FFI test request client and all eight Rust HTTP/3 test
+  clients use it. The deterministic family-selection and occupied-port tests
+  both fail before and pass after the change. All four focused FFI tests pass,
+  including the unchanged silent-peer deadline and endpoint-draining regressions.
+  This helper matrix does not claim complete FFI IPv6 host-parser coverage.
+- Temporary UDP instrumentation is removed and the optimized ffi-test artifact
+  rebuilt from the fixed source. Fresh `bin/test-fast` and `bin/verify` pass.
+  Full verification includes 152 ffi-test cases, 680 router tests, isolated
+  remote auth, zero-copy, 374 core WASM tests and two WebSocket WASM tests.
+- Fresh full VM collection, serialized after verification, passes at
+  35,930/42,324 lines (84.89%), leaving 6,394 uncovered measured lines and 60
+  unmeasured library files. MCP is 3,646/3,906 (93.34%); CLI coverage remains
+  2,060/2,291 (89.92%) after fixture extraction and validates the 89.9% floor.
+  Authentication is 455/455; core 6,359/7,211; client 7,843/9,234; router
+  15,841/19,268; bench 1,786/2,250. No favorable union with older runs is used.
+  The original per-component/runtime and mutation targets remain unmet.
+- A new runner regression launches actual Dart reporter fixtures rather than
+  relying solely on synthetic events. Healthy tests survive, assertion failures
+  kill, suite setup/teardown failures and abrupt exits remain infrastructure
+  errors, and test timeouts remain timeouts. A teardown failure overrides an
+  earlier assertion kill. All 19 runner regressions pass; the local companion's
+  speculative fixture-misattribution concern did not reproduce on this reporter.
+
+Evidence: `out/regression-coverage-2026-09-15/http3-address-family/`, including
+both stopped diagnostic groups, temporary instrumentation source, the standalone
+socket repro and before/after regression logs. Never stop another application
+or alter its sockets to work around this failure.
+
+Next: push this verified checkpoint, run the complete `mcp-cli-native` target
+into `out/regression-coverage-2026-09-15/mcp-cli-native/`, and inspect hosted
+CI/audit evidence. Do not rebuild or replace its hash-pinned native library
+while mutations run. Client `test/hook` is another concrete coverage gap:
+existing installer/build-hook tests are omitted from the root test and VM
+coverage commands. Measure and integrate them next, retaining hook/tool entry
+points separately from the current library-only collector scope.
