@@ -567,3 +567,18 @@ points separately from the current library-only collector scope.
   entry points; client is 297/400 and router is 250/383. Reports are retained in
   out/regression-coverage-2026-09-15/vm-current9. Branch push and candidate hosted
   audit remain required; the complete-scope coverage goal remains unmet.
+
+### Linux Mutation Process-State Regression
+
+- CI 35010146390 for 3f87906e fails all three mutation gates at clean baseline.
+  Their retained JSON logs end with success=true followed by the runner's orphan
+  marker. Linux killpg succeeds even when only unreaped zombies remain. A
+  Linux-only child-subreaper test retains a confirmed Z-state descendant and
+  reproduces the false error without sleeps or Dart-specific assumptions.
+- The runner now records live process-group members before signaling; Z/X states
+  are already terminated, while sleeping, running, blocked and stopped fixtures
+  still invalidate the result. Census failures remain infrastructure errors.
+  Four deterministic Linux regressions pass, including killing a real listening
+  orphan and preserving failed-test versus successful-test classification for
+  zombie-only groups. CI must validate the repaired runner before starting new
+  native mutation evidence. No timeout or coverage threshold was relaxed.

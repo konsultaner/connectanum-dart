@@ -20,6 +20,68 @@ def events(*items):
 
 
 class MutationRunnerTests(unittest.TestCase):
+    def test_process_census_distinguishes_live_zombie_and_unrelated_groups(self):
+        output = runner.subprocess.CompletedProcess([], 0, stdout=(
+            ' 10 20 S\n 11 20 Z\n 12 20 Z+\n 13 20 X\n'
+            ' 14 20 D\n 15 20 T\n 16 99 R\n\n'), stderr='')
+        with patch.object(runner.subprocess, 'run', return_value=output) as command:
+            self.assertEqual(runner.live_process_group_members(20), [
+                {'pid': 10, 'state': 'S'}, {'pid': 14, 'state': 'D'},
+                {'pid': 15, 'state': 'T'},
+            ])
+            self.assertTrue(command.call_args.kwargs['check'])
+
+    def test_process_inspection_failure_is_an_infrastructure_error(self):
+        with patch.object(runner, 'live_process_group_members',
+                          side_effect=OSError('ps unavailable')):
+            code, output = run([sys.executable, '-c', 'print("finished")'], runner.ROOT, 5)
+        self.assertEqual(code, 0)
+        self.assertEqual(classify(code, output), 'error')
+        self.assertIn('Could not inspect remaining test processes', output)
+        self.assertIn('ps unavailable', output)
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux child subreaper contract')
+    def test_zombie_descendants_do_not_invalidate_completed_results(self):
+        import ctypes
+
+        libc = ctypes.CDLL(None, use_errno=True)
+        previous = ctypes.c_int()
+        self.assertEqual(libc.prctl(37, ctypes.byref(previous), 0, 0, 0), 0)
+        self.assertEqual(libc.prctl(36, 1, 0, 0, 0), 0)
+        child_pid = None
+        try:
+            for exit_code, expected in ((0, 'survived'), (1, 'killed')):
+                output = events(
+                    {'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+                    {'type': 'testDone', 'testID': 1,
+                     'result': 'success' if exit_code == 0 else 'failure'},
+                    {'type': 'done', 'success': exit_code == 0},
+                )
+                parent = (
+                    'import os,sys,json\n'
+                    'pid=os.fork()\n'
+                    'if pid == 0: os._exit(0)\n'
+                    'os.waitid(os.P_PID,pid,os.WEXITED|os.WNOWAIT)\n'
+                    'print(json.dumps({"pid":pid,"pgid":os.getpgrp()}),flush=True)\n'
+                    f'print({output!r},flush=True)\n'
+                    f'sys.exit({exit_code})\n'
+                )
+                code, actual = run([sys.executable, '-c', parent], runner.ROOT, 5)
+                owned = json.loads(actual.splitlines()[0])
+                child_pid = owned['pid']
+                # The child remains an unreaped zombie adopted by this test.
+                status = Path(f'/proc/{child_pid}/stat').read_text().rsplit(')', 1)[1]
+                self.assertEqual(status.split()[0], 'Z')
+                os.killpg(owned['pgid'], signal.SIGKILL)
+                self.assertEqual(code, exit_code)
+                self.assertEqual(classify(code, actual), expected, actual)
+                os.waitpid(child_pid, 0)
+                child_pid = None
+        finally:
+            if child_pid is not None:
+                os.waitpid(child_pid, 0)
+            self.assertEqual(libc.prctl(36, previous.value, 0, 0, 0), 0)
+
     def test_production_sources_accept_package_entry_points_but_not_test_paths(self):
         runner.validate_sources([
             'packages/client/lib/src/installer.dart',

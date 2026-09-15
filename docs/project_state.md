@@ -5,6 +5,14 @@ Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+Hosted checkpoint 3f87906e: CI 35010146390 exposed a Linux mutation-runner
+regression. All three mutation baselines passed their Dart assertions but were
+marked infrastructure errors because killpg also succeeds for zombie-only
+groups. A deterministic Linux subreaper regression reproduces this without
+Dart timing assumptions. Inspect process states before cleanup: dead Z/X members
+do not invalidate results, live fixtures still do, and inspection failure stays
+fail-closed. Four Linux process regressions pass after the fix, including an
+actual orphan holding a listening socket. Updated hosted evidence is pending.
 Baseline hosted Dart VM coverage is 83.72% (33,515/40,031 measured lines), with
 6,516 uncovered lines and no mutation-testing gate. Rust, browser-only paths and
 standalone application coverage are not represented by that percentage.

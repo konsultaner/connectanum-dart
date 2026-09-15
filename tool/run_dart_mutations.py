@@ -19,6 +19,21 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def live_process_group_members(group):
+    result = subprocess.run(
+        ['ps', '-eo', 'pid=,pgid=,stat='], capture_output=True,
+        text=True, check=True, timeout=5,
+    )
+    members = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        pid, pgid, state = line.split()
+        if int(pgid) == group and state[0] not in ('Z', 'X'):
+            members.append({'pid': int(pid), 'state': state})
+    return members
+
+
 def run(command, cwd, timeout):
     with subprocess.Popen(
         command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -36,16 +51,26 @@ def run(command, cwd, timeout):
             if isinstance(error, KeyboardInterrupt):
                 raise
             return None, output
-        # A fail-fast test runner can exit while an asynchronously started
-        # fixture is still alive. Reap its process group before the next mutant.
+        # Linux killpg succeeds for zombie-only groups too. Inspect before
+        # signaling so killing a live fixture cannot erase the leak evidence.
+        inspection_error = None
+        members = []
+        try:
+            members = live_process_group_members(process.pid)
+        except (OSError, subprocess.SubprocessError, ValueError) as error:
+            inspection_error = str(error)
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
-        else:
+        if members or inspection_error is not None:
             output += '\n' + json.dumps({
                 'type': 'connectanumInfrastructureError',
-                'reason': 'Test command left descendants alive after exit',
+                'reason': ('Could not inspect remaining test processes'
+                           if inspection_error is not None else
+                           'Test command left descendants alive after exit'),
+                'processes': members,
+                'inspectionError': inspection_error,
             }) + '\n'
         return process.returncode, output
 
