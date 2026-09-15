@@ -5,6 +5,8 @@ import 'package:connectanum_router/auth.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:test/test.dart';
 
+import 'support/callback_entry.dart';
+
 void main() {
   late _Factory factory;
   late AuthServer server;
@@ -64,7 +66,7 @@ void main() {
       final creation = Completer<Authenticator>();
       factory.creation = creation.future;
       final result = server.onHello(hello('factory'));
-      await factory.entered.future;
+      await expectCallbackEntry(factory.entered.future, result);
       await abort('factory');
       creation.complete(factory.authenticator);
       expect((await result).status, RemoteHelloStatus.failure);
@@ -78,7 +80,10 @@ void main() {
     final pendingHello = Completer<AuthResult>();
     factory.authenticator.hello = pendingHello.future;
     final result = server.onHello(hello('hello'));
-    await factory.authenticator.helloEntered.future;
+    await expectCallbackEntry(
+      factory.authenticator.helloEntered.future,
+      result,
+    );
     await abort('hello');
     pendingHello.complete(_success());
     expect((await result).status, RemoteHelloStatus.failure);
@@ -94,11 +99,96 @@ void main() {
       RemoteHelloStatus.challenge,
     );
     final result = server.onAuthenticate(authenticate('auth'));
-    await factory.authenticator.authenticateEntered.future;
+    await expectCallbackEntry(
+      factory.authenticator.authenticateEntered.future,
+      result,
+    );
     await abort('auth');
     pendingAuth.complete(_success());
     expect((await result).status, RemoteAuthenticateStatus.failure);
     await _drain();
+    expect(factory.authenticator.abortCalls, 1);
+  });
+
+  for (final callbackBusy in [false, true]) {
+    test(
+      'reentrant cleanup runs once with busy callback $callbackBusy',
+      () async {
+        final callback = Completer<AuthResult>();
+        final cleanup = Completer<void>();
+        final cleanupEntered = Completer<void>();
+        factory.authenticator.cleanup = cleanup.future;
+        factory.authenticator.abortHook = () {
+          cleanupEntered.complete();
+          server.abort('reentrant');
+          unawaited(server.close());
+        };
+        if (callbackBusy) factory.authenticator.hello = callback.future;
+        final result = server.onHello(hello('reentrant'));
+        await expectCallbackEntry(
+          factory.authenticator.helloEntered.future,
+          result,
+        );
+        if (!callbackBusy) {
+          expect((await result).status, RemoteHelloStatus.challenge);
+        }
+        await abort('reentrant');
+        if (callbackBusy) {
+          final failure = (await result).failure;
+          expect(failure?.reason, 'wamp.error.authentication_failed');
+          expect(failure?.message, 'Remote authentication aborted');
+          expect(factory.authenticator.abortCalls, 0);
+          callback.complete(_success());
+        }
+        await _drain();
+        expect(cleanupEntered.isCompleted, isTrue);
+        expect(factory.authenticator.abortCalls, 1);
+        expect(server.pendingAuthenticationCounts, {'realm1': 1});
+        await abort('reentrant');
+        await server.close();
+        expect(factory.authenticator.abortCalls, 1);
+        cleanup.complete();
+        await _drain();
+        expect(server.pendingAuthenticationCounts, isEmpty);
+        expect(factory.authenticator.abortCalls, 1);
+        expect(
+          (await server.onHello(hello('closed'))).status,
+          RemoteHelloStatus.failure,
+        );
+        expect(factory.calls, 1);
+      },
+    );
+  }
+
+  test('transaction ID cannot be reused until abort cleanup settles', () async {
+    final cleanup = Completer<void>();
+    factory.authenticator.cleanup = cleanup.future;
+    expect(
+      (await server.onHello(hello('reused'))).status,
+      RemoteHelloStatus.challenge,
+    );
+    await abort('reused');
+    final blocked = await server.onHello(hello('reused'));
+    expect(blocked.failure?.reason, 'wamp.error.protocol_violation');
+    expect(factory.calls, 1);
+    expect(factory.authenticator.abortCalls, 1);
+    expect(server.pendingAuthenticationCounts, {'realm1': 1});
+    cleanup.complete();
+    await _drain();
+    expect(server.pendingAuthenticationCounts, isEmpty);
+    factory.authenticator.cleanup = null;
+    expect(
+      (await server.onHello(hello('reused'))).status,
+      RemoteHelloStatus.challenge,
+    );
+    expect(server.pendingAuthenticationCounts, {'realm1': 1});
+    expect(
+      (await server.onAuthenticate(authenticate('reused'))).status,
+      RemoteAuthenticateStatus.success,
+    );
+    await _drain();
+    expect(server.pendingAuthenticationCounts, isEmpty);
+    expect(factory.calls, 2);
     expect(factory.authenticator.abortCalls, 1);
   });
 
@@ -238,7 +328,7 @@ void main() {
     final creation = Completer<Authenticator>();
     factory.creation = creation.future;
     final first = server.onHello(hello('first'));
-    await factory.entered.future;
+    await expectCallbackEntry(factory.entered.future, first);
     final second = server.onHello(hello('second'));
     await _drain();
     creation.complete(factory.authenticator);
@@ -271,7 +361,10 @@ void main() {
       factory.authenticator.hello = pendingHello.future;
       factory.authenticator.cleanup = cleanup.future;
       final first = server.onHello(hello('first'));
-      await factory.authenticator.helloEntered.future;
+      await expectCallbackEntry(
+        factory.authenticator.helloEntered.future,
+        first,
+      );
       await abort('first');
       expect(
         (await first.timeout(const Duration(seconds: 1))).status,
@@ -305,7 +398,7 @@ void main() {
       final creation = Completer<Authenticator>();
       factory.creation = creation.future;
       final first = server.onHello(hello('same'));
-      await factory.entered.future;
+      await expectCallbackEntry(factory.entered.future, first);
       expect(
         (await server.onHello(hello('same'))).status,
         RemoteHelloStatus.failure,
@@ -325,7 +418,10 @@ void main() {
     factory.authenticator.authenticate = pendingAuth.future;
     await server.onHello(hello('same'));
     final first = server.onAuthenticate(authenticate('same'));
-    await factory.authenticator.authenticateEntered.future;
+    await expectCallbackEntry(
+      factory.authenticator.authenticateEntered.future,
+      first,
+    );
     expect(
       (await server
               .onAuthenticate(authenticate('same'))
@@ -572,7 +668,7 @@ void main() {
       final creation = Completer<Authenticator>();
       factory.creation = creation.future;
       final result = server.onHello(hello('closing'));
-      await factory.entered.future;
+      await expectCallbackEntry(factory.entered.future, result);
       await server.close();
       await server.close();
       expect(
@@ -599,7 +695,10 @@ void main() {
       final pendingHello = Completer<AuthResult>();
       factory.authenticator.hello = pendingHello.future;
       final result = server.onHello(hello('late-error'));
-      await factory.authenticator.helloEntered.future;
+      await expectCallbackEntry(
+        factory.authenticator.helloEntered.future,
+        result,
+      );
       await abort('late-error');
       await result;
       pendingHello.completeError(StateError('credential material'));
@@ -618,7 +717,10 @@ void main() {
       factory.authenticator.hello = failed.future;
       factory.authenticator.cleanupError = true;
       final response = server.onHello(hello('throwing'));
-      await factory.authenticator.helloEntered.future;
+      await expectCallbackEntry(
+        factory.authenticator.helloEntered.future,
+        response,
+      );
       failed.completeError(StateError('private credential'));
       final result = await response;
       expect(result.status, RemoteHelloStatus.failure);
@@ -642,7 +744,10 @@ void main() {
       final failed = Completer<AuthResult>();
       factory.authenticator.hello = failed.future;
       final result = server.onHello(hello('deadline-error'));
-      await factory.authenticator.helloEntered.future;
+      await expectCallbackEntry(
+        factory.authenticator.helloEntered.future,
+        result,
+      );
       now = now.add(Duration(milliseconds: realm.limits.authTimeoutMs));
       failed.completeError(StateError('late credential error'));
       final response = await result;
@@ -819,6 +924,7 @@ class _Authenticator extends Authenticator {
   Future<AuthResult>? hello;
   Future<AuthResult>? authenticate;
   Future<void>? cleanup;
+  void Function()? abortHook;
   bool cleanupError = false;
   final helloEntered = Completer<void>();
   final authenticateEntered = Completer<void>();
@@ -849,6 +955,7 @@ class _Authenticator extends Authenticator {
   @override
   Future<void> onAbort(AuthenticatorContext context, {String? reason}) async {
     abortCalls++;
+    abortHook?.call();
     if (cleanupError) throw StateError('private cleanup detail');
     await cleanup;
   }

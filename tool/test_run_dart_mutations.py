@@ -77,6 +77,9 @@ class MutationRunnerTests(unittest.TestCase):
         self.exercise_main('baselineFailure', None)
         self.exercise_main('restoredFailure', None)
 
+    def test_directory_targets_record_and_run_stable_test_file_order(self):
+        self.exercise_main('killed', 0, directory_tests=True)
+
     def test_empty_or_non_mapping_targets_cannot_pass_without_running_tests(self):
         for invalid in ({}, [], None):
             with self.subTest(config=invalid), tempfile.TemporaryDirectory() as directory:
@@ -99,7 +102,7 @@ class MutationRunnerTests(unittest.TestCase):
                     command.assert_not_called()
                 self.assertFalse(output.exists())
 
-    def exercise_main(self, status, expected_code):
+    def exercise_main(self, status, expected_code, directory_tests=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config = root / 'config.json'
@@ -107,7 +110,8 @@ class MutationRunnerTests(unittest.TestCase):
             equivalents.write_text('{}')
             source_path = 'packages/core/lib/a.dart'
             test_path = 'packages/core/test/a_test.dart'
-            config.write_text(json.dumps({'fixture': {'sources': [source_path], 'tests': [test_path]}}))
+            selected = ['packages/core/test'] if directory_tests else [test_path]
+            config.write_text(json.dumps({'fixture': {'sources': [source_path], 'tests': selected}}))
             source = 'bool f() => true;'
             mutation = {'file': source_path, 'offset': 12, 'length': 4, 'line': 1,
                         'original': 'true', 'replacement': 'false', 'operator': 'boolean'}
@@ -116,7 +120,12 @@ class MutationRunnerTests(unittest.TestCase):
                             {'type': 'done', 'success': True})
             seen = []
             def fake_snapshot(work):
-                for name, data in [(source_path, source), (test_path, 'test fixture')]:
+                files = [(source_path, source)]
+                if directory_tests:
+                    files.extend([('packages/core/test/z_test.dart', 'last test'),
+                                  ('packages/core/test/support/helper.dart', 'helper')])
+                files.append((test_path, 'test fixture'))
+                for name, data in files:
                     path = work / name
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_text(data)
@@ -126,6 +135,10 @@ class MutationRunnerTests(unittest.TestCase):
                     return 0, ''
                 if command[1] == 'tool/dart_mutations.dart':
                     return 0, json.dumps([mutation])
+                if directory_tests:
+                    self.assertEqual(
+                        [arg for arg in command if arg.startswith('packages/core/test')],
+                        [test_path, 'packages/core/test/z_test.dart'])
                 current = (work / source_path).read_text()
                 seen.append(current)
                 if (status == 'baselineFailure' or
@@ -154,6 +167,10 @@ class MutationRunnerTests(unittest.TestCase):
                 self.assertEqual(target['restoredBaseline'], 'survived')
                 self.assertEqual(target['baselineExitCode'], 0)
                 self.assertEqual(target['restoredBaselineExitCode'], 0)
+                if directory_tests:
+                    self.assertEqual(target['resolvedTests'],
+                                     [test_path, 'packages/core/test/z_test.dart'])
+                    self.assertIn('packages/core/test/support/helper.dart', target['testHashes'])
                 if status == 'signal':
                     self.assertEqual(target['counts'], {'error': 1})
                     self.assertEqual(target['score'], 0)
@@ -164,6 +181,18 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(result['score'], 25)
         self.assertEqual(result['viable'], 4)
         self.assertIsNone(summarize([{'status': 'compileError'}])['score'])
+
+    def test_assertion_failure_cannot_hide_another_test_timeout(self):
+        output = events(
+            {'type': 'testStart', 'test': {'id': 1, 'name': 'assertion'}},
+            {'type': 'testDone', 'testID': 1, 'result': 'failure'},
+            {'type': 'testStart', 'test': {'id': 2, 'name': 'missing callback'}},
+            {'type': 'error', 'testID': 2,
+             'error': 'TimeoutException: Test timed out after 5 seconds.'},
+            {'type': 'testDone', 'testID': 2, 'result': 'error'},
+            {'type': 'done', 'success': False},
+        )
+        self.assertEqual(classify(1, output), 'timeout')
 
     def test_utf16_offsets_preserve_non_ascii_prefix(self):
         source = "// \U0001f512\nreturn a == b;"

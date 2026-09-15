@@ -8,6 +8,8 @@ import 'package:connectanum_router/auth.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:test/test.dart';
 
+import 'support/callback_entry.dart';
+
 void main() {
   late AuthServer server;
   late _Factory factory;
@@ -111,7 +113,7 @@ void main() {
       factory.authenticator.result = completion.future;
       await first.rpc('hello', _hello('pending'));
       final pending = first.rpc('authenticate', _authenticate('pending'));
-      await factory.authenticator.entered.future;
+      await expectCallbackEntry(factory.authenticator.entered.future, pending);
       await firstBinding.close();
       final result = await pending;
       expect(result.argumentsKeywords?['status'], 'failure');
@@ -411,6 +413,52 @@ void main() {
   );
 
   test(
+    'RPC envelopes stay out of custom service-admission options',
+    () async {
+      final inspected = _InspectingAuthServer(settings: server.settings);
+      final session = _Session();
+      final binding = await AuthServerProcedureBinding.bind(
+        server: inspected,
+        session: session,
+      );
+      addTearDown(() async {
+        await binding.close();
+        await inspected.close();
+      });
+      const options = <String, Object?>{
+        'auth_token': 'service-token',
+        'extension': {
+          'scopes': ['authenticate'],
+          'required': true,
+        },
+      };
+      for (final (method, payload, status) in [
+        ('hello', _hello('success'), 'challenge'),
+        ('authenticate', _authenticate('success'), 'success'),
+        ('hello', _hello('aborted'), 'challenge'),
+        (
+          'abort',
+          <String, Object?>{
+            'transactionId': 'aborted',
+            'reason': 'wamp.close.normal',
+          },
+          'ok',
+        ),
+      ]) {
+        inspected.options.clear();
+        final response = await session.rpc(method, {...payload, ...options});
+        expect(response.argumentsKeywords?['status'], status);
+        expect(inspected.options, isNotEmpty);
+        expect(inspected.options, everyElement(equals(options)));
+      }
+      await Future<void>.delayed(Duration.zero);
+      expect(inspected.pendingAuthenticationCounts, isEmpty);
+      expect(factory.authenticator.authenticateCalls, 1);
+      expect(factory.authenticator.aborts, 1);
+    },
+  );
+
+  test(
     'ordinary provider exceptions fail closed and release capacity',
     () async {
       factory.authenticator.result = Future<AuthResult>.sync(
@@ -501,6 +549,18 @@ class _Session implements RouterSession {
   @override
   dynamic noSuchMethod(core.Invocation invocation) =>
       super.noSuchMethod(invocation);
+}
+
+class _InspectingAuthServer extends AuthServer {
+  _InspectingAuthServer({required super.settings});
+
+  final options = <Map<String, Object?>>[];
+
+  @override
+  AuthFailure? validateAuthToken(Map<String, Object?> options) {
+    this.options.add(Map<String, Object?>.from(options));
+    return super.validateAuthToken(options);
+  }
 }
 
 class _Factory extends AuthenticatorFactory {

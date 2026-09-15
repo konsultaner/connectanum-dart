@@ -217,3 +217,43 @@ Evidence is retained in `out/regression-coverage-2026-09-15/vm-follow-up/`,
 Next: complete the live MCP inventory, test the CLI and surviving MCP paths,
 investigate MessagePack survivors, and obtain hosted evidence for this candidate.
 The near-complete repository-wide goal remains active and unmet.
+
+### Hosted Mutation Gate Repair
+
+- Coverage commit `d5ecb305` is pushed in draft PR #93. CI `34982430544`
+  exposes a platform-dependent authentication mutation failure: 163 kills,
+  105 compile errors, 18 timeouts and eight survivors (86.24%). Its clean and
+  restored baselines pass. Linux discovers the lifecycle suite first, while
+  macOS discovers a different first suite; fail-fast exposed callback-entry
+  waits after mutations had already returned a failed authentication result.
+- Callback-entry waits now race the operation and explicitly fail on premature
+  completion or error. Four helper regressions cover early result/error and
+  late losing-future settlement. An isolated replay of hosted timeout mutant
+  `91fe47c65d6b4db125ff` now reports an assertion kill, not a timeout.
+- Mutation commands expand directory targets into sorted `*_test.dart` paths
+  and retain `resolvedTests`/`testCommand`. Supporting Dart helpers remain
+  hashed. A reproduced-before runner regression checks stable execution order;
+  another preserves timeout classification even alongside an assertion failure.
+  No timeout increase, retry, scope reduction or timeout-to-kill conversion is
+  involved. All 14 runner tests pass.
+- Reentrant abort/close cleanup and transaction-ID reuse regressions assert
+  single cleanup and capacity ownership. Custom service-admission validation
+  receives options only, never HELLO/AUTHENTICATE/abort envelope fields. This
+  distinguishes reserved-key filter mutant `c6b2da97818fe62e5d41`. All 84
+  authentication tests pass; the complete fresh 294-mutant inventory records
+  182 kills, seven survivors and 105 compile errors, with clean/restored
+  baselines, zero timeouts/errors and 96.30% raw/adjusted score. No new
+  equivalences were added. Remaining cleanup/selection guards stay unwaived;
+  the added reentrancy tests do not distinguish those redundant-looking guards.
+- MessagePack JavaScript tests now assert precise errors at minimal incomplete
+  collection and 64-bit integer boundaries. All eight JS fallback tests pass;
+  the complete 234-mutant browser inventory is running. The larger MCP
+  inventory remains live and diagnostic.
+- `bin/test-fast` passes after correcting an initially wrong expected abort
+  URI in a new test; full `bin/verify` is running. Hosted confirmation of the
+  repair and strict candidate audit remain pending. The HTTP/3 reliability
+  issue is not claimed fixed by successful repetitions or this CI repair.
+
+Evidence: `out/regression-coverage-2026-09-15/auth-gate-repair/` retains the
+hosted failing inventory, local inventories, exact-mutant replay and runner
+before/after logs. The full coverage goal remains active.

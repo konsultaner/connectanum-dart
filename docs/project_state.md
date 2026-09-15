@@ -72,6 +72,22 @@ coverage collection passes, serialized after verification, including the
 that inventory separately from the measured percentage.
 The complete repository-wide coverage goal remains unmet.
 
+Hosted gate repair: draft PR #93 contains `d5ecb305`. Its authentication
+mutation job in CI `34982430544` reports 18 timeouts (86.24%), despite the
+local passing inventory. Linux directory discovery runs lifecycle tests first;
+some awaited provider entry after a mutant had already returned failure.
+New test helpers assert premature completion, and mutation execution now records
+sorted test-file arguments. The exact formerly timed-out mutant now produces
+an assertion kill in the isolated lifecycle test without changing timeouts.
+All 84 authentication tests and 14 mutation-runner tests pass. A complete
+294-mutant rerun has 182 kills, seven unwaived survivors and 105 compile errors
+(96.30% raw/adjusted), with passing clean/restored baselines and no timeouts or
+infrastructure errors. RPC envelope isolation supplies the additional kill.
+JavaScript MessagePack truncation/admission regressions pass; their full mutation
+rerun remains in progress. `bin/test-fast` passes and `bin/verify` is running.
+Hosted confirmation of this repair is pending; the original HTTP/3 handshake
+cause and complete-component coverage gaps remain open.
+
 Previous release milestone: clear the final deployment-chain audit blocker, then publish
 the synchronized `3.0.0-beta.6` tester release from protected `master`. The
 paused release/security plan is

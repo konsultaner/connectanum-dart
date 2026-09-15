@@ -60,6 +60,10 @@ void main() {
 
   test('reports collection admission errors before recursive decoding', () {
     for (final header in [
+      [0x92],
+      [0x81],
+      [0xdc, 0, 2],
+      [0xde, 0, 1],
       [0xdc, 0, 64],
       [0xde, 0, 64],
     ]) {
@@ -75,6 +79,30 @@ void main() {
           ),
         ),
       );
+    }
+  });
+
+  test('truncated uint64 and int64 values retain the fallback error', () {
+    for (final marker in [0xcf, 0xd3]) {
+      for (var size = 1; size < 9; size++) {
+        final truncated = [marker, ...List<int>.filled(size - 1, 0)];
+        for (final wire in [
+          truncated,
+          [0x92, ..._wide, ...truncated],
+        ]) {
+          expect(
+            () => codec.deserialize(Uint8List.fromList(wire)),
+            throwsA(
+              isA<FormatException>().having(
+                (error) => error.message,
+                'message',
+                'Truncated MessagePack integer',
+              ),
+            ),
+            reason: 'marker=$marker size=$size wire=$wire',
+          );
+        }
+      }
     }
   });
 

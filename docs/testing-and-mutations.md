@@ -62,6 +62,10 @@ coverage remain work in the active execution plan.
 
 `mutation-report.json` records source/test hashes, the base commit, every generated
 mutation, per-mutation outcomes, clean/restored baselines and completion status.
+Directory targets resolve to sorted `*_test.dart` paths, recorded as
+`resolvedTests` and `testCommand`. Helper files remain in `testHashes`. This
+avoids filesystem-dependent fail-fast order; callback-entry tests must also
+fail explicitly on premature operation completion rather than wait indefinitely.
 Only `complete: true` is finished evidence. The operator inventory is explicit:
 binary operators, boolean/condition replacement, negation and null fallback;
 statement deletion, constants and other operators are not yet included. No

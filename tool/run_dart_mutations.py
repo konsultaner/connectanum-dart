@@ -202,12 +202,21 @@ def main():
                       'baseline': 'notRun', 'outcomes': []}
             justified = validate_equivalents(equivalents.get(name, {}), mutations, result['sourceHashes'])
             test_files = set()
+            runnable_tests = set()
             for test in target['tests']:
                 test_path = work / test
                 if test_path.is_dir():
                     test_files.update(test_path.rglob('*.dart'))
+                    runnable_tests.update(test_path.rglob('*_test.dart'))
                 else:
                     test_files.add(test_path)
+                    runnable_tests.add(test_path)
+            # Directory discovery order varies by filesystem. With fail-fast,
+            # that can change an assertion kill into a different test's timeout.
+            resolved_tests = sorted(str(path.relative_to(work)) for path in runnable_tests)
+            if not resolved_tests:
+                raise ValueError(f'No runnable test files for {name}')
+            result['resolvedTests'] = resolved_tests
             result['testHashes'] = {str(path.relative_to(work)): hashlib.sha256(path.read_bytes()).hexdigest()
                                     for path in sorted(test_files)}
             report['targets'][name] = result
@@ -216,7 +225,7 @@ def main():
                 save()
                 continue
             command = ['dart', 'test', '--reporter=json', '--concurrency=1', '--fail-fast',
-                       '--timeout=5s', *target['tests']]
+                       '--timeout=5s', *resolved_tests]
             platform = target.get('platform', 'vm')
             if platform not in ('vm', 'chrome'):
                 raise ValueError(f'Unsupported test platform: {platform}')
@@ -227,9 +236,10 @@ def main():
             if test_root.is_absolute() or '..' in test_root.parts:
                 raise ValueError(f'Invalid test root: {test_root}')
             if test_root != Path('.'):
-                command = [os.path.relpath(work / arg, work / test_root) if arg in target['tests'] else arg
+                command = [os.path.relpath(work / arg, work / test_root) if arg in resolved_tests else arg
                            for arg in command]
             test_cwd = work / test_root
+            result['testCommand'] = command
             code, output = run(command, test_cwd, args.timeout)
             result['baseline'] = classify(code, output)
             result['baselineExitCode'] = code
