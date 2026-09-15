@@ -37,11 +37,23 @@ import 'dart:convert';
 
 import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
+import '../limits.dart';
 import 'binary_codec.dart';
 
 typedef CanonicalBase64ByteDecoder =
     Uint8List? Function(Uint8List input, int start, int end);
 typedef CanonicalBase64ByteEncoder = Uint8List? Function(Uint8List input);
+
+@pragma('vm:never-inline')
+Object? _decodeJsonMessage(String source) {
+  try {
+    return json.decode(source);
+  } on FormatException {
+    throw FormatException(
+      'Invalid JSON WAMP message (${source.length} chars)',
+    );
+  }
+}
 
 /// This is a serializer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
@@ -60,28 +72,8 @@ class Serializer extends AbstractSerializer {
   static final Uint8List _singleBinaryArgumentsPrefix = Uint8List.fromList(
     const [0x5b, 0x22, 0x5c, 0x75, 0x30, 0x30, 0x30, 0x30],
   );
-  static const Set<String> _invocationDetailKeys = {
-    'caller',
-    'procedure',
-    'progress',
-    'receive_progress',
-    'timeout',
-    'ppt_scheme',
-    'ppt_serializer',
-    'ppt_cipher',
-    'ppt_keyid',
-  };
   static const Set<String> _resultDetailKeys = {
     'progress',
-    'ppt_scheme',
-    'ppt_serializer',
-    'ppt_cipher',
-    'ppt_keyid',
-  };
-  static const Set<String> _eventDetailKeys = {
-    'publisher',
-    'trustlevel',
-    'topic',
     'ppt_scheme',
     'ppt_serializer',
     'ppt_cipher',
@@ -305,10 +297,24 @@ class Serializer extends AbstractSerializer {
     if (singleBinaryPayload != null) {
       return singleBinaryPayload;
     }
-    Object? message = json.decode(jsonMessage);
+    final message = _decodeJsonMessage(jsonMessage);
     if (message is List) {
-      int messageId = message[0];
+      if (message.isEmpty) {
+        throw const FormatException('WAMP message type must be an integer');
+      }
+      final Object? rawMessageId = message[0];
+      if (rawMessageId is! int) {
+        throw const FormatException('WAMP message type must be an integer');
+      }
+      final messageId = rawMessageId;
+      if (messageId == MessageTypes.codeUnsubscribed && message.length == 2) {
+        return Unsubscribed(message[1], null);
+      }
+      if (messageId != MessageTypes.codePublish || message.length < 4) {
+        validateWampMessageMinimumFieldCount(messageId, message.length);
+      }
       if (messageId == MessageTypes.codeHello) {
+        validateWampMessageFieldCount(message.length);
         return Hello(
           message[1] as String?,
           _decodeDetailsMap(
@@ -317,12 +323,14 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeChallenge) {
+        validateWampMessageFieldCount(message.length);
         final extraMap = message[2] is Map
             ? _normalizeJsonStringKeyMap(message[2] as Map<dynamic, dynamic>)
             : const <String, dynamic>{};
         return Challenge(message[1], Extra.fromMap(extraMap));
       }
       if (messageId == MessageTypes.codeAuthenticate) {
+        validateWampMessageFieldCount(message.length);
         return Authenticate(signature: message[1] as String?)
           ..extra = message[2] is Map
               ? Map<String, Object?>.from(
@@ -333,6 +341,7 @@ class Serializer extends AbstractSerializer {
               : <String, Object?>{};
       }
       if (messageId == MessageTypes.codeWelcome) {
+        validateWampMessageFieldCount(message.length);
         return Welcome(
           message[1],
           _decodeDetailsMap(
@@ -341,19 +350,17 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeRegister) {
+        validateWampMessageFieldCount(message.length);
         return Register(
           message[1],
           message[3],
           options: _decodeRegisterOptions(
-            message[2] is Map
-                ? _normalizeJsonStringKeyMap(
-                    message[2] as Map<dynamic, dynamic>,
-                  )
-                : null,
+            _decodeRequiredOptionsMap(message[2], 'REGISTER'),
           ),
         );
       }
       if (messageId == MessageTypes.codeUnregister) {
+        validateWampMessageFieldCount(message.length);
         return Unregister(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeCall) {
@@ -362,11 +369,7 @@ class Serializer extends AbstractSerializer {
             message[1],
             message[3],
             options: _decodeCallOptions(
-              message[2] is Map
-                  ? _normalizeJsonStringKeyMap(
-                      message[2] as Map<dynamic, dynamic>,
-                    )
-                  : null,
+              _decodeRequiredOptionsMap(message[2], 'CALL'),
             ),
           ),
           message,
@@ -378,11 +381,7 @@ class Serializer extends AbstractSerializer {
           Yield(
             message[1],
             options: _decodeYieldOptions(
-              message[2] is Map
-                  ? _normalizeJsonStringKeyMap(
-                      message[2] as Map<dynamic, dynamic>,
-                    )
-                  : null,
+              _decodeRequiredOptionsMap(message[2], 'YIELD'),
             ),
           ),
           message,
@@ -395,11 +394,7 @@ class Serializer extends AbstractSerializer {
             message[1],
             message[3],
             options: _decodePublishOptions(
-              message[2] is Map
-                  ? _normalizeJsonStringKeyMap(
-                      message[2] as Map<dynamic, dynamic>,
-                    )
-                  : null,
+              _decodeRequiredOptionsMap(message[2], 'PUBLISH'),
             ),
           ),
           message,
@@ -407,70 +402,50 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeRegistered) {
+        validateWampMessageFieldCount(message.length);
         return registered_msg.Registered(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnregistered) {
+        validateWampMessageFieldCount(message.length);
         return unregistered_msg.Unregistered(message[1]);
       }
       if (messageId == MessageTypes.codeInvocation) {
         final detailsMap = message[3] as Map<dynamic, dynamic>;
-        final caller = detailsMap['caller'];
-        final procedure = detailsMap['procedure'];
-        final progress = detailsMap['progress'];
-        final receiveProgress = detailsMap['receive_progress'];
-        final pptScheme = detailsMap['ppt_scheme'];
-        final pptSerializer = detailsMap['ppt_serializer'];
-        final pptCipher = detailsMap['ppt_cipher'];
-        final pptKeyId = detailsMap['ppt_keyid'];
         return _addPayload(
           Invocation(
             message[1],
             message[2],
-            InvocationDetails(
-                caller,
-                procedure,
-                receiveProgress,
-                pptScheme,
-                pptSerializer,
-                pptCipher,
-                pptKeyId,
-                _extractCustomDetails(detailsMap, _invocationDetailKeys),
-              )
-              ..progress = progress
-              ..timeout = detailsMap['timeout'] as int?,
+            _decodeInvocationDetails(detailsMap),
           ),
           message,
           4,
         );
       }
       if (messageId == MessageTypes.codeInterrupt) {
-        final optionsMap = message.length > 2 && message[2] is Map
-            ? message[2] as Map<dynamic, dynamic>
-            : null;
+        validateWampMessageFieldCount(message.length);
+        final optionsMap = _validateRequiredOptionsMap(
+          message[2],
+          'INTERRUPT',
+        );
         return interrupt_msg.Interrupt(
           message[1],
-          options: optionsMap == null
-              ? null
-              : (() {
-                  final options = interrupt_msg.InterruptOptions();
-                  options.mode = optionsMap['mode'] as String?;
-                  return options;
-                })(),
+          options: (() {
+            final options = interrupt_msg.InterruptOptions();
+            options.mode = optionsMap['mode'] as String?;
+            return options;
+          })(),
         );
       }
       if (messageId == MessageTypes.codeCancel) {
-        final optionsMap = message.length > 2 && message[2] is Map
-            ? message[2] as Map<dynamic, dynamic>
-            : null;
+        validateWampMessageFieldCount(message.length);
+        final optionsMap = _validateRequiredOptionsMap(message[2], 'CANCEL');
         return cancel_msg.Cancel(
           message[1],
-          options: optionsMap == null
-              ? null
-              : (() {
-                  final options = cancel_msg.CancelOptions();
-                  options.mode = optionsMap['mode'] as String?;
-                  return options;
-                })(),
+          options: (() {
+            final options = cancel_msg.CancelOptions();
+            options.mode = optionsMap['mode'] as String?;
+            return options;
+          })(),
         );
       }
       if (messageId == MessageTypes.codeResult) {
@@ -497,61 +472,44 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codePublished) {
+        validateWampMessageFieldCount(message.length);
         return Published(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeSubscribe) {
+        validateWampMessageFieldCount(message.length);
         return Subscribe(
           message[1],
           message[3],
           options: _decodeSubscribeOptions(
-            message[2] is Map
-                ? _normalizeJsonStringKeyMap(
-                    message[2] as Map<dynamic, dynamic>,
-                  )
-                : null,
+            _decodeRequiredOptionsMap(message[2], 'SUBSCRIBE'),
           ),
         );
       }
       if (messageId == MessageTypes.codeSubscribed) {
+        validateWampMessageFieldCount(message.length);
         return Subscribed(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnsubscribe) {
+        validateWampMessageFieldCount(message.length);
         return Unsubscribe(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnsubscribed) {
+        validateWampMessageFieldCount(message.length);
         return Unsubscribed(
           message[1],
-          message.length == 2
-              ? null
-              : UnsubscribedDetails(
-                  message[2]['subscription'],
-                  message[2]['reason'],
-                ),
+          UnsubscribedDetails(
+            message[2]['subscription'],
+            message[2]['reason'],
+          ),
         );
       }
       if (messageId == MessageTypes.codeEvent) {
         final detailsMap = message[3] as Map<dynamic, dynamic>;
-        final publisher = detailsMap['publisher'];
-        final trustlevel = detailsMap['trustlevel'];
-        final topic = detailsMap['topic'];
-        final pptScheme = detailsMap['ppt_scheme'];
-        final pptSerializer = detailsMap['ppt_serializer'];
-        final pptCipher = detailsMap['ppt_cipher'];
-        final pptKeyId = detailsMap['ppt_keyid'];
         return _addPayload(
           Event(
             message[1],
             message[2],
-            EventDetails(
-              publisher: publisher,
-              trustlevel: trustlevel,
-              topic: topic,
-              pptScheme: pptScheme,
-              pptSerializer: pptSerializer,
-              pptCipher: pptCipher,
-              pptKeyid: pptKeyId,
-              custom: _extractCustomDetails(detailsMap, _eventDetailKeys),
-            ),
+            _decodeEventDetails(detailsMap),
           ),
           message,
           4,
@@ -570,6 +528,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeAbort) {
+        validateWampMessageFieldCount(message.length);
         final details = message.length > 1 && message[1] != null
             ? _normalizeJsonStringKeyMap(message[1] as Map<dynamic, dynamic>)
             : <String, Object?>{};
@@ -594,6 +553,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeGoodbye) {
+        validateWampMessageFieldCount(message.length);
         return Goodbye(
           _decodeGoodbyeMessage(
             message.length > 1 && message[1] is Map
@@ -604,7 +564,9 @@ class Serializer extends AbstractSerializer {
         );
       }
     }
-    _logger.shout('Could not deserialize the message: $jsonMessage');
+    _logger.shout(
+      'Could not deserialize JSON WAMP message (${jsonMessage.length} chars)',
+    );
     // TODO respond with an error
     return null;
   }
@@ -637,7 +599,11 @@ class Serializer extends AbstractSerializer {
     return CallOptions(
       progress: optionsMap['progress'] as bool?,
       receiveProgress: optionsMap['receive_progress'] as bool?,
-      timeout: optionsMap['timeout'] as int?,
+      timeout: decodeOptionalWampNonNegativeInteger(
+        optionsMap,
+        'timeout',
+        'CALL.Options.timeout',
+      ),
       discloseMe: optionsMap['disclose_me'] as bool?,
       pptScheme: optionsMap['ppt_scheme'] as String?,
       pptSerializer: optionsMap['ppt_serializer'] as String?,
@@ -662,19 +628,36 @@ class Serializer extends AbstractSerializer {
     );
   }
 
-  PublishOptions? _decodePublishOptions(Map<String, dynamic>? optionsMap) {
-    if (optionsMap == null || optionsMap.isEmpty) {
+  @pragma('vm:prefer-inline')
+  PublishOptions? _decodePublishOptions(Map<String, dynamic> optionsMap) {
+    if (optionsMap.isEmpty) {
       return null;
     }
+    return _decodeNonEmptyPublishOptions(optionsMap);
+  }
+
+  @pragma('vm:never-inline')
+  PublishOptions _decodeNonEmptyPublishOptions(
+    Map<String, dynamic> optionsMap,
+  ) {
     final custom = _copyWithoutKeys(optionsMap, _publishOptionKeys);
     return PublishOptions(
       acknowledge: optionsMap['acknowledge'] as bool?,
-      exclude: _asIntList(optionsMap['exclude']),
-      excludeAuthId: _asStringList(optionsMap['exclude_authid']),
-      excludeAuthRole: _asStringList(optionsMap['exclude_authrole']),
-      eligible: _asIntList(optionsMap['eligible']),
-      eligibleAuthId: _asStringList(optionsMap['eligible_authid']),
-      eligibleAuthRole: _asStringList(optionsMap['eligible_authrole']),
+      exclude: decodeOptionalWampIdList(optionsMap, 'exclude'),
+      excludeAuthId: decodeOptionalWampStringList(optionsMap, 'exclude_authid'),
+      excludeAuthRole: decodeOptionalWampStringList(
+        optionsMap,
+        'exclude_authrole',
+      ),
+      eligible: decodeOptionalWampIdList(optionsMap, 'eligible'),
+      eligibleAuthId: decodeOptionalWampStringList(
+        optionsMap,
+        'eligible_authid',
+      ),
+      eligibleAuthRole: decodeOptionalWampStringList(
+        optionsMap,
+        'eligible_authrole',
+      ),
       excludeMe: optionsMap['exclude_me'] as bool?,
       discloseMe: optionsMap['disclose_me'] as bool?,
       retain: optionsMap['retain'] as bool?,
@@ -708,54 +691,47 @@ class Serializer extends AbstractSerializer {
     return custom;
   }
 
-  List<int>? _asIntList(Object? value) {
-    if (value is! List) {
-      return null;
-    }
-    return value.whereType<num>().map((entry) => entry.toInt()).toList();
-  }
-
-  List<String>? _asStringList(Object? value) {
-    if (value is! List) {
-      return null;
-    }
-    return value.map((entry) => entry.toString()).toList();
-  }
-
   AbstractMessageWithPayload _addPayload(
     AbstractMessageWithPayload message,
     List<dynamic> messageData,
     argumentsOffset,
   ) {
+    validateWampMessageFieldCount(messageData.length);
     if (messageData.length == argumentsOffset + 1 &&
-        messageData[argumentsOffset] is String) {
-      if (_isBinaryJsonString(messageData[argumentsOffset] as String)) {
-        message.transparentBinaryPayload = _convertStringToUint8List(
-          messageData[argumentsOffset] as String,
+        messageData[argumentsOffset] is String &&
+        _isBinaryJsonString(messageData[argumentsOffset] as String)) {
+      message.transparentBinaryPayload = _convertStringToUint8List(
+        messageData[argumentsOffset] as String,
+      );
+      return message;
+    }
+    if (messageData.length >= argumentsOffset + 1) {
+      final arguments = messageData[argumentsOffset];
+      if (arguments is! List) {
+        throw const FormatException(
+          'JSON arguments must be a list or binary value',
         );
       }
-    } else {
-      if (messageData.length >= argumentsOffset + 1) {
-        message.arguments = messageData[argumentsOffset] as List<dynamic>?;
-      }
-      if (messageData.length >= argumentsOffset + 2) {
-        final rawKwargs = messageData[argumentsOffset + 1];
-        if (rawKwargs is Map) {
-          // Defensive copy to avoid downstream mutation surprises.
-          message.argumentsKeywords = Map<String, Object?>.from(
-            rawKwargs as Map<Object?, Object?>,
-          );
-        } else {
-          // Some routers may send kwargs as an unexpected type (e.g. a list).
-          // Skip them to keep deserialization resilient.
-          _logger.warning(
-            'Unexpected kwargs type (${rawKwargs.runtimeType}), dropping payload',
-          );
-          message.argumentsKeywords = null;
-        }
-      }
-      _convertMessagePayloadBinaryJsonStringToUint8List(message);
+      message.arguments = arguments;
     }
+    if (messageData.length >= argumentsOffset + 2) {
+      final argumentsKeywords = messageData[argumentsOffset + 1];
+      if (argumentsKeywords is! Map) {
+        throw const FormatException(
+          'JSON keyword arguments must be a string-keyed map',
+        );
+      }
+      try {
+        message.argumentsKeywords = Map<String, Object?>.from(
+          argumentsKeywords,
+        );
+      } on TypeError {
+        throw const FormatException(
+          'JSON keyword arguments must be a string-keyed map',
+        );
+      }
+    }
+    _convertMessagePayloadBinaryJsonStringToUint8List(message);
     return message;
   }
 
@@ -773,13 +749,17 @@ class Serializer extends AbstractSerializer {
     }
   }
 
-  void _convertMapEntriesBinaryJsonStringToUint8List(Map payload) {
+  void _convertMapEntriesBinaryJsonStringToUint8List(
+    Map payload, [
+    int parentDepth = 0,
+  ]) {
+    final depth = enterSerializerContainer(parentDepth);
     for (var element in payload.entries) {
       if (element.value is Map) {
-        _convertMapEntriesBinaryJsonStringToUint8List(element.value);
+        _convertMapEntriesBinaryJsonStringToUint8List(element.value, depth);
       }
       if (element.value is List) {
-        _convertListEntriesBinaryJsonStringToUint8List(element.value);
+        _convertListEntriesBinaryJsonStringToUint8List(element.value, depth);
       }
       if (element.value is String &&
           _isBinaryJsonString(element.value as String)) {
@@ -790,18 +770,152 @@ class Serializer extends AbstractSerializer {
     }
   }
 
-  void _convertListEntriesBinaryJsonStringToUint8List(List payload) {
+  void _convertListEntriesBinaryJsonStringToUint8List(
+    List payload, [
+    int parentDepth = 0,
+  ]) {
+    final depth = enterSerializerContainer(parentDepth);
     for (var i = 0; i < payload.length; i++) {
       if (payload[i] is Map) {
-        _convertMapEntriesBinaryJsonStringToUint8List(payload[i]);
+        _convertMapEntriesBinaryJsonStringToUint8List(payload[i], depth);
       }
       if (payload[i] is List) {
-        _convertListEntriesBinaryJsonStringToUint8List(payload[i]);
+        _convertListEntriesBinaryJsonStringToUint8List(payload[i], depth);
       }
       if (payload[i] is String && _isBinaryJsonString(payload[i] as String)) {
         payload[i] = _convertStringToUint8List(payload[i] as String);
       }
     }
+  }
+
+  EventDetails _decodeEventDetails(Map<dynamic, dynamic> source) {
+    int? publisher;
+    int? trustlevel;
+    String? topic;
+    String? pptScheme;
+    String? pptSerializer;
+    String? pptCipher;
+    String? pptKeyId;
+    Map<String, dynamic>? custom;
+
+    source.forEach((key, value) {
+      final keyString = key is String ? key : key.toString();
+      switch (keyString) {
+        case 'publisher':
+          publisher = decodeWampIdValue(value, 'EVENT.Details.publisher');
+          break;
+        case 'trustlevel':
+          trustlevel = decodeWampNonNegativeIntegerValue(
+            value,
+            'EVENT.Details.trustlevel',
+          );
+          break;
+        case 'topic':
+          topic = value as String?;
+          break;
+        case 'ppt_scheme':
+          pptScheme = value as String?;
+          break;
+        case 'ppt_serializer':
+          pptSerializer = value as String?;
+          break;
+        case 'ppt_cipher':
+          pptCipher = value as String?;
+          break;
+        case 'ppt_keyid':
+          pptKeyId = value as String?;
+          break;
+        default:
+          custom ??= <String, dynamic>{};
+          custom![keyString] = _normalizeJsonPayloadFragment(value);
+      }
+    });
+
+    return EventDetails(
+      publisher: publisher,
+      trustlevel: trustlevel,
+      topic: topic,
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+      pptCipher: pptCipher,
+      pptKeyid: pptKeyId,
+      custom: custom ?? <String, dynamic>{},
+    );
+  }
+
+  InvocationDetails _decodeInvocationDetails(
+    Map<dynamic, dynamic> source,
+  ) {
+    int? caller;
+    String? procedure;
+    bool? progress;
+    bool? receiveProgress;
+    int? timeout;
+    String? pptScheme;
+    String? pptSerializer;
+    String? pptCipher;
+    String? pptKeyId;
+    Map<String, dynamic>? custom;
+
+    source.forEach((key, value) {
+      final keyString = key is String ? key : key.toString();
+      switch (keyString) {
+        case 'caller':
+          caller = decodeWampIdValue(value, 'INVOCATION.Details.caller');
+          break;
+        case 'procedure':
+          procedure = value as String?;
+          break;
+        case 'progress':
+          progress = value as bool?;
+          break;
+        case 'receive_progress':
+          receiveProgress = value as bool?;
+          break;
+        case 'timeout':
+          timeout = decodeWampNonNegativeIntegerValue(
+            value,
+            'INVOCATION.Details.timeout',
+          );
+          break;
+        case 'ppt_scheme':
+          pptScheme = value as String?;
+          break;
+        case 'ppt_serializer':
+          pptSerializer = value as String?;
+          break;
+        case 'ppt_cipher':
+          pptCipher = value as String?;
+          break;
+        case 'ppt_keyid':
+          pptKeyId = value as String?;
+          break;
+        case 'trustlevel':
+          decodeWampNonNegativeIntegerValue(
+            value,
+            'INVOCATION.Details.trustlevel',
+          );
+          custom ??= <String, dynamic>{};
+          custom![keyString] = _normalizeJsonPayloadFragment(value);
+          break;
+        default:
+          custom ??= <String, dynamic>{};
+          custom![keyString] = _normalizeJsonPayloadFragment(value);
+      }
+    });
+
+    return InvocationDetails(
+        caller,
+        procedure,
+        receiveProgress,
+        pptScheme,
+        pptSerializer,
+        pptCipher,
+        pptKeyId,
+        custom ?? <String, dynamic>{},
+      )
+      ..progress = progress
+      ..timeout = timeout;
   }
 
   Map<String, dynamic> _extractCustomDetails(
@@ -821,28 +935,71 @@ class Serializer extends AbstractSerializer {
   }
 
   Map<String, dynamic> _normalizeJsonStringKeyMap(
-    Map<dynamic, dynamic> source,
-  ) {
+    Map<dynamic, dynamic> source, [
+    int parentDepth = 0,
+  ]) {
+    final depth = enterSerializerContainer(parentDepth);
     return source.map<String, dynamic>(
       (key, value) => MapEntry(
         key is String ? key : key.toString(),
-        _normalizeJsonPayloadFragment(value),
+        _normalizeJsonPayloadFragment(value, depth),
       ),
     );
   }
 
-  Object? _normalizeJsonPayloadFragment(Object? value) {
+  Map<String, dynamic> _decodeRequiredOptionsMap(
+    Object? rawOptions,
+    String messageName,
+  ) {
+    if (rawOptions is! Map) {
+      throwInvalidWampOptionsContainer(messageName);
+    }
+    if (rawOptions.isEmpty) {
+      return const <String, dynamic>{};
+    }
+    final depth = enterSerializerContainer(0);
+    final options = <String, dynamic>{};
+    for (final entry in rawOptions.entries) {
+      final key = entry.key;
+      if (key is! String) {
+        throwInvalidWampOptionsKey(messageName);
+      }
+      options[key] = _normalizeJsonPayloadFragment(entry.value, depth);
+    }
+    return options;
+  }
+
+  Map<dynamic, dynamic> _validateRequiredOptionsMap(
+    Object? rawOptions,
+    String messageName,
+  ) {
+    if (rawOptions is! Map) {
+      throwInvalidWampOptionsContainer(messageName);
+    }
+    // JSON object keys are guaranteed to be strings by jsonDecode.
+    return rawOptions;
+  }
+
+  Object? _normalizeJsonPayloadFragment(
+    Object? value, [
+    int parentDepth = 0,
+  ]) {
     if (value is String && _isBinaryJsonString(value)) {
       return _convertStringToUint8List(value);
     }
     if (value is List) {
+      final depth = enterSerializerContainer(parentDepth);
       return value
-          .map<Object?>((entry) => _normalizeJsonPayloadFragment(entry))
+          .map<Object?>((entry) => _normalizeJsonPayloadFragment(entry, depth))
           .toList(growable: false);
     }
     if (value is Map) {
+      final depth = enterSerializerContainer(parentDepth);
       return value.map<Object?, Object?>(
-        (key, entry) => MapEntry(key, _normalizeJsonPayloadFragment(entry)),
+        (key, entry) => MapEntry(
+          key,
+          _normalizeJsonPayloadFragment(entry, depth),
+        ),
       );
     }
     return value;
@@ -1715,7 +1872,9 @@ class Serializer extends AbstractSerializer {
       );
     }
 
-    _logger.shout('Could not deserialize the message: $messageStr');
+    _logger.shout(
+      'Could not deserialize JSON PPT payload (${binPayload.length} bytes)',
+    );
     // TODO respond with an error
     return null;
   }

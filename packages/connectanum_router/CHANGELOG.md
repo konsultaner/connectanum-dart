@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-beta.6
+
+- Reject ambiguous HTTP/1 request framing, flush completed and paused streamed
+  responses correctly, and bound concurrent incomplete HTTP/3 handshakes.
+- Make native resource allocation and restart boundaries fail closed without
+  replacing live owners or resolving stale handles to new resources.
+
 ## 3.0.0-beta.5
 
 - Publish native libraries through staged atomic replacement so repeated build

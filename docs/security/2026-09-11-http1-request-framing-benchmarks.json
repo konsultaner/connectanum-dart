@@ -1,0 +1,334 @@
+{
+  "date": "2026-09-11",
+  "finding": {
+    "id": "SA-010",
+    "title": "HTTP/1 Transfer-Encoding and Content-Length ambiguity",
+    "status": "locally fixed and verified",
+    "severity": "deployment-dependent medium",
+    "impact": "The old parser could frame a request by Content-Length while ignoring non-exact Transfer-Encoding lists, exposing encoded body bytes as a second request. This is a request-boundary confusion and smuggling primitive when a frontend forwards conflicting framing unchanged; no concrete proxy authorization bypass was demonstrated.",
+    "prerequisites": [
+      "An attacker can submit a request with ambiguous Transfer-Encoding and Content-Length framing.",
+      "A frontend or intermediary forwards the conflicting framing to this HTTP/1 backend instead of rejecting or normalizing it.",
+      "The frontend and backend disagree about the request boundary in a security-relevant deployment."
+    ]
+  },
+  "baseline_source": "c8a260ff",
+  "published": false,
+  "audit_complete": false,
+  "finding_performance_cleared": true,
+  "audit_performance_cleared": false,
+  "protocol_contract": {
+    "rfc_9112_section_6_3": "https://www.rfc-editor.org/rfc/rfc9112.html#section-6.3",
+    "rfc_9110_section_8_6": "https://www.rfc-editor.org/rfc/rfc9110.html#section-8.6",
+    "implemented_rules": [
+      "Reject every request containing both Transfer-Encoding and Content-Length.",
+      "Combine repeated Transfer-Encoding fields in field order before classifying the final coding.",
+      "Reject HTTP/1.0 Transfer-Encoding, empty or unknown coding lists, non-final chunked, repeated chunked, and parameterized chunked as invalid framing.",
+      "Reject unsupported requests whose valid final transfer coding is chunked with 501 and close the connection rather than falling back to Content-Length or an empty body.",
+      "Accept Content-Length only as nonempty ASCII digits after ASCII SP/HTAB trimming; reject signs, non-ASCII whitespace, overflow, and conflicting duplicate values.",
+      "Reject comma-joined duplicate Content-Length even when values agree. RFC 9110 permits recipients to reject or normalize that form.",
+      "Return a generic mapped 400, 413, or 501 response and close malformed keep-alive connections."
+    ],
+    "intentional_limit": "Request chunked decoding remains unsupported. Returning 501 without boundary fallback is safe for this implementation but is not complete HTTP/1 request-transfer-coding support."
+  },
+  "correctness": {
+    "confirmed_before": {
+      "tests_passed": 6,
+      "tests_failed": 17,
+      "exit_code": 101,
+      "log_sha256": "056c4fc5b94cf6155bd8b2715f12af97d17481bf177956fcd51c72b245abf31a",
+      "result": "Parser and real TCP/TLS initial and keep-alive controls dispatched both /outer and an embedded /inside-body request from a gzip, chunked body when conflicting Content-Length was present."
+    },
+    "initial_after_compile_failure": {
+      "exit_code": 101,
+      "log_sha256": "0a10a2616ee7f19bf2981cb3a48157533e5eb1e35e932132f92d44b5e1274016",
+      "result": "An accidental removal of the shared header_equals helper broke compilation. The helper was restored; this run is not counted as passing evidence."
+    },
+    "first_confirmation": {
+      "tests_passed": 23,
+      "tests_failed": 0,
+      "exit_code": 0,
+      "log_sha256": "068d3920d82600447cb13877eb1c360fa2f5b8ca5f8b6756fc6053ff8195b26a"
+    },
+    "expanded_focused_confirmation": {
+      "tests_passed": 28,
+      "tests_failed": 0,
+      "exit_code": 0,
+      "log_sha256": "bfd861067915f2b0b835e420f64d2cbb898c2b1b3ebf03b85f41bc83c0690681",
+      "coverage": [
+        "Ambiguous, split, repeated, empty-member, unknown, parameterized, and non-final Transfer-Encoding forms",
+        "Strict and duplicate Content-Length forms",
+        "Initial and keep-alive rejection over real TCP and generated TLS 1.3",
+        "Content-Encoding gzip as an opaque Content-Length body followed by a valid pipelined request",
+        "Full draining of an ignored body larger than the 64 KiB inline threshold before a legitimate next TCP/TLS request"
+      ]
+    },
+    "review_fail_first": {
+      "tests_passed": 28,
+      "tests_failed": 1,
+      "exit_code": 101,
+      "retained_log": false,
+      "result": "The final review added a form-feed Content-Length case. httparse rejected the header, but its implementation-specific error text was not mapped to an HTTP status, so the live connection would close without the intended generic 400 response."
+    },
+    "final_focused_confirmation": {
+      "tests_passed": 29,
+      "tests_failed": 0,
+      "exit_code": 0,
+      "log_sha256": "baaaa99f49bfeaadbba2f8735e82a0779326aa4e01dfc88748d07d60f4ffd1b4",
+      "result": "All parser and real TCP/TLS framing tests pass after mapping every httparse request rejection to the generic invalid HTTP request class and a 400 close response."
+    },
+    "sandbox_only_observation": {
+      "parser_tests_passed": 22,
+      "live_tests_blocked": 5,
+      "reason": "The restricted sandbox denied loopback bind with EPERM. The same live tests pass outside that sandbox and are included in the final focused and full verification evidence.",
+      "retained_log": false
+    },
+    "independent_gzip_probe": {
+      "compressed_bytes": 69,
+      "decoded_bytes": 46,
+      "embedded_request_offset": 15,
+      "decoded_sha256": "6543352015a934915b3fe0f26256369f4e225d42f3d4bd74927a0f3212d2031b",
+      "result": "Independent gzip decompression reproduced the exact embedded HTTP request used by the live smuggling regression."
+    }
+  },
+  "verification": {
+    "baseline_fast": {
+      "exit_code": 0,
+      "log_sha256": "54392d6fb2226cd35f693f00b6e534768a080d5f5f4827fcf988534025893e58"
+    },
+    "pre_review_release_build": {
+      "exit_code": 0,
+      "log_sha256": "ce30bd38ee7b6e051201534a6b6f55eee2dd739c788d55d8e3dd04abcb1eddf9"
+    },
+    "final_release_build": {
+      "exit_code": 0,
+      "log_sha256": "e26ed156e12a4a5e88918e2ea3f9146e3b9e635a5945a52a5873a99426c35510"
+    },
+    "pre_review_full_verify": {
+      "exit_code": 0,
+      "log_sha256": "b507c50b2561bed6cf6882d07ab22ba972be455b5f066bf499b3693379fd7c47",
+      "selected_counts": {
+        "router_passed": 526,
+        "router_skipped": 1,
+        "remote_auth_passed": 11,
+        "native_router_integration_passed": 13,
+        "scram_browser_passed": 6,
+        "websocket_browser_passed": 2
+      },
+      "note": "No test timeout, retry, framing policy, or performance threshold was relaxed."
+    },
+    "full_verify": {
+      "exit_code": 0,
+      "log_sha256": "632ce88e39dc09bef45f94237a5cb9cc3a22f513eb267e21fdbb93ae5292eea4",
+      "selected_counts": {
+        "router_passed": 526,
+        "router_skipped": 1,
+        "remote_auth_passed": 11,
+        "native_router_integration_passed": 13,
+        "scram_browser_passed": 6,
+        "websocket_browser_passed": 2
+      },
+      "note": "Fresh verification after the final malformed-request mapping passed without a retry or relaxed test, timeout, framing, or performance policy."
+    }
+  },
+  "local_companions": {
+    "test_ideas": {
+      "exit_code": 0,
+      "sha256": "ffaa5fb95a42411a8b82535be8e59f969f3d23803742613f00753571170586f6",
+      "disposition": "Advisory edge cases were independently checked against source and tests."
+    },
+    "broad_review_output_limit": {
+      "exit_code": 1,
+      "sha256": "8b6a8d8e4beeeab41ce1603fb5fcd6e0fbc8fde1c1f012b274eab4614c2e2bf0",
+      "disposition": "Incomplete output is retained and not treated as review evidence."
+    },
+    "narrow_qwen_review_output_limit": {
+      "exit_code": 1,
+      "retained_file": false,
+      "disposition": "No review conclusion was accepted from the incomplete response."
+    },
+    "narrow_glm_review": {
+      "exit_code": 0,
+      "sha256": "33fa15801efc52d2f2925ac99df4d0b2b666950fe606ebdff14c25272798f5ce",
+      "disposition": "The framing rules were judged sound. Its streamed-body desynchronization concern was checked against the drain implementation and covered by a new real TCP/TLS regression; the initial-version response nuance remains benign but documented."
+    },
+    "final_glm_review": {
+      "exit_code": 0,
+      "sha256": "a8ee258fe6ccb08bfba065f4fc1fc7322ae792222091354c8b4abf498ce13c2d",
+      "disposition": "No framing flaw was found. The suggested form-feed Content-Length case failed first, motivated generic httparse request-error mapping, and passes in the final 29-test confirmation. Response Content-Length/remnant handling was independently checked against the shared response writer and focused tests."
+    }
+  },
+  "inputs": {
+    "driver_sha256": "a8d92bc35e6c4fa8dfb8075d7a17b7c8dcc959fb5fb164673029f3ea991e03e1",
+    "router_service_sha256": "171ce6f5e1091556fe30a2c6a55b97af83e600155754a3398aecfb52649c5b85",
+    "client_worker_sha256": "c79ed4e83c293e727a81b78bbcc2d4628311aeaeb3e1ba2d4e31b4213addd074",
+    "launcher_sha256": "d10c34cc06e5215ac22fcee634eac3a7686466ba5071e00cd54a86a264aac30c",
+    "baseline_library_sha256": "88f8245b18a16d22a3d9756c18519f08fdd55d4e32f3d39ce9290983052b521b",
+    "measured_candidate_library_sha256": "6ca3966fa5ea667f1700a0122f0320dfa09bf2289ecee06370050ce770c167c4",
+    "final_candidate_library_sha256": "1a6d317f1f8d360b168c4b59ccbfcef654953622e6b5d217e5a066cc667e7bdc",
+    "source_sha256": {
+      "native/transport/ct_core/src/lib.rs": "8914ba66ce1f4c677d4e62ec43a53be585f609f4ea20abd6398c62f2a723eb1f",
+      "native/transport/ct_core/src/protocol.rs": "d1ee88e4d6f4df26b0f60bb9aca1e12f24a8668bba4d4833917831118164e54e",
+      "native/transport/ct_core/src/http1_framing_tests.rs": "904bd90f42c35b5f02ed52f56992934d856e7f2aae26e7a0a5cca893e3fcb436"
+    }
+  },
+  "performance": {
+    "methodology": {
+      "primary_order": [
+        "baseline",
+        "patched",
+        "patched",
+        "baseline",
+        "baseline",
+        "patched"
+      ],
+      "controlled_fresh_order": [
+        "patched",
+        "baseline",
+        "baseline",
+        "patched",
+        "patched",
+        "baseline"
+      ],
+      "unchanged_inputs": "Both measured variants use identical AOT router/client executables, TLS, payloads, driver, timeouts, retries, worker counts, and runtime thread counts. Only the frozen native library changes.",
+      "gbit_definition": "Total application request and response bytes divided by lifecycle elapsed; this is not wire bandwidth.",
+      "host": "Shared Darwin arm64 host. No audit-owned build, test, or inference workload overlapped timings; unrelated VM and emulator load is recorded in raw process artifacts."
+    },
+    "measured_candidate_scope": "The successful comparisons use candidate 6ca3966f. The final 1a6d317f binary changes only classification of httparse-rejected malformed requests to a generic 400 response and adds a form-feed regression; valid HTTP request parsing and every measured hot path are byte-for-byte unchanged after the measured candidate.",
+    "primary_three_scenario_comparison": {
+      "comparison_sha256": "78eb5311d24ad5eac4ea4da0021e8dca662a505cb1982ff1d6de161780744a0d",
+      "inputs_sha256": "ea49c5a92fd7a1f692e31c16a3c8c97ec6d534bc184965cac6cd29dabf32cc8d",
+      "collector_sha256": "3bfa88d6f4a41142f195391655cbcd6ad932914d671b77420cdc7e69ddf2591f",
+      "measured_operations": 24288,
+      "warmup_operations": 1248,
+      "strict_validation_passed": true,
+      "validation_findings": [],
+      "results": {
+        "h1_serial": {
+          "baseline_median_gbit_s": 0.00664935064935065,
+          "patched_median_gbit_s": 0.0067828606913682464,
+          "throughput_delta_percent": 2.007865866280256,
+          "baseline_p99_ms": 2.89075,
+          "patched_p99_ms": 2.852917
+        },
+        "h1_streaming": {
+          "baseline_median_gbit_s": 9.107224970313826,
+          "patched_median_gbit_s": 9.153809241261722,
+          "throughput_delta_percent": 0.5115089514066362,
+          "baseline_p99_ms": 5.277167,
+          "patched_p99_ms": 5.365875
+        },
+        "h1_fresh_short_window": {
+          "baseline_median_gbit_s": 0.03201758778625954,
+          "patched_median_gbit_s": 0.03033854611211573,
+          "throughput_delta_percent": -5.24412296564194,
+          "baseline_p99_ms": 3.825042,
+          "patched_p99_ms": 3.8839159999999997,
+          "baseline_operation_total_p99_ms": 5.404458,
+          "patched_operation_total_p99_ms": 5.459208,
+          "disposition": "Retained as an unfavorable short-window signal and investigated with a longer, reverse-order campaign."
+        }
+      }
+    },
+    "ephemeral_port_saturation_attempt": {
+      "status": "stopped on first failure; not rerun",
+      "inputs_sha256": "2cf17a9e499ae3eb97437ea8f27736ac8f6e10157e9d1095003cf75a2c69a1b5",
+      "completed_baseline_jsonl_sha256": "d7fb4c879666c8ce1a08332f9c3997fc345c9d0f4dff2a18db45e0b1ffda1b1b",
+      "failed_candidate_log_sha256": "eeaef635e8695da5f808c283b2d85580aaadb912f7618d3e093dcf5bb17fadd3",
+      "completed_baseline_operations": 8192,
+      "failed_candidate_error": "EADDRNOTAVAIL while connecting to 127.0.0.1:8080",
+      "observed_tcp_msl_ms": 15000,
+      "observed_ephemeral_port_range": [
+        49152,
+        65535
+      ],
+      "diagnosis": "Back-to-back phases each attempted 8320 fresh connections against a 16384-port range before the expected two-MSL tuple lifetime elapsed. A later reverse-order candidate position succeeds after a 35-second cooldown, excluding candidate-specific connection failure."
+    },
+    "controlled_fresh_connection_confirmation": {
+      "comparison_sha256": "36734fb44ab312e8d1587aea29a76cf1b0e9bb957cad79e652a2d32d9c94fb14",
+      "inputs_sha256": "3cdaa6e5768f86641c734e284fa9540771a794c5839de0ed40d2da4fc6f3cfab",
+      "collector_sha256": "d3b91a7721897cff43ab19d38a884b5f813f78fb10584a6ef9a1a88b34de133d",
+      "cooldown_seconds_before_each_position": 35,
+      "measured_operations": 49152,
+      "warmup_operations": 768,
+      "strict_validation_passed": true,
+      "validation_findings": [],
+      "throughput_delta_percent": -0.2502887947631982,
+      "baseline": {
+        "median_gbit_s": 0.025905757189731714,
+        "gbit_s_range": [
+          0.0255750243902439,
+          0.02621952100019535
+        ],
+        "request_p50_ms": 3.3945835,
+        "request_p95_ms": 5.096,
+        "request_p99_ms": 5.745042,
+        "connection_setup_p50_ms": 1.7790000000000001,
+        "operation_total_p50_ms": 5.188145499999999,
+        "operation_total_p99_ms": 7.659,
+        "operation_total_mean_ms": 5.0512000832519535,
+        "server_rss_mib": 105.734375,
+        "server_rss_mib_range": [
+          105.234375,
+          105.75
+        ]
+      },
+      "patched": {
+        "median_gbit_s": 0.025840917982287253,
+        "gbit_s_range": [
+          0.025309773335847635,
+          0.025920766319042103
+        ],
+        "request_p50_ms": 3.399146,
+        "request_p95_ms": 5.196625,
+        "request_p99_ms": 5.844292,
+        "connection_setup_p50_ms": 1.7871869999999999,
+        "operation_total_p50_ms": 5.1774995,
+        "operation_total_p99_ms": 7.575084,
+        "operation_total_mean_ms": 5.066125896972657,
+        "server_rss_mib": 105.015625,
+        "server_rss_mib_range": [
+          105.015625,
+          105.671875
+        ]
+      },
+      "conclusion": "The -0.25% throughput delta is much smaller than the roughly 2.4-2.5% within-variant ranges, which overlap. Setup-inclusive operation p50 and p99 are slightly lower for the candidate; mean operation time is 0.30% higher. No material performance regression is reproduced for fresh connections."
+    },
+    "final_binary_direct_timing_preflights": {
+      "status": "No timed variant started; both attempts retained and not rerun in place.",
+      "final_candidate_library_sha256": "1a6d317f1f8d360b168c4b59ccbfcef654953622e6b5d217e5a066cc667e7bdc",
+      "attempts": [
+        {
+          "collector_sha256": "51fedbfd7136741593b547f5f174cc47082b59cd260d4d19547fde0056e06227",
+          "inputs_sha256": "9dd28e690f6b493d3dffc9b3109ffc6c7c625435dad0b1b9a813c3c8fd7a9c14",
+          "preflight_sha256": "f49c743100cf38966a5c45f61b579427db896a3a5019bf1e63be033068d5e07b",
+          "snapshots": 31,
+          "inference_cpu_percent_range": [
+            141.2,
+            1944.2
+          ]
+        },
+        {
+          "collector_sha256": "069d86eaa21dcd331c096215f1e2e0be9a5e78001c8706709dad59c2d6bed454",
+          "inputs_sha256": "c8d9744579bb18a404699fd77e00ec967ee98269ddf2563961efc140acecd79b",
+          "preflight_sha256": "24a34ebd51085f884f703bab3589cd1604cef33a3053952551cddae25b33f879",
+          "snapshots": 31,
+          "inference_cpu_percent_range": [
+            155.9,
+            1567.7
+          ]
+        }
+      ],
+      "disposition": "The unchanged quiet-host threshold correctly rejected unrelated local-model inference load. No failed attempt reached a warmup or measured workload, and no external process was stopped. A future distinct campaign may directly time the final binary when the shared host is quiet."
+    },
+    "clearance": "The affected valid HTTP/1 serial, sustained streaming, and controlled fresh-connection paths show no material throughput, latency, memory, error-counter, or connection-accounting regression from the framing fix measured at candidate 6ca3966f. The final delta is confined to malformed httparse error classification; direct final-binary timing was safely withheld by two busy-host preflights. This is scoped SA-010 valid-path performance clearance, not proof of identical timing or clearance for earlier audit findings."
+  },
+  "remaining": [
+    "Implementing request chunked decoding remains separate compatibility work; safe rejection is covered here.",
+    "No named intermediary deployment or end-to-end authorization bypass was reproduced; deployment-specific frontend/backend differential testing remains appropriate.",
+    "Malformed later requests receive the connection's initial HTTP version because the failing parser does not expose a trusted later version; the response is generic and the connection closes.",
+    "Direct timing of final candidate 1a6d317f remains pending because two frozen quiet-host preflights observed unrelated inference activity and stopped before all timed variants.",
+    "Timely delivery from paused long-lived SSE producers is not established by response-completion or request-framing tests.",
+    "Earlier security-audit performance findings, finite handle availability, and unreviewed component rows remain open."
+  ]
+}

@@ -1,5 +1,7 @@
 import 'dart:ffi' as ffi;
 
+import 'package:connectanum_client/native_message_handles.dart';
+
 import 'package:ffi/ffi.dart' as pkgffi show Utf8;
 
 typedef CtStartRuntimeNative = ffi.Int32 Function();
@@ -27,8 +29,10 @@ typedef CtPollConnectionNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollConnectionDart = int Function(int);
 
 typedef CtPollConnectionMessageNative = ffi.Int32 Function(ffi.Int32);
+typedef CtPollConnectionMessageWideNative = ffi.Int64 Function(ffi.Int32);
 typedef CtPollConnectionMessageDart = int Function(int);
 typedef CtPollWebSocketMessageNative = ffi.Int32 Function(ffi.Int32);
+typedef CtPollWebSocketMessageWideNative = ffi.Int64 Function(ffi.Int32);
 typedef CtPollWebSocketMessageDart = int Function(int);
 typedef CtTestHttp3StreamRequestNative =
     ffi.Int32 Function(
@@ -70,15 +74,21 @@ typedef CtTestBufferFreeDart = void Function(ffi.Pointer<ffi.Uint8>, int);
 
 typedef CtMessageGetNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
+typedef CtMessageGetWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Pointer<CtMessageInfo>);
 typedef CtMessageGetDart = int Function(int, ffi.Pointer<CtMessageInfo>);
 typedef CtMessagePeekNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
+typedef CtMessagePeekWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Pointer<CtMessageInfo>);
 typedef CtMessagePeekDart = int Function(int, ffi.Pointer<CtMessageInfo>);
 
 typedef CtMessageReleaseNative = ffi.Void Function(ffi.Int32);
+typedef CtMessageReleaseWideNative = ffi.Void Function(ffi.Int64);
 typedef CtMessageReleaseDart = void Function(int);
 
 typedef CtMessageRetainNative = ffi.Int32 Function(ffi.Int32);
+typedef CtMessageRetainWideNative = ffi.Int64 Function(ffi.Int64);
 typedef CtMessageRetainDart = int Function(int);
 
 typedef CtSendMessageNative =
@@ -96,12 +106,39 @@ typedef CtForwardPublishEventNative =
       ffi.Pointer<ffi.Char>,
       ffi.Int32,
     );
+typedef CtForwardPublishEventWideNative =
+    ffi.Int32 Function(
+      ffi.Int64,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+    );
 typedef CtForwardPublishEventDart =
     int Function(int, int, int, int, int, int, ffi.Pointer<ffi.Char>, int);
 
 typedef CtForwardCallInvocationNative =
     ffi.Int32 Function(
       ffi.Int32,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int32,
+    );
+typedef CtForwardCallInvocationWideNative =
+    ffi.Int32 Function(
+      ffi.Int64,
       ffi.Int32,
       ffi.Uint64,
       ffi.Uint64,
@@ -148,6 +185,23 @@ typedef CtForwardCallInvocationV2Native =
       ffi.Int32,
       ffi.Int32,
     );
+typedef CtForwardCallInvocationV2WideNative =
+    ffi.Int32 Function(
+      ffi.Int64,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Int32,
+    );
 typedef CtForwardCallInvocationV2Dart =
     int Function(
       int,
@@ -168,18 +222,26 @@ typedef CtForwardCallInvocationV2Dart =
 
 typedef CtForwardResultFromYieldNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64, ffi.Int32);
+typedef CtForwardResultFromYieldWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Int32, ffi.Uint64, ffi.Int32);
 typedef CtForwardResultFromYieldDart = int Function(int, int, int, int);
 
 typedef CtForwardResultFromCallNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64);
+typedef CtForwardResultFromCallWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Int32, ffi.Uint64);
 typedef CtForwardResultFromCallDart = int Function(int, int, int);
 
 typedef CtForwardErrorFromErrorNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64, ffi.Uint64);
+typedef CtForwardErrorFromErrorWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Int32, ffi.Uint64, ffi.Uint64);
 typedef CtForwardErrorFromErrorDart = int Function(int, int, int, int);
 
 typedef CtTestMessageEnqueueNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtTestMessageEnqueueWideNative =
+    ffi.Int64 Function(ffi.Int32, ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtTestMessageEnqueueDart =
     int Function(int, int, ffi.Pointer<ffi.Uint8>, int);
 
@@ -912,6 +974,9 @@ final class CtWebSocketHandshakeInfo extends ffi.Struct {
 /// Thin wrapper around the ct_ffi dynamic library.
 class CtFfiBindings {
   CtFfiBindings(ffi.DynamicLibrary library)
+    : this._(library, NativeMessageHandleAbi.detect(library));
+
+  CtFfiBindings._(ffi.DynamicLibrary library, this.messageHandleAbi)
     : ctStartRuntime = library
           .lookupFunction<CtStartRuntimeNative, CtStartRuntimeDart>(
             'ct_start_runtime',
@@ -948,18 +1013,28 @@ class CtFfiBindings {
           .lookupFunction<CtPollConnectionNative, CtPollConnectionDart>(
             'ct_poll_connection',
           ),
-      ctPollConnectionMessage = library
-          .lookupFunction<
-            CtPollConnectionMessageNative,
-            CtPollConnectionMessageDart
-          >('ct_poll_connection_message'),
-      ctPollWebSocketMessageHandle = _tryLookup(
-        () =>
-            library.lookupFunction<
-              CtPollWebSocketMessageNative,
+      ctPollConnectionMessage = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtPollConnectionMessageWideNative,
+              CtPollConnectionMessageDart
+            >('ct_poll_connection_message_wide')
+          : library.lookupFunction<
+              CtPollConnectionMessageNative,
+              CtPollConnectionMessageDart
+            >('ct_poll_connection_message'),
+      ctPollWebSocketMessageHandle =
+          messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtPollWebSocketMessageWideNative,
               CtPollWebSocketMessageDart
-            >('ct_poll_websocket_message'),
-      ),
+            >('ct_poll_websocket_message_wide')
+          : _tryLookup(
+              () =>
+                  library.lookupFunction<
+                    CtPollWebSocketMessageNative,
+                    CtPollWebSocketMessageDart
+                  >('ct_poll_websocket_message'),
+            ),
       ctTestHttp3StreamRequestHandle = _tryLookup(
         () =>
             library.lookupFunction<
@@ -973,52 +1048,212 @@ class CtFfiBindings {
               'ct_test_byte_buffer_free',
             ),
       ),
-      ctMessageGet = library
-          .lookupFunction<CtMessageGetNative, CtMessageGetDart>(
-            'ct_message_get',
-          ),
-      ctMessagePeek = library
-          .lookupFunction<CtMessagePeekNative, CtMessagePeekDart>(
-            'ct_message_peek',
-          ),
-      ctMessageRelease = library
-          .lookupFunction<CtMessageReleaseNative, CtMessageReleaseDart>(
-            'ct_message_release',
-          ),
-      ctMessageRetain = library
-          .lookupFunction<CtMessageRetainNative, CtMessageRetainDart>(
-            'ct_message_retain',
-          ),
-      ctForwardPublishEvent = library
-          .lookupFunction<
-            CtForwardPublishEventNative,
-            CtForwardPublishEventDart
-          >('ct_forward_publish_event'),
-      ctForwardCallInvocation = library
-          .lookupFunction<
-            CtForwardCallInvocationNative,
-            CtForwardCallInvocationDart
-          >('ct_forward_call_invocation'),
-      ctForwardCallInvocationV2 = library
-          .lookupFunction<
-            CtForwardCallInvocationV2Native,
-            CtForwardCallInvocationV2Dart
-          >('ct_forward_call_invocation_v2'),
-      ctForwardResultFromYield = library
-          .lookupFunction<
-            CtForwardResultFromYieldNative,
-            CtForwardResultFromYieldDart
-          >('ct_forward_result_from_yield'),
-      ctForwardResultFromCall = library
-          .lookupFunction<
-            CtForwardResultFromCallNative,
-            CtForwardResultFromCallDart
-          >('ct_forward_result_from_call'),
-      ctForwardErrorFromError = library
-          .lookupFunction<
-            CtForwardErrorFromErrorNative,
-            CtForwardErrorFromErrorDart
-          >('ct_forward_error_from_error'),
+      ctMessageGet = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<CtMessageGetWideNative, CtMessageGetDart>(
+              'ct_message_get_wide',
+            )
+          : (() {
+              final call = library
+                  .lookupFunction<CtMessageGetNative, CtMessageGetDart>(
+                    'ct_message_get',
+                  );
+              return (int a0, ffi.Pointer<CtMessageInfo> a1) =>
+                  call(checkedLegacyMessageHandle(a0), a1);
+            })(),
+      ctMessagePeek = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<CtMessagePeekWideNative, CtMessagePeekDart>(
+              'ct_message_peek_wide',
+            )
+          : (() {
+              final call = library
+                  .lookupFunction<CtMessagePeekNative, CtMessagePeekDart>(
+                    'ct_message_peek',
+                  );
+              return (int a0, ffi.Pointer<CtMessageInfo> a1) =>
+                  call(checkedLegacyMessageHandle(a0), a1);
+            })(),
+      ctMessageRelease = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtMessageReleaseWideNative,
+              CtMessageReleaseDart
+            >('ct_message_release_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<CtMessageReleaseNative, CtMessageReleaseDart>(
+                    'ct_message_release',
+                  );
+              return (int a0) => call(checkedLegacyMessageHandle(a0));
+            })(),
+      ctMessageRetain = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library
+                .lookupFunction<CtMessageRetainWideNative, CtMessageRetainDart>(
+                  'ct_message_retain_wide',
+                )
+          : (() {
+              final call = library
+                  .lookupFunction<CtMessageRetainNative, CtMessageRetainDart>(
+                    'ct_message_retain',
+                  );
+              return (int a0) => call(checkedLegacyMessageHandle(a0));
+            })(),
+      ctForwardPublishEvent = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtForwardPublishEventWideNative,
+              CtForwardPublishEventDart
+            >('ct_forward_publish_event_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<
+                    CtForwardPublishEventNative,
+                    CtForwardPublishEventDart
+                  >('ct_forward_publish_event');
+              return (
+                int a0,
+                int a1,
+                int a2,
+                int a3,
+                int a4,
+                int a5,
+                ffi.Pointer<ffi.Char> a6,
+                int a7,
+              ) => call(
+                checkedLegacyMessageHandle(a0),
+                a1,
+                a2,
+                a3,
+                a4,
+                a5,
+                a6,
+                a7,
+              );
+            })(),
+      ctForwardCallInvocation = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtForwardCallInvocationWideNative,
+              CtForwardCallInvocationDart
+            >('ct_forward_call_invocation_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<
+                    CtForwardCallInvocationNative,
+                    CtForwardCallInvocationDart
+                  >('ct_forward_call_invocation');
+              return (
+                int a0,
+                int a1,
+                int a2,
+                int a3,
+                int a4,
+                int a5,
+                ffi.Pointer<ffi.Char> a6,
+                int a7,
+                ffi.Pointer<ffi.Char> a8,
+                int a9,
+                ffi.Pointer<ffi.Char> a10,
+                int a11,
+                int a12,
+              ) => call(
+                checkedLegacyMessageHandle(a0),
+                a1,
+                a2,
+                a3,
+                a4,
+                a5,
+                a6,
+                a7,
+                a8,
+                a9,
+                a10,
+                a11,
+                a12,
+              );
+            })(),
+      ctForwardCallInvocationV2 =
+          messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtForwardCallInvocationV2WideNative,
+              CtForwardCallInvocationV2Dart
+            >('ct_forward_call_invocation_v2_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<
+                    CtForwardCallInvocationV2Native,
+                    CtForwardCallInvocationV2Dart
+                  >('ct_forward_call_invocation_v2');
+              return (
+                int a0,
+                int a1,
+                int a2,
+                int a3,
+                int a4,
+                int a5,
+                ffi.Pointer<ffi.Char> a6,
+                int a7,
+                ffi.Pointer<ffi.Char> a8,
+                int a9,
+                ffi.Pointer<ffi.Char> a10,
+                int a11,
+                int a12,
+                int a13,
+              ) => call(
+                checkedLegacyMessageHandle(a0),
+                a1,
+                a2,
+                a3,
+                a4,
+                a5,
+                a6,
+                a7,
+                a8,
+                a9,
+                a10,
+                a11,
+                a12,
+                a13,
+              );
+            })(),
+      ctForwardResultFromYield = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtForwardResultFromYieldWideNative,
+              CtForwardResultFromYieldDart
+            >('ct_forward_result_from_yield_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<
+                    CtForwardResultFromYieldNative,
+                    CtForwardResultFromYieldDart
+                  >('ct_forward_result_from_yield');
+              return (int a0, int a1, int a2, int a3) =>
+                  call(checkedLegacyMessageHandle(a0), a1, a2, a3);
+            })(),
+      ctForwardResultFromCall = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtForwardResultFromCallWideNative,
+              CtForwardResultFromCallDart
+            >('ct_forward_result_from_call_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<
+                    CtForwardResultFromCallNative,
+                    CtForwardResultFromCallDart
+                  >('ct_forward_result_from_call');
+              return (int a0, int a1, int a2) =>
+                  call(checkedLegacyMessageHandle(a0), a1, a2);
+            })(),
+      ctForwardErrorFromError = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtForwardErrorFromErrorWideNative,
+              CtForwardErrorFromErrorDart
+            >('ct_forward_error_from_error_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<
+                    CtForwardErrorFromErrorNative,
+                    CtForwardErrorFromErrorDart
+                  >('ct_forward_error_from_error');
+              return (int a0, int a1, int a2, int a3) =>
+                  call(checkedLegacyMessageHandle(a0), a1, a2, a3);
+            })(),
       ctSendMessage = _lookupSendMessage(library),
       ctApplyRouterConfig = library
           .lookupFunction<CtApplyRouterConfigNative, CtApplyRouterConfigDart>(
@@ -1228,19 +1463,30 @@ class CtFfiBindings {
           .lookupFunction<CtSetOnConnectionNative, CtSetOnConnectionDart>(
             'ct_set_on_connection',
           ),
-      ctTestMessageEnqueue = _tryLookup(
-        () =>
-            library.lookupFunction<
-              CtTestMessageEnqueueNative,
-              CtTestMessageEnqueueDart
-            >('ct_test_message_enqueue'),
-      ),
+      ctTestMessageEnqueue = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? _tryLookup(
+              () =>
+                  library.lookupFunction<
+                    CtTestMessageEnqueueWideNative,
+                    CtTestMessageEnqueueDart
+                  >('ct_test_message_enqueue_wide'),
+            )
+          : _tryLookup(
+              () =>
+                  library.lookupFunction<
+                    CtTestMessageEnqueueNative,
+                    CtTestMessageEnqueueDart
+                  >('ct_test_message_enqueue'),
+            ),
       ctTestClearMessages = _tryLookup(
         () => library
             .lookupFunction<CtTestClearMessagesNative, CtTestClearMessagesDart>(
               'ct_test_clear_messages',
             ),
       );
+
+  /// The complete routing-message ABI selected for this library.
+  final NativeMessageHandleAbi messageHandleAbi;
 
   final CtStartRuntimeDart ctStartRuntime;
   final CtShutdownDart ctShutdown;

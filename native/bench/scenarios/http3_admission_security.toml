@@ -1,0 +1,117 @@
+name = "http3_admission_security"
+description = "Bounded HTTP/3 admission comparison: warmup, reused streams, fresh connections, and unchanged HTTP/2 controls."
+
+[[workloads]]
+name = "h2_warmup"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 128
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+
+[[workloads]]
+name = "h2_serial"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 2000
+concurrency = 1
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h2_multiplex"
+protocol = "h2"
+path = "/bench/stream"
+method = "POST"
+iterations = 1024
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+
+[[workloads]]
+name = "h3_warmup"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 128
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+
+[[workloads]]
+name = "h3_serial"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 2000
+concurrency = 1
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h3_multiplex"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 1024
+concurrency = 4
+streams_per_connection = 4
+request_bytes = 262144
+response_bytes = 1048576
+request_chunk_bytes = 65536
+response_chunk_bytes = 131072
+
+[[workloads]]
+name = "h3_fresh_warmup"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 64
+concurrency = 4
+reuse_connections = false
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h3_fresh_serial"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 1000
+concurrency = 1
+reuse_connections = false
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "h3_fresh_parallel"
+protocol = "h3"
+path = "/bench/stream"
+method = "POST"
+iterations = 256
+concurrency = 16
+reuse_connections = false
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024

@@ -1,0 +1,289 @@
+{
+  "date": "2026-09-12",
+  "finding": "SA-014",
+  "title": "Serializer lazy-payload shape, key, and diagnostic integrity",
+  "audit_complete": false,
+  "published": false,
+  "baseline_source": "fbd29c37133543ff884721c3cdaba6a098420345",
+  "threat_model": {
+    "attacker": "An unauthenticated or authenticated peer able to submit a JSON, MessagePack, or CBOR WAMP payload message that reaches lazy argument materialization.",
+    "precondition": "The transport accepts the frame and higher-level code accesses arguments or keyword arguments after envelope deserialization.",
+    "impact": "Valid payloads with more than seven positional arguments failed only when materialized, malformed MessagePack argument errors could reproduce attacker-controlled payload text, malformed JSON keyword arguments were silently dropped, and MessagePack/CBOR non-string keyword keys were coerced to strings. These differences permit availability, diagnostic-confidentiality, and semantic key-confusion failures across serializers.",
+    "severity": "medium",
+    "scope": "Lazy positional and keyword payload fragments for WAMP payload-bearing messages in the JSON, MessagePack, and CBOR serializers. Envelope arity remains limited to seven fields; argument collection cardinality does not share that envelope limit."
+  },
+  "fix": {
+    "json": "Payload attachment now rejects non-list positional arguments and non-string-keyed keyword maps with payload-free FormatException messages. Already-fresh decoded positional lists are assigned directly, while keyword maps use one typed copy whose TypeError is translated without attacker data.",
+    "messagepack": "Lazy positional arguments are decoded through the payload array decoder instead of the seven-field WAMP envelope parser. Direct single-binary views remain zero-copy. Keyword maps and materialized fallback payloads reject non-string keys and invalid shapes without interpolating decoded values.",
+    "cbor": "Lazy positional arguments use payload-specific definite/indefinite array decoding instead of the top-level WAMP arity path. Definite and indefinite direct single-binary views remain zero-copy. Keyword maps and materialized fallback payloads reject non-string keys and invalid shapes with payload-free diagnostics.",
+    "compatibility": "WAMP wire formats and the seven-field message-envelope invariant are unchanged. Valid argument lists may contain any cardinality allowed by the frame, depth, and collection feasibility limits. Valid string-keyed keyword maps preserve their existing values and ordering.",
+    "error_contract": "Malformed lazy payloads fail closed with FormatException and constant serializer-specific messages that do not contain decoded payload data."
+  },
+  "correctness": {
+    "fail_first": {
+      "frozen_probe_source": "The probe ran against detached commit fbd29c37133543ff884721c3cdaba6a098420345 and emitted only booleans and error type names.",
+      "messagepack_arguments_8": {
+        "succeeded": false,
+        "error_type": "FormatException",
+        "contains_secret": false
+      },
+      "cbor_arguments_8": {
+        "succeeded": false,
+        "error_type": "FormatException",
+        "contains_secret": false
+      },
+      "messagepack_malformed_argument": {
+        "succeeded": false,
+        "error_type": "ArgumentError",
+        "contains_secret": true
+      },
+      "messagepack_numeric_keyword_key": {
+        "succeeded": true,
+        "stringified_numeric_key": true
+      },
+      "cbor_numeric_keyword_key": {
+        "succeeded": true,
+        "stringified_numeric_key": true
+      }
+    },
+    "post_fix": {
+      "focused_tests": {
+        "tests_passed": 13,
+        "tests_failed": 0,
+        "coverage": [
+          "Eight positional arguments materialize successfully through JSON, MessagePack, and CBOR lazy payload paths",
+          "Malformed positional and keyword fragments fail with payload-free FormatException messages",
+          "MessagePack and CBOR numeric keyword keys fail rather than being stringified",
+          "Existing depth, arity, complete-value, integer, and JSON diagnostic boundaries remain covered"
+        ]
+      },
+      "serializer_suite": {
+        "tests_passed": 196,
+        "tests_failed": 0
+      },
+      "analysis": "No issues found in packages/connectanum_core.",
+      "diff_check": "passed"
+    }
+  },
+  "performance": {
+    "methodology": {
+      "runtime": "AOT executable",
+      "order": [
+        "baseline",
+        "candidate",
+        "candidate",
+        "baseline",
+        "baseline",
+        "candidate"
+      ],
+      "processes_per_variant": 3,
+      "samples_per_process_and_scenario": 7,
+      "samples_per_variant_and_scenario": 21,
+      "record_count": 72,
+      "scenarios_per_serializer": 4,
+      "serializer_scenario_count": 12,
+      "measured_materializations": 658056000,
+      "warmup_materializations": 7200,
+      "measured_encoded_frame_bytes": 4180734264000,
+      "measured_encoded_frame_gib": 3893.6121985316277,
+      "primary_metric": "deserialize-plus-materialize operations per second",
+      "gbit_definition": "Encoded frame bytes multiplied by completed deserialize-plus-materialize operations and eight, divided by measured loop time and 1e9; this is an in-memory parser/view rate, not network wire bandwidth.",
+      "material_regression_percent": -5.0,
+      "investigation_rule": "Investigate a candidate median below -5%, or a slower candidate whose observed range does not overlap baseline.",
+      "correctness_rule": "Frame size, iteration count, warmup count, and checksum must match between baseline and candidate for every serializer/scenario.",
+      "host": "Apple M3 Ultra, 32 physical cores, 512 GiB memory, macOS 26.6.2 build 25G83 arm64, Dart 3.13.1 stable. Timed subprocesses ran serially; unrelated shared-host work was not controlled."
+    },
+    "results": {
+      "cbor_arguments_7": {
+        "frame_bytes": 13,
+        "iterations_per_round": 500000,
+        "baseline_median_ops_s": 505127.03945042175,
+        "baseline_range_ops_s": [498905.8993626977, 509116.753708661],
+        "candidate_median_ops_s": 522827.70317607373,
+        "candidate_range_ops_s": [512041.1599165987, 530129.3727721313],
+        "baseline_median_gbit_s": 0.05253321210284387,
+        "candidate_median_gbit_s": 0.05437408113031167,
+        "delta_percent": 3.504200397767332,
+        "ranges_overlap": false
+      },
+      "cbor_binary_64k": {
+        "frame_bytes": 65547,
+        "iterations_per_round": 500000,
+        "baseline_median_ops_s": 913831.2007559211,
+        "baseline_range_ops_s": [900586.1014348138, 922739.0586216124],
+        "candidate_median_ops_s": 942604.7940879826,
+        "candidate_range_ops_s": [937660.5743733614, 954699.5083297532],
+        "baseline_median_gbit_s": 479.19114972758683,
+        "candidate_median_gbit_s": 494.27933150468,
+        "delta_percent": 3.1486770541715003,
+        "ranges_overlap": false
+      },
+      "cbor_envelope_control": {
+        "frame_bytes": 5,
+        "iterations_per_round": 1000000,
+        "baseline_median_ops_s": 1158673.365343616,
+        "baseline_range_ops_s": [1144387.352230983, 1171918.0313652141],
+        "candidate_median_ops_s": 1163793.4545928526,
+        "candidate_range_ops_s": [1140239.1537601096, 1185175.3526192969],
+        "baseline_median_gbit_s": 0.046346934613744645,
+        "candidate_median_gbit_s": 0.04655173818371411,
+        "delta_percent": 0.44189237470890763,
+        "ranges_overlap": true
+      },
+      "cbor_keywords_128": {
+        "frame_bytes": 1154,
+        "iterations_per_round": 8000,
+        "baseline_median_ops_s": 8375.744263400406,
+        "baseline_range_ops_s": [8214.98618855447, 8495.328631168935],
+        "candidate_median_ops_s": 8943.653862708206,
+        "candidate_range_ops_s": [8745.310327336965, 9047.27654357847],
+        "baseline_median_gbit_s": 0.07732487103971254,
+        "candidate_median_gbit_s": 0.08256781246052217,
+        "delta_percent": 6.780407584665671,
+        "ranges_overlap": false
+      },
+      "json_arguments_7": {
+        "frame_bytes": 25,
+        "iterations_per_round": 2000000,
+        "baseline_median_ops_s": 2212088.39947662,
+        "baseline_range_ops_s": [2181386.6638744916, 2236718.644280095],
+        "candidate_median_ops_s": 2218721.572629851,
+        "candidate_range_ops_s": [2190398.170579448, 2242926.929926477],
+        "baseline_median_gbit_s": 0.442417679895324,
+        "candidate_median_gbit_s": 0.4437443145259702,
+        "delta_percent": 0.2998602205409373,
+        "ranges_overlap": true
+      },
+      "json_binary_64k": {
+        "frame_bytes": 87404,
+        "iterations_per_round": 10000,
+        "baseline_median_ops_s": 13217.25062682811,
+        "baseline_range_ops_s": [12843.383923422607, 13391.918512854232],
+        "candidate_median_ops_s": 13201.947551302768,
+        "candidate_range_ops_s": [12982.544968290134, 13367.76870551875],
+        "baseline_median_gbit_s": 9.241924590298273,
+        "candidate_median_gbit_s": 9.231224190192536,
+        "delta_percent": -0.11578108002492371,
+        "ranges_overlap": true
+      },
+      "json_envelope_control": {
+        "frame_bytes": 9,
+        "iterations_per_round": 4000000,
+        "baseline_median_ops_s": 4253102.106348818,
+        "baseline_range_ops_s": [4179889.922598888, 4302449.276812057],
+        "candidate_median_ops_s": 4278267.045150692,
+        "candidate_range_ops_s": [4215927.14034716, 4373405.756932668],
+        "baseline_median_gbit_s": 0.30622335165711484,
+        "candidate_median_gbit_s": 0.3080352272508498,
+        "delta_percent": 0.5916843323443555,
+        "ranges_overlap": true
+      },
+      "json_keywords_128": {
+        "frame_bytes": 1586,
+        "iterations_per_round": 70000,
+        "baseline_median_ops_s": 74583.6103581718,
+        "baseline_range_ops_s": [73773.4375576355, 75562.5360946043],
+        "candidate_median_ops_s": 74508.1134013486,
+        "candidate_range_ops_s": [73658.00378391688, 75230.06967379167],
+        "baseline_median_gbit_s": 0.9463168482244838,
+        "candidate_median_gbit_s": 0.945358942836311,
+        "delta_percent": -0.10122459406382012,
+        "ranges_overlap": true
+      },
+      "msgpack_arguments_7": {
+        "frame_bytes": 12,
+        "iterations_per_round": 2500000,
+        "baseline_median_ops_s": 2416687.127951017,
+        "baseline_range_ops_s": [2379257.4432689855, 2433691.6376408376],
+        "candidate_median_ops_s": 2811152.4038164206,
+        "candidate_range_ops_s": [2764431.7157721887, 2842404.5833205422],
+        "baseline_median_gbit_s": 0.23200196428329764,
+        "candidate_median_gbit_s": 0.26987063076637635,
+        "delta_percent": 16.322562871423486,
+        "ranges_overlap": false
+      },
+      "msgpack_binary_64k": {
+        "frame_bytes": 65546,
+        "iterations_per_round": 1000000,
+        "baseline_median_ops_s": 2378947.268254852,
+        "baseline_range_ops_s": [2308583.7761966544, 2400631.846301947],
+        "candidate_median_ops_s": 2610359.4726029723,
+        "candidate_range_ops_s": [2539089.279457244, 2650712.909236939],
+        "baseline_median_gbit_s": 1247.4438211602603,
+        "candidate_median_gbit_s": 1368.7889759298753,
+        "delta_percent": 9.727504574654988,
+        "ranges_overlap": false
+      },
+      "msgpack_envelope_control": {
+        "frame_bytes": 4,
+        "iterations_per_round": 4000000,
+        "baseline_median_ops_s": 4871175.670425996,
+        "baseline_range_ops_s": [4784048.070115008, 4925465.394911502],
+        "candidate_median_ops_s": 4884941.313536295,
+        "candidate_range_ops_s": [4821100.99483419, 4939289.9523728965],
+        "baseline_median_gbit_s": 0.15587762145363188,
+        "candidate_median_gbit_s": 0.15631812203316142,
+        "delta_percent": 0.282593854988078,
+        "ranges_overlap": true
+      },
+      "msgpack_keywords_128": {
+        "frame_bytes": 1050,
+        "iterations_per_round": 80000,
+        "baseline_median_ops_s": 77588.77368033619,
+        "baseline_range_ops_s": [76386.0244129734, 78586.7740423956],
+        "candidate_median_ops_s": 83577.09987463434,
+        "candidate_range_ops_s": [82516.42076773278, 84223.38146348653],
+        "baseline_median_gbit_s": 0.651745698914824,
+        "candidate_median_gbit_s": 0.7020476389469285,
+        "delta_percent": 7.71803175929795,
+        "ranges_overlap": false
+      }
+    },
+    "memory": {
+      "baseline_median_max_rss_bytes": 18808832,
+      "candidate_median_max_rss_bytes": 18759680,
+      "baseline_max_rss_range_bytes": [18153472, 60375040],
+      "candidate_max_rss_range_bytes": [17760256, 60178432]
+    },
+    "investigation_history": [
+      "The first full implementation measured JSON arguments_7 at -4.36% and JSON keywords_128 at -2.91%, both with non-overlapping slower ranges. That implementation was not accepted.",
+      "Removing an unnecessary positional-list copy and a redundant keyword key scan preserved strict validation. A focused final ABBAAB rerun measured JSON arguments_7 at +0.11487% and JSON keywords_128 at -0.04188%, both with overlapping ranges.",
+      "The final complete ABBAAB campaign uses freshly compiled frozen-baseline and final-candidate executables. No scenario triggered the fixed investigation rule; the largest negative median is JSON binary_64k at -0.11578% with overlapping ranges."
+    ],
+    "interpretation": "The final implementation clears the fixed affected-path performance gate on this shared host. Separated positive MessagePack/CBOR ranges are retained as observations, not universal speedup claims. This evidence supports no material regression for measured valid lazy-payload paths, not identical timing, network throughput, or audit-wide performance clearance.",
+    "investigation_count": 0,
+    "largest_negative_delta_percent": -0.11578108002492371,
+    "finding_performance_cleared": true
+  },
+  "inputs": {
+    "benchmark_driver_sha256": "71bbc90c16e0b8b731e16de60c5488d1faf1543749c0cebd58771e0a8dc828e1",
+    "baseline_probe_driver_sha256": "4c055e6beffa782e8e471f0243006752bc3ad8fb772559439589a8afb40b4987",
+    "baseline_executable_sha256": "671692ad8d4e89c2f3fded4ed1b2e91d125659785ee507ca4f489a738a617658",
+    "candidate_executable_sha256": "0eddcd5190986d9a9478a499b26a54a9eaa60cff1f1b09406b30c1393471440e",
+    "raw_canonical_aggregate_sha256": "1d9249cabf9d1f856411ef36171cfcd66390036db06ec0c6c531c0bd93587be4",
+    "source_sha256": {
+      "candidate_json": "5d9e221bf6258b58472bee3b6621230d34738f755bc62a9bb4f2aec368b6c81f",
+      "candidate_messagepack": "62129c3461b8291abe8e6f9fdde7bb623c495edbe4a7a52d3d80d9d82b62b494",
+      "candidate_cbor": "a8dee8b8e84e247550c01b4ddb513032ff227d2bfc4201175fffcbafa963acb8",
+      "candidate_test": "a70a2ad9c1a4b6b36f631df6b2effc9616591d5541ca07017f435a6277304a10"
+    }
+  },
+  "verification": {
+    "dart_analyze_connectanum_core": "passed",
+    "focused_security_tests": "13 passed",
+    "serializer_suite": "196 passed",
+    "benchmark_artifact_validation": "All 72 records contain seven samples; every frame size, iteration count, warmup count, and checksum matches between baseline and candidate.",
+    "git_diff_check": "passed",
+    "bin_test_fast_pre_change": "passed",
+    "bin_verify": "passed (exit 0; 193 native transport/serializer tests, 140 default and 148 feature-enabled FFI tests, 429 core tests, 118 MCP tests, 526 router tests with one documented legacy skip, 11 remote-auth integrations, 13 focused zero-copy tests, 124 benchmark tests, package/CLI/live MCP smokes, and eight Chrome Dart2Wasm tests)"
+  },
+  "local_companions": {
+    "status": "blocked by the managed sandbox",
+    "detail": "Local Ollama and GLM loopback endpoints are denied with Operation not permitted in this audit environment. No sandbox bypass was attempted; source inspection, frozen fail-first probes, focused and complete serializer tests, static analysis, and alternating AOT benchmarks provide the retained evidence."
+  },
+  "remaining": [
+    "Optional numeric strictness and malformed short-array normalization in the core protocol/serializer row",
+    "Lazy-payload consistency outside the reviewed positional and keyword collection boundaries",
+    "Every other incomplete component row and all earlier uncleared audit-wide performance questions"
+  ]
+}

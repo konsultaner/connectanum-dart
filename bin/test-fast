@@ -22,6 +22,7 @@ run_client_fast_tests() {
   dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart
   dart test packages/connectanum_client/test/transport/websocket/websocket_transport_io_test.dart
   dart test packages/connectanum_client/test/transport/native/message_binding_test.dart
+  dart test packages/connectanum_client/test/transport/native/message_handle_abi_test.dart
   dart test packages/connectanum_client/test/mcp
 
   if ! native_runtime_supported; then
@@ -32,6 +33,7 @@ run_client_fast_tests() {
   if [[ "$native_client_runtime_ready" -eq 0 ]]; then
     dart test packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
+    dart test packages/connectanum_client/test/transport/native/resource_restart_test.dart --concurrency=1
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
     return 0
   fi

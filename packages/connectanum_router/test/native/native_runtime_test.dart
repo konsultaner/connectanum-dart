@@ -4,10 +4,12 @@ library native_runtime_test;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:async/async.dart';
+import 'package:connectanum_client/native_message_handles.dart';
 import 'package:connectanum_core/connectanum_core.dart'
     show Hello, MessageTypes, Publish, Unsubscribe;
 import 'package:connectanum_router/src/native/runtime.dart';
@@ -17,6 +19,10 @@ import '../support/native_lib.dart';
 
 void main() {
   final libraryPath = resolveOrBuildNativeLib();
+  final usesWide =
+      libraryPath != null &&
+      NativeMessageHandleAbi.detect(ffi.DynamicLibrary.open(libraryPath)) ==
+          NativeMessageHandleAbi.wide;
   final skipReason = libraryPath == null
       ? 'Native ct_ffi library not found'
       : null;
@@ -70,6 +76,7 @@ void main() {
       final incoming = runtime.pollMessage(polledId);
       expect(incoming, isNotNull);
       expect(incoming!.serializer, NativeMessageSerializer.json);
+      expect(incoming.handle, greaterThan(usesWide ? 0xffffffff : 0));
       final hello = incoming.message as Hello;
       expect(hello.id, MessageTypes.codeHello);
       expect(hello.realm, 'com.example.realm');
@@ -226,7 +233,7 @@ void main() {
       );
 
       final handle = await _pollWebSocketHandleUntil(runtime, connectionId);
-      expect(handle, greaterThan(0));
+      expect(handle, greaterThan(usesWide ? 0xffffffff : 0));
 
       final incoming = decoder.materialize(handle);
       addTearDown(incoming.dispose);

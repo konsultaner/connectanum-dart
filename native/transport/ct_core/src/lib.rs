@@ -24,12 +24,12 @@ use h2::{
 use h3::{quic::BidiStream as H3BidiStreamTrait, server::RequestStream as H3RequestStream};
 use h3_quinn::Connection as H3QuinnConnection;
 use http::{
-    header::{HeaderName, HeaderValue, CONTENT_LENGTH},
-    Request as HttpRequest, Response as HttpResponse, StatusCode,
-};
-use http02::{
     header::{HeaderName as Http2HeaderName, HeaderValue as Http2HeaderValue},
     Request as Http2Request, Response as Http2Response, StatusCode as Http2StatusCode,
+};
+use http::{
+    header::{HeaderName, HeaderValue, CONTENT_LENGTH},
+    Request as HttpRequest, Response as HttpResponse, StatusCode,
 };
 use sha1::{Digest, Sha1};
 use thiserror::Error;
@@ -54,6 +54,8 @@ use crate::io_stream::{IoReadHalf, IoStream, IoWriteHalf};
 
 mod config;
 mod http1_stream;
+#[cfg(test)]
+mod http3_admission_tests;
 mod http_body;
 mod http_stream;
 mod io_stream;
@@ -2806,6 +2808,7 @@ fn start_http3_listener(
     registry: Arc<ListenerRegistry>,
     sender: mpsc::Sender<ConnectionId>,
     handle: tokio::runtime::Handle,
+    max_pending_handshakes: usize,
 ) -> Result<(QuinnEndpoint, JoinHandle<()>, SocketAddr), Error> {
     let runtime_config = config_state.endpoint_config();
     let server_config = build_http3_server_config(&runtime_config)?;
@@ -2819,10 +2822,37 @@ fn start_http3_listener(
     let sender_for_task = sender.clone();
     let endpoint_for_task = endpoint.clone();
     let listener = handle.spawn(async move {
+        // A stalled unauthenticated peer must not serialize the whole listener.
+        // Own the bounded tasks here so listener cancellation aborts them too.
+        let mut handshakes = JoinSet::new();
         loop {
-            match endpoint_for_task.accept().await {
-                Some(connecting) => match connecting.await {
-                    Ok(connection) => {
+            while handshakes.try_join_next().is_some() {}
+            tokio::select! {
+                _ = sender_for_task.closed() => break,
+                Some(_) = handshakes.join_next(), if !handshakes.is_empty() => {},
+                incoming = endpoint_for_task.accept() => {
+                    let Some(incoming) = incoming else { break };
+                    if handshakes.len() >= max_pending_handshakes {
+                        incoming.refuse();
+                        continue;
+                    }
+                    let registry_for_task = Arc::clone(&registry_for_task);
+                    let config_for_task = Arc::clone(&config_for_task);
+                    let sender_for_task = sender_for_task.clone();
+                    let deadline = config_for_task.endpoint_config().handshake_timeout;
+                    handshakes.spawn(async move {
+                        let connection = match time::timeout(deadline, async { incoming.await }).await {
+                            Ok(Ok(connection)) => connection,
+                            failure => {
+                                // Failed unauthenticated handshakes must not amplify logs.
+                                #[cfg(feature = "ffi-test")]
+                                if ffi_test_debug_logs_enabled() {
+                                    eprintln!("http3 handshake failed for listener {:?}: {:?}", listener_id, failure);
+                                }
+                                let _ = failure;
+                                return;
+                            }
+                        };
                         let peer_addr = connection.remote_address();
                         let runtime_for_task = config_for_task.endpoint_config();
                         let handshake = Http3Handshake::from_endpoint(&runtime_for_task);
@@ -2864,20 +2894,12 @@ fn start_http3_listener(
                             )
                             .await;
                         });
-                        if sender_for_task.send(connection_id).await.is_err() {
-                            break;
-                        }
-                    }
-                    Err(err) => {
-                        eprintln!(
-                            "http3 connection failed for listener {:?}: {}",
-                            listener_id, err
-                        );
-                    }
-                },
-                None => break,
+                        let _ = sender_for_task.send(connection_id).await;
+                    });
+                }
             }
         }
+        endpoint_for_task.close(VarInt::from_u32(0), b"listener stopped");
     });
 
     Ok((endpoint, listener, local_addr))
@@ -5266,6 +5288,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                     Arc::clone(&view.registry),
                     sender.clone(),
                     view.handle.clone(),
+                    backlog as usize,
                 ) {
                     Ok((endpoint, task, bound_addr)) => {
                         http3_addr = Some(bound_addr);
@@ -5957,6 +5980,12 @@ fn has_bearer_header_bytes(headers: &[(Arc<[u8]>, Arc<[u8]>)]) -> bool {
 }
 
 #[cfg(test)]
+mod http2_security_tests;
+
+#[cfg(test)]
+mod http1_response_tests;
+
+#[cfg(test)]
 mod stats_tests {
     use super::*;
 
@@ -6004,6 +6033,7 @@ async fn serve_http_connection(
     registry: Arc<ListenerRegistry>,
 ) {
     let (mut stream, request, body_phase, prefetched) = handshake.into_parts();
+    let initial_version = request.version;
     if !prefetched.is_empty() {
         // Preserve parser-prefetched bytes on the underlying stream so the
         // body reader or the next pipelined request can drain them directly.
@@ -6039,6 +6069,20 @@ async fn serve_http_connection(
                     Ok(Some(value)) => value,
                     Ok(None) => break,
                     Err(err) => {
+                        if let protocol::NegotiationError::Protocol(detail) = &err {
+                            if let Some(status) = protocol::classify_http_error_status(detail) {
+                                let _ = send_http_simple_response(
+                                    &mut write_half,
+                                    initial_version,
+                                    StatusCode::from_u16(status as u16).unwrap(),
+                                    false,
+                                    b"invalid HTTP request",
+                                    &[],
+                                )
+                                .await;
+                                let _ = write_half.shutdown().await;
+                            }
+                        }
                         if should_log_http1_read_error(&err) {
                             eprintln!(
                                 "http/1 connection read error for listener {:?}: {:?}",
@@ -6369,13 +6413,16 @@ fn strip_content_length(headers: &mut Vec<(String, String)>) {
     headers.retain(|(name, _)| !name.eq_ignore_ascii_case("content-length"));
 }
 
-async fn write_http1_chunked_response(
-    writer: &mut IoWriteHalf,
+async fn write_http1_chunked_response<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     version: u8,
     status: i32,
     headers: &[(String, String)],
     reader: &mut ResponseStreamReader,
 ) -> io::Result<()> {
+    const MAX_BATCH_CHUNKS: usize = 64;
+    const MAX_BATCH_BYTES: usize = 16 * 1024;
+
     let clamped = status.clamp(100, 599) as u16;
     let status_code = StatusCode::from_u16(clamped).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     let reason = status_code.canonical_reason().unwrap_or("");
@@ -6395,11 +6442,19 @@ async fn write_http1_chunked_response(
         reader.close();
         return Err(err);
     }
+    if let Err(err) = writer.flush().await {
+        reader.close();
+        return Err(err);
+    }
 
+    let mut batched_chunks = 0usize;
+    let mut batched_bytes = 0usize;
+    let mut next = reader.next().await;
     loop {
-        match reader.next().await {
+        match next {
             Ok(ResponseStreamFrame::Chunk { bytes, .. }) => {
                 if bytes.is_empty() {
+                    next = reader.next().await;
                     continue;
                 }
                 let header = format!("{:X}\r\n", bytes.len());
@@ -6415,13 +6470,45 @@ async fn write_http1_chunked_response(
                     reader.close();
                     return Err(err);
                 }
+
+                batched_chunks += 1;
+                batched_bytes = batched_bytes.saturating_add(bytes.len());
+                if batched_chunks >= MAX_BATCH_CHUNKS || batched_bytes >= MAX_BATCH_BYTES {
+                    if let Err(err) = writer.flush().await {
+                        reader.close();
+                        return Err(err);
+                    }
+                    batched_chunks = 0;
+                    batched_bytes = 0;
+                    next = reader.next().await;
+                    continue;
+                }
+
+                match reader.try_next() {
+                    Ok(Some(frame)) => next = Ok(frame),
+                    Ok(None) => {
+                        if let Err(err) = writer.flush().await {
+                            reader.close();
+                            return Err(err);
+                        }
+                        batched_chunks = 0;
+                        batched_bytes = 0;
+                        next = reader.next().await;
+                    }
+                    Err(err) => next = Err(err),
+                }
             }
             Ok(ResponseStreamFrame::Finished { .. }) => {
                 if let Err(err) = writer.write_all(b"0\r\n\r\n").await {
                     reader.close();
                     return Err(err);
                 }
-                return Ok(());
+                // Complete the TLS record before waiting for the next request.
+                let result = writer.flush().await;
+                if result.is_err() {
+                    reader.close();
+                }
+                return result;
             }
             Err(err) => {
                 reader.close();
@@ -7809,7 +7896,7 @@ fn flatten_headers(
 }
 
 fn flatten_http2_headers(
-    headers: &http02::HeaderMap,
+    headers: &http::HeaderMap,
     authority: Option<&str>,
 ) -> Vec<(Arc<[u8]>, Arc<[u8]>)> {
     let mut flattened = headers
@@ -8700,7 +8787,7 @@ mod tests {
 
     #[test]
     fn flatten_http2_headers_preserves_raw_bytes() {
-        let mut headers = http02::HeaderMap::new();
+        let mut headers = http::HeaderMap::new();
         headers.insert(
             Http2HeaderName::from_static("x-binary"),
             Http2HeaderValue::from_bytes(b"abc\xff").expect("header value"),
@@ -8714,7 +8801,7 @@ mod tests {
 
     #[test]
     fn flatten_http2_headers_keeps_existing_host() {
-        let mut headers = http02::HeaderMap::new();
+        let mut headers = http::HeaderMap::new();
         headers.insert(
             Http2HeaderName::from_static("host"),
             Http2HeaderValue::from_static("example.test"),

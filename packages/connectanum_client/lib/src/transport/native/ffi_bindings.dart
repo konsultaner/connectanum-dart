@@ -1,5 +1,7 @@
 import 'dart:ffi' as ffi;
 
+import 'package:connectanum_client/native_message_handles.dart';
+
 typedef CtStartRuntimeNative = ffi.Int32 Function();
 typedef CtStartRuntimeDart = int Function();
 
@@ -93,6 +95,15 @@ typedef CtE2eeSessionDecryptMessageSingleBinaryArgumentNative =
       ffi.Int32,
       ffi.Pointer<CtExternalByteBuffer>,
     );
+typedef CtE2eeSessionDecryptMessageSingleBinaryArgumentWideNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int64,
+      ffi.Int32,
+      ffi.Pointer<CtExternalByteBuffer>,
+    );
 typedef CtE2eeSessionDecryptMessageSingleBinaryArgumentDart =
     int Function(
       int,
@@ -109,6 +120,16 @@ typedef CtE2eeSessionDecryptMessagePayloadConsumeNative =
       ffi.Pointer<ffi.Char>,
       ffi.Int32,
       ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<CtExternalByteBuffer>,
+      ffi.Pointer<ffi.Int32>,
+    );
+typedef CtE2eeSessionDecryptMessagePayloadConsumeWideNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int64,
       ffi.Int32,
       ffi.Pointer<CtExternalByteBuffer>,
       ffi.Pointer<ffi.Int32>,
@@ -180,28 +201,39 @@ typedef CtFileSegmentMetricsSnapshotDart =
     int Function(ffi.Pointer<CtFileSegmentMetricsInfo>);
 
 typedef CtPollConnectionMessageNative = ffi.Int32 Function(ffi.Int32);
+typedef CtPollConnectionMessageWideNative = ffi.Int64 Function(ffi.Int32);
 typedef CtPollConnectionMessageDart = int Function(int);
 
 typedef CtWaitConnectionMessageNative =
     ffi.Int32 Function(ffi.Int32, ffi.Uint32);
+typedef CtWaitConnectionMessageWideNative =
+    ffi.Int64 Function(ffi.Int32, ffi.Uint32);
 typedef CtWaitConnectionMessageDart = int Function(int, int);
 
 typedef CtMessageGetNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
+typedef CtMessageGetWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Pointer<CtMessageInfo>);
 typedef CtMessageGetDart = int Function(int, ffi.Pointer<CtMessageInfo>);
 
 typedef CtMessagePeekNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtMessageInfo>);
+typedef CtMessagePeekWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Pointer<CtMessageInfo>);
 typedef CtMessagePeekDart = int Function(int, ffi.Pointer<CtMessageInfo>);
 
 typedef CtMessageReleaseNative = ffi.Void Function(ffi.Int32);
+typedef CtMessageReleaseWideNative = ffi.Void Function(ffi.Int64);
 typedef CtMessageReleaseDart = void Function(int);
 
 typedef CtMessageRetainNative = ffi.Int32 Function(ffi.Int32);
+typedef CtMessageRetainWideNative = ffi.Int64 Function(ffi.Int64);
 typedef CtMessageRetainDart = int Function(int);
 
 typedef CtMessageDecodeSingleBinaryArgumentNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtExternalByteBuffer>);
+typedef CtMessageDecodeSingleBinaryArgumentWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Pointer<CtExternalByteBuffer>);
 typedef CtMessageDecodeSingleBinaryArgumentDart =
     int Function(int, ffi.Pointer<CtExternalByteBuffer>);
 
@@ -254,6 +286,8 @@ typedef CtSha256UpdateExternalOwnedAsyncDart =
 
 typedef CtSha256UpdateMessageBinaryArgumentNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32);
+typedef CtSha256UpdateMessageBinaryArgumentWideNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Int64);
 typedef CtSha256UpdateMessageBinaryArgumentDart = int Function(int, int);
 
 typedef CtSha256FinalizeNative =
@@ -521,6 +555,9 @@ final class CtMessageInfo extends ffi.Struct {
 
 class CtFfiBindings {
   CtFfiBindings(ffi.DynamicLibrary library)
+    : this._(library, NativeMessageHandleAbi.detect(library));
+
+  CtFfiBindings._(ffi.DynamicLibrary library, this.messageHandleAbi)
     : ctStartRuntime = library
           .lookupFunction<CtStartRuntimeNative, CtStartRuntimeDart>(
             'ct_start_runtime',
@@ -577,18 +614,59 @@ class CtFfiBindings {
           .lookupFunction<CtE2eeSessionDecryptNative, CtE2eeSessionDecryptDart>(
             'ct_e2ee_session_decrypt_aes256gcm',
           ),
-      ctE2eeSessionDecryptMessageSingleBinaryArgument = library
-          .lookupFunction<
-            CtE2eeSessionDecryptMessageSingleBinaryArgumentNative,
-            CtE2eeSessionDecryptMessageSingleBinaryArgumentDart
-          >('ct_e2ee_session_decrypt_message_single_binary_argument'),
-      ctE2eeSessionDecryptMessagePayloadConsume = _tryLookup(
-        () =>
-            library.lookupFunction<
-              CtE2eeSessionDecryptMessagePayloadConsumeNative,
+      ctE2eeSessionDecryptMessageSingleBinaryArgument =
+          messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtE2eeSessionDecryptMessageSingleBinaryArgumentWideNative,
+              CtE2eeSessionDecryptMessageSingleBinaryArgumentDart
+            >('ct_e2ee_session_decrypt_message_single_binary_argument_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<
+                    CtE2eeSessionDecryptMessageSingleBinaryArgumentNative,
+                    CtE2eeSessionDecryptMessageSingleBinaryArgumentDart
+                  >('ct_e2ee_session_decrypt_message_single_binary_argument');
+              return (
+                int a0,
+                ffi.Pointer<ffi.Char> a1,
+                int a2,
+                int a3,
+                int a4,
+                ffi.Pointer<CtExternalByteBuffer> a5,
+              ) => call(a0, a1, a2, checkedLegacyMessageHandle(a3), a4, a5);
+            })(),
+      ctE2eeSessionDecryptMessagePayloadConsume =
+          messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtE2eeSessionDecryptMessagePayloadConsumeWideNative,
               CtE2eeSessionDecryptMessagePayloadConsumeDart
-            >('ct_e2ee_session_decrypt_message_payload_consume'),
-      ),
+            >('ct_e2ee_session_decrypt_message_payload_consume_wide')
+          : _tryLookup(
+              () => (() {
+                final call = library
+                    .lookupFunction<
+                      CtE2eeSessionDecryptMessagePayloadConsumeNative,
+                      CtE2eeSessionDecryptMessagePayloadConsumeDart
+                    >('ct_e2ee_session_decrypt_message_payload_consume');
+                return (
+                  int a0,
+                  ffi.Pointer<ffi.Char> a1,
+                  int a2,
+                  int a3,
+                  int a4,
+                  ffi.Pointer<CtExternalByteBuffer> a5,
+                  ffi.Pointer<ffi.Int32> a6,
+                ) => call(
+                  a0,
+                  a1,
+                  a2,
+                  checkedLegacyMessageHandle(a3),
+                  a4,
+                  a5,
+                  a6,
+                );
+              })(),
+            ),
       ctClientConnectRawsocket = library
           .lookupFunction<
             CtClientConnectRawsocketNative,
@@ -618,37 +696,87 @@ class CtFfiBindings {
             CtFileSegmentMetricsSnapshotNative,
             CtFileSegmentMetricsSnapshotDart
           >('ct_file_segment_metrics_snapshot'),
-      ctPollConnectionMessage = library
-          .lookupFunction<
-            CtPollConnectionMessageNative,
-            CtPollConnectionMessageDart
-          >('ct_poll_connection_message'),
-      ctWaitConnectionMessage = library
-          .lookupFunction<
-            CtWaitConnectionMessageNative,
-            CtWaitConnectionMessageDart
-          >('ct_wait_connection_message'),
-      ctMessageGet = library
-          .lookupFunction<CtMessageGetNative, CtMessageGetDart>(
-            'ct_message_get',
-          ),
-      ctMessagePeek = library
-          .lookupFunction<CtMessagePeekNative, CtMessagePeekDart>(
-            'ct_message_peek',
-          ),
-      ctMessageRelease = library
-          .lookupFunction<CtMessageReleaseNative, CtMessageReleaseDart>(
-            'ct_message_release',
-          ),
-      ctMessageRetain = library
-          .lookupFunction<CtMessageRetainNative, CtMessageRetainDart>(
-            'ct_message_retain',
-          ),
-      ctMessageDecodeSingleBinaryArgument = library
-          .lookupFunction<
-            CtMessageDecodeSingleBinaryArgumentNative,
-            CtMessageDecodeSingleBinaryArgumentDart
-          >('ct_message_decode_single_binary_argument'),
+      ctPollConnectionMessage = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtPollConnectionMessageWideNative,
+              CtPollConnectionMessageDart
+            >('ct_poll_connection_message_wide')
+          : library.lookupFunction<
+              CtPollConnectionMessageNative,
+              CtPollConnectionMessageDart
+            >('ct_poll_connection_message'),
+      ctWaitConnectionMessage = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtWaitConnectionMessageWideNative,
+              CtWaitConnectionMessageDart
+            >('ct_wait_connection_message_wide')
+          : library.lookupFunction<
+              CtWaitConnectionMessageNative,
+              CtWaitConnectionMessageDart
+            >('ct_wait_connection_message'),
+      ctMessageGet = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<CtMessageGetWideNative, CtMessageGetDart>(
+              'ct_message_get_wide',
+            )
+          : (() {
+              final call = library
+                  .lookupFunction<CtMessageGetNative, CtMessageGetDart>(
+                    'ct_message_get',
+                  );
+              return (int a0, ffi.Pointer<CtMessageInfo> a1) =>
+                  call(checkedLegacyMessageHandle(a0), a1);
+            })(),
+      ctMessagePeek = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<CtMessagePeekWideNative, CtMessagePeekDart>(
+              'ct_message_peek_wide',
+            )
+          : (() {
+              final call = library
+                  .lookupFunction<CtMessagePeekNative, CtMessagePeekDart>(
+                    'ct_message_peek',
+                  );
+              return (int a0, ffi.Pointer<CtMessageInfo> a1) =>
+                  call(checkedLegacyMessageHandle(a0), a1);
+            })(),
+      ctMessageRelease = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtMessageReleaseWideNative,
+              CtMessageReleaseDart
+            >('ct_message_release_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<CtMessageReleaseNative, CtMessageReleaseDart>(
+                    'ct_message_release',
+                  );
+              return (int a0) => call(checkedLegacyMessageHandle(a0));
+            })(),
+      ctMessageRetain = messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library
+                .lookupFunction<CtMessageRetainWideNative, CtMessageRetainDart>(
+                  'ct_message_retain_wide',
+                )
+          : (() {
+              final call = library
+                  .lookupFunction<CtMessageRetainNative, CtMessageRetainDart>(
+                    'ct_message_retain',
+                  );
+              return (int a0) => call(checkedLegacyMessageHandle(a0));
+            })(),
+      ctMessageDecodeSingleBinaryArgument =
+          messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtMessageDecodeSingleBinaryArgumentWideNative,
+              CtMessageDecodeSingleBinaryArgumentDart
+            >('ct_message_decode_single_binary_argument_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<
+                    CtMessageDecodeSingleBinaryArgumentNative,
+                    CtMessageDecodeSingleBinaryArgumentDart
+                  >('ct_message_decode_single_binary_argument');
+              return (int a0, ffi.Pointer<CtExternalByteBuffer> a1) =>
+                  call(checkedLegacyMessageHandle(a0), a1);
+            })(),
       ctBase64DecodeCanonical = _tryLookup(
         () =>
             library.lookupFunction<
@@ -688,11 +816,21 @@ class CtFfiBindings {
               CtSha256UpdateExternalOwnedAsyncDart
             >('ct_sha256_update_external_owned_async'),
       ),
-      ctSha256UpdateMessageBinaryArgument = library
-          .lookupFunction<
-            CtSha256UpdateMessageBinaryArgumentNative,
-            CtSha256UpdateMessageBinaryArgumentDart
-          >('ct_sha256_update_message_binary_argument'),
+      ctSha256UpdateMessageBinaryArgument =
+          messageHandleAbi == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              CtSha256UpdateMessageBinaryArgumentWideNative,
+              CtSha256UpdateMessageBinaryArgumentDart
+            >('ct_sha256_update_message_binary_argument_wide')
+          : (() {
+              final call = library
+                  .lookupFunction<
+                    CtSha256UpdateMessageBinaryArgumentNative,
+                    CtSha256UpdateMessageBinaryArgumentDart
+                  >('ct_sha256_update_message_binary_argument');
+              return (int a0, int a1) =>
+                  call(a0, checkedLegacyMessageHandle(a1));
+            })(),
       ctSha256Finalize = library
           .lookupFunction<CtSha256FinalizeNative, CtSha256FinalizeDart>(
             'ct_sha256_finalize',
@@ -773,6 +911,9 @@ class CtFfiBindings {
               CtSendMessageNativeE2eeFileSegmentV2Dart
             >('ct_send_message_native_e2ee_file_segment_v2'),
       );
+
+  /// The complete routing-message ABI selected for this library.
+  final NativeMessageHandleAbi messageHandleAbi;
 
   final CtStartRuntimeDart ctStartRuntime;
   final CtShutdownDart ctShutdown;

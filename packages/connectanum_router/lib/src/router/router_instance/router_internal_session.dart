@@ -45,6 +45,7 @@ class RouterSession {
   final RawReceivePort _controlPort;
   final ReceivePort _responsePort;
   final Isolate _isolate;
+  NativeMessageHandleDecoder? _nativePayloadDecoder;
 
   bool _closed = false;
   int _nextCommandId = 1;
@@ -341,21 +342,53 @@ class RouterSession {
         registrationId,
         details,
       );
-      _applyTransferredLazyPayload(
-        invocation,
-        transferredPayload,
-        fallbackArguments:
-            (_materializeTransferredValue(message['arguments']) as List?)
-                ?.cast<dynamic>()
-                .toList(growable: false),
-        fallbackArgumentsKeywords:
-            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
-                ?.cast<String, dynamic>(),
-        pptScheme: details.pptScheme,
-        pptSerializer: details.pptSerializer,
-        pptCipher: details.pptCipher,
-        pptKeyId: details.pptKeyId,
-      );
+      NativeCallPayloadBytes? ownedNativePayload;
+      try {
+        if (_isTransferredNativeCallPayload(transferredPayload)) {
+          final runtime = binding.runtime;
+          if (runtime is! NativeRuntimeWithHandles) {
+            throw StateError('Native payload requires a native runtime');
+          }
+          final decoder = _nativePayloadDecoder ??= NativeMessageHandleDecoder(
+            libraryPath: runtime.libraryPathHint,
+          );
+          final serializer = switch ((transferredPayload
+              as Map)[_transferredLazyPayloadEncodingKey]) {
+            'json' => NativeMessageSerializer.json,
+            'messagePack' => NativeMessageSerializer.messagePack,
+            'cbor' => NativeMessageSerializer.cbor,
+            _ => throw StateError('Unknown native CALL payload encoding'),
+          };
+          ownedNativePayload = decoder.readRetainedCallPayload(
+            _transferredNativeCallHandle(transferredPayload) ?? 0,
+            serializer: serializer,
+          );
+        }
+        _applyTransferredLazyPayload(
+          invocation,
+          transferredPayload,
+          ownedNativePayload: ownedNativePayload,
+          fallbackArguments:
+              (_materializeTransferredValue(message['arguments']) as List?)
+                  ?.cast<dynamic>()
+                  .toList(growable: false),
+          fallbackArgumentsKeywords:
+              (_materializeTransferredValue(message['argumentsKeywords'])
+                      as Map?)
+                  ?.cast<String, dynamic>(),
+          pptScheme: details.pptScheme,
+          pptSerializer: details.pptSerializer,
+          pptCipher: details.pptCipher,
+          pptKeyId: details.pptKeyId,
+        );
+      } catch (_) {
+        // A cancellation may release a queued transfer before it is received.
+        replyPort.send({
+          'type': 'error',
+          'error': wamp_core.Error.runtimeError,
+        });
+        return;
+      }
       invocation.onResponse((response) {
         if (response is yield_msg.Yield) {
           final details = <String, Object?>{};
@@ -1166,34 +1199,19 @@ int? _transferredNativeCallHandle(Object? value) {
   return (value as Map)[_transferredNativeCallHandleKey] as int?;
 }
 
-Uint8List? _borrowTransferredNativeBytes(
-  Map<Object?, Object?> raw, {
-  required String addressKey,
-  required String lengthKey,
-}) {
-  final address = raw[addressKey] as int?;
-  final length = raw[lengthKey] as int?;
-  if (address == null || address <= 0 || length == null || length <= 0) {
-    return null;
-  }
-  return ffi.Pointer<ffi.Uint8>.fromAddress(address).asTypedList(length);
-}
-
-Object? _copyTransferredNativeCallPayload(Object? value) {
+Object? _copyTransferredNativeCallPayload(
+  Object? value,
+  NativeIncomingMessage? source,
+) {
   if (!_isTransferredNativeCallPayload(value)) {
     return value;
   }
   final raw = (value as Map).cast<Object?, Object?>();
-  final argumentsBytes = _borrowTransferredNativeBytes(
-    raw,
-    addressKey: _transferredNativeArgumentsAddressKey,
-    lengthKey: _transferredNativeArgumentsLengthKey,
-  );
-  final argumentsKeywordsBytes = _borrowTransferredNativeBytes(
-    raw,
-    addressKey: _transferredNativeArgumentsKeywordsAddressKey,
-    lengthKey: _transferredNativeArgumentsKeywordsLengthKey,
-  );
+  if (source == null) {
+    throw StateError('Native reply requires its original message');
+  }
+  final argumentsBytes = source.argumentsBytes;
+  final argumentsKeywordsBytes = source.argumentsKeywordsBytes;
   return _buildTransferredLazyPayload(
     encoding: _lazyPayloadEncodingFromName(
       raw[_transferredLazyPayloadEncodingKey] as String?,
@@ -1209,6 +1227,7 @@ Object? _copyTransferredNativeCallPayload(Object? value) {
 
 LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   Object? value, {
+  NativeCallPayloadBytes? ownedNativePayload,
   String? pptScheme,
   String? pptSerializer,
   String? pptCipher,
@@ -1223,25 +1242,22 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   );
   final retainedNativeCallPayload =
       raw[_transferredNativeCallPayloadKey] == true;
+  if (retainedNativeCallPayload &&
+      (ownedNativePayload == null ||
+          ownedNativePayload.serializer.name != encoding?.name)) {
+    throw StateError('Native payload must be retained before reading');
+  }
   final transparentBinaryPayload = _coerceTransferredBytes(
     raw[_transferredLazyPayloadTransparentBinaryKey],
   );
   final pptDecoded = raw[_transferredLazyPayloadPptDecodedKey] == true;
   final argumentsBytes = retainedNativeCallPayload
-      ? _borrowTransferredNativeBytes(
-          raw,
-          addressKey: _transferredNativeArgumentsAddressKey,
-          lengthKey: _transferredNativeArgumentsLengthKey,
-        )
+      ? ownedNativePayload!.argumentsBytes
       : _coerceTransferredBytes(
           raw[_transferredLazyPayloadArgumentsBytesKey],
         );
   final argumentsKeywordsBytes = retainedNativeCallPayload
-      ? _borrowTransferredNativeBytes(
-          raw,
-          addressKey: _transferredNativeArgumentsKeywordsAddressKey,
-          lengthKey: _transferredNativeArgumentsKeywordsLengthKey,
-        )
+      ? ownedNativePayload!.argumentsKeywordsBytes
       : _coerceTransferredBytes(
           raw[_transferredLazyPayloadArgumentsKeywordsBytesKey],
         );
@@ -1338,6 +1354,7 @@ Uint8List? _coerceTransferredBytes(Object? value) {
 void _applyTransferredLazyPayload(
   AbstractMessageWithPayload message,
   Object? transferredPayload, {
+  NativeCallPayloadBytes? ownedNativePayload,
   List<dynamic>? fallbackArguments,
   Map<String, dynamic>? fallbackArgumentsKeywords,
   String? pptScheme,
@@ -1347,6 +1364,7 @@ void _applyTransferredLazyPayload(
 }) {
   final payload = _lazyPayloadFromTransferredWithPpt(
     transferredPayload,
+    ownedNativePayload: ownedNativePayload,
     pptScheme: pptScheme,
     pptSerializer: pptSerializer,
     pptCipher: pptCipher,

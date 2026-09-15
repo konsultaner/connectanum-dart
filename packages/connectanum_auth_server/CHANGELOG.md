@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.0-beta.6
+
+- Validate service credentials before pending authentication state or identity
+  provider work, and bound transaction capacity, lifetime, cancellation, and
+  owner-scoped cleanup.
+
 ## 3.0.0-beta.5
 
 - Add the canonical pub.dev example entrypoint and synchronize authentication

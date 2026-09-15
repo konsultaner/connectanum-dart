@@ -1968,6 +1968,7 @@ Future<void> _handleInternalInvocation({
         invocationId: dispatch.invocationId,
         calleeSessionId: dispatch.calleeSessionId,
         retainedNativeHandle: retainedHandle,
+        retainedNativeMessage: nativeMessage,
         transferredPayload: response[_internalMsgLazyPayload],
         arguments: response['arguments'] as List<dynamic>?,
         argumentsKeywords:
@@ -2042,6 +2043,7 @@ Future<bool> _sendInternalInvocationResult({
   required int invocationId,
   required int calleeSessionId,
   int retainedNativeHandle = 0,
+  NativeIncomingMessage? retainedNativeMessage,
   Object? transferredPayload,
   List<dynamic>? arguments,
   Map<String, Object?>? argumentsKeywords,
@@ -2133,7 +2135,10 @@ Future<bool> _sendInternalInvocationResult({
         'type': progress ? 'call_progress' : 'call_result',
         'requestId': invocation.callerRequestId,
         _internalMsgLazyPayload:
-            _copyTransferredNativeCallPayload(transferredPayload) ??
+            _copyTransferredNativeCallPayload(
+              transferredPayload,
+              retainedNativeMessage,
+            ) ??
             _buildTransferredLazyPayload(
               arguments: arguments,
               argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
@@ -2193,7 +2198,10 @@ Future<bool> _sendInternalInvocationResult({
     }
     _applyTransferredLazyPayload(
       result,
-      transferredPayload,
+      _copyTransferredNativeCallPayload(
+        transferredPayload,
+        retainedNativeMessage,
+      ),
       fallbackArguments: arguments,
       fallbackArgumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
     );

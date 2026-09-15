@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.6
+
+- Consume the synchronized serializer, native ownership, authentication, and
+  HTTP transport hardening while preserving existing MCP wire behavior.
+
 ## 3.0.0-beta.5
 
 - Add the canonical pub.dev example entrypoint and synchronize router-hosted

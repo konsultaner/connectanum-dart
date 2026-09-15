@@ -1,0 +1,598 @@
+{
+  "metadata": {
+    "baseline_dart_source_commit": "227b5b06",
+    "candidate_base_commit": "1bc60ef16605c5298665caee14146b1e78cf01ec",
+    "candidate_source_files": {
+      "packages/connectanum_auth_server/lib/src/auth_server.dart": "b64d9995c99fd71306807d7652a3d2c8c651819ea440414b827b337915fed0cc",
+      "packages/connectanum_auth_server/lib/src/pending_transaction.dart": "8d587073290ecd510597b14242277df9bd26bf870e902338db4c8b8eb60827c6",
+      "packages/connectanum_auth_server/lib/src/wamp_procedures_impl.dart": "5022f1d3b1456681ae5ceb213277d9476d187c86755a69e502c571dc9e9c8790",
+      "packages/connectanum_router/lib/src/router/router_instance/router_worker_session.dart": "70a51440dc27d764d12db393570d54d07938bfad8f43245f4e257e60f9254573"
+    },
+    "dart": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"macos_arm64\"",
+    "host": "Darwin arm64",
+    "mode": "aot",
+    "scenario_sha256": "50020fb00c364a6696e036de0c50b2bb1cc43d012fd54b5e6c3d05576ed7aa58",
+    "driver_sha256": "54e69d2f9efc60fdc3febd8b1e49a166da237768e195593908b0f61fca27a60f",
+    "native_sha256": "0617efe498fcc78646e6d96ab3d86b624f97716b8f7a0554711abaa57adcbe81",
+    "worker_sha256": "8660228f267af779d67282be1c4aa38a1a7745fff383793ac01de9c62d719e30",
+    "service_sha256": {
+      "baseline": "ce9107a0a7256c3f6d48f12c5e2663c1b673ab6b2b7c6de2e5a97a5147dabb9f",
+      "candidate": "77993e0c80f257b920e10661eba6c055af737d48944ebfacbd7b96966410611e"
+    },
+    "order": [
+      "baseline",
+      "candidate",
+      "candidate",
+      "baseline",
+      "baseline",
+      "candidate"
+    ],
+    "warmup_exchanges_per_run": 1200,
+    "scope": "Authentication lifecycle only; router dispatch unchanged, identical driver, worker and native library.",
+    "caveat": "Shared host. Broader security audit including native lifetime remains open; this is not release clearance.",
+    "measured_exchanges_total": 30000,
+    "warmup_exchanges_total": 7200,
+    "verification": "Authentication-only full bin/verify passed before building the candidate AOT binary.",
+    "interpretation": "Provisional shared-host comparison, not proof of zero overhead or release clearance. Serial median throughput decreased 1.36%; concurrent increased 3.30%; throughput ranges overlap. Unrelated inference appeared at boundaries of baseline passes 4 and 5. Do not discard those measurements or attribute timing causally without confirmation."
+  },
+  "processes": [
+    {
+      "pass": 1,
+      "variant": "baseline",
+      "exit_code": 0,
+      "host_cpu_before": {
+        "inference": 0.1,
+        "virtualization": 183.7,
+        "emulator": 4.2,
+        "other": 199.7
+      },
+      "host_cpu_after": {
+        "inference": 0,
+        "virtualization": 168.3,
+        "emulator": 55.3,
+        "other": 87.6
+      },
+      "raw_sha256": "3148842a1d12c58b22e6e600bb024e0dd912411b751cbe26e8712a3ff9830eaa",
+      "log_sha256": "b6852f69ea324b71579eeb4c567ba62f8c4143b39ba80d7f6ad3ce950d53a032",
+      "process_time_memory_lines": [
+        "40.62 real        12.99 user        11.96 sys",
+        "46907392  maximum resident set size",
+        "10142176  peak memory footprint"
+      ]
+    },
+    {
+      "pass": 2,
+      "variant": "candidate",
+      "exit_code": 0,
+      "host_cpu_before": {
+        "inference": 0.1,
+        "virtualization": 450.7,
+        "emulator": 7.5,
+        "other": 152.9
+      },
+      "host_cpu_after": {
+        "inference": 0,
+        "virtualization": 185.6,
+        "emulator": 67.7,
+        "other": 156.7
+      },
+      "raw_sha256": "651069b77700e5d1d04159fb4807d9504e2ac101150d27a8467307799ba97f3f",
+      "log_sha256": "bf193bf7b53e1cd53582b3cd7ed6fb7eeae175a3b04b42655050fb2145dd6cc3",
+      "process_time_memory_lines": [
+        "40.52 real        12.45 user        11.43 sys",
+        "46907392  maximum resident set size",
+        "10486264  peak memory footprint"
+      ]
+    },
+    {
+      "pass": 3,
+      "variant": "candidate",
+      "exit_code": 0,
+      "host_cpu_before": {
+        "inference": 0.1,
+        "virtualization": 153.7,
+        "emulator": 22.4,
+        "other": 152
+      },
+      "host_cpu_after": {
+        "inference": 0.1,
+        "virtualization": 154.7,
+        "emulator": 39.8,
+        "other": 146.4
+      },
+      "raw_sha256": "847b62facc149cd6c28f1e54634efcf3b886e1077545fe3cd67fe3b3688a852f",
+      "log_sha256": "45f17e11fd32f40dcb34b3fc70078a64db05b9aa9cb75f55a60d11b0a0bfdb82",
+      "process_time_memory_lines": [
+        "39.15 real        11.73 user        10.80 sys",
+        "47087616  maximum resident set size",
+        "10994168  peak memory footprint"
+      ]
+    },
+    {
+      "pass": 4,
+      "variant": "baseline",
+      "exit_code": 0,
+      "host_cpu_before": {
+        "inference": 0.1,
+        "virtualization": 181.1,
+        "emulator": 8.7,
+        "other": 62.5
+      },
+      "host_cpu_after": {
+        "inference": 1036.1,
+        "virtualization": 328.7,
+        "emulator": 67.4,
+        "other": 110.7
+      },
+      "raw_sha256": "36f5d7323c95b328d8ed23d2c5fa7de47827e6a4869f199d9b46f87b1057cf05",
+      "log_sha256": "47596444f509de25ba013fd555a6dab9c6eea80bf90ad059f0b2c60cd624073c",
+      "process_time_memory_lines": [
+        "41.23 real        13.23 user        12.18 sys",
+        "46891008  maximum resident set size",
+        "10420728  peak memory footprint"
+      ]
+    },
+    {
+      "pass": 5,
+      "variant": "baseline",
+      "exit_code": 0,
+      "host_cpu_before": {
+        "inference": 1152,
+        "virtualization": 290.9,
+        "emulator": 4.7,
+        "other": 107.8
+      },
+      "host_cpu_after": {
+        "inference": 0.4,
+        "virtualization": 244.8,
+        "emulator": 3.2,
+        "other": 103.1
+      },
+      "raw_sha256": "8888d9378fb90a7d063be5a502420cc4304fb63f818fbfa900b78d962332bf5a",
+      "log_sha256": "6e19fe41f63fa6807a14bb40d3b3f732bc75fb9870cc369150e0240050ffe7b0",
+      "process_time_memory_lines": [
+        "39.91 real        12.02 user        11.17 sys",
+        "47153152  maximum resident set size",
+        "10306016  peak memory footprint"
+      ]
+    },
+    {
+      "pass": 6,
+      "variant": "candidate",
+      "exit_code": 0,
+      "host_cpu_before": {
+        "inference": 0.6,
+        "virtualization": 167.3,
+        "emulator": 112.3,
+        "other": 165.6
+      },
+      "host_cpu_after": {
+        "inference": 0.5,
+        "virtualization": 155.9,
+        "emulator": 78.4,
+        "other": 51.9
+      },
+      "raw_sha256": "8b8405da3bebc3a0b359a8ec4e35f799303b155f072116a08652570781366f2a",
+      "log_sha256": "3e98db455028fe706d513444649a1fd2eda61144751d051923efa6d8b8cf573f",
+      "process_time_memory_lines": [
+        "40.86 real        12.95 user        11.96 sys",
+        "46628864  maximum resident set size",
+        "10912224  peak memory footprint"
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "pass_number": 1,
+      "variant": "baseline",
+      "workload": "remote_auth_serial",
+      "exchanges": 1000,
+      "seconds": 12.407,
+      "exchanges_per_second": 80.59966148142178,
+      "mean_ms": 12.382475167,
+      "p50_ms": 12.137791499999999,
+      "p95_ms": 15.609875,
+      "p99_ms": 16.685042,
+      "router_rss_before_bytes": 45416448,
+      "router_rss_after_bytes": 45416448,
+      "router_peak_rss_after_bytes": 45449216,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 1,
+      "variant": "baseline",
+      "workload": "remote_auth_concurrent",
+      "exchanges": 4000,
+      "seconds": 21.543,
+      "exchanges_per_second": 185.6751613052964,
+      "mean_ms": 18.77865562,
+      "p50_ms": 14.559229000000002,
+      "p95_ms": 60.551959000000004,
+      "p99_ms": 74.930834,
+      "router_rss_before_bytes": 45416448,
+      "router_rss_after_bytes": 46825472,
+      "router_peak_rss_after_bytes": 46825472,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 2,
+      "variant": "candidate",
+      "workload": "remote_auth_serial",
+      "exchanges": 1000,
+      "seconds": 12.506,
+      "exchanges_per_second": 79.96161842315688,
+      "mean_ms": 12.480897572,
+      "p50_ms": 12.316896,
+      "p95_ms": 15.571209000000001,
+      "p99_ms": 16.746958,
+      "router_rss_before_bytes": 45514752,
+      "router_rss_after_bytes": 45498368,
+      "router_peak_rss_after_bytes": 45531136,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 2,
+      "variant": "candidate",
+      "workload": "remote_auth_concurrent",
+      "exchanges": 4000,
+      "seconds": 20.855,
+      "exchanges_per_second": 191.80052745145048,
+      "mean_ms": 18.19534730375,
+      "p50_ms": 14.174021,
+      "p95_ms": 59.173292000000004,
+      "p99_ms": 71.233542,
+      "router_rss_before_bytes": 45498368,
+      "router_rss_after_bytes": 46809088,
+      "router_peak_rss_after_bytes": 46809088,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 3,
+      "variant": "candidate",
+      "workload": "remote_auth_serial",
+      "exchanges": 1000,
+      "seconds": 12.18,
+      "exchanges_per_second": 82.10180623973727,
+      "mean_ms": 12.156460124,
+      "p50_ms": 11.941834,
+      "p95_ms": 15.500665999999999,
+      "p99_ms": 16.642500000000002,
+      "router_rss_before_bytes": 44941312,
+      "router_rss_after_bytes": 45219840,
+      "router_peak_rss_after_bytes": 45219840,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 3,
+      "variant": "candidate",
+      "workload": "remote_auth_concurrent",
+      "exchanges": 4000,
+      "seconds": 20.821,
+      "exchanges_per_second": 192.11373132894673,
+      "mean_ms": 18.057623627,
+      "p50_ms": 13.9795,
+      "p95_ms": 55.820125,
+      "p99_ms": 73.088,
+      "router_rss_before_bytes": 45252608,
+      "router_rss_after_bytes": 46989312,
+      "router_peak_rss_after_bytes": 46989312,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 4,
+      "variant": "baseline",
+      "workload": "remote_auth_serial",
+      "exchanges": 1000,
+      "seconds": 12.336,
+      "exchanges_per_second": 81.06355382619974,
+      "mean_ms": 12.311882968,
+      "p50_ms": 12.1404585,
+      "p95_ms": 15.664500000000002,
+      "p99_ms": 16.746958,
+      "router_rss_before_bytes": 45416448,
+      "router_rss_after_bytes": 45416448,
+      "router_peak_rss_after_bytes": 45416448,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 4,
+      "variant": "baseline",
+      "workload": "remote_auth_concurrent",
+      "exchanges": 4000,
+      "seconds": 22.316,
+      "exchanges_per_second": 179.24359204158452,
+      "mean_ms": 19.4869637585,
+      "p50_ms": 15.449604,
+      "p95_ms": 63.888583,
+      "p99_ms": 77.213875,
+      "router_rss_before_bytes": 45416448,
+      "router_rss_after_bytes": 46809088,
+      "router_peak_rss_after_bytes": 46809088,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 5,
+      "variant": "baseline",
+      "workload": "remote_auth_serial",
+      "exchanges": 1000,
+      "seconds": 11.513,
+      "exchanges_per_second": 86.85833405715279,
+      "mean_ms": 11.49482158,
+      "p50_ms": 11.3926455,
+      "p95_ms": 14.658125,
+      "p99_ms": 16.402083,
+      "router_rss_before_bytes": 45727744,
+      "router_rss_after_bytes": 45776896,
+      "router_peak_rss_after_bytes": 45776896,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 5,
+      "variant": "baseline",
+      "workload": "remote_auth_concurrent",
+      "exchanges": 4000,
+      "seconds": 21.415,
+      "exchanges_per_second": 186.78496381041327,
+      "mean_ms": 18.67406102675,
+      "p50_ms": 14.590708000000001,
+      "p95_ms": 58.820499999999996,
+      "p99_ms": 75.878208,
+      "router_rss_before_bytes": 45776896,
+      "router_rss_after_bytes": 47054848,
+      "router_peak_rss_after_bytes": 47054848,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 6,
+      "variant": "candidate",
+      "workload": "remote_auth_serial",
+      "exchanges": 1000,
+      "seconds": 12.693,
+      "exchanges_per_second": 78.78358150161506,
+      "mean_ms": 12.665472882,
+      "p50_ms": 12.439167000000001,
+      "p95_ms": 15.693417000000002,
+      "p99_ms": 16.661917,
+      "router_rss_before_bytes": 45498368,
+      "router_rss_after_bytes": 45531136,
+      "router_peak_rss_after_bytes": 45531136,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    },
+    {
+      "pass_number": 6,
+      "variant": "candidate",
+      "workload": "remote_auth_concurrent",
+      "exchanges": 4000,
+      "seconds": 21.699,
+      "exchanges_per_second": 184.3402921793631,
+      "mean_ms": 18.84238721875,
+      "p50_ms": 14.8506875,
+      "p95_ms": 60.495374999999996,
+      "p99_ms": 73.94883300000001,
+      "router_rss_before_bytes": 45563904,
+      "router_rss_after_bytes": 46546944,
+      "router_peak_rss_after_bytes": 46546944,
+      "transport_error_deltas": {
+        "protocol_error_events": 0,
+        "internal_error_events": 0,
+        "body_timeout_events": 0
+      }
+    }
+  ],
+  "summary": {
+    "remote_auth_concurrent": {
+      "baseline": {
+        "exchanges_per_second": {
+          "median": 185.6751613052964,
+          "min": 179.24359204158452,
+          "max": 186.78496381041327
+        },
+        "mean_ms": {
+          "median": 18.77865562,
+          "min": 18.67406102675,
+          "max": 19.4869637585
+        },
+        "p50_ms": {
+          "median": 14.590708000000001,
+          "min": 14.559229000000002,
+          "max": 15.449604
+        },
+        "p95_ms": {
+          "median": 60.551959000000004,
+          "min": 58.820499999999996,
+          "max": 63.888583
+        },
+        "p99_ms": {
+          "median": 75.878208,
+          "min": 74.930834,
+          "max": 77.213875
+        },
+        "router_rss_after_bytes": {
+          "median": 46825472,
+          "min": 46809088,
+          "max": 47054848
+        },
+        "router_peak_rss_after_bytes": {
+          "median": 46825472,
+          "min": 46809088,
+          "max": 47054848
+        }
+      },
+      "candidate": {
+        "exchanges_per_second": {
+          "median": 191.80052745145048,
+          "min": 184.3402921793631,
+          "max": 192.11373132894673
+        },
+        "mean_ms": {
+          "median": 18.19534730375,
+          "min": 18.057623627,
+          "max": 18.84238721875
+        },
+        "p50_ms": {
+          "median": 14.174021,
+          "min": 13.9795,
+          "max": 14.8506875
+        },
+        "p95_ms": {
+          "median": 59.173292000000004,
+          "min": 55.820125,
+          "max": 60.495374999999996
+        },
+        "p99_ms": {
+          "median": 73.088,
+          "min": 71.233542,
+          "max": 73.94883300000001
+        },
+        "router_rss_after_bytes": {
+          "median": 46809088,
+          "min": 46546944,
+          "max": 46989312
+        },
+        "router_peak_rss_after_bytes": {
+          "median": 46809088,
+          "min": 46546944,
+          "max": 46989312
+        }
+      },
+      "median_delta_percent": {
+        "exchanges_per_second": 3.2989690721649367,
+        "mean_ms": -3.106230435520374,
+        "p50_ms": -2.8558381128592325,
+        "p95_ms": -2.2768330253361446,
+        "p99_ms": -3.677219156256306,
+        "router_rss_after_bytes": -0.03498950314905214,
+        "router_peak_rss_after_bytes": -0.03498950314905214
+      }
+    },
+    "remote_auth_serial": {
+      "baseline": {
+        "exchanges_per_second": {
+          "median": 81.06355382619974,
+          "min": 80.59966148142178,
+          "max": 86.85833405715279
+        },
+        "mean_ms": {
+          "median": 12.311882968,
+          "min": 11.49482158,
+          "max": 12.382475167
+        },
+        "p50_ms": {
+          "median": 12.137791499999999,
+          "min": 11.3926455,
+          "max": 12.1404585
+        },
+        "p95_ms": {
+          "median": 15.609875,
+          "min": 14.658125,
+          "max": 15.664500000000002
+        },
+        "p99_ms": {
+          "median": 16.685042,
+          "min": 16.402083,
+          "max": 16.746958
+        },
+        "router_rss_after_bytes": {
+          "median": 45416448,
+          "min": 45416448,
+          "max": 45776896
+        },
+        "router_peak_rss_after_bytes": {
+          "median": 45449216,
+          "min": 45416448,
+          "max": 45776896
+        }
+      },
+      "candidate": {
+        "exchanges_per_second": {
+          "median": 79.96161842315688,
+          "min": 78.78358150161506,
+          "max": 82.10180623973727
+        },
+        "mean_ms": {
+          "median": 12.480897572,
+          "min": 12.156460124,
+          "max": 12.665472882
+        },
+        "p50_ms": {
+          "median": 12.316896,
+          "min": 11.941834,
+          "max": 12.439167000000001
+        },
+        "p95_ms": {
+          "median": 15.571209000000001,
+          "min": 15.500665999999999,
+          "max": 15.693417000000002
+        },
+        "p99_ms": {
+          "median": 16.661917,
+          "min": 16.642500000000002,
+          "max": 16.746958
+        },
+        "router_rss_after_bytes": {
+          "median": 45498368,
+          "min": 45219840,
+          "max": 45531136
+        },
+        "router_peak_rss_after_bytes": {
+          "median": 45531136,
+          "min": 45219840,
+          "max": 45531136
+        }
+      },
+      "median_delta_percent": {
+        "exchanges_per_second": -1.359347513193676,
+        "mean_ms": 1.372776239339557,
+        "p50_ms": 1.4755938096316923,
+        "p95_ms": -0.2477021757060771,
+        "p99_ms": -0.13859719382186553,
+        "router_rss_after_bytes": 0.18037518037516964,
+        "router_peak_rss_after_bytes": 0.18024513338139592
+      }
+    }
+  }
+}

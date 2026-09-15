@@ -4,6 +4,7 @@ library router_integration_websocket_test;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -42,6 +43,7 @@ import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
 import 'support/native_lib.dart';
+import 'support/message_observer.dart';
 
 void main() {
   final nativeLib = resolveOrBuildNativeLib();
@@ -975,6 +977,77 @@ void main() {
           timeout: const Duration(seconds: 10),
           reason: 'buffered Meta API state did not remove closed actor state',
         );
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'retains native internal invocation bytes after reply and router shutdown',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+        final binding = Router(
+          _buildWebSocketConfig(),
+          settings: _buildWebSocketSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(binding.dispose);
+        final service = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'lifetime-service',
+          authRole: 'internal',
+        );
+        addTearDown(service.close);
+        const procedure = 'com.example.ws.lifetime';
+        final registered = await service.register(procedure);
+        final observer = MessageObserver(ffi.DynamicLibrary.open(nativeLib!));
+        var token = ffi.nullptr.cast<ffi.Void>();
+        addTearDown(() => observer.free(token));
+        late Uint8List retainedSubview;
+        late List<int> expected;
+        registered.onLazyInvokePayload((invocation) {
+          token = observer.watchCall(procedure);
+          expect(
+            token,
+            isNot(ffi.nullptr),
+            reason: 'Must exercise a native CALL',
+          );
+          final encoded = invocation.argumentsBytes!;
+          retainedSubview = Uint8List.sublistView(encoded, 1);
+          expected = List<int>.of(retainedSubview);
+          invocation.respondWith(arguments: const ['ok']);
+        });
+        final consumer = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withMsgpackSerializer(
+            'ws://127.0.0.1:${binding.listeners.single.port}/ws',
+          ),
+        );
+        final session = await consumer.connect().first.timeout(
+          const Duration(seconds: 10),
+        );
+        addTearDown(session.close);
+        final payload = Uint8List.fromList(
+          List.generate(128 * 1024 + 13, (i) => i % 251),
+        );
+        final result = await session
+            .call(procedure, arguments: [payload])
+            .first
+            .timeout(const Duration(seconds: 10));
+        expect(result.arguments, ['ok']);
+        await session.close();
+        await service.close();
+        await binding.dispose();
+        runtime.shutdown();
+        // Verify ownership before accessing a potentially freed byte view.
+        expect(
+          observer.alive(token),
+          1,
+          reason: 'Escaped subviews must own native storage',
+        );
+        expect(retainedSubview, expected);
       },
       skip: skipReason,
     );

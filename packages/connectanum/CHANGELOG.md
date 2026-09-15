@@ -1,3 +1,8 @@
+## 3.0.0-beta.6
+
+- Expose the synchronized client release with hardened native payload ownership,
+  wide message handles, restart isolation, and serializer validation.
+
 ## 3.0.0-beta.5
 
 - Add the canonical pub.dev example entrypoint and keep the compatibility

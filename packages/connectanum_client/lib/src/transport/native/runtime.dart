@@ -3,6 +3,7 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:connectanum_client/native_message_bytes.dart';
 import 'package:ffi/ffi.dart';
 
 import 'external_byte_buffer.dart';
@@ -15,13 +16,6 @@ String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
     return null;
   }
   return utf8.decode(ptr.asTypedList(len));
-}
-
-Uint8List? _readOptionalBytes(ffi.Pointer<ffi.Uint8> ptr, int len) {
-  if (ptr == ffi.nullptr || len == 0) {
-    return null;
-  }
-  return ptr.asTypedList(len);
 }
 
 abstract final class NativeTransportErrorCode {
@@ -203,6 +197,7 @@ class NativeClientRuntime {
   final ffi.DynamicLibrary _library;
   final CtFfiBindings _bindings;
   final Finalizer<_MessageFinalizerToken> _messageFinalizer;
+  late final NativeMessageBytes _messageBytes = NativeMessageBytes(_library);
   late final ffi.NativeFinalizer _externalByteBufferFinalizer =
       ffi.NativeFinalizer(
         _bindings.ctExternalByteBufferFreePointer
@@ -1301,14 +1296,29 @@ class NativeClientRuntime {
       final serializer = NativeMessageSerializer.fromId(info.serializer);
       final args = info.argsLen == 0
           ? null
-          : info.argsPtr.asTypedList(info.argsLen);
+          : _messageBytes.read(
+              handle,
+              NativeMessageBytePart.arguments,
+              borrowed: info.argsPtr,
+              length: info.argsLen,
+            );
       final kwargs = info.kwargsLen == 0
           ? null
-          : info.kwargsPtr.asTypedList(info.kwargsLen);
-      final metadata = _metadataFromFfi(info);
+          : _messageBytes.read(
+              handle,
+              NativeMessageBytePart.argumentsKeywords,
+              borrowed: info.kwargsPtr,
+              length: info.kwargsLen,
+            );
+      final metadata = _metadataFromFfi(info, handle, _messageBytes);
       var singleBinaryArgument = info.binaryArgPtr == ffi.nullptr
           ? null
-          : info.binaryArgPtr.asTypedList(info.binaryArgLen);
+          : _messageBytes.read(
+              handle,
+              NativeMessageBytePart.singleBinaryArgument,
+              borrowed: info.binaryArgPtr,
+              length: info.binaryArgLen,
+            );
       if (singleBinaryArgument == null &&
           serializer == NativeMessageSerializer.json &&
           info.messageCode == 68 &&
@@ -1333,9 +1343,12 @@ class NativeClientRuntime {
           _throwForError(result, 'Failed to materialize native message');
         }
         info = infoPtr.ref;
-        frame = info.frameLen == 0
-            ? Uint8List(0)
-            : info.framePtr.asTypedList(info.frameLen);
+        frame = _messageBytes.read(
+          handle,
+          NativeMessageBytePart.frame,
+          borrowed: info.framePtr,
+          length: info.frameLen,
+        );
         message = bindSessionMessage(
           serializer,
           frame,
@@ -1574,19 +1587,21 @@ class NativeClientRuntime {
   }
 }
 
-NativeMessageMetadata _metadataFromFfi(CtMessageInfo info) {
+NativeMessageMetadata _metadataFromFfi(
+  CtMessageInfo info,
+  int handle,
+  NativeMessageBytes bytes,
+) {
   final flags = info.flags;
   final metadataBind = (flags & NativeMessageMetadata.flagMetadataBind) != 0;
-  return NativeMessageMetadata(
+  NativeMessageMetadata build(Uint8List? details) => NativeMessageMetadata(
     messageCode: info.messageCode,
     primaryId: info.primaryId,
     secondaryId: info.secondaryId,
     detailNumberA: info.detailNumberA,
     detailNumberB: info.detailNumberB,
     flags: flags,
-    detailsBytes: metadataBind
-        ? _readOptionalBytes(info.detailsPtr, info.detailsLen)
-        : null,
+    detailsBytes: details,
     stringA: metadataBind
         ? _readOptionalString(info.stringAPtr, info.stringALen)
         : null,
@@ -1602,6 +1617,14 @@ NativeMessageMetadata _metadataFromFfi(CtMessageInfo info) {
     stringE: metadataBind
         ? _readOptionalString(info.stringEPtr, info.stringELen)
         : null,
+  );
+  if (!metadataBind || info.detailsLen == 0) return build(null);
+  return bytes.withCopiedBytes(
+    handle,
+    NativeMessageBytePart.details,
+    borrowed: info.detailsPtr,
+    length: info.detailsLen,
+    consume: build,
   );
 }
 

@@ -79,6 +79,14 @@ impl ResponseStreamReader {
         self.rx.recv().await.ok_or(ResponseStreamError::Closed)
     }
 
+    pub fn try_next(&mut self) -> Result<Option<ResponseStreamFrame>, ResponseStreamError> {
+        match self.rx.try_recv() {
+            Ok(frame) => Ok(Some(frame)),
+            Err(mpsc::error::TryRecvError::Empty) => Ok(None),
+            Err(mpsc::error::TryRecvError::Disconnected) => Err(ResponseStreamError::Closed),
+        }
+    }
+
     pub fn opened_at(&self) -> Instant {
         self.opened_at
     }

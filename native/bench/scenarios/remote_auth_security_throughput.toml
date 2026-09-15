@@ -1,0 +1,38 @@
+name = "remote_auth_security_throughput"
+description = "Repeated legitimate ticket challenges through the remote auth service, with real traffic warmup before serial and concurrent measurements."
+
+[[workloads]]
+name = "remote_auth_warmup"
+protocol = "wamp_rawsocket_auth_frames"
+serializer = "json"
+iterations = 300
+concurrency = 4
+auth_realm = "bench.remote_auth"
+auth_method = "ticket"
+auth_id = "ticket-user"
+auth_secret = "ticket-secret"
+frame_case = "success"
+
+[[workloads]]
+name = "remote_auth_serial"
+protocol = "wamp_rawsocket_auth_frames"
+serializer = "json"
+iterations = 1000
+concurrency = 1
+auth_realm = "bench.remote_auth"
+auth_method = "ticket"
+auth_id = "ticket-user"
+auth_secret = "ticket-secret"
+frame_case = "success"
+
+[[workloads]]
+name = "remote_auth_concurrent"
+protocol = "wamp_rawsocket_auth_frames"
+serializer = "json"
+iterations = 1000
+concurrency = 4
+auth_realm = "bench.remote_auth"
+auth_method = "ticket"
+auth_id = "ticket-user"
+auth_secret = "ticket-secret"
+frame_case = "success"

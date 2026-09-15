@@ -1,3 +1,11 @@
+## 3.0.0-beta.6
+
+- Bound serializer nesting and declared collection allocation, reject malformed
+  message shapes and ambiguous standardized fields, and keep diagnostics free
+  of attacker-controlled payload content.
+- Preserve exact WAMP-safe 64-bit MessagePack identifiers in dart2js browsers
+  while rejecting lossy or out-of-range integer values.
+
 ## 3.0.0-beta.5
 
 - Add the canonical pub.dev example entrypoint and keep the shared protocol

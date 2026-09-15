@@ -1,0 +1,268 @@
+{
+  "date": "2026-09-11",
+  "finding": {
+    "id": "SA-012",
+    "title": "Serializer recursion, framing, and diagnostic boundaries were incomplete",
+    "status": "locally fixed and affected-path performance cleared",
+    "severity": "moderate",
+    "impact": "Attacker-controlled JSON, MessagePack, or CBOR nesting could overflow the Dart stack. MessagePack and CBOR accepted trailing encoded values, binary fast paths truncated floating-point WAMP integer fields, valid indefinite CBOR could bypass the seven-field WAMP envelope bound, and malformed JSON diagnostics could expose payload contents through FormatException text. Network frame limits constrain input size, but do not make recursive stack exhaustion or secret-bearing diagnostics safe.",
+    "prerequisites": [
+      "An untrusted peer can submit a serialized WAMP frame or PPT payload to a Connectanum serializer through an admitted transport path.",
+      "For diagnostic disclosure, the surrounding application or transport records the propagated decoder exception or the serializer failure logger.",
+      "No authentication or authorization bypass was demonstrated."
+    ]
+  },
+  "baseline_source": "eb5d8d84",
+  "correctness": {
+    "fail_first": {
+      "deep_msgpack": {
+        "result": "An 8,192-level nested result raised StackOverflowError.",
+        "log_sha256": "a6a181b78f5c023a4216469a2419f7c293d859871e3f3cbbc93164d6c90f459a"
+      },
+      "deep_cbor": {
+        "result": "An 8,192-level nested result raised StackOverflowError.",
+        "log_sha256": "a7245a42e2966bdf0da235d1d1f8d21b7b3c535f362d7a331c93c4e8cc01303"
+      },
+      "deep_json": {
+        "result": "A 65,536-level nested result raised StackOverflowError during binary-string traversal.",
+        "log_sha256": "b5b46e25ee6d0a0532873e7c629a168eb02ee7312df2d59b8effc22ead5832bd"
+      },
+      "security_suite": {
+        "result": "The initial cross-serializer resource-bound suite failed before production changes.",
+        "log_sha256": "a70e15bba87d5b9771096698e4a755a8ae24d3890ed4576003d05f5939ee10e2"
+      },
+      "indefinite_cbor_arity": {
+        "result": "The frozen serializer accepted an eight-field Result encoded as an RFC 8949 indefinite-length array.",
+        "log_sha256": "f835eef209bb5c8ffcfa20aa412f82cd6dbdb5893227665fe3953d477d937082"
+      },
+      "json_diagnostic": {
+        "result": "Dart's malformed JSON FormatException included the source line and exposed the probe secret.",
+        "log_sha256": "7b5af45e1fc26af4066bb0847ebe6f53fce385dffaabc852bf05d41cdb95a8d9"
+      }
+    },
+    "post_fix": {
+      "focused_tests": {
+        "tests_passed": 9,
+        "tests_failed": 0,
+        "coverage": [
+          "Depth 64 remains accepted and depth 65 is rejected across JSON, MessagePack, definite CBOR, and indefinite CBOR.",
+          "PPT and non-array binary roots receive the same complete-value and depth validation.",
+          "Recognized fixed-shape and payload-bearing WAMP envelopes reject more than seven fields.",
+          "MessagePack, definite CBOR, and indefinite CBOR reject trailing encoded values.",
+          "Core binary WAMP integer fields reject floating-point values instead of truncating them.",
+          "JSON structural characters inside strings do not affect nesting enforcement.",
+          "Malformed JSON exceptions report only input length and not source contents."
+        ]
+      },
+      "serializer_suite": {
+        "tests_passed": 192,
+        "tests_failed": 0
+      },
+      "deep_nesting_probe": {
+        "result": "MessagePack depth 8,192, CBOR depth 8,192, and JSON depth 65,536 each failed with a bounded FormatException rather than StackOverflowError.",
+        "log_sha256": "73ccd8630b95328eb3075e7fc1bf0bc9afdf8fa656e8d0b17b6e9d78b775c194"
+      },
+      "indefinite_cbor_probe": {
+        "result": "The eight-field indefinite CBOR Result is rejected with FormatException.",
+        "log_sha256": "c5305dae436312c8fcdd5d9276521f5d81c706fa807b4429257078e80b3905"
+      },
+      "json_diagnostic_probe": {
+        "result": "The propagated error is FormatException: Invalid JSON WAMP message (28 chars), without source contents.",
+        "log_sha256": "aa7798d964f7633aa4dd2b383bc74c8b7878df688de1c8f78829251586e63c9f"
+      },
+      "binary_diagnostic_probe": {
+        "result": "Malformed CBOR and MessagePack failures do not contain the embedded probe bytes.",
+        "log_sha256": "8694aca7338b5de8f49811991d31b28fc64c0add12c15e8357e4fcdefcb8e013"
+      },
+      "analysis": "No issues found in packages/connectanum_core.",
+      "diff_check": "passed"
+    }
+  },
+  "protocol_contract": {
+    "maximum_payload_nesting_depth": 64,
+    "maximum_wamp_message_fields": 7,
+    "cbor_indefinite_arrays": "Supported because WAMP CBOR uses RFC 8949 and indefinite-length arrays are valid CBOR; they are scanned and bounded rather than rejected as an encoding class.",
+    "binary_consumption": "MessagePack and CBOR WAMP frames and PPT values must consume the complete supplied byte sequence.",
+    "integer_handling": "Core binary WAMP integer fragments accept integers only; floating-point values are not silently truncated.",
+    "diagnostics": "Serializer failure logs contain only serializer kind and input length. Malformed JSON FormatException text contains only a generic message and character count.",
+    "unchanged": [
+      "Valid WAMP message wire shapes and serializer identifiers",
+      "JSON binary-string encoding and decoding",
+      "MessagePack and CBOR lazy payload views within the enforced boundary",
+      "Transport frame limits, authentication, authorization, TLS, and package versions"
+    ]
+  },
+  "inputs": {
+    "benchmark_driver_sha256": "37123e501fb4fc86ed93e385eede233ef2dc3302dae9948ad45b98512f4412a6",
+    "baseline_executable_sha256": "be0ffffef7d047369df3ed408fa8e7a630dc7c96470f2107a7fe69df14f607e6",
+    "candidate_executable_sha256": "937dd8f890c77e82c8388575074e150e87dca2828b4953226d2cb200cfbdf09c",
+    "aggregate_sha256": "af6c849da937e74882b03635326fda319bbb8f040f4847601944d57ee23a59f7",
+    "raw_run_sha256": {
+      "baseline-1": "12eaace168bd589cdf25930a3e90d0449e3210af9854e914b2462df4b12b2994",
+      "candidate-1": "9e46192171e37926c8d9f80ec27a80182e88248f4bcdf6858c4f076bef107ea3",
+      "candidate-2": "737af015b1d4b8d3a0d8e777a09ef2bbf9c496cdd212c2830f4f58f9bdb0e4e7",
+      "baseline-2": "33f57592455c909e31943078097af62c11fab3f1ad90e8f67609414abede83a3",
+      "baseline-3": "69f6727190e7b0ed5ee631f935faf004f6623a42c5d8ccbe150cb10efea8f979",
+      "candidate-3": "3e3f9ba1e9298d40b5b413735d778f52454293807d41851ebf51f4b26b88048f"
+    },
+    "source_sha256": {
+      "packages/connectanum_core/lib/src/serializer/cbor/serializer.dart": "f07c0bbf40b14c510f152605093297c33d867722b998d0b2f8931c8d708d806e",
+      "packages/connectanum_core/lib/src/serializer/json/serializer.dart": "b9d0275932e93b21bfbe492738701186bcdf56a0e6b7f1160410f2a783d44f09",
+      "packages/connectanum_core/lib/src/serializer/msgpack/serializer.dart": "a703379cb7ce5f53d7fa57f97c42baeddfbaad56053869ea8bfd0545d93960ee",
+      "packages/connectanum_core/lib/src/serializer/limits.dart": "ce7ccf7ba15683e31518125fd0dd9e8b8907f094de4a12aedf86c352d5562cb9",
+      "packages/connectanum_core/test/serializer/serializer_security_limits_test.dart": "cee0b9bb2a0058b0577b8fb3b0823e1f204963c749a0b98e7b9f88dad368f55f"
+    }
+  },
+  "performance": {
+    "methodology": {
+      "runtime": "AOT executable",
+      "order": [
+        "baseline",
+        "candidate",
+        "candidate",
+        "baseline",
+        "baseline",
+        "candidate"
+      ],
+      "processes_per_variant": 3,
+      "samples_per_process_and_scenario": 7,
+      "samples_per_variant_and_scenario": 21,
+      "measured_deserializations": 296062200,
+      "warmup_deserializations": 478914,
+      "primary_metric": "application payload GBit/s during deserialization",
+      "gbit_definition": "Encoded frame bytes multiplied by completed deserializations and eight, divided by measured loop time and 1e9; this is an in-memory parser rate, not network wire bandwidth.",
+      "material_regression_percent": -5.0,
+      "investigation_rule": "Investigate a candidate median below -5%, or a slower non-overlapping candidate range.",
+      "correctness_rule": "Every sample must return a message for every iteration and all checksums must equal warmups plus measured iterations.",
+      "host": "Apple M3 Ultra, 32 cores, 512 GB memory, macOS 26.6.2 arm64, Dart 3.13.1. No audit-owned build, test, benchmark, or local-model workload overlapped a timed process; unrelated shared-host work was not controlled."
+    },
+    "results": {
+      "cbor_control": {
+        "frame_bytes": 5,
+        "baseline_median_gbit_s": 0.048233857032436066,
+        "baseline_range_gbit_s": [0.046720730338456654, 0.048878961028804374],
+        "candidate_median_gbit_s": 0.04758047344950106,
+        "candidate_range_gbit_s": [0.04597532044798352, 0.04833661619518326],
+        "delta_percent": -1.3546160791072959,
+        "ranges_overlap": true
+      },
+      "cbor_indefinite_control": {
+        "frame_bytes": 8,
+        "baseline_median_gbit_s": 0.05558247831849107,
+        "baseline_range_gbit_s": [0.05446771426237097, 0.05683124937285828],
+        "candidate_median_gbit_s": 0.06747197277505898,
+        "candidate_range_gbit_s": [0.06466246697415017, 0.0681434632850473],
+        "delta_percent": 21.390723868842908,
+        "ranges_overlap": false
+      },
+      "cbor_nested_16": {
+        "frame_bytes": 23,
+        "baseline_median_gbit_s": 0.17452155957777163,
+        "baseline_range_gbit_s": [0.1683517086783476, 0.1782448308999039],
+        "candidate_median_gbit_s": 0.1693369446277394,
+        "candidate_range_gbit_s": [0.1633037049528061, 0.17144443802563095],
+        "delta_percent": -2.970759006838819,
+        "ranges_overlap": true
+      },
+      "cbor_structured_16k": {
+        "frame_bytes": 16399,
+        "baseline_median_gbit_s": 139.07660436500225,
+        "baseline_range_gbit_s": [135.46217422569862, 141.86034139252212],
+        "candidate_median_gbit_s": 137.07914260181286,
+        "candidate_range_gbit_s": [134.74818648428186, 140.11103594963137],
+        "delta_percent": -1.4362313289926987,
+        "ranges_overlap": true
+      },
+      "json_control": {
+        "frame_bytes": 9,
+        "baseline_median_gbit_s": 0.3230640833505335,
+        "baseline_range_gbit_s": [0.3078672920933693, 0.3310862387683592],
+        "candidate_median_gbit_s": 0.3213740526160741,
+        "candidate_range_gbit_s": [0.30845950183790455, 0.3323746785890695],
+        "delta_percent": -0.523125541202818,
+        "ranges_overlap": true
+      },
+      "json_nested_16": {
+        "frame_bytes": 48,
+        "baseline_median_gbit_s": 0.3718595300625189,
+        "baseline_range_gbit_s": [0.3611891022475556, 0.3805831247063861],
+        "candidate_median_gbit_s": 0.36668933010443006,
+        "candidate_range_gbit_s": [0.35855346088125717, 0.37523965501404216],
+        "delta_percent": -1.390363709979292,
+        "ranges_overlap": true
+      },
+      "json_structured_16k": {
+        "frame_bytes": 16407,
+        "baseline_median_gbit_s": 5.927138733636386,
+        "baseline_range_gbit_s": [5.780205844591048, 5.986105456816003],
+        "candidate_median_gbit_s": 5.9196067413872,
+        "candidate_range_gbit_s": [5.649046600148888, 6.000540447802481],
+        "delta_percent": -0.12707636159149382,
+        "ranges_overlap": true
+      },
+      "msgpack_control": {
+        "frame_bytes": 4,
+        "baseline_median_gbit_s": 0.16420529767341618,
+        "baseline_range_gbit_s": [0.15573898146706122, 0.16937579725717067],
+        "candidate_median_gbit_s": 0.15797866300682764,
+        "candidate_range_gbit_s": [0.15132742525843887, 0.166477645173709],
+        "delta_percent": -3.7919815954857605,
+        "ranges_overlap": true
+      },
+      "msgpack_nested_16": {
+        "frame_bytes": 22,
+        "baseline_median_gbit_s": 0.5534834866943827,
+        "baseline_range_gbit_s": [0.549037468687707, 0.5633532320791256],
+        "candidate_median_gbit_s": 0.5479946819607,
+        "candidate_range_gbit_s": [0.5325796524312564, 0.5661330219601712],
+        "delta_percent": -0.9916835579800276,
+        "ranges_overlap": true
+      },
+      "msgpack_structured_16k": {
+        "frame_bytes": 16398,
+        "baseline_median_gbit_s": 466.43833188531715,
+        "baseline_range_gbit_s": [450.2058867924528, 534.731593625498],
+        "candidate_median_gbit_s": 444.429238410596,
+        "candidate_range_gbit_s": [390.8776993083364, 456.9110808510638],
+        "delta_percent": -4.718543046357637,
+        "ranges_overlap": true
+      }
+    },
+    "memory": {
+      "baseline_median_max_rss_bytes": 18874368,
+      "candidate_median_max_rss_bytes": 18956288,
+      "delta_percent": 0.43403645833333337,
+      "baseline_max_rss_range_bytes": [18825216, 18939904],
+      "candidate_max_rss_range_bytes": [18792448, 19234816]
+    },
+    "investigation_history": [
+      "The first long AOT candidate placed the seven-field check before dispatch. Its JSON control median was 5.08% lower with overlapping ranges, so it was not accepted as final evidence.",
+      "A no-redaction diagnostic and a single-read message-ID diagnostic did not recover the JSON control rate; their raw hashes are 079d775fbb0244ae6e2fb1a0d6ab6c0e0f0050f60d629428fbf1793b10dbc2d0 and 5613f5ed5536e119af2f3fdafa9b3ebe311a2025b03231b6f7e05e84e7826e1a.",
+      "Removing only the unconditional pre-dispatch arity check recovered the JSON control median to 0.311055 GBit/s. The diagnostic hash is e5a174bd02545b6c44c3423a6ec919addf7dc8fb0c400ff015726a8c8dac81aa.",
+      "The retained implementation validates fixed messages after recognized dispatch and payload messages inside their existing payload path. The final JSON control delta is -0.52% with overlapping ranges.",
+      "The earlier complete long AOT campaign showed MessagePack control, nested, and 16 KiB deltas of -0.75%, +0.78%, and +2.68%; the final campaign shows -3.79%, -0.99%, and -4.72% for unchanged MessagePack code. Both campaigns and the unfavorable final values are retained; this direction change is shared-host variability, not evidence of a stable candidate slowdown or speedup. The earlier aggregate hash is a41ae54515d7b3b2b35db4ce62b56fb2527edb886af2955561c2d6ca109d1508."
+    ],
+    "interpretation": "All ordinary baseline/candidate throughput ranges overlap, all checksums are valid, no median crosses the -5% investigation threshold, and median process RSS differs by 0.43%. The indefinite-CBOR path is faster because it now uses a bounded direct range scan rather than a full fallback decode. This supports no material affected-path regression on this shared host, not identical timing or a universal production throughput claim.",
+    "finding_performance_cleared": true
+  },
+  "verification": {
+    "focused_security_tests": "9 passed",
+    "full_serializer_tests": "192 passed",
+    "dart_analyze": "passed",
+    "git_diff_check": "passed",
+    "full_verify": "passed after final documentation updates; the first full run hit one HTTP/3 handshake timeout, the exact test then passed in six isolated runs, and a fresh complete bin/verify exited zero"
+  },
+  "local_companions": {
+    "status": "blocked by the managed sandbox",
+    "detail": "Local Ollama and GLM loopback endpoints were denied with Operation not permitted. No sandbox bypass was attempted; source inspection, fail-first tests, static analysis, dynamic probes, and AOT comparisons provide the retained evidence."
+  },
+  "remaining": [
+    "The 64-level nesting policy is an implementation resource limit, not a new WAMP wire field or a claim that WAMP mandates that exact number.",
+    "Transport frame limits still provide the primary byte-size bound; this change does not add a separate collection-item or decoded-allocation budget.",
+    "Optional numeric detail fields and numeric option lists outside the hardened core fast-path integer fragments require separate strictness review.",
+    "Malformed short arrays can still fail through existing RangeError or type-error paths before transport-level close; error normalization remains a separate compatibility/security review.",
+    "The full component audit, prior unresolved performance comparisons, client sessions, router/MCP authorization, payload cryptography, consumer application, and packaging/platform rows remain open."
+  ],
+  "audit_complete": false,
+  "published": false
+}

@@ -1,0 +1,176 @@
+{
+  "title": "MessagePack browser Uint64 compatibility",
+  "date": "2026-09-12",
+  "finding": "SA-018",
+  "baseline_source": {
+    "commit": "e0e3293ccc7db7d6ab458c576756874550cc82a1",
+    "candidate": "same commit plus the source hashes recorded below"
+  },
+  "threat_model": {
+    "failure": "msgpack_dart 1.0.1 uses ByteData Uint64 accessors that either throw UnsupportedError or silently round values when compiled with dart2js.",
+    "impact": "A browser client could not send or receive valid WAMP IDs above Uint32, including the maximum protocol ID 2^53, and a standalone over-range Uint64 could be rounded into a different identity.",
+    "boundary": "The compatibility layer preserves the standard MessagePack Uint64 and Int64 wire encodings and accepts only integers that Dart web can represent exactly when the runtime lacks 64-bit accessors."
+  },
+  "fix": {
+    "normal_path": "The maintained msgpack_dart codec remains the first path for every encode and decode operation.",
+    "fallback": "Only a runtime without working ByteData 64-bit accessors uses a bounded recursive collection codec based on two Uint32 words.",
+    "exactness": "Unsigned and signed values outside the exact plus or minus 2^53 Dart web range fail closed without lossy arithmetic.",
+    "coverage": "Fast-path EVENT and INVOCATION IDs, slow-path PUBLISH IDs and payloads, nested eligible/exclude lists, truncation, and dart2js/Dart2Wasm parity are covered."
+  },
+  "inputs": {
+    "benchmark_driver_sha256": "612cfdca1a87f9388eacc2c48f0e78648a1c873ab933a4b4f5769693c1fed6df",
+    "baseline_executable_sha256": "1b2576f226ea49e8ff5a16426fc414075d7980c0d707e569c54302495dba29da",
+    "candidate_executable_sha256": "d08b080345e4e178a82307068215b872149e4da578ebaff28e44132534473ed6",
+    "raw_run_sha256": [
+      {
+        "order": 1,
+        "variant": "baseline",
+        "sha256": "bd5581c7fa860e0c908d0919770ccb0fd099c745649c028c86c58cde2d8e9218"
+      },
+      {
+        "order": 2,
+        "variant": "candidate",
+        "sha256": "4429d363d41526e36c704c34f9cbe39cb4d1511c6759f0714e3d1131f68ba252"
+      },
+      {
+        "order": 3,
+        "variant": "candidate",
+        "sha256": "7e3bdd5f46e328d157387b359884e0209f59a29a3c12f271ed7d6e3073ddd3a0"
+      },
+      {
+        "order": 4,
+        "variant": "baseline",
+        "sha256": "e3f7a2319c824f49981d0f60429ae228cdc86ff5ec22192dbb637a6829de66fb"
+      },
+      {
+        "order": 5,
+        "variant": "baseline",
+        "sha256": "7f54482ccbd5df65c18b36b854c20df3d08bcac09884d1f940b856c717df2ac2"
+      },
+      {
+        "order": 6,
+        "variant": "candidate",
+        "sha256": "1617f7d45a804b08f548be0aabbe84f6edf5e4504b69501df3e4929e2d9f17d2"
+      }
+    ],
+    "source_sha256": {
+      "codec": "e3965c038113bb8b38763bca586f4f3ff92fa4e6a0eccf6f003f5839f7ac8425",
+      "serializer": "dee352f598f533671f1e833e13462ef9645a701f62bdb26e4e8aca2c3b5bd041",
+      "security_test": "8927bce386ad82922b5916f70b06c23c0baf70565255a46593fd0ee7aecd6b9d",
+      "browser_gate": "067efe5fb2090f4644cd08f0c636830dde2221762dd14fc17602be9f977725e4"
+    }
+  },
+  "performance": {
+    "methodology": {
+      "runtime": "Dart 3.13.1 stable AOT executable on macOS arm64",
+      "host": "Apple M3 Ultra shared host, Darwin 25.6.0 arm64; timed subprocesses ran serially and unrelated shared-host work was not controlled.",
+      "order": [
+        "baseline",
+        "candidate",
+        "candidate",
+        "baseline",
+        "baseline",
+        "candidate"
+      ],
+      "processes_per_variant": 3,
+      "samples_per_process_and_scenario": 9,
+      "samples_per_variant_and_scenario": 27,
+      "iterations_per_sample": 250000,
+      "warmups_per_process_and_scenario": 10000,
+      "scenario_count": 5,
+      "record_count": 270,
+      "measured_operations": 67500000,
+      "warmup_operations": 300000,
+      "primary_metric": "serialize or deserialize operations per second",
+      "material_regression_percent": -5,
+      "investigation_rule": "Investigate a candidate median below -5%, or any slower candidate whose observed range does not overlap baseline.",
+      "correctness_rule": "Iteration count, warmup count, sample index, and checksum must match between baseline and candidate for every scenario."
+    },
+    "results": [
+      {
+        "scenario": "decode_event",
+        "baseline": {
+          "median_ops_per_second": 2609685.0632065726,
+          "min_ops_per_second": 2517800.8520238083,
+          "max_ops_per_second": 2677290.1539977295
+        },
+        "candidate": {
+          "median_ops_per_second": 2659885.7313089827,
+          "min_ops_per_second": 2403961.728929275,
+          "max_ops_per_second": 2695301.5503374515
+        },
+        "delta_percent": 1.9236293608826394,
+        "ranges_overlap": true
+      },
+      {
+        "scenario": "decode_invocation",
+        "baseline": {
+          "median_ops_per_second": 1865643.7963612482,
+          "min_ops_per_second": 1789805.2691867126,
+          "max_ops_per_second": 1889887.589486177
+        },
+        "candidate": {
+          "median_ops_per_second": 1828140.1964153824,
+          "min_ops_per_second": 1787667.9514040344,
+          "max_ops_per_second": 1872364.6467596858
+        },
+        "delta_percent": -2.0102229599783694,
+        "ranges_overlap": true
+      },
+      {
+        "scenario": "encode_event",
+        "baseline": {
+          "median_ops_per_second": 2011926.7014864115,
+          "min_ops_per_second": 1890101.914295219,
+          "max_ops_per_second": 2038436.763614719
+        },
+        "candidate": {
+          "median_ops_per_second": 1989701.306039937,
+          "min_ops_per_second": 1907945.44802375,
+          "max_ops_per_second": 2050625.8510097282
+        },
+        "delta_percent": -1.104682165113391,
+        "ranges_overlap": true
+      },
+      {
+        "scenario": "encode_invocation",
+        "baseline": {
+          "median_ops_per_second": 1271242.461532203,
+          "min_ops_per_second": 1236485.2165827504,
+          "max_ops_per_second": 1279583.981655884
+        },
+        "candidate": {
+          "median_ops_per_second": 1237770.8242563473,
+          "min_ops_per_second": 1189909.5668729176,
+          "max_ops_per_second": 1255562.1402814467
+        },
+        "delta_percent": -2.632986097358092,
+        "ranges_overlap": true
+      },
+      {
+        "scenario": "encode_publish",
+        "baseline": {
+          "median_ops_per_second": 883626.4027569144,
+          "min_ops_per_second": 857000.839860823,
+          "max_ops_per_second": 890655.9502942727
+        },
+        "candidate": {
+          "median_ops_per_second": 863170.2517004454,
+          "min_ops_per_second": 838459.1133797952,
+          "max_ops_per_second": 883948.207706614
+        },
+        "delta_percent": -2.3150226150605913,
+        "ranges_overlap": true
+      }
+    ],
+    "summary": {
+      "invariant_failures": 0,
+      "gate_failures": [],
+      "worst_delta_percent": -2.632986097358092,
+      "median_scenario_delta_percent": -2.0102229599783694,
+      "best_delta_percent": 1.9236293608826394,
+      "baseline_median_max_rss_bytes": 17973248,
+      "candidate_median_max_rss_bytes": 17596416
+    }
+  }
+}

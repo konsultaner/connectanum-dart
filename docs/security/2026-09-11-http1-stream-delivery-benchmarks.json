@@ -1,0 +1,233 @@
+{
+  "date": "2026-09-11",
+  "finding": {
+    "id": "SA-011",
+    "title": "Paused HTTP/1 stream producers can leave response bytes buffered",
+    "status": "locally fixed and verified",
+    "severity": "deployment-dependent low",
+    "impact": "The HTTP/1 chunked writer could wait indefinitely for another producer frame while response headers or a completed chunk remained buffered below it. A long-lived SSE or streamed response could therefore stall a client and retain connection or application state until another chunk or stream completion arrived. No confidentiality, integrity, authentication, or authorization bypass was demonstrated.",
+    "prerequisites": [
+      "The response uses the native HTTP/1 chunked writer, normally through TLS.",
+      "The producer pauses after opening the response or after emitting a chunk.",
+      "The underlying asynchronous writer retains bytes until an explicit flush or later write."
+    ]
+  },
+  "baseline_source": "211592f4",
+  "correctness": {
+    "initial_fail_first": {
+      "tests_passed": 0,
+      "tests_failed": 1,
+      "exit_code": 101,
+      "log_sha256": "361ab477a721ae918d267ec85d247c9b59783d9312b5c4b382a1bafc5599071c",
+      "result": "A real TLS response chunk was not readable within 250 ms while its producer remained open."
+    },
+    "expanded_fail_first": {
+      "tests_passed": 0,
+      "tests_failed": 2,
+      "exit_code": 101,
+      "log_sha256": "5494ec1e4a0645e847911cfd1ea28ef5cace65f28509f1f52e447fb0fa55dfe9",
+      "result": "Both headers before the first chunk and a complete SSE chunk before producer completion timed out over a bounded real TLS channel."
+    },
+    "initial_per_chunk_confirmation": {
+      "tests_passed": 10,
+      "tests_failed": 0,
+      "exit_code": 0,
+      "log_sha256": "d118e17e18126e7c1fa9bc2237a5fd9d29628abfd9c866ab7612ac204b1317b2",
+      "result": "Explicit header and per-chunk flushes established timely delivery and fail-closed stream behavior, but this was not retained as the final implementation because it unnecessarily flushed every ready chunk."
+    },
+    "coalescing_fail_first": {
+      "tests_passed": 0,
+      "tests_failed": 1,
+      "exit_code": 101,
+      "log_sha256": "55310f13de4141e8ae66e5ec5359156eae811bdfc8e2d2104d0914a60bfc5ad4",
+      "result": "Three prequeued chunks caused five flushes instead of the expected two: one header flush and one completed body batch."
+    },
+    "final_focused_confirmation": {
+      "tests_passed": 12,
+      "tests_failed": 0,
+      "exit_code": 0,
+      "log_sha256": "6a0e61ca860b614635aa216b4a9cc3d93f973d4102b22d8185c4392f1bfd0b97",
+      "coverage": [
+        "HTTP/1 TLS headers are readable before the first response chunk exists.",
+        "A complete SSE chunk is readable while the producer remains open.",
+        "Header, midstream, and terminal flush failures propagate and close the response stream.",
+        "Immediately queued chunks coalesce without changing exact chunked wire bytes.",
+        "Continuously ready output is bounded to 64 chunks or 16 KiB before a flush."
+      ]
+    },
+    "sandbox_only_observation": {
+      "tests_passed": 124,
+      "tests_blocked": 66,
+      "exit_code": 101,
+      "log_sha256": "ddff7e282629935812ef586947623fed51522f284e4e6dedb7d968dafb663c77",
+      "reason": "The restricted sandbox denied loopback socket operations with PermissionDenied. The identical command passes outside that sandbox."
+    },
+    "full_core_confirmation": {
+      "unit_tests_passed": 190,
+      "integration_tests_passed": 3,
+      "tests_failed": 0,
+      "exit_code": 0,
+      "log_sha256": "a7d3693b25d9d36f64eb3772b4dc99d5611f403117d0c1eb28fc67a133721da5"
+    }
+  },
+  "protocol_contract": {
+    "response_headers": "Headers are flushed once before waiting for the first producer frame.",
+    "paused_producer": "If no response frame is immediately ready after writing a chunk, queued bytes are flushed before awaiting the producer.",
+    "ready_producer": "Immediately available frames are coalesced while preserving order and exact HTTP/1 chunk framing.",
+    "batch_bounds": {
+      "chunks": 64,
+      "payload_bytes": 16384
+    },
+    "completion": "The terminal zero chunk is written and flushed as before.",
+    "errors": "Every write or flush error closes the response reader and is returned to the connection loop.",
+    "unchanged": [
+      "HTTP status and header serialization",
+      "response body bytes and chunk order",
+      "TLS configuration",
+      "public ABI and package versions"
+    ]
+  },
+  "inputs": {
+    "driver_sha256": "a8d92bc35e6c4fa8dfb8075d7a17b7c8dcc959fb5fb164673029f3ea991e03e1",
+    "router_service_sha256": "171ce6f5e1091556fe30a2c6a55b97af83e600155754a3398aecfb52649c5b85",
+    "client_worker_sha256": "c79ed4e83c293e727a81b78bbcc2d4628311aeaeb3e1ba2d4e31b4213addd074",
+    "launcher_sha256": "d10c34cc06e5215ac22fcee634eac3a7686466ba5071e00cd54a86a264aac30c",
+    "baseline_library_sha256": "1a6d317f1f8d360b168c4b59ccbfcef654953622e6b5d217e5a066cc667e7bdc",
+    "discarded_per_chunk_candidate_sha256": "030bdb60ea976618f9a0ea00e280b8b25791d2246bc61b015039cd2e57ba3930",
+    "final_candidate_library_sha256": "732be37bea974da940da5f3fc007dd5f555190416ff1a98f87e433729f9f17c3",
+    "scenario_sha256": "3b789ff436d1e5e45b8a471bca092062eb245f081d4b1f14a797edccb91ce091",
+    "collector_sha256": "770b75b90d947615bac52ce414690922eb433f3682ab220bc060a76cae4b0e2b",
+    "comparison_inputs_sha256": "bc256c4c1919b66dd75fa430dc29979bcac6a9217c71feef2c7264cb19d07ebc",
+    "source_sha256": {
+      "native/transport/ct_core/src/http_stream.rs": "fe2410d6920c0aa14bda07ff508c6d51e97332b4a1905b59a0446d276dfee53e",
+      "native/transport/ct_core/src/lib.rs": "2a48354f1d0972a659b16600aed8fa092343d672a2fe2b5315506896f9928e84",
+      "native/transport/ct_core/src/http1_response_tests.rs": "27bf526cbc64a927e3d3ab7360639931ad9c58bfce20f4c9f14008703400d608"
+    }
+  },
+  "performance": {
+    "methodology": {
+      "order": [
+        "baseline",
+        "patched",
+        "patched",
+        "baseline",
+        "baseline",
+        "patched"
+      ],
+      "primary_metric": "median HTTP lifecycle GBit/s",
+      "material_regression_percent": -5.0,
+      "investigation_rule": "Investigate when candidate median delta is below -5%, or candidate and baseline ranges do not overlap while candidate is slower.",
+      "correctness_rule": "Require exact samples and byte counts, zero sample errors, expected reused connection counts, and no protocol, internal, body-timeout, or idle-timeout counter deltas.",
+      "gbit_definition": "Total application request and response bytes divided by lifecycle elapsed; this is not wire bandwidth.",
+      "unchanged_inputs": "Both variants use identical AOT router/client executables, TLS, payloads, driver, timeouts, retry policy, worker counts, runtime thread counts, and performance thresholds. Only the frozen native library changes.",
+      "host": "Shared Darwin arm64 host. Unrelated VM and emulator activity is recorded in each retained run; no audit-owned build, test, or inference task overlapped timing."
+    },
+    "first_campaign_preflight_stop": {
+      "status": "No warmup or timed variant started; retained and not rerun in place.",
+      "collector_sha256": "9a9b76aed1c4cf3ca10b5bc8632115e2a289b580ed652a1391ff1c5aba291b99",
+      "inputs_sha256": "3f856019e3980f1cea8ee1e20c9e85d7e6332d09456e6d3addd8ca5e5f08f422",
+      "preflight_sha256": "1fdd79ac43d32cea973b0fbc5ac09e4bab3b1bbe7502f3c315ab5b4805982723",
+      "snapshots": 31,
+      "cpu_percent_ranges": {
+        "inference": [303.1, 1331.6],
+        "virtual_machine": [141.0, 314.8],
+        "emulator": [34.4, 233.5],
+        "other": [74.6, 331.2]
+      },
+      "disposition": "The unchanged quiet-host threshold rejected the run. No external process or threshold was changed."
+    },
+    "complete_comparison": {
+      "comparison_sha256": "2eca398060a85a957c817d5f9ccbadaff7fd3a17d9578f94e41c89867d176a6c",
+      "measured_operations": 24288,
+      "warmup_operations": 864,
+      "sample_errors": 0,
+      "strict_validation_passed": true,
+      "validation_findings": [],
+      "performance_interpretation_passed": true,
+      "performance_findings": [],
+      "results": {
+        "h1_stream_one_chunk": {
+          "shape": "2000 serial requests; 1 KiB request and response; one response chunk",
+          "baseline_median_gbit_s": 0.006387524366471735,
+          "baseline_gbit_s_range": [0.006291858678955453, 0.006452934226073257],
+          "candidate_median_gbit_s": 0.006451663713329396,
+          "candidate_gbit_s_range": [0.006299115724721261, 0.006474609760916815],
+          "throughput_delta_percent": 1.0041346721795685,
+          "throughput_ranges_overlap": true,
+          "baseline_p99_ms": 3.156084,
+          "candidate_p99_ms": 3.101042,
+          "baseline_median_rss_mib": 39.125,
+          "candidate_median_rss_mib": 39.234375
+        },
+        "h1_stream_large_chunks": {
+          "shape": "256 requests at concurrency 4; 256 KiB request; 1 MiB response in eight 128 KiB chunks",
+          "baseline_median_gbit_s": 8.508255340729,
+          "baseline_gbit_s_range": [8.401735712050078, 8.535308616852147],
+          "candidate_median_gbit_s": 8.555711745019922,
+          "candidate_gbit_s_range": [8.535308616852147, 8.801162491803279],
+          "throughput_delta_percent": 0.557768924302815,
+          "throughput_ranges_overlap": true,
+          "baseline_p99_ms": 5.642791,
+          "candidate_p99_ms": 5.6104579999999995,
+          "baseline_median_rss_mib": 50.8125,
+          "candidate_median_rss_mib": 50.78125
+        },
+        "h1_stream_small_chunks": {
+          "shape": "256 requests at concurrency 4; 4 KiB request; 64 KiB response in 256-byte chunks",
+          "baseline_median_gbit_s": 0.12940683847549908,
+          "baseline_gbit_s_range": [0.12888055671034793, 0.1310418892717666],
+          "candidate_median_gbit_s": 0.1779243119151591,
+          "candidate_gbit_s_range": [0.17470914058192955, 0.18051434936708857],
+          "throughput_delta_percent": 37.49220212102311,
+          "throughput_ranges_overlap": false,
+          "baseline_p99_ms": 29.001625,
+          "candidate_p99_ms": 21.442290999999997,
+          "baseline_median_rss_mib": 52.0,
+          "candidate_median_rss_mib": 51.984375
+        }
+      },
+      "interpretation": "No material throughput, tail-latency, memory, connection-accounting, or selected transport-counter regression is reproduced. The small-chunk improvement is consistent with draining immediately queued frames without an awaited receive for every chunk, but the campaign does not prove a sole causal mechanism."
+    },
+    "clearance": "SA-011 affected-path performance is locally cleared for the measured TLS HTTP/1 one-chunk, eight-chunk, and 256-chunk response shapes. This is not proof of identical timing, wire throughput, audit-wide performance clearance, or resolution of earlier negative comparisons."
+  },
+  "verification": {
+    "fast_gate": {
+      "exit_code": 0,
+      "log_sha256": "b25fbbb0e15d79024c120d7e81fa225e755df8513bfde404ee43e57e0da324f0"
+    },
+    "release_build": {
+      "exit_code": 0,
+      "log_sha256": "8f5b7182621689a44c15d87994230c63d84e85c89b43a8540f7c3d542fb44f61"
+    },
+    "full_verify": {
+      "exit_code": 0,
+      "log_sha256": "d2ce7e0a379e1b0eb30fca8b3a0d05ae30df9faaffde63b02d6f49cb5f370851",
+      "selected_counts": {
+        "ct_core_passed": 190,
+        "ct_ffi_passed": 148,
+        "native_benchmark_tests_passed": 109,
+        "router_passed": 526,
+        "router_skipped": 1,
+        "remote_auth_passed": 11,
+        "native_router_integration_passed": 13,
+        "scram_browser_passed": 6,
+        "websocket_browser_passed": 2
+      },
+      "note": "Fresh verification passed without changing a test timeout, retry policy, response batching bound, performance threshold, TLS setting, or protocol rule."
+    }
+  },
+  "local_companions": {
+    "status": "blocked by the managed sandbox",
+    "detail": "Focused local-model test advice could not reach Ollama at 127.0.0.1:11434 or GLM at 127.0.0.1:18080 because both loopback connections were denied with EPERM. No sandbox bypass was attempted."
+  },
+  "remaining": [
+    "The fix does not add HTTP/1 request chunked decoding or clear deployment-specific proxy differential behavior.",
+    "Direct timing of final SA-010 candidate 1a6d317f remains separate pending evidence.",
+    "Earlier security-audit performance findings, finite handle availability, and unreviewed component rows remain open.",
+    "A local benchmark cannot prove identical performance across production hosts or workloads."
+  ],
+  "finding_performance_cleared": true,
+  "audit_complete": false,
+  "audit_performance_cleared": false,
+  "published": false
+}

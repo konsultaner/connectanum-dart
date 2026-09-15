@@ -1,0 +1,607 @@
+{
+  "date": "2026-09-10",
+  "hardware": {
+    "cpu": "Apple M3 Ultra",
+    "logical_cpus": 32,
+    "memory_bytes": 549755813888
+  },
+  "caveats": [
+    "Shared developer host with unrelated virtualization workloads; not an isolated production capacity measurement.",
+    "Each mode uses the same native library and driver for both source variants.",
+    "JIT median serial throughput fell 3.1%; AOT confirmation did not reproduce a consistent slowdown.",
+    "No claim of identical timing or statistical proof of a speedup."
+  ],
+  "jit": {
+    "metadata": {
+      "baseline_commit": "733c6d914a88d5058a8f1c574a545560026337d5",
+      "dart": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"macos_arm64\"",
+      "host": "Darwin arm64",
+      "scenario_sha256": "50020fb00c364a6696e036de0c50b2bb1cc43d012fd54b5e6c3d05576ed7aa58",
+      "native_sha256": "65165bdf1a95d3323de41c17b156d142c9286399f65858ba9e41037febfaae38",
+      "snapshots": {
+        "baseline": "4b137f2a2f803e9831f1dc4b8479bba2f96bce0482a91c5ead88fd42b32c15d6",
+        "patched": "fa250ad31cf8bc8d499af32f97af3d4096803cef6366caf59b865df3fd74583c"
+      },
+      "order": [
+        "baseline",
+        "patched",
+        "patched",
+        "baseline",
+        "baseline",
+        "patched"
+      ],
+      "warmup_exchanges_per_run": 1200
+    },
+    "runs": [
+      {
+        "pass": 1,
+        "variant": "baseline",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 11.217,
+        "exchanges_per_second": 89.1503967192654,
+        "mean_ms": 11.198080163,
+        "p50_ms": 11.162125,
+        "p95_ms": 13.595042,
+        "p99_ms": 14.7255
+      },
+      {
+        "pass": 1,
+        "variant": "baseline",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 20.035,
+        "exchanges_per_second": 199.6506114299975,
+        "mean_ms": 17.55852300575,
+        "p50_ms": 14.347666499999999,
+        "p95_ms": 58.03875,
+        "p99_ms": 65.0545
+      },
+      {
+        "pass": 2,
+        "variant": "patched",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 11.602,
+        "exchanges_per_second": 86.19203585588691,
+        "mean_ms": 11.583784505,
+        "p50_ms": 11.5904785,
+        "p95_ms": 13.8715,
+        "p99_ms": 14.768833
+      },
+      {
+        "pass": 2,
+        "variant": "patched",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 19.49,
+        "exchanges_per_second": 205.23345305284764,
+        "mean_ms": 17.0384943135,
+        "p50_ms": 13.8936665,
+        "p95_ms": 56.272707999999994,
+        "p99_ms": 63.991583000000006
+      },
+      {
+        "pass": 3,
+        "variant": "patched",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 11.5,
+        "exchanges_per_second": 86.95652173913044,
+        "mean_ms": 11.48179084,
+        "p50_ms": 11.273229,
+        "p95_ms": 14.185917,
+        "p99_ms": 16.14975
+      },
+      {
+        "pass": 3,
+        "variant": "patched",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 19.44,
+        "exchanges_per_second": 205.76131687242798,
+        "mean_ms": 17.05031995475,
+        "p50_ms": 14.069541999999998,
+        "p95_ms": 56.777291,
+        "p99_ms": 62.88845799999999
+      },
+      {
+        "pass": 4,
+        "variant": "baseline",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 11.125,
+        "exchanges_per_second": 89.88764044943821,
+        "mean_ms": 11.107804386,
+        "p50_ms": 11.0370205,
+        "p95_ms": 13.337583,
+        "p99_ms": 14.761375000000001
+      },
+      {
+        "pass": 4,
+        "variant": "baseline",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 20.233,
+        "exchanges_per_second": 197.69683190826868,
+        "mean_ms": 17.69819819775,
+        "p50_ms": 14.2903335,
+        "p95_ms": 57.81275,
+        "p99_ms": 66.94154200000001
+      },
+      {
+        "pass": 5,
+        "variant": "baseline",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 11.142,
+        "exchanges_per_second": 89.75049362771496,
+        "mean_ms": 11.124391996,
+        "p50_ms": 11.079833,
+        "p95_ms": 13.528500000000001,
+        "p99_ms": 14.583792
+      },
+      {
+        "pass": 5,
+        "variant": "baseline",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 19.249,
+        "exchanges_per_second": 207.8030027533898,
+        "mean_ms": 16.814158604,
+        "p50_ms": 13.691479000000001,
+        "p95_ms": 55.845583,
+        "p99_ms": 62.192583000000006
+      },
+      {
+        "pass": 6,
+        "variant": "patched",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 10.741,
+        "exchanges_per_second": 93.10120100549297,
+        "mean_ms": 10.724894446,
+        "p50_ms": 10.6299375,
+        "p95_ms": 13.275792,
+        "p99_ms": 14.509666
+      },
+      {
+        "pass": 6,
+        "variant": "patched",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 19.151,
+        "exchanges_per_second": 208.86637773484412,
+        "mean_ms": 16.7449731285,
+        "p50_ms": 13.666604,
+        "p95_ms": 55.479417000000005,
+        "p99_ms": 62.821957999999995
+      }
+    ],
+    "summary": {
+      "remote_auth_concurrent": {
+        "baseline": {
+          "exchanges_per_second": {
+            "median": 199.6506114299975,
+            "min": 197.69683190826868,
+            "max": 207.8030027533898
+          },
+          "mean_ms": {
+            "median": 17.55852300575,
+            "min": 16.814158604,
+            "max": 17.69819819775
+          },
+          "p50_ms": {
+            "median": 14.2903335,
+            "min": 13.691479000000001,
+            "max": 14.347666499999999
+          },
+          "p95_ms": {
+            "median": 57.81275,
+            "min": 55.845583,
+            "max": 58.03875
+          },
+          "p99_ms": {
+            "median": 65.0545,
+            "min": 62.192583000000006,
+            "max": 66.94154200000001
+          }
+        },
+        "patched": {
+          "exchanges_per_second": {
+            "median": 205.76131687242798,
+            "min": 205.23345305284764,
+            "max": 208.86637773484412
+          },
+          "mean_ms": {
+            "median": 17.0384943135,
+            "min": 16.7449731285,
+            "max": 17.05031995475
+          },
+          "p50_ms": {
+            "median": 13.8936665,
+            "min": 13.666604,
+            "max": 14.069541999999998
+          },
+          "p95_ms": {
+            "median": 56.272707999999994,
+            "min": 55.479417000000005,
+            "max": 56.777291
+          },
+          "p99_ms": {
+            "median": 62.88845799999999,
+            "min": 62.821957999999995,
+            "max": 63.991583000000006
+          }
+        },
+        "median_delta_percent": {
+          "exchanges_per_second": 3.060699588477367,
+          "mean_ms": -2.9616881333339062,
+          "p50_ms": -2.775771468174615,
+          "p95_ms": -2.663844913103086,
+          "p99_ms": -3.3295805824347435
+        }
+      },
+      "remote_auth_serial": {
+        "baseline": {
+          "exchanges_per_second": {
+            "median": 89.75049362771496,
+            "min": 89.1503967192654,
+            "max": 89.88764044943821
+          },
+          "mean_ms": {
+            "median": 11.124391996,
+            "min": 11.107804386,
+            "max": 11.198080163
+          },
+          "p50_ms": {
+            "median": 11.079833,
+            "min": 11.0370205,
+            "max": 11.162125
+          },
+          "p95_ms": {
+            "median": 13.528500000000001,
+            "min": 13.337583,
+            "max": 13.595042
+          },
+          "p99_ms": {
+            "median": 14.7255,
+            "min": 14.583792,
+            "max": 14.761375000000001
+          }
+        },
+        "patched": {
+          "exchanges_per_second": {
+            "median": 86.95652173913044,
+            "min": 86.19203585588691,
+            "max": 93.10120100549297
+          },
+          "mean_ms": {
+            "median": 11.48179084,
+            "min": 10.724894446,
+            "max": 11.583784505
+          },
+          "p50_ms": {
+            "median": 11.273229,
+            "min": 10.6299375,
+            "max": 11.5904785
+          },
+          "p95_ms": {
+            "median": 13.8715,
+            "min": 13.275792,
+            "max": 14.185917
+          },
+          "p99_ms": {
+            "median": 14.768833,
+            "min": 14.509666,
+            "max": 16.14975
+          }
+        },
+        "median_delta_percent": {
+          "exchanges_per_second": -3.1130434782608796,
+          "mean_ms": 3.2127494619796693,
+          "p50_ms": 1.7454775717287374,
+          "p95_ms": 2.53538825442583,
+          "p99_ms": 0.2942718413636136
+        }
+      }
+    }
+  },
+  "aot": {
+    "metadata": {
+      "baseline_commit": "733c6d914a88d5058a8f1c574a545560026337d5",
+      "dart": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"macos_arm64\"",
+      "host": "Darwin arm64",
+      "scenario_sha256": "50020fb00c364a6696e036de0c50b2bb1cc43d012fd54b5e6c3d05576ed7aa58",
+      "native_sha256": "65165bdf1a95d3323de41c17b156d142c9286399f65858ba9e41037febfaae38",
+      "mode": "aot",
+      "snapshots": {
+        "baseline": "50d1c1ed853673d188b10818f5220c489012f4a8e856283b294733b0b8d0d103",
+        "patched": "ce9107a0a7256c3f6d48f12c5e2663c1b673ab6b2b7c6de2e5a97a5147dabb9f"
+      },
+      "order": [
+        "baseline",
+        "patched",
+        "patched",
+        "baseline",
+        "baseline",
+        "patched"
+      ],
+      "warmup_exchanges_per_run": 1200
+    },
+    "runs": [
+      {
+        "pass": 1,
+        "variant": "baseline",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 10.498,
+        "exchanges_per_second": 95.25623928367308,
+        "mean_ms": 10.482000489,
+        "p50_ms": 10.231333000000001,
+        "p95_ms": 13.157833,
+        "p99_ms": 15.363999999999999
+      },
+      {
+        "pass": 1,
+        "variant": "baseline",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 19.977,
+        "exchanges_per_second": 200.2302648045252,
+        "mean_ms": 17.479687477,
+        "p50_ms": 14.0509165,
+        "p95_ms": 57.861208,
+        "p99_ms": 65.637667
+      },
+      {
+        "pass": 2,
+        "variant": "patched",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 10.203,
+        "exchanges_per_second": 98.01038910124474,
+        "mean_ms": 10.186943795,
+        "p50_ms": 10.020917,
+        "p95_ms": 12.378959,
+        "p99_ms": 15.649709000000001
+      },
+      {
+        "pass": 2,
+        "variant": "patched",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 18.393,
+        "exchanges_per_second": 217.47403903659,
+        "mean_ms": 16.03954302,
+        "p50_ms": 13.316500000000001,
+        "p95_ms": 53.996833,
+        "p99_ms": 57.897999999999996
+      },
+      {
+        "pass": 3,
+        "variant": "patched",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 10.226,
+        "exchanges_per_second": 97.7899471934285,
+        "mean_ms": 10.209546297,
+        "p50_ms": 10.141625,
+        "p95_ms": 12.336540999999999,
+        "p99_ms": 13.7045
+      },
+      {
+        "pass": 3,
+        "variant": "patched",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 18.953,
+        "exchanges_per_second": 211.04838284176648,
+        "mean_ms": 16.59962317825,
+        "p50_ms": 13.551729,
+        "p95_ms": 55.032042000000004,
+        "p99_ms": 59.58175
+      },
+      {
+        "pass": 4,
+        "variant": "baseline",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 10.014,
+        "exchanges_per_second": 99.86019572598363,
+        "mean_ms": 9.998691839,
+        "p50_ms": 10.1246665,
+        "p95_ms": 11.969542,
+        "p99_ms": 12.370625
+      },
+      {
+        "pass": 4,
+        "variant": "baseline",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 18.586,
+        "exchanges_per_second": 215.21575379317767,
+        "mean_ms": 16.2517010735,
+        "p50_ms": 13.474729,
+        "p95_ms": 54.737916999999996,
+        "p99_ms": 58.330208
+      },
+      {
+        "pass": 5,
+        "variant": "baseline",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 10.527,
+        "exchanges_per_second": 94.99382540134891,
+        "mean_ms": 10.510294996,
+        "p50_ms": 10.3131455,
+        "p95_ms": 13.138708000000001,
+        "p99_ms": 15.41
+      },
+      {
+        "pass": 5,
+        "variant": "baseline",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 21.167,
+        "exchanges_per_second": 188.97340199366937,
+        "mean_ms": 18.741437544,
+        "p50_ms": 14.372896,
+        "p95_ms": 58.401916,
+        "p99_ms": 76.132375
+      },
+      {
+        "pass": 6,
+        "variant": "patched",
+        "workload": "remote_auth_serial",
+        "exchanges": 1000,
+        "seconds": 10.424,
+        "exchanges_per_second": 95.93246354566385,
+        "mean_ms": 10.408574929,
+        "p50_ms": 10.304354,
+        "p95_ms": 12.371709,
+        "p99_ms": 13.189124999999999
+      },
+      {
+        "pass": 6,
+        "variant": "patched",
+        "workload": "remote_auth_concurrent",
+        "exchanges": 4000,
+        "seconds": 19.031,
+        "exchanges_per_second": 210.18338500341548,
+        "mean_ms": 16.60902394875,
+        "p50_ms": 13.632604,
+        "p95_ms": 55.455166,
+        "p99_ms": 59.96575
+      }
+    ],
+    "summary": {
+      "remote_auth_concurrent": {
+        "baseline": {
+          "exchanges_per_second": {
+            "median": 200.2302648045252,
+            "min": 188.97340199366937,
+            "max": 215.21575379317767
+          },
+          "mean_ms": {
+            "median": 17.479687477,
+            "min": 16.2517010735,
+            "max": 18.741437544
+          },
+          "p50_ms": {
+            "median": 14.0509165,
+            "min": 13.474729,
+            "max": 14.372896
+          },
+          "p95_ms": {
+            "median": 57.861208,
+            "min": 54.737916999999996,
+            "max": 58.401916
+          },
+          "p99_ms": {
+            "median": 65.637667,
+            "min": 58.330208,
+            "max": 76.132375
+          }
+        },
+        "patched": {
+          "exchanges_per_second": {
+            "median": 211.04838284176648,
+            "min": 210.18338500341548,
+            "max": 217.47403903659
+          },
+          "mean_ms": {
+            "median": 16.59962317825,
+            "min": 16.03954302,
+            "max": 16.60902394875
+          },
+          "p50_ms": {
+            "median": 13.551729,
+            "min": 13.316500000000001,
+            "max": 13.632604
+          },
+          "p95_ms": {
+            "median": 55.032042000000004,
+            "min": 53.996833,
+            "max": 55.455166
+          },
+          "p99_ms": {
+            "median": 59.58175,
+            "min": 57.897999999999996,
+            "max": 59.96575
+          }
+        },
+        "median_delta_percent": {
+          "exchanges_per_second": 5.402838600749216,
+          "mean_ms": -5.034782800939663,
+          "p50_ms": -3.552704195487888,
+          "p95_ms": -4.889572993360236,
+          "p99_ms": -9.226283134042523
+        }
+      },
+      "remote_auth_serial": {
+        "baseline": {
+          "exchanges_per_second": {
+            "median": 95.25623928367308,
+            "min": 94.99382540134891,
+            "max": 99.86019572598363
+          },
+          "mean_ms": {
+            "median": 10.482000489,
+            "min": 9.998691839,
+            "max": 10.510294996
+          },
+          "p50_ms": {
+            "median": 10.231333000000001,
+            "min": 10.1246665,
+            "max": 10.3131455
+          },
+          "p95_ms": {
+            "median": 13.138708000000001,
+            "min": 11.969542,
+            "max": 13.157833
+          },
+          "p99_ms": {
+            "median": 15.363999999999999,
+            "min": 12.370625,
+            "max": 15.41
+          }
+        },
+        "patched": {
+          "exchanges_per_second": {
+            "median": 97.7899471934285,
+            "min": 95.93246354566385,
+            "max": 98.01038910124474
+          },
+          "mean_ms": {
+            "median": 10.209546297,
+            "min": 10.186943795,
+            "max": 10.408574929
+          },
+          "p50_ms": {
+            "median": 10.141625,
+            "min": 10.020917,
+            "max": 10.304354
+          },
+          "p95_ms": {
+            "median": 12.371709,
+            "min": 12.336540999999999,
+            "max": 12.378959
+          },
+          "p99_ms": {
+            "median": 13.7045,
+            "min": 13.189124999999999,
+            "max": 15.649709000000001
+          }
+        },
+        "median_delta_percent": {
+          "exchanges_per_second": 2.659886563661251,
+          "mean_ms": -2.5992575776534244,
+          "p50_ms": -0.8767967966637591,
+          "p95_ms": -5.837704894575646,
+          "p99_ms": -10.80122363967716
+        }
+      }
+    }
+  }
+}
