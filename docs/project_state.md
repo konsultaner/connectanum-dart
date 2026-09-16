@@ -6,9 +6,10 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Latest pushed checkpoint: a5e6515b on PR #93 expands application push regressions.
-Full PR CI 35062393342, publishing dry-run 35062393273 and application artifacts
-35062390211 pass. Audit56 confirms clean exact-head CI jobs/logs and publishing
+Latest pushed checkpoint: 6a8a2bf7 on PR #93 covers message persistence and repairs
+diagnostic evidence collection. Publishing dry-run 35065965825 and application
+artifacts 35065961167 pass; exact-head CI 35065965580 is still running.
+Previous a5e6515b PR CI 35062393342 passes. Audit56 confirms clean CI jobs/logs and publishing
 evidence but fails the existing unprotected
 feature branch and mutation-diagnostics workflow absent from master findings.
 Do not merge or relax gates to remove these findings. The prior HTTP-body fix's
@@ -36,8 +37,39 @@ on Chrome sandbox startup, repaired by dd8cb16d and subsequent green runs;
 reset. The latter remains a download-resilience risk, not a proven code fix.
 Latest master CI, publishing dry-run, profile benchmarks and release publishing
 are green; master branch protection is present. Do not merge or publish for this
-coverage task. Full verification58 passes; verification59 follows the diagnostic
-runner changes and must complete before handoff.
+coverage task. Full verification58 and verification59 pass, including the
+diagnostic runner changes.
+
+Hosted diagnostics 35065981089 proves the repaired runner executes all eight
+scenarios and publishes the status table/artifacts despite gate failures.
+WebSocket fragmentation and file transfer fail; the other six scenarios pass.
+The newly exposed JSON WebSocket 64 MiB Dart-buffered file case measures 1.235
+Gbit/s data and 1.181 Gbit/s lifecycle, below the unchanged 2 Gbit/s floors.
+Retain the complete artifact under deployment59. This separate file gate remains
+open; the chain is not green.
+
+WebSocket pub/sub root cause: fe562ea1 made LazyEventPayload keyword-only reads
+decode the entire plain positional body, undoing lazy delivery. Eight fail-first
+assertions reproduce independent-field and deferred-error regressions. Plain
+getters now decode only their requested field; PPT/E2EE retains the shared cached
+unwrap path. A matched isolated-port local 24-workload matrix changes no scenario
+or gate: CBOR pub/sub improves from 0.577-0.618 to 2.372-4.065 Gbit/s and all
+checks pass, versus 16 prior gate findings. Source/native/scenario hashes and
+reports are retained under deployment60/websocket-isolated and
+deployment61/websocket-after. This is one local comparison, not hosted confirmation
+or a statistical distribution; fresh hosted diagnostics are still required.
+The final focused event suites pass 90 tests each on VM, Chrome JS and WASM.
+Event63 inventories all 22 mutations in event.dart: 18 assertion kills, one
+survivor, three compile errors, no errors/timeouts/equivalences, both baselines
+passing, 94.74% raw/adjusted. Preserve Event61 (36.84%) separately. The remaining
+decoded-flag survivor forwards to a helper that checks the same flag; no waiver
+has been applied. This slice does not replace package-wide mutation coverage.
+Full verification62 passes; eleven final metadata/conversion tests were added
+during that run and pass separately on all three runtimes. Full verification63
+rechecks the final source/test snapshot and is in progress.
+The first browser invocation used the wrong working directory and timed out
+loading assets; corrected package-directory runs pass. Preserve that invocation
+and initial test-authoring compilation errors as non-product failures.
 
 Application messaging follow-up: server58 passes all 205 tests and measures
 3,298/3,531 VM lines (93.40%); server.dart is 773/868 (89.06%) and mailbox storage

@@ -23,6 +23,13 @@
     "sources": ["packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"],
     "tests": ["packages/connectanum_core/test/serializer/json/binary_codec_test.dart"]
   },
+  "core-event-vm": {
+    "sources": ["packages/connectanum_core/lib/src/message/event.dart"],
+    "tests": [
+      "packages/connectanum_core/test/message_lazy_payload_regression_test.dart",
+      "packages/connectanum_core/test/message_subscribed_test.dart"
+    ]
+  },
   "core-lazy-vm": {
     "sources": ["packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart"],
     "tests": [

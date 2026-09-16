@@ -45,10 +45,12 @@ class LazyEventPayload {
           pptKeyId: pptKeyId,
         );
 
-  List<dynamic>? get arguments => _decodedPayload.arguments;
+  List<dynamic>? get arguments =>
+      pptScheme == null ? payload.arguments : _decodedPayload.arguments;
 
-  Map<String, dynamic>? get argumentsKeywords =>
-      _decodedPayload.argumentsKeywords;
+  Map<String, dynamic>? get argumentsKeywords => pptScheme == null
+      ? payload.argumentsKeywords
+      : _decodedPayload.argumentsKeywords;
 
   Uint8List? get argumentsBytes => payload.argumentsBytes;
 

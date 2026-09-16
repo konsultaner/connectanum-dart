@@ -67,6 +67,50 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Lazy Event Throughput Regression
+
+- Hosted diagnostics 35065981089 on 6a8a2bf7 now completes all eight scenarios,
+  uploads evidence and publishes the status table even when gates fail. Six
+  scenarios pass; WebSocket fragmentation and file transfer fail. The separate
+  JSON WebSocket 64 MiB Dart-buffered transfer fails at 1.235/1.181 Gbit/s
+  data/lifecycle against 2 Gbit/s. Evidence remains under deployment59; do not
+  call the diagnostic chain green or relax its policy.
+- fe562ea1 routed plain LazyEventPayload getters through a combined decoded
+  view. Keyword-only worker/iteration checks consequently decoded each 4 MiB
+  positional body. Eight fail-first assertions establish the regression across
+  JSON/MessagePack/CBOR read orders and independently invalid fields. Plain
+  getters now use the underlying independent lazy fields. Wrapped/custom PPT,
+  runtime/fallback E2EE and already-decoded payloads retain cached shared decode;
+  full materialization still validates both fields.
+- Complete matched local matrices use isolated ports, one router worker and one
+  native runtime thread, identical native/scenario hashes, and fresh AOT workers.
+  Before: 16 gate findings. After: all 24 workload gates pass. CBOR pub/sub data
+  improves from 0.577-0.618 to 2.372-4.065 Gbit/s, JSON from 1.485-1.519 to
+  3.604-7.011, MessagePack from 3.075-3.327 to 4.123-10.604. Evidence and provenance
+  are under deployment60/websocket-isolated and deployment61/websocket-after.
+  This single local comparison is not hosted proof or a variance study; peak RSS
+  remains substantial. The initial default-port run was deliberately interrupted
+  and is not comparison evidence. No workload or throughput gate changed.
+- Final focused VM/Chrome JS/Chrome WASM suites each pass 90 tests. Tests cover
+  independent decode counts, encoded byte identity, shared packed decoding,
+  deferred invalid-field errors, one-time E2EE/custom PPT unwrap, metadata/anchor
+  preservation and absent/empty/populated payload conversion with copy isolation.
+- Complete Event61: seven kills, twelve survivors and three compile errors,
+  36.84% raw/adjusted. Complete Event63 after metadata/conversion tests: 18 kills,
+  one survivor and three compile errors, 94.74% raw/adjusted. Each inventories all
+  22 source mutations, has passing clean/restored baselines, and no errors,
+  timeouts or equivalence waivers. The remaining decoded-flag mutation delegates
+  to a helper with the same check; retain it visibly until individually reviewed.
+  This library target is not whole-core mutation evidence.
+- Fast61 and full verification62 pass. Eleven final tests were added during
+  verification62 and pass separately on all three runtimes; full verification63
+  rechecks the final source/test snapshot. Focused analysis/formatting pass. Preserve wrong-root browser
+  asset timeouts and initial invalid test-constructor compilation separately from
+  the corrected fail-first assertions and successful runtime tests.
+- Publishing dry-run 35065965825 and app artifacts 35065961167 pass on 6a8a2bf7;
+  PR CI 35065965580 is pending. Re-run diagnostics and the strict deployment audit
+  after pushing the lazy-getter fix. No master merge, publication or version bump.
+
 ### Deployment Diagnostics And Message Persistence
 
 - A5e6515b exact-head PR CI 35062393342, publishing dry-run 35062393273 and

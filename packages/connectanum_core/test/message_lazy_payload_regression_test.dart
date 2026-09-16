@@ -5,6 +5,282 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (final hasCustom in [false, true]) {
+    test('event views preserve metadata and anchors custom=$hasCustom', () {
+      final event = Event(
+        17,
+        29,
+        EventDetails(
+          publisher: 31,
+          trustlevel: 2,
+          topic: 'com.example.events',
+          custom: hasCustom ? {'trace': 'test-trace'} : null,
+        ),
+        arguments: ['body'],
+        argumentsKeywords: {'worker': 7},
+      );
+      final anchor = Object();
+      final eager = event.toPayload();
+      final lazy = event.toLazyEventPayload(anchor: anchor);
+      expect(lazy.payload.anchor, same(anchor));
+      expect(event.toLazyEventPayload().payload.anchor, same(event));
+      for (final view in [eager, lazy.toPayload()]) {
+        expect(view.subscriptionId, 17);
+        expect(view.publicationId, 29);
+        expect(view.publisher, 31);
+        expect(view.trustlevel, 2);
+        expect(view.topic, 'com.example.events');
+        expect(
+          view.customDetails,
+          hasCustom ? {'trace': 'test-trace'} : isNull,
+        );
+        expect(view.arguments, ['body']);
+        expect(view.argumentsKeywords, {'worker': 7});
+      }
+    });
+  }
+
+  for (final args in <List<dynamic>?>[
+    null,
+    [],
+    ['body'],
+  ]) {
+    for (final kwargs in <Map<String, dynamic>?>[
+      null,
+      {},
+      {'worker': 7},
+    ]) {
+      test('eventFromPayload preserves absent/empty fields $args $kwargs', () {
+        final custom = <String, dynamic>{'trace': 'test-trace'};
+        final EventPayload payload = (
+          subscriptionId: 17,
+          publicationId: 29,
+          publisher: 31,
+          trustlevel: 2,
+          topic: 'com.example.events',
+          pptScheme: null,
+          pptSerializer: null,
+          pptCipher: null,
+          pptKeyId: null,
+          customDetails: custom,
+          arguments: args,
+          argumentsKeywords: kwargs,
+        );
+        late Event event;
+        expect(() => event = eventFromPayload(payload), returnsNormally);
+        expect(event.subscriptionId, 17);
+        expect(event.publicationId, 29);
+        expect(event.details.publisher, 31);
+        expect(event.details.trustlevel, 2);
+        expect(event.details.topic, 'com.example.events');
+        expect(event.details.custom, {'trace': 'test-trace'});
+        expect(event.arguments, args);
+        expect(event.argumentsKeywords, kwargs);
+        expect(event.details.custom, isNot(same(custom)));
+        event.details.custom['trace'] = 'changed';
+        expect(custom, {'trace': 'test-trace'});
+        if (args != null) {
+          expect(event.arguments, isNot(same(args)));
+          event.arguments!.add('changed');
+          expect(args, isNot(contains('changed')));
+        }
+        if (kwargs != null) {
+          expect(event.argumentsKeywords, isNot(same(kwargs)));
+          event.argumentsKeywords!['changed'] = true;
+          expect(kwargs, isNot(contains('changed')));
+        }
+      });
+    }
+  }
+
+  for (final encoding in LazyPayloadEncoding.values) {
+    for (final alreadyDecoded in [false, true]) {
+      for (final keywordsFirst in [false, true]) {
+        test(
+          'lazy event access stays independent $encoding '
+          'decoded=$alreadyDecoded keywordsFirst=$keywordsFirst',
+          () {
+            final calls = <String>[];
+            final argsBytes = Uint8List.fromList([1]);
+            final kwargsBytes = Uint8List.fromList([2]);
+            final event = LazyEventPayload(
+              subscriptionId: 1,
+              publicationId: 2,
+              pptScheme: alreadyDecoded ? 'wamp' : null,
+              payload: alreadyDecoded
+                  ? LazyMessagePayload.materialized(
+                      encoding: encoding,
+                      pptDecoded: true,
+                      arguments: ['body'],
+                      argumentsKeywords: {'worker': 7},
+                    )
+                  : LazyMessagePayload.encoded(
+                      encoding: encoding,
+                      argumentsBytes: argsBytes,
+                      argumentsKeywordsBytes: kwargsBytes,
+                      argumentsDecoder: (_) {
+                        calls.add('arguments');
+                        return ['body'];
+                      },
+                      argumentsKeywordsDecoder: (_) {
+                        calls.add('keywords');
+                        return {'worker': 7};
+                      },
+                    ),
+            );
+            for (var read = 0; read < 2; read++) {
+              if (keywordsFirst) {
+                expect(event.argumentsKeywords, {'worker': 7});
+              } else {
+                expect(event.arguments, ['body']);
+              }
+              expect(
+                calls,
+                alreadyDecoded
+                    ? isEmpty
+                    : [keywordsFirst ? 'keywords' : 'arguments'],
+              );
+            }
+            final full = event.toPayload();
+            expect(full.arguments, ['body']);
+            expect(full.argumentsKeywords, {'worker': 7});
+            expect(event.arguments, ['body']);
+            expect(event.argumentsKeywords, {'worker': 7});
+            expect(
+              calls,
+              alreadyDecoded
+                  ? isEmpty
+                  : keywordsFirst
+                  ? ['keywords', 'arguments']
+                  : ['arguments', 'keywords'],
+            );
+            expect(
+              event.argumentsBytes,
+              alreadyDecoded ? isNull : same(argsBytes),
+            );
+            expect(
+              event.argumentsKeywordsBytes,
+              alreadyDecoded ? isNull : same(kwargsBytes),
+            );
+          },
+        );
+      }
+    }
+  }
+
+  test('lazy event packed payload retains one shared decode', () {
+    final calls = <String>[];
+    final event = LazyEventPayload(
+      subscriptionId: 1,
+      publicationId: 2,
+      payload: LazyMessagePayload.packed(
+        encoding: LazyPayloadEncoding.cbor,
+        packedPayloadBytes: Uint8List.fromList([1]),
+        packedPayloadDecoder: (_) {
+          calls.add('packed');
+          return (arguments: ['body'], argumentsKeywords: {'worker': 7});
+        },
+      ),
+    );
+    expect(event.argumentsKeywords, {'worker': 7});
+    expect(event.arguments, ['body']);
+    expect(event.toPayload().argumentsKeywords, {'worker': 7});
+    expect(calls, ['packed']);
+  });
+
+  for (final malformedArguments in [false, true]) {
+    test(
+      'lazy event defers unrelated invalid field args=$malformedArguments',
+      () {
+        final event = LazyEventPayload(
+          subscriptionId: 1,
+          publicationId: 2,
+          payload: LazyMessagePayload.encoded(
+            argumentsBytes: Uint8List.fromList([1]),
+            argumentsKeywordsBytes: Uint8List.fromList([2]),
+            argumentsDecoder: (_) {
+              if (malformedArguments) {
+                throw const FormatException('bad args');
+              }
+              return ['body'];
+            },
+            argumentsKeywordsDecoder: (_) {
+              if (!malformedArguments) {
+                throw const FormatException('bad kwargs');
+              }
+              return {'worker': 7};
+            },
+          ),
+        );
+        if (malformedArguments) {
+          expect(event.argumentsKeywords, {'worker': 7});
+          expect(() => event.arguments, throwsFormatException);
+        } else {
+          expect(event.arguments, ['body']);
+          expect(() => event.argumentsKeywords, throwsFormatException);
+        }
+        expect(event.toPayload, throwsFormatException);
+      },
+    );
+  }
+
+  for (final runtimeAllowed in [false, true]) {
+    test('lazy event E2EE access unwraps once runtime=$runtimeAllowed', () {
+      final provider = _RuntimeProbe(runtimeAllowed);
+      final calls = <String>[];
+      final event = LazyEventPayload(
+        subscriptionId: 1,
+        publicationId: 2,
+        pptScheme: 'wamp',
+        pptSerializer: 'cbor',
+        pptCipher: 'test-cipher',
+        pptKeyId: 'test-key',
+        payload: LazyMessagePayload.encoded(
+          encoding: LazyPayloadEncoding.cbor,
+          argumentsBytes: Uint8List.fromList([1]),
+          argumentsDecoder: (_) {
+            calls.add('arguments');
+            return ['outer'];
+          },
+          e2eeProvider: provider,
+          e2eeRuntimeContext: _context,
+        ),
+      );
+      expect(event.argumentsKeywords, {'decoded': true});
+      expect(event.arguments, ['from-provider']);
+      expect(event.toPayload().argumentsKeywords, {'decoded': true});
+      expect(provider.unpackCalls, 1);
+      expect(calls, runtimeAllowed ? isEmpty : ['arguments']);
+      expect(provider.lastContext, same(_context));
+    });
+  }
+
+  test('lazy event custom PPT access still unwraps the shared envelope', () {
+    final options = EventDetails(
+      pptScheme: 'x_custom',
+      pptSerializer: 'cbor',
+    );
+    final packed = PPTPayload.packPPTPayload(['body'], {'worker': 7}, options);
+    final calls = <String>[];
+    final event = LazyEventPayload(
+      subscriptionId: 1,
+      publicationId: 2,
+      pptScheme: options.pptScheme,
+      pptSerializer: options.pptSerializer,
+      payload: LazyMessagePayload.encoded(
+        argumentsBytes: Uint8List.fromList([1]),
+        argumentsDecoder: (_) {
+          calls.add('arguments');
+          return packed;
+        },
+      ),
+    );
+    expect(event.argumentsKeywords, {'worker': 7});
+    expect(event.arguments, ['body']);
+    expect(event.toPayload().argumentsKeywords, {'worker': 7});
+    expect(calls, ['arguments']);
+  });
+
   test(
     'owned encoded views copy slices and preserve partially decoded state',
     () {
