@@ -67,6 +67,52 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Router Metrics Contracts And Hosted Confirmation
+
+- 0ca81adf PR CI 35068960263 and publishing dry-run 35068960262 pass. Strict
+  audit63 confirms clean exact-head jobs/logs and publishing evidence; its two
+  structural findings remain the unprotected feature branch and mutation workflow
+  absent from master. Do not merge or weaken protection to remove them.
+- Diagnostics 35068969747 reduces fragmentation findings from 24 to two: only
+  TLS/CBOR lifecycle rates at 1.874/1.946 Gbit/s remain below 2 Gbit/s. All data
+  floors pass. The independent JSON WebSocket 64 MiB buffered file gate remains
+  red at 1.194/1.147 Gbit/s data/lifecycle. All eight scenarios complete, six pass;
+  evidence is retained under deployment63. The diagnostic chain is not green.
+  A five-round local AOT probe found ascii.encode(substring) slower than the
+  existing validated copy loop; no speculative serializer change was applied.
+- Ten new metrics-model tests assert exact JSON keys and distinct counter values,
+  copy preservation/replacements, optional omission versus zero, large process
+  byte counts, all HTTP telemetry fields, per-listener counts, active-throttle
+  filtering/order and default inactivity. No native runtime is needed for these
+  model tests; service/native integration coverage remains separate.
+- Metrics65 VM collection measures 249/249 lines; retry65b Chrome JS measures
+  173/174 (constructor instrumentation differs). Both and Chrome WASM pass ten
+  tests. WASM test success is not measured WASM coverage. Full-scope checkers
+  correctly reject these isolated reports for missing other components; no
+  component inventory or denominator was narrowed to manufacture a full pass.
+- Complete Metrics64 has 62 kills/four survivors (93.94%). The final default-flag
+  assertion raises Metrics65 to 63 kills/three survivors (95.45% raw/adjusted).
+  Both inventory all 66 candidates and have passing clean/restored baselines,
+  with no compile failures, errors, timeouts or equivalence waivers. The remaining
+  boolean mutations change fixed-length result lists to growable lists; retain
+  those outcomes rather than overfitting a behavioral oracle to allocation details.
+- The new router-metrics-vm target runs at the existing 95% floor in CI, with
+  always-retained reports/logs; the VM coverage policy now enforces a 98% file
+  floor without removing the model from router/package totals. Deployment
+  auditing requires the job, and fixture
+  tests explicitly reject its omission. Fast64 passes. Full VM coverage65 then
+  verify65 run serially against the final production/test snapshot. Focused
+  analysis and formatting pass; hosted evidence must be refreshed after push.
+- Fresh library VM65 reports 36,772/42,496 lines (86.53%). Auth is 100%, core
+  90.22%, client 85.10%, router 84.34%, MCP 95.40% and bench 81.20%. Existing
+  floors pass; --require-target correctly fails the 98% objective. All 59
+  unmeasured library sources remain explicit. This refresh supersedes VM28 for
+  the library snapshot, not standalone applications or native/browser coverage.
+- Preserve browser65's pre-output exit 137 as infrastructure/invocation failure,
+  not a product regression or mutation kill. Retry65b passes. Local companion
+  suggestions were checked against source and tests; the suggestion to include
+  backpressure in transportAlerts contradicted the contract and was rejected.
+
 ### Lazy Event Throughput Regression
 
 - Hosted diagnostics 35065981089 on 6a8a2bf7 now completes all eight scenarios,

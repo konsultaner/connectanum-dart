@@ -23,6 +23,10 @@
     "sources": ["packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"],
     "tests": ["packages/connectanum_core/test/serializer/json/binary_codec_test.dart"]
   },
+  "router-metrics-vm": {
+    "sources": ["packages/connectanum_router/lib/src/router/models/router_metrics.dart"],
+    "tests": ["packages/connectanum_router/test/router_metrics_model_test.dart"]
+  },
   "core-event-vm": {
     "sources": ["packages/connectanum_core/lib/src/message/event.dart"],
     "tests": [

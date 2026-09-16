@@ -128,6 +128,7 @@ expected_ci_jobs=(
   'Full Verify'
   'Core Browser Coverage'
   'router-authorization Mutation Gate'
+  'router-metrics-vm Mutation Gate'
   'auth-server Mutation Gate'
   'client-installer Mutation Gate'
   'router-installer Mutation Gate'

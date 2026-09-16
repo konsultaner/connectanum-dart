@@ -6,10 +6,11 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Latest pushed checkpoint: 6a8a2bf7 on PR #93 covers message persistence and repairs
-diagnostic evidence collection. Publishing dry-run 35065965825 and application
-artifacts 35065961167 pass; exact-head CI 35065965580 is still running.
-Previous a5e6515b PR CI 35062393342 passes. Audit56 confirms clean CI jobs/logs and publishing
+Latest pushed checkpoint: 0ca81adf on PR #93 restores independent plain lazy
+event decoding. Exact-head PR CI 35068960263 and publishing dry-run 35068960262
+pass; audit63 confirms clean jobs/logs and relevant publishing evidence but keeps
+the unprotected feature-branch and mutation workflow absent from master findings.
+Prior 6a8a2bf7 application artifacts 35065961167 pass. Audit56 also confirms clean CI jobs/logs and publishing
 evidence but fails the existing unprotected
 feature branch and mutation-diagnostics workflow absent from master findings.
 Do not merge or relax gates to remove these findings. The prior HTTP-body fix's
@@ -64,12 +65,39 @@ survivor, three compile errors, no errors/timeouts/equivalences, both baselines
 passing, 94.74% raw/adjusted. Preserve Event61 (36.84%) separately. The remaining
 decoded-flag survivor forwards to a helper that checks the same flag; no waiver
 has been applied. This slice does not replace package-wide mutation coverage.
-Full verification62 passes; eleven final metadata/conversion tests were added
-during that run and pass separately on all three runtimes. Full verification63
-rechecks the final source/test snapshot and is in progress.
+Full verification62 and final-snapshot verification63 pass.
 The first browser invocation used the wrong working directory and timed out
 loading assets; corrected package-directory runs pass. Preserve that invocation
 and initial test-authoring compilation errors as non-product failures.
+
+Hosted follow-up 35068969747 confirms the lazy-getter improvement: only two
+fragmentation findings remain, both TLS/CBOR lifecycle rates (1.874 and 1.946
+Gbit/s versus 2 Gbit/s). All data-window floors pass. JSON WebSocket 64 MiB
+Dart-buffered file transfer still fails at 1.194/1.147 Gbit/s data/lifecycle.
+All eight scenarios complete; six pass. Preserve deployment63 artifacts and do
+not claim all performance gates pass. A local five-round ASCII-copy probe rejects
+an alternate string-copy implementation as slower; no production change follows.
+
+Router metrics model follow-up: ten tests cover the exact JSON counter/key
+contract, absent/zero values, copy preservation/replacement, process byte counts,
+HTTP request/response telemetry, listener breakdowns and default/active throttles.
+VM coverage is 249/249 (100%); JavaScript is 173/174 (99.43%). Both and WASM tests
+pass; WASM has no measured line coverage. This portable model slice does not
+establish browser support or coverage for the router runtime. Complete Metrics65
+mutations record 63 assertion kills and three survivors across all 66 candidates,
+95.45% raw/adjusted, clean/restored baselines passing, no compile errors, crashes,
+timeouts or waivers. Remaining mutations only change returned-list growability;
+retain them without asserting incidental list behavior merely to inflate scores.
+Metrics64's prior 62/66 result remains separately retained. CI now includes the
+95% metrics mutation gate and a 98% VM file floor; deployment cleanliness requires
+the mutation job and missing-job regressions cover it. Fast64 passes. Full VM
+library coverage65 measures 36,772/42,496 (86.53%): auth 100%, core 90.22%, client
+85.10%, router 84.34%, MCP 95.40%, bench 81.20%. All current regression floors
+pass, but the explicit 98% target check fails. Keep 59 unmeasured library sources
+visible. Packaging formatting and full verify65 are running serially before
+handoff. The first browser65 invocation exited 137
+before producing output; the authoritative terminal result was retained and the
+corrected retry65b passes. The overall coverage milestone remains incomplete.
 
 Application messaging follow-up: server58 passes all 205 tests and measures
 3,298/3,531 VM lines (93.40%); server.dart is 773/868 (89.06%) and mailbox storage
