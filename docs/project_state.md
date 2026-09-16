@@ -6,11 +6,11 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Latest pushed checkpoint: 3742159b on PR #93 adds shared-protocol JavaScript
-coverage enforcement and public call RPC regressions. Its publishing dry-run
-35057163119 and application artifacts 35057159987 pass; PR CI 35057163344 is
-still running, with both shared coverage gates passing. The preceding f4ae80b0
-full PR CI 35053842965 passes. Strict audit35 confirms
+Latest pushed checkpoint: 2f089b70 on PR #93 expands shared-protocol boundary
+regressions. Publishing dry-run 35059122690 and application artifacts
+35059120216 pass; PR CI 35059122706 is still running. The preceding 3742159b
+full PR CI 35057163344 passes, including both shared coverage gates.
+Strict audit35 confirms
 clean CI jobs/logs and publishing evidence but fails the existing unprotected
 feature branch and mutation-diagnostics workflow absent from master findings.
 Do not merge or relax gates to remove these findings. The prior HTTP-body fix's
@@ -18,6 +18,43 @@ router-image dry-run passes.
 Native30 is complete: 93 assertion kills,
 19 survivors, five compile errors, ten errors and two timeouts across 129
 candidates (75.00% raw/adjusted). Evidence remains unclean, not a passing gate.
+
+Current application-server follow-up: app-server56 passes 196 tests and measures
+3,225/3,528 VM lines (91.41%), up from app-server44's 89.70%. FCM gateway and
+push service measure 100%; subscription storage measures 182/184 (98.91%).
+The server-wide 98% gate still fails and 81 unmeasured application sources remain
+explicit. Offline initialization tests reproduce three base-client leaks before
+the fix: googleapis_auth does not close a caller-owned HTTP client. The gateway
+now closes both owners and disposes late authentication results after timeout.
+Two additional fail-first regressions reproduce indefinite stalled/slow-drip
+response bodies. A single header/body deadline now cancels body subscriptions.
+Synthetic credential fixtures never use real accounts or network access.
+Tests also cover credential-size boundaries, redacted startup failure, persisted
+subscription validation, unsubscribe/revocation isolation, queue bounds,
+storage-failure recovery, successful-response validation and cumulative byte caps.
+Fast54 and full verification54 pass; verification54 predates the final body-read
+fix. Serial full verification55 passes after server55 collection, including native
+HTTP/3, the real LLVM fixture and both browser compilers. Later server56 tests,
+focused analysis and formatting pass. New storage/dispatcher regressions reject
+malformed schemas and independently duplicated binding keys/provider tokens,
+preserve account isolation and atomic failed token transfer, distinguish stale
+compare-and-delete, same-length mute updates and exact presentation bounds.
+An isolated child process verifies chmod failure; its executable lines are not
+attributed to the parent coverage report. Windows permission behavior remains a
+separate runtime gap. Preserve the initial nullable-test compilation failure
+and premature coverage-check failure separately from the corrected passing runs.
+The new app-server-push-vm target inventories all three push implementation files.
+Complete push54 records 176 kills, 61 survivors, 44 compile errors and seven
+timeouts across 288 candidates (72.13% raw/adjusted, no equivalences, both
+baselines passing). This is unclean evidence from the earlier snapshot, before
+the body deadline and subsequent distinguishing tests; do not attribute those
+later changes to it. Complete push55 uses the subsequent body/lifecycle snapshot:
+200 kills, 53 survivors, 44 compile errors and zero errors/timeouts/equivalences
+across 297 candidates, 79.05% raw/adjusted, both baselines passing. Its inventory
+is 116 binary, 142 condition, 25 boolean, ten negation and four null-fallback
+candidates. The later server56 storage/dispatcher/typed-error tests are not part
+of that snapshot and require a fresh campaign. Timeouts remain separate, never
+assertion kills. The 95% target remains unmet.
 
 Consumer protocol follow-up: app-shared52 passes all 136 tests and measures
 1,537/1,540 executable VM lines (99.81%), up from 90.83%. Account/profile input
@@ -85,8 +122,13 @@ or equivalences, with both baselines passing. Preserve its original 97-test
 snapshot. Complete app-shared41 uses the later 112-test oracle: 894 kills,
 175 survivors, 245 compile errors, no errors/timeouts/equivalences, and passing
 clean/restored baselines across all 1,314 candidates (83.63% raw/adjusted).
-Full app-shared51 is running against 135 tests; the final Base64url regression
-was added afterward and must not be attributed to that snapshot.
+Full app-shared51 is complete against 135 tests: 986 kills, 83 survivors,
+245 compile errors, no errors/timeouts/equivalences across 1,314 candidates;
+raw and adjusted scores are 92.24%, with clean and restored baselines passing.
+Operators remain 697 binary, 538 condition, 30 boolean, 46 negation and three
+null-fallback candidates. It improves on shared41's 83.63% but remains below 95%.
+The final Base64url regression was added afterward and must not be attributed
+to that snapshot. Its separate call52 evidence remains below.
 The separate complete app-call48 campaign uses 115 tests and all 214 mutations:
 174 kills, nine survivors, 31 compile errors, no errors/timeouts/equivalences,
 passing clean/restored baselines, 95.08% raw/adjusted. Its operator inventory is

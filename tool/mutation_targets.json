@@ -147,6 +147,20 @@
     "tests": ["examples/wamp_app/shared/test"],
     "testRoot": "examples/wamp_app/shared"
   },
+  "app-server-push-vm": {
+    "sources": [
+      "examples/wamp_app/server/lib/src/fcm_platform_push_gateway.dart",
+      "examples/wamp_app/server/lib/src/platform_push_service.dart",
+      "examples/wamp_app/server/lib/src/push_subscription_store.dart"
+    ],
+    "tests": [
+      "examples/wamp_app/server/test/fcm_initialization_regression_test.dart",
+      "examples/wamp_app/server/test/fcm_platform_push_gateway_test.dart",
+      "examples/wamp_app/server/test/platform_push_service_test.dart",
+      "examples/wamp_app/server/test/push_subscription_store_test.dart"
+    ],
+    "testRoot": "examples/wamp_app/server"
+  },
   "core-msgpack-web": {
     "sources": ["packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"],
     "tests": ["packages/connectanum_core/test/serializer/msgpack/codec_test.dart", "packages/connectanum_core/test/serializer/msgpack/codec_fallback_web_test.dart"],

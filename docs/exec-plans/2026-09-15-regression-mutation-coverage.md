@@ -67,6 +67,61 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Application Push Lifecycle Follow-Up
+
+- Server56 passes 196 tests at 3,225/3,528 VM lines (91.41%), compared with
+  server44's 89.70%. FCM gateway is 96/96, push service 90/90, and subscription
+  storage 182/184 (98.91%). The server-wide 98% gate remains unmet; 81 unmeasured
+  application files, including executable coverage gaps, remain explicit.
+- Three fail-first initialization tests reproduce leaked caller-owned HTTP
+  clients on successful shutdown and failed gateway construction. The
+  googleapis_auth nonClosingClient ownership contract requires closing the
+  underlying client separately. Late authentication wrappers are also closed
+  after initialization timeout. Fixtures use an offline-only BaseClient,
+  synthetic RSA credentials and temporary files, with no external account access.
+- Stalled and slow-drip response-body tests both time out before the fix.
+  Delivery now shares one elapsed deadline across headers and body, and cancels
+  the StreamIterator on expiry, oversize response, failure and completion.
+  Additional regressions cover exact credential/response limits, malformed
+  persisted fields, account/device-bound unregister and revocation, dispatcher
+  lifecycle, transient store failures and status/name response validation.
+- Fast54 and full verification54 pass. The final body fix follows verification54;
+  full verification55 then passes serially after server55 collection, including
+  native HTTP/3, the real LLVM fixture and JavaScript/WASM browser suites. Later
+  server56 tests, analysis and formatting pass. Preserve the earlier test compilation failure, bad runner
+  module invocation and premature LCOV check as tooling/test-development failures.
+  Correct direct runner invocation passes all 35 tests (one platform skip).
+- New app-server-push-vm inventory covers all three push production files and
+  four test files. Complete push54 records 176 kills, 61 survivors, 44 compile
+  errors and seven timeouts across 288 candidates (72.13% raw/adjusted), with
+  passing clean/restored baselines and no equivalences. Its original snapshot
+  precedes the later body deadline and endpoint/status/lifecycle regressions.
+  Complete push55 uses the newer body/lifecycle snapshot: 200 kills, 53 survivors,
+  44 compile errors and zero errors/timeouts/equivalences across 297 candidates,
+  79.05% raw/adjusted, both baselines passing. Preserve earlier unclean evidence.
+  Its operator inventory is 116 binary, 142 condition, 25 boolean, ten negation
+  and four null-fallback candidates. It predates the additional server56 tests.
+  Timeouts are not kills; no exclusions or weakened thresholds are introduced.
+- Server56 adds independently invalid persisted schemas/entries, duplicate keys
+  versus duplicate provider tokens, account-isolated deletion, atomic failed
+  token transfer, compare-and-delete results, and same-length mute-policy changes.
+  Typed FCM errors cannot be confused with generic errors; malformed details do
+  not hide a later valid typed error. Dispatcher tests exercise exact presentation
+  ID/queue bounds, blank account inputs and older queued cursors. A child process
+  with an isolated fake chmod validates permission failure without modifying the
+  parent PATH. Child execution is not counted in parent LCOV, and Windows remains
+  an explicitly separate gap. These later tests await fresh mutation evidence.
+- Full shared51 is complete: 1,314 candidates, 986 kills, 83 survivors, 245
+  compile errors, zero errors/timeouts/equivalences, 92.24% raw/adjusted, with both
+  baselines passing. It improves on shared41's 83.63% but remains below 95%.
+  Operators: 697 binary, 538 condition, 30 boolean, 46 negation, three null-fallback.
+  It uses 135 tests and predates the 136th Base64url regression. Do not relabel its
+  snapshot or use passing individual slices as whole-application evidence.
+- The 3742159b full PR CI is green. Latest pushed 2f089b70 publishing dry-run
+  35059122690 and application artifacts 35059120216 pass; PR CI 35059122706 is
+  still running. Audit47 observed that newer incomplete head, not a regression
+  in the completed 3742159b run. Latest-head audit53 remains pending.
+
 ### Latest Consumer And Browser Checkpoint
 
 - App-shared52 passes all 136 tests on VM and Chrome JavaScript; WASM53 passes
@@ -88,8 +143,8 @@ caught and timed-out outcomes separately.
   errors, zero errors/timeouts/equivalences, 83.63% raw/adjusted. Both baselines
   pass. Operator inventory: 697 binary, 538 condition, 30 boolean, 46 negation,
   three null-fallback candidates. This is the 112-test snapshot, not the latest
-  oracle. Full app-shared51 uses 135 tests and remains in progress; it predates
-  the final Base64url regression.
+  oracle. Full app-shared51 uses 135 tests and is now complete as recorded above;
+  it predates the final Base64url regression.
 - Complete app-call48: all 214 candidates, 174 kills, nine survivors, 31 compile
   errors, zero errors/timeouts/equivalences, 95.08% raw/adjusted, with both
   baselines passing. Operators: 105 binary, 90 condition, eight boolean, eight

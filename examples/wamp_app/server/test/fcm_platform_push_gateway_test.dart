@@ -7,6 +7,36 @@ import 'package:test/test.dart';
 import 'package:wamp_app_server/wamp_app_server.dart';
 
 void main() {
+  test(
+    'uses an explicit endpoint without replacing its path or query',
+    () async {
+      final endpoint = Uri.parse(
+        'http://127.0.0.1:12345/custom/send?environment=test',
+      );
+      Uri? requested;
+      final client = _RecordingClient((request, body) async {
+        requested = request.url;
+        return _jsonResponse(request, 200, {'name': 'offline-message'});
+      });
+      final gateway = FcmPlatformPushGateway(
+        projectId: 'fixture-project',
+        client: client,
+        endpoint: endpoint,
+      );
+      addTearDown(gateway.close);
+      expect(
+        await gateway.deliver(
+          provider: 'fcm',
+          token: 'offline-token',
+          cursor: 1,
+        ),
+        PlatformPushDeliveryResult.accepted,
+      );
+      expect(requested, endpoint);
+      expect(client.sends, 1);
+    },
+  );
+
   test('sends one data-only cursor through the FCM HTTP v1 endpoint', () async {
     final client = _RecordingClient((request, body) async {
       expect(request.method, 'POST');
@@ -187,6 +217,56 @@ void main() {
     );
   });
 
+  test(
+    'only typed FCM errors retire tokens, skipping malformed details',
+    () async {
+      final details = <Object?>[
+        {
+          '@type': 'type.googleapis.com/google.rpc.BadRequest',
+          'errorCode': 'UNREGISTERED',
+        },
+      ];
+      final client = _RecordingClient(
+        (request, _) async => _jsonResponse(request, 400, {
+          'error': {'details': details},
+        }),
+      );
+      final gateway = FcmPlatformPushGateway(
+        projectId: 'fixture-project',
+        client: client,
+      );
+      addTearDown(gateway.close);
+      expect(
+        await gateway.deliver(
+          provider: 'fcm',
+          token: 'offline-token',
+          cursor: 1,
+        ),
+        PlatformPushDeliveryResult.retryableFailure,
+      );
+      details.insertAll(0, [null, false, 7, <Object>[]]);
+      details.addAll([
+        {
+          '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+          'errorCode': 7,
+        },
+        {
+          '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+          'errorCode': 'UNREGISTERED',
+        },
+      ]);
+      expect(
+        await gateway.deliver(
+          provider: 'fcm',
+          token: 'offline-token',
+          cursor: 1,
+        ),
+        PlatformPushDeliveryResult.invalidToken,
+      );
+      expect(client.sends, 2);
+    },
+  );
+
   for (final errorCode in const [
     'QUOTA_EXCEEDED',
     'UNAVAILABLE',
@@ -243,6 +323,106 @@ void main() {
     expect(client.sends, 2);
   });
 
+  test(
+    'accepts only successful HTTP status and a nonblank message name',
+    () async {
+      var status = 200;
+      Object? payload = {'name': 'message-1'};
+      final client = _RecordingClient(
+        (request, _) async => _jsonResponse(request, status, payload),
+      );
+      final gateway = FcmPlatformPushGateway(
+        projectId: 'fixture-project',
+        client: client,
+      );
+      addTearDown(gateway.close);
+      for (final code in [199, 200, 299, 300]) {
+        status = code;
+        expect(
+          await gateway.deliver(
+            provider: 'fcm',
+            token: 'offline-token',
+            cursor: 1,
+          ),
+          code == 200 || code == 299
+              ? PlatformPushDeliveryResult.accepted
+              : PlatformPushDeliveryResult.retryableFailure,
+          reason: 'status $code',
+        );
+      }
+      status = 200;
+      for (final invalid in <Object?>[
+        null,
+        false,
+        1,
+        <Object>[],
+        'name',
+        <String, Object?>{},
+        {'name': 1},
+        {'name': ''},
+        {'name': '  '},
+      ]) {
+        payload = invalid;
+        expect(
+          await gateway.deliver(
+            provider: 'fcm',
+            token: 'offline-token',
+            cursor: 1,
+          ),
+          PlatformPushDeliveryResult.retryableFailure,
+        );
+      }
+    },
+  );
+
+  test(
+    'enforces the byte cap across chunks, allowing the exact boundary',
+    () async {
+      var oversized = false;
+      var cancelled = false;
+      final client = _RecordingClient((request, _) async {
+        final payload = utf8.encode('{"name":"x"}${oversized ? ' ' : ''}');
+        return http.StreamedResponse(
+          Stream<List<int>>.multi((sink) {
+            sink.onCancel = () {
+              cancelled = true;
+            };
+            sink.add(payload.sublist(0, 6));
+            sink.add(payload.sublist(6));
+            sink.close();
+          }),
+          200,
+          request: request,
+        );
+      });
+      final gateway = FcmPlatformPushGateway(
+        projectId: 'fixture-project',
+        client: client,
+        maxResponseBytes: 12,
+      );
+      addTearDown(gateway.close);
+      expect(
+        await gateway.deliver(
+          provider: 'fcm',
+          token: 'offline-token',
+          cursor: 1,
+        ),
+        PlatformPushDeliveryResult.accepted,
+      );
+      oversized = true;
+      cancelled = false;
+      expect(
+        await gateway.deliver(
+          provider: 'fcm',
+          token: 'offline-token',
+          cursor: 1,
+        ),
+        PlatformPushDeliveryResult.retryableFailure,
+      );
+      expect(cancelled, isTrue);
+    },
+  );
+
   test('request timeout fails closed', () async {
     final client = _RecordingClient((request, _) async {
       return Completer<http.StreamedResponse>().future;
@@ -264,6 +444,53 @@ void main() {
     );
     expect(client.sends, 1);
   });
+
+  for (final drip in [false, true]) {
+    test(
+      '${drip ? 'slow-drip' : 'stalled'} response body times out and cancels its subscription',
+      () async {
+        final cancelled = Completer<void>();
+        Timer? timer;
+        late StreamController<List<int>> body;
+        body = StreamController<List<int>>(
+          onListen: () {
+            if (drip) {
+              timer = Timer.periodic(
+                const Duration(milliseconds: 5),
+                (_) => body.add([32]),
+              );
+            }
+          },
+          onCancel: () {
+            timer?.cancel();
+            cancelled.complete();
+          },
+        );
+        addTearDown(() async {
+          timer?.cancel();
+          await body.close();
+        });
+        final client = _RecordingClient(
+          (request, _) async =>
+              http.StreamedResponse(body.stream, 200, request: request),
+        );
+        final gateway = FcmPlatformPushGateway(
+          projectId: 'fixture-project',
+          client: client,
+          requestTimeout: const Duration(milliseconds: 30),
+        );
+        addTearDown(gateway.close);
+        expect(
+          await gateway
+              .deliver(provider: 'fcm', token: 'offline-token', cursor: 1)
+              .timeout(const Duration(seconds: 1)),
+          PlatformPushDeliveryResult.retryableFailure,
+        );
+        await cancelled.future.timeout(const Duration(seconds: 1));
+        expect(client.sends, 1);
+      },
+    );
+  }
 
   test('close is idempotent and prevents later delivery', () async {
     final client = _RecordingClient(_unexpectedRequest);
@@ -345,7 +572,7 @@ http.StreamedResponse _fcmError(
 http.StreamedResponse _jsonResponse(
   http.BaseRequest request,
   int statusCode,
-  Object body,
+  Object? body,
 ) => _textResponse(request, statusCode, jsonEncode(body));
 
 http.StreamedResponse _textResponse(
