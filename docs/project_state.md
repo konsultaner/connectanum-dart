@@ -6,18 +6,64 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-RawSocket regression checkpoint: bin/test-fast and all 21 focused native tests
-pass. Handshake tests now assert complete wire replies and explicit protocol
-results instead of allowing extraction panics to obscure behavioral failures.
-File tests cover seven offset/EOF boundaries, exact bytes under backpressure,
-ordinary writes interleaved with repeated file segments, and preservation of
-the shared file cursor. Bounded EOF reads detect omitted and extra bytes;
-real infrastructure errors and timeouts remain non-kill outcomes. Production
-code and the strict mutation auditor are unchanged. Final bin/verify passes,
-including the real LLVM fixture and both browser compilers. The complete isolated
-native27-rawsocket mutation campaign is running after verification, without
-shared native work overlapping. No new native mutation score or whole-component
-coverage percentage is claimed until that inventory is audited.
+CI readiness priority: PR run 35045484401 timed out in
+http1_stream_reader_reclaims_after_completion; same-commit push verification
+passed, which does not resolve the intermittent hang. A coordinated regression
+reproduces completion overtaking a reader's condition-check mutex. mark_finished
+now holds that mutex while changing the predicate and notifying, closing the
+lost-wakeup window for both success and error completion. All six HTTP-body
+tests and Rust formatting pass; no CI/read timeout was increased. Fresh
+bin/test-fast passes. Final bin/verify passes with the real LLVM fixture and
+both browser compilers; native30 is running serially afterward. Replacement
+hosted evidence is required.
+
+Configuration coverage checkpoint: full vm-current28 passes at 36,650/42,494
+production lines (86.25%), up 222 covered lines. Router coverage is now
+16,148/19,282 (83.75%); router_settings.dart is 480/480 (100%), with a 98% file
+floor. Other package totals and the 59 unmeasured library sources are unchanged.
+Packaging remains client 391/402 and router 374/385, with twelve unmeasured
+sources. This is not the per-component/runtime goal's completion.
+
+The settings regression suites cover value/copy contracts, nested collections,
+OpenMetrics enrichment and route precedence, opt-in identity disclosure and realm
+creation, capacity/threshold boundaries, and explicit protocol precedence.
+All 157 settings/loader tests and focused analysis pass. The initial complete
+settings29 mutation inventory has 182 kills, 37 survivors and 118 compile errors:
+83.11% raw/adjusted, no timeouts/errors or equivalence exclusions. Retain it.
+The isolated baseline needed the quickstart YAML fixture; declared supportFiles
+now copy explicitly listed files outside packages and record hashes, rejecting
+missing/unlisted/unsafe paths and symlinks. Thirty runner regressions pass
+(one Linux-only test skipped on macOS). Complete settings30 has 193 kills,
+26 survivors and 118 compile errors, no errors/timeouts and both baselines passing.
+Its raw score is 88.13%; seven individually source-hash-pinned private-helper
+equivalences give 91.04% adjusted, still below 95%. Public equality fast paths
+remain unresolved:
+subclassable settings getters prevent blanket equivalence claims.
+
+Native27 completed all 129 candidates with eight assertion kills, 95 errors,
+19 survivors, five compile errors and two timeouts. Custom Rust assert messages
+do not carry the standard assertion marker required by the strict auditor.
+The tests retain their predicates but use standard diagnostics; a real-rustc
+fixture distinguishes these from custom/production panics. All 21 tooling and
+21 focused RawSocket tests pass; production RawSocket behavior is unchanged.
+Fresh bin/test-fast and bin/verify passed, including the real LLVM fixture and
+both browser compilers, before the latest snapshot-tool and boundary-test edits.
+Native28 finished with 21 audited kills, 82 errors, 19 survivors, five compile
+errors and two timeouts. Its multi-assertion logs exposed an auditor parser bug:
+a greedy DOTALL header swallowed multiple failure blocks. A failing regression
+and real two-test rustc fixture prove the fix; all 23 tooling tests pass, and
+extra/duplicate headers, mixed panics, crashes and incomplete suites still fail
+closed. Preserve the original audit. A separate parser-recheck report, with tool
+hashes retained, finds 92 kills, eleven errors, 19 survivors, five compile errors
+and two timeouts (74.19% raw/adjusted); this is still unclean evidence, not a pass.
+The running native30 campaign will collect fresh final-snapshot evidence.
+
+Separate consumer shared-protocol baseline app-shared29: all 56 tests pass,
+with 1,396/1,537 measured VM lines (90.83%). The export facade and constant-only
+protocol source have no executable records. This does not measure the Flutter
+client or application server, and the package-only coverage checker does not
+yet enforce this separate application scope. Hosted candidate evidence and the
+complete cross-runtime coverage/mutation milestone remain outstanding.
 
 Hosted browser launcher follow-up: 4b551b78 is pushed to PR #93. Its new
 core-lazy-web job fails before mutations because raw Chrome cannot initialize

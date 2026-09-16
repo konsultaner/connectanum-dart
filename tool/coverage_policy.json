@@ -209,6 +209,7 @@
     "packages/connectanum_core/lib/src/message/e2ee_payload.dart": 98,
     "packages/connectanum_client/lib/src/native_release_installer.dart": 95,
     "packages/connectanum_router/lib/src/native_release_installer.dart": 94.5,
-    "packages/connectanum_router/lib/src/router/auth/authorization.dart": 97.95
+    "packages/connectanum_router/lib/src/router/auth/authorization.dart": 97.95,
+    "packages/connectanum_router/lib/src/router/config/router_settings.dart": 98
   }
 }

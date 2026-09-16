@@ -210,18 +210,25 @@ def validate_equivalents(entries, mutations, source_hashes):
     return validated
 
 
-def snapshot(destination):
-    listed = subprocess.check_output(
+def snapshot(destination, support_files=()):
+    listed = set(subprocess.check_output(
         ['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], cwd=ROOT,
-    ).decode().split('\0')
-    for name in set(listed) - {''}:
+    ).decode().split('\0')) - {''}
+    support = set()
+    for name in support_files:
+        if not isinstance(name, str) or not name or Path(name).is_absolute() or '..' in Path(name).parts:
+            raise ValueError(f'Invalid mutation support file: {name}')
+        if name not in listed or not (ROOT / name).is_file():
+            raise ValueError(f'Missing or unlisted mutation support file: {name}')
+        support.add(name)
+    for name in sorted(listed):
         path = Path(name)
-        if path.parts[0] not in ('packages', 'tool') and name not in (
+        if name not in support and path.parts[0] not in ('packages', 'tool') and name not in (
             'pubspec.yaml', 'pubspec.lock', 'analysis_options.yaml', 'dart_test.yaml',
         ):
             continue
         source = ROOT / path
-        if source.is_symlink():
+        if any((ROOT / part).is_symlink() for part in (path, *path.parents)):
             raise ValueError(f'Unsupported symlink in mutation snapshot: {name}')
         if not source.is_file():
             continue
@@ -271,7 +278,7 @@ def main():
     save()
     with tempfile.TemporaryDirectory(prefix='connectanum-mutations-') as temporary:
         work = Path(temporary)
-        snapshot(work)
+        snapshot(work, [path for name in selected for path in config[name].get('supportFiles', [])])
         code, output = run(['dart', 'pub', 'get', '--offline'], work, 120)
         if code != 0:
             raise RuntimeError('Isolated dependency resolution failed: ' + output[-2000:])

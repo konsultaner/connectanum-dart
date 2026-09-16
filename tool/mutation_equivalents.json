@@ -1,4 +1,34 @@
 {
+  "router-settings-vm": {
+    "d7d482fea0b1496deb85": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "The private _withOpenMetricsRoutes missingRoutes list is only queried for isEmpty and spread into a separate routes list. It is never returned, passed to caller code, or resized. Changing its toList growable flag therefore cannot change any observable list or operation."
+    },
+    "6cf1a443fb0f1ee4cb39": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Unconditionally appending ListenerProtocol.http in _protocolsWithHttp changes only duplicate occurrences after the existing first occurrence. The private ordinary list is immediately converted through LinkedHashSet, preserving that first occurrence and removing the added duplicate before the result escapes."
+    },
+    "c150580dc415a3733a95": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Unconditionally appending ListenerProtocol.http2 in _protocolsWithHttp adds either the same required element or a duplicate after its first occurrence. LinkedHashSet removes that duplicate while preserving insertion order before returning a new list; the intermediate list never escapes."
+    },
+    "c1bea084860dc6e1c111": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "The private _hasExactPathRoute is called only for freshly constructed _openMetricsHttpRoutes entries. Their paths are /healthz, /health, or _normalizeOpenMetricsHttpPath output, which is always nonempty and nonnull. Forcing the null-or-empty guard false preserves every reachable branch; existing user routes are searched but never supply this path argument."
+    },
+    "7076669aea71b8481556": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Changing the return value inside _hasExactPathRoute's null-or-empty path branch has no reachable effect. Its sole caller supplies paths from owned health/metrics routes, with literals or normalized nonempty output, not paths from user-provided routes. The branch cannot execute through the public enrichment API."
+    },
+    "0d19223c8a58749ad427": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Forcing _normalizeOpenMetricsHttpPath's empty-or-slash guard false still returns / for both affected strings: an empty trimmed string takes the slash-prefix fallback, while / takes the already-prefixed branch. All other strings already follow that same final expression."
+    },
+    "cd7b5c41830b31e80121": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Replacing the normalization guard's OR with AND makes that guard unsatisfiable because a string cannot be both empty and /. The following expression independently maps the empty string to / and preserves /, exactly matching the removed special cases; all other inputs are unchanged."
+    }
+  },
   "core-lazy-vm": {
     "e680c448f1398ef0edd3": {
       "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",

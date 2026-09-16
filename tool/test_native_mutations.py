@@ -58,6 +58,20 @@ class NativeMutationTests(unittest.TestCase):
         failed = log([('tests::expected', assertion())])
         self.assertEqual(audit.classify(outcome({'Failure': 101}), failed, SCOPE, MUTANT), 'killed')
 
+    def test_multiple_explicit_assertions_are_parsed_as_separate_failures(self):
+        names = ['tests::expected', 'tests::another_expected']
+        failed = log([(name, assertion().replace("'tests::expected'", repr(name)))
+                      for name in names], names)
+        self.assertEqual([block[1] for block in audit.FAILURE.finditer(failed)], names)
+        self.assertEqual(audit.classify(outcome({'Failure': 101}), failed, SCOPE, MUTANT), 'killed')
+
+    def test_extra_failure_header_cannot_be_hidden_in_assertion_output(self):
+        for name in ('tests::unreported', 'tests::expected'):
+            with self.subTest(extra_header=name):
+                body = assertion() + f'\n---- {name} stdout ----\n' + assertion()
+                failed = log([('tests::expected', body)])
+                self.assertEqual(audit.classify(outcome({'Failure': 101}), failed, SCOPE, MUTANT), 'error')
+
     def test_production_assertions_panics_and_unwraps_are_not_kills(self):
         for body in [assertion(10), assertion(message='boom'),
                      assertion(message='called `Result::unwrap()` on an `Err` value'),
@@ -216,7 +230,16 @@ class NativeMutationTests(unittest.TestCase):
     }
 }
 #[cfg(test)] mod tests {
-    #[test] fn expected() { assert_eq!(super::actual(), 1); }
+    #[test] fn expected() {
+        if std::env::var("MUTATION_CASE").as_deref() == Ok("custom-assert") {
+            assert!(false, "plain TCP sendfile: Ok(None)");
+        }
+        if std::env::var("MUTATION_CASE").as_deref() == Ok("plain-assert") {
+            assert!(false);
+        }
+        assert_eq!(super::actual(), 1);
+    }
+    #[test] fn another_expected() { assert_eq!(super::actual(), 1); }
 }
 '''
         with tempfile.TemporaryDirectory() as temporary:
@@ -225,10 +248,11 @@ class NativeMutationTests(unittest.TestCase):
             (root / 'src/lib.rs').write_text(source)
             subprocess.run(['rustc', '--edition=2021', '--test', 'src/lib.rs', '-o', 'suite'],
                            cwd=root, check=True, capture_output=True, timeout=30)
-            scope = {'sources': {'src/lib.rs': {'lineCount': 11,
-                'classification': 'production-candidate', 'excludedLines': [9, 10, 11]}}}
+            scope = {'sources': {'src/lib.rs': {'lineCount': 20,
+                'classification': 'production-candidate', 'excludedLines': list(range(9, 21))}}}
             for case, expected in [('clean', 'survived'), ('assert', 'killed'),
-                                   ('panic', 'error'), ('production-assert', 'error')]:
+                                   ('panic', 'error'), ('production-assert', 'error'),
+                                   ('custom-assert', 'error'), ('plain-assert', 'killed')]:
                 with self.subTest(case=case):
                     result = subprocess.run([str(root / 'suite'), '--test-threads=1'],
                         cwd=root, env={**os.environ, 'MUTATION_CASE': case},

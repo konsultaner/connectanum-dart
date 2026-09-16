@@ -10,6 +10,15 @@
     "sources": ["packages/connectanum_router/lib/src/router/auth/authorization.dart"],
     "tests": ["packages/connectanum_router/test/authorization_test.dart", "packages/connectanum_router/test/authorization_regression_test.dart"]
   },
+  "router-settings-vm": {
+    "sources": ["packages/connectanum_router/lib/src/router/config/router_settings.dart"],
+    "supportFiles": ["examples/quickstart/router.yaml"],
+    "tests": [
+      "packages/connectanum_router/test/router_settings_regression_test.dart",
+      "packages/connectanum_router/test/router_settings_open_metrics_regression_test.dart",
+      "packages/connectanum_router/test/router_config_loader_test.dart"
+    ]
+  },
   "core-base64-vm": {
     "sources": ["packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"],
     "tests": ["packages/connectanum_core/test/serializer/json/binary_codec_test.dart"]

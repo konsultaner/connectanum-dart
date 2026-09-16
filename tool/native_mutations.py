@@ -17,7 +17,7 @@ SUMMARY = re.compile(
     r'^test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; '
     r'(\d+) measured; (\d+) filtered out;', re.M)
 FAILURE = re.compile(
-    r'^---- (.+) stdout ----\n(.*?)(?=^---- .+ stdout ----\n|^failures:\n|\Z)',
+    r'^---- ([^\r\n]+) stdout ----\n(.*?)(?=^---- [^\r\n]+ stdout ----\n|^failures:\n|\Z)',
     re.M | re.S)
 PANIC = re.compile(r"^thread .+ panicked at (.+):(\d+):(\d+):\n", re.M)
 ASSERTION = re.compile(r'^assertion (?:failed:|`[^`]+` failed)', re.M)

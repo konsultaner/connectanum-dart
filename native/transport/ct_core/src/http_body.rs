@@ -120,6 +120,8 @@ impl StreamingBodyState {
     }
 
     pub fn mark_finished(&self) {
+        // Serialize completion with the consumer's predicate-to-wait transition.
+        let _chunks = self.chunks.lock().unwrap();
         self.finished.store(true, Ordering::SeqCst);
         self.ready.notify_all();
     }
@@ -237,6 +239,42 @@ mod tests {
     fn streaming_body_state_reports_length() {
         let state = StreamingBodyState::new(42);
         assert_eq!(state.total_len(), 42);
+    }
+
+    #[test]
+    fn completion_serializes_with_the_reader_condition_check() {
+        for error in [None, Some("body read failed")] {
+            let state = StreamingBodyState::new(0);
+            // Hold the same mutex across the predicate-to-wait window as take_slice.
+            let condition = state.chunks.lock().unwrap();
+            assert!(!state.finished.load(std::sync::atomic::Ordering::SeqCst));
+            let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+            let (finished_tx, finished_rx) = std::sync::mpsc::channel();
+            let producer_state = state.clone();
+            let producer = std::thread::spawn(move || {
+                entered_tx.send(()).unwrap();
+                match error {
+                    Some(message) => producer_state.mark_error(message.into()),
+                    None => producer_state.mark_finished(),
+                }
+                finished_tx.send(()).unwrap();
+            });
+            entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+            let premature = finished_rx.recv_timeout(Duration::from_millis(200));
+            drop(condition);
+            producer.join().unwrap();
+            assert!(matches!(
+                premature,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+            ));
+            match (error, state.take_slice(1)) {
+                (None, Ok(None)) => {}
+                (Some(expected), Err(super::StreamingError::Io(actual))) => {
+                    assert_eq!(actual, expected);
+                }
+                _ => panic!("unexpected terminal body state"),
+            }
+        }
     }
 
     #[test]

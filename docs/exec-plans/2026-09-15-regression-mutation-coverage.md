@@ -1131,3 +1131,95 @@ coverage25/26 regression logs under out/regression-coverage-2026-09-15.
   are unchanged (SHA-256 f7a9dfe10ab6272cb44aab39796bfd19194bafd8ae4ae6b643bcfd7dfad4b0c1).
 
 Evidence: coverage27-checkpoint under out/regression-coverage-2026-09-15.
+
+### Configuration Contracts And Isolated Fixture Coverage
+
+- Full vm-current28 passes serially after bin/verify: 36,650/42,494 executable
+  library lines (86.25%), up 222. Router is 16,148/19,282 (83.75%);
+  router_settings.dart is 480/480 (100%) and now has a 98% file floor.
+  Other package totals and the 59 unmeasured library sources are unchanged.
+  Packaging remains client 391/402 and router 374/385, with twelve unmeasured
+  sources. Keep these VM measurements separate from browser/native/app scope.
+- New settings regressions exercise field-by-field equality and copy behavior,
+  independent map keys without assuming collision-free hashes, nested options,
+  collection snapshots, route enrichment/idempotence, exact versus prefix route
+  precedence, listener-field preservation and legacy/explicit protocols.
+- The first settings28 mutation baseline failed because its isolated workspace
+  omitted examples/quickstart/router.yaml, required by the retained config-loader
+  suite. Reproduce with a snapshot regression, then copy explicitly declared
+  git-listed supportFiles and record their hashes. Reject missing/unlisted files,
+  absolute/parent escapes and symlink files/ancestors. Thirty runner tests pass,
+  with one Linux-only process regression skipped locally. Do not remove the
+  integration suite or count the failed baseline as a mutation score.
+- Complete settings29: 337 candidates, 182 kills, 37 survivors, 118 compile
+  errors, no timeouts/errors; clean/restored baselines pass. Raw/adjusted score
+  is 83.11%, with no exclusions. Mutation survivors exposed absent tests for
+  default realm creation/disclosure, HTTP3 opt-in and positive capacity limits.
+  Add those tests plus nonnegative threshold boundaries and explicit protocol
+  precedence; all 157 settings/loader tests and analysis pass.
+- Seven private-helper equivalences are individually pinned to source hash
+  2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad:
+  unexposed list growability, set-deduplicated appended protocol values, guards
+  unreachable for owned normalized route paths, and redundant normalization
+  branches. Do not blanket-exclude public identical fast paths: settings classes
+  are subclassable and getters may be overridden. The complete settings30
+  campaign is running; no passing score or required mutation gate is claimed.
+- Native27 retains eight audited kills, 95 errors, 19 survivors, five compile
+  errors and two timeouts across all 129 candidates. Custom assert messages lack
+  the standard marker; keep the strict auditor and preserve predicates while
+  using normal diagnostics. A real rustc fixture verifies custom versus standard
+  assertions and production panics remain distinct. All 21 tooling and 21
+  RawSocket tests pass. Production Rust bytes remain unchanged. Native28 runs
+  serially after VM collection; audit the complete result before claiming a score.
+- Separate app-shared29 VM baseline passes 56 tests at 1,396/1,537 (90.83%).
+  Its export facade and protocol constants have no executable records. The
+  Flutter client and application server remain separate, unmeasured scopes;
+  application-aware reporting/gates and full mutation inventories remain open.
+- bin/test-fast and bin/verify passed before the latest snapshot-tool/boundary
+  edits. Final-snapshot verification and candidate hosted evidence remain pending.
+  Local companions supplied test ideas/review and confirmed that public getter
+  overrides defeat an unconditional identity-fast-path equivalence proof.
+
+Evidence: vm-current28, settings28-mutations (failed baseline), settings29-mutations,
+settings30-mutations, app-shared29 and native28-rawsocket under
+out/regression-coverage-2026-09-15. The original full goal remains active.
+
+### Hosted HTTP Body Hang And Native Audit Parser
+
+- PR Full Verify job 104636405479 in run 35045484401 reached its 45-minute limit
+  while http1_stream_reader_reclaims_after_completion waited indefinitely. The
+  same-commit push job passed; that is not a fix or a reason to ignore this run.
+  Source inspection identifies an actual lost-wakeup window: mark_finished
+  writes the predicate and notifies without the chunks mutex held by take_slice
+  between its predicate check and Condvar.wait.
+- A coordinated test holds that condition-check mutex while a started finisher
+  calls normal/error completion. It fails before the fix because completion
+  overtakes the protected interval. mark_finished now holds the same mutex for
+  the predicate update and notification. All six HTTP-body tests pass afterward,
+  including reclamation and stalled-client errors. No network or CI timeout is
+  increased. Local review confirms mark_error releases its error lock before
+  entering mark_finished, so the fix introduces no reverse nested-lock order.
+- Native28's first audit records 21 kills, 82 errors, 19 survivors, five compile
+  errors and two timeouts. Valid multi-assertion logs reveal a second evidence
+  problem: FAILURE used a greedy DOTALL .+ for header names and swallowed whole
+  intervening blocks. A regression fails with two valid failure blocks merged
+  into one name. Restrict header names/lookaheads to a single line; real rustc
+  now verifies two-test assertion failures too. All 23 tooling tests pass;
+  extra/duplicate printed headers and actual panics/crashes/timeouts still fail
+  closed. This corrects parsing, not the rules for what counts as a kill.
+- Preserve native28's original report. Separate parser-recheck-audited-results
+  plus parser-recheck-tools.sha256 record the corrected grader's 92 kills,
+  eleven errors, 19 survivors, five compile errors and two timeouts. Score is
+  74.19% raw/adjusted and evidence remains unclean. The remaining errors are not
+  relabeled. A fresh native30 campaign is queued after final verification.
+- Complete settings30 passes both baselines: 193 kills, 26 survivors and 118
+  compile errors, no timeouts/errors. Raw score 88.13%, adjusted 91.04% using
+  exactly seven pinned private-helper equivalences. Nineteen other survivors
+  remain unresolved; do not add a passing required gate or claim 95%.
+- Fresh bin/test-fast and final bin/verify pass, including the real LLVM fixture
+  and both browser compilers. Native30 is running serially afterward; candidate
+  hosted CI and strict audit evidence remain required.
+
+Evidence: coverage30 HTTP-body before/after logs, native parser before/after
+fixtures, hosted timeout log and triage, plus the retained native28 re-audit and
+settings30 full inventory. The whole coverage goal remains active.

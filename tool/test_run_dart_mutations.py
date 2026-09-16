@@ -20,6 +20,63 @@ def events(*items):
 
 
 class MutationRunnerTests(unittest.TestCase):
+    def test_snapshot_copies_only_declared_external_support_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'repo'
+            destination = Path(directory) / 'snapshot'
+            contents = {
+                'packages/core/lib/a.dart': b'bool f() => true;',
+                'examples/quickstart/router.yaml': b'realms: [public]\n',
+                'examples/unrelated.yaml': b'unrelated',
+                'pubspec.lock': b'pinned dependencies',
+            }
+            for name, data in contents.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            listed = '\0'.join(name for name in contents if name != 'pubspec.lock').encode()
+            with patch.object(runner, 'ROOT', root), \
+                 patch.object(runner.subprocess, 'check_output', return_value=listed):
+                runner.snapshot(destination, ['examples/quickstart/router.yaml'])
+            self.assertEqual(sorted(str(path.relative_to(destination))
+                                    for path in destination.rglob('*') if path.is_file()),
+                             ['examples/quickstart/router.yaml', 'packages/core/lib/a.dart',
+                              'pubspec.lock'])
+            for name in ('examples/quickstart/router.yaml', 'packages/core/lib/a.dart', 'pubspec.lock'):
+                self.assertEqual((destination / name).read_bytes(), contents[name])
+            (destination / 'examples/quickstart/router.yaml').write_text('mutated')
+            self.assertEqual((root / 'examples/quickstart/router.yaml').read_bytes(),
+                             contents['examples/quickstart/router.yaml'])
+
+    def test_snapshot_rejects_invalid_missing_and_unlisted_support_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'repo'
+            root.mkdir()
+            (root / 'ignored.yaml').write_text('not an input')
+            for name in ('', '.', '../outside.yaml', str(root / 'ignored.yaml'),
+                         'missing.yaml', 'ignored.yaml', 'directory', None, 42):
+                with self.subTest(name=name), patch.object(runner, 'ROOT', root), \
+                     patch.object(runner.subprocess, 'check_output',
+                                  return_value=b'missing.yaml\0directory\0'):
+                    (root / 'directory').mkdir(exist_ok=True)
+                    with self.assertRaisesRegex(ValueError, 'support file'):
+                        runner.snapshot(Path(directory) / 'snapshot', [name])
+
+    def test_snapshot_rejects_symlink_files_and_ancestor_directories(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'repo'
+            root.mkdir()
+            outside = Path(directory) / 'outside'
+            outside.mkdir()
+            (outside / 'fixture.yaml').write_text('outside')
+            (root / 'linked.yaml').symlink_to(outside / 'fixture.yaml')
+            (root / 'examples').symlink_to(outside, target_is_directory=True)
+            for name in ('linked.yaml', 'examples/fixture.yaml'):
+                with self.subTest(name=name), patch.object(runner, 'ROOT', root), \
+                     patch.object(runner.subprocess, 'check_output', return_value=name.encode()):
+                    with self.assertRaisesRegex(ValueError, 'symlink'):
+                        runner.snapshot(Path(directory) / 'snapshot', [name])
+
     def test_process_census_distinguishes_live_zombie_and_unrelated_groups(self):
         output = runner.subprocess.CompletedProcess([], 0, stdout=(
             ' 10 20 S /sdk/dartvm\n 11 20 Z defunct\n 12 20 Z+ defunct\n 13 20 X dead\n'
@@ -370,7 +427,8 @@ class MutationRunnerTests(unittest.TestCase):
                             {'type': 'testDone', 'testID': 1, 'result': 'success'},
                             {'type': 'done', 'success': True})
             seen = []
-            def fake_snapshot(work):
+            def fake_snapshot(work, support_files):
+                self.assertEqual(support_files, target.get('supportFiles', []))
                 files = [(source_path, source)]
                 if native:
                     files.append(('packages/core/example/server.dart', 'example fixture'))

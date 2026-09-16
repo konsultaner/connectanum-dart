@@ -520,7 +520,7 @@ mod tests {
     fn successful_handshake(
         result: Result<NegotiatedSession, HandshakeError>,
     ) -> NegotiatedSession {
-        assert!(result.is_ok(), "handshake must succeed: {result:?}");
+        assert!(result.is_ok());
         result.unwrap()
     }
 
@@ -839,7 +839,7 @@ mod tests {
 
             match negotiate(IoStream::plain(socket), &config).await {
                 Ok(session) => {
-                    assert!(case.expect_ok, "case should have failed");
+                    assert!(case.expect_ok);
                     assert_eq!(
                         session.max_message_size_exponent,
                         case.expect_exponent.unwrap()
@@ -859,7 +859,7 @@ mod tests {
                     assert_eq!(response, expected, "complete handshake response");
                 }
                 Err(_) => {
-                    assert!(!case.expect_ok, "case should have succeeded");
+                    assert!(!case.expect_ok);
                 }
             }
         }
@@ -878,10 +878,7 @@ mod tests {
                 peer.shutdown().await.unwrap();
                 let config = runtime_config(Some(Duration::from_millis(100)), endpoint);
                 let result = negotiate(IoStream::plain(socket), &config).await;
-                assert!(
-                    result.is_ok(),
-                    "base {requested}, cap {endpoint}: {result:?}"
-                );
+                assert!(result.is_ok());
                 let session = result.unwrap();
                 assert!(!session.upgraded);
                 assert_eq!(session.max_message_size_exponent, requested.min(endpoint));
@@ -1002,8 +999,7 @@ mod tests {
             .await
             .unwrap();
             assert!(
-                matches!(result, Err(HandshakeError::Protocol(message)) if message == expected),
-                "{result:?}"
+                matches!(result, Err(HandshakeError::Protocol(message)) if message == expected)
             );
         }
     }
@@ -1181,10 +1177,7 @@ mod tests {
             let (client, peer) = socket_pair().await;
             let mut stream = IoStream::plain(client);
             let sender = RawSocketFileSender::from_stream(&stream);
-            assert!(
-                matches!(sender, Ok(Some(_))),
-                "plain TCP sendfile: {sender:?}"
-            );
+            assert!(matches!(sender, Ok(Some(_))));
             let sender = sender.unwrap().unwrap();
             assert_eq!(format!("{sender:?}"), "RawSocketFileSender { .. }");
             let before = crate::file_segment_metrics_snapshot();
@@ -1232,18 +1225,15 @@ mod tests {
         let (client, peer) = socket_pair().await;
         let mut stream = IoStream::plain(client);
         let sender = RawSocketFileSender::from_stream(&stream);
-        assert!(
-            matches!(sender, Ok(Some(_))),
-            "plain TCP sendfile: {sender:?}"
-        );
+        assert!(matches!(sender, Ok(Some(_))));
         let sender = sender.unwrap().unwrap();
         time::timeout(Duration::from_secs(2), async {
             stream.write_all(b"prefix:").await.unwrap();
             let first = sender.send_file_segment(&file, 3, 4).await;
-            assert!(first.is_ok(), "first file segment: {first:?}");
+            assert!(first.is_ok());
             stream.write_all(b":").await.unwrap();
             let second = sender.send_file_segment(&file, 10, 3).await;
-            assert!(second.is_ok(), "second file segment: {second:?}");
+            assert!(second.is_ok());
             stream.write_all(b":suffix").await.unwrap();
             stream.shutdown().await.unwrap();
         })
@@ -1259,10 +1249,7 @@ mod tests {
         let (client, peer) = socket_pair().await;
         let mut stream = IoStream::plain(client);
         let sender = RawSocketFileSender::from_stream(&stream);
-        assert!(
-            matches!(sender, Ok(Some(_))),
-            "plain TCP sendfile: {sender:?}"
-        );
+        assert!(matches!(sender, Ok(Some(_))));
         let sender = sender.unwrap().unwrap();
         let small_buffer: libc::c_int = 4096;
         let status = unsafe {
@@ -1309,7 +1296,7 @@ mod tests {
         })
         .await
         .expect("file segment must complete with a slow reader");
-        assert!(sent.is_ok(), "file segment result: {sent:?}");
+        assert!(sent.is_ok());
         assert_eq!(received, expected);
     }
 }
