@@ -69,6 +69,58 @@ caught and timed-out outcomes separately.
 
 ### Latest Consumer And Browser Checkpoint
 
+- Canonical app-shared47 passes all 115 tests on VM/Chrome JavaScript/WASM.
+  VM remains 1,536/1,540 (99.74%); JavaScript is 1,760/1,788 (98.43%). No WASM
+  line-coverage claim is made. Additional tests distinguish direct ICE credential
+  and URL limits, exactly sixteen offers, and independently inconsistent offers.
+  The collector explicitly selects vm/chrome, keeps Bash 3 option arrays nonempty,
+  rejects missing Chrome/unsupported runtimes, and omits VM ignore processing for
+  JavaScript. Both use the same 98% floor/source inventory. Behavioral launcher
+  tests pass; the new separate CI browser gate/artifact awaits hosted execution.
+- Complete app-shared35: 1,314 candidates, 798 kills, 272 survivors, 244 compile
+  errors, zero errors/timeouts/equivalences, 74.58% raw/adjusted. Clean/restored
+  baselines pass. Full app-shared41 runs the 112-test snapshot; later 115-test
+  boundary improvements must be validated separately, not relabeled into it.
+  The full 214-candidate app-call46 slice runs the newer boundary oracle but
+  predates the final independent version/algorithm rejection assertions.
+- Application server44 passes all 148 tests at 3,154/3,516 VM lines (89.70%),
+  up 77 covered lines; server.dart rises to 706/868. Public signed call RPC and
+  pub/sub tests cover lifecycle, duplicates, pagination, account/device isolation,
+  rejection/error mapping and redacted filesystem failure/recovery. The 98% gate
+  remains unmet and the executable unmeasured. Preserve the focused native-lock
+  collision from overlapping fast42; the complete server collection passes only
+  after fast42 exits successfully. Full verification45 passes serially afterward,
+  including the real LLVM fixture and both core/browser compiler paths.
+- f4ae80b0 PR CI 35053842965, publishing dry-run and application artifacts pass.
+  Strict audit35 confirms clean/relevant jobs and logs, but still fails feature
+  branch protection and mutation-diagnostics.yml absent from master. No merge,
+  publication, branch-policy weakening or blanket exclusion is performed.
+
+### Earlier Checkpoints
+
+- Follow-up app-shared40 passes 112 tests at 1,536/1,540 VM lines (99.74%).
+  Separate JavaScript collection initially measured only 1,671/1,762 (94.83%).
+  Additional cross-runtime endpoint, backup, envelope, receipt, device, call,
+  attachment and consent rejection tests raise app-shared40-browser to
+  1,757/1,787 (98.32%), without exclusions. Both full collections pass; keep
+  their denominators distinct. Canonical shared browser collection/CI enforcement
+  remain pending; JavaScript results are not WASM line-coverage evidence.
+- Server baseline app-server38 passes 145 tests at 3,077/3,516 VM lines (87.51%).
+  server.dart accounts for 233 uncovered lines. Its executable and export facade
+  remain unmeasured, as do the unrelated application components listed separately.
+  An initial summary ran before the formatter completed; preserve it as
+  summary-before-format-complete.json, not as valid coverage. The final summary
+  follows the formatter's successful exit and remains below the 98% target.
+- Full bin/test-fast35 and bin/verify35 pass, including the real LLVM fixture and
+  both core browser compilers. f4ae80b0 is pushed; its publishing dry-run and
+  shared VM gate pass, with the hosted artifact confirming 99.74%. Remaining CI
+  and the strict audit are watched. The prior runtime image dry-run passes.
+- Complete profile37 verifies both baselines and all 150 candidates: 125 kills,
+  six survivors, 19 compile errors, no errors/timeouts/equivalences, 95.42% raw
+  and adjusted. This verifies the constructor and typed-avatar boundary oracles,
+  not the entire shared protocol. Full app-shared35 still uses the earlier
+  97-test snapshot and must not be relabeled as the newer 112-test oracle.
+
 - Pushed 8872ad3e carries the HTTP-body lost-wakeup fix and configuration/tooling
   regressions after bin/test-fast and bin/verify pass. Its package dry-run passes;
   candidate CI remains pending. Complete native30 retains 93 assertion kills,

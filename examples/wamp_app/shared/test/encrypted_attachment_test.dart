@@ -5,6 +5,89 @@ import 'package:test/test.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 void main() {
+  test(
+    'attachment wire parsers reject invalid descriptors and chunk bounds',
+    () {
+      final descriptor = EncryptedAttachmentDescriptor(
+        attachmentId: _token(16, 1),
+        kind: ChatAttachmentKind.file,
+        name: 'file.bin',
+        contentType: 'application/octet-stream',
+        plaintextBytes: 1,
+        chunkBytes: 1,
+        chunkCount: 1,
+        plaintextSha256: 'a' * 64,
+        key: Uint8List(32),
+      ).toJson();
+      expect(
+        () => EncryptedAttachmentDescriptor.fromJson(null),
+        throwsFormatException,
+      );
+      for (final invalid in <Map<String, dynamic>>[
+        {'kind': 'unknown'},
+        {'content_type': ''},
+        {'content_type': ' text/plain'},
+        {'content_type': 'text/plain\n'},
+        {'chunk_bytes': 0},
+        {'chunk_bytes': WampAppAttachmentLimits.maxChunkBytes + 1},
+        {
+          'kind': 'voiceNote',
+          'duration_milliseconds': 1,
+          'content_type': 'audio/wav',
+        },
+      ]) {
+        expect(
+          () => EncryptedAttachmentDescriptor.fromJson({
+            ...descriptor,
+            ...invalid,
+          }),
+          throwsFormatException,
+          reason: invalid.keys.join(','),
+        );
+      }
+      final chunk = EncryptedAttachmentChunk(
+        senderUsername: 'alice',
+        messageId: _token(16, 1),
+        attachmentId: _token(16, 2),
+        chunkIndex: 0,
+        chunkCount: 1,
+        ciphertextSha256: 'a' * 64,
+        encryptedBytes: Uint8List(
+          WampAppAttachmentLimits.minEncryptedChunkBytes,
+        ),
+      ).toWampKeywords();
+      expect(
+        () => EncryptedAttachmentChunk.fromWampKeywords(null),
+        throwsFormatException,
+      );
+      for (final invalid in <Map<String, dynamic>>[
+        {'version': 'unknown'},
+        {'sender_username': '!!'},
+        {'chunk_count': 0},
+        {'chunk_count': WampAppAttachmentLimits.maxChunkCount + 1},
+        {'chunk_index': -1},
+        {'chunk_index': 1},
+        {
+          'encrypted_bytes': Uint8List(
+            WampAppAttachmentLimits.minEncryptedChunkBytes - 1,
+          ),
+        },
+        {
+          'encrypted_bytes': Uint8List(
+            WampAppAttachmentLimits.maxEncryptedChunkBytes + 1,
+          ),
+        },
+      ]) {
+        expect(
+          () =>
+              EncryptedAttachmentChunk.fromWampKeywords({...chunk, ...invalid}),
+          throwsFormatException,
+          reason: invalid.keys.join(','),
+        );
+      }
+    },
+  );
+
   test('private attachment descriptors round-trip with exact bounds', () {
     final descriptor = EncryptedAttachmentDescriptor(
       attachmentId: _token(16, 1),

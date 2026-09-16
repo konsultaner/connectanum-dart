@@ -6,13 +6,19 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Latest checkpoint: 8872ad3e is pushed to PR #93 with the HTTP-body lost-wakeup
-fix, settings regressions and mutation-tool corrections. Its publishing dry-run
-passes; replacement CI is running. Native30 is complete: 93 assertion kills,
+Latest checkpoint: f4ae80b0 is pushed to PR #93 with the shared-protocol VM
+coverage gate, browser mutation compilation fix and standalone mutation runner.
+Its full PR CI 35053842965, publishing dry-run and application artifacts pass;
+the hosted shared VM gate measures 1,536/1,540 (99.74%). Strict audit35 confirms
+clean CI jobs/logs and publishing evidence but fails the existing unprotected
+feature branch and mutation-diagnostics workflow absent from master findings.
+Do not merge or relax gates to remove these findings. The prior HTTP-body fix's
+router-image dry-run passes.
+Native30 is complete: 93 assertion kills,
 19 survivors, five compile errors, ten errors and two timeouts across 129
 candidates (75.00% raw/adjusted). Evidence remains unclean, not a passing gate.
 
-Consumer protocol follow-up: app-shared37 passes all 100 tests and measures
+Consumer protocol follow-up: app-shared47 passes all 115 tests and measures
 1,536/1,540 executable VM lines (99.74%), up from 90.83%. Account/profile input
 regressions reproduce silent integer-to-byte truncation and malformed receipt
 timestamps escaping as TypeError. Validate byte ranges and timestamp types before
@@ -26,8 +32,35 @@ export/constant-only files) remain explicit; this is not Flutter/server evidence
 Sixteen coverage-tool and 38 launcher tests pass. Full verification33 and
 standalone consumer verification33 pass, including Flutter/browser tests and
 the release web build. Shared analysis and the latest canonical collection pass.
-Fresh bin/test-fast35 passes; final verification35 is running serially for the
-new mutation tooling.
+Fresh bin/test-fast35 and final verification35 pass, including the real LLVM
+fixture and both core browser compilers. Later shared-only boundary tests pass
+their complete VM/JavaScript collections and focused analysis/formatting.
+
+Separate JavaScript coverage exposed missing rejection tests despite the high VM
+percentage: app-shared37-browser measured 1,671/1,762 (94.83%). New cross-runtime
+tests cover malformed endpoints, backup/chunk bounds, encrypted envelope shapes,
+receipt aliases/order, device identity/time validation, call state transitions,
+attachment limits and malformed consent metadata. app-shared47-browser now
+measures 1,760/1,788 (98.43%), with all 115 tests passing and no new exclusions.
+Direct ICE constructors, exact sixteen-device offer limits and individually
+inconsistent offers address additional mutation survivors. All 115 tests also
+pass on Chrome/WASM, without claiming WASM line coverage. The canonical collector
+now selects vm/chrome explicitly, rejects missing Chrome/unknown runtimes, and
+retains separate artifacts. Both modes enforce the same 98% policy and required
+sources; browser formatting omits VM ignore comments. CI wiring for the new
+JavaScript gate awaits hosted evidence. Launcher failure-path regressions pass.
+
+Application server app-server44 passes 148 tests at 3,154/3,516 VM lines (89.70%),
+up from app-server38's 3,077/3,516 (87.51%), still below 98%. Real SCRAM/WebSocket
+tests cover signed call lifecycle, duplicate replay, cursor-only wakeups, paging,
+account/device isolation, malformed/spoofed/tampered calls, state-conflict errors
+and redacted filesystem failures followed by same-session recovery. server.dart
+improves from 635/868 to 706/868. The executable/export facade remain unmeasured;
+81 unmeasured application sources are explicit. A focused run overlapped fast42
+and hit the shared native-runtime lock; preserve that failure. The complete
+server44 collection ran only after fast42 passed and all 148 tests passed.
+Full verify45 passes serially afterward, including the real LLVM fixture and
+Chrome JavaScript/WASM suites. This is not Flutter/client coverage.
 
 Standalone mutation execution now snapshots application component inputs and
 their ignored dependency lockfiles, resolves the standalone Dart package offline
@@ -35,14 +68,23 @@ in its own directory, and records dependency hashes/logs. Production sources
 remain restricted to component lib/bin paths. Five new runner regressions cover
 snapshot isolation, lockfile symlinks, complete source inventory and independent
 resolution/failure; all 35 runner tests pass (one Linux-only skip on macOS).
-The full app-shared35 campaign has a passing baseline and 1,314 candidates but
-is still running, not a passing score. Preserve its original test snapshot.
+The full app-shared35 campaign is complete: 798 kills, 272 survivors and 244
+compile errors across 1,314 candidates, 74.58% raw/adjusted, no errors/timeouts
+or equivalences, with both baselines passing. Preserve its original 97-test
+snapshot. Fresh full app-shared41 is running against the later 112-test oracle;
+the subsequent 115-test boundary follow-up is not part of that snapshot.
+The separate app-call46 campaign inventories all 214 call-signaling mutations
+and is running against the expanded boundary oracle; the final independent
+version/algorithm rejection cases were added after its snapshot. Do not count
+that later assertion as validated by an earlier mutation run.
 Subsequent constructor, typed-avatar and ciphertext boundary tests address
 observed survivors; the separate profile36 campaign confirms the constructor
 size-limit mutant is killed. Complete profile36 has 124 kills, seven survivors
 and 19 compile errors (94.66% raw/adjusted), with both baselines passing and no
-errors/timeouts. It predates the last typed-avatar boundary test; profile37
-checks the newer oracle. Neither slice replaces the full application inventory.
+errors/timeouts. Complete profile37 adds the typed-avatar boundary oracle:
+125 kills, six survivors, 19 compile errors (95.42% raw/adjusted), with both
+baselines passing and no errors/timeouts/equivalences. Neither slice replaces
+the full application inventory, which predates the later browser-guided tests.
 
 Older PR run 35045484401 also exhausts the 90-minute core-lazy-web job budget:
 its artifact retains 272/289 outcomes (208 kills, 15 survivors, 49 compile errors,
@@ -54,7 +96,8 @@ three imported suites remain hashed support inputs. The complete 289-candidate
 lazy33 campaign passes both baselines: 223 kills, 16 survivors, 50 compile errors,
 zero errors/timeouts. Its raw score is 93.31%, adjusted 96.54% after the existing
 eight individually pinned equivalences. Neither inventory nor job/per-test
-budgets are reduced or relaxed. Replacement hosted evidence is still required.
+budgets are reduced or relaxed. Replacement PR CI 35053842965 passes the
+core-lazy-web gate without a retry or timeout increase.
 
 CI readiness priority: PR run 35045484401 timed out in
 http1_stream_reader_reclaims_after_completion; same-commit push verification
@@ -64,8 +107,8 @@ now holds that mutex while changing the predicate and notifying, closing the
 lost-wakeup window for both success and error completion. All six HTTP-body
 tests and Rust formatting pass; no CI/read timeout was increased. Fresh
 bin/test-fast passes. Final bin/verify passes with the real LLVM fixture and
-both browser compilers; native30 is running serially afterward. Replacement
-hosted evidence is required.
+both browser compilers; native30 completed serially afterward. Replacement
+Full Verify in PR CI 35053842965 passes with clean hosted logs.
 
 Configuration coverage checkpoint: full vm-current28 passes at 36,650/42,494
 production lines (86.25%), up 222 covered lines. Router coverage is now

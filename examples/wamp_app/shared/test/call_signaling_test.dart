@@ -6,6 +6,113 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 void main() {
   test(
+    'call state transitions require consistent participants and timestamps',
+    () {
+      final signal = _signal();
+      final created = signal.createdAt;
+      final answer = created.add(const Duration(seconds: 1));
+      CallRecord create(
+        CallState state, {
+        DateTime? answered,
+        DateTime? ended,
+        String callee = 'bob',
+        String? acceptedDevice,
+      }) => CallRecord(
+        callId: signal.callId,
+        callerUsername: 'alice',
+        callerDeviceId: signal.senderDeviceId,
+        calleeUsername: callee,
+        media: CallMediaKind.voice,
+        state: state,
+        createdAt: created,
+        acceptedDeviceId: acceptedDevice,
+        answeredAt: answered,
+        endedAt: ended,
+      );
+      final invalid = <CallRecord Function()>[
+        () => create(CallState.ringing, callee: 'alice'),
+        () => create(
+          CallState.ringing,
+          answered: answer,
+          acceptedDevice: _token(32, 4),
+        ),
+        () => create(CallState.cancelled),
+        () => create(CallState.ringing, acceptedDevice: _token(32, 4)),
+        () => create(CallState.active, acceptedDevice: _token(32, 4)),
+        () => create(CallState.active, answered: answer),
+        () => create(CallState.ended, ended: answer),
+        () => create(CallState.cancelled, ended: answer, answered: answer),
+        () => create(
+          CallState.active,
+          answered: answer,
+          acceptedDevice: _token(32, 4),
+          ended: answer.add(const Duration(seconds: 1)),
+        ),
+        () => create(
+          CallState.active,
+          answered: created.subtract(const Duration(seconds: 1)),
+          acceptedDevice: _token(32, 4),
+        ),
+        () => create(
+          CallState.ended,
+          answered: answer,
+          ended: created,
+          acceptedDevice: _token(32, 4),
+        ),
+      ];
+      for (final create in invalid) {
+        expect(create, throwsFormatException);
+      }
+      final ringing = create(CallState.ringing);
+      expect(
+        CallUpdate(
+          cursor: 1,
+          call: ringing,
+          signals: List.filled(16, signal),
+        ).signals,
+        hasLength(16),
+      );
+      expect(() => CallUpdate(cursor: 0, call: ringing), throwsFormatException);
+      expect(
+        () => CallUpdate(
+          cursor: 1,
+          call: ringing,
+          signals: List.filled(17, signal),
+        ),
+        throwsFormatException,
+      );
+      final foreign = EncryptedCallSignal.fromWampKeywords({
+        ...signal.toWampKeywords(),
+        'call_id': _token(16, 99),
+      });
+      expect(
+        () => CallUpdate(cursor: 1, call: ringing, signals: [foreign]),
+        throwsFormatException,
+      );
+      expect(
+        CallConfiguration(
+          iceServers: List.generate(
+            16,
+            (_) => CallIceServer(urls: ['stun:stun.example.net:3478']),
+          ),
+          expiresAt: answer,
+        ).iceServers,
+        hasLength(16),
+      );
+      expect(
+        () => CallConfiguration(
+          iceServers: List.generate(
+            17,
+            (_) => CallIceServer(urls: ['stun:stun.example.net:3478']),
+          ),
+          expiresAt: answer,
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
+  test(
     'signal ciphertext allows 256 KiB plus sealed-box overhead, not more',
     () {
       for (final size in [49, 262192]) {
@@ -43,6 +150,36 @@ void main() {
     final stored = EncryptedCallSignal.fromJson(signal.toJson());
     expect(stored.sealedPayload, everyElement(7));
     expect(stored.signaturePayload(), signal.signaturePayload());
+    for (final size in [16, 64]) {
+      final id = _token(size, 20);
+      expect(
+        EncryptedCallSignal.fromWampKeywords({
+          ...signal.toWampKeywords(),
+          'call_id': id,
+          'signal_id': id,
+        }).callId,
+        id,
+      );
+    }
+    for (final field in ['call_id', 'signal_id']) {
+      expect(
+        () => EncryptedCallSignal.fromWampKeywords({
+          ...signal.toWampKeywords(),
+          field: '${_token(16, 20)}==',
+        }),
+        throwsFormatException,
+        reason: '$field must be unpadded base64url',
+      );
+    }
+    for (final invalid in [null, false, <int>[]]) {
+      expect(
+        () => EncryptedCallSignal.fromJson({
+          ...signal.toJson(),
+          'sealed_payload': invalid,
+        }),
+        throwsFormatException,
+      );
+    }
   });
 
   test('call start requires complete unique per-device offers', () {
@@ -80,6 +217,89 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('call offers accept exactly sixteen devices but never seventeen', () {
+    final offers = List.generate(
+      17,
+      (index) =>
+          _signal(signalSeed: index + 40, recipientDeviceSeed: index + 60),
+    );
+    final maximum = CallStartRequest(
+      media: CallMediaKind.voice,
+      calleeUsername: 'bob',
+      offers: offers.take(16),
+    );
+    expect(maximum.offers, hasLength(16));
+    expect(
+      CallStartRequest.fromWampKeywords(maximum.toWampKeywords()).offers,
+      hasLength(16),
+    );
+    for (final invalid in [<EncryptedCallSignal>[], offers]) {
+      expect(
+        () => CallStartRequest(
+          media: CallMediaKind.voice,
+          calleeUsername: 'bob',
+          offers: invalid,
+        ),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test(
+    'every call offer must independently match the first sender and call',
+    () {
+      final first = _signal();
+      final second = _signal(signalSeed: 10, recipientDeviceSeed: 11);
+      for (final mutation in <String, dynamic>{
+        'kind': 'answer',
+        'call_id': _token(16, 12),
+        'sender_username': 'charlie',
+        'sender_device_id': _token(32, 13),
+      }.entries) {
+        final changed = EncryptedCallSignal.fromWampKeywords({
+          ...second.toWampKeywords(),
+          mutation.key: mutation.value,
+        });
+        expect(
+          () => CallStartRequest(
+            media: CallMediaKind.voice,
+            calleeUsername: 'bob',
+            offers: [first, changed],
+          ),
+          throwsFormatException,
+          reason: mutation.key,
+        );
+      }
+    },
+  );
+
+  test(
+    'ICE constructors enforce credential and URL boundaries without a parser',
+    () {
+      final longest = 'turn:${'x' * 2043}';
+      expect(longest.length, 2048);
+      expect(CallIceServer(urls: [longest]).urls.single, longest);
+      expect(() => CallIceServer(urls: ['${longest}x']), throwsFormatException);
+      for (final credentials in [('', 'secret'), ('alice', ''), ('', '')]) {
+        expect(
+          () => CallIceServer(
+            urls: const ['turn:example.test'],
+            username: credentials.$1,
+            credential: credentials.$2,
+          ),
+          throwsFormatException,
+        );
+      }
+      final authenticated = CallIceServer(
+        urls: const ['turn:example.test'],
+        username: 'alice',
+        credential: 'secret',
+      );
+      expect(authenticated.toWampKeywords()['username'], 'alice');
+      expect(authenticated.toWampKeywords()['credential'], 'secret');
+    },
+  );
 
   test('call records enforce valid state transitions metadata', () {
     final created = DateTime.utc(2026, 8, 25, 10);
@@ -259,6 +479,26 @@ void main() {
   });
 
   test('signal wire parsing rejects malformed types and encodings', () {
+    for (final field in ['version', 'algorithm']) {
+      for (final invalid in [null, false, 'unsupported', 99]) {
+        expect(
+          () => EncryptedCallSignal.fromWampKeywords({
+            ..._signal().toWampKeywords(),
+            field: invalid,
+          }),
+          throwsFormatException,
+          reason: 'reject $field independently of the other discriminator',
+        );
+        expect(
+          () => EncryptedCallSignal.fromJson({
+            ..._signal().toJson(),
+            field: invalid,
+          }),
+          throwsFormatException,
+          reason: 'persisted JSON must reject $field independently',
+        );
+      }
+    }
     final wire = _signal().toWampKeywords();
     for (final invalid in <Map<String, dynamic>>[
       {'kind': 42},

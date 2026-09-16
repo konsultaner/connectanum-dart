@@ -4,6 +4,75 @@ import 'package:test/test.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 void main() {
+  test('device records enforce identity and timestamp ordering', () {
+    final enrolled = DateTime.utc(2026, 8, 24, 12);
+    final before = enrolled.subtract(const Duration(seconds: 1));
+    for (final (username, lastSeen, revoked) in <(String, DateTime, DateTime?)>[
+      ('', enrolled, null),
+      ('alice', before, null),
+      ('alice', enrolled, before),
+    ]) {
+      expect(
+        () => DeviceRecord(
+          username: username,
+          enrollment: _enrollment(),
+          enrolledAt: enrolled,
+          lastSeenAt: lastSeen,
+          revokedAt: revoked,
+        ),
+        throwsFormatException,
+      );
+    }
+    expect(
+      () => DeviceEnrollment.fromWampKeywords(null),
+      throwsFormatException,
+    );
+    for (final value in <Map<String, dynamic>?>[
+      null,
+      {},
+      {'devices': false},
+      {
+        'devices': [false],
+      },
+    ]) {
+      expect(
+        () => DeviceDirectory.fromWampKeywords(value),
+        throwsFormatException,
+      );
+    }
+    for (final name in ['a' * 81, 'control\u0000character']) {
+      expect(
+        () => DeviceEnrollment.fromWampKeywords({
+          ..._enrollment().toWampKeywords(),
+          'device_name': name,
+        }),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test('conversation signature construction rejects empty identities', () {
+    for (final (conversation, sender, recipient) in [
+      ('', 'alice', 'bob'),
+      ('a' * 201, 'alice', 'bob'),
+      ('conversation', '', 'bob'),
+      ('conversation', 'alice', ''),
+    ]) {
+      expect(
+        () => WrappedConversationKey.signaturePayloadFor(
+          conversationId: conversation,
+          senderUsername: sender,
+          senderDeviceId: _token(32, 1),
+          recipientUsername: recipient,
+          recipientDeviceId: _token(32, 2),
+          sealedKey: _token(80, 3),
+          createdAt: DateTime.utc(2026),
+        ),
+        throwsFormatException,
+      );
+    }
+  });
+
   test('device enrollment has a stable account-bound attestation payload', () {
     final enrollment = _enrollment();
 

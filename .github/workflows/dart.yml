@@ -91,6 +91,24 @@ jobs:
             out/coverage-app-shared/raw
           if-no-files-found: warn
 
+      - name: Enforce shared application JavaScript coverage
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_APP_SHARED_COVERAGE_RUNTIME: chrome
+          CONNECTANUM_APP_SHARED_COVERAGE_DIR: out/coverage-app-shared-chrome
+        run: bin/test-app-shared-coverage
+
+      - name: Upload shared application JavaScript coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-shared-chrome-coverage
+          path: |
+            out/coverage-app-shared-chrome/lcov.info
+            out/coverage-app-shared-chrome/summary.json
+            out/coverage-app-shared-chrome/raw
+          if-no-files-found: warn
+
   verify:
     name: Full Verify
     runs-on: ubuntu-latest

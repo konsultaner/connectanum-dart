@@ -6,6 +6,164 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 void main() {
   test(
+    'encrypted envelopes reject malformed structure and resource bounds',
+    () {
+      final wire = _message().toWampKeywords();
+      final key = (wire['wrapped_keys'] as List).single as Map;
+      expect(
+        () => EncryptedChatMessage.fromWampKeywords(null),
+        throwsFormatException,
+      );
+      for (final invalid in <Map<String, dynamic>>[
+        {'algorithm': 'unsupported'},
+        {'sender_username': ''},
+        {'wrapped_keys': 'not a list'},
+        {
+          'wrapped_keys': [false],
+        },
+        {'wrapped_keys': []},
+        {
+          'wrapped_keys': List.filled(
+            EncryptedChatMessage.maxWrappedKeys + 1,
+            key,
+          ),
+        },
+        {'encrypted_payload': Uint8List(39)},
+        {
+          'encrypted_payload': Uint8List(
+            EncryptedChatMessage.maxEncryptedPayloadBytes + 1,
+          ),
+        },
+        {'expires_at': '2026-08-24T11:58:59.000Z'},
+        {'conversation_type': 'group'},
+        {
+          'attachment_ids': [
+            for (
+              var i = 0;
+              i <= WampAppAttachmentLimits.maxAttachmentsPerMessage;
+              i++
+            )
+              _token(16, i),
+          ],
+        },
+        {
+          'wrapped_keys': [
+            {...key, 'conversation_id': _token(32, 99)},
+          ],
+        },
+      ]) {
+        expect(
+          () => EncryptedChatMessage.fromWampKeywords({...wire, ...invalid}),
+          throwsFormatException,
+          reason: invalid.keys.join(','),
+        );
+      }
+      final group = _groupMessage().toWampKeywords();
+      for (final invalid in <Map<String, dynamic>>[
+        {'participant_usernames': []},
+        {'participant_usernames': 'not a list'},
+        {
+          'participant_usernames': ['alice', 42],
+        },
+        {
+          'participant_usernames': ['bob', 'carol'],
+        },
+        {'one_time': true},
+      ]) {
+        expect(
+          () => EncryptedChatMessage.fromWampKeywords({...group, ...invalid}),
+          throwsFormatException,
+          reason: invalid.keys.join(','),
+        );
+      }
+    },
+  );
+
+  test(
+    'mailbox parsing rejects malformed nested records and receipt aliases',
+    () {
+      final accepted = DateTime.utc(2026, 8, 24, 12);
+      final wire = MailboxMessage(
+        cursor: 1,
+        message: _message(),
+        acceptedAt: accepted,
+      ).toWampKeywords();
+      expect(
+        () => MailboxMessage.fromWampKeywords(null),
+        throwsFormatException,
+      );
+      for (final invalid in <Map<String, dynamic>>[
+        {'message': 1},
+        {'recipient_receipts': []},
+        {
+          'recipient_receipts': {'bob': null},
+        },
+        {
+          'recipient_receipts': {42: {}},
+        },
+        {
+          'recipient_receipts': {'': {}},
+        },
+        {
+          'recipient_receipts': {'Bob': {}, ' bob ': {}},
+        },
+      ]) {
+        expect(
+          () => MailboxMessage.fromWampKeywords({...wire, ...invalid}),
+          throwsFormatException,
+        );
+      }
+      for (final malformed in <Map<String, dynamic>?>[
+        null,
+        {},
+        {'next_cursor': 1, 'messages': 'not a list'},
+        {
+          'next_cursor': 1,
+          'messages': [false],
+        },
+      ]) {
+        expect(
+          () => MailboxBatch.fromWampKeywords(malformed),
+          throwsFormatException,
+        );
+      }
+      expect(
+        () => MailboxMessage(
+          cursor: 1,
+          message: _message(),
+          acceptedAt: accepted,
+          deliveredAt: accepted,
+          recipientStates: {'bob': MailboxRecipientState()},
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => MailboxMessage(
+          cursor: 1,
+          message: _groupMessage(),
+          acceptedAt: accepted,
+          deliveredAt: accepted,
+        ),
+        throwsFormatException,
+      );
+      for (final state in [
+        MailboxRecipientState(
+          deliveredAt: accepted.subtract(const Duration(seconds: 1)),
+        ),
+        MailboxRecipientState(
+          deliveredAt: accepted.add(const Duration(seconds: 1)),
+          readAt: accepted,
+        ),
+      ]) {
+        expect(
+          () => state.validate(acceptedAt: accepted, oneTime: false),
+          throwsFormatException,
+        );
+      }
+    },
+  );
+
+  test(
     'encrypted messages use binary WAMP fields and JSON storage encoding',
     () {
       final message = _message();

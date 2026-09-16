@@ -76,9 +76,12 @@ class VerificationScriptsTest(unittest.TestCase):
 
     @unittest.skipIf(os.name == 'nt', 'The application coverage launcher requires Bash')
     def test_app_shared_coverage_launcher_reports_and_fails_closed(self):
-        for stage, expected in [('success', 0), ('resolve', 7), ('test', 8),
-                                ('format', 9), ('floor', 1)]:
-            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
+        scenarios = [(runtime, stage, expected) for runtime in ('vm', 'chrome')
+                     for stage, expected in [('success', 0), ('resolve', 7), ('test', 8),
+                                             ('format', 9), ('floor', 1)]]
+        scenarios += [('', 'success', 0), ('chrome', 'no_chrome', 1), ('wasm', 'unsupported', 2)]
+        for runtime, stage, expected in scenarios:
+            with self.subTest(runtime=runtime, stage=stage), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary).resolve()
                 scripts, tooling = root / 'bin', root / 'tool'
                 scripts.mkdir()
@@ -86,6 +89,8 @@ class VerificationScriptsTest(unittest.TestCase):
                 (root / 'examples/wamp_app/shared').mkdir(parents=True)
                 for name in ('test-app-shared-coverage', 'common.sh'):
                     shutil.copy2(REPO_ROOT / 'bin' / name, scripts / name)
+                with (scripts / 'common.sh').open('a') as common:
+                    common.write('\nensure_chrome_env() { [[ "$STAGE" != no_chrome ]]; }\n')
                 shutil.copy2(REPO_ROOT / 'tool/check_coverage.py', tooling / 'check_coverage.py')
                 source = 'examples/wamp_app/shared/lib/api.dart'
                 (tooling / 'coverage_app_shared_policy.json').write_text(json.dumps({
@@ -115,22 +120,36 @@ fi
                 output = root / 'reports with spaces'
                 trace = root / 'trace'
                 env = dict(os.environ, PATH=str(scripts) + os.pathsep + os.environ['PATH'],
-                           STAGE=stage, TRACE=str(trace), CONNECTANUM_APP_SHARED_COVERAGE_DIR='reports with spaces')
+                           STAGE=stage, TRACE=str(trace),
+                           CONNECTANUM_APP_SHARED_COVERAGE_RUNTIME=runtime,
+                           CONNECTANUM_APP_SHARED_COVERAGE_DIR='reports with spaces')
                 command = ['bash', str(scripts / 'test-app-shared-coverage')]
                 result = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True, timeout=30)
                 self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+                if stage in ('no_chrome', 'unsupported'):
+                    self.assertFalse(trace.exists())
+                    self.assertFalse(output.exists())
+                    self.assertIn('Chrome is required' if stage == 'no_chrome' else 'Unsupported', result.stderr)
+                    continue
                 calls = trace.read_text().splitlines()
                 self.assertTrue(calls[0].endswith('/examples/wamp_app/shared:pub get'))
                 self.assertEqual(len(calls), {'resolve': 1, 'test': 2}.get(stage, 3))
                 if stage in ('success', 'floor'):
                     report = json.loads((output / 'summary.json').read_text())
                     self.assertEqual(report['sourceScope'], 'application')
+                    self.assertEqual(report['measurement'], f"Dart {runtime or 'vm'} executable lines in LCOV")
                     self.assertEqual(report['packages']['shared']['covered'], int(stage == 'success'))
                     self.assertEqual(bool(report['findings']), stage == 'floor')
                     self.assertIn('--package=' + str(root / 'examples/wamp_app/shared'), calls[-1])
                     self.assertIn('--report-on=examples/wamp_app/shared/lib', calls[-1])
+                    self.assertEqual('--check-ignore' in calls[-1], runtime != 'chrome')
                 else:
                     self.assertFalse((output / 'summary.json').exists())
+                if stage != 'resolve':
+                    self.assertEqual('--platform=vm' in calls[1], runtime != 'chrome')
+                    self.assertEqual('--platform=chrome' in calls[1], runtime == 'chrome')
+                    self.assertEqual('--compiler=dart2js' in calls[1], runtime == 'chrome')
+                    self.assertEqual('--concurrency=1' in calls[1], runtime == 'chrome')
                 again = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True, timeout=30)
                 self.assertEqual(again.returncode, 2)
                 self.assertEqual(trace.read_text().splitlines(), calls)
