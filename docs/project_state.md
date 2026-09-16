@@ -6,6 +6,26 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Hosted browser launcher follow-up: 4b551b78 is pushed to PR #93. Its new
+core-lazy-web job fails before mutations because raw Chrome cannot initialize
+its sandbox on the hosted Linux runner. The entrypoint bypassed the canonical
+browser launcher already used by verification/coverage. A deterministic launcher
+regression reproduces the missing CI flag. Reusing ensure_chrome_env passes seven
+cases, retaining local browser flags, Chrome-free VM operation, native opt-in,
+and failure before the runner when browser setup fails. No score,
+classification, timeout or threshold is relaxed. All 36 verification-script
+tests, fresh bin/test-fast and final bin/verify pass, including the real LLVM
+fixture and both browser compilers. Replacement hosted evidence remains required.
+
+Full coverage25 collections pass serially after final-snapshot bin/verify.
+VM library coverage is 36,428/42,494 (85.73%): auth server 100%, core 90.15%,
+client 85.10%, router 82.60%, bench 81.20%, MCP package 95.40%. MCP library and
+CLI remain separate at 98.20% and 93.43%; 59 library sources are unmeasured.
+Packaging measures client 391/402 (97.26%) and router 374/385 (97.14%), with
+twelve unmeasured sources. macOS arm64 native production coverage is ct_core
+8,373/10,051 (83.31%) and ct_ffi 4,585/5,808 (78.94%); four unmeasured candidate
+sources remain explicit. These reports do not establish the full milestone.
+
 FastCGI/browser checkpoint (not goal completion): the complete lazy20 JavaScript
 inventory passes its clean/restored baselines with 223 kills, 16 survivors and
 50 compile errors, with no timeouts/errors. Raw score is 93.31%; eight individually

@@ -450,6 +450,90 @@ class VerificationScriptsTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stdout)
 
+    @unittest.skipIf(os.name == "nt", "The mutation launcher requires Bash")
+    def test_mutation_launcher_prepares_browser_without_requiring_it_for_vm(self) -> None:
+        for system, ci, browser, native in [
+            ("Linux", "true", True, False),
+            ("Linux", "false", True, False),
+            ("Darwin", "true", True, False),
+            ("Darwin", "false", True, False),
+            ("Linux", "true", False, False),
+            ("Linux", "true", False, True),
+        ]:
+            with self.subTest(system=system, ci=ci, browser=browser, native=native), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                scripts = root / "bin"
+                scripts.mkdir()
+                launcher = scripts / "test-mutations"
+                shutil.copy2(REPO_ROOT / "bin/test-mutations", launcher)
+                (scripts / "common.sh").write_text(
+                    f'source "{COMMON}"\nROOT_DIR="{root}"\n'
+                    'dart_workspace_bootstrap() { :; }\n'
+                    'build_native_ffi_test_release() { printf "native-build\\n"; }\n'
+                    + ('' if browser else 'chrome_binary() { return 1; }\n')
+                )
+                chrome = scripts / "chrome with spaces"
+                chrome.write_text('#!/usr/bin/env bash\nprintf "chrome=%s\\n" "$@"\n')
+                chrome.chmod(0o755)
+                uname = scripts / "uname"
+                uname.write_text(f'#!/bin/sh\nprintf "%s\\n" "{system}"\n')
+                uname.chmod(0o755)
+                runner = scripts / "python3"
+                runner.write_text(
+                    '#!/usr/bin/env bash\nprintf "runner=%s\\n" "$@"\n'
+                    'if [[ -n "${CHROME_EXECUTABLE:-}" ]]; then\n'
+                    '  "$CHROME_EXECUTABLE" --probe\nfi\n'
+                )
+                runner.chmod(0o755)
+                env = dict(os.environ, PATH=str(scripts) + os.pathsep + os.environ["PATH"], CI=ci)
+                for key in ("CONNECTANUM_CHROME_BINARY", "CHROME_EXECUTABLE",
+                            "CONNECTANUM_CHROME_LAUNCHER_DIR", "CONNECTANUM_MUTATIONS_NATIVE"):
+                    env.pop(key, None)
+                if browser:
+                    env["CHROME_EXECUTABLE"] = str(chrome)
+                if native:
+                    env["CONNECTANUM_MUTATIONS_NATIVE"] = "1"
+                args = ["--target", "core-lazy-web" if browser else "core-lazy-vm",
+                        "--output", "reports with spaces"]
+                result = subprocess.run(
+                    ["bash", str(launcher), *args], cwd=root, env=env,
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                expected = [f"runner={arg}" for arg in ["tool/run_dart_mutations.py", *args]]
+                if native:
+                    expected.insert(0, "native-build")
+                if browser:
+                    if system == "Linux" and ci == "true":
+                        expected.append("chrome=--no-sandbox")
+                    expected.append("chrome=--probe")
+                self.assertEqual(result.stdout.splitlines(), expected, result.stderr)
+
+    @unittest.skipIf(os.name == "nt", "The mutation launcher requires Bash")
+    def test_mutation_launcher_fails_closed_when_browser_setup_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            scripts = root / "bin"
+            scripts.mkdir()
+            launcher = scripts / "test-mutations"
+            shutil.copy2(REPO_ROOT / "bin/test-mutations", launcher)
+            (scripts / "common.sh").write_text(
+                f'source "{COMMON}"\nROOT_DIR="{root}"\n'
+                'dart_workspace_bootstrap() { :; }\n'
+                'chrome_binary() { printf "/fixture/chrome\\n"; }\n'
+                'ensure_chrome_env() { return 23; }\n'
+            )
+            runner = scripts / "python3"
+            runner.write_text('#!/bin/sh\nprintf "runner must not start\\n"\n')
+            runner.chmod(0o755)
+            result = subprocess.run(
+                ["bash", str(launcher), "--target", "core-lazy-web", "--output", "unused"],
+                cwd=root, env=dict(os.environ, PATH=str(scripts) + os.pathsep + os.environ["PATH"]),
+                text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+            )
+            self.assertEqual(result.returncode, 23, result.stderr)
+            self.assertEqual(result.stdout, "")
+
     def test_dart_pub_with_retry_bounds_and_retries_stalled_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             attempts_path = Path(tmp_dir) / "attempts.txt"

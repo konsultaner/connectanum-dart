@@ -1073,3 +1073,33 @@ completed, and native23 verification/tooling logs. The full goal remains active.
 Evidence: lazy20-js-mutations and native23-rawsocket under
 out/regression-coverage-2026-09-15, plus coverage24/25 regression/verification logs.
 The original per-component/runtime coverage and mutation goal remains active.
+
+### Hosted Browser Launcher And Full Coverage Checkpoint
+
+- Commit 4b551b78 is pushed to PR #93 after final-snapshot bin/test-fast and
+  bin/verify pass. Hosted core-lazy-web fails its unmutated baseline with Chrome's
+  No usable sandbox error, before executing any mutant. Preserve its incomplete
+  inventory and failure artifact; this is not a failed mutation score.
+- bin/test-mutations bypassed the canonical browser launcher used by other
+  browser checks. A behavioral entrypoint fixture reproduces the missing hosted
+  Linux flag, then passes after optional browser preparation. Seven cases verify
+  Linux/Darwin, CI/local operation, arguments containing spaces, and VM operation
+  without Chrome, native-build opt-in, and failure before the runner when browser
+  setup fails. Only the existing CI=true Linux policy is reused; local browser
+  launches and strict mutation classifications/thresholds are unchanged.
+  All 36 verification-script tests, fresh bin/test-fast and final bin/verify
+  pass, including the real LLVM fixture and both browser compilers. Replacement
+  hosted evidence remains required.
+- Complete vm-current25 and native25-current collections pass, serialized after
+  final-snapshot verification. VM libraries: 36,428/42,494 (85.73%), with 59
+  unmeasured sources. Auth server is 100%, core 90.15%, client 85.10%, router
+  82.60%, bench 81.20%, MCP package 95.40%; MCP library 98.20% and CLI 93.43%
+  retain separate denominators. Packaging is client 391/402 (97.26%) and router
+  374/385 (97.14%), with twelve unmeasured sources.
+- macOS arm64 native production coverage: ct_core 8,373/10,051 (83.31%), ct_ffi
+  4,585/5,808 (78.94%). Four unmeasured candidate sources remain explicit.
+  These results do not establish Linux/native benchmark workspace coverage or
+  a passing native mutation score. Native23's errors/survivors remain open.
+
+Evidence: vm-current25, native25-current, coverage25-browser-ci-failure, and
+coverage25/26 regression logs under out/regression-coverage-2026-09-15.
