@@ -69,6 +69,43 @@ caught and timed-out outcomes separately.
 
 ### Latest Consumer And Browser Checkpoint
 
+- App-shared52 passes all 136 tests on VM and Chrome JavaScript; WASM53 passes
+  the same suite. VM measures 1,537/1,540 (99.81%), JavaScript 1,768/1,792
+  (98.66%); WASM line coverage remains unclaimed and the 94 unmeasured application
+  sources remain explicit. Tests independently invalidate MCP capabilities/types,
+  distinguish unsafe routes, exercise exact attachment/message/push limits,
+  preserve legacy receipts and aggregate latest receipt time in both recipient
+  orders. Persisted call ciphertext distinguishes URL-safe from standard Base64.
+  WASM51 failed due to an incorrect manually supplied Chrome path, not product
+  behavior; retain its log. WASM53 passes with the repository browser launcher.
+  Fast49 and serial full verification51 pass, including the real LLVM fixture,
+  native HTTP/3, 528 core WASM tests and two WebSocket WASM tests. Shared analysis,
+  formatting and git diff whitespace checks pass. Local companion suggestions
+  were checked against source: the tests already exercise exact 64-chunk bounds,
+  successful non-voice descriptors without duration and both padding variants;
+  no exclusions or exception-message-only assertions were added.
+- Complete app-shared41: 1,314 candidates, 894 kills, 175 survivors, 245 compile
+  errors, zero errors/timeouts/equivalences, 83.63% raw/adjusted. Both baselines
+  pass. Operator inventory: 697 binary, 538 condition, 30 boolean, 46 negation,
+  three null-fallback candidates. This is the 112-test snapshot, not the latest
+  oracle. Full app-shared51 uses 135 tests and remains in progress; it predates
+  the final Base64url regression.
+- Complete app-call48: all 214 candidates, 174 kills, nine survivors, 31 compile
+  errors, zero errors/timeouts/equivalences, 95.08% raw/adjusted, with both
+  baselines passing. Operators: 105 binary, 90 condition, eight boolean, eight
+  negation, three null-fallback. Removing alphabet validation can admit standard
+  Base64 through Dart's normalizer: a new distinguishing persisted-ciphertext
+  test now rejects '+' and '/'. Complete app-call52 validates the 136-test oracle:
+  175 kills, eight survivors, 31 compile errors, zero errors/timeouts/equivalences,
+  both baselines passing, 95.63% raw/adjusted. Alphabet-validation mutant
+  016877bb31d79bafabca produces the expected assertion failure, not a crash.
+  This passing call slice is not a passing whole-application mutation score.
+- Pushed 3742159b publishing dry-run 35057163119 and application artifacts
+  35057159987 pass. Its PR CI 35057163344 remains in progress; the new shared
+  JavaScript gate passes. Strict audit47 awaits completion of that chain.
+
+### Prior Consumer Checkpoint
+
 - Canonical app-shared47 passes all 115 tests on VM/Chrome JavaScript/WASM.
   VM remains 1,536/1,540 (99.74%); JavaScript is 1,760/1,788 (98.43%). No WASM
   line-coverage claim is made. Additional tests distinguish direct ICE credential

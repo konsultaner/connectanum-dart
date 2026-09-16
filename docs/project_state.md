@@ -6,10 +6,11 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Latest checkpoint: f4ae80b0 is pushed to PR #93 with the shared-protocol VM
-coverage gate, browser mutation compilation fix and standalone mutation runner.
-Its full PR CI 35053842965, publishing dry-run and application artifacts pass;
-the hosted shared VM gate measures 1,536/1,540 (99.74%). Strict audit35 confirms
+Latest pushed checkpoint: 3742159b on PR #93 adds shared-protocol JavaScript
+coverage enforcement and public call RPC regressions. Its publishing dry-run
+35057163119 and application artifacts 35057159987 pass; PR CI 35057163344 is
+still running, with both shared coverage gates passing. The preceding f4ae80b0
+full PR CI 35053842965 passes. Strict audit35 confirms
 clean CI jobs/logs and publishing evidence but fails the existing unprotected
 feature branch and mutation-diagnostics workflow absent from master findings.
 Do not merge or relax gates to remove these findings. The prior HTTP-body fix's
@@ -18,8 +19,8 @@ Native30 is complete: 93 assertion kills,
 19 survivors, five compile errors, ten errors and two timeouts across 129
 candidates (75.00% raw/adjusted). Evidence remains unclean, not a passing gate.
 
-Consumer protocol follow-up: app-shared47 passes all 115 tests and measures
-1,536/1,540 executable VM lines (99.74%), up from 90.83%. Account/profile input
+Consumer protocol follow-up: app-shared52 passes all 136 tests and measures
+1,537/1,540 executable VM lines (99.81%), up from 90.83%. Account/profile input
 regressions reproduce silent integer-to-byte truncation and malformed receipt
 timestamps escaping as TypeError. Validate byte ranges and timestamp types before
 conversion. Call signaling, attachment/message receipts, expiry and backup/push
@@ -40,15 +41,25 @@ Separate JavaScript coverage exposed missing rejection tests despite the high VM
 percentage: app-shared37-browser measured 1,671/1,762 (94.83%). New cross-runtime
 tests cover malformed endpoints, backup/chunk bounds, encrypted envelope shapes,
 receipt aliases/order, device identity/time validation, call state transitions,
-attachment limits and malformed consent metadata. app-shared47-browser now
-measures 1,760/1,788 (98.43%), with all 115 tests passing and no new exclusions.
+attachment limits and malformed consent metadata. app-shared52-browser now
+measures 1,768/1,792 (98.66%), with all 136 tests passing and no new exclusions.
 Direct ICE constructors, exact sixteen-device offer limits and individually
-inconsistent offers address additional mutation survivors. All 115 tests also
+inconsistent offers address additional mutation survivors. All 136 tests also
 pass on Chrome/WASM, without claiming WASM line coverage. The canonical collector
 now selects vm/chrome explicitly, rejects missing Chrome/unknown runtimes, and
 retains separate artifacts. Both modes enforce the same 98% policy and required
 sources; browser formatting omits VM ignore comments. CI wiring for the new
-JavaScript gate awaits hosted evidence. Launcher failure-path regressions pass.
+JavaScript gate passes on 3742159b. Launcher failure-path regressions pass.
+New tests independently cover MCP capabilities/types/routes, constructor resource
+limits, 500-message pagination, legacy receipt parsing and order-independent
+receipt aggregation. Push limits include exact provider/token/mute maxima and
+timestamp ordering. Persisted call ciphertext accepts padded/unpadded Base64url
+but rejects the standard '+'/'/' alphabet. The first WASM51 attempt used a
+nonexistent manually supplied Chrome path; preserve it as infrastructure failure.
+WASM53 uses the repository's detected launcher and passes. Fast49 passes;
+full verification51 passes serially, including the real LLVM fixture, native
+HTTP/3, 528 core WASM tests and two WebSocket WASM tests. Analysis and formatting
+of all shared protocol tests pass.
 
 Application server app-server44 passes 148 tests at 3,154/3,516 VM lines (89.70%),
 up from app-server38's 3,077/3,516 (87.51%), still below 98%. Real SCRAM/WebSocket
@@ -71,12 +82,20 @@ resolution/failure; all 35 runner tests pass (one Linux-only skip on macOS).
 The full app-shared35 campaign is complete: 798 kills, 272 survivors and 244
 compile errors across 1,314 candidates, 74.58% raw/adjusted, no errors/timeouts
 or equivalences, with both baselines passing. Preserve its original 97-test
-snapshot. Fresh full app-shared41 is running against the later 112-test oracle;
-the subsequent 115-test boundary follow-up is not part of that snapshot.
-The separate app-call46 campaign inventories all 214 call-signaling mutations
-and is running against the expanded boundary oracle; the final independent
-version/algorithm rejection cases were added after its snapshot. Do not count
-that later assertion as validated by an earlier mutation run.
+snapshot. Complete app-shared41 uses the later 112-test oracle: 894 kills,
+175 survivors, 245 compile errors, no errors/timeouts/equivalences, and passing
+clean/restored baselines across all 1,314 candidates (83.63% raw/adjusted).
+Full app-shared51 is running against 135 tests; the final Base64url regression
+was added afterward and must not be attributed to that snapshot.
+The separate complete app-call48 campaign uses 115 tests and all 214 mutations:
+174 kills, nine survivors, 31 compile errors, no errors/timeouts/equivalences,
+passing clean/restored baselines, 95.08% raw/adjusted. Its operator inventory is
+105 binary, 90 condition, eight boolean, eight negation and three null-fallback
+candidates. Complete app-call52 uses the 136-test oracle: 175 kills, eight
+survivors, 31 compile errors, no errors/timeouts/equivalences, both baselines
+passing, and 95.63% raw/adjusted. Mutant 016877bb31d79bafabca is now an assertion
+kill: persisted ciphertext with the standard alphabet would otherwise be
+accepted. This call slice does not replace the full shared production inventory.
 Subsequent constructor, typed-avatar and ciphertext boundary tests address
 observed survivors; the separate profile36 campaign confirms the constructor
 size-limit mutant is killed. Complete profile36 has 124 kills, seven survivors

@@ -5,6 +5,30 @@ import 'package:test/test.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 void main() {
+  test('persisted signal ciphertext requires the URL-safe Base64 alphabet', () {
+    for (final byte in [250, 255]) {
+      final payload = Uint8List.fromList(List.filled(49, byte));
+      final json = _signal(payload: payload).toJson();
+      for (final encoded in [
+        base64Url.encode(payload),
+        base64Url.encode(payload).replaceAll('=', ''),
+      ]) {
+        final restored = EncryptedCallSignal.fromJson({
+          ...json,
+          'sealed_payload': encoded,
+        });
+        expect(restored.sealedPayload, orderedEquals(payload));
+      }
+      final standard = base64.encode(payload);
+      expect(standard, contains(byte == 250 ? '+' : '/'));
+      expect(
+        () =>
+            EncryptedCallSignal.fromJson({...json, 'sealed_payload': standard}),
+        throwsFormatException,
+      );
+    }
+  });
+
   test(
     'call state transitions require consistent participants and timestamps',
     () {

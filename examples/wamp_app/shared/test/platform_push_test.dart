@@ -8,6 +8,107 @@ void main() {
       .encode(List<int>.generate(32, (i) => i))
       .replaceAll('=', '');
 
+  test('push provider and token bounds are inclusive and independent', () {
+    final maximum = PlatformPushSubscriptionRequest(
+      deviceId: deviceId,
+      provider: 'a' * 32,
+      token: '!${'x' * 4094}~',
+    );
+    final decoded = PlatformPushSubscriptionRequest.fromWampKeywords(
+      maximum.toWampKeywords(),
+    );
+    expect(decoded.provider, 'a' * 32);
+    expect(decoded.token.length, 4096);
+    expect(decoded.token, startsWith('!'));
+    expect(decoded.token, endsWith('~'));
+    expect(
+      PlatformPushSubscriptionKey(
+        deviceId: deviceId,
+        provider: 'a' * 32,
+      ).provider,
+      'a' * 32,
+    );
+    for (final provider in ['', 'a' * 33, '1fcm', 'fc/m']) {
+      expect(
+        () => PlatformPushSubscriptionRequest(
+          deviceId: deviceId,
+          provider: provider,
+          token: 'valid',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () =>
+            PlatformPushSubscriptionKey(deviceId: deviceId, provider: provider),
+        throwsFormatException,
+      );
+    }
+    for (final token in ['', 'x' * 4097, ' ', '\u007f', '\u0080', 'x\ny']) {
+      expect(
+        () => PlatformPushSubscriptionRequest(
+          deviceId: deviceId,
+          provider: 'fcm',
+          token: token,
+        ),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test('exactly 500 muted conversations of 200 characters remain intact', () {
+    final ids = List.generate(
+      500,
+      (index) => '${index.toString().padLeft(3, '0')}${'x' * 197}',
+    ).reversed.toList();
+    final request = PlatformPushSubscriptionRequest(
+      deviceId: deviceId,
+      provider: 'fcm',
+      token: 'valid',
+      mutedConversationIds: ids,
+    );
+    ids.clear();
+    final decoded = PlatformPushSubscriptionRequest.fromWampKeywords(
+      request.toWampKeywords(),
+    );
+    expect(decoded.mutedConversationIds.length, 500);
+    expect(decoded.mutedConversationIds.first, '000${'x' * 197}');
+    expect(decoded.mutedConversationIds.last, '499${'x' * 197}');
+    expect(() => decoded.mutedConversationIds.clear(), throwsUnsupportedError);
+  });
+
+  test(
+    'push receipts allow equality but reject updates before registration',
+    () {
+      final registered = DateTime.utc(2026, 9, 16);
+      for (final updated in [
+        registered,
+        registered.add(const Duration(seconds: 1)),
+      ]) {
+        final receipt = PlatformPushSubscriptionReceipt(
+          deviceId: deviceId,
+          provider: 'fcm',
+          registeredAt: registered,
+          updatedAt: updated,
+        );
+        expect(
+          PlatformPushSubscriptionReceipt.fromWampKeywords(
+            receipt.toWampKeywords(),
+          ).updatedAt,
+          updated,
+        );
+      }
+      expect(
+        () => PlatformPushSubscriptionReceipt(
+          deviceId: deviceId,
+          provider: 'fcm',
+          registeredAt: registered,
+          updatedAt: registered.subtract(const Duration(microseconds: 1)),
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
   test('push request normalizes provider and round-trips opaque token', () {
     final request = PlatformPushSubscriptionRequest(
       deviceId: deviceId,
