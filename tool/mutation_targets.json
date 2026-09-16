@@ -161,6 +161,17 @@
     ],
     "testRoot": "examples/wamp_app/server"
   },
+  "app-server-message-vm": {
+    "sources": [
+      "examples/wamp_app/server/lib/src/mailbox_store.dart",
+      "examples/wamp_app/server/lib/src/message_service.dart"
+    ],
+    "tests": [
+      "examples/wamp_app/server/test/mailbox_store_test.dart",
+      "examples/wamp_app/server/test/message_service_test.dart"
+    ],
+    "testRoot": "examples/wamp_app/server"
+  },
   "core-msgpack-web": {
     "sources": ["packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"],
     "tests": ["packages/connectanum_core/test/serializer/msgpack/codec_test.dart", "packages/connectanum_core/test/serializer/msgpack/codec_fallback_web_test.dart"],

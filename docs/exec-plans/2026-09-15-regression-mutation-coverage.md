@@ -67,6 +67,56 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Deployment Diagnostics And Message Persistence
+
+- A5e6515b exact-head PR CI 35062393342, publishing dry-run 35062393273 and
+  application artifacts 35062390211 pass. Strict audit56 confirms clean CI jobs
+  and logs but retains the unprotected feature branch and checked-in mutation
+  workflow absent from master findings. Master itself is protected and its latest
+  CI/publishing/profile-benchmark runs pass. No merge/publication is authorized.
+- Fresh diagnostic run 35063947294 reproduces a current performance blocker:
+  24 checks fail across twelve 4 MiB native WebSocket pub/sub variants. Data-window
+  rates span 0.34-1.63 Gbit/s, below the unchanged 2 Gbit/s floor. Retain both this
+  artifact and historical failed run 32707969763 under
+  out/regression-coverage-2026-09-15/deployment57. Different runner hosts and Dart
+  3.13.1/3.13.4 plus Rust 1.98.0/1.98.1 versions make causality unresolved.
+- The failing fragmentation gate stopped four later diagnostic scenarios from
+  executing. The launcher's new fail-first harness proves premature termination
+  after workload/gate failures. It now completes remaining scenarios, records
+  per-scenario workload/gate exit codes, skips a failed workload's gate and keeps
+  a nonzero aggregate result. CPU information is optional evidence, never a gate;
+  GitHub always publishes the status table and uploads artifacts. Seven isolated
+  failure/success cases and all 39 launcher tests pass. No throughput policy or
+  required gate is relaxed. Re-run the hosted diagnostics after pushing this fix
+  to expose the remaining transfer scenarios; performance is still unresolved.
+- Historical CI 35041876161 failed before mutation execution because Ubuntu
+  Chrome had no usable sandbox; dd8cb16d's canonical launcher fix and later green
+  CI cover that issue. CI 35037800535 instead failed fetching the hosted beta.5
+  router release asset with a connection reset. Keep the published-consumer
+  path intact; do not conceal this download-resilience gap with local overrides.
+- Server58's final snapshot passes 205 tests at 3,298/3,531 VM lines (93.40%).
+  Server RPC code is 773/868 (89.06%); mailbox storage is 248/252 (98.41%). Six
+  loopback-router tests cover authenticated sending, private cursor notifications,
+  receipt/device/account boundaries, one-time consume/retry, malformed calls and
+  durable attachment/storage failures. A later eligible notification provides a
+  causal barrier for the unauthorized-notification assertion, rather than sleep.
+- Two direct and one real RPC regression fail before the mailbox fix: directories
+  and dangling links are not missing stores despite File.exists() returning false.
+  The new no-follow type check rejects them, preserves genuine missing-file
+  compatibility and retains messages/cursors through failure recovery. Public
+  RPC errors redact paths. The link regression explicitly skips Windows.
+- Message57 completes: 236 candidates, 140 kills, 68 survivors, 28 compile errors,
+  no errors/timeouts/equivalences, 67.31% raw/adjusted and passing clean/restored
+  baselines. Sources are mailbox_store.dart and message_service.dart; only their
+  unit suites are mutation oracles. Do not attribute RPC coverage to that run.
+  Push56 completes with 229 kills, 24 survivors, 44 compile errors, no errors/
+  timeouts/equivalences, 90.51% raw/adjusted across 297 candidates and both
+  baselines passing. Both targets remain below 95%; inventory scope is explicit.
+- Fast56 and full verification58 pass, including the real LLVM fixture and core
+  JS/WASM suites. Server58 coverage, focused analysis and formatting pass. Preserve
+  the initial wrong-library-path test invocation as infrastructure failure, not
+  product evidence. Verification59 follows the launcher/workflow changes.
+
 ### Application Push Lifecycle Follow-Up
 
 - Server56 passes 196 tests at 3,225/3,528 VM lines (91.41%), compared with

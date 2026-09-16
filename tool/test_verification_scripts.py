@@ -58,6 +58,101 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    @unittest.skipIf(os.name == 'nt', 'The diagnostic launcher requires Bash')
+    def test_wamp_diagnostics_collect_all_results_without_masking_failures(self):
+        names = [
+            'wamp_client_impl_throughput', 'wamp_payload_mode_throughput',
+            'wamp_mixed_serializer_throughput',
+            'wamp_websocket_fragmentation_throughput',
+            'wamp_file_transfer_throughput',
+            'wamp_large_rawsocket_frames_throughput',
+            'wamp_file_transfer_heavy', 'wamp_large_rawsocket_frames_heavy',
+        ]
+        cases = [
+            ('success', '', '', '0'),
+            ('first gate', '', names[0], '0'),
+            ('fragmentation gate', '', names[3], '0'),
+            ('last gate', '', names[-1], '0'),
+            ('workload', names[0], '', '0'),
+            ('multiple failures', names[1], names[3], '0'),
+            ('hardware unavailable', '', '', '1'),
+        ]
+        for label, failed_workload, failed_gate, hardware_failure in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                scripts = root / 'bin'
+                scripts.mkdir()
+                for name in ('common.sh', 'wamp-profile-diagnostics'):
+                    shutil.copy2(REPO_ROOT / 'bin' / name, scripts / name)
+                with (scripts / 'common.sh').open('a') as common:
+                    common.write('\nbuild_native_ffi_test_release() { export CONNECTANUM_NATIVE_LIB="$ROOT_DIR/fake-library"; }\n')
+                for directory in ('scenarios', 'artifact_gate'):
+                    shutil.copytree(REPO_ROOT / 'native/bench' / directory,
+                                    root / 'native/bench' / directory)
+                commands = {
+                    'cargo': '''#!/usr/bin/env bash
+set -eu
+if [[ "$1" == -V ]]; then printf 'cargo test\\n'; exit 0; fi
+scenario=''
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == --scenario ]]; then scenario="$2"; shift; fi
+  shift
+done
+name="${scenario##*/}"
+name="${name%.toml}"
+printf 'workload:%s\\n' "$name" >> "$TRACE"
+[[ "$name" != "$FAILED_WORKLOAD" ]] || exit 7
+''',
+                    'check-bench-artifacts': '''#!/usr/bin/env bash
+set -eu
+summary="$2"
+directory="${summary%/*}"
+name="${directory##*/}"
+printf 'gate:%s\\n' "$name" >> "$TRACE"
+[[ "$name" != "$FAILED_GATE" ]] || exit 9
+''',
+                    'dart': '#!/usr/bin/env bash\nprintf "Dart test\\n"\n',
+                    'rustc': '#!/usr/bin/env bash\nprintf "rustc test\\n"\n',
+                    'lscpu': '''#!/usr/bin/env bash
+[[ "$HARDWARE_FAILURE" == 0 ]] || exit 8
+printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
+''',
+                }
+                for name, source in commands.items():
+                    executable = scripts / name
+                    executable.write_text(source)
+                    executable.chmod(0o755)
+                trace = root / 'trace'
+                output = root / 'results with spaces'
+                result = subprocess.run(
+                    ['bash', str(scripts / 'wamp-profile-diagnostics'),
+                     '--out-dir', str(output)], cwd=root,
+                    env=dict(os.environ, PATH=str(scripts) + os.pathsep + os.environ['PATH'],
+                             TRACE=str(trace), FAILED_WORKLOAD=failed_workload,
+                             FAILED_GATE=failed_gate, HARDWARE_FAILURE=hardware_failure),
+                    capture_output=True, text=True, timeout=30,
+                )
+                lines = trace.read_text().splitlines()
+                self.assertEqual([line for line in lines if line.startswith('workload:')],
+                                 ['workload:' + name for name in names], result.stdout + result.stderr)
+                self.assertEqual([line for line in lines if line.startswith('gate:')],
+                                 ['gate:' + name for name in names if name != failed_workload])
+                self.assertEqual(result.returncode, 1 if failed_workload or failed_gate else 0,
+                                 result.stdout + result.stderr)
+                rows = (output / 'diagnostics-summary.tsv').read_text().splitlines()
+                self.assertEqual(rows[0], 'scenario\tworkload_exit\tgate_exit\tstatus')
+                expected = []
+                for name in names:
+                    if name == failed_workload:
+                        expected.append(f'{name}\t7\tnot_run\tworkload_failed')
+                    elif name == failed_gate:
+                        expected.append(f'{name}\t0\t9\tgate_failed')
+                    else:
+                        expected.append(f'{name}\t0\t0\tpassed')
+                self.assertEqual(rows[1:], expected)
+                hardware = (output / 'hardware-info.txt').read_text()
+                self.assertIn('unavailable' if hardware_failure == '1' else 'fixture CPU', hardware)
+
     def test_browser_mutation_entrypoint_retains_and_hashes_all_original_suites(self):
         targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
         target = targets['core-lazy-web']

@@ -6,18 +6,57 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Latest pushed checkpoint: 2f089b70 on PR #93 expands shared-protocol boundary
-regressions. Publishing dry-run 35059122690 and application artifacts
-35059120216 pass; PR CI 35059122706 is still running. The preceding 3742159b
-full PR CI 35057163344 passes, including both shared coverage gates.
-Strict audit35 confirms
-clean CI jobs/logs and publishing evidence but fails the existing unprotected
+Latest pushed checkpoint: a5e6515b on PR #93 expands application push regressions.
+Full PR CI 35062393342, publishing dry-run 35062393273 and application artifacts
+35062390211 pass. Audit56 confirms clean exact-head CI jobs/logs and publishing
+evidence but fails the existing unprotected
 feature branch and mutation-diagnostics workflow absent from master findings.
 Do not merge or relax gates to remove these findings. The prior HTTP-body fix's
 router-image dry-run passes.
 Native30 is complete: 93 assertion kills,
 19 survivors, five compile errors, ten errors and two timeouts across 129
 candidates (75.00% raw/adjusted). Evidence remains unclean, not a passing gate.
+
+Deployment investigation: fresh WAMP Profile Diagnostics 35063947294 fails 24
+unchanged throughput checks across twelve 4 MiB native WebSocket pub/sub cases.
+Data-window throughput is 0.34-1.63 Gbit/s against the 2 Gbit/s floor. The older
+32707969763 run also failed, but only four lifecycle/data checks. Different
+runner hosts and SDK versions prevent attributing the difference to code alone.
+Retained artifacts are under out/regression-coverage-2026-09-15/deployment57.
+The first failing gate prevented the remaining four file/large-RawSocket
+diagnostics from running. Fail-first launcher regressions reproduce this; the
+runner now collects all remaining scenarios, preserves workload/gate exit codes,
+skips gates on failed workloads and still exits nonzero for any failure. CPU
+details and an always-published workflow summary make the evidence inspectable.
+All 39 launcher tests pass, including seven diagnostic failure/success cases.
+This repairs evidence collection, not the throughput regression. Do not lower
+floors or claim the diagnostic chain is green. Historical CI 35041876161 failed
+on Chrome sandbox startup, repaired by dd8cb16d and subsequent green runs;
+35037800535 failed downloading the published router asset with a connection
+reset. The latter remains a download-resilience risk, not a proven code fix.
+Latest master CI, publishing dry-run, profile benchmarks and release publishing
+are green; master branch protection is present. Do not merge or publish for this
+coverage task. Full verification58 passes; verification59 follows the diagnostic
+runner changes and must complete before handoff.
+
+Application messaging follow-up: server58 passes all 205 tests and measures
+3,298/3,531 VM lines (93.40%); server.dart is 773/868 (89.06%) and mailbox storage
+248/252 (98.41%). Six real-router RPC tests exercise authenticated device-bound
+send/sync/receipt/one-time consume, account isolation, cursor-only notifications,
+idempotency, malformed requests, durable attachments and redacted storage errors.
+Directory and dangling-symlink mailbox paths previously appeared empty because
+File.exists() returns false for them. Direct and RPC fail-first tests reproduce
+the bug; non-file obstructions now fail closed while a truly missing file keeps
+its existing empty-store behavior. Recovery preserves messages and cursors. The
+symlink test explicitly skips Windows; do not claim Windows link coverage.
+Server-wide 98% and 81 unmeasured application-source gaps remain open.
+Message57 inventories both mailbox/message-service sources: 236 candidates,
+140 assertion kills, 68 survivors, 28 compile errors, no errors/timeouts or
+equivalences, 67.31% raw/adjusted, with passing clean/restored baselines. This is
+the pure-unit target, not RPC mutation evidence. Push56 completes at 229 kills,
+24 survivors and 44 compile errors across 297 candidates, 90.51% raw/adjusted,
+clean/restored baselines passing, no errors/timeouts/equivalences. Both mutation
+targets remain below 95%; preserve the earlier push campaigns separately.
 
 Current application-server follow-up: app-server56 passes 196 tests and measures
 3,225/3,528 VM lines (91.41%), up from app-server44's 89.70%. FCM gateway and
