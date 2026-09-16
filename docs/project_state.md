@@ -6,8 +6,24 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Latest pushed checkpoint: 0ca81adf on PR #93 restores independent plain lazy
-event decoding. Exact-head PR CI 35068960263 and publishing dry-run 35068960262
+Current follow-up closes configured HTTP file-response gaps in router_binding.dart,
+the largest measured library gap (699 uncovered VM65 lines). Fail-first tests
+reproduce HEAD incorrectly honoring Range, ignored If-Range, non-weak cache-tag
+comparison, and unanswered requests for malformed percent escapes. The expanded
+suite also reproduces unanswered invalid HTTP-date requests. All 81 focused
+cases and 214 broader runtime/metrics cases now pass. Full-file responses retain
+the native file-backed response path; GET ranges still buffer the selected bytes.
+The new whole-file router-binding-vm mutation target inventories 2,379 candidates;
+inventory is not execution or a passing score. Full coverage66 and verify66 are
+queued serially before its campaign. The overall 98%/95% goal remains incomplete.
+
+Latest pushed checkpoint: 748ddf21 on PR #93 adds metrics regression and mutation
+gates. Exact-head PR CI 35079233511 (all 14 jobs), push CI 35079229883 and package
+publishing dry runs 35079233562/35079229726 pass. Strict audit65 confirms clean
+jobs/logs and publishing evidence but retains the unprotected feature-branch and
+mutation workflow absent from master findings. No merge, release or protection
+change was performed. Prior 0ca81adf restores independent plain lazy
+event decoding. Its PR CI 35068960263 and publishing dry-run 35068960262
 pass; audit63 confirms clean jobs/logs and relevant publishing evidence but keeps
 the unprotected feature-branch and mutation workflow absent from master findings.
 Prior 6a8a2bf7 application artifacts 35065961167 pass. Audit56 also confirms clean CI jobs/logs and publishing
@@ -94,8 +110,13 @@ the mutation job and missing-job regressions cover it. Fast64 passes. Full VM
 library coverage65 measures 36,772/42,496 (86.53%): auth 100%, core 90.22%, client
 85.10%, router 84.34%, MCP 95.40%, bench 81.20%. All current regression floors
 pass, but the explicit 98% target check fails. Keep 59 unmeasured library sources
-visible. Packaging formatting and full verify65 are running serially before
-handoff. The first browser65 invocation exited 137
+visible. Separate packaging coverage is client 391/402 (97.26%) and router
+374/385 (97.14%), with 12 unmeasured packaging sources. Full coverage65 and the
+subsequent serial verify65 both exit zero, including native checks, the real LLVM
+fixture and JavaScript/WASM suites. Hosted metrics CI confirms 63 kills/three
+survivors (95.45%) across all 66 candidates with both baselines passing and
+matching local source/test hashes; its artifact uses the synthetic PR merge
+commit c06dfe24. The first browser65 invocation exited 137
 before producing output; the authoritative terminal result was retained and the
 corrected retry65b passes. The overall coverage milestone remains incomplete.
 

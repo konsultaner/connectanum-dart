@@ -911,6 +911,91 @@ _fastCgiResponseFixture(
   );
 }
 
+class _ConfiguredFileFixture {
+  _ConfiguredFileFixture(this.directory, this.file, this.runtime, this.binding);
+
+  final Directory directory;
+  final File file;
+  final _HandleRuntime runtime;
+  final RouterBinding binding;
+  int _nextId = 1700;
+
+  Future<NativeHttpResponse> request({
+    String method = 'GET',
+    String path = '/assets/hello.txt',
+    Map<String, String> headers = const {},
+  }) async {
+    final id = _nextId++;
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: binding.listeners.single.listenerId,
+      connectionId: id,
+      handle: id,
+      method: method,
+      target: path,
+      headers: headers,
+      body: null,
+      realm: 'router.http',
+      procedure: 'router.http.file',
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[id]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    return runtime.httpResponses[id]!.single;
+  }
+}
+
+Future<_ConfiguredFileFixture> _configuredFileFixture({
+  HttpRouteAction? action,
+}) async {
+  final directory = await Directory.systemTemp.createTemp('router-file-test-');
+  addTearDown(() => directory.delete(recursive: true));
+  final file = await File(
+    '${directory.path}/hello.txt',
+  ).writeAsString('0123456789abcdef');
+  await file.setLastModified(DateTime.utc(2024, 3, 4, 5, 6, 7, 125));
+  final runtime = _HandleRuntime();
+  final settings = RouterSettingsBuilder()
+    ..addListenerFromBuilder(
+      ListenerSettingsBuilder('http', '127.0.0.1:0')
+        ..addProtocol(ListenerProtocol.http)
+        ..setHttpOptions(
+          HttpListenerSettings(
+            routes: [
+              HttpRouteSettings(
+                match: const HttpRouteMatch(prefix: '/assets'),
+                action:
+                    action ??
+                    HttpRouteAction(
+                      type: HttpRouteActionType.file,
+                      directory: directory.path,
+                      cacheControl: 'max-age=60',
+                    ),
+              ),
+            ],
+          ),
+        ),
+    );
+  final binding = Router(
+    RouterConfig(
+      endpoints: [
+        Endpoint(
+          host: '127.0.0.1',
+          port: 0,
+          tlsMode: TlsMode.native,
+          maxRawSocketSizeExponent: 16,
+          sniCertificates: [_cert('localhost')],
+        ),
+      ],
+    ),
+    settings: settings.build(),
+  ).start(runtime);
+  addTearDown(binding.dispose);
+  await Future<void>.delayed(Duration.zero);
+  return _ConfiguredFileFixture(directory, file, runtime, binding);
+}
+
 void _enqueueSyntheticHttpRequest({
   required _HandleRuntime runtime,
   required int listenerId,
@@ -4427,6 +4512,416 @@ void main() {
     expect(
       events.where((event) => event['type'] == 'http_file_route_response_sent'),
       hasLength(5),
+    );
+  });
+
+  group('configured file contract', () {
+    for (final range in ['bytes=2-5', 'bytes=100-', 'bytes=-0']) {
+      test('HEAD ignores Range $range', () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          method: 'HEAD',
+          headers: {HttpHeaders.rangeHeader: range},
+        );
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+        expect(
+          response.headers,
+          isNot(contains(HttpHeaders.contentRangeHeader)),
+        );
+        expect((response.body as NativeHttpResponseBytes).bytes, isEmpty);
+      });
+    }
+
+    for (final validator in [
+      'stale tag',
+      'current weak tag',
+      'strong-looking current tag',
+      'current date',
+      'stale date',
+      'future date',
+      'malformed date',
+      'empty',
+    ]) {
+      test('If-Range $validator returns the complete representation', () async {
+        final fixture = await _configuredFileFixture();
+        final initial = await fixture.request();
+        final etag = initial.headers[HttpHeaders.etagHeader]!;
+        final value = switch (validator) {
+          'stale tag' => '"stale"',
+          'current weak tag' => etag,
+          'strong-looking current tag' => etag.substring(2),
+          'current date' => initial.headers[HttpHeaders.lastModifiedHeader]!,
+          'stale date' => HttpDate.format(DateTime.utc(2023)),
+          'future date' => HttpDate.format(DateTime.utc(2025)),
+          'malformed date' => 'not-a-date',
+          _ => '',
+        };
+        final response = await fixture.request(
+          headers: {
+            HttpHeaders.rangeHeader: 'bytes=2-5',
+            HttpHeaders.ifRangeHeader: value,
+          },
+        );
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+        expect(
+          response.headers,
+          isNot(contains(HttpHeaders.contentRangeHeader)),
+        );
+        expect(response.headers[HttpHeaders.etagHeader], etag);
+        final body = response.body as NativeHttpResponseFile;
+        expect(await File(body.path).readAsString(), '0123456789abcdef');
+      });
+    }
+
+    for (final method in ['GET', 'HEAD']) {
+      for (final tagKind in ['weak', 'strong-looking', 'list', 'wildcard']) {
+        test(
+          '$method If-None-Match uses weak comparison for $tagKind',
+          () async {
+            final fixture = await _configuredFileFixture();
+            final initial = await fixture.request();
+            final etag = initial.headers[HttpHeaders.etagHeader]!;
+            final value = switch (tagKind) {
+              'weak' => etag,
+              'strong-looking' => etag.substring(2),
+              'list' => '"stale", ${etag.substring(2)}, "other"',
+              _ => '*',
+            };
+            final response = await fixture.request(
+              method: method,
+              headers: {
+                HttpHeaders.ifNoneMatchHeader: value,
+                HttpHeaders.rangeHeader: 'bytes=100-',
+              },
+            );
+            expect(response.status, HttpStatus.notModified);
+            expect(response.headers[HttpHeaders.etagHeader], etag);
+            expect(
+              response.headers[HttpHeaders.cacheControlHeader],
+              'max-age=60',
+            );
+            expect(
+              response.headers,
+              isNot(contains(HttpHeaders.contentLengthHeader)),
+            );
+            expect(
+              response.headers,
+              isNot(contains(HttpHeaders.contentRangeHeader)),
+            );
+            expect((response.body as NativeHttpResponseBytes).bytes, isEmpty);
+          },
+        );
+      }
+    }
+
+    for (final (header, expected, contentRange) in [
+      ('bytes=0-0', '0', 'bytes 0-0/16'),
+      ('bytes=15-15', 'f', 'bytes 15-15/16'),
+      ('bytes=12-', 'cdef', 'bytes 12-15/16'),
+      ('bytes=12-99', 'cdef', 'bytes 12-15/16'),
+      ('bytes=-4', 'cdef', 'bytes 12-15/16'),
+      ('bytes=-16', '0123456789abcdef', 'bytes 0-15/16'),
+      ('bytes=-99', '0123456789abcdef', 'bytes 0-15/16'),
+    ]) {
+      test('GET serves exact range $header', () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          headers: {HttpHeaders.rangeHeader: header},
+        );
+        expect(response.status, HttpStatus.partialContent);
+        expect(response.headers[HttpHeaders.contentRangeHeader], contentRange);
+        expect(
+          response.headers[HttpHeaders.contentLengthHeader],
+          '${expected.length}',
+        );
+        expect(
+          (response.body as NativeHttpResponseBytes).bytes,
+          utf8.encode(expected),
+        );
+      });
+    }
+
+    for (final range in [
+      'bytes=16-',
+      'bytes=4-2',
+      'bytes=-0',
+      'bytes=-x',
+      'bytes=x-3',
+      'bytes=1-x',
+      'bytes=3',
+    ]) {
+      test('GET rejects unsatisfiable or malformed range $range', () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          headers: {HttpHeaders.rangeHeader: range},
+        );
+        expect(response.status, HttpStatus.requestedRangeNotSatisfiable);
+        expect(response.headers[HttpHeaders.contentRangeHeader], 'bytes */16');
+        expect(response.headers[HttpHeaders.contentLengthHeader], '0');
+        expect((response.body as NativeHttpResponseBytes).bytes, isEmpty);
+      });
+    }
+
+    for (final range in ['', 'items=0-1', 'bytes=', 'bytes=0-1,4-5']) {
+      test('GET ignores unsupported range $range', () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          headers: {HttpHeaders.rangeHeader: range},
+        );
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+        expect(
+          response.headers,
+          isNot(contains(HttpHeaders.contentRangeHeader)),
+        );
+        expect(response.body, isA<NativeHttpResponseFile>());
+      });
+    }
+
+    test('empty file has no satisfiable byte range', () async {
+      final fixture = await _configuredFileFixture();
+      await fixture.file.writeAsBytes([]);
+      final response = await fixture.request(
+        headers: const {HttpHeaders.rangeHeader: 'bytes=0-0'},
+      );
+      expect(response.status, HttpStatus.requestedRangeNotSatisfiable);
+      expect(response.headers[HttpHeaders.contentRangeHeader], 'bytes */0');
+      expect((response.body as NativeHttpResponseBytes).bytes, isEmpty);
+    });
+
+    for (final path in [
+      '/assets',
+      '/assets/',
+      '/assets/.',
+      '/assets/..',
+      '/assets/%2Fhello.txt',
+      '/assets/%5Chello.txt',
+      '/assets/%00hello.txt',
+      '/assets/%1Fhello.txt',
+      '/assets/%7Fhello.txt',
+      '/assets/%ZZ',
+      '/assets/%',
+      '/assets/%C3%28',
+      '/assets/missing.txt',
+    ]) {
+      test(
+        'rejects unsafe or missing path $path without disclosing storage',
+        () async {
+          final fixture = await _configuredFileFixture();
+          final response = await fixture.request(path: path);
+          expect(response.status, HttpStatus.notFound);
+          final error = (response.body as NativeHttpResponseJson).value;
+          expect(error, containsPair('reason', 'file_not_found'));
+          expect(jsonEncode(error), isNot(contains(fixture.directory.path)));
+        },
+      );
+    }
+
+    for (final (date, expectedStatus) in [
+      ('Mon, 04 Mar 2024 05:06:07 GMT', HttpStatus.notModified),
+      ('Mon, 04 Mar 2024 05:06:08 GMT', HttpStatus.notModified),
+      ('Mon, 04 Mar 2024 05:06:06 GMT', HttpStatus.ok),
+      ('not-a-date', HttpStatus.ok),
+      ('', HttpStatus.ok),
+    ]) {
+      test('If-Modified-Since $date respects HTTP date precision', () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          headers: {
+            HttpHeaders.ifModifiedSinceHeader: date,
+          },
+        );
+        expect(response.status, expectedStatus);
+        expect(
+          response.headers[HttpHeaders.lastModifiedHeader],
+          'Mon, 04 Mar 2024 05:06:07 GMT',
+        );
+        if (expectedStatus == HttpStatus.notModified) {
+          expect(
+            response.headers,
+            isNot(contains(HttpHeaders.contentLengthHeader)),
+          );
+          expect((response.body as NativeHttpResponseBytes).bytes, isEmpty);
+        } else {
+          expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+          expect(response.body, isA<NativeHttpResponseFile>());
+        }
+      });
+    }
+
+    test(
+      'nonmatching ETag takes precedence over a future cache date',
+      () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          headers: {
+            HttpHeaders.ifNoneMatchHeader: 'W/"unrelated"',
+            HttpHeaders.ifModifiedSinceHeader: HttpDate.format(
+              DateTime.utc(2030),
+            ),
+          },
+        );
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+        expect(response.body, isA<NativeHttpResponseFile>());
+      },
+    );
+
+    test('If-Range cannot change an ordinary request without Range', () async {
+      final fixture = await _configuredFileFixture();
+      final response = await fixture.request(
+        headers: const {HttpHeaders.ifRangeHeader: '"stale"'},
+      );
+      expect(response.status, HttpStatus.ok);
+      expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+      expect(response.body, isA<NativeHttpResponseFile>());
+    });
+
+    for (final (name, contentType) in [
+      ('file.HTML', 'text/html; charset=utf-8'),
+      ('file.htm', 'text/html; charset=utf-8'),
+      ('file.css', 'text/css; charset=utf-8'),
+      ('file.js', 'text/javascript; charset=utf-8'),
+      ('file.mjs', 'text/javascript; charset=utf-8'),
+      ('file.json', 'application/json'),
+      ('file.svg', 'image/svg+xml'),
+      ('file.png', 'image/png'),
+      ('file.jpg', 'image/jpeg'),
+      ('file.jpeg', 'image/jpeg'),
+      ('file.gif', 'image/gif'),
+      ('file.webp', 'image/webp'),
+      ('file.ico', 'image/x-icon'),
+      ('file.wasm', 'application/wasm'),
+      ('file.pdf', 'application/pdf'),
+      ('file', null),
+      ('file.', null),
+      ('file.unknown', null),
+    ]) {
+      test('file content type and binary body for $name', () async {
+        final fixture = await _configuredFileFixture();
+        final bytes = [0, 1, 127, 128, 255];
+        await File('${fixture.directory.path}/$name').writeAsBytes(bytes);
+        final response = await fixture.request(path: '/assets/$name');
+        expect(response.status, HttpStatus.ok);
+        if (contentType == null) {
+          expect(
+            response.headers,
+            isNot(contains(HttpHeaders.contentTypeHeader)),
+          );
+        } else {
+          expect(response.headers[HttpHeaders.contentTypeHeader], contentType);
+        }
+        expect(response.headers[HttpHeaders.contentLengthHeader], '5');
+        final body = response.body as NativeHttpResponseFile;
+        expect(await File(body.path).readAsBytes(), bytes);
+      });
+    }
+
+    test(
+      'decoded filenames and nested separators retain their content',
+      () async {
+        final fixture = await _configuredFileFixture();
+        final nested = await Directory(
+          '${fixture.directory.path}/nested',
+        ).create();
+        await File('${nested.path}/a b.txt').writeAsString('nested');
+        final response = await fixture.request(
+          path: '/assets//nested/a%20b.txt',
+        );
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers[HttpHeaders.contentLengthHeader], '6');
+        expect(
+          await File(
+            (response.body as NativeHttpResponseFile).path,
+          ).readAsString(),
+          'nested',
+        );
+      },
+    );
+
+    test(
+      'symlinks stay inside the configured root',
+      () async {
+        final fixture = await _configuredFileFixture();
+        final sibling = await Directory(
+          '${fixture.directory.path}-sibling',
+        ).create();
+        addTearDown(() => sibling.delete(recursive: true));
+        final secret = await File(
+          '${sibling.path}/secret.txt',
+        ).writeAsString('outside-secret');
+        await Link('${fixture.directory.path}/outside.txt').create(secret.path);
+        await Link(
+          '${fixture.directory.path}/inside.txt',
+        ).create(fixture.file.path);
+        await Link(
+          '${fixture.directory.path}/dangling.txt',
+        ).create('${sibling.path}/missing');
+        for (final name in ['outside', 'dangling']) {
+          final response = await fixture.request(path: '/assets/$name.txt');
+          expect(response.status, HttpStatus.notFound);
+          final error = (response.body as NativeHttpResponseJson).value;
+          expect(error, containsPair('reason', 'file_not_found'));
+          expect(jsonEncode(error), isNot(contains('outside-secret')));
+          expect(jsonEncode(error), isNot(contains(sibling.path)));
+        }
+        final inside = await fixture.request(path: '/assets/inside.txt');
+        expect(inside.status, HttpStatus.ok);
+        expect(
+          await File(
+            (inside.body as NativeHttpResponseFile).path,
+          ).readAsString(),
+          '0123456789abcdef',
+        );
+      },
+      skip: Platform.isWindows
+          ? 'Creating symlinks requires Windows privileges.'
+          : false,
+    );
+
+    test('an inaccessible configured root returns a redacted error', () async {
+      final parent = await Directory.systemTemp.createTemp(
+        'router-file-missing-root-',
+      );
+      addTearDown(() => parent.delete(recursive: true));
+      final fixture = await _configuredFileFixture(
+        action: HttpRouteAction(
+          type: HttpRouteActionType.file,
+          directory: '${parent.path}/missing',
+        ),
+      );
+      final response = await fixture.request();
+      expect(response.status, HttpStatus.internalServerError);
+      final error = (response.body as NativeHttpResponseJson).value;
+      expect(error, containsPair('reason', 'file_route_misconfigured'));
+      expect(jsonEncode(error), isNot(contains(parent.path)));
+    });
+
+    test('directories are not returned as files', () async {
+      final fixture = await _configuredFileFixture();
+      await Directory('${fixture.directory.path}/nested').create();
+      final response = await fixture.request(path: '/assets/nested');
+      expect(response.status, HttpStatus.notFound);
+      expect(
+        (response.body as NativeHttpResponseJson).value,
+        containsPair('reason', 'file_not_found'),
+      );
+    });
+
+    test(
+      'POST file request is rejected with explicit allowed methods',
+      () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(method: 'POST');
+        expect(response.status, HttpStatus.methodNotAllowed);
+        expect(response.headers[HttpHeaders.allowHeader], 'GET, HEAD');
+        expect(
+          (response.body as NativeHttpResponseJson).value,
+          containsPair('reason', 'method_not_allowed'),
+        );
+      },
     );
   });
 

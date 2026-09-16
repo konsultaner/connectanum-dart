@@ -67,8 +67,50 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Configured File Conditional Requests
+
+- VM65 identified router_binding.dart as the largest measured library gap:
+  699 uncovered lines. New synthetic-runtime file-response regressions cover
+  conditional requests, exact byte ranges, empty files, unsafe/decoded paths,
+  content types, directory errors and symlink containment. Windows symlink
+  creation is explicitly skipped; do not claim platform coverage from macOS.
+- The initial 51 tests record 16 failures: HEAD honored Range, If-Range was
+  ignored, If-None-Match did not use weak comparison, and malformed percent
+  escapes left requests unanswered. Those fixes pass all 51. The expanded
+  matrix then reproduces invalid HTTP-date requests hanging because the parser
+  throws HttpException. Corrected imports and error handling pass all 81 cases;
+  the full runtime/metrics pair passes 214. Preserve initial fixture compilation
+  errors and the missing HttpException import as authoring failures, not kills.
+- Protocol basis: [RFC 9110 sections 13.1.2, 13.1.5 and 14.2](https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.5)
+  require weak If-None-Match comparison, strong If-Range validation and GET-only
+  Range handling. Existing size/mtime ETags are weak, and file mtime alone cannot
+  establish Last-Modified strongness under section 8.8.2.2. Thus If-Range selects
+  the complete representation, even for a matching date. No validator format or
+  WAMP behavior changes. Full-file replies remain NativeHttpResponseFile.
+- Slice66c covers 429/3,636 binding lines, not the whole router; its full-scope
+  checker correctly fails for missing other components. Fresh package-wide
+  coverage66 and verify66 run serially before handoff. Do not merge old LCOV
+  line numbers across this source change. Reports remain under router-files66,
+  router-files66b and router-files66c, with the failed runs retained separately.
+- router-binding-vm inventories the whole binding file (2,379 candidates), with
+  the runtime/metrics suites, explicit native artifact provenance, complete test
+  file cleanup and 30-second per-test deadlines. Inventory66 is not a mutation
+  score. No candidate range or denominator is excluded to manufacture a pass.
+- Gemma and GLM reviews were checked against source and executable assertions.
+  Their suggested openRead length argument and HEAD range behavior contradict
+  the Dart exclusive-end API and the protocol/GET-only guard, respectively.
+  Existing GET range buffering remains a separate large-file memory/performance
+  risk; this change does not claim to fix it or the hosted WAMP throughput gates.
+
 ### Router Metrics Contracts And Hosted Confirmation
 
+- 748ddf21 PR CI 35079233511 passes all 14 expected jobs; push CI 35079229883
+  and publishing dry runs 35079233562/35079229726 also pass. Strict audit65
+  confirms exact-head clean jobs/logs and publishing evidence but still fails
+  the same two structural findings below. No merge, release or protection change
+  was performed. The last native-artifact and all seven pub.dev publication
+  workflows separately confirm successful beta.5 releases; these do not publish
+  or validate a new release of the coverage branch.
 - 0ca81adf PR CI 35068960263 and publishing dry-run 35068960262 pass. Strict
   audit63 confirms clean exact-head jobs/logs and publishing evidence; its two
   structural findings remain the unprotected feature branch and mutation workflow
@@ -101,13 +143,21 @@ caught and timed-out outcomes separately.
   floor without removing the model from router/package totals. Deployment
   auditing requires the job, and fixture
   tests explicitly reject its omission. Fast64 passes. Full VM coverage65 then
-  verify65 run serially against the final production/test snapshot. Focused
-  analysis and formatting pass; hosted evidence must be refreshed after push.
+  verify65 pass serially against the final production/test snapshot, including
+  native checks, the real LLVM fixture and JavaScript/WASM suites. Focused
+  analysis and formatting pass. Hosted metrics CI also reports 63 kills/three
+  survivors from all 66 candidates (95.45%), clean/restored baseline exits zero;
+  source/test hashes match locally. Retain its synthetic PR merge c06dfe24
+  provenance under deployment65/router-metrics-ci rather than substituting the
+  feature-branch SHA in the raw artifact.
 - Fresh library VM65 reports 36,772/42,496 lines (86.53%). Auth is 100%, core
   90.22%, client 85.10%, router 84.34%, MCP 95.40% and bench 81.20%. Existing
   floors pass; --require-target correctly fails the 98% objective. All 59
   unmeasured library sources remain explicit. This refresh supersedes VM28 for
   the library snapshot, not standalone applications or native/browser coverage.
+- Separate VM65 packaging coverage reports client 391/402 (97.26%) and router
+  374/385 (97.14%), with 12 unmeasured packaging sources. The collection exits
+  zero against existing floors, not against the whole-milestone 98% objective.
 - Preserve browser65's pre-output exit 137 as infrastructure/invocation failure,
   not a product regression or mutation kill. Retry65b passes. Local companion
   suggestions were checked against source and tests; the suggestion to include

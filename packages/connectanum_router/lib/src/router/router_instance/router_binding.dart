@@ -6562,10 +6562,17 @@ class RouterBinding {
       return;
     }
 
-    final range = _parseSingleHttpRange(
-      _headerValue(request.headers, HttpHeaders.rangeHeader),
-      size,
-    );
+    // RFC 9110: Range applies only to GET. These file validators are weak:
+    // filesystem mtime cannot prove that a file changed at most once per second.
+    // An If-Range condition therefore cannot authorize a partial representation.
+    final range =
+        method == 'GET' &&
+            _headerValue(request.headers, HttpHeaders.ifRangeHeader) == null
+        ? _parseSingleHttpRange(
+            _headerValue(request.headers, HttpHeaders.rangeHeader),
+            size,
+          )
+        : null;
     if (range?.unsatisfiable ?? false) {
       await _sendImmediateHttpResponse(
         request: request,
@@ -6597,14 +6604,12 @@ class RouterBinding {
         HttpHeaders.contentRangeHeader:
             'bytes ${range.start}-${range.end}/$size',
       };
-      final body = method == 'HEAD'
-          ? Uint8List(0)
-          : Uint8List.fromList(
-              await File(filePath)
-                  .openRead(range.start, range.end + 1)
-                  .expand((chunk) => chunk)
-                  .toList(),
-            );
+      final body = Uint8List.fromList(
+        await File(filePath)
+            .openRead(range.start, range.end + 1)
+            .expand((chunk) => chunk)
+            .toList(),
+      );
       await _sendImmediateHttpResponse(
         request: request,
         handshake: handshake,
@@ -6712,6 +6717,8 @@ class RouterBinding {
         return Uri.decodeComponent(rawSegment);
       } on FormatException {
         return null;
+      } on ArgumentError {
+        return null;
       }
     }();
     if (decoded == null ||
@@ -6755,9 +6762,13 @@ class RouterBinding {
     if (ifNoneMatch == null || ifNoneMatch.trim().isEmpty) {
       return false;
     }
+    final opaqueTag = etag.startsWith('W/') ? etag.substring(2) : etag;
     for (final candidate in ifNoneMatch.split(',')) {
       final trimmed = candidate.trim();
-      if (trimmed == '*' || trimmed == etag) {
+      final opaqueCandidate = trimmed.startsWith('W/')
+          ? trimmed.substring(2)
+          : trimmed;
+      if (trimmed == '*' || opaqueCandidate == opaqueTag) {
         return true;
       }
     }
@@ -6772,6 +6783,8 @@ class RouterBinding {
       final since = HttpDate.parse(ifModifiedSince).toUtc();
       return !_httpDateSeconds(modified).isAfter(_httpDateSeconds(since));
     } on FormatException {
+      return false;
+    } on HttpException {
       return false;
     }
   }

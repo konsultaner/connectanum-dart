@@ -27,6 +27,16 @@
     "sources": ["packages/connectanum_router/lib/src/router/models/router_metrics.dart"],
     "tests": ["packages/connectanum_router/test/router_metrics_model_test.dart"]
   },
+  "router-binding-vm": {
+    "sources": ["packages/connectanum_router/lib/src/router/router_instance/router_binding.dart"],
+    "tests": [
+      "packages/connectanum_router/test/router_runtime_test.dart",
+      "packages/connectanum_router/test/router_metrics_service_test.dart"
+    ],
+    "requiresNativeLibrary": true,
+    "isolateTestFiles": true,
+    "testTimeoutSeconds": 30
+  },
   "core-event-vm": {
     "sources": ["packages/connectanum_core/lib/src/message/event.dart"],
     "tests": [
