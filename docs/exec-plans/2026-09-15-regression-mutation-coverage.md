@@ -1103,3 +1103,31 @@ The original per-component/runtime coverage and mutation goal remains active.
 
 Evidence: vm-current25, native25-current, coverage25-browser-ci-failure, and
 coverage25/26 regression logs under out/regression-coverage-2026-09-15.
+
+### RawSocket Behavioral Oracle Checkpoint
+
+- Native23's complete inventory exposed mixed assertion/unwrap failures, not a
+  passing mutation score. Retain that failed evidence and the strict auditor.
+- Handshake regressions assert explicit success/error variants and full wire
+  responses. Success matrices independently check serializer, exponent, upgrade,
+  file-sender availability and both payload directions. Interleaved handshake
+  fixtures remain alongside deterministic prequeued wire cases.
+- Seven file-range cases cover zero lengths, off_t overflow, exact/end/past EOF
+  and partial prefixes. The socket write half is shut down only after the send
+  returns, including the duplicated sender descriptor. Bounded reads through
+  EOF distinguish missing/extra bytes without indefinite read_exact waits.
+  The slow-reader test retains exact payload assertions. Repeated file segments
+  interleaved with ordinary writes share one socket and preserve the file cursor.
+- Genuine infrastructure errors, production panics and timeouts remain errors
+  or timeouts, never mutation kills. No production logic or mutation policy
+  changes. Local companion concerns about extra bytes escaping the read bound
+  and shutdown racing an awaited send are disproved by source inspection;
+  global metric counters retain conservative lower bounds for parallel tests.
+- bin/test-fast and all 21 focused RawSocket tests pass. Final bin/verify passes,
+  including the real LLVM fixture and both browser compilers. The complete
+  isolated native27-rawsocket inventory is running serially after verification;
+  retain all outcomes and audit it before claiming a new score. The complete
+  cross-runtime goal remains open. Production RawSocket bytes before cfg(test)
+  are unchanged (SHA-256 f7a9dfe10ab6272cb44aab39796bfd19194bafd8ae4ae6b643bcfd7dfad4b0c1).
+
+Evidence: coverage27-checkpoint under out/regression-coverage-2026-09-15.

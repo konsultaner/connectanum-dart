@@ -6,6 +6,19 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+RawSocket regression checkpoint: bin/test-fast and all 21 focused native tests
+pass. Handshake tests now assert complete wire replies and explicit protocol
+results instead of allowing extraction panics to obscure behavioral failures.
+File tests cover seven offset/EOF boundaries, exact bytes under backpressure,
+ordinary writes interleaved with repeated file segments, and preservation of
+the shared file cursor. Bounded EOF reads detect omitted and extra bytes;
+real infrastructure errors and timeouts remain non-kill outcomes. Production
+code and the strict mutation auditor are unchanged. Final bin/verify passes,
+including the real LLVM fixture and both browser compilers. The complete isolated
+native27-rawsocket mutation campaign is running after verification, without
+shared native work overlapping. No new native mutation score or whole-component
+coverage percentage is claimed until that inventory is audited.
+
 Hosted browser launcher follow-up: 4b551b78 is pushed to PR #93. Its new
 core-lazy-web job fails before mutations because raw Chrome cannot initialize
 its sandbox on the hosted Linux runner. The entrypoint bypassed the canonical
