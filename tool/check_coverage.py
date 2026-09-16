@@ -8,7 +8,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_SCOPES = {'library': ('lib',), 'packaging': ('bin', 'hook', 'tool')}
+SOURCE_SCOPES = {'library': ('lib',), 'packaging': ('bin', 'hook', 'tool'),
+                 'application': ('lib', 'bin')}
+APPLICATION_COMPONENTS = ('shared', 'server', 'client')
 
 
 def read_lcov(paths, scope='library'):
@@ -20,14 +22,18 @@ def read_lcov(paths, scope='library'):
             if line.startswith('SF:'):
                 current = line[3:].replace('\\', '/')
                 if current.startswith('/') or current[1:3] == ':/':
-                    marker = '/packages/'
+                    marker = '/examples/wamp_app/' if scope == 'application' else '/packages/'
                     if marker not in current:
                         current = None
                         continue
-                    current = 'packages/' + current.split(marker, 1)[1]
+                    current = marker.lstrip('/') + current.split(marker, 1)[1]
                 parts = current.split('/')
-                if not (len(parts) >= 4 and parts[0] == 'packages'
-                        and parts[2] in directories and current.endswith('.dart')
+                if scope == 'application':
+                    in_scope = (len(parts) >= 5 and parts[:2] == ['examples', 'wamp_app']
+                                and parts[2] in APPLICATION_COMPONENTS and parts[3] in directories)
+                else:
+                    in_scope = len(parts) >= 4 and parts[0] == 'packages' and parts[2] in directories
+                if not (in_scope and current.endswith('.dart')
                         and not any(part in ('', '.', '..') for part in parts)):
                     current = None
                     continue
@@ -54,11 +60,19 @@ def report(sources, root, runtime='vm', scope='library'):
              for name, lines in sorted(sources.items())}
     package_lines = {}
     for name, lines in sources.items():
-        package = name.split('/')[1]
+        package = name.split('/')[2 if scope == 'application' else 1]
         package_lines.setdefault(package, {}).update({(name, n): hits for n, hits in lines.items()})
     measured = {name for name, lines in sources.items() if lines}
-    inventory = (path for directory in SOURCE_SCOPES[scope]
-                 for path in (root / 'packages').glob(f'*/{directory}/**/*.dart'))
+    if scope == 'application':
+        inventory = (path for component in APPLICATION_COMPONENTS
+                     for directory in SOURCE_SCOPES[scope]
+                     for path in (root / 'examples/wamp_app' / component).glob(f'{directory}/**/*.dart'))
+        unmeasured_scopes = ['Rust', 'package libraries', 'package hooks/executables']
+    else:
+        inventory = (path for directory in SOURCE_SCOPES[scope]
+                     for path in (root / 'packages').glob(f'*/{directory}/**/*.dart'))
+        unmeasured_scopes = ['Rust', 'hooks/executables' if scope == 'library' else 'package libraries',
+                             'standalone applications']
     unmeasured = sorted(path.relative_to(root).as_posix() for path in inventory
                         if path.relative_to(root).as_posix() not in measured)
     return {'schemaVersion': 1, 'measurement': f'Dart {runtime} executable lines in LCOV',
@@ -66,8 +80,7 @@ def report(sources, root, runtime='vm', scope='library'):
             'packages': {name: stats(lines) for name, lines in sorted(package_lines.items())},
             'overall': stats({(name, n): h for name, lines in sources.items() for n, h in lines.items()}),
             'files': files, 'unmeasuredSources': unmeasured,
-            'unmeasuredScopes': ['Rust', 'hooks/executables' if scope == 'library' else 'package libraries',
-                                 'standalone applications']
+            'unmeasuredScopes': unmeasured_scopes
              + (['browser-only code'] if runtime == 'vm' else ['unselected browser/VM suites'])}
 
 
@@ -120,8 +133,10 @@ def findings(result, policy, require_target=False):
     for package in policy.get('componentPackages', []):
         if not result['packages'].get(package, {}).get('total'):
             problems.append(f'{package}: no executable coverage data')
+        prefix = (f'examples/wamp_app/{package}/' if result.get('sourceScope') == 'application'
+                  else f'packages/{package}/')
         for source, item in result['files'].items():
-            if source.startswith(f'packages/{package}/') and item['total']:
+            if source.startswith(prefix) and item['total']:
                 owners = sum(source in definition['sources']
                              for definition in policy.get('components', {}).values())
                 if owners != 1:

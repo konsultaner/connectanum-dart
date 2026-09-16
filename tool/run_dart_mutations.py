@@ -17,6 +17,7 @@ import time
 
 
 ROOT = Path(__file__).resolve().parents[1]
+APPLICATION_ROOTS = tuple(f'examples/wamp_app/{name}' for name in ('shared', 'server', 'client'))
 
 
 def live_process_group_members(group):
@@ -160,8 +161,11 @@ def validate_sources(sources):
         raise ValueError('Production mutation sources must be a nonempty list')
     for source in sources:
         parts = source.split('/') if isinstance(source, str) else []
-        if not (len(parts) >= 4 and parts[0] == 'packages'
-                and parts[2] in ('lib', 'bin', 'hook', 'tool')
+        package_source = (len(parts) >= 4 and parts[0] == 'packages'
+                          and parts[2] in ('lib', 'bin', 'hook', 'tool'))
+        application_source = (len(parts) >= 5 and '/'.join(parts[:3]) in APPLICATION_ROOTS
+                              and parts[3] in ('lib', 'bin'))
+        if not ((package_source or application_source)
                 and source.endswith('.dart')
                 and not any(part in ('', '.', '..') for part in parts)):
             raise ValueError(f'Invalid production mutation source: {source}')
@@ -223,7 +227,8 @@ def snapshot(destination, support_files=()):
         support.add(name)
     for name in sorted(listed):
         path = Path(name)
-        if name not in support and path.parts[0] not in ('packages', 'tool') and name not in (
+        application_input = any(name.startswith(f'{root}/') for root in APPLICATION_ROOTS)
+        if not application_input and name not in support and path.parts[0] not in ('packages', 'tool') and name not in (
             'pubspec.yaml', 'pubspec.lock', 'analysis_options.yaml', 'dart_test.yaml',
         ):
             continue
@@ -235,9 +240,14 @@ def snapshot(destination, support_files=()):
         target = destination / path
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
-    # The ignored lockfile fixes the local dependency graph for all mutants.
-    if (ROOT / 'pubspec.lock').is_file():
-        shutil.copy2(ROOT / 'pubspec.lock', destination / 'pubspec.lock')
+    # Include ignored lockfiles so standalone packages retain their own graph.
+    for package_root in ('.', *APPLICATION_ROOTS):
+        path = Path(package_root) / 'pubspec.lock'
+        if any((ROOT / part).is_symlink() for part in (path, *path.parents)):
+            raise ValueError(f'Unsupported symlink in mutation snapshot: {path}')
+        if (ROOT / path).is_file():
+            (destination / path).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / path, destination / path)
 
 
 def main():
@@ -286,6 +296,22 @@ def main():
             target = config[name]
             sources = target['sources']
             validate_sources(sources)
+            test_root = Path(target.get('testRoot', '.'))
+            if test_root.is_absolute() or '..' in test_root.parts:
+                raise ValueError(f'Invalid test root: {test_root}')
+            dependency_hashes = {}
+            if test_root.as_posix() in APPLICATION_ROOTS:
+                code, output = run(['dart', 'pub', 'get', '--offline'], work / test_root, 120)
+                (args.output / f'{name}-dependencies.log').write_text(output)
+                if code != 0:
+                    raise RuntimeError(f'{name}: isolated application dependency resolution failed: '
+                                       + output[-2000:])
+                dependency_hashes = {
+                    str(path.relative_to(work)): hashlib.sha256(path.read_bytes()).hexdigest()
+                    for root in (Path('.'), *(Path(path) for path in APPLICATION_ROOTS))
+                    for file in ('pubspec.yaml', 'pubspec.lock')
+                    if (path := work / root / file).is_file()
+                }
             code, output = run(['dart', 'tool/dart_mutations.dart', *sources], work, 120)
             if code != 0:
                 raise RuntimeError('Mutation generation failed: ' + output[-2000:])
@@ -296,6 +322,8 @@ def main():
                       'platform': target.get('platform', 'vm'),
                       'sourceHashes': {source: hashlib.sha256((work / source).read_bytes()).hexdigest() for source in sources},
                       'baseline': 'notRun', 'outcomes': []}
+            if dependency_hashes:
+                result['dependencyHashes'] = dependency_hashes
             justified = validate_equivalents(equivalents.get(name, {}), mutations, result['sourceHashes'])
             test_files = set()
             runnable_tests = set()
@@ -343,9 +371,6 @@ def main():
                 # the compiler pool, rather than exiting with queued compiles.
                 command.remove('--fail-fast')
                 command.append('--compiler=dart2js')
-            test_root = Path(target.get('testRoot', '.'))
-            if test_root.is_absolute() or '..' in test_root.parts:
-                raise ValueError(f'Invalid test root: {test_root}')
             if test_root != Path('.'):
                 command = [os.path.relpath(work / arg, work / test_root) if arg in resolved_tests else arg
                            for arg in command]

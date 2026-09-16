@@ -33,7 +33,8 @@
   },
   "core-lazy-web": {
     "sources": ["packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart"],
-    "tests": [
+    "tests": ["packages/connectanum_core/test/support/lazy_payload_mutation_suite.dart"],
+    "supportFiles": [
       "packages/connectanum_core/test/message_lazy_payload_regression_test.dart",
       "packages/connectanum_core/test/message_invocation_test.dart",
       "packages/connectanum_core/test/message_result_test.dart"
@@ -126,6 +127,25 @@
   "core-msgpack-vm": {
     "sources": ["packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"],
     "tests": ["packages/connectanum_core/test/serializer/msgpack/codec_test.dart"]
+  },
+  "app-shared-vm": {
+    "sources": [
+      "examples/wamp_app/shared/lib/wamp_app_protocol.dart",
+      "examples/wamp_app/shared/lib/src/account_profile.dart",
+      "examples/wamp_app/shared/lib/src/account_registration.dart",
+      "examples/wamp_app/shared/lib/src/call_signaling.dart",
+      "examples/wamp_app/shared/lib/src/device_identity.dart",
+      "examples/wamp_app/shared/lib/src/encrypted_attachment.dart",
+      "examples/wamp_app/shared/lib/src/encrypted_backup.dart",
+      "examples/wamp_app/shared/lib/src/encrypted_messaging.dart",
+      "examples/wamp_app/shared/lib/src/mcp_access.dart",
+      "examples/wamp_app/shared/lib/src/mcp_consent.dart",
+      "examples/wamp_app/shared/lib/src/platform_push.dart",
+      "examples/wamp_app/shared/lib/src/protocol.dart",
+      "examples/wamp_app/shared/lib/src/server_endpoint.dart"
+    ],
+    "tests": ["examples/wamp_app/shared/test"],
+    "testRoot": "examples/wamp_app/shared"
   },
   "core-msgpack-web": {
     "sources": ["packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"],

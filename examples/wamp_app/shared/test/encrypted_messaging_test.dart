@@ -229,6 +229,144 @@ void main() {
     }
   });
 
+  test(
+    'send receipts preserve exact wire fields and reject malformed input',
+    () {
+      final wire = <String, dynamic>{
+        'message_id': _token(16, 8),
+        'cursor': 43,
+        'accepted_at': '2026-08-24T12:00:00.000Z',
+        'duplicate': false,
+      };
+      for (final duplicate in [false, true]) {
+        final receipt = MessageSendReceipt.fromWampKeywords({
+          ...wire,
+          'duplicate': duplicate,
+        });
+        expect(receipt.messageId, _token(16, 8));
+        expect(receipt.cursor, 43);
+        expect(receipt.acceptedAt, DateTime.utc(2026, 8, 24, 12));
+        expect(receipt.duplicate, duplicate);
+        expect(receipt.toWampKeywords(), {...wire, 'duplicate': duplicate});
+      }
+      expect(
+        () => MessageSendReceipt.fromWampKeywords(null),
+        throwsFormatException,
+      );
+      for (final invalid in <Map<String, dynamic>>[
+        {'message_id': ''},
+        {'message_id': 'x' * 129},
+        {'message_id': ' id '},
+        {'message_id': 42},
+        {'cursor': 0},
+        {'cursor': '43'},
+        {'accepted_at': 42},
+        {'accepted_at': 'invalid'},
+        {'accepted_at': '2026-08-24T12:00:00'},
+        {'duplicate': 0},
+      ]) {
+        expect(
+          () => MessageSendReceipt.fromWampKeywords({...wire, ...invalid}),
+          throwsFormatException,
+        );
+      }
+      expect(
+        () => MessageSendReceipt(
+          messageId: 'id',
+          cursor: 0,
+          acceptedAt: DateTime.utc(2026),
+          duplicate: false,
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => MessageReceipt.fromWampKeywords(null),
+        throwsFormatException,
+      );
+      expect(
+        () => MessageReceipt(messageId: 'id', cursor: 0),
+        throwsFormatException,
+      );
+      expect(
+        () =>
+            MessageReceipt(messageId: 'id', cursor: 1, recipientUsername: ' '),
+        throwsFormatException,
+      );
+      final receipt = MessageReceipt(
+        messageId: 'id',
+        cursor: 1,
+        recipientUsername: ' Bob ',
+      );
+      expect(receipt.toWampKeywords()['recipient_username'], 'bob');
+    },
+  );
+
+  test(
+    'expiry uses an inclusive deadline and binary payloads remain isolated',
+    () {
+      final wire = _message().toWampKeywords();
+      final deadline = DateTime.utc(2026, 8, 24, 13);
+      final expiring = EncryptedChatMessage.fromWampKeywords({
+        ...wire,
+        'expires_at': deadline.toIso8601String(),
+      });
+      expect(
+        expiring.isExpiredAt(
+          deadline.subtract(const Duration(microseconds: 1)),
+        ),
+        isFalse,
+      );
+      expect(expiring.isExpiredAt(deadline), isTrue);
+      expect(
+        expiring.isExpiredAt(deadline.add(const Duration(microseconds: 1))),
+        isTrue,
+      );
+      expect(_message().isExpiredAt(deadline), isFalse);
+      final bytes = List<int>.of(wire['encrypted_payload'] as Uint8List);
+      final restored = EncryptedChatMessage.fromWampKeywords({
+        ...wire,
+        'encrypted_payload': bytes,
+      });
+      bytes[0] = 0;
+      expect(restored.encryptedPayload, everyElement(4));
+      expect(
+        () => EncryptedChatMessage.fromWampKeywords({
+          ...wire,
+          'attachment_ids': {},
+        }),
+        throwsFormatException,
+      );
+      expect(
+        () => OneTimeMessageConsumption(
+          messageId: 'id',
+          deviceId: '!',
+          signature: _token(64, 1),
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => OneTimeMessageConsumption(
+          messageId: 'id',
+          deviceId: _token(31, 1),
+          signature: _token(64, 1),
+        ),
+        throwsFormatException,
+      );
+      final stored = MailboxMessage(
+        cursor: 1,
+        message: _message(),
+        acceptedAt: DateTime.utc(2026, 8, 24, 12),
+        deliveredAt: DateTime.utc(2026, 8, 24, 12, 1),
+      );
+      expect(stored.recipientStateFor(' BOB '), isNotNull);
+      expect(
+        stored.recipientStateFor(' BOB ')!.deliveredAt,
+        DateTime.utc(2026, 8, 24, 12, 1),
+      );
+      expect(stored.recipientStateFor('carol'), isNull);
+    },
+  );
+
   test('one-time consumption proofs bind account, message, and device', () {
     final proof = OneTimeMessageConsumption(
       messageId: _token(16, 8),

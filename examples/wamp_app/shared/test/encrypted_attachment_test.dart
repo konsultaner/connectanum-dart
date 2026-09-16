@@ -30,6 +30,13 @@ void main() {
     expect(restored.contentType, 'image/jpeg');
     expect(restored.plaintextBytes, descriptor.plaintextBytes);
     expect(restored.key, descriptor.key);
+    expect(
+      () => EncryptedAttachmentDescriptor.fromJson({
+        ...descriptor.toJson(),
+        'key': '!',
+      }),
+      throwsFormatException,
+    );
   });
 
   test('legacy descriptors remain readable without accepting mixed suites', () {
@@ -142,6 +149,20 @@ void main() {
     final restored = EncryptedAttachmentChunk.fromWampKeywords(wire);
     expect(restored.senderUsername, 'alice');
     expect(restored.encryptedBytes, everyElement(7));
+    final listBytes = List<int>.filled(bytes.length, 7);
+    final fromList = EncryptedAttachmentChunk.fromWampKeywords({
+      ...wire,
+      'encrypted_bytes': listBytes,
+    });
+    listBytes[0] = 99;
+    expect(fromList.encryptedBytes, everyElement(7));
+    expect(
+      () => EncryptedAttachmentChunk.fromWampKeywords({
+        ...wire,
+        'encrypted_bytes': 'invalid',
+      }),
+      throwsFormatException,
+    );
     (wire['encrypted_bytes'] as Uint8List).fillRange(0, bytes.length, 42);
     expect(restored.encryptedBytes, everyElement(7));
   });

@@ -67,6 +67,65 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Latest Consumer And Browser Checkpoint
+
+- Pushed 8872ad3e carries the HTTP-body lost-wakeup fix and configuration/tooling
+  regressions after bin/test-fast and bin/verify pass. Its package dry-run passes;
+  candidate CI remains pending. Complete native30 retains 93 assertion kills,
+  19 survivors, five compile errors, ten errors and two timeouts: 75.00%
+  raw/adjusted, unclean evidence. Keep all 129 candidates and logs.
+- Shared consumer protocol app-shared37 passes 100 tests at 1,536/1,540 executable
+  VM lines (99.74%). New regressions first fail for out-of-range avatar integer
+  lists silently narrowed to bytes and non-string receipt timestamps throwing
+  TypeError. Strict range/type checks fix those cases without changing valid
+  wire values. Independent receipt fields, image signatures/copy isolation,
+  call configuration/state, message expiry and malformed backup/push data are
+  exercised. This is shared-protocol VM evidence, not Flutter/server coverage.
+- Application-aware LCOV parsing separates shared/server/client production
+  lib/bin paths, rejects test/path-traversal inflation, and retains all unmeasured
+  application sources. Sixteen report tests pass. The new canonical shared
+  collector passes its 98% policy with all eleven measured sources required;
+  94 other application source files remain listed. Behavioral launcher tests
+  cover resolution/test/format/floor failures, output paths with spaces and
+  refusal to overwrite evidence. CI retains raw, LCOV and JSON artifacts.
+- Hosted core-lazy-web job 104634266890 reaches its 90-minute budget, retaining
+  an incomplete 272/289 inventory: 208 kills, 15 survivors, 49 compile errors,
+  no recorded errors/timeouts. Routine ~23-second browser test commands, not a
+  proven per-mutant hang, dominate runtime. Preserve the downloaded artifact.
+  A grouped entrypoint imports all three unchanged suites and hashes those
+  dependencies. Exact named-test comparison is identical (84 tests), and both
+  baselines pass: local 12.76 seconds becomes 5.60 seconds. The full lazy33
+  campaign completes all 289 candidates with clean/restored baselines passing:
+  223 kills, 16 survivors, 50 compile errors, zero errors/timeouts. Raw score is
+  93.31%, adjusted 96.54% with eight existing source-hash-pinned equivalences.
+  Source/operator inventory, thresholds and timeout policies are unchanged.
+  No replacement hosted pass is claimed yet.
+- Local review's proposed missing-lib/path-resolution findings are disproved
+  by the actual scope tuple, Windows/Unix parser fixtures, exact test-name
+  comparison and canonical 99.74% collection. Retaining failed coverage artifacts
+  is intentional; do not delete them based on the companion's cleanup suggestion.
+  No broad exclusions are added. Verification33 and standalone consumer33 pass,
+  including Flutter/browser tests and release web compilation. Fast35 passes;
+  full35 runs serially for the new mutation tooling. Hosted CI/audit remain required.
+- The runner now supports standalone application Dart roots: scoped snapshots,
+  ignored lockfile copying with symlink rejection, offline resolution in the
+  package directory and dependency hashes/logs. All 35 runner tests pass, with
+  one Linux-only skip on macOS. app-shared-vm inventories all thirteen production
+  sources, including declaration-only facades. Its complete 1,314-candidate
+  app-shared35 campaign passes the clean baseline and remains running.
+  It does not establish a mutation score yet. Later constructor/typed-avatar
+  and signal-ciphertext boundary tests address observed survivors; profile36
+  confirms the constructor size-limit mutant is killed. Its complete 150-candidate
+  result has 124 kills, seven survivors and 19 compile errors: 94.66% raw/adjusted,
+  no errors/timeouts, both baselines passing. Profile37 checks the newer typed
+  boundary oracle; neither slice replaces the full inventory. Keep the original
+  campaign because it predates these newer test oracles. Flutter client and
+  application server mutation execution/coverage remain separate pending work.
+
+Evidence: app-shared31/32/33/34/36/37, app-shared35-mutations,
+app-profile36-mutations, native30-rawsocket, coverage33-browser-timeout,
+lazy33-combined-browser and coverage31/32/33/35/36/37 logs. The original goal stays active.
+
 Initial pre-change `bin/test-fast` failed an existing launcher timing assertion
 (15.05 seconds against a 10-second bound). The unchanged isolated test passes in
 5.51 seconds and full confirmation passed. A later VM coverage run encountered

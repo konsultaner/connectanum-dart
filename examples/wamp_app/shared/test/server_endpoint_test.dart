@@ -13,6 +13,7 @@ void main() {
     final endpoint = ServerEndpoint.parse('https://chat.example.com/wamp');
 
     expect(endpoint.websocketUri, Uri.parse('wss://chat.example.com/wamp'));
+    expect(endpoint.toString(), 'wss://chat.example.com/wamp');
   });
 
   test('permits cleartext registration only on loopback', () {

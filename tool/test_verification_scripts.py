@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -57,6 +58,83 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_browser_mutation_entrypoint_retains_and_hashes_all_original_suites(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['core-lazy-web']
+        self.assertEqual(target['sources'], targets['core-lazy-vm']['sources'])
+        self.assertEqual(target['supportFiles'], targets['core-lazy-vm']['tests'])
+        self.assertEqual(target['tests'], [
+            'packages/connectanum_core/test/support/lazy_payload_mutation_suite.dart'])
+        entrypoint = (REPO_ROOT / target['tests'][0]).read_text()
+        for filename, alias, group in [
+            ('message_lazy_payload_regression_test.dart', 'lazy_payload', 'lazy payload'),
+            ('message_invocation_test.dart', 'invocation', 'invocation'),
+            ('message_result_test.dart', 'result', 'result'),
+        ]:
+            self.assertIn(f"import '../{filename}' as {alias};", entrypoint)
+            self.assertIn(f"group('{group}', {alias}.main);", entrypoint)
+
+    @unittest.skipIf(os.name == 'nt', 'The application coverage launcher requires Bash')
+    def test_app_shared_coverage_launcher_reports_and_fails_closed(self):
+        for stage, expected in [('success', 0), ('resolve', 7), ('test', 8),
+                                ('format', 9), ('floor', 1)]:
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                scripts, tooling = root / 'bin', root / 'tool'
+                scripts.mkdir()
+                tooling.mkdir()
+                (root / 'examples/wamp_app/shared').mkdir(parents=True)
+                for name in ('test-app-shared-coverage', 'common.sh'):
+                    shutil.copy2(REPO_ROOT / 'bin' / name, scripts / name)
+                shutil.copy2(REPO_ROOT / 'tool/check_coverage.py', tooling / 'check_coverage.py')
+                source = 'examples/wamp_app/shared/lib/api.dart'
+                (tooling / 'coverage_app_shared_policy.json').write_text(json.dumps({
+                    'target': 98, 'sourceScope': 'application',
+                    'packages': {'shared': 98}, 'requiredSources': [source],
+                }))
+                dart = scripts / 'dart'
+                dart.write_text('''#!/usr/bin/env bash
+set -eu
+printf '%s:%s\\n' "$PWD" "$*" >> "$TRACE"
+if [[ "$1" == test ]]; then
+  [[ "$STAGE" != test ]] || exit 8
+elif [[ "$2" == get ]]; then
+  [[ "$STAGE" != resolve ]] || exit 7
+else
+  [[ "$STAGE" != format ]] || exit 9
+  output=''
+  for arg in "$@"; do
+    case "$arg" in --out=*) output="${arg#--out=}";; esac
+  done
+  hits=1
+  [[ "$STAGE" != floor ]] || hits=0
+  printf 'SF:examples/wamp_app/shared/lib/api.dart\\nDA:1,%s\\nend_of_record\\n' "$hits" > "$output"
+fi
+''')
+                dart.chmod(0o755)
+                output = root / 'reports with spaces'
+                trace = root / 'trace'
+                env = dict(os.environ, PATH=str(scripts) + os.pathsep + os.environ['PATH'],
+                           STAGE=stage, TRACE=str(trace), CONNECTANUM_APP_SHARED_COVERAGE_DIR='reports with spaces')
+                command = ['bash', str(scripts / 'test-app-shared-coverage')]
+                result = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+                calls = trace.read_text().splitlines()
+                self.assertTrue(calls[0].endswith('/examples/wamp_app/shared:pub get'))
+                self.assertEqual(len(calls), {'resolve': 1, 'test': 2}.get(stage, 3))
+                if stage in ('success', 'floor'):
+                    report = json.loads((output / 'summary.json').read_text())
+                    self.assertEqual(report['sourceScope'], 'application')
+                    self.assertEqual(report['packages']['shared']['covered'], int(stage == 'success'))
+                    self.assertEqual(bool(report['findings']), stage == 'floor')
+                    self.assertIn('--package=' + str(root / 'examples/wamp_app/shared'), calls[-1])
+                    self.assertIn('--report-on=examples/wamp_app/shared/lib', calls[-1])
+                else:
+                    self.assertFalse((output / 'summary.json').exists())
+                again = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True, timeout=30)
+                self.assertEqual(again.returncode, 2)
+                self.assertEqual(trace.read_text().splitlines(), calls)
+
     @unittest.skipIf(os.name == "nt", "The fake Cargo executable uses a POSIX shell")
     def test_router_native_fixture_uses_cargo_freshness_after_build(self) -> None:
         helper = REPO_ROOT / "packages/connectanum_router/test/support/native_lib.dart"

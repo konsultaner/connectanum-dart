@@ -72,6 +72,25 @@ jobs:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
         run: bin/test-wamp-app
 
+      - name: Activate application coverage tooling
+        run: dart pub global activate coverage 1.15.1
+
+      - name: Enforce shared application protocol coverage
+        env:
+          CONNECTANUM_APP_SHARED_COVERAGE_DIR: out/coverage-app-shared
+        run: bin/test-app-shared-coverage
+
+      - name: Upload shared application protocol coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-shared-vm-coverage
+          path: |
+            out/coverage-app-shared/lcov.info
+            out/coverage-app-shared/summary.json
+            out/coverage-app-shared/raw
+          if-no-files-found: warn
+
   verify:
     name: Full Verify
     runs-on: ubuntu-latest

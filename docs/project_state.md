@@ -6,6 +6,56 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Latest checkpoint: 8872ad3e is pushed to PR #93 with the HTTP-body lost-wakeup
+fix, settings regressions and mutation-tool corrections. Its publishing dry-run
+passes; replacement CI is running. Native30 is complete: 93 assertion kills,
+19 survivors, five compile errors, ten errors and two timeouts across 129
+candidates (75.00% raw/adjusted). Evidence remains unclean, not a passing gate.
+
+Consumer protocol follow-up: app-shared37 passes all 100 tests and measures
+1,536/1,540 executable VM lines (99.74%), up from 90.83%. Account/profile input
+regressions reproduce silent integer-to-byte truncation and malformed receipt
+timestamps escaping as TypeError. Validate byte ranges and timestamp types before
+conversion. Call signaling, attachment/message receipts, expiry and backup/push
+wire validation have additional behavioral regressions. A new application scope
+keeps shared/server/client totals separate, inventories unmeasured application
+sources, and excludes tests/package libraries from its denominator. The shared
+98% gate passes through bin/test-app-shared-coverage; CI wiring retains LCOV,
+raw data and summary. The 94 unmeasured application files (including the shared
+export/constant-only files) remain explicit; this is not Flutter/server evidence.
+Sixteen coverage-tool and 38 launcher tests pass. Full verification33 and
+standalone consumer verification33 pass, including Flutter/browser tests and
+the release web build. Shared analysis and the latest canonical collection pass.
+Fresh bin/test-fast35 passes; final verification35 is running serially for the
+new mutation tooling.
+
+Standalone mutation execution now snapshots application component inputs and
+their ignored dependency lockfiles, resolves the standalone Dart package offline
+in its own directory, and records dependency hashes/logs. Production sources
+remain restricted to component lib/bin paths. Five new runner regressions cover
+snapshot isolation, lockfile symlinks, complete source inventory and independent
+resolution/failure; all 35 runner tests pass (one Linux-only skip on macOS).
+The full app-shared35 campaign has a passing baseline and 1,314 candidates but
+is still running, not a passing score. Preserve its original test snapshot.
+Subsequent constructor, typed-avatar and ciphertext boundary tests address
+observed survivors; the separate profile36 campaign confirms the constructor
+size-limit mutant is killed. Complete profile36 has 124 kills, seven survivors
+and 19 compile errors (94.66% raw/adjusted), with both baselines passing and no
+errors/timeouts. It predates the last typed-avatar boundary test; profile37
+checks the newer oracle. Neither slice replaces the full application inventory.
+
+Older PR run 35045484401 also exhausts the 90-minute core-lazy-web job budget:
+its artifact retains 272/289 outcomes (208 kills, 15 survivors, 49 compile errors,
+no recorded errors/timeouts) and is incomplete. Normal mutants repeatedly take
+about 23 seconds to compile/run three suites; no individual hang is established.
+A single grouped browser entrypoint retains exactly the same 84 named tests:
+both baselines pass, reducing local wall time from 12.76 to 5.60 seconds. Its
+three imported suites remain hashed support inputs. The complete 289-candidate
+lazy33 campaign passes both baselines: 223 kills, 16 survivors, 50 compile errors,
+zero errors/timeouts. Its raw score is 93.31%, adjusted 96.54% after the existing
+eight individually pinned equivalences. Neither inventory nor job/per-test
+budgets are reduced or relaxed. Replacement hosted evidence is still required.
+
 CI readiness priority: PR run 35045484401 timed out in
 http1_stream_reader_reclaims_after_completion; same-commit push verification
 passed, which does not resolve the intermittent hang. A coordinated regression

@@ -20,6 +20,37 @@ def events(*items):
 
 
 class MutationRunnerTests(unittest.TestCase):
+    def test_snapshot_preserves_standalone_application_inputs_and_ignored_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'repo'
+            destination = Path(directory) / 'snapshot'
+            contents = {
+                'pubspec.yaml': b'workspace: []',
+                'examples/wamp_app/shared/pubspec.yaml': b'name: protocol',
+                'examples/wamp_app/shared/pubspec.lock': b'pinned protocol dependencies',
+                'examples/wamp_app/shared/lib/a.dart': b'bool f() => true;',
+                'examples/wamp_app/shared/test/a_test.dart': b'test oracle',
+                'examples/wamp_app/server/pubspec.yaml': b'name: server',
+                'examples/wamp_app/client/pubspec.yaml': b'name: client',
+                'examples/wamp_app/unrelated/secret.txt': b'not a component',
+            }
+            for name, data in contents.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            listed = '\0'.join(name for name in contents if not name.endswith('.lock')).encode()
+            with patch.object(runner, 'ROOT', root), \
+                 patch.object(runner.subprocess, 'check_output', return_value=listed):
+                runner.snapshot(destination)
+            for name, data in contents.items():
+                if '/unrelated/' in name:
+                    self.assertFalse((destination / name).exists())
+                else:
+                    self.assertEqual((destination / name).read_bytes(), data)
+            (destination / 'examples/wamp_app/shared/lib/a.dart').write_text('changed')
+            self.assertEqual((root / 'examples/wamp_app/shared/lib/a.dart').read_bytes(),
+                             b'bool f() => true;')
+
     def test_snapshot_copies_only_declared_external_support_files(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'repo'
@@ -61,6 +92,26 @@ class MutationRunnerTests(unittest.TestCase):
                     (root / 'directory').mkdir(exist_ok=True)
                     with self.assertRaisesRegex(ValueError, 'support file'):
                         runner.snapshot(Path(directory) / 'snapshot', [name])
+
+    def test_snapshot_rejects_ignored_application_lockfile_symlink(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'repo'
+            package = root / 'examples/wamp_app/shared'
+            package.mkdir(parents=True)
+            (package / 'pubspec.lock').symlink_to(Path(directory) / 'outside.lock')
+            with patch.object(runner, 'ROOT', root), \
+                 patch.object(runner.subprocess, 'check_output', return_value=b''):
+                with self.assertRaisesRegex(ValueError, 'symlink'):
+                    runner.snapshot(Path(directory) / 'snapshot')
+
+    def test_application_target_inventories_every_shared_production_file(self):
+        target = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())['app-shared-vm']
+        actual = {str(path.relative_to(runner.ROOT))
+                  for path in (runner.ROOT / 'examples/wamp_app/shared/lib').rglob('*.dart')}
+        self.assertEqual(set(target['sources']), actual)
+        self.assertEqual(len(target['sources']), len(actual))
+        self.assertEqual(target['tests'], ['examples/wamp_app/shared/test'])
+        self.assertEqual(target['testRoot'], 'examples/wamp_app/shared')
 
     def test_snapshot_rejects_symlink_files_and_ancestor_directories(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -148,6 +199,9 @@ class MutationRunnerTests(unittest.TestCase):
             'packages/client/hook/build.dart',
             'packages/client/bin/main.dart',
             'packages/client/tool/install.dart',
+            'examples/wamp_app/shared/lib/src/protocol.dart',
+            'examples/wamp_app/server/bin/server.dart',
+            'examples/wamp_app/client/lib/main.dart',
         ])
         for sources in ([], 'packages/client/lib/a.dart', [None],
                         ['packages/client/test/lib/fake.dart'],
@@ -155,7 +209,12 @@ class MutationRunnerTests(unittest.TestCase):
                         ['packages/client/lib/../test/fake.dart'],
                         ['packages/client//lib/a.dart'],
                         ['packages/client/lib/a.py'],
-                        ['/tmp/packages/client/lib/a.dart']):
+                        ['/tmp/packages/client/lib/a.dart'],
+                        ['examples/wamp_app/shared/test/fake.dart'],
+                        ['examples/wamp_app/shared/lib/../test/fake.dart'],
+                        ['examples/wamp_app/shared/tool/fake.dart'],
+                        ['examples/wamp_app/other/lib/fake.dart'],
+                        ['examples/other/shared/lib/fake.dart']):
             with self.subTest(sources=sources), self.assertRaises(ValueError):
                 runner.validate_sources(sources)
 
@@ -361,6 +420,12 @@ class MutationRunnerTests(unittest.TestCase):
         self.exercise_main('timeout', 1)
         self.exercise_main('signal', 1)
 
+    def test_standalone_application_resolves_and_tests_in_its_own_directory(self):
+        self.exercise_main('killed', 0, application=True)
+
+    def test_standalone_resolution_failure_leaves_incomplete_evidence(self):
+        self.exercise_main('resolutionFailure', None, application=True)
+
     def test_failed_baselines_never_produce_complete_evidence(self):
         self.exercise_main('baselineFailure', None)
         self.exercise_main('restoredFailure', None)
@@ -402,18 +467,21 @@ class MutationRunnerTests(unittest.TestCase):
                 self.assertFalse(output.exists())
 
     def exercise_main(self, status, expected_code, directory_tests=False, native=False,
-                      browser=False):
+                      browser=False, application=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config = root / 'config.json'
             equivalents = root / 'equivalents.json'
             equivalents.write_text('{}')
-            source_path = 'packages/core/lib/a.dart'
-            test_path = 'packages/core/test/a_test.dart'
+            package_root = 'examples/wamp_app/shared' if application else 'packages/core'
+            source_path = f'{package_root}/lib/a.dart'
+            test_path = f'{package_root}/test/a_test.dart'
             selected = ['packages/core/test'] if directory_tests else [test_path]
             target = {'sources': [source_path], 'tests': selected}
             if browser:
                 target['platform'] = 'chrome'
+            if application:
+                target['testRoot'] = package_root
             library = root / 'native.bin'
             library.write_bytes(b'native baseline')
             if native:
@@ -427,9 +495,13 @@ class MutationRunnerTests(unittest.TestCase):
                             {'type': 'testDone', 'testID': 1, 'result': 'success'},
                             {'type': 'done', 'success': True})
             seen = []
+            dependency_cwds = []
             def fake_snapshot(work, support_files):
                 self.assertEqual(support_files, target.get('supportFiles', []))
                 files = [(source_path, source)]
+                if application:
+                    files.extend([(f'{package_root}/pubspec.yaml', 'name: fixture'),
+                                  (f'{package_root}/pubspec.lock', 'pinned dependencies')])
                 if native:
                     files.append(('packages/core/example/server.dart', 'example fixture'))
                 if directory_tests:
@@ -443,6 +515,11 @@ class MutationRunnerTests(unittest.TestCase):
             def fake_run(command, work, timeout):
                 self.assertNotEqual(work, runner.ROOT)
                 if command[1:3] == ['pub', 'get']:
+                    self.assertIn('--offline', command)
+                    dependency_cwds.append(work)
+                    if application and work.parts[-3:] == ('examples', 'wamp_app', 'shared'):
+                        if status == 'resolutionFailure':
+                            return 65, 'standalone dependency resolution failed'
                     return 0, ''
                 if command[1] == 'tool/dart_mutations.dart':
                     return 0, json.dumps([mutation])
@@ -453,7 +530,12 @@ class MutationRunnerTests(unittest.TestCase):
                         self.assertIn(selected[0], [test_path, 'packages/core/test/z_test.dart'])
                     else:
                         self.assertEqual(selected, [test_path, 'packages/core/test/z_test.dart'])
-                current = (work / source_path).read_text()
+                if application:
+                    self.assertEqual(work.parts[-3:], ('examples', 'wamp_app', 'shared'))
+                    self.assertIn('test/a_test.dart', command)
+                    current = (work / 'lib/a.dart').read_text()
+                else:
+                    current = (work / source_path).read_text()
                 seen.append(current)
                 if browser:
                     self.assertIn('--compiler=dart2js', command)
@@ -485,15 +567,25 @@ class MutationRunnerTests(unittest.TestCase):
                 else:
                     self.assertEqual(runner.main(), expected_code)
             expected_seen = [source] if status == 'baselineFailure' else [source, 'bool f() => false;', source]
+            if status == 'resolutionFailure':
+                expected_seen = []
             if native and directory_tests:
                 expected_seen = [source, source, 'bool f() => false;', source, source]
             self.assertEqual(seen, expected_seen)
+            if application:
+                self.assertEqual(len(dependency_cwds), 2)
+                self.assertEqual(dependency_cwds[1], dependency_cwds[0] / package_root)
             report = json.loads((root / 'result/mutation-report.json').read_text())
             self.assertEqual(report['complete'], expected_code is not None)
             if status == 'artifactChanged':
                 self.assertFalse(report['targets']['fixture']['nativeArtifactUnchanged'])
             if expected_code is not None:
                 target = report['targets']['fixture']
+                if application:
+                    self.assertEqual(target['dependencyHashes'], {
+                        f'{package_root}/pubspec.yaml': runner.hashlib.sha256(b'name: fixture').hexdigest(),
+                        f'{package_root}/pubspec.lock': runner.hashlib.sha256(b'pinned dependencies').hexdigest(),
+                    })
                 self.assertEqual(target['restoredBaseline'], 'survived')
                 self.assertEqual(target['baselineExitCode'], 0)
                 self.assertEqual(target['restoredBaselineExitCode'], 0)

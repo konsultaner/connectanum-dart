@@ -8,6 +8,66 @@ from check_coverage import findings, read_lcov, report
 
 
 class CoverageTests(unittest.TestCase):
+    def test_application_scope_is_separate_and_cannot_include_tests_or_packages(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'app.info'
+            accepted = {
+                'examples/wamp_app/shared/lib/protocol.dart',
+                'examples/wamp_app/server/bin/server.dart',
+                'examples/wamp_app/client/lib/main.dart',
+            }
+            rejected = [
+                'examples/wamp_app/shared/test/protocol_test.dart',
+                'examples/wamp_app/shared/lib/../test/fake.dart',
+                'examples/wamp_app/shared/lib//fake.dart',
+                'examples/wamp_app/shared/lib/./fake.dart',
+                'examples/wamp_app/unrecognized/lib/main.dart',
+                'examples/unrelated/shared/lib/main.dart',
+                'packages/core/lib/main.dart',
+            ]
+            path.write_text(''.join(f'SF:{source}\nDA:1,1\nDA:2,0\nend_of_record\n'
+                                    for source in sorted(accepted) + rejected)
+                            + 'SF:C:\\repo\\examples\\wamp_app\\shared\\lib\\protocol.dart\nDA:2,1\n'
+                            + 'end_of_record\nSF:/repo/examples/wamp_app/client/lib/main.dart\nDA:3,0\n')
+            sources = read_lcov([path], scope='application')
+            self.assertEqual(set(sources), accepted)
+            result = report(sources, root, scope='application')
+            self.assertEqual(result['overall'], {'covered': 4, 'total': 7, 'percent': 400 / 7})
+            self.assertEqual(result['packages']['shared']['percent'], 100)
+            self.assertEqual(result['packages']['server']['percent'], 50)
+            self.assertEqual(result['packages']['client']['percent'], 100 / 3)
+            self.assertIn('package libraries', result['unmeasuredScopes'])
+            self.assertIn('browser-only code', result['unmeasuredScopes'])
+            self.assertEqual(set(read_lcov([path])), {'packages/core/lib/main.dart'})
+
+    def test_application_inventory_retains_unmeasured_components_and_required_sources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ('shared/lib/api.dart', 'shared/lib/missing.dart',
+                         'server/bin/main.dart', 'client/lib/main.dart',
+                         'shared/test/api_test.dart'):
+                path = root / 'examples/wamp_app' / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+            source = 'examples/wamp_app/shared/lib/api.dart'
+            result = report({source: {1: 1}}, root, scope='application')
+            self.assertEqual(result['unmeasuredSources'], [
+                'examples/wamp_app/client/lib/main.dart',
+                'examples/wamp_app/server/bin/main.dart',
+                'examples/wamp_app/shared/lib/missing.dart'])
+            policy = {'target': 98, 'sourceScope': 'application', 'packages': {'shared': 98},
+                      'requiredSources': [source, 'examples/wamp_app/shared/lib/missing.dart']}
+            self.assertEqual(findings(result, policy), [
+                'examples/wamp_app/shared/lib/missing.dart: previously measured source missing from coverage'])
+            self.assertIn('shared: no executable coverage data',
+                          findings(report({}, root, scope='application'), policy))
+            policy['requiredSources'] = [source]
+            policy['componentPackages'] = ['shared']
+            self.assertIn(f'{source}: expected exactly one component, found 0', findings(result, policy))
+            policy['components'] = {'api': {'floor': 98, 'sources': [source]}}
+            self.assertEqual(findings(result, policy), [])
+
     def test_duplicate_records_and_reports_union_lines_and_hits(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

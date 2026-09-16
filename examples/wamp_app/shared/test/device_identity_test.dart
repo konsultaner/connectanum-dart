@@ -40,6 +40,28 @@ void main() {
     );
   });
 
+  test(
+    'device wire fields require typed dates and canonical unpadded keys',
+    () {
+      final wire = _enrollment().toWampKeywords();
+      for (final invalid in <Map<String, dynamic>>[
+        {'device_name': ''},
+        {'device_name': 42},
+        {'created_at': 42},
+        {'created_at': 'invalid'},
+        {'created_at': '2026-08-24T12:00:00'},
+        {'signing_public_key': '='},
+        {'signing_public_key': 'a'},
+        {'signing_public_key': '${'A' * 42}B'},
+      ]) {
+        expect(
+          () => DeviceEnrollment.fromWampKeywords({...wire, ...invalid}),
+          throwsFormatException,
+        );
+      }
+    },
+  );
+
   test('device directory preserves active and revoked records', () {
     final active = DeviceRecord(
       username: 'alice',
@@ -68,6 +90,7 @@ void main() {
 
     expect(restored.devices, hasLength(2));
     expect(restored.devices.first.isRevoked, isFalse);
+    expect(restored.devices.first.deviceId, _token(32, 1));
     expect(restored.devices.last.isRevoked, isTrue);
   });
 
@@ -88,6 +111,15 @@ void main() {
     );
 
     expect(restored.conversationId, 'chat-alice-bob');
+    for (final length in [79, 4097]) {
+      expect(
+        () => WrappedConversationKey.fromWampKeywords({
+          ...envelope.toWampKeywords(),
+          'sealed_key': _token(length, 3),
+        }).signaturePayload(),
+        throwsFormatException,
+      );
+    }
     expect(
       utf8.decode(restored.signaturePayload()),
       contains(WrappedConversationKey.algorithm),

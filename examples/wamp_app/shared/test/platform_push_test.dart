@@ -65,6 +65,43 @@ void main() {
     );
   });
 
+  test(
+    'subscription keys round-trip and malformed receipt dates fail closed',
+    () {
+      final key = PlatformPushSubscriptionKey.fromWampKeywords({
+        'device_id': deviceId,
+        'provider': ' FCM ',
+      });
+      expect(key.toWampKeywords(), {'device_id': deviceId, 'provider': 'fcm'});
+      expect(
+        () => PlatformPushSubscriptionKey.fromWampKeywords(null),
+        throwsFormatException,
+      );
+      final receipt = PlatformPushSubscriptionReceipt(
+        deviceId: deviceId,
+        provider: 'fcm',
+        registeredAt: DateTime.utc(2026, 8, 25, 10),
+        updatedAt: DateTime.utc(2026, 8, 25, 11),
+      ).toWampKeywords();
+      for (final field in ['registered_at', 'updated_at']) {
+        for (final value in <Object?>[
+          null,
+          42,
+          'invalid',
+          '2026-08-25T11:00:00',
+        ]) {
+          expect(
+            () => PlatformPushSubscriptionReceipt.fromWampKeywords({
+              ...receipt,
+              field: value,
+            }),
+            throwsFormatException,
+          );
+        }
+      }
+    },
+  );
+
   test('push subscription bounds reject malformed provider tokens', () {
     expect(
       () => PlatformPushSubscriptionRequest(
