@@ -134,6 +134,7 @@ expected_ci_jobs=(
   'core-e2ee-vm Mutation Gate'
   'bench-config Mutation Gate'
   'core-lazy-vm Mutation Gate'
+  'core-lazy-web Mutation Gate'
 )
 dart_package_publish_workflow='Dart Package Publish Dry Run'
 expected_dart_package_publish_jobs=('Publish Dry Run')

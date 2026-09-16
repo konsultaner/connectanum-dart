@@ -352,12 +352,32 @@ void main() {
         handshakeHandle: inlineHandshake.handle,
         response: NativeHttpResponse(
           status: 204,
+          headers: const {'Set-Cookie': 'sid=first; HttpOnly'},
+          additionalHeaders: const [
+            MapEntry(
+              'SET-cookie',
+              'language=de; Expires=Wed, 09 Jun 2032 10:18:14 GMT',
+            ),
+            MapEntry('set-cookie', 'theme=dark; Secure'),
+          ],
           body: NativeHttpResponseBytes(Uint8List(0)),
         ),
       );
       inlineHandshake.release();
       final inlineResponse = await _readHttpResponse(inlineSocket);
       expect(inlineResponse, contains('204 No Content'));
+      expect(
+        const LineSplitter()
+            .convert(inlineResponse)
+            .where(
+              (line) => line.toLowerCase().startsWith('set-cookie:'),
+            ),
+        [
+          'set-cookie: sid=first; HttpOnly',
+          'set-cookie: language=de; Expires=Wed, 09 Jun 2032 10:18:14 GMT',
+          'set-cookie: theme=dark; Secure',
+        ],
+      );
 
       final streamingSocket = await Socket.connect('127.0.0.1', port);
       addTearDown(streamingSocket.close);

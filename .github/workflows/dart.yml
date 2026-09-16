@@ -169,15 +169,20 @@ jobs:
   mutation-gates:
     name: ${{ matrix.target }} Mutation Gate
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.target == 'core-lazy-web' && 90 || 20 }}
     strategy:
       fail-fast: false
       matrix:
-        target: [router-authorization, auth-server, client-installer, router-installer, core-e2ee-vm, bench-config, core-lazy-vm]
+        target: [router-authorization, auth-server, client-installer, router-installer, core-e2ee-vm, bench-config, core-lazy-vm, core-lazy-web]
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
+      - id: chrome
+        if: matrix.target == 'core-lazy-web'
+        uses: browser-actions/setup-chrome@v2
       - name: Run the complete target AST mutation inventory
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
         run: bin/test-mutations --target "${{ matrix.target }}" --output out/mutations
       - name: Upload complete inventory, scores and per-mutant logs
         if: always()

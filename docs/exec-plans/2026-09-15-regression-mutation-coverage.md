@@ -997,3 +997,79 @@ output, and coverage20 verification logs. The full goal remains active.
 
 Evidence: native20/21/22-rawsocket, native23-current/native23-rawsocket when
 completed, and native23 verification/tooling logs. The full goal remains active.
+
+### FastCGI Response Regressions And Browser Mutation Gate
+
+- The complete lazy20 JavaScript inventory contains 289 candidates: 223 kills,
+  16 survivors and 50 compile errors. Clean/restored baselines pass, with no
+  timeouts/errors. Raw score is 93.31%; the eight existing individually justified,
+  source-hash-pinned equivalences yield 96.54% adjusted. Preserve the earlier
+  errored inventories rather than replacing their results. Require a separate
+  core-lazy-web CI job, with complete logs/inventory artifacts and a 90-minute
+  campaign budget; individual test timeouts and error classification are unchanged.
+  All 24 deployment-audit tests pass with thirteen required jobs.
+- FastCGI's public route plus a real TCP upstream reproduces comma-folded cookies.
+  The parser now retains independent fields, and NativeHttpResponse has an
+  immutable additionalHeaders list appended to its scalar header map at FFI
+  marshaling. The existing CtHttpHeader array ABI already supports this; no
+  native ABI change is needed. A native HTTP wire test checks three separate
+  Set-Cookie lines, including an Expires comma and mixed-case input names.
+  This follows [RFC 6265 section 3](https://www.rfc-editor.org/rfc/rfc6265#section-3),
+  which warns that folding Set-Cookie fields changes their semantics.
+- Inspection beyond HTTP/1 exposed native HTTP/2 and HTTP/3 header-map overwrites.
+  Six real-protocol tests fail independently at the cookie assertion for plain,
+  buffered and streaming replies. All six pass after appending caller fields,
+  without folding, in each response builder. The tests also assert complete body
+  bytes and repeated non-cookie fields. Conflicting Content-Length fixtures are
+  replaced by one computed value for plain/buffered replies and removed for
+  streaming replies. The new HTTP/2 plain fixture independently failed with
+  three lengths; inserting the computed length last fixes that framing defect.
+  Tests run in an independent Cargo target directory, not the shared FFI build.
+  The initial verify ran its native phase before these changes and was not
+  final-snapshot evidence; the subsequent coverage25 full verify includes all
+  six native header tests and passes.
+- Case-insensitive repeated Connection fields contribute all hop-by-hop tokens,
+  and upstream Content-Length is removed before native framing. Separate
+  regressions reproduce acceptance of 600/999 statuses; the parser now rejects
+  them before dispatch, matching native validation and the 100..599 range in
+  [RFC 9110 section 15](https://www.rfc-editor.org/rfc/rfc9110.html#section-15).
+- Thirty focused regressions pass. Cases cover CRLF/LF, valid status boundaries,
+  padded/fragmented records, binary bodies, stderr isolation, invalid version/ID,
+  truncated headers/content/padding, failed END_REQUEST, malformed CGI headers,
+  cumulative stdout limits, incomplete-response timeout and invalid UTF-8.
+  The fixture waits for upstream EOF on success/error/timeout rather than merely
+  destroying the socket in teardown. Header snapshots are immutable.
+- Local companion review's casing concern is disproved by the existing
+  _nativeHttpResponseHeaderEntries lowercasing; its Connection concern is
+  disproved by source inspection and exact header-set assertions. The RFC-backed
+  status tightening is intentional. Pre-change bin/test-fast and analysis pass;
+  initial bin/verify with the real LLVM fixture and both browser compilers passes.
+  Full VM collection vm-current24 subsequently failed the legacy ABI fixture,
+  without a valid new total. Cargo succeeded but the test helper's broad mtime
+  check rejected its artifact after a cfg(test)-only source change. A fake-Cargo
+  regression reproduces both normal and legacy failures. Trust Cargo freshness
+  after success, but still reject failed builds and absent outputs; all six
+  fixture cases pass. Local review proposed requiring a relink after no-op Cargo
+  success, which would reinstate the reproduced bug; reject that recommendation.
+  Fresh bin/test-fast and final-snapshot bin/verify pass, including the real
+  legacy ABI regression, 34 verification-script tests, the real LLVM fixture
+  and both browser compilers. Full VM collection vm-current25 is running;
+  native25-current is queued serially afterward.
+  Candidate hosted evidence remains required;
+  no whole-router percentage or
+  new FastCGI mutation score is claimed from these focused tests.
+- Native23 completed all 129 RawSocket candidates, but strict auditing reports
+  12 kills, 91 errors, 19 survivors, five compile errors and two timeouts.
+  Preserve the failed evidence. Several logs combine genuine assertion failures
+  with test unwrap/expect panics, which cannot be reported as assertion-only kills.
+  Remaining native test quality, platform-specific survivors and complete native
+  scope remain open; do not weaken the auditor to manufacture a passing score.
+- Hosted 7984160 CI (35037801775) and publishing dry-run (35037801711) passed.
+  The locally updated thirteen-job audit reports the browser gate missing from
+  the older twelve-job run, not a failed browser campaign. Unprotected feature
+  branch and diagnostic workflow absent from master remain strict findings.
+  Do not weaken those checks or merge/publish to remove them without authorization.
+
+Evidence: lazy20-js-mutations and native23-rawsocket under
+out/regression-coverage-2026-09-15, plus coverage24/25 regression/verification logs.
+The original per-component/runtime coverage and mutation goal remains active.

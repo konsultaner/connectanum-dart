@@ -697,7 +697,7 @@ _HttpFastCgiResponse _parseFastCgiStdoutResponse(Uint8List bytes) {
   final headerText = utf8.decode(Uint8List.sublistView(bytes, 0, separator.$1));
   final body = Uint8List.sublistView(bytes, separator.$2);
   var status = HttpStatus.ok;
-  final headerValues = <String, List<String>>{};
+  final headerEntries = <MapEntry<String, String>>[];
   for (final line in const LineSplitter().convert(headerText)) {
     if (line.trim().isEmpty) {
       continue;
@@ -713,27 +713,41 @@ _HttpFastCgiResponse _parseFastCgiStdoutResponse(Uint8List bytes) {
     }
     if (name.toLowerCase() == 'status') {
       final code = int.tryParse(value.split(' ').first);
-      if (code == null || code < 100 || code > 999) {
+      if (code == null || code < 100 || code > 599) {
         throw _HttpFastCgiProtocolException('invalid_status');
       }
       status = code;
       continue;
     }
-    headerValues.putIfAbsent(name, () => <String>[]).add(value);
+    headerEntries.add(MapEntry(name, value));
   }
-  final blocked = _httpHopByHopHeaderNames(
-    headerValues.map((key, value) => MapEntry(key, value.join(','))),
-  );
+  final blocked = _httpHopByHopHeaderNames({
+    'connection': headerEntries
+        .where((entry) => entry.key.toLowerCase() == 'connection')
+        .map((entry) => entry.value)
+        .join(','),
+  });
   blocked.addAll(const {'content-length'});
   final headers = <String, String>{};
-  for (final entry in headerValues.entries) {
-    final name = entry.key.trim();
-    if (name.isEmpty || blocked.contains(name.toLowerCase())) {
+  final additionalHeaders = <MapEntry<String, String>>[];
+  final seen = <String>{};
+  for (final entry in headerEntries) {
+    final normalized = entry.key.toLowerCase();
+    if (blocked.contains(normalized)) {
       continue;
     }
-    headers[name] = entry.value.join(',');
+    if (seen.add(normalized)) {
+      headers[entry.key] = entry.value;
+    } else {
+      additionalHeaders.add(entry);
+    }
   }
-  return _HttpFastCgiResponse(status: status, headers: headers, body: body);
+  return _HttpFastCgiResponse(
+    status: status,
+    headers: headers,
+    additionalHeaders: additionalHeaders,
+    body: body,
+  );
 }
 
 (int, int)? _httpFastCgiHeaderSeparator(Uint8List bytes) {
@@ -814,11 +828,13 @@ class _HttpFastCgiResponse {
   const _HttpFastCgiResponse({
     required this.status,
     required this.headers,
+    required this.additionalHeaders,
     required this.body,
   });
 
   final int status;
   final Map<String, String> headers;
+  final List<MapEntry<String, String>> additionalHeaders;
   final Uint8List body;
 }
 
@@ -2894,6 +2910,7 @@ class RouterBinding {
         response: NativeHttpResponse(
           status: fastCgiResponse.status,
           headers: fastCgiResponse.headers,
+          additionalHeaders: fastCgiResponse.additionalHeaders,
           body: NativeHttpResponseBytes(fastCgiResponse.body),
         ),
       );

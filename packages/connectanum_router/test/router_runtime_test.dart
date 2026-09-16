@@ -93,8 +93,11 @@ class _TestFastCgiRecordReader {
   }
 }
 
-Future<_TestFastCgiRequest> _readTestFastCgiRequest(Socket socket) async {
-  final reader = _TestFastCgiRecordReader(socket);
+Future<_TestFastCgiRequest> _readTestFastCgiRequest(
+  Socket socket, {
+  _TestFastCgiRecordReader? recordReader,
+}) async {
+  final reader = recordReader ?? _TestFastCgiRecordReader(socket);
   final paramsBytes = BytesBuilder(copy: false);
   final bodyBytes = BytesBuilder(copy: false);
   var paramsComplete = false;
@@ -793,6 +796,119 @@ Map<String, Object?> _jsonResponseBody(NativeHttpResponse response) {
     );
   }
   throw StateError('Unsupported HTTP response body: ${body.runtimeType}');
+}
+
+Future<({NativeHttpResponse response, List<Map<String, Object?>> events})>
+_fastCgiResponseFixture(
+  Future<void> Function(Socket socket) respond, {
+  Map<String, Object?> options = const {},
+}) async {
+  final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  final sockets = <Socket>[];
+  final served = Completer<void>();
+  final subscription = upstream.listen((socket) async {
+    sockets.add(socket);
+    try {
+      final reader = _TestFastCgiRecordReader(socket);
+      await _readTestFastCgiRequest(socket, recordReader: reader);
+      await respond(socket);
+      expect(reader._offset, reader._buffer.length);
+      expect(
+        await reader._iterator.moveNext().timeout(const Duration(seconds: 2)),
+        isFalse,
+        reason: 'Router must close the upstream socket after every response',
+      );
+      served.complete();
+    } catch (error, stack) {
+      served.completeError(error, stack);
+    }
+  });
+  // Observe failures immediately, while the router's reply is still pending.
+  final upstreamResult = served.future.then<Object?>(
+    (_) => null,
+    onError: (Object error, StackTrace stack) => error,
+  );
+  addTearDown(() async {
+    for (final socket in sockets) {
+      socket.destroy();
+    }
+    await subscription.cancel();
+    await upstream.close();
+  });
+  final runtime = _HandleRuntime();
+  final settings = RouterSettingsBuilder()
+    ..addListenerFromBuilder(
+      ListenerSettingsBuilder('http', '127.0.0.1:0')
+        ..addProtocol(ListenerProtocol.http)
+        ..setHttpOptions(
+          HttpListenerSettings(
+            routes: [
+              HttpRouteSettings(
+                match: const HttpRouteMatch(prefix: '/php'),
+                action: HttpRouteAction(
+                  type: HttpRouteActionType.fastCgi,
+                  delegate: 'tcp://${upstream.address.host}:${upstream.port}',
+                  options: {
+                    'document_root': '/srv/consumer/public',
+                    'strip_prefix': true,
+                    'timeout_ms': 1000,
+                    ...options,
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+    );
+  final router = Router(
+    RouterConfig(
+      endpoints: [
+        Endpoint(
+          host: '127.0.0.1',
+          port: 0,
+          tlsMode: TlsMode.native,
+          maxRawSocketSizeExponent: 16,
+          sniCertificates: [_cert('localhost')],
+        ),
+      ],
+    ),
+    settings: settings.build(),
+  );
+  final events = <Map<String, Object?>>[];
+  final binding = router.start(
+    runtime,
+    onEvent: (event) {
+      if (event is Map<String, Object?>) events.add(event);
+    },
+  );
+  addTearDown(binding.dispose);
+  await Future<void>.delayed(Duration.zero);
+  const connectionId = 146;
+  runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+  runtime.enqueueHttpHandshake(
+    binding.listeners.single.listenerId,
+    connectionId,
+    NativeHttpHandshake.synthetic(
+      handle: 146,
+      method: 'GET',
+      target: '/php/index.php',
+      path: '/php/index.php',
+      protocol: 'http/1.1',
+      headers: const {'host': 'consumer.example'},
+      body: Uint8List(0),
+      realm: 'router.http',
+      procedure: 'router.http.fastcgi',
+    ),
+  );
+  await _waitUntil(
+    () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+    timeout: const Duration(seconds: 5),
+  );
+  expect(await upstreamResult.timeout(const Duration(seconds: 2)), isNull);
+  return (
+    response: runtime.httpResponses[connectionId]!.single,
+    events: events,
+  );
 }
 
 void _enqueueSyntheticHttpRequest({
@@ -4698,6 +4814,357 @@ void main() {
       ),
       isTrue,
     );
+  });
+
+  test('FastCGI keeps independent cookies instead of comma folding', () async {
+    const first = 'sid=opaque; Expires=Wed, 09 Jun 2032 10:18:14 GMT; HttpOnly';
+    const second = 'language=de; Path=/; Secure';
+    final result = await _fastCgiResponseFixture((socket) async {
+      socket
+        ..add(
+          _testFastCgiRecord(
+            _testFastCgiStdOut,
+            Uint8List.fromList(
+              utf8.encode(
+                'Content-Type: text/plain\r\n'
+                'Set-Cookie: $first\r\nSet-Cookie: $second\r\n\r\nok',
+              ),
+            ),
+          ),
+        )
+        ..add(_testFastCgiRecord(_testFastCgiEndRequest, Uint8List(8)));
+      await socket.flush();
+    });
+    expect(result.response.status, HttpStatus.ok);
+    expect(result.response.headers['Set-Cookie'], first);
+    expect(
+      result.response.additionalHeaders.map(
+        (entry) => (entry.key, entry.value),
+      ),
+      [
+        ('Set-Cookie', second),
+      ],
+    );
+    expect(
+      (result.response.body as NativeHttpResponseBytes).bytes,
+      utf8.encode('ok'),
+    );
+  });
+
+  test(
+    'FastCGI preserves repeated fields and filters all Connection tokens',
+    () async {
+      final result = await _fastCgiResponseFixture((socket) async {
+        socket
+          ..add(
+            _testFastCgiRecord(
+              _testFastCgiStdOut,
+              Uint8List.fromList(
+                utf8.encode(
+                  'Status: 202 Accepted\n'
+                  'Set-Cookie: first=1\nset-cookie: second=2\nSET-COOKIE: third=3\n'
+                  'X-List: first\nx-list: second\n'
+                  'Connection: X-Secret\nconnection: X-Other\n'
+                  'X-Secret: secret\nX-Other: secret\n'
+                  'Transfer-Encoding: chunked\nContent-Length: 999\n\nbinary',
+                ),
+              ),
+            ),
+          )
+          ..add(_testFastCgiRecord(_testFastCgiEndRequest, Uint8List(8)));
+        await socket.flush();
+      });
+      expect(result.response.status, 202);
+      expect(result.response.headers, {
+        'Set-Cookie': 'first=1',
+        'X-List': 'first',
+      });
+      expect(
+        result.response.additionalHeaders.map(
+          (entry) => (entry.key, entry.value),
+        ),
+        [
+          ('set-cookie', 'second=2'),
+          ('SET-COOKIE', 'third=3'),
+          ('x-list', 'second'),
+        ],
+      );
+      expect(
+        (result.response.body as NativeHttpResponseBytes).bytes,
+        utf8.encode('binary'),
+      );
+    },
+  );
+
+  for (final separator in ['\r\n', '\n']) {
+    test(
+      'FastCGI assembles padded records and binary body (${separator.length})',
+      () async {
+        final stdout = [
+          ...utf8.encode(
+            'Content-Type: application/octet-stream$separator$separator',
+          ),
+          0,
+          255,
+          128,
+          10,
+        ];
+        final result = await _fastCgiResponseFixture((socket) async {
+          for (final byte in stdout) {
+            // Flush record fragments independently; neither padding nor stderr
+            // belongs to the CGI stdout response or its size budget.
+            final record = _testFastCgiRecord(
+              _testFastCgiStdOut,
+              Uint8List.fromList([byte]),
+            );
+            record[6] = 3;
+            socket.add(record.sublist(0, 5));
+            await socket.flush();
+            socket.add([...record.sublist(5), 255, 254, 253]);
+            await socket.flush();
+          }
+          socket
+            ..add(
+              _testFastCgiRecord(
+                7,
+                Uint8List.fromList(utf8.encode('private stderr secret')),
+              ),
+            )
+            ..add(_testFastCgiRecord(_testFastCgiStdOut, Uint8List(0)))
+            ..add(_testFastCgiRecord(_testFastCgiEndRequest, Uint8List(8)));
+          await socket.flush();
+        }, options: {'max_response_bytes': stdout.length});
+        expect(result.response.status, 200);
+        expect(result.response.headers, {
+          'Content-Type': 'application/octet-stream',
+        });
+        expect(result.response.additionalHeaders, isEmpty);
+        expect((result.response.body as NativeHttpResponseBytes).bytes, [
+          0,
+          255,
+          128,
+          10,
+        ]);
+        expect(jsonEncode(result.events), isNot(contains('secret')));
+      },
+    );
+  }
+
+  final malformedFastCgi = <String, ({List<int> bytes, String reason})>{
+    'wrong version': (
+      bytes: [2, 6, 0, 1, 0, 0, 0, 0],
+      reason: 'invalid_record',
+    ),
+    'management request id': (
+      bytes: [1, 6, 0, 0, 0, 0, 0, 0],
+      reason: 'invalid_record',
+    ),
+    'foreign request id': (
+      bytes: [1, 6, 1, 1, 0, 0, 0, 0],
+      reason: 'invalid_record',
+    ),
+    'truncated record header': (bytes: [1, 6, 0, 1], reason: 'unexpected_eof'),
+    'truncated content': (
+      bytes: [1, 6, 0, 1, 0, 2, 0, 0, 65],
+      reason: 'unexpected_eof',
+    ),
+    'truncated padding': (
+      bytes: [1, 6, 0, 1, 0, 0, 2, 0, 65],
+      reason: 'unexpected_eof',
+    ),
+    'short end record': (
+      bytes: _testFastCgiRecord(3, Uint8List(7)),
+      reason: 'request_failed',
+    ),
+    'failed end status': (
+      bytes: _testFastCgiRecord(
+        3,
+        Uint8List.fromList([0, 0, 0, 0, 1, 0, 0, 0]),
+      ),
+      reason: 'request_failed',
+    ),
+    'empty stdout': (
+      bytes: _testFastCgiRecord(3, Uint8List(8)),
+      reason: 'missing_headers',
+    ),
+  };
+  for (final fixture in malformedFastCgi.entries) {
+    test(
+      'FastCGI rejects ${fixture.key} without leaking upstream data',
+      () async {
+        final result = await _fastCgiResponseFixture((socket) async {
+          socket.add(fixture.value.bytes);
+          await socket.flush();
+          await socket.close();
+        });
+        expect(result.response.status, HttpStatus.badGateway);
+        expect(
+          _jsonResponseBody(result.response)['reason'],
+          'fastcgi_protocol_error',
+        );
+        final errors = result.events.where(
+          (event) => event['type'] == 'http_fastcgi_error',
+        );
+        expect(errors.single['reason'], fixture.value.reason);
+        expect(errors.single.containsKey('stackTrace'), isFalse);
+        expect(
+          result.events.any(
+            (event) => event['type'] == 'http_fastcgi_response_sent',
+          ),
+          isFalse,
+        );
+      },
+    );
+  }
+
+  for (final header in [
+    'Broken secret',
+    ': secret',
+    ' : secret',
+    'Status: secret',
+    'Status: 99 secret',
+    'Status: 600 secret',
+    'Status: 999 secret',
+    'Status: 1000 secret',
+  ]) {
+    test(
+      'FastCGI rejects invalid CGI header ${header.split(':').first}',
+      () async {
+        final result = await _fastCgiResponseFixture((socket) async {
+          socket
+            ..add(
+              _testFastCgiRecord(
+                6,
+                Uint8List.fromList(utf8.encode('$header\r\n\r\nprivate body')),
+              ),
+            )
+            ..add(_testFastCgiRecord(3, Uint8List(8)));
+          await socket.flush();
+        });
+        expect(result.response.status, 502);
+        expect(
+          _jsonResponseBody(result.response)['reason'],
+          'fastcgi_protocol_error',
+        );
+        expect(
+          jsonEncode(_jsonResponseBody(result.response)),
+          isNot(contains('secret')),
+        );
+        expect(jsonEncode(result.events), isNot(contains('secret')));
+      },
+    );
+  }
+
+  for (final status in [100, 200, 599]) {
+    test('FastCGI accepts valid status boundary $status', () async {
+      final result = await _fastCgiResponseFixture((socket) async {
+        socket
+          ..add(
+            _testFastCgiRecord(
+              6,
+              Uint8List.fromList(utf8.encode('sTaTuS: $status\n\n')),
+            ),
+          )
+          ..add(_testFastCgiRecord(3, Uint8List(8)));
+        await socket.flush();
+      });
+      expect(result.response.status, status);
+      expect(result.response.headers, isEmpty);
+      expect((result.response.body as NativeHttpResponseBytes).bytes, isEmpty);
+    });
+  }
+
+  test(
+    'FastCGI invalid header encoding fails closed without exposing bytes',
+    () async {
+      final result = await _fastCgiResponseFixture((socket) async {
+        socket
+          ..add(
+            _testFastCgiRecord(
+              6,
+              Uint8List.fromList([88, 58, 255, 13, 10, 13, 10]),
+            ),
+          )
+          ..add(_testFastCgiRecord(3, Uint8List(8)));
+        await socket.flush();
+      });
+      expect(result.response.status, 502);
+      expect(_jsonResponseBody(result.response), {
+        'status': 'error',
+        'reason': 'fastcgi_failed',
+        'message': 'FastCGI upstream request failed',
+      });
+      final error = result.events
+          .where((event) => event['type'] == 'http_fastcgi_error')
+          .single;
+      expect(error['reason'], 'upstream_failed');
+      expect(error.containsKey('error'), isFalse);
+      expect(error.containsKey('stackTrace'), isFalse);
+    },
+  );
+
+  test('FastCGI enforces the cumulative stdout limit', () async {
+    final result = await _fastCgiResponseFixture((socket) async {
+      socket
+        ..add(
+          _testFastCgiRecord(6, Uint8List.fromList(utf8.encode('X: y\n\n'))),
+        )
+        ..add(_testFastCgiRecord(6, Uint8List.fromList([1, 2, 3, 4])))
+        ..add(_testFastCgiRecord(3, Uint8List(8)));
+      await socket.flush();
+    }, options: {'max_response_bytes': 9});
+    expect(result.response.status, 502);
+    expect(
+      _jsonResponseBody(result.response)['reason'],
+      'fastcgi_response_too_large',
+    );
+    expect(
+      result.events
+          .where((event) => event['type'] == 'http_fastcgi_error')
+          .single['reason'],
+      'response_too_large',
+    );
+  });
+
+  test(
+    'FastCGI incomplete response expires without sending partial data',
+    () async {
+      final result = await _fastCgiResponseFixture((socket) async {
+        socket.add(
+          _testFastCgiRecord(
+            6,
+            Uint8List.fromList(utf8.encode('X: secret\n\npartial')),
+          ),
+        );
+        await socket.flush();
+      }, options: {'timeout_ms': 50});
+      expect(result.response.status, 504);
+      expect(_jsonResponseBody(result.response)['reason'], 'fastcgi_timeout');
+      expect(jsonEncode(result.events), isNot(contains('secret')));
+      expect(
+        result.events.any(
+          (event) => event['type'] == 'http_fastcgi_response_sent',
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  test('native HTTP repeated headers own their immutable input snapshot', () {
+    final headers = {'Set-Cookie': 'first=1'};
+    final additional = [const MapEntry('set-cookie', 'second=2')];
+    final response = NativeHttpResponse(
+      status: 200,
+      headers: headers,
+      additionalHeaders: additional,
+      body: NativeHttpResponseBytes(Uint8List(0)),
+    );
+    headers.clear();
+    additional.clear();
+    expect(response.headers, {'Set-Cookie': 'first=1'});
+    expect(response.additionalHeaders.single.value, 'second=2');
+    expect(() => response.additionalHeaders.clear(), throwsUnsupportedError);
+    expect(() => response.headers.clear(), throwsUnsupportedError);
   });
 
   test('does not leak FastCGI target details when upstream fails', () async {

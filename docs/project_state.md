@@ -6,6 +6,53 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+FastCGI/browser checkpoint (not goal completion): the complete lazy20 JavaScript
+inventory passes its clean/restored baselines with 223 kills, 16 survivors and
+50 compile errors, with no timeouts/errors. Raw score is 93.31%; eight individually
+source-hash-pinned equivalences give 96.54% adjusted. The new required
+core-lazy-web mutation job enforces that complete inventory separately from VM.
+All 24 deployment-audit regressions pass with the thirteen-job contract.
+
+Public-route regressions reproduce folded FastCGI cookies and invalid 600/999
+status acceptance. Repeated fields now survive through the existing FFI header
+array, without an ABI change; all case-insensitive Connection tokens are removed
+and status codes must be 100..599. Thirty focused tests pass, covering record
+fragments/padding, malformed records/headers, limits, timeout, binary bodies,
+error privacy and upstream socket closure. A real native HTTP wire test verifies
+three separate cookie fields including an Expires comma. Six additional real
+HTTP/2 and HTTP/3 regressions reproduce native header-map overwriting in plain,
+buffered and streaming replies; all pass after preserving repeated fields.
+Content-Length remains computed once for buffered/plain replies and removed for
+streaming replies. A separate regression caught conflicting lengths in HTTP/2's
+plain path; its computed length is now inserted last. Analysis and the fresh
+pre-change bin/test-fast pass. The initial bin/verify passes, including the real
+LLVM fixture and both browser compilers, but its native phase predates these Rust
+changes and cannot verify the final native snapshot. Full VM collection
+vm-current24 failed the legacy ABI fixture and produced no valid new total:
+Cargo succeeded, but the test helper rejected its library because a cfg(test)
+source was newer. A deterministic fake-Cargo regression reproduces this in both
+normal and legacy resolution. The helper now trusts Cargo freshness after a
+successful build, still rejecting build failures and missing output; all six
+cases pass. Fresh bin/test-fast and final-snapshot bin/verify pass, including
+all six native header tests, the real legacy ABI regression, 34 verification-
+script tests, the real LLVM fixture and both browser compilers. Full VM
+collection vm-current25 is running; native25-current is queued serially afterward.
+Candidate hosted evidence remains required; no new whole-component percentage
+is claimed until these collections finish.
+
+Hosted 7984160 CI (35037801775) and publishing dry-run (35037801711) passed.
+The local thirteen-job audit correctly cannot find the newly added browser gate
+in that older twelve-job run. Feature-branch protection and the diagnostic
+workflow's absence from master remain explicit strict-audit findings; no merge,
+publication, or release-readiness claim is authorized by these results.
+
+Native23 has now finished all 129 RawSocket candidates: 12 audited assertion
+kills, 91 errors, 19 survivors, five compile errors and two timeouts. Its evidence
+is unclean, not a passing score. Logs show test unwrap/expect panics alongside
+assertion failures; the strict auditor correctly does not relabel these mixed
+outcomes as kills. Preserve this inventory and improve the tests/evidence next.
+No full component/runtime has reached the overall milestone through this slice.
+
 Native evidence checkpoint (not goal completion): the complete native22 RawSocket
 inventory at ab4511a6 contains 129 candidates. Cargo reports 89 caught, but strict
 libtest/source auditing confirms only 17 explicit assertion kills, with 72 errors,

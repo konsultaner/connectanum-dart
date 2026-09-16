@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -56,6 +57,57 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "The fake Cargo executable uses a POSIX shell")
+    def test_router_native_fixture_uses_cargo_freshness_after_build(self) -> None:
+        helper = REPO_ROOT / "packages/connectanum_router/test/support/native_lib.dart"
+        dart = shutil.which("dart")
+        self.assertIsNotNone(dart)
+        for legacy in (False, True):
+            for outcome in ("success", "failure", "missing"):
+                with self.subTest(legacy=legacy, outcome=outcome), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp).resolve()
+                    source = root / "native/transport/ct_core/src/test_only.rs"
+                    source.parent.mkdir(parents=True)
+                    source.write_text("// A test-only change need not relink the release library.\n")
+                    target = "legacy-message-handles-test" if legacy else "ffi-test"
+                    filename = "libct_ffi.dylib" if os.uname().sysname == "Darwin" else "libct_ffi.so"
+                    artifact = root / f"native/transport/target/{target}/release/{filename}"
+                    artifact.parent.mkdir(parents=True)
+                    if outcome != "missing":
+                        artifact.write_bytes(b"fixture: path resolution only")
+                        os.utime(artifact, (1700000000, 1700000000))
+                    os.utime(source, (1700000100, 1700000100))
+                    cargo = root / "cargo"
+                    marker = root / "cargo-called"
+                    cargo.write_text(
+                        '#!/bin/sh\nprintf "%s\\n" "$@" > "$CARGO_CALL_MARKER"\n'
+                        + ("exit 17\n" if outcome == "failure" else "exit 0\n")
+                    )
+                    cargo.chmod(0o755)
+                    resolver = "resolveOrBuildLegacyMessageHandleNativeLib" if legacy else "resolveOrBuildNativeLib"
+                    probe = root / "probe.dart"
+                    probe.write_text(
+                        f"import '{helper.as_uri()}';\n"
+                        f"void main() {{ print({resolver}()); }}\n"
+                    )
+                    env = dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"],
+                               CARGO_CALL_MARKER=str(marker))
+                    env.pop("CONNECTANUM_NATIVE_LIB", None)
+                    result = subprocess.run(
+                        [dart, str(probe)], cwd=root, env=env, text=True,
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertTrue(marker.exists(), result.stderr)
+                    self.assertIn("ffi-test", marker.read_text())
+                    self.assertEqual(
+                        result.stdout.strip(),
+                        str(artifact) if outcome == "success" else "null",
+                        result.stderr,
+                    )
+                    if outcome == "failure":
+                        self.assertIn("exit 17", result.stderr)
+
     def test_native_coverage_keeps_raw_evidence_and_pins_scopes_before_collection(self):
         for script in [TEST_FAST, TEST_ALL]:
             self.assertIn('"$ROOT_DIR/bin/test-native-coverage-tools"', script.read_text())
