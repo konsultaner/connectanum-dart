@@ -133,6 +133,26 @@ void main() {
         expect(emptyArgs.arguments, isEmpty);
         expect(emptyArgs.argumentsKeywords, isNull);
       });
+      test(
+        'closing details without a reason preserve message and extensions',
+        () {
+          final abort = decode<Abort>([
+            3,
+            {'message': 'unavailable', 'retry': true},
+          ]);
+          expect(abort.reason, '');
+          expect(abort.message?.message, 'unavailable');
+          expect(abort.details, {'message': 'unavailable', 'retry': true});
+          expect(abort.arguments, isNull);
+          expect(abort.argumentsKeywords, isNull);
+          final goodbye = decode<Goodbye>([
+            6,
+            {'message': 'finished'},
+          ]);
+          expect(goodbye.reason, '');
+          expect(goodbye.message?.message, 'finished');
+        },
+      );
       for (final count in [0, 1, 2, 3, 4]) {
         test(
           'HEARTBEAT accepts $count optional fields without reading beyond them',

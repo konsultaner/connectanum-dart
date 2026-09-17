@@ -166,6 +166,7 @@ class McpServer {
   final McpServerCapabilities capabilities;
 
   McpServerState _state = McpServerState.created;
+  bool _initializationNegotiated = false;
 
   final McpResourceSubscriptionHandler? onSubscribeResource;
   final McpResourceSubscriptionHandler? onUnsubscribeResource;
@@ -304,7 +305,8 @@ class McpServer {
 
   void _handleNotification(String method) {
     if (method == 'notifications/initialized' &&
-        _state == McpServerState.created) {
+        _state == McpServerState.created &&
+        _initializationNegotiated) {
       _state = McpServerState.initialized;
     }
   }
@@ -326,6 +328,7 @@ class McpServer {
     if (instructions != null) {
       result['instructions'] = instructions;
     }
+    _initializationNegotiated = true;
     return result;
   }
 

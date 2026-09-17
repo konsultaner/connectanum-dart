@@ -67,6 +67,67 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work92 MCP Handshake And Pending Cleanup
+
+- The preceding short table was status only. Revalidate current processes:
+  preserve binding91, let VM91 finish and use the already-running fast gate.
+  VM91 completes at 37,776/42,553 (88.77%) with 59 unmeasured library sources;
+  client is 88.40%, router 85.68%, core 94.22%, MCP 95.91%, auth-server 100%,
+  bench 84.69%. Packaging remains 97.26% client / 97.14% router, with 12
+  unmeasured sources. Do not attribute this snapshot to Work92's newer code.
+- Twelve fail-first tests show tool handlers execute when an initialized
+  notification follows no initialize request, an initialize notification or a
+  failed initialize request, both individually and inside batches. The
+  [MCP session lifecycle](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle)
+  requires an initialize request/response before the client's initialized
+  notification. Record successful response construction in a private boolean;
+  keep the public enum unchanged and require created state as well. Early
+  acknowledgements must not carry over to a later successful initialization.
+  Router stateless/direct JSON routing is separate and remains unchanged.
+  This finding establishes a protocol gate bypass, not an auth bypass.
+- Correct one test fixture that previously sent only initialized before testing
+  operation parameter validation. Add unrelated-notification, closed-state,
+  notification-only batch, duplicate-invalid-ID isolation and explicit malformed
+  message error assertions. Pending pub/sub tests use controlled Completers to
+  prove concurrent revocations share one release, failed release remains retryable,
+  successful cleanup removes pending work even after callbacks are withdrawn,
+  and failed subscribe leaves no acquired subscription or stale cleanup entry.
+- All 689 MCP tests pass (28 new cases). Package analysis reports only four
+  pre-existing informational suggestions. `mcp92-vm` measures all 13 library
+  component sources at 1,601/1,617 (99.01%) with source/test input hashes. Its
+  canonical policy correctly fails incomplete workspace/native CLI scope;
+  do not use its package percentage as an integration coverage result.
+  `mcp92-library-mutations` starts 1,098 candidates with a passing baseline,
+  retaining complete source/test/support inventories. MCP89's 94.36% becomes
+  historical after this source/test change. Binding91 stays live and unchanged.
+- `bin/test-fast` and full `bin/verify` finish zero. The verify log includes the
+  final client closing-boundary cases, all 689 MCP tests, Rust, installed-package/
+  native router/MCP smoke, 2,970 core WASM tests and two browser WebSocket tests.
+  WASM line coverage remains unmeasured. Fresh `vm-current92` now collects as
+  the sole native-runtime owner. Focused MCP coverage and both fresh mutation
+  inventories have matching source/test/support hashes. Hosted package/image/
+  profile checks on pushed `3192d18d` pass;
+  current-head CI remains pending, with no known new red job. No merge,
+  publication, version change, lowered floor or equivalence waiver.
+
+- The client binding91 target completes at 378 assertion kills / 20 survivors /
+  94 compile errors, with both baselines zero and no errors/timeouts/waivers.
+  Its raw/adjusted 94.9749% is still below 95%. Three new per-serializer closing
+  frame regressions cover details present but reason absent, preserving text,
+  ABORT extensions and the existing empty default. All 1,621 client binding
+  tests pass and analysis is clean. Start `client-binding92-mutations` only
+  after confirming the earlier client target is terminal; leave the router
+  half of binding91 running. The old client result is now historical.
+- Local test advice was checked against public APIs. Qwen's lifecycle review
+  suggested cross-thread locks and throwing for ignored duplicate/closed
+  notifications; neither follows from this isolate-local synchronous transition
+  or the JSON-RPC notification contract. GLM's cleanup review found no concrete
+  defect: both failure expectations attach before completing the shared error,
+  and the held release future makes concurrent cleanup deterministic. Some
+  narrower Qwen review attempts reached their output limits and are incomplete;
+  do not count them as completed reviews. Final client tests were also inspected
+  directly against the existing two length guards and closing-message models.
+
 ### Work91 Native Metadata And Fragment Boundaries
 
 - Resume pending tests after the status-only table response. Inspect current
@@ -120,6 +181,17 @@ caught and timed-out outcomes separately.
   retains only the existing fixture suggestion. `vm-current91` now collects as
   the sole native-runtime owner. Commit/push and new-head hosted checks remain
   pending. No merge, publication, version change or weakened threshold.
+- Post-push evidence: `3192d18d` is on the coverage branch and PR #93 is updated.
+  New-head package dry runs pass; CI, image and WAMP profile checks are queued/
+  running. The strict audit retains pending evidence plus known feature-branch
+  protection/default-branch workflow visibility findings, not a green chain.
+  MCP89 now finishes at 94.36% raw/adjusted: 786 assertion kills, 47 survivors,
+  262 compile errors, both baselines zero, no errors/timeouts or equivalents.
+  All source/test/support hashes still match. This is the complete library
+  target, not the CLI. Investigate JSON-RPC request validation/lifecycle and
+  pub/sub cancellation/release/revocation survivors first. Do not restart the
+  live fresh binding91 campaign or native VM91 collector. Keep these post-push
+  notes uncommitted until the next implementation increment.
 
 ### Work90 Native Feature And Abort Contracts
 

@@ -6,6 +6,46 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work92 resumes after the status-only table response and preserves the existing
+binding campaign. VM91 finishes at 37,776/42,553 measured lines (88.77%): client
+88.40%, router 85.68%, core 94.22%, MCP 95.91%, auth-server 100% and bench 84.69%.
+Keep 59 unmeasured library sources and 12 packaging sources visible. These are
+pre-Work92 results, not coverage of the new handshake guard.
+
+Twelve fail-first MCP tests expose tool dispatch after an absent, notification-only
+or failed initialize request. Track successful initialization privately before
+accepting notifications/initialized; preserve the public lifecycle enum and the
+router's separate stateless/direct JSON path. Early acknowledgements do not carry
+over to a later handshake. This is a protocol readiness defect, not evidence of
+an authentication bypass. Fix the validation-test fixture to perform a real
+handshake rather than weakening its operation assertions.
+
+There are 28 new regressions; all 689 MCP tests pass. Notification-only batches,
+invalid duplicate IDs, contextual malformed-message errors, terminal shutdown,
+concurrent pending-subscription release, retry and failed-subscribe cleanup now
+have explicit assertions. Focused `mcp92-vm` measures the complete MCP library at
+1,601/1,617 (99.01%), with input hashes. Its canonical check deliberately fails
+missing workspace scope and absent native CLI integration; it is not a new
+whole-package score. Fresh `mcp92-library-mutations` has 1,098 candidates and a
+passing baseline; the old MCP89 score is now historical. `bin/test-fast` passes;
+full `bin/verify` finishes zero, including the final client boundary cases,
+native installed-package/router/MCP smoke, 2,970 core WASM tests and two browser
+WebSocket tests. WASM line coverage remains unmeasured. Fresh `vm-current92`
+collects as the sole native-runtime owner. Package analysis
+has four pre-existing informational suggestions and no errors/warnings. Current
+pushed-head package/image/profile checks pass; CI remains pending. No merge,
+publication, version change, weakened floor or equivalence waiver. The full
+cross-component/runtime milestone remains open.
+
+The client half of binding91 completes: 378 kills, 20 survivors and 94 compile
+errors, both baselines zero; 94.9749% raw/adjusted is below 95%, not a rounded
+pass. Add three closing-frame boundary cases across JSON/MessagePack/CBOR:
+details without a reason retain their message/ABORT extensions and use the
+existing empty reason default. All 1,621 client binding tests pass and analysis
+is clean. Fresh `client-binding92-mutations` reruns the completed client target;
+the original router campaign remains live with unchanged source/tests. Neither
+running campaign is a final score.
+
 Work91 resumes the pending binding tests on pushed `ae2e0208`; the latest short
 table response was status only. Preserve the live mutation campaigns and the
 existing fast gate instead of duplicating them. VM90 completes: auth-server
@@ -29,8 +69,14 @@ The old binding campaign finishes: client 304 kills / 94 survivors / 94 compile
 errors (76.38% raw/adjusted), router 334 / 183 / 147 (64.60% raw/adjusted).
 Both original/restored baselines pass, with no errors/timeouts or equivalents.
 These are historical test snapshots, and router also predates Work90's final
-shorthand fix. Fresh `binding91-mutations` now runs against the current tests;
-MCP89 remains live and unchanged. The fast gate completed all scheduled suites;
+shorthand fix. Fresh `binding91-mutations` now runs against the current tests.
+MCP89 finishes at 94.36% raw/adjusted: 786 assertion kills, 47 survivors and 262
+compile errors, both baselines zero, no errors/timeouts or equivalence waivers.
+Its source/test/support hashes still match; this improves the complete MCP
+library target from Work88's 79.71% but remains below 95%, and is not CLI coverage.
+Investigate the JSON-RPC validation/lifecycle and pub/sub release/revocation
+survivors before lower-risk collection/default-value cases. The fast gate
+completed all scheduled suites;
 full `bin/verify` finishes zero, including the final router auth/option tests,
 Rust, installed-package/native smoke checks, 2,970 core WASM tests and two browser
 WebSocket tests. WASM line coverage remains unmeasured. Fresh `vm-current91` is
@@ -38,9 +84,14 @@ the sole native-runtime owner. Qwen review produced no confirmed defects; its
 default-value/nullability concerns contradict the inspected APIs and explicit
 tests. Workspace analysis completed with five informational suggestions, no
 errors or warnings; final changed-test analysis has only the existing shared
-fixture suggestion. Pushed-head package/image/
-profile checks pass; full CI remains in progress. No merge, publication, version
-change, weakened floor or equivalence waiver. The complete goal remains open.
+fixture suggestion. Work91 is pushed as `3192d18d` and PR #93 is updated.
+New-head package dry runs pass; CI runs `35255325927`/`35255336229`, router image
+dry run `35255395875` and WAMP profile run `35255397411` remain queued/running.
+The strict audit correctly fails pending evidence and retains the known
+unprotected feature-branch and default-branch mutation-workflow visibility
+findings. No merge, publication, version change, weakened floor or equivalence
+waiver. Post-push evidence notes stay uncommitted for the next implementation
+increment. The complete goal remains open.
 
 Work90 follows pushed `c8508221`. The previous table was status only; this
 continuation revalidated the clean worktree and live campaigns without restarting

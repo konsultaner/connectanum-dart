@@ -118,6 +118,13 @@ void main() {
         },
       );
       addTearDown(server.shutdown);
+      final initialization = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'initialize-validation',
+        'method': 'initialize',
+        'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
+      });
+      expect(initialization?['result'], isA<Map>());
       await server.handleMessage({
         'jsonrpc': '2.0',
         'method': 'notifications/initialized',

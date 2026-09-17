@@ -1446,6 +1446,137 @@ void main() {
       },
     );
 
+    for (final failRelease in [false, true]) {
+      test(
+        'concurrent pending revocations share cleanup, fail=$failRelease',
+        () async {
+          final subscribeStarted = Completer<void>();
+          final subscriptionReady = Completer<McpWampSubscription>();
+          final releaseStarted = Completer<void>();
+          final releaseReady = Completer<void>();
+          final released = <McpWampSubscription>[];
+          final state = McpWampPubSubState();
+          final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);
+          final server = _server(
+            api.toTools(
+              pubSubState: state,
+              subscribe: (_, _) {
+                subscribeStarted.complete();
+                return subscriptionReady.future;
+              },
+              unsubscribe: (_) => fail('ordinary unsubscribe must not be used'),
+            ),
+          );
+          addTearDown(server.shutdown);
+          await _initializeAndStart(server);
+          final subscribing = _callPubSub(server, 'subscribe', {
+            'topic': 'app.events',
+          });
+          await subscribeStarted.future;
+          await state.reconcileSubscribedTopics(
+            {},
+            release: (subscription) {
+              released.add(subscription);
+              releaseStarted.complete();
+              return releaseReady.future;
+            },
+          );
+          const subscription = McpWampSubscription(
+            topic: 'app.events',
+            subscriptionId: 73,
+          );
+          subscriptionReady.complete(subscription);
+          await releaseStarted.future;
+          final first = state.reconcileSubscribedTopics({});
+          final second = state.reconcileSubscribedTopics({});
+          final firstCheck = expectLater(
+            first,
+            failRelease ? throwsStateError : completes,
+          );
+          final secondCheck = expectLater(
+            second,
+            failRelease ? throwsStateError : completes,
+          );
+          expect(released, [same(subscription)]);
+          if (failRelease) {
+            releaseReady.completeError(StateError('release failed'));
+          } else {
+            releaseReady.complete();
+          }
+          await firstCheck;
+          await secondCheck;
+          final result = await subscribing;
+          expect(result['isError'], isTrue);
+          expect(result.containsKey('structuredContent'), isFalse);
+          expect(
+            jsonEncode(result),
+            contains(
+              failRelease
+                  ? 'release failed'
+                  : 'no longer subscribable while its subscription was pending',
+            ),
+          );
+          expect(released, [same(subscription)]);
+
+          if (failRelease) {
+            await state.reconcileSubscribedTopics({}, release: released.add);
+            expect(released, [same(subscription), same(subscription)]);
+          }
+          // A completed cleanup leaves nothing requiring an unsubscriber.
+          api.toTools(pubSubState: state);
+          await state.reconcileSubscribedTopics({});
+          await state.reconcileSubscribedTopics({'app.events'});
+          expect(released, hasLength(failRelease ? 2 : 1));
+        },
+      );
+    }
+
+    test('failed subscribe leaves no pending cleanup and can retry', () async {
+      final state = McpWampPubSubState();
+      final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);
+      final server = _server(
+        api.toTools(
+          pubSubState: state,
+          subscribe: (_, _) => throw StateError('subscribe unavailable'),
+          unsubscribe: (_) => fail('no subscription was acquired'),
+        ),
+      );
+      addTearDown(server.shutdown);
+      await _initializeAndStart(server);
+      final failed = await _callPubSub(server, 'subscribe', {
+        'topic': 'app.events',
+      });
+      expect(failed['isError'], isTrue);
+      expect(jsonEncode(failed), contains('subscribe unavailable'));
+      api.toTools(pubSubState: state);
+      await state.reconcileSubscribedTopics({});
+
+      final released = <McpWampSubscription>[];
+      const subscription = McpWampSubscription(
+        topic: 'app.events',
+        subscriptionId: 74,
+      );
+      server.tools.replaceAll(
+        api.toTools(
+          pubSubState: state,
+          subscribe: (_, _) => subscription,
+          unsubscribe: released.add,
+        ),
+      );
+      final retry = await _callPubSub(server, 'subscribe', {
+        'topic': 'app.events',
+      });
+      final data = retry['structuredContent'] as Map;
+      expect(data['subscriptionId'], 74);
+      expect(data['topic'], 'app.events');
+      expect(retry['isError'], isNot(true));
+      final unsubscribed = await _callPubSub(server, 'unsubscribe', {
+        'handle': data['handle'],
+      });
+      expect(unsubscribed['isError'], isNot(true));
+      expect(released, [same(subscription)]);
+    });
+
     test(
       'retries revoked pending pubsub cleanup without reviving its handle',
       () async {
@@ -1918,6 +2049,21 @@ McpServer _server(List<McpTool> tools) => McpServer(
   serverInfo: const McpServerInfo(name: 'connectanum-wamp-api', version: '0.1'),
   tools: tools,
 );
+
+Future<Map> _callPubSub(
+  McpServer server,
+  String method,
+  Map<String, Object?> arguments,
+) async {
+  final response = await server.handleMessage({
+    'jsonrpc': '2.0',
+    'id': method,
+    'method': 'tools/call',
+    'params': {'name': 'connectanum.pubsub.$method', 'arguments': arguments},
+  });
+  expect(response?['error'], isNull);
+  return response?['result'] as Map;
+}
 
 List<String> _catalogUris(Object? catalog) {
   final entries = catalog as List<Object?>;

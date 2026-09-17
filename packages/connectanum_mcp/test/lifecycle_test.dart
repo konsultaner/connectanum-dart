@@ -92,6 +92,146 @@ void main() {
       expect(server.state, McpServerState.initialized);
     });
 
+    final incompleteHandshakes = <String, List<Map<String, Object?>>>{
+      'absent initialize': [],
+      'initialize sent as a notification': [
+        {
+          'jsonrpc': '2.0',
+          'method': 'initialize',
+          'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
+        },
+      ],
+      for (final version in [null, 7, true, <Object?>[]])
+        'invalid protocol version $version': [
+          {
+            'jsonrpc': '2.0',
+            'id': 'invalid-init',
+            'method': 'initialize',
+            'params': {'protocolVersion': version},
+          },
+        ],
+    };
+    for (final entry in incompleteHandshakes.entries) {
+      for (final batched in [false, true]) {
+        test('does not unlock ${entry.key}, batched=$batched', () async {
+          var calls = 0;
+          final server = McpServer(
+            serverInfo: const McpServerInfo(name: 'handshake', version: '1'),
+            tools: [
+              McpTool(
+                name: 'mark',
+                handler: (_) {
+                  calls++;
+                  return McpToolResult.text('marked');
+                },
+              ),
+            ],
+          );
+          addTearDown(server.shutdown);
+          final messages = [
+            ...entry.value,
+            {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+            {
+              'jsonrpc': '2.0',
+              'id': 'call',
+              'method': 'tools/call',
+              'params': {'name': 'mark'},
+            },
+          ];
+          final responses = <Map>[];
+          if (batched) {
+            final result = await server.handleMessage(messages);
+            responses.addAll((result as List).cast<Map>());
+          } else {
+            for (final message in messages) {
+              final result = await server.handleMessage(message);
+              if (result != null) responses.add(result as Map);
+            }
+          }
+          expect(calls, 0);
+          expect(server.state, McpServerState.created);
+          expect(responses.last['id'], 'call');
+          expect(
+            (responses.last['error'] as Map)['code'],
+            McpErrorCodes.serverNotInitialized,
+          );
+          if (entry.key.startsWith('invalid protocol')) {
+            expect(responses.first['id'], 'invalid-init');
+            expect(
+              (responses.first['error'] as Map)['code'],
+              McpErrorCodes.invalidParams,
+            );
+          }
+
+          // An early acknowledgement must not carry over to a later handshake.
+          await _initialize(server);
+          expect(server.state, McpServerState.created);
+          await server.handleMessage({
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+          });
+          expect(server.state, McpServerState.initialized);
+          final accepted = await server.handleMessage(messages.last);
+          expect(accepted?['result'], McpToolResult.text('marked').toJson());
+          expect(calls, 1);
+        });
+      }
+    }
+
+    test('unrelated notifications never acknowledge initialization', () async {
+      final server = _server();
+      addTearDown(server.shutdown);
+      for (final initializedRequest in [false, true]) {
+        if (initializedRequest) await _initialize(server);
+        expect(
+          await server.handleMessage({
+            'jsonrpc': '2.0',
+            'method': 'notifications/cancelled',
+            'params': {'requestId': 'unknown'},
+          }),
+          isNull,
+        );
+        expect(server.state, McpServerState.created);
+      }
+      await server.handleMessage({
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+      });
+      expect(server.state, McpServerState.initialized);
+    });
+
+    for (final initialized in [false, true]) {
+      test(
+        'notifications cannot reopen closed server, started=$initialized',
+        () async {
+          final server = _server();
+          if (initialized) await _initializeAndStart(server);
+          server.shutdown();
+          for (final method in [
+            'notifications/initialized',
+            'notifications/cancelled',
+          ]) {
+            expect(
+              await server.handleMessage({'jsonrpc': '2.0', 'method': method}),
+              isNull,
+            );
+            expect(server.state, McpServerState.closed);
+          }
+          final response = await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': 'reinitialize',
+            'method': 'initialize',
+            'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
+          });
+          expect(
+            (response?['error'] as Map)['code'],
+            McpErrorCodes.serverClosed,
+          );
+          expect(server.state, McpServerState.closed);
+        },
+      );
+    }
+
     test('responds to ping requests after initialization', () async {
       final server = _server();
       await _initializeAndStart(server);
@@ -280,6 +420,71 @@ void main() {
       final error = responses[1]['error'] as Map<String, Object?>;
       expect(error['code'], McpErrorCodes.methodNotFound);
     });
+
+    for (final state in McpServerState.values) {
+      test('notification-only batches have no response in $state', () async {
+        final server = _server();
+        addTearDown(server.shutdown);
+        if (state != McpServerState.created) await _initializeAndStart(server);
+        if (state == McpServerState.closed) server.shutdown();
+        final response = await server.handleMessage([
+          {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+          {'jsonrpc': '2.0', 'method': 'notifications/unknown'},
+          {'jsonrpc': '2.0', 'method': 'tools/call', 'params': null},
+        ]);
+        expect(response, isNull);
+        expect(server.state, state);
+      });
+    }
+
+    for (final invalidId in [true, false, 1.5]) {
+      test(
+        'duplicate invalid ID $invalidId does not reject valid batch entry',
+        () async {
+          final server = _server();
+          addTearDown(server.shutdown);
+          await _initializeAndStart(server);
+          final response = await server.handleMessage([
+            {'jsonrpc': '2.0', 'id': invalidId, 'method': 'ping'},
+            {'jsonrpc': '2.0', 'id': invalidId, 'method': 'ping'},
+            {'jsonrpc': '2.0', 'id': 'valid', 'method': 'ping'},
+          ]);
+          expect(response, isA<List>());
+          final responses = response as List;
+          expect(responses, hasLength(3));
+          for (final invalid in responses.take(2).cast<Map>()) {
+            expect(invalid['id'], isNull);
+            expect(
+              (invalid['error'] as Map)['code'],
+              McpErrorCodes.invalidRequest,
+            );
+          }
+          expect(responses.last, {
+            'jsonrpc': '2.0',
+            'id': 'valid',
+            'result': {},
+          });
+        },
+      );
+    }
+
+    for (final raw in [null, true, 7, 'not an object']) {
+      test('rejects non-object $raw with message-shape context', () async {
+        final server = _server();
+        addTearDown(server.shutdown);
+        final response = await server.handleMessage(raw);
+        expect(response?['id'], isNull);
+        expect(
+          (response?['error'] as Map)['code'],
+          McpErrorCodes.invalidRequest,
+        );
+        expect(
+          (response?['error'] as Map)['message'],
+          'JSON-RPC message must be an object',
+        );
+        expect(server.state, McpServerState.created);
+      });
+    }
 
     test(
       'rejects duplicate JSON-RPC batch request ids before dispatch',
