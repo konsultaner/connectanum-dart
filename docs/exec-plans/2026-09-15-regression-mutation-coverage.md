@@ -67,6 +67,55 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work89 Public MCP Contracts And Mutation Follow-Up
+
+- Revalidated the unfinished catalog test file and the live Work88 mutation
+  process rather than restarting it. The short user-requested coverage table
+  was a status-only turn. The existing Work89 `bin/test-fast` finishes zero.
+  Correct test construction against the actual public record/FutureOr APIs;
+  initial compile errors and mistaken ordering/default expectations were test
+  authoring errors, not production bugs. No production behavior changes.
+- Add 156 regressions across four new contract suites and the existing session
+  bridge suite. Exact schemas and safety hints are observed through initialized
+  MCP `tools/list`; individual metadata fields, including false/empty values,
+  remain distinct from omission. Session selection is independent and discovery
+  issues no WAMP call, subscribe or publish. Per-procedure mapping/deadlines
+  override shared defaults; pending providers are released in finally so a
+  missing deadline fails an assertion rather than a runner timeout.
+- All four registry types test closed cursor boundaries, malformed namespace,
+  shape and offset, immutable page snapshots and terminal next-cursor absence.
+  Resource checks cover zero size, isolated annotations and unrelated template
+  rejection without handler invocation. Capability and continuation tests retain
+  explicit server configuration, individual annotation hints, absent versus empty
+  result fields, recursive JSON normalization, and fail-closed form capability,
+  result-type and continuation-state validation. Pub/sub covers exact byte/count
+  capacity, overflow, cleanup and independent publish/subscribe permissions.
+- All 661 MCP tests and package analysis pass. `mcp89-vm` measures all 13 MCP
+  library component sources at 1,598/1,615 (98.95%). Native CLI integration is
+  absent from this focused collection; retain its failing canonical report and
+  do not substitute its partial package percentage for the full VM result.
+- Work88's `mcp88-library-mutations` finishes all 1,095 candidates: 664 kills,
+  169 survivors, 262 compile errors, 79.71% raw/adjusted, both baselines zero,
+  no errors/timeouts/equivalents. It is historical after the new tests. The
+  fresh complete-source `mcp89-library-mutations` campaign includes all 20
+  current test files and has a passing baseline; do not report its partial
+  counts as a completed score or start a duplicate campaign.
+- Qwen review prompted explicit next-cursor assertions. Reject unsupported
+  claims that an exception skips finally or that `toTools().single` constructs
+  a server: the timeout fixture invokes a tool directly and releases its
+  pending provider. Keep exact scalar conversion expectations rather than
+  weakening them to type-only checks. Cursor fixture encoding was checked
+  against the actual generated format before constructing malformed inputs.
+- Full `bin/verify` passes, including Rust, installed-package/native router
+  smoke tests, 2,970 core WASM tests and two browser WebSocket tests. WASM line
+  coverage remains unmeasured. Fresh `vm-current89` workspace collection is
+  running as the sole native-runtime user; do not start another native suite
+  until it terminates. VM88 remains the last complete workspace measurement.
+  Pushed Work88
+  package, image and profile checks pass, with both CI runs still running.
+  Commit/push, fresh whole-workspace coverage and new-head hosted evidence remain
+  pending. The whole multi-runtime/package/application goal remains active.
+
 ### Work88 MCP Lifecycle Oracles And Key-File Boundaries
 
 - Resume with the existing native87 process confirmed live, not merely a lock.

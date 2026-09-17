@@ -6,7 +6,33 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Work88 is in progress on top of `417b2ca1`. Twenty CLI refresh/revocation
+Work89 follows pushed `205a179e`. The previous short coverage-table response
+was status only; this continuation resumes the pending test file and confirms
+the existing fast gate passed before further edits. There are 156 new MCP
+regressions for exact public catalog schemas/safety hints, isolated metadata,
+per-procedure mapping/deadlines, session tool selection, cursor boundaries,
+resource lookup, capability advertisement, lossless result conversion and
+bounded pub/sub queues. All 661 MCP tests and package analysis pass.
+`mcp89-vm` measures the complete library at 1,598/1,615 (98.95%), with no
+missing library-component sources. This focused report does not run native CLI
+integration and is not a whole-package score; its canonical policy correctly
+fails for missing scopes and insufficient CLI coverage.
+
+The previous full MCP library campaign finishes at 79.71% raw/adjusted:
+664 assertion kills, 169 survivors, 262 compile errors, both baselines zero,
+no errors/timeouts or equivalents. That is Work88 evidence, not a score for
+the new tests. Fresh `mcp89-library-mutations` is running all 1,095 candidates
+with a passing baseline and all 20 current test files in its resolved inventory.
+Full `bin/verify` passes, including Rust, installed-package/native router smoke
+checks, 2,970 core WASM tests and two browser WebSocket tests. WASM line coverage
+is still unmeasured. Fresh `vm-current89` workspace coverage is running as the
+sole native-runtime owner; VM88 remains the last complete workspace report.
+The pushed Work88
+package checks, router-image dry run and WAMP profile benchmark pass; both CI
+runs remain in progress. No merge, publication, version change, threshold
+weakening or equivalence waiver. The full milestone remains incomplete.
+
+Work88 was implemented on top of `417b2ca1`. Twenty CLI refresh/revocation
 regressions and two retained pub/sub callback-withdrawal/recovery cases pass
 with all 505 MCP package tests. The focused `mcp88-final-vm` report measures
 the complete MCP library component at 1,592/1,615 (98.58%) and WAMP API at

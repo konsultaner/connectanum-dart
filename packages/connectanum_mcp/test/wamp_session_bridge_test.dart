@@ -20,6 +20,52 @@ void main() {
     await peer.dispose();
   });
 
+  for (final selection in <(bool, bool)?>[
+    null,
+    (false, false),
+    (false, true),
+    (true, false),
+    (true, true),
+  ]) {
+    test('session discovery preserves tool selection $selection', () async {
+      final api = _api();
+      final tools = selection == null
+          ? api.toSessionTools(session: session)
+          : api.toSessionTools(
+              session: session,
+              includeApiMetaTools: selection.$1,
+              includePubSubTools: selection.$2,
+            );
+      final server = await _server(tools);
+      addTearDown(server.shutdown);
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'discovery',
+        'method': 'tools/list',
+      });
+      expect(response, isNot(contains('error')));
+      final result = response!['result'] as Map;
+      expect(
+        (result['tools'] as List).map((tool) => (tool as Map)['name']),
+        [
+          if (selection?.$1 ?? true) ...[
+            'connectanum.api.describe',
+            'connectanum.api.list',
+          ],
+          if (selection?.$2 ?? true) ...[
+            'connectanum.pubsub.poll',
+            'connectanum.pubsub.publish',
+            'connectanum.pubsub.subscribe',
+            'connectanum.pubsub.unsubscribe',
+          ],
+        ],
+      );
+      expect(peer.messages.whereType<wamp.Call>(), isEmpty);
+      expect(peer.messages.whereType<wamp.Subscribe>(), isEmpty);
+      expect(peer.messages.whereType<wamp.Publish>(), isEmpty);
+    });
+  }
+
   test(
     'session tools forward RPC arguments, options and lossless results',
     () async {
