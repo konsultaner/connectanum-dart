@@ -6,6 +6,27 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work99 reproduces and fixes a native transport lifecycle bug: a real peer sends
+WELCOME then closes, but the old receive worker never completes its Dart stream
+or notifies `onConnectionLost`. Its isolate exit port was only observed during
+explicit close. Route data/error/exit through one ordered port, buffer handles
+until the pump attaches, capture attempt-owned state, guard stale pumps and let
+connection-loss notification proceed even when a stream subscriber is paused.
+Yield between synchronous native wait batches so stop messages can run; retain
+bounded shutdown waits and distinguish unexpected EOF from WAMP GOODBYE.
+Nineteen new regressions cover RawSocket/WebSocket and JSON/MessagePack/CBOR EOF,
+graceful shutdown, reconnect, close during worker startup and a paused listener.
+All 107 focused transport/file tests and targeted analysis pass. The fresh
+`native-transports99-vm` report measures 418/466 wrapper lines (89.70%), with
+matching source/test/runtime/native hashes; it is not Rust or whole-workspace
+coverage. Verify99 passes with directly observed exit zero on the settled inputs,
+including Rust, package/consumer smokes and browser JS/WASM suites. The native
+runtime is released for the next complete mutation campaign. MCP97 remains
+live separately. Work98 is pushed as `e94f5462`; its package/image/profile dry
+runs pass, main CI is pending, and the strict deployment audit is non-green.
+No current mutation result exists for the Work99 implementation yet; the next
+campaign must use a fresh `native-transports99-mutations` output directory.
+
 Work98 adds explicit mutation kill-cause diagnostics without changing outcomes,
 denominators or thresholds. New reports distinguish assertion failures, caught
 test errors, mixed detections and unknown evidence. A read-only auditor emits

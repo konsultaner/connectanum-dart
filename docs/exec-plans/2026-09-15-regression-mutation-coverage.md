@@ -67,6 +67,49 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work99 Native EOF And Receive-Worker Lifecycle
+
+- A real loopback RawSocket test fails first with the assertion "peer EOF must
+  notify connection loss" after a peer sends WELCOME and closes. The old
+  receive worker silently leaves its handle stream open: its exit port is only
+  consumed by explicit `close()`. Preserve
+  `/tmp/connectanum-coverage99-eof-fail-first.log` as the behavioral repro.
+- Use a single ordered port for data, errors and exit, with a buffered
+  single-subscription handle stream. Capture the controller and completion
+  futures for each attempt; old pumps cannot replace/clear a newer connection.
+  Notify loss without awaiting a paused subscriber's close. Normal EOF after
+  GOODBYE closes the stream and completes disconnect without a connection-loss
+  error. Yield between synchronous 50 ms native waits to handle stop messages.
+  Shutdown remains bounded; SDK error-listener payloads support a nullable
+  stack string and preserve RemoteError stack traces.
+- Add 19 regressions across both transports and all serializers: abrupt EOF,
+  reconnect with fresh completion state, received GOODBYE, explicit close while
+  the worker is spawning, and paused-listener notification. All 107 combined
+  transport/file cases pass, as does focused analysis. Correct test fixture
+  port reuse: the HTTP peer still listens when its first upgraded connection
+  closes without Hello; reuse it rather than killing and immediately rebinding.
+  This fixture failure is distinct from the reproduced production EOF defect.
+- `native-transports99-vm` measures 418/466 lines (89.70%), with 48 uncovered
+  lines retained, versus Work98's 388/440. Its six input hashes match the tests,
+  source, runtime, support helper and ffi-test artifact. The focused checker fails
+  whole-workspace gates; this is not Rust coverage or a 98% achievement.
+  Verify99 passes with directly observed exit zero on settled inputs, including
+  Rust, package/consumer smokes, browser JS, 2,970 core WASM and two WebSocket
+  WASM tests. Its native runtime is released for the next complete campaign,
+  `native-transports99-mutations`. Fast98 passed before this increment. No final
+  mutation score yet; passing WASM tests are not measured WASM line coverage.
+- Local Qwen/GLM reviews are advisory: completing both disconnect and connection
+  loss contradicts the existing transport/client contract; the SDK specifies
+  two-element error lists, not bare strings. Do not infer native double-release
+  from isolate exit because the receive isolate does not release sent handles.
+  Keep immediate-EOF trailing-handle and materialization-failure cleanup tests
+  as explicit follow-ups rather than claiming the timed peers prove them.
+- Work98 `e94f5462` is committed and pushed to the coverage branch and PR #93
+  updated. Its router-image dry run `35282024554`, profile benchmark run
+  `35282026997` and package dry run `35282002153` pass. Strict audit remains
+  non-green while main CI is queued; retain
+  `/tmp/connectanum-coverage98-hosted-audit.log`. No merge or publication.
+
 ### Work98 Mutation Evidence And Native Boundaries
 
 - Add per-kill cause evidence (assertion, caught test error, mixed or unknown)
