@@ -114,7 +114,12 @@ def classify(returncode, output):
     if returncode == 0 and done[-1].get('success') is True:
         return 'survived'
     if returncode != 0 and done[-1].get('success') is False:
-        if any(e.get('type') == 'error' and 'Test timed out after' in e.get('error', '') for e in events):
+        # Polling helpers use fail(), but an elapsed deadline is not a behavioral kill.
+        timeout_prefixes = ('TimeoutException:', 'TimeoutException after ',
+                            'Test timed out after ', 'Condition not met within ',
+                            'Timed out waiting for ')
+        if any(e.get('type') == 'error' and
+               e.get('error', '').startswith(timeout_prefixes) for e in events):
             return 'timeout'
         if any(e.get('result') in ('error', 'failure') for e in real):
             return 'killed'
@@ -288,6 +293,7 @@ def main():
         parser.error('output already exists; use a fresh directory')
     args.output.mkdir(parents=True)
     report = {'schemaVersion': 1, 'scope': selected, 'targets': {}, 'complete': False,
+              'runnerSha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'operatorScope': ['binary', 'nullFallback', 'boolean', 'negation', 'condition']}
     report_path = args.output / 'mutation-report.json'
@@ -419,7 +425,9 @@ def main():
                     code, output, status = run_test_commands(commands, test_cwd, args.timeout)
                 finally:
                     path.write_text(source)
-                outcome = {**mutation, 'id': identifier, 'status': status,
+                # The same mutation ID can run under several platforms/test targets.
+                log_name = f'{hashlib.sha256(name.encode()).hexdigest()}-{identifier}.log'
+                outcome = {**mutation, 'id': identifier, 'status': status, 'log': log_name,
                            'exitCode': code,
                            'seconds': round(time.monotonic() - started, 3)}
                 if identifier in justified:
@@ -427,7 +435,7 @@ def main():
                         raise ValueError(f'Equivalent mutation no longer survives: {identifier}')
                     outcome['equivalence'] = justified[identifier]
                 result['outcomes'].append(outcome)
-                (args.output / f'{identifier}.log').write_text(output)
+                (args.output / log_name).write_text(output)
                 result.update(summarize(result['outcomes']))
                 save()
                 print(f'{name} {index + 1}/{len(mutations)} {status}: '

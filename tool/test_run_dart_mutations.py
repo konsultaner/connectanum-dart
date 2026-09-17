@@ -359,6 +359,15 @@ class MutationRunnerTests(unittest.TestCase):
              'expect(1, 2);', 'error'),
             ('timeout', '', 'await Future<void>.delayed(const Duration(seconds: 5));',
              'timeout'),
+            ('future_timeout', '',
+             'await Future<void>.delayed(const Duration(seconds: 5))'
+             '.timeout(const Duration(milliseconds: 1));', 'timeout'),
+            ('poll_deadline', '', "fail('Condition not met within 0:00:02.000000');",
+             'timeout'),
+            ('event_deadline', '', "fail('Timed out waiting for subscription events');",
+             'timeout'),
+            ('timeout_text_assertion', '',
+             "expect('TimeoutException: absent', 'expected payload');", 'killed'),
             ('abrupt_exit', '', 'exit(2);', 'error'),
         ]
         with tempfile.TemporaryDirectory(prefix='mutation-reporter-',
@@ -654,6 +663,58 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(result['viable'], 4)
         self.assertIsNone(summarize([{'status': 'compileError'}])['score'])
 
+    def test_same_mutant_retains_independent_runtime_logs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_name = 'packages/core/lib/a.dart'
+            test_name = 'packages/core/test/a_test.dart'
+            source = 'bool f() => true;'
+            mutation = {'file': source_name, 'offset': 12, 'length': 4, 'line': 1,
+                        'original': 'true', 'replacement': 'false', 'operator': 'boolean'}
+            config = root / 'config.json'
+            config.write_text(json.dumps({
+                name: {'sources': [source_name], 'tests': [test_name], 'platform': platform}
+                for name, platform in [('fixture-vm', 'vm'), ('fixture-web', 'chrome')]
+            }))
+            equivalents = root / 'equivalents.json'
+            equivalents.write_text('{}')
+            output = root / 'result'
+
+            def snapshot(work, support):
+                for name, contents in [(source_name, source), (test_name, 'fixture')]:
+                    path = work / name
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(contents)
+
+            def run_fixture(command, work, timeout):
+                if command[1:3] == ['pub', 'get']:
+                    return 0, ''
+                if command[1] == 'tool/dart_mutations.dart':
+                    return 0, json.dumps([mutation])
+                mutated = (work / source_name).read_text() != source
+                platform = command[command.index('--platform') + 1]
+                log = events(
+                    {'type': 'testStart', 'test': {'id': 1, 'name': platform}},
+                    {'type': 'testDone', 'testID': 1,
+                     'result': 'failure' if mutated else 'success'},
+                    {'type': 'done', 'success': not mutated},
+                )
+                return (1 if mutated else 0), log
+
+            with patch.object(sys, 'argv', ['runner', '--config', str(config),
+                                           '--equivalents', str(equivalents), '--output', str(output)]), \
+                 patch.object(runner, 'snapshot', snapshot), patch.object(runner, 'run', run_fixture), \
+                 patch.object(runner.subprocess, 'check_output', return_value='commit'):
+                self.assertEqual(runner.main(), 0)
+            report = json.loads((output / 'mutation-report.json').read_text())
+            logs = []
+            for name, platform in [('fixture-vm', 'vm'), ('fixture-web', 'chrome')]:
+                outcome = report['targets'][name]['outcomes'][0]
+                log = output / outcome.get('log', f'{outcome["id"]}.log')
+                logs.append(log)
+                self.assertIn(f'"name": "{platform}"', log.read_text())
+            self.assertEqual(len(set(logs)), 2)
+
     def test_assertion_failure_cannot_hide_another_test_timeout(self):
         output = events(
             {'type': 'testStart', 'test': {'id': 1, 'name': 'assertion'}},
@@ -665,6 +726,24 @@ class MutationRunnerTests(unittest.TestCase):
             {'type': 'done', 'success': False},
         )
         self.assertEqual(classify(1, output), 'timeout')
+
+    def test_helper_deadlines_are_not_assertion_kills(self):
+        for message in (
+            'TimeoutException after 0:00:02.000000: Future not completed',
+            'TimeoutException: event missing',
+            'Condition not met within 0:00:02.000000',
+            'Timed out waiting for native connection on listener 1',
+        ):
+            with self.subTest(message=message):
+                output = events(
+                    {'type': 'testStart', 'test': {'id': 1, 'name': 'assertion'}},
+                    {'type': 'testDone', 'testID': 1, 'result': 'failure'},
+                    {'type': 'testStart', 'test': {'id': 2, 'name': 'missing callback'}},
+                    {'type': 'error', 'testID': 2, 'error': message, 'isFailure': True},
+                    {'type': 'testDone', 'testID': 2, 'result': 'failure'},
+                    {'type': 'done', 'success': False},
+                )
+                self.assertEqual(classify(1, output), 'timeout')
 
     def test_utf16_offsets_preserve_non_ascii_prefix(self):
         source = "// \U0001f512\nreturn a == b;"

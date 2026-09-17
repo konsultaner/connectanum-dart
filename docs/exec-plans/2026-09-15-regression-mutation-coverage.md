@@ -67,6 +67,71 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work86 Security Oracles And Evidence Integrity
+
+- Revalidated existing processes before starting tests. Full VM85 completed
+  successfully at the pushed `9e9579bf` snapshot. Package dry runs
+  `35222915512`/`35222919508`, router-image dry run `35222988471` and canonical
+  WAMP benchmarks `35223059950` pass. CI `35222915528`/`35222919475` subsequently
+  completed successfully. No release/merge was performed.
+- A pending GitHub run has an empty conclusion. Bash whitespace IFS collapses
+  that column, shifting SHA/event fields. Six real reader snippets and pending
+  CI end-to-end cases reproduce 24 failures. A non-whitespace separator now
+  preserves empty columns; all 26 audit tests pass. Real strict audit correctly
+  recognizes the head and manual dry-run event, but still fails closed for
+  pending CI. Feature-branch protection and default-branch workflow visibility
+  findings remain visible; neither is bypassed.
+- Five runtime regressions exercise protected RPC/publish with the optional
+  transport bearer check disabled, disallowed profile and realm methods before
+  challenge creation, and changed profile policy after access/refresh issuance
+  and cached-session use. Assert no unauthorized invocation/publication, then
+  prove valid grants work. Rejected methods do not consume challenge capacity;
+  rejected refreshes do not rotate grants. Mutable caller-owned profile method
+  lists model the public configuration object's behavior, not a new reload API.
+- Full runtime coverage passes 214 tests. The partial report at
+  `binding86-regression/summary.json` measures 28 lines previously uncovered in
+  VM85. It is not whole-router coverage; its policy failure for unmeasured
+  unrelated sources is retained rather than narrowing the inventory.
+- Initial replay `binding86-security-replay` exposed a polling deadline counted
+  as an assertion kill. It is historical, not accepted final evidence. The
+  stronger RPC oracle observes explicit unauthorized dispatch/session errors
+  rather than merely waiting for a response. Final diagnostic replay
+  `binding86b-security-replay/report.json` kills all six previously listed
+  security mutants with explicit assertion failures, both baselines zero and
+  unchanged native artifact. All production/test hashes match the current
+  files. The full 2,379-candidate inventory is retained; six selected outcomes
+  are not a whole-component score or equivalence waiver.
+- Seven fail-first reporter cases prove helper deadlines and uncaught
+  `Future.timeout` were classified as kills. Classify these as timeouts before
+  considering assertion failures; matcher failures merely containing timeout
+  text remain kills. Another fail-first test proves VM/browser mutant logs
+  overwrite one another. Each target now has independent outcome logs, recorded
+  paths and a runner hash. All 39 tooling tests pass (one optional native skip).
+  Stored-log check `historical-timeout-reclassification86.json` removes 165
+  false kills from incomplete binding66 and 10 from workload84. Binding66's
+  partial counts are now 438 kills / 487 survivors / 394 compile errors /
+  176 timeouts, still incomplete. Workload84 corrects to 47.93% raw/adjusted
+  with 19 timeouts. Serializer82 and HTTP84 stored kills do not change. These
+  corrections do not replace current-source campaigns or modify original files.
+  Invocation85's per-runtime logs collided; its VM outcomes cannot be independently
+  reclassified from those overwritten files. Fresh `invocation86-mutations` is
+  complete in both runtimes with distinct recorded logs and the fixed runner:
+  100 assertion kills, six survivors and 22 compile errors each, 94.34%
+  raw/adjusted, no errors/timeouts/waivers, both baselines zero. All eight
+  source/test/support hashes match. Exit one correctly retains the unmet 95%.
+- Local companion advice was independently checked. GLM's proposed requirement
+  that a timeout have test result `error` is rejected: polling helpers use
+  `fail()` and produce `failure`, which must still not inflate mutation scores.
+  Its concern that matcher text starts with TimeoutException is contradicted
+  by real Dart reporter fixtures. Audit tests execute the actual six reader
+  lines, including four-field events, not a reimplementation of their parser.
+- Fresh `bin/test-fast` and full `bin/verify` pass with native use serialized,
+  including 2,903 core WASM and two browser WebSocket tests. The completed
+  prior-head strict audit finds only feature-branch protection and the mutation
+  workflow not yet discoverable from master; CI/log/package/image/benchmark
+  checks are clean. Commit/push and new-head hosted checks remain pending. Logs use
+  `/tmp/connectanum-coverage86-*`; no goal-completion claim.
+
 ### Work85 Integration Verification And Completed Campaigns
 
 - Revalidated process handles and the process table before starting a new native

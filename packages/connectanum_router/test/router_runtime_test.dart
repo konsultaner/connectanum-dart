@@ -1646,6 +1646,9 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
   int tokenTtlMs = 60000,
   int refreshTokenTtlMs = 300000,
   bool rotateRefreshTokens = true,
+  Map<String, Object?> secureRouteOptions = const {},
+  bool enableProtectedPublish = false,
+  List<String> profileAuthMethods = const ['ticket', 'wampcra', 'scram'],
 }) {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
@@ -1676,14 +1679,22 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
           RoleSettingsBuilder('member')..addPermissionFromBuilder(
             PermissionSettingsBuilder('com.example.')
               ..setMatchPolicy(PermissionMatchPolicy.prefix)
-              ..allowOperations(const ['call']),
+              ..allowOperations([
+                'call',
+                if (enableProtectedPublish) 'publish',
+              ]),
           ),
         )
         ..addRoleFromBuilder(
           RoleSettingsBuilder('internal')..addPermissionFromBuilder(
             PermissionSettingsBuilder('com.example.')
               ..setMatchPolicy(PermissionMatchPolicy.prefix)
-              ..allowOperations(const ['call', 'register', 'unregister']),
+              ..allowOperations([
+                'call',
+                'register',
+                'unregister',
+                if (enableProtectedPublish) 'subscribe',
+              ]),
           ),
         ),
     )
@@ -1694,7 +1705,7 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
     ..addSessionProfileFromBuilder(
       SessionProfileSettingsBuilder('http-ticket')
         ..setRealm('realm1')
-        ..setAuthMethods(const ['ticket', 'wampcra', 'scram']),
+        ..setAuthMethods(profileAuthMethods),
     )
     ..addListenerFromBuilder(
       (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
@@ -1726,8 +1737,20 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
                     type: HttpRouteActionType.rpc,
                     procedure: 'com.example.api.secure',
                     sessionProfile: 'http-ticket',
+                    options: secureRouteOptions,
                   ),
                 ),
+                if (enableProtectedPublish)
+                  HttpRouteSettings(
+                    match: const HttpRouteMatch(path: '/api/events'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.publish,
+                      realm: 'realm1',
+                      topic: 'com.example.events',
+                      sessionProfile: 'http-ticket',
+                      options: secureRouteOptions,
+                    ),
+                  ),
                 HttpRouteSettings(
                   match: HttpRouteMatch(path: '/mcp/secure'),
                   action: HttpRouteAction(
@@ -7939,6 +7962,375 @@ void main() {
       isFalse,
     );
   });
+
+  for (final publish in [false, true]) {
+    test(
+      'HTTP profile auth guards ${publish ? 'publish' : 'RPC'} without transport bearer enforcement',
+      () async {
+        final runtime = _HandleRuntime();
+        final events = <Map<String, Object?>>[];
+        final binding =
+            Router(
+              RouterConfig(
+                endpoints: [
+                  Endpoint(
+                    host: '127.0.0.1',
+                    port: 0,
+                    tlsMode: TlsMode.native,
+                    maxRawSocketSizeExponent: 16,
+                    sniCertificates: [_cert('localhost')],
+                  ),
+                ],
+              ),
+              settings: _buildRouterSettingsWithHttpAuthBridge(
+                secureRouteOptions: const {'require_bearer': false},
+                enableProtectedPublish: true,
+              ),
+            ).start(
+              runtime,
+              onEvent: (event) {
+                if (event is Map<String, Object?>) events.add(event);
+              },
+            );
+        addTearDown(binding.dispose);
+        await Future<void>.delayed(Duration.zero);
+        final listenerId = binding.listeners.single.listenerId;
+        final service = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'service',
+          authRole: 'internal',
+        );
+        addTearDown(service.close);
+        var calls = 0;
+        final publications = <Event>[];
+        final registration = await service.register('com.example.api.secure');
+        registration.onInvoke((invocation) {
+          calls++;
+          HttpInvocationContext.maybeFromInvocation(
+            invocation,
+          )!.sendText(body: 'authenticated', status: HttpStatus.ok);
+        });
+        final subscription = await service.subscribe('com.example.events');
+        subscription.onEvent(publications.add);
+
+        var nextConnection = 2400;
+        Future<NativeHttpResponse> send(
+          Map<String, String> headers, {
+          bool expectDenied = false,
+        }) async {
+          final id = nextConnection++;
+          _enqueueSyntheticHttpRequest(
+            runtime: runtime,
+            listenerId: listenerId,
+            connectionId: id,
+            handle: id,
+            method: 'POST',
+            target: publish ? '/api/events' : '/api/secure',
+            headers: headers,
+            body: const {'message': 'authorized-only'},
+            realm: 'realm1',
+            procedure: publish
+                ? 'router.http.publish'
+                : 'com.example.api.secure',
+          );
+          if (expectDenied) {
+            Iterable<Map<String, Object?>> unexpectedActivity() => events.where(
+              (event) =>
+                  event['connectionId'] == id &&
+                  const [
+                    'http_request_session_error',
+                    'http_publish_session_error',
+                    'http_request_dispatched',
+                    'http_publish_dispatched',
+                  ].contains(event['type']),
+            );
+            await _waitUntil(
+              () =>
+                  (runtime.httpResponses[id]?.isNotEmpty ?? false) ||
+                  unexpectedActivity().isNotEmpty,
+            );
+            expect(
+              unexpectedActivity(),
+              isEmpty,
+              reason:
+                  'Unauthenticated requests must be rejected before session creation or dispatch',
+            );
+          }
+          await _waitUntil(
+            () => runtime.httpResponses[id]?.isNotEmpty ?? false,
+          );
+          return runtime.httpResponses[id]!.single;
+        }
+
+        for (final headers in <Map<String, String>>[
+          const {},
+          const {'authorization': 'Basic credentials'},
+          const {'authorization': 'Bearer '},
+        ]) {
+          final denied = await send(headers, expectDenied: true);
+          expect(denied.status, HttpStatus.unauthorized);
+          expect(
+            _jsonResponseBody(denied),
+            containsPair('message', 'Bearer token required'),
+          );
+          expect(calls, 0);
+          expect(publications, isEmpty);
+          expect(
+            events.where(
+              (event) =>
+                  event['type'] == 'http_request_dispatched' ||
+                  event['type'] == 'http_publish_dispatched',
+            ),
+            isEmpty,
+          );
+        }
+
+        final tokens = await _issueTicketHttpTokens(
+          runtime: runtime,
+          listenerId: listenerId,
+        );
+        final allowed = await send({
+          'authorization': 'Bearer ${tokens.accessToken}',
+        });
+        expect(allowed.status, publish ? HttpStatus.accepted : HttpStatus.ok);
+        if (publish) {
+          await _waitUntil(() => publications.isNotEmpty);
+          expect(publications, hasLength(1));
+          final http = publications.single.argumentsKeywords!['_http'] as Map;
+          expect(jsonDecode(utf8.decode(http['body'] as Uint8List)), {
+            'message': 'authorized-only',
+          });
+          expect(calls, 0);
+        } else {
+          expect(calls, 1);
+          expect(
+            (allowed.body as NativeHttpResponseText).text,
+            'authenticated',
+          );
+          expect(publications, isEmpty);
+        }
+      },
+    );
+  }
+
+  for (final restrictRealm in [false, true]) {
+    test(
+      'HTTP auth rejects method excluded by ${restrictRealm ? 'realm' : 'profile'} before challenge',
+      () async {
+        var settings = _buildRouterSettingsWithHttpAuthBridge(
+          maxPendingAuth: 1,
+          profileAuthMethods: restrictRealm
+              ? const ['ticket', 'wampcra', 'scram']
+              : const ['ticket'],
+        );
+        if (restrictRealm) {
+          final realm = settings.realms.single;
+          settings = settings.copyWith(
+            realms: [
+              RealmSettings(
+                name: realm.name,
+                auth: RealmAuthSettings(
+                  methods: const ['ticket'],
+                  methodOptions: realm.auth.methodOptions,
+                ),
+                roles: realm.roles,
+                limits: realm.limits,
+              ),
+            ],
+          );
+        }
+        final runtime = _HandleRuntime();
+        final events = <Map<String, Object?>>[];
+        final binding =
+            Router(
+              RouterConfig(
+                endpoints: [
+                  Endpoint(
+                    host: '127.0.0.1',
+                    port: 0,
+                    tlsMode: TlsMode.native,
+                    maxRawSocketSizeExponent: 16,
+                    sniCertificates: [_cert('localhost')],
+                  ),
+                ],
+              ),
+              settings: settings,
+            ).start(
+              runtime,
+              onEvent: (event) {
+                if (event is Map<String, Object?>) events.add(event);
+              },
+            );
+        addTearDown(binding.dispose);
+        await Future<void>.delayed(Duration.zero);
+        final listenerId = binding.listeners.single.listenerId;
+        for (var id = 2500; id < 2503; id++) {
+          _enqueueSyntheticHttpRequest(
+            runtime: runtime,
+            listenerId: listenerId,
+            connectionId: id,
+            handle: id,
+            method: 'POST',
+            target: '/auth',
+            headers: const {'content-type': 'application/json'},
+            body: const {
+              'realm': 'realm1',
+              'authmethod': 'wampcra',
+              'authid': 'user-1',
+            },
+            realm: 'router.http',
+            procedure: 'router.http.auth',
+          );
+          await _waitUntil(
+            () => runtime.httpResponses[id]?.isNotEmpty ?? false,
+          );
+          final response = runtime.httpResponses[id]!.single;
+          expect(response.status, HttpStatus.unauthorized);
+          final body = _jsonResponseBody(response);
+          expect(body['reason'], 'unsupported_authmethod');
+          expect(
+            body['message'],
+            restrictRealm
+                ? 'authmethod wampcra is not enabled for realm realm1'
+                : 'authmethod wampcra is not allowed for this route',
+          );
+          expect(body, isNot(contains('state')));
+          expect(body, isNot(contains('access_token')));
+          expect(body, isNot(contains('challenge')));
+        }
+        expect(
+          events.where(
+            (event) =>
+                event['type'] == 'http_auth_capacity_exhausted' ||
+                event['type'] == 'http_auth_locked_out',
+          ),
+          isEmpty,
+        );
+        // Denied methods must neither consume pending capacity nor lock out a user.
+        final tokens = await _issueTicketHttpTokens(
+          runtime: runtime,
+          listenerId: listenerId,
+        );
+        expect(tokens.accessToken, isNotEmpty);
+        expect(tokens.refreshToken, isNotEmpty);
+      },
+    );
+  }
+
+  test(
+    'HTTP grants recheck changed profile policy before use and refresh',
+    () async {
+      final methods = <String>['ticket', 'wampcra'];
+      final base = _buildRouterSettingsWithHttpAuthBridge();
+      final settings = base.copyWith(
+        sessionProfiles: [
+          for (final profile in base.sessionProfiles)
+            if (profile.name == 'http-ticket')
+              SessionProfileSettings(
+                name: profile.name,
+                realm: profile.realm,
+                auth: SessionProfileAuthSettings(methods: methods),
+              )
+            else
+              profile,
+        ],
+      );
+      final runtime = _HandleRuntime();
+      final binding = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: settings,
+      ).start(runtime);
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      final service = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'service',
+        authRole: 'internal',
+      );
+      addTearDown(service.close);
+      var calls = 0;
+      final registration = await service.register('com.example.api.secure');
+      registration.onInvoke((invocation) {
+        calls++;
+        HttpInvocationContext.maybeFromInvocation(
+          invocation,
+        )!.sendText(body: 'authenticated', status: HttpStatus.ok);
+      });
+      final tokens = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
+      );
+      var nextConnection = 2600;
+      Future<NativeHttpResponse> send({bool refresh = false}) async {
+        final id = nextConnection++;
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: id,
+          handle: id,
+          method: 'POST',
+          target: refresh ? '/auth' : '/api/secure',
+          headers: {
+            'content-type': 'application/json',
+            if (!refresh) 'authorization': 'Bearer ${tokens.accessToken}',
+          },
+          body: refresh
+              ? {
+                  'grant_type': 'refresh_token',
+                  'refresh_token': tokens.refreshToken,
+                }
+              : null,
+          realm: 'realm1',
+          procedure: refresh ? 'router.http.auth' : 'com.example.api.secure',
+        );
+        await _waitUntil(() => runtime.httpResponses[id]?.isNotEmpty ?? false);
+        return runtime.httpResponses[id]!.single;
+      }
+
+      // Populate the internal-session cache before the profile becomes stricter.
+      expect((await send()).status, HttpStatus.ok);
+      expect(calls, 1);
+      methods.remove('ticket');
+      final deniedCall = await send();
+      expect(deniedCall.status, HttpStatus.unauthorized);
+      expect(
+        _jsonResponseBody(deniedCall),
+        containsPair('reason', 'wrong_authmethod'),
+      );
+      expect(calls, 1);
+      final deniedRefresh = await send(refresh: true);
+      expect(deniedRefresh.status, HttpStatus.unauthorized);
+      final deniedBody = _jsonResponseBody(deniedRefresh);
+      expect(deniedBody, containsPair('reason', 'wrong_authmethod'));
+      expect(deniedBody, isNot(contains('access_token')));
+      expect(deniedBody, isNot(contains('refresh_token')));
+      expect(calls, 1);
+
+      // A rejected refresh must not consume or rotate the existing grant.
+      methods.add('ticket');
+      expect((await send()).status, HttpStatus.ok);
+      expect(calls, 2);
+      final refreshed = await send(refresh: true);
+      expect(refreshed.status, HttpStatus.ok);
+      final body = _jsonResponseBody(refreshed);
+      expect(body['access_token'], isNot(tokens.accessToken));
+      expect(body['access_token'], isA<String>());
+      expect(body['refresh_token'], isNot(tokens.refreshToken));
+      expect(body['refresh_token'], isA<String>());
+      expect(calls, 2);
+    },
+  );
 
   test(
     'rejects protected HTTP routes on insecure listeners before dispatch',

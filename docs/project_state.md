@@ -6,6 +6,45 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work86 follows pushed commit `9e9579bf`. The full VM85 report completed:
+auth-server 100%, core 93.90%, client 85.11%, MCP 95.40%, router 84.53%,
+bench 84.69%; 59 library sources remain unmeasured. Packaging remains separate
+at client 97.26% / router 97.14%, with 12 unmeasured packaging sources.
+These are pre-work86 measurements, not whole-goal completion evidence.
+
+Five new HTTP regressions cover profile enforcement independently of the outer
+transport bearer guard, route/realm auth-method denial, and policy revalidation
+for cached access sessions and refresh grants. The full runtime suite passes
+214 tests and measures 28 previously uncovered binding lines. Diagnostic replay
+`binding86b-security-replay/report.json` kills all six selected security survivors
+by direct assertions, with passing original/restored baselines and unchanged
+native artifact/source hashes. This is not a whole-binding mutation score.
+
+Fail-first tooling fixes preserve empty GitHub run-state fields, classify
+polling-helper/Future deadlines as timeouts rather than assertion kills, and
+retain independent log files for the same mutant across runtime targets.
+Mutation reports now record the runner hash and each outcome's log path.
+The audit suite passes 26 tests; mutation tooling passes 39 tests (one optional
+native fixture skipped). Earlier reports need the recorded classifier and log
+provenance checked before reuse; in particular, the first work86 RPC replay
+failed by a helper deadline and is not accepted as a behavioral kill.
+Stored-log reclassification removes 175 false kills: 165 from incomplete
+binding66 (438 kills / 487 survivors / 394 compile errors / 176 timeouts) and
+10 from workload84 (47.93% raw/adjusted, 19 timeouts). Original reports remain
+untouched; these are corrections to historical evidence, not fresh scores.
+Invocation85 VM/browser log paths collided, so independent log-level verification
+of its VM outcomes is unavailable. Fresh Invocation86 completes both runtimes
+with independent logs: 100 assertion kills, six survivors and 22 compile errors
+each (94.34% raw/adjusted), passing original/restored baselines and matching
+source/test hashes. No crashes, timeouts or equivalence waivers; the command
+correctly fails the unmet 95% threshold.
+Fresh `bin/test-fast` and full `bin/verify` pass, including 2,903 core WASM and
+two browser WebSocket tests. New-head hosted evidence is pending. Prior-head
+CI, package, router-image and WAMP benchmark dry runs are green. The strict
+completed-head audit retains only the unprotected feature branch and mutation
+workflow absent from default-branch discovery findings. Neither is bypassed.
+No merge, publication, version change or weakened threshold.
+
 Work85 resumes after all mutation processes ended. Binding66 stopped incomplete
 at 1,495/2,379 candidates, with no restored-baseline result; its partial score is
 not completion evidence. Serializer82 finished with both baselines passing:
