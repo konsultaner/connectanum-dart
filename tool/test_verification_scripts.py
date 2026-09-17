@@ -59,6 +59,21 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_key_file_mutation_gates_cover_vm_and_browser_with_artifacts(self):
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
+        matrix = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
+        self.assertLessEqual({'core-pem-pkcs8-vm', 'core-pem-pkcs8-web'},
+                             {target.strip() for target in matrix})
+        chrome_setup = job.split('- id: chrome', 1)[1].split('- name:', 1)[0]
+        self.assertIn("matrix.target == 'core-pem-pkcs8-web'", chrome_setup)
+        self.assertIn('browser-actions/setup-chrome@', chrome_setup)
+        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
+        self.assertNotIn('--threshold', job)
+        self.assertIn('if: always()', job)
+        self.assertIn('path: out/mutations', job)
+        self.assertIn('if-no-files-found: error', job)
+
     @unittest.skipIf(os.name == 'nt', 'The diagnostic launcher requires Bash')
     def test_wamp_diagnostics_collect_all_results_without_masking_failures(self):
         names = [
@@ -1186,6 +1201,13 @@ fi
                 script = path.read_text(encoding="utf-8")
                 self.assertIn("test/mcp_completion_test.dart", script)
                 self.assertIn("test/mcp_completion_regression_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_key_file_boundaries(self) -> None:
+        for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
+            with self.subTest(script=path.name):
+                script = path.read_text(encoding="utf-8")
+                self.assertIn("test/authentication/cryptosign_authentication_test.dart", script)
+                self.assertIn("test/authentication/cryptosign/key_file_boundaries_test.dart", script)
 
     def test_browser_verification_and_coverage_include_registration_lifecycle(self) -> None:
         for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):

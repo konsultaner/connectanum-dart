@@ -2,6 +2,8 @@
   "target": 98,
   "packages": {"connectanum_core": 83.5},
   "files": {
+    "packages/connectanum_core/lib/src/authentication/cryptosign/pem.dart": 98,
+    "packages/connectanum_core/lib/src/authentication/cryptosign/pkcs8.dart": 98,
     "packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart": 98,
     "packages/connectanum_core/lib/src/message/e2ee_payload.dart": 98,
     "packages/connectanum_core/lib/src/mcp/completion.dart": 98,

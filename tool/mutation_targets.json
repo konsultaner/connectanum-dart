@@ -47,6 +47,30 @@
     "sources": ["packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"],
     "tests": ["packages/connectanum_core/test/serializer/json/binary_codec_test.dart"]
   },
+  "core-pem-pkcs8-vm": {
+    "sources": [
+      "packages/connectanum_core/lib/src/authentication/cryptosign/pem.dart",
+      "packages/connectanum_core/lib/src/authentication/cryptosign/pkcs8.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/authentication/cryptosign_authentication_test.dart",
+      "packages/connectanum_core/test/authentication/cryptosign/key_file_boundaries_test.dart"
+    ],
+    "supportFiles": ["packages/connectanum_core/test/authentication/cryptosign/keys.dart"]
+  },
+  "core-pem-pkcs8-web": {
+    "sources": [
+      "packages/connectanum_core/lib/src/authentication/cryptosign/pem.dart",
+      "packages/connectanum_core/lib/src/authentication/cryptosign/pkcs8.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/authentication/cryptosign_authentication_test.dart",
+      "packages/connectanum_core/test/authentication/cryptosign/key_file_boundaries_test.dart"
+    ],
+    "supportFiles": ["packages/connectanum_core/test/authentication/cryptosign/keys.dart"],
+    "platform": "chrome",
+    "testRoot": "packages/connectanum_core"
+  },
   "core-msgpack-serializer-vm": {
     "sources": [
       "packages/connectanum_core/lib/src/serializer/msgpack/serializer.dart"
@@ -212,6 +236,7 @@
   "client-native-runtime-vm": {
     "sources": ["packages/connectanum_client/lib/src/transport/native/runtime.dart"],
     "tests": [
+      "packages/connectanum_client/test/transport/native/native_library_loader_test.dart",
       "packages/connectanum_client/test/transport/native/canonical_base64_io_test.dart",
       "packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart",
       "packages/connectanum_client/test/transport/native/e2ee_provider_test.dart",
@@ -380,6 +405,24 @@
   "mcp": {
     "sources": [
       "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
+      "packages/connectanum_mcp/lib/src/prompts/prompt.dart",
+      "packages/connectanum_mcp/lib/src/protocol/capabilities.dart",
+      "packages/connectanum_mcp/lib/src/protocol/constants.dart",
+      "packages/connectanum_mcp/lib/src/protocol/errors.dart",
+      "packages/connectanum_mcp/lib/src/protocol/icons.dart",
+      "packages/connectanum_mcp/lib/src/protocol/json_rpc.dart",
+      "packages/connectanum_mcp/lib/src/protocol/pagination.dart",
+      "packages/connectanum_mcp/lib/src/resources/resource.dart",
+      "packages/connectanum_mcp/lib/src/server/mcp_server.dart",
+      "packages/connectanum_mcp/lib/src/tools/tool.dart",
+      "packages/connectanum_mcp/lib/src/tools/wamp_api.dart",
+      "packages/connectanum_mcp/lib/src/tools/wamp_tool_delegate.dart",
+      "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart"
+    ],
+    "tests": ["packages/connectanum_mcp/test"]
+  },
+  "mcp-library": {
+    "sources": [
       "packages/connectanum_mcp/lib/src/prompts/prompt.dart",
       "packages/connectanum_mcp/lib/src/protocol/capabilities.dart",
       "packages/connectanum_mcp/lib/src/protocol/constants.dart",

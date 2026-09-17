@@ -80,6 +80,8 @@ run_core_browser_tests() {
       "${CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-420}" \
       dart test \
         test/authentication/scram_key_derivation_web_test.dart \
+        test/authentication/cryptosign_authentication_test.dart \
+        test/authentication/cryptosign/key_file_boundaries_test.dart \
         test/serializer \
         test/message_e2ee_payload_test.dart \
         test/message_e2ee_regression_test.dart \

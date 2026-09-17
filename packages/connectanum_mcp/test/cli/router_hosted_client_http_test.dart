@@ -114,6 +114,194 @@ void main() {
       });
     }
 
+    group('refresh and revocation lifecycle', () {
+      late List<String> options;
+      setUp(() {
+        peer.requireAuth = true;
+        options = [
+          '--auth-url',
+          'http://127.0.0.1:${peer.server.port}/auth',
+          '--realm',
+          'consumer.realm',
+          '--auth-id',
+          'consumer',
+          '--ticket',
+          'fixture-ticket',
+          '--auth-lifecycle-smoke',
+        ];
+      });
+
+      test('uses rotated credentials and verifies both revocations', () async {
+        final result = await _run(peer, options);
+        expect(result.err, isEmpty);
+        expect(result.lines.last, {
+          'authLifecycle': {
+            'method': 'ticket',
+            'issued': true,
+            'refreshed': true,
+            'refreshedDirectPing': true,
+            'refreshedSessionless': true,
+            'revokedAccessRejected': true,
+            'revokedRefreshRejected': true,
+          },
+        });
+        expect(peer.authRequests.skip(4), [
+          {
+            'grant_type': 'refresh_token',
+            'refresh_token': 'fixture-refresh-token',
+          },
+          {
+            'grant_type': 'revoke',
+            'token': 'rotated-access-token',
+            'token_type_hint': 'access_token',
+          },
+          {
+            'grant_type': 'revoke',
+            'token': 'rotated-refresh-token',
+            'token_type_hint': 'refresh_token',
+          },
+          {
+            'grant_type': 'refresh_token',
+            'refresh_token': 'rotated-refresh-token',
+          },
+        ]);
+        expect(peer.authTraces.skip(2), [
+          'router-hosted-client-auth-lifecycle-issue',
+          'router-hosted-client-auth-lifecycle-issue',
+          'router-hosted-client-auth-lifecycle-refresh',
+          'router-hosted-client-auth-lifecycle-revoke-access',
+          'router-hosted-client-auth-lifecycle-revoke-refresh',
+          'auth-lifecycle-refresh-revoked',
+        ]);
+        expect(peer.authorizations, [
+          ...List.filled(4, 'Bearer fixture-access-token'),
+          ...List.filled(2, 'Bearer rotated-access-token'),
+        ]);
+        expect(
+          peer.requests.map((message) => message['id']).toList().sublist(4),
+          [
+            'auth-lifecycle-refreshed-direct-ping',
+            'auth-lifecycle-revoked-direct-ping',
+          ],
+        );
+        final transcript = jsonEncode(result.lines);
+        for (final secret in [
+          'fixture-ticket',
+          'fixture-access-token',
+          'fixture-refresh-token',
+          'fixture-auth-state',
+          'rotated-access-token',
+          'rotated-refresh-token',
+        ]) {
+          expect(transcript, isNot(contains(secret)));
+        }
+      });
+
+      for (final rotated in [false, true]) {
+        for (final token in [null, '', '   ']) {
+          test(
+            'rejects unusable refresh token $token, rotated=$rotated',
+            () async {
+              if (rotated) {
+                peer.refreshedGrantOverrides = {'refresh_token': token};
+              } else {
+                peer.lifecycleGrantOverrides = {'refresh_token': token};
+              }
+              final output = _CapturedStdout();
+              await expectLater(
+                _run(peer, options, output: output),
+                throwsA(
+                  isA<StateError>().having(
+                    (error) => error.message,
+                    'message',
+                    rotated
+                        ? 'Auth lifecycle smoke did not rotate a refresh token.'
+                        : 'Auth lifecycle smoke did not receive a refresh token.',
+                  ),
+                ),
+              );
+              expect(peer.authRequests.length, rotated ? 5 : 4);
+              expect(peer.requests.length, 4);
+              expect(output.text.toString(), isNot(contains('authLifecycle')));
+            },
+          );
+        }
+      }
+
+      for (final refresh in [false, true]) {
+        for (final status in [200, 400, 403, 404, 500]) {
+          test(
+            'does not accept revoked ${refresh ? 'refresh' : 'access'} status $status',
+            () async {
+              if (refresh) {
+                peer.revokedRefreshStatus = status;
+              } else {
+                peer.revokedAccessStatus = status;
+              }
+              final output = _CapturedStdout();
+              await expectLater(
+                _run(peer, options, output: output),
+                throwsA(
+                  isA<StateError>().having(
+                    (error) => error.message,
+                    'message',
+                    status == 200
+                        ? 'Auth lifecycle smoke accepted a revoked ${refresh ? 'refresh' : 'access'} token.'
+                        : 'Auth lifecycle revoked ${refresh ? 'refresh' : 'access'} token returned $status, expected 401.',
+                  ),
+                ),
+              );
+              expect(peer.authRequests.length, refresh ? 8 : 6);
+              expect(peer.requests.length, 6);
+              expect(output.text.toString(), isNot(contains('authLifecycle')));
+            },
+          );
+        }
+      }
+
+      for (final operation in [
+        'refresh_token',
+        'access_token',
+        'refresh_revoke',
+      ]) {
+        test(
+          'propagates $operation server failure before later effects',
+          () async {
+            if (operation == 'refresh_token') {
+              peer.refreshStatus = 503;
+            } else {
+              peer.revokeStatuses[operation == 'access_token'
+                      ? 'access_token'
+                      : 'refresh_token'] =
+                  503;
+            }
+            final output = _CapturedStdout();
+            await expectLater(
+              _run(peer, options, output: output),
+              throwsA(
+                isA<ConnectanumHttpAuthException>().having(
+                  (error) => error.statusCode,
+                  'status',
+                  503,
+                ),
+              ),
+            );
+            expect(peer.authRequests.length, switch (operation) {
+              'refresh_token' => 5,
+              'access_token' => 6,
+              _ => 7,
+            });
+            expect(peer.requests.length, switch (operation) {
+              'refresh_token' => 4,
+              'access_token' => 5,
+              _ => 6,
+            });
+            expect(output.text.toString(), isNot(contains('authLifecycle')));
+          },
+        );
+      }
+    });
+
     for (final authenticated in [false, true]) {
       test(
         'stateless discovery and direct catalogs, bearer=$authenticated',
@@ -850,22 +1038,64 @@ class _Peer {
           expect(requireAuth, isTrue);
           expect(request.headers.value('Authorization'), isNull);
           authRequests.add(message);
+          final trace = request.headers.value('x-consumer-trace');
+          authTraces.add(trace);
           request.response.headers.contentType = ContentType.json;
+          if (message['grant_type'] == 'refresh_token') {
+            expect(
+              message['refresh_token'],
+              _refreshRevoked
+                  ? 'rotated-refresh-token'
+                  : 'fixture-refresh-token',
+            );
+            request.response.statusCode = _refreshRevoked
+                ? revokedRefreshStatus
+                : refreshStatus;
+            request.response.write(
+              jsonEncode(
+                request.response.statusCode == 200
+                    ? _grant(refreshed: true)
+                    : {'error': 'invalid_grant'},
+              ),
+            );
+            return;
+          }
+          if (message['grant_type'] == 'revoke') {
+            final hint = message['token_type_hint'];
+            expect(hint, anyOf('access_token', 'refresh_token'));
+            expect(
+              message['token'],
+              hint == 'access_token'
+                  ? 'rotated-access-token'
+                  : 'rotated-refresh-token',
+            );
+            request.response.statusCode = revokeStatuses[hint] ?? 200;
+            if (request.response.statusCode == 200) {
+              if (hint == 'access_token') {
+                _accessRevoked = true;
+              } else {
+                _refreshRevoked = true;
+              }
+            }
+            request.response.write(
+              jsonEncode(
+                request.response.statusCode == 200
+                    ? <String, Object?>{}
+                    : {'error': 'unavailable'},
+              ),
+            );
+            return;
+          }
           if (message.containsKey('state')) {
             expect(message['state'], 'fixture-auth-state');
             expect(message['signature'], 'fixture-ticket');
             request.response.write(
-              jsonEncode({
-                'access_token': 'fixture-access-token',
-                'refresh_token': 'fixture-refresh-token',
-                'token_type': 'Bearer',
-                'realm': 'consumer.realm',
-                'authmethod': 'ticket',
-                'authid': 'consumer',
-                'authrole': 'user',
-                'authprovider': 'fixture',
-                ...grantOverrides,
-              }),
+              jsonEncode(
+                _grant(
+                  lifecycle:
+                      trace == 'router-hosted-client-auth-lifecycle-issue',
+                ),
+              ),
             );
           } else {
             request.response.statusCode = HttpStatus.unauthorized;
@@ -894,7 +1124,16 @@ class _Peer {
           return;
         }
         if (requireAuth) {
-          expect(authorization, 'Bearer fixture-access-token');
+          expect(
+            authorization,
+            anyOf('Bearer fixture-access-token', 'Bearer rotated-access-token'),
+          );
+          if (_accessRevoked &&
+              authorization == 'Bearer rotated-access-token' &&
+              revokedAccessStatus != 200) {
+            request.response.statusCode = revokedAccessStatus;
+            return;
+          }
         }
         final metadata = (message['params'] as Map)['_meta'] as Map;
         expect(metadata['io.modelcontextprotocol/protocolVersion'], _protocol);
@@ -923,13 +1162,41 @@ class _Peer {
   final HttpServer server;
   final requests = <Map<String, Object?>>[];
   final authRequests = <Map<String, Object?>>[];
+  final authTraces = <String?>[];
   final authorizations = <String?>[];
   final failures = <(Object, StackTrace)>[];
   bool requireAuth = false;
   Map<String, Object?> grantOverrides = {};
+  Map<String, Object?> lifecycleGrantOverrides = {};
+  Map<String, Object?> refreshedGrantOverrides = {};
+  final revokeStatuses = <Object?, int>{};
+  int refreshStatus = 200;
+  int revokedAccessStatus = 401;
+  int revokedRefreshStatus = 401;
+  bool _accessRevoked = false;
+  bool _refreshRevoked = false;
   _Rewrite? rewrite;
   bool subscriptionActive = false;
   final _events = <Map<String, Object?>>[];
+
+  Map<String, Object?> _grant({
+    bool lifecycle = false,
+    bool refreshed = false,
+  }) => {
+    'access_token': refreshed ? 'rotated-access-token' : 'fixture-access-token',
+    'refresh_token': refreshed
+        ? 'rotated-refresh-token'
+        : 'fixture-refresh-token',
+    'token_type': 'Bearer',
+    'realm': 'consumer.realm',
+    'authmethod': 'ticket',
+    'authid': 'consumer',
+    'authrole': 'user',
+    'authprovider': 'fixture',
+    ...grantOverrides,
+    if (lifecycle) ...lifecycleGrantOverrides,
+    if (refreshed) ...refreshedGrantOverrides,
+  };
 
   static Future<_Peer> start() async =>
       _Peer(await HttpServer.bind(InternetAddress.loopbackIPv4, 0));
@@ -1163,9 +1430,10 @@ class _Peer {
 
 Future<({List<Map<String, Object?>> lines, String err})> _run(
   _Peer peer,
-  List<String> options,
-) async {
-  final output = _CapturedStdout();
+  List<String> options, {
+  _CapturedStdout? output,
+}) async {
+  final capturedOutput = output ?? _CapturedStdout();
   final errors = _CapturedStdout();
   // Only the option suite owns process-wide exitCode. HTTP tests use valid
   // arguments and assert the completed transcript or the specific exception.
@@ -1177,12 +1445,12 @@ Future<({List<Map<String, Object?>> lines, String err})> _run(
       _protocol,
       ...options,
     ]),
-    stdout: () => output,
+    stdout: () => capturedOutput,
     stderr: () => errors,
   );
   return (
     lines: const LineSplitter()
-        .convert(output.text.toString())
+        .convert(capturedOutput.text.toString())
         .map((line) => (jsonDecode(line) as Map).cast<String, Object?>())
         .toList(),
     err: errors.text.toString(),

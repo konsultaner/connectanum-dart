@@ -117,8 +117,15 @@ class Pkcs8 {
     final privateKeyBytes = privateKeyOctetStr.valueBytes;
 
     Uint8List? ed25519Seed;
-    final innerParser = ASN1Parser(privateKeyBytes);
-    final possibleInner = innerParser.nextObject();
+    ASN1Object? possibleInner;
+    try {
+      possibleInner = ASN1Parser(privateKeyBytes).nextObject();
+    } catch (_) {
+      // Legacy raw keys need not be ASN.1; only supported raw lengths may fall back.
+      if (privateKeyBytes?.length != 32 && privateKeyBytes?.length != 64) {
+        rethrow;
+      }
+    }
 
     if (possibleInner is ASN1OctetString) {
       final inner = possibleInner.valueBytes;

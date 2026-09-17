@@ -67,6 +67,171 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work88 MCP Lifecycle Oracles And Key-File Boundaries
+
+- Resume with the existing native87 process confirmed live, not merely a lock.
+  Preserve it as the sole native-runtime owner and do not restart it. All eight
+  recorded source/test/support hashes still match. The previous work made
+  implementation and verification progress; the short user-requested coverage
+  table was status only. Work88 adds new executable tests and fail-first fixes.
+- Twenty HTTP CLI cases cover refresh credential rotation, exact authorization
+  and trace headers, token-type-specific revocation, absent/blank refresh grants,
+  exact 401 rejection semantics, intermediate endpoint failures, no subsequent
+  side effects, and no success/credential output on failure. Two WAMP API tests
+  retain registered tool objects while withdrawing/rebinding callbacks: failed
+  reconciliation must preserve ownership for retry, and later cleanup releases
+  once via either the rebound callback or explicit override. All 505 MCP tests
+  and package analysis pass. No production MCP behavior was changed.
+- `out/regression-coverage-2026-09-15/mcp88-final-vm` measures the complete MCP
+  library at 1,592/1,615 (98.58%), WAMP API 620/630 (98.41%). Enforce a 98% WAMP
+  API file floor. Its CLI measurement is only 890/2,297: this focused run does
+  not include native integration and is deliberately not substituted for full
+  workspace coverage or merged with older CLI evidence. The canonical policy
+  correctly exits nonzero for missing scopes in this partial report.
+- Add the complete `mcp-library` mutation target, retaining the existing `mcp`,
+  `mcp-cli` and `mcp-cli-native` scopes. A fail-first inventory test proves all
+  library implementation files agree with the measured component and that the
+  whole-package/native CLI scopes remain intact. Its 1,095-candidate campaign
+  is active in `mcp88-library-mutations`, with a passing clean baseline.
+- A fresh pure core baseline passes 3,072 tests without using the occupied
+  native FFI runtime. Five new failing cases prove that a repeated header check
+  accepts three incorrect OpenSSH footers and that an unchecked inner ASN.1
+  parse rejects existing legacy raw 32/64-byte PKCS8 representations. Validate
+  the footer after CR/LF normalization. Catch inner parse failures only for
+  already-supported raw lengths; retain outer structure/version/OID checks and
+  successfully parsed nested-seed precedence. These are key-file fixes, not
+  changes to WAMP wire behavior, algorithms or SCRAM derivation.
+- Fifty-one new key tests cover invalid writer lengths, missing PEM markers,
+  short outer sequences, versions/OIDs, missing algorithms, nested/raw sizes,
+  raw byte prefixes, ownership isolation, encrypted-password requirements and
+  valid newline variants. All 59 focused existing/new cases pass independently
+  on VM, JavaScript and WASM. Full core VM passes 3,123 tests. The focused
+  `keys88-final-vm` / `keys88-final-js` reports measure PKCS8 at 61/63 VM and
+  56/56 JS, PEM at 77/85 VM and 67/73 JS. They are not whole-core reports;
+  their canonical policy failures retain missing scopes. WASM is test evidence
+  only, not line instrumentation. No coverage exclusions were added.
+- A fail-first launcher test adds key boundary and existing cryptosign vectors
+  to both canonical browser commands. `browser88` passes 2,970 JavaScript tests
+  and measures core 6,623/6,973 (94.98%), with 173 unmeasured library sources
+  still visible. Fifty launcher checks, 41 mutation-runner checks (one optional
+  native fixture skipped), 16 coverage-checker checks, workspace analysis,
+  formatting, shell syntax and public-artifact-reference validation pass.
+- `core-pem-pkcs8-vm` and `core-pem-pkcs8-web` retain complete source inventories,
+  the same behavioral suites, and `keys.dart` fixture hashes. The VM half of
+  `keys88-mutations` completes all 100 candidates: 77 kills, 17 survivors and
+  six compile errors, 81.91% raw/adjusted, both baselines zero. No crashes,
+  timeouts or equivalence waivers. Browser work is still running. This is not
+  a passing 95% gate or whole-core mutation score.
+- Initial survivor triage, not waivers: PEM source SHA-256
+  `bedf8eeb2232a5fd71ebd75faa229c5ba0d20f3470f25cce2c9b2c45c48013cf`
+  retains unchecked test gaps for magic (`a5e934ebeb80937ea8a5`), key count
+  (`a27071569effbb67e9cc`), KDF selection (`ecfa469f9236571a6a84`), key type
+  (`08b134214c19ca9fba9a`), and CBC selection/decryption
+  (`e8f7e664af2b2957d7d1`, `dba002ad3529615892c1`, `9880fcd4981ccf506019`,
+  `864fa50c714d2c69e6f3`, `df6ec1b2f18bfa90fc09`). CTR direction mutant
+  `e16f0ec1d91b3fb31ca6` needs separate cipher-semantics review, not a blanket
+  waiver. PKCS8 SHA-256
+  `b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3`
+  has six fixed-size PEM line-wrap survivors (`03e7cb535020ebe724ef`,
+  `755837de2fcc0c9f37a8`, `a76f9526176f467f61dc`, `cbd93bcb29a9f0a1084c`,
+  `aa84cab9ebb7581c989b`, `21708c630192b37e0270`) and inner-parse guard survivor
+  `5f333271cf0dcfbb657d`; the latter still fails closed at the later length
+  check, so existing broad throws matchers do not distinguish error provenance.
+  Investigate individually after the shared VM/JS snapshot finishes.
+- Local Qwen/GLM reviews were checked against source and tests. Rebinding is
+  intentional, idempotent release is directly asserted, and exact diagnostics
+  must not be weakened on speculative advice. PKCS8 outer OCTET STRING remains
+  required; do not broaden that boundary. A truncated test-ideas response is
+  not accepted review evidence. Gemma's native-survivor grouping is advisory
+  only, not an equivalence or completed-score claim.
+- Published `417b2ca1` push CI `35233785010` and PR CI `35233789407` both pass.
+  Both package dry runs, image dry run and profile benchmarks pass. The fresh
+  completed-head strict audit retains only the known unprotected feature branch
+  and mutation workflow absent from default-branch discovery findings. Neither
+  is bypassed. The preceding audit's pending-PR findings are superseded.
+  These hosted results cover Work87, not the uncommitted Work88 changes.
+  Final fast/full verification, full VM coverage, implementation commit/push,
+  PR update and new-head hosted checks remain queued behind native87. Do not
+  edit an executing Bash launcher. No merge, publication or version change.
+
+Work88 follow-up after the initial key campaign completed:
+
+- Both VM and JS finish the original 100-candidate snapshot with 77 kills,
+  17 survivors and six compile errors, 81.91% raw/adjusted, both baselines zero.
+  No errors/timeouts or waivers. Preserve that report as the earlier snapshot.
+- Add eight cases using the existing public Ed25519 fixture independently
+  re-encrypted by OpenSSH with AES-256-CBC and the literal `test-only` password.
+  Assert the known seed, then reject altered binary magic/key count/key type
+  and unsupported cipher/KDF labels without accepting the still-decryptable
+  ciphertext. Preserve truncated/unsupported inner DER error provenance outside
+  the legacy raw lengths. An initial test expectation incorrectly called all
+  malformed lengths unsupported tags; the all-0xff DER length prefix instead
+  throws RangeError. Correct the fixture oracle, not production behavior, and
+  add a distinct unsupported-tag case with a valid zero length byte.
+- All 67 focused cases pass on VM and JS. The new `keys88c-vm` / `keys88c-js`
+  reports measure PEM 85/85 VM and 72/73 JS, PKCS8 61/63 VM and 56/56 JS. Add
+  98% floors for PEM on both runtimes and PKCS8 on JS. The full rerun at
+  `keys88c-mutations` is active, with no copied outcomes or equivalence waivers.
+  The earlier 59-case WASM/browser-wide evidence is historical until rerun.
+- Native87 completes all 613 candidates: 214 kills, 259 survivors, 107 compile
+  errors, 14 errors and 19 timeouts, 42.29% raw/adjusted. Original/restored
+  baselines are both zero, the native artifact is unchanged, and all eight
+  recorded input hashes match. Crashes/timeouts remain non-kills. Native
+  ownership is released; fresh `bin/test-fast` passes. Full VM88 collection is
+  now the sole native owner; `bin/verify` follows serially.
+- `keys88c-mutations` finishes both runtimes at 87 kills, seven survivors and
+  six compile errors (92.55% raw/adjusted), both baselines zero, no errors or
+  timeouts. The eight follow-up cases kill all ten actionable old survivors.
+  Add seven individual source-hash-pinned equivalence records per runtime.
+  The fixed 32-byte seed writer produces 46 ASN.1 content bytes plus its two-byte
+  outer SEQUENCE header: 48 DER bytes, exactly 64 base64 characters, one loop
+  iteration. Six line-wrap mutants therefore select identical bounds or change
+  an unreachable branch. Independently decoding the existing fixture confirms
+  48 bytes; GLM's contrary 46-byte arithmetic omitted the outer header and is
+  rejected. PointyCastle 4.0.0 SIC initialization ignores the CTR direction flag
+  and always initializes AES for encryption; the CBC direction is not waived.
+  Fresh `keys88d-mutations` validates the equivalence configuration; older raw
+  and adjusted reports remain unchanged.
+- Canonical `browser88c` passes 2,978 JavaScript tests and measures core
+  6,628/6,973 (95.05%); 173 unmeasured sources remain visible. This is measured
+  JS evidence, not WASM line coverage.
+- A fail-first manifest test catches omission of the existing native library
+  loader tests from the full-runtime mutation target. Include that suite and
+  require every direct runtime-importing regression while preserving isolated
+  test processes and native-library requirements. All 42 mutation tooling tests
+  pass, with one optional native fixture skipped. This expands the next native
+  campaign's oracles; it does not revise the completed native87 score.
+- Add both key-file mutation targets to CI with Chrome setup and the unchanged
+  95% gate. The browser target shares the existing 90-minute long-browser job
+  budget because its local campaign already approaches 20 minutes; individual
+  mutation deadlines/classification remain unchanged. Extend deployment-audit
+  required jobs and fake hosted fixtures. A
+  fail-first launcher check protects target selection/artifacts; 51 launcher
+  tests pass. Local companion reviews are advisory: target manifests and browser
+  launchers already include the new tests, artifact names are matrix-specific,
+  and speculative findings about unseen symlink code are not adopted.
+- Full VM88 collection passes: core 6,823/7,243 (94.20%), MCP 3,746/3,912
+  (95.76%), including CLI 2,154/2,297 (93.77%). Auth-server 100%, client
+  86.80%, router 84.67% and bench 84.69% are unchanged. All 59 unmeasured
+  library files remain visible. Separate packaging remains client 97.26% and
+  router 97.14%, with 12 unmeasured files. This is not whole-goal completion.
+  All 26 deployment-audit regression tests pass. Serial final `bin/verify` is
+  running after coverage has exited, with no overlapping native runtime users.
+- Fresh `keys88d-mutations` completes both full 100-candidate inventories with
+  exit zero: 87 kills, seven individually justified equivalents, six compile
+  errors, 92.55% raw / 100% adjusted. Both original/restored baselines pass,
+  no errors/timeouts occur, and all source/test/support hashes match. This is
+  the new equivalence-configured snapshot, not a rewritten older report or a
+  whole-core mutation score.
+- Final serial `bin/verify` passes, including Rust, installed-package MCP/router
+  smoke checks, all 3,131 core VM tests, 2,970 core WASM tests and two browser
+  WebSocket cases. WASM remains uninstrumented for line coverage. Native runtime
+  ownership is released. All key-campaign input hashes match the final tests;
+  the MCP campaign continues with matching source/test hashes and must not be
+  duplicated. The implementation bundle is ready for coverage-branch commit/push
+  and new-head hosted evidence; no merge, publication or version changes.
+  Full VM collection and `bin/verify` follow serially before commit/push.
+
 ### Work87 Native Client Boundaries And Auth Gate Repair
 
 - Pushed work86 as `a7562b23`, updated PR #93, and dispatched exact-head image
@@ -143,8 +308,16 @@ caught and timed-out outcomes separately.
   These VM measurements are not browser/WASM/native Rust coverage claims.
 - Final verification includes Rust, installed-package MCP smoke checks,
   2,903 core WASM tests and two browser WebSocket tests. Logs use
-  `/tmp/connectanum-coverage87-*`. Work87 commit and new-head hosted
-  evidence are still pending. Whole-goal
+  `/tmp/connectanum-coverage87-*`. Work87 is pushed as `417b2ca1` and PR #93
+  updated. Native87-mutations starts all 613 candidates with a clean baseline
+  and the unchanged native artifact hash; it is the sole native-runtime owner.
+  No completed native mutation score is claimed. Hosted CI
+  `35233785010`/`35233789407`, packages `35233785025`/`35233789398`, image
+  `35233804665` and profile `35233807361` are exact-head runs. Both package
+  checks pass; remaining hosted evidence is pending. Strict audit fails closed
+  on pending jobs and the known feature-branch protection/workflow discovery
+  findings. Leave this post-push bookkeeping uncommitted for the next code
+  increment rather than creating a docs-only commit. Whole-goal
   targets remain unmet; no version, publication or merge action.
 
 ### Work86 Security Oracles And Evidence Integrity

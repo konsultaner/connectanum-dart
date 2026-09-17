@@ -1,4 +1,64 @@
 {
+  "core-pem-pkcs8-vm": {
+    "03e7cb535020ebe724ef": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "fromEd25519Seed accepts exactly 32 seed bytes. Its fixed version/OID/nested OCTET STRING encodes 46 content bytes plus the two-byte outer SEQUENCE header: 48 DER bytes and exactly 64 base64 characters. The loop runs only at i=0. Forcing its substring condition true selects i+64=64, identical to the original false branch's base64Text.length=64."
+    },
+    "755837de2fcc0c9f37a8": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer's 32-byte seed guard and fixed ASN.1 envelope produce exactly 48 DER bytes, hence 64 base64 characters. Only i=0 reaches the substring condition, where 0+64<64 is false. Forcing that condition false therefore preserves the selected bound and all output."
+    },
+    "a76f9526176f467f61dc": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer always emits exactly 64 base64 characters from its fixed 48-byte DER envelope and iterates only at i=0. Changing < to <= selects the other substring branch at equality, but both branches supply the same end index 64. No callback, mutation or distinct exception occurs in either scalar bound expression."
+    },
+    "cbd93bcb29a9f0a1084c": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For every admitted 32-byte seed the DER envelope is 48 bytes and the base64 string is 64 characters. At the only iteration i=0, both 0+64<64 and 0+64>64 are false, preserving the substring bound, newline and footer."
+    },
+    "aa84cab9ebb7581c989b": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For the fixed 64-character base64 output and sole i=0 iteration, replacing + with - only in the condition makes -64<64 true. The unmutated true branch still supplies i+64=64, equal to the original false branch's string length. The single mutant does not also alter the branch's arithmetic."
+    },
+    "21708c630192b37e0270": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The admitted 32-byte seed produces a fixed 48-byte DER envelope and exactly 64 base64 characters. The sole substring condition is 0+64<64, always false. This single mutation changes only arithmetic in the unselected true branch, which is never evaluated; it cannot affect output or throw a negative-bound error."
+    },
+    "e16f0ec1d91b3fb31ca6": {
+      "sourceHash": "bedf8eeb2232a5fd71ebd75faa229c5ba0d20f3470f25cce2c9b2c45c48013cf",
+      "reason": "This mutation flips init(false) to init(true) only on CTRBlockCipher(32, CTRStreamCipher(AESEngine())). In locked PointyCastle 4.0.0, StreamCipherAsBlockCipher forwards the flag, CTRStreamCipher inherits SICStreamCipher.init, and that method ignores forEncryption and always initializes AES with true. IV/reset and XOR keystream operations are identical. This proof does not cover the adjacent CBC branch, whose direction mutation is killed by the independent CBC fixture."
+    }
+  },
+  "core-pem-pkcs8-web": {
+    "03e7cb535020ebe724ef": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "fromEd25519Seed accepts exactly 32 seed bytes. Its fixed version/OID/nested OCTET STRING encodes 46 content bytes plus the two-byte outer SEQUENCE header: 48 DER bytes and exactly 64 base64 characters. The loop runs only at i=0. Forcing its substring condition true selects i+64=64, identical to the original false branch's base64Text.length=64."
+    },
+    "755837de2fcc0c9f37a8": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer's 32-byte seed guard and fixed ASN.1 envelope produce exactly 48 DER bytes, hence 64 base64 characters. Only i=0 reaches the substring condition, where 0+64<64 is false. Forcing that condition false therefore preserves the selected bound and all output."
+    },
+    "a76f9526176f467f61dc": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer always emits exactly 64 base64 characters from its fixed 48-byte DER envelope and iterates only at i=0. Changing < to <= selects the other substring branch at equality, but both branches supply the same end index 64. No callback, mutation or distinct exception occurs in either scalar bound expression."
+    },
+    "cbd93bcb29a9f0a1084c": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For every admitted 32-byte seed the DER envelope is 48 bytes and the base64 string is 64 characters. At the only iteration i=0, both 0+64<64 and 0+64>64 are false, preserving the substring bound, newline and footer."
+    },
+    "aa84cab9ebb7581c989b": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For the fixed 64-character base64 output and sole i=0 iteration, replacing + with - only in the condition makes -64<64 true. The unmutated true branch still supplies i+64=64, equal to the original false branch's string length. The single mutant does not also alter the branch's arithmetic."
+    },
+    "21708c630192b37e0270": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The admitted 32-byte seed produces a fixed 48-byte DER envelope and exactly 64 base64 characters. The sole substring condition is 0+64<64, always false. This single mutation changes only arithmetic in the unselected true branch, which is never evaluated; it cannot affect output or throw a negative-bound error."
+    },
+    "e16f0ec1d91b3fb31ca6": {
+      "sourceHash": "bedf8eeb2232a5fd71ebd75faa229c5ba0d20f3470f25cce2c9b2c45c48013cf",
+      "reason": "This mutation flips init(false) to init(true) only on CTRBlockCipher(32, CTRStreamCipher(AESEngine())). In locked PointyCastle 4.0.0, StreamCipherAsBlockCipher forwards the flag, CTRStreamCipher inherits SICStreamCipher.init, and that method ignores forEncryption and always initializes AES with true. IV/reset and XOR keystream operations are identical. This proof does not cover the adjacent CBC branch, whose direction mutation is killed by the independent CBC fixture."
+    }
+  },
   "router-settings-vm": {
     "d7d482fea0b1496deb85": {
       "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",

@@ -113,6 +113,57 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(target['tests'], ['examples/wamp_app/shared/test'])
         self.assertEqual(target['testRoot'], 'examples/wamp_app/shared')
 
+    def test_mcp_library_target_keeps_complete_component_and_package_scope(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        policy = json.loads((runner.ROOT / 'tool/coverage_policy.json').read_text())
+        target = targets['mcp-library']
+        cli = 'packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart'
+        actual = {str(path.relative_to(runner.ROOT))
+                  for path in (runner.ROOT / 'packages/connectanum_mcp/lib/src').rglob('*.dart')}
+        self.assertEqual(set(target['sources']), actual - {cli})
+        self.assertEqual(len(target['sources']), len(actual) - 1)
+        self.assertEqual(set(target['sources']),
+                         set(policy['components']['connectanum_mcp_library']['sources']))
+        self.assertEqual(set(targets['mcp']['sources']), actual)
+        self.assertEqual(target['tests'], ['packages/connectanum_mcp/test'])
+        self.assertIn(cli, targets['mcp-cli-native']['sources'])
+        self.assertTrue(targets['mcp-cli-native']['requiresNativeLibrary'])
+
+    def test_pem_pkcs8_targets_share_tests_and_record_key_fixtures(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        for runtime in ('vm', 'web'):
+            with self.subTest(runtime=runtime):
+                target = targets[f'core-pem-pkcs8-{runtime}']
+                self.assertEqual(set(target['sources']), {
+                    'packages/connectanum_core/lib/src/authentication/cryptosign/pem.dart',
+                    'packages/connectanum_core/lib/src/authentication/cryptosign/pkcs8.dart',
+                })
+                self.assertEqual(target['tests'], [
+                    'packages/connectanum_core/test/authentication/cryptosign_authentication_test.dart',
+                    'packages/connectanum_core/test/authentication/cryptosign/key_file_boundaries_test.dart',
+                ])
+                self.assertIn('packages/connectanum_core/test/authentication/cryptosign/keys.dart',
+                              target['supportFiles'])
+                self.assertEqual(target.get('platform', 'vm'),
+                                 'chrome' if runtime == 'web' else 'vm')
+
+    def test_native_runtime_target_includes_all_direct_runtime_regressions(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['client-native-runtime-vm']
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_client/lib/src/transport/native/runtime.dart',
+        ])
+        direct_tests = {
+            str(path.relative_to(runner.ROOT))
+            for path in (runner.ROOT / 'packages/connectanum_client/test').rglob('*_test.dart')
+            if 'package:connectanum_client/src/transport/native/runtime.dart' in path.read_text()
+        }
+        self.assertTrue(direct_tests)
+        self.assertLessEqual(direct_tests, set(target['tests']))
+        self.assertEqual(len(target['tests']), len(set(target['tests'])))
+        self.assertTrue(target['requiresNativeLibrary'])
+        self.assertTrue(target['isolateTestFiles'])
+
     def test_snapshot_rejects_symlink_files_and_ancestor_directories(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'repo'

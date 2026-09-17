@@ -1016,6 +1016,132 @@ void main() {
       expect(unsubscribed.subscriptionId, 7);
     });
 
+    for (final releaseOverride in [false, true]) {
+      test(
+        'retained pubsub tools respect withdrawn callbacks and recover, override=$releaseOverride',
+        () async {
+          final state = McpWampPubSubState();
+          final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);
+          var publishes = 0;
+          var subscribes = 0;
+          final released = <McpWampSubscription>[];
+          final tools = api.toTools(
+            pubSubState: state,
+            publish: (_) {
+              publishes++;
+              return const McpWampPublication(
+                publicationId: 20,
+                acknowledged: true,
+              );
+            },
+            subscribe: (request, _) {
+              subscribes++;
+              return McpWampSubscription(
+                topic: request.topic,
+                subscriptionId: 7,
+              );
+            },
+            unsubscribe: released.add,
+          );
+          final server = _server(tools);
+          await _initializeAndStart(server);
+          var requestId = 40;
+          Future<Map<String, Object?>> call(
+            String operation,
+            Map<String, Object?> arguments,
+          ) async {
+            final response = await server.handleMessage({
+              'jsonrpc': '2.0',
+              'id': requestId++,
+              'method': 'tools/call',
+              'params': {
+                'name': 'connectanum.pubsub.$operation',
+                'arguments': arguments,
+              },
+            });
+            expect(response, isNot(contains('error')));
+            return response!['result'] as Map<String, Object?>;
+          }
+
+          final initial = await call('subscribe', {'topic': 'app.events'});
+          final handle =
+              (initial['structuredContent'] as Map)['handle'] as String;
+          expect(subscribes, 1);
+          // Keep the registered tools, but withdraw their shared state's invokers.
+          api.toTools(pubSubState: state);
+          for (final operation in ['publish', 'subscribe', 'unsubscribe']) {
+            final result = await call(
+              operation,
+              operation == 'unsubscribe'
+                  ? {'handle': handle}
+                  : {'topic': 'app.events'},
+            );
+            expect(result['isError'], isTrue);
+            expect((result['content'] as List).single, {
+              'type': 'text',
+              'text': operation == 'publish'
+                  ? 'WAMP publish support is not configured.'
+                  : 'WAMP subscribe support is not configured.',
+            });
+          }
+          expect(publishes, 0);
+          expect(subscribes, 1);
+          expect(released, isEmpty);
+          await expectLater(
+            state.reconcileSubscribedTopics({}),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'message',
+                'WAMP unsubscribe support is not configured.',
+              ),
+            ),
+          );
+          expect(released, isEmpty);
+
+          if (!releaseOverride) {
+            api.toTools(pubSubState: state, unsubscribe: released.add);
+          }
+          await state.reconcileSubscribedTopics(
+            {},
+            release: releaseOverride ? released.add : null,
+          );
+          expect(released.single.topic, 'app.events');
+          expect(released.single.subscriptionId, 7);
+          await state.reconcileSubscribedTopics({}, release: released.add);
+          expect(released, hasLength(1));
+          api.toTools(pubSubState: state, unsubscribe: released.add);
+          final repeated = await call('unsubscribe', {'handle': handle});
+          expect(repeated['isError'], isTrue);
+          expect((repeated['content'] as List).single, {
+            'type': 'text',
+            'text': 'Unknown WAMP subscription handle: $handle',
+          });
+          expect(released, hasLength(1));
+
+          api.toTools(
+            pubSubState: state,
+            publish: (_) {
+              publishes++;
+              return const McpWampPublication(
+                publicationId: 21,
+                acknowledged: true,
+              );
+            },
+          );
+          final published = await call('publish', {'topic': 'app.events'});
+          expect(published['isError'], isNot(true));
+          expect(published['structuredContent'], {
+            'topic': 'app.events',
+            'publicationId': 21,
+            'acknowledged': true,
+          });
+          expect(publishes, 1);
+          expect(subscribes, 1);
+        },
+      );
+    }
+
     test('reuses pubsub state across refreshed WAMP API catalogs', () async {
       late void Function(McpWampEvent event) onEvent;
       late McpWampSubscription unsubscribed;

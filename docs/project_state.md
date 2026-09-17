@@ -6,6 +6,69 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work88 is in progress on top of `417b2ca1`. Twenty CLI refresh/revocation
+regressions and two retained pub/sub callback-withdrawal/recovery cases pass
+with all 505 MCP package tests. The focused `mcp88-final-vm` report measures
+the complete MCP library component at 1,592/1,615 (98.58%) and WAMP API at
+620/630 (98.41%), now protected by a 98% file floor. This package-only test
+run lacks native CLI integration and is not updated whole-MCP coverage.
+The complete 1,095-candidate `mcp88-library-mutations` campaign is running;
+the original whole-MCP and native CLI mutation scopes are retained.
+
+Five fail-first key-loader cases expose accepted malformed OpenSSH footers
+and legacy raw PKCS8 keys rejected by an inner ASN.1 parser. Require the
+normalized OpenSSH footer; restrict the existing raw fallback after parse
+failure to 32/64-byte keys, retaining nested-seed precedence. There are 51 new
+key boundary cases; all 59 focused old/new tests pass separately on VM,
+JavaScript and WASM. Full core VM passes 3,123 tests. PKCS8 measures 61/63
+VM lines and 56/56 JavaScript lines; WASM line coverage remains unmeasured.
+Browser verification/coverage now include these tests. Canonical `browser88`
+passes 2,970 tests, measuring core 6,623/6,973 (94.98%); 173 unmeasured library
+sources remain visible. Workspace analysis, 50 launcher checks and 41 mutation
+tool checks pass (one optional native fixture skipped).
+
+Both original key-loader campaigns in `keys88-mutations` finish at 81.91%
+raw/adjusted: 77 assertion kills, 17 survivors, six compile errors each, no
+errors/timeouts, both baselines zero, no waivers. Eight follow-up tests now
+cover independent OpenSSH-generated CBC decryption, malformed magic/count/type,
+unsupported cipher/KDF and preserved parser errors. All 67 focused cases pass
+on VM/JS. The newer `keys88c-vm` / `keys88c-js` reports measure PEM at 85/85 VM
+and 72/73 JS, now protected by 98% floors; PKCS8 stays 61/63 VM and 56/56 JS,
+with a 98% JS floor. The complete `keys88c-mutations` rerun finishes on both
+runtimes at 92.55% raw/adjusted: 87 kills, seven survivors, six compile errors,
+both baselines zero and no errors/timeouts. Ten actionable survivors are now
+killed. Seven individually source-pinned equivalence proofs cover fixed-size
+PKCS8 line wrapping and the ignored PointyCastle CTR direction argument; the
+fresh `keys88d-mutations` campaign passes both runtimes at 92.55% raw / 100%
+adjusted, retaining 87 kills, seven equivalents and six compile errors each.
+Both original/restored baselines pass, all input hashes match, and no crashes
+or timeouts count as kills. Older reports remain unchanged. Canonical
+`browser88c` passes 2,978 tests, measuring core
+6,628/6,973 (95.05%), with 173 unmeasured sources still visible.
+
+Native87 finishes all 613 candidates at 42.29% raw/adjusted: 214 kills, 259
+survivors, 107 compile errors, 14 errors and 19 timeouts. Both baselines pass,
+native artifact is unchanged, and all recorded source/test/support hashes
+match. Errors/timeouts are not kills. This remains a substantial unresolved
+native-client test gap. Its next campaign includes the previously omitted
+existing native library-loader suite, guarded by a fail-first inventory test.
+Fresh `bin/test-fast` and full VM88 collection pass. VM88 measures core at
+6,823/7,243 (94.20%) and MCP at 3,746/3,912 (95.76%), including CLI
+2,154/2,297 (93.77%). Other package scores are unchanged from VM87; 59
+unmeasured library sources remain visible. Packaging remains separate at
+client 97.26% / router 97.14%, with 12 unmeasured sources. Serial final
+`bin/verify` passes, including Rust, installed-package MCP/router smoke checks,
+2,970 core WASM tests and two browser WebSocket tests. WASM line instrumentation
+is still missing; these are test passes, not a WASM coverage percentage.
+The native runtime is now free. New-head hosted checks remain pending.
+Both key-file mutation targets are added to CI at the unchanged 95% threshold,
+and the deployment audit requires their jobs. All 26 audit tooling tests pass.
+Work87 verification is not claimed as final
+verification for these edits. No merge, publication or version change.
+Both Work87 CI runs and all four package/image/profile checks now pass. The
+completed-head strict audit retains only the known unprotected feature branch
+and default-branch mutation-workflow visibility findings; neither is bypassed.
+
 Work87 follows pushed `a7562b23`. Sixteen fail-first native cases reproduce
 UTF-16 character counts truncating UTF-8 E2EE key IDs, including distinct IDs
 aliasing one native key and file encryption failing to find the intended key.
@@ -32,9 +95,17 @@ timed-out mutants now fail direct assertions.
 An earlier fast87 run was invalidated by editing its running Bash launcher,
 causing a shifted read offset; it is not accepted evidence. The clean rerun
 passed. Final verification includes Rust, installed-package MCP smoke checks,
-2,903 core WASM tests and two browser WebSocket tests. Work87 commit/push and
-new-head hosted evidence are pending. No merge, publication, version change or
-weakened threshold.
+2,903 core WASM tests and two browser WebSocket tests. Work87 is pushed as
+`417b2ca1`; PR #93 is updated. The full 613-candidate native-client campaign
+at `native87-mutations` has a passing clean baseline and is running as the sole
+local native-runtime owner. Do not start another native suite/build meanwhile.
+Hosted CI `35233785010`/`35233789407`, package checks
+`35233785025`/`35233789398`, image dry run `35233804665`, and profile benchmark
+`35233807361` cover this head. Both package checks pass; other evidence is
+pending. Strict audit correctly fails pending checks and retains the known
+feature-branch protection/default-branch workflow visibility findings. No
+merge, publication, version change or weakened threshold. Post-push bookkeeping
+remains uncommitted until bundled with the next implementation increment.
 
 Work86 follows pushed commit `9e9579bf`. The full VM85 report completed:
 auth-server 100%, core 93.90%, client 85.11%, MCP 95.40%, router 84.53%,

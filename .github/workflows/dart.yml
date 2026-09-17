@@ -206,16 +206,16 @@ jobs:
   mutation-gates:
     name: ${{ matrix.target }} Mutation Gate
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ (matrix.target == 'core-lazy-web' || matrix.target == 'core-metadata-web') && 90 || 20 }}
+    timeout-minutes: ${{ (matrix.target == 'core-lazy-web' || matrix.target == 'core-metadata-web' || matrix.target == 'core-pem-pkcs8-web') && 90 || 20 }}
     strategy:
       fail-fast: false
       matrix:
-        target: [router-authorization, router-metrics-vm, core-mcp-completion-vm, core-mcp-completion-web, core-registered-vm, core-registered-web, core-subscribed-vm, core-subscribed-web, core-metadata-vm, core-metadata-web, auth-server, client-installer, router-installer, core-e2ee-vm, bench-config, core-lazy-vm, core-lazy-web]
+        target: [router-authorization, router-metrics-vm, core-mcp-completion-vm, core-mcp-completion-web, core-registered-vm, core-registered-web, core-subscribed-vm, core-subscribed-web, core-metadata-vm, core-metadata-web, auth-server, client-installer, router-installer, core-e2ee-vm, bench-config, core-lazy-vm, core-lazy-web, core-pem-pkcs8-vm, core-pem-pkcs8-web]
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
       - id: chrome
-        if: matrix.target == 'core-lazy-web' || matrix.target == 'core-mcp-completion-web' || matrix.target == 'core-registered-web' || matrix.target == 'core-subscribed-web' || matrix.target == 'core-metadata-web'
+        if: matrix.target == 'core-lazy-web' || matrix.target == 'core-mcp-completion-web' || matrix.target == 'core-registered-web' || matrix.target == 'core-subscribed-web' || matrix.target == 'core-metadata-web' || matrix.target == 'core-pem-pkcs8-web'
         uses: browser-actions/setup-chrome@v2
       - name: Run the complete target AST mutation inventory
         env:
