@@ -233,6 +233,16 @@
     "sources": ["packages/connectanum_router/lib/src/router/models/router_metrics.dart"],
     "tests": ["packages/connectanum_router/test/router_metrics_model_test.dart"]
   },
+  "client-message-binding-vm": {
+    "sources": ["packages/connectanum_client/lib/src/transport/native/message_binding.dart"],
+    "tests": ["packages/connectanum_client/test/transport/native/message_binding_test.dart"],
+    "supportFiles": ["packages/connectanum_core/test/support/native_role_contract.dart"]
+  },
+  "router-message-binding-vm": {
+    "sources": ["packages/connectanum_router/lib/src/native/message_binding.dart"],
+    "tests": ["packages/connectanum_router/test/native/message_binding_test.dart"],
+    "supportFiles": ["packages/connectanum_core/test/support/native_role_contract.dart"]
+  },
   "client-native-runtime-vm": {
     "sources": ["packages/connectanum_client/lib/src/transport/native/runtime.dart"],
     "tests": [

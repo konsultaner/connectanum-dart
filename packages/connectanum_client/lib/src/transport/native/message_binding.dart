@@ -68,6 +68,21 @@ AbstractMessage bindMessage(
   if (message == null && boundMessage is AbstractMessageWithPayload) {
     _applyLazyPayload(boundMessage, serializer, argsBytes, kwargsBytes);
   }
+  if (message == null &&
+      boundMessage is Abort &&
+      (argsBytes != null || kwargsBytes != null)) {
+    return Abort(
+      boundMessage.reason,
+      details: boundMessage.details,
+      message: boundMessage.message?.message,
+      arguments: argsBytes == null
+          ? boundMessage.arguments
+          : _decodeOptionalArgumentList(serializer, argsBytes),
+      argumentsKeywords: kwargsBytes == null
+          ? boundMessage.argumentsKeywords
+          : _decodeOptionalKeywordMap(serializer, kwargsBytes),
+    );
+  }
   return boundMessage;
 }
 
@@ -532,6 +547,10 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
       reason,
       details: details,
       message: _readOptionalMessageText(message, 1),
+      arguments: message.length > 3 ? _asDynamicList(message[3]) : null,
+      argumentsKeywords: message.length > 4
+          ? _asStringKeyMap(message[4])
+          : null,
     );
   }
   if (code == MessageTypes.codeGoodbye) {
@@ -1045,6 +1064,9 @@ DealerFeatures? _mapDealerFeatures(Map<String, dynamic>? map) {
   features.sessionMetaApi = map['session_meta_api'] ?? features.sessionMetaApi;
   features.callTimeout = map['call_timeout'] ?? features.callTimeout;
   features.callCanceling = map['call_canceling'] ?? features.callCanceling;
+  features.progressiveCallInvocations =
+      map['progressive_call_invocations'] ??
+      features.progressiveCallInvocations;
   features.progressiveCallResults =
       map['progressive_call_results'] ?? features.progressiveCallResults;
   features.payloadPassThruMode =
@@ -1065,6 +1087,9 @@ CalleeFeatures? _mapCalleeFeatures(Map<String, dynamic>? map) {
       map['shared_registration'] ?? features.sharedRegistration;
   features.callTimeout = map['call_timeout'] ?? features.callTimeout;
   features.callCanceling = map['call_canceling'] ?? features.callCanceling;
+  features.progressiveCallInvocations =
+      map['progressive_call_invocations'] ??
+      features.progressiveCallInvocations;
   features.progressiveCallResults =
       map['progressive_call_results'] ?? features.progressiveCallResults;
   features.payloadPassThruMode =
@@ -1079,6 +1104,9 @@ CallerFeatures? _mapCallerFeatures(Map<String, dynamic>? map) {
       map['caller_identification'] ?? features.callerIdentification;
   features.callTimeout = map['call_timeout'] ?? features.callTimeout;
   features.callCanceling = map['call_canceling'] ?? features.callCanceling;
+  features.progressiveCallInvocations =
+      map['progressive_call_invocations'] ??
+      features.progressiveCallInvocations;
   features.progressiveCallResults =
       map['progressive_call_results'] ?? features.progressiveCallResults;
   features.payloadPassThruMode =
@@ -1101,8 +1129,8 @@ Map<String, dynamic> _extractCustomFields(
 
 String? _readOptionalMessageText(List<dynamic> message, int index) {
   final value = message.length > index ? message[index] : null;
-  if (value is Map && value['message'] is String) {
-    return value['message'] as String;
+  if (value is Map) {
+    return value['message'] as String?;
   }
   return value as String?;
 }

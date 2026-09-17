@@ -67,6 +67,75 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work90 Native Feature And Abort Contracts
+
+- Classify the previous short coverage-table turn as status only. Revalidate the
+  clean worktree, native VM89 collector and MCP89 campaign; preserve both.
+  VM89 completes with auth-server 455/455, core 6,823/7,243, client 8,126/9,355,
+  MCP 3,752/3,912, router 16,318/19,287 and bench 1,909/2,254. Keep its 59 missing
+  library sources visible. Packaging is unchanged at client 391/402 and router
+  374/385, with 12 unmeasured sources. This is pre-Work90 evidence, not a score
+  for subsequently changed code/tests.
+- Start `bin/test-fast` before substantive edits, after VM89 has released native
+  use and is formatting reports only; it finishes zero. Use shared independent
+  wire/property oracles for every public role feature, omitted/null/false/true
+  values, role isolation, dealer reflection, broker trust-level alias precedence
+  and independent message state. Run both full-frame and metadata HELLO/WELCOME
+  decoders across JSON, MessagePack and CBOR; unsupported inbound serializer IDs
+  must fail explicitly. Initial enum spelling/exhaustiveness errors are test
+  authoring errors, not production reproductions.
+- Eighteen valid full-frame cases fail with false instead of the announced true
+  progressive invocation capability; the 18 corresponding metadata cases pass.
+  Add the missing assignments in both native caller/callee/dealer mappers.
+- Expanded request-frame tests expose ABORT with an empty details dictionary
+  throwing. A separate 201-case abort run has 135 failures before the fix,
+  including lost full-frame/custom/fragment payload fields. The
+  [WAMP ABORT contract](https://wamp-proto.org/wamp_latest_ietf.html#section-4.1.3)
+  permits optional closing information and optional positional/keyword payloads.
+  Preserve details and payloads without changing the wire schema. Abort is not
+  an AbstractMessageWithPayload and its fields are final, so fragment overlays
+  construct an immutable Abort rather than relying on generic lazy payload setup.
+  Missing message text is valid; non-text message values still reject.
+- Additional regressions assert request/entity IDs, ACK versus revocation,
+  cancellation modes, registration policy/disclosure/timeout options, progressive
+  results, passthrough metadata, custom-field separation and lazy ERROR payloads.
+  Review reproduces a patch regression in three cases: preserving full-frame
+  router details must not reject its existing text shorthand. Keep the shorthand
+  while preserving dictionary details. All 2,644 focused tests pass.
+  `binding90e-vm` measures client message binding
+  545/584 (93.32%) and router message binding 515/575 (89.57%). Keep its failing
+  canonical partial-scope report and input hashes; these are not package totals.
+- Add full-source client/router message-binding mutation targets, explicitly
+  inventorying the shared test oracle. A fail-first manifest check guards both
+  targets. All 43 mutation tooling checks pass, with one optional native fixture
+  skipped. `binding90-mutations` has a passing client baseline and 492 generated
+  candidates; router follows serially. The router snapshot predates the final
+  shorthand fix and must be rerun after this campaign terminates; it is not
+  final-source evidence. The client source/test/support hashes still match.
+  Keep the existing MCP89 campaign running.
+  Neither partial campaign is a final mutation score. Early fragment-fallback
+  survivors remain to investigate after the complete inventory finishes, notably
+  kwargs-only fragments and preserving the other full-frame payload field when
+  one fragment overrides it. Also distinguish the intended empty-frame
+  ArgumentError from a downstream RangeError, which the broad matcher accepts;
+  do not waive that survivor without examining the public error contract.
+- Qwen advice is advisory: reject its proposed expectation that an explicitly
+  announced progressive feature should remain false. Missing feature dictionaries
+  yield null, not default feature objects. Review's alleged null-cast and omitted
+  metadata-details regressions are disproved by source and tests: String? accepts
+  null, malformed scalars already rejected, details are explicitly passed, and
+  the client optional decoder delegates to the same non-null fragment semantics.
+- Full `bin/verify` finishes zero, including Rust, installed-package/native
+  router/MCP smoke checks, 2,970 core WASM tests and two browser WebSocket tests.
+  Its router suite includes the final shorthand compatibility regression, and
+  final changed-file formatting is clean. Workspace analysis exits zero with
+  five informational null-aware-element suggestions, four pre-existing; no
+  errors or warnings. WASM line coverage remains unmeasured. Fresh `vm-current90`
+  coverage is running as the sole native-runtime owner. New-head push and hosted
+  checks remain pending. Work89 package/image/
+  profile checks pass while both CI runs continue. No master merge, publication,
+  version change or equivalent waiver. The overall coverage goal is not complete.
+
 ### Work89 Public MCP Contracts And Mutation Follow-Up
 
 - Revalidated the unfinished catalog test file and the live Work88 mutation

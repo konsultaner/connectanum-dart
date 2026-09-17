@@ -147,6 +147,24 @@ class MutationRunnerTests(unittest.TestCase):
                 self.assertEqual(target.get('platform', 'vm'),
                                  'chrome' if runtime == 'web' else 'vm')
 
+    def test_native_binding_targets_inventory_sources_tests_and_shared_oracles(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        for package, directory in [('client', 'transport/native'), ('router', 'native')]:
+            with self.subTest(package=package):
+                target = targets[f'{package}-message-binding-vm']
+                prefix = f'packages/connectanum_{package}'
+                self.assertEqual(target['sources'], [
+                    f'{prefix}/lib/src/{directory}/message_binding.dart',
+                ])
+                self.assertEqual(target['tests'], [
+                    f'{prefix}/test/{directory}/message_binding_test.dart',
+                ])
+                self.assertIn(
+                    'packages/connectanum_core/test/support/native_role_contract.dart',
+                    target['supportFiles'],
+                )
+                self.assertEqual(target.get('platform', 'vm'), 'vm')
+
     def test_native_runtime_target_includes_all_direct_runtime_regressions(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         target = targets['client-native-runtime-vm']

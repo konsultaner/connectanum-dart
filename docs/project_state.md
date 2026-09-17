@@ -6,6 +6,45 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work90 follows pushed `c8508221`. The previous table was status only; this
+continuation revalidated the clean worktree and live campaigns without restarting
+them. VM89 completes successfully: auth-server 100%, core 94.20%, client 86.86%,
+MCP 95.91%, router 84.61%, bench 84.69%; 59 unmeasured library sources remain.
+Packaging stays client 97.26% / router 97.14%, with 12 unmeasured sources.
+These measurements precede Work90 and are not scores for its new tests.
+
+Eighteen failing native-frame regressions expose dropped
+`progressive_call_invocations` announcements in client/router role mappers.
+The corresponding metadata cases already pass. Add the missing dealer/callee/
+caller mappings, preserving the existing wire contract. Further fail-first tests
+expose valid ABORT dictionaries without a message throwing, router full-frame
+custom details being discarded, and optional ABORT payloads being lost.
+Preserve empty/absent values, details and payloads on full-frame/fragment/metadata
+paths; malformed message text still fails closed. A review regression also
+preserves the router's existing text shorthand. All 2,644 focused binding
+tests pass across JSON/MessagePack/CBOR. The focused `binding90e-vm` report
+measures client binding 545/584 (93.32%) and router binding 515/575 (89.57%).
+It is not whole-package or native Rust coverage and deliberately fails the
+canonical missing-scope policy. Its input hashes are recorded alongside it.
+
+Both full binding sources now have mutation targets with inventoried shared
+oracles, guarded by a fail-first tooling check. All 43 mutation-tooling checks
+pass (one optional native fixture skipped). `binding90-mutations` is running
+the 492-candidate client campaign before the router campaign, with a passing
+baseline; `mcp89-library-mutations` remains live and is not a final score.
+The binding campaign's router snapshot predates the shorthand correction and
+must not be attributed to the final router code/tests; let it finish, then
+rerun that target. The client snapshot's source/test/support hashes still match.
+`bin/test-fast` and full `bin/verify` finish zero, including Rust,
+installed-package/native router/MCP smoke checks, 2,970 core WASM tests and two
+browser WebSocket tests. The router suite executes the final shorthand tests.
+WASM line coverage is still unmeasured. Workspace analysis exits zero with five
+informational null-aware-element suggestions (four pre-existing), not errors.
+Fresh `vm-current90` coverage is now the sole native-runtime owner. Work89
+package/image/profile hosted checks pass; both CI runs are pending. No merge,
+publication, version change, weakened floor or waiver.
+The complete cross-component/runtime goal remains unfinished.
+
 Work89 follows pushed `205a179e`. The previous short coverage-table response
 was status only; this continuation resumes the pending test file and confirms
 the existing fast gate passed before further edits. There are 156 new MCP

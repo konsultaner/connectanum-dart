@@ -11,7 +11,210 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
+import '../../../../connectanum_core/test/support/native_role_contract.dart';
+
 void main() {
+  for (final serializer in [
+    NativeMessageSerializer.ubjson,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    test('unsupported inbound $serializer fails explicitly', () {
+      expect(
+        () => bindMessage(serializer, Uint8List.fromList([0xff])),
+        throwsUnsupportedError,
+      );
+    });
+  }
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+  ]) {
+    Uint8List encode(Object value) => switch (serializer) {
+      NativeMessageSerializer.json => Uint8List.fromList(
+        utf8.encode(jsonEncode(value)),
+      ),
+      NativeMessageSerializer.messagePack => msgpack.serialize(value),
+      NativeMessageSerializer.cbor => Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue(value)),
+      ),
+      _ => throw StateError('Unsupported test serializer: $serializer'),
+    };
+    group('full response frames $serializer', () {
+      T decode<T extends AbstractMessage>(List<Object?> frame) =>
+          bindMessage(serializer, encode(frame)) as T;
+      test('rejects non-array and empty frames', () {
+        for (final frame in <Object>[{}, 1, 'invalid', []]) {
+          expect(
+            () => bindMessage(serializer, encode(frame)),
+            throwsArgumentError,
+          );
+        }
+      });
+      test('acknowledgements preserve request and resource IDs', () {
+        final published = decode<Published>([17, 12, 45]);
+        expect(published.publishRequestId, 12);
+        expect(published.publicationId, 45);
+        final subscribed = decode<Subscribed>([33, 13, 46]);
+        expect(subscribed.subscribeRequestId, 13);
+        expect(subscribed.subscriptionId, 46);
+        final registered = decode<Registered>([65, 14, 47]);
+        expect(registered.registerRequestId, 14);
+        expect(registered.registrationId, 47);
+        expect(decode<Unregistered>([67, 15]).unregisterRequestId, 15);
+      });
+      test('UNSUBSCRIBED distinguishes acknowledgement from revocation', () {
+        final normal = decode<Unsubscribed>([35, 16]);
+        expect(normal.unsubscribeRequestId, 16);
+        expect(normal.details, isNull);
+        final revoked = decode<Unsubscribed>([
+          35,
+          0,
+          {'subscription': 48, 'reason': 'wamp.error.not_authorized'},
+        ]);
+        expect(revoked.unsubscribeRequestId, 0);
+        expect(revoked.details!.subscription, 48);
+        expect(revoked.details!.reason, 'wamp.error.not_authorized');
+      });
+      for (final progress in <bool?>[null, false, true]) {
+        test('RESULT preserves progress $progress and passthrough fields', () {
+          final value = decode<Result>([
+            50,
+            17,
+            {
+              'progress': progress,
+              'ppt_scheme': 'wamp',
+              'ppt_serializer': 'cbor',
+              'ppt_cipher': 'cipher',
+              'ppt_keyid': 'key',
+              'extension': 3,
+            },
+          ]);
+          expect(value.callRequestId, 17);
+          expect(value.details.progress, progress);
+          expect(value.details.pptScheme, 'wamp');
+          expect(value.details.pptSerializer, 'cbor');
+          expect(value.details.pptCipher, 'cipher');
+          expect(value.details.pptKeyId, 'key');
+          expect(value.details.custom, {'extension': 3});
+        });
+      }
+      for (final mode in <String?>[null, 'skip', 'kill', 'killnowait']) {
+        test('INTERRUPT retains mode $mode', () {
+          final value = decode<Interrupt>([
+            69,
+            18,
+            if (mode != null) {'mode': mode},
+          ]);
+          expect(value.requestId, 18);
+          expect(value.options?.mode, mode);
+          if (mode == null) expect(value.options, isNull);
+        });
+      }
+      test('ERROR preserves lazy payload and request context', () {
+        final value =
+            bindMessage(
+                  serializer,
+                  encode([
+                    8,
+                    48,
+                    19,
+                    {'trace': 'error'},
+                    'com.failure',
+                  ]),
+                  argsBytes: encode([1]),
+                  kwargsBytes: encode({'code': 2}),
+                )
+                as Error;
+        expect(value.requestTypeId, 48);
+        expect(value.requestId, 19);
+        expect(value.error, 'com.failure');
+        expect(value.details, {'trace': 'error'});
+        expect(value.arguments, [1]);
+        expect(value.argumentsKeywords, {'code': 2});
+        final absent = decode<Error>([8, 48, 20, null]);
+        expect(absent.details, isEmpty);
+        expect(absent.error, isNull);
+      });
+      test('GOODBYE preserves reason and optional explanation', () {
+        final value = decode<Goodbye>([
+          6,
+          {'message': 'closing'},
+          'wamp.close.normal',
+        ]);
+        expect(value.reason, 'wamp.close.normal');
+        expect(value.message!.message, 'closing');
+        final absent = decode<Goodbye>([6]);
+        expect(absent.reason, '');
+        expect(absent.message, isNull);
+      });
+    });
+    for (final mode in ['frame', 'fragments', 'metadata']) {
+      group('ABORT $serializer $mode', () {
+        nativeAbortContracts(
+          (details, args, kwargs) =>
+              bindMessage(
+                    serializer,
+                    mode == 'metadata'
+                        ? Uint8List.fromList([0xff])
+                        : encode([
+                            3,
+                            details,
+                            'wamp.error.not_authorized',
+                            if (mode == 'frame' && args != null) args,
+                            if (mode == 'frame' && kwargs != null) kwargs,
+                          ]),
+                    argsBytes: mode != 'frame' && args != null
+                        ? encode(args)
+                        : null,
+                    kwargsBytes: mode != 'frame' && kwargs != null
+                        ? encode(kwargs)
+                        : null,
+                    metadata: mode == 'metadata'
+                        ? NativeMessageMetadata(
+                            messageCode: 3,
+                            primaryId: 0,
+                            secondaryId: 0,
+                            detailNumberA: 0,
+                            detailNumberB: 0,
+                            flags: NativeMessageMetadata.flagMetadataBind,
+                            stringA: 'wamp.error.not_authorized',
+                            detailsBytes: encode(details),
+                          )
+                        : null,
+                  )
+                  as Abort,
+        );
+      });
+    }
+    for (final fromMetadata in [false, true]) {
+      group('WELCOME roles $serializer metadata=$fromMetadata', () {
+        nativeRoleContracts((details) {
+          final message =
+              bindMessage(
+                    serializer,
+                    fromMetadata
+                        ? Uint8List.fromList([0xff])
+                        : encode([MessageTypes.codeWelcome, 741, details]),
+                    metadata: fromMetadata
+                        ? NativeMessageMetadata(
+                            messageCode: MessageTypes.codeWelcome,
+                            primaryId: 741,
+                            secondaryId: 0,
+                            detailNumberA: 0,
+                            detailNumberB: 0,
+                            flags: NativeMessageMetadata.flagMetadataBind,
+                            detailsBytes: encode(details),
+                          )
+                        : null,
+                  )
+                  as Welcome;
+          expect(message.sessionId, 741);
+          return message.details;
+        });
+      });
+    }
+  }
   group('bindMessage', () {
     test('direct binds Published acknowledgements from native metadata', () {
       final message = bindMessage(
