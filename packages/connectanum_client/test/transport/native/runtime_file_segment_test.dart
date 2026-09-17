@@ -9,6 +9,7 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor_codec;
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart';
 import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
     show buildNativeFileSegmentPrefix;
@@ -763,8 +764,206 @@ void main() {
         );
       },
     );
+    for (final websocket in [false, true]) {
+      for (final (wire, serializer) in _wireCases) {
+        for (final cipher in [null, 'xsalsa20poly1305', 'aes256gcm']) {
+          test(
+            'transport websocket=$websocket ${wire.name} $cipher file lifecycle',
+            () async {
+              final peer = await _WirePeer.start(wire, websocket: websocket);
+              addTearDown(peer.dispose);
+              final AbstractTransport transport = websocket
+                  ? NativeWebSocketTransport(
+                      'ws://127.0.0.1:${peer.port}',
+                      serializer,
+                      _websocketProtocol(wire.id),
+                    )
+                  : NativeRawSocketTransport(
+                      '127.0.0.1',
+                      peer.port,
+                      serializer,
+                      wire.id,
+                    );
+              final files = transport as NativeE2eeFileSegmentTransport;
+              addTearDown(transport.close);
+              final bytes = Uint8List.fromList(
+                List.generate(65540, (i) => (i * 13 + 7) % 256),
+              );
+              final file = _sourceFile(bytes);
+              NativeE2eeFileSegmentContext? context;
+              WampE2eeProvider? portable;
+              if (cipher != null) {
+                final ring = runtime.createE2eeKeyring();
+                addTearDown(() => runtime.releaseE2eeKeyring(ring));
+                final key = Uint8List.fromList(List.filled(32, 9));
+                runtime.addE2eeKey(ring, 'file-key', key, makeDefault: true);
+                final session = runtime.createE2eeSession(
+                  ring,
+                  defaultKeyId: 'file-key',
+                );
+                addTearDown(() => runtime.releaseE2eeSession(session));
+                context = NativeE2eeFileSegmentContext(
+                  runtimeIdentity: runtime,
+                  sessionHandle: session,
+                  keyId: 'file-key',
+                  cipher: cipher,
+                );
+                portable = cipher == 'aes256gcm'
+                    ? WampCborAes256GcmProvider.single(
+                        keyId: 'file-key',
+                        key: key,
+                      )
+                    : WampCborXsalsa20Poly1305Provider.single(
+                        keyId: 'file-key',
+                        key: key,
+                      );
+              }
+              void send(
+                TransportFileSource source, {
+                int offset = 4,
+                int length = 1,
+                NativeE2eeFileSegmentContext? selectedContext,
+              }) {
+                final call = _call(length + 1, Uint8List(0));
+                if (context == null) {
+                  files.sendFileSegment(
+                    call,
+                    source: source,
+                    offset: offset,
+                    length: length,
+                  );
+                } else {
+                  files.sendNativeE2eeFileSegment(
+                    call,
+                    source: source,
+                    offset: offset,
+                    length: length,
+                    e2ee: selectedContext ?? context,
+                  );
+                }
+              }
+
+              expect(files.supportsFileSegments, isFalse);
+              expect(files.supportsNativeE2eeFileSegments, isFalse);
+              expect(
+                () => files.openFileSegmentSource(file.path, bytes.length),
+                throwsUnsupportedError,
+              );
+              expect(() => send(_ForeignFileSource()), throwsStateError);
+              await transport.open();
+              await transport.onReady;
+              expect(transport.isOpen, isTrue);
+              expect(files.supportsFileSegments, isTrue);
+              expect(files.supportsNativeE2eeFileSegments, isTrue);
+              final source = files.openFileSegmentSource(
+                file.path,
+                bytes.length,
+              );
+              addTearDown(source.close);
+              expect(
+                () => send(_ForeignFileSource()),
+                cipher == null ? throwsArgumentError : throwsUnsupportedError,
+              );
+              if (context != null) {
+                final foreignContext = NativeE2eeFileSegmentContext(
+                  runtimeIdentity: Object(),
+                  sessionHandle: context.sessionHandle,
+                  keyId: context.keyId,
+                  cipher: context.cipher,
+                );
+                expect(
+                  () => send(
+                    source,
+                    selectedContext: foreignContext,
+                  ),
+                  throwsUnsupportedError,
+                );
+              }
+              expect(() => send(source, offset: -1), throwsArgumentError);
+              expect(() => send(source, length: -1), throwsArgumentError);
+              expect(
+                () => send(source, offset: bytes.length),
+                throwsA(
+                  isA<NativeTransportException>().having(
+                    (error) => error.code,
+                    'code',
+                    NativeTransportErrorCode.invalidArgument,
+                  ),
+                ),
+              );
+              for (final length in [
+                0,
+                1,
+                2,
+                3,
+                23,
+                24,
+                255,
+                256,
+                65535,
+                65536,
+              ]) {
+                send(source, length: length);
+                await (transport as DrainableTransport).drain();
+                final frame = await peer.nextFrame();
+                final decoded = serializer.deserialize(frame) as Call;
+                expect(decoded.requestId, length + 1);
+                expect(decoded.procedure, 'files.write');
+                expect(decoded.options!.progress, isTrue);
+                expect(decoded.arguments, hasLength(1));
+                expect(decoded.argumentsKeywords, isNull);
+                final expected = Uint8List.sublistView(bytes, 4, 4 + length);
+                if (portable == null) {
+                  expect(decoded.arguments!.single, expected);
+                } else {
+                  final options = PublishOptions(pptScheme: 'wamp');
+                  portable.packPayload([expected], null, options);
+                  final unpacked = portable.unpackPayload(
+                    decoded.arguments!,
+                    options,
+                  );
+                  expect(unpacked.arguments!.single, expected);
+                  expect(unpacked.argumentsKeywords, isNull);
+                }
+              }
+              source.close();
+              source.close();
+              expect(() => send(source), throwsStateError);
+              transport.send(_call(100, Uint8List.fromList([4, 5, 6])));
+              await (transport as DrainableTransport).drain();
+              final ordinary =
+                  serializer.deserialize(await peer.nextFrame()) as Call;
+              expect(ordinary.requestId, 100);
+              expect(ordinary.arguments!.single, [4, 5, 6]);
+              expect(transport.isOpen, isTrue);
+              await transport.close();
+              expect(transport.isOpen, isFalse);
+              expect(files.supportsFileSegments, isFalse);
+              expect(files.supportsNativeE2eeFileSegments, isFalse);
+              expect(() => send(source), throwsStateError);
+              expect(
+                () => files.openFileSegmentSource(file.path, bytes.length),
+                throwsUnsupportedError,
+              );
+            },
+          );
+        }
+      }
+    }
   }, skip: nativeClientRuntimeSkipReason());
 }
+
+class _ForeignFileSource implements TransportFileSource {
+  @override
+  void close() {}
+}
+
+String _websocketProtocol(int serializer) => switch (serializer) {
+  1 => WebSocketSerialization.serializationJson,
+  2 => WebSocketSerialization.serializationMsgpack,
+  3 => WebSocketSerialization.serializationCbor,
+  _ => throw ArgumentError.value(serializer),
+};
 
 File _sourceFile(Uint8List bytes) {
   final directory = Directory.systemTemp.createTempSync('native-file-');
@@ -793,13 +992,20 @@ class _WirePeer {
   final SendPort control;
   final int port;
 
-  static Future<_WirePeer> start(NativeMessageSerializer wire) async {
+  static Future<_WirePeer> start(
+    NativeMessageSerializer wire, {
+    bool websocket = false,
+  }) async {
     final events = ReceivePort();
     final messages = StreamIterator<Object?>(events);
-    final isolate = await Isolate.spawn(_wirePeerMain, (
-      events.sendPort,
-      wire.id,
-    ), onError: events.sendPort);
+    final isolate = await Isolate.spawn(
+      websocket ? _websocketPeerMain : _wirePeerMain,
+      (
+        events.sendPort,
+        wire.id,
+      ),
+      onError: events.sendPort,
+    );
     try {
       final ready = await _nextEvent(messages);
       if (ready is! (SendPort, int)) {
@@ -829,6 +1035,50 @@ class _WirePeer {
       await messages.cancel();
       events.close();
     }
+  }
+}
+
+Future<void> _websocketPeerMain((SendPort, int) args) async {
+  final (events, serializer) = args;
+  final control = ReceivePort();
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  WebSocket? socket;
+  control.listen((message) async {
+    if (message is Uint8List) {
+      socket!.add(serializer == 1 ? utf8.decode(message) : message);
+      return;
+    }
+    await socket?.close();
+    await server.close(force: true);
+    control.close();
+    events.send('closed');
+  });
+  events.send((control.sendPort, server.port));
+  try {
+    final request = await server.first;
+    socket = await WebSocketTransformer.upgrade(
+      request,
+      protocolSelector: (protocols) {
+        final expected = _websocketProtocol(serializer);
+        if (!protocols.contains(expected)) {
+          throw StateError('Missing WebSocket subprotocol $expected');
+        }
+        return expected;
+      },
+    );
+    await for (final frame in socket) {
+      if ((serializer == 1) != (frame is String)) {
+        throw StateError('Unexpected WebSocket frame encoding');
+      }
+      events.send(
+        Uint8List.fromList(frame is String ? utf8.encode(frame) : frame),
+      );
+    }
+  } catch (error, stack) {
+    events.send([error.toString(), stack.toString()]);
+  } finally {
+    await socket?.close();
+    await server.close(force: true);
   }
 }
 

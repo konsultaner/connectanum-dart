@@ -67,6 +67,69 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work97 Trust Roots And Native File Transport Wrappers
+
+- Resume clean `c769e76f`, preserving live VM96/MCP95 runs. VM96 finishes zero
+  at 38,236/42,569 measured library lines (89.82%) with 59 unmeasured sources;
+  keep it separate from this turn's focused additions. MCP95 finishes 1,098
+  candidates at 798 kills, 38 survivors and 262 compile errors, 95.4545%, both
+  baselines zero. Its CLI-options test hash differs from the current file, so
+  start MCP97 only after confirming MCP95 terminal. No final-snapshot claim.
+- Add a subprocess-local trust fixture using Dart `--root-certs-file` and the
+  independent HTTP3 and remote-auth CA fixtures. Eight real TLS handshakes
+  prove default and client-only contexts accept the default root, while custom
+  CA contexts accept only their configured root, with/without client identity.
+  No public network or machine trust-store changes. The previous security
+  survivor `ae7cfcc5b9c3e81af8cd` now fails the explicit trust-result assertion.
+  Add the test, probe and all certificates/keys to mutation input hashing.
+  The initial partial campaign is interrupted to remove an unused import;
+  preserve it as incomplete, superseded evidence. `remote-delegate97b-mutations`
+  completes all 286 candidates on the settled snapshot: 180 kills, seven
+  survivors, 99 compile errors, 96.2567% raw/adjusted, both baselines zero and
+  all 14 source/test/support hashes matching. Keep the other seven survivors
+  visible; no equivalence waivers or source changes.
+- Add 18 file-wrapper cases: two transports, three serializers and three
+  encryption modes. Reuse the RawSocket peer and add a WebSocket peer in a
+  separate isolate; validate negotiated subprotocol and text/binary frames.
+  Decode received WAMP independently, decrypt with portable providers, check
+  exact ranges/header boundaries through 65,536 bytes, reject foreign runtime
+  contexts/invalid sources, close sources twice and send ordinary messages on
+  the same connection afterward. All 57 runtime/file tests and existing
+  transport tests pass. The first focused report is 376/440 (85.45%). Repeat with
+  an explicit current `ffi-test` library and record its artifact hash:
+  `native-files97b-vm` measures 377/440 (85.68%) for the complete wrapper versus
+  271/440 (61.59%). Keep 63 uncovered lines and missing workspace
+  scopes visible; the focused report intentionally does not pass workspace gates.
+- Add whole-source target `client-native-transports-vm` with both test files,
+  native-runtime support hashes and serialized native execution. Its 348-mutant
+  inventory is generated. After verification releases the native runtime,
+  `native-transports97-mutations` starts with a clean baseline and the recorded
+  `ffi-test` artifact hash. It is the sole native owner; retain its initial
+  timeout outcomes separately from kills and do not overlap new native runs.
+  The manifest guard fails first; all 48 runner tests then pass (one optional
+  skip). Do not add a passing mutation CI gate before measuring its score.
+- Qwen's suggested WebSocket file-capability rejection contradicts the source
+  and real native wire results. Its proposed uniform foreign-source exception
+  also contradicts the distinct clear/E2EE API contracts. Keep the verified
+  assertions. The TLS process has an exit deadline and teardown kill; stderr
+  collection does not replace that deadline. SDK WebSocket/server closes are
+  idempotent; the fixture's cleanup remains defensive.
+- Fast97 passes as the starting regression check. Focused tests, formatting and
+  analysis pass. Verify97 passes on settled test/manifest inputs, including Rust,
+  native/package/consumer smokes, 2,970 core WASM and two WebSocket WASM tests.
+  Passing WASM tests are not measured WASM line coverage. Work96's
+  package/image/profile dry runs pass and its main CI is in progress. No merge,
+  package publication, version change, coverage exclusion or equivalence waiver.
+- A scoring audit distinguishes caught test exceptions from process crashes.
+  `classify` currently counts a completed real test's failure or error as a kill;
+  process/suite/infrastructure failures and deadlines are separate outcomes.
+  The remote-authenticator96b kill logs contain 85 expectation-failure and 39
+  runtime-error events across 124 killed mutants. Earlier "assertion kill"
+  wording is inaccurate for these conventional mutation rates. GLM review
+  confirms the distinction, independently verified in the JSON test events.
+  Expose separate kill causes/scores in follow-up measurement tooling; retain
+  original reports and do not claim that the current rates are assertion-only.
+
 ### Work96 Configuration Survivors And Remote Authentication
 
 - Preserve VM95 and MCP95 processes on resume. VM95 completes successfully at

@@ -223,14 +223,38 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(set(target['tests']), {
             f'{prefix}/test/remote_wamp_delegate_test.dart',
             f'{prefix}/test/remote_wamp_delegate_wire_test.dart',
+            f'{prefix}/test/remote_wamp_delegate_tls_test.dart',
         })
         self.assertEqual(set(target['supportFiles']), {
             f'{prefix}/test/certs/remote_auth_ca_cert.pem',
             f'{prefix}/test/certs/remote_auth_client_cert.pem',
             f'{prefix}/test/certs/remote_auth_client_key.pem',
+            f'{prefix}/test/certs/remote_auth_server_cert.pem',
+            f'{prefix}/test/certs/remote_auth_server_key.pem',
+            f'{prefix}/test/certs/http3_ca_cert.pem',
+            f'{prefix}/test/certs/http3_cert.pem',
+            f'{prefix}/test/certs/http3_key.pem',
+            f'{prefix}/test/support/remote_tls_trust_probe.dart',
             'packages/connectanum_core/test/authentication/cryptosign/keys.dart',
         })
         self.assertEqual(target['testRoot'], prefix)
+
+    def test_native_transports_target_includes_file_wire_regressions(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['client-native-transports-vm']
+        prefix = 'packages/connectanum_client'
+        self.assertEqual(target['sources'], [
+            f'{prefix}/lib/src/transport/native/native_transports_io.dart',
+        ])
+        self.assertEqual(set(target['tests']), {
+            f'{prefix}/test/transport/native/native_transports_test.dart',
+            f'{prefix}/test/transport/native/runtime_file_segment_test.dart',
+        })
+        self.assertEqual(target['supportFiles'], [
+            f'{prefix}/test/test_support/native_runtime_support.dart',
+        ])
+        self.assertTrue(target['requiresNativeLibrary'])
+        self.assertTrue(target['isolateTestFiles'])
 
     def test_native_runtime_target_includes_all_direct_runtime_regressions(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())

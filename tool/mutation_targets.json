@@ -21,12 +21,19 @@
     "sources": ["packages/connectanum_router/lib/src/router/auth/remote_wamp_delegate.dart"],
     "tests": [
       "packages/connectanum_router/test/remote_wamp_delegate_test.dart",
-      "packages/connectanum_router/test/remote_wamp_delegate_wire_test.dart"
+      "packages/connectanum_router/test/remote_wamp_delegate_wire_test.dart",
+      "packages/connectanum_router/test/remote_wamp_delegate_tls_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_router/test/certs/remote_auth_ca_cert.pem",
       "packages/connectanum_router/test/certs/remote_auth_client_cert.pem",
       "packages/connectanum_router/test/certs/remote_auth_client_key.pem",
+      "packages/connectanum_router/test/certs/remote_auth_server_cert.pem",
+      "packages/connectanum_router/test/certs/remote_auth_server_key.pem",
+      "packages/connectanum_router/test/certs/http3_ca_cert.pem",
+      "packages/connectanum_router/test/certs/http3_cert.pem",
+      "packages/connectanum_router/test/certs/http3_key.pem",
+      "packages/connectanum_router/test/support/remote_tls_trust_probe.dart",
       "packages/connectanum_core/test/authentication/cryptosign/keys.dart"
     ],
     "testRoot": "packages/connectanum_router",
@@ -293,6 +300,17 @@
     "sources": ["packages/connectanum_router/lib/src/native/message_binding.dart"],
     "tests": ["packages/connectanum_router/test/native/message_binding_test.dart"],
     "supportFiles": ["packages/connectanum_core/test/support/native_role_contract.dart"]
+  },
+  "client-native-transports-vm": {
+    "sources": ["packages/connectanum_client/lib/src/transport/native/native_transports_io.dart"],
+    "tests": [
+      "packages/connectanum_client/test/transport/native/native_transports_test.dart",
+      "packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart"
+    ],
+    "supportFiles": ["packages/connectanum_client/test/test_support/native_runtime_support.dart"],
+    "requiresNativeLibrary": true,
+    "isolateTestFiles": true,
+    "testTimeoutSeconds": 30
   },
   "client-native-runtime-vm": {
     "sources": ["packages/connectanum_client/lib/src/transport/native/runtime.dart"],

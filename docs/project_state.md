@@ -6,6 +6,48 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work97 adds deterministic custom-CA isolation and native file-transport wire
+regressions. A fresh Dart subprocess uses a fixture-only default trust store;
+eight TLS handshakes verify default/client-only trust and custom-CA replacement
+with and without client credentials. The previous trust-policy comparison
+survivor now fails the explicit result assertion, not a timeout or process crash.
+The complete `remote-delegate97b-mutations` rerun finishes 286 candidates with
+180 kills, seven survivors and 99 compile errors (96.2567% raw/adjusted), both
+baselines zero and all source/test/support hashes verified. No waivers.
+
+Eighteen native transport combinations exercise RawSocket/WebSocket, all three
+serializers and clear/XSalsa20/AES-GCM file sends on the same open connection.
+Independent wire decoding and portable E2EE decryption protect file offsets,
+binary/base64 framing, size boundaries through 65,536 bytes, invalid/closed
+sources, runtime ownership and subsequent ordinary messages. All 57 file/runtime
+tests and the existing transport suite pass. `native-files97b-vm`, explicitly
+pinned to the current `ffi-test` artifact with its hash recorded, measures the
+transport wrapper at 377/440 lines (85.68%), up from 271/440 (61.59%); the 63
+uncovered lines remain visible. Add a complete-source
+`client-native-transports-vm` mutation target, not an unearned 95% CI gate.
+All 48 mutation-runner tests pass, with one optional skip. Fast97 and Verify97
+pass, including Rust, native/package/consumer smokes, 2,970 core WASM and two
+WebSocket WASM tests. WASM line coverage remains unmeasured. The new 348-candidate
+native transport campaign has a clean baseline and is the sole native-runtime
+owner; preserve it on resume. Its initial timeouts are not kills.
+
+VM96 completes at 38,236/42,569 measured library lines (89.82%), with 59
+unmeasured library sources; it predates Work97. MCP95 completes 1,098 candidates
+at 798 kills, 38 survivors and 262 compile errors (95.45%), both baselines zero.
+Its CLI-options test hash differs from current source: retain it as historical
+evidence only. MCP97 now runs on the current snapshot without overlapping MCP95.
+The pushed Work96 head's package/image/profile checks pass; main CI is running.
+
+Measurement terminology correction: the Dart runner's `killed` category includes
+completed tests that report caught runtime exceptions as well as expectation
+failures. It excludes process crashes, missing completion, timeouts, compilation
+and detected infrastructure failures. Historical entries calling every kill an
+"assertion kill" are too broad. For example, the final remote-authenticator96b
+logs contain 85 assertion-failure and 39 runtime-error events across its 124
+killed mutants. The reported 96.875% is the conventional test-detection score,
+not an assertion-only score. Next measurement work should expose kill causes
+separately without discarding raw outcomes or silently changing denominators.
+
 Work96 adds survivor-directed configuration and remote-authentication tests.
 All 413 configuration tests pass. `router-config96-mutations` completes all
 396 candidates with 349 assertion kills, 10 survivors and 37 compile errors:
