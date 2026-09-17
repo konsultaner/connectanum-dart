@@ -394,7 +394,7 @@ void main() {
         final done = Completer<void>();
         final errors = <Object>[];
         late StreamSubscription<AbstractMessage?> subscription;
-        subscription = transport.receive().listen(
+        subscription = transport.receive()!.listen(
           (message) {
             expect(message, isA<Welcome>());
             subscription.pause();
