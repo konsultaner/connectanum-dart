@@ -67,6 +67,103 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work95 Configuration Validation Coverage
+
+- Add malformed-configuration tests through map, JSON and YAML entry points.
+  Exact FormatException messages distinguish schema validation from decoding or
+  fixture failures. Permission/authentication/provider/listener/header/metrics
+  and rate-limit inputs cannot silently become defaults. Positive cases assert
+  alias precedence, explicit disabling, immutable results, input preservation,
+  legacy WebSocket/HTTP normalization and default RawSocket selection.
+- All 385 focused configuration tests pass; the complete loader improves from
+  429/525 (81.71%) to 522/525 (99.43%) in `router-config95b-vm`, with seven input
+  hashes. The remaining private constructor and two unreachable private helper
+  branches stay measured and unexcluded. Add a 98% file floor, not a claim that
+  the complete router package meets the goal.
+- A fail-first manifest guard protects `router-config-loader-vm`: the entire
+  loader, five configuration test files and external quickstart YAML fixture.
+  All 46 runner tests pass with one optional skip. The separate 396-candidate
+  `router-config95-mutations` campaign starts with a clean baseline; no final
+  mutation score or new CI gate for this target is claimed yet.
+- Qwen review's possible YAML false-positive is contradicted by assertions on
+  the exact configuration error, not just any FormatException. Header-key
+  coercion would fail the explicit throw assertion, not falsely pass it.
+  Assertions cover the named immutable maps, not unproven deep immutability.
+- Fast95 and full Verify95 pass, including the final configuration tests, router
+  CLI integration, native/package smokes, Rust and browser WASM checks. WASM
+  line coverage remains unmeasured. Separate final formatting/analysis and the
+  updated 46-case runner test suite pass. Start `vm-current95` with recorded
+  inputs as the only native-runtime owner. The mutation campaigns are Dart-only.
+  Prior head CI `35263839205` and package/image/profile dry runs pass. New package
+  percentages remain pending collection, not extrapolated from focused reports.
+- Early configuration survivors identify missing legacy transport selection and
+  absent/default-section assertions. Inspect the complete inventory after the
+  live campaign ends before batching survivor-directed tests and a final rerun;
+  high line coverage is not evidence that mutation coverage meets the goal.
+
+### Work94 Remote Delegate Wire Coverage
+
+- Preserve the live VM93b/MCP92 processes; do not restart them. VM93b completes
+  at 37,903/42,555 measured lines (89.07%), with 59 unmeasured library sources.
+  This is pre-Work94 evidence. The previous head's package/image/profile checks
+  pass; CI is pending. Fast94 finishes zero.
+- Fifteen fail-first wire cases demonstrate explicit invalid status maps falling
+  into legacy challenge/success parsing. Guard legacy fallback with absence of
+  the `status` key; valid modern and status-less legacy replies remain supported.
+  Extend the negative cases across challenge/camel/snake result shapes.
+- All 145 focused tests pass: six transport/serializer combinations, concurrent
+  request correlation, timeout/rejection recovery, proof/abort payloads, detailed
+  WAMP errors, credential/key parsing and rotation, registry warmup, TLS options
+  and malformed configuration. `remote-delegate94d-vm` measures the complete
+  source at 568/571 (99.47%) with input hashes. No exclusions; missing whole-
+  workspace scope still fails the focused canonical check. Add a 98% file floor.
+- A fail-first manifest regression protects the entire source, both test files,
+  three TLS fixtures and core cryptosign fixture input. The 45 tooling cases
+  pass with one optional fixture skip. The initial 286-candidate campaign scores
+  87.70% (164 kills / 23 survivors / 99 compile errors). TLS flag, cache identity,
+  alias precedence and failed-warmup recovery assertions lift the separate final
+  `remote-delegate94b-mutations` to 179 / 8 / 99, or 95.7219% raw/adjusted.
+  Original/restored baselines exit zero and all input hashes match. Add its
+  complete-source 95% CI gate. No waivers or outcomes counted as assertion kills
+  other than actual test assertion failures.
+- Investigate surviving security-sensitive guards: custom-CA contexts must not
+  gain system trust roots, but local certificate fixtures alone do not observe
+  that root-store distinction. Retain this explicit test gap. The file-path
+  cache mutant changes absent/null metadata rather than resolved credentials;
+  connection-future identity, anonymous/factory collection guards and resource
+  lifetime survivors remain visible for further tests, not equivalent waivers.
+- Full Verify94 fails a real router CLI login: generated base64url tokens can
+  start with `--`, which the parser rejects as a missing value. Four deterministic
+  credential cases fail before the fix. Preserve known-option missing-value
+  errors, accept opaque credentials, add `--option=value` with embedded equals,
+  and reject duplicate/valued flags. The 69 real-router CLI cases pass after
+  that parser fix. Work95's GLM review identifies a genuine assignment-form
+  lookahead ambiguity; 16 fail-first cases reproduce it before checking the
+  next token's option prefix. All 393 final CLI tests pass. Credential values
+  followed by realm/auth-id/tool options and assignment syntax in CLI help
+  protect the public consumer path.
+  Fast95 and Verify95 pass; final workspace coverage owns the native runtime.
+- MCP92 completes at 798 kills / 38 survivors / 262 compile errors: 95.4545%
+  raw/adjusted, original/restored baselines zero and matching input hashes.
+  Retain individual outcomes with no waivers. Inspect the pending-revocation
+  survivors: revoked subscriptions are rejected before handle publication,
+  reconciliation drains pending buffers and release futures deduplicate cleanup.
+  These guards merit further resource/lifecycle assertions; do not call them
+  equivalent or claim whole-package coverage. Add the complete library 95% CI
+  gate; CLI and other runtime/component obligations remain open.
+- MCP92's test inventory predates the CLI regression additions. Keep its score
+  historical, not final evidence for the new snapshot. Start the separate
+  `mcp95-library-mutations` only after the earlier campaign is terminal; its
+  baseline passes and it remains in progress. The subsequent assignment-form
+  lookahead regressions also postdate this campaign's test snapshot. Retain
+  it as historical evidence and rerun final inputs only after it is terminal;
+  do not duplicate the live run or attribute its score to later tests.
+- Qwen review's status-null compatibility suggestion contradicts the documented
+  explicit-status contract. Its abort-session concern contradicts `_ensureSession`
+  and the passing two-connection regression. WebSocket cleanup is awaited; the
+  mutation runner does not use line-coverage policy to exclude candidates.
+  No production behavior is changed for those hypothetical findings.
+
 ### Work93 Remote Auth Benchmark And Binding Gates
 
 - Revalidate the pending work and live processes after the status-only table.

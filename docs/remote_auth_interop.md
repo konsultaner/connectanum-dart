@@ -111,6 +111,11 @@ Response options:
 | Success | status map | `status = "success"`, `authId`, `authRole`, optional `details` |
 | Failure | status map | `status = "failure"`, `reason`, optional `message`, `details`, `arguments`, `argumentsKeywords` |
 
+Legacy response maps without a `status` field remain supported. If `status` is
+present, it must name a supported outcome for that RPC. Unknown, null or wrongly
+typed statuses fail closed even when challenge or role fields are also present.
+`authenticate.authenticate` accepts only `success` or `failure`, not `challenge`.
+
 For a successful challenge the router should forward:
 
 ```jsonc

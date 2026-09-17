@@ -185,6 +185,41 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertTrue(target['isolateTestFiles'])
         self.assertEqual(target['testRoot'], prefix)
 
+    def test_router_config_target_covers_loader_and_validation_inputs(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['router-config-loader-vm']
+        prefix = 'packages/connectanum_router'
+        self.assertEqual(target['sources'], [
+            f'{prefix}/lib/src/router/config/router_config_loader.dart',
+        ])
+        self.assertEqual(set(target['tests']), {
+            f'{prefix}/test/router_config_loader_test.dart',
+            f'{prefix}/test/router_config_loader_validation_test.dart',
+            f'{prefix}/test/router_json_test.dart',
+            f'{prefix}/test/router_settings_regression_test.dart',
+            f'{prefix}/test/router_settings_open_metrics_regression_test.dart',
+        })
+        self.assertEqual(target['supportFiles'], ['examples/quickstart/router.yaml'])
+
+    def test_remote_wamp_target_covers_whole_delegate_and_wire_fixtures(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['router-remote-wamp-vm']
+        prefix = 'packages/connectanum_router'
+        self.assertEqual(target['sources'], [
+            f'{prefix}/lib/src/router/auth/remote_wamp_delegate.dart',
+        ])
+        self.assertEqual(set(target['tests']), {
+            f'{prefix}/test/remote_wamp_delegate_test.dart',
+            f'{prefix}/test/remote_wamp_delegate_wire_test.dart',
+        })
+        self.assertEqual(set(target['supportFiles']), {
+            f'{prefix}/test/certs/remote_auth_ca_cert.pem',
+            f'{prefix}/test/certs/remote_auth_client_cert.pem',
+            f'{prefix}/test/certs/remote_auth_client_key.pem',
+            'packages/connectanum_core/test/authentication/cryptosign/keys.dart',
+        })
+        self.assertEqual(target['testRoot'], prefix)
+
     def test_native_runtime_target_includes_all_direct_runtime_regressions(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         target = targets['client-native-runtime-vm']

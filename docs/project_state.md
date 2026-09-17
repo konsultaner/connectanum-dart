@@ -6,6 +6,86 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work95 also closes the router configuration loader's malformed-input gap.
+Map, JSON and YAML regressions assert exact configuration errors for permission,
+authentication, provider, listener, header, metrics and rate-limit boundaries.
+Positive cases protect alias precedence, disabling, legacy transport defaults,
+immutable outputs and input preservation. All 385 focused configuration cases
+pass; `router-config95b-vm` measures the entire loader at 522/525 lines (99.43%),
+up from 429/525 (81.71%). Keep the private constructor and two unreachable
+helper failure branches in the denominator; no exclusions. Input hashes are
+recorded, and a 98% file floor protects the result. The full-source
+`router-config95-mutations` campaign has 396 candidates and a clean baseline;
+its manifest includes all five tests and the external quickstart YAML fixture.
+The manifest guard fails first, then all 46 runner tests pass (one optional skip).
+Fast95 and full Verify95 pass, including the final configuration tests, router
+CLI integration, native/package smokes, Rust and browser WASM checks. WASM
+line coverage remains unmeasured. The separate final formatting/analysis and
+46-case mutation-runner test checks also pass. Fresh `vm-current95` now collects
+with recorded inputs as the sole native-runtime owner; both mutation campaigns
+are Dart-only. The prior pushed head's CI `35263839205` passes, as do its package,
+image and profile dry runs. No new package percentages are claimed until this
+collection finishes. The configuration mutation campaign already identifies
+missing assertions for legacy transport option selection and absent/default
+sections; investigate its complete survivor inventory before starting a final
+rerun. Its high line coverage is not mutation completion.
+
+Work94 revalidates the clean pushed `d33b6be3` worktree after the status table.
+Its package/image/profile dry runs pass; CI remains pending. VM93b finishes zero
+at 37,903/42,555 measured lines (89.07%), with 59 unmeasured library sources.
+This predates Work94's changes and remains a separate historical snapshot.
+
+Remote-auth wire regressions reproduce 15 fail-open status cases: an explicit
+unknown/null/mistyped status can fall through to legacy challenge or success,
+including `challenge` on AUTHENTICATE. Require the absence of `status` before
+using legacy shorthand. Preserve supported status maps and camel/snake-case
+status-less replies. The complete delegate now has 145 passing focused cases
+covering all six RawSocket/WebSocket and JSON/MessagePack/CBOR combinations,
+out-of-order calls, timeout/abort recovery, registry warmup, credential rotation,
+key formats, malformed configuration and RPC payload/error propagation.
+`remote-delegate94d-vm` measures 568/571 lines (99.47%), versus 392/569 (68.89%);
+input hashes are recorded. The focused report deliberately retains missing
+workspace scope rather than claiming whole-router coverage. Add a 98% file floor
+and a complete-source mutation target with certificate/key-fixture inputs.
+The first delegate mutation campaign scores 87.70%; survivor-directed TLS,
+cache identity, alias precedence and connection recovery assertions lift the
+final `remote-delegate94b-mutations` campaign to 179 kills / 8 survivors /
+99 compile errors (95.7219% raw/adjusted). Both baselines exit zero and all
+source/test/support hashes match. Add its complete-source CI gate at 95%.
+No equivalence waivers. The trusted-root-policy survivor remains a real test
+gap: fixture-only TLS contexts do not prove rejection of system trust roots
+when a custom CA is supplied. The file-path cache guard changes absent/null
+cache metadata, not credential resolution; connection and collector guards
+remain visible for further lifecycle/configuration assertions.
+
+Fast94 passes, but full Verify94 exposes a real MCP CLI failure: generated
+base64url bearer tokens beginning with `--` are mistaken for options. Four
+deterministic credential cases reproduce it before the parser fix. Accept
+opaque double-hyphen credentials without consuming known options, support
+`--option=value` for ambiguous values, preserve embedded equals and reject
+duplicate/valued flags. Work95's GLM review identifies assignment-form options
+being consumed as credentials; 16 fail-first cases reproduce it. Normalize the
+lookahead option name before checking known options. All 393 final CLI tests
+pass; the earlier 69 real-router CLI cases pass after the original parser fix.
+Following-option assertions and assignment syntax in help protect usability.
+Fast95 and full Verify95 pass; fresh workspace coverage owns the native runtime.
+
+MCP92 finishes 1,098/1,098: 798 assertion kills, 38 survivors, 262 compile errors,
+95.4545% raw/adjusted, both baselines zero and all source/test/support hashes
+matching at that snapshot. Add the complete MCP library target to the 95% CI gate with sufficient
+job time. This excludes neither survivors nor compile outcomes from evidence;
+compile errors are not kills. It is library evidence, not CLI or whole-package
+completion. Surviving revocation guards cannot expose a revoked pending handle:
+the subscribe path rejects it before publication and reconciliation drains it;
+release futures also share a single cleanup operation. Keep those survivors
+visible for further lifecycle/resource assertions, not equivalent waivers.
+The CLI regressions subsequently change its test inventory, so MCP92 is now
+historical evidence. Fresh `mcp95-library-mutations` has a clean baseline, but
+also predates the final assignment-lookahead regressions. Preserve the live
+campaign and label that snapshot honestly; a final-snapshot rerun is still due
+after it finishes. No final score is claimed for it yet.
+No merge, publication or version change. The full coverage goal remains active.
+
 Work93 resumes the pending remote-auth benchmark tests after the status-only
 table. The existing fast gate and VM92 collection both finish zero; do not
 restart them. VM92 measures 37,779/42,555 lines (88.78%), with 59 unmeasured

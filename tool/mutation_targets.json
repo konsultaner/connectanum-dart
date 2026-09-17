@@ -1,4 +1,30 @@
 {
+  "router-config-loader-vm": {
+    "sources": ["packages/connectanum_router/lib/src/router/config/router_config_loader.dart"],
+    "tests": [
+      "packages/connectanum_router/test/router_config_loader_test.dart",
+      "packages/connectanum_router/test/router_config_loader_validation_test.dart",
+      "packages/connectanum_router/test/router_json_test.dart",
+      "packages/connectanum_router/test/router_settings_regression_test.dart",
+      "packages/connectanum_router/test/router_settings_open_metrics_regression_test.dart"
+    ],
+    "supportFiles": ["examples/quickstart/router.yaml"]
+  },
+  "router-remote-wamp-vm": {
+    "sources": ["packages/connectanum_router/lib/src/router/auth/remote_wamp_delegate.dart"],
+    "tests": [
+      "packages/connectanum_router/test/remote_wamp_delegate_test.dart",
+      "packages/connectanum_router/test/remote_wamp_delegate_wire_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_router/test/certs/remote_auth_ca_cert.pem",
+      "packages/connectanum_router/test/certs/remote_auth_client_cert.pem",
+      "packages/connectanum_router/test/certs/remote_auth_client_key.pem",
+      "packages/connectanum_core/test/authentication/cryptosign/keys.dart"
+    ],
+    "testRoot": "packages/connectanum_router",
+    "testTimeoutSeconds": 30
+  },
   "bench-remote-auth-native": {
     "sources": ["packages/connectanum_bench/lib/src/remote_auth_bench_harness.dart"],
     "tests": [

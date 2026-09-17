@@ -29,6 +29,18 @@ void main() {
     setUp(() async => peer = await _Peer.start());
     tearDown(() => peer.close());
 
+    test(
+      'opaque hyphen-prefixed bearer reaches HTTP unchanged and stays out of output',
+      () async {
+        const token = '--valid-base64url-token_0123456789';
+        final result = await _run(peer, ['--bearer-token', token]);
+        expect(result.err, isEmpty);
+        expect(peer.authorizations, isNotEmpty);
+        expect(peer.authorizations, everyElement('Bearer $token'));
+        expect(jsonEncode(result.lines), isNot(contains(token)));
+      },
+    );
+
     for (final discover in [false, true]) {
       test(
         'ticket grant ${discover ? 'discovered' : 'explicit'} stays bound to the MCP client',

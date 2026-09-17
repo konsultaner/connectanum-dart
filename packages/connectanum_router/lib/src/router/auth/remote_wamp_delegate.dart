@@ -886,7 +886,8 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     if (status == 'failure') {
       return RemoteHelloResponse.failure(_failureFromResultMap(map));
     }
-    if (map.containsKey('challenge')) {
+    // Legacy responses omit status; an explicit invalid status must fail closed.
+    if (!map.containsKey('status') && map.containsKey('challenge')) {
       return RemoteHelloResponse.challenge(
         RemoteChallenge(
           authId:
@@ -899,7 +900,8 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
         ),
       );
     }
-    if (map.containsKey('authRole') || map.containsKey('auth_role')) {
+    if (!map.containsKey('status') &&
+        (map.containsKey('authRole') || map.containsKey('auth_role'))) {
       return RemoteHelloResponse.success(
         AuthSuccess(
           authId:
@@ -942,7 +944,8 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     if (status == 'failure') {
       return RemoteAuthenticateResponse.failure(_failureFromResultMap(map));
     }
-    if (map.containsKey('authRole') || map.containsKey('auth_role')) {
+    if (!map.containsKey('status') &&
+        (map.containsKey('authRole') || map.containsKey('auth_role'))) {
       return RemoteAuthenticateResponse.success(
         AuthSuccess(
           authId:

@@ -14,6 +14,113 @@ const _base = ['--endpoint', _endpoint, '--dry-run'];
 
 void main() {
   group('public router-hosted CLI options', () {
+    for (final option in [
+      '--bearer-token',
+      '--ticket',
+      '--wampcra-secret',
+      '--scram-secret',
+    ]) {
+      test(
+        '$option accepts opaque double-hyphen-prefixed credentials',
+        () async {
+          const secret = '--valid-base64url-token_0123456789';
+          final output = await _run([
+            ..._base,
+            option,
+            secret,
+            if (option != '--bearer-token') ...[
+              '--auth-id',
+              'alice',
+              '--realm',
+              'consumer.realm',
+            ],
+            '--tool',
+            'echo',
+          ]);
+          expect(output.code, 0);
+          expect(output.err, isEmpty);
+          expect(output.out, isNot(contains(secret)));
+          expect((jsonDecode(output.out) as Map)['tool'], {
+            'name': 'echo',
+            'arguments': <String, Object?>{},
+          });
+          expect(
+            (jsonDecode(output.out) as Map)['authMode'],
+            switch (option) {
+              '--bearer-token' => 'bearer',
+              '--ticket' => 'ticket-discovered',
+              '--wampcra-secret' => 'wampcra-discovered',
+              _ => 'scram-discovered',
+            },
+          );
+        },
+      );
+      for (final next in [
+        '--endpoint',
+        '--realm',
+        '--auth-id',
+        '--dry-run',
+        '--realm=consumer.realm',
+        '--auth-id=alice',
+        '--dry-run=true',
+        '--help=ignored',
+      ]) {
+        test(
+          '$option still rejects an actual following option $next',
+          () async {
+            final output = await _run([..._base, option, next]);
+            expect(output.code, isNot(0));
+            expect(output.err, contains('Missing value for $option.'));
+          },
+        );
+      }
+    }
+
+    for (final token in [
+      '--help',
+      '--endpoint',
+      '--dry-run',
+      '--token==',
+      '--realm=consumer.realm',
+    ]) {
+      test('explicit assignment preserves opaque token $token', () async {
+        final output = await _run([..._base, '--bearer-token=$token']);
+        expect(output.code, 0);
+        expect(output.err, isEmpty);
+        expect(jsonDecode(output.out), containsPair('authMode', 'bearer'));
+        expect(output.out, isNot(contains(token)));
+      });
+    }
+    test(
+      'assignment syntax preserves embedded equals in structured values',
+      () async {
+        final output = await _run([
+          ..._base,
+          '--tool=echo',
+          '--tool-arguments={"value":"a=b"}',
+        ]);
+        expect(output.code, 0);
+        expect((jsonDecode(output.out) as Map)['tool'], {
+          'name': 'echo',
+          'arguments': {'value': 'a=b'},
+        });
+      },
+    );
+    test(
+      'assignment does not allow flag values or bypass duplicate checks',
+      () async {
+        expect((await _run([..._base, '--dry-run=true'])).code, 64);
+        final duplicate = await _run([
+          ..._base,
+          '--bearer-token=one',
+          '--bearer-token',
+          'two',
+        ]);
+        expect(duplicate.code, 64);
+        expect(duplicate.err, contains('Duplicate option: --bearer-token.'));
+      },
+    );
+
     for (final help in ['--help', '-h']) {
       test('$help works without endpoint or network access', () async {
         final output = await _run([help]);
@@ -25,6 +132,7 @@ void main() {
         );
         expect(output.out, contains('--endpoint'));
         expect(output.out, contains('--scram-secret'));
+        expect(output.out, contains('--option=value'));
       });
     }
 

@@ -1,0 +1,824 @@
+@TestOn('vm')
+library;
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:connectanum_core/connectanum_core.dart' as core;
+import 'package:connectanum_core/json_serializer.dart' as json;
+import 'package:connectanum_core/msgpack_serializer.dart' as msgpack;
+import 'package:connectanum_core/cbor_serializer.dart' as cbor;
+import 'package:connectanum_router/auth.dart';
+import 'package:connectanum_router/src/router/auth/remote_wamp_delegate.dart';
+import 'package:test/test.dart';
+
+void main() {
+  tearDown(RemoteWampDelegateRegistry.clear);
+
+  test(
+    'warmup recovers after repairing a malformed service key file',
+    () async {
+      final service = await _Service.start();
+      addTearDown(service.close);
+      final temp = Directory.systemTemp.createTempSync('remote-wire-key-');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final key = File('${temp.path}/key')..writeAsStringSync('not-base64!');
+      final delegate = service.delegate(
+        rpc: {
+          'service_auth_method': 'cryptosign',
+          'service_private_key_file': key.path,
+        },
+      );
+      await delegate.warmUpSession();
+      expect(service.hellos, isEmpty);
+      key.writeAsStringSync(base64Encode(List<int>.filled(32, 7)));
+      expect((await delegate.onHello(_hello())).success!.authId, 'alice');
+      expect(service.hellos, hasLength(1));
+    },
+  );
+
+  for (final operation in ['hello', 'authenticate']) {
+    test(
+      '$operation legacy camel fields take precedence over snake aliases',
+      () async {
+        final service = await _Service.start();
+        addTearDown(service.close);
+        service.respond = (call) => _result(call, {
+          'authId': 'camel',
+          'auth_id': 'snake',
+          'authRole': 'member',
+          'auth_role': 'wrong-role',
+        });
+        final delegate = service.delegate();
+        final success = operation == 'hello'
+            ? (await delegate.onHello(_hello())).success
+            : (await delegate.onAuthenticate(_authenticate())).success;
+        expect(success!.authId, 'camel');
+        expect(success.authRole, 'member');
+      },
+    );
+  }
+
+  test('legacy challenge prefers camel identity over snake alias', () async {
+    final service = await _Service.start();
+    addTearDown(service.close);
+    service.respond = (call) => _result(call, {
+      'authId': 'camel',
+      'auth_id': 'snake',
+      'challenge': {'nonce': 'fixture'},
+    });
+    expect(
+      (await service.delegate().onHello(_hello())).challenge!.authId,
+      'camel',
+    );
+  });
+
+  test('registry warmup reuses the configured service session', () async {
+    final service = await _Service.start();
+    addTearDown(service.close);
+    final settings = RouterSettingsBuilder()
+        .addAuthenticator(
+          'fixture',
+          AuthenticatorDefinition(
+            type: 'remote',
+            options: {
+              'rpc': {
+                'transport': service.transportConfig,
+                'call_timeout_ms': 1000,
+                'connect_timeout_ms': 1000,
+              },
+            },
+          ),
+        )
+        .addRealmFromBuilder(
+          RealmSettingsBuilder('consumer.realm')
+            ..addAuthMethod('ticket', options: {'authenticator': 'fixture'}),
+        )
+        .build();
+    await RemoteWampDelegateRegistry.warmUpForSettings(settings);
+    expect(service.hellos, hasLength(1));
+    expect(service.calls, isEmpty);
+    expect(
+      (await service.delegate().onHello(_hello())).success!.authRole,
+      'member',
+    );
+    expect(service.hellos, hasLength(1));
+  });
+
+  for (final transport in ['rawsocket', 'websocket']) {
+    test(
+      'rejects unsupported $transport serializer before opening a socket',
+      () async {
+        final service = await _Service.start(
+          rawSocket: transport == 'rawsocket',
+        );
+        addTearDown(service.close);
+        final delegate = service.delegate(
+          rpc: {
+            'transport': {...service.transportConfig, 'serializer': 'invalid'},
+          },
+        );
+        await expectLater(delegate.onHello(_hello()), throwsArgumentError);
+        expect(service.hellos, isEmpty);
+        expect(service.senders, isEmpty);
+      },
+    );
+  }
+
+  test(
+    'rotated service secret reconnects without invalidating the replacement',
+    () async {
+      final service = await _Service.start();
+      addTearDown(service.close);
+      final temp = Directory.systemTemp.createTempSync('remote-wire-secret-');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final secret = File('${temp.path}/secret')..writeAsStringSync('first');
+      final delegate = service.delegate(
+        rpc: {
+          'service_auth_method': 'ticket',
+          'service_auth_secret_file': secret.path,
+        },
+      );
+      expect((await delegate.onHello(_hello())).success!.authId, 'alice');
+      secret.writeAsStringSync('second');
+      expect((await delegate.onHello(_hello())).success!.authId, 'alice');
+      expect(
+        (await delegate.onAuthenticate(_authenticate())).success!.authRole,
+        'member',
+      );
+      expect(service.hellos, hasLength(2));
+    },
+  );
+
+  for (final rawSocket in [false, true]) {
+    for (final serializer in ['json', 'msgpack', 'cbor']) {
+      test(
+        'remote RPC round trip rawSocket=$rawSocket serializer=$serializer',
+        () async {
+          final service = await _Service.start(
+            rawSocket: rawSocket,
+            serializer: serializer,
+          );
+          addTearDown(service.close);
+          final delegate = service.delegate();
+          expect((await delegate.onHello(_hello())).success!.authId, 'alice');
+          expect(
+            (await delegate.onAuthenticate(_authenticate())).success!.authRole,
+            'member',
+          );
+          expect(service.hellos, hasLength(1));
+          expect(service.calls[0][5], {
+            'transactionId': 'transaction',
+            'hello': {
+              'realm': 'consumer.realm',
+              'sessionId': 71,
+              'details': {},
+              'transport': {'connectionId': 91, 'isEncrypted': false},
+            },
+          });
+          expect(service.calls[1][5], {
+            'transactionId': 'transaction',
+            'authenticate': {'signature': 'proof'},
+          });
+        },
+      );
+    }
+  }
+
+  test(
+    'concurrent calls share connection and correlate out-of-order replies',
+    () async {
+      final service = await _Service.start();
+      addTearDown(service.close);
+      final received = Completer<void>();
+      service.respond = (call) {
+        if (service.calls.length == 2) received.complete();
+        return null;
+      };
+      final delegate = service.delegate();
+      final first = delegate.onHello(_hello(id: 'first'));
+      final second = delegate.onAuthenticate(_authenticate(id: 'second'));
+      await received.future.timeout(const Duration(seconds: 3));
+      for (final call in service.calls.reversed) {
+        service.senders.single(
+          _result(call, {
+            'status': 'success',
+            'authId': (call[5] as Map)['transactionId'],
+            'authRole': 'member',
+          }),
+        );
+      }
+      expect((await first).success!.authId, 'first');
+      expect((await second).success!.authId, 'second');
+      expect(service.hellos, hasLength(1));
+    },
+  );
+
+  for (final operation in ['hello', 'authenticate', 'abort']) {
+    test(
+      '$operation timeout releases failed session and permits retry',
+      () async {
+        final service = await _Service.start();
+        addTearDown(service.close);
+        service.respond = (_) => null;
+        final delegate = service.delegate(rpc: {'call_timeout_ms': 30});
+        if (operation == 'abort') {
+          await delegate.onAbort(_abort());
+        } else {
+          await expectLater(
+            operation == 'hello'
+                ? delegate.onHello(_hello())
+                : delegate.onAuthenticate(_authenticate()),
+            throwsA(
+              isA<RemoteDelegateUnavailableException>().having(
+                (error) => error.message,
+                'message',
+                contains('$operation call timed out'),
+              ),
+            ),
+          );
+        }
+        service.respond = (call) => _result(call, {
+          'status': 'success',
+          'authId': 'after-timeout',
+          'authRole': 'member',
+        });
+        expect(
+          (await delegate.onHello(_hello())).success!.authId,
+          'after-timeout',
+        );
+        expect(service.hellos, hasLength(2));
+        if (operation == 'abort') {
+          expect(service.calls.first[5], {'transactionId': 'transaction'});
+        }
+      },
+    );
+
+    test(
+      '$operation handles handshake ABORT without caching rejection',
+      () async {
+        final service = await _Service.start();
+        addTearDown(service.close);
+        service.rejectHello = true;
+        final delegate = service.delegate();
+        await delegate.warmUpSession();
+        if (operation == 'abort') {
+          await delegate.onAbort(_abort());
+        } else {
+          await expectLater(
+            operation == 'hello'
+                ? delegate.onHello(_hello())
+                : delegate.onAuthenticate(_authenticate()),
+            throwsA(isA<RemoteDelegateUnavailableException>()),
+          );
+        }
+        service.rejectHello = false;
+        expect((await delegate.onHello(_hello())).success!.authId, 'alice');
+        expect(service.calls, hasLength(1));
+      },
+    );
+  }
+
+  for (final status in <Object?>['denied', '', null, true, 7, [], {}]) {
+    for (final operation in ['hello', 'authenticate']) {
+      for (final shape in ['challenge', 'camel', 'snake']) {
+        test(
+          '$operation rejects explicit invalid status ${jsonEncode(status)} with $shape fields',
+          () async {
+            final service = await _Service.start();
+            addTearDown(service.close);
+            service.respond = (call) => _result(call, {
+              'status': status,
+              shape == 'snake' ? 'auth_id' : 'authId': 'alice',
+              shape == 'snake' ? 'auth_role' : 'authRole': 'member',
+              if (shape == 'challenge') 'challenge': {'nonce': 'untrusted'},
+            });
+            final delegate = service.delegate();
+            if (operation == 'hello') {
+              final response = await delegate.onHello(_hello());
+              expect(response.status, RemoteHelloStatus.failure);
+              expect(response.success, isNull);
+              expect(response.challenge, isNull);
+              expect(response.failure!.reason, 'wamp.error.not_authorized');
+            } else {
+              final response = await delegate.onAuthenticate(_authenticate());
+              expect(response.status, RemoteAuthenticateStatus.failure);
+              expect(response.success, isNull);
+              expect(response.failure!.reason, 'wamp.error.not_authorized');
+            }
+          },
+        );
+      }
+    }
+  }
+
+  for (final operation in ['hello', 'authenticate']) {
+    for (final legacy in [false, true]) {
+      for (final positional in [false, true]) {
+        test(
+          '$operation decodes success legacy=$legacy positional=$positional',
+          () async {
+            final service = await _Service.start();
+            addTearDown(service.close);
+            final payload = <String, Object?>{
+              if (!legacy) 'status': 'success',
+              legacy ? 'auth_id' : 'authId': 'alice',
+              legacy ? 'auth_role' : 'authRole': 'member',
+              'details': {
+                'authprovider': 'fixture',
+                'nested': [1, true],
+              },
+            };
+            service.respond = (call) => positional
+                ? [
+                    50,
+                    call[1],
+                    <String, Object?>{},
+                    [payload],
+                  ]
+                : _result(call, payload);
+            final delegate = service.delegate();
+            final success = operation == 'hello'
+                ? (await delegate.onHello(_hello())).success
+                : (await delegate.onAuthenticate(_authenticate())).success;
+            expect(success, isNotNull);
+            expect(success!.authId, 'alice');
+            expect(success.authRole, 'member');
+            expect(success.details, payload['details']);
+            expect(service.calls.single[3], 'authenticate.$operation');
+          },
+        );
+      }
+    }
+
+    for (final payload in <Map<String, Object?>>[
+      {},
+      {'status': 'challenge', 'authId': 'alice', 'authRole': 'member'},
+    ]) {
+      if (operation == 'hello' && payload.isNotEmpty) continue;
+      test('$operation rejects malformed response $payload', () async {
+        final service = await _Service.start();
+        addTearDown(service.close);
+        service.respond = (call) => _result(call, payload);
+        final delegate = service.delegate();
+        final failure = operation == 'hello'
+            ? (await delegate.onHello(_hello())).failure
+            : (await delegate.onAuthenticate(_authenticate())).failure;
+        expect(failure, isNotNull);
+        expect(failure!.reason, 'wamp.error.not_authorized');
+        expect(failure.message, 'Malformed remote $operation response');
+      });
+    }
+
+    for (final payload in <Map<String, Object?>>[
+      {'status': 'success', 'authId': 'alice'},
+      {'status': 'success', 'authRole': 'member'},
+      {'auth_role': 'member', 'auth_id': ''},
+      if (operation == 'hello') {'status': 'challenge', 'authId': 'alice'},
+    ]) {
+      test(
+        '$operation fails closed on missing required fields $payload',
+        () async {
+          final service = await _Service.start();
+          addTearDown(service.close);
+          service.respond = (call) => _result(call, payload);
+          final delegate = service.delegate();
+          await expectLater(
+            operation == 'hello'
+                ? delegate.onHello(_hello())
+                : delegate.onAuthenticate(_authenticate()),
+            throwsA(isA<RemoteDelegateUnavailableException>()),
+          );
+          service.respond = (call) => _result(call, {
+            'status': 'success',
+            'authId': 'retry',
+            'authRole': 'member',
+          });
+          final success = operation == 'hello'
+              ? (await delegate.onHello(_hello())).success
+              : (await delegate.onAuthenticate(_authenticate())).success;
+          expect(success!.authId, 'retry');
+        },
+      );
+    }
+
+    for (final detailed in [false, true]) {
+      test(
+        '$operation preserves explicit failure detailed=$detailed',
+        () async {
+          final service = await _Service.start();
+          addTearDown(service.close);
+          service.respond = (call) => _result(call, {
+            'status': 'failure',
+            'authId': 'must-not-authorize',
+            'authRole': 'admin',
+            if (detailed) ...{
+              'reason': 'fixture.denied',
+              'message': 'Denied',
+              'details': {'retry': false},
+              'arguments': ['diagnostic', 17],
+              'argumentsKeywords': {'trace': 'public-fixture'},
+            },
+          });
+          final delegate = service.delegate();
+          final failure = operation == 'hello'
+              ? (await delegate.onHello(_hello())).failure
+              : (await delegate.onAuthenticate(_authenticate())).failure;
+          expect(failure, isNotNull);
+          expect(
+            failure!.reason,
+            detailed ? 'fixture.denied' : 'wamp.error.not_authorized',
+          );
+          expect(failure.message, detailed ? 'Denied' : null);
+          expect(failure.details, detailed ? {'retry': false} : {});
+          expect(failure.arguments, detailed ? ['diagnostic', 17] : null);
+          expect(
+            failure.argumentsKeywords,
+            detailed ? {'trace': 'public-fixture'} : null,
+          );
+        },
+      );
+    }
+
+    for (final source in ['keywords', 'arguments', 'absent']) {
+      test('$operation maps WAMP call errors from $source', () async {
+        final service = await _Service.start();
+        addTearDown(service.close);
+        final args = source == 'absent' ? <Object?>[] : ['fallback'];
+        final kwargs = <String, Object?>{
+          if (source == 'keywords') 'message': 'authoritative',
+          if (source != 'absent') 'details': {'retry': false},
+        };
+        service.respond = (call) => [
+          8,
+          48,
+          call[1],
+          {},
+          'fixture.denied',
+          args,
+          kwargs,
+        ];
+        final delegate = service.delegate();
+        final failure = operation == 'hello'
+            ? (await delegate.onHello(_hello())).failure
+            : (await delegate.onAuthenticate(_authenticate())).failure;
+        expect(failure!.reason, 'fixture.denied');
+        expect(failure.message, switch (source) {
+          'keywords' => 'authoritative',
+          'arguments' => 'fallback',
+          _ => null,
+        });
+        expect(failure.details, source == 'absent' ? {} : {'retry': false});
+        expect(failure.arguments, args);
+        expect(failure.argumentsKeywords, kwargs);
+      });
+    }
+  }
+
+  for (final legacy in [false, true]) {
+    test('hello challenge preserves fields legacy=$legacy', () async {
+      final service = await _Service.start();
+      addTearDown(service.close);
+      service.respond = (call) => _result(call, {
+        if (!legacy) 'status': 'challenge',
+        legacy ? 'auth_id' : 'authId': 'alice',
+        'challenge': {'nonce': 'nonce', 'salt': 'salt'},
+        'extra': {'provider': 'fixture'},
+      });
+      final response = await service.delegate().onHello(_hello());
+      expect(response.status, RemoteHelloStatus.challenge);
+      expect(response.success, isNull);
+      expect(response.challenge!.authId, 'alice');
+      expect(response.challenge!.challenge, {'nonce': 'nonce', 'salt': 'salt'});
+      expect(response.challenge!.extra, {'provider': 'fixture'});
+    });
+  }
+
+  test(
+    'forwards minimal HELLO, proof and abort payloads on one session',
+    () async {
+      final service = await _Service.start();
+      addTearDown(service.close);
+      final delegate = service.delegate(
+        rpc: {
+          'realm': 'service.realm',
+          'service_auth_id': 'edge',
+          'service_auth_role': 'service',
+          'service_auth_extra': {'node': 'one'},
+          'auth_token': 'shared-token',
+          'hello_procedure': 'custom.hello',
+          'authenticate_procedure': 'custom.authenticate',
+          'abort_procedure': 'custom.abort',
+        },
+      );
+      final context = AuthenticatorContext(
+        realm: _realm,
+        sessionId: 71,
+        transport: const TransportMetadata(
+          connectionId: 91,
+          peerAddress: '127.0.0.1',
+          isEncrypted: true,
+        ),
+        helloDetails: {
+          'authid': 'alice',
+          'authmethods': ['ticket', '', 17, 'wamp-scram'],
+          'authextra': {'nonce': 'nonce'},
+          'unrelated': 'not-forwarded',
+        },
+      );
+      await delegate.onHello(
+        RemoteHelloRequest(
+          realmSettings: _realm,
+          context: context,
+          options: const {},
+          transactionId: 'one',
+        ),
+      );
+      await delegate.onAuthenticate(
+        RemoteAuthenticateRequest(
+          realmSettings: _realm,
+          context: context,
+          authId: 'alice',
+          options: const {},
+          transactionId: 'one',
+          authenticate: AuthenticateMessage(
+            signature: 'proof',
+            extra: {'channel': 'binding'},
+          ),
+        ),
+      );
+      await delegate.onAbort(
+        RemoteAbortRequest(
+          realmSettings: _realm,
+          context: context,
+          authId: 'alice',
+          options: const {},
+          transactionId: 'one',
+          reason: 'consumer.closed',
+        ),
+      );
+      expect(service.hellos, hasLength(1));
+      expect(service.hellos.single[1], 'service.realm');
+      expect(service.hellos.single[2], containsPair('authid', 'edge'));
+      expect(service.hellos.single[2], containsPair('authrole', 'service'));
+      expect(
+        service.hellos.single[2],
+        containsPair('authextra', {'node': 'one'}),
+      );
+      expect(service.calls.map((c) => c[3]), [
+        'custom.hello',
+        'custom.authenticate',
+        'custom.abort',
+      ]);
+      expect(service.calls[0][5], {
+        'transactionId': 'one',
+        'auth_token': 'shared-token',
+        'hello': {
+          'realm': 'consumer.realm',
+          'sessionId': 71,
+          'details': {
+            'authid': 'alice',
+            'authmethods': ['ticket', 'wamp-scram'],
+            'authextra': {'nonce': 'nonce'},
+          },
+          'transport': {
+            'connectionId': 91,
+            'peerAddress': '127.0.0.1',
+            'isEncrypted': true,
+          },
+        },
+      });
+      expect(service.calls[1][5], {
+        'transactionId': 'one',
+        'auth_token': 'shared-token',
+        'authenticate': {
+          'signature': 'proof',
+          'extra': {'channel': 'binding'},
+        },
+      });
+      expect(service.calls[2][5], {
+        'transactionId': 'one',
+        'auth_token': 'shared-token',
+        'reason': 'consumer.closed',
+      });
+    },
+  );
+}
+
+final _realm = RealmSettingsBuilder('consumer.realm').build();
+
+AuthenticatorContext _context({Map<String, Object?> details = const {}}) =>
+    AuthenticatorContext(
+      realm: _realm,
+      sessionId: 71,
+      transport: const TransportMetadata(connectionId: 91),
+      helloDetails: details,
+    );
+
+RemoteHelloRequest _hello({String id = 'transaction'}) => RemoteHelloRequest(
+  realmSettings: _realm,
+  context: _context(),
+  options: const {},
+  transactionId: id,
+);
+
+RemoteAuthenticateRequest _authenticate({String id = 'transaction'}) =>
+    RemoteAuthenticateRequest(
+      realmSettings: _realm,
+      context: _context(),
+      authId: 'alice',
+      authenticate: AuthenticateMessage(signature: 'proof'),
+      options: const {},
+      transactionId: id,
+    );
+
+RemoteAbortRequest _abort() => RemoteAbortRequest(
+  realmSettings: _realm,
+  context: _context(),
+  authId: 'alice',
+  options: const {},
+  transactionId: 'transaction',
+);
+
+List<Object?> _result(List<dynamic> call, Map<String, Object?> payload) => [
+  50,
+  call[1],
+  <String, Object?>{},
+  <Object?>[],
+  payload,
+];
+
+/// A wire-level peer keeps the response oracle independent of the delegate.
+class _Service {
+  _Service(this.server, this.rawServer, this.serializer);
+
+  final HttpServer? server;
+  final ServerSocket? rawServer;
+  final String serializer;
+  final sockets = <WebSocket>[];
+  final rawSockets = <Socket>[];
+  final senders = <void Function(List<Object?>)>[];
+  final calls = <List<dynamic>>[];
+  final hellos = <List<dynamic>>[];
+  bool rejectHello = false;
+  int get port => server?.port ?? rawServer!.port;
+  Map<String, Object?> get transportConfig => {
+    'type': rawServer != null ? 'rawsocket' : 'websocket',
+    'serializer': serializer,
+    if (rawServer != null) ...{
+      'host': '127.0.0.1',
+      'port': port,
+    } else
+      'url': 'ws://127.0.0.1:$port/auth',
+    'allow_insecure_transport': true,
+  };
+  late final core.AbstractSerializer codec = switch (serializer) {
+    'msgpack' => msgpack.Serializer(),
+    'cbor' => cbor.Serializer(),
+    _ => json.Serializer(),
+  };
+  final jsonCodec = json.Serializer();
+  List<Object?>? Function(List<dynamic>) respond = (call) => _result(call, {
+    'status': 'success',
+    'authId': 'alice',
+    'authRole': 'member',
+  });
+
+  static Future<_Service> start({
+    bool rawSocket = false,
+    String serializer = 'json',
+  }) async {
+    final service = _Service(
+      rawSocket ? null : await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+      rawSocket
+          ? await ServerSocket.bind(InternetAddress.loopbackIPv4, 0)
+          : null,
+      serializer,
+    );
+    service.rawServer?.listen((socket) {
+      service.rawSockets.add(socket);
+      var handshake = false;
+      final pending = <int>[];
+      void send(List<Object?> frame) {
+        final encoded = service.encode(frame);
+        final bytes = encoded is String
+            ? utf8.encode(encoded)
+            : encoded as Uint8List;
+        socket.add([
+          0,
+          bytes.length >> 16,
+          (bytes.length >> 8) & 255,
+          bytes.length & 255,
+          ...bytes,
+        ]);
+      }
+
+      service.senders.add(send);
+      socket.listen((bytes) {
+        pending.addAll(bytes);
+        if (!handshake) {
+          if (pending.length < 4) return;
+          final id = ['json', 'msgpack', 'cbor'].indexOf(serializer) + 1;
+          expect(pending[0], 0x7f);
+          expect(pending[1] & 15, id);
+          socket.add([0x7f, 0xf0 | id, 0, 0]);
+          pending.removeRange(0, 4);
+          handshake = true;
+        }
+        while (pending.length >= 4) {
+          final length = (pending[1] << 16) | (pending[2] << 8) | pending[3];
+          if (pending.length < length + 4) return;
+          expect(pending[0], 0);
+          final frame = service.decode(
+            Uint8List.fromList(pending.sublist(4, 4 + length)),
+          );
+          pending.removeRange(0, 4 + length);
+          service.handle(frame, send);
+        }
+      });
+    });
+    service.server?.listen((request) async {
+      final socket = await WebSocketTransformer.upgrade(
+        request,
+        protocolSelector: (protocols) => 'wamp.2.$serializer',
+      );
+      service.sockets.add(socket);
+      void send(List<Object?> frame) => socket.add(service.encode(frame));
+      service.senders.add(send);
+      socket.listen((data) {
+        service.handle(service.decode(data), send);
+      });
+    });
+    return service;
+  }
+
+  dynamic encode(List<Object?> frame) => serializer == 'json'
+      ? jsonEncode(frame)
+      : codec.serialize(jsonCodec.deserializeFromString(jsonEncode(frame))!);
+
+  List<dynamic> decode(dynamic data) {
+    if (data is String) return jsonDecode(data) as List<dynamic>;
+    final bytes = Uint8List.fromList(data as List<int>);
+    return jsonDecode(
+          serializer == 'json'
+              ? utf8.decode(bytes)
+              : jsonCodec.serializeToString(codec.deserialize(bytes)!),
+        )
+        as List<dynamic>;
+  }
+
+  void handle(List<dynamic> frame, void Function(List<Object?>) send) {
+    switch (frame[0]) {
+      case 1:
+        hellos.add(frame);
+        send(
+          rejectHello
+              ? [3, {}, 'wamp.error.not_authorized']
+              : [
+                  2,
+                  hellos.length,
+                  {
+                    'roles': {'dealer': <String, Object?>{}},
+                  },
+                ],
+        );
+      case 48:
+        calls.add(frame);
+        final reply = respond(frame);
+        if (reply != null) send(reply);
+      case 6:
+        send([6, <String, Object?>{}, 'wamp.close.goodbye_and_out']);
+      default:
+        fail('Unexpected remote service frame: ${frame[0]}');
+    }
+  }
+
+  WampRemoteAuthenticatorDelegate delegate({
+    Map<String, Object?> rpc = const {},
+  }) {
+    return RemoteWampDelegateRegistry.forConfig(
+      RemoteWampDelegateConfig.parse({
+        'rpc': {
+          'connect_timeout_ms': 1000,
+          'call_timeout_ms': 1000,
+          'transport': transportConfig,
+          ...rpc,
+        },
+      }, _realm),
+    );
+  }
+
+  Future<void> close() async {
+    RemoteWampDelegateRegistry.clear();
+    for (final socket in sockets) {
+      await socket.close().timeout(const Duration(seconds: 3));
+    }
+    for (final socket in rawSockets) {
+      socket.destroy();
+    }
+    await server?.close(force: true);
+    await rawServer?.close();
+  }
+}
