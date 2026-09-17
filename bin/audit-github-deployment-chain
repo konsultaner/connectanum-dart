@@ -146,6 +146,13 @@ expected_ci_jobs=(
   'core-lazy-web Mutation Gate'
   'core-pem-pkcs8-vm Mutation Gate'
   'core-pem-pkcs8-web Mutation Gate'
+  'client-message-binding-vm Mutation Gate'
+  'router-message-binding-vm Mutation Gate'
+  'bench-remote-auth-native Mutation Gate'
+  'mcp-library Mutation Gate'
+  'router-remote-wamp-vm Mutation Gate'
+  'router-config-loader-vm Mutation Gate'
+  'router-remote-authenticator-vm Mutation Gate'
 )
 dart_package_publish_workflow='Dart Package Publish Dry Run'
 expected_dart_package_publish_jobs=('Publish Dry Run')

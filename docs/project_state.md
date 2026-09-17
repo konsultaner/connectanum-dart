@@ -6,6 +6,51 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work96 adds survivor-directed configuration and remote-authentication tests.
+All 413 configuration tests pass. `router-config96-mutations` completes all
+396 candidates with 349 assertion kills, 10 survivors and 37 compile errors:
+97.2145% raw/adjusted, up from 85.5153%. Both baselines pass and all recorded
+source/test/support hashes match. Add the complete target to the 95% CI matrix;
+`router-config96-vm` retains 522/525 lines (99.43%). No equivalence waivers.
+
+Direct remote-authenticator tests complement worker-level tests for schema
+validation, immutable payloads, single-use proofs, abort/expiry, shared rate
+limits and delegate backoff. The final 93-case suite passes, and
+`remote-auth96c-vm` measures 365/368 lines (99.18%), up from 297/368 (80.71%).
+Add a 98% file floor and a whole-source mutation target. The first campaign
+scores 79.6875% (102 kills, 26 survivors, 63 compile errors); its surviving
+provider acceptance, fake identity, disabled policy and backoff arithmetic
+cases drive further assertions. `remote-auth96b-mutations` completes the final
+191-candidate inventory at 124 kills, 4 survivors and 63 compile errors:
+96.875% raw/adjusted, both baselines zero and matching source/test hashes.
+Add its complete-source 95% CI gate. No waivers; preserve exact-time-boundary,
+private-list growth and pending-delegate availability survivors. The first
+campaign is historical evidence, not evidence for the expanded tests.
+
+The deployment auditor now requires the five previously missing mutation gates
+and both new gates. A fail-first workflow-matrix test protects
+inventory consistency and rejects duplicate targets. All 27 audit tests and
+47 mutation-runner tests pass (one optional runner skip). Fast96 passes.
+Verify95b captured three test-development fixture mistakes before their
+correction; Verify96 captured old audit fixtures during the gate update.
+Verify96b now passes on settled Dart/Rust tests, including the final regression
+cases, native/package smokes and 2,970 core plus two WebSocket WASM cases. The
+final authenticator gate was added after its audit phase ended; all 27 audit
+tests also pass separately for the final workflow/fixture snapshot. Bash syntax,
+workflow YAML parsing, targeted Dart analysis and formatting checks pass.
+
+VM95 finished successfully: 38,176/42,569 measured library lines (89.68%),
+with 59 unmeasured library sources. This predates Work96 tests; do not attribute
+focused gains to that whole-workspace snapshot. Browser WASM line coverage and
+other unmeasured scopes remain explicit. MCP95 remains live with its earlier
+test-snapshot caveat; preserve it without a duplicate campaign.
+
+Work95 is pushed as `64dfc805`; draft PR #93 remains open. Its package, image
+and profile dry runs pass; only its MCP mutation CI job remains pending.
+Work96 is locally verified; its fresh hosted evidence is pending.
+Retain known unprotected feature-branch and default-branch workflow-visibility
+findings; queued hosted checks are not a clean deployment audit.
+
 Work95 also closes the router configuration loader's malformed-input gap.
 Map, JSON and YAML regressions assert exact configuration errors for permission,
 authentication, provider, listener, header, metrics and rate-limit boundaries.

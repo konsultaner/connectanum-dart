@@ -1,4 +1,11 @@
 {
+  "router-remote-authenticator-vm": {
+    "sources": ["packages/connectanum_router/lib/src/router/auth/remote_authenticator.dart"],
+    "tests": [
+      "packages/connectanum_router/test/remote_authenticator_test.dart",
+      "packages/connectanum_router/test/router_worker_auth_test.dart"
+    ]
+  },
   "router-config-loader-vm": {
     "sources": ["packages/connectanum_router/lib/src/router/config/router_config_loader.dart"],
     "tests": [

@@ -67,8 +67,86 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work96 Configuration Survivors And Remote Authentication
+
+- Preserve VM95 and MCP95 processes on resume. VM95 completes successfully at
+  38,176/42,569 measured library lines (89.68%) with 59 unmeasured sources.
+  This predates the following tests; retain that snapshot boundary and the
+  separate packaging report. MCP95 remains live on its earlier test snapshot.
+- Configuration regressions now assert secure disclosure/auto-create defaults,
+  primary auth identity precedence, absent sections, retained authenticator
+  options, fixed-length lists, zero-valued supported limits and legacy
+  protocol/type selection. The full five-file suite passes 413 cases.
+  `router-config96-vm` retains 522/525 lines (99.43%). Its report deliberately
+  fails whole-workspace scope checks rather than concealing missing files.
+- `router-config96-mutations` completes 396/396: 349 kills, 10 survivors,
+  37 compile errors, 97.2145% raw/adjusted, both baselines zero, verified input
+  hashes. This improves 85.5153% without waivers. Remaining mutations affect
+  intermediate collection growth, empty collection construction, the temporary
+  OpenMetrics object's unused enabled flag, numeric fast paths and private
+  nullable-map defaults. Keep each outcome visible. Add the complete-source
+  target to CI at 95%, with a 45-minute job budget.
+- Direct remote-authenticator tests complement the existing worker suite.
+  Cover malformed success/challenge/failure responses, provider allowlists,
+  deep immutable copies, correlated single-use proofs, abort failures,
+  expiry/disabled expiry, static realm/identity throttling and delegate failover.
+  `remote-auth96c-vm` measures 365/368 lines (99.18%) from 297/368 (80.71%).
+  The private registry constructor and two defensive pending-delegate branches
+  stay in the denominator. The final 93-case suite, formatting and analysis pass.
+  Add a 98% file floor and full-source target `router-remote-authenticator-vm`;
+  the manifest guard fails first, then all 47 runner tests pass (one optional skip).
+- The first authenticator campaign completes 191 candidates: 102 assertion
+  kills, 26 survivors, 63 compile errors, 79.6875% raw/adjusted, both baselines
+  zero. Provider acceptance, fake-challenge identity, disabled expiry/throttling,
+  bounded numeric options and overlapping failure backoff gain independent
+  assertions. `remote-auth96b-mutations` completes the full rerun on final tests:
+  124 kills, 4 survivors, 63 compile errors, 96.875% raw/adjusted, both baselines
+  zero and source/test hashes verified. Add its complete-source 95% CI gate
+  with a 45-minute job budget. No equivalence waivers. Remaining outcomes are
+  private handle-list growth, pending-delegate cooldown and the two exact-time
+  window comparisons; retain them for further lifecycle/clock-boundary work.
+- Qwen/GLM advice was checked against source: the limiter intentionally shares
+  state by realm/authId; no per-instance isolation change is justified. The
+  pending proof is held by a Completer, not awaited before testing duplication.
+  Tests inspect backoff without sleeping through it. Further investigate the
+  static failure-map lifetime/capacity against worker-level security guards;
+  high line coverage does not establish resistance to unique-identity floods.
+- `dart --verbose --help` confirms `--root-certs-file` as a possible deterministic
+  subprocess fixture for the earlier custom-CA/system-root policy survivor.
+  This is a next-test lead, not evidence that trust-root isolation is verified.
+- Correct the deployment auditor's stale inventory for five existing gates
+  plus both new gates. A fail-first matrix consistency test also rejects
+  duplicate targets. All 27 audit tests and Bash syntax checks pass. Unknown and
+  missing jobs still fail strict auditing. The prior head's package/image/profile
+  checks pass; hosted CI remains pending.
+- Fast96 passes. Verify95b captured three corrected fixture-development errors;
+  Verify96 captured stale audit fixtures while the CI gate was being updated.
+  Verify96b passes on settled Dart/Rust inputs, including final regression
+  cases, native/package smokes and 2,970 core plus two WebSocket WASM cases.
+  The final authenticator gate is added only after the audit phase terminates;
+  a separate full 27-case audit run also passes for the final workflow/fixture
+  snapshot. Bash syntax, workflow YAML parsing, targeted Dart analysis and
+  formatting checks pass. WASM tests remain distinct from unmeasured WASM lines.
+
 ### Work95 Configuration Validation Coverage
 
+- Implementation is pushed as `64dfc805`; draft PR #93 is updated. Both package
+  dry runs pass; CI/image/profile evidence remains pending. Strict audit finds
+  five newer mutation gates absent from its hard-coded required-job inventory.
+  A workflow-matrix regression fails first. Update that inventory and all audit
+  fixtures, retaining strict unknown/missing-job rejection; all 27 audit tests
+  and Bash syntax checks pass. This follow-up awaits Verify95b and a bundled
+  implementation commit. Verify95b is the only native-runtime test user; VM95
+  is now formatting after all runtime tests finished. Do not restart either.
+  Feature-branch protection and default-branch workflow visibility findings
+  remain explicit, and queued hosted checks do not satisfy the strict audit.
+- The complete configuration campaign finishes 396/396 with 307 assertion kills,
+  52 survivors and 37 compile errors: 85.5153% raw/adjusted. Both baselines exit
+  zero; all source/test/support hashes match. Keep every outcome, no waivers.
+  Next cover legacy transport selection, absent/default sections, disclosure
+  defaults and retained authenticator options with independent assertions.
+  High line coverage has not met the mutation target; do not gate this target as
+  passing or reduce the threshold. MCP95 remains live on its earlier test snapshot.
 - Add malformed-configuration tests through map, JSON and YAML entry points.
   Exact FormatException messages distinguish schema validation from decoding or
   fixture failures. Permission/authentication/provider/listener/header/metrics

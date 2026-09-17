@@ -15,6 +15,18 @@ AUDIT_SCRIPT = REPO_ROOT / "bin" / "audit-github-deployment-chain"
 
 
 class AuditGithubDeploymentChainTest(unittest.TestCase):
+    def test_expected_mutation_jobs_match_checked_in_workflow(self) -> None:
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        matrices = re.findall(r'^\s*target: \[([^\]]+)\]\s*$', workflow, re.MULTILINE)
+        self.assertEqual(len(matrices), 1, 'Expected one literal mutation target matrix')
+        workflow_jobs = [
+            f'{target.strip()} Mutation Gate' for target in matrices[0].split(',')
+        ]
+        expected_jobs = re.findall(r"'([^']+ Mutation Gate)'", AUDIT_SCRIPT.read_text())
+        self.assertEqual(len(workflow_jobs), len(set(workflow_jobs)), 'Duplicate matrix target')
+        self.assertEqual(len(expected_jobs), len(set(expected_jobs)), 'Duplicate expected gate')
+        self.assertEqual(set(expected_jobs), set(workflow_jobs))
+
     def test_run_state_readers_preserve_empty_conclusions(self) -> None:
         readers = []
         state_variables = {
@@ -73,7 +85,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         current_head = self._git("rev-parse", "HEAD")
         result = self._run_audit(current_head)
         self.assertEqual(result.returncode, 0, result.stdout)
-        for job in ("Core Browser Coverage", "router-authorization Mutation Gate", "router-metrics-vm Mutation Gate", "core-mcp-completion-vm Mutation Gate", "core-mcp-completion-web Mutation Gate", "core-registered-vm Mutation Gate", "core-registered-web Mutation Gate", "core-subscribed-vm Mutation Gate", "core-subscribed-web Mutation Gate", "core-metadata-vm Mutation Gate", "core-metadata-web Mutation Gate", "auth-server Mutation Gate", "client-installer Mutation Gate", "router-installer Mutation Gate", "core-e2ee-vm Mutation Gate", "bench-config Mutation Gate", "core-lazy-vm Mutation Gate", "core-lazy-web Mutation Gate", "core-pem-pkcs8-vm Mutation Gate", "core-pem-pkcs8-web Mutation Gate"):
+        for job in ("Core Browser Coverage", "router-authorization Mutation Gate", "router-metrics-vm Mutation Gate", "core-mcp-completion-vm Mutation Gate", "core-mcp-completion-web Mutation Gate", "core-registered-vm Mutation Gate", "core-registered-web Mutation Gate", "core-subscribed-vm Mutation Gate", "core-subscribed-web Mutation Gate", "core-metadata-vm Mutation Gate", "core-metadata-web Mutation Gate", "auth-server Mutation Gate", "client-installer Mutation Gate", "router-installer Mutation Gate", "core-e2ee-vm Mutation Gate", "bench-config Mutation Gate", "core-lazy-vm Mutation Gate", "core-lazy-web Mutation Gate", "core-pem-pkcs8-vm Mutation Gate", "core-pem-pkcs8-web Mutation Gate", "client-message-binding-vm Mutation Gate", "router-message-binding-vm Mutation Gate", "bench-remote-auth-native Mutation Gate", "mcp-library Mutation Gate", "router-remote-wamp-vm Mutation Gate", "router-config-loader-vm Mutation Gate", "router-remote-authenticator-vm Mutation Gate"):
             with self.subTest(job=job):
                 missing = self._run_audit(current_head, ci_jobs_omit=job)
                 self.assertNotEqual(missing.returncode, 0, missing.stdout)
@@ -904,7 +916,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             print("WampApp Consumer\\tcompleted\\tsuccess")
                             print("Dart VM Coverage\\tcompleted\\tsuccess")
                             print("Full Verify\\tcompleted\\tsuccess")
-                            for job in ("Core Browser Coverage", "router-authorization Mutation Gate", "router-metrics-vm Mutation Gate", "core-mcp-completion-vm Mutation Gate", "core-mcp-completion-web Mutation Gate", "core-registered-vm Mutation Gate", "core-registered-web Mutation Gate", "core-subscribed-vm Mutation Gate", "core-subscribed-web Mutation Gate", "core-metadata-vm Mutation Gate", "core-metadata-web Mutation Gate", "auth-server Mutation Gate", "client-installer Mutation Gate", "router-installer Mutation Gate", "core-e2ee-vm Mutation Gate", "bench-config Mutation Gate", "core-lazy-vm Mutation Gate", "core-lazy-web Mutation Gate", "core-pem-pkcs8-vm Mutation Gate", "core-pem-pkcs8-web Mutation Gate"):
+                            for job in ("Core Browser Coverage", "router-authorization Mutation Gate", "router-metrics-vm Mutation Gate", "core-mcp-completion-vm Mutation Gate", "core-mcp-completion-web Mutation Gate", "core-registered-vm Mutation Gate", "core-registered-web Mutation Gate", "core-subscribed-vm Mutation Gate", "core-subscribed-web Mutation Gate", "core-metadata-vm Mutation Gate", "core-metadata-web Mutation Gate", "auth-server Mutation Gate", "client-installer Mutation Gate", "router-installer Mutation Gate", "core-e2ee-vm Mutation Gate", "bench-config Mutation Gate", "core-lazy-vm Mutation Gate", "core-lazy-web Mutation Gate", "core-pem-pkcs8-vm Mutation Gate", "core-pem-pkcs8-web Mutation Gate", "client-message-binding-vm Mutation Gate", "router-message-binding-vm Mutation Gate", "bench-remote-auth-native Mutation Gate", "mcp-library Mutation Gate", "router-remote-wamp-vm Mutation Gate", "router-config-loader-vm Mutation Gate", "router-remote-authenticator-vm Mutation Gate"):
                                 if job != os.environ.get("FAKE_CI_JOBS_OMIT"):
                                     print(f"{job}\\tcompleted\\tsuccess")
                             if extra := os.environ.get("FAKE_CI_JOBS_EXTRA"):
@@ -1690,6 +1702,13 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 print("core-lazy-web Mutation Gate\\tcompleted\\tsuccess")
                                 print("core-pem-pkcs8-vm Mutation Gate\\tcompleted\\tsuccess")
                                 print("core-pem-pkcs8-web Mutation Gate\\tcompleted\\tsuccess")
+                                print("client-message-binding-vm Mutation Gate\\tcompleted\\tsuccess")
+                                print("router-message-binding-vm Mutation Gate\\tcompleted\\tsuccess")
+                                print("bench-remote-auth-native Mutation Gate\\tcompleted\\tsuccess")
+                                print("mcp-library Mutation Gate\\tcompleted\\tsuccess")
+                                print("router-remote-wamp-vm Mutation Gate\\tcompleted\\tsuccess")
+                                print("router-config-loader-vm Mutation Gate\\tcompleted\\tsuccess")
+                                print("router-remote-authenticator-vm Mutation Gate\\tcompleted\\tsuccess")
                             elif run_id == "124":
                                 print("Publish Dry Run\\tcompleted\\tsuccess")
                             elif run_id == "125":
@@ -2077,6 +2096,13 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 print("core-lazy-web Mutation Gate\\tcompleted\\tsuccess")
                                 print("core-pem-pkcs8-vm Mutation Gate\\tcompleted\\tsuccess")
                                 print("core-pem-pkcs8-web Mutation Gate\\tcompleted\\tsuccess")
+                                print("client-message-binding-vm Mutation Gate\\tcompleted\\tsuccess")
+                                print("router-message-binding-vm Mutation Gate\\tcompleted\\tsuccess")
+                                print("bench-remote-auth-native Mutation Gate\\tcompleted\\tsuccess")
+                                print("mcp-library Mutation Gate\\tcompleted\\tsuccess")
+                                print("router-remote-wamp-vm Mutation Gate\\tcompleted\\tsuccess")
+                                print("router-config-loader-vm Mutation Gate\\tcompleted\\tsuccess")
+                                print("router-remote-authenticator-vm Mutation Gate\\tcompleted\\tsuccess")
                             elif run_id == "124":
                                 print("Publish Dry Run\\tcompleted\\tsuccess")
                             elif run_id == "125":

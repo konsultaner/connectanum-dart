@@ -185,6 +185,18 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertTrue(target['isolateTestFiles'])
         self.assertEqual(target['testRoot'], prefix)
 
+    def test_remote_authenticator_target_includes_direct_and_worker_regressions(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['router-remote-authenticator-vm']
+        prefix = 'packages/connectanum_router'
+        self.assertEqual(target['sources'], [
+            f'{prefix}/lib/src/router/auth/remote_authenticator.dart',
+        ])
+        self.assertEqual(set(target['tests']), {
+            f'{prefix}/test/remote_authenticator_test.dart',
+            f'{prefix}/test/router_worker_auth_test.dart',
+        })
+
     def test_router_config_target_covers_loader_and_validation_inputs(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         target = targets['router-config-loader-vm']
