@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -168,6 +169,78 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         ]:
             self.assertIn(f"import '../{filename}' as {alias};", entrypoint)
             self.assertIn(f"group('{group}', {alias}.main);", entrypoint)
+
+    def test_bench_http_mutations_include_complete_handler_and_test_inventory(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['bench-http-stream-vm']
+        root = REPO_ROOT / 'packages/connectanum_bench'
+        entrypoint = root / 'test/support/http_stream_mutation_suite.dart'
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_bench/lib/src/http_stream_handler.dart'])
+        self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
+        self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
+        expected = set((root / 'test').glob('http_stream*_test.dart'))
+        self.assertEqual(set(target['supportFiles']), {
+            path.relative_to(REPO_ROOT).as_posix() for path in expected})
+        source = entrypoint.read_text()
+        imports = re.findall(r"import\s+'([^']+)'\s+as\s+(\w+);", source)
+        self.assertEqual({(entrypoint.parent / path).resolve() for path, _ in imports}, expected)
+        for path, alias in imports:
+            self.assertRegex(source, rf"group\('[^']+', {alias}\.main\)")
+
+    def test_bench_workload_mutations_hash_wire_suites_and_tls_fixtures(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['bench-wamp-workload-vm']
+        root = REPO_ROOT / 'packages/connectanum_bench'
+        entrypoint = root / 'test/support/wamp_workload_mutation_suite.dart'
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_bench/lib/src/wamp_workload_runner.dart'])
+        self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
+        self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
+        expected = {root / 'test' / name for name in [
+            'wamp_workload_runner_test.dart', 'wamp_session_wire_regression_test.dart',
+            'wamp_session_factory_test.dart', 'wamp_transport_targets_test.dart',
+            'wamp_sample_test.dart',
+        ]}
+        fixtures = {'native/bench/bench_tls.crt', 'native/bench/bench_tls.key'}
+        self.assertEqual(set(target['supportFiles']), fixtures | {
+            path.relative_to(REPO_ROOT).as_posix() for path in expected})
+        source = entrypoint.read_text()
+        imports = re.findall(r"import\s+'([^']+)'\s+as\s+(\w+);", source)
+        self.assertEqual({(entrypoint.parent / path).resolve() for path, _ in imports}, expected)
+        for path, alias in imports:
+            self.assertRegex(source, rf"group\('[^']+', {alias}\.main\)")
+
+    def test_serializer_mutation_wrappers_preserve_complete_runtime_inventory(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        root = REPO_ROOT / 'packages/connectanum_core/test'
+        common = root / 'support/serializer_mutation_suite.dart'
+        browser = root / 'support/serializer_web_mutation_suite.dart'
+        original_files = set((root / 'serializer').rglob('*.dart')) | {
+            root / 'serializer_challenge_welcome_test.dart',
+            root / 'message_lazy_payload_regression_test.dart',
+        }
+        for runtime, entrypoint in [('vm', common), ('web', browser)]:
+            for codec in ('cbor', 'msgpack'):
+                target = targets[f'core-{codec}-serializer-{runtime}']
+                with self.subTest(runtime=runtime, codec=codec):
+                    self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
+                    expected_support = original_files | ({common} if runtime == 'web' else set())
+                    self.assertEqual(set(target['supportFiles']),
+                                     {path.relative_to(REPO_ROOT).as_posix() for path in expected_support})
+        shared_source, browser_source = common.read_text(), browser.read_text()
+        imports = re.findall(r"import\s+'([^']+)'\s+as\s+(\w+);", shared_source)
+        actual = {(common.parent / path).resolve() for path, alias in imports}
+        browser_only = root / 'serializer/msgpack/codec_fallback_web_test.dart'
+        expected = {path for path in original_files if path.name.endswith('_test.dart')} - {browser_only}
+        self.assertEqual(actual, expected)
+        for path, alias in imports:
+            self.assertRegex(shared_source, rf"group\('[^']+', {alias}\.main\)")
+        self.assertIn("@TestOn('js')", browser_source)
+        self.assertIn("import 'serializer_mutation_suite.dart' as serializers;", browser_source)
+        self.assertIn("import '../serializer/msgpack/codec_fallback_web_test.dart' as fallback;", browser_source)
+        self.assertIn('serializers.main();', browser_source)
+        self.assertIn("group('msgpack JS fallback', fallback.main);", browser_source)
 
     @unittest.skipIf(os.name == 'nt', 'The application coverage launcher requires Bash')
     def test_app_shared_coverage_launcher_reports_and_fails_closed(self):
@@ -1092,6 +1165,49 @@ fi
                 self.assertIn("test/message_lazy_payload_regression_test.dart", script)
                 self.assertIn("test/message_invocation_test.dart", script)
                 self.assertIn("test/message_result_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_completion_boundaries(self) -> None:
+        for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
+            with self.subTest(script=path.name):
+                script = path.read_text(encoding="utf-8")
+                self.assertIn("test/mcp_completion_test.dart", script)
+                self.assertIn("test/mcp_completion_regression_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_registration_lifecycle(self) -> None:
+        for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
+            with self.subTest(script=path.name):
+                script = path.read_text(encoding="utf-8")
+                self.assertIn("test/message_registered_regression_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_handshake_metadata(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
+                self.assertIn("test/serializer_challenge_welcome_test.dart", script)
+                self.assertIn("test/details_feature_announcement_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_lazy_metadata(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
+                self.assertIn("test/custom_fields_test.dart", script)
+                self.assertIn("test/custom_fields_regression_test.dart", script)
+                self.assertIn("test/message_details_regression_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_subscription_lifecycle(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
+                self.assertIn("test/message_subscribed_test.dart", script)
+                self.assertIn("test/message_subscribed_regression_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_ppt_transcoding(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
+                self.assertIn("test/message_invocation_transcoding_test.dart", script)
+                self.assertIn("test/message_invocation_regression_test.dart", script)
+                self.assertIn("test/message_invocation_response_lifecycle_test.dart", script)
 
     def test_timeout_helper_does_not_leave_success_watchdog_alive(self) -> None:
         script = textwrap.dedent(

@@ -1,23 +1,333 @@
 # Project State
 
-Last updated: 2026-09-16
+Last updated: 2026-09-17
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Current follow-up closes configured HTTP file-response gaps in router_binding.dart,
+Work85 resumes after all mutation processes ended. Binding66 stopped incomplete
+at 1,495/2,379 candidates, with no restored-baseline result; its partial score is
+not completion evidence. Serializer82 finished with both baselines passing:
+CBOR VM 82.85% / JavaScript 82.20%, MessagePack VM 80.53% / JavaScript 82.02%.
+CBOR retains one VM and five browser timeouts, not assertion kills. Workload84
+finished at 50.89%, with 157 survivors and nine timeouts. No thresholds or scopes
+are weakened, and these are source-target scores, not whole-package scores.
+
+Fresh fast85 found a cross-package regression in the uncommitted terminal
+Invocation change: synchronous adapter rejection must preserve the existing
+retryable state. Terminal dispatch now reserves closure against reentry, rolls
+back on rejection and preserves the original exception/stack. Progressive
+callbacks do not undo closure from an accepted nested final reply. The existing
+client regression is retained and strengthened to prove a successful retry is
+actually sent exactly once. Earlier work78 post-throw closure assumptions were
+incompatible with that established contract and are superseded, not a new WAMP
+requirement. Invocation78 scores are historical after this source/test change.
+Focused core/client tests and fresh `bin/test-fast` pass. Invocation85 completes
+both VM and JavaScript campaigns at 100 kills, six survivors and 22 compile
+errors (94.34% raw/adjusted), both baselines zero, no crashes/timeouts/waivers.
+All eight recorded source/test/support hashes match the staged files. The strict
+mutation command exits one for the unmet 95% threshold. Full `bin/verify` passes
+after serialized native use, including Rust, Dart, consumer smoke, 2,903 core
+Chrome/WASM tests and two browser WebSocket tests. Commit/push and new-head
+hosted checks remain pending. No package release or version change.
+
+The following work83/84 notes describe their original snapshots; references to
+running campaigns or a native owner below are superseded by the work85 status.
+
+Current working follow-up closes benchmark-tool regression gaps without using
+the native runtime owned by binding66. The HTTP stream suite now passes 439
+tests and measures all 222 executable VM lines, protected by a new 98% file
+floor. Its complete snapshot84 mutation campaign records 52 assertion kills,
+one survivor, 84 compile errors and one timeout: 96.30% raw/adjusted, with both
+baselines passing. The timeout is not a kill and the strict command still exits
+nonzero; this is not a clean required mutation CI gate. No equivalences waived.
+
+Fifteen fail-first loopback WebSocket cases prove cancel-cycle benchmarks were
+counting authorization, missing-procedure, timeout and arbitrary errors as
+successful cancellation. The facade now accepts only standard cancellation or
+the existing legacy cancellation URI and preserves all other errors. This does
+not change router wire behavior. Forty-seven wire regressions cover call
+variants, acknowledged publishing, subscription delivery/revocation, registration
+cleanup, progressive calls, disconnects and concurrent cancellation/recovery.
+The HTTP and workload wrappers pass 558 tests together; full repository analysis,
+48 launcher checks, 37 mutation-runner checks (one optional native fixture skip),
+16 coverage-checker checks and public-reference validation pass. The focused
+report at `out/regression-coverage-2026-09-15/bench84b-final-vm` is not whole-package
+coverage: native paths and other source files remain unmeasured in that run.
+
+The new full-source workload mutation campaign has 519 candidates and a passing
+baseline, with source/test/fixture hashes retained. It is running alongside the
+existing serializer82 campaigns; binding66 remains the sole native owner.
+Fresh bin/test-fast, bin/verify, commit and push remain queued behind that owner.
+No merge, publication, version change or weakened threshold.
+
+The preceding working follow-up hardens PPT decoding and protects binary forwarding.
+Eleven fail-first cases reproduce MessagePack null keyword values throwing on
+iteration, copying and forwarding; the map now retains nullable values. Ten
+further fail-first cases show CBOR/MessagePack PPT defer non-string keyword-key
+errors until application access; both now reject them eagerly with redacted
+FormatException. Two CBOR fail-first cases reproduce ignored map keys bypassing
+UTF-8 validation. The fallback validates text keys without changing the known-key
+zero-copy path. Valid unknown fields, string keys and nullable values remain
+compatible. There are 158 CBOR binary/fragment/truncation tests and 43 shared PPT
+null/key-contract tests, selected by the canonical serializer directory suites.
+
+Core82 passes 3,071 VM / 2,910 JavaScript / 2,902 WASM tests and full analysis.
+VM measures 6,721/7,231 core lines (92.95%); JavaScript measures 6,253/6,591
+(94.87%) with 181 unmeasured library sources still visible. CBOR is 1,281/1,300
+VM (98.54%) and 1,329/1,370 JS (97.01%). These remain core-only measurements;
+WASM passing tests are not measured WASM line coverage.
+
+Serializer mutation entrypoints retain every original suite and support-file
+hash, including the JS-only codec tests in a separate browser wrapper. A guard
+against omitted files passes with all 46 launcher tests; 37 mutation-runner,
+four mutation-generator, 16 coverage-checker and 24 deployment-audit tests pass,
+with one optional native fixture skipped. The original and wrapped VM
+selection both pass 2,098 tests (6.4 versus 4.1 seconds locally); the browser
+wrapper passes 2,103. Full VM and JavaScript campaigns are now running CBOR then
+MessagePack against snapshot82; CBOR inventories 1,166 mutations in each runtime
+with passing baselines. Partial counts are not completed scores. Binding66 is
+still the sole native owner, so fresh bin/test-fast, bin/verify, commit and push
+remain pending. No merge, publication, version change or equivalence waiver.
+
+The older CBOR73 full campaign is complete: 684 assertion kills, 238 survivors,
+239 compile errors and one timeout (74.11% raw/adjusted), both baselines passing.
+The diagnostic PPT79 replay catches 69 of 87 selected prior survivors, leaving
+18, without errors/timeouts and with passing baselines. It predates the new
+decoder fixes and expanded tests; neither result is final snapshot82 evidence.
+
+Previous working follow-up fixes terminal Invocation dispatch re-entrancy. Seven
+fail-first regressions reproduce duplicate terminal responses, retries after a
+terminal adapter throws, and callback mutation of progress changing completion.
+Terminal state is now set before invoking the response adapter; progressive
+delivery stays open, and missing-adapter failures remain recoverable. The full
+Invocation wrapper passes 267 tests, including nine lifecycle cases. Core78 VM
+passes 2,870 tests and measures 6,715/7,226 lines (92.93%); Invocation is 190/191
+(99.48%). JavaScript78 passes 2,709 tests and WASM78 passes 2,701. Both completed
+Invocation78 mutation campaigns record 99 assertion kills, six survivors and
+22 compile errors (94.29% raw/adjusted), passing baselines and no other outcomes.
+Source hash f3a143bb7b18c5ac3594850b09141f8405ac6b6139157c6c009ae77beb937c6c
+supersedes the earlier Invocation mutation snapshots; do not reuse their scores.
+
+The previous Invocation77 snapshot adds 75 regressions for fragmented forwarding,
+metadata, timeout boundaries, provider preference and responder state. It passes
+2,859 core VM / 2,698 JS / 2,690 WASM tests. Invocation measures 192/193 VM and
+226/228 JS lines; 98% file floors now protect both runtimes. Both complete
+Invocation77 mutation campaigns record 101 kills, seven survivors and 22 compile
+errors (93.52% raw/adjusted), with both baselines passing and no other outcomes.
+No equivalences are waived. Two subsequent orphan-decoder contract tests and the
+terminal response fix postdate that evidence. Metadata CI/audit integration passes
+all 24 audit tests; canonical launchers pass 45 checks and measurement tools pass
+57 checks with one optional native fixture skipped. Fresh full verification,
+commit and push remain pending behind the live binding66 native campaign.
+
+Previous working follow-up fixes data loss when Invocation.respondWith transcodes
+a lazy non-WAMP PPT response instead of reusing matching packed bytes. Fourteen
+of 17 initial cases fail before the fix; the expanded 25-case matrix and existing
+Invocation suite pass all 45 cases. The fallback now reads lazy args/kwargs with
+explicit-value fallback, while matching serializers retain identical packed bytes
+without decoding. Decode failure emits no response and permits explicit recovery.
+Canonical browser/WASM launchers now include the new matrix after two fail-first
+launcher checks. Core76 VM passes 2,784 tests (6,683/7,228 lines, 92.46%);
+JavaScript passes 2,623 (6,194/6,566, 94.33%); WASM passes 2,615 without measured
+line coverage. Full analysis passes. These are core-only reports, not final
+whole-workspace evidence; missing sources remain visible.
+
+The first full-source Invocation76 VM mutation campaign catches 52/108 viable
+mutants (48.15%), with 56 survivors and 22 compile errors across 130 candidates,
+both baselines passing and no errors/timeouts/equivalences. Further regression
+work covers fragmented payloads, mixed encoded/materialized fields, decode counts,
+timeouts, responder closure, view metadata and outbound E2EE context. That work
+postdates Invocation76 and core76 evidence; do not attribute older scores to it.
+
+Previous working follow-up fixes lazy metadata write/removal semantics and stale
+subscription handlers. Eight fail-first cases reproduce pending loaders restoring
+removed keys or overwriting explicit values, including null. Removal now resolves
+pending entries first; ordinary-map and Details custom merges preserve explicit
+writes. The metadata suite has 295 cases, including independent absent/null/false/
+true assertions for each role capability. Its first full VM mutation campaign
+caught 137/213 viable mutants (64.32%); expanded assertions catch all 213, with
+44 compile errors separate and both baselines passing. Final style-adjusted
+metadata74c confirms all 213 assertion kills with the final test hash, no other
+outcomes and both baselines passing. The older complete browser74 campaign
+matches the initial 64.32% result. Final browser74b is complete on the expanded
+suite: 213 assertion kills, 44 compile errors, 100% viable, both baselines passing
+and no other outcomes. Its source and support-test hashes match metadata74c VM.
+Both metadata gates are now required in CI and the deployment audit, after four
+fail-first job-list mismatches. Browser metadata gets a 90-minute job budget for
+the complete inventory; the 95% mutation threshold remains unchanged.
+
+Thirty-one new subscription regressions reproduce two stale-handler cases and
+cover handler masks, direct/lazy/payload delivery, broadcast listeners, revocation
+and delayed cancellation. Override streams now resolve the current callback,
+matching Registered. All 37 focused cases pass on VM, JavaScript and WASM. Both
+complete subscription75 mutation campaigns catch all 15 viable mutants, with
+seven compile errors, passing baselines and no survivors/errors/timeouts/waivers.
+Subscription gates are required by CI and its audit; all 24 audit tests pass
+after reproducing job-list mismatch, including missing-job checks. All 44 launcher
+tests and 53 measurement-tool tests pass (one optional native fixture skipped).
+VM file floors now protect Details, custom fields and Subscribed at 98%; browser
+floors protect Details and Subscribed, not the still-below-target custom helper.
+
+Full core75b VM passes 2,759 tests and measures 6,679/7,226 lines (92.43%).
+Details is 346/346, custom fields 46/46 and Subscribed 51/51. The last complete
+JavaScript75b selection passes 2,598 tests, measuring 6,180/6,562 (94.18%);
+Details is 379/379 and Subscribed 46/46, but custom fields remain 54/56 (96.43%).
+WASM75b passes 2,590 tests without a line-coverage claim. Final style-adjusted
+workspace analysis passes without issues. The core-only VM report
+retains missing-package findings and 172 unmeasured library sources; it is not
+whole-workspace evidence. Native binding66 still owns the native runtime, so
+fresh bin/verify, commit and push remain pending. No merge, release or version
+change. The full coverage goal remains active.
+
+Previous working follow-up adds 52 registration delivery/lifecycle tests and 425
+CBOR frame-variant tests. Registered measures 69/69 VM and 84/84 JavaScript
+lines; final registered73 full-source campaigns each record 24 assertion kills
+and 22 compile errors across 46 candidates, both baselines passing, no survivors,
+errors, timeouts or equivalences. The earlier browser72 campaign retains three
+timeouts caused by test waits when a mutant prevents stream attachment. Explicit
+attachment assertions and failure-safe cancellation cleanup replace those waits;
+an immediate listener-cancellation regression catches the final delivery mutant.
+Both registration targets and 98% file floors are wired into CI and its audit;
+all 24 audit tests pass after a fail-first missing-job check.
+
+CBOR frame-variant regressions reproduce 60 malformed progress/receive_progress
+cases accepted only through tagged fallback decoding. Fallback bool? casts now
+match the fast path while preserving null/true/false values. Tests cover the
+self-described tag, definite/indefinite outer and nested containers, metadata,
+all seven payload-bearing messages, chunked UTF-8/binary values, truncation and
+recovery. The first 408-case snapshot passes full core73 VM (2,431), JavaScript
+(2,249) and WASM (2,241); VM core is 6,575/7,226 (90.99%), CBOR 1,259/1,296
+(97.15%), and JavaScript core 5,899/6,430 (91.74%), with unmeasured sources still
+visible. The final 425-case snapshot passes core73b VM (2,448), measuring
+6,592/7,226 core lines (91.23%) and 1,276/1,296 CBOR lines (98.46%). A 98% CBOR
+VM file floor now protects that result. The canonical browser selection also
+includes the existing challenge/welcome and feature-announcement suites after a
+fail-first launcher check. Final JavaScript73c passes 2,275 tests and measures
+6,027/6,430 core lines (93.73%); CBOR remains 1,307/1,363 (95.89%), below target.
+WASM73c passes 2,267 tests without a line-coverage claim. Workspace analysis,
+formatting, 42 launcher tests and 16 coverage-checker tests pass. The new complete
+CBOR VM mutation campaign completes all 1,162 candidates: 684 assertion kills,
+238 survivors, 239 compile errors and one timeout (74.11% raw/adjusted), with
+passing clean/restored baselines and matching source/test hashes. These are
+not whole-workspace coverage claims. The live binding66 native owner still gates
+fresh bin/verify, commit and push. No merge, release or version change.
+
+Previous working follow-up adds 210 MCP completion regression cases, bringing the
+focused suite to 212 tests. Request parsing, typed dictionary keys, nullable and
+empty optionals, Unicode partial values, immutable snapshots, candidate ordering,
+100-item limits, totals and field-specific errors now have independent assertions.
+Core71b passes 1,971 VM tests; canonical JavaScript passes 1,789 and its coverage
+policy; WASM passes 1,781, without a WASM coverage claim. Completion measures
+104/104 VM and 123/123 JavaScript lines. Full-source VM and browser mutation71b each catch all
+44 viable mutations; ten compile errors are separate, with no survivors, runtime
+errors, timeouts or equivalences and both baselines passing. The first 204-test
+snapshot caught 41/44 (93.18%); retain it separately. The first browser campaign
+has a Chromium descendant-cleanup error and is not clean evidence. The final
+browser campaign uses a single-compilation wrapper and matches the VM result.
+Core-only VM is 6,462/7,229 (89.39%); JavaScript is 5,722/6,358 (90.00%) with
+182 unmeasured library sources visible. Browser scope now includes completion
+and its dependencies, so its denominator differs from work70. Canonical browser
+verification/coverage includes the completion suites and both runtimes enforce
+a 98% completion-file floor. Both complete mutation targets are now required in
+CI and the deployment audit. These are not whole-component completion claims.
+No production behavior changes in this slice. The live binding66 native owner
+still gates fresh bin/verify, commit and push for the combined increment.
+
+Previous working follow-up adds 469 payload-container assertions across JSON,
+MessagePack and CBOR and all seven payload-bearing WAMP message types. Core70
+passes 1,761 VM tests, JavaScript 1,577 and WASM 1,569. VM remains 6,427/7,229;
+JavaScript is 5,548/6,164 (90.01%). A diagnostic 31-candidate payload-guard replay
+records 21 assertion kills, five survivors in lazy binary optimization and five
+compile errors, with passing clean/restored baselines and no errors/timeouts.
+All selected eager container guards are killed. No equivalences are waived and
+this selected replay is not a component score. No production behavior changes.
+
+The older full-source MessagePack67 VM campaign is now complete: 608 assertion
+kills, 221 survivors and 209 compile errors across 1,038 candidates, 73.34% raw
+and adjusted, clean/restored baselines passing, no errors/timeouts/equivalences.
+It predates work68-71 and must not be attributed to the newer source/tests.
+The complete MessagePack71 VM campaign records 668 assertion kills, 162 survivors
+and 209 compile errors across 1,039 candidates (80.48% raw/adjusted), both
+baselines passing and no errors/timeouts/equivalences. It predates the later CBOR,
+metadata and subscription changes and is not final-snapshot evidence for them.
+Workspace analysis, formatting and public-artifact checks passed that snapshot.
+
+Previous working follow-up adds 279 independent outbound wire assertions across
+JSON, MessagePack and CBOR. They protect PPT metadata, escaping, absent/empty
+fields, progress defaults, subscription revocation, retained lazy segments and
+cross-serializer transcoding. Core69b passes 1,292 VM tests; canonical JavaScript
+passes 1,108 tests and its coverage policy; WASM passes 1,100 tests. Core-only VM
+coverage rises to 6,427/7,229 (88.91%), with JSON serialization at 96.59% and
+MessagePack at 93.89%. Browser core coverage is 5,541/6,164 (89.89%). Scope and
+unmeasured-source limitations remain unchanged. An isolated diagnostic replay
+catches 18 of 25 previous outbound survivors, retaining seven without waivers;
+both baselines pass, with no compile errors, crashes or timeouts. This is not a
+whole-component mutation score. No new production behavior changes in this slice.
+The active native owner still gates fresh bin/verify, commit and push for the
+combined work67-69 increment. No merge, publication or version change.
+
+Previous working follow-up rejects malformed AUTHENTICATE.Extra dictionaries in
+JSON, MessagePack and CBOR instead of silently replacing them with empty metadata
+or stringifying top-level keys. Thirty-seven fail-first cases reproduce the gap;
+all 69 focused tests now pass, including valid SCRAM/custom/null/binary metadata,
+recovery after rejected input, and empty/non-integer MessagePack message types.
+Core68 passes 1,013 VM tests; canonical browser68 passes 829 JavaScript tests and
+its coverage policy; the corresponding WASM suite passes 821 tests. Core-only VM
+coverage is 6,360/7,229 (87.98%); browser coverage is 5,464/6,162 (88.67%). These
+are not full-workspace or WASM coverage measurements. An isolated 13-candidate
+guard replay records ten assertion kills and three compile errors, with clean
+and restored baselines passing. It is diagnostic, not a whole-component score.
+The binding66 and msgpack67 campaigns remain active against their older isolated
+snapshots. Fresh bin/verify, commit and push remain pending until binding66
+releases the shared native runtime. No merge, publication or version change.
+
+Previous working follow-up hardens MessagePack framing and mutation configuration.
+Fifty-four fail-first cases reproduce malformed frames falling through the bounds
+scanner into low-level decoder errors. The scanner now rejects them with redacted
+FormatException values, without changing valid-message parsing. The new wire and
+router-ingress suites contain 210 tests. Broader validation passes 959 core VM,
+775 JavaScript coverage and 667 WASM serializer/lazy-payload tests. The isolated
+VM serializer measures 1,152/1,264 lines (91.14%); JavaScript measures 1,170/1,354
+(86.41%). These are not workspace-wide or WASM line-coverage claims.
+Mutation configuration now rejects duplicate target/equivalence JSON keys before
+creating output or starting a campaign. Six fail-first cases pass after the fix;
+37 runner tests (one optional real-native fixture skipped) and four generator
+tests pass, including additional escaped-key checks. Corrected whole-source
+inventories contain 1,038 VM serializer and 1,272 browser serializer/codec
+candidates. The VM campaign is running against the uncommitted source/test
+snapshot from work67; inventory and partial results are not completed scores.
+Later work68 changes are not covered by that campaign. Preserve the
+earlier accidentally shadowed codec inventory separately. Changes remain
+uncommitted pending fresh bin/verify after the active binding66 campaign releases
+the native runtime. Verification66 and hosted evidence below predate this work.
+
+Previous follow-up closes configured HTTP file-response gaps in router_binding.dart,
 the largest measured library gap (699 uncovered VM65 lines). Fail-first tests
 reproduce HEAD incorrectly honoring Range, ignored If-Range, non-weak cache-tag
 comparison, and unanswered requests for malformed percent escapes. The expanded
 suite also reproduces unanswered invalid HTTP-date requests. All 81 focused
 cases and 214 broader runtime/metrics cases now pass. Full-file responses retain
 the native file-backed response path; GET ranges still buffer the selected bytes.
-The new whole-file router-binding-vm mutation target inventories 2,379 candidates;
-inventory is not execution or a passing score. Full coverage66 and verify66 are
-queued serially before its campaign. The overall 98%/95% goal remains incomplete.
+The new whole-file router-binding-vm mutation target inventories 2,379 candidates.
+Full coverage66 and serial verify66 pass. Fresh VM coverage is 36,799/42,501
+(86.58%); router is 16,290/19,287 (84.46%) and binding is 2,965/3,636 (81.55%).
+The explicit 98% target still fails, with 59 unmeasured library sources visible.
+The complete mutation campaign has started on d44d3ea7 with a passing baseline;
+its partial outcomes are not a completed score. The overall goal remains active.
 
-Latest pushed checkpoint: 748ddf21 on PR #93 adds metrics regression and mutation
+Latest pushed checkpoint: d44d3ea7 on PR #93 contains the file-response fixes.
+Package publishing dry runs 35084904972/35084901145 and router-image dry run
+35084941801 pass. The image run verifies MCP smoke and multi-platform builds
+without publishing. Exact-head PR CI 35084904963 passes all 14 jobs; push CI
+35084901062 also passes. Strict audit66 confirms clean jobs/logs and relevant
+publishing/image evidence, but retains the unprotected feature-branch and
+mutation workflow absent from master findings. Rechecked master CI,
+standard WAMP benchmarks, all seven latest beta.5 package publications and native
+artifacts pass. The separate heavy performance diagnostics remain red as below.
+
+Previous pushed checkpoint: 748ddf21 on PR #93 adds metrics regression and mutation
 gates. Exact-head PR CI 35079233511 (all 14 jobs), push CI 35079229883 and package
 publishing dry runs 35079233562/35079229726 pass. Strict audit65 confirms clean
 jobs/logs and publishing evidence but retains the unprotected feature-branch and

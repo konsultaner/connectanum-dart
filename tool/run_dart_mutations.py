@@ -250,6 +250,15 @@ def snapshot(destination, support_files=()):
             shutil.copy2(ROOT / path, destination / path)
 
 
+def unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f'duplicate JSON key: {key}')
+        result[key] = value
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, default=ROOT / 'tool/mutation_targets.json')
@@ -262,10 +271,13 @@ def main():
     args = parser.parse_args()
     if not 0 <= args.threshold <= 100 or args.timeout <= 0:
         parser.error('threshold must be 0..100 and timeout must be positive')
-    config = json.loads(args.config.read_text())
+    try:
+        config = json.loads(args.config.read_text(), object_pairs_hook=unique_json_object)
+        equivalents = json.loads(args.equivalents.read_text(), object_pairs_hook=unique_json_object)
+    except ValueError as error:
+        parser.error(f'invalid mutation configuration: {error}')
     if not isinstance(config, dict) or not config:
         parser.error('config must be a nonempty mapping of mutation targets')
-    equivalents = json.loads(args.equivalents.read_text())
     selected = args.target or list(config)
     unknown = set(selected) - config.keys()
     if unknown:

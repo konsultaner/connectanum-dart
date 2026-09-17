@@ -4,6 +4,11 @@
   "files": {
     "packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart": 98,
     "packages/connectanum_core/lib/src/message/e2ee_payload.dart": 98,
+    "packages/connectanum_core/lib/src/mcp/completion.dart": 98,
+    "packages/connectanum_core/lib/src/message/registered.dart": 98,
+    "packages/connectanum_core/lib/src/message/subscribed.dart": 98,
+    "packages/connectanum_core/lib/src/message/invocation.dart": 98,
+    "packages/connectanum_core/lib/src/message/details.dart": 98,
     "packages/connectanum_core/lib/src/serializer/json/binary_codec.dart": 100,
     "packages/connectanum_core/lib/src/serializer/msgpack/codec.dart": 97.29
   }

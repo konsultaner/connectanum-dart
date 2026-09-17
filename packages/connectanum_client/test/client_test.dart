@@ -1109,11 +1109,14 @@ void main() {
       'preserves invocation send failures while the session is active',
       () async {
         final transport = _InvocationSendThrowingTransport();
+        final acceptedResponses = <Yield>[];
         transport.outbound.stream.listen((message) {
           if (message is Hello) {
             transport.receiveMessage(Welcome(42, Details.forWelcome()));
           } else if (message is Register) {
             transport.receiveMessage(Registered(message.requestId, 1010));
+          } else if (message is Yield) {
+            acceptedResponses.add(message);
           }
         });
         final session = await Client(
@@ -1138,6 +1141,14 @@ void main() {
           throwsStateError,
         );
         expect(invocation.responseClosed, isFalse);
+        expect(acceptedResponses, isEmpty);
+        transport.rejectResponses = false;
+        invocation.respondWith(arguments: const ['retry']);
+        expect(invocation.responseClosed, isTrue);
+        await Future<void>.delayed(Duration.zero);
+        expect(acceptedResponses.single.invocationRequestId, 31339);
+        expect(acceptedResponses.single.arguments, ['retry']);
+        expect(() => invocation.respondWith(), throwsStateError);
         await transport.close();
       },
     );
@@ -4433,9 +4444,11 @@ class _ClosedSendThrowingTransport extends _MockTransport {
 }
 
 class _InvocationSendThrowingTransport extends _MockTransport {
+  bool rejectResponses = true;
+
   @override
   void send(AbstractMessage message) {
-    if (message is Yield) {
+    if (message is Yield && rejectResponses) {
       throw StateError('Invocation response send failed');
     }
     super.send(message);

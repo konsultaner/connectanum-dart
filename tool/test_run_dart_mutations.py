@@ -466,6 +466,45 @@ class MutationRunnerTests(unittest.TestCase):
                     command.assert_not_called()
                 self.assertFalse(output.exists())
 
+    def test_duplicate_configuration_keys_fail_before_starting_a_campaign(self):
+        duplicate_documents = [
+            '{"same": {}, "same": {}}',
+            r'{"same": {}, "\u0073ame": {}}',
+            '{"same": {"sources": ["a"], "sources": ["b"]}}',
+            '{"same": {"tests": ["a"], "tests": ["b"]}}',
+        ]
+        for filename, duplicate in [(name, document) for name in ('config', 'equivalents')
+                                    for document in duplicate_documents]:
+            with self.subTest(file=filename, document=duplicate), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                config = root / 'config.json'
+                config.write_text(duplicate if filename == 'config' else '{"same": {}}')
+                equivalents = root / 'equivalents.json'
+                equivalents.write_text(duplicate if filename == 'equivalents' else '{}')
+                output = root / 'result'
+                args = ['runner', '--config', str(config), '--equivalents', str(equivalents),
+                        '--output', str(output)]
+                with patch.object(sys, 'argv', args), patch.object(sys, 'stderr'), \
+                     patch.object(runner, 'snapshot', side_effect=AssertionError('campaign started')) as snapshot, \
+                     patch.object(runner, 'run') as command, \
+                     patch.object(runner.subprocess, 'check_output', return_value='commit'):
+                    with self.assertRaises(SystemExit) as failure:
+                        runner.main()
+                    self.assertEqual(failure.exception.code, 2)
+                    snapshot.assert_not_called()
+                    command.assert_not_called()
+                self.assertFalse(output.exists())
+
+    def test_checked_in_target_manifest_has_unique_keys(self):
+        def unique(pairs):
+            result = {}
+            for key, value in pairs:
+                self.assertNotIn(key, result, f'Duplicate mutation configuration key: {key}')
+                result[key] = value
+            return result
+
+        json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text(), object_pairs_hook=unique)
+
     def exercise_main(self, status, expected_code, directory_tests=False, native=False,
                       browser=False, application=False):
         with tempfile.TemporaryDirectory() as directory:

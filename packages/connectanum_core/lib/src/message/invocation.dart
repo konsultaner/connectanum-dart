@@ -184,7 +184,11 @@ class Invocation extends AbstractMessageWithPayload {
       } else if (options?.pptScheme != null) {
         // It's some variation of PPT
         invokeArguments = packedPayload == null
-            ? PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!)
+            ? PPTPayload.packPPTPayload(
+                lazyPayload?.arguments ?? arguments,
+                lazyPayload?.argumentsKeywords ?? argumentsKeywords,
+                options!,
+              )
             : [packedPayload];
         invokeArgumentsKeywords = null;
       }
@@ -284,15 +288,18 @@ class Invocation extends AbstractMessageWithPayload {
     if (onResponse == null) {
       throw StateError('Invocation response handler not attached');
     }
-    onResponse(response);
-    if (response is Error) {
-      _responseClosed = true;
-      return;
-    }
     if (response is Yield && response.options?.progress == true) {
+      onResponse(response);
       return;
     }
+    // Block terminal reentry, but preserve retryability if dispatch is rejected.
     _responseClosed = true;
+    try {
+      onResponse(response);
+    } catch (_) {
+      _responseClosed = false;
+      rethrow;
+    }
   }
 
   WampE2eeRuntimeContext? _responseRuntimeContext() {

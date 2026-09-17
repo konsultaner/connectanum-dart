@@ -21,6 +21,15 @@ mkdir -p "$coverage_root"
     test/message_e2ee_payload_test.dart test/message_e2ee_regression_test.dart \
     test/message_lazy_payload_regression_test.dart \
     test/message_invocation_test.dart test/message_result_test.dart \
+    test/message_invocation_transcoding_test.dart \
+    test/message_invocation_regression_test.dart \
+    test/message_invocation_response_lifecycle_test.dart \
+    test/message_registered_regression_test.dart \
+    test/message_subscribed_test.dart test/message_subscribed_regression_test.dart \
+    test/serializer_challenge_welcome_test.dart test/details_feature_announcement_test.dart \
+    test/custom_fields_test.dart test/custom_fields_regression_test.dart \
+    test/message_details_regression_test.dart \
+    test/mcp_completion_test.dart test/mcp_completion_regression_test.dart \
     -p chrome --compiler=dart2js --concurrency=1 --timeout=5m \
     --coverage="$coverage_root/raw/core"
 )
