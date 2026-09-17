@@ -6,6 +6,40 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work93 resumes the pending remote-auth benchmark tests after the status-only
+table. The existing fast gate and VM92 collection both finish zero; do not
+restart them. VM92 measures 37,779/42,555 lines (88.78%), with 59 unmeasured
+library sources. Packaging remains 765/787 (97.20%) with 12 unmeasured sources.
+These precede Work93's benchmark changes, not new whole-package results.
+
+Five fail-first configuration cases expose unchecked casts for non-string RPC
+and transport map keys and non-string transport types. Skip malformed candidates
+as the existing parser does for other invalid fields, preserving discovery of
+a later valid service. All 32 configuration tests pass. A live native TLS test
+checks both configured realms, valid/invalid tickets, invalid RPC tokens,
+service-role authorization, credential-file creation, listener release and
+restart. Final `remote-auth93b-vm` measures 137/138 harness lines (99.28%), up
+from 36/138 (26.09%); the remaining line is the missing-certificate failure.
+Add a 98% file floor and a complete native mutation target with certificate
+inputs. The final 33-test run additionally rejects a wrong service ticket and
+an unfinished pre-restart transaction, then proves a fresh login succeeds.
+All recorded source/test/certificate hashes match.
+
+Client binding92 completes at 380 kills / 18 survivors / 94 compile errors:
+95.4774% raw/adjusted, both baselines zero and all source/test/support hashes
+matching. Add its complete target to the CI mutation matrix without changing
+the 95% threshold. This is binding-source evidence, not whole-client coverage.
+Router binding91 completes at 483 / 36 / 147 (93.06%), both baselines zero.
+Add 39 optional-frame and authoritative-metadata boundary regressions; all
+1,710 router binding tests pass and analysis is clean. A fresh, separate
+`router-binding93-mutations` runs against these tests. Keep MCP92 running with
+unchanged inputs. Full `bin/verify` finishes zero, including final benchmark and
+router tests, Rust, installed-package/native smokes, 2,970 core WASM tests and
+two browser WebSocket tests. WASM line coverage remains unmeasured. Fresh
+`vm-current93` is the sole native-runtime owner; defer the new benchmark mutation
+campaign until collection releases that slot. No merge, publication, version
+change or equivalence waiver; the full milestone is open.
+
 Work92 resumes after the status-only table response and preserves the existing
 binding campaign. VM91 finishes at 37,776/42,553 measured lines (88.77%): client
 88.40%, router 85.68%, core 94.22%, MCP 95.91%, auth-server 100% and bench 84.69%.
@@ -45,6 +79,15 @@ existing empty reason default. All 1,621 client binding tests pass and analysis
 is clean. Fresh `client-binding92-mutations` reruns the completed client target;
 the original router campaign remains live with unchanged source/tests. Neither
 running campaign is a final score.
+
+Work92 is pushed as `7c64f901` and PR #93 is updated. Push package dry-run
+`35258344706` passes; PR package dry-run `35258355527`, CI
+`35258344621`/`35258355550`, router image `35258371694` and WAMP profile
+`35258373290` are pending. A live CI watcher follows the pushed head. The strict
+audit exits one for pending jobs/logs plus the known unprotected feature branch
+and default-branch mutation-workflow visibility findings; all selected runs
+match this head. Preserve VM92 and the three mutation processes. These post-push
+notes stay uncommitted until the next implementation increment.
 
 Work91 resumes the pending binding tests on pushed `ae2e0208`; the latest short
 table response was status only. Preserve the live mutation campaigns and the

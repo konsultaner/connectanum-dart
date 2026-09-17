@@ -1,4 +1,22 @@
 {
+  "bench-remote-auth-native": {
+    "sources": ["packages/connectanum_bench/lib/src/remote_auth_bench_harness.dart"],
+    "tests": [
+      "packages/connectanum_bench/test/remote_auth_bench_harness_test.dart",
+      "packages/connectanum_bench/test/remote_auth_bench_harness_integration_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_router/test/certs/remote_auth_ca_cert.pem",
+      "packages/connectanum_router/test/certs/remote_auth_server_cert.pem",
+      "packages/connectanum_router/test/certs/remote_auth_server_key.pem",
+      "packages/connectanum_router/test/certs/remote_auth_client_cert.pem",
+      "packages/connectanum_router/test/certs/remote_auth_client_key.pem"
+    ],
+    "testRoot": "packages/connectanum_bench",
+    "requiresNativeLibrary": true,
+    "isolateTestFiles": true,
+    "testTimeoutSeconds": 30
+  },
   "bench-wamp-workload-vm": {
     "sources": ["packages/connectanum_bench/lib/src/wamp_workload_runner.dart"],
     "tests": ["packages/connectanum_bench/test/support/wamp_workload_mutation_suite.dart"],

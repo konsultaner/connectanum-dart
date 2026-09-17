@@ -132,6 +132,32 @@ void main() {
         expect(absent.signature, isNull);
         expect(absent.extra, isNull);
       });
+      test('AUTHENTICATE without extra retains its proof', () {
+        final value = decode<Authenticate>([5, 'proof-only']);
+        expect(value.signature, 'proof-only');
+        expect(value.extra, isNull);
+      });
+      for (var length = 1; length <= 5; length++) {
+        test('HEARTBEAT preserves exactly $length wire fields', () {
+          final frame = <Object?>[
+            7,
+            {'mode': 'ping'},
+            0,
+            17,
+            29,
+          ];
+          final value = decode<Heartbeat>(frame.sublist(0, length));
+          expect(value.details, length > 1 ? {'mode': 'ping'} : {});
+          expect(value.ping, length > 2 ? 0 : null);
+          expect(value.incoming, length > 3 ? 17 : null);
+          expect(value.outgoing, length > 4 ? 29 : null);
+        });
+      }
+      test('unknown message without fields remains an empty extension', () {
+        final value = decode<UnknownMessage>([9999]);
+        expect(value.id, 9999);
+        expect(value.fields, isEmpty);
+      });
       test('ABORT retains reason and message', () {
         final value = decode<Abort>([
           3,
@@ -163,6 +189,14 @@ void main() {
         expect(value.message!.message, 'closing');
         expect(decode<Goodbye>([6]).message, isNull);
         expect(decode<Goodbye>([6]).reason, '');
+      });
+      test('GOODBYE without reason preserves its explanation', () {
+        final value = decode<Goodbye>([
+          6,
+          {'message': 'closing'},
+        ]);
+        expect(value.message?.message, 'closing');
+        expect(value.reason, '');
       });
       test('SUBSCRIBE separates known options and extensions', () {
         final value = decode<Subscribe>([
@@ -212,6 +246,19 @@ void main() {
           }
         });
       }
+      test('CANCEL INTERRUPT and YIELD allow absent optional dictionaries', () {
+        final cancel = decode<Cancel>([49, 29]);
+        expect(cancel.requestId, 29);
+        expect(cancel.options, isNull);
+        final interrupt = decode<Interrupt>([69, 30]);
+        expect(interrupt.requestId, 30);
+        expect(interrupt.options, isNull);
+        final yielded = decode<Yield>([70, 31]);
+        expect(yielded.invocationRequestId, 31);
+        expect(yielded.options, isNull);
+        expect(yielded.arguments, isNull);
+        expect(yielded.argumentsKeywords, isNull);
+      });
       test(
         'REGISTER keeps policy, disclosure, timeout and extension options',
         () {
@@ -554,6 +601,52 @@ void main() {
           expect(error.details, {'message': 'metadata', 'extension': 1});
         },
       );
+      for (final explanation in ['', 'authoritative']) {
+        test('direct ABORT uses authoritative message $explanation', () {
+          final value =
+              bindMessageFromMetadata(
+                    serializer,
+                    messageCode: 3,
+                    primaryId: 0,
+                    secondaryId: 0,
+                    detailNumberA: 0,
+                    flags: 17,
+                    stringA: 'wamp.error.not_authorized',
+                    stringB: explanation,
+                    detailsBytes: encode({
+                      'message': 'not authoritative',
+                      'extension': 1,
+                    }),
+                  )
+                  as Abort;
+          expect(value.reason, 'wamp.error.not_authorized');
+          expect(value.message?.message, explanation);
+          expect(value.details, {'message': explanation, 'extension': 1});
+        });
+      }
+      for (final direct in [false, true]) {
+        test(
+          'AUTHENTICATE distinguishes absent and empty extra direct=$direct',
+          () {
+            for (final present in [false, true]) {
+              final value =
+                  bindMessageFromMetadata(
+                        serializer,
+                        messageCode: 5,
+                        primaryId: 0,
+                        secondaryId: 0,
+                        detailNumberA: 0,
+                        flags: direct ? 17 : 16,
+                        stringA: 'proof',
+                        detailsBytes: present ? encode({}) : null,
+                      )
+                      as Authenticate;
+              expect(value.signature, 'proof');
+              expect(value.extra, present ? isEmpty : isNull);
+            }
+          },
+        );
+      }
       for (final message in <String?>[null, '', 'closing']) {
         test('direct GOODBYE keeps nullable message $message', () {
           final value =

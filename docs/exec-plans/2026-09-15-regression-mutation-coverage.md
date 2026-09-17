@@ -67,6 +67,58 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work93 Remote Auth Benchmark And Binding Gates
+
+- Revalidate the pending work and live processes after the status-only table.
+  Fast93 and VM92 finish zero. The VM92 main report is 37,779/42,555 (88.78%),
+  with 59 unmeasured library sources; packaging is 765/787 (97.20%), with 12
+  unmeasured sources. These are pre-Work93 measurements.
+- Five fail-first cases in `/tmp/connectanum-coverage93-remote-red.log` show
+  malformed RPC/transport keys and transport types throwing casts. Validate
+  string keys and compare the transport type without a cast. Preserve the
+  parser's skip-invalid-candidate semantics and prove a later valid service
+  remains discoverable. All 32 configuration tests pass.
+- Add real native TLS ticket RPC coverage for both configured realms,
+  authentication failure, invalid shared token, service permission boundaries,
+  nested fixture credential files, listener release and restart. The 33-test
+  focused run passes and `remote-auth93-vm` measures 137/138 lines (99.28%)
+  in the harness versus the prior 36/138 (26.09%). Add a 98% file floor. The
+  focused canonical check correctly fails missing workspace scope; this is not
+  a whole-package score. The only uncovered harness line throws on missing
+  certificate fixtures. Strengthen restart with explicit stale-transaction
+  rejection and collect new final-snapshot evidence after verification.
+- Inventory the entire harness in `bench-remote-auth-native`, including its
+  unit/integration tests and all five certificate inputs. Guard the manifest
+  with a fail-first tooling test; all 44 mutation tooling tests pass (one
+  optional fixture skipped). Serialize its future native campaign with the
+  repository verification and coverage jobs.
+- Client binding92 finishes 492/492: 380 assertion kills, 18 survivors and 94
+  compile errors, both baselines zero, no timeouts/errors/equivalents; raw and
+  adjusted scores are 95.4774%. Source/test/support hashes still match. Protect
+  this complete source target in CI, keeping the default 95% threshold and
+  allowing sufficient job time. It does not represent the whole client.
+- Router binding91 finishes 666/666: 483 kills, 36 survivors, 147 compile
+  errors, both baselines zero; 93.06% raw/adjusted. Add 39 JSON/MessagePack/CBOR
+  cases for absent trailing fields, heartbeat field boundaries, empty unknown
+  messages, authoritative ABORT metadata and absent versus empty AUTHENTICATE
+  extra. All 1,710 binding tests pass; analysis is clean. Start the distinct
+  `router-binding93-mutations` campaign against the final tests, preserving
+  MCP92. Full `bin/verify` remains the sole native-runtime user.
+- Qwen's stale-state concern leads to the explicit restart-transaction check.
+  Its ABORT precedence proposal contradicts the inspected implementation;
+  retain the independent metadata override assertions. Do not weaken tests or
+  count hypothetical future refactors/fixture paths as defects.
+- Full `bin/verify` finishes zero, exercising the final tests, native/Rust,
+  installed-package/router/MCP smokes, 2,970 core WASM tests and two browser
+  WebSocket tests. WASM line coverage is still unmeasured. The final 33-test
+  focused run passes wrong service-ticket rejection, stale transaction rejection
+  and fresh authentication after restart. `remote-auth93b-vm` measures 137/138
+  (99.28%), with matching source/test/certificate hashes; its canonical checker
+  deliberately reports missing whole-workspace scope rather than a false pass.
+  Fresh `vm-current93` collects with a complete input hash inventory as the only
+  native-runtime owner. Keep the new benchmark native mutation campaign deferred
+  until this collection releases the slot; do not duplicate either live campaign.
+
 ### Work92 MCP Handshake And Pending Cleanup
 
 - The preceding short table was status only. Revalidate current processes:
@@ -127,6 +179,14 @@ caught and timed-out outcomes separately.
   narrower Qwen review attempts reached their output limits and are incomplete;
   do not count them as completed reviews. Final client tests were also inspected
   directly against the existing two length guards and closing-message models.
+- Push `7c64f901` and update PR #93. New-head push package dry-run
+  `35258344706` passes. PR package check `35258355527`, CI
+  `35258344621`/`35258355550`, image dry-run `35258371694` and profile run
+  `35258373290` remain pending; the CI watcher is live. Strict audit exits one
+  for pending evidence and the known unprotected feature branch/default-branch
+  mutation-workflow visibility findings. All selected run heads match. No
+  assertion of a clean hosted chain; leave post-push bookkeeping uncommitted
+  for the next implementation increment and preserve current evidence collectors.
 
 ### Work91 Native Metadata And Fragment Boundaries
 

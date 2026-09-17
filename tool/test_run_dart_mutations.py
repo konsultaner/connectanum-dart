@@ -165,6 +165,26 @@ class MutationRunnerTests(unittest.TestCase):
                 )
                 self.assertEqual(target.get('platform', 'vm'), 'vm')
 
+    def test_remote_auth_benchmark_target_includes_native_and_certificate_inputs(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['bench-remote-auth-native']
+        prefix = 'packages/connectanum_bench'
+        self.assertEqual(target['sources'], [
+            f'{prefix}/lib/src/remote_auth_bench_harness.dart',
+        ])
+        self.assertEqual(set(target['tests']), {
+            f'{prefix}/test/remote_auth_bench_harness_test.dart',
+            f'{prefix}/test/remote_auth_bench_harness_integration_test.dart',
+        })
+        self.assertEqual(set(target['supportFiles']), {
+            f'packages/connectanum_router/test/certs/remote_auth_{name}.pem'
+            for name in ['ca_cert', 'server_cert', 'server_key',
+                         'client_cert', 'client_key']
+        })
+        self.assertTrue(target['requiresNativeLibrary'])
+        self.assertTrue(target['isolateTestFiles'])
+        self.assertEqual(target['testRoot'], prefix)
+
     def test_native_runtime_target_includes_all_direct_runtime_regressions(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         target = targets['client-native-runtime-vm']

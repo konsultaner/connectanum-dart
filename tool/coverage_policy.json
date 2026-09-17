@@ -204,6 +204,7 @@
     }
   },
   "files": {
+    "packages/connectanum_bench/lib/src/remote_auth_bench_harness.dart": 98,
     "packages/connectanum_client/lib/src/transport/native/message_binding.dart": 98,
     "packages/connectanum_router/lib/src/native/message_binding.dart": 98,
     "packages/connectanum_core/lib/src/authentication/cryptosign/pem.dart": 98,

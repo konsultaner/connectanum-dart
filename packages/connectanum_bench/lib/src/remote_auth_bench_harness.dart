@@ -113,18 +113,18 @@ class _RemoteAuthBenchConfig {
         continue;
       }
       final rpc = definition.options['rpc'];
-      if (rpc is! Map) {
+      if (rpc is! Map || rpc.keys.any((key) => key is! String)) {
         continue;
       }
       final rpcMap = Map<String, Object?>.from(rpc.cast<Object?, Object?>());
       final transport = rpcMap['transport'];
-      if (transport is! Map) {
+      if (transport is! Map || transport.keys.any((key) => key is! String)) {
         continue;
       }
       final transportMap = Map<String, Object?>.from(
         transport.cast<Object?, Object?>(),
       );
-      if ((transportMap['type'] as String?) != 'rawsocket') {
+      if (transportMap['type'] != 'rawsocket') {
         continue;
       }
       final host = transportMap['host'];
