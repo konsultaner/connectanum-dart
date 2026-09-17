@@ -9,6 +9,7 @@ import 'package:connectanum_client/socket.dart' as socket;
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_core/json_serializer.dart' as json;
 import 'package:connectanum_router/connectanum_router.dart';
+import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -40,12 +41,20 @@ void main() {
       final reservation = await ServerSocket.bind('127.0.0.1', 0);
       final port = reservation.port;
       await reservation.close();
-      final tokenFile = File('${directory.path}/nested/token.txt');
-      final serviceFile = File('${directory.path}/nested/service.txt');
+      final tokenFile = File('${directory.path}/nested/credentials/token.txt');
+      final serviceFile = File(
+        '${directory.path}/nested/credentials/service.txt',
+      );
       final settings = _settings(port, tokenFile.path, serviceFile.path);
+      final logger = Logger.detached('remote-auth-harness-test')
+        ..level = Level.ALL;
+      final records = <LogRecord>[];
+      final logSubscription = logger.onRecord.listen(records.add);
+      addTearDown(logSubscription.cancel);
       RemoteAuthBenchHarness? harness = await RemoteAuthBenchHarness.maybeStart(
         settings: settings,
         runtime: runtime,
+        logger: logger,
       );
       addTearDown(() async => await harness?.close());
       expect(harness, isNotNull);
@@ -119,6 +128,28 @@ void main() {
 
       var sequence = 0;
       for (final realm in ['bench.first', 'bench.second']) {
+        for (final identity in ['', 'missing-user']) {
+          final transaction = 'denied-${sequence++}';
+          final challenge = await rpc('hello', transaction, {
+            'hello': {
+              'realm': realm,
+              'sessionId': sequence,
+              'transport': {'connectionId': sequence},
+              'details': {
+                'authid': identity,
+                'authmethods': ['ticket'],
+              },
+            },
+          });
+          expect(challenge['status'], 'challenge');
+          final denied = await rpc('authenticate', transaction, {
+            'authenticate': {
+              'signature': RemoteAuthBenchHarness.defaultAuthSecret,
+            },
+          });
+          expect(denied['status'], 'failure');
+          expect(denied.containsKey('authRole'), isFalse);
+        }
         for (final correct in [true, false]) {
           final transaction = 'attempt-${sequence++}';
           final hello = <String, Object?>{
@@ -205,6 +236,10 @@ void main() {
       peers.clear();
       await harness!.close();
       harness = null;
+      expect(records.map((record) => record.message), [
+        'Starting remote auth bench harness on 127.0.0.1:$port',
+        'Stopping remote auth bench harness',
+      ]);
       final rebound = await ServerSocket.bind('127.0.0.1', port);
       expect(rebound.port, port);
       await rebound.close();

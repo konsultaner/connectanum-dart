@@ -40,6 +40,37 @@ two browser WebSocket tests. WASM line coverage remains unmeasured. Fresh
 campaign until collection releases that slot. No merge, publication, version
 change or equivalence waiver; the full milestone is open.
 
+The Work93 implementation is pushed as `add1cda2`; PR #93 is updated. Both
+package dry runs (`35261639243`/`35261650721`) and image dry run `35261664089`
+pass. Profile `35261666364` and CI `35261639245`/`35261651038` remain pending;
+the strict audit correctly fails pending evidence and retains the known feature-
+branch protection/default-branch workflow visibility findings.
+
+VM93 finishes zero at 37,886/42,555 library lines (89.03%): bench 89.17%, client
+88.46%, other package scores unchanged. Packaging is 765/787 (97.20%), with 12
+unmeasured sources; the 59 unmeasured library sources remain. This snapshot
+precedes the following extra
+benchmark assertions, not final evidence for them.
+
+The complete native harness campaign initially scores 84.21% (16 kills, three
+survivors, 16 compile errors). Its survivors expose missing tests for supplied
+logger use, fake challenges on denied identities and recursively creating more
+than one missing directory. Strengthen the live regression without changing
+production behavior. All 33 focused tests pass; final `remote-auth93c-vm` remains
+137/138 (99.28%) with input hashes. Fresh `remote-auth93b-mutations` completes
+35/35: 19 kills, 16 compile errors, zero survivors/errors/timeouts/equivalents,
+100% raw/adjusted, both baselines zero, unchanged native artifact and matching
+source/test/certificate hashes. Add a native-enabled 95% CI target. This is the
+complete harness source, not the full bench package. Router binding93 also
+finishes: 501 kills / 18 survivors / 147 compile errors, 96.5318% raw/adjusted,
+both baselines zero and matching hashes. Add its complete-source CI gate too;
+all remaining survivors stay visible and unwaived. The second full `bin/verify`
+finishes zero on the final tests, including all 722 benchmark cases, native/
+package smokes, 2,970 core WASM cases and two browser WebSocket cases. Fresh
+`vm-current93b` collects with final input hashes as the sole native-runtime user.
+Preserve MCP92; no new whole-workspace result is claimed for these final
+assertions yet. The complete goal remains active.
+
 Work92 resumes after the status-only table response and preserves the existing
 binding campaign. VM91 finishes at 37,776/42,553 measured lines (88.77%): client
 88.40%, router 85.68%, core 94.22%, MCP 95.91%, auth-server 100% and bench 84.69%.

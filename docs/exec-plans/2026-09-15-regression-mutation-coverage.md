@@ -118,6 +118,44 @@ caught and timed-out outcomes separately.
   Fresh `vm-current93` collects with a complete input hash inventory as the only
   native-runtime owner. Keep the new benchmark native mutation campaign deferred
   until this collection releases the slot; do not duplicate either live campaign.
+- Push `add1cda2` and update PR #93. Both package dry runs and the image dry run
+  pass; profile/CI remain pending. The strict audit selects the correct head,
+  fails pending logs/jobs and retains the known unprotected feature branch and
+  default-branch mutation-workflow visibility findings.
+- VM93's native collection completes before starting the new native campaign.
+  Its main report is 37,886/42,555 (89.03%): bench 89.17%, client 88.46%, with
+  59 unmeasured library sources. Packaging formatting continues. This report
+  predates the survivor assertions below; preserve that historical boundary.
+- `remote-auth93-mutations` completes all 35 candidates with both baselines
+  zero: 16 kills, three survivors and 16 compile errors (84.21% raw/adjusted).
+  Investigate every survivor: the missing cases are supplied logger routing,
+  fake challenge on identity denial and recursive creation with multiple absent
+  parent directories. Add behavioral assertions for those contracts, including
+  failure without an auth role after the fake challenge; do not change production.
+- All 33 focused tests pass. `remote-auth93c-vm` remains 137/138 (99.28%) with
+  final input hashes. `remote-auth93b-mutations` completes 35/35: 19 assertion
+  kills, 16 compile-invalid outcomes, zero survivors/errors/timeouts/equivalents,
+  100% raw/adjusted, original/restored baselines zero and unchanged native artifact.
+  All source/test/certificate hashes match. Add this complete source target to
+  the CI mutation matrix with conditional Rust setup and native-library build,
+  preserving the default 95% gate. No full-bench mutation claim is implied.
+- Qwen's follow-up review finds no concrete defect. Run full `bin/verify` again
+  for the final assertions/config before committing; it is the only native user.
+  Keep router93/MCP92 live without restarting them.
+- Router binding93 completes 666/666: 501 kills, 18 survivors, 147 compile
+  errors; 96.5318% raw/adjusted, both baselines zero, no timeouts/errors or
+  equivalence waivers, and matching source/test/support hashes. Add its full
+  source target to the 95% CI matrix with the same 90-minute job allowance as
+  client binding. The YAML parses with all three new targets present. Remaining
+  survivors are retained, not suppressed. VM93 also finishes packaging and exits
+  zero: 765/787 (97.20%) and 12 unmeasured packaging sources. This is still the
+  pre-survivor-assertion test snapshot; retain MCP92 as the only live mutation run.
+- The second full `bin/verify` finishes zero on the final assertions/config:
+  722 benchmark cases, native/Rust and installed-package smokes, 2,970 core WASM
+  cases and two browser WebSocket cases pass. No WASM line-coverage claim is
+  implied. Start `vm-current93b` with the final input inventory as the only native
+  runtime user, leaving MCP92 untouched. Commit the test/CI follow-up together
+  with these material evidence updates, without publishing or changing versions.
 
 ### Work92 MCP Handshake And Pending Cleanup
 
