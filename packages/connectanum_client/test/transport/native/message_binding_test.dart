@@ -26,11 +26,81 @@ void main() {
     });
   }
   for (final serializer in [
+    NativeMessageSerializer.ubjson,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    test(
+      'unsupported $serializer fails when a deferred fragment is accessed',
+      () {
+        final value =
+            bindMessage(
+                  serializer,
+                  Uint8List.fromList([0xff]),
+                  metadata: _metadata(
+                    messageCode: 8,
+                    primaryId: 48,
+                    secondaryId: 19,
+                    flags: NativeMessageMetadata.flagMetadataBind,
+                  ),
+                  argsBytes: Uint8List.fromList([0xff]),
+                  kwargsBytes: Uint8List.fromList([0xff]),
+                )
+                as Error;
+        expect(value.requestTypeId, 48);
+        expect(value.requestId, 19);
+        expect(() => value.arguments, throwsUnsupportedError);
+        expect(() => value.argumentsKeywords, throwsUnsupportedError);
+      },
+    );
+  }
+  test(
+    'JSON binary tags normalize recursively without changing ordinary strings',
+    () {
+      final value =
+          bindMessage(
+                NativeMessageSerializer.json,
+                Uint8List.fromList(
+                  utf8.encode(
+                    jsonEncode([
+                      8,
+                      48,
+                      19,
+                      {
+                        'actual': '\u0000AQID',
+                        'escaped': r'\u0000BAUG',
+                        'nested': [
+                          {'value': r'\u0000BwgJ'},
+                          'ordinary',
+                        ],
+                        'empty': '',
+                        'number': 7,
+                      },
+                      'com.error',
+                    ]),
+                  ),
+                ),
+              )
+              as Error;
+      expect(value.details, {
+        'actual': [1, 2, 3],
+        'escaped': [4, 5, 6],
+        'nested': [
+          {
+            'value': [7, 8, 9],
+          },
+          'ordinary',
+        ],
+        'empty': '',
+        'number': 7,
+      });
+    },
+  );
+  for (final serializer in [
     NativeMessageSerializer.json,
     NativeMessageSerializer.messagePack,
     NativeMessageSerializer.cbor,
   ]) {
-    Uint8List encode(Object value) => switch (serializer) {
+    Uint8List encode(Object? value) => switch (serializer) {
       NativeMessageSerializer.json => Uint8List.fromList(
         utf8.encode(jsonEncode(value)),
       ),
@@ -43,6 +113,39 @@ void main() {
     group('full response frames $serializer', () {
       T decode<T extends AbstractMessage>(List<Object?> frame) =>
           bindMessage(serializer, encode(frame)) as T;
+      test('omitted optional control fields keep their defaults', () {
+        final abort = decode<Abort>([3]);
+        expect(abort.reason, '');
+        expect(abort.details, isEmpty);
+        expect(abort.message, isNull);
+        expect(abort.arguments, isNull);
+        final goodbye = decode<Goodbye>([6]);
+        expect(goodbye.reason, '');
+        expect(goodbye.message, isNull);
+        final challenge = decode<Challenge>([4, 'ticket']);
+        expect(challenge.authMethod, 'ticket');
+        expect(challenge.extra.challenge, isNull);
+        final unknown = decode<UnknownMessage>([9999]);
+        expect(unknown.id, 9999);
+        expect(unknown.fields, isEmpty);
+        expect(unknown.requestId, isNull);
+        final emptyArgs = decode<Abort>([3, {}, 'com.reason', null]);
+        expect(emptyArgs.arguments, isEmpty);
+        expect(emptyArgs.argumentsKeywords, isNull);
+      });
+      for (final count in [0, 1, 2, 3, 4]) {
+        test(
+          'HEARTBEAT accepts $count optional fields without reading beyond them',
+          () {
+            final fields = <Object?>[{}, 11, 12, 13].take(count).toList();
+            final heartbeat = decode<Heartbeat>([7, ...fields]);
+            expect(heartbeat.details, isEmpty);
+            expect(heartbeat.ping, count > 1 ? 11 : null);
+            expect(heartbeat.incoming, count > 2 ? 12 : null);
+            expect(heartbeat.outgoing, count > 3 ? 13 : null);
+          },
+        );
+      }
       test('rejects non-array and empty frames', () {
         for (final frame in <Object>[{}, 1, 'invalid', []]) {
           expect(
@@ -147,6 +250,638 @@ void main() {
         final absent = decode<Goodbye>([6]);
         expect(absent.reason, '');
         expect(absent.message, isNull);
+      });
+    });
+    group('session materialization $serializer', () {
+      final contracts = <int, Matcher>{
+        2: isA<Welcome>(),
+        3: isA<Abort>(),
+        4: isA<Challenge>(),
+        6: isA<Goodbye>(),
+        8: isA<Error>(),
+        17: isA<Published>(),
+        33: isA<Subscribed>(),
+        35: isA<Unsubscribed>(),
+        36: isA<Event>(),
+        50: isA<Result>(),
+        65: isA<Registered>(),
+        67: isA<Unregistered>(),
+        68: isA<Invocation>(),
+        69: isA<Interrupt>(),
+      };
+      for (final contract in contracts.entries) {
+        test(
+          'code ${contract.key} materializes without reading the full frame',
+          () {
+            final wrapped = bindSessionMessage(
+              serializer,
+              Uint8List.fromList([0xff]),
+              metadata: _metadata(
+                messageCode: contract.key,
+                primaryId: 81,
+                secondaryId: 93,
+                flags: NativeMessageMetadata.flagMetadataBind,
+                stringA: 'com.value',
+                detailsBytes: encode({
+                  'message': 'explanation',
+                  'mode': 'killnowait',
+                }),
+              ),
+              argsBytes: encode([71]),
+              kwargsBytes: encode({'source': 'fragment'}),
+            );
+            expect(wrapped, isA<NativeSessionMessage>());
+            final anchor = Object();
+            attachSessionMessageAnchor(wrapped, anchor);
+            final value = materializeSessionMessage(wrapped);
+            expect(value, contract.value);
+            expect(value.id, contract.key);
+            expect(sessionMessageAnchorFor(value), same(anchor));
+            expect(materializeSessionMessage(value), same(value));
+            final primary = switch (value) {
+              Welcome() => value.sessionId,
+              Published() => value.publishRequestId,
+              Subscribed() => value.subscribeRequestId,
+              Unsubscribed() => value.unsubscribeRequestId,
+              Event() => value.subscriptionId,
+              Result() => value.callRequestId,
+              Registered() => value.registerRequestId,
+              Unregistered() => value.unregisterRequestId,
+              Invocation() => value.requestId,
+              Interrupt() => value.requestId,
+              Error() => value.requestTypeId,
+              _ => null,
+            };
+            if (primary != null) expect(primary, 81);
+            final secondary = switch (value) {
+              Published() => value.publicationId,
+              Subscribed() => value.subscriptionId,
+              Event() => value.publicationId,
+              Registered() => value.registrationId,
+              Invocation() => value.registrationId,
+              Error() => value.requestId,
+              _ => null,
+            };
+            if (secondary != null) expect(secondary, 93);
+            if (value is AbstractMessageWithPayload) {
+              expect(value.arguments, [71]);
+              expect(value.argumentsKeywords, {'source': 'fragment'});
+            }
+            if (value is Abort) {
+              expect(value.arguments, [71]);
+              expect(value.argumentsKeywords, {'source': 'fragment'});
+              expect(value.reason, 'com.value');
+            }
+          },
+        );
+      }
+      for (final flags in [0, NativeMessageMetadata.flagDirectBind]) {
+        test('flags $flags without metadata capability use the full frame', () {
+          final metadata = NativeMessageMetadata(
+            messageCode: 2,
+            primaryId: 999,
+            secondaryId: 888,
+            detailNumberA: 0,
+            detailNumberB: 0,
+            flags: flags,
+            stringA: 'ignored',
+            stringB: null,
+            stringC: null,
+            stringD: null,
+            stringE: null,
+            detailsBytes: Uint8List.fromList([0xff]),
+          );
+          final value = bindSessionMessage(
+            serializer,
+            encode([17, 42, 63]),
+            metadata: metadata,
+          );
+          expect(value, isA<Published>());
+          expect((value as Published).publishRequestId, 42);
+          expect(value.publicationId, 63);
+          expect(
+            () => NativeSessionMessage(
+              serializer: serializer,
+              metadata: metadata,
+            ).materialize(),
+            throwsStateError,
+          );
+        });
+      }
+      test('unknown metadata code falls back instead of wrapping', () {
+        final metadata = _metadata(
+          messageCode: 9999,
+          flags: NativeMessageMetadata.flagMetadataBind,
+        );
+        final value = bindSessionMessage(
+          serializer,
+          encode([17, 42, 63]),
+          metadata: metadata,
+        );
+        expect(value, isA<Published>());
+        expect((value as Published).publishRequestId, 42);
+        expect(value.publicationId, 63);
+        expect(
+          () => NativeSessionMessage(
+            serializer: serializer,
+            metadata: metadata,
+          ).materialize(),
+          throwsStateError,
+        );
+      });
+    });
+    group('metadata authority $serializer', () {
+      const metadataFlag = NativeMessageMetadata.flagMetadataBind;
+      const directFlag = NativeMessageMetadata.flagDirectBind;
+      final identityFields = <String, String? Function(Details)>{
+        'realm': (d) => d.realm,
+        'authid': (d) => d.authid,
+        'authrole': (d) => d.authrole,
+        'authmethod': (d) => d.authmethod,
+        'authprovider': (d) => d.authprovider,
+      };
+      for (final selected in identityFields.keys) {
+        for (final direct in [false, true]) {
+          for (final value in ['', 'metadata-$selected']) {
+            test(
+              'WELCOME $selected=$value direct=$direct preserves field authority',
+              () {
+                final strings = [
+                  for (final field in identityFields.keys)
+                    field == selected ? value : null,
+                ];
+                final welcome =
+                    bindMessage(
+                          serializer,
+                          Uint8List.fromList([0xff]),
+                          metadata: _metadata(
+                            messageCode: 2,
+                            primaryId: 71,
+                            flags: metadataFlag | (direct ? directFlag : 0),
+                            stringA: strings[0],
+                            stringB: strings[1],
+                            stringC: strings[2],
+                            stringD: strings[3],
+                            stringE: strings[4],
+                            detailsBytes: encode({
+                              for (final field in identityFields.keys)
+                                field: 'wire-$field',
+                              'roles': {'dealer': {}},
+                              'extension': 'trace',
+                            }),
+                          ),
+                        )
+                        as Welcome;
+                expect(welcome.sessionId, 71);
+                expect(welcome.details.roles!.dealer, isNotNull);
+                for (final field in identityFields.entries) {
+                  expect(
+                    field.value(welcome.details),
+                    direct && field.key == selected
+                        ? value
+                        : 'wire-${field.key}',
+                    reason: field.key,
+                  );
+                }
+                expect(welcome.details.custom, {'extension': 'trace'});
+              },
+            );
+          }
+        }
+      }
+      for (final direct in [false, true]) {
+        for (final flags in [
+          0,
+          NativeMessageMetadata.flagDetailNumberAPresent,
+          NativeMessageMetadata.flagDetailNumberBPresent,
+          NativeMessageMetadata.flagDetailNumberAPresent |
+              NativeMessageMetadata.flagDetailNumberBPresent,
+        ]) {
+          test('EVENT numeric presence flags=$flags direct=$direct', () {
+            final value =
+                bindMessage(
+                      serializer,
+                      Uint8List.fromList([0xff]),
+                      metadata: _metadata(
+                        messageCode: 36,
+                        primaryId: 71,
+                        secondaryId: 92,
+                        detailNumberA: 0,
+                        detailNumberB: 7,
+                        flags: metadataFlag | (direct ? directFlag : 0) | flags,
+                        stringA: 'com.direct',
+                        stringB: 'direct-scheme',
+                        stringC: 'cbor',
+                        stringD: 'cipher',
+                        stringE: 'key',
+                        detailsBytes: encode({
+                          'publisher': 21,
+                          'trustlevel': 22,
+                          'topic': 'com.wire',
+                          'ppt_scheme': 'wire-scheme',
+                          'ppt_serializer': 'json',
+                          'ppt_cipher': 'wire-cipher',
+                          'ppt_keyid': 'wire-key',
+                          'extension': 'event',
+                        }),
+                      ),
+                    )
+                    as Event;
+            expect(value.subscriptionId, 71);
+            expect(value.publicationId, 92);
+            expect(
+              value.details.publisher,
+              direct ? (flags & 2 != 0 ? 0 : null) : 21,
+            );
+            expect(
+              value.details.trustlevel,
+              direct ? (flags & 4 != 0 ? 7 : null) : 22,
+            );
+            expect(value.details.topic, direct ? 'com.direct' : 'com.wire');
+            expect(
+              value.details.pptScheme,
+              direct ? 'direct-scheme' : 'wire-scheme',
+            );
+            expect(value.details.pptSerializer, direct ? 'cbor' : 'json');
+            expect(value.details.pptCipher, direct ? 'cipher' : 'wire-cipher');
+            expect(value.details.pptKeyId, direct ? 'key' : 'wire-key');
+            expect(value.details.custom, {'extension': 'event'});
+          });
+        }
+        for (final progress in [false, true]) {
+          test('RESULT progress=$progress direct=$direct', () {
+            final value =
+                bindMessage(
+                      serializer,
+                      Uint8List.fromList([0xff]),
+                      metadata: _metadata(
+                        messageCode: 50,
+                        primaryId: 71,
+                        flags:
+                            metadataFlag |
+                            (direct ? directFlag : 0) |
+                            (progress
+                                ? NativeMessageMetadata.flagDetailBoolATrue
+                                : 0),
+                        stringA: 'direct-scheme',
+                        stringB: 'cbor',
+                        stringC: 'cipher',
+                        stringD: 'key',
+                        detailsBytes: encode({
+                          'progress': false,
+                          'ppt_scheme': 'wire-scheme',
+                          'ppt_serializer': 'json',
+                          'ppt_cipher': 'wire-cipher',
+                          'ppt_keyid': 'wire-key',
+                          'extension': 'result',
+                        }),
+                      ),
+                    )
+                    as Result;
+            expect(value.callRequestId, 71);
+            expect(
+              value.details.progress,
+              direct ? (progress ? true : null) : false,
+            );
+            expect(
+              value.details.pptScheme,
+              direct ? 'direct-scheme' : 'wire-scheme',
+            );
+            expect(value.details.pptSerializer, direct ? 'cbor' : 'json');
+            expect(value.details.pptCipher, direct ? 'cipher' : 'wire-cipher');
+            expect(value.details.pptKeyId, direct ? 'key' : 'wire-key');
+            expect(value.details.custom, {'extension': 'result'});
+          });
+        }
+        for (final text in <String?>[null, '', 'explanation']) {
+          test('GOODBYE nullable message=$text direct=$direct', () {
+            final value =
+                bindMessage(
+                      serializer,
+                      Uint8List.fromList([0xff]),
+                      metadata: _metadata(
+                        messageCode: 6,
+                        flags: metadataFlag | (direct ? directFlag : 0),
+                        stringA: 'wamp.close.normal',
+                        stringB: direct ? text : 'ignored',
+                        detailsBytes: encode({
+                          'message': direct ? 'ignored' : text,
+                        }),
+                      ),
+                    )
+                    as Goodbye;
+            expect(value.reason, 'wamp.close.normal');
+            expect(value.message?.message, text);
+            if (text == null) expect(value.message, isNull);
+          });
+        }
+        for (final present in [false, true]) {
+          test('UNSUBSCRIBED numeric presence=$present direct=$direct', () {
+            final value =
+                bindMessage(
+                      serializer,
+                      Uint8List.fromList([0xff]),
+                      metadata: _metadata(
+                        messageCode: 35,
+                        primaryId: 71,
+                        detailNumberA: 0,
+                        flags:
+                            metadataFlag |
+                            (direct ? directFlag : 0) |
+                            (present
+                                ? NativeMessageMetadata.flagDetailNumberAPresent
+                                : 0),
+                        stringA: 'com.direct',
+                        detailsBytes: encode({
+                          'subscription': 73,
+                          'reason': 'com.wire',
+                        }),
+                      ),
+                    )
+                    as Unsubscribed;
+            expect(value.unsubscribeRequestId, 71);
+            expect(
+              value.details!.subscription,
+              direct ? (present ? 0 : null) : 73,
+            );
+            expect(value.details!.reason, direct ? 'com.direct' : 'com.wire');
+          });
+        }
+      }
+      for (final entry in [
+        (0, null, null, null, null),
+        (NativeMessageMetadata.flagDetailNumberAPresent, 0, null, null, null),
+        (NativeMessageMetadata.flagDetailNumberBPresent, null, 73, null, null),
+        (NativeMessageMetadata.flagDetailBoolATrue, null, null, true, null),
+        (NativeMessageMetadata.flagDetailBoolBTrue, null, null, null, true),
+        (
+          NativeMessageMetadata.flagDetailNumberAPresent |
+              NativeMessageMetadata.flagDetailNumberBPresent |
+              NativeMessageMetadata.flagDetailBoolATrue |
+              NativeMessageMetadata.flagDetailBoolBTrue,
+          0,
+          73,
+          true,
+          true,
+        ),
+      ]) {
+        test('INVOCATION direct flags ${entry.$1} remain independent', () {
+          final invocation =
+              bindMessage(
+                    serializer,
+                    Uint8List.fromList([0xff]),
+                    metadata: _metadata(
+                      messageCode: 68,
+                      primaryId: 72,
+                      secondaryId: 93,
+                      flags: metadataFlag | directFlag | entry.$1,
+                      detailNumberA: 0,
+                      detailNumberB: 73,
+                      stringA: 'com.proc',
+                      stringB: 'wamp',
+                      stringC: 'cbor',
+                      stringD: 'cipher',
+                      stringE: 'key',
+                      detailsBytes: encode({
+                        'caller': 99,
+                        'timeout': 98,
+                        'progress': true,
+                        'receive_progress': true,
+                        'procedure': 'ignored.proc',
+                        'ppt_scheme': 'ignored',
+                        'ppt_serializer': 'ignored',
+                        'ppt_cipher': 'ignored',
+                        'ppt_keyid': 'ignored',
+                        'extension': 17,
+                      }),
+                    ),
+                  )
+                  as Invocation;
+          expect(invocation.requestId, 72);
+          expect(invocation.registrationId, 93);
+          expect(invocation.details.caller, entry.$2);
+          expect(invocation.details.timeout, entry.$3);
+          expect(invocation.details.receiveProgress, entry.$4);
+          expect(invocation.details.progress, entry.$5);
+          expect(invocation.details.procedure, 'com.proc');
+          expect(invocation.details.pptScheme, 'wamp');
+          expect(invocation.details.pptSerializer, 'cbor');
+          expect(invocation.details.pptCipher, 'cipher');
+          expect(invocation.details.pptKeyId, 'key');
+          expect(invocation.details.custom, {'extension': 17});
+        });
+      }
+      test(
+        'INVOCATION without direct flag reads details, ignoring metadata slots',
+        () {
+          final invocation =
+              bindMessage(
+                    serializer,
+                    Uint8List.fromList([0xff]),
+                    metadata: _metadata(
+                      messageCode: 68,
+                      primaryId: 72,
+                      secondaryId: 93,
+                      flags: metadataFlag,
+                      detailNumberA: 99,
+                      detailNumberB: 98,
+                      stringA: 'ignored',
+                      stringB: 'ignored',
+                      stringC: 'ignored',
+                      stringD: 'ignored',
+                      stringE: 'ignored',
+                      detailsBytes: encode({
+                        'caller': 0,
+                        'timeout': 73,
+                        'procedure': 'com.proc',
+                        'progress': false,
+                        'receive_progress': false,
+                        'ppt_scheme': 'wamp',
+                        'ppt_serializer': 'cbor',
+                        'ppt_cipher': 'cipher',
+                        'ppt_keyid': 'key',
+                        'extension': 18,
+                      }),
+                    ),
+                  )
+                  as Invocation;
+          expect(invocation.requestId, 72);
+          expect(invocation.registrationId, 93);
+          expect(invocation.details.caller, 0);
+          expect(invocation.details.timeout, 73);
+          expect(invocation.details.procedure, 'com.proc');
+          expect(invocation.details.progress, isFalse);
+          expect(invocation.details.receiveProgress, isFalse);
+          expect(invocation.details.pptScheme, 'wamp');
+          expect(invocation.details.pptSerializer, 'cbor');
+          expect(invocation.details.pptCipher, 'cipher');
+          expect(invocation.details.pptKeyId, 'key');
+          expect(invocation.details.custom, {'extension': 18});
+        },
+      );
+    });
+    group('fragment boundaries $serializer', () {
+      AbstractMessage metadata(int code, bool direct, Uint8List? bytes) =>
+          bindMessage(
+            serializer,
+            Uint8List.fromList([0xff]),
+            metadata: _metadata(
+              messageCode: code,
+              primaryId: 48,
+              secondaryId: 19,
+              flags: direct ? 17 : 16,
+              stringA: 'com.reason',
+              detailsBytes: bytes,
+            ),
+          );
+      for (final code in [3, 8]) {
+        for (final direct in [false, true]) {
+          for (final encodedNull in [false, true]) {
+            test(
+              'code $code absent details direct=$direct encodedNull=$encodedNull',
+              () {
+                final value = metadata(
+                  code,
+                  direct,
+                  encodedNull ? encode(null) : null,
+                );
+                if (value is Abort) {
+                  expect(value.details, isEmpty);
+                  expect(value.message, isNull);
+                  expect(value.reason, 'com.reason');
+                } else {
+                  final error = value as Error;
+                  expect(error.details, isEmpty);
+                  expect(error.error, 'com.reason');
+                  expect(error.requestTypeId, 48);
+                  expect(error.requestId, 19);
+                }
+              },
+            );
+          }
+          test('code $code rejects non-map details direct=$direct', () {
+            expect(() {
+              final value = metadata(code, direct, encode(['not a map']));
+              if (value is Abort) {
+                value.details.length;
+              } else {
+                (value as Error).details.length;
+              }
+            }, throwsArgumentError);
+          });
+        }
+      }
+      test(
+        'malformed full-frame details and positional payload fail closed',
+        () {
+          expect(
+            () => bindMessage(
+              serializer,
+              encode([
+                8,
+                48,
+                19,
+                ['not a map'],
+                'com.error',
+              ]),
+            ),
+            throwsArgumentError,
+          );
+          expect(
+            () => bindMessage(
+              serializer,
+              encode([
+                3,
+                {},
+                'com.reason',
+                {'not': 'a list'},
+              ]),
+            ),
+            throwsArgumentError,
+          );
+        },
+      );
+      test('integer-valued numeric heartbeat counters remain compatible', () {
+        final value =
+            bindMessage(serializer, encode([7, {}, 1.0, 2.0, 3.0]))
+                as Heartbeat;
+        expect(value.ping, 1);
+        expect(value.incoming, 2);
+        expect(value.outgoing, 3);
+      });
+      test(
+        'empty frame reports a protocol shape error, not an index error',
+        () {
+          expect(
+            () => bindMessage(serializer, encode([])),
+            throwsA(
+              isA<ArgumentError>().having(
+                (error) => error.message,
+                'message',
+                'WAMP message cannot be empty',
+              ),
+            ),
+          );
+        },
+      );
+      for (final selection in [(true, false), (false, true), (true, true)]) {
+        test('ABORT overlays only selected fragments $selection', () {
+          final value =
+              bindMessage(
+                    serializer,
+                    encode([
+                      3,
+                      {'message': 'denied'},
+                      'com.denied',
+                      [101],
+                      {'source': 'frame'},
+                    ]),
+                    argsBytes: selection.$1 ? encode([202]) : null,
+                    kwargsBytes: selection.$2
+                        ? encode({'source': 'fragment'})
+                        : null,
+                  )
+                  as Abort;
+          expect(value.arguments, selection.$1 ? [202] : [101]);
+          expect(value.argumentsKeywords, {
+            'source': selection.$2 ? 'fragment' : 'frame',
+          });
+          expect(value.details, {'message': 'denied'});
+          expect(value.message?.message, 'denied');
+          expect(value.reason, 'com.denied');
+        });
+      }
+      test('encoded null payload fragments normalize to empty containers', () {
+        final value =
+            bindMessage(
+                  serializer,
+                  encode([8, 48, 19, {}, 'com.failure']),
+                  argsBytes: encode(null),
+                  kwargsBytes: encode(null),
+                )
+                as Error;
+        expect(value.arguments, isEmpty);
+        expect(value.argumentsKeywords, isEmpty);
+      });
+      test('malformed argument fragments reject when accessed', () {
+        final value =
+            bindMessage(
+                  serializer,
+                  encode([8, 48, 19, {}, 'com.failure']),
+                  argsBytes: encode({'not': 'a list'}),
+                )
+                as Error;
+        expect(() => value.arguments, throwsArgumentError);
+      });
+      test('malformed keyword fragments reject when accessed', () {
+        final value =
+            bindMessage(
+                  serializer,
+                  encode([8, 48, 19, {}, 'com.failure']),
+                  kwargsBytes: encode(['not', 'a map']),
+                )
+                as Error;
+        expect(() => value.argumentsKeywords, throwsArgumentError);
       });
     });
     for (final mode in ['frame', 'fragments', 'metadata']) {

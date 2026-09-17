@@ -6,6 +6,42 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work91 resumes the pending binding tests on pushed `ae2e0208`; the latest short
+table response was status only. Preserve the live mutation campaigns and the
+existing fast gate instead of duplicating them. VM90 completes: auth-server
+100%, core 94.22%, client 88.00%, MCP 95.91%, router 85.50%, bench 84.69%; overall
+37,704/42,553 (88.60%), with 59 unmeasured library sources. These are pre-Work91
+scores, not updated whole-package coverage. Packaging remains client 97.26% /
+router 97.14%, with 12 unmeasured sources.
+
+There are 645 additional native-binding contract cases, with all 3,289 focused
+tests passing across JSON/MessagePack/CBOR. They assert every supported lazy
+session-message type, anchor/correlation/payload preservation, missing metadata
+flags, unsupported-code fallback, auth-field precedence including empty strings,
+independent presence/feature bits, non-direct options, extension separation,
+malformed/absent/null fragments and unsupported payload serializers. No production
+behavior changes. `binding91g-vm` measures client binding 584/584 and router
+binding 575/575, both 100%, with recorded input hashes. New 98% file floors protect
+both sources; the focused canonical report still correctly fails missing-scope
+checks and is not whole-package, Rust or FFI-runtime coverage.
+
+The old binding campaign finishes: client 304 kills / 94 survivors / 94 compile
+errors (76.38% raw/adjusted), router 334 / 183 / 147 (64.60% raw/adjusted).
+Both original/restored baselines pass, with no errors/timeouts or equivalents.
+These are historical test snapshots, and router also predates Work90's final
+shorthand fix. Fresh `binding91-mutations` now runs against the current tests;
+MCP89 remains live and unchanged. The fast gate completed all scheduled suites;
+full `bin/verify` finishes zero, including the final router auth/option tests,
+Rust, installed-package/native smoke checks, 2,970 core WASM tests and two browser
+WebSocket tests. WASM line coverage remains unmeasured. Fresh `vm-current91` is
+the sole native-runtime owner. Qwen review produced no confirmed defects; its
+default-value/nullability concerns contradict the inspected APIs and explicit
+tests. Workspace analysis completed with five informational suggestions, no
+errors or warnings; final changed-test analysis has only the existing shared
+fixture suggestion. Pushed-head package/image/
+profile checks pass; full CI remains in progress. No merge, publication, version
+change, weakened floor or equivalence waiver. The complete goal remains open.
+
 Work90 follows pushed `c8508221`. The previous table was status only; this
 continuation revalidated the clean worktree and live campaigns without restarting
 them. VM89 completes successfully: auth-server 100%, core 94.20%, client 86.86%,

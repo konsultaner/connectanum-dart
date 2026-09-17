@@ -204,6 +204,8 @@
     }
   },
   "files": {
+    "packages/connectanum_client/lib/src/transport/native/message_binding.dart": 98,
+    "packages/connectanum_router/lib/src/native/message_binding.dart": 98,
     "packages/connectanum_core/lib/src/authentication/cryptosign/pem.dart": 98,
     "packages/connectanum_bench/lib/src/benchmark_config.dart": 98,
     "packages/connectanum_bench/lib/src/http_stream_handler.dart": 98,

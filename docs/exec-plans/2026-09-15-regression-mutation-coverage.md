@@ -67,6 +67,60 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work91 Native Metadata And Fragment Boundaries
+
+- Resume pending tests after the status-only table response. Inspect current
+  processes and reports rather than restarting the fast gate, VM90 or either
+  mutation campaign. VM90 is terminal with 37,704/42,553 measured VM lines
+  (88.60%); client is 88.00%, router 85.50%, core 94.22%, MCP 95.91%, auth-server
+  100% and bench 84.69%. Keep 59 missing library sources and 12 missing packaging
+  sources visible. Do not attribute these scores to Work91's newer tests.
+- Add 645 contract cases, with 3,289 focused tests passing. Cover all 14 lazy
+  session message types, independent IDs, payloads and ownership anchors;
+  unsupported codes and absent metadata flags must fall back, while explicit
+  invalid wrappers fail materialization. Direct-only flags cannot authorize
+  metadata binding. HELLO/WELCOME auth slots, including empty strings, override
+  decoded fields only under the direct flag; missing slots use the lazy map.
+  Separate numeric presence and boolean bits, including zero values, and test
+  non-direct options and custom-field separation rather than only direct paths.
+  Single non-null PPT/policy slots must preserve an options object, while wholly
+  absent options without detail bytes stay null; this targets short-circuit
+  mutation survivors hidden by tests that populate every field together.
+- Cover nullable closing messages, missing/null detail maps, malformed fragments,
+  ABORT fragment overlays preserving the unselected frame field, recursive JSON
+  binary markers and unsupported payload serializers. Assert the empty-frame
+  error message so a downstream RangeError cannot masquerade as the intended
+  shape rejection. Shared handshake contracts now assert authmethods, topic,
+  procedure, authextra and extension separation. No production behavior edits.
+  Initial property-name/type-inference errors and the mistaken null expectation
+  for YieldOptions.progress are test-authoring errors, not production bugs.
+- Final focused `binding91g-vm` records 584/584 client binding and 575/575 router
+  binding lines, both 100%. Source/test/support/policy hashes accompany it. Add
+  98% floors for these complete files without altering other targets or scope.
+  Its canonical checker intentionally exits one for incomplete workspace scope;
+  never present its two-file totals as package or native-runtime coverage.
+- The old mutation campaign finishes: client 304 assertion kills, 94 survivors
+  and 94 compile errors, 76.38% raw/adjusted; router 334 kills, 183 survivors and
+  147 compile errors, 64.60% raw/adjusted. Both original/restored baselines pass,
+  with no errors/timeouts or equivalents. These snapshots predate Work91 tests/
+  support; router also predates the final Work90 shorthand correction. After
+  confirming termination, start fresh `binding91-mutations` for both targets.
+  Keep MCP89 running with its unchanged snapshot. No new equivalence waivers.
+- Local companion test advice was checked against source. Reject the earlier
+  suggestion that non-direct identity fields should stay null: lazy Details uses
+  map fallback. Review's default-value and nullable-map concerns are not defects;
+  YieldOptions.progress is deliberately non-null false, and explicit closing/map
+  tests already cover absence. The focused auth/flag review found no concrete
+  defects. Slot-review speculation is resolved by the explicit production
+  mapping of Register stringC to invoke. Full `bin/verify` finishes zero and its
+  log includes the final auth/feature/PPT assertions. Rust, installed-package/
+  native smoke checks, 2,970 core WASM tests and two browser WebSocket tests pass.
+  WASM line instrumentation remains missing. Workspace analysis has five
+  informational suggestions, no errors/warnings; final changed-test analysis
+  retains only the existing fixture suggestion. `vm-current91` now collects as
+  the sole native-runtime owner. Commit/push and new-head hosted checks remain
+  pending. No merge, publication, version change or weakened threshold.
+
 ### Work90 Native Feature And Abort Contracts
 
 - Classify the previous short coverage-table turn as status only. Revalidate the

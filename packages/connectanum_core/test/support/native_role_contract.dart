@@ -98,6 +98,35 @@ Map<String, Object?> _featureObjects(Roles r) => {
 };
 
 void nativeRoleContracts(Details Function(Map<String, Object?>) decode) {
+  test(
+    'structured handshake fields survive without leaking into custom data',
+    () {
+      final details = decode({
+        'realm': 'realm',
+        'authid': 'alice',
+        'authrole': 'member',
+        'authmethod': 'wamp-scram',
+        'authprovider': 'provider',
+        'authmethods': ['wamp-scram', 'ticket'],
+        'topic': 'com.topic',
+        'procedure': 'com.procedure',
+        'authextra': {'channel_binding': 'tls-exporter'},
+        'extension': {'trace': 1},
+      });
+      expect(details.realm, 'realm');
+      expect(details.authid, 'alice');
+      expect(details.authrole, 'member');
+      expect(details.authmethod, 'wamp-scram');
+      expect(details.authprovider, 'provider');
+      expect(details.authmethods, ['wamp-scram', 'ticket']);
+      expect(details.topic, Uri.parse('com.topic'));
+      expect(details.procedure, Uri.parse('com.procedure'));
+      expect(details.authextra, {'channel_binding': 'tls-exporter'});
+      expect(details.custom, {
+        'extension': {'trace': 1},
+      });
+    },
+  );
   for (final role in _features.entries) {
     group(role.key, () {
       for (final field in [null, ...role.value.keys, 'unknown_feature']) {
