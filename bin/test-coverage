@@ -46,6 +46,7 @@ run_package_coverage connectanum_client connectanum_client_meta test/meta_state_
 run_package_coverage connectanum_client connectanum_client_base64 test/transport/native/canonical_base64_io_test.dart
 run_package_coverage connectanum_client connectanum_client_external_buffers test/transport/native/external_byte_buffer_test.dart
 run_package_coverage connectanum_client connectanum_client_restart test/transport/native/resource_restart_test.dart --concurrency=1
+run_package_coverage connectanum_client connectanum_client_native_files test/transport/native/runtime_file_segment_test.dart
 run_package_coverage \
   connectanum_client \
   connectanum_client_io_events \

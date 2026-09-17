@@ -67,6 +67,86 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work87 Native Client Boundaries And Auth Gate Repair
+
+- Pushed work86 as `a7562b23`, updated PR #93, and dispatched exact-head image
+  and profile dry runs. Package checks `35228604211`/`35228608689`, image
+  `35228708346` and profile benchmarks `35228710567` pass. Push CI
+  `35228603988` exposes an auth-server mutation gate failure; the PR CI and
+  remaining jobs are still running. This red gate is not waived.
+- Native UTF-8 key tests reproduce 16 failures before changing production:
+  multibyte IDs are rejected or truncated, same-prefix IDs alias a different
+  key, and encrypted file sends fail key lookup. Correct four byte-length
+  arguments in the native client runtime. The wire format, ciphers and public
+  signatures are unchanged. A pure Dart provider is the independent crypto
+  oracle rather than relying on a native self-roundtrip that could hide aliasing.
+- The 39-case real RawSocket suite covers exact WAMP framing for JSON,
+  MessagePack and CBOR, binary/base64 length boundaries, offset slices, native
+  owned segments, rejected file/range/key/cipher inputs, both file-encryption
+  ciphers, and received direct/wrapped E2EE payloads. Cached plaintext has
+  independent ownership from its consumed message; altered cache parameters
+  and reads after external ownership release fail closed. Tests assert exact
+  content and recovery, not only successful calls.
+- Initial fixture expectations incorrectly used wire nibble 15 rather than
+  negotiated bit exponent 24, and omitted the CBOR envelope from encrypted
+  file length. These fixture errors are corrected, not production bugs. Final
+  fail-first log `native-red-final` retains only the 16 genuine key failures.
+  Focused reports `native87-regression` and `native87b-regression` do not claim
+  whole-client coverage. A full-source `client-native-runtime-vm` mutation
+  target retains native artifact provenance and file-isolated test execution.
+- A fail-first launcher check found the new suite absent from all three
+  verification/coverage commands; it is now included. All 49 launcher tests
+  pass. Fast87's first run was invalidated by editing its active Bash script;
+  retain the exit-127 log, do not classify it as a product regression or a pass.
+  The clean fast rerun, full VM87 coverage and serial `bin/verify` pass.
+  The native runtime inventory has 613 candidates, not a sampled
+  subset; no completed native-runtime mutation score is claimed yet.
+- Auth-server hosted inventory remains all 294 candidates: 180 kills, seven
+  survivors, 105 compile errors and two timeouts (95.24%, but not clean). The
+  two timeouts are `9e33a2db89a2a9823589` (duplicate AUTHENTICATE admission) and
+  `532a04779244e577ebf8` (terminal cancellation notification). Strengthen three
+  existing tests to assert callback/response state before releasing their
+  pending provider, with finally cleanup. All 84 auth tests pass. Auth87 reruns
+  the entire unchanged production inventory and completes at 96.30%
+  raw/adjusted: 182 kills, seven survivors and 105 compile errors, no errors,
+  timeouts or waivers, both baselines zero. All ten source/test/support hashes
+  match. The two prior deadlines now fail explicit callback-count and response
+  presence assertions while the provider remains pending.
+- Reinspect all seven Auth87 survivors through symbol references; none is
+  waived or counted as a kill. At `pending_transaction.dart` SHA-256
+  `8d587073290ecd510597b14242277df9bd26bf870e902338db4c8b8eb60827c6`:
+  `0cc1ead8b574c8cf203d` changes the initial busy value, overwritten by `_run`
+  before provider work; `f0f7947b4129955b0d95` removes the releasing guard and
+  `b427e0e5e565adf26797` removes its assignment, while the two release callers
+  remain separated by busy/finished state; `06d5f692caa982dc1a65` forces the
+  abort branch, but a null terminal failure throws inside the existing cleanup
+  catch before invoking a non-null authenticator; `61dd92199791b8c1fad0`
+  removes the identity guard, while `_onHello` rejects occupied IDs and release
+  is the sole map remover. Existing reentrant cleanup/ID-reuse tests pass under
+  these mutants. No distinguishing public behavior is established, not proof
+  that these defensive guards should be removed. At `selection.dart` SHA-256
+  `555bcc0d43cd62d282117cd205f11b471697814272612f878379b2a068a187dc`,
+  `33646fef253d12eefb8d` and `b4d522ace2dd2d9e1360` add empty lists to the
+  candidate ordering; the nested loop makes no selection from either empty
+  list. Keep all seven individual outcomes and the unchanged raw denominator.
+- Local Qwen/GLM advice was checked against real implementations. Reject the
+  proposed JSON string oracle: the serializer encodes Uint8List as WAMP binary.
+  Reject the alleged independent FFI UTF-8 encoder: ffi's `toNativeUtf8` calls
+  the same `utf8.encode`. Native error constants are negative and decrypted
+  buffer ownership is deliberately separate from the consumed message. Do not
+  weaken ownership tests or change protocol behavior on those speculative claims.
+- Full `vm-current87/summary.json` measures client 8,120/9,355 (86.80%),
+  native runtime 608/755 (80.53%), and router 16,330/19,287 (84.67%). Core
+  remains 93.90%, MCP 95.40%, auth-server 100%, bench 84.69%. The 59 unmeasured
+  library sources remain visible. Packaging retains separate denominators:
+  client 391/402 (97.26%), router 374/385 (97.14%), 12 unmeasured sources.
+  These VM measurements are not browser/WASM/native Rust coverage claims.
+- Final verification includes Rust, installed-package MCP smoke checks,
+  2,903 core WASM tests and two browser WebSocket tests. Logs use
+  `/tmp/connectanum-coverage87-*`. Work87 commit and new-head hosted
+  evidence are still pending. Whole-goal
+  targets remain unmet; no version, publication or merge action.
+
 ### Work86 Security Oracles And Evidence Integrity
 
 - Revalidated existing processes before starting tests. Full VM85 completed

@@ -28,6 +28,7 @@ run_client_vm_tests() {
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/resource_restart_test.dart --concurrency=1
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
+    dart test packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart
   else
     printf 'Native client transports require Linux or macOS; skipping native transport tests on %s.\n' "$(uname -s)"
   fi

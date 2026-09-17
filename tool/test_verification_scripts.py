@@ -457,6 +457,20 @@ fi
                     [line.strip() for line in script.read_text().splitlines()],
                 )
 
+    def test_client_native_file_regressions_are_measured_and_verified(self) -> None:
+        relative_test = 'test/transport/native/runtime_file_segment_test.dart'
+        for script in [TEST_FAST, TEST_ALL]:
+            with self.subTest(script=script.name):
+                self.assertIn(
+                    f'dart test packages/connectanum_client/{relative_test}',
+                    [line.strip() for line in script.read_text().splitlines()],
+                )
+        self.assertIn(
+            'run_package_coverage connectanum_client '
+            f'connectanum_client_native_files {relative_test}',
+            (REPO_ROOT / 'bin/test-coverage').read_text().splitlines(),
+        )
+
     def test_client_message_abi_negotiation_runs_in_both_gates(self) -> None:
         command = (
             "dart test packages/connectanum_client/test/transport/native/"

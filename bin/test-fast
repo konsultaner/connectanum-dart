@@ -36,6 +36,7 @@ run_client_fast_tests() {
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/resource_restart_test.dart --concurrency=1
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
+    dart test packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart
     return 0
   fi
 

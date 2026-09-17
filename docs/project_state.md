@@ -6,6 +6,36 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work87 follows pushed `a7562b23`. Sixteen fail-first native cases reproduce
+UTF-16 character counts truncating UTF-8 E2EE key IDs, including distinct IDs
+aliasing one native key and file encryption failing to find the intended key.
+Four FFI calls now pass byte lengths. The new real-loopback suite passes 39
+tests for JSON/MessagePack/CBOR file slices, segmented sends, both E2EE ciphers,
+portable-provider interoperability, received payload ownership/cache isolation,
+release, rejection and recovery. Verification/coverage launchers include it;
+49 launcher tests pass. A full-source native-client mutation target is added.
+Native87b is a focused report, not whole-client coverage. The clean fast gate
+and full VM87 collection pass; serial final `bin/verify` passes. VM87
+measures client 8,120/9,355 (86.80%), including native runtime 608/755 (80.53%),
+and router 16,330/19,287 (84.67%). Core remains 93.90%, MCP 95.40%, auth-server
+100%, and bench 84.69%. All 59 unmeasured library sources remain visible.
+Packaging is separate: client 97.26%, router 97.14%, 12 unmeasured sources.
+
+Hosted `a7562b23` package/image/profile checks pass, but push CI's auth-server
+mutation gate exposed two historical deadline-only detections after the runner
+classification fix. Three lifecycle/binding tests now assert response/callback
+state while providers remain pending and unblock providers in finally. All 84
+auth tests pass. The complete Auth87 campaign passes at 96.30% raw/adjusted:
+182 assertion kills, seven survivors, 105 compile errors, no timeouts/errors or
+waivers, both baselines zero. Source/test/support hashes match. Both formerly
+timed-out mutants now fail direct assertions.
+An earlier fast87 run was invalidated by editing its running Bash launcher,
+causing a shifted read offset; it is not accepted evidence. The clean rerun
+passed. Final verification includes Rust, installed-package MCP smoke checks,
+2,903 core WASM tests and two browser WebSocket tests. Work87 commit/push and
+new-head hosted evidence are pending. No merge, publication, version change or
+weakened threshold.
+
 Work86 follows pushed commit `9e9579bf`. The full VM85 report completed:
 auth-server 100%, core 93.90%, client 85.11%, MCP 95.40%, router 84.53%,
 bench 84.69%; 59 library sources remain unmeasured. Packaging remains separate

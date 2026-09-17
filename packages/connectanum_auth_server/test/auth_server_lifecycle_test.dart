@@ -422,14 +422,24 @@ void main() {
       factory.authenticator.authenticateEntered.future,
       first,
     );
-    expect(
-      (await server
-              .onAuthenticate(authenticate('same'))
-              .timeout(const Duration(seconds: 1)))
-          .status,
-      RemoteAuthenticateStatus.failure,
+    RemoteAuthenticateResponse? duplicate;
+    unawaited(
+      server.onAuthenticate(authenticate('same')).then((value) {
+        duplicate = value;
+      }),
     );
-    pendingAuth.complete(_success());
+    try {
+      await _drain();
+      expect(factory.authenticator.authenticateCalls, 1);
+      expect(
+        duplicate?.status,
+        RemoteAuthenticateStatus.failure,
+        reason:
+            'A duplicate must be rejected while the first provider call is pending',
+      );
+    } finally {
+      pendingAuth.complete(_success());
+    }
     expect((await first).status, RemoteAuthenticateStatus.success);
     expect(factory.authenticator.authenticateCalls, 1);
     expect(
@@ -668,18 +678,30 @@ void main() {
       final creation = Completer<Authenticator>();
       factory.creation = creation.future;
       final result = server.onHello(hello('closing'));
+      RemoteHelloResponse? closedResult;
+      unawaited(
+        result.then((value) {
+          closedResult = value;
+        }),
+      );
       await expectCallbackEntry(factory.entered.future, result);
       await server.close();
       await server.close();
-      expect(
-        (await result.timeout(const Duration(seconds: 1))).status,
-        RemoteHelloStatus.failure,
-      );
-      expect(
-        (await server.onHello(hello('new'))).status,
-        RemoteHelloStatus.failure,
-      );
-      creation.complete(factory.authenticator);
+      try {
+        await _drain();
+        expect(
+          closedResult?.status,
+          RemoteHelloStatus.failure,
+          reason:
+              'Close must resolve HELLO without waiting for provider creation',
+        );
+        expect(
+          (await server.onHello(hello('new'))).status,
+          RemoteHelloStatus.failure,
+        );
+      } finally {
+        creation.complete(factory.authenticator);
+      }
       await _drain();
       expect(factory.authenticator.helloCalls, 0);
       expect(factory.authenticator.abortCalls, 1);

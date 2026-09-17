@@ -209,6 +209,21 @@
     "sources": ["packages/connectanum_router/lib/src/router/models/router_metrics.dart"],
     "tests": ["packages/connectanum_router/test/router_metrics_model_test.dart"]
   },
+  "client-native-runtime-vm": {
+    "sources": ["packages/connectanum_client/lib/src/transport/native/runtime.dart"],
+    "tests": [
+      "packages/connectanum_client/test/transport/native/canonical_base64_io_test.dart",
+      "packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart",
+      "packages/connectanum_client/test/transport/native/e2ee_provider_test.dart",
+      "packages/connectanum_client/test/transport/native/resource_restart_test.dart",
+      "packages/connectanum_client/test/transport/native/native_transports_test.dart",
+      "packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart"
+    ],
+    "supportFiles": ["packages/connectanum_client/test/test_support/native_runtime_support.dart"],
+    "requiresNativeLibrary": true,
+    "isolateTestFiles": true,
+    "testTimeoutSeconds": 30
+  },
   "router-binding-vm": {
     "sources": ["packages/connectanum_router/lib/src/router/router_instance/router_binding.dart"],
     "tests": [

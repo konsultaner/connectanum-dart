@@ -113,12 +113,27 @@ void main() {
       factory.authenticator.result = completion.future;
       await first.rpc('hello', _hello('pending'));
       final pending = first.rpc('authenticate', _authenticate('pending'));
+      wamp.AbstractMessageWithPayload? closedResult;
+      unawaited(
+        pending.then((value) {
+          closedResult = value;
+        }),
+      );
       await expectCallbackEntry(factory.authenticator.entered.future, pending);
       await firstBinding.close();
-      final result = await pending;
-      expect(result.argumentsKeywords?['status'], 'failure');
-      expect(result.argumentsKeywords?['message'], contains('closed'));
-      completion.completeError(StateError('late provider error'));
+      try {
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          closedResult,
+          isNotNull,
+          reason:
+              'Closing a binding must respond before its provider completes',
+        );
+        expect(closedResult!.argumentsKeywords?['status'], 'failure');
+        expect(closedResult!.argumentsKeywords?['message'], contains('closed'));
+      } finally {
+        completion.completeError(StateError('late provider error'));
+      }
       await Future<void>.delayed(Duration.zero);
       expect(factory.authenticator.aborts, 1);
       expect(server.pendingAuthenticationCounts, isEmpty);
