@@ -67,6 +67,47 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work98 Mutation Evidence And Native Boundaries
+
+- Add per-kill cause evidence (assertion, caught test error, mixed or unknown)
+  and assertion-detected lower bounds while retaining all existing raw/adjusted
+  scores and denominators. Reset reporter IDs across isolated commands. The
+  separate `tool/audit_mutation_kill_evidence.py` reclassifies saved kill logs,
+  checks their existing counts/scores, hashes input/report/log/tool evidence,
+  rejects escaping paths and derived re-audits, and exclusively creates output.
+  It never rewrites originals or makes historical source/test hashes current.
+  All 55 tooling tests pass, one optional skip. Real Dart reporter probes
+  protect assertion versus caught exception and mixed teardown attribution.
+- Preserve and finish native97: all 348 candidates complete, with 107 kills,
+  126 survivors, 23 timeouts and 92 compile errors; 41.796875% raw/adjusted,
+  clean initial/restored baselines and unchanged native artifact. No waivers.
+  Its read-only audit reports 58 assertion, 36 test-error and 13 mixed kills;
+  71/256 gives a 27.734375% assertion-detected lower bound. Other historical
+  audits preserve remote-auth96b (96.875%), remote-delegate97b (96.2567%) and
+  router-config96 (97.2145%) conventional scores without claiming assertion-only
+  detection. Derived reports are `kill-evidence98.json` beside each original.
+- Add 12 native regressions: literal MessagePack/CBOR length headers at uint32
+  and int64 boundaries without huge allocations; corrupted suffix bytes and
+  truncated tails for every serializer; batch sentinels and exact one/default
+  caps; refused connection, fresh readiness/lost futures, idempotent open/close
+  and successful same-port reconnect for RawSocket/WebSocket and all serializers.
+  Peer helpers run in separate isolates and close only after Hello/Welcome.
+  An initial expected batch size of 64 was a test-authoring mistake, corrected
+  to the source's 32; it is not reported as a production bug fix.
+- Focused 31 transport plus 57 file/runtime tests pass. With explicit ffi-test
+  artifact and matching input hashes, `native-transports98-vm` measures 388/440
+  lines (88.18%), up from 377/440 (85.68%). Keep all 52 uncovered lines visible.
+  Native97 predates these test changes and must not be relabeled current evidence.
+  Whole-workspace VM96 remains 89.82%; do not add focused gains to that snapshot.
+- Fast98 passes. Verify98 runs through the final successful 2,970 core WASM
+  and two WebSocket WASM cases and its PIDs are terminal. The app restart lost
+  its original command handle, preventing direct recovery of the exit status;
+  retain `/tmp/connectanum-coverage98-verify.log` and this evidence limitation.
+  Qwen and GLM reviews were checked against source: no verified reporter defect;
+  the proposed int64 header correction and pre-Hello peer timer race were false
+  leads. Formatting, focused analysis and diff checks pass. MCP97 remains live.
+  No merge, publication, version change, lowered threshold or equivalence waiver.
+
 ### Work97 Trust Roots And Native File Transport Wrappers
 
 - Resume clean `c769e76f`, preserving live VM96/MCP95 runs. VM96 finishes zero

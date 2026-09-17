@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 import run_dart_mutations as runner
+import audit_mutation_kill_evidence as evidence_audit
 
 sys.path.insert(0, str(Path(__file__).parent))
 from run_dart_mutations import apply_mutation, classify, mutation_id, run, summarize, validate_equivalents
@@ -20,6 +21,151 @@ def events(*items):
 
 
 class MutationRunnerTests(unittest.TestCase):
+    def test_saved_kill_audit_is_pinned_and_never_overwrites_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = events(
+                {'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+                {'type': 'error', 'testID': 1, 'isFailure': False, 'error': 'bad state'},
+                {'type': 'testDone', 'testID': 1, 'result': 'error'},
+                {'type': 'done', 'success': False},
+            )
+            (root / 'mutant.log').write_text(log)
+            original = {'schemaVersion': 1, 'complete': False, 'runnerSha256': 'historical',
+                        'targets': {'fixture': {'generated': 2, 'score': 100,
+                            'sourceHashes': {'lib/source.dart': 'original'},
+                            'outcomes': [{'id': 'mutant', 'status': 'killed',
+                                          'exitCode': 1, 'log': 'mutant.log'}]}}}
+            source = root / 'mutation-report.json'
+            source.write_text(json.dumps(original))
+            initial_bytes = source.read_bytes()
+            output = root / 'kill-evidence.json'
+            with patch.object(sys, 'argv', ['audit', str(source), '--output', str(output)]):
+                self.assertEqual(evidence_audit.main(), 0)
+                with self.assertRaises(FileExistsError):
+                    evidence_audit.main()
+            result = json.loads(output.read_text())
+            self.assertEqual(source.read_bytes(), initial_bytes)
+            self.assertEqual((root / 'mutant.log').read_text(), log)
+            self.assertFalse(result['complete'])
+            self.assertEqual(result['runnerSha256'], 'historical')
+            self.assertEqual(result['targets']['fixture']['sourceHashes'], {'lib/source.dart': 'original'})
+            self.assertEqual(result['targets']['fixture']['score'], 100)
+            self.assertEqual(result['targets']['fixture']['assertionScoreLowerBound'], 0)
+            self.assertEqual(result['targets']['fixture']['killCauseCounts']['testError'], 1)
+            self.assertEqual(result['killEvidenceAudit']['sourceReportSha256'],
+                             runner.hashlib.sha256(initial_bytes).hexdigest())
+            self.assertEqual(result['targets']['fixture']['outcomes'][0]['logSha256'],
+                             runner.hashlib.sha256(log.encode()).hexdigest())
+            with self.assertRaisesRegex(ValueError, 'original campaign'):
+                evidence_audit.audit(output)
+            for filename in ('../mutant.log', str(root / 'mutant.log'), 'missing.log'):
+                original['targets']['fixture']['outcomes'][0]['log'] = filename
+                source.write_text(json.dumps(original))
+                with self.assertRaises((ValueError, FileNotFoundError)):
+                    evidence_audit.audit(source)
+
+    def test_saved_kill_audit_rejects_crashes_and_inconsistent_scores(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = {'schemaVersion': 1, 'targets': {'fixture': {'score': 100,
+                'outcomes': [{'id': 'mutant', 'status': 'killed', 'exitCode': -9,
+                              'log': 'mutant.log'}]}}}
+            source = root / 'mutation-report.json'
+            (root / 'mutant.log').write_text('crashed')
+            source.write_text(json.dumps(original))
+            with self.assertRaisesRegex(ValueError, 'saved kill classifies as error'):
+                evidence_audit.audit(source)
+            original['targets']['fixture']['outcomes'] = [{'status': 'survived'}]
+            source.write_text(json.dumps(original))
+            with self.assertRaisesRegex(ValueError, 'saved score'):
+                evidence_audit.audit(source)
+
+    def test_saved_kill_audit_rejects_symlink_logs_outside_report_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            reports = root / 'reports'
+            reports.mkdir()
+            external = root / 'private.log'
+            external.write_text('must not be read as mutation evidence')
+            (reports / 'linked.log').symlink_to(external)
+            source = reports / 'report.json'
+            source.write_text(json.dumps({'schemaVersion': 1, 'targets': {'fixture': {
+                'outcomes': [{'id': 'mutant', 'status': 'killed', 'exitCode': 1,
+                              'log': 'linked.log'}]}}}))
+            with self.assertRaisesRegex(ValueError, 'escapes report directory'):
+                evidence_audit.audit(source)
+
+    def test_kill_evidence_distinguishes_assertions_errors_and_missing_events(self):
+        for flags, cause in (([True], 'assertion'), ([False], 'testError'),
+                             ([True, False], 'mixed'), ([None], 'unknown'),
+                             ([], 'unknown'), (['true'], 'unknown')):
+            with self.subTest(flags=flags):
+                output = events(
+                    {'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+                    *({'type': 'error', 'testID': 1, 'error': 'failure',
+                       'isFailure': flag} for flag in flags),
+                    {'type': 'testDone', 'testID': 1, 'result': 'failure'},
+                    {'type': 'done', 'success': False},
+                )
+                evidence = runner.kill_evidence('killed', output)
+                self.assertEqual(evidence['cause'], cause)
+                self.assertEqual(evidence['assertionFailures'], flags.count(True))
+                self.assertEqual(evidence['testErrors'], flags.count(False))
+        for status in ('survived', 'timeout', 'error', 'compileError'):
+            self.assertIsNone(runner.kill_evidence(status, output))
+
+    def test_kill_evidence_does_not_credit_unrelated_or_hidden_errors(self):
+        output = events(
+            {'type': 'testStart', 'test': {'id': 1, 'name': 'passed contract'}},
+            {'type': 'error', 'testID': 1, 'isFailure': True},
+            {'type': 'testDone', 'testID': 1, 'result': 'success'},
+            {'type': 'testStart', 'test': {'id': 2, 'name': 'failed contract'}},
+            {'type': 'error', 'testID': 2, 'isFailure': False},
+            {'type': 'testDone', 'testID': 2, 'result': 'error'},
+            {'type': 'error', 'testID': 100, 'isFailure': True},
+            {'type': 'testStart', 'test': {'id': 3, 'name': 'hidden'}},
+            {'type': 'error', 'testID': 3, 'isFailure': True},
+            {'type': 'testDone', 'testID': 3, 'result': 'failure', 'hidden': True},
+            {'type': 'done', 'success': False},
+        )
+        self.assertEqual(runner.kill_evidence('killed', output), {
+            'cause': 'testError', 'assertionFailures': 0, 'testErrors': 1,
+            'unclassifiedFailures': 0,
+        })
+
+    def test_kill_evidence_resets_test_ids_between_isolated_commands(self):
+        output = events(
+            {'type': 'connectanumTestCommand', 'status': 'survived'},
+            {'type': 'testStart', 'test': {'id': 1, 'name': 'previous contract'}},
+            {'type': 'testDone', 'testID': 1, 'result': 'success'},
+            {'type': 'done', 'success': True},
+            {'type': 'connectanumTestCommand', 'status': 'killed'},
+            {'type': 'testStart', 'test': {'id': 1, 'name': 'current contract'}},
+            {'type': 'error', 'testID': 1, 'isFailure': True},
+            {'type': 'testDone', 'testID': 1, 'result': 'failure'},
+            {'type': 'done', 'success': False},
+        )
+        self.assertEqual(runner.kill_evidence('killed', output)['cause'], 'assertion')
+        self.assertEqual(runner.kill_evidence('killed', output)['assertionFailures'], 1)
+
+    def test_assertion_diagnostics_preserve_conventional_denominator(self):
+        outcomes = [
+            {'status': 'killed', 'killEvidence': {'cause': cause}}
+            for cause in ('assertion', 'testError', 'mixed')
+        ] + [{'status': 'killed'}, {'status': 'survived', 'equivalence': 'justified'},
+             {'status': 'timeout'}, {'status': 'error'}, {'status': 'compileError'}]
+        summary = summarize(outcomes)
+        self.assertEqual(summary['viable'], 7)
+        self.assertAlmostEqual(summary['score'], 400 / 7)
+        self.assertAlmostEqual(summary['adjustedScore'], 400 / 6)
+        self.assertEqual(summary['killCauseCounts'], {
+            'assertion': 1, 'testError': 1, 'mixed': 1, 'unknown': 1,
+        })
+        self.assertFalse(summary['killEvidenceComplete'])
+        self.assertAlmostEqual(summary['assertionScoreLowerBound'], 200 / 7)
+        self.assertAlmostEqual(summary['adjustedAssertionScoreLowerBound'], 200 / 6)
+
     def test_snapshot_preserves_standalone_application_inputs_and_ignored_lock(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'repo'
@@ -511,6 +657,9 @@ class MutationRunnerTests(unittest.TestCase):
         cases = [
             ('healthy', '', 'expect(1, 1);', 'survived'),
             ('assertion', '', 'expect(1, 2);', 'killed'),
+            ('test_error', '', "throw StateError('mutated path');", 'killed'),
+            ('mixed_failure', '',
+             "addTearDown(() => throw StateError('cleanup')); expect(1, 2);", 'killed'),
             ('startup', "setUpAll(() => throw StateError('startup'));",
              'expect(1, 1);', 'error'),
             ('shutdown', "tearDownAll(() => throw StateError('shutdown'));",
@@ -547,6 +696,15 @@ class MutationRunnerTests(unittest.TestCase):
                          '--concurrency=1', '--timeout=1s'], runner.ROOT, 45,
                     )
                     self.assertEqual(classify(code, output), expected, output)
+                    evidence = runner.kill_evidence(expected, output)
+                    if name in ('assertion', 'timeout_text_assertion'):
+                        self.assertEqual(evidence['cause'], 'assertion', output)
+                    elif name == 'test_error':
+                        self.assertEqual(evidence['cause'], 'testError', output)
+                    elif name == 'mixed_failure':
+                        self.assertEqual(evidence['cause'], 'mixed', output)
+                    else:
+                        self.assertIsNone(evidence, output)
 
     def test_native_artifact_is_required_and_hashed_not_silently_skipped(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -816,6 +974,12 @@ class MutationRunnerTests(unittest.TestCase):
                     self.assertEqual(target['counts'], {'error': 1})
                     self.assertEqual(target['score'], 0)
                     self.assertEqual(target['outcomes'][0]['exitCode'], -9)
+                if target['outcomes'][0]['status'] == 'killed':
+                    self.assertEqual(report['killEvidenceVersion'], 1)
+                    self.assertEqual(target['outcomes'][0]['killEvidence']['cause'], 'unknown')
+                    self.assertEqual(target['killCauseCounts']['unknown'], 1)
+                    self.assertFalse(target['killEvidenceComplete'])
+                    self.assertEqual(target['assertionScoreLowerBound'], 0)
 
     def test_timeout_and_infrastructure_errors_do_not_inflate_score(self):
         result = summarize([{'status': s} for s in ['killed', 'survived', 'timeout', 'error', 'compileError']])

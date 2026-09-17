@@ -1,10 +1,36 @@
 # Project State
 
-Last updated: 2026-09-17
+Last updated: 2026-09-18
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work98 adds explicit mutation kill-cause diagnostics without changing outcomes,
+denominators or thresholds. New reports distinguish assertion failures, caught
+test errors, mixed detections and unknown evidence. A read-only auditor emits
+separate hash-pinned diagnostics for historical logs; it never refreshes their
+source/test provenance. All 55 runner/auditor tests pass (one optional skip).
+The first complete native transport campaign is 107 kills, 126 survivors,
+23 timeouts and 92 compile errors across 348 candidates: 41.80% raw/adjusted,
+with both baselines passing. Its audit finds 58 assertion, 36 test-error and
+13 mixed detections, a 27.73% assertion-detected lower bound. No waivers.
+
+Twelve further native transport regressions protect literal binary-header
+boundaries through uint32/int64 limits, damaged payload suffixes, receive-batch
+sentinels/caps, and failed-open/close/reconnect readiness across both transports
+and all three serializers. All 31 transport and 57 runtime/file cases pass.
+`native-transports98-vm` measures 388/440 wrapper lines (88.18%), up from 85.68%,
+with matching source/test/support/native hashes. The native mutation campaign
+above predates these tests; it is not their final mutation score. Fast98 passes.
+Verify98 has terminated after its final successful 2,970 core WASM and two
+WebSocket WASM tests; its original command handle was lost across an app restart,
+so the terminal exit code was not directly recovered. The full log is
+`/tmp/connectanum-coverage98-verify.log`; passing WASM tests remain distinct from
+unmeasured WASM line coverage. MCP97 is still running; do not duplicate it.
+The latest pushed head's main CI is pending with no failed jobs observed;
+package/image/profile dry runs pass. Next close native lifecycle/error-path
+survivors and rerun complete campaigns, keeping the whole milestone open.
 
 Work97 adds deterministic custom-CA isolation and native file-transport wire
 regressions. A fresh Dart subprocess uses a fixture-only default trust store;

@@ -77,11 +77,7 @@ def run(command, cwd, timeout):
         return process.returncode, output
 
 
-def classify(returncode, output):
-    if returncode is None:
-        return 'timeout'
-    if returncode < 0:
-        return 'error'
+def machine_events(output):
     events = []
     for line in output.splitlines():
         try:
@@ -90,6 +86,15 @@ def classify(returncode, output):
                 events.append(event)
         except json.JSONDecodeError:
             pass
+    return events
+
+
+def classify(returncode, output):
+    if returncode is None:
+        return 'timeout'
+    if returncode < 0:
+        return 'error'
+    events = machine_events(output)
     if any(e.get('type') == 'connectanumInfrastructureError' for e in events):
         return 'error'
     tests = {e['test']['id']: e['test'] for e in events if e.get('type') == 'testStart'}
@@ -124,6 +129,46 @@ def classify(returncode, output):
         if any(e.get('result') in ('error', 'failure') for e in real):
             return 'killed'
     return 'error'
+
+
+def kill_evidence(status, output):
+    """Describe completed test detections without upgrading their classification."""
+    if status != 'killed':
+        return None
+    # Isolated test files reuse reporter IDs; only the final failed command
+    # contributes evidence. Earlier commands have already passed classification.
+    events = []
+    for event in machine_events(output):
+        if event.get('type') in ('connectanumTestCommand', 'start'):
+            events = []
+        events.append(event)
+    tests = {event['test']['id']: event['test'] for event in events
+             if event.get('type') == 'testStart'}
+    failed = {event['testID'] for event in events
+              if event.get('type') == 'testDone' and not event.get('hidden')
+              and event.get('result') in ('failure', 'error')
+              and event.get('testID') in tests
+              and not tests[event['testID']]['name'].startswith('loading ')
+              and not re.search(r'\((?:setUpAll|tearDownAll)\)$',
+                                tests[event['testID']]['name'])}
+    assertions = errors = unknown = 0
+    for identifier in failed:
+        failures = [event for event in events
+                    if event.get('type') == 'error' and event.get('testID') == identifier]
+        if not failures:
+            unknown += 1
+        for event in failures:
+            if event.get('isFailure') is True:
+                assertions += 1
+            elif event.get('isFailure') is False:
+                errors += 1
+            else:
+                unknown += 1
+    cause = ('unknown' if unknown or not (assertions or errors) else
+             'mixed' if assertions and errors else
+             'assertion' if assertions else 'testError')
+    return {'cause': cause, 'assertionFailures': assertions, 'testErrors': errors,
+            'unclassifiedFailures': unknown}
 
 
 def run_test_commands(commands, cwd, timeout):
@@ -195,14 +240,28 @@ def summarize(outcomes):
         raise ValueError('Only observed survivors can have an equivalence justification')
     counts = dict(collections.Counter(item['status'] for item in outcomes))
     viable = sum(counts.get(s, 0) for s in ('killed', 'survived', 'timeout', 'error'))
+    equivalent = sum(bool(item.get('equivalence')) for item in outcomes)
+    causes = dict.fromkeys(('assertion', 'testError', 'mixed', 'unknown'), 0)
+    for item in outcomes:
+        if item['status'] == 'killed':
+            cause = (item.get('killEvidence') or {}).get('cause', 'unknown')
+            if cause not in causes:
+                raise ValueError(f'Unknown mutation kill cause: {cause}')
+            causes[cause] += 1
+    assertion_detected = causes['assertion'] + causes['mixed']
     return {
         'counts': counts,
         'viable': viable,
         'score': 100 * counts.get('killed', 0) / viable if viable else None,
-        'equivalent': sum(bool(item.get('equivalence')) for item in outcomes),
+        'equivalent': equivalent,
         'adjustedScore': (100 * counts.get('killed', 0) /
                           (viable - sum(bool(item.get('equivalence')) for item in outcomes)))
         if viable > sum(bool(item.get('equivalence')) for item in outcomes) else None,
+        'killCauseCounts': causes,
+        'killEvidenceComplete': not causes['unknown'],
+        'assertionScoreLowerBound': 100 * assertion_detected / viable if viable else None,
+        'adjustedAssertionScoreLowerBound': 100 * assertion_detected / (viable - equivalent)
+        if viable > equivalent else None,
     }
 
 
@@ -293,6 +352,8 @@ def main():
         parser.error('output already exists; use a fresh directory')
     args.output.mkdir(parents=True)
     report = {'schemaVersion': 1, 'scope': selected, 'targets': {}, 'complete': False,
+              'killEvidenceVersion': 1,
+              'scoreDefinition': 'Completed test detection, including caught test errors',
               'runnerSha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'operatorScope': ['binary', 'nullFallback', 'boolean', 'negation', 'condition']}
@@ -430,6 +491,9 @@ def main():
                 outcome = {**mutation, 'id': identifier, 'status': status, 'log': log_name,
                            'exitCode': code,
                            'seconds': round(time.monotonic() - started, 3)}
+                evidence = kill_evidence(status, output)
+                if evidence is not None:
+                    outcome['killEvidence'] = evidence
                 if identifier in justified:
                     if status != 'survived':
                         raise ValueError(f'Equivalent mutation no longer survives: {identifier}')
