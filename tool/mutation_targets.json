@@ -1,4 +1,8 @@
 {
+  "client-mcp-http-vm": {
+    "sources": ["packages/connectanum_client/lib/src/mcp/streamable_http_client.dart"],
+    "tests": ["packages/connectanum_client/test/mcp"]
+  },
   "router-http-auth-vm": {
     "sources": ["packages/connectanum_router/lib/src/router/auth/http_auth_provider.dart"],
     "tests": [

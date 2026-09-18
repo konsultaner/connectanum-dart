@@ -148,6 +148,7 @@ run_client_browser_websocket_test() {
     for attempt in $(seq 1 "$max_attempts"); do
       local args=(
         test/transport/websocket/websocket_transport_web_test.dart
+        test/mcp/form_elicitation_regression_test.dart
         -p chrome
         --compiler="$browser_compiler"
         --timeout=5m

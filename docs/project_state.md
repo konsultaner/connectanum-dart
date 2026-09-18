@@ -6,6 +6,36 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work109 adds 840 public MCP client regressions: 248 form-schema/content cases
+and 592 live HTTP malformed-response/recovery cases across legacy/modern and
+direct/streamable APIs. Thirty fail-first assertions expose permissive calendar
+normalization and rejected lowercase RFC3339 timestamps; strict calendar/grammar
+validation fixes them while preserving valid response strings. All 1,159 client
+MCP VM tests pass. Focused `client-mcp109c-vm` measures the complete HTTP client
+file at 1,860/1,955 lines (95.14%), not whole-client coverage. Input hashes match.
+The whole-workspace policy intentionally fails on this focused selection.
+All 248 form cases also pass separately in JavaScript and WASM. Canonical browser
+verification/coverage now includes them, guarded by a fail-first script test;
+all 54 script tests pass. `browser109-current` completes: selected core JS
+6,628/6,973 (95.05%), form-only client JS 279/283 (98.59%), 172 unmeasured library
+sources. The form-only, tree-shaken browser denominator is not the whole HTTP
+client or package. WASM line coverage remains unmeasured.
+The complete-file `client-mcp109-mutations` campaign is running with 1,597
+candidates and baseline exit zero; its final assertion score is pending.
+Fresh Fast109 and settled-input Verify109 pass with observed exit zero,
+including Rust, installed-package smokes and Chrome JavaScript/WASM tests.
+Recorded source/test/config hashes still match. New-head hosted evidence is
+required.
+
+Native108 has now completed against its unchanged native scope: 66 assertion
+kills, 12 errors and three timeouts across 81 candidates, 81.48% raw/adjusted,
+zero equivalents or survivors. The 78 conventional detections are not 78
+assertion kills. The audit exits nonzero with `evidenceClean: false`; native
+work must address missing-result fixture errors, timeout outcomes and the
+unsafe-function instrumentation gap. Keep the prior native106 result separate.
+The complete coverage milestone remains open. No merge, publication or version
+change.
+
 Work108 adds native TLS verification/recovery, client string validation, HTTP
 status boundary and empty WebSocket subprotocol regressions. Both TLS transports
 use fresh self-signed certificates, alternate verification policy on one listener

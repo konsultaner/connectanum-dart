@@ -1240,6 +1240,16 @@ fi
                 self.assertIn("test/mcp_completion_test.dart", script)
                 self.assertIn("test/mcp_completion_regression_test.dart", script)
 
+    def test_browser_verification_and_coverage_include_mcp_form_boundaries(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
+                self.assertIn("test/mcp/form_elicitation_regression_test.dart", script)
+                self.assertIn("cd packages/connectanum_client", script)
+        coverage = (REPO_ROOT / "bin" / "test-browser-coverage").read_text(encoding="utf-8")
+        self.assertIn('--report-on=packages/connectanum_client/lib', coverage)
+        self.assertIn('--coverage="$coverage_root/raw/client-forms"', coverage)
+
     def test_browser_verification_and_coverage_include_key_file_boundaries(self) -> None:
         for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
             with self.subTest(script=path.name):

@@ -35,9 +35,17 @@ mkdir -p "$coverage_root"
     -p chrome --compiler=dart2js --concurrency=1 --timeout=5m \
     --coverage="$coverage_root/raw/core"
 )
+(
+  cd packages/connectanum_client
+  run_command_with_timeout "MCP form browser coverage" 420 dart test \
+    test/mcp/form_elicitation_regression_test.dart \
+    -p chrome --compiler=dart2js --concurrency=1 --timeout=5m \
+    --coverage="$coverage_root/raw/client-forms"
+)
 # VM ignore comments are deliberately not applied to browser source maps.
 dart pub global run coverage:format_coverage --lcov --in="$coverage_root/raw" \
   --out="$coverage_root/lcov.info" --package="$ROOT_DIR" --base-directory="$ROOT_DIR" \
-  --report-on=packages/connectanum_core/lib
+  --report-on=packages/connectanum_core/lib \
+  --report-on=packages/connectanum_client/lib
 python3 tool/check_coverage.py "$coverage_root/lcov.info" --runtime chrome \
   --output "$coverage_root/summary.json" --policy tool/browser_coverage_policy.json

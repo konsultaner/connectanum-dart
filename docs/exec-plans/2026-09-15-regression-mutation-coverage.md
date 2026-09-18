@@ -67,6 +67,70 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work109 MCP Form And Content Boundaries
+
+- Add 248 public form regressions for malformed roots/properties, wire request
+  decoding, independent required/optional fields, Unicode rune lengths, finite
+  numbers, inclusive bounds, enum/cardinality constraints and exact action
+  output. Thirty assertion failures reproduce calendar normalization and
+  invalid RFC3339 grammar acceptance, plus rejection of lowercase `t`/`z`.
+  Validate calendar fields without overflow and enforce timestamp grammar;
+  retain offsets, fractions and possible month-end UTC leap-second placement.
+  This is not an IERS announcement lookup. Record primary sources and the
+  validation decision in `docs/mcp_integration_research.md`.
+- Add 592 real loopback HTTP cases covering tool, prompt, resource and catalog
+  content across both protocol eras and direct/streamable helpers. Independently
+  reject malformed values, then receive exact valid data on the same client.
+  Verify wire method counts and Accept negotiation; modern direct requests
+  still advertise both JSON and SSE. All cases pass.
+- Final focused VM collection `client-mcp109c-vm`: all 1,159 client MCP tests
+  pass, complete HTTP-client file 1,860/1,955 measured lines (95.1407%), 95 missed
+  lines. Source/test/config hashes match. Retain the full unmeasured inventory
+  and expected whole-workspace-policy failure for this narrow selection; do
+  not replace the historical whole-VM package table with this file score.
+- Form-only JS and WASM behavior: 248 tests pass on each, launched from the
+  package root. Add these cases to canonical browser verification and JS
+  collection, with a fail-first script-inventory check. All 54 verification
+  script tests and 56 mutation runner tests pass (one optional platform skip).
+  `browser109-current` succeeds: selected core 6,628/6,973 (95.05%) and form-only
+  client 279/283 (98.59%), with 172 unmeasured library sources. Browser tree
+  shaking makes the form-only denominator narrower than the full VM HTTP file;
+  it is not full client/browser completion. WASM counters remain unavailable.
+- Preserve failed collection attempts separately: selecting default platforms
+  also ran HTTP-server tests in WASM; workspace-root browser commands failed
+  generated HTML loading. Corrected explicit VM and package-root browser runs
+  pass. Early new wire-fixture failures were a missing constructor argument and
+  an incorrect modern-direct Accept expectation, not production defects.
+  Local companion timezone/rollover and missing-assertion suggestions were
+  refuted using exact cases and source inspection, not accepted uncritically.
+- Add `client-mcp-http-vm` over the complete HTTP client source and entire MCP
+  test directory. `client-mcp109-mutations` retains all 1,597 candidates and
+  passes its baseline. It is still running; no final score or new CI mutation
+  gate is claimed. Do not change its tests and reuse this evidence as final.
+  Early security-relevant survivors replace conjunctions in
+  `_sameMcpOAuthResource` with disjunctions. Its only caller is
+  `exchangeAuthorizationCode`; the unmutated implementation rejects mismatched
+  resource URIs before opening the token exchange. Existing lifecycle tests use
+  matching resources, so follow-up must vary scheme/host/port/path/query and
+  reject user-info/fragments with an explicit zero-network-call assertion.
+  These are uncovered negative contracts, not established production bypasses
+  or equivalent-mutant waivers. Preserve the current campaign snapshot first.
+- Native108 completes with 81 candidates: 66 strict assertion kills, 12 errors,
+  three timeouts, no survivors or equivalents; raw/adjusted 81.4815%. Retain
+  its conventional 78 detections separately. The strict audit exits one with
+  `evidenceClean: false`, matching the unchanged native108 scope. Continue
+  native missing-result fixture work and unsafe-function instrumentation; do
+  not convert clock/timeout failures into assertion kills. Do not rerun the
+  completed campaign merely because the score is incomplete.
+- Evidence root: `out/regression-coverage-2026-09-15/coverage109-mcp-client`.
+  Pre-change Fast108c and Verify108 were observed passing on the clean starting
+  snapshot. Fresh Fast109 passes with observed exit zero after the native owner
+  exited. Settled-input Verify109 also passes with observed exit zero, including
+  Rust, installed-package smokes and Chrome JavaScript/WASM tests. Recorded
+  source/test/config hashes still match. New-head hosted checks remain pending.
+  No merge, publication, version change, exclusion or equivalence waiver. The
+  whole goal remains unmet.
+
 ### Work108 Native TLS Boundaries And Lab Startup Race
 
 - Add five native FFI regressions for null/empty/non-UTF-8 client strings, exact
