@@ -67,6 +67,59 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work106 Native FFI Buffer And Handshake Boundaries
+
+- Add 13 C-ABI regressions covering HTTP header arrays/fields, buffered bodies,
+  streamed chunks, WebSocket protocol/reason strings, signed status/length
+  boundaries, client port narrowing and nullable empty header values. Use live
+  HTTP/WebSocket peers to verify exact response bytes, preserved handshakes and
+  stream writers after invalid input, successful retries and consumed handles.
+  Fixture runtime ownership is RAII-managed even if setup fails.
+- Fail-first logs `/tmp/connectanum-coverage106-*-fail-first.log` retain assertion
+  failures for status, optional lengths, body and client validation; invalid
+  header/range/chunk cases abort with SIGABRT, and wrapped WebSocket string
+  ranges segfault. Preserve those as crash reproductions, never assertion kills.
+- Share pointer/length metadata checks before constructing borrowed slices or
+  allocating header vectors. Keep valid null/zero-length buffers, UTF-8 decoding,
+  public ABI signatures and WAMP wire behavior. The caller still owns allocation
+  liveness, initialization and immutability; these checks do not make arbitrary
+  foreign addresses safe. Follow Rust's
+  [slice safety contract](https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html)
+  for alignment, maximum byte length and address wrap. Validate HTTP statuses
+  within 100..599 before narrowing, as required by
+  [RFC 9110 section 15](https://www.rfc-editor.org/rfc/rfc9110.html#section-15).
+- Client WebSocket connect now shares header validation, rejecting a null array
+  with positive length rather than silently discarding it. Both native client
+  transports reject ports outside 1..65535 instead of wrapping the destination.
+- All 13 focused tests pass. Full Rust workspace tests and fresh final
+  `native106b-current` LLVM collection pass, including 165 FFI unit tests.
+  Cargo-only totals: core 8,416/10,052 (83.72%), FFI 4,649/5,798 (80.18%).
+  Existing platform/unmeasured-source gaps remain explicit. The intermediate
+  `native106-current` predates the final string-range change; neither report
+  can be combined with the different-input Work105 Dart/native collection.
+- Native mutation inventory probing confirms cargo-mutants 27.1.0 deliberately
+  skips unsafe function bodies (`visit.rs::fn_sig_excluded`), including the new
+  pointer/header helpers. Retain that instrumentation gap; do not call a generated
+  subset whole-FFI mutation completion or turn crash repros into assertion kills.
+- VM105 completes with observed exit zero and 632 matching Dart input hashes
+  before native edits: 38,515/42,612 (90.39%); router 17,003/19,331 (87.96%).
+  Other package/packaging percentages match VM101; 59 library and 12 packaging
+  source files remain unmeasured. Fast106 and settled-input Verify106 pass with
+  observed exit zero, including Rust, installed-package smokes and Chrome WASM
+  tests; the final native source/test/build scope still matches afterward.
+- Start `native-boundaries106-mutations` using `bin/test-native-mutations`,
+  package `ct_ffi`, feature `ffi-test`, file `ct_ffi/src/runtime/ffi.rs`, and regex
+  `(checked_ffi_slice|read_http_headers|ct_http_response_|ct_connection_(accept|reject)_websocket|ct_client_connect_)`.
+  Use `--cargo-test-arg=--lib --timeout 180 --build-timeout 600` and the
+  full FFI library test suite, retaining the actual generated inventory rather
+  than assuming the regex covers every helper. The campaign is running; no
+  completed native mutation percentage is claimed for this increment.
+  The wrapper's isolated `--in-place` execution is serial; cargo-mutants rejects
+  an explicit `--jobs 1` alongside it before starting a campaign.
+- At pushed head `ab8942b3`, package/image dry runs and WAMP profiles pass; main
+  CI has pending jobs and no observed failed jobs. Require fresh hosted evidence
+  after pushing this implementation. No merge/publication/version change.
+
 ### Work105 Instrumented Dart-To-FFI Coverage
 
 - Complete fresh Cargo-only `native105-current` on macOS ARM64: core

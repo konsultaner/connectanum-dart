@@ -6,6 +6,32 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work106 adds 13 native C-ABI boundary regressions and fixes invalid HTTP buffer
+metadata, WebSocket status/length narrowing, and client port/header validation.
+Fail-first runs preserve ordinary assertion failures separately from native
+SIGABRT/SIGSEGV reproductions; crashes are not mutation assertion kills. Shared
+slice metadata checks reject null nonempty pointers, misalignment, impossible
+lengths and address wrap before dereferencing. Foreign callers must still supply
+live initialized allocations. Valid empty buffers and existing UTF-8 handling
+remain compatible. Live socket tests verify exact buffered/chunked response bytes,
+WebSocket rejection bytes, retry after rejected input, and consumed-handle errors.
+All 13 focused tests and the full Rust workspace pass. Final `native106b-current`
+Cargo-only coverage completes at core 8,416/10,052 (83.72%) and FFI 4,649/5,798
+(80.18%); do not combine it with the older, different-input Dart-driven report.
+The intermediate `native106-current` report predates the final string-range tests.
+Fast106 and settled-input Verify106 pass with observed exit zero, including
+Rust, installed-package smokes and Chrome WASM tests. The final native scope
+still matches after Verify. `native-boundaries106-mutations` is running with
+one worker and the full FFI library test suite. Mutation evidence for this
+increment is not complete: cargo-mutants 27.1.0 skips unsafe function bodies, including the
+new slice/header helpers. This is an explicit measurement gap, not a waiver.
+VM105 also completes before these native changes: 38,515/42,612 Dart library
+lines (90.39%), router 17,003/19,331 (87.96%), other package percentages unchanged
+from VM101, with 59 unmeasured library and 12 unmeasured packaging sources. Its
+632 Dart input hashes matched at completion. At pushed head `ab8942b3`, package
+and router-image dry runs and WAMP profiles pass; main CI has pending jobs and
+no observed failures. No merge, publication or version change.
+
 Work105 closes the native measurement gap between Rust unit tests and Dart
 callers. Fresh `native105-current` Cargo coverage completes at 8,374/10,052
 core lines (83.31%) and 4,589/5,808 FFI lines (79.01%). The new

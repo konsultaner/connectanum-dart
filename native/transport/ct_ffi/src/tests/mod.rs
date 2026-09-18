@@ -17,6 +17,8 @@ mod e2ee;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod error_cases;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+mod ffi_boundaries;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 mod listen_flow;
 mod router_config;
 #[cfg(any(target_os = "linux", target_os = "macos"))]

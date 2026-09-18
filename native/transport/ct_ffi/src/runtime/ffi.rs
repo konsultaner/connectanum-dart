@@ -2560,7 +2560,10 @@ pub extern "C" fn ct_client_connect_rawsocket(
     heartbeat_interval_ms: c_uint,
     heartbeat_timeout_ms: c_uint,
 ) -> c_int {
-    if host_ptr.is_null() || port <= 0 || max_message_size_exponent <= 0 {
+    if host_ptr.is_null()
+        || !(1..=u16::MAX as c_int).contains(&port)
+        || max_message_size_exponent <= 0
+    {
         return ERR_INVALID_ARGUMENT;
     }
     let host = match unsafe { CStr::from_ptr(host_ptr) }.to_str() {
@@ -2601,7 +2604,7 @@ pub extern "C" fn ct_client_connect_websocket(
     heartbeat_interval_ms: c_uint,
     heartbeat_timeout_ms: c_uint,
 ) -> c_int {
-    if host_ptr.is_null() || target_ptr.is_null() || port <= 0 {
+    if host_ptr.is_null() || target_ptr.is_null() || !(1..=u16::MAX as c_int).contains(&port) {
         return ERR_INVALID_ARGUMENT;
     }
     let host = match unsafe { CStr::from_ptr(host_ptr) }.to_str() {
@@ -2619,30 +2622,9 @@ pub extern "C" fn ct_client_connect_websocket(
         Ok(_) => return ERR_UNSUPPORTED_SERIALIZER,
         Err(code) => return code,
     };
-    let headers = if headers_len == 0 || headers_ptr.is_null() {
-        Vec::new()
-    } else {
-        let mut list = Vec::with_capacity(headers_len);
-        for index in 0..headers_len {
-            let Some(header) = (unsafe { headers_ptr.add(index).as_ref() }) else {
-                return ERR_INVALID_ARGUMENT;
-            };
-            if header.name_ptr.is_null() || header.value_ptr.is_null() {
-                return ERR_INVALID_ARGUMENT;
-            }
-            let name = unsafe { slice::from_raw_parts(header.name_ptr, header.name_len) };
-            let value = unsafe { slice::from_raw_parts(header.value_ptr, header.value_len) };
-            let name = match str::from_utf8(name) {
-                Ok(value) => value.to_string(),
-                Err(_) => return ERR_INVALID_ARGUMENT,
-            };
-            let value = match str::from_utf8(value) {
-                Ok(value) => value.to_string(),
-                Err(_) => return ERR_INVALID_ARGUMENT,
-            };
-            list.push((name, value));
-        }
-        list
+    let headers = match unsafe { read_http_headers(headers_ptr, headers_len) } {
+        Ok(headers) => headers,
+        Err(err) => return err,
     };
     let heartbeat_interval = duration_from_millis(heartbeat_interval_ms);
     let heartbeat_timeout = duration_from_millis(heartbeat_timeout_ms);
@@ -3225,6 +3207,50 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
     SUCCESS
 }
 
+/// Checks slice metadata before reading an FFI allocation.
+///
+/// # Safety
+/// A nonempty accepted range must still be a live, initialized allocation,
+/// readable and unmodified for the returned borrow. Metadata checks cannot
+/// establish allocation validity for an arbitrary foreign pointer.
+unsafe fn checked_ffi_slice<'a, T>(data: *const T, len: usize) -> Result<&'a [T], c_int> {
+    if len == 0 {
+        return Ok(&[]);
+    }
+    let bytes = len
+        .checked_mul(std::mem::size_of::<T>())
+        .ok_or(ERR_INVALID_ARGUMENT)?;
+    if data.is_null()
+        || (data as usize) % std::mem::align_of::<T>() != 0
+        || bytes > isize::MAX as usize
+        || (data as usize).checked_add(bytes).is_none()
+    {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    Ok(unsafe { slice::from_raw_parts(data, len) })
+}
+
+unsafe fn read_http_headers(
+    headers: *const CtHttpHeader,
+    len: usize,
+) -> Result<Vec<(String, String)>, c_int> {
+    let headers = unsafe { checked_ffi_slice(headers, len)? };
+    let mut result = Vec::with_capacity(headers.len());
+    for header in headers {
+        let name = unsafe { checked_ffi_slice(header.name_ptr, header.name_len)? };
+        let value = unsafe { checked_ffi_slice(header.value_ptr, header.value_len)? };
+        result.push((
+            str::from_utf8(name)
+                .map_err(|_| ERR_INVALID_ARGUMENT)?
+                .to_owned(),
+            str::from_utf8(value)
+                .map_err(|_| ERR_INVALID_ARGUMENT)?
+                .to_owned(),
+        ));
+    }
+    Ok(result)
+}
+
 #[no_mangle]
 pub extern "C" fn ct_http_response_send(
     handshake_handle: c_int,
@@ -3240,31 +3266,13 @@ pub extern "C" fn ct_http_response_send(
     if status < 100 || status > 599 {
         return ERR_INVALID_ARGUMENT;
     }
-    if headers.is_null() && headers_len > 0 {
-        return ERR_INVALID_ARGUMENT;
-    }
-    let mut header_vec: Vec<(String, String)> = Vec::with_capacity(headers_len);
-    for index in 0..headers_len {
-        let header = unsafe { headers.add(index).as_ref() };
-        let Some(header) = header else {
-            return ERR_INVALID_ARGUMENT;
-        };
-        let name_slice = unsafe { std::slice::from_raw_parts(header.name_ptr, header.name_len) };
-        let value_slice = unsafe { std::slice::from_raw_parts(header.value_ptr, header.value_len) };
-        let name = match std::str::from_utf8(name_slice) {
-            Ok(value) => value.to_string(),
-            Err(_) => return ERR_INVALID_ARGUMENT,
-        };
-        let value = match std::str::from_utf8(value_slice) {
-            Ok(value) => value.to_string(),
-            Err(_) => return ERR_INVALID_ARGUMENT,
-        };
-        header_vec.push((name, value));
-    }
-    let body_vec = if body_ptr.is_null() || body_len == 0 {
-        Vec::new()
-    } else {
-        unsafe { std::slice::from_raw_parts(body_ptr, body_len) }.to_vec()
+    let header_vec = match unsafe { read_http_headers(headers, headers_len) } {
+        Ok(headers) => headers,
+        Err(err) => return err,
+    };
+    let body_vec = match unsafe { checked_ffi_slice(body_ptr, body_len) } {
+        Ok(body) => body.to_vec(),
+        Err(err) => return err,
     };
 
     let Some(stored) = remove_http_handshake(handshake_handle as u32) else {
@@ -3298,27 +3306,10 @@ pub extern "C" fn ct_http_response_stream_open(
     if status < 100 || status > 599 {
         return ERR_INVALID_ARGUMENT;
     }
-    if headers.is_null() && headers_len > 0 {
-        return ERR_INVALID_ARGUMENT;
-    }
-    let mut header_vec: Vec<(String, String)> = Vec::with_capacity(headers_len);
-    for index in 0..headers_len {
-        let header = unsafe { headers.add(index).as_ref() };
-        let Some(header) = header else {
-            return ERR_INVALID_ARGUMENT;
-        };
-        let name_slice = unsafe { std::slice::from_raw_parts(header.name_ptr, header.name_len) };
-        let value_slice = unsafe { std::slice::from_raw_parts(header.value_ptr, header.value_len) };
-        let name = match std::str::from_utf8(name_slice) {
-            Ok(value) => value.to_string(),
-            Err(_) => return ERR_INVALID_ARGUMENT,
-        };
-        let value = match std::str::from_utf8(value_slice) {
-            Ok(value) => value.to_string(),
-            Err(_) => return ERR_INVALID_ARGUMENT,
-        };
-        header_vec.push((name, value));
-    }
+    let header_vec = match unsafe { read_http_headers(headers, headers_len) } {
+        Ok(headers) => headers,
+        Err(err) => return err,
+    };
     let Some(stored) = remove_http_handshake(handshake_handle as u32) else {
         return ERR_HANDSHAKE_CONSUMED;
     };
@@ -3374,15 +3365,15 @@ pub extern "C" fn ct_http_response_stream_write(
     if stream_handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
-    if chunk_len > 0 && chunk_ptr.is_null() {
-        return ERR_INVALID_ARGUMENT;
-    }
+    let chunk = match unsafe { checked_ffi_slice(chunk_ptr, chunk_len) } {
+        Ok(chunk) => chunk,
+        Err(err) => return err,
+    };
     if chunk_len == 0 {
         return SUCCESS;
     }
     match with_http_response_stream(stream_handle as u32, |stream| {
-        let slice = unsafe { slice::from_raw_parts(chunk_ptr, chunk_len) };
-        stream.write_chunk(Bytes::copy_from_slice(slice))
+        stream.write_chunk(Bytes::copy_from_slice(chunk))
     }) {
         Some(Ok(())) => SUCCESS,
         Some(Err(_)) => ERR_STREAM_CLOSED,
@@ -3424,7 +3415,7 @@ pub extern "C" fn ct_connection_accept_websocket(
     protocol_ptr: *const c_char,
     protocol_len: c_int,
 ) -> c_int {
-    if connection_id <= 0 || handshake_handle <= 0 {
+    if connection_id <= 0 || handshake_handle <= 0 || protocol_len < 0 {
         return ERR_INVALID_ARGUMENT;
     }
     let serializer = match serializer_from_id(serializer_id) {
@@ -3432,11 +3423,11 @@ pub extern "C" fn ct_connection_accept_websocket(
         Err(err) => return err,
     };
     let protocol = if protocol_len > 0 {
-        if protocol_ptr.is_null() {
-            return ERR_INVALID_ARGUMENT;
-        }
         let bytes =
-            unsafe { std::slice::from_raw_parts(protocol_ptr as *const u8, protocol_len as usize) };
+            match unsafe { checked_ffi_slice(protocol_ptr.cast::<u8>(), protocol_len as usize) } {
+                Ok(bytes) => bytes,
+                Err(err) => return err,
+            };
         match std::str::from_utf8(bytes) {
             Ok(value) => Some(value.to_string()),
             Err(_) => return ERR_INVALID_ARGUMENT,
@@ -3470,7 +3461,11 @@ pub extern "C" fn ct_connection_reject_websocket(
     reason_ptr: *const c_char,
     reason_len: c_int,
 ) -> c_int {
-    if connection_id <= 0 || handshake_handle <= 0 {
+    if connection_id <= 0
+        || handshake_handle <= 0
+        || reason_len < 0
+        || !(100..=599).contains(&status)
+    {
         return ERR_INVALID_ARGUMENT;
     }
     let status_code = match StatusCode::from_u16(status as u16) {
@@ -3478,11 +3473,11 @@ pub extern "C" fn ct_connection_reject_websocket(
         Err(_) => return ERR_INVALID_ARGUMENT,
     };
     let reason = if reason_len > 0 {
-        if reason_ptr.is_null() {
-            return ERR_INVALID_ARGUMENT;
-        }
-        let bytes =
-            unsafe { std::slice::from_raw_parts(reason_ptr as *const u8, reason_len as usize) };
+        let bytes = match unsafe { checked_ffi_slice(reason_ptr.cast::<u8>(), reason_len as usize) }
+        {
+            Ok(bytes) => bytes,
+            Err(err) => return err,
+        };
         match std::str::from_utf8(bytes) {
             Ok(value) => Some(value.to_string()),
             Err(_) => return ERR_INVALID_ARGUMENT,
