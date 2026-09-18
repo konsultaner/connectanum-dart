@@ -67,6 +67,75 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work112 Assertion-Based CI Gate And Oracles
+
+- Two fail-first CLI regressions prove that test-error-only and unclassified
+  detections previously returned success. Gate the default 95% threshold on
+  adjustedAssertionScoreLowerBound, require complete classification and retain
+  the existing rejection of infrastructure errors/timeouts. Keep conventional
+  score/adjustedScore, individual outcomes and equivalence validation unchanged.
+- Persist the gate metric/threshold separately from conventional scores. A list
+  run has no gate result; failed baselines remain incomplete. Tests cover the
+  exact threshold, mixed evidence with real assertions, unknown evidence above
+  threshold, crashes/timeouts, compile-only and equivalent-only inventories,
+  and preserved raw/adjusted summaries. All 60 runner tests pass on macOS with
+  one explicitly Linux-only test skipped.
+- Valid MCP completion constructors/parsers now assert success before exact
+  field, wire, boundary and immutability checks. Assert reference type and
+  non-null context before dereferencing. All 212 tests pass. Focused VM coverage
+  measures 104/104 completion lines; whole-workspace policy intentionally fails
+  on this selection. The identical 54-candidate inventory improves from 19
+  assertion kills and 25 test-error detections to 44 assertion kills, ten compile
+  errors, no survivors/errors/timeouts, on VM and JavaScript separately. No
+  exclusions/waivers or production protocol changes. WASM coverage is unmeasured.
+- Auth selection tests require the intended provider identity and one options
+  record before using single. Repeated binding close must complete successfully
+  while retaining exact unregister/owner isolation checks. All 86 tests pass;
+  focused library VM coverage remains 455/455. The initial full 294-candidate
+  campaign records 173 assertions, three mixed detections with assertions, six
+  test-error-only detections, seven survivors and 105 compile errors. Its strict
+  gate fails at 93.12%, versus 96.30% conventional. The intermediate auth112b
+  result is 94.71%: matcher completes propagates Future errors instead of
+  reporting assertion failures. Inspect the explicit fake-binding success/error
+  outcome instead, rethrowing TimeoutException; two controls preserve the exact
+  timeout for both sync/async callbacks. Final auth112c passes with 176 pure
+  assertions and six mixed detections containing real assertions, seven
+  survivors, 105 compile errors, no error-only detections/errors/timeouts.
+  Raw/adjusted assertion score 96.30%; no equivalents. Inventory and final hashes
+  match. Keep both earlier failed reports unchanged.
+- Inspect all seven auth survivors without waivers: initial busy state, release
+  reentrancy/identity guards, null terminal cleanup, and empty method-list
+  guards. Public lifecycle tests already cover delayed/reentrant cleanup and ID
+  reuse. Record individual, source-hash-pinned control-flow investigations in
+  the evidence directory; no public counterexample found, no waiver applied.
+  GLM's separate backend refuses connections; no heavyweight
+  review was obtained. Routine Qwen review is advisory: alleged missing summary
+  validation is inapplicable to internally generated summaries, and the claimed
+  missing high-score/unknown test already exists. The completion review reports
+  no actionable findings; retain its narrow-context limitations. The final
+  helper-only review reached its token cap, not a completed review; actual
+  mutant logs prove an assertion failure plus the unchanged cleanup error.
+- Preserve `assertion-gate112-mutations` as pre-oracle-change evidence; never
+  overwrite it with the passing `core-completion112b-mutations` or separate
+  `core-completion112-web-mutations`. Final auth rerun is `auth-server112c-mutations`.
+  Coverage: `core-completion112-vm`, `auth-server112c-vm`. Fresh browser112b has
+  123/123 completion JS lines, selected core 6,628/6,973 (95.05%) and form-only
+  client 279/283 (98.59%); 172 unmeasured sources remain. All 469 Dart hashes
+  match. Preserve browser112, whose broad input hashes drifted in the unrelated
+  auth binding test before the final recollection. Logs and review context:
+  `coverage112-assertion-gates`. Original MCP109 keeps running unchanged.
+- Fast111/Verify111 passed before Work112. Fast112 and intermediate Verify112
+  pass; the latter began before the last test change. Final settled Verify112b
+  passes with observed exit zero, including Rust, installed-package smokes,
+  JavaScript and WASM; final component hashes match. The native owner is
+  released; new-head hosted checks remain required. Work111 is
+  pushed as `a3892e14`; package/image dry runs and WAMP profiles pass, CI remains
+  pending. MCP100-library source/test/support hashes still match: 170 error-only
+  detections leave assertion evidence at 75.84%, so the stronger gate correctly
+  requires more work despite the old conventional pass. Prioritize those test
+  gaps next, retaining its complete 1,098-candidate inventory and old report.
+  No merge, publication, version bump or whole-milestone completion.
+
 ### Work111 MCP OAuth Boundary Assertions
 
 - Add 12 mismatched resource URI cases and four valid exchanges through the

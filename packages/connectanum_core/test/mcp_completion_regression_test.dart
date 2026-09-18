@@ -42,12 +42,14 @@ void main() {
 
   group('MCP completion request boundaries', () {
     test('parses prompt fields without a self-round-trip oracle', () {
-      final request = McpCompletionRequest.fromJson(_request());
+      final request = _valid(() => McpCompletionRequest.fromJson(_request()));
+      expect(request.reference, isA<McpPromptReference>());
       final reference = request.reference as McpPromptReference;
       expect(reference.name, 'find-task');
       expect(reference.title, 'Find a task');
       expect(request.argument.name, 'taskId');
       expect(request.argument.value, 'T-');
+      expect(request.context, isNotNull);
       expect(request.context!.arguments, {'project': 'alpha'});
       expect(request.toJson(), _request());
     });
@@ -55,7 +57,7 @@ void main() {
     for (final uri in ['app://tasks/{taskId}', 'app://tasks/42']) {
       test('parses resource reference $uri', () {
         final json = _request()..['ref'] = {'type': 'ref/resource', 'uri': uri};
-        final request = McpCompletionRequest.fromJson(json);
+        final request = _valid(() => McpCompletionRequest.fromJson(json));
         expect(request.reference, isA<McpResourceTemplateReference>());
         expect((request.reference as McpResourceTemplateReference).uri, uri);
         expect(request.toJson()['ref'], {'type': 'ref/resource', 'uri': uri});
@@ -66,7 +68,9 @@ void main() {
       test('preserves optional prompt title ${title ?? "absent"}', () {
         final json = _request();
         (json['ref'] as Map)['title'] = title;
-        final reference = McpCompletionRequest.fromJson(json).reference;
+        final reference = _valid(
+          () => McpCompletionRequest.fromJson(json),
+        ).reference;
         expect(reference.toJson(), {
           'type': 'ref/prompt',
           'name': 'find-task',
@@ -82,9 +86,10 @@ void main() {
           final json = _request();
           _replace(json, ['argument', 'value'], value);
           _replace(json, ['context', 'arguments', 'project'], value);
-          final request = McpCompletionRequest.fromJson(json);
+          final request = _valid(() => McpCompletionRequest.fromJson(json));
           expect(request.argument.value, value);
           expect(request.argument.toJson(), {'name': 'taskId', 'value': value});
+          expect(request.context, isNotNull);
           expect(request.context!.arguments, {'project': value});
         },
       );
@@ -98,7 +103,7 @@ void main() {
         } else {
           json['context'] = null;
         }
-        final request = McpCompletionRequest.fromJson(json);
+        final request = _valid(() => McpCompletionRequest.fromJson(json));
         expect(request.context, isNull);
         expect(request.toJson().containsKey('context'), isFalse);
       });
@@ -110,8 +115,9 @@ void main() {
       {'arguments': <String, String>{}},
     ]) {
       test('retains explicit empty context $context', () {
-        final request = McpCompletionRequest.fromJson(
-          _request()..['context'] = context,
+        final request = _valid(
+          () =>
+              McpCompletionRequest.fromJson(_request()..['context'] = context),
         );
         expect(request.context, isNotNull);
         expect(request.context!.arguments, isEmpty);
@@ -253,10 +259,12 @@ void main() {
 
     test('context takes an immutable snapshot on both construction paths', () {
       final input = {'project': 'alpha'};
-      final direct = McpCompletionContext(arguments: input);
+      final direct = _valid(() => McpCompletionContext(arguments: input));
       final json = _request();
       _replace(json, ['context', 'arguments'], input);
-      final parsed = McpCompletionRequest.fromJson(json).context!;
+      final request = _valid(() => McpCompletionRequest.fromJson(json));
+      expect(request.context, isNotNull);
+      final parsed = request.context!;
       input['project'] = 'changed';
       input['later'] = 'new';
       for (final context in [direct, parsed]) {
@@ -285,12 +293,14 @@ void main() {
                 'hasMore': ?more,
               },
             };
-            final direct = McpCompletionResult(
-              values: values,
-              total: total,
-              hasMore: more,
+            final direct = _valid(
+              () => McpCompletionResult(
+                values: values,
+                total: total,
+                hasMore: more,
+              ),
             );
-            final parsed = McpCompletionResult.fromJson(expected);
+            final parsed = _valid(() => McpCompletionResult.fromJson(expected));
             for (final result in [direct, parsed]) {
               expect(result.values, values);
               expect(result.total, total);
@@ -303,9 +313,11 @@ void main() {
     }
 
     test('accepts explicit null optionals and drops them from output', () {
-      final result = McpCompletionResult.fromJson({
-        'completion': {'values': <String>[], 'total': null, 'hasMore': null},
-      });
+      final result = _valid(
+        () => McpCompletionResult.fromJson({
+          'completion': {'values': <String>[], 'total': null, 'hasMore': null},
+        }),
+      );
       expect(result.toJson(), _result(<String>[]));
     });
 
@@ -436,8 +448,12 @@ void main() {
           '\u00e4\u4e16\ud83d\ude00',
           'first',
         ];
-        final direct = McpCompletionResult(values: input.map((value) => value));
-        final parsed = McpCompletionResult.fromJson(_result(input));
+        final direct = _valid(
+          () => McpCompletionResult(values: input.map((value) => value)),
+        );
+        final parsed = _valid(
+          () => McpCompletionResult.fromJson(_result(input)),
+        );
         input.clear();
         for (final result in [direct, parsed]) {
           expect(result.values, [
@@ -457,4 +473,10 @@ void main() {
       },
     );
   });
+}
+
+T _valid<T>(T Function() construct) {
+  late T value;
+  expect(() => value = construct(), returnsNormally);
+  return value;
 }

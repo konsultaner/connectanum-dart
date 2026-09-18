@@ -278,6 +278,15 @@ def validate_equivalents(entries, mutations, source_hashes):
     return validated
 
 
+def passes_assertion_gate(summary, threshold):
+    """Conventional detections remain diagnostic, not assertion credit."""
+    score = summary['adjustedAssertionScoreLowerBound']
+    return (score is not None and score >= threshold
+            and summary['killEvidenceComplete']
+            and not summary['counts'].get('error')
+            and not summary['counts'].get('timeout'))
+
+
 def snapshot(destination, support_files=()):
     listed = set(subprocess.check_output(
         ['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], cwd=ROOT,
@@ -330,7 +339,8 @@ def main():
     parser.add_argument('--target', action='append')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--timeout', type=float, default=45)
-    parser.add_argument('--threshold', type=float, default=95)
+    parser.add_argument('--threshold', type=float, default=95,
+                        help='minimum adjusted assertion-based mutation score (default: 95)')
     parser.add_argument('--list', action='store_true')
     args = parser.parse_args()
     if not 0 <= args.threshold <= 100 or args.timeout <= 0:
@@ -354,6 +364,8 @@ def main():
     report = {'schemaVersion': 1, 'scope': selected, 'targets': {}, 'complete': False,
               'killEvidenceVersion': 1,
               'scoreDefinition': 'Completed test detection, including caught test errors',
+              'gate': {'metric': 'adjustedAssertionScoreLowerBound',
+                       'threshold': args.threshold, 'passed': None},
               'runnerSha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'operatorScope': ['binary', 'nullFallback', 'boolean', 'negation', 'condition']}
@@ -517,15 +529,17 @@ def main():
                 save()
                 raise RuntimeError(f'{name}: restored baseline failed')
     report['complete'] = not args.list
+    if not args.list:
+        for name, target in report['targets'].items():
+            target['gatePassed'] = passes_assertion_gate(target, args.threshold)
+            print(f'{name}: assertion gate {"passed" if target["gatePassed"] else "failed"}; '
+                  f'adjusted assertion score={target["adjustedAssertionScoreLowerBound"]}, '
+                  f'conventional score={target["adjustedScore"]}, threshold={args.threshold}', flush=True)
+        report['gate']['passed'] = all(target['gatePassed'] for target in report['targets'].values())
     save()
     if args.list:
         return 0
-    passed = all(
-        target['adjustedScore'] is not None and target['adjustedScore'] >= args.threshold
-        and not target['counts'].get('error') and not target['counts'].get('timeout')
-        for target in report['targets'].values()
-    )
-    return 0 if passed else 1
+    return 0 if report['gate']['passed'] else 1
 
 
 if __name__ == '__main__':

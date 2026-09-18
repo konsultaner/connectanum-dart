@@ -49,6 +49,22 @@ void main() {
     AuthSecurityTracker.reset();
   });
 
+  for (final asynchronous in [false, true]) {
+    test(
+      'successful-close oracle preserves timeout (async=$asynchronous)',
+      () async {
+        final timeout = TimeoutException('shutdown deadline');
+        await expectLater(
+          _expectSuccessfulClose(() {
+            if (asynchronous) return Future<void>.error(timeout);
+            throw timeout;
+          }),
+          throwsA(same(timeout)),
+        );
+      },
+    );
+  }
+
   test('a second binding cannot authenticate or abort another owner', () async {
     expect(
       (await first.rpc('hello', _hello('owned'))).argumentsKeywords?['status'],
@@ -89,7 +105,7 @@ void main() {
       await first.rpc('hello', _hello('first'));
       await second.rpc('hello', _hello('second'));
       expect(server.pendingAuthenticationCounts, {'realm': 2});
-      await firstBinding.close();
+      await _expectSuccessfulClose(firstBinding.close);
       await Future<void>.delayed(Duration.zero);
       expect(server.pendingAuthenticationCounts, {'realm': 1});
       expect(factory.authenticator.aborts, 1);
@@ -101,7 +117,7 @@ void main() {
         )).argumentsKeywords?['status'],
         'success',
       );
-      await firstBinding.close();
+      await _expectSuccessfulClose(firstBinding.close);
       expect(first.unregistered, [3, 2, 1]);
     },
   );
@@ -493,6 +509,23 @@ void main() {
       expect(factory.authenticator.aborts, 1);
       expect(server.pendingAuthenticationCounts, isEmpty);
     },
+  );
+}
+
+Future<void> _expectSuccessfulClose(Future<void> Function() close) async {
+  Object? failure;
+  try {
+    await close();
+  } on TimeoutException {
+    rethrow;
+  } catch (error) {
+    failure = error;
+  }
+  // completes forwards Future errors; assert this valid operation's outcome.
+  expect(
+    failure,
+    isNull,
+    reason: 'Closing a live or closed binding must succeed',
   );
 }
 

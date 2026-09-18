@@ -761,6 +761,43 @@ class MutationRunnerTests(unittest.TestCase):
         self.exercise_main('timeout', 1)
         self.exercise_main('signal', 1)
 
+    def test_main_rejects_test_errors_even_with_perfect_conventional_score(self):
+        self.exercise_main('testError', 1)
+
+    def test_main_rejects_unclassified_detections(self):
+        self.exercise_main('unknown', 1)
+
+    def test_list_records_inventory_without_claiming_a_gate_pass(self):
+        self.exercise_main('killed', 0, listing=True)
+
+    def test_assertion_gate_threshold_and_outcome_boundaries(self):
+        assertion = {'status': 'killed', 'killEvidence': {'cause': 'assertion'}}
+        mixed = {'status': 'killed', 'killEvidence': {'cause': 'mixed'}}
+        test_error = {'status': 'killed', 'killEvidence': {'cause': 'testError'}}
+        unknown = {'status': 'killed'}
+        equivalent = {'status': 'survived', 'equivalence': 'Individually validated equivalent'}
+        cases = [
+            ('exact threshold', [assertion] * 19 + [{'status': 'survived'}], 95, True),
+            ('below threshold', [assertion] * 19 + [{'status': 'survived'}], 95.01, False),
+            ('test errors are not assertions', [assertion] * 18 + [test_error] * 2, 95, False),
+            ('mixed has real assertions', [mixed], 100, True),
+            ('unknown despite sufficient score', [assertion] * 19 + [unknown], 95, False),
+            ('unknown at zero threshold', [unknown], 0, False),
+            ('crash despite sufficient score', [assertion] * 19 + [{'status': 'error'}], 95, False),
+            ('timeout despite sufficient score', [assertion] * 19 + [{'status': 'timeout'}], 95, False),
+            ('compile errors have no credit', [assertion, {'status': 'compileError'}], 100, True),
+            ('only compile errors', [{'status': 'compileError'}], 0, False),
+            ('empty inventory', [], 0, False),
+            ('only equivalents', [equivalent], 0, False),
+            ('equivalents only adjust denominator', [assertion] * 9 + [equivalent], 100, True),
+        ]
+        for name, outcomes, threshold, expected in cases:
+            with self.subTest(name=name):
+                summary = summarize(outcomes)
+                original = json.dumps(summary, sort_keys=True)
+                self.assertEqual(runner.passes_assertion_gate(summary, threshold), expected)
+                self.assertEqual(json.dumps(summary, sort_keys=True), original)
+
     def test_standalone_application_resolves_and_tests_in_its_own_directory(self):
         self.exercise_main('killed', 0, application=True)
 
@@ -847,7 +884,7 @@ class MutationRunnerTests(unittest.TestCase):
         json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text(), object_pairs_hook=unique)
 
     def exercise_main(self, status, expected_code, directory_tests=False, native=False,
-                      browser=False, application=False):
+                      browser=False, application=False, listing=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config = root / 'config.json'
@@ -935,9 +972,19 @@ class MutationRunnerTests(unittest.TestCase):
                     return 0, passed
                 if status == 'timeout':
                     return None, ''
-                return (-9 if status == 'signal' else 1), passed.replace('"result": "success"', '"result": "failure"').replace('"success": true', '"success": false')
+                failures = [] if status == 'unknown' else [
+                    {'type': 'error', 'testID': 1, 'isFailure': status != 'testError',
+                     'error': 'Expected true' if status != 'testError' else 'StateError: invalid state'}]
+                return (-9 if status == 'signal' else 1), events(
+                    {'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+                    *failures,
+                    {'type': 'testDone', 'testID': 1, 'result': 'failure'},
+                    {'type': 'done', 'success': False},
+                )
             args = ['runner', '--config', str(config), '--equivalents', str(equivalents),
                     '--output', str(root / 'result')]
+            if listing:
+                args.append('--list')
             with patch.object(sys, 'argv', args), patch.object(runner, 'snapshot', fake_snapshot), \
                  patch.object(runner, 'run', fake_run), patch.object(runner.subprocess, 'check_output', return_value='commit'), \
                  patch.dict(runner.os.environ, {'CONNECTANUM_NATIVE_LIB': str(library)}):
@@ -951,15 +998,29 @@ class MutationRunnerTests(unittest.TestCase):
                 expected_seen = []
             if native and directory_tests:
                 expected_seen = [source, source, 'bool f() => false;', source, source]
+            if listing:
+                expected_seen = []
             self.assertEqual(seen, expected_seen)
             if application:
                 self.assertEqual(len(dependency_cwds), 2)
                 self.assertEqual(dependency_cwds[1], dependency_cwds[0] / package_root)
             report = json.loads((root / 'result/mutation-report.json').read_text())
-            self.assertEqual(report['complete'], expected_code is not None)
+            complete = expected_code is not None and not listing
+            self.assertEqual(report['complete'], complete)
+            self.assertEqual(report['gate'], {
+                'metric': 'adjustedAssertionScoreLowerBound', 'threshold': 95,
+                'passed': expected_code == 0 if complete else None,
+            })
+            if complete:
+                self.assertEqual(report['targets']['fixture']['gatePassed'], expected_code == 0)
+            else:
+                for result in report['targets'].values():
+                    self.assertNotIn('gatePassed', result)
+            if listing:
+                self.assertEqual(report['targets']['fixture']['inventory'], [mutation])
             if status == 'artifactChanged':
                 self.assertFalse(report['targets']['fixture']['nativeArtifactUnchanged'])
-            if expected_code is not None:
+            if complete:
                 target = report['targets']['fixture']
                 if application:
                     self.assertEqual(target['dependencyHashes'], {
@@ -989,11 +1050,15 @@ class MutationRunnerTests(unittest.TestCase):
                     self.assertEqual(target['score'], 0)
                     self.assertEqual(target['outcomes'][0]['exitCode'], -9)
                 if target['outcomes'][0]['status'] == 'killed':
+                    cause = status if status in ('unknown', 'testError') else 'assertion'
                     self.assertEqual(report['killEvidenceVersion'], 1)
-                    self.assertEqual(target['outcomes'][0]['killEvidence']['cause'], 'unknown')
-                    self.assertEqual(target['killCauseCounts']['unknown'], 1)
-                    self.assertFalse(target['killEvidenceComplete'])
-                    self.assertEqual(target['assertionScoreLowerBound'], 0)
+                    self.assertEqual(target['outcomes'][0]['killEvidence']['cause'], cause)
+                    self.assertEqual(target['killCauseCounts'][cause], 1)
+                    self.assertEqual(target['killEvidenceComplete'], cause != 'unknown')
+                    self.assertEqual(target['score'], 100)
+                    self.assertEqual(target['adjustedScore'], 100)
+                    self.assertEqual(target['assertionScoreLowerBound'],
+                                     100 if cause == 'assertion' else 0)
 
     def test_timeout_and_infrastructure_errors_do_not_inflate_score(self):
         result = summarize([{'status': s} for s in ['killed', 'survived', 'timeout', 'error', 'compileError']])
@@ -1033,6 +1098,8 @@ class MutationRunnerTests(unittest.TestCase):
                 platform = command[command.index('--platform') + 1]
                 log = events(
                     {'type': 'testStart', 'test': {'id': 1, 'name': platform}},
+                    *([{'type': 'error', 'testID': 1, 'isFailure': True,
+                        'error': 'Expected true'}] if mutated else []),
                     {'type': 'testDone', 'testID': 1,
                      'result': 'failure' if mutated else 'success'},
                     {'type': 'done', 'success': not mutated},

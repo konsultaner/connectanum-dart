@@ -6,6 +6,43 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work112 fixes a fail-first mutation-gate defect: CLI success now requires the
+adjusted assertion lower bound, complete kill classification and no error or
+timeout outcomes. Conventional raw/adjusted detection scores remain unchanged
+and separately labeled. Reports record the gate metric, threshold and result;
+inventory-only/incomplete reports cannot claim a pass. All 60 runner tests pass
+(the Linux-only subreaper test is skipped on macOS).
+Explicit success/type/null assertions strengthen valid MCP completion parsing
+without replacing exact output or rejection checks. The unchanged 54-candidate
+inventory now yields 44 assertion kills and ten compile errors on both VM and
+JavaScript, no survivors/errors/timeouts or waivers. Before these test changes,
+the new gate correctly rejects 19 assertion kills plus 25 test-error detections
+despite a 100% conventional score. The 212 completion tests pass; focused VM
+coverage is 104/104 lines, not whole-core coverage. Fresh browser112b measures
+completion 123/123 JS lines; selected core remains 6,628/6,973 (95.05%), forms
+279/283 (98.59%), with 172 unmeasured sources and no WASM line coverage.
+Auth-server tests also assert the selected provider and successful repeated
+binding shutdown. Its 86 tests pass, including sync/async timeout preservation
+in the explicit success oracle; focused VM coverage remains 455/455 library
+lines. The first unchanged
+294-candidate auth campaign fails the stricter gate at 93.12% assertion evidence
+versus 96.30% conventional detection. The intermediate rerun exposes that
+completes propagates Future errors (94.71%); preserve it. Final auth-server112c
+records 176 assertion-only and six mixed detections with real assertions, seven
+survivors and 105 compile errors: 96.30% raw/adjusted assertion evidence, gate
+passed, no error-only detections/errors/timeouts. All seven survivors were
+reviewed against pinned public lifecycle/selection control flow; no counterexample
+was found, and none is waived. Final campaign and coverage hashes match.
+Fast112 and final settled-input Verify112b pass with observed exit zero,
+including Rust, installed-package smokes, JavaScript and WASM tests. Final
+component source/test/support hashes still match. The native owner is released.
+Work111 is verified and pushed as `a3892e14` on draft PR #93. Both package dry
+runs, router-image dry run and WAMP profiles pass; main CI remains pending at
+that head. The stricter gate exposes more CI work: MCP100-library source/test
+hashes still match, but its assertion evidence is 75.84% (170 error-only
+detections), not the passing conventional score. Fix those gaps next; do not
+weaken thresholds or relabel older detections. The full milestone remains open.
+
 Work111 adds 305 public MCP OAuth regressions: exact resource binding before
 token I/O, positive code/grant exchanges, exhaustive ASCII scope boundaries,
 Unicode/empty rejection, ordered scope union and HTTPS/loopback metadata rules.

@@ -100,6 +100,8 @@ void main() {
         addTearDown(server.close);
         final response = await server.onHello(_hello(settings, ['advertised']));
         expect(response.status, RemoteHelloStatus.success);
+        expect(response.success?.authId, 'implementation');
+        expect(factory.options, hasLength(1));
         expect(factory.options.single, {
           'authenticator': 'configured',
           'shared': 'definition',
