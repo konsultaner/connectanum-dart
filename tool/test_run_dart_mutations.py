@@ -307,6 +307,30 @@ class MutationRunnerTests(unittest.TestCase):
                 self.assertEqual(target.get('platform', 'vm'),
                                  'chrome' if runtime == 'web' else 'vm')
 
+    def test_lazy_payload_targets_include_contract_suite_on_both_runtimes(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        prefix = 'packages/connectanum_core'
+        suites = [f'{prefix}/test/message_{name}_test.dart' for name in [
+            'payload_contract', 'lazy_payload_regression', 'invocation', 'result',
+        ]]
+        for runtime in ['vm', 'web']:
+            self.assertEqual(targets[f'core-lazy-{runtime}']['supportFiles'], suites)
+        self.assertEqual(targets['core-lazy-vm']['tests'], [
+            f'{prefix}/test/support/lazy_payload_vm_mutation_suite.dart',
+        ])
+        vm_wrapper = (runner.ROOT / targets['core-lazy-vm']['tests'][0]).read_text()
+        self.assertIn("group('payload contract', payload_contract.main);", vm_wrapper)
+        self.assertLess(vm_wrapper.index("group('payload contract'"),
+                        vm_wrapper.index("group('lazy payload'"))
+        browser = targets['core-lazy-web']
+        self.assertEqual(browser['tests'], [
+            f'{prefix}/test/support/lazy_payload_mutation_suite.dart',
+        ])
+        self.assertEqual(browser['platform'], 'chrome')
+        wrapper = (runner.ROOT / browser['tests'][0]).read_text()
+        self.assertIn("import '../message_payload_contract_test.dart' as payload_contract;", wrapper)
+        self.assertIn("group('payload contract', payload_contract.main);", wrapper)
+
     def test_native_binding_targets_inventory_sources_tests_and_shared_oracles(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         for package, directory in [('client', 'transport/native'), ('router', 'native')]:

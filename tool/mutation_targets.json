@@ -453,7 +453,9 @@
   },
   "core-lazy-vm": {
     "sources": ["packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart"],
-    "tests": [
+    "tests": ["packages/connectanum_core/test/support/lazy_payload_vm_mutation_suite.dart"],
+    "supportFiles": [
+      "packages/connectanum_core/test/message_payload_contract_test.dart",
       "packages/connectanum_core/test/message_lazy_payload_regression_test.dart",
       "packages/connectanum_core/test/message_invocation_test.dart",
       "packages/connectanum_core/test/message_result_test.dart"
@@ -463,6 +465,7 @@
     "sources": ["packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart"],
     "tests": ["packages/connectanum_core/test/support/lazy_payload_mutation_suite.dart"],
     "supportFiles": [
+      "packages/connectanum_core/test/message_payload_contract_test.dart",
       "packages/connectanum_core/test/message_lazy_payload_regression_test.dart",
       "packages/connectanum_core/test/message_invocation_test.dart",
       "packages/connectanum_core/test/message_result_test.dart"

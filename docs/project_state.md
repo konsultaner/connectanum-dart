@@ -6,6 +6,43 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work118 closes the lazy-payload VM and remote-authenticator assertion gates.
+No production behavior, source/operator inventory, threshold, version or
+equivalence changes. The additive payload contract suite checks single decoding,
+nullable fields, detached aliases, byte boundaries, plain/PPT discrimination,
+and encrypted forwarding. Both runtime entry points retain and hash all four
+suites. VM uses an explicit entry point because the runner sorts file paths
+before fail-fast. Existing malformed-input tests remain unchanged.
+Final `lazy118c-vm-mutations` passes:289 generated,221 assertion kills,two
+uncredited errors,16 survivors,50 compile failures;92.47% raw/95.67% adjusted
+using the eight existing source-pinned equivalents. Both baselines and current
+source/test/support hashes pass. Earlier lazy118/lazy-remote118b VM reports are
+diagnostics, not final results. Final payload tests pass155/155 on VM and Chrome
+JS. Browser mutation evidence for the final boundary tests is running in
+`lazy118c-web-mutations`; the earlier JS diagnostic completed below gate and
+must not be attributed to the changed test file.
+Remote tests assert status before dereferencing, preserve exact rejection and
+proof non-delivery checks, and cover sub-threshold rate limiting and a delegate
+becoming unavailable after a challenge. Final `remote118c-mutations` passes:
+191 generated,125 assertion kills,three survivors,63 compile failures;97.66%
+raw/adjusted, no errors/timeouts/waivers. The availability-bypass survivor is
+now assertion-killed. Both baselines and current input hashes pass. All128
+focused auth tests pass (93 before). Lazy payload file VM lines are412/413
+(99.76%); remote authenticator366/368 (99.46%), not whole-package measurements.
+Fast118 passes. Initial Verify118 found a stale tooling inventory expectation,
+now corrected. Verify118b and settled-input Verify118c both complete with
+observed exit zero, including Rust/native, installed-package/live-router and
+Chrome WASM tests. The61-test mutation tooling suite (one Linux-only skip) and
+54-test verification tooling suite pass. Final input hashes match and the native
+window is explicitly released to both consumer tasks. Preserve logs and
+snapshots under `coverage118-oracles`, `contracts118-vm`, `remote118c-vm`, and
+the named mutation directories in `out/regression-coverage-2026-09-15`.
+The full VM115/browser116/native snapshots remain the broader measurements.
+Continue final browser evidence, remaining CI gates and genuine whole-component
+line gaps. Benchmark-config's last assertion score is70.45%, despite95.45%
+conventional detection; the current86-test baseline passes, with no edits yet.
+The complete milestone is still active; no merge or publication.
+
 Work117 closes the router configuration and native benchmark-auth assertion
 gates without production changes, inventory changes, new equivalences or lower
 thresholds. Config tests explicitly assert valid parsing and preserve exact

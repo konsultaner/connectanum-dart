@@ -202,17 +202,22 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
         target = targets['core-lazy-web']
         self.assertEqual(target['sources'], targets['core-lazy-vm']['sources'])
-        self.assertEqual(target['supportFiles'], targets['core-lazy-vm']['tests'])
+        self.assertEqual(target['supportFiles'], targets['core-lazy-vm']['supportFiles'])
         self.assertEqual(target['tests'], [
             'packages/connectanum_core/test/support/lazy_payload_mutation_suite.dart'])
         entrypoint = (REPO_ROOT / target['tests'][0]).read_text()
+        vm_entrypoint = (REPO_ROOT / targets['core-lazy-vm']['tests'][0]).read_text()
         for filename, alias, group in [
+            ('message_payload_contract_test.dart', 'payload_contract', 'payload contract'),
             ('message_lazy_payload_regression_test.dart', 'lazy_payload', 'lazy payload'),
             ('message_invocation_test.dart', 'invocation', 'invocation'),
             ('message_result_test.dart', 'result', 'result'),
         ]:
             self.assertIn(f"import '../{filename}' as {alias};", entrypoint)
             self.assertIn(f"group('{group}', {alias}.main);", entrypoint)
+            self.assertIn(f"import '../{filename}' as {alias};", vm_entrypoint)
+            self.assertIn(f"group('{group}', {alias}.main);", vm_entrypoint)
+            self.assertIn(f'packages/connectanum_core/test/{filename}', target['supportFiles'])
 
     def test_bench_http_mutations_include_complete_handler_and_test_inventory(self):
         targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())

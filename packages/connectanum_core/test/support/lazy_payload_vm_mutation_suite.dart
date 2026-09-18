@@ -5,10 +5,11 @@ import '../message_lazy_payload_regression_test.dart' as lazy_payload;
 import '../message_payload_contract_test.dart' as payload_contract;
 import '../message_result_test.dart' as result;
 
-// Compile the complete browser mutation oracle once, retaining suite boundaries.
+// Check the explicit payload contract before fail-fast can stop at a dereference
+// in a legacy integration test. All original suites remain in the inventory.
 void main() {
-  group('lazy payload', lazy_payload.main);
   group('payload contract', payload_contract.main);
+  group('lazy payload', lazy_payload.main);
   group('invocation', invocation.main);
   group('result', result.main);
 }

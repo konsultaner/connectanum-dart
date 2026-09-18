@@ -67,6 +67,50 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work118 Payload And Remote Auth Contracts
+
+- Add a payload contract suite without removing any legacy tests. Check nullable
+  fields, decode counts, byte/alias ownership, map-form and serialized PPT,
+  plaintext discrimination, and encrypted forwarding. Both wrappers retain all
+  four suites and support hashes; tooling guards their imports and invocations.
+  VM file sorting made JSON list order ineffective, so use an explicit entry
+  point to run contract assertions before fail-fast legacy dereferences.
+- Final lazy118c VM has289 candidates,221 assertion kills,two error-only,
+  16 survivors,50 compile failures:92.47% raw/95.67% adjusted with eight unchanged
+  pinned equivalents. Baseline/restored tests pass; source/test/support hashes
+  match. The two forced-getter null errors remain uncredited. Earlier VM
+  campaigns remain diagnostics, not final evidence.
+- Final payload selection passes155 tests on VM and JS (113 before). Focused
+  payload file VM lines are412/413 (99.76%). The earlier JS mutation snapshot
+  completed below gate and predates the final boundary cases. The final
+  `lazy118c-web-mutations` campaign is running without duplicating the earlier
+  process. Passing JS tests are not a mutation score or WASM line measurement.
+- Remote-auth tests preserve exact values while checking status/cardinality
+  before dereference. New cases cover absent failure payloads, sub-threshold
+  rate limits, immutable delegate lists and pending proofs after delegate
+  unavailability. Helper controls preserve timeout, unknown, stack/OOM and
+  preexisting assertion identity. All128 tests pass versus93 before; focused
+  file coverage366/368 (99.46%).
+- Final remote118c inventory:191 generated,125 assertion kills,three survivors,
+  63 compile failures,97.66% raw/adjusted; no error-only kills,timeouts or waivers.
+  Both baselines and input hashes pass. The pending-delegate availability bypass
+  is now killed by the no-proof-forwarding assertion. Remaining list-growth and
+  exact-clock-boundary survivors are reviewed and unwaived in the evidence notes.
+- Fast118 passes. Initial Verify118 fails the old cross-runtime inventory
+  expectation, now corrected without loosening it. Verify118b and settled-input
+  Verify118c complete with observed exit zero, including Rust/native, installed
+  package/live-router and Chrome WASM tests. Final input hashes match. The61-test
+  mutation tooling suite (one Linux-only skip) and54-test verification tooling
+  suite pass. The native window is explicitly released to both consumer tasks.
+  Evidence: `coverage118-oracles`, `contracts118-vm`,
+  `remote118c-vm`, `lazy118c-vm-mutations`, `remote118c-mutations` under the shared
+  evidence root. No production edits, new equivalents, merge or publication.
+- Next inspected gate: benchmark-config has72 candidates,31 assertion kills,
+  11 error-only,2 survivors,28 compile failures in hosted114 (70.45% assertion,
+  95.45% conventional). Current86 baseline tests pass. Fixed-length scenario and
+  nested YAML list contracts need assertions; do not waive observable behavior.
+  No benchmark input changes were made during final verification.
+
 ### Work117 Config And Native Auth Assertions
 
 - Known-valid config parses now have explicit success assertions; negative calls

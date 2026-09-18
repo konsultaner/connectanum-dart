@@ -29,11 +29,102 @@ void main() {
   });
   test('unavailable exceptions expose only their supplied message', () {
     expect(
-      RemoteDelegateUnavailableException().toString(),
+      _validRemoteValue(() => RemoteDelegateUnavailableException().toString()),
       'RemoteDelegateUnavailableException',
     );
     expect(RemoteDelegateUnavailableException('offline').toString(), 'offline');
   });
+  test('a configured delegate can be constructed and challenged', () async {
+    final delegate = _Delegate();
+    final auth = _validRemoteValue(() => _auth([delegate]));
+    final result = await _validRemoteCompletion(() => auth.onHello(_context()));
+    expect(result.isChallenge, isTrue);
+    expect(result.challenge?.challenge, {'nonce': 'challenge'});
+    expect(delegate.helloRequests, hasLength(1));
+    expect(delegate.authenticateRequests, isEmpty);
+  });
+  for (final stage in ['hello', 'authenticate']) {
+    test(
+      '$stage preserves a failure with absent optional payload fields',
+      () async {
+        final delegate = _Delegate();
+        delegate.hello = () =>
+            stage == 'hello' ? _rejectedHello() : _challenge();
+        delegate.authenticate = () =>
+            RemoteAuthenticateResponse.failure(_failure);
+        final auth = _auth([delegate]);
+        var result = await _validRemoteCompletion(
+          () => auth.onHello(_context()),
+        );
+        if (stage == 'authenticate') {
+          expect(result.isChallenge, isTrue);
+          result = await _validRemoteCompletion(
+            () => auth.onAuthenticate(_context(), _proof()),
+          );
+        }
+        final failure = _expectFailure(result);
+        expect(failure.reason, wamp.Error.authenticationFailed);
+        expect(failure.message, 'denied');
+        expect(failure.arguments, isNull);
+        expect(failure.argumentsKeywords, isNull);
+        expect(
+          delegate.authenticateRequests,
+          hasLength(stage == 'hello' ? 0 : 1),
+        );
+      },
+    );
+  }
+  test(
+    'sub-threshold failure does not block a subsequent valid identity',
+    () async {
+      final rejecting = _Delegate()..hello = _rejectedHello;
+      final rejected = await _auth(
+        [rejecting],
+        options: {'rate_limit_max_attempts': 2},
+      ).onHello(_context());
+      expect(_expectFailure(rejected).message, 'denied');
+      final healthy = _Delegate()
+        ..hello = () => RemoteHelloResponse.success(_success);
+      final auth = _auth([healthy], options: {'rate_limit_max_attempts': 2});
+      final accepted = await _validRemoteCompletion(
+        () => auth.onHello(_context()),
+      );
+      expect(accepted.isSuccess, isTrue);
+      expect(accepted.success?.authId, 'user');
+      expect(accepted.success?.authRole, 'member');
+      expect(rejecting.helloRequests, hasLength(1));
+      expect(healthy.helloRequests, hasLength(1));
+    },
+  );
+  test(
+    'unavailable delegate cannot receive a previously challenged proof',
+    () async {
+      final delegate = _Delegate();
+      final auth = _auth([delegate]);
+      expect((await auth.onHello(_context())).isChallenge, isTrue);
+      delegate.hello = () =>
+          throw RemoteDelegateUnavailableException('offline');
+      final unavailable = _expectFailure(await auth.onHello(_context()));
+      expect(unavailable.reason, wamp.Error.notAuthorized);
+      expect(unavailable.message, 'Remote authentication service unavailable');
+      final rejected = _expectFailure(
+        await auth.onAuthenticate(_context(), _proof()),
+      );
+      expect(rejected.reason, wamp.Error.notAuthorized);
+      expect(
+        rejected.message,
+        'Remote authenticator delegate temporarily unavailable',
+      );
+      expect(delegate.helloRequests, hasLength(2));
+      expect(delegate.authenticateRequests, isEmpty);
+      expect(
+        _expectFailure(await auth.onAuthenticate(_context(), _proof())).reason,
+        wamp.Error.protocolViolation,
+      );
+      expect(delegate.authenticateRequests, isEmpty);
+    },
+  );
+
   test('authenticator requires a delegate and preserves configured method', () {
     expect(() => _auth([]), throwsStateError);
     expect(
@@ -125,6 +216,7 @@ void main() {
             ..hello = () => RemoteHelloResponse.challenge(malformed);
           final auth = _auth([delegate]);
           final result = await auth.onHello(_context());
+          expect(result.isFailure, isTrue);
           expect(result.failure!.reason, wamp.Error.notAuthorized);
           expect(
             (await auth.onAuthenticate(_context(), _proof())).failure!.reason,
@@ -156,7 +248,7 @@ void main() {
         if (stage == 'authenticate') {
           result = await auth.onAuthenticate(_context(), _proof());
         }
-        final sanitized = result.failure!;
+        final sanitized = _expectFailure(result);
         expect(sanitized.reason, wamp.Error.authenticationFailed);
         expect(sanitized.message, 'denied');
         expect(sanitized.arguments, [
@@ -189,7 +281,7 @@ void main() {
     expect((await auth.onHello(_context())).isChallenge, isTrue);
     final first = auth.onAuthenticate(_context(), _proof());
     final duplicate = await auth.onAuthenticate(_context(), _proof());
-    expect(duplicate.failure!.reason, wamp.Error.protocolViolation);
+    expect(_expectFailure(duplicate).reason, wamp.Error.protocolViolation);
     expect(delegate.authenticateRequests, hasLength(1));
     expect(
       delegate.authenticateRequests.single.transactionId,
@@ -197,7 +289,9 @@ void main() {
     );
     expect(delegate.authenticateRequests.single.authId, 'user');
     pending.complete(RemoteAuthenticateResponse.success(_success));
-    expect((await first).success!.authId, 'user');
+    final completed = await first;
+    expect(completed.isSuccess, isTrue);
+    expect(completed.success?.authId, 'user');
     await auth.onAbort(_context());
     expect(delegate.abortRequests, isEmpty);
   });
@@ -209,12 +303,14 @@ void main() {
       await auth.onHello(_context());
       await Future<void>.delayed(const Duration(milliseconds: 20));
       final expired = await auth.onAuthenticate(_context(), _proof());
+      expect(expired.isFailure, isTrue);
       expect(expired.failure!.reason, wamp.Error.authenticationFailed);
       expect(
         expired.failure!.message,
         'Remote authentication challenge expired',
       );
       expect(delegate.authenticateRequests, isEmpty);
+      expect(delegate.abortRequests, hasLength(1));
       expect(delegate.abortRequests.single.reason, 'challenge_timeout');
       expect(
         delegate.abortRequests.single.transactionId,
@@ -237,6 +333,7 @@ void main() {
       },
     ).onHello(_context());
     final blocked = await pendingAuth.onAuthenticate(_context(), _proof());
+    expect(blocked.isFailure, isTrue);
     expect(blocked.failure!.reason, wamp.Error.notAuthorized);
     expect(
       blocked.failure!.message,
@@ -284,7 +381,7 @@ void main() {
       ).onHello(_context());
       await Future<void>.delayed(const Duration(milliseconds: 20));
       pending.complete(RemoteAuthenticateResponse.failure(_failure));
-      expect((await inFlight).failure!.message, 'denied');
+      expect(_expectFailure(await inFlight).message, 'denied');
       final healthy = _Delegate()
         ..hello = () => RemoteHelloResponse.success(_success);
       expect(
@@ -302,7 +399,7 @@ void main() {
     await auth.onHello(_context());
     await auth.onAbort(_context());
     expect(
-      (await auth.onAuthenticate(_context(), _proof())).failure!.reason,
+      _expectFailure(await auth.onAuthenticate(_context(), _proof())).reason,
       wamp.Error.protocolViolation,
     );
     expect((await auth.onHello(_context())).isChallenge, isTrue);
@@ -334,14 +431,17 @@ void main() {
         final auth = _auth([delegate]);
         await auth.onHello(_context());
         final failed = await auth.onAuthenticate(_context(), _proof());
+        expect(failed.isFailure, isTrue);
         expect(failed.failure!.reason, wamp.Error.notAuthorized);
         expect(failed.failure!.message, isNot(contains('sensitive')));
         expect(
-          (await auth.onAuthenticate(_context(), _proof())).failure!.reason,
+          _expectFailure(
+            await auth.onAuthenticate(_context(), _proof()),
+          ).reason,
           wamp.Error.protocolViolation,
         );
         expect(
-          (await auth.onHello(_context())).failure!.reason,
+          _expectFailure(await auth.onHello(_context())).reason,
           wamp.Error.notAuthorized,
         );
         expect(delegate.helloRequests, hasLength(1));
@@ -366,7 +466,9 @@ void main() {
           delegate.helloRequests.single.transactionId,
         );
         expect(
-          (await auth.onAuthenticate(_context(), _proof())).failure!.reason,
+          _expectFailure(
+            await auth.onAuthenticate(_context(), _proof()),
+          ).reason,
           wamp.Error.protocolViolation,
         );
         expect((await auth.onHello(_context())).isFailure, isTrue);
@@ -402,6 +504,7 @@ void main() {
             expect(result.isChallenge, isTrue);
             result = await auth.onAuthenticate(_context(), _proof());
           }
+          expect(result.isSuccess, isTrue);
           expect(result.success!.authId, 'user');
           expect(result.success!.authRole, 'member');
           expect(result.success!.details, {providerKey: 'trusted'});
@@ -417,6 +520,7 @@ void main() {
           options: {'fake_challenge_on_hello_failure': true},
         );
         final first = await auth.onHello(_context());
+        expect(first.isChallenge, isTrue);
         expect(first.challenge!.extra, {'fake': true});
         final payload =
             jsonDecode(first.challenge!.challenge['challenge']! as String)
@@ -426,9 +530,11 @@ void main() {
         expect(payload['session'], 42);
         expect(base64Url.decode(payload['nonce'] as String), hasLength(32));
         await auth.onAbort(_context(), reason: 'closed');
+        expect(delegate.abortRequests, hasLength(1));
         expect(delegate.abortRequests.single.authId, 'user');
         await auth.onHello(_context());
         final denied = await auth.onAuthenticate(_context(), _proof());
+        expect(denied.isFailure, isTrue);
         expect(denied.failure!.reason, wamp.Error.authenticationFailed);
         expect(denied.failure!.message, 'denied');
         expect(delegate.authenticateRequests, isEmpty);
@@ -462,10 +568,16 @@ void main() {
           },
         ).onHello(_context());
         final disabled = _auth([rejecting], rateLimitMaxAttempts: 0);
-        expect((await disabled.onHello(_context())).failure!.message, 'denied');
+        expect(
+          _expectFailure(await disabled.onHello(_context())).message,
+          'denied',
+        );
         expect(rejecting.helloRequests, hasLength(2));
         RemoteAuthenticator.resetRateLimiter();
-        expect((await disabled.onHello(_context())).failure!.message, 'denied');
+        expect(
+          _expectFailure(await disabled.onHello(_context())).message,
+          'denied',
+        );
         final healthy = _Delegate()
           ..hello = () => RemoteHelloResponse.success(_success);
         expect((await _auth([healthy]).onHello(_context())).isSuccess, isTrue);
@@ -496,7 +608,7 @@ void main() {
       // Both proofs enter before either failure. No sleep through backoff is needed.
       for (var index = 0; index < responses.length; index++) {
         responses[index].complete(RemoteAuthenticateResponse.failure(_failure));
-        expect((await results[index]).failure!.message, 'denied');
+        expect(_expectFailure(await results[index]).message, 'denied');
         final observer = _Delegate();
         final blocked = await _auth(
           [observer],
@@ -505,6 +617,7 @@ void main() {
           },
         ).onHello(_context());
         expect(observer.helloRequests, isEmpty);
+        expect(blocked.isFailure, isTrue);
         final match = RegExp(
           r'^Remote authentication rate limited\. Retry in (\d+)ms$',
         ).firstMatch(blocked.failure!.message!);
@@ -516,7 +629,107 @@ void main() {
     });
   });
 
+  group('remote assertion controls', () {
+    test('success assertions preserve values and evaluate once', () async {
+      var calls = 0;
+      final value = Object();
+      expect(
+        _validRemoteValue(() {
+          calls++;
+          return value;
+        }),
+        same(value),
+      );
+      expect(calls, 1);
+      expect(
+        await _validRemoteCompletion(() async {
+          calls++;
+          return value;
+        }),
+        same(value),
+      );
+      expect(calls, 2);
+      expect(_validRemoteValue<Object?>(() => null), isNull);
+      expect(await _validRemoteCompletion<Object?>(() async => null), isNull);
+    });
+    for (final (error, isContractFailure) in <(Object, bool)>[
+      (TypeError(), true),
+      (StateError('missing configured delegate'), true),
+      (ArgumentError('invalid configured delegate'), true),
+      (TimeoutException('deadline'), false),
+      (UnsupportedError('infrastructure unavailable'), false),
+      (const StackOverflowError(), false),
+      (const OutOfMemoryError(), false),
+      (TestFailure('original assertion'), false),
+      (Object(), false),
+    ]) {
+      test('sync ${error.runtimeType} retains its classification', () {
+        var calls = 0;
+        final matcher = isContractFailure
+            ? isA<TestFailure>().having(
+                (e) => e.message,
+                'message',
+                contains('Valid remote authentication'),
+              )
+            : same(error);
+        expect(
+          () => _validRemoteValue<void>(() {
+            calls++;
+            throw error;
+          }),
+          throwsA(matcher),
+        );
+        expect(calls, 1);
+      });
+      for (final asyncFailure in [false, true]) {
+        test(
+          'async ${error.runtimeType} retains classification deferred=$asyncFailure',
+          () async {
+            var calls = 0;
+            final matcher = isContractFailure
+                ? isA<TestFailure>().having(
+                    (e) => e.message,
+                    'message',
+                    contains('Valid remote authentication'),
+                  )
+                : same(error);
+            await expectLater(
+              _validRemoteCompletion<void>(() {
+                calls++;
+                if (asyncFailure) return Future<void>.error(error);
+                throw error;
+              }),
+              throwsA(matcher),
+            );
+            expect(calls, 1);
+          },
+        );
+      }
+    }
+    test('failure assertion preserves identity and rejects other statuses', () {
+      expect(_expectFailure(AuthResult.failure(_failure)), same(_failure));
+      for (final result in [
+        AuthResult.success(_success),
+        AuthResult.challenge(const AuthChallenge(challenge: {}, extra: {})),
+      ]) {
+        expect(() => _expectFailure(result), throwsA(isA<TestFailure>()));
+      }
+    });
+  });
+
   group('remote configuration', () {
+    test('delegate list trims entries and detaches the caller list', () {
+      final ids = [' first ', 'second'];
+      final config = _validRemoteValue(
+        () => RemoteAuthenticatorConfig.parse({
+          'delegates': ids,
+        }, _realm),
+      );
+      expect(config.delegateIds, ['first', 'second']);
+      ids[0] = 'changed';
+      expect(config.delegateIds, ['first', 'second']);
+      expect(() => config.delegateIds.add('third'), throwsUnsupportedError);
+    });
     test('challenge timeout is clamped between disabled and ten minutes', () {
       expect(
         RemoteAuthenticatorConfig.parse({
@@ -573,9 +786,8 @@ void main() {
         expect(config.rpcDelegate, isNotNull);
         expect(config.challengeTimeoutMs, 123);
         expect(config.options, isEmpty);
-        final auth = await const RemoteAuthenticatorFactory().create(
-          _realm,
-          options,
+        final auth = await _validRemoteCompletion(
+          () => const RemoteAuthenticatorFactory().create(_realm, options),
         );
         expect(auth.method, 'ticket');
         expect(RemoteAuthenticatorRegistry.delegates, isEmpty);
@@ -597,9 +809,11 @@ void main() {
       });
     }
     test('delegate aliases preserve order and trim comma-separated IDs', () {
-      final config = RemoteAuthenticatorConfig.parse({
-        'delegates': ' first, , second ',
-      }, _realm);
+      final config = _validRemoteValue(
+        () => RemoteAuthenticatorConfig.parse({
+          'delegates': ' first, , second ',
+        }, _realm),
+      );
       expect(config.delegateIds, ['first', 'second']);
       expect(() => config.delegateIds.add('third'), throwsUnsupportedError);
     });
@@ -627,6 +841,38 @@ void main() {
       });
     }
   });
+}
+
+AuthFailure _expectFailure(AuthResult result) {
+  expect(result.status, AuthStatus.failure);
+  expect(result.failure, isNotNull);
+  expect(result.success, isNull);
+  expect(result.challenge, isNull);
+  return result.failure!;
+}
+
+T _validRemoteValue<T>(T Function() operation) {
+  try {
+    return operation();
+  } on TypeError catch (error) {
+    fail('Valid remote authentication operation must return: $error');
+  } on StateError catch (error) {
+    fail('Valid remote authentication operation must return: $error');
+  } on ArgumentError catch (error) {
+    fail('Valid remote authentication operation must return: $error');
+  }
+}
+
+Future<T> _validRemoteCompletion<T>(FutureOr<T> Function() operation) async {
+  try {
+    return await operation();
+  } on TypeError catch (error) {
+    fail('Valid remote authentication operation must return: $error');
+  } on StateError catch (error) {
+    fail('Valid remote authentication operation must return: $error');
+  } on ArgumentError catch (error) {
+    fail('Valid remote authentication operation must return: $error');
+  }
 }
 
 const _realm = RealmSettings(
