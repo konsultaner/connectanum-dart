@@ -17,6 +17,101 @@ import 'package:test/test.dart';
 void main() {
   tearDown(RemoteWampDelegateRegistry.clear);
 
+  // All branch payloads are well-formed so a wrong discriminator is observed
+  // as the wrong authentication result, not an incidental missing-field error.
+  for (final status in ['success', 'challenge', 'failure', 'invalid', null]) {
+    test(
+      'HELLO discriminates $status before considering other payload fields',
+      () async {
+        final service = await _Service.start();
+        addTearDown(service.close);
+        service.respond = (call) => _result(call, {
+          'status': ?status,
+          'authId': 'alice',
+          'authRole': 'member',
+          'auth_id': 'wrong-alias',
+          'auth_role': 'wrong-role',
+          'challenge': {'nonce': 'fixture'},
+          'reason': 'fixture.denied',
+          'message': 'denied',
+        });
+        final response = await service.delegate().onHello(_hello());
+        final expected = switch (status) {
+          'success' => RemoteHelloStatus.success,
+          'challenge' || null => RemoteHelloStatus.challenge,
+          _ => RemoteHelloStatus.failure,
+        };
+        expect(response.status, expected);
+        expect(
+          response.success,
+          expected == RemoteHelloStatus.success ? isNotNull : isNull,
+        );
+        expect(
+          response.challenge,
+          expected == RemoteHelloStatus.challenge ? isNotNull : isNull,
+        );
+        expect(
+          response.failure,
+          expected == RemoteHelloStatus.failure ? isNotNull : isNull,
+        );
+        if (expected == RemoteHelloStatus.success) {
+          expect(response.success!.authId, 'alice');
+          expect(response.success!.authRole, 'member');
+        } else if (expected == RemoteHelloStatus.challenge) {
+          expect(response.challenge!.authId, 'alice');
+          expect(response.challenge!.challenge, {'nonce': 'fixture'});
+        } else {
+          expect(
+            response.failure!.reason,
+            status == 'failure'
+                ? 'fixture.denied'
+                : 'wamp.error.not_authorized',
+          );
+        }
+      },
+    );
+  }
+  for (final status in ['success', 'failure', 'invalid', null]) {
+    test(
+      'AUTHENTICATE discriminates $status before considering identity fields',
+      () async {
+        final service = await _Service.start();
+        addTearDown(service.close);
+        service.respond = (call) => _result(call, {
+          'status': ?status,
+          'authId': 'alice',
+          'authRole': 'member',
+          'auth_id': 'wrong-alias',
+          'auth_role': 'wrong-role',
+          'reason': 'fixture.denied',
+        });
+        final response = await service.delegate().onAuthenticate(
+          _authenticate(),
+        );
+        final success = status == 'success' || status == null;
+        expect(
+          response.status,
+          success
+              ? RemoteAuthenticateStatus.success
+              : RemoteAuthenticateStatus.failure,
+        );
+        expect(response.success, success ? isNotNull : isNull);
+        expect(response.failure, success ? isNull : isNotNull);
+        if (success) {
+          expect(response.success!.authId, 'alice');
+          expect(response.success!.authRole, 'member');
+        } else {
+          expect(
+            response.failure!.reason,
+            status == 'failure'
+                ? 'fixture.denied'
+                : 'wamp.error.not_authorized',
+          );
+        }
+      },
+    );
+  }
+
   test(
     'warmup recovers after repairing a malformed service key file',
     () async {
@@ -34,7 +129,7 @@ void main() {
       await delegate.warmUpSession();
       expect(service.hellos, isEmpty);
       key.writeAsStringSync(base64Encode(List<int>.filled(32, 7)));
-      expect((await delegate.onHello(_hello())).success!.authId, 'alice');
+      expect(_helloSuccess(await delegate.onHello(_hello())).authId, 'alice');
       expect(service.hellos, hasLength(1));
     },
   );
@@ -55,6 +150,7 @@ void main() {
         final success = operation == 'hello'
             ? (await delegate.onHello(_hello())).success
             : (await delegate.onAuthenticate(_authenticate())).success;
+        expect(success, isNotNull);
         expect(success!.authId, 'camel');
         expect(success.authRole, 'member');
       },
@@ -69,11 +165,78 @@ void main() {
       'auth_id': 'snake',
       'challenge': {'nonce': 'fixture'},
     });
-    expect(
-      (await service.delegate().onHello(_hello())).challenge!.authId,
-      'camel',
-    );
+    final response = await service.delegate().onHello(_hello());
+    expect(response.status, RemoteHelloStatus.challenge);
+    expect(response.challenge, isNotNull);
+    expect(response.success, isNull);
+    expect(response.failure, isNull);
+    expect(response.challenge!.authId, 'camel');
   });
+
+  test(
+    'registry warmup settles started connections before a later configuration error',
+    () async {
+      final service = await _Service.start();
+      addTearDown(service.close);
+      final receivedHello = Completer<void>();
+      void Function()? releaseWelcome;
+      service.scheduleWelcome = (send) {
+        releaseWelcome = send;
+        receivedHello.complete();
+      };
+      final builder = RouterSettingsBuilder();
+      for (final valid in [true, false]) {
+        final name = valid ? 'valid' : 'invalid';
+        builder.addAuthenticator(
+          name,
+          AuthenticatorDefinition(
+            type: 'remote',
+            options: {
+              'rpc': {
+                'transport': valid
+                    ? service.transportConfig
+                    : <String, Object?>{},
+                'connect_timeout_ms': 3000,
+              },
+            },
+          ),
+        );
+        builder.addRealmFromBuilder(
+          RealmSettingsBuilder(name)..addAuthMethod(
+            'ticket',
+            options: {
+              'authenticator': name,
+            },
+          ),
+        );
+      }
+      var finished = false;
+      Object? failure;
+      final warmup =
+          RemoteWampDelegateRegistry.warmUpForSettings(
+            builder.build(),
+          ).then<void>(
+            (_) {
+              finished = true;
+            },
+            onError: (Object error) {
+              failure = error;
+              finished = true;
+            },
+          );
+      await receivedHello.future.timeout(const Duration(seconds: 3));
+      await Future<void>.delayed(Duration.zero);
+      try {
+        expect(finished, isFalse);
+        expect(service.hellos, hasLength(1));
+      } finally {
+        releaseWelcome!();
+        await warmup;
+      }
+      expect(finished, isTrue);
+      expect(failure, isA<ArgumentError>());
+    },
+  );
 
   test('registry warmup reuses the configured service session', () async {
     final service = await _Service.start();
@@ -101,7 +264,7 @@ void main() {
     expect(service.hellos, hasLength(1));
     expect(service.calls, isEmpty);
     expect(
-      (await service.delegate().onHello(_hello())).success!.authRole,
+      _helloSuccess(await service.delegate().onHello(_hello())).authRole,
       'member',
     );
     expect(service.hellos, hasLength(1));
@@ -128,24 +291,27 @@ void main() {
   }
 
   test(
-    'rotated service secret reconnects without invalidating the replacement',
+    'rotated colliding service secrets reconnect without invalidating the replacement',
     () async {
       final service = await _Service.start();
       addTearDown(service.close);
       final temp = Directory.systemTemp.createTempSync('remote-wire-secret-');
       addTearDown(() => temp.deleteSync(recursive: true));
-      final secret = File('${temp.path}/secret')..writeAsStringSync('first');
+      final secret = File('${temp.path}/secret')
+        ..writeAsStringSync('remote-fixture-jobs5j');
       final delegate = service.delegate(
         rpc: {
           'service_auth_method': 'ticket',
           'service_auth_secret_file': secret.path,
         },
       );
-      expect((await delegate.onHello(_hello())).success!.authId, 'alice');
-      secret.writeAsStringSync('second');
-      expect((await delegate.onHello(_hello())).success!.authId, 'alice');
+      expect(_helloSuccess(await delegate.onHello(_hello())).authId, 'alice');
+      secret.writeAsStringSync('remote-fixture-16bqabh');
+      expect(_helloSuccess(await delegate.onHello(_hello())).authId, 'alice');
       expect(
-        (await delegate.onAuthenticate(_authenticate())).success!.authRole,
+        _authenticateSuccess(
+          await delegate.onAuthenticate(_authenticate()),
+        ).authRole,
         'member',
       );
       expect(service.hellos, hasLength(2));
@@ -163,12 +329,18 @@ void main() {
           );
           addTearDown(service.close);
           final delegate = service.delegate();
-          expect((await delegate.onHello(_hello())).success!.authId, 'alice');
           expect(
-            (await delegate.onAuthenticate(_authenticate())).success!.authRole,
+            _helloSuccess(await delegate.onHello(_hello())).authId,
+            'alice',
+          );
+          expect(
+            _authenticateSuccess(
+              await delegate.onAuthenticate(_authenticate()),
+            ).authRole,
             'member',
           );
           expect(service.hellos, hasLength(1));
+          expect(service.calls, hasLength(2));
           expect(service.calls[0][5], {
             'transactionId': 'transaction',
             'hello': {
@@ -201,6 +373,8 @@ void main() {
       final first = delegate.onHello(_hello(id: 'first'));
       final second = delegate.onAuthenticate(_authenticate(id: 'second'));
       await received.future.timeout(const Duration(seconds: 3));
+      expect(service.calls, hasLength(2));
+      expect(service.senders, hasLength(1));
       for (final call in service.calls.reversed) {
         service.senders.single(
           _result(call, {
@@ -210,8 +384,8 @@ void main() {
           }),
         );
       }
-      expect((await first).success!.authId, 'first');
-      expect((await second).success!.authId, 'second');
+      expect(_helloSuccess(await first).authId, 'first');
+      expect(_authenticateSuccess(await second).authId, 'second');
       expect(service.hellos, hasLength(1));
     },
   );
@@ -246,7 +420,7 @@ void main() {
           'authRole': 'member',
         });
         expect(
-          (await delegate.onHello(_hello())).success!.authId,
+          _helloSuccess(await delegate.onHello(_hello())).authId,
           'after-timeout',
         );
         expect(service.hellos, hasLength(2));
@@ -275,7 +449,7 @@ void main() {
           );
         }
         service.rejectHello = false;
-        expect((await delegate.onHello(_hello())).success!.authId, 'alice');
+        expect(_helloSuccess(await delegate.onHello(_hello())).authId, 'alice');
         expect(service.calls, hasLength(1));
       },
     );
@@ -399,6 +573,7 @@ void main() {
           final success = operation == 'hello'
               ? (await delegate.onHello(_hello())).success
               : (await delegate.onAuthenticate(_authenticate())).success;
+          expect(success, isNotNull);
           expect(success!.authId, 'retry');
         },
       );
@@ -464,6 +639,7 @@ void main() {
         final failure = operation == 'hello'
             ? (await delegate.onHello(_hello())).failure
             : (await delegate.onAuthenticate(_authenticate())).failure;
+        expect(failure, isNotNull);
         expect(failure!.reason, 'fixture.denied');
         expect(failure.message, switch (source) {
           'keywords' => 'authoritative',
@@ -607,6 +783,21 @@ void main() {
   );
 }
 
+AuthSuccess _helloSuccess(RemoteHelloResponse response) {
+  expect(response.status, RemoteHelloStatus.success);
+  expect(response.success, isNotNull);
+  expect(response.challenge, isNull);
+  expect(response.failure, isNull);
+  return response.success!;
+}
+
+AuthSuccess _authenticateSuccess(RemoteAuthenticateResponse response) {
+  expect(response.status, RemoteAuthenticateStatus.success);
+  expect(response.success, isNotNull);
+  expect(response.failure, isNull);
+  return response.success!;
+}
+
 final _realm = RealmSettingsBuilder('consumer.realm').build();
 
 AuthenticatorContext _context({Map<String, Object?> details = const {}}) =>
@@ -663,6 +854,7 @@ class _Service {
   final calls = <List<dynamic>>[];
   final hellos = <List<dynamic>>[];
   bool rejectHello = false;
+  void Function(void Function())? scheduleWelcome;
   int get port => server?.port ?? rawServer!.port;
   Map<String, Object?> get transportConfig => {
     'type': rawServer != null ? 'rawsocket' : 'websocket',
@@ -773,17 +965,21 @@ class _Service {
     switch (frame[0]) {
       case 1:
         hellos.add(frame);
-        send(
-          rejectHello
-              ? [3, {}, 'wamp.error.not_authorized']
-              : [
-                  2,
-                  hellos.length,
-                  {
-                    'roles': {'dealer': <String, Object?>{}},
-                  },
-                ],
-        );
+        final response = rejectHello
+            ? [3, {}, 'wamp.error.not_authorized']
+            : [
+                2,
+                hellos.length,
+                {
+                  'roles': {'dealer': <String, Object?>{}},
+                },
+              ];
+        final schedule = scheduleWelcome;
+        if (schedule == null) {
+          send(response);
+        } else {
+          schedule(() => send(response));
+        }
       case 48:
         calls.add(frame);
         final reply = respond(frame);

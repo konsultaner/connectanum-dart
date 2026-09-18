@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart' as client_pkg;
 import 'package:connectanum_client/socket.dart' as client_socket;
@@ -9,6 +10,7 @@ import 'package:connectanum_core/cbor_serializer.dart' as cbor_serializer;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_core/json_serializer.dart' as json_serializer;
 import 'package:connectanum_core/msgpack_serializer.dart' as msgpack_serializer;
+import 'package:crypto/crypto.dart' show sha256;
 
 import '../config/authenticator.dart';
 import '../config/router_settings.dart';
@@ -1225,10 +1227,17 @@ const int _rawSocketSerializerMsgpack = 2;
 const int _rawSocketSerializerCbor = 3;
 
 String _stableFingerprint(String value) {
-  var hash = 0x811c9dc5;
-  for (final codeUnit in value.codeUnits) {
-    hash ^= codeUnit;
-    hash = (hash * 0x01000193) & 0xffffffff;
+  // Credential identities need collision resistance. Encode exact UTF-16 code
+  // units so malformed surrogate sequences cannot alias through UTF-8 repair.
+  final bytes = Uint8List(value.length * 2);
+  for (var index = 0; index < value.length; index++) {
+    final codeUnit = value.codeUnitAt(index);
+    bytes[index * 2] = codeUnit >> 8;
+    bytes[index * 2 + 1] = codeUnit & 0xff;
   }
-  return hash.toRadixString(16).padLeft(8, '0');
+  try {
+    return sha256.convert(bytes).toString();
+  } finally {
+    bytes.fillRange(0, bytes.length, 0);
+  }
 }

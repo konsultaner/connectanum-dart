@@ -6,6 +6,44 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work120 adds remote-WAMP configuration and wire-result assertions, then finds
+and reproduces a production credential-identity collision. Three tests fail on
+the old32-bit fingerprint: different inline tokens have the same registry key,
+file-backed service credential rotation leaves its fingerprint unchanged, and
+a live delegate keeps its old session. SHA-256 over exact UTF-16BE code units
+fixes all three; temporary encoded bytes are cleared. Password KDFs and WAMP
+wire behavior are unchanged. Five independent Unicode digest vectors include
+unpaired surrogate values to prevent lossy UTF-8 encoding aliases.
+All197 focused tests pass (146 before), analysis is clean, and the fixed source
+measures571/574 VM lines (99.48%), not whole-router coverage. Fast120 and the
+original Verify120 pass. Two narrow test guards changed during Verify120, so
+frozen-input Verify120b now also completes with observed exit zero, including
+Rust/native, installed-package/live-router and Chrome WASM tests. Final input
+hashes match and the native window is released. Final
+`remote-wamp120c-mutations` completes
+with observed exit zero:292 candidates,182 assertion kills,six uncredited
+errors,three survivors,101 compile failures;95.29% raw/adjusted assertions,
+98.43% conventional detection. Both baselines, all14 current input hashes and
+the independent kill-log audit pass. No new equivalent waivers. The first
+asserts a map before using containsPair; the second asserts that synchronous
+inline cache-key construction does not raise RangeError. Other runtime and
+infrastructure failures remain uncredited. The earlier286-candidate
+`remote-wamp120-mutations` campaign
+has172 assertion kills,11 error-only outcomes,
+four survivors and99 compile failures (91.98% raw/adjusted assertions).
+It is diagnostic evidence on the old source, not evidence for the SHA-256 fix.
+The new source generates292 candidates with unchanged mutation policy and no
+new equivalences. The completed120b diagnostic predates those guards and has
+172 assertions,16 errors,three survivors,101 compile failures (90.05%). The
+controlled warmup test kills the former eagerError survivor. Preserve red/green
+regressions, final120c-input hashes and survivor review in
+`coverage120-remote-oracles`; final focused VM data is `remote-wamp120c-vm`.
+At predecessor f9fd4f41, package dry runs and WAMP profile35362469253 pass;
+main CI remains queued. Refresh CI, package, WAMP and router-image dry-run
+evidence after pushing this production change. Client and router binding
+assertion gates remain58.04%/64.74%; unchanged client baseline1621 tests passes.
+No merge, publication or version change. The complete milestone remains open.
+
 Work119 closes the benchmark-config assertion gate without production changes,
 inventory changes, new equivalents or lower thresholds. Known-valid in-memory
 parsing asserts FormatException/RangeError failures; malformed-input tests stay

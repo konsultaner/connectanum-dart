@@ -67,6 +67,56 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work120 Remote Credential Isolation And Wire Contracts
+
+- Add valid/default parser, TLS opt-in, credential file identity, authentication
+  cardinality, anonymous/non-remote warmup and explicit response discriminator
+  tests. Preserve all negative tests and exact wire-value checks. Runtime,
+  filesystem, socket, process and timeout failures do not become parser kills.
+- Reproduce a real32-bit credential fingerprint collision with three failing
+  tests before changing production code: inline delegate identity, file-backed
+  credential rotation and live-session reconnect. Replace the short fingerprint
+  with SHA-256 over exact UTF-16BE code units, clear the temporary encoding, and
+  verify five independent Unicode vectors including unpaired surrogates. This
+  hash is an in-memory identity, not a password KDF or persisted verifier.
+- Add a controlled wire warmup test: a later malformed configuration must not
+  report aggregate completion before an earlier pending connection settles.
+  Preserve transport/process failures; do not treat them as assertion kills.
+- All197 focused tests pass (146 before); analysis is clean. Final focused VM
+  source lines571/574 (99.48%); three unhit lines remain. Fast120 and original
+  Verify120 pass. Two narrow test guards changed during that verifier, so
+  frozen-input Verify120b also completes with observed exit zero, including
+  Rust/native, installed-package/live-router and Chrome WASM. Final hashes match;
+  release the native window. Assert the
+  CA map type before containsPair and successful RangeError-free synchronous
+  inline cache-key construction. Other runtime/infrastructure failures remain
+  uncredited. No change to mutation operators, thresholds or equivalent waivers.
+- Earlier286-candidate remote-wamp120 completes below gate at172 assertion
+  kills,11 uncredited errors,four survivors,99 compile failures:91.98% raw and
+  adjusted assertion score. Keep it as old-source diagnostic evidence, not
+  final-snapshot evidence. The292-candidate120b campaign also predates final
+  guards:172 assertions,16 errors,three survivors,101 compile failures (90.05%).
+  It confirms the new controlled warmup assertion kills the eagerError survivor.
+  Final120c completes with observed exit zero:292 candidates,182 assertion kills,
+  six uncredited errors,three survivors,101 compile failures;95.29% raw/adjusted
+  assertions,98.43% conventional detection. Both baselines and all14 source/test/
+  support hashes pass; independent audit agrees and the292-candidate inventory
+  matches120b exactly. No new waivers. Final snapshot is final120c-input.sha256.
+- GLM's independent endpoint is unavailable. Two focused Qwen fingerprint
+  reviews hit output limits and are not approval. Later completed fingerprint
+  and cache-key assertion reviews have no concrete findings; independently
+  inspect call sites, code-unit bounds, collision reproductions and vectors.
+  Three120b survivors remain reviewed and unwaived: absent-key early return,
+  connecting-future identity guard and private authmethod-list growability.
+  Evidence: coverage120-remote-oracles, remote-wamp120c-vm and the named mutation
+  reports under the shared root. No merge, publication or version changes.
+- At predecessor f9fd4f41 package dry runs and WAMP35362469253 pass; CI is queued.
+  Refresh all required hosted evidence, including router-image dry run, after
+  pushing this production fix. Next client/router binding assertion gaps remain
+  58.04%/64.74%. The unchanged client binding baseline passes1621 tests; inspected
+  failure categories and rejected companion suggestions are in
+  coverage121-binding-oracles. No new binding score or whole-component gain.
+
 ### Work119 Benchmark Configuration And Browser Evidence
 
 - Preserve malformed-input tests and exact values while asserting that known
