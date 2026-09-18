@@ -67,6 +67,55 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work111 MCP OAuth Boundary Assertions
+
+- Add 12 mismatched resource URI cases and four valid exchanges through the
+  public client. Require the exact rejection type/resource and zero postUrl
+  calls before any token request; valid cases verify the complete token form
+  and grant fields. Preserve case-insensitive schemes/hosts, default ports and
+  case-sensitive paths/queries. Credentials and even empty fragments are rejected.
+- Add 289 step-up cases: every ASCII code point plus non-ASCII boundaries in
+  both previous scopes and server challenges, empty scopes, exact ordered union
+  and duplicate removal, and HTTPS/loopback metadata URL acceptance/rejection.
+  Expected scope characters use an explicit independent alphabet. Construction
+  makes no HTTP calls. Deterministic persisted grants avoid wall-clock expiry.
+- Valid form and step-up constructors now use returnsNormally before their
+  existing exact-value assertions. Successful asynchronous grant exchanges
+  capture synchronous throws with Future.sync and assert completion contents.
+  Do not change mutation classification or relabel historical test errors.
+- All 1,464 MCP VM tests pass; 248 form tests pass separately on JavaScript and
+  WASM. `client-mcp111-vm` measures the complete HTTP client file at 1,862/1,955
+  lines (95.24%); the whole-workspace policy fails on this focused selection as
+  expected. Source/test/config hashes are retained. No WASM coverage claim.
+- `client-oauth111-diagnostics` replays all 53 previously recorded candidates
+  at lines 42..81 plus the recorded form minLength error, using the complete
+  current MCP test directory. Both baselines exit zero; 50 assertion kills,
+  four compile errors, no survivors/timeouts or equivalents. This is a scoped
+  diagnostic, not a replacement full-target score. Original MCP109 remains
+  running unchanged with all 1,597 candidates and its old test hashes.
+- Local review's alleged form-recording race is refuted: the server records
+  the form before writing its response. Construction checks already wrap both
+  identified calls. throwsA explicitly invokes Future-returning functions;
+  the mutation log proves a mismatched resource returning a grant fails that
+  matcher, refuting the suggested silent pass. The final scope-fixture review
+  reports no findings; retain
+  the first token-limited review as incomplete. The first browser launch used
+  an absent Chrome path; corrected runs use the verified repository launcher.
+- Fast110/Verify110 passed before these test changes. After native110 exits,
+  fresh Fast111 and settled-input Verify111 pass with observed exit zero,
+  including native tests, installed-package smokes, JavaScript and WASM.
+  Source/test/configuration hashes still match the diagnostic and VM evidence.
+  Evidence lives under
+  `coverage111-mcp-oauth`, `client-mcp111-vm` and `client-oauth111-diagnostics`.
+  Work110 is pushed as `72c6b904`; package/image dry runs and WAMP profiles pass,
+  while main CI is pending. The strict hosted audit remains nonzero.
+  No merge, publication, version bump, waiver or whole-goal completion claim.
+- Measurement follow-up: the Dart runner's exit threshold still compares the
+  conventional adjustedScore, not adjustedAssertionScoreLowerBound. Its green
+  CI jobs do not prove the goal's assertion threshold. Enforce assertion-based
+  completion before the milestone can close, preserving historical results and
+  fixing genuine test gaps rather than relabeling test-error detections.
+
 ### Work110 Native Result And Consumption Oracles
 
 - Reproduce the native108 fixture gaps from preserved mutant logs before
@@ -99,8 +148,14 @@ caught and timed-out outcomes separately.
   Verify110 pass with observed exit zero, including Rust, installed-package
   smokes and Chrome JavaScript/WASM tests. Final `native110b-current` input
   hashes match. After verification exits, the complete 81-candidate boundary
-  rerun starts as the sole native owner; its inventory is identical to native108.
-  Its final assertion score remains pending. The new helper
+  rerun runs as the sole native owner; its inventory is identical to native108.
+  Final strict audit: 78 assertion kills, three errors, no survivors/timeouts,
+  96.30% raw/adjusted, no equivalents. All three errors are SIGSEGV after mutating
+  null-pointer guards before CStr::from_ptr in the RawSocket/WebSocket client
+  functions. Keep them as errors; this does not establish a defect in unmutated
+  code. Strict audit exits one with evidenceClean false, whereas cargo-mutants
+  reports 81 conventional detections. This remains a boundary slice, not the
+  whole native component or unsafe-function coverage. The new helper
   files are test-only under the unchanged analyzer; no production exclusion,
   native behavior change, waiver, merge, publication or version change.
 - Work109 is pushed at `e5410370`; both hosted package dry runs, image dry

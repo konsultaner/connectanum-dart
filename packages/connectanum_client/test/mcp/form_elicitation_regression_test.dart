@@ -207,21 +207,28 @@ void main() {
 
     for (final mode in [null, 'form']) {
       test('decodes supported form mode $mode without changing the schema', () {
-        final request = McpFormElicitationRequest.fromJson('input-2', {
-          'method': 'elicitation/create',
-          'params': {
-            'mode': ?mode,
-            'message': 'Choose a value',
-            'requestedSchema': {'type': 'object', 'properties': {}},
-          },
-        });
+        final request = _valid(
+          () => McpFormElicitationRequest.fromJson('input-2', {
+            'method': 'elicitation/create',
+            'params': {
+              'mode': ?mode,
+              'message': 'Choose a value',
+              'requestedSchema': {'type': 'object', 'properties': {}},
+            },
+          }),
+        );
         expect(request.inputRequestId, 'input-2');
         expect(request.message, 'Choose a value');
         expect(request.requestedSchema, {'type': 'object', 'properties': {}});
-        expect(McpFormElicitationResponse.accept({}).toJsonFor(request), {
-          'action': 'accept',
-          'content': {},
-        });
+        expect(
+          _valid(
+            () => McpFormElicitationResponse.accept({}).toJsonFor(request),
+          ),
+          {
+            'action': 'accept',
+            'content': {},
+          },
+        );
       });
     }
     for (final mode in ['url', 'FORM', 1, false]) {
@@ -431,7 +438,7 @@ void main() {
     for (final (name, schema, accepted, rejected) in cases) {
       for (var i = 0; i < accepted.length; i++) {
         test('$name accepts boundary $i with exact output', () {
-          expect(_respond(schema, accepted[i]), {
+          expect(_valid(() => _respond(schema, accepted[i])), {
             'action': 'accept',
             'content': {'value': accepted[i]},
           });
@@ -472,10 +479,13 @@ void main() {
     ];
     for (final value in validDates) {
       test('accepts calendar date $value unchanged', () {
-        expect(_respond({'type': 'string', 'format': 'date'}, value), {
-          'action': 'accept',
-          'content': {'value': value},
-        });
+        expect(
+          _valid(() => _respond({'type': 'string', 'format': 'date'}, value)),
+          {
+            'action': 'accept',
+            'content': {'value': value},
+          },
+        );
       });
     }
     for (final value in invalidDates) {
@@ -533,10 +543,15 @@ void main() {
     ];
     for (final value in validDateTimes) {
       test('accepts RFC3339 date-time $value unchanged', () {
-        expect(_respond({'type': 'string', 'format': 'date-time'}, value), {
-          'action': 'accept',
-          'content': {'value': value},
-        });
+        expect(
+          _valid(
+            () => _respond({'type': 'string', 'format': 'date-time'}, value),
+          ),
+          {
+            'action': 'accept',
+            'content': {'value': value},
+          },
+        );
       });
     }
     for (final value in invalidDateTimes) {
@@ -551,6 +566,12 @@ void main() {
       );
     }
   });
+}
+
+T _valid<T>(T Function() construct) {
+  late T value;
+  expect(() => value = construct(), returnsNormally);
+  return value;
 }
 
 McpFormElicitationRequest _request(

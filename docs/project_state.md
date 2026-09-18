@@ -6,6 +6,32 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work111 adds 305 public MCP OAuth regressions: exact resource binding before
+token I/O, positive code/grant exchanges, exhaustive ASCII scope boundaries,
+Unicode/empty rejection, ordered scope union and HTTPS/loopback metadata rules.
+Valid form and step-up construction now assert success before retaining exact
+output checks. No production code, protocol behavior or mutation policy changes.
+All 1,464 MCP VM tests pass; all 248 form tests pass separately in JavaScript
+and WASM. The complete HTTP client file measures 1,862/1,955 VM lines (95.24%)
+in `client-mcp111-vm`, not whole-package coverage. The full-workspace coverage
+policy intentionally fails on this focused selection. WASM lines are unmeasured.
+A hash-pinned diagnostic replay retains 54 recorded candidates: 50 assertion
+kills, four compile errors, no survivors/timeouts, both baselines exit zero.
+This scoped replay is not the full 1,597-candidate campaign or its final score.
+The original MCP109 campaign remains running against its original test snapshot.
+The complete native110 rerun records 78 assertion kills and three SIGSEGV
+errors across 81 unchanged candidates: 96.30% raw/adjusted, no equivalents,
+survivors or timeouts. It improves on native108's 66 assertion kills. All three
+remaining errors mutate null-pointer guards before CStr::from_ptr; they are
+not assertion kills or evidence of an unmutated production defect. Strict audit
+still exits one with evidenceClean false; unsafe-function instrumentation and
+whole-native coverage remain open. Fast111 passes with observed exit zero after
+native110 exits; settled-input Verify111 passes with observed exit zero,
+including native tests, installed-package smokes, JavaScript and WASM.
+Work110 is verified and pushed as `72c6b904`; its package/image dry runs and WAMP
+profiles pass, main CI remains pending, and the initial strict audit is
+nonzero on pending checks and existing policy/visibility findings.
+
 Work110 addresses native fixture errors exposed by the completed boundary
 campaign. Background client results are observed before waiting for a server;
 successful early RawSocket IDs are retained and WebSocket acceptance can still
@@ -21,8 +47,10 @@ diagnostics without changing the predicate or accepting arbitrary panic text.
 Fresh Fast110 and settled-input Verify110 pass with observed exit zero,
 including Rust, installed-package smokes and Chrome JavaScript/WASM tests.
 Final `native110b-current` input hashes still match. After verification exits,
-the full 81-candidate rerun starts as the sole local native owner; its inventory
-is identical to native108. Its final assertion score remains pending.
+the full 81-candidate rerun runs as the sole local native owner with an inventory
+identical to native108. It completes with 78 assertion kills, three SIGSEGV
+errors, no survivors/timeouts and 96.30% raw/adjusted, no waivers. Preserve its
+nonzero strict audit separately from cargo-mutants' 81 conventional detections.
 No production native behavior or measurement policy changes.
 
 Work109 is verified and pushed as `e5410370` on PR #93. Both package dry runs,
