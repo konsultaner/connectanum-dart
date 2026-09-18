@@ -1,10 +1,89 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:connectanum_router/src/router/config/router_config_loader.dart';
 import 'package:connectanum_router/src/router/config/router_settings.dart';
 import 'package:test/test.dart';
 
+import 'support/config_assertions.dart';
+
 void main() {
+  group('valid configuration assertions', () {
+    test('evaluate once and preserve the parsed result', () async {
+      final result = Object();
+      var calls = 0;
+      expect(
+        expectConfigSuccess(() {
+          calls++;
+          return result;
+        }),
+        same(result),
+      );
+      expect(
+        await expectConfigLoad(() async {
+          calls++;
+          return result;
+        }),
+        same(result),
+      );
+      expect(calls, 2);
+      expect(expectConfigSuccess<Object?>(() => null), isNull);
+      expect(await expectConfigLoad<Object?>(() async => null), isNull);
+    });
+
+    for (final error in <Object>[
+      const FormatException('invalid format'),
+      ArgumentError('invalid value'),
+      StateError('missing value'),
+      TypeError(),
+    ]) {
+      test(
+        'report parser failure $error as a failed success assertion',
+        () async {
+          final assertion = throwsA(
+            isA<TestFailure>().having(
+              (failure) => failure.message,
+              'diagnostic',
+              contains(error.toString()),
+            ),
+          );
+          expect(
+            () => expectConfigSuccess<Object>(() => throw error),
+            assertion,
+          );
+          await expectLater(
+            expectConfigLoad<Object>(() async => throw error),
+            assertion,
+          );
+        },
+      );
+    }
+
+    for (final error in <Object>[
+      TimeoutException('deadline'),
+      const FileSystemException('read failed'),
+      const SocketException('connection failed'),
+      const ProcessException('dart', [], 'launch failed'),
+      Exception('unexpected failure'),
+    ]) {
+      test('preserve infrastructure error $error unchanged', () async {
+        expect(
+          () => expectConfigSuccess<Object>(() => throw error),
+          throwsA(same(error)),
+        );
+        await expectLater(
+          expectConfigLoad<Object>(() async => throw error),
+          throwsA(same(error)),
+        );
+        await expectLater(
+          expectConfigLoad<Object>(() => throw error),
+          throwsA(same(error)),
+        );
+      });
+    }
+  });
+
   group('configuration input boundaries', () {
     final cases = <(String, Object?, String)>[
       ('realms', false, 'Expected "realms" to be a list'),
@@ -185,7 +264,7 @@ void main() {
     }
 
     test('fixture is valid before replacing one configuration value', () {
-      final settings = RouterConfigLoader.fromMap(_config());
+      final settings = loadValidRouterConfig(_config());
       expect(settings.realms.single.name, 'consumer.realm');
       expect(settings.listeners.single.endpoint, '127.0.0.1:0');
       expect(settings.realms.single.roles.single.permissions.single.allow, [
@@ -227,7 +306,7 @@ void main() {
       );
     });
     test('null header values are omitted and the result is immutable', () {
-      final match = RouterConfigLoader.fromMap(
+      final match = loadValidRouterConfig(
         _withSetting(
           'listeners.0.http.routes.0.match.headers',
           {'X-Keep': 'value', 'X-Omit': null},
@@ -259,10 +338,11 @@ void main() {
       });
     }
     test('explicit rate-limit disabling is distinct from defaults', () {
-      expect(_action(false).rateLimit, isNull);
-      expect(_action(null).rateLimit, isNull);
-      final enabled = _action(true).rateLimit!;
-      expect(enabled.maxRequests, 60);
+      expect(expectConfigSuccess(() => _action(false)).rateLimit, isNull);
+      expect(expectConfigSuccess(() => _action(null)).rateLimit, isNull);
+      final enabled = expectConfigSuccess(() => _action(true)).rateLimit;
+      expect(enabled, isNotNull);
+      expect(enabled!.maxRequests, 60);
       expect(enabled.windowMs, 60000);
       expect(enabled.key, 'global');
       expect(enabled.maxBuckets, 4096);
@@ -270,27 +350,33 @@ void main() {
     test(
       'rate-limit aliases normalize keys and respect primary precedence',
       () {
-        final aliases = _action({
-          'requests': 7,
-          'intervalMs': 1234,
-          'keyBy': ' HEADER: X-Tenant ',
-          'maxBuckets': 13,
-        }).rateLimit!;
-        expect(aliases.maxRequests, 7);
+        final aliases = expectConfigSuccess(
+          () => _action({
+            'requests': 7,
+            'intervalMs': 1234,
+            'keyBy': ' HEADER: X-Tenant ',
+            'maxBuckets': 13,
+          }),
+        ).rateLimit;
+        expect(aliases, isNotNull);
+        expect(aliases!.maxRequests, 7);
         expect(aliases.windowMs, 1234);
         expect(aliases.key, 'header:x-tenant');
         expect(aliases.maxBuckets, 13);
-        final primary = _action({
-          'max_requests': 3,
-          'requests': 7,
-          'window_ms': 10,
-          'intervalMs': 20,
-          'key': ' BEARER ',
-          'keyBy': 'connection',
-          'max_buckets': 5,
-          'maxBuckets': 6,
-        }).rateLimit!;
-        expect(primary.maxRequests, 3);
+        final primary = expectConfigSuccess(
+          () => _action({
+            'max_requests': 3,
+            'requests': 7,
+            'window_ms': 10,
+            'intervalMs': 20,
+            'key': ' BEARER ',
+            'keyBy': 'connection',
+            'max_buckets': 5,
+            'maxBuckets': 6,
+          }),
+        ).rateLimit;
+        expect(primary, isNotNull);
+        expect(primary!.maxRequests, 3);
         expect(primary.windowMs, 10);
         expect(primary.key, 'bearer');
         expect(primary.maxBuckets, 5);
@@ -300,7 +386,9 @@ void main() {
       final input = _withSetting('authorization_providers.policy', 'local');
       final router = input['router']! as Map<String, Object?>;
       router['http_auth_providers'] = {'tokens': 'bearer'};
-      final settings = RouterConfigLoader.fromMap(input);
+      final settings = loadValidRouterConfig(input);
+      expect(settings.authorizationProviders.keys, contains('policy'));
+      expect(settings.httpAuthProviders.keys, contains('tokens'));
       expect(settings.authorizationProviders['policy']!.type, 'local');
       expect(settings.authorizationProviders['policy']!.options, isEmpty);
       expect(settings.httpAuthProviders['tokens']!.type, 'bearer');
@@ -318,7 +406,7 @@ void main() {
           'subprotocols': ['wamp.2.cbor'],
         };
         final original = jsonEncode(input);
-        final websocket = RouterConfigLoader.fromMap(
+        final websocket = loadValidRouterConfig(
           input,
         ).listeners.single.websocket!;
         expect(websocket.path, '/legacy-ws');
@@ -344,14 +432,15 @@ void main() {
               (router['listeners']! as List).single as Map<String, Object?>;
           listener['type'] = 'http';
           listener['options'] = options;
-          final http = RouterConfigLoader.fromMap(input).listeners.single.http!;
-          expect(http.options, options);
+          final http = loadValidRouterConfig(input).listeners.single.http;
+          expect(http, isNotNull);
+          expect(http!.options, options);
           expect(() => http.options['new'] = true, throwsUnsupportedError);
         },
       );
     }
     test('a listener with no explicit type defaults to RawSocket', () {
-      final listener = RouterConfigLoader.fromMap(
+      final listener = loadValidRouterConfig(
         _withSetting('listeners.0.type', null),
       ).listeners.single;
       expect(listener.protocols, [ListenerProtocol.rawsocket]);
@@ -359,7 +448,7 @@ void main() {
     test(
       'method authentication options retain content and cannot be replaced',
       () {
-        final settings = RouterConfigLoader.fromMap(
+        final settings = loadValidRouterConfig(
           _withSetting('realms.0.auth.ticket', {
             'authenticator': 'remote',
             'required': true,
@@ -383,13 +472,13 @@ void main() {
         final listener =
             (router['listeners']! as List).single as Map<String, Object?>;
         listener['rawsocket'] = {'max_rawsocket_size_exponent': 16.0};
-        final settings = RouterConfigLoader.fromMap(input);
+        final settings = loadValidRouterConfig(input);
         expect(settings.workerPool.minWorkers, 3);
         expect(settings.listeners.single.rawsocket!.maxFrameExponent, 16);
       },
     );
     test('nullable per-method authentication options remain empty options', () {
-      final settings = RouterConfigLoader.fromMap(
+      final settings = loadValidRouterConfig(
         _withSetting('realms.0.auth.ticket', null),
       );
       expect(settings.realms.single.auth.methodOptions, {
@@ -400,7 +489,7 @@ void main() {
 
   group('configuration semantic defaults', () {
     test('identities are not disclosed and realms are not auto-created', () {
-      final realm = RouterConfigLoader.fromMap(_config()).realms.single;
+      final realm = loadValidRouterConfig(_config()).realms.single;
       expect(realm.autoCreate, isFalse);
       final disclose = realm.roles.single.permissions.single.disclose;
       expect(disclose.caller, isFalse);
@@ -411,29 +500,29 @@ void main() {
       'absent optional sections retain empty rather than enabled values',
       () {
         expect(
-          RouterConfigLoader.fromMap(_withSetting('listeners', null)).listeners,
+          loadValidRouterConfig(_withSetting('listeners', null)).listeners,
           isEmpty,
         );
         expect(
-          RouterConfigLoader.fromMap(
+          loadValidRouterConfig(
             _withSetting('realms.0.roles.0.permissions', null),
           ).realms.single.roles.single.permissions,
           isEmpty,
         );
         expect(
-          RouterConfigLoader.fromMap(
+          loadValidRouterConfig(
             _withSetting('listeners.0.http.routes', null),
           ).listeners.single.http!.routes,
           isEmpty,
         );
-        final auth = RouterConfigLoader.fromMap(
+        final auth = loadValidRouterConfig(
           _withSetting('session_profiles.0.auth', null),
         ).sessionProfiles.single.auth;
         expect(auth.methods, isEmpty);
         expect(auth.authId, isNull);
         expect(auth.authRole, isNull);
         expect(auth.httpProvider, isNull);
-        final match = RouterConfigLoader.fromMap(
+        final match = loadValidRouterConfig(
           _withSetting('listeners.0.http.routes.0.match', null),
         ).listeners.single.http!.routes.single.match;
         expect(match.path, isNull);
@@ -446,7 +535,7 @@ void main() {
       },
     );
     test('session auth identity uses snake-case before camel-case alias', () {
-      final auth = RouterConfigLoader.fromMap(
+      final auth = loadValidRouterConfig(
         _withSetting('session_profiles.0.auth', {
           'auth_id': 'primary-user',
           'authId': 'other-user',
@@ -455,7 +544,7 @@ void main() {
       expect(auth.authId, 'primary-user');
     });
     test('HTTP3 and OpenMetrics are enabled by their empty configuration', () {
-      final settings = RouterConfigLoader.fromMap(_config());
+      final settings = loadValidRouterConfig(_config());
       expect(settings.listeners.single.http!.http3!.enabled, isTrue);
       final metrics = settings.metrics!.openMetrics!;
       expect(metrics.enabled, isTrue);
@@ -467,7 +556,7 @@ void main() {
     });
     test('metrics container alone does not enable an OpenMetrics endpoint', () {
       expect(
-        RouterConfigLoader.fromMap(
+        loadValidRouterConfig(
           _withSetting('metrics', <String, Object?>{}),
         ).metrics!.openMetrics,
         isNull,
@@ -475,13 +564,13 @@ void main() {
     });
     test('zero collection timeout and zero minimum workers are valid', () {
       expect(
-        RouterConfigLoader.fromMap(
+        loadValidRouterConfig(
           _withSetting('metrics.open_metrics.collection_timeout_ms', 0),
         ).metrics!.openMetrics!.collectionTimeout,
         Duration.zero,
       );
       expect(
-        RouterConfigLoader.fromMap(
+        loadValidRouterConfig(
           _withSetting('worker_pool.min_workers', 0),
         ).workerPool.minWorkers,
         0,
@@ -491,7 +580,7 @@ void main() {
       test(
         'services $services normalizes to an immutable empty service set',
         () {
-          final selected = RouterConfigLoader.fromMap(
+          final selected = loadValidRouterConfig(
             _withSetting('internal_realms.0.services', services),
           ).internalRealms.single.services;
           expect(selected, isEmpty);
@@ -500,7 +589,7 @@ void main() {
       );
     }
     test('authenticator options survive parsing and are immutable', () {
-      final options = RouterConfigLoader.fromMap(
+      final options = loadValidRouterConfig(
         _withSetting('authenticators.anonymous.options', {
           'auth_role': 'guest',
           'enabled': false,
@@ -510,18 +599,24 @@ void main() {
       expect(() => options['auth_role'] = 'admin', throwsUnsupportedError);
     });
     test('connection-scoped rate limits stay distinct from global limits', () {
-      expect(_action({'key': ' CONNECTION '}).rateLimit!.key, 'connection');
+      final action = expectConfigSuccess(
+        () => _action({'key': ' CONNECTION '}),
+      );
+      expect(action.rateLimit, isNotNull);
+      expect(action.rateLimit!.key, 'connection');
     });
     test('parsed configuration collections retain fixed lengths', () {
-      final settings = RouterConfigLoader.fromMap(
+      final settings = loadValidRouterConfig(
         _withSetting('listeners.0.authmethods', ['ticket']),
       );
       final collections = <String, List<Object?>>{
         'realms': settings.realms,
+        'realm authentication methods': settings.realms.single.auth.methods,
         'roles': settings.realms.single.roles,
         'permissions': settings.realms.single.roles.single.permissions,
         'listeners': settings.listeners,
         'listener auth methods': settings.listeners.single.authmethods,
+        'HTTP routes': settings.listeners.single.http!.routes,
         'session profiles': settings.sessionProfiles,
         'internal realms': settings.internalRealms,
       };
@@ -535,6 +630,29 @@ void main() {
         );
         expect(entry.value, original, reason: entry.key);
       }
+    });
+
+    test('caller changes cannot replace parsed auth methods or routes', () {
+      final input = _config();
+      final router = input['router']! as Map<String, Object?>;
+      final realm = (router['realms']! as List).single as Map<String, Object?>;
+      final auth = realm['auth']! as Map<String, Object?>;
+      final methods = auth['authmethods']! as List;
+      final listener =
+          (router['listeners']! as List).single as Map<String, Object?>;
+      final http = listener['http']! as Map<String, Object?>;
+      final routes = http['routes']! as List;
+      final settings = loadValidRouterConfig(input);
+
+      methods[0] = 'ticket';
+      routes.clear();
+
+      expect(settings.realms.single.auth.methods, ['anonymous']);
+      expect(settings.listeners.single.http?.routes, hasLength(1));
+      final route = settings.listeners.single.http!.routes.single;
+      expect(route.match.path, '/echo');
+      expect(route.action.type, HttpRouteActionType.rpc);
+      expect(route.action.procedure, 'com.example.echo');
     });
   });
 
@@ -600,7 +718,7 @@ void main() {
       test(
         'only selected legacy settings are constructed for ${selection.$1}',
         () {
-          final listener = RouterConfigLoader.fromMap(
+          final listener = loadValidRouterConfig(
             _withSetting('listeners.0', {
               'endpoint': '127.0.0.1:0',
               ...selection.$1,
@@ -626,7 +744,7 @@ void main() {
     }
     for (final type in ['rawsocket', 'websocket']) {
       test('$type without legacy fields leaves optional settings absent', () {
-        final listener = RouterConfigLoader.fromMap(
+        final listener = loadValidRouterConfig(
           _withSetting('listeners.0', {
             'endpoint': '127.0.0.1:0',
             'type': type,
@@ -639,7 +757,7 @@ void main() {
     }
     for (final field in ['path', 'serializer_fallback', 'subprotocols']) {
       test('WebSocket $field alone is sufficient for legacy settings', () {
-        final websocket = RouterConfigLoader.fromMap(
+        final websocket = loadValidRouterConfig(
           _withSetting('listeners.0', {
             'endpoint': '127.0.0.1:0',
             'protocols': ['websocket'],
@@ -662,7 +780,7 @@ void main() {
       });
     }
     test('unselected legacy transport options are not interpreted', () {
-      final listener = RouterConfigLoader.fromMap(
+      final listener = loadValidRouterConfig(
         _withSetting('listeners.0', {
           'endpoint': '127.0.0.1:0',
           'protocols': ['http'],

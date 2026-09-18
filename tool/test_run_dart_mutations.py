@@ -371,7 +371,10 @@ class MutationRunnerTests(unittest.TestCase):
             f'{prefix}/test/router_settings_regression_test.dart',
             f'{prefix}/test/router_settings_open_metrics_regression_test.dart',
         })
-        self.assertEqual(target['supportFiles'], ['examples/quickstart/router.yaml'])
+        self.assertEqual(target['supportFiles'], [
+            'examples/quickstart/router.yaml',
+            'packages/connectanum_router/test/support/config_assertions.dart',
+        ])
 
     def test_remote_wamp_target_covers_whole_delegate_and_wire_fixtures(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())

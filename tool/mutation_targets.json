@@ -31,7 +31,10 @@
       "packages/connectanum_router/test/router_settings_regression_test.dart",
       "packages/connectanum_router/test/router_settings_open_metrics_regression_test.dart"
     ],
-    "supportFiles": ["examples/quickstart/router.yaml"]
+    "supportFiles": [
+      "examples/quickstart/router.yaml",
+      "packages/connectanum_router/test/support/config_assertions.dart"
+    ]
   },
   "router-remote-wamp-vm": {
     "sources": ["packages/connectanum_router/lib/src/router/auth/remote_wamp_delegate.dart"],

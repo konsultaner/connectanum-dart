@@ -1,6 +1,7 @@
 @TestOn('vm')
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:connectanum_bench/src/remote_auth_bench_harness.dart';
@@ -13,6 +14,68 @@ import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('harness startup assertion', () {
+    test('evaluates once and returns the result unchanged', () async {
+      final result = Object();
+      var calls = 0;
+      expect(
+        await _expectHarnessStartup(() async {
+          calls++;
+          return result;
+        }),
+        same(result),
+      );
+      expect(calls, 1);
+      expect(await _expectHarnessStartup<Object?>(() async => null), isNull);
+    });
+
+    for (final error in <Object>[
+      const PathNotFoundException('nested/token.txt', OSError('missing', 2)),
+      StateError('Missing router test certificate remote_auth_server_cert.pem'),
+    ]) {
+      test(
+        'reports missing startup input $error with its diagnostic',
+        () async {
+          final assertion = throwsA(
+            isA<TestFailure>().having(
+              (failure) => failure.message,
+              'diagnostic',
+              contains(error.toString()),
+            ),
+          );
+          await expectLater(
+            _expectHarnessStartup<Object>(() async => throw error),
+            assertion,
+          );
+          await expectLater(
+            _expectHarnessStartup<Object>(() => throw error),
+            assertion,
+          );
+        },
+      );
+    }
+
+    for (final error in <Object>[
+      TimeoutException('deadline'),
+      const SocketException('bind failed'),
+      const ProcessException('dart', [], 'launch failed'),
+      const FileSystemException('permission denied'),
+      StateError('Native runtime already initialized'),
+      Exception('unexpected failure'),
+    ]) {
+      test('preserves infrastructure failure $error', () async {
+        await expectLater(
+          _expectHarnessStartup<Object>(() async => throw error),
+          throwsA(same(error)),
+        );
+        await expectLater(
+          _expectHarnessStartup<Object>(() => throw error),
+          throwsA(same(error)),
+        );
+      });
+    }
+  });
+
   final nativeLib = _nativeLibrary();
   final skipReason = nativeLib == null
       ? 'Native transport library missing; build the ffi-test library first.'
@@ -51,13 +114,18 @@ void main() {
       final records = <LogRecord>[];
       final logSubscription = logger.onRecord.listen(records.add);
       addTearDown(logSubscription.cancel);
-      RemoteAuthBenchHarness? harness = await RemoteAuthBenchHarness.maybeStart(
-        settings: settings,
-        runtime: runtime,
-        logger: logger,
-      );
+      RemoteAuthBenchHarness? harness;
       addTearDown(() async => await harness?.close());
+      harness = await _expectHarnessStartup(
+        () => RemoteAuthBenchHarness.maybeStart(
+          settings: settings,
+          runtime: runtime,
+          logger: logger,
+        ),
+      );
       expect(harness, isNotNull);
+      expect(tokenFile.existsSync(), isTrue);
+      expect(serviceFile.existsSync(), isTrue);
       expect(
         await tokenFile.readAsString(),
         RemoteAuthBenchHarness.defaultAuthToken,
@@ -340,6 +408,19 @@ RouterSettings _settings(int port, String tokenFile, String serviceFile) =>
               ..addAuthMethod('ticket', options: {'authenticator': 'remote'}),
           ))
         .build();
+
+// These known-valid fixtures require nested credential creation and certificate
+// discovery. Do not turn unrelated native/runtime failures into assertions.
+Future<T> _expectHarnessStartup<T>(Future<T> Function() operation) async {
+  try {
+    return await operation();
+  } on PathNotFoundException catch (error) {
+    fail('Valid harness startup must create/find its input files: $error');
+  } on StateError catch (error) {
+    if (!error.message.startsWith('Missing router test certificate ')) rethrow;
+    fail('Valid harness startup must find its certificate fixtures: $error');
+  }
+}
 
 String _certificate(String name) {
   for (final root in [

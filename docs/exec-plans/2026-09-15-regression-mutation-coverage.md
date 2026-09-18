@@ -67,6 +67,44 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work117 Config And Native Auth Assertions
+
+- Known-valid config parses now have explicit success assertions; negative calls
+  remain raw. Preserve exact settings and add caller-mutation/collection checks.
+  Error allowlist controls keep timeout, filesystem, process, socket and unknown
+  failures as errors. All424 focused tests pass versus413 before. Focused loader
+  VM coverage522/525 (99.43%); no whole-router improvement claim.
+- Config117 full396 inventory passes with346 assertion kills,three error-only,
+  ten survivors,37 compile failures:96.38% raw/adjusted versus49.86% before.
+  Conventional detection97.21%, no waivers, both baselines and input checks pass.
+- Native auth asserts nested credential creation and certificate discovery;
+  unrelated runtime/infrastructure failures propagate. Exact TLS authorization,
+  output files and listener cleanup checks remain. All42 tests pass versus33.
+  Full35 inventory:19 assertions,16 compile failures,100% raw/adjusted, no
+  survivors/errors/timeouts/waivers, baseline/restored zero, native artifact
+  unchanged and input hashes matching.
+- Keep support-file contract exact: config helper is hash-pinned by the target
+  and its tooling regression. The60-test runner suite passes with one Linux-only skip.
+  Fast117 passes. Initial Verify117 failed the stale support-file expectation;
+  preserve its log. Settled-input Verify117b passes with observed exit zero,
+  including Rust/native, installed-package/live-router and Chrome WASM tests;
+  final hashes match. A consumer preview held the shared native lock; our parent
+  was suspended before native tests and resumed after owner-confirmed release,
+  without restarting campaigns. The native window is explicitly released.
+- MCP114 finishes1098 inventory:812 assertion kills,24 survivors,262 compile
+  failures,97.13% raw/adjusted, no error-only/timeouts/equivalents. Both baselines
+  and current source/test/support hashes pass. Individual survivor review is in
+  coverage117-oracles; capability handler combinations and pending-release
+  retry/interleavings remain targeted follow-ups despite the passing gate.
+- E2EE116 finishes both runtimes with269 candidates each:VM207/214 assertions
+  (96.73%),three errors;JS210/214 (98.13%),including56 mixed outcomes with real
+  assertions. Four survivors and55 compile failures per runtime; no waivers or
+  timeouts, both baselines and final input checks pass. Retain Work116 review.
+- Qwen reviews were advisory and independently checked. GLM judge connection
+  was unavailable; no heavyweight approval is claimed. Separate kill-log audits
+  confirm completed MCP/config/native-auth assertion scores. Continue remaining
+  gates and full-scope line gaps; this does not finish the overall milestone.
+
 ### Work116 Installer And E2EE Success Assertions
 
 - Full VM115 completes with exit zero and matching input hashes before these

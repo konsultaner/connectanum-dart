@@ -6,6 +6,45 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work117 closes the router configuration and native benchmark-auth assertion
+gates without production changes, inventory changes, new equivalences or lower
+thresholds. Config tests explicitly assert valid parsing and preserve exact
+values, immutable collections, caller ownership and negative parser checks.
+Parser assertions preserve infrastructure errors. All424 focused tests pass
+(413 before); focused config-loader VM lines are522/525 (99.43%), not a whole
+router measurement. Full config117 records396 candidates,346 assertion kills,
+three error-only detections,ten survivors,37 compile failures:96.38% raw/adjusted
+assertion score versus49.86% before. Conventional detection remains97.21%.
+Native harness tests assert credential-path/certificate startup success without
+converting socket, process, timeout or native initialization failures to kills.
+All42 tests pass (33 before). Full bench-auth117 records35 candidates,19 assertion
+kills and16 compile failures:100%, no survivors/errors/timeouts/waivers.
+Both campaign baselines pass and input hashes match. Support-file enforcement
+now includes the config assertion helper; the60-test tooling suite passes (one
+Linux-only skip). Fast117 passes. Verify117 initially exposed the stale tooling
+support-file expectation; preserve that failure log. Settled-input Verify117b
+passes with observed exit zero, including Rust/native, installed-package/live-
+router and Chrome WASM suites. It was suspended at its own non-native parent
+while a consumer task released its preview router, then resumed on the same
+handle. Final input hashes match; the native window is explicitly released.
+MCP114 now completes:1098 candidates,812 assertion kills,24 survivors,262 compile
+failures;97.13% raw/adjusted, no errors/timeouts/waivers. Its original source/test/
+support hashes still match. All survivors were inspected; partial subscription
+capability advertisement and pending-release cleanup/interleavings remain
+priority test gaps, not equivalent waivers or proven baseline production bugs.
+E2EE116 also completes both runtimes:VM207/214 (96.73%) and JS210/214 (98.13%)
+assertion evidence, four survivors and55 compile failures each. VM retains three
+uncredited error-only outcomes; JS mixed detections contain actual assertions.
+Both baselines and final input checks pass. No new equivalent exclusions.
+Evidence: `out/regression-coverage-2026-09-15/coverage117-oracles`,
+`config117-mutations`, `config117-vm`, `bench-auth117-mutations`,
+`mcp114-library-mutations`, and `e2ee116-mutations`.
+The full VM115 and browser116 snapshots below remain the last broader line
+measurements; do not attribute these focused changes to whole-package gains.
+Continue lazy-payload, remote-auth and benchmark-config gates and genuine line
+gaps. Native/WASM/application coverage remains incomplete. No merge,
+publication or version change; the complete milestone remains active.
+
 Work116 closes both installer assertion gates without changing production code,
 candidate inventories, thresholds or equivalences. Known-valid downloads,
 extraction and recovery retries now use package-local success assertions;
