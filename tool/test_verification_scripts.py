@@ -59,6 +59,35 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_mutation_job_budgets_allow_complete_campaigns(self):
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
+        self.assertIn('timeout-minutes: ${{ matrix.timeout_minutes || 20 }}', job)
+        self.assertIn('fail-fast: false', job)
+        targets = {
+            target.strip()
+            for target in re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
+        }
+        entries = re.findall(
+            r'^          - target: ([\w-]+)\n            timeout_minutes: (\d+)\s*$',
+            job, re.MULTILINE,
+        )
+        budgets = {target: int(minutes) for target, minutes in entries}
+        self.assertEqual(len(entries), len(budgets), 'Duplicate timeout override')
+        self.assertLessEqual(set(budgets), targets, 'Override would add a matrix job')
+        self.assertEqual(budgets, {
+            'mcp-library': 180,
+            'router-remote-wamp-vm': 45,
+            'router-config-loader-vm': 45,
+            'router-remote-authenticator-vm': 45,
+            'router-http-auth-vm': 45,
+            'core-lazy-web': 90,
+            'core-metadata-web': 90,
+            'core-pem-pkcs8-web': 90,
+            'client-message-binding-vm': 90,
+            'router-message-binding-vm': 90,
+        })
+
     def test_key_file_mutation_gates_cover_vm_and_browser_with_artifacts(self):
         workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
         job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]

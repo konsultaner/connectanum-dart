@@ -67,6 +67,46 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work107 Hosted Campaign Budgets And Completed Native Audit
+
+- At `92f5c33f`, [PR CI MCP job](https://github.com/konsultaner/connectanum-dart/actions/runs/35300196245/job/105461036336)
+  is cancelled by its 120-minute job limit after 1,062/1,098 mutants. The
+  [push CI remote-WAMP job](https://github.com/konsultaner/connectanum-dart/actions/runs/35300192654/job/105461025721)
+  processes all 286 mutants but hits its 20-minute limit before reporting final
+  success. Both logs show continuing progress, not a stalled candidate. Their
+  other same-head executions pass (MCP approximately 118 minutes, remote-WAMP
+  approximately 15 minutes), but both overall CI runs remain cancelled.
+- Replace the compound timeout expression with explicit matrix include budgets:
+  MCP 180 minutes, remote-WAMP 45 minutes, all other budgets/default unchanged.
+  Preserve complete inventories, 95% configured score gates, per-mutant limits,
+  fail-fast=false and unconditional artifact uploads. Do not use retries or
+  skipped candidates to mask incomplete campaigns. A fail-first configuration
+  test verifies exact budgets, duplicate/unknown targets and default fallback;
+  existing tests guard the mutation command and target inventory. Both focused
+  workflow tests and all 27 deployment-audit tests pass. Local companion review
+  finds no concrete defect; its fallback concern is covered by the exact default
+  expression assertion. Fast107 and settled-input Verify107 both complete with
+  observed exit zero, including Rust, installed-package smokes and Chrome
+  JavaScript/WASM tests. Passing browser tests are not coverage measurements.
+- Preserve cancelled-job logs and annotations under
+  `out/regression-coverage-2026-09-15/coverage107-ci-budgets`. Full Verify, browser/VM
+  coverage, consumer checks, package/image dry runs and WAMP profiles pass for
+  the preceding head; require replacement hosted evidence after this fix.
+- The original native106 campaign is terminal, not duplicated. Audit all 81
+  candidates with `tool/native_mutations.py`, the native106b source scope and
+  existing coverage-scope analyzer. `native-boundaries106-mutations/audited-results.json`
+  records 48 assertion kills, 17 survivors, 13 errors and three timeouts,
+  59.26% raw/adjusted, zero equivalents, with all per-mutant log hashes retained.
+  The auditor exits nonzero as intended for unclean evidence. Conventional
+  cargo-mutants reports 61 caught, which must not be presented as assertion kills.
+  Unsafe function bodies remain outside the generator's inventory.
+- Next native actions: exercise both FFI TLS verification flags through real
+  connections, empty client arguments and HTTP status boundaries. Inspect
+  missing-result test panics and unbounded fixture waits separately; improve
+  behavioral oracles, not classification policy. Final coverage must still be
+  refreshed against the final source/test snapshot. No merge/release/version
+  changes; the original full milestone remains open.
+
 ### Work106 Native FFI Buffer And Handshake Boundaries
 
 - Add 13 C-ABI regressions covering HTTP header arrays/fields, buffered bodies,

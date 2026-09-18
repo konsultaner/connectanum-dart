@@ -6,6 +6,30 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work107 repairs mutation CI job budgets without changing candidate inventories,
+per-mutant deadlines or score thresholds. At `92f5c33f`, the PR MCP job reaches
+1,062/1,098 candidates before its 120-minute limit; the push remote-WAMP job
+reaches 286/286 before its 20-minute limit interrupts completion. Their sibling
+same-head runs pass, but neither overall CI run is green. Full Verify, coverage,
+consumer checks, package/image dry runs and WAMP profiles pass. Explicit matrix
+overrides now allow MCP 180 minutes and remote-WAMP 45, preserving every other
+budget and the 20-minute default. A fail-first configuration regression guards
+the complete override mapping, duplicate/unknown targets and default; the
+existing inventory/artifact checks remain intact. All 27 deployment-audit tests,
+Fast107 and settled-input Verify107 pass with observed exit zero, including Rust,
+installed-package smokes and Chrome JavaScript/WASM tests. New-head hosted
+evidence is still required before calling the deployment chain clean.
+
+The completed `native-boundaries106-mutations` campaign has 81 candidates.
+Strict auditing against the unchanged native106b scope records 48 assertion
+kills, 17 survivors, 13 errors and three timeouts: 59.26% raw/adjusted, no waivers.
+Keep the 61 conventional cargo-mutants detections separate from assertion kills.
+The unsafe-function instrumentation gap remains. Next native work must cover
+TLS verification flags, empty client arguments and HTTP status boundaries, and
+replace missing-result test panics with explicit behavioral assertions where
+appropriate, without reclassifying historical errors or timeouts. The complete
+coverage goal remains unmet; no merge, publication or version change.
+
 Work106 adds 13 native C-ABI boundary regressions and fixes invalid HTTP buffer
 metadata, WebSocket status/length narrowing, and client port/header validation.
 Fail-first runs preserve ordinary assertion failures separately from native
