@@ -6,6 +6,35 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work123 adds multi-round HTTP authentication lifecycle regressions and reproduces
+a real shutdown bug: delayed HELLO/AUTHENTICATE success could issue credentials
+after binding disposal; delayed challenges could recreate pending state. Track
+active callbacks, abort them on disposal, and recheck shutdown in the caller
+after awaiting before publishing any result. Abort is idempotent; cleanup errors
+produce sanitized diagnostics rather than unhandled async failures. Eight late
+result/error regressions and two throwing-cleanup regressions fail before their
+respective fixes. All26 focused cases pass, including state rotation/replay,
+identity/route/profile preservation, async capacity checks, expiry, lockout,
+late factory creation and disposal. Polling deadlines now throw TimeoutException
+instead of assertion failures; two controls protect this measurement boundary.
+Fast123 and original Verify123 pass. Because cleanup/test changes occurred
+during the original verifier, settled-input Verify123 also completes with
+observed exit0 on original session7615, including native, installed-package/live-
+router and Chrome WASM tests. All captured workspace input hashes still match.
+Full VM123 coverage completes on original session52707 with observed exit0 and
+matching workspace hashes: auth455/455, bench2010/2254, client8570/9427,
+core6828/7243, MCP3775/3927, router17073/19364; aggregate38711/42670 (90.72%).
+RouterBinding measures3090/3666 (84.29%), with576 unhit lines. The client loses
+six measured hits versus VM115 in the unchanged socket-fragmentation buffer
+branch; do not reuse the higher old percentage. Packaging remains765/787
+(97.20%). Keep59 library and12 packaging sources unmeasured. Both explicit98%
+target audits fail; passing regression floors is not target completion.
+The earlier245-test runtime measurement predates final tests and is diagnostic
+only. Full router-binding inventory has2399 candidates; inventory is not a score.
+Preserve evidence under coverage123-http-auth-lifecycle and vm-current123. Keep
+the explicitly coordinated native window for the subsequent full campaign;
+no final router-binding mutation score for this changed source is claimed yet.
+
 Work122 adds 128 native-message binding boundary regressions without changing
 production code or measurement policy. Assert conflicting INTERRUPT mode
 authority, direct/eager custom-field loader state, absent-fragment behavior,
@@ -17,11 +46,17 @@ whole-package measurements. Fast122 and frozen-input Verify122 pass, including
 native, installed-package/live-router and Chrome WASM checks. Input hashes match;
 the native window is released to a consumer task. Both narrowed local reviews
 complete without concrete findings; the initial truncated review is retained.
-Full client492/router666 mutation campaigns run on original sessions72358/77614
-in `client-binding122-mutations`/`router-binding122-mutations`; no final new score
-yet. A fresh non-native JS coverage run is on session41373 in `browser122-current`.
-Preserve all handles and `coverage122-binding-boundaries` input hashes. VM115
-remains the last full VM snapshot; WASM lines remain unmeasured. No new waivers,
+Full client492/router666 mutation campaigns complete on original sessions72358/
+77614 with observed exit0. Client has381 assertions,9 uncredited errors,8 survivors
+and94 compile failures:95.73% raw/adjusted assertions. Router has496 assertions,
+10 uncredited errors,13 survivors and147 compile failures:95.57% raw/adjusted.
+Both baselines, current source/test/support hashes, unchanged inventory comparisons
+and independent kill-log audits pass. These are focused binding gates, not whole
+component mutation coverage. Browser122 also completes exit0: selected core JS
+6628/6973 (95.05%), client forms279/283 (98.59%),172 unmeasured library sources;
+all captured input hashes match.
+Preserve all handles and `coverage122-binding-boundaries` input hashes. VM123
+now supersedes the previous full VM115 snapshot; WASM lines remain unmeasured. No new waivers,
 threshold changes, merge, publication or version changes. After the binding gates,
 prioritize genuine router HTTP auth continuation/lifecycle and native line gaps.
 

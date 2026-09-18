@@ -1064,6 +1064,8 @@ class RouterBinding {
   final Map<String, _RouterMcpEndpoint> _mcpEndpoints = {};
   final Map<String, _PendingHttpAuthTransaction> _pendingHttpAuthTransactions =
       {};
+  final Set<_PendingHttpAuthTransaction> _activeHttpAuthTransactions = {};
+  bool _httpAuthDisposed = false;
   final Map<String, _HttpAuthTokenRecord> _httpAuthTokens = {};
   final Map<String, _HttpRefreshTokenRecord> _httpRefreshTokens = {};
   final Set<String> _httpRefreshTokensInFlight = {};
@@ -1751,10 +1753,15 @@ class RouterBinding {
 
   /// Stops the background boss isolate (if running) and releases resources.
   Future<void> dispose() async {
-    for (final pending in _pendingHttpAuthTransactions.values.toList()) {
-      unawaited(pending.abort(reason: 'binding_dispose'));
+    _httpAuthDisposed = true;
+    for (final pending in {
+      ..._pendingHttpAuthTransactions.values,
+      ..._activeHttpAuthTransactions,
+    }) {
+      unawaited(_abortHttpAuthForDisposal(pending));
     }
     _pendingHttpAuthTransactions.clear();
+    _activeHttpAuthTransactions.clear();
     _httpAuthTokens.clear();
     _httpRefreshTokens.clear();
     _httpRefreshTokensInFlight.clear();
@@ -4238,7 +4245,29 @@ class RouterBinding {
       helloDetails: helloDetails,
     );
 
-    final result = await authenticator.onHello(context);
+    final transaction = _PendingHttpAuthTransaction(
+      state: '',
+      realmUri: realmUri,
+      authMethod: authMethod,
+      authId: authId,
+      authenticator: authenticator,
+      context: context,
+      sessionProfileName: sessionProfile?.name,
+      routeScope: _HttpAuthRouteScope(
+        listenerId: request.listenerId,
+        route: route,
+      ),
+      expiresAt: DateTime.now().toUtc(),
+    );
+    final result = await _runHttpAuthStep(
+      transaction: transaction,
+      action: () => authenticator.onHello(context),
+    );
+    if (result == null || _httpAuthDisposed) {
+      await _abortHttpAuthForDisposal(transaction);
+      await _sendDisposedHttpAuthResponse(request, handshake);
+      return;
+    }
     if (result.status != AuthStatus.failure) {
       final grantCapacityDecision = _evaluateHttpAuthGrantCapacity(
         realmUri: realmUri,
@@ -4283,18 +4312,8 @@ class RouterBinding {
         }
         final authState = _randomHttpAuthToken();
         final timeoutMs = realmSettings.limits.authTimeoutMs;
-        _pendingHttpAuthTransactions[authState] = _PendingHttpAuthTransaction(
+        _pendingHttpAuthTransactions[authState] = transaction.copyWith(
           state: authState,
-          realmUri: realmUri,
-          authMethod: authMethod,
-          authId: authId,
-          authenticator: authenticator,
-          context: context,
-          sessionProfileName: sessionProfile?.name,
-          routeScope: _HttpAuthRouteScope(
-            listenerId: request.listenerId,
-            route: route,
-          ),
           expiresAt: now.add(
             Duration(milliseconds: timeoutMs > 0 ? timeoutMs : 10000),
           ),
@@ -4654,6 +4673,58 @@ class RouterBinding {
     ),
   );
 
+  Future<void> _abortHttpAuthForDisposal(
+    _PendingHttpAuthTransaction transaction,
+  ) async {
+    try {
+      await transaction.abort(reason: 'binding_dispose');
+    } catch (_) {
+      // Cleanup is best effort; plugin errors must not escape shutdown or leak
+      // authenticator-provided details into diagnostics.
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_auth_abort_failed',
+        'reason': 'binding_dispose',
+      });
+    }
+  }
+
+  Future<AuthResult?> _runHttpAuthStep({
+    required _PendingHttpAuthTransaction transaction,
+    required Future<AuthResult> Function() action,
+  }) async {
+    AuthResult? result;
+    if (!_httpAuthDisposed) {
+      _activeHttpAuthTransactions.add(transaction);
+      try {
+        result = await action();
+      } catch (_) {
+        if (!_httpAuthDisposed) rethrow;
+      } finally {
+        _activeHttpAuthTransactions.remove(transaction);
+      }
+    }
+    // Callers must check disposal after awaiting this future, before publishing
+    // any result: disposal can also occur between this return and their resume.
+    return result;
+  }
+
+  Future<void> _sendDisposedHttpAuthResponse(
+    RouterHttpRequest request,
+    NativeHttpHandshake? handshake,
+  ) => _sendImmediateHttpResponse(
+    request: request,
+    handshake: handshake,
+    response: NativeHttpResponse(
+      status: HttpStatus.serviceUnavailable,
+      body: NativeHttpResponseJson(const <String, Object?>{
+        'status': 'error',
+        'reason': 'binding_disposed',
+        'message': 'Router authentication is shut down',
+      }),
+    ),
+  );
+
   Future<void> _continueHttpAuthTransaction({
     required RouterHttpRequest request,
     required NativeHttpHandshake? handshake,
@@ -4776,10 +4847,16 @@ class RouterBinding {
           ? Map<String, Object?>.from(extra)
           : const <String, Object?>{},
     );
-    final result = await pending.authenticator.onAuthenticate(
-      pending.context,
-      message,
+    final result = await _runHttpAuthStep(
+      transaction: pending,
+      action: () =>
+          pending.authenticator.onAuthenticate(pending.context, message),
     );
+    if (result == null || _httpAuthDisposed) {
+      await _abortHttpAuthForDisposal(pending);
+      await _sendDisposedHttpAuthResponse(request, handshake);
+      return;
+    }
     switch (result.status) {
       case AuthStatus.challenge:
         final now = DateTime.now().toUtc();
@@ -8533,7 +8610,7 @@ class _HttpAuthRouteScope {
 }
 
 class _PendingHttpAuthTransaction {
-  const _PendingHttpAuthTransaction({
+  _PendingHttpAuthTransaction({
     required this.state,
     required this.realmUri,
     required this.authMethod,
@@ -8554,6 +8631,7 @@ class _PendingHttpAuthTransaction {
   final String? sessionProfileName;
   final _HttpAuthRouteScope routeScope;
   final DateTime expiresAt;
+  bool _aborted = false;
 
   _PendingHttpAuthTransaction copyWith({String? state, DateTime? expiresAt}) {
     return _PendingHttpAuthTransaction(
@@ -8569,8 +8647,11 @@ class _PendingHttpAuthTransaction {
     );
   }
 
-  Future<void> abort({String? reason}) =>
-      authenticator.onAbort(context, reason: reason);
+  Future<void> abort({String? reason}) async {
+    if (_aborted) return;
+    _aborted = true;
+    await authenticator.onAbort(context, reason: reason);
+  }
 }
 
 class _HttpAuthIssueResult {

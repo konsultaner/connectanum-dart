@@ -26,6 +26,8 @@ import 'package:connectanum_core/connectanum_core.dart'
         RegisterOptions;
 import 'package:connectanum_core/connectanum_core.dart' show YieldOptions;
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/router/config/auth_registry.dart';
+import 'package:connectanum_router/src/router/config/authenticator.dart';
 import 'package:connectanum_router/src/router/auth/security.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
@@ -776,7 +778,7 @@ Future<void> _waitUntil(
   final deadline = DateTime.now().add(timeout);
   while (!condition()) {
     if (DateTime.now().isAfter(deadline)) {
-      fail('Condition not met within $timeout');
+      throw TimeoutException('Condition not met within $timeout', timeout);
     }
     await Future<void>.delayed(pollInterval);
   }
@@ -2556,7 +2558,636 @@ RouterSettings _buildRestrictedInternalSessionSettings() {
   return builder.build();
 }
 
+class _RoundAuthenticator extends Authenticator {
+  final contexts = <AuthenticatorContext>[];
+  final messages = <AuthenticateMessage>[];
+  final abortReasons = <String?>[];
+  final abortContexts = <AuthenticatorContext>[];
+  bool failAbort = false;
+  AuthenticatorContext? helloContext;
+  Future<AuthResult> Function()? hello;
+  Future<AuthResult> Function()? authenticate;
+
+  @override
+  String get method => 'test-http-rounds';
+
+  static AuthResult challenge(int round) => AuthResult.challenge(
+    AuthChallenge(
+      challenge: <String, Object?>{'round': round},
+      extra: <String, Object?>{'nonce': 'round-$round'},
+    ),
+  );
+
+  static AuthResult success() => AuthResult.success(
+    const AuthSuccess(
+      authId: 'user-1',
+      authRole: 'member',
+      details: {'authprovider': 'round-provider', 'verified_rounds': 3},
+    ),
+  );
+
+  @override
+  Future<AuthResult> onHello(AuthenticatorContext context) async {
+    helloContext = context;
+    return hello == null ? challenge(1) : await hello!();
+  }
+
+  @override
+  Future<AuthResult> onAuthenticate(
+    AuthenticatorContext context,
+    AuthenticateMessage message,
+  ) async {
+    contexts.add(context);
+    messages.add(message);
+    return authenticate == null ? success() : await authenticate!();
+  }
+
+  @override
+  Future<void> onAbort(AuthenticatorContext context, {String? reason}) async {
+    if (helloContext != null) expect(context, same(helloContext));
+    abortContexts.add(context);
+    abortReasons.add(reason);
+    if (failAbort) throw StateError('Authenticator cleanup failed');
+  }
+}
+
+class _RoundAuthenticatorFactory extends AuthenticatorFactory {
+  _RoundAuthenticatorFactory(
+    Iterable<_RoundAuthenticator> authenticators,
+    this.beforeCreate,
+  ) : remaining = Queue.of(authenticators);
+
+  final Queue<_RoundAuthenticator> remaining;
+  final Future<void> Function()? beforeCreate;
+
+  @override
+  String get method => 'test-http-rounds';
+
+  @override
+  Future<Authenticator> create(
+    RealmSettings realm,
+    Map<String, Object?> options,
+  ) async {
+    expect(remaining, isNotEmpty, reason: 'Unexpected authentication attempt');
+    await beforeCreate?.call();
+    return remaining.removeFirst();
+  }
+}
+
+class _HttpRoundFixture {
+  _HttpRoundFixture(this.runtime, this.binding, this.events);
+
+  final _HandleRuntime runtime;
+  final RouterBinding binding;
+  final List<Map<String, Object?>> events;
+  int nextConnection = 9000;
+
+  static Future<_HttpRoundFixture> start(
+    List<_RoundAuthenticator> authenticators, {
+    RouterSettings? settings,
+    Future<void> Function()? beforeCreate,
+  }) async {
+    final factory = _RoundAuthenticatorFactory(authenticators, beforeCreate);
+    AuthenticatorRegistry.registerFactory(factory);
+    addTearDown(() => AuthenticatorRegistry.unregisterFactory(factory.method));
+    final base = settings ?? _buildRouterSettingsWithHttpAuthBridge();
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final binding =
+        Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: base.copyWith(
+            authenticators: {
+              ...base.authenticators,
+              'ticket-basic': AuthenticatorDefinition(type: factory.method),
+            },
+          ),
+        ).start(
+          runtime,
+          onEvent: (event) {
+            if (event is Map<String, Object?>) events.add(event);
+          },
+        );
+    addTearDown(binding.dispose);
+    await Future<void>.delayed(Duration.zero);
+    return _HttpRoundFixture(runtime, binding, events);
+  }
+
+  Future<NativeHttpResponse> post(
+    Map<String, Object?> body, {
+    String target = '/auth',
+  }) async {
+    final connection = nextConnection++;
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: binding.listeners.single.listenerId,
+      connectionId: connection,
+      handle: connection,
+      method: 'POST',
+      target: target,
+      headers: const {'content-type': 'application/json'},
+      body: body,
+      realm: 'router.http',
+      procedure: 'router.http.auth',
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[connection]?.isNotEmpty ?? false,
+    );
+    return runtime.httpResponses[connection]!.single;
+  }
+
+  Future<NativeHttpResponse> hello() => post(const {
+    'realm': 'realm1',
+    'authid': 'user-1',
+    'authmethod': 'ticket',
+    'authextra': {'origin': 'consumer'},
+  });
+
+  Future<NativeHttpResponse> reply(String state, {String target = '/auth'}) =>
+      post({
+        'state': state,
+        'signature': 'round-proof',
+        'extra': {'response': 'consumer'},
+      }, target: target);
+}
+
+String _expectRoundChallenge(NativeHttpResponse response, int round) {
+  expect(response.status, HttpStatus.unauthorized);
+  expect(response.headers[HttpHeaders.wwwAuthenticateHeader], 'Bearer');
+  final body = _jsonResponseBody(response);
+  expect(body['state'], isA<String>());
+  final state = body['state'] as String;
+  expect(state, isNotEmpty);
+  expect(body, {
+    'status': 'challenge',
+    'state': state,
+    'realm': 'realm1',
+    'authmethod': 'ticket',
+    'challenge': {'round': round},
+    'extra': {'nonce': 'round-$round'},
+  });
+  return state;
+}
+
+void _expectRoundError(
+  NativeHttpResponse response,
+  String reason, {
+  int status = HttpStatus.unauthorized,
+}) {
+  expect(response.status, status);
+  expect(
+    _jsonResponseBody(response),
+    allOf(
+      containsPair('status', 'error'),
+      containsPair('reason', reason),
+      isNot(contains('state')),
+      isNot(contains('access_token')),
+      isNot(contains('refresh_token')),
+    ),
+  );
+}
+
+void _httpRoundAuthenticationTests() {
+  group('HTTP authentication rounds', () {
+    setUp(AuthSecurityTracker.reset);
+    tearDown(AuthSecurityTracker.reset);
+
+    test(
+      'poll deadline is an uncredited timeout, not an assertion failure',
+      () async {
+        await expectLater(
+          _waitUntil(() => false, timeout: Duration.zero),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
+    test('satisfied poll condition succeeds at a zero deadline', () async {
+      await _waitUntil(() => true, timeout: Duration.zero);
+    });
+
+    for (final timeout in [0, 10000]) {
+      test(
+        'rotates states and preserves identity with timeout $timeout',
+        () async {
+          final auth = _RoundAuthenticator();
+          auth.authenticate = () async => auth.messages.length < 3
+              ? _RoundAuthenticator.challenge(auth.messages.length + 1)
+              : _RoundAuthenticator.success();
+          final fixture = await _HttpRoundFixture.start(
+            [auth],
+            settings: _buildRouterSettingsWithHttpAuthBridge(
+              authTimeoutMs: timeout,
+            ),
+          );
+          final states = <String>[
+            _expectRoundChallenge(await fixture.hello(), 1),
+          ];
+          for (var round = 2; round <= 3; round++) {
+            final state = _expectRoundChallenge(
+              await fixture.reply(states.last),
+              round,
+            );
+            expect(states, isNot(contains(state)));
+            for (final previous in states) {
+              _expectRoundError(await fixture.reply(previous), 'invalid_state');
+            }
+            expect(auth.messages, hasLength(round - 1));
+            states.add(state);
+          }
+          final success = await fixture.reply(states.last);
+          expect(success.status, HttpStatus.ok);
+          expect(
+            _jsonResponseBody(success),
+            allOf([
+              containsPair('status', 'ok'),
+              containsPair('realm', 'realm1'),
+              containsPair('authid', 'user-1'),
+              containsPair('authrole', 'member'),
+              containsPair('authmethod', 'ticket'),
+              containsPair('authprovider', 'round-provider'),
+              containsPair('details', {
+                'authprovider': 'round-provider',
+                'verified_rounds': 3,
+              }),
+              containsPair('access_token', isNotEmpty),
+              containsPair('refresh_token', isNotEmpty),
+              isNot(contains('state')),
+            ]),
+          );
+          expect(auth.contexts, hasLength(3));
+          for (final context in auth.contexts) {
+            expect(context, same(auth.helloContext));
+            expect(context.helloDetails, {
+              'authid': 'user-1',
+              'authmethods': ['ticket'],
+              'authextra': {'origin': 'consumer'},
+            });
+          }
+          for (final message in auth.messages) {
+            expect(message.signature, 'round-proof');
+            expect(message.extra, {'response': 'consumer'});
+          }
+          _expectRoundError(await fixture.reply(states.last), 'invalid_state');
+          expect(auth.messages, hasLength(3));
+          expect(auth.abortReasons, isEmpty);
+        },
+      );
+    }
+
+    for (final profile in [false, true]) {
+      test(
+        'preserves ${profile ? 'profile' : 'route'} binding after rotation',
+        () async {
+          final auth = _RoundAuthenticator()
+            ..authenticate = () async => _RoundAuthenticator.challenge(2);
+          final fixture = await _HttpRoundFixture.start(
+            [auth],
+            settings: profile
+                ? _buildRouterSettingsWithHttpAuthProfileIsolation()
+                : _buildRouterSettingsWithHttpAuthRouteIsolation(),
+          );
+          final first = _expectRoundChallenge(await fixture.hello(), 1);
+          final second = _expectRoundChallenge(await fixture.reply(first), 2);
+          final reason = profile ? 'wrong_session_profile' : 'wrong_auth_route';
+          _expectRoundError(
+            await fixture.reply(second, target: '/auth/alternate'),
+            reason,
+          );
+          expect(auth.abortReasons, [reason]);
+          expect(auth.messages, hasLength(1));
+          _expectRoundError(await fixture.reply(second), 'invalid_state');
+          expect(auth.abortReasons, [reason]);
+        },
+      );
+    }
+
+    test('consumes missing-signature state and releases capacity', () async {
+      final auth = _RoundAuthenticator()
+        ..authenticate = () async => _RoundAuthenticator.challenge(2);
+      final replacement = _RoundAuthenticator();
+      final fixture = await _HttpRoundFixture.start([
+        auth,
+        replacement,
+      ], settings: _buildRouterSettingsWithHttpAuthBridge(maxPendingAuth: 1));
+      final first = _expectRoundChallenge(await fixture.hello(), 1);
+      final second = _expectRoundChallenge(await fixture.reply(first), 2);
+      _expectRoundError(
+        await fixture.post({'state': second}),
+        'missing_signature',
+        status: HttpStatus.badRequest,
+      );
+      expect(auth.abortReasons, ['missing_signature']);
+      expect(auth.messages, hasLength(1));
+      _expectRoundError(await fixture.reply(second), 'invalid_state');
+      final next = _expectRoundChallenge(await fixture.hello(), 1);
+      expect((await fixture.reply(next)).status, HttpStatus.ok);
+    });
+
+    for (final message in <String?>[null, 'Second factor rejected']) {
+      test('cleans up failed rounds with message $message', () async {
+        final auth = _RoundAuthenticator();
+        auth.authenticate = () async => auth.messages.length == 1
+            ? _RoundAuthenticator.challenge(2)
+            : AuthResult.failure(
+                AuthFailure(
+                  reason: 'wamp.error.not_authorized',
+                  message: message,
+                ),
+              );
+        final fixture = await _HttpRoundFixture.start([auth]);
+        final first = _expectRoundChallenge(await fixture.hello(), 1);
+        final second = _expectRoundChallenge(await fixture.reply(first), 2);
+        final failure = await fixture.reply(second);
+        _expectRoundError(failure, 'wamp.error.not_authorized');
+        expect(_jsonResponseBody(failure), {
+          'status': 'error',
+          'reason': 'wamp.error.not_authorized',
+          'message': ?message,
+        });
+        expect(auth.abortReasons, ['authenticate_failed']);
+        _expectRoundError(await fixture.reply(second), 'invalid_state');
+        expect(auth.messages, hasLength(2));
+      });
+    }
+
+    test('rejects concurrent replay while authenticator is awaiting', () async {
+      final result = Completer<AuthResult>();
+      addTearDown(() {
+        if (!result.isCompleted) result.complete(_RoundAuthenticator.success());
+      });
+      final auth = _RoundAuthenticator()..authenticate = () => result.future;
+      final fixture = await _HttpRoundFixture.start([auth]);
+      final first = _expectRoundChallenge(await fixture.hello(), 1);
+      final pending = fixture.reply(first);
+      await _waitUntil(() => auth.messages.length == 1);
+      _expectRoundError(await fixture.reply(first), 'invalid_state');
+      expect(auth.messages, hasLength(1));
+      result.complete(_RoundAuthenticator.challenge(2));
+      final second = _expectRoundChallenge(await pending, 2);
+      expect(second, isNot(first));
+      auth.authenticate = null;
+      expect((await fixture.reply(second)).status, HttpStatus.ok);
+      expect(auth.abortReasons, isEmpty);
+    });
+
+    for (final grant in [false, true]) {
+      test(
+        'rechecks ${grant ? 'grant' : 'challenge'} capacity after async reply',
+        () async {
+          final result = Completer<AuthResult>();
+          addTearDown(() {
+            if (!result.isCompleted) {
+              result.complete(_RoundAuthenticator.success());
+            }
+          });
+          final auth = _RoundAuthenticator()
+            ..authenticate = () => result.future;
+          final competing = _RoundAuthenticator();
+          final fixture = await _HttpRoundFixture.start(
+            [auth, competing],
+            settings: _buildRouterSettingsWithHttpAuthBridge(
+              maxPendingAuth: grant ? 2 : 1,
+              maxHttpAuthGrants: grant ? 1 : 2,
+            ),
+          );
+          final first = _expectRoundChallenge(await fixture.hello(), 1);
+          final pending = fixture.reply(first);
+          await _waitUntil(() => auth.messages.length == 1);
+          final other = _expectRoundChallenge(await fixture.hello(), 1);
+          if (grant) expect((await fixture.reply(other)).status, HttpStatus.ok);
+          result.complete(
+            grant
+                ? _RoundAuthenticator.success()
+                : _RoundAuthenticator.challenge(2),
+          );
+          _expectRoundError(
+            await pending,
+            grant ? 'auth_grant_capacity_exhausted' : 'auth_capacity_exhausted',
+            status: grant
+                ? HttpStatus.serviceUnavailable
+                : HttpStatus.tooManyRequests,
+          );
+          expect(auth.abortReasons, [
+            grant
+                ? 'http_auth_grant_capacity_exhausted'
+                : 'http_auth_capacity_exhausted',
+          ]);
+          _expectRoundError(await fixture.reply(first), 'invalid_state');
+          if (!grant) {
+            expect((await fixture.reply(other)).status, HttpStatus.ok);
+          }
+          expect(competing.abortReasons, isEmpty);
+        },
+      );
+    }
+
+    test('expires rotated state and releases challenge capacity', () async {
+      final auth = _RoundAuthenticator()
+        ..authenticate = () async => _RoundAuthenticator.challenge(2);
+      final replacement = _RoundAuthenticator();
+      final fixture = await _HttpRoundFixture.start(
+        [auth, replacement],
+        settings: _buildRouterSettingsWithHttpAuthBridge(
+          maxPendingAuth: 1,
+          authTimeoutMs: 500,
+        ),
+      );
+      final first = _expectRoundChallenge(await fixture.hello(), 1);
+      final second = _expectRoundChallenge(await fixture.reply(first), 2);
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+      _expectRoundError(await fixture.reply(second), 'invalid_state');
+      expect(auth.abortReasons, ['http_auth_timeout']);
+      expect(auth.messages, hasLength(1));
+      final next = _expectRoundChallenge(await fixture.hello(), 1);
+      expect((await fixture.reply(next)).status, HttpStatus.ok);
+    });
+
+    test('applies identity lockout to rotated challenge', () async {
+      final auth = _RoundAuthenticator()
+        ..authenticate = () async => _RoundAuthenticator.challenge(2);
+      final settings = _buildRouterSettingsWithHttpAuthBridge(maxFailedAuth: 1);
+      final fixture = await _HttpRoundFixture.start([auth], settings: settings);
+      final first = _expectRoundChallenge(await fixture.hello(), 1);
+      final second = _expectRoundChallenge(await fixture.reply(first), 2);
+      AuthSecurityTracker.recordFailure(
+        'realm1',
+        'user-1',
+        settings.realms.single.limits,
+      );
+      _expectRoundError(
+        await fixture.reply(second),
+        'auth_locked_out',
+        status: HttpStatus.tooManyRequests,
+      );
+      expect(auth.abortReasons, ['http_auth_locked_out']);
+      expect(auth.messages, hasLength(1));
+      _expectRoundError(await fixture.reply(second), 'invalid_state');
+    });
+
+    for (final duringHello in [false, true]) {
+      for (final outcome in ['challenge', 'success', 'failure', 'error']) {
+        test(
+          'disposal rejects late $outcome during ${duringHello ? 'hello' : 'reply'}',
+          () async {
+            final result = Completer<AuthResult>();
+            addTearDown(() {
+              if (!result.isCompleted) {
+                result.complete(_RoundAuthenticator.success());
+              }
+            });
+            final auth = _RoundAuthenticator();
+            if (duringHello) {
+              auth.hello = () => result.future;
+            } else {
+              auth.authenticate = () => result.future;
+            }
+            final fixture = await _HttpRoundFixture.start([auth]);
+            final pending = duringHello
+                ? fixture.hello()
+                : fixture.reply(
+                    _expectRoundChallenge(await fixture.hello(), 1),
+                  );
+            await _waitUntil(
+              () => duringHello
+                  ? auth.helloContext != null
+                  : auth.messages.isNotEmpty,
+            );
+            await fixture.binding.dispose();
+            final abortsAtDisposal = List<String?>.of(auth.abortReasons);
+            if (outcome == 'error') {
+              result.completeError(StateError('Authenticator stopped'));
+            } else {
+              result.complete(switch (outcome) {
+                'challenge' => _RoundAuthenticator.challenge(2),
+                'success' => _RoundAuthenticator.success(),
+                _ => AuthResult.failure(
+                  const AuthFailure(reason: 'wamp.error.not_authorized'),
+                ),
+              });
+            }
+            final response = await pending;
+            _expectRoundError(
+              response,
+              'binding_disposed',
+              status: HttpStatus.serviceUnavailable,
+            );
+            expect(abortsAtDisposal, ['binding_dispose']);
+            await fixture.binding.dispose();
+            expect(auth.abortReasons, ['binding_dispose']);
+          },
+        );
+      }
+    }
+
+    for (final duringHello in [false, true]) {
+      test(
+        'disposal contains cleanup errors during ${duringHello ? 'hello' : 'reply'}',
+        () async {
+          final result = Completer<AuthResult>();
+          addTearDown(() {
+            if (!result.isCompleted) {
+              result.complete(_RoundAuthenticator.success());
+            }
+          });
+          final auth = _RoundAuthenticator()..failAbort = true;
+          if (duringHello) {
+            auth.hello = () => result.future;
+          } else {
+            auth.authenticate = () => result.future;
+          }
+          final fixture = await _HttpRoundFixture.start([auth]);
+          final pending = duringHello
+              ? fixture.hello()
+              : fixture.reply(_expectRoundChallenge(await fixture.hello(), 1));
+          await _waitUntil(
+            () => duringHello
+                ? auth.helloContext != null
+                : auth.messages.isNotEmpty,
+          );
+          await fixture.binding.dispose();
+          result.complete(_RoundAuthenticator.success());
+          _expectRoundError(
+            await pending,
+            'binding_disposed',
+            status: HttpStatus.serviceUnavailable,
+          );
+          expect(auth.abortReasons, ['binding_dispose']);
+          expect(
+            fixture.events.where(
+              (event) => event['type'] == 'http_auth_abort_failed',
+            ),
+            [
+              {
+                'source': 'binding',
+                'type': 'http_auth_abort_failed',
+                'reason': 'binding_dispose',
+              },
+            ],
+          );
+        },
+      );
+    }
+
+    test(
+      'does not start a late-created authenticator after disposal',
+      () async {
+        final entered = Completer<void>();
+        final release = Completer<void>();
+        addTearDown(() {
+          if (!release.isCompleted) release.complete();
+        });
+        final auth = _RoundAuthenticator();
+        final fixture = await _HttpRoundFixture.start(
+          [auth],
+          beforeCreate: () async {
+            entered.complete();
+            await release.future;
+          },
+        );
+        final pending = fixture.hello();
+        await entered.future.timeout(const Duration(seconds: 2));
+        await fixture.binding.dispose();
+        release.complete();
+        _expectRoundError(
+          await pending,
+          'binding_disposed',
+          status: HttpStatus.serviceUnavailable,
+        );
+        expect(auth.helloContext, isNull);
+        expect(auth.messages, isEmpty);
+        expect(auth.abortReasons, ['binding_dispose']);
+        expect(auth.abortContexts.single.helloDetails['authid'], 'user-1');
+        expect(auth.abortContexts.single.realm.name, 'realm1');
+      },
+    );
+
+    test('disposes rotated challenge exactly once', () async {
+      final auth = _RoundAuthenticator()
+        ..authenticate = () async => _RoundAuthenticator.challenge(2);
+      final fixture = await _HttpRoundFixture.start([auth]);
+      final first = _expectRoundChallenge(await fixture.hello(), 1);
+      _expectRoundChallenge(await fixture.reply(first), 2);
+      await fixture.binding.dispose();
+      expect(auth.abortReasons, ['binding_dispose']);
+      await fixture.binding.dispose();
+      expect(auth.abortReasons, ['binding_dispose']);
+    });
+  });
+}
+
 void main() {
+  _httpRoundAuthenticationTests();
   group('Router start', () {
     test('binds endpoints to runtime and applies config', () {
       final runtime = _FakeRuntime();

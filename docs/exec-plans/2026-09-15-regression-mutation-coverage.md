@@ -67,6 +67,47 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work123 HTTP Authentication Lifecycle
+
+- Add26 focused contracts for multi-round state rotation, replay, identity and
+  route/profile binding, async pending/grant capacity, failure/expiry/lockout,
+  late factory creation and shutdown. A controllable authenticator suspends
+  callbacks without relying on timing races. Preserve normal wire semantics.
+- Reproduce late HELLO/AUTHENTICATE completion after dispose: success returns200
+  and issues a token, challenge returns401 and recreates state, late exceptions
+  leave the synthetic request unanswered. Eight regressions fail on the old code.
+  Track active transactions, mark auth disposed before cleanup, abort active and
+  pending work, and guard results in the caller after awaiting. Make abort
+  idempotent. Two more regressions reproduce unhandled cleanup errors; contain
+  those during disposal with a sanitized event, never plugin error details.
+- All26 focused tests pass. Poll helper deadlines now raise TimeoutException,
+  not TestFailure; positive/negative controls ensure timeouts cannot become
+  assertion mutation credit. The initial grant-capacity fixture incorrectly
+  expected429 rather than the existing503 contract and was corrected; this was
+  not a production bug. The late-error pre-fix timeouts are not assertion kills.
+- Fast123 and original Verify123 session25534 pass. Final cleanup/test changes
+  happened during that run, so settled-input Verify123 session7615 also runs and
+  completes with observed exit0, including native, installed-package/live-router
+  and Chrome WASM tests. All workspace input hashes match afterward. Full VM123
+  refresh completes once on original session52707 with observed exit0 and matching
+  hashes. Measured library lines38711/42670 (90.72%); router17073/19364 (88.17%).
+  Binding3090/3666 (84.29%) still leaves576 unhit lines. Client8570/9427 (90.91%)
+  is six hits below VM115 because unchanged socket-fragmentation buffering was
+  not exercised in this run; retain the lower current measurement. Packaging
+  remains765/787 (97.20%). Both explicit98% target audits fail, with59 library
+  and12 packaging sources still unmeasured. Floors passing is not completion.
+  Runtime coverage session57025
+  passes245 tests but predates final inputs and remains diagnostic only.
+  Preserve red/green logs and settled-input hashes under coverage123-http-auth-
+  lifecycle. New full router-binding inventory has2399 candidates with matching
+  source/test hashes; it is not a campaign or score. The consumer task explicitly
+  yields the native window through validation and the subsequent full campaign.
+- Narrow Qwen test advice informed replay/capacity cases. Its first full review
+  was truncated; speculative GC, map atomicity and double-abort claims were
+  independently rejected. The cleanup-error concern was reproduced and fixed.
+  The separate GLM endpoint is unavailable. Keep the full milestone active;
+  no merge, publication, version or threshold changes.
+
 ### Work122 Native Binding Boundary Contracts
 
 - Add 128 regressions for direct/non-direct loader state, absent fragments,
@@ -81,12 +122,16 @@ caught and timed-out outcomes separately.
   Verify122 also completes with observed exit0, including Rust/native, installed
   consumer smoke and Chrome WASM. Final hashes match. Release native to the
   consumer task before further native work.
-- Preserve full new client492/router666 campaigns on original sessions72358 and
-  77614, output directories client-binding122-mutations/router-binding122-mutations.
-  Both baselines pass; final scores remain pending. No inventory/operator changes
-  or relaxed thresholds. Keep prior Work121 reports separate from new test inputs.
-- Fresh JS coverage runs separately on session41373 in browser122-current, with
-  browser input hashes captured. Do not infer WASM coverage from passing tests.
+- Full client492/router666 campaigns complete on original sessions72358/77614
+  with observed exit0. Client381/398 viable assertions (95.73%),9 uncredited errors,
+  8 survivors,94 compile failures; router496/519 assertions (95.57%),10 uncredited
+  errors,13 survivors,147 compile failures. Raw/adjusted scores match; no new
+  equivalents. Both baselines, current input hashes, full source/operator inventory
+  comparisons and independent kill-log audits pass. Prior Work121 reports remain
+  separate. These focused file gates do not establish whole-component coverage.
+- JS coverage session41373 completes exit0 in browser122-current: selected core
+  6628/6973 (95.05%), client forms279/283 (98.59%),172 unmeasured library sources.
+  All browser input hashes match. Do not infer WASM coverage from passing tests.
   Keep VM115 as the last full VM snapshot until it is actually refreshed.
 - Qwen's initial paired review was truncated; both narrowed reviews complete
   without concrete findings. Discard unsupported GC/atomicity speculation after
