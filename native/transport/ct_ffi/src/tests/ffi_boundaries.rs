@@ -41,6 +41,65 @@ fn websocket_client(port: i32, headers: *const CtHttpHeader, len: usize) -> i32 
 }
 
 #[test]
+fn client_abi_rejects_null_empty_and_non_utf8_strings() {
+    let _guard = test_guard();
+    let host = CString::new("localhost").unwrap();
+    let target = CString::new("/wamp").unwrap();
+    let empty = CString::new("").unwrap();
+    let invalid = CString::new(vec![0xff]).unwrap();
+    for bad in [ptr::null(), empty.as_ptr(), invalid.as_ptr()] {
+        assert_eq!(
+            ct_client_connect_rawsocket(bad, 80, 0, 0, 1, 16, 0, 0),
+            ERR_INVALID_ARGUMENT
+        );
+        for (host, target) in [(bad, target.as_ptr()), (host.as_ptr(), bad)] {
+            assert_eq!(
+                ct_client_connect_websocket(host, 80, target, 0, 0, 1, ptr::null(), 0, 0, 0),
+                ERR_INVALID_ARGUMENT
+            );
+        }
+    }
+    for exponent in [i32::MIN, -1, 0] {
+        assert_eq!(
+            ct_client_connect_rawsocket(host.as_ptr(), 80, 0, 0, 1, exponent, 0, 0),
+            ERR_INVALID_ARGUMENT
+        );
+    }
+}
+
+#[test]
+fn http_response_abi_status_boundaries_precede_handle_consumption() {
+    let _guard = test_guard();
+    for streaming in [false, true] {
+        for status in [
+            i32::MIN,
+            -1,
+            0,
+            99,
+            100,
+            101,
+            200,
+            598,
+            599,
+            600,
+            601,
+            i32::MAX,
+        ] {
+            let result = if streaming {
+                ct_http_response_stream_open(i32::MAX, status, ptr::null(), 0)
+            } else {
+                ct_http_response_send(i32::MAX, status, ptr::null(), 0, ptr::null(), 0)
+            };
+            let expected = match status {
+                100 | 101 | 200 | 598 | 599 => ERR_HANDSHAKE_CONSUMED,
+                _ => ERR_INVALID_ARGUMENT,
+            };
+            assert_eq!(result, expected);
+        }
+    }
+}
+
+#[test]
 fn client_abi_rejects_ports_that_would_wrap_to_another_endpoint() {
     let _guard = test_guard();
     let host = CString::new("127.0.0.1").unwrap();
@@ -358,6 +417,173 @@ fn peer(websocket: bool) -> Peer {
     }
 }
 
+fn tls_client_policy(websocket: bool) {
+    let _guard = test_guard();
+    let certified = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
+    let config = serde_json::to_vec(&serde_json::json!({
+        "schema": "connectanum.router", "version": 1,
+        "endpoints": [{
+            "host": "127.0.0.1", "port": 0, "tls_mode": "native",
+            "handshake_timeout_ms": 5000,
+            "protocols": [if websocket { "websocket" } else { "rawsocket" }],
+            "sni_certificates": [{
+                "hostname": "localhost",
+                "certificate_chain_pem": certified.cert.pem(),
+                "private_key_pem": certified.key_pair.serialize_pem()
+            }]
+        }]
+    }))
+    .unwrap();
+    assert_eq!(
+        ct_apply_router_config(config.as_ptr(), config.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+    let _runtime = RuntimeGuard;
+    let host = CString::new("127.0.0.1").unwrap();
+    let listener = ct_listen(host.as_ptr(), 0, 128);
+    assert!(listener > 0);
+    let port = ct_get_local_port(listener);
+    assert!(port > 0);
+    for allow_insecure in [0, 1, 0, -1, 2, 0] {
+        let connect = std::thread::spawn(move || {
+            let host = CString::new("localhost").unwrap();
+            let target = CString::new("/wamp").unwrap();
+            if websocket {
+                ct_client_connect_websocket(
+                    host.as_ptr(),
+                    port,
+                    target.as_ptr(),
+                    1,
+                    allow_insecure,
+                    1,
+                    ptr::null(),
+                    0,
+                    0,
+                    0,
+                )
+            } else {
+                ct_client_connect_rawsocket(host.as_ptr(), port, 1, allow_insecure, 1, 16, 0, 0)
+            }
+        });
+        let mut server = 0;
+        let mut accepted = false;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !connect.is_finished() {
+            if server == 0 {
+                server = ct_poll_connection(listener);
+                assert!(server >= 0);
+            }
+            // Accept even on the denial path: a verification bypass must return
+            // a successful connection, not hide behind an unaccepted upgrade.
+            if websocket && server > 0 && !accepted {
+                let handshake = ct_connection_take_websocket_handshake(server);
+                if handshake > 0 {
+                    let selected = b"wamp.2.json";
+                    assert_eq!(
+                        ct_connection_accept_websocket(
+                            server,
+                            handshake,
+                            1,
+                            selected.as_ptr().cast(),
+                            selected.len() as i32
+                        ),
+                        SUCCESS
+                    );
+                    accepted = true;
+                }
+            }
+            if Instant::now() >= deadline {
+                panic!("timed out waiting for TLS client connection");
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let result = connect.join();
+        assert!(result.is_ok());
+        let client = result.unwrap();
+        if allow_insecure == 0 {
+            assert_eq!(client, ERR_IO);
+            assert_eq!(server, 0);
+            assert_eq!(ct_poll_connection(listener), 0);
+            continue;
+        }
+        assert!(client > 0);
+        if server == 0 {
+            server = wait_positive(|| ct_poll_connection(listener));
+        }
+        for connection in [client, server] {
+            assert_eq!(
+                ct_connection_protocol(connection),
+                if websocket {
+                    PROTOCOL_WEBSOCKET
+                } else {
+                    PROTOCOL_RAWSOCKET
+                }
+            );
+        }
+        for (sender, receiver, payload) in [
+            (client, server, br#"[1,"tls.realm",{}]"#.as_slice()),
+            (server, client, br#"[2,41,{}]"#.as_slice()),
+        ] {
+            assert_eq!(
+                ct_send_message(sender, payload.as_ptr(), payload.len() as i32),
+                SUCCESS
+            );
+            let handle = ct_wait_connection_message_wide(receiver, 5000);
+            if handle <= 0 {
+                panic!("timed out waiting for TLS peer payload: {handle}");
+            }
+            let mut info = CtMessageInfo::default();
+            assert_eq!(ct_message_get_wide(handle, &mut info), SUCCESS);
+            assert!(!info.frame_ptr.is_null());
+            assert_eq!(info.frame_len, payload.len());
+            assert_eq!(
+                unsafe { std::slice::from_raw_parts(info.frame_ptr, info.frame_len) },
+                payload
+            );
+            ct_message_release_wide(handle);
+        }
+        let _ = ct_connection_close(client);
+        let _ = ct_connection_close(server);
+    }
+    assert_eq!(ct_listener_close(listener), SUCCESS);
+}
+
+#[test]
+fn rawsocket_client_tls_verification_is_explicit_and_recovers_after_rejection() {
+    tls_client_policy(false);
+}
+
+#[test]
+fn websocket_client_tls_verification_is_explicit_and_recovers_after_rejection() {
+    tls_client_policy(true);
+}
+
+#[test]
+fn websocket_accept_with_zero_protocol_length_omits_the_header() {
+    let _guard = test_guard();
+    let ignored = CString::new("ignored.protocol").unwrap();
+    for protocol in [ptr::null(), ignored.as_ptr()] {
+        let mut peer = peer(true);
+        assert_eq!(
+            ct_connection_accept_websocket(peer.connection, peer.handshake, 1, protocol, 0),
+            SUCCESS
+        );
+        let mut response = Vec::new();
+        while !response.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            peer.socket.read_exact(&mut byte).unwrap();
+            response.extend_from_slice(&byte);
+            assert!(response.len() < 4096);
+        }
+        assert_eq!(response, b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n");
+        assert_eq!(
+            ct_connection_accept_websocket(peer.connection, peer.handshake, 1, ptr::null(), 0),
+            ERR_HANDSHAKE_CONSUMED
+        );
+    }
+}
+
 #[test]
 fn websocket_accept_rejects_wrapping_protocol_range() {
     let _guard = test_guard();
@@ -459,6 +685,14 @@ fn http_responses_keep_handshake_after_invalid_buffers_then_deliver_exact_payloa
             ct_http_response_send(peer.handshake, 200, ptr::null(), 0, ptr::null(), 8),
             ERR_INVALID_ARGUMENT
         );
+        for status in [0, 99, 600, i32::MAX] {
+            let result = if streaming {
+                ct_http_response_stream_open(peer.handshake, status, ptr::null(), 0)
+            } else {
+                ct_http_response_send(peer.handshake, status, ptr::null(), 0, ptr::null(), 0)
+            };
+            assert_eq!(result, ERR_INVALID_ARGUMENT);
+        }
         let mut info = CtHttpHandshakeInfo::default();
         assert_eq!(ct_http_handshake_get(peer.handshake, &mut info), SUCCESS);
         let mut empty = header(b"x-empty", b"");

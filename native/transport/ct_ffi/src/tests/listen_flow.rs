@@ -131,23 +131,63 @@ fn poll_for_message_handle(connection_id: i32) -> i32 {
 }
 
 fn wait_for_http_handshake(connection_id: i32) -> i32 {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    wait_for_http_handshake_until(
+        || ct_connection_take_http_handshake(connection_id),
+        Instant::now() + Duration::from_secs(5),
+    )
+}
+
+fn wait_for_http_handshake_until(mut poll: impl FnMut() -> i32, deadline: Instant) -> i32 {
     loop {
-        let handle = ct_connection_take_http_handshake(connection_id);
+        let handle = poll();
         if handle > 0 {
             return handle;
         }
-        if handle < 0 {
-            // Transient errors (connection not found/reset) can occur if the peer
-            // closes early; keep polling until timeout.
-            std::thread::sleep(Duration::from_millis(10));
-            continue;
-        }
+        // Transient lookup errors must observe the same deadline as an empty poll.
         if Instant::now() > deadline {
             panic!("timed out waiting for HTTP handshake");
         }
         std::thread::sleep(Duration::from_millis(10));
     }
+}
+
+#[test]
+fn http_handshake_wait_checks_deadline_after_transient_lookup_errors() {
+    for pending in [
+        ERR_CONNECTION_NOT_FOUND,
+        crate::runtime::ERR_HANDSHAKE_CONSUMED,
+        0,
+    ] {
+        let attempts = std::cell::Cell::new(0);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            wait_for_http_handshake_until(
+                || {
+                    attempts.set(attempts.get() + 1);
+                    if attempts.get() == 1 {
+                        pending
+                    } else {
+                        42
+                    }
+                },
+                Instant::now() - Duration::from_secs(1),
+            )
+        }));
+        assert!(result.is_err());
+        assert_eq!(attempts.get(), 1);
+    }
+}
+
+#[test]
+fn http_handshake_wait_retries_transient_errors_before_deadline() {
+    let mut results = [ERR_CONNECTION_NOT_FOUND, 0, 42].into_iter();
+    assert_eq!(
+        wait_for_http_handshake_until(
+            || results.next().unwrap(),
+            Instant::now() + Duration::from_secs(5)
+        ),
+        42
+    );
+    assert_eq!(results.next(), None);
 }
 
 fn wait_for_http_handshakes(connection_id: i32, expected: usize, timeout: Duration) -> Vec<i32> {
@@ -538,6 +578,8 @@ fn poll_connection_message_returns_payload() {
     );
     assert_eq!(info.serializer, 1, "JSON serializer expected");
     assert_eq!(info.message_code, 16, "Publish message expected");
+    assert!(info.frame_len > 0);
+    assert!(!info.frame_ptr.is_null());
     assert!(info.args_len > 0);
     assert!(!info.args_ptr.is_null());
     assert!(info.kwargs_len > 0);
@@ -927,6 +969,8 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     );
     assert!(error_info.args_len > 0);
     assert!(error_info.kwargs_len > 0);
+    assert!(!error_info.args_ptr.is_null());
+    assert!(!error_info.kwargs_ptr.is_null());
     unsafe {
         let error = std::slice::from_raw_parts(error_info.string_a_ptr, error_info.string_a_len);
         let message = std::slice::from_raw_parts(error_info.string_b_ptr, error_info.string_b_len);
@@ -5278,6 +5322,8 @@ fn websocket_wamp_round_trip() {
     );
     assert_eq!(info.serializer, 1, "JSON serializer expected");
     assert_eq!(info.message_code, 1, "HELLO message expected");
+    assert!(info.frame_len > 0);
+    assert!(!info.frame_ptr.is_null());
     unsafe {
         let frame = std::slice::from_raw_parts(info.frame_ptr, info.frame_len);
         let parsed: serde_json::Value = serde_json::from_slice(frame).unwrap();

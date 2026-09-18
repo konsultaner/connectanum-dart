@@ -6,6 +6,29 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work108 adds native TLS verification/recovery, client string validation, HTTP
+status boundary and empty WebSocket subprotocol regressions. Both TLS transports
+use fresh self-signed certificates, alternate verification policy on one listener
+and exchange exact payloads in both directions. Buffer metadata assertions run
+before unsafe test reads. All 172 FFI tests pass. A deterministic fail-first
+test fixes a test-helper loop that ignored its deadline after negative HTTP
+handshake polls. Waiting failures remain non-assertion errors; do not inflate
+mutation scores by converting timeout panics into clock assertions.
+
+The repeated fast run exposes a real lab-runner race: Flutter can print the
+test-start marker between a log read and the terminal process check. Re-read
+the final log after exit, preserving subsequent child exit-status validation.
+A deterministic interleaving fails before the fix; all 15 lab-script tests pass
+afterward. These are fake-tool regressions, not emulator UI evidence. Settled
+Fast108c and Verify108 pass with observed exit zero, including Rust,
+installed-package smokes and Chrome JavaScript/WASM tests. Fresh Cargo-only
+`native108-current` coverage completes at core 8,431/10,052 (83.87%) and FFI
+4,655/5,798 (80.29%), retaining one core and three FFI unmeasured sources.
+`native-boundaries108-mutations` is running with the full FFI library suite as
+the sole local native owner. Its score is pending; keep the historical native106
+mutation result below separate. New-head hosted evidence is still required,
+and the full coverage goal remains unmet. No merge, publication or version change.
+
 Work107 repairs mutation CI job budgets without changing candidate inventories,
 per-mutant deadlines or score thresholds. At `92f5c33f`, the PR MCP job reaches
 1,062/1,098 candidates before its 120-minute limit; the push remote-WAMP job

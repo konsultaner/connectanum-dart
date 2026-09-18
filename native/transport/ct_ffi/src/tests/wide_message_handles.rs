@@ -41,6 +41,8 @@ fn received_value(connection: i32, websocket: bool, serializer: i32) -> Value {
     let mut info = CtMessageInfo::default();
     assert_eq!(ct_message_get_wide(handle, &mut info), SUCCESS);
     assert_eq!(i32::from(info.serializer), serializer);
+    assert!(info.frame_len > 0);
+    assert!(!info.frame_ptr.is_null());
     let frame = unsafe { std::slice::from_raw_parts(info.frame_ptr, info.frame_len) };
     let value = match serializer {
         1 => serde_json::from_slice(frame).unwrap(),

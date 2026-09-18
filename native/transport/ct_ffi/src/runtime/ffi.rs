@@ -8398,6 +8398,7 @@ mod tests {
         };
         let info = build_message_info(&message, false);
         assert_eq!(info.binary_arg_len, 3);
+        assert!(!info.binary_arg_ptr.is_null());
         assert_eq!(
             unsafe { slice::from_raw_parts(info.binary_arg_ptr, info.binary_arg_len) },
             b"abc"
@@ -9894,6 +9895,7 @@ mod tests {
         };
         let publish_custom_info = build_message_info(&publish_with_custom, false);
         assert_eq!(publish_custom_info.primary_id, 17);
+        assert!(!publish_custom_info.details_ptr.is_null());
         assert_eq!(
             publish_custom_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
             CT_MESSAGE_FLAG_DIRECT_BIND
@@ -10326,6 +10328,7 @@ mod tests {
             kwargs: None,
         };
         let heartbeat_info = build_message_info(&heartbeat, false);
+        assert!(!heartbeat_info.details_ptr.is_null());
         assert_eq!(
             heartbeat_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
             CT_MESSAGE_FLAG_METADATA_BIND
@@ -10361,6 +10364,7 @@ mod tests {
             kwargs: None,
         };
         let unknown_info = build_message_info(&unknown, false);
+        assert!(!unknown_info.details_ptr.is_null());
         assert_eq!(
             unknown_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
             CT_MESSAGE_FLAG_METADATA_BIND

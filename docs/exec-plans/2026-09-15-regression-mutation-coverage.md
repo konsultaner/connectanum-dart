@@ -67,6 +67,47 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work108 Native TLS Boundaries And Lab Startup Race
+
+- Add five native FFI regressions for null/empty/non-UTF-8 client strings, exact
+  HTTP response status boundaries, both TLS client policy flags and zero-length
+  WebSocket subprotocol output. TLS fixtures generate fresh self-signed
+  certificates, accept any surfaced upgrade even on the expected-denial path,
+  alternate zero/nonzero opt-in flags on one listener, and assert exact
+  bidirectional payloads. Strengthen live invalid-status retry checks and
+  assert buffer metadata before unsafe test reads without dropping payload checks.
+- Reproduce the HTTP handshake test helper's negative-result deadline bypass
+  with an expired deadline and injected pending-then-success poll. The real
+  fail-first run is `coverage108-wait-fail-first2.log`; the earlier compile error
+  is not behavioral evidence. Apply the deadline to negative and zero results,
+  preserving legitimate transient retries. All 172 FFI tests pass with observed
+  exit zero. Retain timeout/custom I/O wait panics as non-assertion failures;
+  changing their syntax into assertions would not improve mutation detection.
+- Fast108b fails in the lab-runner cleanup regression: its fake Flutter child
+  writes the test marker between the first grep and the process-exit check.
+  Inject that ordering deterministically into the actual Bash helper; the new
+  test fails on the old implementation. Check the terminal log again, leaving
+  later child wait/exit-status validation unchanged. All 15 lab-script tests
+  pass with observed exit zero. This is script evidence, not emulator UI proof.
+- Local companion findings were checked independently. The expired-deadline
+  test does not iterate a positive pending handle; the listener exposes a
+  connection only after successful TLS/protocol negotiation; the lab regression
+  demonstrably fails when the final log check is absent. Do not weaken those
+  assertions based on the advisory false positives.
+- Evidence: `out/regression-coverage-2026-09-15/coverage108-native-tls-boundaries`.
+  Settled Fast108c and Verify108 pass with observed exit zero, including Rust,
+  installed-package smokes and Chrome JavaScript/WASM tests. The six changed
+  implementation/test file hashes still match after verification. Fresh
+  Cargo-only `native108-current` coverage completes with matching scope at core
+  8,431/10,052 (83.87%) and FFI 4,655/5,798 (80.29%). Retain one core and three FFI
+  unmeasured sources; do not combine this with older Dart-driven profiles.
+  `native-boundaries108-mutations` runs the complete boundary inventory and
+  full FFI library suite in an isolated native tree, with one local native owner,
+  unchanged 180-second per-mutant limits and no skipped candidates. The final
+  score is pending. Preserve the previous 81-candidate report and unsafe-function
+  instrumentation gap. New-head hosted checks and strict audit remain required.
+  No score waiver, merge, publication, version change or completion claim.
+
 ### Work107 Hosted Campaign Budgets And Completed Native Audit
 
 - At `92f5c33f`, [PR CI MCP job](https://github.com/konsultaner/connectanum-dart/actions/runs/35300196245/job/105461036336)
