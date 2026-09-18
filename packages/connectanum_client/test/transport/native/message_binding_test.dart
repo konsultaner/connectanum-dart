@@ -1,7 +1,9 @@
 @TestOn('vm')
 library;
 
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
@@ -14,6 +16,8 @@ import 'package:test/test.dart';
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  _metadataDispatchContracts();
+  _validFrameContracts();
   for (final serializer in [
     NativeMessageSerializer.ubjson,
     NativeMessageSerializer.flatbuffers,
@@ -56,31 +60,33 @@ void main() {
   test(
     'JSON binary tags normalize recursively without changing ordinary strings',
     () {
-      final value =
-          bindMessage(
-                NativeMessageSerializer.json,
-                Uint8List.fromList(
-                  utf8.encode(
-                    jsonEncode([
-                      8,
-                      48,
-                      19,
-                      {
-                        'actual': '\u0000AQID',
-                        'escaped': r'\u0000BAUG',
-                        'nested': [
-                          {'value': r'\u0000BwgJ'},
-                          'ordinary',
-                        ],
-                        'empty': '',
-                        'number': 7,
-                      },
-                      'com.error',
-                    ]),
-                  ),
-                ),
-              )
-              as Error;
+      final value = _expectMessage<Error>(
+        _validFrame(
+          () => bindMessage(
+            NativeMessageSerializer.json,
+            Uint8List.fromList(
+              utf8.encode(
+                jsonEncode([
+                  8,
+                  48,
+                  19,
+                  {
+                    'actual': '\u0000AQID',
+                    'escaped': r'\u0000BAUG',
+                    'nested': [
+                      {'value': r'\u0000BwgJ'},
+                      'ordinary',
+                    ],
+                    'empty': '',
+                    'number': 7,
+                  },
+                  'com.error',
+                ]),
+              ),
+            ),
+          ),
+        ),
+      );
       expect(value.details, {
         'actual': [1, 2, 3],
         'escaped': [4, 5, 6],
@@ -111,8 +117,13 @@ void main() {
       _ => throw StateError('Unsupported test serializer: $serializer'),
     };
     group('full response frames $serializer', () {
-      T decode<T extends AbstractMessage>(List<Object?> frame) =>
-          bindMessage(serializer, encode(frame)) as T;
+      T decode<T extends AbstractMessage>(List<Object?> frame) {
+        final bytes = encode(frame);
+        return _expectMessage<T>(
+          _validFrame(() => bindMessage(serializer, bytes)),
+        );
+      }
+
       test('omitted optional control fields keep their defaults', () {
         final abort = decode<Abort>([3]);
         expect(abort.reason, '');
@@ -196,6 +207,7 @@ void main() {
           {'subscription': 48, 'reason': 'wamp.error.not_authorized'},
         ]);
         expect(revoked.unsubscribeRequestId, 0);
+        expect(revoked.details, isNotNull);
         expect(revoked.details!.subscription, 48);
         expect(revoked.details!.reason, 'wamp.error.not_authorized');
       });
@@ -266,7 +278,7 @@ void main() {
           'wamp.close.normal',
         ]);
         expect(value.reason, 'wamp.close.normal');
-        expect(value.message!.message, 'closing');
+        expect(value.message?.message, 'closing');
         final absent = decode<Goodbye>([6]);
         expect(absent.reason, '');
         expect(absent.message, isNull);
@@ -453,6 +465,7 @@ void main() {
                         )
                         as Welcome;
                 expect(welcome.sessionId, 71);
+                expect(welcome.details.roles, isNotNull);
                 expect(welcome.details.roles!.dealer, isNotNull);
                 for (final field in identityFields.entries) {
                   expect(
@@ -620,6 +633,7 @@ void main() {
                     )
                     as Unsubscribed;
             expect(value.unsubscribeRequestId, 71);
+            expect(value.details, isNotNull);
             expect(
               value.details!.subscription,
               direct ? (present ? 0 : null) : 73,
@@ -1976,6 +1990,217 @@ void main() {
       ]);
     });
   });
+}
+
+void _metadataDispatchContracts() {
+  final contracts = <int, Matcher>{
+    2: isA<Welcome>(),
+    3: isA<Abort>(),
+    4: isA<Challenge>(),
+    6: isA<Goodbye>(),
+    7: isA<Heartbeat>(),
+    8: isA<Error>(),
+    17: isA<Published>(),
+    33: isA<Subscribed>(),
+    35: isA<Unsubscribed>(),
+    36: isA<Event>(),
+    50: isA<Result>(),
+    65: isA<Registered>(),
+    67: isA<Unregistered>(),
+    68: isA<Invocation>(),
+    69: isA<Interrupt>(),
+    7777: isA<UnknownMessage>(),
+  };
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+  ]) {
+    Uint8List encode(Object value) => switch (serializer) {
+      NativeMessageSerializer.json => Uint8List.fromList(
+        utf8.encode(jsonEncode(value)),
+      ),
+      NativeMessageSerializer.messagePack => msgpack.serialize(value),
+      NativeMessageSerializer.cbor => Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue(value)),
+      ),
+      _ => throw StateError('Unsupported test serializer: $serializer'),
+    };
+    for (final direct in [false, true]) {
+      for (final contract in contracts.entries) {
+        test(
+          'metadata dispatch ${contract.key} $serializer direct=$direct overrides a valid frame',
+          () {
+            // A wrong fallback must be observable as a value, not a decode crash.
+            final message = bindMessage(
+              serializer,
+              encode([9999]),
+              metadata: _metadata(
+                messageCode: contract.key,
+                primaryId: 81,
+                secondaryId: 93,
+                flags:
+                    NativeMessageMetadata.flagMetadataBind |
+                    (direct ? NativeMessageMetadata.flagDirectBind : 0),
+                stringA: 'killnowait',
+                stringB: 'exact',
+                detailsBytes: encode({
+                  'roles': {'dealer': {}, 'caller': {}},
+                  'realm': 'wire.realm',
+                  'message': 'wire message',
+                  'mode': 'killnowait',
+                  'fields': ['metadata'],
+                  'request_id': 73,
+                  'details': {'marker': 'wire'},
+                  'ping': 11,
+                  'incoming': 12,
+                  'outgoing': 13,
+                }),
+              ),
+            );
+            expect(message, contract.value);
+            expect(message.id, contract.key);
+            switch (message) {
+              case Welcome():
+                expect(message.sessionId, 81);
+                expect(
+                  message.details.realm,
+                  direct ? 'killnowait' : 'wire.realm',
+                );
+                expect(message.details.roles?.dealer, isNotNull);
+              case Abort():
+                expect(message.reason, 'killnowait');
+                expect(
+                  message.message?.message,
+                  direct ? 'exact' : 'wire message',
+                );
+              case Challenge():
+                expect(message.authMethod, 'killnowait');
+              case Goodbye():
+                expect(message.reason, 'killnowait');
+                expect(
+                  message.message?.message,
+                  direct ? 'exact' : 'wire message',
+                );
+              case Heartbeat():
+                expect(message.details, {'marker': 'wire'});
+                expect(
+                  [message.ping, message.incoming, message.outgoing],
+                  [11, 12, 13],
+                );
+              case Error():
+                expect(message.requestTypeId, 81);
+                expect(message.requestId, 93);
+                expect(message.error, 'killnowait');
+                expect(
+                  message.details['message'],
+                  direct ? 'exact' : 'wire message',
+                );
+              case Published():
+                expect(message.publishRequestId, 81);
+                expect(message.publicationId, 93);
+              case Subscribed():
+                expect(message.subscribeRequestId, 81);
+                expect(message.subscriptionId, 93);
+              case Unsubscribed():
+                expect(message.unsubscribeRequestId, 81);
+              case Event():
+                expect(message.subscriptionId, 81);
+                expect(message.publicationId, 93);
+              case Result():
+                expect(message.callRequestId, 81);
+              case Registered():
+                expect(message.registerRequestId, 81);
+                expect(message.registrationId, 93);
+              case Unregistered():
+                expect(message.unregisterRequestId, 81);
+              case Invocation():
+                expect(message.requestId, 81);
+                expect(message.registrationId, 93);
+              case Interrupt():
+                expect(message.requestId, 81);
+                expect(message.options?.mode, 'killnowait');
+              case UnknownMessage():
+                expect(message.fields, ['metadata']);
+                expect(message.requestId, 73);
+            }
+          },
+        );
+      }
+    }
+  }
+}
+
+T _expectMessage<T extends AbstractMessage>(AbstractMessage? value) {
+  expect(value, isA<T>());
+  return value as T;
+}
+
+// Only for known-valid, synchronous in-memory frames; never negative fixtures.
+T _validFrame<T>(T Function() decode) {
+  try {
+    return decode();
+  } on FormatException catch (error) {
+    fail('Known-valid frame was rejected as malformed: $error');
+  } on ArgumentError catch (error) {
+    fail('Known-valid frame was rejected by the decoder: $error');
+  }
+}
+
+void _validFrameContracts() {
+  test(
+    'valid frame assertion evaluates once and preserves result identity',
+    () {
+      final value = Object();
+      var calls = 0;
+      expect(
+        _validFrame(() {
+          calls++;
+          return value;
+        }),
+        same(value),
+      );
+      expect(calls, 1);
+      expect(_validFrame<Object?>(() => null), isNull);
+    },
+  );
+  for (final rejection in <Object>[
+    const FormatException('fixture'),
+    ArgumentError('fixture'),
+    RangeError.index(2, [1]),
+  ]) {
+    test(
+      'valid frame assertion identifies ${rejection.runtimeType} rejection',
+      () {
+        var calls = 0;
+        expect(
+          () => _validFrame(() {
+            calls++;
+            throw rejection;
+          }),
+          throwsA(isA<TestFailure>()),
+        );
+        expect(calls, 1);
+      },
+    );
+  }
+  for (final failure in <Object>[
+    StateError('runtime'),
+    UnsupportedError('serializer'),
+    TypeError(),
+    TimeoutException('deadline'),
+    const FileSystemException('filesystem'),
+    const SocketException('socket'),
+    ProcessException('process', []),
+    TestFailure('original assertion'),
+    AssertionError('original assertion'),
+    StackOverflowError(),
+    const OutOfMemoryError(),
+  ]) {
+    test('valid frame assertion preserves ${failure.runtimeType}', () {
+      expect(() => _validFrame(() => throw failure), throwsA(same(failure)));
+    });
+  }
 }
 
 NativeMessageMetadata _metadata({

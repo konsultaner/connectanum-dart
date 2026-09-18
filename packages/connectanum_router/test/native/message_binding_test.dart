@@ -1,6 +1,8 @@
 @TestOn('vm')
 library;
 
+import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
 
@@ -13,7 +15,222 @@ import 'package:test/test.dart';
 
 import '../../../connectanum_core/test/support/native_role_contract.dart';
 
+void _metadataDispatchContracts() {
+  final contracts = <int, Matcher>{
+    1: isA<Hello>(),
+    3: isA<Abort>(),
+    5: isA<Authenticate>(),
+    6: isA<Goodbye>(),
+    7: isA<Heartbeat>(),
+    8: isA<Error>(),
+    16: isA<Publish>(),
+    32: isA<Subscribe>(),
+    34: isA<Unsubscribe>(),
+    35: isA<Unsubscribed>(),
+    48: isA<Call>(),
+    49: isA<Cancel>(),
+    64: isA<Register>(),
+    66: isA<Unregister>(),
+    69: isA<Interrupt>(),
+    70: isA<Yield>(),
+    7777: isA<UnknownMessage>(),
+  };
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+  ]) {
+    Uint8List encode(Object value) => switch (serializer) {
+      NativeMessageSerializer.json => Uint8List.fromList(
+        utf8.encode(jsonEncode(value)),
+      ),
+      NativeMessageSerializer.messagePack => msgpack.serialize(value),
+      NativeMessageSerializer.cbor => Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue(value)),
+      ),
+      _ => throw StateError('Unsupported test serializer: $serializer'),
+    };
+    for (final direct in [false, true]) {
+      for (final contract in contracts.entries) {
+        test(
+          'metadata dispatch ${contract.key} $serializer direct=$direct overrides a valid frame',
+          () {
+            // A wrong fallback must be observable as a value, not a decode crash.
+            final message = bindMessage(
+              serializer,
+              encode([9999]),
+              metadataMessageCode: contract.key,
+              metadataPrimaryId: 81,
+              metadataSecondaryId: 93,
+              metadataFlags: direct ? 17 : 16,
+              metadataStringA: 'killnowait',
+              metadataStringB: 'exact',
+              metadataDetailsBytes: encode({
+                'roles': {'dealer': {}, 'caller': {}},
+                'message': 'wire message',
+                'mode': 'killnowait',
+                'fields': ['metadata'],
+                'request_id': 73,
+                'details': {'marker': 'wire'},
+                'ping': 11,
+                'incoming': 12,
+                'outgoing': 13,
+              }),
+            );
+            expect(message, contract.value);
+            expect(message.id, contract.key);
+            switch (message) {
+              case Hello():
+                expect(message.realm, 'killnowait');
+                expect(message.details.roles?.caller, isNotNull);
+              case Abort():
+                expect(message.reason, 'killnowait');
+                expect(
+                  message.message?.message,
+                  direct ? 'exact' : 'wire message',
+                );
+              case Authenticate():
+                expect(message.signature, 'killnowait');
+                expect(message.extra?['message'], 'wire message');
+              case Goodbye():
+                expect(message.reason, 'killnowait');
+                expect(
+                  message.message?.message,
+                  direct ? 'exact' : 'wire message',
+                );
+              case Heartbeat():
+                expect(message.details, {'marker': 'wire'});
+                expect(
+                  [message.ping, message.incoming, message.outgoing],
+                  [11, 12, 13],
+                );
+              case Error():
+                expect(message.requestTypeId, 81);
+                expect(message.requestId, 93);
+                expect(message.error, 'killnowait');
+                expect(
+                  message.details['message'],
+                  direct ? 'exact' : 'wire message',
+                );
+              case Publish():
+                expect(message.requestId, 81);
+                expect(message.topic, 'killnowait');
+              case Subscribe():
+                expect(message.requestId, 81);
+                expect(message.topic, 'killnowait');
+              case Unsubscribe():
+                expect(message.requestId, 81);
+                expect(message.subscriptionId, 93);
+              case Unsubscribed():
+                expect(message.unsubscribeRequestId, 81);
+              case Call():
+                expect(message.requestId, 81);
+                expect(message.procedure, 'killnowait');
+              case Cancel():
+                expect(message.requestId, 81);
+                expect(message.options?.mode, 'killnowait');
+              case Register():
+                expect(message.requestId, 81);
+                expect(message.procedure, 'killnowait');
+              case Unregister():
+                expect(message.requestId, 81);
+                expect(message.registrationId, 93);
+              case Interrupt():
+                expect(message.requestId, 81);
+                expect(message.options?.mode, 'killnowait');
+              case Yield():
+                expect(message.invocationRequestId, 81);
+              case UnknownMessage():
+                expect(message.fields, ['metadata']);
+                expect(message.requestId, 73);
+            }
+          },
+        );
+      }
+    }
+  }
+}
+
+T _expectMessage<T extends AbstractMessage>(AbstractMessage? value) {
+  expect(value, isA<T>());
+  return value as T;
+}
+
+T _present<T extends Object>(T? value) {
+  expect(value, isNotNull);
+  return value!;
+}
+
+// Only for known-valid, synchronous in-memory frames; never negative fixtures.
+T _validFrame<T>(T Function() decode) {
+  try {
+    return decode();
+  } on FormatException catch (error) {
+    fail('Known-valid frame was rejected as malformed: $error');
+  } on ArgumentError catch (error) {
+    fail('Known-valid frame was rejected by the decoder: $error');
+  }
+}
+
+void _validFrameContracts() {
+  test(
+    'valid frame assertion evaluates once and preserves result identity',
+    () {
+      final value = Object();
+      var calls = 0;
+      expect(
+        _validFrame(() {
+          calls++;
+          return value;
+        }),
+        same(value),
+      );
+      expect(calls, 1);
+      expect(_validFrame<Object?>(() => null), isNull);
+    },
+  );
+  for (final rejection in <Object>[
+    const FormatException('fixture'),
+    ArgumentError('fixture'),
+    RangeError.index(2, [1]),
+  ]) {
+    test(
+      'valid frame assertion identifies ${rejection.runtimeType} rejection',
+      () {
+        var calls = 0;
+        expect(
+          () => _validFrame(() {
+            calls++;
+            throw rejection;
+          }),
+          throwsA(isA<TestFailure>()),
+        );
+        expect(calls, 1);
+      },
+    );
+  }
+  for (final failure in <Object>[
+    StateError('runtime'),
+    UnsupportedError('serializer'),
+    TypeError(),
+    TimeoutException('deadline'),
+    const FileSystemException('filesystem'),
+    const SocketException('socket'),
+    ProcessException('process', []),
+    TestFailure('original assertion'),
+    AssertionError('original assertion'),
+    StackOverflowError(),
+    const OutOfMemoryError(),
+  ]) {
+    test('valid frame assertion preserves ${failure.runtimeType}', () {
+      expect(() => _validFrame(() => throw failure), throwsA(same(failure)));
+    });
+  }
+}
+
 void main() {
+  _metadataDispatchContracts();
+  _validFrameContracts();
   for (final serializer in [
     NativeMessageSerializer.ubjson,
     NativeMessageSerializer.flatbuffers,
@@ -54,31 +271,33 @@ void main() {
   test(
     'JSON binary tags normalize recursively without changing ordinary strings',
     () {
-      final value =
-          bindMessage(
-                NativeMessageSerializer.json,
-                Uint8List.fromList(
-                  utf8.encode(
-                    jsonEncode([
-                      8,
-                      48,
-                      19,
-                      {
-                        'actual': '\u0000AQID',
-                        'escaped': r'\u0000BAUG',
-                        'nested': [
-                          {'value': r'\u0000BwgJ'},
-                          'ordinary',
-                        ],
-                        'empty': '',
-                        'number': 7,
-                      },
-                      'com.error',
-                    ]),
-                  ),
-                ),
-              )
-              as Error;
+      final value = _expectMessage<Error>(
+        _validFrame(
+          () => bindMessage(
+            NativeMessageSerializer.json,
+            Uint8List.fromList(
+              utf8.encode(
+                jsonEncode([
+                  8,
+                  48,
+                  19,
+                  {
+                    'actual': '\u0000AQID',
+                    'escaped': r'\u0000BAUG',
+                    'nested': [
+                      {'value': r'\u0000BwgJ'},
+                      'ordinary',
+                    ],
+                    'empty': '',
+                    'number': 7,
+                  },
+                  'com.error',
+                ]),
+              ),
+            ),
+          ),
+        ),
+      );
       expect(value.details, {
         'actual': [1, 2, 3],
         'escaped': [4, 5, 6],
@@ -109,8 +328,12 @@ void main() {
       _ => throw StateError('Unsupported test serializer: $serializer'),
     };
     group('full request frames $serializer', () {
-      T decode<T extends AbstractMessage>(List<Object?> frame) =>
-          bindMessage(serializer, encode(frame)) as T;
+      T decode<T extends AbstractMessage>(List<Object?> frame) {
+        final bytes = encode(frame);
+        return _expectMessage<T>(
+          _validFrame(() => bindMessage(serializer, bytes)),
+        );
+      }
 
       test('rejects non-array and empty frames', () {
         for (final frame in <Object>[{}, 1, 'invalid', []]) {
@@ -165,7 +388,7 @@ void main() {
           'wamp.error.not_authorized',
         ]);
         expect(value.reason, 'wamp.error.not_authorized');
-        expect(value.message!.message, 'denied');
+        expect(value.message?.message, 'denied');
         expect(decode<Abort>([3]).reason, '');
         expect(decode<Abort>([3, {}]).message, isNull);
       });
@@ -186,7 +409,7 @@ void main() {
           'wamp.close.normal',
         ]);
         expect(value.reason, 'wamp.close.normal');
-        expect(value.message!.message, 'closing');
+        expect(value.message?.message, 'closing');
         expect(decode<Goodbye>([6]).message, isNull);
         expect(decode<Goodbye>([6]).reason, '');
       });
@@ -212,6 +435,7 @@ void main() {
         ]);
         expect(value.requestId, 23);
         expect(value.topic, 'com.topic');
+        expect(value.options, isNotNull);
         expect(value.options!.match, 'prefix');
         expect(value.options!.metaTopic, 'com.meta');
         expect(value.options!.getRetained, isFalse);
@@ -276,6 +500,7 @@ void main() {
           ]);
           expect(value.requestId, 31);
           expect(value.procedure, 'com..procedure');
+          expect(value.options, isNotNull);
           expect(value.options!.match, 'wildcard');
           expect(value.options!.invoke, 'roundrobin');
           expect(value.options!.discloseCaller, isFalse);
@@ -300,6 +525,7 @@ void main() {
             },
           ]);
           expect(value.invocationRequestId, 33);
+          expect(value.options, isNotNull);
           expect(value.options!.progress, isFalse);
           expect(value.options!.pptScheme, 'wamp');
           expect(value.options!.pptSerializer, 'cbor');
@@ -477,6 +703,7 @@ void main() {
                         )
                         as Hello;
                 expect(value.realm, 'realm');
+                expect(value.details.roles, isNotNull);
                 expect(value.details.roles!.caller, isNotNull);
                 for (final field in authFields.entries) {
                   expect(
@@ -512,6 +739,7 @@ void main() {
                   as Call;
           expect(value.requestId, 41);
           expect(value.procedure, 'com.proc');
+          expect(value.options, isNotNull);
           expect(value.options!.timeout, 73);
           expect(value.arguments, [12]);
           expect(value.argumentsKeywords, {'key': 13});
@@ -536,33 +764,34 @@ void main() {
           'direct feature bits $bits remain independent between message types',
           () {
             T decodeFlags<T extends AbstractMessage>(int code) =>
-                bindMessageFromMetadata(
-                      serializer,
-                      messageCode: code,
-                      primaryId: 41,
-                      secondaryId: 62,
-                      detailNumberA: 0,
-                      flags: 17 | bits,
-                      stringA: code == 70 ? null : 'com.target',
-                      detailsBytes: encode({'extension': 1}),
-                    )
-                    as T;
-            final publish = decodeFlags<Publish>(16).options!;
+                _expectMessage<T>(
+                  bindMessageFromMetadata(
+                    serializer,
+                    messageCode: code,
+                    primaryId: 41,
+                    secondaryId: 62,
+                    detailNumberA: 0,
+                    flags: 17 | bits,
+                    stringA: code == 70 ? null : 'com.target',
+                    detailsBytes: encode({'extension': 1}),
+                  ),
+                );
+            final publish = _present(decodeFlags<Publish>(16).options);
             expect(publish.acknowledge, bits & 8 != 0 ? true : null);
             expect(publish.excludeMe, bits & 32 != 0 ? true : null);
             expect(publish.discloseMe, bits & 64 != 0 ? true : null);
             expect(publish.retain, bits & 128 != 0 ? true : null);
-            final call = decodeFlags<Call>(48).options!;
+            final call = _present(decodeFlags<Call>(48).options);
             expect(call.timeout, bits & 2 != 0 ? 0 : null);
             expect(call.receiveProgress, bits & 8 != 0 ? true : null);
             expect(call.discloseMe, bits & 32 != 0 ? true : null);
             expect(call.progress, bits & 64 != 0 ? true : null);
-            final register = decodeFlags<Register>(64).options!;
+            final register = _present(decodeFlags<Register>(64).options);
             expect(register.discloseCaller, bits & 8 != 0 ? true : null);
             expect(register.forwardTimeout, bits & 32 != 0 ? true : null);
-            final sub = decodeFlags<Subscribe>(32).options!;
+            final sub = _present(decodeFlags<Subscribe>(32).options);
             expect(sub.getRetained, bits & 8 != 0 ? true : null);
-            final result = decodeFlags<Yield>(70).options!;
+            final result = _present(decodeFlags<Yield>(70).options);
             expect(result.progress, bits & 8 != 0);
             for (final options in <CustomFieldContainer>[
               publish,
@@ -745,22 +974,22 @@ void main() {
         int code,
         Object? details, {
         String? stringA = 'com.target',
-      }) =>
-          bindMessageFromMetadata(
-                serializer,
-                messageCode: code,
-                primaryId: 41,
-                secondaryId: 62,
-                detailNumberA: 999,
-                flags: 16,
-                stringA: stringA,
-                stringB: 'ignored',
-                stringC: 'ignored',
-                stringD: 'ignored',
-                stringE: 'ignored',
-                detailsBytes: encode(details),
-              )
-              as T;
+      }) => _expectMessage<T>(
+        bindMessageFromMetadata(
+          serializer,
+          messageCode: code,
+          primaryId: 41,
+          secondaryId: 62,
+          detailNumberA: 999,
+          flags: 16,
+          stringA: stringA,
+          stringB: 'ignored',
+          stringC: 'ignored',
+          stringD: 'ignored',
+          stringE: 'ignored',
+          detailsBytes: encode(details),
+        ),
+      );
 
       for (final flags in [0, 1]) {
         test(
@@ -882,7 +1111,7 @@ void main() {
           expect(publish.requestId, 41);
           expect(publish.topic, 'com.target');
           if (present) {
-            final o = publish.options!;
+            final o = _present(publish.options);
             expect(o.acknowledge, isFalse);
             expect(o.excludeMe, isFalse);
             expect(o.discloseMe, isFalse);

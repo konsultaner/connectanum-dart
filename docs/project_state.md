@@ -6,6 +6,35 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work121 strengthens the client/router native-message binding test oracles without
+changing production behavior. Add198 metadata-dispatch cases across JSON,
+MessagePack and CBOR, direct and non-direct, with valid competing full frames.
+Assert concrete types, message codes, IDs and control-field authority before
+casts or nullable dereferences. Known-valid synchronous full-frame parsing has
+narrow FormatException/ArgumentError success assertions; negative tests remain
+raw, and30 helper controls preserve unrelated runtime/infrastructure/resource
+failures. All3559 focused tests pass (1732 client,1827 router;3331 before),
+analysis is clean, and fresh focused VM file coverage is584/584 and575/575
+(100% each), not whole-package measurements. Fast121 and frozen-input Verify121
+complete with observed exit zero, including Rust/native, installed-package/live-
+router and Chrome WASM tests. Input hashes match; the native window is released
+to a consumer task. A broader VM refresh has not started; VM115 remains the
+last complete package snapshot.
+Full client492/router666 mutation inventories are still running in
+`client-binding121-mutations` and `router-binding121-mutations`; both clean
+baselines pass. No final new mutation score is claimed. Preserve their original
+handles and final-input.sha256 under `coverage121-binding-oracles`; do not
+restart them on an observation timeout. Metadata fallback now has an explicit
+assertion kill where older evidence had only a test error. Remaining reviewed
+leads include full-frame type/optional-field assertions, conflicting INTERRUPT
+mode authority and non-direct custom-field loader state; they are not equivalent
+waivers or proven baseline production bugs. No thresholds, operators, inventory,
+equivalences or versions changed. Local companion suggestions were independently
+checked; the heavier GLM endpoint is unavailable. At c7710381 both package dry
+runs, router-image35367697258 and WAMP-profile35367698831 pass; main CI remains
+queued. Refresh hosted status after the test increment is pushed. The full
+milestone remains open; no merge or publication.
+
 Work120 adds remote-WAMP configuration and wire-result assertions, then finds
 and reproduces a production credential-identity collision. Three tests fail on
 the old32-bit fingerprint: different inline tokens have the same registry key,

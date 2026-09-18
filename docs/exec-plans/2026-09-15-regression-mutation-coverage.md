@@ -67,6 +67,41 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work121 Native Binding Assertion Oracles
+
+- Add198 metadata dispatch contracts across JSON/MessagePack/CBOR and direct/
+  non-direct binding. A valid competing UnknownMessage frame makes mistaken
+  fallback observable without relying on malformed-frame errors. Assert exact
+  classes, codes, distinct IDs and control fields. Keep existing negative and
+  invalid-full-frame/no-decode tests intact.
+- Assert known-valid synchronous full-frame parsing and nullable field presence
+  before casts/dereferences. Catch only FormatException/ArgumentError in these
+  success fixtures. Thirty controls preserve single evaluation, returned object
+  identity, nullable values and unchanged runtime, unsupported-serializer, type,
+  timeout, filesystem/socket/process, assertion and resource errors.
+- All3559 focused tests pass (1732 client,1827 router;3331 previously). Focused
+  analysis and diff checks pass. Fresh VM file lines584/584 client and575/575
+  router are100%, not whole-package coverage. The scoped whole-workspace policy
+  check correctly fails for unrelated unmeasured files; no policy was relaxed.
+- Fast121 and frozen-input Verify121 complete with observed exit0, including
+  Rust/native, installed-package/live-router and Chrome WASM. All final input
+  hashes match; explicitly release the native window for the consumer task.
+  Do not claim a new whole-VM snapshot or WASM line measurement.
+- Complete client492/router666 mutation campaigns are running with passing
+  baselines and unchanged source/operator inventories. Preserve sessions29088
+  and94472 and reports client-binding121-mutations/router-binding121-mutations;
+  no final score yet. The existing client fallback mutant now has an assertion
+  instead of an error-only outcome. Do not credit remaining runtime errors.
+  Investigate full-frame type/length checks, conflicting INTERRUPT mode fields
+  and unnecessary non-direct custom loaders; these leads are not equivalences.
+- Both Qwen reviews completed; independently reject their inconsistent-helper,
+  nonexistent YIELD-mode assertion and ABORT-null-safety claims. GLM's separate
+  endpoint is unavailable. Keep evidence, original failures and final-input
+  hashes under coverage121-binding-oracles and bindings121-vm. No production,
+  threshold, equivalence or version changes. At predecessor c7710381 package,
+  router-image and WAMP-profile dry runs pass; main CI is queued. Refresh hosted
+  status after pushing. The complete regression/mutation milestone stays open.
+
 ### Work120 Remote Credential Isolation And Wire Contracts
 
 - Add valid/default parser, TLS opt-in, credential file identity, authentication
