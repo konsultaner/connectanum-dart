@@ -67,6 +67,55 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work110 Native Result And Consumption Oracles
+
+- Reproduce the native108 fixture gaps from preserved mutant logs before
+  changing tests: completed WebSocket client failures become listener timeouts,
+  no-op HTTP/stream/upgrade completions block peer reads, and missing metadata
+  pointers reach unsafe slice construction. These are test-observation gaps,
+  not new defects in unmutated production code.
+- Add a test-only client helper that observes completed calls before server
+  polls, retains early successful RawSocket IDs, allows server acceptance before
+  client completion, and bounds waits. Preserve worker panic payloads and
+  non-assertion deadline panics. Five deterministic helper regressions and all
+  177 FFI library tests pass.
+- Existing live fixtures now assert synchronous ownership postconditions:
+  successful HTTP responses and WebSocket acceptance consume their handshake;
+  finished response streams reject further writes. Keep exact wire/payload
+  assertions. Validate borrowed metadata pointers before unsafe reads.
+- `native-fixtures110-probe` completes all 16 generated candidates with the
+  entire 177-test suite, passing baseline and unchanged 180-second deadline.
+  Strict audit: 15 assertion kills, one error, zero timeouts/survivors, 93.75%
+  raw/adjusted, no equivalents. The remaining error is a custom assert! message
+  on a real completed-client return check, not a timeout. Preserve the report
+  and `native110-current/source-scopes.json`; future checks use standard assert!
+  diagnostics. Do not loosen the auditor or reclassify historical errors.
+- The initial invocation rejected --jobs with --in-place before running tests;
+  preserve its log separately. The corrected command uses the wrapper's single
+  in-place worker in a disposable native tree. Local review found no concrete
+  issue; the existing global test guard serializes native runtime access.
+- Evidence: `out/regression-coverage-2026-09-15/coverage110-native-fixtures`.
+  Fast109/Verify109 passed before changes. Fresh Fast110 and settled-input
+  Verify110 pass with observed exit zero, including Rust, installed-package
+  smokes and Chrome JavaScript/WASM tests. Final `native110b-current` input
+  hashes match. After verification exits, the complete 81-candidate boundary
+  rerun starts as the sole native owner; its inventory is identical to native108.
+  Its final assertion score remains pending. The new helper
+  files are test-only under the unchanged analyzer; no production exclusion,
+  native behavior change, waiver, merge, publication or version change.
+- Work109 is pushed at `e5410370`; both hosted package dry runs, image dry
+  run and WAMP profiles pass. Main CI remains pending. The initial strict audit
+  remains nonzero for pending evidence and existing branch protection/workflow
+  visibility findings. Old-head CI was cancelled only after new-head runs
+  appeared; cancelled runs are not passing evidence. The full goal stays open.
+- During the preserved, still-running MCP campaign, individual mutation logs
+  identify valid-input construction errors before eager expect() evaluation:
+  OAuth step-up scope construction and form minLength boundaries are examples.
+  These remain test-error detections, not assertion kills. Follow-up should
+  explicitly assert successful construction/completion plus exact values for
+  valid inputs, alongside the already-identified OAuth negative resource cases.
+  Do not edit the current campaign snapshot or infer its final score early.
+
 ### Work109 MCP Form And Content Boundaries
 
 - Add 248 public form regressions for malformed roots/properties, wire request

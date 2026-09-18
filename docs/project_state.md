@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work110 addresses native fixture errors exposed by the completed boundary
+campaign. Background client results are observed before waiting for a server;
+successful early RawSocket IDs are retained and WebSocket acceptance can still
+precede client completion. Worker panics and deadlines remain non-assertion
+errors. Shared test wrappers check HTTP/WebSocket handshake consumption and
+rejection of writes after response completion, preserving all wire assertions.
+Borrowed metadata pointers are asserted non-null before unsafe fixture reads.
+All 177 FFI tests pass, including five deterministic helper regressions.
+The complete 16-candidate probe finishes without timeouts: strict audit records
+15 assertion kills and one custom-assert diagnostic error (93.75%, no waivers).
+Preserve that report; subsequent return-value assertions now emit standard
+diagnostics without changing the predicate or accepting arbitrary panic text.
+Fresh Fast110 and settled-input Verify110 pass with observed exit zero,
+including Rust, installed-package smokes and Chrome JavaScript/WASM tests.
+Final `native110b-current` input hashes still match. After verification exits,
+the full 81-candidate rerun starts as the sole local native owner; its inventory
+is identical to native108. Its final assertion score remains pending.
+No production native behavior or measurement policy changes.
+
+Work109 is verified and pushed as `e5410370` on PR #93. Both package dry runs,
+the router-image dry run and WAMP profiles pass; main CI remains pending.
+The initial strict hosted audit exits one on pending evidence and the existing
+feature-branch protection/workflow-discovery findings. Superseded old-head CI
+runs were cancelled after new-head runs appeared, not reported as successful.
+
 Work109 adds 840 public MCP client regressions: 248 form-schema/content cases
 and 592 live HTTP malformed-response/recovery cases across legacy/modern and
 direct/streamable APIs. Thirty fail-first assertions expose permissive calendar

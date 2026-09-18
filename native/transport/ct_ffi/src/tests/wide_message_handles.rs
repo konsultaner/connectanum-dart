@@ -1,3 +1,5 @@
+use super::client_connect::ClientConnect;
+use super::ffi_completion::ct_connection_accept_websocket;
 use crate::runtime::*;
 use serde_json::{json, Value};
 use std::ffi::CString;
@@ -71,7 +73,7 @@ fn round_trip(websocket: bool, serializer: i32) {
     let listener = ct_listen(host.as_ptr(), 0, 128);
     assert!(listener > 0);
     let port = ct_get_local_port(listener);
-    let connect = std::thread::spawn(move || {
+    let mut connect = ClientConnect::new(std::thread::spawn(move || {
         let host = CString::new("127.0.0.1").unwrap();
         if websocket {
             let path = CString::new("/ws").unwrap();
@@ -90,17 +92,9 @@ fn round_trip(websocket: bool, serializer: i32) {
         } else {
             ct_client_connect_rawsocket(host.as_ptr(), port, 0, 0, serializer, 16, 0, 0)
         }
-    });
+    }));
     let deadline = Instant::now() + Duration::from_secs(5);
-    let server = loop {
-        let id = ct_poll_connection(listener);
-        if id > 0 {
-            break id;
-        }
-        assert_eq!(id, 0);
-        assert!(Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(1));
-    };
+    let server = connect.wait_for_server(|| ct_poll_connection(listener), deadline);
     if websocket {
         let handshake = ct_connection_take_websocket_handshake(server);
         assert!(handshake > 0);
@@ -122,7 +116,7 @@ fn round_trip(websocket: bool, serializer: i32) {
             SUCCESS
         );
     }
-    let client = connect.join().unwrap();
+    let client = connect.finish(Instant::now() + Duration::from_secs(5));
     assert!(client > 0);
     if !websocket {
         assert_eq!(

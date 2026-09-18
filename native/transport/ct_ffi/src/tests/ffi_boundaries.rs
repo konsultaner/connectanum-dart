@@ -1,3 +1,6 @@
+use super::ffi_completion::{
+    ct_connection_accept_websocket, ct_http_response_send, ct_http_response_stream_finish,
+};
 use super::test_guard;
 use crate::runtime::*;
 use std::ffi::CString;

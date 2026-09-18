@@ -22,6 +22,10 @@ use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::runtime::Runtime as TokioRuntime;
 
+use super::client_connect::ClientConnect;
+use super::ffi_completion::{
+    ct_connection_accept_websocket, ct_http_response_send, ct_http_response_stream_finish,
+};
 use crate::runtime::ffi::http3_test_client_bind_addr;
 
 const HTTP2_TEST_MAX_CONCURRENT_STREAMS: u32 = 1024;
@@ -47,25 +51,24 @@ use crate::runtime::constants::{
 };
 use crate::runtime::ffi::{
     ct_apply_router_config, ct_client_connect_rawsocket, ct_client_connect_websocket,
-    ct_connection_accept_websocket, ct_connection_close, ct_connection_get_http3_connection,
-    ct_connection_max_rawsocket_exponent, ct_connection_poll_http_event, ct_connection_protocol,
-    ct_connection_take_http2_handshake, ct_connection_take_http3_handshake,
-    ct_connection_take_http_handshake, ct_connection_take_websocket_handshake,
-    ct_connection_websocket_protocol, ct_get_local_port, ct_http2_handshake_get,
-    ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
+    ct_connection_close, ct_connection_get_http3_connection, ct_connection_max_rawsocket_exponent,
+    ct_connection_poll_http_event, ct_connection_protocol, ct_connection_take_http2_handshake,
+    ct_connection_take_http3_handshake, ct_connection_take_http_handshake,
+    ct_connection_take_websocket_handshake, ct_connection_websocket_protocol, ct_get_local_port,
+    ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
     ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
     ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
     ct_http_body_finish, ct_http_body_get, ct_http_body_release, ct_http_body_stream_read,
     ct_http_connection_event_get, ct_http_connection_event_release, ct_http_handshake_body_retain,
     ct_http_handshake_get, ct_http_handshake_header, ct_http_handshake_release,
-    ct_http_response_send, ct_http_response_stream_finish, ct_http_response_stream_open,
-    ct_http_response_stream_write, ct_listen, ct_listener_close, ct_listener_http3_port,
-    ct_message_get, ct_message_peek, ct_message_release, ct_poll_connection,
-    ct_poll_connection_message, ct_send_message, ct_set_on_connection, ct_set_on_listener_started,
-    ct_shutdown, ct_start_runtime, ct_wait_connection_message, ct_websocket_handshake_extension,
-    ct_websocket_handshake_get, ct_websocket_handshake_protocol, ct_websocket_handshake_release,
-    CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo,
-    CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
+    ct_http_response_stream_open, ct_http_response_stream_write, ct_listen, ct_listener_close,
+    ct_listener_http3_port, ct_message_get, ct_message_peek, ct_message_release,
+    ct_poll_connection, ct_poll_connection_message, ct_send_message, ct_set_on_connection,
+    ct_set_on_listener_started, ct_shutdown, ct_start_runtime, ct_wait_connection_message,
+    ct_websocket_handshake_extension, ct_websocket_handshake_get, ct_websocket_handshake_protocol,
+    ct_websocket_handshake_release, CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView,
+    CtHttpConnectionEventInfo, CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView,
+    CtWebSocketHandshakeInfo,
 };
 use crate::runtime::store_http_body;
 
@@ -835,6 +838,9 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     );
     assert_eq!(challenge_info.frame_len, 0);
     assert!(challenge_info.details_len > 0);
+    assert!(!challenge_info.details_ptr.is_null());
+    assert_eq!(challenge_info.string_a_len, 6);
+    assert!(!challenge_info.string_a_ptr.is_null());
     unsafe {
         let auth_method =
             std::slice::from_raw_parts(challenge_info.string_a_ptr, challenge_info.string_a_len);
@@ -1038,6 +1044,7 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     );
     assert_eq!(custom_event_info.frame_len, 0);
     assert!(custom_event_info.details_len > 0);
+    assert!(!custom_event_info.details_ptr.is_null());
     unsafe {
         let details = std::slice::from_raw_parts(
             custom_event_info.details_ptr,
@@ -1195,7 +1202,7 @@ fn client_connect_websocket_round_trips_over_ffi() {
     let target_ptr = target.clone();
     let header_name = b"X-Test".to_vec();
     let header_value = b"ffi".to_vec();
-    let connect = std::thread::spawn(move || {
+    let mut connect = ClientConnect::new(std::thread::spawn(move || {
         let header = CtHttpHeader {
             name_ptr: header_name.as_ptr(),
             name_len: header_name.len(),
@@ -1214,9 +1221,12 @@ fn client_connect_websocket_round_trips_over_ffi() {
             0,
             0,
         )
-    });
+    }));
 
-    let server_connection_id = wait_for_connection(listener_id);
+    let server_connection_id = connect.wait_for_server(
+        || ct_poll_connection(listener_id),
+        Instant::now() + Duration::from_secs(5),
+    );
     assert_eq!(
         ct_connection_protocol(server_connection_id),
         PROTOCOL_WEBSOCKET
@@ -1254,7 +1264,7 @@ fn client_connect_websocket_round_trips_over_ffi() {
         ),
         SUCCESS
     );
-    let client_connection_id = connect.join().unwrap();
+    let client_connection_id = connect.finish(Instant::now() + Duration::from_secs(5));
     assert!(client_connection_id > 0);
     assert_eq!(
         ct_connection_protocol(client_connection_id),
