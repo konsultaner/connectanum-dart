@@ -204,6 +204,7 @@
     }
   },
   "files": {
+    "packages/connectanum_router/lib/src/router/auth/http_auth_provider.dart": 98,
     "packages/connectanum_router/lib/src/router/auth/remote_authenticator.dart": 98,
     "packages/connectanum_router/lib/src/router/auth/remote_wamp_delegate.dart": 98,
     "packages/connectanum_router/lib/src/router/config/router_config_loader.dart": 98,

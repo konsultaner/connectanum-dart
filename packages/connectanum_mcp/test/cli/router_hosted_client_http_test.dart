@@ -765,6 +765,185 @@ void main() {
       }
     });
 
+    group('request-scoped resource listener', () {
+      const options = [
+        '--resource-uri',
+        'app://notes/current',
+        '--resource-update-topic',
+        'app.events',
+        '--resource-update-event',
+        '{"revision":2}',
+      ];
+
+      test(
+        'acknowledges, refreshes, and closes without session state',
+        () async {
+          final result = await _run(peer, options);
+          expect(result.err, isEmpty);
+          final stateless = result.lines.last['stateless'] as Map;
+          expect(stateless['sessionless'], isTrue);
+          expect(stateless['requestScopedResourceSubscription'], {
+            'uri': 'app://notes/current',
+            'updateTopic': 'app.events',
+            'updateEvent': {'revision': 2},
+            'acknowledged': true,
+            'publication': {'acknowledged': true, 'publicationId': 19},
+            'notificationReceived': true,
+            'notification': {
+              'jsonrpc': '2.0',
+              'method': 'notifications/resources/updated',
+              'params': {
+                'uri': 'app://notes/current',
+                '_meta': {
+                  'io.modelcontextprotocol/subscriptionId':
+                      'stateless-resource-listen',
+                },
+              },
+            },
+            'refreshedContent': [
+              {'uri': 'app://notes/current', 'text': 'fixture note'},
+            ],
+            'closedLocally': true,
+            'sessionless': true,
+          });
+          expect(peer.requests.last['id'], 'stateless-resource-reread');
+        },
+      );
+
+      for (final (acknowledged, unrequested)
+          in <(Map<String, Object?>, String?)>[
+            ({'resourceSubscriptions': <String>[]}, null),
+            (
+              {
+                'resourceSubscriptions': ['app://notes/other'],
+              },
+              'resource',
+            ),
+            (
+              {
+                'resourceSubscriptions': [
+                  'app://notes/current',
+                  'app://notes/other',
+                ],
+              },
+              'resource',
+            ),
+            (
+              {
+                'resourceSubscriptions': ['app://notes/current'],
+                'toolsListChanged': true,
+              },
+              'tools list',
+            ),
+            (
+              {
+                'resourceSubscriptions': ['app://notes/current'],
+                'promptsListChanged': true,
+              },
+              'prompts list',
+            ),
+            (
+              {
+                'resourceSubscriptions': ['app://notes/current'],
+                'resourcesListChanged': true,
+              },
+              'resources list',
+            ),
+          ]) {
+        test('rejects unexpected acknowledgement $acknowledged', () async {
+          peer.listenerAcknowledgement = acknowledged;
+          await expectLater(
+            _run(peer, options),
+            throwsA(
+              unrequested == null
+                  ? isA<StateError>().having(
+                      (error) => error.message,
+                      'diagnostic',
+                      'Stateless resource listener did not acknowledge only '
+                          'app://notes/current.',
+                    )
+                  : isA<FormatException>().having(
+                      (error) => error.message,
+                      'diagnostic',
+                      'Server acknowledged an unrequested $unrequested subscription',
+                    ),
+            ),
+          );
+          expect(peer.requests.last['id'], 'stateless-resource-listen');
+        });
+      }
+
+      test(
+        'publication rejection closes the waiting listener without errors',
+        () async {
+          peer.emitResourceUpdate = false;
+          peer.rewrite = (request, result) =>
+              request['id'] == 'stateless-resource-update-publish'
+              ? {
+                  'isError': true,
+                  'content': [
+                    {'type': 'text', 'text': 'publication denied'},
+                  ],
+                }
+              : result;
+          final completed = Completer<Object?>();
+          final unhandled = <Object>[];
+          runZonedGuarded(() async {
+            try {
+              await _run(peer, options);
+              completed.complete(null);
+            } catch (error) {
+              completed.complete(error);
+            }
+          }, (error, stack) => unhandled.add(error));
+          expect(
+            await completed.future.timeout(const Duration(seconds: 2)),
+            isA<McpStreamableWampToolException>().having(
+              (error) => error.message,
+              'diagnostic',
+              'publication denied',
+            ),
+          );
+          expect(peer.requests.last['id'], 'stateless-resource-update-publish');
+          await Future<void>.delayed(Duration.zero);
+          expect(
+            unhandled,
+            isEmpty,
+            reason: 'Listener cleanup must not leak an unawaited future error',
+          );
+        },
+      );
+
+      for (final uri in <Object?>['app://notes/other', null, 42]) {
+        test('invalid update URI $uri fails closed without a reread', () async {
+          peer.resourceUpdateParams = {'uri': uri};
+          final output = _CapturedStdout();
+          final completed = Completer<Object?>();
+          final unhandled = <Object>[];
+          runZonedGuarded(() async {
+            try {
+              await _run(peer, options, output: output);
+              completed.complete(null);
+            } catch (error) {
+              completed.complete(error);
+            }
+          }, (error, stack) => unhandled.add(error));
+          expect(
+            await completed.future.timeout(const Duration(seconds: 2)),
+            isA<StateError>().having(
+              (error) => error.message,
+              'listener failure',
+              'Stateless resource listener did not close locally.',
+            ),
+          );
+          expect(peer.requests.last['id'], 'stateless-resource-update-publish');
+          expect(output.text.toString(), isNot(contains('"stateless":')));
+          await Future<void>.delayed(Duration.zero);
+          expect(unhandled, isEmpty);
+        });
+      }
+    });
+
     group('WAMP metadata integrity', () {
       const options = [
         '--wamp-procedure',
@@ -1039,6 +1218,7 @@ typedef _Rewrite =
 class _Peer {
   _Peer(this.server) {
     server.listen((request) async {
+      var keepOpen = false;
       try {
         expect(request.method, 'POST');
         expect(request.headers.value('Mcp-Session-Id'), isNull);
@@ -1149,7 +1329,55 @@ class _Peer {
         }
         final metadata = (message['params'] as Map)['_meta'] as Map;
         expect(metadata['io.modelcontextprotocol/protocolVersion'], _protocol);
+        if (message['method'] == 'subscriptions/listen') {
+          expect(message['id'], 'stateless-resource-listen');
+          expect((message['params'] as Map)['notifications'], {
+            'resourceSubscriptions': ['app://notes/current'],
+          });
+          final response = request.response;
+          response.bufferOutput = false;
+          response.headers.set(
+            'Content-Type',
+            'text/event-stream; charset=utf-8',
+          );
+          response.headers.set('MCP-Protocol-Version', _protocol);
+          response.write(
+            'data: ${jsonEncode({
+              'jsonrpc': '2.0',
+              'method': 'notifications/subscriptions/acknowledged',
+              'params': {
+                '_meta': {
+                  'io.modelcontextprotocol/subscriptionId': message['id'],
+                },
+                'notifications': listenerAcknowledgement ?? {
+                      'resourceSubscriptions': ['app://notes/current'],
+                    },
+              },
+            })}\n\n',
+          );
+          await response.flush();
+          _listenerResponse = response;
+          keepOpen = true;
+          return;
+        }
         final result = _result(message);
+        if (message['id'] == 'stateless-resource-update-publish' &&
+            emitResourceUpdate) {
+          final response = _listenerResponse!;
+          response.write(
+            'data: ${jsonEncode({
+              'jsonrpc': '2.0',
+              'method': 'notifications/resources/updated',
+              'params': {
+                ...resourceUpdateParams,
+                '_meta': {
+                  'io.modelcontextprotocol/subscriptionId': 'stateless-resource-listen',
+                },
+              },
+            })}\n\n',
+          );
+          await response.flush();
+        }
         if (!message.containsKey('id')) {
           request.response.statusCode = HttpStatus.accepted;
           return;
@@ -1166,7 +1394,7 @@ class _Peer {
         failures.add((error, stack));
         request.response.statusCode = 500;
       } finally {
-        await request.response.close();
+        if (!keepOpen) await request.response.close();
       }
     });
   }
@@ -1190,6 +1418,10 @@ class _Peer {
   _Rewrite? rewrite;
   bool subscriptionActive = false;
   final _events = <Map<String, Object?>>[];
+  HttpResponse? _listenerResponse;
+  Map<String, Object?>? listenerAcknowledgement;
+  bool emitResourceUpdate = true;
+  Map<String, Object?> resourceUpdateParams = {'uri': 'app://notes/current'};
 
   Map<String, Object?> _grant({
     bool lifecycle = false,
@@ -1224,6 +1456,22 @@ class _Peer {
 
   Map<String, Object?> _result(Map<String, Object?> request) {
     final params = request['params'] as Map;
+    if (request['id'] == 'stateless-resource-update-publish') {
+      expect(request['method'], 'connectanum.tool.call');
+      expect(params['name'], 'connectanum.pubsub.publish');
+      final arguments = params['arguments'] as Map;
+      expect(arguments['topic'], 'app.events');
+      expect(arguments['argumentsKeywords'], {'revision': 2});
+      expect(arguments['acknowledge'], isTrue);
+      return {
+        'content': <Object?>[],
+        'structuredContent': {
+          'topic': 'app.events',
+          'acknowledged': true,
+          'publicationId': 19,
+        },
+      };
+    }
     final toolName = params['name'];
     if (request['method'] == 'connectanum.tool.call' &&
         toolName is String &&

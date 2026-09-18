@@ -67,6 +67,132 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work101 HTTP Bearer Validation And Hosted Analyzer Failure (In Progress)
+
+- Hosted push run 35283872576 now has a failed Fast Checks job 105411747954.
+  It exits during analysis, before running regressions: receive().listen() in
+  the native paused-listener regression dereferences a nullable stream. The
+  local analyzer reproduces it; an explicit non-null assertion fixes analysis
+  without skipping the test or changing its behavioral assertions. Preserve
+  `/tmp/connectanum-coverage101-{ci-fast,native-analysis-before,native-analysis-after}.log`.
+- Push the one-line CI correction separately as `1a187bc2`. Both package dry
+  runs pass; current main CI is pending. Cancel only six older active CI runs on
+  this branch to release hosted capacity, retaining logs and all local campaigns.
+  The strict audit still fails pending CI and stale profile evidence.
+- The replacement hosted Fast Checks job 105421393404 in run 35286985122 gets
+  past analysis and fails the WebSocket JSON EOF/reconnect case while rebinding
+  the old port. The helper force-kills the peer before its asynchronous finally
+  block has completed server.close(). Waiting for natural exit fails Verify100
+  in all three WebSocket EOF cases, so use an explicit listener-closed message
+  sent only after awaited server.close(), then dispose/rebind. Keep forced
+  teardown for remaining isolate resources; do not enable shared binding, add
+  sleeps or weaken the reconnect test. All six EOF and all 50 native transport
+  cases pass, as do focused analysis and formatting. Preserve
+  `/tmp/connectanum-coverage101b-ci-fast.log` and the failed Verify100 log.
+  Fresh Verify101 completes with directly observed exit zero on settled inputs,
+  including Rust, package smokes and browser JS/WASM suites. Hosted CI remains red
+  until the correction is pushed and replacement checks pass.
+- Native99 completes 368 candidates with 157 kills, 94 survivors, 32 timeouts,
+  one error and 84 compile errors; both baselines pass. Raw/adjusted conventional
+  score is 55.2817%. Its 93 assertion, 35 mixed and 29 test-error detections give
+  an assertion lower bound of 45.0704%. No waivers. Its native-test hash predates
+  the analyzer correction; do not claim it as final-snapshot evidence. The queued
+  Fast100 passes; after the recorded Verify100 failure, Verify101 passes and
+  releases the native runtime for fresh whole-workspace VM coverage. MCP100 stays
+  live.
+- Public-factory JWT/OIDC and real-loopback OAuth tests reproduce four defects:
+  malformed signature decoding throws; malformed present exp/nbf can authenticate;
+  fractional JWT expiry is truncated; OAuth ignores future nbf despite active=true.
+  The first targeted run records two passes and 63 failures, including explicit
+  fail-closed assertions. Preserve `/tmp/connectanum-coverage101-http-auth-fail-first.log`.
+- Parse all JWT segments inside the format-error boundary and return a generic
+  failure without reflecting encoded token data. Time validation distinguishes
+  absent optional claims from present invalid claims, checks finite/range bounds
+  before scaling, preserves JWT fractions and requires integral OAuth timestamps.
+  Check OAuth nbf. Never reuse the permissive configuration integer parser for
+  security-sensitive token claims.
+- Standards: [RFC 7519 sections 2 and 4.1.4-4.1.5](https://www.rfc-editor.org/rfc/rfc7519.html#section-2)
+  define optional numeric dates, including fractions for JWT. Present null or
+  strings are not NumericDates. [RFC 7662 section 2.2](https://www.rfc-editor.org/rfc/rfc7662.html#section-2.2)
+  specifies integral exp/nbf introspection timestamps. This deliberately rejects
+  previously accepted malformed claim types; valid public factory APIs and
+  omitted optional dates remain compatible.
+- Expand to 153 passing provider tests: independent HMAC fixtures, recovery,
+  fractional/integral/non-finite/bounded dates, issuer/audience rejection,
+  identity/role mapping, immutable registry snapshots, encoded HTTP requests,
+  configuration errors, endpoint failures and client disposal after synchronous
+  setup exhausts the deadline. Final `http-auth101d-vm` measures 301/302 (99.67%)
+  with only the private registry constructor uncovered. Retain raw/LCOV/summary
+  and exact input hashes; earlier 101/101b/101c reports remain separate. The focused
+  report does not pass whole-workspace gates. Add a 98% file floor.
+- The first complete-source router-http-auth-vm mutation campaign finishes all
+  268 candidates: 141 kills, 49 survivors, one timeout and 77 compile errors,
+  with both baselines zero. Raw/adjusted score 73.8220%, assertion lower bound
+  63.8743% (118 assertion, four mixed, 19 test-error detections); no waivers.
+  Preserve this report unchanged. Its surviving active-token check exposes an
+  otherwise-invalid inactive-token fixture. Add usable-identity inactive cases,
+  real TLS handshake default denial/explicit opt-in, canonical claim precedence,
+  iterable scope mapping and truncated signatures. Pin the existing certificate
+  fixtures as mutation supportFiles. The full `http-auth101b-mutations` rerun
+  completes with 158 kills, 32 survivors, one timeout and 77 compile errors;
+  both baselines zero. Raw/adjusted detection improves to 82.7225%, assertion
+  lower bound 73.2984% (136 assertion, four mixed, 18 test-error detections).
+  Source/test/support hashes match. The timeout_ms fallback mutant still times
+  out and is not an assertion kill. Remaining TLS-parser-equivalence candidates,
+  credential precedence, byte-limit equality, deadline-budget and helper cases
+  stay explicit; no waivers or 95% gate. Targeted analysis,
+  coverage-tool tests and 55 runner tests pass (one optional skip). Local GLM
+  review misstates Dart's DateTime bounds; verify the SDK's documented
+  100,000,000-day limits and add passing endpoint tests rather than widening to
+  overflow-prone values. No underlying token exceptions are added to logs.
+- HTTP and MCP implementation changes pass final Verify101 and are ready for
+  the feature-branch implementation commit; replacement hosted checks remain
+  required. Keep the complete cross-runtime milestone open, with no
+  merge, publication or version change.
+
+### Work100 MCP Survivor Oracles And Listener Cleanup (In Progress)
+
+- Preserve completed MCP97 evidence: 1,098 candidates, 798 kills, 38 survivors,
+  262 compile errors, both baselines zero and 95.4545% conventional detection.
+  Its read-only `kill-evidence100.json` audit reports 627 assertion detections
+  and 171 test errors, giving a 75% assertion-detected lower bound. This report
+  predates the tests below; do not relabel it current or waive its survivors.
+- Add real LocalTransport assertions for recipient selection and option-alias
+  precedence, removing consumed aliases without mutating caller inputs. Mixed
+  recipient lists must return actionable errors before any Publish, and a later
+  valid Publish must succeed. Preserve raw meta argument compatibility with an
+  explicit match override, precise completion errors and subsequent recovery.
+  A serialization observer distinguishes discarding revoked pending events from
+  merely suppressing their eventual response; prove its positive control first.
+- Extend the HTTP peer with request-scoped SSE notifications. Successful updates
+  acknowledge only the requested resource, publish, reread and remain sessionless.
+  Reject empty acknowledgements, unrequested resources/list-change subscriptions,
+  malformed notification URIs and publication failures without subsequent reads.
+  Correct initial fixture assumptions: WAMP publish uses the generic tool-call
+  envelope; unrequested acknowledgements are rejected by the client parser.
+- `/tmp/connectanum-coverage100c-resource-fail-first.log` isolates a real defect
+  after those fixture corrections: the publication error is handled, but listener
+  cleanup leaks `StateError: No element` into the zone. Observe the pending
+  notification future before publishing; retain its later await and fail-closed
+  notification behavior. The regression asserts the separate unhandled-error
+  collection is empty, rather than treating a runtime error as an assertion kill.
+- All 756 MCP cases and targeted analysis pass. `mcp100b-vm` preserves matching
+  source/test hashes, raw coverage and LCOV: non-CLI library 1,605/1,617 (99.26%),
+  CLI 939/2,310 (40.65%), combined 2,544/3,927 (64.78%). The isolated MCP test run
+  omits cross-package CLI integration coverage; it is not comparable to VM96's
+  complete-workspace percentage and does not pass whole-workspace policy gates.
+  Preserve preliminary `mcp100-vm` separately; it predates the listener tests/fix.
+- Fresh full `mcp100-library-mutations` runs 1,098 candidates after its clean
+  baseline, with no new equivalence waivers. Native99 is still live and is the
+  sole native-runtime owner. One queued validation process waits for its exact
+  PID/command to finish, then runs `bin/test-fast` and `bin/verify` sequentially
+  into `/tmp/connectanum-coverage100-{fast,verify}.log`. These gates are pending;
+  the previous Fast98/Verify99 results are not Work100 completion evidence.
+- Changes remain uncommitted until verification. Work99 `94c04567` package dry
+  runs, router-image dry run and profile benchmark pass; main CI jobs remain
+  running/queued, so hosted handoff is not green. Keep PR #93 draft and the full
+  milestone active. No merge, version change or publication.
+
 ### Work99 Native EOF And Receive-Worker Lifecycle
 
 - A real loopback RawSocket test fails first with the assertion "peer EOF must

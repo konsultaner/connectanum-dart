@@ -474,6 +474,8 @@ void main() {
           expect(transport.onDisconnect!.isCompleted, isFalse);
           await transport.close();
           expect(transport.onDisconnect!.isCompleted, isTrue);
+          // Listener closure, not forced isolate exit, makes the port reusable.
+          await server.listenerClosed.timeout(const Duration(seconds: 2));
           await server.dispose();
           final nextServer = await _spawnNativeTestServer(
             kind: websocket ? 'websocket' : 'rawsocket',
@@ -942,6 +944,7 @@ class _NativeTestServer {
     required this.port,
     required this.helloFuture,
     required this.exited,
+    required this.listenerClosed,
   }) : _receivePort = receivePort,
        _subscription = subscription;
 
@@ -951,6 +954,7 @@ class _NativeTestServer {
   final int port;
   final Future<Map<String, Object?>> helloFuture;
   final Future<void> exited;
+  final Future<void> listenerClosed;
 
   Future<void> dispose() async {
     isolate.kill(priority: Isolate.immediate);
@@ -975,6 +979,7 @@ Future<_NativeTestServer> _spawnNativeTestServer({
   final exited = exitPort.first.then<void>((_) => exitPort.close());
   final readyCompleter = Completer<int>();
   final helloCompleter = Completer<Map<String, Object?>>();
+  final listenerClosed = Completer<void>();
   late final StreamSubscription<dynamic> subscription;
   subscription = receivePort.listen((dynamic event) {
     final message = Map<String, Object?>.from(event as Map);
@@ -987,6 +992,11 @@ Future<_NativeTestServer> _spawnNativeTestServer({
       case 'hello':
         if (!helloCompleter.isCompleted) {
           helloCompleter.complete(message);
+        }
+        break;
+      case 'closed':
+        if (!listenerClosed.isCompleted) {
+          listenerClosed.complete();
         }
         break;
       case 'error':
@@ -1019,6 +1029,7 @@ Future<_NativeTestServer> _spawnNativeTestServer({
     port: port,
     helloFuture: helloCompleter.future,
     exited: exited,
+    listenerClosed: listenerClosed.future,
   );
 }
 
@@ -1159,6 +1170,7 @@ Future<void> _runRawSocketServer(
     }
   } finally {
     await server.close();
+    sendPort.send({'type': 'closed'});
   }
 }
 
@@ -1243,6 +1255,7 @@ Future<void> _runWebSocketServer(
     }
   } finally {
     await server.close(force: true);
+    sendPort.send({'type': 'closed'});
   }
 }
 

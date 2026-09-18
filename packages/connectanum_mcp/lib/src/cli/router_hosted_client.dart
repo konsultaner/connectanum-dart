@@ -333,6 +333,9 @@ Future<McpJsonMap> _runStatelessResourceSubscriptionExample(
     final notificationFuture = listener.notifications.first.timeout(
       const Duration(seconds: 10),
     );
+    // Publication can fail before this future is awaited. Closing the listener
+    // must not leak its pending read error; awaiting it still propagates errors.
+    notificationFuture.ignore();
     publication = await client.publishWampEventDirect(
       updateTopic,
       id: 'stateless-resource-update-publish',

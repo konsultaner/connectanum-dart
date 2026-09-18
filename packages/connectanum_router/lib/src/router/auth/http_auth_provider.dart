@@ -207,12 +207,17 @@ class _JwtHttpAuthProvider extends HttpAuthProvider {
 
     Map<String, Object?> header;
     Map<String, Object?> claims;
+    List<int> actualSignature;
     try {
       header = _decodeJwtJson(segments[0]);
       claims = _decodeJwtJson(segments[1]);
-    } on FormatException catch (error) {
+      actualSignature = _decodeBase64UrlBytes(segments[2]);
+    } on FormatException {
       return HttpAuthResult.failure(
-        HttpAuthFailure(reason: 'invalid_token', message: error.message),
+        const HttpAuthFailure(
+          reason: 'invalid_token',
+          message: 'JWT contains invalid encoded data',
+        ),
       );
     }
 
@@ -232,7 +237,6 @@ class _JwtHttpAuthProvider extends HttpAuthProvider {
       32,
       signingInput,
     );
-    final actualSignature = _decodeBase64UrlBytes(segments[2]);
     if (!_constantTimeEquals(expectedSignature, actualSignature)) {
       return HttpAuthResult.failure(
         const HttpAuthFailure(
@@ -245,13 +249,21 @@ class _JwtHttpAuthProvider extends HttpAuthProvider {
     final now = DateTime.now().toUtc();
     final leewaySeconds = _intOption(_options['leeway_seconds']) ?? 0;
     final leeway = Duration(seconds: leewaySeconds < 0 ? 0 : leewaySeconds);
-    final expiresAt = _dateTimeFromEpochSeconds(claims['exp']);
+    DateTime? expiresAt;
+    DateTime? notBefore;
+    try {
+      expiresAt = _dateTimeFromEpochSeconds(claims, 'exp');
+      notBefore = _dateTimeFromEpochSeconds(claims, 'nbf');
+    } on FormatException catch (error) {
+      return HttpAuthResult.failure(
+        HttpAuthFailure(reason: 'invalid_token', message: error.message),
+      );
+    }
     if (expiresAt != null && now.isAfter(expiresAt.add(leeway))) {
       return HttpAuthResult.failure(
         const HttpAuthFailure(reason: 'expired_token', message: 'JWT expired'),
       );
     }
-    final notBefore = _dateTimeFromEpochSeconds(claims['nbf']);
     if (notBefore != null && now.isBefore(notBefore.subtract(leeway))) {
       return HttpAuthResult.failure(
         const HttpAuthFailure(
@@ -438,13 +450,30 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
           ),
         );
       }
-      final expiresAt = _dateTimeFromEpochSeconds(claims['exp']);
+      final expiresAt = _dateTimeFromEpochSeconds(
+        claims,
+        'exp',
+        integerOnly: true,
+      );
+      final notBefore = _dateTimeFromEpochSeconds(
+        claims,
+        'nbf',
+        integerOnly: true,
+      );
       final now = DateTime.now().toUtc();
       if (expiresAt != null && now.isAfter(expiresAt)) {
         return HttpAuthResult.failure(
           const HttpAuthFailure(
             reason: 'expired_token',
             message: 'OAuth token expired',
+          ),
+        );
+      }
+      if (notBefore != null && now.isBefore(notBefore)) {
+        return HttpAuthResult.failure(
+          const HttpAuthFailure(
+            reason: 'inactive_token',
+            message: 'OAuth token is not active yet',
           ),
         );
       }
@@ -506,7 +535,7 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
       return HttpAuthResult.failure(
         const HttpAuthFailure(
           reason: 'invalid_token_response',
-          message: 'OAuth introspection returned an invalid JSON response',
+          message: 'OAuth introspection returned invalid JSON or token claims',
         ),
       );
     } on IOException {
@@ -643,12 +672,28 @@ bool _constantTimeEquals(List<int> left, List<int> right) {
   return diff == 0;
 }
 
-DateTime? _dateTimeFromEpochSeconds(Object? value) {
-  final seconds = _intOption(value);
-  if (seconds == null) {
+DateTime? _dateTimeFromEpochSeconds(
+  Map<String, Object?> claims,
+  String claim, {
+  bool integerOnly = false,
+}) {
+  if (!claims.containsKey(claim)) {
     return null;
   }
-  return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+  final seconds = claims[claim];
+  // JWT NumericDate permits fractions; OAuth introspection requires integers.
+  // Validate before scaling to avoid integer overflow or an unbounded DateTime.
+  if (seconds is! num ||
+      !seconds.isFinite ||
+      seconds < -8640000000000 ||
+      seconds > 8640000000000 ||
+      (integerOnly && seconds != seconds.truncateToDouble())) {
+    throw FormatException('Invalid $claim time claim');
+  }
+  return DateTime.fromMicrosecondsSinceEpoch(
+    (seconds * Duration.microsecondsPerSecond).round(),
+    isUtc: true,
+  );
 }
 
 bool _audienceMatches(Object? value, List<String> expectedAudiences) {

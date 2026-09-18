@@ -6,6 +6,81 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work101 fixes HTTP bearer validation and the hosted analyzer failure. JWT/OIDC
+now return an authentication failure for malformed signature encoding instead of
+throwing. Present invalid exp/nbf claims fail closed instead of becoming absent;
+valid fractional JWT NumericDates retain microsecond precision. OAuth requires
+integral time claims and checks nbf even when introspection says active=true.
+Keep omitted optional claims valid. Signed/real-HTTP fail-first regressions
+expose these defects; all 153 HTTP provider tests now pass. The final focused
+`http-auth101d-vm` report measures 301/302 lines (99.67%), with only the private
+registry constructor uncovered, no exclusions and matching input hashes. Add a
+98% file floor and the complete-source router-http-auth-vm mutation target;
+`http-auth101-mutations` completes at 141 kills, 49 survivors, one timeout and
+77 compile errors (73.82% raw/adjusted; 63.87% assertion lower bound). Both
+baselines pass. Add survivor-directed tests for otherwise-valid inactive tokens,
+actual self-signed TLS default denial/explicit opt-in, canonical claim precedence,
+iterable scope mapping and truncated signatures. The complete
+`http-auth101b-mutations` rerun completes at 158 kills, 32 survivors, one timeout
+and 77 compile errors, with both baselines zero: 82.72% raw/adjusted and a 73.30%
+assertion lower bound. No waivers or passing mutation gate. Source/test/support
+hashes match; the timeout-policy mutant remains a timeout, not an assertion kill.
+Focused analysis,
+coverage-tool tests and 55 mutation-runner tests pass (one optional skip).
+
+The CI correction is pushed separately as `1a187bc2`:
+Fast Checks fails analysis at native_transports_test.dart:397 because receive()
+is nullable. Local analysis reproduces the same error. Add an explicit non-null
+assertion to the paused-listener test; focused analysis and formatting now pass.
+Both current-head package dry runs pass. Hosted run 35286985122 then exposes
+a WebSocket EOF/reconnect fixture race: forced isolate exit can precede native
+socket cleanup, so rebinding the same port fails. Waiting for natural isolate
+exit times out on WebSocket peers and fails Verify100. Instead acknowledge the
+awaited listener closure explicitly, then dispose/rebind. All six EOF cases and
+all 50 native transport tests pass afterward. This second correction is
+verified by completed Verify101; hosted CI is red until the fix is pushed and
+replacement checks pass. Cancel
+six superseded branch CI runs to release runner capacity, preserving their logs
+and all local campaigns. The strict deployment audit remains non-green.
+
+Native99 has completed: 157 kills, 94 survivors, 32 timeouts, one error and 84
+compile errors across 368 candidates, with both baselines zero. Conventional
+raw/adjusted detection is 55.28%; the assertion-detected lower bound is 45.07%
+(93 assertion, 35 mixed and 29 test-error detections). No waivers. This campaign
+predates the one-line analyzer fix; its recorded test hash remains historical.
+Fast100 passes; Verify100 fails as recorded above. Fresh Verify101 completes
+on settled inputs with directly observed exit zero, including Rust, package
+smokes and browser JS/WASM suites. The native runtime is released for a fresh
+whole-workspace VM coverage run. The
+new HTTP regressions run independently without native FFI. Do not launch a
+duplicate verification or attribute incomplete/old campaigns to revised inputs.
+
+Work100 is locally verified; its full mutation campaign remains in progress.
+A real HTTP/SSE regression proves that
+rejecting a request-scoped resource update publication leaks an unhandled
+`StateError: No element` from the notification future during listener cleanup.
+Attach an error observer before awaiting publication; the later notification
+await still propagates errors. Keep acknowledgement/filter rejection, malformed
+notifications, successful rereads and sessionless cleanup explicitly tested.
+Survivor-directed MCP assertions cover option-alias precedence, recipient-list
+validation before WAMP dispatch, recovery, completion diagnostics, raw meta
+match overrides and discarding revoked pending events without serialization.
+All 756 MCP tests and focused analysis pass. `mcp100b-vm` measures 1,605/1,617
+non-CLI library lines (99.26%), but only 939/2,310 CLI lines with this isolated
+test selection: 2,544/3,927 overall (64.78%). Do not replace the broader historical
+VM96 package percentage with this narrower test-run result or combine their
+different snapshots. Input hashes match; whole-workspace gates remain non-green.
+The full 1,098-candidate `mcp100-library-mutations` campaign has a clean baseline
+and is running; it is not a CLI mutation campaign or a final score.
+
+MCP100 remains live; preserve it rather than starting a duplicate. MCP97 has
+completed at 798 kills, 38 survivors and 262
+compile errors (95.45% conventional detection); its separate `kill-evidence100`
+audit finds 627 assertion detections and 171 test errors, a 75% assertion lower
+bound. Its tests predate Work100. Pushed Work99 `94c04567` has passing hosted
+package/image/profile dry runs; main CI still has running/queued jobs. Do not
+merge, publish or call the whole coverage milestone complete.
+
 Work99 reproduces and fixes a native transport lifecycle bug: a real peer sends
 WELCOME then closes, but the old receive worker never completes its Dart stream
 or notifies `onConnectionLost`. Its isolate exit port was only observed during

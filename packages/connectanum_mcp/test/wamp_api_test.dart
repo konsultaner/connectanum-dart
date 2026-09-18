@@ -777,6 +777,27 @@ void main() {
         'match': 'exact',
       });
 
+      final matchResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'match-override',
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.registration.lookup',
+          'arguments': {
+            'arguments': ['app.echo'],
+            'argumentsKeywords': {'match': 'exact', 'trace': 7},
+            'match': 'prefix',
+          },
+        },
+      });
+      expect((matchResponse?['result'] as Map)['isError'], isFalse);
+      expect(capturedCalls.last.procedure, 'wamp.registration.lookup');
+      expect(capturedCalls.last.payload.arguments, ['app.echo']);
+      expect(capturedCalls.last.payload.argumentsKeywords, {
+        'match': 'prefix',
+        'trace': 7,
+      });
+
       final aliasResponse = await server.handleMessage({
         'jsonrpc': '2.0',
         'id': 32,
@@ -851,7 +872,7 @@ void main() {
           reason: toolName,
         );
       }
-      expect(capturedCalls, hasLength(2));
+      expect(capturedCalls, hasLength(3));
     });
 
     test('publishes and polls declared WAMP topics through MCP', () async {
@@ -1416,17 +1437,19 @@ void main() {
         });
         await subscribeStarted.future;
 
+        final observed = _ObservedWampEvent();
+        onEvent(observed);
+        expect(observed.serializations, greaterThan(0));
+        observed.serializations = 0;
         await state.reconcileSubscribedTopics(
           const <String>{},
           release: released.add,
         );
-        onEvent(
-          const McpWampEvent(
-            subscriptionId: 9,
-            publicationId: 105,
-            topic: 'app.events.revoked',
-            argumentsKeywords: {'message': 'must-not-be-retained'},
-          ),
+        onEvent(observed);
+        expect(
+          observed.serializations,
+          0,
+          reason: 'Revoked pending events must be discarded without encoding',
         );
         subscriptionReady.complete(
           const McpWampSubscription(
@@ -2084,4 +2107,22 @@ Future<void> _initializeAndStart(McpServer server) async {
     'jsonrpc': '2.0',
     'method': 'notifications/initialized',
   });
+}
+
+class _ObservedWampEvent extends McpWampEvent {
+  _ObservedWampEvent()
+    : super(
+        subscriptionId: 9,
+        publicationId: 105,
+        topic: 'app.events.revoked',
+        argumentsKeywords: {'message': 'must-not-be-retained'},
+      );
+
+  int serializations = 0;
+
+  @override
+  Map<String, Object?> toJson() {
+    serializations++;
+    return super.toJson();
+  }
 }

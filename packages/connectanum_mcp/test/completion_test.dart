@@ -105,6 +105,102 @@ void main() {
       },
     );
 
+    for (final (overrides, label) in <(Map<String, Object?>, String)>[
+      (
+        {
+          'ref': {'type': 'ref/prompt', 'name': 'bad name'},
+        },
+        'prompt name',
+      ),
+      (
+        {
+          'argument': {'name': 'task id', 'value': 'T-'},
+        },
+        'argument name',
+      ),
+      (
+        {
+          'context': {
+            'arguments': {'bad key': 'alpha'},
+          },
+        },
+        'context argument name',
+      ),
+    ]) {
+      test(
+        'invalid $label retains actionable diagnostics and recovers',
+        () async {
+          final seen = <McpCompletionRequest>[];
+          final server = McpServer(
+            serverInfo: const McpServerInfo(
+              name: 'completion-test',
+              version: '1',
+            ),
+            prompts: [
+              McpPrompt(
+                name: 'summarize-task',
+                arguments: [McpPromptArgument(name: 'taskId')],
+                handler: (_) => McpPromptResult.text('summary'),
+                complete: (request) {
+                  seen.add(request);
+                  return McpCompletionResult(values: ['T-100']);
+                },
+              ),
+            ],
+          );
+          addTearDown(server.shutdown);
+          await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': 'initialize',
+            'method': 'initialize',
+            'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
+          });
+          await server.handleMessage({
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+          });
+          final valid = <String, Object?>{
+            'ref': {'type': 'ref/prompt', 'name': 'summarize-task'},
+            'argument': {'name': 'taskId', 'value': 'T-'},
+          };
+          final rejected = await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': 'invalid',
+            'method': 'completion/complete',
+            'params': {...valid, ...overrides},
+          });
+          expect(rejected, {
+            'jsonrpc': '2.0',
+            'id': 'invalid',
+            'error': {
+              'code': -32602,
+              'message':
+                  'MCP completion $label must be non-empty and contain '
+                  'no whitespace or control characters.',
+            },
+          });
+          expect(seen, isEmpty);
+          final recovered = await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': 'valid',
+            'method': 'completion/complete',
+            'params': valid,
+          });
+          expect(recovered, {
+            'jsonrpc': '2.0',
+            'id': 'valid',
+            'result': {
+              'completion': {
+                'values': ['T-100'],
+              },
+            },
+          });
+          expect(seen.single.argument.name, 'taskId');
+          expect(seen.single.argument.value, 'T-');
+        },
+      );
+    }
+
     test('rejects unknown references and undeclared arguments', () async {
       final server = McpServer(
         serverInfo: const McpServerInfo(name: 'completion-test', version: '1'),

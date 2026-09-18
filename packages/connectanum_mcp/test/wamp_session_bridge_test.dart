@@ -150,6 +150,128 @@ void main() {
     });
   }
 
+  for (final acknowledge in [true, false]) {
+    test('publish aliases preserve precedence with ack=$acknowledge', () async {
+      final server = await _server(_api().toSessionTools(session: session));
+      addTearDown(server.shutdown);
+      final options = <String, Object?>{
+        'acknowledge': !acknowledge,
+        'exclude': [7, 8],
+        'eligible': [9, 10],
+        'exclude_authid': ['primary-id'],
+        'exclude_auth_id': ['secondary-id'],
+        'excludeAuthId': ['tertiary-id'],
+        'exclude_authrole': ['primary-role'],
+        'exclude_auth_role': ['secondary-role'],
+        'excludeAuthRole': ['tertiary-role'],
+        'eligible_authid': ['allowed-id'],
+        'eligible_auth_id': ['other-id'],
+        'eligibleAuthId': ['last-id'],
+        'eligible_authrole': ['allowed-role'],
+        'eligible_auth_role': ['other-role'],
+        'eligibleAuthRole': ['last-role'],
+        'exclude_me': false,
+        'excludeMe': true,
+        'disclose_me': true,
+        'discloseMe': false,
+        'x_trace': 'public-trace',
+      };
+      final original = Map<String, Object?>.from(options);
+      final result = await _tool(server, 'connectanum.pubsub.publish', {
+        'topic': 'app.events',
+        'acknowledge': acknowledge,
+        'options': options,
+      });
+      expect(result['isError'], isFalse);
+      await session.callSinglePayload('app.barrier');
+      final sent = peer.messages.whereType<wamp.Publish>().single.options!;
+      expect(sent.acknowledge, acknowledge);
+      expect(sent.exclude, [7, 8]);
+      expect(sent.eligible, [9, 10]);
+      expect(sent.excludeAuthId, ['primary-id']);
+      expect(sent.excludeAuthRole, ['primary-role']);
+      expect(sent.eligibleAuthId, ['allowed-id']);
+      expect(sent.eligibleAuthRole, ['allowed-role']);
+      expect(sent.excludeMe, isFalse);
+      expect(sent.discloseMe, isTrue);
+      expect(sent.custom, {'x_trace': 'public-trace'});
+      expect(options, original);
+      expect((result['structuredContent'] as Map)['acknowledged'], acknowledge);
+    });
+  }
+
+  test(
+    'subscribe aliases use canonical values without leaking aliases',
+    () async {
+      final server = await _server(_api().toSessionTools(session: session));
+      addTearDown(server.shutdown);
+      final result = await _tool(server, 'connectanum.pubsub.subscribe', {
+        'topic': 'app.events',
+        'options': {
+          'match': 'prefix',
+          'meta_topic': 'primary-meta',
+          'metaTopic': 'secondary-meta',
+          'get_retained': false,
+          'getRetained': true,
+          'x_trace': 'subscription-trace',
+        },
+      });
+      expect(result['isError'], isFalse);
+      final sent = peer.messages.whereType<wamp.Subscribe>().single.options!;
+      expect(sent.match, 'prefix');
+      expect(sent.metaTopic, 'primary-meta');
+      expect(sent.getRetained, isFalse);
+      expect(sent.custom, {'x_trace': 'subscription-trace'});
+      final released = await _tool(server, 'connectanum.pubsub.unsubscribe', {
+        'handle': (result['structuredContent'] as Map)['handle'],
+      });
+      expect(released['isError'], isFalse);
+      expect(peer.messages.whereType<wamp.Unsubscribe>(), hasLength(1));
+      expect(session.subscriptions, isEmpty);
+    },
+  );
+
+  for (final (key, value, type) in <(String, List<Object?>, String)>[
+    ('exclude', [1, 'two'], 'integers'),
+    ('eligible', [1, false], 'integers'),
+    ('exclude_authid', ['valid', 2], 'strings'),
+    ('exclude_authrole', ['valid', false], 'strings'),
+    ('eligible_authid', ['valid', 2], 'strings'),
+    ('eligible_authrole', ['valid', false], 'strings'),
+  ]) {
+    test('invalid $key fails before publishing and permits recovery', () async {
+      final server = await _server(_api().toSessionTools(session: session));
+      addTearDown(server.shutdown);
+      final rejected = await _tool(server, 'connectanum.pubsub.publish', {
+        'topic': 'app.events',
+        'acknowledge': true,
+        'options': {key: value},
+      });
+      expect(rejected['isError'], isTrue);
+      expect(rejected['content'], [
+        {
+          'type': 'text',
+          'text':
+              'Invalid argument(s): arguments.options.$key '
+              'must contain only $type',
+        },
+      ]);
+      await session.callSinglePayload('app.barrier');
+      expect(peer.messages.whereType<wamp.Publish>(), isEmpty);
+
+      final recovered = await _tool(server, 'connectanum.pubsub.publish', {
+        'topic': 'app.events',
+        'acknowledge': true,
+        'arguments': ['after-rejection'],
+      });
+      expect(recovered['isError'], isFalse);
+      expect(peer.messages.whereType<wamp.Publish>().single.arguments, [
+        'after-rejection',
+      ]);
+      expect((recovered['structuredContent'] as Map)['publicationId'], 91);
+    });
+  }
+
   test(
     'session tools preserve event metadata and unsubscribe the final owner',
     () async {

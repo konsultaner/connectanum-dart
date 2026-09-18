@@ -1,4 +1,15 @@
 {
+  "router-http-auth-vm": {
+    "sources": ["packages/connectanum_router/lib/src/router/auth/http_auth_provider.dart"],
+    "tests": [
+      "packages/connectanum_router/test/http_auth_provider_test.dart",
+      "packages/connectanum_router/test/http_auth_provider_regression_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_router/test/certs/remote_auth_server_cert.pem",
+      "packages/connectanum_router/test/certs/remote_auth_server_key.pem"
+    ]
+  },
   "router-remote-authenticator-vm": {
     "sources": ["packages/connectanum_router/lib/src/router/auth/remote_authenticator.dart"],
     "tests": [
