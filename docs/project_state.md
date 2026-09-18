@@ -6,6 +6,46 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work103/104 closes the bearer claim-confusion and exact-expiration defects.
+JWT/OIDC and OAuth now compare issuer/audience strings exactly and reject
+non-string audience members, without changing configuration normalization.
+Optional factory clocks make exclusive expiry/inclusive not-before boundaries
+deterministic; network deadlines continue to use Stopwatch. The 90 new claim
+cases first expose 66 assertion failures; five exact-expiry cases also fail
+before the corresponding comparison fix. All 281 provider tests now pass.
+HTTP103 completes 274 candidates: 186 detections, 11 survivors, 77 compile errors,
+no timeouts/errors, both baselines zero (94.42% raw; 86.29% assertion lower bound).
+HTTP104 adds nine individually justified, source-hash-pinned equivalents, giving
+98.94% adjusted detection but only 90.43% adjusted assertion evidence. Preserve
+these historical reports rather than attributing them to later test changes.
+The final HTTP104b campaign completes all 274 candidates with both baselines zero:
+186 assertion detections, 11 survivors (nine individually justified equivalent),
+77 compile errors, no test-error detections, timeouts or infrastructure errors.
+Raw assertion/detection is 94.42%; adjusted assertion/detection is 98.94%.
+Source/test/support hashes match. Focused HTTP104b line coverage is 304/305
+(99.67%), with only the private registry constructor unexecuted, no exclusions.
+These are HTTP-provider component results, not whole-router completion.
+
+Ten new reverse-proxy binding regressions cover exact UTF-8 byte limits,
+oversized responses, header/body timeouts, upstream socket closure, recovery,
+invalid numeric limits and invalid targets rejected before connecting. The
+focused run and all 224 router-runtime tests pass. The final router-runtime104b
+report measures 2,469/3,636 binding lines (67.90%) for that test-file selection,
+including 31 lines missed by VM101. Do not replace or combine the whole-VM
+percentage with this narrower run. Its input hashes match.
+Add the complete HTTP auth mutation target to CI and the strict deployment audit,
+without lowering thresholds or changing per-mutant timeouts. The new guard test
+first fails on the missing job; all 83 runner/audit tests then pass (one optional
+Linux-only skip). Fast103 and Verify103 pass with observed exit zero. Verify104
+stops at formatting; fix the single test indentation. Settled-input Verify104b
+then completes with directly observed exit zero, including Rust, package consumer
+smokes and browser JS/WASM tests. The native runtime is free for fresh collection.
+At preceding pushed commit `1f07e393`, package/image dry runs and WAMP profiles
+pass; Full Verify passes while other main CI jobs remain pending. New-head hosted
+evidence and the strict audit remain required. No merge, publication or version change.
+The whole milestone remains incomplete: retain the VM101 per-package snapshot,
+unmeasured-source inventory and separate browser/native evidence below.
+
 Work102 closes two further fail-first HTTP-auth defects. Valid extreme JWT/OIDC
 dates plus nonzero leeway throw RangeError; compare elapsed durations without
 shifting the dates outside their representable bounds. Synchronous HTTP setup
@@ -30,10 +70,10 @@ Rust, package smokes and browser JS/WASM tests. No local campaign or native
 verification remains running. Pushed-head Fast Checks passes and hosted
 Full Verify is running; the strict audit still reports pending CI.
 
-Next security work: an independent signed-token probe confirms audience coercion
+Historical Work102 next-work finding (fixed by Work103 above): a signed-token probe confirms audience coercion
 and trimming can authenticate otherwise mismatching claims (numeric value versus
 configured string, empty array versus literal "[]", and padded strings). This is
-not fixed by Work102 and these survivors are not equivalent. RFC 7519 sections
+not fixed by Work102 and those survivors were not equivalent. RFC 7519 sections
 4.1.3 and 7.3 require string/array-of-string audience values and exact comparison.
 Preserve `/tmp/connectanum-coverage102-claim-probe.log`; add checked-in fail-first
 JWT/OIDC/OAuth cases before replacing the permissive token-claim comparison.

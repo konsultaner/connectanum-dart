@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:connectanum_router/src/router/auth/http_auth_provider.dart';
 import 'package:connectanum_router/src/router/config/authenticator.dart';
@@ -11,6 +12,20 @@ const _secret = 'http-auth-regression-secret';
 const _future = 4102444800;
 
 void main() {
+  test(
+    'first default registration installs missing built-in factories',
+    () async {
+      final types = await Isolate.run(() {
+        HttpAuthProviderRegistry.registerFactory(
+          const JwtHttpAuthProviderFactory(),
+        );
+        registerDefaultHttpAuthProviders();
+        return HttpAuthProviderRegistry.factories.keys.toList();
+      });
+      expect(types, unorderedEquals(['jwt', 'oidc', 'oauth']));
+    },
+  );
+
   test('registry exposes an immutable snapshot and supports replacement', () {
     HttpAuthProviderRegistry.clear();
     addTearDown(HttpAuthProviderRegistry.clear);
@@ -39,6 +54,57 @@ void main() {
     OidcHttpAuthProviderFactory(),
   ]) {
     group(factory.type, () {
+      for (final secretOption in ['hmac_secret', 'secret', 'shared_secret']) {
+        test(
+          'valid $secretOption completes with an authenticated identity',
+          () async {
+            final provider = await factory.create({secretOption: _secret});
+            await _expectCompletion(
+              provider.authenticate(_request(_jwt({'sub': 'member'}))),
+            );
+          },
+        );
+      }
+
+      test(
+        'malformed signed inputs complete with structured rejection',
+        () async {
+          final provider = await factory.create({'hmac_secret': _secret});
+          final valid = _jwt({'sub': 'member'});
+          final segments = valid.split('.');
+          final malformed = <String>[
+            for (final json in ['[]', 'null', '42', 'true', '"text"']) ...[
+              _signedJson('{"alg":"HS256"}', json),
+              _signedJson(json, '{"sub":"member"}'),
+            ],
+            '${segments[0]}.${segments[1]}.AA',
+            for (final name in ['exp', 'nbf'])
+              for (final value in [8640000000001, -8640000000001, 1e100])
+                _jwt({'sub': 'member', name: value}),
+          ];
+          for (final token in malformed) {
+            await _expectCompletion(
+              provider.authenticate(_request(token)),
+              failure: 'invalid_token',
+            );
+            await _expectCompletion(provider.authenticate(_request(valid)));
+          }
+        },
+      );
+
+      test('blank scalar roles do not grant an empty role', () async {
+        final provider = await factory.create({
+          'hmac_secret': _secret,
+          'roles_claim': 'groups',
+        });
+        final result = await provider.authenticate(
+          _request(_jwt({'sub': 'member', 'groups': ' \t '})),
+        );
+        expect(result.success, isTrue);
+        expect(result.authenticated!.roles, isEmpty);
+        expect(result.authenticated!.authRole, isNull);
+      });
+
       for (final signature in ['%', 'a', '***']) {
         test('rejects malformed signature $signature and recovers', () async {
           final provider = await factory.create({'hmac_secret': _secret});
@@ -359,16 +425,18 @@ void main() {
       for (final algorithm in <String?>[null, 'none', 'RS256']) {
         test('rejects mismatching header algorithm $algorithm', () async {
           final provider = await factory.create({'hmac_secret': _secret});
-          _expectFailure(
-            await provider.authenticate(
-              _request(
-                _jwt(
-                  {'sub': 'member'},
-                  header: {'alg': ?algorithm},
-                ),
+          final result = await provider.authenticate(
+            _request(
+              _jwt(
+                {'sub': 'member'},
+                header: {'alg': ?algorithm},
               ),
             ),
-            'invalid_token',
+          );
+          _expectFailure(result, 'invalid_token');
+          expect(
+            result.failure!.message,
+            'Unexpected JWT algorithm ${algorithm ?? 'unknown'}',
           );
         });
       }
@@ -436,6 +504,35 @@ void main() {
   }
 
   group('OAuth introspection time claims', () {
+    test(
+      'valid explicit limits complete with an authenticated identity',
+      () async {
+        final peer = await _IntrospectionPeer.start({
+          'active': true,
+          'sub': 'member',
+        });
+        final provider = await peer.provider({
+          'timeout_ms': '1500',
+          'max_response_bytes': '256',
+        });
+        await _expectCompletion(provider.authenticate(_request('opaque')));
+      },
+    );
+
+    test('non-object responses complete with rejection and recover', () async {
+      final peer = await _IntrospectionPeer.start(null);
+      final provider = await peer.provider();
+      for (final value in <Object?>[null, [], 42, true, 'text']) {
+        peer.response = value;
+        await _expectCompletion(
+          provider.authenticate(_request('opaque')),
+          failure: 'invalid_token_response',
+        );
+        peer.response = {'active': true, 'sub': 'member'};
+        await _expectCompletion(provider.authenticate(_request('opaque')));
+      }
+    });
+
     for (final active in <Object?>[false, null, 0, 1, 'true']) {
       test(
         'rejects active=$active with an otherwise usable identity',
@@ -872,6 +969,30 @@ void main() {
     }
   });
 }
+
+Future<void> _expectCompletion(
+  Future<HttpAuthResult> result, {
+  String? failure,
+}) => expectLater(
+  // Treat an escaped exception as an explicit violation of the result contract.
+  result.then<Object>((value) => value, onError: (Object error) => error),
+  completion(
+    isA<HttpAuthResult>()
+        .having((value) => value.success, 'success', failure == null)
+        .having((value) => value.failure?.reason, 'failure reason', failure)
+        .having(
+          (value) => value.authenticated,
+          'authenticated identity',
+          failure == null
+              ? isA<HttpAuthSuccess>().having(
+                  (value) => value.authId,
+                  'authId',
+                  'member',
+                )
+              : isNull,
+        ),
+  ),
+);
 
 void _expectFailure(HttpAuthResult result, String reason) {
   expect(

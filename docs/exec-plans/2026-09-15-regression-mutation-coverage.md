@@ -67,6 +67,86 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work103/104 Exact Claims, Expiration And Result Contracts (Verified Locally)
+
+- Separate untrusted issuer/audience comparisons from normalized configuration.
+  Signed JWT/OIDC and actual HTTP introspection tests reject number/bool/object
+  coercion, padded strings, case and Unicode-normalization mismatches, nested
+  lists and mixed-type arrays before/after a matching audience. Valid exact
+  scalar/list claims, optional restrictions, configuration normalization and
+  successful recovery remain compatible. Initial 90-case run has 24 passes and
+  66 assertion failures; preserve `/tmp/connectanum-coverage103-claims-fail-first.log`.
+- [RFC 7519 sections 4.1.1/4.1.3](https://www.rfc-editor.org/rfc/rfc7519.html#section-4.1.3)
+  require string issuer and string/array-of-string audiences;
+  [section 7.3](https://www.rfc-editor.org/rfc/rfc7519.html#section-7.3)
+  requires exact JSON string comparison. OAuth introspection uses the same claim
+  definitions in [RFC 7662 section 2.2](https://www.rfc-editor.org/rfc/rfc7662.html#section-2.2).
+  [RFC 7519 sections 4.1.4/4.1.5](https://www.rfc-editor.org/rfc/rfc7519.html#section-4.1.4)
+  make expiration exclusive and not-before inclusive. Add optional factory
+  clocks, preserving const zero-argument constructors and Stopwatch deadlines.
+  Five deterministic expiry cases fail before the comparison fix, with zero or
+  nonzero leeway and one-microsecond before/at/after assertions. Returned expiry
+  remains the original timestamp, not the leeway-shifted deadline.
+- HTTP103 completes with both baselines zero: 274 candidates, 186 detections,
+  11 survivors, 77 compile errors, no timeouts/errors. Raw/adjusted detection is
+  94.4162%; 170 assertions and 16 test errors give an 86.2944% assertion lower
+  bound. HTTP104 preserves these raw outcomes and adds nine individual equivalent
+  records in `tool/mutation_equivalents.json`, pinned to the provider source hash:
+  zero-leeway branch equality, inaccessible null role-map lookup, null helper
+  fallthrough, false/null at the sole TLS opt-in caller and a private list's
+  unobservable growability. Adjusted detection is 98.9362%; adjusted assertion
+  lower bound is 90.4255%. Do not waive the deadline-zero or BytesBuilder-copy
+  survivors. Local review was checked against the RFC and Dart SDK: suggested
+  permissive claim matching, inclusive expiry and null.toString() throwing were
+  incorrect, and were not adopted.
+- Add explicit result-contract assertions for valid configurations and malformed
+  token/header/signature/date/introspection inputs. Catch Future errors as test
+  observation values and assert HttpAuthResult, before checking success, identity
+  and error reason. Invalid operator configuration retains its legitimate throws.
+  Keep fail-fast mutation outcomes honest: later tests are not evidence when an
+  earlier error stopped execution. HTTP104b is a fresh complete-source campaign
+  with these assertions; do not relabel HTTP103/104 outcomes. All 281 provider
+  tests pass, including blank scalar roles granting no empty role. The final
+  focused HTTP104b coverage is 304/305 (99.67%), only the private constructor
+  unexecuted, no exclusions. Its campaign completes all 274 candidates with both
+  baselines zero: 186 assertions, 11 survivors including nine justified equivalent,
+  77 compile errors, no test-error detections/timeouts/infrastructure errors.
+  Raw assertion/detection is 94.4162%, adjusted assertion/detection 98.9362%.
+  Source/test/support hashes match. Remaining unwaived candidates are the exact
+  zero remaining deadline (potentially different timeout scheduling, not proven
+  equivalent) and response buffer copying (ownership/performance distinction,
+  not waived). Keep their outcomes and do not claim whole-router mutation coverage.
+- Ten new loopback reverse-proxy regressions use the fake native boundary to
+  assert exact UTF-8 byte limits, oversized and stalled header/body responses,
+  actual upstream EOF after client cleanup, same-binding recovery, safe error
+  events and invalid numeric/target options rejected without opening a socket.
+  They and all 224 router-runtime tests pass. Final `router-runtime104b-vm`
+  measures 2,469/3,636 binding lines (67.90%) with that single test-file selection;
+  31 lines missed by VM101 are now exercised. It is not a whole-VM replacement
+  or a merged percentage. Hashes match. These are Dart binding tests, not native
+  socket implementation coverage. All focused coverage runs correctly fail the
+  whole-workspace policy because other sources were not measured by that run.
+- Wire router-http-auth-vm into the hosted matrix with the existing 45-minute
+  auth-job budget, keeping 95% detection and per-mutant timeouts unchanged. Add it
+  to the deployment audit's exact required job set and simulated job fixtures.
+  A source-scope/CI test first fails for the missing job, then all 83 runner/audit
+  tests pass (one Linux-only skip). Preserve `coverage104-ci-gate-fail-first.log`
+  and `coverage104-ci-tool-tests.log` in `/tmp` with the connectanum prefix.
+- Fast103 and Verify103 finish with observed exit zero. Verify103 predates final
+  test edits. Verify104 stops at formatting before tests; fix the test indentation
+  and run settled-input Verify104b, which completes with directly observed exit
+  zero, including Rust, package consumer smokes and browser JS/WASM tests.
+  The native runtime is released for fresh native coverage collection. Preceding
+  `1f07e393` package/image/profile dry runs and hosted Full Verify pass; other
+  main CI jobs are still running. New-head hosted evidence/audit remain required.
+  Keep PR93 draft and preserve the complete cross-component/runtime goal.
+  Next prioritize the remaining binding request/auth/continuation branches and
+  native/runtime gaps; a passing HTTP-provider subcomponent is not completion.
+  Refresh the historical native23 LLVM report before choosing native tests.
+  `bin/test-native-coverage` currently collects Cargo workspace tests; investigate
+  instrumented Dart-to-FFI execution separately rather than treating ordinary
+  Dart integration passes against a release library as LLVM coverage evidence.
+
 ### Work102 HTTP Deadline Error Ownership And Bounded Date Arithmetic (In Progress)
 
 - Work100/101 is committed/pushed as `9ae1c14e`; PR93 remains draft. Verify101

@@ -3,7 +3,8 @@
     "sources": ["packages/connectanum_router/lib/src/router/auth/http_auth_provider.dart"],
     "tests": [
       "packages/connectanum_router/test/http_auth_provider_test.dart",
-      "packages/connectanum_router/test/http_auth_provider_regression_test.dart"
+      "packages/connectanum_router/test/http_auth_provider_regression_test.dart",
+      "packages/connectanum_router/test/http_auth_claim_matching_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_router/test/certs/remote_auth_server_cert.pem",

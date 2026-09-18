@@ -21,6 +21,20 @@ def events(*items):
 
 
 class MutationRunnerTests(unittest.TestCase):
+    def test_http_auth_target_is_complete_and_required_in_ci(self):
+        target = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())['router-http-auth-vm']
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_router/lib/src/router/auth/http_auth_provider.dart'])
+        self.assertEqual(set(target['tests']), {
+            'packages/connectanum_router/test/http_auth_provider_test.dart',
+            'packages/connectanum_router/test/http_auth_provider_regression_test.dart',
+            'packages/connectanum_router/test/http_auth_claim_matching_test.dart'})
+        workflow = (runner.ROOT / '.github/workflows/dart.yml').read_text()
+        matrix = workflow.split('target: [', 1)[1].split(']', 1)[0]
+        self.assertIn('router-http-auth-vm', [item.strip() for item in matrix.split(',')])
+        audit = (runner.ROOT / 'bin/audit-github-deployment-chain').read_text()
+        self.assertIn("'router-http-auth-vm Mutation Gate'", audit)
+
     def test_saved_kill_audit_is_pinned_and_never_overwrites_input(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

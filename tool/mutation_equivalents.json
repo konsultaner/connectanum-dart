@@ -1,4 +1,42 @@
 {
+  "router-http-auth-vm": {
+    "a9ab9012b74d7be74457": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Changing the leeway normalization comparison from < to <= changes its branch only for integer zero. Both branches then pass exactly zero seconds to Duration. Negative and positive integers take the same branches as before; no other expression, callback or date comparison changes."
+    },
+    "f0c3cf2dd5510baf0860": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing the optional roles-claim guard true adds work only when rolesClaim is null: _stringOption has already normalized empty strings to null. Both callers supply a newly copied Map<String, Object?> from decoded JSON, so claims[null] is null, _stringListOption(null) is empty, and the role insertion loop performs zero iterations. The later primary-role insertion and all returned claims/roles are unchanged. This is not a waiver for changing role names or membership checks."
+    },
+    "f3fe51ded7c253cacbd4": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing _intOption's null guard false only changes evaluation for null. Null is neither int nor num. Dart core Null.toString() returns the literal string 'null' (it does not throw); trimming and int.tryParse therefore return null, identical to the original early return. Non-null inputs retain exactly their previous control flow."
+    },
+    "bbea84775495ad9d695a": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing _boolOption's null guard false only changes evaluation for null. Null is not bool and its Dart core toString() is 'null'; trim/lowercase leave it unchanged, neither boolean string comparison matches, and the final return is null. No configuration value or TLS decision changes."
+    },
+    "e9ebffd00775605dd1bf": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "This forces only the second string condition raw == 'false' to true, not its return value. Booleans and the earlier raw == 'true' branch are unchanged. For other strings the helper now returns false rather than sometimes null. Its sole caller enables insecure TLS only for a result == true, so both false and null keep certificate verification enabled. All string conversion occurs before the changed condition in both versions."
+    },
+    "ccdb754c34febffc5a18": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing only raw == 'false' false changes the helper's result for the normalized string 'false' from false to null. The preceding bool and 'true' branches are unchanged. The only call site compares the result with true before installing a badCertificateCallback, and false == true and null == true are both false. Certificate validation remains enabled for this input."
+    },
+    "c5804e0589823c862195": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Changing the second raw == 'false' comparison to != exchanges false/null results for strings that reach it. The earlier raw == 'true' branch has already returned true, and real bool inputs have already returned their original value. The sole consumer checks == true for TLS opt-in; neither false nor null enables it. This proof does not cover mutating the preceding 'true' condition or either return literal."
+    },
+    "97f2132c09f808ef2c02": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing _stringListOption's null guard false only affects null. It is not Iterable; the unchanged _stringOption(null) returns null, and the subsequent single == null guard returns the same empty growable String list as the original early return. Non-null evaluation, list contents and externally observable state are unchanged."
+    },
+    "03144da3383564e82041": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Changing this private helper's Iterable.toList growable flag preserves conversion order, elements and iteration errors. All four call sites only read the returned list: two use audience isEmpty/contains, one iterates roles into a new map, and one addAll-copies scopes into a different list. The returned list never escapes or changes length, so its growability is not observable. This does not waive the separate response BytesBuilder copy mutation."
+    }
+  },
   "core-pem-pkcs8-vm": {
     "03e7cb535020ebe724ef": {
       "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",

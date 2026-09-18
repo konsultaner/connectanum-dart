@@ -911,6 +911,84 @@ _fastCgiResponseFixture(
   );
 }
 
+class _ProxyResponseFixture {
+  _ProxyResponseFixture(this.runtime, this.binding, this.events);
+
+  final _HandleRuntime runtime;
+  final RouterBinding binding;
+  final List<Map<String, Object?>> events;
+  int nextId = 1900;
+
+  static Future<_ProxyResponseFixture> start(
+    Map<String, Object?> options,
+  ) async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: const HttpRouteMatch(prefix: '/api'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reverseProxy,
+                    options: options,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final events = <Map<String, Object?>>[];
+    final binding =
+        Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: settings.build(),
+        ).start(
+          runtime,
+          onEvent: (event) {
+            if (event is Map<String, Object?>) events.add(event);
+          },
+        );
+    addTearDown(binding.dispose);
+    await Future<void>.delayed(Duration.zero);
+    return _ProxyResponseFixture(runtime, binding, events);
+  }
+
+  Future<NativeHttpResponse> request() async {
+    final id = nextId++;
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: binding.listeners.single.listenerId,
+      connectionId: id,
+      handle: id,
+      method: 'GET',
+      target: '/api/resource',
+      headers: const {},
+      body: null,
+      realm: 'router.http',
+      procedure: 'router.http.reverse_proxy',
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[id]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 5),
+    );
+    return runtime.httpResponses[id]!.single;
+  }
+}
+
 class _ConfiguredFileFixture {
   _ConfiguredFileFixture(this.directory, this.file, this.runtime, this.binding);
 
@@ -6064,6 +6142,153 @@ void main() {
       expect(serialized, isNot(contains('private-secret')));
     },
   );
+
+  for (final mode in ['exact', 'oversize', 'headers-timeout', 'body-timeout']) {
+    test(
+      'reverse proxy response boundary $mode closes upstream and recovers',
+      () async {
+        final upstream = await ServerSocket.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final sockets = <Socket>[];
+        final closed = <Completer<void>>[];
+        final payload = utf8.encode('a\u{1f30d}b');
+        final subscription = upstream.listen((socket) {
+          sockets.add(socket);
+          final finished = Completer<void>();
+          closed.add(finished);
+          var request = '';
+          var sent = false;
+          socket.listen(
+            (bytes) {
+              request += ascii.decode(bytes);
+              if (sent || !request.contains('\r\n\r\n')) return;
+              sent = true;
+              final recovery = sockets.length > 1;
+              if (!recovery && mode == 'headers-timeout') return;
+              final body = recovery ? utf8.encode('ok') : payload;
+              socket.write(
+                'HTTP/1.1 200 OK\r\nContent-Length: ${body.length}\r\n\r\n',
+              );
+              socket.add(
+                !recovery && mode == 'body-timeout' ? body.sublist(0, 1) : body,
+              );
+            },
+            onDone: () {
+              finished.complete();
+              socket.destroy();
+            },
+          );
+        });
+        addTearDown(() async {
+          for (final socket in sockets) {
+            socket.destroy();
+          }
+          await subscription.cancel();
+          await upstream.close();
+        });
+        final fixture = await _ProxyResponseFixture.start({
+          'upstream': 'http://127.0.0.1:${upstream.port}/private?token=secret',
+          'timeout_ms': mode.endsWith('timeout') ? 1000 : 2000,
+          'max_response_bytes': mode == 'oversize'
+              ? payload.length - 1
+              : payload.length,
+        });
+        final response = await fixture.request();
+        if (mode == 'exact') {
+          expect(response.status, HttpStatus.ok);
+          expect((response.body as NativeHttpResponseBytes).bytes, payload);
+        } else {
+          expect(
+            response.status,
+            mode == 'oversize'
+                ? HttpStatus.badGateway
+                : HttpStatus.gatewayTimeout,
+          );
+          final reason = mode == 'oversize' ? 'response_too_large' : 'timeout';
+          expect(
+            _jsonResponseBody(response)['reason'],
+            'reverse_proxy_$reason',
+          );
+          final error = fixture.events.singleWhere(
+            (event) => event['type'] == 'http_reverse_proxy_error',
+          );
+          expect(error['reason'], reason);
+          final serialized = jsonEncode([_jsonResponseBody(response), error]);
+          expect(serialized, isNot(contains('secret')));
+          expect(serialized, isNot(contains('/private')));
+          expect(error.containsKey('error'), isFalse);
+          expect(error.containsKey('stackTrace'), isFalse);
+          expect(
+            fixture.events.where(
+              (event) => event['type'] == 'http_reverse_proxy_response_sent',
+            ),
+            isEmpty,
+          );
+        }
+        expect(sockets, hasLength(1));
+        await closed.single.future.timeout(const Duration(seconds: 2));
+        final recovered = await fixture.request();
+        expect(recovered.status, HttpStatus.ok);
+        expect(
+          (recovered.body as NativeHttpResponseBytes).bytes,
+          utf8.encode('ok'),
+        );
+        expect(sockets, hasLength(2));
+        await closed.last.future.timeout(const Duration(seconds: 2));
+      },
+    );
+  }
+
+  for (final (key, value, reason) in <(String, Object, String)>[
+    ('timeout_ms', 0, 'invalid_option'),
+    ('timeoutMs', 0.5, 'invalid_option'),
+    ('max_response_bytes', -1, 'invalid_option'),
+    ('maxResponseBytes', ' 0 ', 'invalid_option'),
+    ('upstream', 'ftp://private.example/secret', 'invalid_target'),
+    ('upstream', '/private/secret', 'invalid_target'),
+  ]) {
+    test(
+      'reverse proxy config rejects $key=$value before connecting',
+      () async {
+        final upstream = await ServerSocket.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        var connections = 0;
+        final subscription = upstream.listen((socket) {
+          connections++;
+          socket.destroy();
+        });
+        addTearDown(() async {
+          await subscription.cancel();
+          await upstream.close();
+        });
+        final fixture = await _ProxyResponseFixture.start({
+          'upstream': 'http://127.0.0.1:${upstream.port}/private?token=secret',
+          key: value,
+        });
+        final response = await fixture.request();
+        expect(response.status, HttpStatus.badGateway);
+        expect(_jsonResponseBody(response)['reason'], 'reverse_proxy_$reason');
+        final error = fixture.events.singleWhere(
+          (event) => event['type'] == 'http_reverse_proxy_config_error',
+        );
+        expect(error['reason'], reason);
+        expect(connections, 0);
+        expect(
+          fixture.events.where(
+            (event) => event['type'] == 'http_reverse_proxy_request',
+          ),
+          isEmpty,
+        );
+        final serialized = jsonEncode([_jsonResponseBody(response), error]);
+        expect(serialized, isNot(contains('secret')));
+        expect(serialized, isNot(contains('private')));
+      },
+    );
+  }
 
   test('rate limits handler HTTP routes before handler dispatch', () async {
     final runtime = _HandleRuntime();
