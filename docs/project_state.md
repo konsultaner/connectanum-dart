@@ -6,6 +6,47 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work116 closes both installer assertion gates without changing production code,
+candidate inventories, thresholds or equivalences. Known-valid downloads,
+extraction and recovery retries now use package-local success assertions;
+exact output, cleanup and retry-count checks remain. Timeout, process-launch
+and socket failures propagate unchanged. All110 focused tests pass (102 before
+edits). Full `installers116-mutations` exits zero: client96/101 assertion kills
+(95.05%), two error-only detections, three survivors and four compile failures;
+router95/99 (95.96%), four survivors and four compile failures. Conventional
+client detection is97.03%; raw/adjusted assertion scores have no waivers.
+Both baselines pass. The two remaining client errors are sibling Windows tar
+argument construction; do not count them as assertions. Directory-recursion
+and shell-launch survivors remain investigated but unwaived.
+E2EE success assertions preserve single evaluation, timeout identity, exact
+payload/metadata and malformed-input checks. All73 focused tests pass (70 before
+edits). Both runtime mutation targets hash the new support file. Completed VM
+inventory:269 candidates,207 assertion kills,three error-only detections,four
+survivors,55 compile failures;96.73% raw/adjusted assertion evidence, no waivers,
+both baselines passing. Its full VM+JS campaign remains running in
+`e2ee116-mutations`; JavaScript is not yet final. Four survivors were reviewed
+against the unchanged source hash; no new equivalences were declared.
+Core115 now completes with exit zero and all six VM/JS gates passing:
+registration24/24,metadata213/213,PEM/PKCS8 87/94 raw and87/87 adjusted using
+seven unchanged pinned equivalents per runtime. Mixed JS detections contain
+actual assertions; no error-only detections or timeouts. Input hashes match.
+Whole VM115 finishes with exit zero and matching hashes before Work116 edits:
+38,647/42,637 lines(90.64%),client8,576/9,427(90.97%); other package percentages
+unchanged. Packaging765/787(97.20%);59 library and12 packaging sources remain
+unmeasured. This is the last complete whole-workspace snapshot, not a run of
+the newer Work116 tests. Browser116 passes separately at selected core6628/6973
+(95.05%) and form-only client279/283(98.59%), with172 unmeasured sources and no
+WASM line measurement. Fast116 and settled-input Verify116 both pass with
+observed exit zero, including native, installed-package/live-router and Chrome
+WASM tests. Final input hashes match. The coordinated native window is released.
+Evidence and review notes: `out/regression-coverage-2026-09-15/coverage116-oracles`.
+At pushed head6118c474 package/image dry runs and WAMP profiles pass;
+CI still has failing mutation gates. Recheck the deployment chain after the
+next implementation push. MCP114 remains live on its unchanged snapshot.
+Continue remaining hosted lazy/config-loader/remote-auth/benchmark gates and
+the largest genuine coverage gaps. The complete milestone remains open; no
+merge, publication or version change.
+
 Work113/114 strengthens MCP and the newly enforced CI mutation gates without
 changing production behavior, thresholds or mutation classification. The MCP
 suite now has 851 passing tests, including standard meta-topic publish denial,

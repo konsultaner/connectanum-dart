@@ -10,6 +10,7 @@ import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
 import '../../tool/install_native.dart' as cli;
+import 'installer_assertions.dart';
 
 void main() {
   late Directory root;
@@ -20,14 +21,32 @@ void main() {
 
   test('valid install assertion returns the original file', () async {
     final file = File('${root.path}/fixture');
-    expect(await _expectValidInstall(() async => file), same(file));
+    expect(await expectValidInstall(() async => file), same(file));
   });
 
   for (final asynchronous in [false, true]) {
+    for (final failure in [
+      const ProcessException('tar', [], 'fixture missing executable'),
+      const SocketException('fixture unavailable connection'),
+    ]) {
+      test(
+        'valid install assertion preserves ${failure.runtimeType} '
+        '($asynchronous)',
+        () async {
+          await expectLater(
+            () => expectValidInstall(() {
+              if (asynchronous) return Future<File>.error(failure);
+              throw failure;
+            }),
+            throwsA(same(failure)),
+          );
+        },
+      );
+    }
     test('valid install assertion preserves timeout ($asynchronous)', () async {
       final failure = TimeoutException('fixture timeout');
       await expectLater(
-        () => _expectValidInstall(() {
+        () => expectValidInstall(() {
           if (asynchronous) return Future<File>.error(failure);
           throw failure;
         }),
@@ -37,7 +56,7 @@ void main() {
     test('valid install assertion rejects errors ($asynchronous)', () async {
       final failure = StateError('fixture failure');
       await expectLater(
-        () => _expectValidInstall(() {
+        () => expectValidInstall(() {
           if (asynchronous) return Future<File>.error(failure);
           throw failure;
         }),
@@ -248,25 +267,6 @@ void main() {
 }
 
 // Only for valid fixture setup; negative installer calls keep their own checks.
-Future<File> _expectValidInstall(Future<File> Function() operation) async {
-  File? installed;
-  Object? failure;
-  try {
-    installed = await operation();
-  } on TimeoutException {
-    rethrow;
-  } catch (error) {
-    failure = error;
-  }
-  expect(
-    failure,
-    isNull,
-    reason: 'Installing a valid native artifact must succeed',
-  );
-  expect(installed, isNotNull);
-  return installed!;
-}
-
 Future<File> _install(
   List<String> args,
   Directory root,
@@ -274,7 +274,7 @@ Future<File> _install(
   Map<String, String> environment = const {},
 }) {
   final archiveBytes = 'fixture archive'.codeUnits;
-  return _expectValidInstall(
+  return expectValidInstall(
     () => cli.installNative(
       args,
       environment: environment,

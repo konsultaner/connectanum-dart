@@ -11,6 +11,7 @@ import 'package:connectanum_router/src/native_release_installer.dart'
 
 import '../../tool/install_native.dart' as install_native;
 import '../../hook/build.dart' as build_hook;
+import 'installer_assertions.dart';
 
 void main() {
   test(
@@ -24,27 +25,31 @@ void main() {
       final archiveBytes = 'router-install-archive'.codeUnits;
       final downloaded = <Uri>[];
 
-      final installed = await install_native.installNative(
-        ['--tag', 'ct-ffi-v2026.04.22-validation.043206-attest'],
-        workingDirectory: tempDir,
-        artifactDownloader: ({required source, required destination}) async {
-          downloaded.add(source);
-          destination.parent.createSync(recursive: true);
-          if (destination.path.endsWith('.sha256')) {
-            final digest = sha256.convert(archiveBytes).toString();
-            destination.writeAsStringSync('$digest  ${_releaseArchiveName()}');
-          } else {
-            destination.writeAsBytesSync(archiveBytes);
-          }
-        },
-        archiveExtractor: ({required archive, required destination}) {
-          expect(archive.readAsBytesSync(), archiveBytes);
-          final extractedLib = File(
-            '${destination.path}/${_releaseBundleName()}/${_defaultLibraryFileName()}',
-          );
-          extractedLib.parent.createSync(recursive: true);
-          extractedLib.writeAsStringSync('router-installed-native');
-        },
+      final installed = await expectValidInstall(
+        () => install_native.installNative(
+          ['--tag', 'ct-ffi-v2026.04.22-validation.043206-attest'],
+          workingDirectory: tempDir,
+          artifactDownloader: ({required source, required destination}) async {
+            downloaded.add(source);
+            destination.parent.createSync(recursive: true);
+            if (destination.path.endsWith('.sha256')) {
+              final digest = sha256.convert(archiveBytes).toString();
+              destination.writeAsStringSync(
+                '$digest  ${_releaseArchiveName()}',
+              );
+            } else {
+              destination.writeAsBytesSync(archiveBytes);
+            }
+          },
+          archiveExtractor: ({required archive, required destination}) {
+            expect(archive.readAsBytesSync(), archiveBytes);
+            final extractedLib = File(
+              '${destination.path}/${_releaseBundleName()}/${_defaultLibraryFileName()}',
+            );
+            extractedLib.parent.createSync(recursive: true);
+            extractedLib.writeAsStringSync('router-installed-native');
+          },
+        ),
       );
 
       expect(
@@ -104,16 +109,18 @@ void main() {
         '${sha256.convert(sourceArchive.readAsBytesSync())}  '
         '${releaseAsset.archiveName}',
       );
-    final installed = await native_installer.installHostedNativeLibrary(
-      tag: releaseAsset.tag,
-      installRoot: Directory('${tempDir.path}/installed native'),
-      artifactDownloader: ({required source, required destination}) async {
-        destination.parent.createSync(recursive: true);
-        final sourceFile = source.path.endsWith('.sha256')
-            ? sourceChecksum
-            : sourceArchive;
-        sourceFile.copySync(destination.path);
-      },
+    final installed = await expectValidInstall(
+      () => native_installer.installHostedNativeLibrary(
+        tag: releaseAsset.tag,
+        installRoot: Directory('${tempDir.path}/installed native'),
+        artifactDownloader: ({required source, required destination}) async {
+          destination.parent.createSync(recursive: true);
+          final sourceFile = source.path.endsWith('.sha256')
+              ? sourceChecksum
+              : sourceArchive;
+          sourceFile.copySync(destination.path);
+        },
+      ),
     );
     expect(installed.readAsStringSync(), 'verified native archive');
   });

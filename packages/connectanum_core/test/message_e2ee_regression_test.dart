@@ -5,6 +5,8 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:pinenacl/x25519.dart' show SecretBox;
 import 'package:test/test.dart';
 
+import 'support/e2ee_assertions.dart';
+
 Uint8List _key([int seed = 0]) =>
     Uint8List.fromList(List.generate(32, (index) => (seed + index) % 256));
 
@@ -62,21 +64,36 @@ void main() {
   group('E2EE byte validation', () {
     test('validates and owns each key byte in a single read', () {
       final bytes = _ReadOnceBytes(_key(240));
-      final provider = _provider(keys: {'key': bytes});
+      final provider = expectE2eeSuccess(() => _provider(keys: {'key': bytes}));
       expect(bytes.reads, 32);
       final options = PublishOptions();
-      final encoded = provider.packPayload(['payload'], null, options);
-      expect(_provider().unpackPayload(encoded, options).arguments, [
-        'payload',
-      ]);
+      final encoded = expectE2eeSuccess(
+        () => provider.packPayload(['payload'], null, options),
+      );
+      expect(
+        expectE2eeSuccess(
+          () => _provider().unpackPayload(encoded, options),
+        ).arguments,
+        [
+          'payload',
+        ],
+      );
     });
     test('validates and copies each encrypted list byte in a single read', () {
-      final provider = _provider();
+      final provider = expectE2eeSuccess(() => _provider());
       final options = PublishOptions();
       final encoded =
-          provider.packPayload(['payload'], null, options).single as Uint8List;
+          expectE2eeSuccess(
+                () => provider.packPayload(['payload'], null, options),
+              ).single
+              as Uint8List;
       final bytes = _ReadOnceBytes(encoded);
-      expect(provider.unpackPayload([bytes], options).arguments, ['payload']);
+      expect(
+        expectE2eeSuccess(
+          () => provider.unpackPayload([bytes], options),
+        ).arguments,
+        ['payload'],
+      );
       expect(bytes.reads, encoded.length);
     });
     for (final value in [-1, 256]) {
@@ -158,7 +175,7 @@ void main() {
     });
 
     test('party copy preserves omitted values and clears explicit nulls', () {
-      final copy = _local.copyWith();
+      final copy = expectE2eeSuccess(() => _local.copyWith());
       expect(copy.sessionId, 1);
       expect(copy.authId, 'local');
       expect(copy.authRole, 'caller');
@@ -167,15 +184,17 @@ void main() {
       expect(copy.authExtra, {'local': true});
       expect(copy.trustLevel, 8);
       expect(copy.details, {'authid': 'local'});
-      final cleared = copy.copyWith(
-        sessionId: null,
-        authId: null,
-        authRole: null,
-        authMethod: null,
-        authProvider: null,
-        authExtra: null,
-        trustLevel: null,
-        details: null,
+      final cleared = expectE2eeSuccess(
+        () => copy.copyWith(
+          sessionId: null,
+          authId: null,
+          authRole: null,
+          authMethod: null,
+          authProvider: null,
+          authExtra: null,
+          trustLevel: null,
+          details: null,
+        ),
       );
       expect(cleared.isEmpty, isTrue);
       expect(copy.isEmpty, isFalse);
@@ -356,7 +375,10 @@ void main() {
         uriPrefixes: ['private.', 'app.'],
       );
       expect(prefix.matches(_context), isTrue);
-      expect(prefix.matches(_context.copyWith(uri: null)), isFalse);
+      expect(
+        expectE2eeSuccess(() => prefix.matches(_context.copyWith(uri: null))),
+        isFalse,
+      );
       expect(prefix.matches(_context.copyWith(uri: 'apps.secret')), isFalse);
       const maximum = WampE2eeKeySelectionRule(
         keyId: 'key',
@@ -815,7 +837,9 @@ void main() {
         nonce: Uint8List.fromList(List.filled(24, nonceByte)),
       );
       for (final bytes in [encoded.toList(), List<dynamic>.from(encoded)]) {
-        final result = provider.unpackPayload([bytes], PublishOptions());
+        final result = expectE2eeSuccess(
+          () => provider.unpackPayload([bytes], PublishOptions()),
+        );
         expect(result.arguments, isNull);
         expect(result.argumentsKeywords, isNull);
       }

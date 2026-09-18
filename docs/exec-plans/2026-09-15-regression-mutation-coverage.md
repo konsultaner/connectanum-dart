@@ -67,6 +67,45 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work116 Installer And E2EE Success Assertions
+
+- Full VM115 completes with exit zero and matching input hashes before these
+  edits:38,647/42,637 measured library lines(90.64%),client8,576/9,427(90.97%).
+  Other package percentages stay unchanged. Packaging765/787(97.20%);59 library
+  and12 packaging sources remain unmeasured. Retain this pre-Work116 snapshot.
+- Reuse the known-valid install assertion across download/extraction/retry
+  success paths. Keep negative calls and exact output, requests, cleanup and
+  idempotency checks. Preserve TimeoutException, ProcessException and
+  SocketException identity; eight new helper controls cover sync/async
+  infrastructure failures. Focused tests:102 before,110 after, all passing.
+- `installers116-mutations` completes with exit zero and unchanged inventories:
+  client105 generated,96 assertions,two error-only,three survivors,four compile
+  failures;95.05% assertion versus97.03% conventional detection. Router103
+  generated,95 assertions,four survivors,four compile failures;95.96%.
+  Raw/adjusted assertion scores agree; no waivers/timeouts, both baselines pass.
+  Windows sibling tar path checks explain the two client errors, not assertion
+  credit. Seven filesystem/shell survivors retain Work115's unwaived review.
+- E2EE tests assert known-valid construction, packing, decryption and context
+  copying once before existing exact expectations. Three controls cover identity,
+  nullable values, single evaluation, timeout propagation and error diagnostics.
+  All73 tests pass versus70 before; analysis is clean. Both VM and JS mutation
+  targets hash the support file explicitly; inventories/policy are unchanged.
+  VM269 candidates completes with207 assertions,three error-only,four survivors,
+  55 compile failures:96.73% raw/adjusted assertion evidence, no waivers and both
+  baselines passing. Full `e2ee116-mutations` still runs its JS scope.
+- Core115 finishes all six VM/JS targets with exit zero: registration24/24,
+  metadata213/213,PEM87/94 raw and87/87 adjusted with seven existing equivalents
+  per runtime. No error-only/timeouts; baseline and final component hashes match.
+  Browser116 passes:core6628/6973,forms279/283,172 unmeasured files, WASM lines
+  unmeasured. Fast116 and final Verify116 pass with observed exit zero, including
+  native, installed-package/live-router and Chrome WASM tests. Input hashes match
+  and the coordinated native window is released. Preserve the separate MCP114
+  campaign and do not duplicate it.
+- Qwen planning/review was advisory. Verified actual mutation diagnostics retain
+  original errors and all post-success cleanup/count checks remain. Individual
+  E2EE survivor review, logs and hash checks are in `coverage116-oracles`; none
+  was waived. Remaining coverage/CI gates still prevent milestone completion.
+
 ### Work115 Core Success Assertions
 
 - Hosted artifacts identify unchecked valid-input failures in PEM/PKCS8,

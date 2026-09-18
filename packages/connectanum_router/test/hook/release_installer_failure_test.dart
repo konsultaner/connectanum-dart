@@ -10,6 +10,7 @@ import 'package:hooks/hooks.dart';
 import 'package:test/test.dart';
 
 import '../../hook/build.dart' as hook;
+import 'installer_assertions.dart';
 
 void main() {
   for (final (name, architecture) in [
@@ -57,29 +58,33 @@ void main() {
         'default installation stays inside the consumer working directory',
         () async {
           final requested = <Uri>[];
-          final installed = await IOOverrides.runZoned(
-            () => install(
-              tag: ' v-default ',
-              repository: ' example/releases ',
-              artifactDownloader:
-                  ({required source, required destination}) async {
-                    requested.add(source);
-                    if (source.path.endsWith('.sha256')) {
-                      destination.writeAsStringSync('$digest  $bundle.tar.gz');
-                    } else {
-                      destination.writeAsBytesSync(bytes);
-                    }
-                  },
-              archiveExtractor: ({required archive, required destination}) {
-                expect(archive.readAsBytesSync(), bytes);
-                final library = File(
-                  '${destination.path}/$bundle/$libraryName',
-                );
-                library.parent.createSync(recursive: true);
-                library.writeAsStringSync('default installed library');
-              },
+          final installed = await expectValidInstall(
+            () => IOOverrides.runZoned(
+              () => install(
+                tag: ' v-default ',
+                repository: ' example/releases ',
+                artifactDownloader:
+                    ({required source, required destination}) async {
+                      requested.add(source);
+                      if (source.path.endsWith('.sha256')) {
+                        destination.writeAsStringSync(
+                          '$digest  $bundle.tar.gz',
+                        );
+                      } else {
+                        destination.writeAsBytesSync(bytes);
+                      }
+                    },
+                archiveExtractor: ({required archive, required destination}) {
+                  expect(archive.readAsBytesSync(), bytes);
+                  final library = File(
+                    '${destination.path}/$bundle/$libraryName',
+                  );
+                  library.parent.createSync(recursive: true);
+                  library.writeAsStringSync('default installed library');
+                },
+              ),
+              getCurrentDirectory: () => root,
             ),
-            getCurrentDirectory: () => root,
           );
           expect(
             installed.path,
@@ -264,7 +269,7 @@ void main() {
               );
             }
             expect(
-              (await attempt()).readAsStringSync(),
+              (await expectValidInstall(attempt)).readAsStringSync(),
               'downloaded verified library',
             );
             expect(requests, failure == 'none' ? 2 : 3);
@@ -324,8 +329,14 @@ void main() {
 
           await expectLater(attempt(), throwsA(isA<FileSystemException>()));
           expect(output.readAsStringSync(), 'previous verified library');
-          expect((await attempt()).readAsStringSync(), 'new verified library');
-          expect((await attempt()).readAsStringSync(), 'new verified library');
+          expect(
+            (await expectValidInstall(attempt)).readAsStringSync(),
+            'new verified library',
+          );
+          expect(
+            (await expectValidInstall(attempt)).readAsStringSync(),
+            'new verified library',
+          );
           expect(extractionCalls, 2);
           expect(downloads.map((uri) => uri.toString()), [
             'https://github.com/example/consumer/releases/download/v-test/$bundle.tar.gz',

@@ -472,7 +472,8 @@
     "tests": [
       "packages/connectanum_core/test/message_e2ee_payload_test.dart",
       "packages/connectanum_core/test/message_e2ee_regression_test.dart"
-    ]
+    ],
+    "supportFiles": ["packages/connectanum_core/test/support/e2ee_assertions.dart"]
   },
   "core-e2ee-web": {
     "sources": ["packages/connectanum_core/lib/src/message/e2ee_payload.dart"],
@@ -480,6 +481,7 @@
       "packages/connectanum_core/test/message_e2ee_payload_test.dart",
       "packages/connectanum_core/test/message_e2ee_regression_test.dart"
     ],
+    "supportFiles": ["packages/connectanum_core/test/support/e2ee_assertions.dart"],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
   },
