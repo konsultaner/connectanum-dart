@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work105 closes the native measurement gap between Rust unit tests and Dart
+callers. Fresh `native105-current` Cargo coverage completes at 8,374/10,052
+core lines (83.31%) and 4,589/5,808 FFI lines (79.01%). The new
+`bin/test-native-ffi-coverage` builds a fresh instrumented ffi-test library,
+runs ten isolated Dart test groups and retains raw profiles, logs, library and
+source/test/dependency hashes. It does not substitute passing Dart tests for
+native counters. All 337 selected tests pass; `native-ffi105-current` completes
+with ten nonempty profile sets, measuring 6,508/10,052 core lines (64.74%) and
+3,426/5,808 FFI lines (58.99%) from Dart execution alone. Identical Rust scope
+snapshots permit a line union: 8,445/10,052 (84.01%) core and 4,915/5,808 (84.62%)
+FFI, adding 71 and 326 hits respectively to Cargo-only evidence. Preserve the
+separate reports and the parent-hash-pinned `native-combined105-current` union;
+neither is a 98% gate or platform-wide
+completion. Legacy ABI, unsupported platforms and unmeasured files remain gaps.
+Nine collector tests include real Dart-to-cdylib branch counters, missing/empty
+profiles, failed build/test commands, timeout, library replacement, input drift,
+ignored dependency overrides and surviving child processes. Fail-first probes
+expose the last two tooling gaps before their corrections. The real fixture is
+wired into existing native coverage-tool verification, including hosted CI.
+All 52 verification-script tests and baseline Fast105 pass. Settled-input
+Verify105 completes with observed exit zero, including Rust, installed-package
+smokes and Chrome WASM tests. No native test/collection remains running. At pushed head
+`8b60e7f6`, package/image dry runs and WAMP profile checks pass; main CI still has
+pending jobs and no observed failures. No merge, publication or version change.
+
 Work103/104 closes the bearer claim-confusion and exact-expiration defects.
 JWT/OIDC and OAuth now compare issuer/audience strings exactly and reject
 non-string audience members, without changing configuration normalization.

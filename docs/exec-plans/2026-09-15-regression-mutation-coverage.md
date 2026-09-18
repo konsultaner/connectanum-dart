@@ -67,6 +67,51 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work105 Instrumented Dart-To-FFI Coverage
+
+- Complete fresh Cargo-only `native105-current` on macOS ARM64: core
+  8,374/10,052 (83.31%); FFI 4,589/5,808 (79.01%). Keep the inactive/empty-source
+  inventory explicit, including one core and three FFI unmeasured files.
+- Add `bin/test-native-ffi-coverage` and its Python collector. Use the installed
+  cargo-llvm-cov 0.9.1 external-test protocol (`show-env`, instrumented Cargo
+  build, Dart callers, `report`), without evaluating its output as shell code.
+  Fresh target/output directories prevent stale profiles or release-library
+  substitution. Keep Cargo-only and Dart-driven native reports separate.
+- Preserve per-group profiles, command logs and outcomes, the instrumented
+  artifact hash, exact Rust scopes, and source/test/dependency hashes. Pin ignored
+  Pub lock/override and package-map files as well as tracked inputs. Fail closed
+  on missing/empty profiles, build/test errors, timeouts, changed inputs/artifact,
+  or a surviving child that could write counters after its parent completes.
+- Add nine collector tests. A real Dart executable calls a tiny Rust cdylib:
+  verify the called branch has nonzero counters and the uncalled branch remains
+  zero. The two fail-first probes in `/tmp/connectanum-coverage105-ffi-child-fail-first.log`
+  and `/tmp/connectanum-coverage105-ffi-input-fail-first.log` expose process
+  quiescence and ignored dependency-input gaps before correction. Native
+  coverage-tool checks now run this suite; hosted Fast/Verify already enable
+  its actual LLVM fixture. All 52 verification-script tests pass.
+- `native-ffi105-current` completes with observed exit zero, 337 passing Dart
+  tests across ten isolated groups and ten nonempty profile sets. Dart-driven
+  native coverage alone: core 6,508/10,052 (64.74%); FFI 3,426/5,808 (58.99%).
+  This selection covers buffers, E2EE, restart, transports, files, native
+  runtime/lifetime, router integration, zero-copy and remote authentication;
+  it does not claim legacy-ABI, other-platform or all-executable completion.
+- The two Rust scope snapshots compare identically. Union their raw LCOV using
+  `native_coverage.filter_lcov`, which deduplicates lines before computing
+  totals: core 8,445/10,052 (84.01%), FFI 4,915/5,808 (84.62%). This establishes
+  71 additional core and 326 additional FFI hits beyond Cargo tests, not new
+  product behavior or a passing 98% threshold. `native-combined105-current`
+  retains raw/filtered LCOV, summary and parent report/scope/collection hashes;
+  calculation output is also in `/tmp/connectanum-coverage105-native-union.log`.
+- Baseline Fast105 and settled-input Verify105 pass with observed exit zero.
+  Verify105 includes Rust, installed-package smokes, 2,970 core Chrome WASM
+  tests and two client WebSocket Chrome WASM tests. Collection precedes Verify;
+  no native test/collection remains running. At pushed head `8b60e7f6`, package/image dry runs and WAMP profiles
+  pass; main CI is pending with no observed failed jobs. Require new-head hosted
+  evidence after pushing this implementation. No merge/publication/version change.
+- Next: close the remaining genuine native/Rust and router gaps with targeted
+  behavioral regressions and mutation evidence, add other native variants and
+  applicable runtimes, and keep all final evidence input-matched.
+
 ### Work103/104 Exact Claims, Expiration And Result Contracts (Verified Locally)
 
 - Separate untrusted issuer/audience comparisons from normalized configuration.

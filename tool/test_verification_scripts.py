@@ -400,6 +400,15 @@ fi
         tool_gate = (REPO_ROOT / "bin/test-native-coverage-tools").read_text()
         self.assertIn('--target-dir "$ROOT_DIR/out/rust-coverage-scope-target"', tool_gate)
         self.assertNotIn('native/transport/Cargo.toml', tool_gate)
+        self.assertIn('python3 tool/test_native_ffi_coverage.py', tool_gate)
+
+    def test_native_ffi_coverage_uses_real_dart_instrumentation_fixture(self):
+        script = (REPO_ROOT / "bin/test-native-ffi-coverage").read_text()
+        self.assertIn('CONNECTANUM_TEST_LLVM_COVERAGE=1', script)
+        self.assertIn('"$ROOT_DIR/bin/test-native-coverage-tools"', script)
+        self.assertIn('python3 tool/native_ffi_coverage.py', script)
+        self.assertNotIn('build_native_ffi_test_release', script)
+        self.assertNotIn('ensure_native_client_test_runtime', script)
 
     def test_client_hooks_run_in_regression_and_coverage_gates(self) -> None:
         for script in [TEST_FAST, TEST_ALL]:
