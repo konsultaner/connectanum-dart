@@ -259,12 +259,12 @@ class _JwtHttpAuthProvider extends HttpAuthProvider {
         HttpAuthFailure(reason: 'invalid_token', message: error.message),
       );
     }
-    if (expiresAt != null && now.isAfter(expiresAt.add(leeway))) {
+    if (expiresAt != null && now.difference(expiresAt) > leeway) {
       return HttpAuthResult.failure(
         const HttpAuthFailure(reason: 'expired_token', message: 'JWT expired'),
       );
     }
-    if (notBefore != null && now.isBefore(notBefore.subtract(leeway))) {
+    if (notBefore != null && notBefore.difference(now) > leeway) {
       return HttpAuthResult.failure(
         const HttpAuthFailure(
           reason: 'inactive_token',
@@ -374,9 +374,11 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
       client.badCertificateCallback = (_, _, _) => true;
     }
     try {
-      final httpRequest = await client
-          .postUrl(uri)
-          .timeout(_remainingOAuthIntrospectionTime(stopwatch, timeout));
+      final httpRequest = await _awaitOAuthIntrospection(
+        client.postUrl(uri),
+        stopwatch,
+        timeout,
+      );
       httpRequest.headers.contentType = ContentType(
         'application',
         'x-www-form-urlencoded',
@@ -415,13 +417,19 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
         body['audience'] = audience;
       }
       httpRequest.write(Uri(queryParameters: body).query);
-      final response = await httpRequest.close().timeout(
-        _remainingOAuthIntrospectionTime(stopwatch, timeout),
+      final response = await _awaitOAuthIntrospection(
+        httpRequest.close(),
+        stopwatch,
+        timeout,
       );
-      final responseBody = await _readOAuthIntrospectionResponseBody(
-        response,
-        maxResponseBytes: maxResponseBytes,
-      ).timeout(_remainingOAuthIntrospectionTime(stopwatch, timeout));
+      final responseBody = await _awaitOAuthIntrospection(
+        _readOAuthIntrospectionResponseBody(
+          response,
+          maxResponseBytes: maxResponseBytes,
+        ),
+        stopwatch,
+        timeout,
+      );
       if (response.statusCode != HttpStatus.ok) {
         return HttpAuthResult.failure(
           HttpAuthFailure(
@@ -556,6 +564,19 @@ const int _defaultOAuthIntrospectionMaxResponseBytes = 64 * 1024;
 
 final class _OAuthIntrospectionResponseTooLarge implements Exception {
   const _OAuthIntrospectionResponseTooLarge();
+}
+
+Future<T> _awaitOAuthIntrospection<T>(
+  Future<T> operation,
+  Stopwatch stopwatch,
+  Duration timeout,
+) {
+  // Synchronous setup may exhaust the deadline after starting this operation.
+  // Observe late failures even if calculating the remaining budget throws.
+  operation.ignore();
+  return operation.timeout(
+    _remainingOAuthIntrospectionTime(stopwatch, timeout),
+  );
 }
 
 Duration _remainingOAuthIntrospectionTime(

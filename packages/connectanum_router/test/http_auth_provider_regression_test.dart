@@ -20,6 +20,10 @@ void main() {
     expect(() => snapshot.clear(), throwsUnsupportedError);
     registerDefaultHttpAuthProviders();
     expect(HttpAuthProviderRegistry.factoryFor('jwt'), same(snapshot['jwt']));
+    const replacement = _ReplacementJwtFactory();
+    HttpAuthProviderRegistry.registerFactory(replacement);
+    registerDefaultHttpAuthProviders();
+    expect(HttpAuthProviderRegistry.factoryFor('jwt'), same(replacement));
     HttpAuthProviderRegistry.unregisterFactory('jwt');
     expect(HttpAuthProviderRegistry.factoryFor('jwt'), isNull);
     expect(snapshot['jwt'], isNotNull);
@@ -152,6 +156,21 @@ void main() {
           ),
           'inactive_token',
         );
+      });
+
+      test('clock skew does not overflow valid numeric date limits', () async {
+        final provider = await factory.create({
+          'hmac_secret': _secret,
+          'leeway_seconds': 60,
+        });
+        for (final claims in [
+          {'sub': 'member', 'exp': 8640000000000},
+          {'sub': 'member', 'nbf': -8640000000000},
+        ]) {
+          final result = await provider.authenticate(_request(_jwt(claims)));
+          expect(result.success, isTrue);
+          expect(result.authenticated!.authId, 'member');
+        }
       });
 
       test(
@@ -300,6 +319,42 @@ void main() {
           );
         });
       }
+
+      test('rejects an extra segment on an otherwise valid token', () async {
+        final provider = await factory.create({'hmac_secret': _secret});
+        final valid = _jwt({'sub': 'member'});
+        _expectFailure(
+          await provider.authenticate(_request('$valid.extra')),
+          'invalid_token',
+        );
+        expect((await provider.authenticate(_request(valid))).success, isTrue);
+      });
+
+      test('empty primary identity uses the next usable claim', () async {
+        final provider = await factory.create({'hmac_secret': _secret});
+        final result = await provider.authenticate(
+          _request(_jwt({'sub': '  ', 'username': 'fallback'})),
+        );
+        expect(result.success, isTrue);
+        expect(result.authenticated!.authId, 'fallback');
+      });
+
+      test(
+        'negative skew cannot invalidate an otherwise valid token',
+        () async {
+          final provider = await factory.create({
+            'hmac_secret': _secret,
+            'leeway_seconds': -3600,
+          });
+          final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+          final result = await provider.authenticate(
+            _request(
+              _jwt({'sub': 'member', 'exp': now + 600, 'nbf': now - 600}),
+            ),
+          );
+          expect(result.success, isTrue);
+        },
+      );
 
       for (final algorithm in <String?>[null, 'none', 'RS256']) {
         test('rejects mismatching header algorithm $algorithm', () async {
@@ -474,6 +529,152 @@ void main() {
       },
     );
 
+    for (final slowClose in [false, true]) {
+      test(
+        'observes late errors after setup exhausts deadline (close=$slowClose)',
+        () async {
+          final client = _SlowOpeningClient(
+            fail: true,
+            slowClose: slowClose,
+            setupDelay: const Duration(milliseconds: 50),
+          );
+          final provider =
+              await const OAuthIntrospectionHttpAuthProviderFactory().create({
+                'url': 'http://127.0.0.1/introspect',
+                'timeout_ms': 10,
+              });
+          final errors = <Object>[];
+          final done = Completer<void>();
+          HttpAuthResult? result;
+          runZonedGuarded(() async {
+            try {
+              result = await HttpOverrides.runZoned(
+                () => provider.authenticate(_request('opaque')),
+                createHttpClient: (_) => client,
+              );
+              await Future<void>.delayed(const Duration(milliseconds: 20));
+            } finally {
+              done.complete();
+            }
+          }, (error, _) => errors.add(error));
+          await done.future;
+          expect(
+            errors,
+            isEmpty,
+            reason: 'The started request must be observed',
+          );
+          _expectFailure(result!, 'auth_timeout');
+          expect(client.forceClosed, isTrue);
+          expect(client.closing, slowClose);
+        },
+      );
+    }
+
+    for (final (credentials, expected) in <(Map<String, Object?>, String?)>[
+      ({}, null),
+      ({'bearer_token': '  '}, null),
+      ({'client_id': 'service', 'bearer_token': 'fallback'}, 'Bearer fallback'),
+      (
+        {'client_secret': 'secret', 'bearer_token': 'fallback'},
+        'Bearer fallback',
+      ),
+      (
+        {
+          'client_id': 'service',
+          'client_secret': 'secret',
+          'bearer_token': 'ignored',
+        },
+        'Basic ${base64Encode(utf8.encode('service:secret'))}',
+      ),
+    ]) {
+      test('uses only complete endpoint credentials $credentials', () async {
+        final peer = await _IntrospectionPeer.start({
+          'active': true,
+          'sub': 'member',
+          'iss': 'unconstrained-issuer',
+        });
+        final provider = await peer.provider(credentials);
+        expect(
+          (await provider.authenticate(_request('opaque'))).success,
+          isTrue,
+        );
+        expect(peer.requests.single['authorization'], expected);
+        expect(peer.requests.single['body'], {
+          'token': 'opaque',
+          'token_type_hint': 'access_token',
+        });
+      });
+    }
+
+    for (final fixedLength in [false, true]) {
+      test(
+        'enforces the inclusive byte limit (length header=$fixedLength)',
+        () async {
+          final peer = await _IntrospectionPeer.start({
+            'active': true,
+            'sub': 'm\u00e9',
+          });
+          peer.fixedLength = fixedLength;
+          final size = utf8.encode(jsonEncode(peer.response)).length;
+          final exact = await peer.provider({'max_response_bytes': size});
+          final accepted = await exact.authenticate(_request('opaque'));
+          expect(accepted.success, isTrue);
+          expect(accepted.authenticated!.authId, 'm\u00e9');
+          final smaller = await peer.provider({'max_response_bytes': size - 1});
+          _expectFailure(
+            await smaller.authenticate(_request('opaque')),
+            'invalid_token_response',
+          );
+        },
+      );
+    }
+
+    test(
+      'rejects invalid UTF-8 instead of authenticating replacement text',
+      () async {
+        final peer = await _IntrospectionPeer.start({
+          'active': true,
+          'sub': 'member',
+        });
+        peer.rawBytes = [
+          ...utf8.encode('{"active":true,"sub":"'),
+          0xc3,
+          0x28,
+          ...utf8.encode('"}'),
+        ];
+        final provider = await peer.provider();
+        _expectFailure(
+          await provider.authenticate(_request('opaque')),
+          'invalid_token_response',
+        );
+        peer.rawBytes = null;
+        expect(
+          (await provider.authenticate(_request('opaque'))).success,
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'rejects oversized declared bodies without subscribing to them',
+      () async {
+        final response = _BytesResponse(contentLength: 4097);
+        final client = _ResponseClient(response);
+        final provider = await const OAuthIntrospectionHttpAuthProviderFactory()
+            .create({
+              'url': 'http://127.0.0.1/introspect',
+              'max_response_bytes': 4096,
+            });
+        final result = await HttpOverrides.runZoned(
+          () => provider.authenticate(_request('opaque')),
+          createHttpClient: (_) => client,
+        );
+        _expectFailure(result, 'invalid_token_response');
+        expect(response.listened, isFalse);
+        expect(client.forceClosed, isTrue);
+      },
+    );
+
     for (final claim in ['exp', 'nbf']) {
       for (final invalid in <Object?>[
         null,
@@ -635,6 +836,7 @@ void main() {
       {},
       {'url': 'http://127.0.0.1', 'timeout_ms': 0},
       {'url': 'http://127.0.0.1', 'max_response_bytes': -1},
+      {'url': 'http://127.0.0.1', 'max_response_bytes': 0},
     ]) {
       test('rejects invalid configuration $options', () async {
         final provider = await const OAuthIntrospectionHttpAuthProviderFactory()
@@ -720,6 +922,8 @@ class _IntrospectionPeer {
   final bool secure;
   Object? response;
   String? rawResponse;
+  List<int>? rawBytes;
+  bool fixedLength = false;
   int statusCode = HttpStatus.ok;
   final requests = <Map<String, Object?>>[];
 
@@ -760,7 +964,11 @@ class _IntrospectionPeer {
       });
       request.response.statusCode = peer.statusCode;
       request.response.headers.contentType = ContentType.json;
-      request.response.write(peer.rawResponse ?? jsonEncode(peer.response));
+      final bytes =
+          peer.rawBytes ??
+          utf8.encode(peer.rawResponse ?? jsonEncode(peer.response));
+      if (peer.fixedLength) request.response.contentLength = bytes.length;
+      request.response.add(bytes);
       await request.response.close();
     }, onError: (Object error) => expect(error, isA<HandshakeException>()));
     return peer;
@@ -776,18 +984,111 @@ class _IntrospectionPeer {
 }
 
 class _SlowOpeningClient implements HttpClient {
+  _SlowOpeningClient({
+    this.fail = false,
+    this.slowClose = false,
+    this.setupDelay = const Duration(milliseconds: 10),
+  });
+
+  final bool fail;
+  final bool slowClose;
+  final Duration setupDelay;
   bool opened = false;
+  bool closing = false;
   bool forceClosed = false;
 
   @override
   Future<HttpClientRequest> postUrl(Uri url) {
     opened = true;
-    sleep(const Duration(milliseconds: 10));
-    return Completer<HttpClientRequest>().future;
+    if (slowClose) {
+      return Future.value(
+        _ImmediateRequest(() {
+          closing = true;
+          sleep(setupDelay);
+          return Future<HttpClientResponse>.error(
+            const HttpException('fixture close failure'),
+          );
+        }),
+      );
+    }
+    sleep(setupDelay);
+    if (fail) {
+      return Future<HttpClientRequest>.error(
+        const SocketException('fixture connection failure'),
+      );
+    }
+    return Future.value(_ImmediateRequest(() async => _BytesResponse()));
   }
 
   @override
   void close({bool force = false}) => forceClosed = force;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ReplacementJwtFactory extends JwtHttpAuthProviderFactory {
+  const _ReplacementJwtFactory();
+}
+
+class _ResponseClient implements HttpClient {
+  _ResponseClient(this.response);
+  final HttpClientResponse response;
+  bool forceClosed = false;
+
+  @override
+  Future<HttpClientRequest> postUrl(Uri url) async =>
+      _ImmediateRequest(() async => response);
+  @override
+  void close({bool force = false}) => forceClosed = force;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ImmediateRequest implements HttpClientRequest {
+  _ImmediateRequest(this.respond);
+  final Future<HttpClientResponse> Function() respond;
+  @override
+  final HttpHeaders headers = _RequestHeaders();
+  @override
+  void write(Object? object) {}
+  @override
+  Future<HttpClientResponse> close() => respond();
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RequestHeaders implements HttpHeaders {
+  @override
+  set contentType(ContentType? value) {}
+  @override
+  void set(String name, Object value, {bool preserveHeaderCase = false}) {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _BytesResponse extends Stream<List<int>> implements HttpClientResponse {
+  _BytesResponse({this.contentLength = -1});
+  @override
+  final int contentLength;
+  bool listened = false;
+  @override
+  int get statusCode => HttpStatus.ok;
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int>)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    listened = true;
+    return Stream.value(utf8.encode('{"active":true,"sub":"member"}')).listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

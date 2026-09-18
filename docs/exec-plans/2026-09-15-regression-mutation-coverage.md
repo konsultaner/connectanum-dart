@@ -67,6 +67,68 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work102 HTTP Deadline Error Ownership And Bounded Date Arithmetic (In Progress)
+
+- Work100/101 is committed/pushed as `9ae1c14e`; PR93 remains draft. Verify101
+  and VM101 both complete with directly observed exit zero. The fresh whole-VM
+  library report is 38,482/42,609 (90.3143%), with 59 unmeasured sources retained.
+  Packaging remains 765/787 (97.20%) with 12 unmeasured sources. Preserve the
+  raw/LCOV/summary/input manifest at `vm-current101`; hashes were checked before
+  subsequent Work102 edits. Do not relabel it as current Work102 evidence.
+- Current-head package dry runs, image dry run 35290093456 and WAMP profile run
+  35290095322 pass. Main CI is still pending. Cancel only superseded runs
+  35286985122 and 35286988885 to release capacity. Strict audit remains required.
+- A standalone public-factory probe reproduces unhandled SocketException after
+  an otherwise handled auth_timeout, plus RangeError for extreme valid JWT
+  dates with leeway. Checked-in fail-first tests reproduce JWT/OIDC failures and
+  assert the guarded zone contains no leaked errors. Preserve
+  `/tmp/connectanum-coverage102-{probe,http-fail-first}.log`.
+- Compare date differences rather than adding/subtracting leeway from bounded
+  DateTime values. Observe each HTTP operation before remaining-budget evaluation
+  can throw; continue awaiting its original result with the same shared deadline.
+  Late errors after a terminal timeout remain redacted, not logged. GLM review
+  confirms awaited pre-deadline errors remain observable; its suggestion to log
+  discarded late errors is intentionally rejected. The remaining-budget helper
+  already throws for nonpositive durations; no timeout-clamping workaround.
+- Expand to 173 passing provider tests: late open/close errors, literal complete
+  vs partial Basic/bearer credentials, exact chunked/content-length UTF-8 bounds,
+  rejection before reading an oversized declared body, invalid UTF-8 followed by
+  recovery, a valid JWT plus an extra segment, empty-identity fallback and negative
+  skew. Correct an initial test fixture to use the supported username fallback,
+  not an invented authid alias; no production change for that fixture failure.
+- Replace the forever-pending setup-deadline fixture with a valid eventual result:
+  ignoring the timeout can now fail the authentication assertion rather than hit
+  the runner deadline. Retain real HTTP/TLS coverage alongside synthetic phase
+  fixtures. Targeted analysis passes. `http-auth102-vm` preserves raw/LCOV/input
+  hashes and measures 305/306 (99.67%); only the private constructor is uncovered.
+  Its isolated test run is not a passing whole-workspace coverage gate.
+- HTTP102 completes all 272 generated candidates: 176 kills, 19 survivors,
+  77 compile errors, no timeouts or infrastructure errors. Both baselines pass,
+  and source/test/support hashes match. Conventional raw/adjusted detection is
+  90.2564%; its 158 assertion and 18 test-error detections give an 81.0256%
+  assertion lower bound. No waivers or passing 95% HTTP gate. MCP100 completes
+  all 1,098 candidates: 804 kills, 32 survivors, 262 compile errors, no timeouts
+  or infrastructure errors, both baselines zero. Raw/adjusted detection is
+  96.1722%; its 634 assertion and 170 test-error detections give a 75.8373%
+  assertion lower bound. Source/test/support hashes match. Keep all survivors
+  explicit; this is non-CLI library coverage, not whole-package completion.
+  Fast102 and Verify102 both pass with directly observed exit zero, including
+  Rust, package/consumer smokes and browser JS/WASM tests. All local campaigns
+  are complete and the native runtime is free. Pushed-head
+  Fast Checks now passes; hosted Full Verify is running and the strict audit
+  remains non-green for pending CI. Keep all mutation outcomes and the full milestone
+  open, with no equivalence waivers, merge, publication or version change.
+- Survivor follow-up probe `/tmp/connectanum-coverage102-claim-probe.dart` signs
+  independent fixture tokens and reproduces audience coercion/normalization:
+  numeric 42 authenticates for string "42", an empty array for literal "[]",
+  and padded scalar/list strings for an unpadded audience. Preserve its failing
+  exit and log. This is a real next security defect, not an equivalence waiver.
+  [RFC 7519 section 4.1.3](https://www.rfc-editor.org/rfc/rfc7519.html#section-4.1.3)
+  defines scalar string or array-of-string audiences, with section 7.3's exact
+  string comparisons. Next add checked-in JWT/OIDC/OAuth fail-first cases and
+  separate strict token audience/issuer comparison from configuration parsing.
+  Do not alter the live verification or mutation snapshots to imply this is fixed.
+
 ### Work101 HTTP Bearer Validation And Hosted Analyzer Failure (In Progress)
 
 - Hosted push run 35283872576 now has a failed Fast Checks job 105411747954.

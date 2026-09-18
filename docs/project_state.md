@@ -6,6 +6,50 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work102 closes two further fail-first HTTP-auth defects. Valid extreme JWT/OIDC
+dates plus nonzero leeway throw RangeError; compare elapsed durations without
+shifting the dates outside their representable bounds. Synchronous HTTP setup
+can exhaust the shared deadline before a timeout observer is installed and leak
+a late socket error. Observe each started operation before evaluating its budget,
+preserving awaited failures and forced client disposal. All 173 provider tests
+pass, including guarded-zone late open/close errors, exact UTF-8 byte limits,
+malformed UTF-8 denial/recovery, partial credential precedence and negative skew.
+The focused `http-auth102-vm` report measures 305/306 lines (99.67%), with the
+private registry constructor still uncovered. Its whole-workspace policy failure
+is expected for a focused run, not a passing package gate. Full-source HTTP102
+completes 272 candidates: 176 kills, 19 survivors, 77 compile errors, no timeouts
+or infrastructure errors. Both baselines pass; raw/adjusted detection is 90.26%,
+assertion lower bound 81.03% (158 assertion, 18 test-error detections), no waivers.
+Source/test/support hashes match. MCP100 also completes all 1,098 candidates:
+804 kills, 32 survivors, 262 compile errors, no timeouts/errors, both baselines
+zero and matching hashes. Raw/adjusted detection is 96.17%; its 634 assertion
+and 170 test-error detections give a 75.84% assertion lower bound. No waivers;
+this is non-CLI library evidence, not whole-package or cross-runtime completion.
+Fast102 and final Verify102 pass with directly observed exit zero, including
+Rust, package smokes and browser JS/WASM tests. No local campaign or native
+verification remains running. Pushed-head Fast Checks passes and hosted
+Full Verify is running; the strict audit still reports pending CI.
+
+Next security work: an independent signed-token probe confirms audience coercion
+and trimming can authenticate otherwise mismatching claims (numeric value versus
+configured string, empty array versus literal "[]", and padded strings). This is
+not fixed by Work102 and these survivors are not equivalent. RFC 7519 sections
+4.1.3 and 7.3 require string/array-of-string audience values and exact comparison.
+Preserve `/tmp/connectanum-coverage102-claim-probe.log`; add checked-in fail-first
+JWT/OIDC/OAuth cases before replacing the permissive token-claim comparison.
+Keep configuration-option parsing separate from untrusted claim validation.
+
+Work100/101 is pushed as `9ae1c14e`. Verify101 and fresh VM101 both complete with
+observed exit zero. VM101 measures 38,482/42,609 library lines (90.31%): auth
+server 100%, bench 89.17%, client 89.81%, core 94.27%, MCP 96.13%, router 87.80%.
+Its 59 unmeasured library sources remain visible. Separate packaging remains
+391/402 client (97.26%) and 374/385 router (97.14%), with 12 unmeasured sources.
+VM101's input manifest was checked before Work102 edits; do not attribute it to
+those newer inputs. PR93 is updated and remains draft. Current-head package,
+router-image dry run 35290093456 and WAMP profile 35290095322 checks pass; main
+CI is pending and the strict audit is not yet green. Cancel only the two
+superseded `1a187bc2` CI runs, preserving their logs. No merge or publication.
+
 Work101 fixes HTTP bearer validation and the hosted analyzer failure. JWT/OIDC
 now return an authentication failure for malformed signature encoding instead of
 throwing. Present invalid exp/nbf claims fail closed instead of becoming absent;
