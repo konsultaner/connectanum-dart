@@ -1,6 +1,8 @@
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
+import 'support/expect_valid.dart';
+
 void main() {
   test('resource capability defaults do not promise notifications', () {
     const capabilities = McpResourceCapabilities();
@@ -35,28 +37,34 @@ void main() {
       test(
         'completion advertised for prompt=$promptCompletion template=$templateCompletion',
         () async {
-          final template = McpResourceTemplate(
-            uriTemplate: 'app:///item/{id}',
-            name: 'item',
-            complete: templateCompletion
-                ? (_) => McpCompletionResult(values: ['one'])
-                : null,
+          final template = expectValid(
+            () => McpResourceTemplate(
+              uriTemplate: 'app:///item/{id}',
+              name: 'item',
+              complete: templateCompletion
+                  ? (_) => McpCompletionResult(values: ['one'])
+                  : null,
+            ),
           );
-          final registry = McpResourceRegistry(templates: [template]);
+          final registry = expectValid(
+            () => McpResourceRegistry(templates: [template]),
+          );
           expect(registry.hasCompletions, templateCompletion);
-          final server = McpServer(
-            serverInfo: _info,
-            prompts: [
-              McpPrompt(
-                name: 'prompt',
-                arguments: [McpPromptArgument(name: 'id')],
-                handler: (_) => McpPromptResult.text('text'),
-                complete: promptCompletion
-                    ? (_) => McpCompletionResult(values: ['one'])
-                    : null,
-              ),
-            ],
-            resourceTemplates: [template],
+          final server = expectValid(
+            () => McpServer(
+              serverInfo: _info,
+              prompts: [
+                McpPrompt(
+                  name: 'prompt',
+                  arguments: [McpPromptArgument(name: 'id')],
+                  handler: (_) => McpPromptResult.text('text'),
+                  complete: promptCompletion
+                      ? (_) => McpCompletionResult(values: ['one'])
+                      : null,
+                ),
+              ],
+              resourceTemplates: [template],
+            ),
           );
           addTearDown(server.shutdown);
           final result = await _initialize(server);
@@ -160,11 +168,13 @@ void main() {
     test('individual tool annotations preserve explicit values $expected', () {
       expect(annotations.isEmpty, expected.isEmpty);
       expect(annotations.toJson(), expected);
-      final tool = McpTool(
-        name: 'tool',
-        title: 'Visible title',
-        annotations: annotations,
-        handler: (_) => McpToolResult.text('ok'),
+      final tool = expectValid(
+        () => McpTool(
+          name: 'tool',
+          title: 'Visible title',
+          annotations: annotations,
+          handler: (_) => McpToolResult.text('ok'),
+        ),
       );
       final json = tool.toJson();
       expect(json['title'], 'Visible title');
@@ -182,10 +192,12 @@ const _info = McpServerInfo(name: 'consumer', version: '1');
 McpServer _server({
   McpServerCapabilities? capabilities,
   String? instructions,
-}) => McpServer(
-  serverInfo: _info,
-  capabilities: capabilities,
-  instructions: instructions,
+}) => expectValid(
+  () => McpServer(
+    serverInfo: _info,
+    capabilities: capabilities,
+    instructions: instructions,
+  ),
 );
 
 Future<Map<String, Object?>> _initialize(McpServer server) async {
@@ -195,6 +207,9 @@ Future<Map<String, Object?>> _initialize(McpServer server) async {
     'method': 'initialize',
     'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
   });
+  expect(response, isA<Map<String, Object?>>());
   expect(response, isNot(contains('error')));
+  expect(response, containsPair('id', 1));
+  expect(response, containsPair('result', isA<Map<String, Object?>>()));
   return response!['result'] as Map<String, Object?>;
 }

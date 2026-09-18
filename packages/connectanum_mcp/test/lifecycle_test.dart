@@ -1,6 +1,8 @@
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
+import 'support/expect_valid.dart';
+
 void main() {
   group('McpServer lifecycle', () {
     test('keeps latest and initialize-era protocol constants distinct', () {
@@ -74,7 +76,7 @@ void main() {
           'method': 'tools/list',
         });
 
-        final error = response?['error'] as Map<String, Object?>;
+        final error = _error(response);
         expect(error['code'], McpErrorCodes.serverNotInitialized);
       },
     );
@@ -141,6 +143,7 @@ void main() {
           final responses = <Map>[];
           if (batched) {
             final result = await server.handleMessage(messages);
+            expect(result, isA<List>());
             responses.addAll((result as List).cast<Map>());
           } else {
             for (final message in messages) {
@@ -150,7 +153,9 @@ void main() {
           }
           expect(calls, 0);
           expect(server.state, McpServerState.created);
+          expect(responses, isNotEmpty);
           expect(responses.last['id'], 'call');
+          expect(responses.last['error'], isA<Map>());
           expect(
             (responses.last['error'] as Map)['code'],
             McpErrorCodes.serverNotInitialized,
@@ -172,7 +177,13 @@ void main() {
           });
           expect(server.state, McpServerState.initialized);
           final accepted = await server.handleMessage(messages.last);
-          expect(accepted?['result'], McpToolResult.text('marked').toJson());
+          expect(accepted, isA<Map>());
+          expect(accepted?['result'], {
+            'content': [
+              {'type': 'text', 'text': 'marked'},
+            ],
+            'isError': false,
+          });
           expect(calls, 1);
         });
       }
@@ -224,7 +235,7 @@ void main() {
             'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
           });
           expect(
-            (response?['error'] as Map)['code'],
+            _error(response)['code'],
             McpErrorCodes.serverClosed,
           );
           expect(server.state, McpServerState.closed);
@@ -256,7 +267,7 @@ void main() {
         'method': 'tools/unknown',
       });
 
-      final error = response?['error'] as Map<String, Object?>;
+      final error = _error(response);
       expect(error['code'], McpErrorCodes.methodNotFound);
     });
 
@@ -272,7 +283,7 @@ void main() {
           'method': 'tools/list\n',
         });
 
-        final error = response?['error'] as Map<String, Object?>;
+        final error = _error(response);
         expect(response?['id'], 'bad-method-whitespace');
         expect(error['code'], McpErrorCodes.invalidRequest);
         expect(
@@ -310,7 +321,7 @@ void main() {
         },
       });
 
-      final error = response?['error'] as Map<String, Object?>;
+      final error = _error(response);
       expect(response?['id'], isNull);
       expect(error['code'], McpErrorCodes.invalidRequest);
       expect(error['message'], contains('string or integer'));
@@ -330,7 +341,7 @@ void main() {
         },
       });
 
-      final error = response?['error'] as Map<String, Object?>;
+      final error = _error(response);
       expect(response?['id'], isNull);
       expect(error['code'], McpErrorCodes.invalidRequest);
       expect(error['message'], contains('string or integer'));
@@ -351,7 +362,7 @@ void main() {
         },
       });
 
-      final error = response?['error'] as Map<String, Object?>;
+      final error = _error(response);
       expect(response?['id'], 'response-member');
       expect(error['code'], McpErrorCodes.invalidRequest);
       expect(error['message'], contains('result or error'));
@@ -368,7 +379,7 @@ void main() {
         'params': null,
       });
 
-      final error = response?['error'] as Map<String, Object?>;
+      final error = _error(response);
       expect(response?['id'], 'null-params');
       expect(error['code'], McpErrorCodes.invalidParams);
       expect(error['message'], contains('params must be an object'));
@@ -557,15 +568,23 @@ void main() {
   });
 }
 
-McpServer _server() => McpServer(
-  serverInfo: const McpServerInfo(name: 'connectanum-test', version: '0.1.0'),
-  tools: [
-    McpTool(
-      name: 'ping',
-      description: 'Returns pong.',
-      handler: (_) => McpToolResult.text('pong'),
-    ),
-  ],
+Map<String, Object?> _error(dynamic response) {
+  expect(response, isA<Map<String, Object?>>());
+  expect(response['error'], isA<Map<String, Object?>>());
+  return response['error'] as Map<String, Object?>;
+}
+
+McpServer _server() => expectValid(
+  () => McpServer(
+    serverInfo: const McpServerInfo(name: 'connectanum-test', version: '0.1.0'),
+    tools: [
+      McpTool(
+        name: 'ping',
+        description: 'Returns pong.',
+        handler: (_) => McpToolResult.text('pong'),
+      ),
+    ],
+  ),
 );
 
 Future<void> _initialize(McpServer server) async {

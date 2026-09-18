@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
+import 'support/expect_valid.dart';
+
 void main() {
   group('MCP tools', () {
     test('tools/list returns typed tool definitions', () async {
@@ -465,9 +467,11 @@ void main() {
         metadata,
       );
       expect(
-        McpToolResult.inputRequired(
-          requestState: 'opaque-state',
-          meta: metadata,
+        expectValid(
+          () => McpToolResult.inputRequired(
+            requestState: 'opaque-state',
+            meta: metadata,
+          ),
         ).toJson(
           clientCapabilities: const <String, Object?>{
             'elicitation': <String, Object?>{'form': <String, Object?>{}},

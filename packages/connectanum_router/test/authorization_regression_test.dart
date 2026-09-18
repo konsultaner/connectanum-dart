@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:connectanum_router/connectanum_router.dart';
+import 'package:connectanum_router/connectanum_router.dart' hide Error;
 import 'package:test/test.dart';
 
 void main() {
@@ -61,16 +61,28 @@ void main() {
       test(
         '${action.name} ${rule.$1.name} ${rule.$2} matches ${rule.$3}: ${rule.$4}',
         () async {
-          final decision = await RealmAuthorizer.authorize(
-            realmSettings: realm([
-              PermissionSettings(
-                uri: rule.$2,
-                matchPolicy: rule.$1,
-                allow: [entry.value.toUpperCase()],
-              ),
-            ]),
-            request: request(action: action, uri: rule.$3),
-          );
+          final outcome =
+              await RealmAuthorizer.authorize(
+                realmSettings: realm([
+                  PermissionSettings(
+                    uri: rule.$2,
+                    matchPolicy: rule.$1,
+                    allow: [entry.value.toUpperCase()],
+                  ),
+                ]),
+                request: request(action: action, uri: rule.$3),
+              ).then<Object>(
+                (decision) => decision,
+                onError: (Object error, StackTrace stack) {
+                  if (error is TimeoutException) {
+                    Error.throwWithStackTrace(error, stack);
+                  }
+                  return error;
+                },
+              );
+          // Valid rules must yield a decision, including non-matching URIs.
+          expect(outcome, isA<AuthorizationDecision>());
+          final decision = outcome as AuthorizationDecision;
           expect(decision.allowed, rule.$4);
           expect(decision.reason, rule.$4 ? '' : 'wamp.error.not_authorized');
         },

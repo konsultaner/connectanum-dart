@@ -5,6 +5,8 @@ import 'package:connectanum_core/connectanum_core.dart' show ResultPayload;
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
+import 'support/expect_valid.dart';
+
 void main() {
   group('public built-in tool discovery', () {
     final contracts = <String, (List<bool>, Map<String, Object?>)>{
@@ -81,7 +83,7 @@ void main() {
     };
     for (final entry in contracts.entries) {
       test('${entry.key} advertises exact hints and schema', () async {
-        final server = await _server(McpWampApi().toTools());
+        final server = await _server(expectValid(() => McpWampApi().toTools()));
         final response = await _rpc(server, 'tools/list', {});
         final tools = (response['tools'] as List).cast<Map>();
         expect(
@@ -255,8 +257,12 @@ void main() {
     }
 
     test('danger supplies only unspecified risk annotations', () {
+      final riskAnnotations = const McpWampApiMetadata(
+        danger: true,
+      ).toToolAnnotations();
+      expect(riskAnnotations, isNotNull);
       expect(
-        const McpWampApiMetadata(danger: true).toToolAnnotations()!.toJson(),
+        riskAnnotations!.toJson(),
         {
           'readOnlyHint': false,
           'destructiveHint': true,
@@ -271,6 +277,7 @@ void main() {
             idempotentHint: flag,
             openWorldHint: flag,
           ).toToolAnnotations(title: 'Action');
+          expect(annotations, isNotNull);
           expect(annotations!.toJson(), {
             'title': 'Action',
             'readOnlyHint': flag,
@@ -377,16 +384,18 @@ void main() {
     ]) {
       test('describe $uri as $kind does not cross entry kinds', () async {
         final server = await _server(
-          McpWampApi(
-            procedures: [
-              McpWampProcedure(procedure: 'app.shared', allowCall: false),
-              McpWampProcedure(procedure: 'app.procedure', allowCall: false),
-            ],
-            topics: [
-              McpWampTopic(topic: 'app.shared'),
-              McpWampTopic(topic: 'app.topic'),
-            ],
-          ).toTools(),
+          expectValid(
+            () => McpWampApi(
+              procedures: [
+                McpWampProcedure(procedure: 'app.shared', allowCall: false),
+                McpWampProcedure(procedure: 'app.procedure', allowCall: false),
+              ],
+              topics: [
+                McpWampTopic(topic: 'app.shared'),
+                McpWampTopic(topic: 'app.topic'),
+              ],
+            ).toTools(),
+          ),
         );
         final result = await _call(server, 'connectanum.api.describe', {
           'uri': uri,
@@ -470,21 +479,26 @@ void main() {
           final eventBytes = utf8.encode(jsonEncode(event.toJson())).length;
           var releases = 0;
           final server = await _server(
-            McpWampApi(
-              topics: [McpWampTopic(topic: 'app.events', allowPublish: false)],
-            ).toTools(
-              subscribe: (_, handler) {
-                emit = handler;
-                return const McpWampSubscription(
-                  topic: 'app.events',
-                  subscriptionId: 9,
-                );
-              },
-              unsubscribe: (subscription) {
-                expect(subscription.subscriptionId, 9);
-                releases++;
-              },
-              maxBufferedEventBytes: byteBound ? eventBytes : null,
+            expectValid(
+              () =>
+                  McpWampApi(
+                    topics: [
+                      McpWampTopic(topic: 'app.events', allowPublish: false),
+                    ],
+                  ).toTools(
+                    subscribe: (_, handler) {
+                      emit = handler;
+                      return const McpWampSubscription(
+                        topic: 'app.events',
+                        subscriptionId: 9,
+                      );
+                    },
+                    unsubscribe: (subscription) {
+                      expect(subscription.subscriptionId, 9);
+                      releases++;
+                    },
+                    maxBufferedEventBytes: byteBound ? eventBytes : null,
+                  ),
             ),
           );
           final subscribed = await _call(
@@ -497,10 +511,12 @@ void main() {
           );
           expect(subscribed['isError'], isFalse);
           final handle = (subscribed['structuredContent'] as Map)['handle'];
-          emit(event);
+          expect(() => emit(event), returnsNormally);
           final first = await _call(server, 'connectanum.pubsub.poll', {
             'handle': handle,
           });
+          expect(first['isError'], isFalse);
+          expect(first['structuredContent'], isA<Map>());
           final batch = first['structuredContent'] as Map;
           expect(batch['events'], [event.toJson()]);
           expect(batch['dropped'], 0);
@@ -518,7 +534,11 @@ void main() {
           final second = await _call(server, 'connectanum.pubsub.poll', {
             'handle': handle,
           });
+          expect(second['isError'], isFalse);
+          expect(second['structuredContent'], isA<Map>());
           final overflow = second['structuredContent'] as Map;
+          expect(overflow['events'], isA<List>());
+          expect(overflow['events'], hasLength(1));
           expect((overflow['events'] as List).single, {
             'subscriptionId': 9,
             'publicationId': 8,
@@ -570,19 +590,21 @@ void main() {
         McpWampToolCall? mappedCall;
         ResultPayload? mappedPayload;
         final server = await _server(
-          McpWampApi(
-            procedures: [
-              McpWampProcedure(
-                procedure: 'app.call',
-                toolName: 'call',
-                resultMapper: (call, result) {
-                  mappedCall = call;
-                  mappedPayload = result;
-                  return McpToolResult.text('consumer projection');
-                },
-              ),
-            ],
-          ).toTools(call: (_) => payload),
+          expectValid(
+            () => McpWampApi(
+              procedures: [
+                McpWampProcedure(
+                  procedure: 'app.call',
+                  toolName: 'call',
+                  resultMapper: (call, result) {
+                    mappedCall = call;
+                    mappedPayload = result;
+                    return McpToolResult.text('consumer projection');
+                  },
+                ),
+              ],
+            ).toTools(call: (_) => payload),
+          ),
         );
         final result = await _call(server, 'call', {'value': 7});
         expect(result, {
@@ -658,6 +680,8 @@ void main() {
           await observed;
         }
         if (!timesOut) {
+          expect(failure, isNull);
+          expect(result, isNotNull);
           expect(result!.isError, isFalse);
           expect(result!.structuredContent, {
             'arguments': [42],
@@ -720,6 +744,7 @@ Future<Map<String, Object?>> _rpc(
   });
   expect(response, containsPair('id', 1));
   expect(response, isNot(contains('error')));
+  expect(response, containsPair('result', isA<Map<String, Object?>>()));
   return response!['result'] as Map<String, Object?>;
 }
 

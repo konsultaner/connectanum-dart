@@ -4,6 +4,8 @@ import 'package:connectanum_core/connectanum_core.dart' show ResultPayload;
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
+import 'support/expect_valid.dart';
+
 void main() {
   final call = McpWampToolCall(
     procedure: 'app.query',
@@ -131,14 +133,16 @@ void main() {
     test(
       'state-only input request preserves absence, explicit=$explicitRequests',
       () {
-        final result = mcpWampLosslessJsonResultMapper(
-          call,
-          _result(
-            details: {
-              McpWampMrtrFields.resultType: 'input_required',
-              McpWampMrtrFields.requestState: 'next',
-              if (explicitRequests) McpWampMrtrFields.inputRequests: {},
-            },
+        final result = expectValid(
+          () => mcpWampLosslessJsonResultMapper(
+            call,
+            _result(
+              details: {
+                McpWampMrtrFields.resultType: 'input_required',
+                McpWampMrtrFields.requestState: 'next',
+                if (explicitRequests) McpWampMrtrFields.inputRequests: {},
+              },
+            ),
           ),
         );
         expect(result.isError, isFalse);
@@ -162,13 +166,15 @@ void main() {
     },
   };
   test('input requests without continuation state remain input-required', () {
-    final result = mcpWampLosslessJsonResultMapper(
-      call,
-      _result(
-        details: {
-          McpWampMrtrFields.resultType: 'input_required',
-          McpWampMrtrFields.inputRequests: {'confirm': form},
-        },
+    final result = expectValid(
+      () => mcpWampLosslessJsonResultMapper(
+        call,
+        _result(
+          details: {
+            McpWampMrtrFields.resultType: 'input_required',
+            McpWampMrtrFields.inputRequests: {'confirm': form},
+          },
+        ),
       ),
     );
     expect(result.isInputRequired, isTrue);

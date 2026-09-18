@@ -18,6 +18,34 @@ void main() {
   });
   tearDown(() => root.delete(recursive: true));
 
+  test('valid install assertion returns the original file', () async {
+    final file = File('${root.path}/fixture');
+    expect(await _expectValidInstall(() async => file), same(file));
+  });
+
+  for (final asynchronous in [false, true]) {
+    test('valid install assertion preserves timeout ($asynchronous)', () async {
+      final failure = TimeoutException('fixture timeout');
+      await expectLater(
+        () => _expectValidInstall(() {
+          if (asynchronous) return Future<File>.error(failure);
+          throw failure;
+        }),
+        throwsA(same(failure)),
+      );
+    });
+    test('valid install assertion rejects errors ($asynchronous)', () async {
+      final failure = StateError('fixture failure');
+      await expectLater(
+        () => _expectValidInstall(() {
+          if (asynchronous) return Future<File>.error(failure);
+          throw failure;
+        }),
+        throwsA(isA<TestFailure>()),
+      );
+    });
+  }
+
   test('main forwards help output without network IO', () async {
     final output = _CapturedStdout();
     final errors = _CapturedStdout();
@@ -219,6 +247,26 @@ void main() {
   );
 }
 
+// Only for valid fixture setup; negative installer calls keep their own checks.
+Future<File> _expectValidInstall(Future<File> Function() operation) async {
+  File? installed;
+  Object? failure;
+  try {
+    installed = await operation();
+  } on TimeoutException {
+    rethrow;
+  } catch (error) {
+    failure = error;
+  }
+  expect(
+    failure,
+    isNull,
+    reason: 'Installing a valid native artifact must succeed',
+  );
+  expect(installed, isNotNull);
+  return installed!;
+}
+
 Future<File> _install(
   List<String> args,
   Directory root,
@@ -226,29 +274,31 @@ Future<File> _install(
   Map<String, String> environment = const {},
 }) {
   final archiveBytes = 'fixture archive'.codeUnits;
-  return cli.installNative(
-    args,
-    environment: environment,
-    workingDirectory: root,
-    artifactDownloader: ({required source, required destination}) async {
-      urls.add(source);
-      if (source.path.endsWith('.sha256')) {
-        destination.writeAsStringSync(
-          '${sha256.convert(archiveBytes)}  archive.tar.gz',
+  return _expectValidInstall(
+    () => cli.installNative(
+      args,
+      environment: environment,
+      workingDirectory: root,
+      artifactDownloader: ({required source, required destination}) async {
+        urls.add(source);
+        if (source.path.endsWith('.sha256')) {
+          destination.writeAsStringSync(
+            '${sha256.convert(archiveBytes)}  archive.tar.gz',
+          );
+        } else {
+          destination.writeAsBytesSync(archiveBytes);
+        }
+      },
+      archiveExtractor: ({required archive, required destination}) {
+        expect(archive.readAsBytesSync(), archiveBytes);
+        final file = File(
+          '${destination.path}/ct-ffi-${native.currentHostTriple()}/'
+          '${native.currentPlatformLibraryFileName('ct_ffi')}',
         );
-      } else {
-        destination.writeAsBytesSync(archiveBytes);
-      }
-    },
-    archiveExtractor: ({required archive, required destination}) {
-      expect(archive.readAsBytesSync(), archiveBytes);
-      final file = File(
-        '${destination.path}/ct-ffi-${native.currentHostTriple()}/'
-        '${native.currentPlatformLibraryFileName('ct_ffi')}',
-      );
-      file.parent.createSync(recursive: true);
-      file.writeAsStringSync('verified fixture library');
-    },
+        file.parent.createSync(recursive: true);
+        file.writeAsStringSync('verified fixture library');
+      },
+    ),
   );
 }
 

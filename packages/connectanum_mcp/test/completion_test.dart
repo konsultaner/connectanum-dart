@@ -71,6 +71,7 @@ void main() {
             },
           },
         });
+        expect(promptResponse, containsPair('result', isA<Map>()));
         expect(
           ((promptResponse as Map)['result'] as Map)['completion'],
           <String, Object?>{
@@ -79,7 +80,9 @@ void main() {
             'hasMore': false,
           },
         );
+        expect(seen, hasLength(1));
         expect(seen.single.argument.value, 'T-');
+        expect(seen.single.context, isNotNull);
         expect(
           seen.single.context!.arguments,
           containsPair('project', 'alpha'),
@@ -97,6 +100,7 @@ void main() {
             'argument': <String, Object?>{'name': 'taskId', 'value': 'T-2'},
           },
         });
+        expect(resourceResponse?['result'], isA<Map>());
         expect(
           (((resourceResponse as Map)['result'] as Map)['completion']
               as Map)['values'],
@@ -246,6 +250,7 @@ void main() {
           'method': 'completion/complete',
           'params': params,
         });
+        expect(response?['error'], isA<Map>());
         expect(((response as Map)['error'] as Map)['code'], -32602);
       }
     });

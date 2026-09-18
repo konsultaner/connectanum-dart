@@ -196,7 +196,9 @@ void main() {
             if (customFirst) {
               expect(details.custom['additional'], 'loaded');
             } else {
-              expect(details.realm, 'consumer.realm');
+              String? realm;
+              expect(() => realm = details.realm, returnsNormally);
+              expect(realm, 'consumer.realm');
             }
             expect(details.custom['value'], initial);
             expect(details.custom, {'value': initial, 'additional': 'loaded'});

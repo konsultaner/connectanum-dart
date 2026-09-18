@@ -8,6 +8,7 @@ void main() {
     'snapshot JSON preserves every counter and omits unavailable metrics',
     () {
       final snapshot = _snapshot();
+      expect(snapshot.toJson, returnsNormally);
       expect(snapshot.toJson(), _snapshotJson);
       expect(snapshot.copyWith().toJson(), _snapshotJson);
       expect(snapshot.copyWith(), isNot(same(snapshot)));
@@ -47,6 +48,7 @@ void main() {
         process: process,
         transport: _transport,
       );
+      expect(changed.toJson, returnsNormally);
       expect(changed.toJson(), {
         'timestamp': '2026-09-17T01:02:03.000Z',
         'realm_count': 21,
@@ -89,6 +91,7 @@ void main() {
   test(
     'shutdown distinguishes absent duration from zero and formats timestamps',
     () {
+      expect(const RouterShutdownMetrics().toJson, returnsNormally);
       expect(const RouterShutdownMetrics().toJson(), _shutdownJson);
       final shutdown = RouterShutdownMetrics(
         drainInProgress: true,
@@ -139,6 +142,7 @@ void main() {
   test(
     'transport JSON distinguishes absent groups and zero active throttles',
     () {
+      expect(_transport.toJson, returnsNormally);
       expect(_transport.toJson(), _transportJson);
       expect(_transport.copyWith().toJson(), _transportJson);
       expect(_transport.activeThrottles, isEmpty);
@@ -227,6 +231,7 @@ void main() {
       final selected = metrics.activeThrottles;
       selected[0] = inactive;
       expect(metrics.activeThrottles, [first, second]);
+      expect(metrics.toJson, returnsNormally);
       final encoded = metrics.toJson();
       expect(
         (encoded['active_throttle_listeners'] as List).map(
@@ -256,6 +261,7 @@ void main() {
     () {
       final minimal = _alert(active: false);
       expect(minimal.transportAlerts, 28);
+      expect(minimal.toJson, returnsNormally);
       expect(minimal.toJson(), _alertJson);
       final populated = RouterTransportAlertBreakdown(
         listenerId: 41,

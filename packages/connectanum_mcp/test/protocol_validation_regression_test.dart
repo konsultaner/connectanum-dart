@@ -1,6 +1,8 @@
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
+import 'support/expect_valid.dart';
+
 void main() {
   test('completion capability must agree with configured handlers', () {
     const info = McpServerInfo(name: 'validation', version: '1');
@@ -32,15 +34,17 @@ void main() {
   test(
     'initialization instructions and prompt failure keep the session usable',
     () async {
-      final server = McpServer(
-        serverInfo: const McpServerInfo(name: 'validation', version: '1'),
-        instructions: 'Choose a tool to continue.',
-        prompts: [
-          McpPrompt(
-            name: 'failed',
-            handler: (_) => throw StateError('unavailable'),
-          ),
-        ],
+      final server = expectValid(
+        () => McpServer(
+          serverInfo: const McpServerInfo(name: 'validation', version: '1'),
+          instructions: 'Choose a tool to continue.',
+          prompts: [
+            McpPrompt(
+              name: 'failed',
+              handler: (_) => throw StateError('unavailable'),
+            ),
+          ],
+        ),
       );
       addTearDown(server.shutdown);
       final initialized = await server.handleMessage({
@@ -80,42 +84,44 @@ void main() {
     'invalid operation parameters never dispatch application handlers',
     () async {
       var dispatched = 0;
-      final server = McpServer(
-        serverInfo: const McpServerInfo(name: 'validation', version: '1'),
-        tools: [
-          McpTool(
-            name: 'echo',
-            handler: (_) {
-              dispatched++;
-              return McpToolResult.text('ok');
-            },
-          ),
-        ],
-        prompts: [
-          McpPrompt(
-            name: 'echo',
-            handler: (_) {
-              dispatched++;
-              return McpPromptResult.text('ok');
-            },
-          ),
-        ],
-        resources: [
-          McpResource(
-            uri: 'app:///echo',
-            name: 'echo',
-            read: (_) {
-              dispatched++;
-              return [];
-            },
-          ),
-        ],
-        onSubscribeResource: (_) {
-          dispatched++;
-        },
-        onUnsubscribeResource: (_) {
-          dispatched++;
-        },
+      final server = expectValid(
+        () => McpServer(
+          serverInfo: const McpServerInfo(name: 'validation', version: '1'),
+          tools: [
+            McpTool(
+              name: 'echo',
+              handler: (_) {
+                dispatched++;
+                return McpToolResult.text('ok');
+              },
+            ),
+          ],
+          prompts: [
+            McpPrompt(
+              name: 'echo',
+              handler: (_) {
+                dispatched++;
+                return McpPromptResult.text('ok');
+              },
+            ),
+          ],
+          resources: [
+            McpResource(
+              uri: 'app:///echo',
+              name: 'echo',
+              read: (_) {
+                dispatched++;
+                return [];
+              },
+            ),
+          ],
+          onSubscribeResource: (_) {
+            dispatched++;
+          },
+          onUnsubscribeResource: (_) {
+            dispatched++;
+          },
+        ),
       );
       addTearDown(server.shutdown);
       final initialization = await server.handleMessage({

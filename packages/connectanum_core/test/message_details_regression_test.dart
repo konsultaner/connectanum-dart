@@ -114,10 +114,22 @@ void main() {
                   },
                 },
               );
-            final roles = details.roles!;
+            Roles? roles;
+            expect(() => roles = details.roles, returnsNormally);
+            expect(roles, isNotNull);
+            final advertisedFeatures = switch (role.key) {
+              'publisher' => roles!.publisher?.features,
+              'broker' => roles!.broker?.features,
+              'subscriber' => roles!.subscriber?.features,
+              'dealer' => roles!.dealer?.features,
+              'callee' => roles!.callee?.features,
+              'caller' => roles!.caller?.features,
+              _ => throw StateError('Unknown test role ${role.key}'),
+            };
+            expect(advertisedFeatures, isNotNull, reason: role.key);
             for (final feature in role.value.entries) {
               expect(
-                feature.value(roles),
+                feature.value(roles!),
                 feature.key == key && value == true,
                 reason: '${role.key}.${feature.key}',
               );

@@ -1,6 +1,8 @@
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
+import 'support/expect_valid.dart';
+
 McpTool _tool(String name) => McpTool(
   name: name,
   handler: (_) => McpToolResult.text(name),
@@ -34,6 +36,56 @@ final _invalidCursor = throwsA(
 );
 
 void main() {
+  for (final reverse in [false, true]) {
+    test(
+      'unrelated specific templates cannot hide a readable match, reverse=$reverse',
+      () async {
+        final reads = <Map<String, String>>[];
+        final matching = McpResourceTemplate(
+          uriTemplate: 'app:///item/{id}',
+          name: 'matching',
+          read: (request, variables) {
+            reads.add(variables);
+            return [
+              McpTextResourceContent(uri: request.uri, text: variables['id']!),
+            ];
+          },
+        );
+        final candidates = [
+          matching,
+          McpResourceTemplate(
+            uriTemplate: 'app:///unrelated/more/specific/{id}',
+            name: 'unrelated',
+            read: (_, _) => fail('An unrelated resource must not be read'),
+          ),
+          McpResourceTemplate(
+            uriTemplate: 'app:///item/A%20B',
+            name: 'not readable',
+          ),
+        ];
+        final registry = McpResourceRegistry(
+          templates: reverse ? candidates.reversed : candidates,
+        );
+        final match = registry.matchReadableTemplate('app:///item/A%20B');
+        expect(match, isNotNull);
+        expect(match!.template, same(matching));
+        expect(match.variables, {'id': 'A B'});
+        expect(reads, isEmpty);
+        final content = await registry.read(
+          const McpResourceRequest(uri: 'app:///item/A%20B'),
+        );
+        expect(content, hasLength(1));
+        expect(content.single.toJson(), {
+          'uri': 'app:///item/A%20B',
+          'text': 'A B',
+        });
+        expect(reads, [
+          {'id': 'A B'},
+        ]);
+      },
+    );
+  }
+
   test(
     'template ties use lexical order independently of registration order',
     () async {
@@ -54,7 +106,15 @@ void main() {
         ),
       ];
       for (final templates in [candidates, candidates.reversed]) {
-        final registry = McpResourceRegistry(templates: templates);
+        final registry = expectValid(
+          () => McpResourceRegistry(templates: templates),
+        );
+        final match = expectValid(
+          () => registry.matchReadableTemplate('app:///fixed/fixed'),
+        );
+        expect(match, isNotNull);
+        expect(match!.template, same(candidates[1]));
+        expect(match.variables, {'id': 'fixed'});
         final content = await registry.read(
           const McpResourceRequest(uri: 'app:///fixed/fixed'),
         );
@@ -155,6 +215,9 @@ void main() {
       registry.replaceTemplates([_template('new')]);
       expect(registry['app:///replacement'], isNotNull);
       expect(registry.template(template.uriTemplate), isNull);
+      final match = registry.matchReadableTemplate('app:///new/42');
+      expect(match, isNotNull);
+      expect(match!.variables, {'id': '42'});
       final contents = await registry.read(
         const McpResourceRequest(uri: 'app:///new/42'),
       );

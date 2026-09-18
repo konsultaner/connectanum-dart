@@ -67,6 +67,103 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work115 Core Success Assertions
+
+- Hosted artifacts identify unchecked valid-input failures in PEM/PKCS8,
+  registration handler setup and lazy metadata parsing. Assert successful
+  construction/materialization before exact seed, lifecycle or feature checks.
+  Assert the advertised role/features before dereference. Keep negative-input
+  expectations and exact delivery/ownership assertions unchanged.
+- Replace the OpenSSH line-wrapping test's self-derived expected value with the
+  fixed seed shared by independent fixture encodings. Construct valid PKCS8
+  under a success assertion before corrupting its envelope for rejection tests.
+  No production source, mutation inventory, threshold or equivalence changes.
+- All 414 focused VM tests pass before and after edits. Completed VM inventories
+  have registered24/24 and metadata213/213 viable assertion kills. PEM/PKCS8 has
+  87/94 raw (92.55%), 87/87 adjusted (100%) using seven unchanged pinned
+  equivalents; no error-only detections/timeouts, both baselines passing.
+  JavaScript inventories continue in `core115-gate-mutations`; the overall
+  campaign gate is pending. No completed subset substitutes for the full goal.
+- Focused VM coverage: PEM85/85, registered69/69, Details346/346,
+  CustomFields46/46, PKCS8 61/63. Its whole-workspace policy intentionally fails.
+  Browser115 passes at selected core6628/6973 (95.05%), form-only client279/283
+  (98.59%), 172 unmeasured sources. Keep compiler denominators separate. WASM
+  line instrumentation remains open. Input hashes match. Evidence is in
+  `coverage115-core-oracles`, `core115-vm` and `browser115-current`.
+- Client/router installer CLI fixtures now assert valid installation success
+  before exact path, content and stream checks. Ten controls prove identity and
+  sync/async error rejection and preserve timeout identity. Negative installer
+  calls remain separate. All46 CLI tests pass. `installers115-mutations` exits
+  one: client89/101 (88.12%) and router88/99 (88.89%) assertion scores, identical
+  raw/adjusted, no waivers/timeouts, both baselines passing. Nine client and
+  seven router error-only detections remain in valid extraction/download tests;
+  do not count them as assertions. Three client/four router survivors have
+  pinned investigations in review-notes.md, with no new equivalence waivers.
+- The original complete MCP109 client campaign exits one: 514 pure assertion
+  and two mixed detections with assertions, 452 error-only detections, 308
+  survivors, 70 timeouts, 251 compile errors. Both baselines pass. Conventional
+  raw/adjusted detection is 71.92%; assertion lower bound is 38.34%. This is the
+  original pre-111 test snapshot, not a score for the later client regressions.
+- Fast114b passes. Preserve Verify114's native-lock failure: a separate
+  consumer benchmark started during remote-auth integration and held the
+  global lock. Its owner confirmed completion and a free verification window;
+  do not terminate unrelated work or weaken locking. Fast115 and settled-input
+  Verify115 pass with observed exit zero, including Rust, installed-package
+  smokes, live native router tests and Chrome WASM. Separate browser115 supplies
+  JS coverage. Final input hashes match. New-head hosted evidence is required;
+  existing CI is still red, including newly downloaded E2EE, lazy-VM and router
+  config loader gaps in `hosted115-gate-failures`.
+
+### Work113/114 MCP And Hosted Gate Assertions
+
+- Add 88 MCP regressions for ten standard meta topics (publish denied before
+  dispatch, subscription and release allowed), fifteen standard meta procedures
+  with all raw argument forms and open keyword schemas, invalid match options,
+  URI/tool-name aliases, tag deduplication and readable-template selection.
+  Seven success-oracle controls preserve return identity, reject unexpected
+  errors and propagate sync/async TimeoutException unchanged. The MCP suite
+  passes all 851 tests. No production source or protocol changes.
+- Retain exact wire/value/rejection assertions while checking valid constructor
+  acceptance, response shapes and collection sizes before casts/dereferences.
+  Explicit asynchronous success assertions cover cleanup and retry. An
+  independent literal response replaces a self-derived expected tool result.
+- Preserve the initial 202-candidate diagnostic: 127 assertion kills, 48
+  error-only detections and 27 survivors, both baselines passing. It selects
+  old MCP100 survivors/error-only outcomes and is not the full target score.
+  Later changes do not alter that historical snapshot. Start the complete
+  unchanged 1,098-candidate `mcp114-library-mutations` only after that diagnostic
+  exits; final score is pending. Keep the original MCP109 client campaign.
+- Downloaded hosted artifacts at `06726965` show metrics83.33%, adjusted
+  authorization92.96% and JS subscription93.33% assertion detection. The fixed
+  metrics114c inventory has 63 assertion kills/three survivors (95.45%).
+  Authorization114b has 69 assertion kills/28 compile errors/five survivors:
+  93.24% raw, 97.18% adjusted using three existing source-pinned equivalents.
+  All five authorization and three metrics survivors have individual pinned
+  control-flow reviews; no new waivers. Subscribed114c has 15 viable detections
+  and seven compile errors on VM and JS separately, both 100%. JS includes
+  eleven pure assertions and four mixed outcomes containing real assertions;
+  VM has fifteen pure assertions. Final input hashes match.
+- Preserve failed intermediate runs: authorization import collision in114,
+  metrics four error-only outcomes in114, and VM subscription four error-only
+  outcomes in114b. The last came from the earlier VM test order; assert handler
+  installation in both source suites rather than reordering the campaign.
+- Fresh `mcp114-vm` is a package-test-only selection: non-CLI library
+  1,605/1,617 (99.26%), all MCP 2,544/3,927 (64.78%). It omits the broader
+  router-hosted CLI integration suite; its whole-workspace policy correctly
+  fails. Do not replace historical full-package numbers with this subset.
+  WASM line coverage remains unmeasured. Coverage input hashes match.
+- Qwen triage/review used. Verify its claims independently: raw keyword tests
+  omit positional arguments via a conditional map entry; lookup match coverage
+  already exists; synchronous helpers have only synchronous callers. Add
+  explicit timeout/error controls rather than weakening assertions. Evidence
+  and survivor reviews live in `coverage114-ci-mcp-oracles`.
+- Fast114b passes; Verify114 stops on external native-lock contention as recorded
+  above, not a clean verification pass. At the
+  existing head package/image dry runs and WAMP profiles pass, but hosted CI
+  also exposes PEM/PKCS8, installer, remote-authenticator and native benchmark
+  auth assertion gaps. Retain `hosted114-gate-failures` for next repairs. No
+  merge, publication, version bump or whole-milestone completion.
+
 ### Work112 Assertion-Based CI Gate And Oracles
 
 - Two fail-first CLI regressions prove that test-error-only and unclassified

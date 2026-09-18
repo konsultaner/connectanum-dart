@@ -3,20 +3,26 @@ import 'dart:convert';
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
+import 'support/expect_valid.dart';
+
 void main() {
   for (final kind in ['tools', 'prompts', 'resources', 'templates']) {
     group('$kind cursor boundary', () {
       for (final (offset, expectedLength) in [(0, 1), (1, 1), (2, 0)]) {
         test('accepts offset $offset including both closed boundaries', () {
-          final fixture = _registry(kind);
-          final page = fixture.read(
-            _rewrite(fixture.cursor, offset: '$offset'),
+          final fixture = expectValid(() => _registry(kind));
+          final page = expectValid(
+            () => fixture.read(
+              _rewrite(fixture.cursor, offset: '$offset'),
+            ),
           );
           expect(page, hasLength(expectedLength));
           if (offset == 0) expect(page.single, same(fixture.first));
           if (offset == 1) expect(page.single, same(fixture.second));
-          final next = fixture.next(
-            _rewrite(fixture.cursor, offset: '$offset'),
+          final next = expectValid(
+            () => fixture.next(
+              _rewrite(fixture.cursor, offset: '$offset'),
+            ),
           );
           if (offset == 0) {
             expect(next, isNotNull);
@@ -73,16 +79,20 @@ void main() {
   }
 
   test('zero-length resources and links retain their explicit size', () {
-    final resource = McpResource(
-      uri: 'app:///empty',
-      name: 'empty',
-      size: 0,
-      read: (_) => [],
+    final resource = expectValid(
+      () => McpResource(
+        uri: 'app:///empty',
+        name: 'empty',
+        size: 0,
+        read: (_) => [],
+      ),
     );
-    final link = McpResourceLinkContent(
-      uri: 'app:///empty',
-      name: 'empty',
-      size: 0,
+    final link = expectValid(
+      () => McpResourceLinkContent(
+        uri: 'app:///empty',
+        name: 'empty',
+        size: 0,
+      ),
     );
     expect(resource.toJson()['size'], 0);
     expect(link.toJson()['size'], 0);
@@ -108,7 +118,7 @@ void main() {
       ]) {
     test('resource annotations preserve isolated fields $expected', () {
       expect(annotations.isEmpty, expected.isEmpty);
-      expect(annotations.toJson(), expected);
+      expect(expectValid(annotations.toJson), expected);
       final json = McpResource(
         uri: 'app:///resource',
         name: 'resource',
@@ -152,6 +162,11 @@ void main() {
   });
 }
 
+String _cursor(String? value) {
+  expect(value, isA<String>(), reason: 'A non-final page must offer a cursor');
+  return value!;
+}
+
 String _rewrite(String cursor, {required String offset}) {
   final decoded = utf8.decode(base64Url.decode(base64Url.normalize(cursor)));
   return base64Url.encode(
@@ -176,7 +191,7 @@ _registry(String kind) {
       );
       final registry = McpToolRegistry([first, second], 1);
       return (
-        cursor: registry.listPage().nextCursor!,
+        cursor: _cursor(registry.listPage().nextCursor),
         read: (cursor) => registry.listPage(cursor: cursor).tools,
         next: (cursor) => registry.listPage(cursor: cursor).nextCursor,
         first: first,
@@ -193,7 +208,7 @@ _registry(String kind) {
       );
       final registry = McpPromptRegistry([first, second], 1);
       return (
-        cursor: registry.listPage().nextCursor!,
+        cursor: _cursor(registry.listPage().nextCursor),
         read: (cursor) => registry.listPage(cursor: cursor).prompts,
         next: (cursor) => registry.listPage(cursor: cursor).nextCursor,
         first: first,
@@ -207,7 +222,7 @@ _registry(String kind) {
         pageSize: 1,
       );
       return (
-        cursor: registry.listPage().nextCursor!,
+        cursor: _cursor(registry.listPage().nextCursor),
         read: (cursor) => registry.listPage(cursor: cursor).resources,
         next: (cursor) => registry.listPage(cursor: cursor).nextCursor,
         first: first,
@@ -227,7 +242,7 @@ _registry(String kind) {
         templatePageSize: 1,
       );
       return (
-        cursor: registry.listTemplatePage().nextCursor!,
+        cursor: _cursor(registry.listTemplatePage().nextCursor),
         read: (cursor) => registry.listTemplatePage(cursor: cursor).templates,
         next: (cursor) => registry.listTemplatePage(cursor: cursor).nextCursor,
         first: first,

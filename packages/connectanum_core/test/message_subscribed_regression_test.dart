@@ -44,7 +44,7 @@ void main() {
       await subscribed.closeEventStream();
       await source.close();
     });
-    subscribed.onEvent(received.add);
+    expect(() => subscribed.onEvent(received.add), returnsNormally);
     final stream = source.stream;
     subscribed.eventStream = stream;
     subscribed.onEvent(received.add);
@@ -61,7 +61,10 @@ void main() {
       final direct = <int>[];
       final first = <int>[];
       final second = <int>[];
-      subscribed.onEvent((event) => direct.add(event.publicationId));
+      expect(
+        () => subscribed.onEvent((event) => direct.add(event.publicationId)),
+        returnsNormally,
+      );
       final stream = subscribed.eventStream!;
       expect(stream.isBroadcast, isTrue);
       final a = stream.listen((event) => first.add(event.publicationId));
@@ -164,7 +167,9 @@ void main() {
         final materialized = <Event>[];
         final payloads = <EventPayload>[];
         final lazy = <LazyEventPayload>[];
-        if (mask & 1 != 0) subscribed.onEvent(materialized.add);
+        if (mask & 1 != 0) {
+          expect(() => subscribed.onEvent(materialized.add), returnsNormally);
+        }
         if (mask & 2 != 0) subscribed.onEventPayload(payloads.add);
         if (mask & 4 != 0) subscribed.onLazyEventPayload(lazy.add);
         expect(subscribed.hasMaterializedEventConsumers, mask & 1 != 0);

@@ -6,6 +6,75 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work113/114 strengthens MCP and the newly enforced CI mutation gates without
+changing production behavior, thresholds or mutation classification. The MCP
+suite now has 851 passing tests, including standard meta-topic publish denial,
+raw positional/keyword forwarding, public schemas, catalog aliases, template
+selection and timeout-preserving success-oracle controls. Exact results and
+negative-input checks remain; success/type/cardinality assertions prevent
+unchecked exceptions from masquerading as assertion coverage. Fresh `mcp114-vm`
+measures the non-CLI library at 1,605/1,617 lines (99.26%). Its package-only
+selection measures 2,544/3,927 including CLI, not a replacement for broader
+router/CLI integration coverage or a whole-package improvement claim.
+Full metrics114c passes with 63 assertion kills and three survivors (95.45%).
+Authorization114b passes with 69 assertion kills, 28 compile errors and five
+survivors: 93.24% raw, 97.18% adjusted with three unchanged pinned equivalents.
+Subscribed114c passes separately on VM and JS: 15 assertion-based detections
+and seven compile errors each, 100% viable detection, no survivors/timeouts.
+All final campaign source/test hashes match. The historical 202-candidate MCP
+diagnostic is complete and preserved; the full 1,098-candidate `mcp114-library`
+campaign is running on the final test snapshot, so its final score is pending.
+Original MCP109 client evidence completes on its original snapshot: 1,597
+candidates, 514 assertion-only and two mixed detections with assertions, 452
+error-only detections, 308 survivors, 70 timeouts and 251 compile errors. Raw
+and adjusted conventional detection is 71.92%; assertion evidence is only
+38.34%. Both baselines pass, but the campaign exits one. Later client tests
+must not inherit that score. Preserve its individual outcomes for follow-up.
+Fast114b passes. Verify114 exits one after an unrelated consumer-application
+benchmark acquires the global native-runtime lock during remote-auth tests;
+subsequent already-initialized errors are a cascade, not eleven independent
+regressions. Preserve the failure log. The benchmark has finished and its
+owning task confirmed a native-runtime-free verification window.
+Hosted CI at `06726965` is not clean: besides locally repaired gates, PEM/PKCS8,
+registration, metadata, lazy payloads, E2EE, client/router installers, router
+config loading, remote authentication and benchmark config/auth have
+assertion-evidence gaps.
+Downloaded reports are in `hosted114-gate-failures` and
+`hosted114-pr-gate-failures`; fix them without relaxing gates. Package/image
+dry runs and WAMP profiles pass at that head. The complete coverage milestone
+remains open; no merge, publication or version change.
+
+Work115 strengthens valid PEM/PKCS8 decoding, registration-handler installation
+and lazy metadata/role materialization before dereference. Keep exact seed,
+ownership, delivery and feature assertions and all malformed-input tests. The
+OpenSSH wrapping test now uses the fixture's fixed seed rather than another
+parser invocation; missing-marker tests first assert valid PKCS8 construction.
+No production code, threshold, inventory or equivalence changes. All 414
+focused VM tests pass before and after the change. Completed VM inventories
+record registered 24/24 viable assertion kills, metadata 213/213, and PEM/PKCS8
+87/94 raw (92.55%), 87/87 adjusted with seven unchanged pinned equivalents.
+No error-only detections/timeouts, and both component baselines pass. JavaScript
+inventories continue in `core115-gate-mutations`; the overall gate is pending.
+Fresh focused VM coverage is PEM85/85, registered69/69, Details346/346 and
+CustomFields46/46; PKCS8 remains61/63. Browser115 passes separately with selected
+core6628/6973 (95.05%), form-only client279/283 (98.59%) and172 unmeasured sources.
+These subset measurements do not replace VM105 or prove WASM line coverage.
+Hash checks pass. Client/router installer fixture success checks also preserve
+timeouts; ten helper controls cover returned identity and sync/async failures.
+All46 CLI tests pass. `installers115-mutations` completes with exit one: client
+89/101 viable assertion kills (88.12%), nine error-only detections, three
+survivors and four compile errors; router88/99 (88.89%), seven error-only
+detections, four survivors and four compile errors. Raw/adjusted assertion
+scores are identical, with no waivers or timeouts; both baselines pass.
+Investigated all seven survivors without waiving recursive-parent creation or
+shell-launch behavior. Strengthen valid extraction/download success assertions
+in install_native_test.dart and release_installer_failure_test.dart next.
+Fast115 and settled-input Verify115 both pass with observed exit zero, including
+Rust, installed-package/live-router smokes and Chrome WASM tests. Browser115
+provides the separate JavaScript coverage evidence. Final component source,
+test and support hashes still match. Hosted checks for the new implementation
+commit remain required; full core-JS and MCP mutation campaigns are still live.
+
 Work112 fixes a fail-first mutation-gate defect: CLI success now requires the
 adjusted assertion lower bound, complete kill classification and no error or
 timeout outcomes. Conventional raw/adjusted detection scores remain unchanged

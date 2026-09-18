@@ -31,11 +31,17 @@ void _install(
 ) {
   switch (kind) {
     case _Handler.invocation:
-      registered.onInvoke((_) => handler());
+      expect(() => registered.onInvoke((_) => handler()), returnsNormally);
     case _Handler.payload:
-      registered.onInvokePayload((_) => handler());
+      expect(
+        () => registered.onInvokePayload((_) => handler()),
+        returnsNormally,
+      );
     case _Handler.lazy:
-      registered.onLazyInvokePayload((_) => handler());
+      expect(
+        () => registered.onLazyInvokePayload((_) => handler()),
+        returnsNormally,
+      );
   }
 }
 

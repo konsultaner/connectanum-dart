@@ -42,9 +42,15 @@ void main() {
       test(
         'accepts line wrapping and a trailing ${newline.length}-byte newline',
         () {
-          final expected = Pem.loadPrivateKeyFromOpenSSHPem(original);
+          // Fixed seed shared by the independently encoded OpenSSH/PKCS8 fixtures.
+          final expected = base64Decode(
+            'FeeD65DfrkPPZrf20dT//+cr0ttjztM+q9wQ4T7j/t0=',
+          );
           final wrapped = '${original.replaceAll('\n', newline)}$newline';
-          final actual = Pem.loadPrivateKeyFromOpenSSHPem(wrapped);
+          late Uint8List actual;
+          expect(() {
+            actual = Pem.loadPrivateKeyFromOpenSSHPem(wrapped);
+          }, returnsNormally);
           expect(actual, orderedEquals(expected));
           expect(actual, hasLength(32));
         },
@@ -136,9 +142,13 @@ void main() {
       '-----END PRIVATE KEY-----',
     ]) {
       test('reader rejects a missing $marker', () {
+        late String encoded;
+        expect(() {
+          encoded = Pkcs8.fromEd25519Seed(seed);
+        }, returnsNormally);
         expect(
           () => Pkcs8.loadPrivateKeyFromPKCS8Ed25519(
-            Pkcs8.fromEd25519Seed(seed).replaceFirst(marker, ''),
+            encoded.replaceFirst(marker, ''),
           ),
           throwsArgumentError,
         );
@@ -191,24 +201,34 @@ void main() {
     test(
       'canonical nested seed roundtrip has independent output ownership',
       () {
-        final encoded = Pkcs8.fromEd25519Seed(seed);
-        final first = Pkcs8.loadPrivateKeyFromPKCS8Ed25519(encoded);
+        late String encoded;
+        late Uint8List first;
+        expect(() {
+          encoded = Pkcs8.fromEd25519Seed(seed);
+        }, returnsNormally);
+        expect(() {
+          first = Pkcs8.loadPrivateKeyFromPKCS8Ed25519(encoded);
+        }, returnsNormally);
         expect(first, orderedEquals(seed));
         first.fillRange(0, first.length, 0xff);
-        expect(
-          Pkcs8.loadPrivateKeyFromPKCS8Ed25519(encoded),
-          orderedEquals(seed),
-        );
+        late Uint8List second;
+        expect(() {
+          second = Pkcs8.loadPrivateKeyFromPKCS8Ed25519(encoded);
+        }, returnsNormally);
+        expect(second, orderedEquals(seed));
         expect(seed, orderedEquals(List.generate(32, (index) => index)));
       },
     );
     test('a parsed nested seed takes priority over legacy raw length', () {
       final nested = ASN1OctetString(octets: seed).encode();
       final padded = Uint8List(64)..setRange(0, nested.length, nested);
-      expect(
-        Pkcs8.loadPrivateKeyFromPKCS8Ed25519(_pkcs8(padded, nested: false)),
-        orderedEquals(seed),
-      );
+      late Uint8List actual;
+      expect(() {
+        actual = Pkcs8.loadPrivateKeyFromPKCS8Ed25519(
+          _pkcs8(padded, nested: false),
+        );
+      }, returnsNormally);
+      expect(actual, orderedEquals(seed));
     });
     for (final length in [32, 64]) {
       for (final prefix in [0, 0x04, 0x05, 0x30, 0x80, 0xff]) {
@@ -218,9 +238,12 @@ void main() {
             0,
             ...List.generate(length - 2, (index) => index + 2),
           ]);
-          final actual = Pkcs8.loadPrivateKeyFromPKCS8Ed25519(
-            _pkcs8(raw, nested: false),
-          );
+          late Uint8List actual;
+          expect(() {
+            actual = Pkcs8.loadPrivateKeyFromPKCS8Ed25519(
+              _pkcs8(raw, nested: false),
+            );
+          }, returnsNormally);
           expect(actual, orderedEquals(raw.take(32)));
           expect(actual, hasLength(32));
         });
