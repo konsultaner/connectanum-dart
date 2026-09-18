@@ -67,6 +67,41 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work119 Benchmark Configuration And Browser Evidence
+
+- Preserve malformed-input tests and exact values while asserting that known
+  valid parser calls succeed. Only FormatException/RangeError are converted to
+  parser-contract assertions; controls preserve other error identities, single
+  evaluation and nullable returned values. No production or policy changes.
+- Add fixed-length YAML scenario/nested-list tests with element replacement,
+  mutable programmatic construction and top-level options/JSON ownership checks.
+  All102 focused tests pass (86 before); analysis is clean. Focused parser VM
+  coverage88/89 (98.88%), not whole-package coverage.
+- Full72 benchmark-config inventory passes:44 assertion kills,28 compile
+  failures, no survivors/errors/timeouts/waivers;100% raw/adjusted assertions
+  versus70.45% previously. Both former growability survivors now have actual
+  assertions. Baseline/restored tests and source/test hashes pass; candidate IDs,
+  operators and replacements match the original inventory. Independent log audit
+  confirms the score. Fast119 and settled-input Verify119 complete with observed
+  exit zero, including native, installed-package/live-router and Chrome WASM
+  tests. Final input hashes match and the native window is explicitly released.
+- Final lazy118c JS finishes on its original handle:223 assertion-backed kills
+  (143 assertion-only,80 mixed),16 survivors,50 compile failures;93.31% raw,
+  96.54% adjusted using eight existing equivalents. Both baselines and current
+  input hashes pass; independent kill audit agrees. Survivor IDs match VM, so
+  retain the individual Work118 review. No error-only/unknown/timeouts.
+- Audit older complete, still input-matching remote-delegate97b/client-binding92/
+  router-binding93 logs rather than inheriting conventional scores: assertion
+  scores59.89%/58.04%/64.74%, with68/149/165 uncredited errors. These are the next
+  gates, not fresh current-runner results or qualifying evidence. Original and
+  audited reports remain separate. Do not mask socket/process/FFI failures.
+- Qwen's proposals to unify constructor mutability or deep-freeze options were
+  rejected after source inspection; both would change existing behavior outside
+  this task. No deep-immutability claim is made. Evidence/review notes live under
+  `coverage119-bench-oracles`, `bench-config119-mutations`, `bench-config119-vm`,
+  and `coverage118-oracles/lazy118c-web-kill-audit.json` in the shared evidence root.
+  No merge, publication, version change or whole-milestone completion.
+
 ### Work118 Payload And Remote Auth Contracts
 
 - Add a payload contract suite without removing any legacy tests. Check nullable

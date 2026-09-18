@@ -6,6 +6,35 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work119 closes the benchmark-config assertion gate without production changes,
+inventory changes, new equivalents or lower thresholds. Known-valid in-memory
+parsing asserts FormatException/RangeError failures; malformed-input tests stay
+raw and unrelated runtime/infrastructure/resource failures retain their identity.
+New collection tests preserve fixed-length but replaceable YAML lists, mutable
+programmatic construction, and detached top-level options/JSON. All102 focused
+tests pass (86 before); analysis is clean. Focused VM file lines remain88/89
+(98.88%), not whole-package evidence. Full `bench-config119-mutations` exits zero:
+72 generated,44 assertion kills,28 compile failures, no survivors/errors/timeouts
+or waivers. Raw/adjusted assertion score100%, versus70.45% previously. Both
+baselines, current input hashes, unchanged inventory comparison and independent
+kill-log audit pass. Fast119 and settled-input Verify119 complete with observed
+exit zero, including native, installed-package/live-router and Chrome WASM
+tests. Final input hashes match; the native window is released to the consumer
+task for its own verification.
+The original final lazy118c browser campaign also completes with exit zero:
+223 assertion-backed detections (143 assertion-only,80 mixed),16 survivors,
+50 compile failures;93.31% raw/96.54% adjusted using eight existing equivalents.
+No error-only/unknown/timeouts; both baselines and input hashes pass. Survivor IDs
+match VM and retain Work118's review. This is JS evidence, not WASM line coverage.
+Independent audits of older, still input-matching complete campaigns identify
+the next gates: remote WAMP delegate59.89% assertions (68 error-only), client
+message binding58.04% (149 error-only), router message binding64.74% (165
+error-only). Their conventional scores do not satisfy the assertion target.
+Keep original reports and new audits under `coverage119-bench-oracles`; final
+bench evidence is in `bench-config119-mutations` and `bench-config119-vm`.
+At8e365bdc WAMP profile35359418143 passes; CI remains pending. The full milestone,
+broader component/runtime line gaps and unmeasured sources remain open.
+
 Work118 closes the lazy-payload VM and remote-authenticator assertion gates.
 No production behavior, source/operator inventory, threshold, version or
 equivalence changes. The additive payload contract suite checks single decoding,

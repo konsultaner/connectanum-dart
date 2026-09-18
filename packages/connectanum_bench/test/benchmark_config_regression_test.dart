@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:connectanum_bench/connectanum_bench.dart';
@@ -125,8 +126,10 @@ void main() {
     };
     for (final entry in durations.entries) {
       test('parses and normalizes ${jsonEncode(entry.key)}', () {
-        final scenario = BenchmarkScenario.fromMap(
-          _scenario({'duration': entry.key, 'warmup': entry.key}),
+        final scenario = _validConfigParse(
+          () => BenchmarkScenario.fromMap(
+            _scenario({'duration': entry.key, 'warmup': entry.key}),
+          ),
         );
         expect(scenario.duration, entry.value.$1);
         expect(scenario.warmup, entry.value.$1);
@@ -137,14 +140,18 @@ void main() {
         } else {
           expect(json['warmup'], entry.value.$2);
         }
-        final restored = BenchmarkScenario.fromMap(json);
+        final restored = _validConfigParse(
+          () => BenchmarkScenario.fromMap(json),
+        );
         expect(restored.duration, entry.value.$1);
         expect(restored.warmup, entry.value.$1);
       });
     }
 
     test('defaults omit optional fields but retain concurrency', () {
-      final parsed = BenchmarkScenario.fromMap(_scenario());
+      final parsed = _validConfigParse(
+        () => BenchmarkScenario.fromMap(_scenario()),
+      );
       expect(parsed.name, 'sample');
       expect(parsed.type, 'wamp_rawsocket_rpc');
       expect(parsed.warmup, Duration.zero);
@@ -158,8 +165,10 @@ void main() {
         'concurrency': 1,
       });
       expect(
-        BenchmarkScenario.fromMap(
-          _scenario({'extra': <String, Object?>{}, 'rate': null}),
+        _validConfigParse(
+          () => BenchmarkScenario.fromMap(
+            _scenario({'extra': <String, Object?>{}, 'rate': null}),
+          ),
         ).toJson(),
         parsed.toJson(),
       );
@@ -167,8 +176,10 @@ void main() {
 
     test('integer strings retain values and zero rate is not omitted', () {
       for (final value in [0, '0', 7, '7']) {
-        final parsed = BenchmarkScenario.fromMap(
-          _scenario({'concurrency': '3', 'rate': value}),
+        final parsed = _validConfigParse(
+          () => BenchmarkScenario.fromMap(
+            _scenario({'concurrency': '3', 'rate': value}),
+          ),
         );
         expect(parsed.concurrency, 3);
         final expected = value == 0 || value == '0' ? 0 : 7;
@@ -209,7 +220,8 @@ void main() {
     });
 
     test('YAML preserves declaration order and nested option types', () {
-      final config = BenchmarkConfig.fromYaml('''
+      final config = _validConfigParse(
+        () => BenchmarkConfig.fromYaml('''
 benchmarks:
   - name: first
     type: rpc
@@ -224,7 +236,9 @@ benchmarks:
   - name: second
     type: pubsub
     duration: 1m
-''');
+'''),
+      );
+      expect(config.scenarios, hasLength(2));
       expect(config.scenarios.map((scenario) => scenario.name), [
         'first',
         'second',
@@ -244,10 +258,188 @@ benchmarks:
       expect(config.scenarios.first.concurrency, 2);
       expect(config.scenarios.first.targetRatePerSecond, 7);
       expect(config.scenarios.first.warmup, const Duration(milliseconds: 1));
-      final restored = BenchmarkConfig.fromYaml(config.toPrettyJson());
+      final restored = _validConfigParse(
+        () => BenchmarkConfig.fromYaml(config.toPrettyJson()),
+      );
       expect(restored.scenarios.map((scenario) => scenario.toJson()), [
         for (final scenario in config.scenarios) scenario.toJson(),
       ]);
     });
   });
+
+  group('benchmark configuration ownership', () {
+    test('YAML scenario lists have fixed length but allow replacement', () {
+      final config = _validConfigParse(
+        () => BenchmarkConfig.fromYaml('''
+benchmarks:
+  - {name: first, type: rpc, duration: 1s}
+  - {name: second, type: pubsub, duration: 2s}
+'''),
+      );
+      expect(config.scenarios, hasLength(2));
+      final first = config.scenarios.first;
+      final second = config.scenarios.last;
+      expect(() => config.scenarios.add(first), throwsUnsupportedError);
+      expect(() => config.scenarios.removeLast(), throwsUnsupportedError);
+      expect(config.scenarios, [same(first), same(second)]);
+      config.scenarios[0] = second;
+      expect(config.scenarios, [same(second), same(second)]);
+    });
+
+    test('nested YAML option lists retain fixed-length value semantics', () {
+      final config = _validConfigParse(
+        () => BenchmarkConfig.fromYaml('''
+benchmarks:
+  - name: sample
+    type: rpc
+    duration: 1s
+    extra:
+      sizes: [0, 4096]
+      batches: [[1, 2]]
+'''),
+      );
+      expect(config.scenarios, hasLength(1));
+      final options = config.scenarios.single.extra;
+      expect(options['sizes'], isA<List<Object?>>());
+      expect(options['batches'], isA<List<Object?>>());
+      final sizes = options['sizes']! as List<Object?>;
+      final batches = options['batches']! as List<Object?>;
+      expect(sizes, [0, 4096]);
+      expect(batches, hasLength(1));
+      expect(batches.single, isA<List<Object?>>());
+      final inner = batches.single! as List<Object?>;
+      for (final values in [sizes, batches, inner]) {
+        final before = List<Object?>.of(values);
+        expect(() => values.add(7), throwsUnsupportedError);
+        expect(() => values.removeLast(), throwsUnsupportedError);
+        expect(values, before);
+      }
+      sizes[1] = 8192;
+      inner[0] = 3;
+      final restored = _validConfigParse(
+        () => BenchmarkConfig.fromYaml(config.toPrettyJson()),
+      );
+      expect(restored.scenarios, hasLength(1));
+      expect(restored.scenarios.single.extra, {
+        'sizes': [0, 8192],
+        'batches': [
+          [3, 2],
+        ],
+      });
+    });
+
+    test('map parsing copies options and does not track caller mutations', () {
+      final options = <String, Object?>{'serializer': 'cbor', 'iterations': 7};
+      final input = _scenario({'extra': options, 'rate': '0'});
+      final scenario = _validConfigParse(
+        () => BenchmarkScenario.fromMap(input),
+      );
+      input['name'] = 'changed';
+      input['duration'] = '2h';
+      options['serializer'] = 'json';
+      options.clear();
+      expect(scenario.name, 'sample');
+      expect(scenario.duration, const Duration(seconds: 1));
+      expect(scenario.targetRatePerSecond, 0);
+      expect(scenario.extra, {'serializer': 'cbor', 'iterations': 7});
+      expect(() => scenario.extra.clear(), throwsUnsupportedError);
+      final json = scenario.toJson();
+      json['name'] = 'external';
+      json.remove('rate');
+      expect(scenario.toJson(), {
+        'name': 'sample',
+        'type': 'wamp_rawsocket_rpc',
+        'duration': '1s',
+        'concurrency': 1,
+        'rate': 0,
+        'extra': {'serializer': 'cbor', 'iterations': 7},
+      });
+    });
+
+    test('programmatic configs retain caller list semantics', () {
+      final scenario = _validConfigParse(
+        () => BenchmarkScenario.fromMap(_scenario()),
+      );
+      final scenarios = [scenario];
+      final config = BenchmarkConfig(scenarios: scenarios);
+      expect(config.scenarios, same(scenarios));
+      scenarios.add(scenario);
+      expect(config.scenarios, [same(scenario), same(scenario)]);
+      final single = BenchmarkConfig.single(scenario);
+      expect(single.scenarios, [same(scenario)]);
+      single.scenarios.add(scenario);
+      expect(single.scenarios, hasLength(2));
+    });
+  });
+
+  group('valid configuration assertion controls', () {
+    test('preserves nullable values and evaluates exactly once', () {
+      final value = Object();
+      var calls = 0;
+      expect(
+        _validConfigParse(() {
+          calls++;
+          return value;
+        }),
+        same(value),
+      );
+      expect(calls, 1);
+      expect(_validConfigParse<Object?>(() => null), isNull);
+    });
+    for (final error in <Object>[
+      const FormatException('rejected valid fixture'),
+      RangeError('invalid duration substring'),
+    ]) {
+      test(
+        'reports ${error.runtimeType} as a valid-input contract failure',
+        () {
+          var calls = 0;
+          expect(
+            () => _validConfigParse<void>(() {
+              calls++;
+              throw error;
+            }),
+            throwsA(
+              isA<TestFailure>().having(
+                (failure) => failure.message,
+                'diagnostic',
+                contains('Valid benchmark configuration must parse'),
+              ),
+            ),
+          );
+          expect(calls, 1);
+        },
+      );
+    }
+    for (final error in <Object>[
+      TimeoutException('deadline'),
+      UnsupportedError('platform unavailable'),
+      ArgumentError('unrelated argument failure'),
+      StateError('unrelated state failure'),
+      TypeError(),
+      const StackOverflowError(),
+      const OutOfMemoryError(),
+      TestFailure('original assertion'),
+      Object(),
+    ]) {
+      test('does not relabel ${error.runtimeType} as an assertion', () {
+        expect(
+          () => _validConfigParse<void>(() => throw error),
+          throwsA(same(error)),
+        );
+      });
+    }
+  });
+}
+
+// Valid in-memory fixtures must not be rejected by the parser. Unexpected
+// runtime, infrastructure and resource failures keep their original identity.
+T _validConfigParse<T>(T Function() parse) {
+  try {
+    return parse();
+  } on FormatException catch (error) {
+    fail('Valid benchmark configuration must parse: $error');
+  } on RangeError catch (error) {
+    fail('Valid benchmark configuration must parse: $error');
+  }
 }
