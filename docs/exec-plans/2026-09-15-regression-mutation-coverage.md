@@ -67,6 +67,34 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work122 Native Binding Boundary Contracts
+
+- Add 128 regressions for direct/non-direct loader state, absent fragments,
+  caller-owned overrides, conflicting INTERRUPT mode sources, full HELLO/WELCOME
+  identity, minimal unknown frames, optional ABORT payloads and normalized JSON
+  nested-list behavior. Existing negative tests and all helper controls remain;
+  no exception catches, production changes or equivalence waivers are added.
+- All 3687 focused tests pass (1814 client,1873 router), analysis and diff checks
+  pass, and measured binding-file lines remain584/584 and575/575. The focused
+  LCOV correctly fails whole-workspace policy because other sources are absent;
+  it is not a package-wide pass. Fast122 completes before edits; frozen-input
+  Verify122 also completes with observed exit0, including Rust/native, installed
+  consumer smoke and Chrome WASM. Final hashes match. Release native to the
+  consumer task before further native work.
+- Preserve full new client492/router666 campaigns on original sessions72358 and
+  77614, output directories client-binding122-mutations/router-binding122-mutations.
+  Both baselines pass; final scores remain pending. No inventory/operator changes
+  or relaxed thresholds. Keep prior Work121 reports separate from new test inputs.
+- Fresh JS coverage runs separately on session41373 in browser122-current, with
+  browser input hashes captured. Do not infer WASM coverage from passing tests.
+  Keep VM115 as the last full VM snapshot until it is actually refreshed.
+- Qwen's initial paired review was truncated; both narrowed reviews complete
+  without concrete findings. Discard unsupported GC/atomicity speculation after
+  source inspection. Evidence and logs are under coverage122-binding-boundaries.
+  The next largest concrete line-gap lead is HTTP multi-challenge state rotation,
+  route/identity/profile preservation and capacity/failure cleanup in router
+  binding. Those paths are live, not candidates for coverage exclusions.
+
 ### Work121 Native Binding Assertion Oracles
 
 - Add198 metadata dispatch contracts across JSON/MessagePack/CBOR and direct/
@@ -87,10 +115,16 @@ caught and timed-out outcomes separately.
   Rust/native, installed-package/live-router and Chrome WASM. All final input
   hashes match; explicitly release the native window for the consumer task.
   Do not claim a new whole-VM snapshot or WASM line measurement.
-- Complete client492/router666 mutation campaigns are running with passing
-  baselines and unchanged source/operator inventories. Preserve sessions29088
-  and94472 and reports client-binding121-mutations/router-binding121-mutations;
-  no final score yet. The existing client fallback mutant now has an assertion
+- Client492 completes with369 assertions,11 uncredited errors,18 survivors and
+  94 compile failures:92.71% raw/adjusted assertions versus58.04% previously.
+  Both baselines, all three input hashes and independent kill-log audit pass;
+  the492-candidate source/operator inventory is unchanged. Its95.48% conventional
+  score does not satisfy the95% assertion gate; session29088 exits1 as expected.
+  Router666 also completes:484 assertions,17 uncredited errors,18 survivors,
+  147 compile failures;93.26% raw/adjusted assertions versus64.74% previously.
+  Both baselines and the independent log audit pass, and input hashes matched
+  before Work122 edits. Session94472 exits1 as expected. Preserve both completed
+  reports as Work121 evidence. The existing client fallback mutant now has an assertion
   instead of an error-only outcome. Do not credit remaining runtime errors.
   Investigate full-frame type/length checks, conflicting INTERRUPT mode fields
   and unnecessary non-direct custom loaders; these leads are not equivalences.

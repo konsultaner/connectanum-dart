@@ -16,6 +16,7 @@ import 'package:test/test.dart';
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  _bindingBoundaryContracts();
   _metadataDispatchContracts();
   _validFrameContracts();
   for (final serializer in [
@@ -1990,6 +1991,238 @@ void main() {
       ]);
     });
   });
+}
+
+void _bindingBoundaryContracts() {
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+  ]) {
+    Uint8List encode(Object value) => switch (serializer) {
+      NativeMessageSerializer.json => Uint8List.fromList(
+        utf8.encode(jsonEncode(value)),
+      ),
+      NativeMessageSerializer.messagePack => msgpack.serialize(value),
+      NativeMessageSerializer.cbor => Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue(value)),
+      ),
+      _ => throw StateError('Unsupported test serializer: $serializer'),
+    };
+
+    AbstractMessage bindMetadata(
+      int code, {
+      required bool direct,
+      String? stringA,
+      String? stringB,
+      Uint8List? detailsBytes,
+    }) => bindMessage(
+      serializer,
+      encode([9999]),
+      metadata: _metadata(
+        messageCode: code,
+        primaryId: 81,
+        secondaryId: 93,
+        flags:
+            NativeMessageMetadata.flagMetadataBind |
+            (direct ? NativeMessageMetadata.flagDirectBind : 0),
+        stringA: stringA,
+        stringB: stringB,
+        detailsBytes: detailsBytes,
+      ),
+    );
+
+    test('minimal unknown extension frame stays unknown $serializer', () {
+      final bytes = encode([9999]);
+      final value = _expectMessage<UnknownMessage>(
+        _validFrame(() => bindMessage(serializer, bytes)),
+      );
+      expect(value.id, 9999);
+      expect(value.fields, isEmpty);
+      expect(value.requestId, isNull);
+    });
+    for (final payloadFields in [0, 1, 2]) {
+      test('ABORT optional payload boundary $payloadFields $serializer', () {
+        final bytes = encode([
+          3,
+          {'message': 'unavailable', '_retry': true},
+          'com.error.unavailable',
+          if (payloadFields > 0) [17, 'reason'],
+          if (payloadFields > 1) {'retry_after': 30},
+        ]);
+        final value = _expectMessage<Abort>(
+          _validFrame(() => bindMessage(serializer, bytes)),
+        );
+        expect(value.id, 3);
+        expect(value.reason, 'com.error.unavailable');
+        expect(value.message?.message, 'unavailable');
+        expect(value.details, {'message': 'unavailable', '_retry': true});
+        expect(value.arguments, payloadFields > 0 ? [17, 'reason'] : null);
+        expect(
+          value.argumentsKeywords,
+          payloadFields > 1 ? {'retry_after': 30} : null,
+        );
+      });
+    }
+    for (final present in [false, true]) {
+      for (final code in [3, 8]) {
+        test('direct details loader $code present=$present $serializer', () {
+          final value = bindMetadata(
+            code,
+            direct: true,
+            stringA: 'com.error.unavailable',
+            stringB: 'metadata message',
+            detailsBytes: present
+                ? encode({
+                    'message': 'encoded message',
+                    '_marker': 'encoded',
+                    '_local': 'encoded',
+                  })
+                : null,
+          );
+          expect(value, code == 3 ? isA<Abort>() : isA<Error>());
+          final details = _expectLazyMap(switch (value) {
+            Abort() => value.details,
+            Error() => value.details,
+            _ => fail('Unexpected details container'),
+          });
+          expect(details.hasPendingLoader, present);
+          expect(details['message'], 'metadata message');
+          expect(details.hasPendingLoader, present);
+          details['_local'] = 'caller';
+          expect(details, {
+            'message': 'metadata message',
+            '_local': 'caller',
+            if (present) '_marker': 'encoded',
+          });
+          expect(details.hasPendingLoader, isFalse);
+          expect(details['_local'], 'caller');
+        });
+      }
+    }
+
+    test('full WELCOME preserves session and identity $serializer', () {
+      final bytes = encode([
+        2,
+        81,
+        {
+          'realm': 'com.realm',
+          'authid': 'consumer',
+          'roles': {'dealer': {}},
+        },
+      ]);
+      final value = _expectMessage<Welcome>(
+        _validFrame(() => bindMessage(serializer, bytes)),
+      );
+      expect(value.id, 2);
+      expect(value.sessionId, 81);
+      expect(value.details.realm, 'com.realm');
+      expect(value.details.authid, 'consumer');
+      expect(value.details.roles?.dealer, isNotNull);
+    });
+    for (final direct in [false, true]) {
+      test('INTERRUPT mode authority direct=$direct $serializer', () {
+        final value = _expectMessage<Interrupt>(
+          bindMetadata(
+            69,
+            direct: direct,
+            stringA: 'kill',
+            detailsBytes: encode({'mode': 'killnowait'}),
+          ),
+        );
+        expect(value.requestId, 81);
+        expect(value.options?.mode, direct ? 'kill' : 'killnowait');
+      });
+      for (final present in [false, true]) {
+        for (final code in [36, 50, 68]) {
+          test(
+            'custom loader $code direct=$direct present=$present $serializer',
+            () {
+              final value = bindMetadata(
+                code,
+                direct: direct,
+                detailsBytes: present
+                    ? encode({'_marker': 'encoded', '_local': 'encoded'})
+                    : null,
+              );
+              expect(value.id, code);
+              final custom = _expectLazyMap(switch (value) {
+                Event() => value.details.custom,
+                Result() => value.details.custom,
+                Invocation() => value.details.custom,
+                _ => fail('Unexpected payload message'),
+              });
+              expect(custom.hasPendingLoader, direct && present);
+              custom['_local'] = 'caller';
+              expect(custom, {
+                '_local': 'caller',
+                if (present) '_marker': 'encoded',
+              });
+              expect(custom.hasPendingLoader, isFalse);
+              expect(custom['_local'], 'caller');
+            },
+          );
+        }
+      }
+    }
+    for (final present in [false, true]) {
+      for (final code in [2, 4]) {
+        test('handshake loader $code present=$present $serializer', () {
+          final value = bindMetadata(
+            code,
+            direct: true,
+            stringA: code == 2 ? 'com.realm' : 'ticket',
+            stringB: 'consumer',
+            detailsBytes: present ? encode({'_marker': 'encoded'}) : null,
+          );
+          expect(value, code == 2 ? isA<Welcome>() : isA<Challenge>());
+          final custom = _expectLazyMap(switch (value) {
+            Welcome() => value.details.custom,
+            Challenge() => value.extra.custom,
+            _ => fail('Unexpected handshake'),
+          });
+          expect(custom.hasPendingLoader, present);
+          expect(custom, {if (present) '_marker': 'encoded'});
+          expect(custom.hasPendingLoader, isFalse);
+        });
+      }
+    }
+  }
+  test('JSON normalized nested lists are fixed-length but replaceable', () {
+    final bytes = Uint8List.fromList(
+      utf8.encode(
+        jsonEncode([
+          8,
+          48,
+          81,
+          {
+            '_nested': [1, '\u0000AQID'],
+          },
+          'com.error',
+        ]),
+      ),
+    );
+    final value = _expectMessage<Error>(
+      _validFrame(() => bindMessage(NativeMessageSerializer.json, bytes)),
+    );
+    final nested = value.details['_nested'];
+    expect(nested, isA<List>());
+    final values = nested as List;
+    expect(values[0], 1);
+    expect(values[1], isA<Uint8List>());
+    expect(values[1], [1, 2, 3]);
+    values[0] = 9;
+    expect(values[0], 9);
+    expect(() => values.add(10), throwsUnsupportedError);
+    expect(() => values.removeLast(), throwsUnsupportedError);
+    expect(values.length, 2);
+    expect(values[1], [1, 2, 3]);
+  });
+}
+
+LazyStringKeyMap<dynamic> _expectLazyMap(Map<String, dynamic> value) {
+  expect(value, isA<LazyStringKeyMap<dynamic>>());
+  return value as LazyStringKeyMap<dynamic>;
 }
 
 void _metadataDispatchContracts() {

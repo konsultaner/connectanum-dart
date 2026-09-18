@@ -6,6 +6,25 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work122 adds 128 native-message binding boundary regressions without changing
+production code or measurement policy. Assert conflicting INTERRUPT mode
+authority, direct/eager custom-field loader state, absent-fragment behavior,
+caller overrides, full-frame handshake identity, minimal unknown frames,
+ABORT payload boundaries and JSON nested-list ownership across three serializers.
+All 3687 focused tests pass (1814 client, 1873 router), analysis is clean and
+focused file coverage remains 584/584 client and 575/575 router. These are not
+whole-package measurements. Fast122 and frozen-input Verify122 pass, including
+native, installed-package/live-router and Chrome WASM checks. Input hashes match;
+the native window is released to a consumer task. Both narrowed local reviews
+complete without concrete findings; the initial truncated review is retained.
+Full client492/router666 mutation campaigns run on original sessions72358/77614
+in `client-binding122-mutations`/`router-binding122-mutations`; no final new score
+yet. A fresh non-native JS coverage run is on session41373 in `browser122-current`.
+Preserve all handles and `coverage122-binding-boundaries` input hashes. VM115
+remains the last full VM snapshot; WASM lines remain unmeasured. No new waivers,
+threshold changes, merge, publication or version changes. After the binding gates,
+prioritize genuine router HTTP auth continuation/lifecycle and native line gaps.
+
 Work121 strengthens the client/router native-message binding test oracles without
 changing production behavior. Add198 metadata-dispatch cases across JSON,
 MessagePack and CBOR, direct and non-direct, with valid competing full frames.
@@ -20,11 +39,17 @@ complete with observed exit zero, including Rust/native, installed-package/live-
 router and Chrome WASM tests. Input hashes match; the native window is released
 to a consumer task. A broader VM refresh has not started; VM115 remains the
 last complete package snapshot.
-Full client492/router666 mutation inventories are still running in
-`client-binding121-mutations` and `router-binding121-mutations`; both clean
-baselines pass. No final new mutation score is claimed. Preserve their original
-handles and final-input.sha256 under `coverage121-binding-oracles`; do not
-restart them on an observation timeout. Metadata fallback now has an explicit
+Client121 completes its492-candidate inventory with369 assertion kills,11
+uncredited errors,18 survivors and94 compile failures:92.71% raw/adjusted
+assertions, up from58.04% but below95%. Conventional detection95.48% does not
+satisfy the assertion gate. Both baselines and all three input hashes match;
+the independent log audit passes and the source/operator inventory is unchanged.
+Router121 also completes its666-candidate inventory:484 assertions,17 uncredited
+errors,18 survivors,147 compile failures and519 viable mutants;93.26% raw/adjusted
+assertions, up from64.74% but below95%. Both baselines and the independent audit
+pass; input hashes matched before Work122 edits. Preserve these completed reports
+as Work121 evidence, not evidence for the changed Work122 tests.
+Metadata fallback now has an explicit
 assertion kill where older evidence had only a test error. Remaining reviewed
 leads include full-frame type/optional-field assertions, conflicting INTERRUPT
 mode authority and non-direct custom-field loader state; they are not equivalent
