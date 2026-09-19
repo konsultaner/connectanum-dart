@@ -1311,23 +1311,25 @@ fi
             script,
         )
 
-    def test_vm_commands_include_the_complete_lazy_reply_suite(self):
-        command = 'dart test packages/connectanum_client/test/session_lazy_reply_test.dart'
-        for path, function in ((TEST_FAST, 'run_client_fast_tests'),
-                               (TEST_ALL, 'run_client_vm_tests')):
-            with self.subTest(script=path.name):
-                body = path.read_text().split(f'{function}() {{', 1)[1].split('\n}', 1)[0]
-                pattern = rf'(?m)^  {re.escape(command)}$'
-                self.assertRegex(body, pattern)
-                for replacement in ('# omitted suite', command + ' --name selected'):
-                    with self.assertRaises(AssertionError):
-                        self.assertRegex(body.replace(command, replacement), pattern)
+    def test_vm_commands_include_complete_reply_and_progressive_file_suites(self):
+        for suite in ('session_lazy_reply_test.dart', 'session_progressive_file_test.dart'):
+            command = f'dart test packages/connectanum_client/test/{suite}'
+            for path, function in ((TEST_FAST, 'run_client_fast_tests'),
+                                   (TEST_ALL, 'run_client_vm_tests')):
+                with self.subTest(script=path.name, suite=suite):
+                    body = path.read_text().split(f'{function}() {{', 1)[1].split('\n}', 1)[0]
+                    pattern = rf'(?m)^  {re.escape(command)}$'
+                    self.assertRegex(body, pattern)
+                    for replacement in ('# omitted suite', command + ' --name selected'):
+                        with self.assertRaises(AssertionError):
+                            self.assertRegex(body.replace(command, replacement), pattern)
 
     def test_vm_coverage_includes_complete_session_profile_and_reply_suites(self):
         script = (REPO_ROOT / 'bin' / 'test-coverage').read_text()
         for label, suite in (
             ('e2ee_profile', 'session_e2ee_profile_test.dart'),
             ('lazy_reply', 'session_lazy_reply_test.dart'),
+            ('progressive_file', 'session_progressive_file_test.dart'),
         ):
             with self.subTest(suite=suite):
                 command = (f'run_package_coverage connectanum_client '
@@ -1347,7 +1349,8 @@ fi
                     'packages/connectanum_client/lib/src/protocol/session.dart',
                 ])
                 for suite in ('client_test.dart', 'meta_state_cache_test.dart',
-                              'session_e2ee_profile_test.dart', 'session_lazy_reply_test.dart'):
+                              'session_e2ee_profile_test.dart', 'session_lazy_reply_test.dart',
+                              'session_progressive_file_test.dart'):
                     self.assertIn(f'packages/connectanum_client/test/{suite}', target['tests'])
                 for helper in ('native_runtime_support.dart', 'native_runtime_support_io.dart',
                                'native_runtime_support_stub.dart'):
@@ -1416,6 +1419,7 @@ fi
             "test/meta_state_cache_test.dart",
             "test/session_e2ee_profile_test.dart",
             "test/session_lazy_reply_test.dart",
+            "test/session_progressive_file_test.dart",
             "test/transport/native/message_binding_test.dart",
             "test/transport/local",
             "test/transport/websocket/websocket_transport_web_test.dart",
@@ -1435,6 +1439,7 @@ fi
                     "test/meta_state_cache_test.dart",
                     "test/session_e2ee_profile_test.dart",
                     "test/session_lazy_reply_test.dart",
+                    "test/session_progressive_file_test.dart",
                     "test/transport/native/message_binding_test.dart",
                     "test/transport/local",
                     "test/transport/websocket/websocket_transport_web_test.dart",

@@ -6,6 +6,50 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work136 fixes encrypted progressive file sends after call retirement. Check the
+pending request before native E2EE preparation or transport send, matching the
+plain/buffered path without changing source ownership or byte forwarding. The
+new40-case portable suite reproduces13 assertion failures on original VM/JS/WASM
+source and passes all40 after the fix on each runtime. Keep it whole in canonical
+verification, coverage and both Session mutation targets; all64 script controls pass.
+
+The first Fast136 was invalidated by editing its live shell script and exited127;
+retain that failed evidence. The new frozen-input fast run exits0. Fresh JS136
+coverage passes3327 core and2439 client cases: core7383/7690 (96.01%), client
+2582/2726 (94.72%), with162 unmeasured library sources. The explicit98% audit fails.
+Client covered lines rise55 but the measured denominator rises60; this is not a
+percentage gain. VM136 exits0: library38778/42651 (90.92%), client8632/9408
+(91.75%),59 unmeasured sources; packaging765/787 (97.20%),12 unmeasured sources.
+Both explicit98% audits fail. Original frozen-input Verify136 exits0 and final
+source/native hashes match. Its native reservation was released after completion.
+Preserve coverage136-verification; do not edit running scripts.
+
+The next CI blocker is newly observed in parent e8118321 run35431908342:
+router-remote-wamp-vm has149/191 assertion kills (78.01%),33 uncredited timeouts,
+six error-only outcomes, three survivors and101 compile errors. Independent
+saved-log audit agrees and source/test hashes match. Every timeout includes the
+warmup test's line227 HELLO wait: early mutated configuration failure can prevent
+HELLO entirely. Work136b now races HELLO against warmup settlement, retaining the
+held-WELCOME ordering assertions and cleanup. Genuine TimeoutException remains an
+error. All197 focused tests pass. Full292-candidate remote136b and independent
+audit agree:182/191 assertion kills (95.29% raw/adjusted), three survivors, six
+uncredited error-only outcomes and101 compile failures. Both baselines pass;
+no timeouts or waivers. All33 former timeouts now have actual assertions in the
+new campaign, with unchanged production/support/runner hashes and candidate IDs.
+Fresh VM136b exits0 with the same measured totals above; both98% audits still
+fail. Original frozen Verify136b exits0, including2439 client WASM tests. Final
+source/dependency/native hashes match; the native runtime reservation is released.
+An ignored public-API probe proves the pending-connection identity survivor is
+not equivalent: removing its guard opens three connections instead of two after
+registry reset and an old handshake failure. Preserve remote136b-investigation;
+integrate that regression separately without attributing it to the running campaign.
+Preserve coverage136b-verification, vm136b-current, remote136b-mutations and
+hosted136-parent-remote-wamp. Last pushed81b3a76e package,
+image and profile checks pass; main CI is queued. The original641-candidate
+session134b JS campaign remains live on its older isolated snapshot. Full98%/95%
+scope remains incomplete. Push the implementation increment and refresh hosted
+checks/strict audit; no merge, publication or version change.
+
 Work135 repairs the auth mutation gates without changing production behavior,
 inventory, classification or thresholds. Three auth lifecycle tests now observe
 prompt HELLO completion while provider/cleanup futures remain held, and always

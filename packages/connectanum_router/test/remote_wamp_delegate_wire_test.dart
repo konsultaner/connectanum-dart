@@ -219,18 +219,25 @@ void main() {
             (_) {
               finished = true;
             },
-            onError: (Object error) {
+            onError: (Object error, StackTrace stackTrace) {
+              if (error is TimeoutException) {
+                Error.throwWithStackTrace(error, stackTrace);
+              }
               failure = error;
               finished = true;
             },
           );
-      await receivedHello.future.timeout(const Duration(seconds: 3));
-      await Future<void>.delayed(Duration.zero);
       try {
+        // Early configuration failure must not leave us waiting for no HELLO.
+        await Future.any<void>([
+          receivedHello.future,
+          warmup,
+        ]).timeout(const Duration(seconds: 3));
+        await Future<void>.delayed(Duration.zero);
         expect(finished, isFalse);
         expect(service.hellos, hasLength(1));
       } finally {
-        releaseWelcome!();
+        releaseWelcome?.call();
         await warmup;
       }
       expect(finished, isTrue);

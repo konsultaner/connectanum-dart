@@ -863,6 +863,9 @@ class Session {
           : (source, offset, length, progress) {
               if (nativeE2eeFileTransport != null &&
                   nativeE2eeProvider != null) {
+                if (!_pendingCalls.containsKey(call.requestId)) {
+                  throw StateError('The progressive call is no longer active');
+                }
                 final options = CallOptions(
                   progress: progress,
                   pptScheme: initiatingOptions.pptScheme,

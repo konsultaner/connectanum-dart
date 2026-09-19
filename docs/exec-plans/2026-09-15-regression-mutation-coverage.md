@@ -67,6 +67,62 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work136 Progressive Native File Lifecycle
+
+- Reproduce13 actual assertions among40 portable cases on original VM/JS/WASM
+  source before adding a pending-call guard to the native encrypted-file branch.
+  Reject after Result, canceled/timed-out/unauthorized Error, disconnect or result
+  listener cancellation, without retiring another active call. Check before E2EE
+  preparation/send; retain source-opening/ownership and zero-copy forwarding.
+- All40 cases pass on each runtime after the fix. Positive controls independently
+  assert exact request/source/range/options/context and no extra buffered packing;
+  preparation/send failures preserve retryability and do not finish/close sources.
+  This is portable boundary evidence, not native crypto/performance measurement.
+  Canonical VM/browser verification, coverage and complete Session mutation targets
+  retain the whole suite. All64 selection controls pass; no classifier/threshold/
+  operator/waiver changes. The original session134b campaign keeps its old hashes.
+- First Fast136 exits127 after a live script edit invalidates Bash's input offset.
+  Preserve it as failed harness evidence. Frozen-input Fast136 exits0. Fresh JS136
+  passes3327 core and2439 client cases without skips: core7383/7690 (96.0078%),
+  client2582/2726 (94.7175%),162 unmeasured sources. The explicit98% audit fails.
+  VM136 exits0: library38778/42651 (90.9193%), client8632/9408 (91.7517%),59
+  unmeasured sources; packaging765/787 (97.2046%),12 unmeasured sources. Both
+  explicit98% audits fail. Original frozen-input Verify136 exits0; final input and
+  native hashes match. Release its native reservation only after observing the
+  original terminal result; a new reservation covers the136b refresh.
+- Inspect and independently audit parent CI35431908342 remote-WAMP artifact:
+  292 candidates,191 viable,149 assertion kills, six uncredited error-only outcomes,
+  33 timeouts, three survivors and101 compile errors. Assertion score78.0105%; no
+  waivers. All33 timeouts include remote_wamp_delegate_wire_test.dart line227's
+  impossible HELLO wait after an early mutated warmup failure. Current source/test
+  hashes match. Work136b races HELLO against early settlement while retaining
+  held-WELCOME sequencing/cleanup and propagating genuine TimeoutException.
+  All197 focused tests pass. Full292 mutations and independent saved-log audit
+  agree:182/191 assertion kills (95.28796% raw/adjusted), three survivors, six
+  error-only outcomes and101 compile errors. Both baselines pass with no timeouts
+  or waivers. Compare identical candidate IDs and production/support/runner
+  hashes: all33 former timeouts now have actual assertion evidence (eight
+  assertion-only,25 mixed). Historical timeout outcomes remain unchanged.
+  VM136b exits0 with unchanged measured totals and failed98% target audits;
+  original frozen Verify136b exits0, including2439 client WASM cases. Final
+  source/dependency/native hashes match; release the native reservation only
+  after verifying no remaining consumers.
+- An ignored public-API probe demonstrates survivor36559fd15fde79a61e99 is
+  non-equivalent. Hold an old ABORT, clear the registry, start a replacement and
+  hold WELCOME; finish the old failure and start another warmup. Original source
+  shares two connections; the isolated guard-removed package opens three and
+  fails the explicit count assertion. Initial mistaken best-effort error and
+  duplicate-type compilation attempts are retained, not counted as kills.
+  Integrate the regression and rerun complete evidence separately; this probe
+  does not belong to the running136b campaign's hashes.
+- Parent81b3a76e package/image/profile checks pass but main CI stays queued. CI
+  triggers both push and pull_request without concurrency, so duplicate runs are
+  visible; do not cancel unfinished mutation evidence merely to clear the queue.
+  Preserve coverage136-verification, coverage136b-verification, browser136-current,
+  vm136b-current, remote136b-mutations, remote136b-investigation and
+  hosted136-parent-remote-wamp. Push this implementation increment and refresh
+  hosted checks/strict audit. The complete98%/95% milestone remains open.
+
 ### Work135 Complete Authentication Lifecycle Mutation Oracles
 
 - Download and independently audit the complete hosted parent auth-server and
