@@ -6,6 +6,33 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work133 integrates40 portable E2EE profile-negotiation regressions and adds a
+concurrent meta-cache close oracle. Finite listener completion assertions replace
+unbounded waits while retaining cleanup and duplicate-event checks. Canonical VM
+verification, browser verification and JS coverage select the complete suites;
+the separate VM coverage script still needs the new profile suite wired in.
+Fast133-before and original frozen-input Verify133 exit0, including2281 client
+WASM cases plus one genuine native-only skip. Final input/native hashes match.
+The native runtime window stays reserved for the next reproduced-bug fix.
+
+Full157-candidate meta campaigns agree on VM and JS:84/101 viable assertion kills
+(83.17%;58 assertion-only,26 mixed), six uncredited error-only outcomes,11
+survivors and56 compile failures. Clean initial/restored baselines and the saved-log
+audit agree; no waivers, timeout credit or narrowed inventories. Canonical JS
+coverage is core7383/7691 (96.00%) and client2518/2701 (93.23%), retaining161
+unmeasured library files. The98%/95% targets still fail; WASM is runtime evidence,
+not measured coverage. Preserve coverage133-verification, browser133-current and
+meta-cache133-mutations under the milestone output root.
+
+An isolated reply comparison reproduces payload loss in native-direct lazy
+invocation responses on VM/JS/WASM: normal-path cases pass, while materialized,
+encoded and mismatched packed PPT replies lose their arguments. A broader probe
+also exposes omitted encryption and progressive payloads. Fix this shipped-path
+bug next, preserve matching packed-byte forwarding and E2EE response context,
+and wire new suites into VM measurement before refreshing evidence. Parent
+5ece94bb package/image dry runs pass; CI remains queued and profile evidence is
+pending. No master merge, publication or version change.
+
 Work132 corrects the pure-VM mutation runner's fail-fast measurement gap without
 changing classifiers, deadlines, inventories, waivers or the95% assertion gate.
 Complete each suite and cleanup so an early test error cannot hide a later real

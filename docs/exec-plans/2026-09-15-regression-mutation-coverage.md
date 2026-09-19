@@ -67,6 +67,44 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work133 Profile Negotiation And Finite Meta Disposal Oracles
+
+- Integrate40 portable session-E2EE negotiation tests covering both supported
+  ciphers, required-provider rejection, exact establishment/version types,
+  directional key precedence, partial/missing keys and preserved rejection
+  metadata. Tests cover negotiation, not cryptographic handshake completion.
+  Select the entire suite in VM/browser verification and JS coverage; the separate
+  VM coverage script still needs an explicit selection.
+- Replace five unbounded meta completion waits with finite exactly-once listener
+  assertions, retaining teardown and event ownership checks. Add a deterministic
+  concurrent-close test with held unsubscribe acknowledgements and error-visible
+  cleanup. All93 meta cases and40 profile cases pass on VM; canonical final
+  browser runs retain both complete suites. All60 script-selection controls pass.
+- Original Fast133-before and frozen-input Verify133 exit0. Final manifests and
+  native artifact hash match, with no remaining native consumers at completion.
+  Keep the shared native window reserved for Work134's reproduced reply bug.
+  Canonical JS coverage and WASM verification each pass2281 client cases plus one
+  native-only skip. JS core7383/7691 and client2518/2701 retain161 unmeasured
+  library files; explicit98% audit fails. No new whole-VM or WASM score is claimed.
+- Full157-mutant inventories on VM/JS agree:101 viable,56 compile failures,
+  84 assertion-backed kills (58 assertion-only,26 mixed), six error-only outcomes
+  and11 survivors. Raw/adjusted assertion scores83.1683%; conventional89.1089%
+  is not credited as assertion coverage. Both95% gates fail. Initial/restored
+  baselines pass and the independent saved-log audit agrees. No equivalence
+  waivers or crash/timeout credit. Preserve meta-cache133-mutations and
+  coverage133-verification with the exact source/test/support hashes.
+- Qwen test/review advice prompted additional profile parameter cases and a
+  queued-callback drain. Reject suggestions that would deadlock held unsubscribe
+  replies or incorrectly ban a supported cipher. Isolated18-case normal/native
+  reply comparisons fail eight native PPT payload assertions on VM/JS/WASM;
+  normal cases pass. The expanded62-case VM probe fails21 native cases, including
+  missing E2EE packing/provider rejection and progressive reply payloads. These
+  controlled metadata-boundary probes are not actual FFI measurements. Fix and
+  integrate them next, retaining the pre-fix logs and fresh final verification.
+- Parent5ece94bb package/image dry runs pass; CI is queued without an observed
+  failure and the profile run remains pending. Refresh hosted evidence after push.
+  The complete98%/95% goal remains active; no merge/publication/version change.
+
 ### Work132 Complete VM Mutation Oracles And Meta Lifecycle Assertions
 
 - Remove pure-VM fail-fast, retaining complete browser/native-file execution,

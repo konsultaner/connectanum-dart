@@ -43,7 +43,11 @@ void main() {
         );
 
         final changed = <WampMetaStateSnapshot>[];
-        final listener = cache.changes.listen(changed.add);
+        var doneCount = 0;
+        final listener = cache.changes.listen(
+          changed.add,
+          onDone: () => doneCount++,
+        );
         addTearDown(listener.cancel);
         transport.emitMeta('wamp.session.on_leave', <dynamic>[
           1,
@@ -57,9 +61,8 @@ void main() {
         expect(snapshot.registrations[10]!.callees, <int>{2});
         expect(snapshot.subscriptions[20]!.subscribers, <int>{2});
 
-        final changesDone = cache.changes.drain<void>();
         await cache.close();
-        await changesDone;
+        expect(doneCount, 1);
         expect(cache.isClosed, isTrue);
         expect(transport.unsubscribeCount, 10);
         await transport.shutdown();
@@ -418,11 +421,17 @@ void _metaRegressionContracts() {
     'failed disconnect notification closes the cache without dead-session writes',
     () async {
       final (transport, cache) = await _cacheFixture();
-      final done = cache.changes.drain<void>();
+      var doneCount = 0;
+      final listener = cache.changes.listen(
+        (_) {},
+        onDone: () => doneCount++,
+      );
+      addTearDown(listener.cancel);
       await transport.shutdown(
         error: StateError('controlled disconnect failure'),
       );
-      await done;
+      await _drainMetaCallbacks();
+      expect(doneCount, 1);
       expect(cache.isClosed, isTrue);
       expect(transport.unsubscribeCount, 0);
       await cache.close();
@@ -578,9 +587,14 @@ void _metaRegressionContracts() {
           );
           return true;
         };
-        final done = cache.changes.drain<void>();
+        var doneCount = 0;
+        final listener = cache.changes.listen(
+          (_) {},
+          onDone: () => doneCount++,
+        );
+        addTearDown(listener.cancel);
         await cache.close();
-        await done;
+        expect(doneCount, 1);
         expect(rejected, isTrue);
         expect(cache.isClosed, isTrue);
         expect(transport.unsubscribeCount, 10);
@@ -811,14 +825,18 @@ void _metaRegressionContracts() {
       () async {
         final (transport, cache) = await _cacheFixture();
         final observed = <WampMetaStateSnapshot>[];
-        final done = Completer<void>();
-        cache.changes.listen(observed.add, onDone: done.complete);
+        var doneCount = 0;
+        final listener = cache.changes.listen(
+          observed.add,
+          onDone: () => doneCount++,
+        );
+        addTearDown(listener.cancel);
         final closing = cache.close();
         transport.emitMeta('wamp.session.on_join', [
           {'session': 8},
         ]);
         await closing;
-        await done.future;
+        expect(doneCount, 1);
         await cache.close();
         expect(observed, isEmpty);
         expect(cache.snapshot.sessions.keys, [1]);
@@ -837,13 +855,48 @@ void _metaRegressionContracts() {
       'disconnect closes changes without sending unsubscribe on a dead session',
       () async {
         final (transport, cache) = await _cacheFixture();
-        final done = cache.changes.drain<void>();
+        var doneCount = 0;
+        final listener = cache.changes.listen(
+          (_) {},
+          onDone: () => doneCount++,
+        );
+        addTearDown(listener.cancel);
         await transport.shutdown();
-        await done;
+        await _drainMetaCallbacks();
+        expect(doneCount, 1);
         expect(cache.isClosed, isTrue);
         expect(transport.unsubscribeCount, 0);
         await cache.close();
         expect(transport.unsubscribeCount, 0);
+      },
+    );
+
+    test(
+      'concurrent close calls do not release the same ownership twice',
+      () async {
+        final (transport, cache) = await _cacheFixture();
+        final pending = <Unsubscribe>[];
+        transport.onSend = (message) {
+          if (message is! Unsubscribe) return false;
+          pending.add(message);
+          return true;
+        };
+        // Hold the first release open while the second close is attempted.
+        final closing = Future.wait([cache.close(), cache.close()]);
+        addTearDown(() async {
+          transport.onSend = null;
+          for (final request in pending) {
+            transport._inbound.add(Unsubscribed(request.requestId, null));
+          }
+          await closing;
+        });
+        await _drainMetaCallbacks();
+        expect(cache.isClosed, isTrue);
+        expect(pending, hasLength(1));
+        expect(
+          pending.single.subscriptionId,
+          transport._subscriptionIds.values.last,
+        );
       },
     );
 

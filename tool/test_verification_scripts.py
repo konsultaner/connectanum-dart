@@ -1281,6 +1281,18 @@ fi
                 with self.assertRaises(AssertionError):
                     assert_selected(script.replace(command, command + ' --name selected'), function)
 
+    def test_vm_commands_include_the_complete_session_e2ee_profile_suite(self):
+        command = 'dart test packages/connectanum_client/test/session_e2ee_profile_test.dart'
+        for path, function in ((TEST_FAST, 'run_client_fast_tests'),
+                               (TEST_ALL, 'run_client_vm_tests')):
+            with self.subTest(script=path.name):
+                body = path.read_text().split(f'{function}() {{', 1)[1].split('\n}', 1)[0]
+                pattern = rf'(?m)^  {re.escape(command)}$'
+                self.assertRegex(body, pattern)
+                for replacement in ('# omitted suite', command + ' --name selected'):
+                    with self.assertRaises(AssertionError):
+                        self.assertRegex(body.replace(command, replacement), pattern)
+
     def test_full_verify_runs_core_browser_security_tests(self) -> None:
         script = TEST_ALL.read_text(encoding="utf-8")
 
@@ -1331,6 +1343,7 @@ fi
         for relative_path in (
             "test/client_test.dart",
             "test/meta_state_cache_test.dart",
+            "test/session_e2ee_profile_test.dart",
             "test/transport/native/message_binding_test.dart",
             "test/transport/local",
             "test/transport/websocket/websocket_transport_web_test.dart",
@@ -1348,6 +1361,7 @@ fi
                 for relative_path in (
                     "test/client_test.dart",
                     "test/meta_state_cache_test.dart",
+                    "test/session_e2ee_profile_test.dart",
                     "test/transport/native/message_binding_test.dart",
                     "test/transport/local",
                     "test/transport/websocket/websocket_transport_web_test.dart",
