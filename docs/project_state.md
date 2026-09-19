@@ -6,6 +6,43 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work131 fixes a reproduced meta-cache hydration race: the transport can close
+after the final Meta reply but before its disconnect callback closes the cache.
+Check session connectivity before accepting the initial snapshot. The canonical
+suite now has82 cases; all1905 focused meta/binding/local tests pass on VM, JS and
+WASM. Preserve all1814 binding and9 local-transport tests in canonical browser
+verification and coverage, removing only the binding suite's VM-only annotation.
+Fast131-before and frozen-input Verify131 exit0, including2230 client WASM cases
+plus one genuinely native-only skip. Input hashes and the native artifact match;
+the shared native window is released. Script58, mutation-runner62 (one Linux-only
+skip), and deployment-audit27 controls pass. Analysis has seven informational
+missing-brace lints in new test callbacks, with no errors or warnings.
+
+Canonical JS coverage measures core7383/7691 (96.00%) and client2506/2698
+(92.88%), retaining161 unmeasured library files. Meta-cache measures301/302 JS
+and258/259 in a separate focused VM run; binding JS measures643/652. These slices
+do not establish whole-package or WASM coverage; the explicit98% audit fails.
+Full157-candidate meta-cache inventories finish on each runtime with clean initial
+and restored baselines, matching source/test hashes and an agreeing saved-log
+audit. VM scores65/101 viable assertion kills (64.36%); JS scores66/101 (65.35%).
+Each has19 survivors and56 compile failures; VM has one timeout and16 error-only
+detections, JS seven timeouts and9 error-only detections. No waivers or crash/
+timeout credit. Both95% gates correctly fail and are not added as passing CI gates.
+
+Preserve coverage131-verification, browser131-current, coverage131-meta and
+meta-cache131-mutations under the milestone output root. An ignored92-case
+follow-up passes VM/JS/WASM, strengthening event notification, no-op identity,
+disconnect failure and concurrent Meta disappearance assertions. Eight isolated
+survivor controls using its earlier89-case snapshot now fail actual assertions.
+Separate unchanged82-case controls show VM --fail-fast hides later assertions
+after early test errors; complete execution exposes real mixed outcomes for two
+controls but correctly leaves another error-only. Integrate the stronger tests,
+add explicit meta VM verification selection, and correct this measurement gap
+before fresh campaigns. Never reattribute131 results to changed tests or runner.
+Parent ad456802 package/image/profile checks pass; CI is still queued without a
+known failure. Refresh hosted evidence after push. The complete98%/95% milestone
+remains active; no master merge, publication or version change.
+
 Work130 integrates portable client browser verification and measurement. A
 conditional test-support export preserves the original native library probe
 byte-for-byte on VM and avoids importing FFI on web. Both browser compilers pass

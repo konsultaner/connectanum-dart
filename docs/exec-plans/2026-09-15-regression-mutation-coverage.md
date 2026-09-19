@@ -67,6 +67,53 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work131 Meta Hydration Race And Portable Binding Regressions
+
+- Preserve the original Fast131, Verify131 and two mutation processes until
+  their observed terminal exits. Fast and Verify exit0; both mutation gates exit1
+  with complete inventories, not an infrastructure failure. Frozen inputs and
+  ffi-test library hashes still match. Release the shared native window only
+  after verify finishes and no library users remain.
+- Reproduce successful cache initialization after the last hydration reply
+  closes its transport before the asynchronous disconnect callback runs. The
+  production fix checks Session.isConnected before accepting the snapshot.
+  Add78 canonical malformed-input, cleanup, concurrency, immutable-snapshot and
+  error-identity regressions. All82 meta cases plus1814 binding and9 local cases
+  pass on VM, JS and WASM. Canonical browser verification and measurement retain
+  those full suites, with2230 client cases and one native-only skip. No native
+  binding regressions or assertions are removed.
+- Verify131 and focused runtime suites pass;58 script controls,62 mutation
+  controls (one Linux-specific skip) and27 audit controls pass. Analysis exits0
+  with seven informational missing-brace lints, no errors/warnings. Local review's
+  alleged topic-count and cleanup issues are contradicted by the ten-topic source
+  inventory and independently verified cross-runtime cleanup/error assertions.
+- Canonical JS measures core7383/7691 and client2506/2698, with161 unmeasured
+  library sources. Meta JS301/302, binding JS643/652 and focused Meta VM258/259
+  remain explicitly scoped measurements. The explicit98% audit fails; WASM
+  runtime success remains distinct from measured executable-line coverage.
+- Both full meta-cache mutation inventories generate157 candidates,56 compile
+  failures and101 viable mutants. VM has65 assertion-backed kills,16 error-only
+  detections,19 survivors and one timeout; JS has66 assertion-backed kills,
+  nine error-only detections,19 survivors and seven timeouts. Raw/adjusted
+  assertion scores64.36%/65.35% agree with the independent saved-log audit.
+  Initial/restored baselines exit0; hashes match. No equivalence waivers or
+  timeout/error-only credit. Keep the unchanged95% gate failing honestly.
+- Prepared ignored92-case follow-up passes all three runtimes; eight isolated
+  controls using its earlier89-case snapshot turn survivors into assertion-only
+  kills. Changes separately observe first/duplicate deletes, burst snapshot
+  identity, no-op member updates, failed disconnect and missing Meta objects.
+  Replace unbounded changes.first in the probe with finite event collection.
+  These diagnostic outcomes do not change canonical131 scores. Further controls
+  using unchanged82-case tests show VM fail-fast hides later genuine assertions
+  for two error-first mutants; a third remains error-only. Correct the runner
+  with regression controls, integrate the follow-up and explicit VM meta suite
+  selection, then collect fresh complete inventories.
+- Evidence: coverage131-verification, browser131-current, coverage131-meta and
+  meta-cache131-mutations. Parent ad456802 package/image/profile checks pass;
+  main CI remains queued without known failures. Refresh checks after push,
+  preserving pending/default-workflow/branch-protection findings. No merge,
+  release, version change or whole-milestone completion claim.
+
 ### Work130 Canonical Client Browser Scope And SCRAM Request Gates
 
 - Resume the original Fast130 process rather than starting another baseline;

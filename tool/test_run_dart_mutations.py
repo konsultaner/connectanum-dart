@@ -443,6 +443,25 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertTrue(target['requiresNativeLibrary'])
         self.assertTrue(target['isolateTestFiles'])
 
+    def test_meta_cache_targets_preserve_full_source_and_portable_regressions(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        prefix = 'packages/connectanum_client'
+        for runtime in ('vm', 'web'):
+            with self.subTest(runtime=runtime):
+                target = targets[f'client-meta-cache-{runtime}']
+                self.assertEqual(target['sources'], [
+                    f'{prefix}/lib/src/meta/meta_state_cache.dart',
+                ])
+                self.assertEqual(target['tests'], [
+                    f'{prefix}/test/meta_state_cache_test.dart',
+                ])
+                self.assertNotIn('testName', target)
+                self.assertNotIn('maxMutants', target)
+                self.assertEqual(target.get('platform', 'vm'),
+                                 'chrome' if runtime == 'web' else 'vm')
+                if runtime == 'web':
+                    self.assertEqual(target['testRoot'], prefix)
+
     def test_native_runtime_target_includes_all_direct_runtime_regressions(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         target = targets['client-native-runtime-vm']

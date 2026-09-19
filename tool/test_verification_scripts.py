@@ -1314,6 +1314,8 @@ fi
         for relative_path in (
             "test/client_test.dart",
             "test/meta_state_cache_test.dart",
+            "test/transport/native/message_binding_test.dart",
+            "test/transport/local",
             "test/transport/websocket/websocket_transport_web_test.dart",
             "test/mcp/form_elicitation_regression_test.dart",
         ):
@@ -1329,6 +1331,8 @@ fi
                 for relative_path in (
                     "test/client_test.dart",
                     "test/meta_state_cache_test.dart",
+                    "test/transport/native/message_binding_test.dart",
+                    "test/transport/local",
                     "test/transport/websocket/websocket_transport_web_test.dart",
                     "test/mcp/form_elicitation_regression_test.dart",
                 ):

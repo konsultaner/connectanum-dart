@@ -26,6 +26,8 @@ mkdir -p "$coverage_root"
   run_command_with_timeout "Client browser coverage" 420 dart test \
     test/client_test.dart \
     test/meta_state_cache_test.dart \
+    test/transport/native/message_binding_test.dart \
+    test/transport/local \
     test/transport/websocket/websocket_transport_web_test.dart \
     test/mcp/form_elicitation_regression_test.dart \
     -p chrome --compiler=dart2js --concurrency=1 --timeout=5m \

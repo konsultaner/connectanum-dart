@@ -1,4 +1,14 @@
 {
+  "client-meta-cache-vm": {
+    "sources": ["packages/connectanum_client/lib/src/meta/meta_state_cache.dart"],
+    "tests": ["packages/connectanum_client/test/meta_state_cache_test.dart"]
+  },
+  "client-meta-cache-web": {
+    "sources": ["packages/connectanum_client/lib/src/meta/meta_state_cache.dart"],
+    "tests": ["packages/connectanum_client/test/meta_state_cache_test.dart"],
+    "platform": "chrome",
+    "testRoot": "packages/connectanum_client"
+  },
   "core-scram-worker-web": {
     "sources": ["packages/connectanum_core/lib/src/authentication/scram_key_derivation_web.dart"],
     "tests": [
