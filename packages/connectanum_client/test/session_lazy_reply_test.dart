@@ -519,6 +519,7 @@ Future<({_ReplyTransport transport, LazyInvocationPayload invocation})> _start(
     transport: transport,
     e2eeProvider: provider,
   ).connect().first;
+  expect(session.isConnected(), isTrue);
   LazyInvocationPayload? received;
   final registration = await session.registerLazyPayloadHandler(
     'reply.proc',

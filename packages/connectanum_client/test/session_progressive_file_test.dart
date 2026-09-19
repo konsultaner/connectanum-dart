@@ -300,6 +300,7 @@ Future<_Fixture> _connect(bool encrypted) async {
   );
   addTearDown(client.disconnect);
   final session = await client.connect().first;
+  expect(session.isConnected(), isTrue);
   return _Fixture(transport, provider, session, encrypted);
 }
 

@@ -11,6 +11,467 @@ import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('Inbound E2EE routing context', () {
+    for (final invocation in [false, true]) {
+      for (final native in [false, true]) {
+        for (final explicitUri in [false, true]) {
+          for (final disclosed in [false, true]) {
+            for (final trustDisclosed in invocation ? [true] : [false, true]) {
+              test('invocation=$invocation native=$native '
+                  'explicitUri=$explicitUri disclosed=$disclosed '
+                  'trustDisclosed=$trustDisclosed', () async {
+                const actualUri = 'bench.proc';
+                final registeredUri = explicitUri ? 'bench.' : actualUri;
+                final provider = _InspectingWampE2eeProvider(
+                  _testWampE2eeProvider(),
+                );
+                final outbound = <AbstractMessage>[];
+                final transport = _SessionOptimizedMockTransport((
+                  message,
+                  peer,
+                ) {
+                  outbound.add(message);
+                  if (message is Hello) {
+                    peer.receiveObject(
+                      Welcome(
+                        42,
+                        Details.forWelcome(
+                          realm: 'test.realm',
+                          authId: 'local-user',
+                          authRole: 'member',
+                          authMethod: 'ticket',
+                          authProvider: 'test-auth',
+                        ),
+                      ),
+                    );
+                  } else if (message is Register) {
+                    expect(message.procedure, registeredUri);
+                    expect(
+                      message.options?.match,
+                      explicitUri
+                          ? RegisterOptions.matchPrefix
+                          : RegisterOptions.matchExact,
+                    );
+                    peer.receiveObject(Registered(message.requestId, 77));
+                  } else if (message is Subscribe) {
+                    expect(message.topic, registeredUri);
+                    expect(
+                      message.options?.match,
+                      explicitUri
+                          ? SubscribeOptions.matchPrefix
+                          : SubscribeOptions.matchPlain,
+                    );
+                    peer.receiveObject(Subscribed(message.requestId, 77));
+                  }
+                });
+                final drain = transport.outbound.stream.listen((_) {});
+                addTearDown(() async {
+                  await transport.close();
+                  await transport.outbound.close();
+                  await drain.cancel();
+                });
+                final session = await Client(
+                  realm: 'test.realm',
+                  transport: transport,
+                  e2eeProvider: provider,
+                ).connect().first;
+                expect(session.isConnected(), isTrue);
+                final argumentsSeen = <List<dynamic>?>[];
+                final keywordsSeen = <Map<String, dynamic>?>[];
+                void record(AbstractMessageWithPayload message) {
+                  argumentsSeen.add(message.arguments);
+                  keywordsSeen.add(message.argumentsKeywords);
+                }
+
+                if (invocation) {
+                  await session.registerHandler(
+                    registeredUri,
+                    (message) {
+                      record(message);
+                      message.respondWith(arguments: const ['ok']);
+                    },
+                    options: RegisterOptions(
+                      match: explicitUri
+                          ? RegisterOptions.matchPrefix
+                          : RegisterOptions.matchExact,
+                    ),
+                  );
+                } else {
+                  await session.subscribeHandler(
+                    registeredUri,
+                    record,
+                    options: SubscribeOptions(
+                      match: explicitUri
+                          ? SubscribeOptions.matchPrefix
+                          : SubscribeOptions.matchPlain,
+                    ),
+                  );
+                }
+                final topic = explicitUri ? actualUri : null;
+                final PPTOptions options = invocation
+                    ? InvocationDetails(
+                        disclosed ? 9001 : null,
+                        topic,
+                        false,
+                        'wamp',
+                        'cbor',
+                      )
+                    : EventDetails(
+                        publisher: disclosed ? 9001 : null,
+                        trustlevel: trustDisclosed ? 7 : null,
+                        topic: topic,
+                        pptScheme: 'wamp',
+                        pptSerializer: 'cbor',
+                      );
+                final packed = provider.packPayload(
+                  const ['decrypted'],
+                  const {'sequence': 12},
+                  options,
+                );
+                if (native) {
+                  transport.receiveObject(
+                    NativeSessionMessage(
+                      serializer: NativeMessageSerializer.cbor,
+                      metadata: NativeMessageMetadata(
+                        messageCode: invocation
+                            ? MessageTypes.codeInvocation
+                            : MessageTypes.codeEvent,
+                        primaryId: invocation ? 1001 : 77,
+                        secondaryId: invocation ? 77 : 1001,
+                        detailNumberA: 9001,
+                        detailNumberB: 7,
+                        flags:
+                            NativeMessageMetadata.flagDirectBind |
+                            NativeMessageMetadata.flagMetadataBind |
+                            (disclosed
+                                ? NativeMessageMetadata.flagDetailNumberAPresent
+                                : 0) |
+                            (trustDisclosed
+                                ? NativeMessageMetadata.flagDetailNumberBPresent
+                                : 0),
+                        stringA: topic,
+                        stringB: options.pptScheme,
+                        stringC: options.pptSerializer,
+                        stringD: options.pptCipher,
+                        stringE: options.pptKeyId,
+                      ),
+                      argsBytes: Uint8List.fromList(
+                        cbor.cborEncode(
+                          cbor.CborValue(<Object?>[packed.single]),
+                        ),
+                      ),
+                    ),
+                  );
+                } else if (invocation) {
+                  transport.receiveObject(
+                    Invocation(
+                      1001,
+                      77,
+                      options as InvocationDetails,
+                      arguments: packed,
+                    ),
+                  );
+                } else {
+                  transport.receiveObject(
+                    Event(77, 1001, options as EventDetails, arguments: packed),
+                  );
+                }
+                await Future<void>.delayed(Duration.zero);
+                expect(argumentsSeen, [
+                  const ['decrypted'],
+                ]);
+                expect(keywordsSeen, [
+                  const {'sequence': 12},
+                ]);
+                final context = provider.lastUnpackRuntimeContext;
+                expect(context, isNotNull);
+                expect(context!.direction, WampE2eeDirection.inbound);
+                expect(
+                  context.messageType,
+                  invocation
+                      ? WampE2eeMessageType.invocation
+                      : WampE2eeMessageType.event,
+                );
+                expect(context.uri, actualUri);
+                expect(context.realm, 'test.realm');
+                expect(context.local?.sessionId, 42);
+                expect(context.local?.authId, 'local-user');
+                expect(context.local?.authRole, 'member');
+                expect(context.local?.authMethod, 'ticket');
+                expect(context.local?.authProvider, 'test-auth');
+                expect(context.peer?.sessionId, disclosed ? 9001 : null);
+                expect(
+                  context.peer?.trustLevel,
+                  trustDisclosed && !invocation ? 7 : null,
+                );
+                if (!disclosed && (invocation || !trustDisclosed)) {
+                  expect(context.peer, isNull);
+                }
+                expect(
+                  context.payloadAnchor,
+                  native ? isA<NativeSessionMessage>() : isNull,
+                );
+                expect(outbound.whereType<Error>(), isEmpty);
+                if (invocation) {
+                  final yields = outbound.whereType<Yield>().toList();
+                  expect(yields, hasLength(1));
+                  expect(yields.single.invocationRequestId, 1001);
+                }
+                await session.close(timeout: Duration.zero);
+              });
+            }
+          }
+        }
+      }
+    }
+  });
+
+  group('Session startup', () {
+    test(
+      'authentication cleanup reaches later methods after one throws',
+      () async {
+        final failure = StateError('receive failed');
+        final first = _StartAuthentication('first')
+          ..cancelError = StateError('cleanup failed');
+        final second = _StartAuthentication('second');
+        final transport = _StartTransport()
+          ..onHello = (transport) {
+            transport.inbound.addError(failure);
+          };
+        addTearDown(transport.dispose);
+        await expectLater(
+          Session.start('test.realm', transport, authMethods: [first, second]),
+          throwsA(same(failure)),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(first.cancelCount, greaterThanOrEqualTo(1));
+        expect(second.cancelCount, greaterThanOrEqualTo(1));
+        expect(transport.closeError, same(failure));
+        expect(transport.isOpen, isFalse);
+      },
+    );
+
+    for (final closeThrows in [false, true]) {
+      test(
+        'final verification failure preserves identity when close throws=$closeThrows',
+        () async {
+          final failure = StateError('server proof rejected');
+          final authentication = _StartAuthentication()
+            ..verificationError = failure;
+          final transport = _StartTransport()
+            ..throwOnClose = closeThrows
+            ..onHello = (transport) {
+              transport.inbound.add(Challenge('probe', Extra()));
+            }
+            ..onAuthenticate = (transport, message) {
+              transport.inbound.add(
+                Welcome(
+                  42,
+                  Details.forWelcome(
+                    authId: 'alice',
+                    authMethod: 'probe',
+                    authExtra: {'server_proof': 'test-proof'},
+                  ),
+                ),
+              );
+            };
+          addTearDown(transport.dispose);
+          await expectLater(
+            Session.start(
+              'test.realm',
+              transport,
+              authMethods: [authentication],
+            ),
+            throwsA(same(failure)),
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(authentication.verificationCount, 1);
+          expect(authentication.verifiedAuthId, 'alice');
+          expect(authentication.verifiedAuthMethod, 'probe');
+          expect(authentication.verifiedAuthExtra, {
+            'server_proof': 'test-proof',
+          });
+          expect(authentication.cancelCount, greaterThanOrEqualTo(1));
+          expect(transport.closeCount, greaterThanOrEqualTo(1));
+          expect(transport.isOpen, isFalse);
+        },
+      );
+    }
+
+    test(
+      'CHALLENGE selects the matching authenticator, not the first method',
+      () async {
+        final decoy = _StartAuthentication('decoy');
+        final selected = _StartAuthentication('probe');
+        final transport = _StartTransport()
+          ..onHello = (transport) {
+            transport.inbound.add(Challenge('probe', Extra()));
+          }
+          ..onAuthenticate = (transport, message) {
+            transport.inbound.add(
+              Welcome(
+                42,
+                Details.forWelcome(authId: 'alice', authMethod: 'probe'),
+              ),
+            );
+          };
+        addTearDown(transport.dispose);
+        final session = await Session.start(
+          'test.realm',
+          transport,
+          authMethods: [decoy, selected],
+        );
+        expect(session.isConnected(), isTrue);
+        expect(session.authId, 'alice');
+        expect(session.authMethod, 'probe');
+        expect(transport.sent.whereType<Hello>().single.details.authmethods, [
+          'decoy',
+          'probe',
+        ]);
+        expect(transport.sent.whereType<Authenticate>(), hasLength(1));
+        expect(
+          transport.sent.whereType<Authenticate>().single.signature,
+          'proof-probe',
+        );
+        expect(decoy.challengeCount, 0);
+        expect(selected.challengeCount, 1);
+        expect(decoy.verificationCount, 0);
+        expect(selected.verificationCount, 1);
+        expect(selected.verifiedAuthId, 'alice');
+        expect(selected.verifiedAuthMethod, 'probe');
+      },
+    );
+
+    for (final closeThrows in [false, true]) {
+      test(
+        'synchronous challenge failure closes transport throws=$closeThrows',
+        () async {
+          final authentication = _StartAuthentication()
+            ..challengeError = StateError('derivation rejected');
+          final transport = _StartTransport()
+            ..throwOnClose = closeThrows
+            ..onHello = (transport) {
+              transport.inbound.add(Challenge('probe', Extra()));
+            };
+          addTearDown(transport.dispose);
+          await expectLater(
+            Session.start(
+              'test.realm',
+              transport,
+              authMethods: [authentication],
+            ),
+            throwsA(
+              isA<Abort>()
+                  .having(
+                    (value) => value.reason,
+                    'reason',
+                    Error.authorizationFailed,
+                  )
+                  .having(
+                    (value) => value.message?.message,
+                    'message',
+                    contains('derivation rejected'),
+                  ),
+            ),
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(authentication.challengeCount, 1);
+          expect(authentication.cancelCount, greaterThanOrEqualTo(1));
+          expect(transport.closeCount, greaterThanOrEqualTo(1));
+          expect(transport.isOpen, isFalse);
+          expect(transport.sent.whereType<Authenticate>(), isEmpty);
+        },
+      );
+    }
+
+    test(
+      'receive error before WELCOME preserves error and cancels authentication',
+      () async {
+        final failure = StateError('receive failed');
+        final authentication = _StartAuthentication();
+        final transport = _StartTransport()
+          ..onHello = (transport) {
+            transport.inbound.addError(failure);
+          };
+        addTearDown(transport.dispose);
+        await expectLater(
+          Session.start('test.realm', transport, authMethods: [authentication]),
+          throwsA(same(failure)),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(authentication.cancelCount, greaterThanOrEqualTo(1));
+        expect(transport.closeError, same(failure));
+        expect(transport.isOpen, isFalse);
+        expect(transport.sent.whereType<Authenticate>(), isEmpty);
+      },
+    );
+
+    test(
+      'receive closes before WELCOME without leaving a pending connection',
+      () async {
+        final authentication = _StartAuthentication();
+        final transport = _StartTransport()
+          ..onHello = (transport) {
+            unawaited(transport.inbound.close());
+          };
+        addTearDown(transport.dispose);
+        await expectLater(
+          Session.start('test.realm', transport, authMethods: [authentication]),
+          throwsA(
+            isA<StateError>().having(
+              (value) => value.message,
+              'message',
+              'Transport closed before session welcome',
+            ),
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(authentication.cancelCount, greaterThanOrEqualTo(1));
+        expect(transport.closeCount, greaterThanOrEqualTo(1));
+        expect(transport.isOpen, isFalse);
+      },
+    );
+
+    test(
+      'GOODBYE before WELCOME fails authentication and sends one reply',
+      () async {
+        final goodbye = Goodbye(
+          GoodbyeMessage('realm stopping'),
+          Goodbye.reasonNormal,
+        );
+        final authentication = _StartAuthentication();
+        final transport = _StartTransport()
+          ..onHello = (transport) {
+            transport.inbound.add(goodbye);
+          };
+        addTearDown(transport.dispose);
+        await expectLater(
+          Session.start(
+            'test.realm',
+            transport,
+            authId: 'alice',
+            authRole: 'member',
+            authExtra: {'realm_hint': 'test'},
+            authMethods: [authentication],
+          ),
+          throwsA(same(goodbye)),
+        );
+        await Future<void>.delayed(Duration.zero);
+        final hello = transport.sent.whereType<Hello>().single;
+        expect(hello.details.authid, 'alice');
+        expect(hello.details.authrole, 'member');
+        expect(hello.details.authextra, {'realm_hint': 'test'});
+        expect(transport.sent.whereType<Goodbye>(), hasLength(1));
+        expect(
+          transport.sent.whereType<Goodbye>().single.reason,
+          Goodbye.reasonGoodbyeAndOut,
+        );
+        expect(authentication.cancelCount, greaterThanOrEqualTo(1));
+        expect(transport.isOpen, isFalse);
+      },
+    );
+  });
+
   group('WAMP error observation helper', () {
     test('returns the original WAMP error including payload', () async {
       final error = Error(
@@ -89,6 +550,7 @@ void main() {
         final client = Client(realm: 'test.realm', transport: transport);
         addTearDown(client.disconnect);
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final first = await session.call('first').single;
         expect(first.arguments, ['reply', first.callRequestId]);
         expect(first.argumentsKeywords, {'procedure': 'first'});
@@ -137,6 +599,7 @@ void main() {
         final client = Client(realm: 'test.realm', transport: transport);
         addTearDown(client.disconnect);
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final materialized = <Event>[];
         final payloads = <EventPayload>[];
         final lazy = <LazyEventPayload>[];
@@ -213,6 +676,7 @@ void main() {
           final client = Client(realm: 'test.realm', transport: transport);
           addTearDown(client.disconnect);
           final session = await client.connect().first;
+          expect(session.isConnected(), isTrue);
           final registered = await session.register('ppt.proc');
           final invocations = <Invocation>[];
           registered.onInvoke(invocations.add);
@@ -304,6 +768,7 @@ void main() {
       });
 
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       expect(session.realm, equals('test.realm'));
       expect(session.id, equals(42));
       expect(session.authId, equals('Richi'));
@@ -358,6 +823,7 @@ void main() {
         }
       });
       var session = await Client(transport: transport2).connect().first;
+      expect(session.isConnected(), isTrue);
       expect(session, isA<Session>());
       expect(session.realm, equals('some.dynamic.realm'));
     });
@@ -450,6 +916,7 @@ void main() {
           }
         });
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         expect(session.realm, equals('changed.realm'));
         expect(session.id, equals(586844620777222));
         expect(session.authId, equals('11111111'));
@@ -570,6 +1037,7 @@ void main() {
         }
       });
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       expect(session.realm, equals('test.realm'));
       expect(session.id, equals(3251278072152162));
       expect(session.authId, equals('joe'));
@@ -650,6 +1118,7 @@ void main() {
         }
       });
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       expect(session.realm, equals('test.realm'));
       expect(session.id, equals(3251278072152162));
       expect(session.authId, equals('admin'));
@@ -706,12 +1175,12 @@ void main() {
       final transport = _MockTransport();
       final client = Client(realm: 'test.realm', transport: transport);
 
-      final yieldCompleter = Completer<Yield>();
-      final yieldCompleter2 = Completer<Yield>();
-      final progressiveCallYieldCompleter = Completer<Yield>();
-      final error1completer = Completer<Error>();
-      final error2completer = Completer<Error>();
-      final error3completer = Completer<Error>();
+      final yieldMessages = <Yield>[];
+      final pptYieldMessages = <Yield>[];
+      final progressiveYields = <Yield>[];
+      final exceptionErrors = <Error>[];
+      final handlerErrors = <Error>[];
+      final registrationErrors = <Error>[];
       final cancelRequestErrorRequestIds = <int>{};
 
       // ALL ROUTER MOCK RESULTS
@@ -866,7 +1335,7 @@ void main() {
           }
         } else if (message.id == MessageTypes.codeYield &&
             (message as Yield).invocationRequestId == 55001100) {
-          yieldCompleter2.complete(message);
+          pptYieldMessages.add(message);
         } else if (message.id == MessageTypes.codeYield &&
             (message as Yield).options?.pptScheme == 'x_custom_scheme') {
           transport.receiveMessage(
@@ -882,19 +1351,19 @@ void main() {
           );
         } else if (message.id == MessageTypes.codeYield &&
             (message as Yield).argumentsKeywords!['value'] == 0) {
-          yieldCompleter.complete(message);
+          yieldMessages.add(message);
         } else if (message.id == MessageTypes.codeYield &&
             (message as Yield).argumentsKeywords!['progressiveCalls'] != null) {
-          progressiveCallYieldCompleter.complete(message);
+          progressiveYields.add(message);
         } else if (message.id == MessageTypes.codeError &&
             (message as Error).error == Error.unknown) {
-          error1completer.complete(message);
+          exceptionErrors.add(message);
         } else if (message.id == MessageTypes.codeError &&
             (message as Error).error == Error.notAuthorized) {
-          error2completer.complete(message);
+          handlerErrors.add(message);
         } else if (message.id == MessageTypes.codeError &&
             (message as Error).error == Error.noSuchRegistration) {
-          error3completer.complete(message);
+          registrationErrors.add(message);
         }
       });
 
@@ -972,7 +1441,7 @@ void main() {
 
       final argumentsKeywords = HashMap<String, Object>();
       argumentsKeywords['value'] = 0;
-      transport.receiveMessage(
+      await transport.receiveMessage(
         Invocation(
           11001100,
           registered.registrationId,
@@ -981,14 +1450,16 @@ void main() {
           argumentsKeywords: argumentsKeywords,
         ),
       );
-      final yieldMessage = await yieldCompleter.future;
+      await Future<void>.delayed(Duration.zero);
+      expect(yieldMessages, hasLength(1));
+      final yieldMessage = yieldMessages.single;
       expect(yieldMessage, isNotNull);
       expect(yieldMessage.argumentsKeywords!['value'], equals(0));
       expect(yieldMessage.arguments![0], equals('did work'));
 
       // PPT YIELD
 
-      transport.receiveMessage(
+      await transport.receiveMessage(
         Invocation(
           55001100,
           registered.registrationId,
@@ -1046,7 +1517,9 @@ void main() {
           ],
         ),
       );
-      final pptYieldMessage = await yieldCompleter2.future;
+      await Future<void>.delayed(Duration.zero);
+      expect(pptYieldMessages, hasLength(1));
+      final pptYieldMessage = pptYieldMessages.single;
       expect(pptYieldMessage, isNotNull);
 
       // PPT RESULT
@@ -1074,7 +1547,7 @@ void main() {
 
       final progressiveArgumentsKeywords = HashMap<String, Object>();
       progressiveArgumentsKeywords['value'] = 1;
-      transport.receiveMessage(
+      await transport.receiveMessage(
         Invocation(
           21001100,
           registered.registrationId,
@@ -1083,7 +1556,7 @@ void main() {
           argumentsKeywords: progressiveArgumentsKeywords,
         ),
       );
-      transport.receiveMessage(
+      await transport.receiveMessage(
         Invocation(
           21001101,
           registered.registrationId,
@@ -1092,7 +1565,9 @@ void main() {
           argumentsKeywords: progressiveArgumentsKeywords,
         ),
       );
-      final finalYieldMessage = await progressiveCallYieldCompleter.future;
+      await Future<void>.delayed(Duration.zero);
+      expect(progressiveYields, hasLength(1));
+      final finalYieldMessage = progressiveYields.single;
       expect(finalYieldMessage, isNotNull);
       expect(finalYieldMessage.argumentsKeywords!['value'], equals(1));
       expect(
@@ -1124,7 +1599,7 @@ void main() {
 
       final argumentsKeywords2 = HashMap<String, Object>();
       argumentsKeywords2['value'] = -1;
-      transport.receiveMessage(
+      await transport.receiveMessage(
         Invocation(
           11001101,
           registered.registrationId,
@@ -1133,7 +1608,9 @@ void main() {
           argumentsKeywords: argumentsKeywords2,
         ),
       );
-      final error1 = await error1completer.future;
+      await Future<void>.delayed(Duration.zero);
+      expect(exceptionErrors, hasLength(1));
+      final error1 = exceptionErrors.single;
       expect(error1.requestTypeId, equals(MessageTypes.codeInvocation));
       expect(error1.requestId, equals(11001101));
       expect(error1, isNotNull);
@@ -1144,7 +1621,7 @@ void main() {
 
       final argumentsKeywords3 = HashMap<String, Object>();
       argumentsKeywords3['value'] = -2;
-      transport.receiveMessage(
+      await transport.receiveMessage(
         Invocation(
           11001102,
           registered.registrationId,
@@ -1153,7 +1630,9 @@ void main() {
           argumentsKeywords: argumentsKeywords3,
         ),
       );
-      final error2 = await error2completer.future;
+      await Future<void>.delayed(Duration.zero);
+      expect(handlerErrors, hasLength(1));
+      final error2 = handlerErrors.single;
       expect(error2, isNotNull);
       expect(error2.requestTypeId, equals(MessageTypes.codeInvocation));
       expect(error2.requestId, equals(11001102));
@@ -1224,7 +1703,7 @@ void main() {
 
       final argumentsKeywordsRegular = HashMap<String, Object>();
       argumentsKeywordsRegular['value'] = 0;
-      transport.receiveMessage(
+      await transport.receiveMessage(
         Invocation(
           11001199,
           registered.registrationId,
@@ -1233,7 +1712,9 @@ void main() {
           argumentsKeywords: argumentsKeywordsRegular,
         ),
       );
-      final error3Message = await error3completer.future;
+      await Future<void>.delayed(Duration.zero);
+      expect(registrationErrors, hasLength(1));
+      final error3Message = registrationErrors.single;
       expect(error3Message, isNotNull);
       expect(error3Message.requestTypeId, MessageTypes.codeInvocation);
       expect(error3Message.requestId, 11001199);
@@ -1271,6 +1752,7 @@ void main() {
       });
 
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       final requestedCancel = Completer<String>();
       final subscription = session
           .call('my.slow.procedure', cancelCompleter: requestedCancel)
@@ -1293,6 +1775,7 @@ void main() {
         realm: 'test.realm',
         transport: transport,
       ).connect().first;
+      expect(session.isConnected(), isTrue);
       final requestedCancel = Completer<String>();
 
       await session
@@ -1312,6 +1795,7 @@ void main() {
         realm: 'test.realm',
         transport: transport,
       ).connect().first;
+      expect(session.isConnected(), isTrue);
       final requestedCancel = Completer<String>();
       final pendingCall = session
           .call('bench.hang', cancelCompleter: requestedCancel)
@@ -1341,6 +1825,7 @@ void main() {
         realm: 'test.realm',
         transport: transport,
       ).connect().first;
+      expect(session.isConnected(), isTrue);
       final registered = await session.register('bench.late-response');
       final invocationCompleter = Completer<Invocation>();
       registered.onInvoke(invocationCompleter.complete);
@@ -1379,6 +1864,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
         final registered = await session.register('bench.failed-response');
         final invocationCompleter = Completer<Invocation>();
         registered.onInvoke(invocationCompleter.complete);
@@ -1419,6 +1905,7 @@ void main() {
       });
 
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
 
       transport.receiveMessage(
         Interrupt(
@@ -1456,6 +1943,7 @@ void main() {
       });
 
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       final registered = await session.registerHandler(
         'bench.cancel.proc',
         (_) {},
@@ -1508,6 +1996,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final registered = await session.registerHandler('bench.cancel.proc', (
           _,
         ) {
@@ -1561,6 +2050,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final registered = await session.registerHandler('bench.timeout.proc', (
           invocation,
         ) async {
@@ -1597,7 +2087,7 @@ void main() {
       () async {
         final transport = _MockTransport();
         final client = Client(realm: 'test.realm', transport: transport);
-        final yieldCompleter = Completer<Yield>();
+        final yields = <Yield>[];
 
         transport.outbound.stream.listen((message) {
           if (message.id == MessageTypes.codeHello) {
@@ -1610,17 +2100,17 @@ void main() {
             );
             return;
           }
-          if (message.id == MessageTypes.codeYield &&
-              !yieldCompleter.isCompleted) {
-            yieldCompleter.complete(message as Yield);
+          if (message is Yield) {
+            yields.add(message);
           }
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final registered = await session.register('lazy.proc');
         final invocationFuture = registered.invocationStream!.first;
 
-        transport.receiveMessage(
+        await transport.receiveMessage(
           Invocation(
             9001,
             registered.registrationId,
@@ -1635,7 +2125,9 @@ void main() {
 
         invocation.respondWith(arguments: const ['done']);
 
-        final yieldMessage = await yieldCompleter.future;
+        await Future<void>.delayed(Duration.zero);
+        expect(yields, hasLength(1));
+        final yieldMessage = yields.single;
         expect(yieldMessage.invocationRequestId, equals(9001));
         expect(yieldMessage.arguments, equals(const ['done']));
       },
@@ -1657,6 +2149,7 @@ void main() {
       });
 
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       final subscribed = await session.subscribe('lazy.topic');
       final eventCompleter = Completer<Event>();
 
@@ -1702,6 +2195,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final firstEvents = <int>[];
         final secondEvents = <int>[];
         final firstDelivery = Completer<void>();
@@ -1765,6 +2259,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final eventCompleter = Completer<Event>();
         final subscribed = await session.subscribeHandler('handler.topic', (
           event,
@@ -1807,6 +2302,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final eventCompleter = Completer<EventPayload>();
         final subscribed = await session.subscribePayloadHandler(
           'payload.topic',
@@ -1849,6 +2345,7 @@ void main() {
       });
 
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       final eventCompleter = Completer<LazyEventPayload>();
       final subscribed = await session.subscribeLazyPayloadHandler(
         'lazy.topic',
@@ -1892,6 +2389,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
         final lazyCompleter = Completer<LazyEventPayload>();
         final payloadCompleter = Completer<EventPayload>();
         final subscribed = await session.subscribeLazyPayloadHandler(
@@ -1957,6 +2455,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
         final eventCompleter = Completer<Event>();
         final subscribed = await session.subscribeHandler('ppt.topic', (event) {
           if (!eventCompleter.isCompleted) {
@@ -2015,6 +2514,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final registered = await session.registerHandler('handler.proc', (
           invocation,
         ) async {
@@ -2081,6 +2581,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final invocationCompleter = Completer<InvocationPayload>();
         final registered = await session.registerPayloadHandler(
           'payload.proc',
@@ -2136,6 +2637,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final invocationCompleter = Completer<LazyInvocationPayload>();
         final registered = await session.registerLazyPayloadHandler(
           'lazy.proc',
@@ -2175,6 +2677,7 @@ void main() {
         final invocationCompleter = Completer<LazyInvocationPayload>();
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final registered = await session.registerLazyPayloadHandler(
           'immediate.proc',
           (invocation) {
@@ -2215,6 +2718,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
         final lazyCompleter = Completer<LazyInvocationPayload>();
         final payloadCompleter = Completer<InvocationPayload>();
         final registered = await session.registerLazyPayloadHandler(
@@ -2289,6 +2793,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
         final invocationCompleter = Completer<LazyInvocationPayload>();
         final registered = await session.registerLazyPayloadHandler(
           'progressive.proc',
@@ -2334,6 +2839,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
         final invocationCompleter = Completer<LazyInvocationPayload>();
         final registered = await session.registerLazyPayloadHandler(
           'late.native.proc',
@@ -2386,6 +2892,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
         final invocationCompleter = Completer<Invocation>();
         final registered = await session.registerHandler('ppt.proc', (
           invocation,
@@ -2446,6 +2953,7 @@ void main() {
         realm: 'test.realm',
         transport: transport,
       ).connect().first;
+      expect(session.isConnected(), isTrue);
       final registered = await session.registerLazyPayloadHandler(
         'bench.cancel.proc',
         (_) {},
@@ -2505,6 +3013,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
         final registered = await session.registerLazyPayloadHandler(
           'bench.cancel.proc',
           (_) {
@@ -2589,6 +3098,7 @@ void main() {
         }
       });
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
 
       // SUBSCRIPTION REVOCATION
 
@@ -2816,6 +3326,7 @@ void main() {
       });
 
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       expect(session.realm, equals('test.realm'));
       expect(session.id, equals(42));
       expect(session.authId, equals('Richi'));
@@ -2878,6 +3389,7 @@ void main() {
       });
 
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       expect(sentHello?.details.authextra, equals(helloAuthExtra));
       expect(session.authExtra, equals(welcomeAuthExtra));
       expect(session.e2eeProvider, isNull);
@@ -3028,6 +3540,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         expect(session.e2eeProvider, same(provider));
         expect(seenContext, isNotNull);
         expect(seenContext?.sessionId, 42);
@@ -3125,6 +3638,7 @@ void main() {
         }
       });
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       await client.disconnect();
 
       expect(transport.isOpen, isFalse);
@@ -3183,6 +3697,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first.timeout(stepTimeout);
+        expect(session.isConnected(), isTrue);
 
         final progressive = session.startProgressiveCall(
           'bench.upload',
@@ -3235,6 +3750,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first.timeout(stepTimeout);
+        expect(session.isConnected(), isTrue);
 
         final finalResult = await session
             .callSingle('bench.progressive')
@@ -3260,6 +3776,7 @@ void main() {
         realm: 'test.realm',
         transport: transport,
       ).connect().first.timeout(stepTimeout);
+      expect(session.isConnected(), isTrue);
 
       final finalResult = await session
           .callSinglePayload('bench.progressive')
@@ -3276,6 +3793,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first.timeout(stepTimeout);
+        expect(session.isConnected(), isTrue);
 
         final finalResult = await session
             .callSingleLazyPayload('bench.progressive')
@@ -3310,6 +3828,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
 
         final result = await session.callSinglePayload('ppt.result');
         expect(result.progress, isFalse);
@@ -3344,6 +3863,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
 
         final result = await session.callSingle('ppt.result');
         expect(result.hasDecodedPptPayload, isFalse);
@@ -3389,6 +3909,7 @@ void main() {
           transport: transport,
           e2eeProvider: provider,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
 
         final result = await session.callSingle('wamp.result');
         expect(result.hasDecodedPptPayload, isFalse);
@@ -3441,6 +3962,7 @@ void main() {
           transport: transport,
           e2eeProvider: provider,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
 
         final result = await session.callSingle('wamp.result');
         expect(result.hasDecodedPptPayload, isFalse);
@@ -3493,6 +4015,7 @@ void main() {
           transport: transport,
           e2eeProviderResolver: (_) => provider,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
 
         final result = await session.callSingle('wamp.result');
         expect(result.hasDecodedPptPayload, isFalse);
@@ -3527,6 +4050,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
 
         final result = await session.callSingleLazyPayload('ppt.result');
         expect(result.pptScheme, equals('x_custom_scheme'));
@@ -3569,6 +4093,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         final result = await session.callSingleLazyPayloadView(
           'lazy.call',
           payload: LazyMessagePayload.encoded(
@@ -3603,6 +4128,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         await session.publishLazyPayload(
           'ppt.topic',
           payload: LazyMessagePayload.encoded(
@@ -3658,6 +4184,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         await session.publishLazyPayload(
           'ppt.topic',
           payload: LazyMessagePayload.packed(
@@ -3708,6 +4235,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         await session.publishLazyPayload(
           'ppt.topic',
           payload: LazyMessagePayload.encoded(
@@ -3741,6 +4269,7 @@ void main() {
           realm: 'test.realm',
           transport: transport,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
 
         expect(
           () => session.publishLazyPayload(
@@ -3786,6 +4315,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         await session.publishLazyPayload(
           'ppt.topic',
           payload: LazyMessagePayload.materialized(
@@ -3841,6 +4371,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         await session.publishLazyPayload(
           'policy.topic.beta',
           payload: LazyMessagePayload.materialized(
@@ -3888,6 +4419,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         await session.publishLazyPayload(
           'ppt.topic',
           payload: LazyMessagePayload.materialized(
@@ -3946,6 +4478,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         await session.publishLazyPayload(
           'ppt.topic',
           payload: LazyMessagePayload.materialized(
@@ -3994,6 +4527,7 @@ void main() {
         });
 
         final session = await client.connect().first;
+        expect(session.isConnected(), isTrue);
         await session.publishLazyPayload(
           'ppt.topic',
           payload: LazyMessagePayload.materialized(
@@ -4109,6 +4643,7 @@ void main() {
           transport: transport,
           e2eeProvider: provider,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
         await session.registerHandler('bench.proc', (invocation) {
           expect(invocation.arguments, equals(const ['wrapped-invocation']));
           expect(invocation.argumentsKeywords, equals(const {'worker': 3}));
@@ -4152,6 +4687,7 @@ void main() {
       });
 
       final session = await client.connect().first;
+      expect(session.isConnected(), isTrue);
       await session.publishLazyPayload(
         'bench.secure.topic',
         payload: LazyMessagePayload.materialized(
@@ -4228,6 +4764,7 @@ void main() {
           transport: transport,
           e2eeProvider: inspectingProvider,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
 
         final result = await session.callSingle('wamp.result');
         expect(result.arguments, equals(const ['wrapped-result']));
@@ -4305,12 +4842,99 @@ void main() {
           transport: transport,
           e2eeProvider: inspectingProvider,
         ).connect().first;
+        expect(session.isConnected(), isTrue);
         await session.registerHandler('bench.proc', (invocation) {
           expect(invocation.arguments, equals(const ['wrapped-invocation']));
           expect(invocation.argumentsKeywords, equals(const {'worker': 3}));
           invocation.respondWith(arguments: const ['ok']);
           invocationSeen.complete();
         });
+
+        await invocationSeen.future;
+        final context = inspectingProvider.lastUnpackRuntimeContext;
+        expect(context, isNotNull);
+        expect(context!.direction, equals(WampE2eeDirection.inbound));
+        expect(context.messageType, equals(WampE2eeMessageType.invocation));
+        expect(context.realm, equals('test.realm'));
+        expect(context.uri, equals('bench.proc'));
+        expect(context.local?.sessionId, equals(42));
+        expect(context.local?.authId, equals('callee-a'));
+        expect(context.peer?.sessionId, equals(9001));
+        expect(context.peer?.authId, equals('caller-a'));
+        expect(context.peer?.authRole, equals('caller'));
+        expect(context.peer?.authProvider, equals('remote-auth'));
+
+        await session.close(timeout: Duration.zero);
+      },
+    );
+    test(
+      'registerHandler uses actual procedure for prefix registration E2EE context',
+      () async {
+        final packer = _testWampE2eeProvider();
+        final inspectingProvider = _InspectingWampE2eeProvider(packer);
+        final invocationSeen = Completer<void>();
+        final transport = _MockTransport();
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(
+              Welcome(
+                42,
+                Details.forWelcome(
+                  realm: 'test.realm',
+                  authId: 'callee-a',
+                  authRole: 'callee',
+                  authMethod: 'ticket',
+                  authProvider: 'bench-auth',
+                ),
+              ),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            final register = message as Register;
+            expect(register.procedure, 'bench.');
+            expect(register.options?.match, RegisterOptions.matchPrefix);
+            transport.receiveMessage(Registered(register.requestId, 77));
+
+            final options = InvocationDetails(
+              9001,
+              'bench.proc',
+              false,
+              'wamp',
+              'cbor',
+              null,
+              null,
+              const {
+                'authid': 'caller-a',
+                'authrole': 'caller',
+                'authprovider': 'remote-auth',
+              },
+            );
+            final packedArguments = packer.packPayload(
+              const ['wrapped-invocation'],
+              const {'worker': 3},
+              options,
+            );
+            transport.receiveMessage(
+              Invocation(1001, 77, options, arguments: packedArguments),
+            );
+            return;
+          }
+        });
+
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: inspectingProvider,
+        ).connect().first;
+        expect(session.isConnected(), isTrue);
+        await session.registerHandler('bench.', (invocation) {
+          expect(invocation.arguments, equals(const ['wrapped-invocation']));
+          expect(invocation.argumentsKeywords, equals(const {'worker': 3}));
+          invocation.respondWith(arguments: const ['ok']);
+          invocationSeen.complete();
+        }, options: RegisterOptions(match: RegisterOptions.matchPrefix));
 
         await invocationSeen.future;
         final context = inspectingProvider.lastUnpackRuntimeContext;
@@ -4336,6 +4960,7 @@ void main() {
         realm: 'test.realm',
         transport: transport,
       ).connect().first.timeout(stepTimeout);
+      expect(session.isConnected(), isTrue);
 
       final callResults = await Future.wait([
         session.call('bench.first').first.timeout(stepTimeout),
@@ -4404,6 +5029,7 @@ void main() {
         realm: 'test.realm',
         transport: transport,
       ).connect().first.timeout(stepTimeout);
+      expect(session.isConnected(), isTrue);
 
       final subscribed = await session
           .subscribe('bench.ready')
@@ -4613,8 +5239,11 @@ class _MockTransport extends AbstractTransport {
     outbound.add(message);
   }
 
-  void receiveMessage(AbstractMessage message) {
-    Future.delayed(Duration(milliseconds: 1), () => inbound.add(message));
+  Future<void> receiveMessage(AbstractMessage message) {
+    return Future.delayed(
+      Duration(milliseconds: 1),
+      () => inbound.add(message),
+    );
   }
 
   @override
@@ -5107,5 +5736,109 @@ class _PendingCloseTransport extends _ImmediateResponseTransport {
     _open = false;
     await inbound.close();
     complete(_onDisconnect, error);
+  }
+}
+
+class _StartAuthentication extends AbstractAuthentication {
+  _StartAuthentication([this.name = 'probe']);
+  final String name;
+  Object? challengeError;
+  Object? cancelError;
+  Object? verificationError;
+  var verificationCount = 0;
+  String? verifiedAuthId;
+  String? verifiedAuthMethod;
+  Map<String, Object?>? verifiedAuthExtra;
+  var challengeCount = 0;
+  var cancelCount = 0;
+
+  @override
+  Stream<Extra> get onChallenge => const Stream.empty();
+
+  @override
+  String getName() => name;
+
+  @override
+  Future<void> hello(String? realm, Details details) async {}
+
+  @override
+  Future<Authenticate> challenge(Extra extra) {
+    challengeCount++;
+    final error = challengeError;
+    if (error != null) throw error;
+    return Future.value(Authenticate(signature: 'proof-$name'));
+  }
+
+  @override
+  Future<void> verifyFinal({
+    required String? authId,
+    required String? authMethod,
+    required Map<String, Object?>? authExtra,
+  }) async {
+    verificationCount++;
+    verifiedAuthId = authId;
+    verifiedAuthMethod = authMethod;
+    verifiedAuthExtra = authExtra;
+    final error = verificationError;
+    if (error != null) throw error;
+  }
+
+  @override
+  Future<void> cancelPendingChallenge() async {
+    cancelCount++;
+    final error = cancelError;
+    if (error != null) throw error;
+  }
+}
+
+class _StartTransport extends AbstractTransport {
+  final inbound = StreamController<AbstractMessage>.broadcast();
+  final sent = <AbstractMessage>[];
+  void Function(_StartTransport)? onHello;
+  void Function(_StartTransport, Authenticate)? onAuthenticate;
+  var _open = true;
+  var throwOnClose = false;
+  var closeCount = 0;
+  Object? closeError;
+
+  @override
+  final Completer<void> onConnectionLost = Completer<void>();
+  @override
+  final Completer<void> onDisconnect = Completer<void>();
+
+  @override
+  bool get isOpen => _open;
+  @override
+  bool get isReady => _open;
+  @override
+  Future<void> get onReady => Future.value();
+  @override
+  Future<void> open({Duration? pingInterval}) async => _open = true;
+  @override
+  Stream<AbstractMessage> receive() => inbound.stream;
+
+  @override
+  void send(AbstractMessage message) {
+    sent.add(message);
+    if (message is Hello) onHello?.call(this);
+    if (message is Authenticate) onAuthenticate?.call(this, message);
+  }
+
+  @override
+  Future<void> close({error}) {
+    closeCount++;
+    closeError ??= error;
+    _open = false;
+    if (!onDisconnect.isCompleted) onDisconnect.complete();
+    if (throwOnClose) {
+      throwOnClose = false;
+      throw StateError('transport close failed');
+    }
+    return inbound.close();
+  }
+
+  Future<void> dispose() async {
+    throwOnClose = false;
+    await close();
   }
 }

@@ -67,6 +67,71 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work142 Inbound E2EE Context And Native Error Contracts
+
+- Fast142-before passes before canonical edits. Add 24 EVENT/INVOCATION cases
+  crossing native/materialized input, actual/fallback URI and metadata presence,
+  plus a prefix-registration peer-authentication case. Assert decrypted content,
+  local/peer identity, event-only trust metadata and correlated invocation reply.
+- Add real-native invalid-resource and wrong-protocol tests, optional-capability
+  defaults, idempotent cleanup and failed TLS reload recovery. Source inspection
+  corrects two initial test assumptions: optional WebSocket polling returns zero
+  on non-WebSocket connections; TLS reload counts cleartext listeners too.
+  Preserve failed initial probes; no production fix or mutation credit claimed.
+- All412 canonical Session cases pass VM/JS/WASM; all28 native runtime cases pass.
+  Analysis/formatting pass. Full VM142 and JS142 collections finish exit0 on
+  frozen inputs. VM38875/42673 (91.10%), client8655/9408 (92.00%), router17147/
+  19386 (88.45%),59 unmeasured sources. Native runtime gains45 covered lines to
+  1239/1521 and Session gains one to993/1027; other router variation is not
+  attributed to these tests. JS core7383/7690 (96.01%), client2615/2728 (95.86%),
+  162 unmeasured sources. Packaging765/787 (97.20%),12 unmeasured sources. All
+  explicit98% audits fail. Original serialized Verify142 exits0 after VM142,
+  including3319 core/2485 client WASM cases. Final input/native hashes match;
+  no native consumers remain.
+- Three isolated single-mutant probes (lost materialized invocation URI, lost
+  native event URI, forced native trust presence) run all117 copied client cases
+  on VM/JS and produce3/4/8 assertion failures respectively, zero other errors.
+  Preserve session142-context-investigation and native142-investigation evidence.
+  These are individual non-equivalence proofs, not new complete mutation scores.
+- Native reservation explicitly extends through143. Older Session140 JS campaign
+  continues without duplication. Bundle141/142 implementation and state after
+  full verification; no merge, publication or version change.
+- The isolated six-case GOODBYE probe passes VM/JS/WASM. Three individual mutant
+  probes yield4/2/3 actual assertions on VM and JS, zero other errors. Controls
+  preserve action exception identity across zones. Preserve initial compile and
+  wrong-browser-root setup failures separately. Integrate after Fast143, then
+  refresh coverage, including the older Cargo/Dart-driven native measurements.
+  Single-mutant probes do not upgrade complete campaign scores.
+
+### Work141 Healthy Session And Startup Failure Oracles
+
+- Fast141-before exits0 before canonical integration. Add connected-state checks
+  after normal successful handshakes in client/meta/lazy/progressive fixtures,
+  including timeout-wrapped setups. Preserve immediate-GOODBYE fixtures.
+- Nine startup tests cover named authenticator selection, synchronous challenge
+  errors, receive error/closure and early GOODBYE identity, verifier failure with
+  throwing close, and cancellation of later methods despite one cleanup failure.
+- Await the mock's existing1ms receive delivery before asserting captured
+  invocation replies. No guessed longer sleep, new timeout, production change,
+  classifier change, waiver or lowered threshold. Retain failed initial probe
+  ordering and cascade-compile experiments as failures, never mutation credit.
+- All387 canonical cases pass VM/JS/WASM; analysis and formatting pass. Three
+  isolated mutants run all387 cases on VM/JS and terminate with323/1/1 actual
+  assertions respectively, zero other errors. They do not upgrade full scores.
+- JS141 completes exit0: core7383/7690 (96.01%), client2612/2726 (95.82%),
+  retaining162 unmeasured sources. VM141 finishes exit0: library38820/42673
+  (90.97%), client8654/9408 (91.99%), router17093/19386 (88.17%),59 unmeasured
+  sources. Packaging765/787 (97.20%) retains12 unmeasured sources. All98% gates
+  still fail. Session VM gains18 covered lines to992/1027; unchanged-code router
+  variation is not attributed to these tests. Original serialized Verify141
+  exits0, including2460 client WASM cases; final input/native hashes match and
+  no native consumers remain. Fast142-before starts before integration.
+  Reservation explicitly extended through142. Original Session140
+  JS campaign continues on its older snapshot without duplicate campaigns.
+- Work140 e433d615 pushed; both package dry runs pass, image/profile and main CI
+  running; main CI queued. Strict audit remains non-green. Full98%/95% goal
+  remains incomplete.
+
 ### Work140 Session Oracles And Native Message Dispatch
 
 - Integrate the proven Session probe after Fast140-before exits0. Await actual

@@ -6,6 +6,76 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work142 integrates a 24-case inbound E2EE context matrix across materialized
+and native EVENT/INVOCATION dispatch, actual versus fallback URIs, peer identity
+presence and event trust-level presence. A separate prefix-registration case
+checks the actual procedure and peer authentication metadata. Native runtime
+regressions cover optional capabilities, invalid resource IDs, protocol guards,
+idempotent cleanup and failed TLS reload recovery without losing a listener.
+Fast142-before passes before integration; all412 canonical Session cases pass
+on VM/JS/WASM and all28 real-native runtime cases pass. Formatting and analysis
+pass. Full VM142 and JS142 collections finish exit0 on frozen inputs. VM
+library38875/42673 (91.10%), client8655/9408 (92.00%) and router17147/19386
+(88.45%) retain59 unmeasured sources. Native router runtime gains45 covered
+lines to1239/1521 (81.46%); Session gains one to993/1027 (96.69%). Other router
+variation is unchanged-code timing evidence, not attributed to these tests.
+JS core7383/7690 (96.01%) and client2615/2728 (95.86%) retain162 unmeasured
+sources. Packaging765/787 (97.20%) retains12 unmeasured sources. All explicit
+98% audits still fail. Original serialized Verify142 exits0 after VM142,
+including3319 core and2485 client WASM cases. Final source/test/native hashes
+match, and no native consumers remain.
+Three individual mutation probes fail with real assertions on VM and JS, but
+do not replace complete campaign scores. The older Session140 campaign remains
+live on its isolated snapshot. Work141 and142 are verified together for the
+coverage feature branch; no merge, version change or publication. The native
+reservation is explicitly extended through143. VM/JS142 is the latest completed
+line evidence. Work140 image,
+profile and package checks pass; its main CI is still queued behind older live
+runs. Fresh hosted evidence is required for the142 snapshot.
+
+Next integrate the isolated six-case GOODBYE regression probe after Fast143.
+Original VM/JS/WASM pass. Three individual mutants (outbound deduplication,
+duplicate completion and lost notification) produce4/2/3 actual assertions on
+VM/JS, zero other errors. The observer preserves genuine StateError/TestFailure
+identity rather than swallowing action failures across zones. Preserve initial
+compile and invalid-browser-root failures separately; they earn no credit.
+This probe does not upgrade a complete mutation score. After integration,
+refresh native Cargo and Dart-driven FFI measurements as well as VM/browser
+evidence; the older native results are not current-snapshot completion proof.
+
+Work141 integrates healthy-session setup assertions across all five Session
+target suites, including timeout-wrapped connections; intentional immediate
+GOODBYE fixtures are unchanged. Nine startup regressions cover named method
+selection, synchronous challenge failure, early receive errors/closure/GOODBYE,
+verification failure identity and cleanup fanout despite a throwing method.
+In-memory invocation response tests await actual fixture delivery, then assert
+captured wire replies and payloads rather than waiting indefinitely for them.
+The original1ms delivery delay, production code and mutation scoring are unchanged.
+
+Fast141-before exits0 before edits; all387 canonical cases pass VM/JS/WASM,
+formatting and analysis pass. JS141 completes exit0: core7383/7690 (96.01%),
+client2612/2726 (95.82%),162 unmeasured sources; explicit98% audit fails.
+VM141 completes exit0: library38820/42673 (90.97%), client8654/9408 (91.99%),
+router17093/19386 (88.17%),59 unmeasured sources. Packaging765/787 (97.20%)
+retains12 unmeasured sources; all explicit98% audits still fail. Session VM
+gains18 covered lines to992/1027 (96.59%); router variation is unchanged-code
+timing evidence, not attributed to Session tests. Original serialized Verify141
+exits0, including2460 client WASM cases. Final input/native hashes match and
+no native consumers remain. Fast142-before runs before the next integration.
+The shared native reservation is explicitly extended through Work142. Full
+Session140 JS campaign remains live on its older isolated snapshot; do not start
+a duplicate or label its eventual result as141 evidence. On final canonical
+tests, three isolated single-mutant VM/JS probes each run all387 cases: initial
+closed-state produces323 assertions; wrong auth selection and lost early GOODBYE
+identity each produce one. All terminate exit1 with zero other errors; these are
+non-equivalence proofs, not a replacement for full mutation scores. Preserve
+failed probe baselines/compile errors separately. GLM review is unavailable;
+Qwen review completed and was checked against source, without weakening tests.
+
+Work140 is pushed as e433d615. Both package dry runs pass; new-head image/profile
+checks are running and main CI remains queued; strict audit is not green.
+VM/JS141 is the latest complete line evidence. No merge/version/publication.
+
 Work140 restores the legacy client test's inert PPT result assertions and fake
 router RESULT framing, fixes progressive keyword payload setup, and replaces
 five error-completer waits with direct observation preserving non-WAMP errors.

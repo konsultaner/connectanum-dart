@@ -220,7 +220,9 @@ void main() {
 
 Future<Session> _startSession(_MetaTransport transport) async {
   await transport.open();
-  return Session.start('example.realm', transport);
+  final session = await Session.start('example.realm', transport);
+  expect(session.isConnected(), isTrue);
+  return session;
 }
 
 final class _MetaTransport extends AbstractTransport {
