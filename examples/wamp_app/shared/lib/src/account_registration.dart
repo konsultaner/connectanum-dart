@@ -86,7 +86,10 @@ class RegistrationReceipt {
     }
     final username = value['username'];
     final displayName = value['display_name'];
-    final createdAt = DateTime.tryParse(value['created_at'] as String? ?? '');
+    final rawCreatedAt = value['created_at'];
+    final createdAt = rawCreatedAt is String
+        ? DateTime.tryParse(rawCreatedAt)
+        : null;
     if (username is! String || displayName is! String || createdAt == null) {
       throw const FormatException(
         'The server returned an invalid registration receipt.',

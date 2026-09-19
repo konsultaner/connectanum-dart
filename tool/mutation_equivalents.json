@@ -1,0 +1,212 @@
+{
+  "router-http-auth-vm": {
+    "a9ab9012b74d7be74457": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Changing the leeway normalization comparison from < to <= changes its branch only for integer zero. Both branches then pass exactly zero seconds to Duration. Negative and positive integers take the same branches as before; no other expression, callback or date comparison changes."
+    },
+    "f0c3cf2dd5510baf0860": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing the optional roles-claim guard true adds work only when rolesClaim is null: _stringOption has already normalized empty strings to null. Both callers supply a newly copied Map<String, Object?> from decoded JSON, so claims[null] is null, _stringListOption(null) is empty, and the role insertion loop performs zero iterations. The later primary-role insertion and all returned claims/roles are unchanged. This is not a waiver for changing role names or membership checks."
+    },
+    "f3fe51ded7c253cacbd4": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing _intOption's null guard false only changes evaluation for null. Null is neither int nor num. Dart core Null.toString() returns the literal string 'null' (it does not throw); trimming and int.tryParse therefore return null, identical to the original early return. Non-null inputs retain exactly their previous control flow."
+    },
+    "bbea84775495ad9d695a": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing _boolOption's null guard false only changes evaluation for null. Null is not bool and its Dart core toString() is 'null'; trim/lowercase leave it unchanged, neither boolean string comparison matches, and the final return is null. No configuration value or TLS decision changes."
+    },
+    "e9ebffd00775605dd1bf": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "This forces only the second string condition raw == 'false' to true, not its return value. Booleans and the earlier raw == 'true' branch are unchanged. For other strings the helper now returns false rather than sometimes null. Its sole caller enables insecure TLS only for a result == true, so both false and null keep certificate verification enabled. All string conversion occurs before the changed condition in both versions."
+    },
+    "ccdb754c34febffc5a18": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing only raw == 'false' false changes the helper's result for the normalized string 'false' from false to null. The preceding bool and 'true' branches are unchanged. The only call site compares the result with true before installing a badCertificateCallback, and false == true and null == true are both false. Certificate validation remains enabled for this input."
+    },
+    "c5804e0589823c862195": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Changing the second raw == 'false' comparison to != exchanges false/null results for strings that reach it. The earlier raw == 'true' branch has already returned true, and real bool inputs have already returned their original value. The sole consumer checks == true for TLS opt-in; neither false nor null enables it. This proof does not cover mutating the preceding 'true' condition or either return literal."
+    },
+    "97f2132c09f808ef2c02": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing _stringListOption's null guard false only affects null. It is not Iterable; the unchanged _stringOption(null) returns null, and the subsequent single == null guard returns the same empty growable String list as the original early return. Non-null evaluation, list contents and externally observable state are unchanged."
+    },
+    "03144da3383564e82041": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Changing this private helper's Iterable.toList growable flag preserves conversion order, elements and iteration errors. All four call sites only read the returned list: two use audience isEmpty/contains, one iterates roles into a new map, and one addAll-copies scopes into a different list. The returned list never escapes or changes length, so its growability is not observable. This does not waive the separate response BytesBuilder copy mutation."
+    }
+  },
+  "core-pem-pkcs8-vm": {
+    "03e7cb535020ebe724ef": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "fromEd25519Seed accepts exactly 32 seed bytes. Its fixed version/OID/nested OCTET STRING encodes 46 content bytes plus the two-byte outer SEQUENCE header: 48 DER bytes and exactly 64 base64 characters. The loop runs only at i=0. Forcing its substring condition true selects i+64=64, identical to the original false branch's base64Text.length=64."
+    },
+    "755837de2fcc0c9f37a8": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer's 32-byte seed guard and fixed ASN.1 envelope produce exactly 48 DER bytes, hence 64 base64 characters. Only i=0 reaches the substring condition, where 0+64<64 is false. Forcing that condition false therefore preserves the selected bound and all output."
+    },
+    "a76f9526176f467f61dc": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer always emits exactly 64 base64 characters from its fixed 48-byte DER envelope and iterates only at i=0. Changing < to <= selects the other substring branch at equality, but both branches supply the same end index 64. No callback, mutation or distinct exception occurs in either scalar bound expression."
+    },
+    "cbd93bcb29a9f0a1084c": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For every admitted 32-byte seed the DER envelope is 48 bytes and the base64 string is 64 characters. At the only iteration i=0, both 0+64<64 and 0+64>64 are false, preserving the substring bound, newline and footer."
+    },
+    "aa84cab9ebb7581c989b": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For the fixed 64-character base64 output and sole i=0 iteration, replacing + with - only in the condition makes -64<64 true. The unmutated true branch still supplies i+64=64, equal to the original false branch's string length. The single mutant does not also alter the branch's arithmetic."
+    },
+    "21708c630192b37e0270": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The admitted 32-byte seed produces a fixed 48-byte DER envelope and exactly 64 base64 characters. The sole substring condition is 0+64<64, always false. This single mutation changes only arithmetic in the unselected true branch, which is never evaluated; it cannot affect output or throw a negative-bound error."
+    },
+    "e16f0ec1d91b3fb31ca6": {
+      "sourceHash": "bedf8eeb2232a5fd71ebd75faa229c5ba0d20f3470f25cce2c9b2c45c48013cf",
+      "reason": "This mutation flips init(false) to init(true) only on CTRBlockCipher(32, CTRStreamCipher(AESEngine())). In locked PointyCastle 4.0.0, StreamCipherAsBlockCipher forwards the flag, CTRStreamCipher inherits SICStreamCipher.init, and that method ignores forEncryption and always initializes AES with true. IV/reset and XOR keystream operations are identical. This proof does not cover the adjacent CBC branch, whose direction mutation is killed by the independent CBC fixture."
+    }
+  },
+  "core-pem-pkcs8-web": {
+    "03e7cb535020ebe724ef": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "fromEd25519Seed accepts exactly 32 seed bytes. Its fixed version/OID/nested OCTET STRING encodes 46 content bytes plus the two-byte outer SEQUENCE header: 48 DER bytes and exactly 64 base64 characters. The loop runs only at i=0. Forcing its substring condition true selects i+64=64, identical to the original false branch's base64Text.length=64."
+    },
+    "755837de2fcc0c9f37a8": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer's 32-byte seed guard and fixed ASN.1 envelope produce exactly 48 DER bytes, hence 64 base64 characters. Only i=0 reaches the substring condition, where 0+64<64 is false. Forcing that condition false therefore preserves the selected bound and all output."
+    },
+    "a76f9526176f467f61dc": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer always emits exactly 64 base64 characters from its fixed 48-byte DER envelope and iterates only at i=0. Changing < to <= selects the other substring branch at equality, but both branches supply the same end index 64. No callback, mutation or distinct exception occurs in either scalar bound expression."
+    },
+    "cbd93bcb29a9f0a1084c": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For every admitted 32-byte seed the DER envelope is 48 bytes and the base64 string is 64 characters. At the only iteration i=0, both 0+64<64 and 0+64>64 are false, preserving the substring bound, newline and footer."
+    },
+    "aa84cab9ebb7581c989b": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For the fixed 64-character base64 output and sole i=0 iteration, replacing + with - only in the condition makes -64<64 true. The unmutated true branch still supplies i+64=64, equal to the original false branch's string length. The single mutant does not also alter the branch's arithmetic."
+    },
+    "21708c630192b37e0270": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The admitted 32-byte seed produces a fixed 48-byte DER envelope and exactly 64 base64 characters. The sole substring condition is 0+64<64, always false. This single mutation changes only arithmetic in the unselected true branch, which is never evaluated; it cannot affect output or throw a negative-bound error."
+    },
+    "e16f0ec1d91b3fb31ca6": {
+      "sourceHash": "bedf8eeb2232a5fd71ebd75faa229c5ba0d20f3470f25cce2c9b2c45c48013cf",
+      "reason": "This mutation flips init(false) to init(true) only on CTRBlockCipher(32, CTRStreamCipher(AESEngine())). In locked PointyCastle 4.0.0, StreamCipherAsBlockCipher forwards the flag, CTRStreamCipher inherits SICStreamCipher.init, and that method ignores forEncryption and always initializes AES with true. IV/reset and XOR keystream operations are identical. This proof does not cover the adjacent CBC branch, whose direction mutation is killed by the independent CBC fixture."
+    }
+  },
+  "router-settings-vm": {
+    "d7d482fea0b1496deb85": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "The private _withOpenMetricsRoutes missingRoutes list is only queried for isEmpty and spread into a separate routes list. It is never returned, passed to caller code, or resized. Changing its toList growable flag therefore cannot change any observable list or operation."
+    },
+    "6cf1a443fb0f1ee4cb39": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Unconditionally appending ListenerProtocol.http in _protocolsWithHttp changes only duplicate occurrences after the existing first occurrence. The private ordinary list is immediately converted through LinkedHashSet, preserving that first occurrence and removing the added duplicate before the result escapes."
+    },
+    "c150580dc415a3733a95": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Unconditionally appending ListenerProtocol.http2 in _protocolsWithHttp adds either the same required element or a duplicate after its first occurrence. LinkedHashSet removes that duplicate while preserving insertion order before returning a new list; the intermediate list never escapes."
+    },
+    "c1bea084860dc6e1c111": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "The private _hasExactPathRoute is called only for freshly constructed _openMetricsHttpRoutes entries. Their paths are /healthz, /health, or _normalizeOpenMetricsHttpPath output, which is always nonempty and nonnull. Forcing the null-or-empty guard false preserves every reachable branch; existing user routes are searched but never supply this path argument."
+    },
+    "7076669aea71b8481556": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Changing the return value inside _hasExactPathRoute's null-or-empty path branch has no reachable effect. Its sole caller supplies paths from owned health/metrics routes, with literals or normalized nonempty output, not paths from user-provided routes. The branch cannot execute through the public enrichment API."
+    },
+    "0d19223c8a58749ad427": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Forcing _normalizeOpenMetricsHttpPath's empty-or-slash guard false still returns / for both affected strings: an empty trimmed string takes the slash-prefix fallback, while / takes the already-prefixed branch. All other strings already follow that same final expression."
+    },
+    "cd7b5c41830b31e80121": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Replacing the normalization guard's OR with AND makes that guard unsatisfiable because a string cannot be both empty and /. The following expression independently maps the empty string to / and preserves /, exactly matching the removed special cases; all other inputs are unchanged."
+    }
+  },
+  "core-lazy-vm": {
+    "e680c448f1398ef0edd3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Forcing the cached-value guard false cannot invoke a completed decoder: the preceding packed-bytes/decoder guard returns once successful decoding clears _packedPayloadDecoder. The packed factory initializes both materialized fields to null; no public setter can populate them, and metadata/owned copies preserve this state. Failed decoding changes none of these fields."
+    },
+    "1b141e9ba244443a7bc3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Changing the cached-value disjunction to conjunction differs only when exactly one materialized field is non-null. Such packed state is created only by successful record assignment followed synchronously by clearing _packedPayloadDecoder, so the preceding guard already returns. Record field reads cannot call user code; the packed factory accepts no materialized fields."
+    },
+    "8a07369c7dd0f33dcad3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The positional _encodedArguments/_argumentsDecoder pair belongs to AbstractMessageWithPayload, not the independently configurable LazyMessagePayload. Its fields start null, its setter clears both, and setLazyPayload assigns both only when both inputs are non-null, with no user callback between writes. All restoration/copy paths use that setter. Thus replacing this pair's && with || preserves the toLazyPayload branch condition."
+    },
+    "1d436cf460d66e17c548": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The keyword _encodedArgumentsKeywords/_argumentsKeywordsDecoder fields are always both null or both non-null: initialized null, cleared together by argumentsKeywords, assigned together by setLazyPayload only with two non-null inputs. Restoration/copy paths call that method; public overrides cannot assign these private fields. The changed keyword &&/|| condition therefore has the same truth value."
+    },
+    "ac2fa2a4d90e30b2b634": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsBytes the private positional bytes/decoder nullness remains paired across every write: initialization, arguments setter, and guarded setLazyPayload. Public restoration and copying delegate through these operations. The early-return OR and AND are therefore identical, and neither tests a virtual getter."
+    },
+    "9e59ad4d0fdf491408ab": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsKeywordsBytes the private keyword bytes/decoder fields are initialized, cleared and assigned in pairs with no intervening callback. setLazyPayload rejects incomplete input pairs without assigning either field. Replacing the missing-pair OR with AND has identical outcomes for every reachable internal state."
+    },
+    "acdfedef187181350d40": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private positional bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing arguments setter. This mutation changes only && to || for that pair, not the whole branch. Both predicates choose the same branch and preserve every overridable target method call."
+    },
+    "3e23f71ba73329058378": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private keyword bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing argumentsKeywords setter. This mutation changes only && to || for that pair. Both predicates select the same branch, including calls into overridable target methods; forced-whole-branch mutations are not covered by this justification."
+    }
+  },
+  "core-lazy-web": {
+    "e680c448f1398ef0edd3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Forcing the cached-value guard false cannot invoke a completed decoder: the preceding packed-bytes/decoder guard returns once successful decoding clears _packedPayloadDecoder. The packed factory initializes both materialized fields to null; no public setter can populate them, and metadata/owned copies preserve this state. Failed decoding changes none of these fields."
+    },
+    "1b141e9ba244443a7bc3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Changing the cached-value disjunction to conjunction differs only when exactly one materialized field is non-null. Such packed state is created only by successful record assignment followed synchronously by clearing _packedPayloadDecoder, so the preceding guard already returns. Record field reads cannot call user code; the packed factory accepts no materialized fields."
+    },
+    "8a07369c7dd0f33dcad3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The positional _encodedArguments/_argumentsDecoder pair belongs to AbstractMessageWithPayload, not the independently configurable LazyMessagePayload. Its fields start null, its setter clears both, and setLazyPayload assigns both only when both inputs are non-null, with no user callback between writes. All restoration/copy paths use that setter. Thus replacing this pair's && with || preserves the toLazyPayload branch condition."
+    },
+    "1d436cf460d66e17c548": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The keyword _encodedArgumentsKeywords/_argumentsKeywordsDecoder fields are always both null or both non-null: initialized null, cleared together by argumentsKeywords, assigned together by setLazyPayload only with two non-null inputs. Restoration/copy paths call that method; public overrides cannot assign these private fields. The changed keyword &&/|| condition therefore has the same truth value."
+    },
+    "ac2fa2a4d90e30b2b634": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsBytes the private positional bytes/decoder nullness remains paired across every write: initialization, arguments setter, and guarded setLazyPayload. Public restoration and copying delegate through these operations. The early-return OR and AND are therefore identical, and neither tests a virtual getter."
+    },
+    "9e59ad4d0fdf491408ab": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsKeywordsBytes the private keyword bytes/decoder fields are initialized, cleared and assigned in pairs with no intervening callback. setLazyPayload rejects incomplete input pairs without assigning either field. Replacing the missing-pair OR with AND has identical outcomes for every reachable internal state."
+    },
+    "acdfedef187181350d40": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private positional bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing arguments setter. This mutation changes only && to || for that pair, not the whole branch. Both predicates choose the same branch and preserve every overridable target method call."
+    },
+    "3e23f71ba73329058378": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private keyword bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing argumentsKeywords setter. This mutation changes only && to || for that pair. Both predicates select the same branch, including calls into overridable target methods; forced-whole-branch mutations are not covered by this justification."
+    }
+  },
+  "router-authorization": {
+    "43a0c1db3504d23fd1eb": {
+      "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
+      "reason": "Both branches return the same non-null providerDecision. Inverting the guard still evaluates allowed exactly once, preserving even an overridden getter's effects and exceptions."
+    },
+    "4f4f902eae3525814996": {
+      "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
+      "reason": "For an empty matches list the following sort and for loop perform no work and the method returns null, exactly as the early return does."
+    },
+    "1050175e1d77a0a226dd": {
+      "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
+      "reason": "The preceding startsWith guard excludes shorter candidates and the preceding length-equality branch already returned; only strictly longer candidates reach this comparison."
+    }
+  }
+}

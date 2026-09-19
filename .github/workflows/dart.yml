@@ -25,6 +25,14 @@ jobs:
       - uses: dart-lang/setup-dart@v1
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Install native coverage tooling
+        run: cargo install cargo-llvm-cov --locked --version 0.9.1
+
+      - name: Install native mutation tooling
+        run: cargo install cargo-mutants --locked --version 27.1.0
 
       - id: chrome
         uses: browser-actions/setup-chrome@v2
@@ -37,6 +45,7 @@ jobs:
       - name: Run fast regression set
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_TEST_LLVM_COVERAGE: '1'
         run: bin/test-fast
 
   wamp-app:
@@ -63,6 +72,43 @@ jobs:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
         run: bin/test-wamp-app
 
+      - name: Activate application coverage tooling
+        run: dart pub global activate coverage 1.15.1
+
+      - name: Enforce shared application protocol coverage
+        env:
+          CONNECTANUM_APP_SHARED_COVERAGE_DIR: out/coverage-app-shared
+        run: bin/test-app-shared-coverage
+
+      - name: Upload shared application protocol coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-shared-vm-coverage
+          path: |
+            out/coverage-app-shared/lcov.info
+            out/coverage-app-shared/summary.json
+            out/coverage-app-shared/raw
+          if-no-files-found: warn
+
+      - name: Enforce shared application JavaScript coverage
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_APP_SHARED_COVERAGE_RUNTIME: chrome
+          CONNECTANUM_APP_SHARED_COVERAGE_DIR: out/coverage-app-shared-chrome
+        run: bin/test-app-shared-coverage
+
+      - name: Upload shared application JavaScript coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-shared-chrome-coverage
+          path: |
+            out/coverage-app-shared-chrome/lcov.info
+            out/coverage-app-shared-chrome/summary.json
+            out/coverage-app-shared-chrome/raw
+          if-no-files-found: warn
+
   verify:
     name: Full Verify
     runs-on: ubuntu-latest
@@ -75,6 +121,14 @@ jobs:
       - uses: dart-lang/setup-dart@v1
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Install native coverage tooling
+        run: cargo install cargo-llvm-cov --locked --version 0.9.1
+
+      - name: Install native mutation tooling
+        run: cargo install cargo-mutants --locked --version 27.1.0
 
       - id: chrome
         uses: browser-actions/setup-chrome@v2
@@ -87,6 +141,7 @@ jobs:
       - name: Run full verification
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_TEST_LLVM_COVERAGE: '1'
         run: bin/verify
 
   coverage:
@@ -106,9 +161,11 @@ jobs:
       # Codecov needs OIDC, but public dependency downloads do not need pub auth.
       - name: Use anonymous pub.dev downloads
         run: |
-          if dart pub token list | grep -Fxq 'https://pub.dev'; then
+          pub_token_repositories="$(dart pub token list)"
+          if grep -Fxq 'https://pub.dev' <<< "$pub_token_repositories"; then
             dart pub token remove https://pub.dev
           fi
+          unset pub_token_repositories
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -139,5 +196,83 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: dart-vm-coverage
-          path: out/coverage/lcov.info
+          path: |
+            out/coverage/lcov.info
+            out/coverage/summary.json
+            out/coverage/packaging-lcov.info
+            out/coverage/packaging-summary.json
+          if-no-files-found: error
+
+  mutation-gates:
+    name: ${{ matrix.target }} Mutation Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout_minutes || 20 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [router-authorization, router-metrics-vm, core-mcp-completion-vm, core-mcp-completion-web, core-registered-vm, core-registered-web, core-subscribed-vm, core-subscribed-web, core-metadata-vm, core-metadata-web, auth-server, client-installer, router-installer, core-e2ee-vm, bench-config, core-lazy-vm, core-lazy-web, core-pem-pkcs8-vm, core-pem-pkcs8-web, client-message-binding-vm, router-message-binding-vm, bench-remote-auth-native, mcp-library, router-remote-wamp-vm, router-config-loader-vm, router-remote-authenticator-vm, router-http-auth-vm, core-scram-request-vm, core-scram-request-web]
+        include:
+          # Complete campaigns exceeded 120/20 minutes while still progressing.
+          # These are job budgets; per-mutant deadlines and thresholds stay fixed.
+          - target: mcp-library
+            timeout_minutes: 180
+          - target: router-remote-wamp-vm
+            timeout_minutes: 45
+          - target: router-config-loader-vm
+            timeout_minutes: 45
+          - target: router-remote-authenticator-vm
+            timeout_minutes: 45
+          - target: router-http-auth-vm
+            timeout_minutes: 45
+          - target: core-lazy-web
+            timeout_minutes: 90
+          - target: core-metadata-web
+            timeout_minutes: 90
+          - target: core-pem-pkcs8-web
+            timeout_minutes: 90
+          - target: client-message-binding-vm
+            timeout_minutes: 90
+          - target: router-message-binding-vm
+            timeout_minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.target == 'bench-remote-auth-native'
+      - id: chrome
+        if: matrix.target == 'core-lazy-web' || matrix.target == 'core-mcp-completion-web' || matrix.target == 'core-registered-web' || matrix.target == 'core-subscribed-web' || matrix.target == 'core-metadata-web' || matrix.target == 'core-pem-pkcs8-web' || matrix.target == 'core-scram-request-web'
+        uses: browser-actions/setup-chrome@v2
+      - name: Run the complete target AST mutation inventory
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_MUTATIONS_NATIVE: ${{ matrix.target == 'bench-remote-auth-native' && '1' || '0' }}
+        run: bin/test-mutations --target "${{ matrix.target }}" --output out/mutations
+      - name: Upload complete inventory, scores and per-mutant logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}
+          path: out/mutations
+          if-no-files-found: error
+
+  browser-coverage:
+    name: Core Browser Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - id: chrome
+        uses: browser-actions/setup-chrome@v2
+      - run: dart pub global activate coverage 1.15.1
+      - name: Measure full core browser suite and portable client suites
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_BROWSER_COVERAGE_DIR: out/coverage-browser
+        run: bin/test-browser-coverage
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: core-browser-coverage
+          path: out/coverage-browser
           if-no-files-found: error

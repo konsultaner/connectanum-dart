@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Report WAMP call error URIs in MCP tool failures without forwarding private
+  error details, arguments, or keyword arguments.
+
 ## 3.0.0-beta.6
 
 - Consume the synchronized serializer, native ownership, authentication, and

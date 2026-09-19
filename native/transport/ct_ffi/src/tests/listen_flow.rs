@@ -22,6 +22,12 @@ use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::runtime::Runtime as TokioRuntime;
 
+use super::client_connect::ClientConnect;
+use super::ffi_completion::{
+    ct_connection_accept_websocket, ct_http_response_send, ct_http_response_stream_finish,
+};
+use crate::runtime::ffi::http3_test_client_bind_addr;
+
 const HTTP2_TEST_MAX_CONCURRENT_STREAMS: u32 = 1024;
 const HTTP2_TEST_INITIAL_STREAM_WINDOW: u32 = 8 * 1024 * 1024;
 const HTTP2_TEST_INITIAL_CONNECTION_WINDOW: u32 = 64 * 1024 * 1024;
@@ -45,25 +51,24 @@ use crate::runtime::constants::{
 };
 use crate::runtime::ffi::{
     ct_apply_router_config, ct_client_connect_rawsocket, ct_client_connect_websocket,
-    ct_connection_accept_websocket, ct_connection_close, ct_connection_get_http3_connection,
-    ct_connection_max_rawsocket_exponent, ct_connection_poll_http_event, ct_connection_protocol,
-    ct_connection_take_http2_handshake, ct_connection_take_http3_handshake,
-    ct_connection_take_http_handshake, ct_connection_take_websocket_handshake,
-    ct_connection_websocket_protocol, ct_get_local_port, ct_http2_handshake_get,
-    ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
+    ct_connection_close, ct_connection_get_http3_connection, ct_connection_max_rawsocket_exponent,
+    ct_connection_poll_http_event, ct_connection_protocol, ct_connection_take_http2_handshake,
+    ct_connection_take_http3_handshake, ct_connection_take_http_handshake,
+    ct_connection_take_websocket_handshake, ct_connection_websocket_protocol, ct_get_local_port,
+    ct_http2_handshake_get, ct_http2_handshake_listener_protocol, ct_http2_handshake_release,
     ct_http3_connection_poll_request, ct_http3_connection_poll_stream, ct_http3_connection_release,
     ct_http3_handshake_get, ct_http3_handshake_listener_protocol, ct_http3_handshake_release,
     ct_http_body_finish, ct_http_body_get, ct_http_body_release, ct_http_body_stream_read,
     ct_http_connection_event_get, ct_http_connection_event_release, ct_http_handshake_body_retain,
     ct_http_handshake_get, ct_http_handshake_header, ct_http_handshake_release,
-    ct_http_response_send, ct_http_response_stream_finish, ct_http_response_stream_open,
-    ct_http_response_stream_write, ct_listen, ct_listener_close, ct_listener_http3_port,
-    ct_message_get, ct_message_peek, ct_message_release, ct_poll_connection,
-    ct_poll_connection_message, ct_send_message, ct_set_on_connection, ct_set_on_listener_started,
-    ct_shutdown, ct_start_runtime, ct_wait_connection_message, ct_websocket_handshake_extension,
-    ct_websocket_handshake_get, ct_websocket_handshake_protocol, ct_websocket_handshake_release,
-    CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView, CtHttpConnectionEventInfo,
-    CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView, CtWebSocketHandshakeInfo,
+    ct_http_response_stream_open, ct_http_response_stream_write, ct_listen, ct_listener_close,
+    ct_listener_http3_port, ct_message_get, ct_message_peek, ct_message_release,
+    ct_poll_connection, ct_poll_connection_message, ct_send_message, ct_set_on_connection,
+    ct_set_on_listener_started, ct_shutdown, ct_start_runtime, ct_wait_connection_message,
+    ct_websocket_handshake_extension, ct_websocket_handshake_get, ct_websocket_handshake_protocol,
+    ct_websocket_handshake_release, CtHttp2HandshakeInfo, CtHttp3HandshakeInfo, CtHttpBodyView,
+    CtHttpConnectionEventInfo, CtHttpHandshakeInfo, CtHttpHeader, CtMessageInfo, CtStringView,
+    CtWebSocketHandshakeInfo,
 };
 use crate::runtime::store_http_body;
 
@@ -129,23 +134,63 @@ fn poll_for_message_handle(connection_id: i32) -> i32 {
 }
 
 fn wait_for_http_handshake(connection_id: i32) -> i32 {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    wait_for_http_handshake_until(
+        || ct_connection_take_http_handshake(connection_id),
+        Instant::now() + Duration::from_secs(5),
+    )
+}
+
+fn wait_for_http_handshake_until(mut poll: impl FnMut() -> i32, deadline: Instant) -> i32 {
     loop {
-        let handle = ct_connection_take_http_handshake(connection_id);
+        let handle = poll();
         if handle > 0 {
             return handle;
         }
-        if handle < 0 {
-            // Transient errors (connection not found/reset) can occur if the peer
-            // closes early; keep polling until timeout.
-            std::thread::sleep(Duration::from_millis(10));
-            continue;
-        }
+        // Transient lookup errors must observe the same deadline as an empty poll.
         if Instant::now() > deadline {
             panic!("timed out waiting for HTTP handshake");
         }
         std::thread::sleep(Duration::from_millis(10));
     }
+}
+
+#[test]
+fn http_handshake_wait_checks_deadline_after_transient_lookup_errors() {
+    for pending in [
+        ERR_CONNECTION_NOT_FOUND,
+        crate::runtime::ERR_HANDSHAKE_CONSUMED,
+        0,
+    ] {
+        let attempts = std::cell::Cell::new(0);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            wait_for_http_handshake_until(
+                || {
+                    attempts.set(attempts.get() + 1);
+                    if attempts.get() == 1 {
+                        pending
+                    } else {
+                        42
+                    }
+                },
+                Instant::now() - Duration::from_secs(1),
+            )
+        }));
+        assert!(result.is_err());
+        assert_eq!(attempts.get(), 1);
+    }
+}
+
+#[test]
+fn http_handshake_wait_retries_transient_errors_before_deadline() {
+    let mut results = [ERR_CONNECTION_NOT_FOUND, 0, 42].into_iter();
+    assert_eq!(
+        wait_for_http_handshake_until(
+            || results.next().unwrap(),
+            Instant::now() + Duration::from_secs(5)
+        ),
+        42
+    );
+    assert_eq!(results.next(), None);
 }
 
 fn wait_for_http_handshakes(connection_id: i32, expected: usize, timeout: Duration) -> Vec<i32> {
@@ -536,6 +581,8 @@ fn poll_connection_message_returns_payload() {
     );
     assert_eq!(info.serializer, 1, "JSON serializer expected");
     assert_eq!(info.message_code, 16, "Publish message expected");
+    assert!(info.frame_len > 0);
+    assert!(!info.frame_ptr.is_null());
     assert!(info.args_len > 0);
     assert!(!info.args_ptr.is_null());
     assert!(info.kwargs_len > 0);
@@ -791,6 +838,9 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     );
     assert_eq!(challenge_info.frame_len, 0);
     assert!(challenge_info.details_len > 0);
+    assert!(!challenge_info.details_ptr.is_null());
+    assert_eq!(challenge_info.string_a_len, 6);
+    assert!(!challenge_info.string_a_ptr.is_null());
     unsafe {
         let auth_method =
             std::slice::from_raw_parts(challenge_info.string_a_ptr, challenge_info.string_a_len);
@@ -925,6 +975,8 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     );
     assert!(error_info.args_len > 0);
     assert!(error_info.kwargs_len > 0);
+    assert!(!error_info.args_ptr.is_null());
+    assert!(!error_info.kwargs_ptr.is_null());
     unsafe {
         let error = std::slice::from_raw_parts(error_info.string_a_ptr, error_info.string_a_len);
         let message = std::slice::from_raw_parts(error_info.string_b_ptr, error_info.string_b_len);
@@ -992,6 +1044,7 @@ fn ct_message_get_exports_direct_bind_metadata_for_hot_messages() {
     );
     assert_eq!(custom_event_info.frame_len, 0);
     assert!(custom_event_info.details_len > 0);
+    assert!(!custom_event_info.details_ptr.is_null());
     unsafe {
         let details = std::slice::from_raw_parts(
             custom_event_info.details_ptr,
@@ -1149,7 +1202,7 @@ fn client_connect_websocket_round_trips_over_ffi() {
     let target_ptr = target.clone();
     let header_name = b"X-Test".to_vec();
     let header_value = b"ffi".to_vec();
-    let connect = std::thread::spawn(move || {
+    let mut connect = ClientConnect::new(std::thread::spawn(move || {
         let header = CtHttpHeader {
             name_ptr: header_name.as_ptr(),
             name_len: header_name.len(),
@@ -1168,9 +1221,12 @@ fn client_connect_websocket_round_trips_over_ffi() {
             0,
             0,
         )
-    });
+    }));
 
-    let server_connection_id = wait_for_connection(listener_id);
+    let server_connection_id = connect.wait_for_server(
+        || ct_poll_connection(listener_id),
+        Instant::now() + Duration::from_secs(5),
+    );
     assert_eq!(
         ct_connection_protocol(server_connection_id),
         PROTOCOL_WEBSOCKET
@@ -1208,7 +1264,7 @@ fn client_connect_websocket_round_trips_over_ffi() {
         ),
         SUCCESS
     );
-    let client_connection_id = connect.join().unwrap();
+    let client_connection_id = connect.finish(Instant::now() + Duration::from_secs(5));
     assert!(client_connection_id > 0);
     assert_eq!(
         ct_connection_protocol(client_connection_id),
@@ -2430,6 +2486,160 @@ fn http2_handshake_surfaced_via_ffi() {
 }
 
 #[test]
+fn http3_test_client_binds_the_destination_address_family() {
+    for peer in ["127.0.0.1:443", "[::1]:443"] {
+        let peer: std::net::SocketAddr = peer.parse().unwrap();
+        let bind = crate::runtime::ffi::http3_test_client_bind_addr(peer);
+        assert_eq!(bind.is_ipv4(), peer.is_ipv4(), "peer {peer}");
+        assert!(bind.ip().is_unspecified());
+        assert_eq!(bind.port(), 0);
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn http3_test_client_cannot_shadow_an_existing_ipv4_udp_socket() {
+    let runtime = TokioRuntime::new().unwrap();
+    let occupied = std::net::UdpSocket::bind("0.0.0.0:0").unwrap();
+    let peer = occupied.local_addr().unwrap();
+    let mut bind = crate::runtime::ffi::http3_test_client_bind_addr(peer);
+    // Force the ephemeral-port collision captured in the failing handshake.
+    // macOS permits a dual-stack socket here, but routes replies to `occupied`.
+    bind.set_port(peer.port());
+    runtime.block_on(async {
+        let error = QuinnEndpoint::client(bind)
+            .expect_err("the IPv4 client must not shadow another socket's reply port");
+        assert_eq!(error.kind(), std::io::ErrorKind::AddrInUse);
+    });
+}
+
+#[cfg(feature = "ffi-test")]
+#[test]
+fn http3_test_client_bounds_a_silent_peer_handshake() {
+    let _guard = super::test_guard();
+    let socket = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+    socket
+        .set_read_timeout(Some(Duration::from_secs(3)))
+        .unwrap();
+    let port = i32::from(socket.local_addr().unwrap().port());
+    let certified = generate_simple_self_signed(vec!["127.0.0.1".into()]).unwrap();
+    let certificate = CString::new(certified.cert.pem()).unwrap();
+    let (completed, result) = std::sync::mpsc::channel();
+    let client = std::thread::spawn(move || {
+        let host = CString::new("127.0.0.1").unwrap();
+        let path = CString::new("/unresponsive").unwrap();
+        let method = CString::new("GET").unwrap();
+        let code = crate::runtime::ffi::ct_test_http3_stream_request(
+            host.as_ptr(),
+            port,
+            path.as_ptr(),
+            method.as_ptr(),
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+            0,
+            certificate.as_ptr(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        );
+        let _ = completed.send(code);
+    });
+    // A bound, silent socket receives the Initial without returning an ICMP
+    // error, so this exercises a stalled handshake rather than connection refusal.
+    let (received, _) = socket.recv_from(&mut [0; 2048]).unwrap();
+    assert!(received >= 1200, "expected a QUIC Initial datagram");
+    let code = result
+        .recv_timeout(Duration::from_secs(8))
+        .expect("native HTTP/3 handshake outlived its test-client deadline");
+    assert_eq!(code, crate::runtime::constants::ERR_INTERNAL);
+    client.join().unwrap();
+}
+
+#[cfg(feature = "ffi-test")]
+#[test]
+fn http3_test_client_closes_connections_after_success_and_request_errors() {
+    let _guard = super::test_guard();
+    let certified =
+        generate_simple_self_signed(vec!["localhost".to_owned(), "127.0.0.1".to_owned()]).unwrap();
+    let config = json!({
+        "schema": "connectanum.router",
+        "version": 1,
+        "endpoints": [{
+            "host": "127.0.0.1",
+            "port": 0,
+            "tls_mode": "native",
+            "protocols": ["rawsocket", "http", "http2", "http3"],
+            "sni_certificates": [{
+                "hostname": "localhost",
+                "certificate_chain_pem": certified.cert.pem(),
+                "private_key_pem": certified.key_pair.serialize_pem()
+            }],
+            "http": {"alpn": ["http/1.1", "h2", "h3"], "http3": {"enabled": true, "port": 0}}
+        }]
+    })
+    .to_string();
+    assert_eq!(
+        ct_apply_router_config(config.as_ptr(), config.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+    let host = CString::new("127.0.0.1").unwrap();
+    let listener = ct_listen(host.as_ptr(), 0, 128);
+    assert!(listener > 0, "listen failed: {listener}");
+    let port = i32::from(require_http3_port(listener));
+    let certificate = CString::new(certified.cert.pem()).unwrap();
+    let path = CString::new("/not-configured").unwrap();
+    let mut previous_id = 0;
+    for (method, expected_code, expected_status, expected_requests) in [
+        ("GET", SUCCESS, 404, 1),
+        ("invalid method", ERR_INVALID_ARGUMENT, 0, 0),
+        ("POST", SUCCESS, 404, 1),
+        ("GET", SUCCESS, 404, 1),
+    ] {
+        let method = CString::new(method).unwrap();
+        let mut status = 0;
+        assert_eq!(
+            crate::runtime::ffi::ct_test_http3_stream_request(
+                host.as_ptr(),
+                port,
+                path.as_ptr(),
+                method.as_ptr(),
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                0,
+                certificate.as_ptr(),
+                &mut status,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            ),
+            expected_code
+        );
+        assert_eq!(status, expected_status);
+        // Completion must release the peer, not leave it waiting for the
+        // listener's much longer idle timeout after the client runtime is gone.
+        let (event, detail) = wait_for_http_event(Duration::from_secs(3));
+        assert!(event.connection_id > previous_id);
+        previous_id = event.connection_id;
+        assert_eq!(event.protocol, PROTOCOL_HTTP3);
+        assert_eq!(event.request_count, expected_requests);
+        assert_eq!(event.idle_timeouts, 0, "{detail:?}");
+        assert_eq!(event.body_timeouts, 0, "{detail:?}");
+        assert_eq!(
+            event.reason,
+            crate::runtime::constants::HTTP_EVENT_REASON_GRACEFUL,
+            "{detail:?}"
+        );
+    }
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
 fn http3_handshake_surfaced_via_ffi() {
     let _guard = super::test_guard();
     let certified =
@@ -2499,7 +2709,7 @@ fn http3_handshake_surfaced_via_ffi() {
             .expect("add root cert");
         let client_config = build_http3_client_config(Arc::new(roots));
 
-        let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+        let mut endpoint = QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
         endpoint.set_default_client_config(client_config);
         let connection = endpoint
             .connect(server_addr, "localhost")
@@ -2623,7 +2833,7 @@ fn http3_multiple_connections_handshake() {
             .expect("add root cert");
         let client_config = build_http3_client_config(Arc::new(roots));
 
-        let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+        let mut endpoint = QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
         endpoint.set_default_client_config(client_config);
         let mut conns = Vec::with_capacity(connection_count);
         for _ in 0..connection_count {
@@ -2718,7 +2928,7 @@ fn http3_stream_poll_returns_handle() {
             .expect("add root cert");
         let client_config = build_http3_client_config(Arc::new(roots));
 
-        let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+        let mut endpoint = QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
         endpoint.set_default_client_config(client_config);
         let connecting = endpoint
             .connect(server_addr, "localhost")
@@ -2959,7 +3169,8 @@ fn http3_request_round_trip_over_network() {
                 .expect("add root cert");
             let client_config = build_http3_client_config(Arc::new(roots));
 
-            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            let mut endpoint =
+                QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
             endpoint.set_default_client_config(client_config);
             let connecting = endpoint
                 .connect(server_addr, "localhost")
@@ -3127,7 +3338,8 @@ fn http3_transport_auth_rejects_bearerless_route() {
                 .expect("add root cert");
             let client_config = build_http3_client_config(Arc::new(roots));
 
-            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            let mut endpoint =
+                QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
             endpoint.set_default_client_config(client_config);
             let connecting = endpoint
                 .connect(server_addr, "localhost")
@@ -3240,7 +3452,8 @@ fn http3_response_streaming_round_trip() {
                 .expect("add root cert");
             let client_config = build_http3_client_config(Arc::new(roots));
 
-            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            let mut endpoint =
+                QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
             endpoint.set_default_client_config(client_config);
             let connecting = endpoint
                 .connect(server_addr, "localhost")
@@ -3622,7 +3835,8 @@ fn http3_body_timeout_emits_connection_event() {
                 .expect("add root cert");
             let client_config = build_http3_client_config(Arc::new(roots));
 
-            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            let mut endpoint =
+                QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
             endpoint.set_default_client_config(client_config);
             let connecting = endpoint
                 .connect(server_addr, "localhost")
@@ -3757,7 +3971,8 @@ fn http3_idle_timeout_emits_connection_event() {
                 .expect("add root cert");
             let client_config = build_http3_client_config(Arc::new(roots));
 
-            let mut endpoint = QuinnEndpoint::client("[::]:0".parse().unwrap()).unwrap();
+            let mut endpoint =
+                QuinnEndpoint::client(http3_test_client_bind_addr(server_addr)).unwrap();
             endpoint.set_default_client_config(client_config);
             let connecting = endpoint
                 .connect(server_addr, "localhost")
@@ -5117,6 +5332,8 @@ fn websocket_wamp_round_trip() {
     );
     assert_eq!(info.serializer, 1, "JSON serializer expected");
     assert_eq!(info.message_code, 1, "HELLO message expected");
+    assert!(info.frame_len > 0);
+    assert!(!info.frame_ptr.is_null());
     unsafe {
         let frame = std::slice::from_raw_parts(info.frame_ptr, info.frame_len);
         let parsed: serde_json::Value = serde_json::from_slice(frame).unwrap();

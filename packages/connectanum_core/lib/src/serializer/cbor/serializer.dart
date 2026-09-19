@@ -154,14 +154,16 @@ class Serializer extends AbstractSerializer {
         }
         if (messageId == MessageTypes.codeAuthenticate &&
             decodedMessage.length == 3) {
+          final extra = decodedMessage[2];
+          if (extra is! CborMap ||
+              extra.keys.any((key) => key is! CborString)) {
+            throw const FormatException(
+              'AUTHENTICATE.Extra must be a dictionary with string keys',
+            );
+          }
           return Authenticate(
-              signature: (decodedMessage[1] as CborString?)?.toString(),
-            )
-            ..extra = decodedMessage[2] is CborMap
-                ? Map<String, Object?>.from(
-                    _cborMapToStringMap(decodedMessage[2] as CborMap),
-                  )
-                : <String, Object?>{};
+            signature: (decodedMessage[1] as CborString?)?.toString(),
+          )..extra = Map<String, Object?>.from(_cborMapToStringMap(extra));
         }
         if (messageId == MessageTypes.codeWelcome &&
             decodedMessage.length == 3) {
@@ -281,11 +283,9 @@ class Serializer extends AbstractSerializer {
           final procedureValue = detailsMap.remove('procedure');
           final String? procedure = procedureValue as String?;
           final progressValue = detailsMap.remove('progress');
-          final bool? progress = progressValue is bool ? progressValue : null;
+          final bool? progress = progressValue as bool?;
           final receiveProgressValue = detailsMap.remove('receive_progress');
-          final bool? receiveProgress = receiveProgressValue is bool
-              ? receiveProgressValue
-              : null;
+          final bool? receiveProgress = receiveProgressValue as bool?;
           final timeout = decodeOptionalWampNonNegativeInteger(
             detailsMap,
             'timeout',
@@ -324,7 +324,7 @@ class Serializer extends AbstractSerializer {
         if (messageId == MessageTypes.codeResult && decodedMessage.length > 2) {
           final detailsMap = _cborMapToStringMap(decodedMessage[2] as CborMap);
           final progressValue = detailsMap.remove('progress');
-          final bool? progress = progressValue is bool ? progressValue : null;
+          final bool? progress = progressValue as bool?;
           final pptSchemeValue = detailsMap.remove('ppt_scheme');
           final String? pptScheme = pptSchemeValue as String?;
           final pptSerializerValue = detailsMap.remove('ppt_serializer');
@@ -2114,6 +2114,14 @@ class Serializer extends AbstractSerializer {
 
     final decodedMessage = cbor.decode(binPayload);
     if (decodedMessage is CborMap) {
+      // Lookup compares encoded keys, so ignored text keys still need validation.
+      try {
+        for (final key in decodedMessage.keys) {
+          if (key is CborString) key.toString();
+        }
+      } on FormatException {
+        throw const FormatException('Invalid CBOR PPT map key');
+      }
       if (decodedMessage[CborString('args')] != null &&
           decodedMessage[CborString('args')] is CborList) {
         arguments = _cborListToDart(
@@ -2123,9 +2131,16 @@ class Serializer extends AbstractSerializer {
 
       if (decodedMessage[CborString('kwargs')] != null &&
           decodedMessage[CborString('kwargs')] is CborMap) {
+        final keywords =
+            _cborValueToDart(decodedMessage[CborString('kwargs')])!
+                as Map<Object?, Object?>;
+        if (keywords.keys.any((key) => key is! String)) {
+          throw const FormatException(
+            'CBOR PPT keyword arguments must use string keys',
+          );
+        }
         argumentsKeywords = Map.castFrom<Object?, Object?, String, dynamic>(
-          _cborValueToDart(decodedMessage[CborString('kwargs')])!
-              as Map<Object?, Object?>,
+          keywords,
         );
       }
 

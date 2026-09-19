@@ -1,6 +1,7 @@
 @TestOn('vm')
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
@@ -11,6 +12,69 @@ import 'package:test/test.dart';
 import '../../hook/build.dart' as build_hook;
 
 void main() {
+  test('publication cleans the staged copy when rename fails', () {
+    final root = Directory.systemTemp.createTempSync('hook_rename_failure_');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final source = File('${root.path}/source')
+      ..writeAsStringSync('new library');
+    final destination = Directory('${root.path}/occupied')..createSync();
+    final existing = File('${destination.path}/keep')
+      ..writeAsStringSync('keep');
+    expect(
+      () => build_hook.publishNativeLibrary(
+        source: source,
+        destination: File(destination.path),
+      ),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(source.readAsStringSync(), 'new library');
+    expect(existing.readAsStringSync(), 'keep');
+    expect(
+      root.listSync().where((entry) => entry.path.contains('.tmp.')),
+      isEmpty,
+    );
+  });
+
+  test('release selection rejects unsupported OS and architecture pairs', () {
+    for (final (os, arch) in [
+      (OS.android, Architecture.arm64),
+      (OS.iOS, Architecture.arm64),
+      (OS.windows, Architecture.arm64),
+      (OS.linux, Architecture.arm),
+    ]) {
+      expect(
+        () => build_hook.hostTripleForTarget(targetOS: os, targetArch: arch),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('Unsupported release host combination'),
+          ),
+        ),
+      );
+    }
+  });
+
+  test('concurrent hook fixtures keep their package roots isolated', () async {
+    final original = Directory.current.path;
+    final bothEntered = Completer<void>();
+    final roots = <String>[];
+    await Future.wait([
+      for (var index = 0; index < 2; index++)
+        _withPackageRoot(() async {
+          final ownRoot = Directory.current.path;
+          roots.add(ownRoot);
+          if (roots.length == 2) bothEntered.complete();
+          await bothEntered.future;
+          expect(Directory.current.path, ownRoot);
+          expect(roots.toSet(), hasLength(2));
+          expect(ownRoot, isNot(original));
+        }),
+    ]);
+    expect(Directory.current.path, original);
+    expect(roots.every((path) => !Directory(path).existsSync()), isTrue);
+  });
+
   test('configured native library copy replaces the hook output inode', () {
     final tempDir = Directory.systemTemp.createTempSync(
       'connectanum_client_configured_copy_',
@@ -247,7 +311,6 @@ void main() {
   test(
     'build hook defaults isolated packages to matching release assets',
     () async {
-      final originalDirectory = Directory.current;
       final packageRoot = await Directory.systemTemp.createTemp(
         'connectanum_client_hosted_hook_',
       );
@@ -261,8 +324,7 @@ environment:
 
       final archiveBytes = 'client-hosted-release-archive'.codeUnits;
       final downloaded = <Uri>[];
-      Directory.current = packageRoot;
-      try {
+      await IOOverrides.runZoned(() async {
         await testCodeBuildHook(
           mainMethod: (args) => build_hook.runBuildHook(
             args,
@@ -304,9 +366,7 @@ environment:
             );
           },
         );
-      } finally {
-        Directory.current = originalDirectory;
-      }
+      }, getCurrentDirectory: () => packageRoot);
     },
   );
 
@@ -402,63 +462,14 @@ PackageUserDefines _userDefines({
 );
 
 Future<void> _withPackageRoot(Future<void> Function() body) async {
-  final original = Directory.current;
-  Directory.current = _locatePackageRoot('connectanum_client');
+  final root = await Directory.systemTemp.createTemp('client_hook_package_');
   try {
-    await _cleanPackageBuildArtifacts();
-    await body();
-    await _cleanPackageBuildArtifacts();
+    File('${root.path}/pubspec.yaml').writeAsStringSync(
+      'name: connectanum_client\nversion: 3.0.0-beta.6\n',
+    );
+    await IOOverrides.runZoned(body, getCurrentDirectory: () => root);
   } finally {
-    Directory.current = original;
-  }
-}
-
-Directory _locatePackageRoot(String packageName) {
-  final current = Directory.current.absolute;
-  if (_isPackageRoot(current, packageName)) {
-    return current;
-  }
-  final nested = Directory('${current.path}/packages/$packageName');
-  if (_isPackageRoot(nested, packageName)) {
-    return nested.absolute;
-  }
-  throw StateError('Failed to locate package root for $packageName.');
-}
-
-bool _isPackageRoot(Directory directory, String packageName) {
-  final pubspec = File('${directory.path}/pubspec.yaml');
-  if (!pubspec.existsSync()) {
-    return false;
-  }
-  return pubspec.readAsStringSync().contains('name: $packageName');
-}
-
-Future<void> _cleanPackageBuildArtifacts() async {
-  for (final path in [
-    '${Directory.current.path}/.dart_tool/lib',
-    '${Directory.current.path}/.dart_tool/connectanum',
-  ]) {
-    final directory = Directory(path);
-    if (directory.existsSync()) {
-      await directory.delete(recursive: true);
-    }
-  }
-  final nativeAssetsYaml = File(
-    '${Directory.current.path}/.dart_tool/native_assets.yaml',
-  );
-  if (nativeAssetsYaml.existsSync()) {
-    await nativeAssetsYaml.delete();
-  }
-
-  final repoRoot = Directory('${Directory.current.path}/../..').absolute;
-  for (final path in [
-    '${repoRoot.path}/.dart_tool/hooks_runner/connectanum_client',
-    '${repoRoot.path}/.dart_tool/hooks_runner/shared/connectanum_client',
-  ]) {
-    final directory = Directory(path);
-    if (directory.existsSync()) {
-      await directory.delete(recursive: true);
-    }
+    await root.delete(recursive: true);
   }
 }
 

@@ -13,9 +13,15 @@ pub(crate) fn test_guard() -> std::sync::MutexGuard<'static, ()> {
     guard
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod client_connect;
 mod e2ee;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod error_cases;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod ffi_boundaries;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod ffi_completion;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod listen_flow;
 mod router_config;

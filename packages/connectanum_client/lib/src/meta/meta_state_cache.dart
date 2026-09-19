@@ -89,7 +89,8 @@ final class WampMetaStateCache {
     }
 
     final state = await _readInitialState();
-    if (_closed) {
+    // The transport can close before its asynchronous disconnect callback runs.
+    if (_closed || !_session.isConnected()) {
       throw StateError('The WAMP session disconnected during Meta hydration');
     }
     _sessions.addAll(state.sessions);

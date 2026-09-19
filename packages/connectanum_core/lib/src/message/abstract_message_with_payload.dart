@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:typed_data';
 
 import 'abstract_message.dart';
@@ -189,32 +190,29 @@ class LazyMessagePayload {
     return _argumentsKeywords;
   }
 
-  /// Returns an independently owned copy of all retained mutable values.
-  LazyMessagePayload toOwned() {
+  /// Copies retained buffers and materialized WAMP lists, maps and binary
+  /// values without forcing decoding. Providers, contexts and decoder callbacks
+  /// remain shared; the external storage anchor is not retained.
+  LazyMessagePayload toOwned() => _toOwned(_OwnedPayloadCopier());
+
+  LazyMessagePayload _toOwned(_OwnedPayloadCopier copier) {
     return LazyMessagePayload._(
-      transparentBinaryPayload: transparentBinaryPayload == null
-          ? null
-          : Uint8List.fromList(transparentBinaryPayload!),
+      transparentBinaryPayload:
+          copier.copy(transparentBinaryPayload) as Uint8List?,
       encoding: encoding,
       pptDecoded: pptDecoded,
       e2eeProvider: e2eeProvider,
       e2eeRuntimeContext: e2eeRuntimeContext,
-      argumentsBytes: _argumentsBytes == null
-          ? null
-          : Uint8List.fromList(_argumentsBytes!),
-      argumentsKeywordsBytes: _argumentsKeywordsBytes == null
-          ? null
-          : Uint8List.fromList(_argumentsKeywordsBytes!),
+      argumentsBytes: copier.copy(_argumentsBytes) as Uint8List?,
+      argumentsKeywordsBytes:
+          copier.copy(_argumentsKeywordsBytes) as Uint8List?,
       argumentsDecoder: _argumentsDecoder,
       argumentsKeywordsDecoder: _argumentsKeywordsDecoder,
-      packedPayloadBytes: _packedPayloadBytes == null
-          ? null
-          : Uint8List.fromList(_packedPayloadBytes!),
+      packedPayloadBytes: copier.copy(_packedPayloadBytes) as Uint8List?,
       packedPayloadDecoder: _packedPayloadDecoder,
-      arguments: _arguments == null ? null : List<dynamic>.from(_arguments!),
-      argumentsKeywords: _argumentsKeywords == null
-          ? null
-          : Map<String, dynamic>.from(_argumentsKeywords!),
+      arguments: copier.copy(_arguments) as List<dynamic>?,
+      argumentsKeywords:
+          copier.copy(_argumentsKeywords) as Map<String, dynamic>?,
     );
   }
 
@@ -228,6 +226,9 @@ class LazyMessagePayload {
     final decoded = _packedPayloadDecoder!(_packedPayloadBytes!);
     _arguments = decoded.arguments;
     _argumentsKeywords = decoded.argumentsKeywords;
+    // A successfully decoded empty envelope also needs to be cached. Retain
+    // the wire bytes for forwarding, but release the completed decoder.
+    _packedPayloadDecoder = null;
   }
 
   /// Returns an equivalent view that retains [anchor].
@@ -296,6 +297,53 @@ class LazyMessagePayload {
       argumentsKeywords: _argumentsKeywords,
       anchor: anchor,
     );
+  }
+}
+
+// Copy the data graph iteratively: public payload containers may be deeply
+// nested or cyclic even though a later wire serializer rejects those shapes.
+class _OwnedPayloadCopier {
+  final _copies = HashMap<Object, Object>.identity();
+  final _pending = <(Object, Object)>[];
+
+  Object? copy(Object? value) {
+    final result = _allocate(value);
+    while (_pending.isNotEmpty) {
+      final (source, target) = _pending.removeLast();
+      if (source is List) {
+        final list = target as List<dynamic>;
+        for (final item in source) {
+          list.add(_allocate(item));
+        }
+      } else {
+        final map = target as Map;
+        (source as Map).forEach((key, item) {
+          map[key] = _allocate(item);
+        });
+      }
+    }
+    return result;
+  }
+
+  Object? _allocate(Object? value) {
+    if (value is! List && value is! Map) {
+      return value;
+    }
+    final previous = _copies[value];
+    if (previous != null) {
+      return previous;
+    }
+    if (value is Uint8List) {
+      return _copies[value] = Uint8List.fromList(value);
+    }
+    final Object target = value is List
+        ? <dynamic>[]
+        : value is Map<String, dynamic>
+        ? <String, dynamic>{}
+        : <dynamic, dynamic>{};
+    _copies[value!] = target;
+    _pending.add((value, target));
+    return target;
   }
 }
 
@@ -490,11 +538,18 @@ Uint8List _coercePptBinaryPayload(Object? value) {
   if (value is Uint8List) {
     return value;
   }
-  if (value is List<int>) {
-    return Uint8List.fromList(value);
-  }
   if (value is List) {
-    return Uint8List.fromList(value.cast<int>());
+    final bytes = Uint8List(value.length);
+    for (var index = 0; index < bytes.length; index++) {
+      final byte = value[index];
+      if (byte is! int || byte < 0 || byte > 255) {
+        throw FormatException(
+          'PPT payload bytes must be integers from 0 to 255',
+        );
+      }
+      bytes[index] = byte;
+    }
+    return bytes;
   }
   throw ArgumentError.value(
     value,
@@ -866,48 +921,41 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   /// Transfers the message payload to another message
   void copyPayloadTo(AbstractMessageWithPayload message) {
+    final copier = _OwnedPayloadCopier();
     message.attachE2eeProvider(e2eeProvider);
     message.attachE2eeRuntimeContext(e2eeRuntimeContext);
-    message.transparentBinaryPayload = transparentBinaryPayload;
+    message.transparentBinaryPayload =
+        copier.copy(transparentBinaryPayload) as Uint8List?;
 
     if ((_encodedArguments != null && _argumentsDecoder != null) ||
         (_encodedArgumentsKeywords != null &&
             _argumentsKeywordsDecoder != null)) {
       message.setLazyPayload(
-        argumentsBytes: _encodedArguments == null
-            ? null
-            : Uint8List.fromList(_encodedArguments!),
+        argumentsBytes: copier.copy(_encodedArguments) as Uint8List?,
         argumentsDecoder: _argumentsDecoder,
-        argumentsKeywordsBytes: _encodedArgumentsKeywords == null
-            ? null
-            : Uint8List.fromList(_encodedArgumentsKeywords!),
+        argumentsKeywordsBytes:
+            copier.copy(_encodedArgumentsKeywords) as Uint8List?,
         argumentsKeywordsDecoder: _argumentsKeywordsDecoder,
         encoding: _lazyPayloadEncoding,
       );
       if (_encodedArguments == null) {
-        message.arguments = _arguments == null
-            ? null
-            : List<dynamic>.from(_arguments!);
+        message.arguments = copier.copy(_arguments) as List<dynamic>?;
       }
       if (_encodedArgumentsKeywords == null) {
-        message.argumentsKeywords = _argumentsKeywords == null
-            ? null
-            : Map<String, dynamic>.from(_argumentsKeywords!);
+        message.argumentsKeywords =
+            copier.copy(_argumentsKeywords) as Map<String, dynamic>?;
       }
       message._pptPayloadDecoded = _pptPayloadDecoded;
     } else {
       message._lazyPayloadEncoding = _lazyPayloadEncoding;
-      message.arguments = _arguments == null
-          ? null
-          : List<dynamic>.from(_arguments!);
-      message.argumentsKeywords = _argumentsKeywords == null
-          ? null
-          : Map<String, dynamic>.from(_argumentsKeywords!);
+      message.arguments = copier.copy(_arguments) as List<dynamic>?;
+      message.argumentsKeywords =
+          copier.copy(_argumentsKeywords) as Map<String, dynamic>?;
       message._pptPayloadDecoded = _pptPayloadDecoded;
     }
     final retainedLazyPayload = _retainedLazyPayload;
     if (retainedLazyPayload != null) {
-      message.retainLazyPayload(retainedLazyPayload.toOwned());
+      message.retainLazyPayload(retainedLazyPayload._toOwned(copier));
     }
   }
 }

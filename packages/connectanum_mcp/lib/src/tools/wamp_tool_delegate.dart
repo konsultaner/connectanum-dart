@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_core/connectanum_core.dart' as wamp;
 
 import '../protocol/json_rpc.dart';
 import 'tool.dart';
@@ -87,11 +88,17 @@ class McpWampToolDelegate {
       request: request,
       payload: payload,
     );
-    final resultFuture = Future<ResultPayload>.value(_call(call));
-    final timeout = this.timeout;
-    final result = timeout == null
-        ? await resultFuture
-        : await resultFuture.timeout(timeout);
+    final ResultPayload result;
+    try {
+      final resultFuture = Future<ResultPayload>.value(_call(call));
+      final timeout = this.timeout;
+      result = timeout == null
+          ? await resultFuture
+          : await resultFuture.timeout(timeout);
+    } on wamp.Error catch (error) {
+      // Error payloads can contain private diagnostics or credentials.
+      return McpToolResult.error(error.error ?? wamp.Error.unknown);
+    }
     return _resultMapper(call, result);
   }
 }

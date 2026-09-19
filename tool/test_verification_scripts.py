@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+import json
 import os
+import re
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -56,6 +59,467 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_mutation_job_budgets_allow_complete_campaigns(self):
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
+        self.assertIn('timeout-minutes: ${{ matrix.timeout_minutes || 20 }}', job)
+        self.assertIn('fail-fast: false', job)
+        targets = {
+            target.strip()
+            for target in re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
+        }
+        entries = re.findall(
+            r'^          - target: ([\w-]+)\n            timeout_minutes: (\d+)\s*$',
+            job, re.MULTILINE,
+        )
+        budgets = {target: int(minutes) for target, minutes in entries}
+        self.assertEqual(len(entries), len(budgets), 'Duplicate timeout override')
+        self.assertLessEqual(set(budgets), targets, 'Override would add a matrix job')
+        self.assertEqual(budgets, {
+            'mcp-library': 180,
+            'router-remote-wamp-vm': 45,
+            'router-config-loader-vm': 45,
+            'router-remote-authenticator-vm': 45,
+            'router-http-auth-vm': 45,
+            'core-lazy-web': 90,
+            'core-metadata-web': 90,
+            'core-pem-pkcs8-web': 90,
+            'client-message-binding-vm': 90,
+            'router-message-binding-vm': 90,
+        })
+
+    def test_key_file_mutation_gates_cover_vm_and_browser_with_artifacts(self):
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
+        matrix = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
+        self.assertLessEqual({'core-pem-pkcs8-vm', 'core-pem-pkcs8-web'},
+                             {target.strip() for target in matrix})
+        chrome_setup = job.split('- id: chrome', 1)[1].split('- name:', 1)[0]
+        self.assertIn("matrix.target == 'core-pem-pkcs8-web'", chrome_setup)
+        self.assertIn('browser-actions/setup-chrome@', chrome_setup)
+        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
+        self.assertNotIn('--threshold', job)
+        self.assertIn('if: always()', job)
+        self.assertIn('path: out/mutations', job)
+        self.assertIn('if-no-files-found: error', job)
+
+    def test_scram_request_mutation_gates_cover_vm_and_browser(self):
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
+        matrix = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
+        self.assertLessEqual({'core-scram-request-vm', 'core-scram-request-web'},
+                             {target.strip() for target in matrix})
+        chrome_setup = job.split('- id: chrome', 1)[1].split('- name:', 1)[0]
+        self.assertIn("matrix.target == 'core-scram-request-web'", chrome_setup)
+        self.assertIn('browser-actions/setup-chrome@', chrome_setup)
+        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
+        self.assertNotIn('--threshold', job)
+        self.assertIn('if: always()', job)
+        self.assertIn('path: out/mutations', job)
+        audit = (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text()
+        for target in ('core-scram-request-vm', 'core-scram-request-web'):
+            self.assertIn(f"'{target} Mutation Gate'", audit)
+
+    @unittest.skipIf(os.name == 'nt', 'The diagnostic launcher requires Bash')
+    def test_wamp_diagnostics_collect_all_results_without_masking_failures(self):
+        names = [
+            'wamp_client_impl_throughput', 'wamp_payload_mode_throughput',
+            'wamp_mixed_serializer_throughput',
+            'wamp_websocket_fragmentation_throughput',
+            'wamp_file_transfer_throughput',
+            'wamp_large_rawsocket_frames_throughput',
+            'wamp_file_transfer_heavy', 'wamp_large_rawsocket_frames_heavy',
+        ]
+        cases = [
+            ('success', '', '', '0'),
+            ('first gate', '', names[0], '0'),
+            ('fragmentation gate', '', names[3], '0'),
+            ('last gate', '', names[-1], '0'),
+            ('workload', names[0], '', '0'),
+            ('multiple failures', names[1], names[3], '0'),
+            ('hardware unavailable', '', '', '1'),
+        ]
+        for label, failed_workload, failed_gate, hardware_failure in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                scripts = root / 'bin'
+                scripts.mkdir()
+                for name in ('common.sh', 'wamp-profile-diagnostics'):
+                    shutil.copy2(REPO_ROOT / 'bin' / name, scripts / name)
+                with (scripts / 'common.sh').open('a') as common:
+                    common.write('\nbuild_native_ffi_test_release() { export CONNECTANUM_NATIVE_LIB="$ROOT_DIR/fake-library"; }\n')
+                for directory in ('scenarios', 'artifact_gate'):
+                    shutil.copytree(REPO_ROOT / 'native/bench' / directory,
+                                    root / 'native/bench' / directory)
+                commands = {
+                    'cargo': '''#!/usr/bin/env bash
+set -eu
+if [[ "$1" == -V ]]; then printf 'cargo test\\n'; exit 0; fi
+scenario=''
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == --scenario ]]; then scenario="$2"; shift; fi
+  shift
+done
+name="${scenario##*/}"
+name="${name%.toml}"
+printf 'workload:%s\\n' "$name" >> "$TRACE"
+[[ "$name" != "$FAILED_WORKLOAD" ]] || exit 7
+''',
+                    'check-bench-artifacts': '''#!/usr/bin/env bash
+set -eu
+summary="$2"
+directory="${summary%/*}"
+name="${directory##*/}"
+printf 'gate:%s\\n' "$name" >> "$TRACE"
+[[ "$name" != "$FAILED_GATE" ]] || exit 9
+''',
+                    'dart': '#!/usr/bin/env bash\nprintf "Dart test\\n"\n',
+                    'rustc': '#!/usr/bin/env bash\nprintf "rustc test\\n"\n',
+                    'lscpu': '''#!/usr/bin/env bash
+[[ "$HARDWARE_FAILURE" == 0 ]] || exit 8
+printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
+''',
+                }
+                for name, source in commands.items():
+                    executable = scripts / name
+                    executable.write_text(source)
+                    executable.chmod(0o755)
+                trace = root / 'trace'
+                output = root / 'results with spaces'
+                result = subprocess.run(
+                    ['bash', str(scripts / 'wamp-profile-diagnostics'),
+                     '--out-dir', str(output)], cwd=root,
+                    env=dict(os.environ, PATH=str(scripts) + os.pathsep + os.environ['PATH'],
+                             TRACE=str(trace), FAILED_WORKLOAD=failed_workload,
+                             FAILED_GATE=failed_gate, HARDWARE_FAILURE=hardware_failure),
+                    capture_output=True, text=True, timeout=30,
+                )
+                lines = trace.read_text().splitlines()
+                self.assertEqual([line for line in lines if line.startswith('workload:')],
+                                 ['workload:' + name for name in names], result.stdout + result.stderr)
+                self.assertEqual([line for line in lines if line.startswith('gate:')],
+                                 ['gate:' + name for name in names if name != failed_workload])
+                self.assertEqual(result.returncode, 1 if failed_workload or failed_gate else 0,
+                                 result.stdout + result.stderr)
+                rows = (output / 'diagnostics-summary.tsv').read_text().splitlines()
+                self.assertEqual(rows[0], 'scenario\tworkload_exit\tgate_exit\tstatus')
+                expected = []
+                for name in names:
+                    if name == failed_workload:
+                        expected.append(f'{name}\t7\tnot_run\tworkload_failed')
+                    elif name == failed_gate:
+                        expected.append(f'{name}\t0\t9\tgate_failed')
+                    else:
+                        expected.append(f'{name}\t0\t0\tpassed')
+                self.assertEqual(rows[1:], expected)
+                hardware = (output / 'hardware-info.txt').read_text()
+                self.assertIn('unavailable' if hardware_failure == '1' else 'fixture CPU', hardware)
+
+    def test_browser_mutation_entrypoint_retains_and_hashes_all_original_suites(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['core-lazy-web']
+        self.assertEqual(target['sources'], targets['core-lazy-vm']['sources'])
+        self.assertEqual(target['supportFiles'], targets['core-lazy-vm']['supportFiles'])
+        self.assertEqual(target['tests'], [
+            'packages/connectanum_core/test/support/lazy_payload_mutation_suite.dart'])
+        entrypoint = (REPO_ROOT / target['tests'][0]).read_text()
+        vm_entrypoint = (REPO_ROOT / targets['core-lazy-vm']['tests'][0]).read_text()
+        for filename, alias, group in [
+            ('message_payload_contract_test.dart', 'payload_contract', 'payload contract'),
+            ('message_lazy_payload_regression_test.dart', 'lazy_payload', 'lazy payload'),
+            ('message_invocation_test.dart', 'invocation', 'invocation'),
+            ('message_result_test.dart', 'result', 'result'),
+        ]:
+            self.assertIn(f"import '../{filename}' as {alias};", entrypoint)
+            self.assertIn(f"group('{group}', {alias}.main);", entrypoint)
+            self.assertIn(f"import '../{filename}' as {alias};", vm_entrypoint)
+            self.assertIn(f"group('{group}', {alias}.main);", vm_entrypoint)
+            self.assertIn(f'packages/connectanum_core/test/{filename}', target['supportFiles'])
+
+    def test_bench_http_mutations_include_complete_handler_and_test_inventory(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['bench-http-stream-vm']
+        root = REPO_ROOT / 'packages/connectanum_bench'
+        entrypoint = root / 'test/support/http_stream_mutation_suite.dart'
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_bench/lib/src/http_stream_handler.dart'])
+        self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
+        self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
+        expected = set((root / 'test').glob('http_stream*_test.dart'))
+        self.assertEqual(set(target['supportFiles']), {
+            path.relative_to(REPO_ROOT).as_posix() for path in expected})
+        source = entrypoint.read_text()
+        imports = re.findall(r"import\s+'([^']+)'\s+as\s+(\w+);", source)
+        self.assertEqual({(entrypoint.parent / path).resolve() for path, _ in imports}, expected)
+        for path, alias in imports:
+            self.assertRegex(source, rf"group\('[^']+', {alias}\.main\)")
+
+    def test_bench_workload_mutations_hash_wire_suites_and_tls_fixtures(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['bench-wamp-workload-vm']
+        root = REPO_ROOT / 'packages/connectanum_bench'
+        entrypoint = root / 'test/support/wamp_workload_mutation_suite.dart'
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_bench/lib/src/wamp_workload_runner.dart'])
+        self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
+        self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
+        expected = {root / 'test' / name for name in [
+            'wamp_workload_runner_test.dart', 'wamp_session_wire_regression_test.dart',
+            'wamp_session_factory_test.dart', 'wamp_transport_targets_test.dart',
+            'wamp_sample_test.dart',
+        ]}
+        fixtures = {'native/bench/bench_tls.crt', 'native/bench/bench_tls.key'}
+        self.assertEqual(set(target['supportFiles']), fixtures | {
+            path.relative_to(REPO_ROOT).as_posix() for path in expected})
+        source = entrypoint.read_text()
+        imports = re.findall(r"import\s+'([^']+)'\s+as\s+(\w+);", source)
+        self.assertEqual({(entrypoint.parent / path).resolve() for path, _ in imports}, expected)
+        for path, alias in imports:
+            self.assertRegex(source, rf"group\('[^']+', {alias}\.main\)")
+
+    def test_serializer_mutation_wrappers_preserve_complete_runtime_inventory(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        root = REPO_ROOT / 'packages/connectanum_core/test'
+        common = root / 'support/serializer_mutation_suite.dart'
+        browser = root / 'support/serializer_web_mutation_suite.dart'
+        original_files = set((root / 'serializer').rglob('*.dart')) | {
+            root / 'serializer_challenge_welcome_test.dart',
+            root / 'message_lazy_payload_regression_test.dart',
+        }
+        for runtime, entrypoint in [('vm', common), ('web', browser)]:
+            for codec in ('cbor', 'msgpack'):
+                target = targets[f'core-{codec}-serializer-{runtime}']
+                with self.subTest(runtime=runtime, codec=codec):
+                    self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
+                    expected_support = original_files | ({common} if runtime == 'web' else set())
+                    self.assertEqual(set(target['supportFiles']),
+                                     {path.relative_to(REPO_ROOT).as_posix() for path in expected_support})
+        shared_source, browser_source = common.read_text(), browser.read_text()
+        imports = re.findall(r"import\s+'([^']+)'\s+as\s+(\w+);", shared_source)
+        actual = {(common.parent / path).resolve() for path, alias in imports}
+        browser_only = root / 'serializer/msgpack/codec_fallback_web_test.dart'
+        expected = {path for path in original_files if path.name.endswith('_test.dart')} - {browser_only}
+        self.assertEqual(actual, expected)
+        for path, alias in imports:
+            self.assertRegex(shared_source, rf"group\('[^']+', {alias}\.main\)")
+        self.assertIn("@TestOn('js')", browser_source)
+        self.assertIn("import 'serializer_mutation_suite.dart' as serializers;", browser_source)
+        self.assertIn("import '../serializer/msgpack/codec_fallback_web_test.dart' as fallback;", browser_source)
+        self.assertIn('serializers.main();', browser_source)
+        self.assertIn("group('msgpack JS fallback', fallback.main);", browser_source)
+
+    @unittest.skipIf(os.name == 'nt', 'The application coverage launcher requires Bash')
+    def test_app_shared_coverage_launcher_reports_and_fails_closed(self):
+        scenarios = [(runtime, stage, expected) for runtime in ('vm', 'chrome')
+                     for stage, expected in [('success', 0), ('resolve', 7), ('test', 8),
+                                             ('format', 9), ('floor', 1)]]
+        scenarios += [('', 'success', 0), ('chrome', 'no_chrome', 1), ('wasm', 'unsupported', 2)]
+        for runtime, stage, expected in scenarios:
+            with self.subTest(runtime=runtime, stage=stage), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                scripts, tooling = root / 'bin', root / 'tool'
+                scripts.mkdir()
+                tooling.mkdir()
+                (root / 'examples/wamp_app/shared').mkdir(parents=True)
+                for name in ('test-app-shared-coverage', 'common.sh'):
+                    shutil.copy2(REPO_ROOT / 'bin' / name, scripts / name)
+                with (scripts / 'common.sh').open('a') as common:
+                    common.write('\nensure_chrome_env() { [[ "$STAGE" != no_chrome ]]; }\n')
+                shutil.copy2(REPO_ROOT / 'tool/check_coverage.py', tooling / 'check_coverage.py')
+                source = 'examples/wamp_app/shared/lib/api.dart'
+                (tooling / 'coverage_app_shared_policy.json').write_text(json.dumps({
+                    'target': 98, 'sourceScope': 'application',
+                    'packages': {'shared': 98}, 'requiredSources': [source],
+                }))
+                dart = scripts / 'dart'
+                dart.write_text('''#!/usr/bin/env bash
+set -eu
+printf '%s:%s\\n' "$PWD" "$*" >> "$TRACE"
+if [[ "$1" == test ]]; then
+  [[ "$STAGE" != test ]] || exit 8
+elif [[ "$2" == get ]]; then
+  [[ "$STAGE" != resolve ]] || exit 7
+else
+  [[ "$STAGE" != format ]] || exit 9
+  output=''
+  for arg in "$@"; do
+    case "$arg" in --out=*) output="${arg#--out=}";; esac
+  done
+  hits=1
+  [[ "$STAGE" != floor ]] || hits=0
+  printf 'SF:examples/wamp_app/shared/lib/api.dart\\nDA:1,%s\\nend_of_record\\n' "$hits" > "$output"
+fi
+''')
+                dart.chmod(0o755)
+                output = root / 'reports with spaces'
+                trace = root / 'trace'
+                env = dict(os.environ, PATH=str(scripts) + os.pathsep + os.environ['PATH'],
+                           STAGE=stage, TRACE=str(trace),
+                           CONNECTANUM_APP_SHARED_COVERAGE_RUNTIME=runtime,
+                           CONNECTANUM_APP_SHARED_COVERAGE_DIR='reports with spaces')
+                command = ['bash', str(scripts / 'test-app-shared-coverage')]
+                result = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+                if stage in ('no_chrome', 'unsupported'):
+                    self.assertFalse(trace.exists())
+                    self.assertFalse(output.exists())
+                    self.assertIn('Chrome is required' if stage == 'no_chrome' else 'Unsupported', result.stderr)
+                    continue
+                calls = trace.read_text().splitlines()
+                self.assertTrue(calls[0].endswith('/examples/wamp_app/shared:pub get'))
+                self.assertEqual(len(calls), {'resolve': 1, 'test': 2}.get(stage, 3))
+                if stage in ('success', 'floor'):
+                    report = json.loads((output / 'summary.json').read_text())
+                    self.assertEqual(report['sourceScope'], 'application')
+                    self.assertEqual(report['measurement'], f"Dart {runtime or 'vm'} executable lines in LCOV")
+                    self.assertEqual(report['packages']['shared']['covered'], int(stage == 'success'))
+                    self.assertEqual(bool(report['findings']), stage == 'floor')
+                    self.assertIn('--package=' + str(root / 'examples/wamp_app/shared'), calls[-1])
+                    self.assertIn('--report-on=examples/wamp_app/shared/lib', calls[-1])
+                    self.assertEqual('--check-ignore' in calls[-1], runtime != 'chrome')
+                else:
+                    self.assertFalse((output / 'summary.json').exists())
+                if stage != 'resolve':
+                    self.assertEqual('--platform=vm' in calls[1], runtime != 'chrome')
+                    self.assertEqual('--platform=chrome' in calls[1], runtime == 'chrome')
+                    self.assertEqual('--compiler=dart2js' in calls[1], runtime == 'chrome')
+                    self.assertEqual('--concurrency=1' in calls[1], runtime == 'chrome')
+                again = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True, timeout=30)
+                self.assertEqual(again.returncode, 2)
+                self.assertEqual(trace.read_text().splitlines(), calls)
+
+    @unittest.skipIf(os.name == "nt", "The fake Cargo executable uses a POSIX shell")
+    def test_router_native_fixture_uses_cargo_freshness_after_build(self) -> None:
+        helper = REPO_ROOT / "packages/connectanum_router/test/support/native_lib.dart"
+        dart = shutil.which("dart")
+        self.assertIsNotNone(dart)
+        for legacy in (False, True):
+            for outcome in ("success", "failure", "missing"):
+                with self.subTest(legacy=legacy, outcome=outcome), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp).resolve()
+                    source = root / "native/transport/ct_core/src/test_only.rs"
+                    source.parent.mkdir(parents=True)
+                    source.write_text("// A test-only change need not relink the release library.\n")
+                    target = "legacy-message-handles-test" if legacy else "ffi-test"
+                    filename = "libct_ffi.dylib" if os.uname().sysname == "Darwin" else "libct_ffi.so"
+                    artifact = root / f"native/transport/target/{target}/release/{filename}"
+                    artifact.parent.mkdir(parents=True)
+                    if outcome != "missing":
+                        artifact.write_bytes(b"fixture: path resolution only")
+                        os.utime(artifact, (1700000000, 1700000000))
+                    os.utime(source, (1700000100, 1700000100))
+                    cargo = root / "cargo"
+                    marker = root / "cargo-called"
+                    cargo.write_text(
+                        '#!/bin/sh\nprintf "%s\\n" "$@" > "$CARGO_CALL_MARKER"\n'
+                        + ("exit 17\n" if outcome == "failure" else "exit 0\n")
+                    )
+                    cargo.chmod(0o755)
+                    resolver = "resolveOrBuildLegacyMessageHandleNativeLib" if legacy else "resolveOrBuildNativeLib"
+                    probe = root / "probe.dart"
+                    probe.write_text(
+                        f"import '{helper.as_uri()}';\n"
+                        f"void main() {{ print({resolver}()); }}\n"
+                    )
+                    env = dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"],
+                               CARGO_CALL_MARKER=str(marker))
+                    env.pop("CONNECTANUM_NATIVE_LIB", None)
+                    result = subprocess.run(
+                        [dart, str(probe)], cwd=root, env=env, text=True,
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertTrue(marker.exists(), result.stderr)
+                    self.assertIn("ffi-test", marker.read_text())
+                    self.assertEqual(
+                        result.stdout.strip(),
+                        str(artifact) if outcome == "success" else "null",
+                        result.stderr,
+                    )
+                    if outcome == "failure":
+                        self.assertIn("exit 17", result.stderr)
+
+    def test_native_coverage_keeps_raw_evidence_and_pins_scopes_before_collection(self):
+        for script in [TEST_FAST, TEST_ALL]:
+            self.assertIn('"$ROOT_DIR/bin/test-native-coverage-tools"', script.read_text())
+        script = (REPO_ROOT / "bin/test-native-coverage").read_text()
+        self.assertLess(script.index("native_coverage.py snapshot"), script.index("cargo llvm-cov"))
+        self.assertLess(script.index("cargo llvm-cov"), script.index("native_coverage.py filter"))
+        self.assertIn('--output-path "$coverage_root/lcov.info"', script)
+        self.assertIn('--output "$coverage_root/production.info"', script)
+        self.assertIn('CONNECTANUM_TEST_LLVM_COVERAGE=1', script)
+        tool_gate = (REPO_ROOT / "bin/test-native-coverage-tools").read_text()
+        self.assertIn('--target-dir "$ROOT_DIR/out/rust-coverage-scope-target"', tool_gate)
+        self.assertNotIn('native/transport/Cargo.toml', tool_gate)
+        self.assertIn('python3 tool/test_native_ffi_coverage.py', tool_gate)
+
+    def test_native_ffi_coverage_uses_real_dart_instrumentation_fixture(self):
+        script = (REPO_ROOT / "bin/test-native-ffi-coverage").read_text()
+        self.assertIn('CONNECTANUM_TEST_LLVM_COVERAGE=1', script)
+        self.assertIn('"$ROOT_DIR/bin/test-native-coverage-tools"', script)
+        self.assertIn('python3 tool/native_ffi_coverage.py', script)
+        self.assertNotIn('build_native_ffi_test_release', script)
+        self.assertNotIn('ensure_native_client_test_runtime', script)
+
+    def test_client_hooks_run_in_regression_and_coverage_gates(self) -> None:
+        for script in [TEST_FAST, TEST_ALL]:
+            with self.subTest(script=script.name):
+                self.assertIn(
+                    "dart test packages/connectanum_client/test/hook",
+                    [line.strip() for line in script.read_text().splitlines()],
+                )
+        self.assertIn(
+            "run_package_coverage connectanum_client connectanum_client_hooks test/hook",
+            (REPO_ROOT / "bin/test-coverage").read_text().splitlines(),
+        )
+        coverage = (REPO_ROOT / "bin/test-coverage").read_text()
+        self.assertIn('--scope packaging', coverage)
+        self.assertIn('--policy tool/coverage_packaging_policy.json', coverage)
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        for artifact in ('packaging-lcov.info', 'packaging-summary.json'):
+            self.assertIn(artifact, coverage)
+            self.assertIn('out/coverage/' + artifact, workflow)
+
+    def test_hosted_regression_jobs_run_real_llvm_fixture(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
+        for name, next_name, command in [
+            ("fast", "wamp-app", "bin/test-fast"),
+            ("verify", "coverage", "bin/verify"),
+        ]:
+            with self.subTest(job=name):
+                job = workflow.split(f"\n  {name}:\n", 1)[1].split(
+                    f"\n  {next_name}:\n", 1
+                )[0]
+                self.assertIn("components: rustfmt, clippy, llvm-tools-preview", job)
+                installer = "run: cargo install cargo-llvm-cov --locked --version 0.9.1"
+                self.assertIn(installer, job)
+                self.assertLess(job.index(installer), job.index(f"run: {command}"))
+                self.assertIn("CONNECTANUM_TEST_LLVM_COVERAGE: '1'", job)
+
+    def test_hosted_regression_jobs_run_real_native_mutation_fixture(self) -> None:
+        for script in [TEST_FAST, TEST_ALL]:
+            self.assertIn('"$ROOT_DIR/bin/test-native-mutation-tools"', script.read_text())
+        workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
+        for name, next_name, command in [
+            ("fast", "wamp-app", "bin/test-fast"),
+            ("verify", "coverage", "bin/verify"),
+        ]:
+            with self.subTest(job=name):
+                job = workflow.split(f"\n  {name}:\n", 1)[1].split(
+                    f"\n  {next_name}:\n", 1
+                )[0]
+                installer = "run: cargo install cargo-mutants --locked --version 27.1.0"
+                self.assertIn(installer, job)
+                self.assertLess(job.index(installer), job.index(f"run: {command}"))
+
+    def test_native_diagnostics_audits_instead_of_trusting_cargo_caught_count(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/mutation-diagnostics.yml").read_text()
+        native_job = workflow.split("\n  rust:\n", 1)[1]
+        self.assertIn("bin/collect-native-mutations --output out/mutations", native_job)
+        self.assertNotIn("bin/test-native-mutations", native_job)
+        self.assertIn("os: [ubuntu-latest, macos-latest]", native_job)
+        self.assertIn("if: always()", native_job)
+
     def test_client_resource_restart_runs_in_both_gates(self) -> None:
         command = (
             "dart test packages/connectanum_client/test/transport/native/"
@@ -67,6 +531,20 @@ class VerificationScriptsTest(unittest.TestCase):
                     command,
                     [line.strip() for line in script.read_text().splitlines()],
                 )
+
+    def test_client_native_file_regressions_are_measured_and_verified(self) -> None:
+        relative_test = 'test/transport/native/runtime_file_segment_test.dart'
+        for script in [TEST_FAST, TEST_ALL]:
+            with self.subTest(script=script.name):
+                self.assertIn(
+                    f'dart test packages/connectanum_client/{relative_test}',
+                    [line.strip() for line in script.read_text().splitlines()],
+                )
+        self.assertIn(
+            'run_package_coverage connectanum_client '
+            f'connectanum_client_native_files {relative_test}',
+            (REPO_ROOT / 'bin/test-coverage').read_text().splitlines(),
+        )
 
     def test_client_message_abi_negotiation_runs_in_both_gates(self) -> None:
         command = (
@@ -177,6 +655,48 @@ class VerificationScriptsTest(unittest.TestCase):
             cleanup()
             self.assertEqual(remaining, run_dart("pub", "token", "list"))
 
+    def test_coverage_pub_token_cleanup_drains_output_and_fails_closed(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
+        coverage = workflow.split("\n  coverage:\n", 1)[1]
+        step = coverage.split(
+            "      - name: Use anonymous pub.dev downloads\n", 1
+        )[1].split("\n      - ", 1)[0]
+        command = textwrap.dedent(step.split("        run: |\n", 1)[1])
+        for status in (0, 17):
+            with self.subTest(list_exit_status=status), tempfile.TemporaryDirectory() as tmp:
+                dart = Path(tmp) / "dart"
+                removed = Path(tmp) / "removed"
+                dart.write_text(textwrap.dedent("""\
+                    #!/usr/bin/env python3
+                    import os
+                    import signal
+                    import sys
+                    from pathlib import Path
+                    if sys.argv[1:] == ['pub', 'token', 'list']:
+                        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+                        sys.stdout.write('https://pub.dev\\n')
+                        sys.stdout.flush()
+                        # Exceed pipe capacity after the matching first line.
+                        sys.stdout.write('https://packages.example.test\\n' * 10000)
+                        sys.stdout.flush()
+                        sys.exit(int(os.environ['LIST_STATUS']))
+                    if sys.argv[1:] == ['pub', 'token', 'remove', 'https://pub.dev']:
+                        Path(os.environ['REMOVED_MARKER']).touch()
+                    else:
+                        sys.exit(2)
+                    """))
+                dart.chmod(0o755)
+                result = subprocess.run(
+                    ["bash", "-euo", "pipefail", "-c", command],
+                    cwd=REPO_ROOT,
+                    env=dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"],
+                             LIST_STATUS=str(status), REMOVED_MARKER=str(removed)),
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    check=False, timeout=30,
+                )
+                self.assertEqual(result.returncode, status, result.stdout)
+                self.assertEqual(removed.exists(), status == 0, result.stdout)
+
     def test_core_shell_scripts_are_bash_syntax_clean(self) -> None:
         for script_path in [
             BOOTSTRAP,
@@ -283,6 +803,90 @@ class VerificationScriptsTest(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stdout)
+
+    @unittest.skipIf(os.name == "nt", "The mutation launcher requires Bash")
+    def test_mutation_launcher_prepares_browser_without_requiring_it_for_vm(self) -> None:
+        for system, ci, browser, native in [
+            ("Linux", "true", True, False),
+            ("Linux", "false", True, False),
+            ("Darwin", "true", True, False),
+            ("Darwin", "false", True, False),
+            ("Linux", "true", False, False),
+            ("Linux", "true", False, True),
+        ]:
+            with self.subTest(system=system, ci=ci, browser=browser, native=native), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                scripts = root / "bin"
+                scripts.mkdir()
+                launcher = scripts / "test-mutations"
+                shutil.copy2(REPO_ROOT / "bin/test-mutations", launcher)
+                (scripts / "common.sh").write_text(
+                    f'source "{COMMON}"\nROOT_DIR="{root}"\n'
+                    'dart_workspace_bootstrap() { :; }\n'
+                    'build_native_ffi_test_release() { printf "native-build\\n"; }\n'
+                    + ('' if browser else 'chrome_binary() { return 1; }\n')
+                )
+                chrome = scripts / "chrome with spaces"
+                chrome.write_text('#!/usr/bin/env bash\nprintf "chrome=%s\\n" "$@"\n')
+                chrome.chmod(0o755)
+                uname = scripts / "uname"
+                uname.write_text(f'#!/bin/sh\nprintf "%s\\n" "{system}"\n')
+                uname.chmod(0o755)
+                runner = scripts / "python3"
+                runner.write_text(
+                    '#!/usr/bin/env bash\nprintf "runner=%s\\n" "$@"\n'
+                    'if [[ -n "${CHROME_EXECUTABLE:-}" ]]; then\n'
+                    '  "$CHROME_EXECUTABLE" --probe\nfi\n'
+                )
+                runner.chmod(0o755)
+                env = dict(os.environ, PATH=str(scripts) + os.pathsep + os.environ["PATH"], CI=ci)
+                for key in ("CONNECTANUM_CHROME_BINARY", "CHROME_EXECUTABLE",
+                            "CONNECTANUM_CHROME_LAUNCHER_DIR", "CONNECTANUM_MUTATIONS_NATIVE"):
+                    env.pop(key, None)
+                if browser:
+                    env["CHROME_EXECUTABLE"] = str(chrome)
+                if native:
+                    env["CONNECTANUM_MUTATIONS_NATIVE"] = "1"
+                args = ["--target", "core-lazy-web" if browser else "core-lazy-vm",
+                        "--output", "reports with spaces"]
+                result = subprocess.run(
+                    ["bash", str(launcher), *args], cwd=root, env=env,
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                expected = [f"runner={arg}" for arg in ["tool/run_dart_mutations.py", *args]]
+                if native:
+                    expected.insert(0, "native-build")
+                if browser:
+                    if system == "Linux" and ci == "true":
+                        expected.append("chrome=--no-sandbox")
+                    expected.append("chrome=--probe")
+                self.assertEqual(result.stdout.splitlines(), expected, result.stderr)
+
+    @unittest.skipIf(os.name == "nt", "The mutation launcher requires Bash")
+    def test_mutation_launcher_fails_closed_when_browser_setup_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            scripts = root / "bin"
+            scripts.mkdir()
+            launcher = scripts / "test-mutations"
+            shutil.copy2(REPO_ROOT / "bin/test-mutations", launcher)
+            (scripts / "common.sh").write_text(
+                f'source "{COMMON}"\nROOT_DIR="{root}"\n'
+                'dart_workspace_bootstrap() { :; }\n'
+                'chrome_binary() { printf "/fixture/chrome\\n"; }\n'
+                'ensure_chrome_env() { return 23; }\n'
+            )
+            runner = scripts / "python3"
+            runner.write_text('#!/bin/sh\nprintf "runner must not start\\n"\n')
+            runner.chmod(0o755)
+            result = subprocess.run(
+                ["bash", str(launcher), "--target", "core-lazy-web", "--output", "unused"],
+                cwd=root, env=dict(os.environ, PATH=str(scripts) + os.pathsep + os.environ["PATH"]),
+                text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+            )
+            self.assertEqual(result.returncode, 23, result.stderr)
+            self.assertEqual(result.stdout, "")
 
     def test_dart_pub_with_retry_bounds_and_retries_stalled_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -623,16 +1227,82 @@ class VerificationScriptsTest(unittest.TestCase):
         )
         self.assertIn('return "$status"', script)
 
+    def assert_core_browser_test_selected(self, relative_path: str, script: str) -> None:
+        core = script.split("cd packages/connectanum_core", 1)[1]
+        core = re.split(r"\n\s*\)", core, maxsplit=1)[0].replace("\\\n", " ")
+        # Selecting the whole test tree prevents future suites from being omitted.
+        self.assertRegex(core, r"\bdart\s+test\s+test\s+-p\s+chrome\b")
+        self.assertNotRegex(core, r"--(?:name|plain-name|tags|exclude-tags)\b")
+        self.assertTrue((REPO_ROOT / "packages/connectanum_core" / relative_path).exists())
+
+    def test_browser_suite_includes_portable_conformance_and_worker_boundaries(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            script = (REPO_ROOT / "bin" / name).read_text()
+            for relative_path in (
+                "test/conformance/wamp_singlemessage_conformance_test.dart",
+                "test/conformance/msgpack_reference_test.dart",
+                "test/authentication/scram_authentication_test.dart",
+                "test/authentication/scram_worker_boundary_test.dart",
+                "test/authentication/scram_web_contract_test.dart",
+            ):
+                with self.subTest(script=name, test=relative_path):
+                    self.assert_core_browser_test_selected(relative_path, script)
+            with self.assertRaises(AssertionError):
+                self.assert_core_browser_test_selected(
+                    "test/conformance", script.replace("dart test test ", "dart test test/serializer "),
+                )
+            with self.assertRaises(AssertionError):
+                self.assert_core_browser_test_selected(
+                    "test/conformance", script.replace("-p chrome", "-p chrome --name selected"),
+                )
+
+    def test_canonical_commands_reject_stale_conformance_fixtures(self) -> None:
+        for name in ("test-fast", "test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text()
+                self.assertIn("python3 tool/build_conformance_fixtures.py --check", script)
+        for path in (TEST_FAST, TEST_ALL):
+            self.assertIn("python3 tool/test_build_conformance_fixtures.py", path.read_text())
+
+    def test_vm_commands_include_the_complete_meta_cache_suite(self) -> None:
+        command = 'dart test packages/connectanum_client/test/meta_state_cache_test.dart'
+
+        def assert_selected(script: str, function: str) -> None:
+            body = script.split(f'{function}() {{', 1)[1].split('\n}', 1)[0]
+            self.assertRegex(body, rf'(?m)^  {re.escape(command)}$')
+
+        for path, function in ((TEST_FAST, 'run_client_fast_tests'),
+                               (TEST_ALL, 'run_client_vm_tests')):
+            with self.subTest(script=path.name):
+                script = path.read_text()
+                assert_selected(script, function)
+                with self.assertRaises(AssertionError):
+                    assert_selected(script.replace(command, '# omitted Meta suite'), function)
+                with self.assertRaises(AssertionError):
+                    assert_selected(script.replace(command, command + ' --name selected'), function)
+
+    def test_vm_commands_include_the_complete_session_e2ee_profile_suite(self):
+        command = 'dart test packages/connectanum_client/test/session_e2ee_profile_test.dart'
+        for path, function in ((TEST_FAST, 'run_client_fast_tests'),
+                               (TEST_ALL, 'run_client_vm_tests')):
+            with self.subTest(script=path.name):
+                body = path.read_text().split(f'{function}() {{', 1)[1].split('\n}', 1)[0]
+                pattern = rf'(?m)^  {re.escape(command)}$'
+                self.assertRegex(body, pattern)
+                for replacement in ('# omitted suite', command + ' --name selected'):
+                    with self.assertRaises(AssertionError):
+                        self.assertRegex(body.replace(command, replacement), pattern)
+
     def test_full_verify_runs_core_browser_security_tests(self) -> None:
         script = TEST_ALL.read_text(encoding="utf-8")
 
         self.assertIn("run_core_browser_tests()", script)
-        self.assertIn(
+        self.assert_core_browser_test_selected(
             "test/authentication/scram_key_derivation_web_test.dart",
             script,
         )
-        self.assertIn(
-            "test/serializer/serializer_optional_numeric_security_test.dart",
+        self.assert_core_browser_test_selected(
+            "test/serializer",
             script,
         )
         self.assertIn('"Core browser tests"', script)
@@ -640,6 +1310,188 @@ class VerificationScriptsTest(unittest.TestCase):
             "run_core_browser_tests\n  run_client_browser_websocket_test",
             script,
         )
+
+    def test_vm_commands_include_complete_reply_and_progressive_file_suites(self):
+        for suite in ('session_lazy_reply_test.dart', 'session_progressive_file_test.dart'):
+            command = f'dart test packages/connectanum_client/test/{suite}'
+            for path, function in ((TEST_FAST, 'run_client_fast_tests'),
+                                   (TEST_ALL, 'run_client_vm_tests')):
+                with self.subTest(script=path.name, suite=suite):
+                    body = path.read_text().split(f'{function}() {{', 1)[1].split('\n}', 1)[0]
+                    pattern = rf'(?m)^  {re.escape(command)}$'
+                    self.assertRegex(body, pattern)
+                    for replacement in ('# omitted suite', command + ' --name selected'):
+                        with self.assertRaises(AssertionError):
+                            self.assertRegex(body.replace(command, replacement), pattern)
+
+    def test_vm_coverage_includes_complete_session_profile_and_reply_suites(self):
+        script = (REPO_ROOT / 'bin' / 'test-coverage').read_text()
+        for label, suite in (
+            ('e2ee_profile', 'session_e2ee_profile_test.dart'),
+            ('lazy_reply', 'session_lazy_reply_test.dart'),
+            ('progressive_file', 'session_progressive_file_test.dart'),
+        ):
+            with self.subTest(suite=suite):
+                command = (f'run_package_coverage connectanum_client '
+                           f'connectanum_client_{label} test/{suite}')
+                pattern = rf'(?m)^{re.escape(command)}$'
+                self.assertRegex(script, pattern)
+                for replacement in ('# omitted suite', command + ' --name selected'):
+                    with self.assertRaises(AssertionError):
+                        self.assertRegex(script.replace(command, replacement), pattern)
+
+    def test_session_mutation_targets_retain_complete_source_and_suites(self):
+        targets = json.loads((REPO_ROOT / 'tool' / 'mutation_targets.json').read_text())
+        for name in ('client-session-vm', 'client-session-web'):
+            with self.subTest(target=name):
+                target = targets[name]
+                self.assertEqual(target['sources'], [
+                    'packages/connectanum_client/lib/src/protocol/session.dart',
+                ])
+                for suite in ('client_test.dart', 'meta_state_cache_test.dart',
+                              'session_e2ee_profile_test.dart', 'session_lazy_reply_test.dart',
+                              'session_progressive_file_test.dart'):
+                    self.assertIn(f'packages/connectanum_client/test/{suite}', target['tests'])
+                for helper in ('native_runtime_support.dart', 'native_runtime_support_io.dart',
+                               'native_runtime_support_stub.dart'):
+                    self.assertIn(f'packages/connectanum_client/test/test_support/{helper}',
+                                  target['supportFiles'])
+        self.assertTrue(targets['client-session-vm']['requiresNativeLibrary'])
+        self.assertIn('packages/connectanum_client/test/client_on_transport_io_events_test.dart',
+                      targets['client-session-vm']['tests'])
+        native_suite = 'packages/connectanum_client/test/transport/native/e2ee_provider_test.dart'
+        self.assertIn(native_suite, targets['client-session-vm']['tests'])
+        self.assertNotIn(native_suite, targets['client-session-web']['tests'])
+        self.assertEqual(targets['client-session-web']['platform'], 'chrome')
+        self.assertEqual(targets['client-session-web']['testRoot'], 'packages/connectanum_client')
+
+    def test_native_resolver_regression_remains_in_vm_verification_and_coverage(self):
+        suite = 'packages/connectanum_client/test/transport/native/e2ee_provider_test.dart'
+        command = f'dart test {suite}'
+        for path in (TEST_FAST, TEST_ALL):
+            with self.subTest(script=path.name):
+                script = path.read_text()
+                pattern = rf'(?m)^\s*{re.escape(command)}$'
+                self.assertRegex(script, pattern)
+                for replacement in ('# omitted native suite', command + ' --name selected'):
+                    with self.assertRaises(AssertionError):
+                        self.assertRegex(script.replace(command, replacement), pattern)
+        coverage = (REPO_ROOT / 'bin/test-coverage').read_text()
+        self.assertIn('test/transport/native/e2ee_provider_test.dart', coverage)
+        native = (REPO_ROOT / suite).read_text()
+        portable = (REPO_ROOT / 'packages/connectanum_client/test/client_test.dart').read_text()
+        name = 'publishLazyPayload supports a native session E2EE provider resolver'
+        self.assertIn(name, native)
+        self.assertNotIn(name, portable)
+        self.assertNotIn('nativeClientRuntimeSkipReason', portable)
+
+    def test_browser_verification_and_coverage_include_e2ee_regressions(self) -> None:
+        for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
+            with self.subTest(script=path.name):
+                script = path.read_text(encoding="utf-8")
+                self.assert_core_browser_test_selected("test/message_e2ee_payload_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_e2ee_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_lazy_payload_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_invocation_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_result_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_completion_boundaries(self) -> None:
+        for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
+            with self.subTest(script=path.name):
+                script = path.read_text(encoding="utf-8")
+                self.assert_core_browser_test_selected("test/mcp_completion_test.dart", script)
+                self.assert_core_browser_test_selected("test/mcp_completion_regression_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_mcp_form_boundaries(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
+                self.assertIn("test/mcp/form_elicitation_regression_test.dart", script)
+                self.assertIn("cd packages/connectanum_client", script)
+        coverage = (REPO_ROOT / "bin" / "test-browser-coverage").read_text(encoding="utf-8")
+        self.assertIn('--report-on=packages/connectanum_client/lib', coverage)
+        self.assertIn('--coverage="$coverage_root/raw/client"', coverage)
+
+    def assert_client_browser_suites_selected(self, script: str) -> None:
+        client = script.split("cd packages/connectanum_client", 1)[1]
+        for relative_path in (
+            "test/client_test.dart",
+            "test/meta_state_cache_test.dart",
+            "test/session_e2ee_profile_test.dart",
+            "test/session_lazy_reply_test.dart",
+            "test/session_progressive_file_test.dart",
+            "test/transport/native/message_binding_test.dart",
+            "test/transport/local",
+            "test/transport/websocket/websocket_transport_web_test.dart",
+            "test/mcp/form_elicitation_regression_test.dart",
+        ):
+            self.assertIn(relative_path, client)
+            self.assertTrue((REPO_ROOT / "packages/connectanum_client" / relative_path).exists())
+        self.assertNotRegex(client, r"--(?:name|plain-name|tags|exclude-tags)\b")
+
+    def test_browser_commands_retain_client_session_meta_socket_and_form_suites(self):
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text()
+                self.assert_client_browser_suites_selected(script)
+                for relative_path in (
+                    "test/client_test.dart",
+                    "test/meta_state_cache_test.dart",
+                    "test/session_e2ee_profile_test.dart",
+                    "test/session_lazy_reply_test.dart",
+                    "test/session_progressive_file_test.dart",
+                    "test/transport/native/message_binding_test.dart",
+                    "test/transport/local",
+                    "test/transport/websocket/websocket_transport_web_test.dart",
+                    "test/mcp/form_elicitation_regression_test.dart",
+                ):
+                    with self.assertRaises(AssertionError):
+                        self.assert_client_browser_suites_selected(script.replace(relative_path, ""))
+                with self.assertRaises(AssertionError):
+                    self.assert_client_browser_suites_selected(script + " --name selected")
+
+    def test_browser_verification_and_coverage_include_key_file_boundaries(self) -> None:
+        for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
+            with self.subTest(script=path.name):
+                script = path.read_text(encoding="utf-8")
+                self.assert_core_browser_test_selected("test/authentication/cryptosign_authentication_test.dart", script)
+                self.assert_core_browser_test_selected("test/authentication/cryptosign/key_file_boundaries_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_registration_lifecycle(self) -> None:
+        for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
+            with self.subTest(script=path.name):
+                script = path.read_text(encoding="utf-8")
+                self.assert_core_browser_test_selected("test/message_registered_regression_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_handshake_metadata(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
+                self.assert_core_browser_test_selected("test/serializer_challenge_welcome_test.dart", script)
+                self.assert_core_browser_test_selected("test/details_feature_announcement_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_lazy_metadata(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
+                self.assert_core_browser_test_selected("test/custom_fields_test.dart", script)
+                self.assert_core_browser_test_selected("test/custom_fields_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_details_regression_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_subscription_lifecycle(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
+                self.assert_core_browser_test_selected("test/message_subscribed_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_subscribed_regression_test.dart", script)
+
+    def test_browser_verification_and_coverage_include_ppt_transcoding(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
+                self.assert_core_browser_test_selected("test/message_invocation_transcoding_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_invocation_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_invocation_response_lifecycle_test.dart", script)
 
     def test_timeout_helper_does_not_leave_success_watchdog_alive(self) -> None:
         script = textwrap.dedent(

@@ -105,7 +105,9 @@ class Subscribed extends AbstractMessage {
         _streamEventSubscription != null) {
       return;
     }
-    _streamEventSubscription = _eventStreamOverride!.listen(_onEvent!);
+    _streamEventSubscription = _eventStreamOverride!.listen(
+      (event) => _onEvent!(event),
+    );
   }
 
   StreamController<Event> _newEventController() {

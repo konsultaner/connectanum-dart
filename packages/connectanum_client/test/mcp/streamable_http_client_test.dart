@@ -3507,14 +3507,18 @@ void main() {
           'Bearer narrow-step-up-token',
         );
 
-        final stepUpRequest = client.createStepUpAuthorizationRequest(
-          currentGrant: narrowGrant,
-          authorizationFailure: authorizationFailure,
-          redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
-          previouslyRequestedScopes: const <String>[
-            'resources:read',
-            'tools:read',
-          ],
+        late McpAuthorizationRequest stepUpRequest;
+        expect(
+          () => stepUpRequest = client.createStepUpAuthorizationRequest(
+            currentGrant: narrowGrant,
+            authorizationFailure: authorizationFailure,
+            redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+            previouslyRequestedScopes: const <String>[
+              'resources:read',
+              'tools:read',
+            ],
+          ),
+          returnsNormally,
         );
         expect(stepUpRequest.resource, endpoint.uri);
         expect(stepUpRequest.clientId, narrowGrant.clientId);

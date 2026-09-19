@@ -57,6 +57,316 @@ void main() {
     expect(await subscriptions.listForUsernames(['alice']), isEmpty);
   });
 
+  test('unregister is account-bound, normalized and idempotent', () async {
+    final request = _request(aliceDevice, 'alice-token');
+    final key = PlatformPushSubscriptionKey(
+      deviceId: aliceDevice.deviceId,
+      provider: 'apns',
+    );
+    await service.register('alice', request);
+    await expectLater(
+      service.unregister('bob', key),
+      throwsA(isA<DeviceNotFound>()),
+    );
+    expect(
+      (await subscriptions.listForUsernames(['alice'])).single.token,
+      'alice-token',
+    );
+    expect(await service.unregister('Alice', key), isTrue);
+    expect(await service.unregister('alice', key), isFalse);
+    expect(await subscriptions.listForUsernames(['alice']), isEmpty);
+  });
+
+  test('unregister remains available after device revocation', () async {
+    await service.register('alice', _request(aliceDevice, 'alice-token'));
+    await accounts.revokeDevice('alice', aliceDevice.deviceId);
+    expect(
+      await service.unregister(
+        'alice',
+        PlatformPushSubscriptionKey(
+          deviceId: aliceDevice.deviceId,
+          provider: 'apns',
+        ),
+      ),
+      isTrue,
+    );
+    expect(await subscriptions.listForUsernames(['alice']), isEmpty);
+  });
+
+  test(
+    'revocation removes every provider only for the named account/device',
+    () async {
+      final otherDevice = _enrollment(20);
+      await accounts.enrollDevice('alice', otherDevice);
+      await accounts.enrollDevice('bob', aliceDevice);
+      await service.register('alice', _request(aliceDevice, 'alice-apns'));
+      await service.register(
+        'alice',
+        PlatformPushSubscriptionRequest(
+          deviceId: aliceDevice.deviceId,
+          provider: 'fcm',
+          token: 'alice-fcm',
+        ),
+      );
+      await service.register('alice', _request(otherDevice, 'other-device'));
+      await service.register('bob', _request(aliceDevice, 'bob-token'));
+      await service.deviceRevoked('Alice', aliceDevice.deviceId);
+      await service.deviceRevoked('alice', aliceDevice.deviceId);
+      expect(
+        (await subscriptions.listForUsernames(['alice'])).single.token,
+        'other-device',
+      );
+      expect(
+        (await subscriptions.listForUsernames(['bob'])).single.token,
+        'bob-token',
+      );
+    },
+  );
+
+  test(
+    'dispatcher delivers valid work, ignores invalid cursors and stays closed',
+    () async {
+      await service.register('alice', _request(aliceDevice, 'alice-token'));
+      final gateway = _RecordingGateway(
+        (_) async => PlatformPushDeliveryResult.accepted,
+      );
+      final dispatcher = PlatformPushDispatcher(
+        service: service,
+        gateway: gateway,
+        maxPendingAccounts: 1,
+      );
+      dispatcher.enqueue(0, ['alice']);
+      dispatcher.enqueue(-1, ['alice']);
+      dispatcher.enqueue(1, ['  ', 'Alice', 'alice']);
+      await dispatcher.close();
+      expect(gateway.deliveries, [
+        const _Delivery(provider: 'apns', token: 'alice-token', cursor: 1),
+      ]);
+      dispatcher.enqueue(2, ['alice']);
+      await dispatcher.close();
+      expect(gateway.deliveries, hasLength(1));
+    },
+  );
+
+  test(
+    'dispatcher rejects nonpositive queue, presentation and time bounds',
+    () {
+      final gateway = _RecordingGateway(
+        (_) async => PlatformPushDeliveryResult.accepted,
+      );
+      for (final limit in [0, -1]) {
+        expect(
+          () => PlatformPushDispatcher(
+            service: service,
+            gateway: gateway,
+            maxPendingAccounts: limit,
+          ),
+          throwsArgumentError,
+        );
+        expect(
+          () => PlatformPushDispatcher(
+            service: service,
+            gateway: gateway,
+            maxPendingPresentationConversationsPerAccount: limit,
+          ),
+          throwsArgumentError,
+        );
+        expect(
+          () => PlatformPushDispatcher(
+            service: service,
+            gateway: gateway,
+            deliveryTimeout: Duration(microseconds: limit),
+          ),
+          throwsArgumentError,
+        );
+      }
+      expect(gateway.deliveries, isEmpty);
+    },
+  );
+
+  test(
+    'presentation IDs accept the exact maximum and reject empty or oversized values',
+    () async {
+      await service.register('alice', _request(aliceDevice, 'alice-token'));
+      for (final conversation in <String?>[
+        null,
+        '',
+        'x' * 199,
+        'x' * 200,
+        'x' * 201,
+      ]) {
+        final gateway = _RecordingGateway(
+          (_) async => PlatformPushDeliveryResult.accepted,
+        );
+        final dispatcher = PlatformPushDispatcher(
+          service: service,
+          gateway: gateway,
+        );
+        dispatcher.enqueue(
+          1,
+          ['alice'],
+          presentationConversationId: conversation,
+          presentationUsernames: ['Alice'],
+        );
+        await dispatcher.close();
+        expect(
+          gateway.deliveries.single.present,
+          conversation != null &&
+              (conversation.length == 199 || conversation.length == 200),
+        );
+      }
+    },
+  );
+
+  for (final limit in [1, 2]) {
+    test(
+      'presentation queue honors the $limit-conversation cap at its boundary',
+      () async {
+        await service.register(
+          'alice',
+          _request(
+            aliceDevice,
+            'alice-token',
+            mutedConversationIds: ['muted-0', 'muted-1'],
+          ),
+        );
+        final gateway = _RecordingGateway(
+          (_) async => PlatformPushDeliveryResult.accepted,
+        );
+        final dispatcher = PlatformPushDispatcher(
+          service: service,
+          gateway: gateway,
+          maxPendingPresentationConversationsPerAccount: limit,
+        );
+        // The first batch is awaiting subscription lookup while the next batch fills.
+        dispatcher.enqueue(1, ['alice']);
+        for (var index = 0; index < limit; index++) {
+          dispatcher.enqueue(
+            index + 2,
+            ['alice'],
+            presentationConversationId: 'muted-$index',
+            presentationUsernames: ['alice'],
+          );
+        }
+        dispatcher.enqueue(
+          10,
+          ['alice'],
+          presentationConversationId: 'unmuted-overflow',
+          presentationUsernames: ['alice'],
+        );
+        await dispatcher.close();
+        expect(gateway.deliveries, [
+          const _Delivery(provider: 'apns', token: 'alice-token', cursor: 1),
+          const _Delivery(provider: 'apns', token: 'alice-token', cursor: 10),
+        ]);
+      },
+    );
+  }
+
+  test(
+    'older queued cursors cannot lower delivery but still contribute presentation',
+    () async {
+      await service.register('alice', _request(aliceDevice, 'alice-token'));
+      final gateway = _RecordingGateway(
+        (_) async => PlatformPushDeliveryResult.accepted,
+      );
+      final dispatcher = PlatformPushDispatcher(
+        service: service,
+        gateway: gateway,
+      );
+      dispatcher.enqueue(100, ['alice']);
+      dispatcher.enqueue(200, ['alice']);
+      dispatcher.enqueue(
+        150,
+        ['alice'],
+        presentationConversationId: 'conversation-1',
+        presentationUsernames: ['alice'],
+      );
+      await dispatcher.close();
+      expect(gateway.deliveries, [
+        const _Delivery(provider: 'apns', token: 'alice-token', cursor: 100),
+        const _Delivery(
+          provider: 'apns',
+          token: 'alice-token',
+          cursor: 200,
+          present: true,
+        ),
+      ]);
+    },
+  );
+
+  test(
+    'subscription read failure is redacted and does not prevent recovery',
+    () async {
+      await service.register('alice', _request(aliceDevice, 'alice-token'));
+      final original = await subscriptions.file.readAsBytes();
+      await subscriptions.file.writeAsString('private-corrupt-content');
+      final failures = <PlatformPushDispatchFailure>[];
+      final reported = Completer<void>();
+      final gateway = _RecordingGateway(
+        (_) async => PlatformPushDeliveryResult.accepted,
+      );
+      final dispatcher = PlatformPushDispatcher(
+        service: service,
+        gateway: gateway,
+        onBackgroundFailure: (failure) {
+          failures.add(failure);
+          if (!reported.isCompleted) reported.complete();
+        },
+      );
+      addTearDown(dispatcher.close);
+      dispatcher.enqueue(1, ['alice']);
+      await reported.future;
+      expect(gateway.deliveries, isEmpty);
+      await subscriptions.file.writeAsBytes(original);
+      dispatcher.enqueue(2, ['alice']);
+      await dispatcher.close();
+      expect(failures, [PlatformPushDispatchFailure.subscriptionLookup]);
+      expect(gateway.deliveries.single.cursor, 2);
+    },
+  );
+
+  test(
+    'token retirement read failure does not prevent the next account delivery',
+    () async {
+      final bobDevice = _enrollment(20);
+      await accounts.enrollDevice('bob', bobDevice);
+      await service.register('alice', _request(aliceDevice, 'alice-token'));
+      await service.register('bob', _request(bobDevice, 'bob-token'));
+      final failures = <PlatformPushDispatchFailure>[];
+      final gateway = _RecordingGateway((delivery) async {
+        if (delivery.token == 'alice-token') {
+          // A readable but invalid document forces the retirement transaction to fail.
+          await subscriptions.file.writeAsString('private-retirement-failure');
+          return PlatformPushDeliveryResult.invalidToken;
+        }
+        return PlatformPushDeliveryResult.accepted;
+      });
+      final original = await subscriptions.file.readAsBytes();
+      final dispatcher = PlatformPushDispatcher(
+        service: service,
+        gateway: gateway,
+        onBackgroundFailure: failures.add,
+      );
+      dispatcher.enqueue(3, ['alice', 'bob']);
+      await dispatcher.close();
+      expect(failures, [PlatformPushDispatchFailure.tokenRetirement]);
+      expect(gateway.deliveries.map((delivery) => delivery.token), [
+        'alice-token',
+        'bob-token',
+      ]);
+      expect(
+        await subscriptions.file.readAsString(),
+        'private-retirement-failure',
+      );
+      await subscriptions.file.writeAsBytes(original);
+      expect(
+        await subscriptions.listForUsernames(['alice', 'bob']),
+        hasLength(2),
+      );
+    },
+  );
+
   test(
     'dispatch exposes only provider token and highest pending cursor',
     () async {

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+ensure_rust_env
+coverage_root="${CONNECTANUM_NATIVE_COVERAGE_DIR:-$ROOT_DIR/out/coverage-native}"
+if [[ "$coverage_root" != /* ]]; then coverage_root="$ROOT_DIR/$coverage_root"; fi
+if [[ -e "$coverage_root" ]]; then
+  printf 'Choose a fresh CONNECTANUM_NATIVE_COVERAGE_DIR.\n' >&2
+  exit 2
+fi
+mkdir -p "$coverage_root"
+# Run the filter against a real, isolated LLVM fixture before measuring the
+# transport workspace. The analyzer's Cargo target is separate from ct_ffi.
+CONNECTANUM_TEST_LLVM_COVERAGE=1 "$ROOT_DIR/bin/test-native-coverage-tools"
+if [[ ! -f native/transport/Cargo.lock ]]; then
+  cargo generate-lockfile --manifest-path native/transport/Cargo.toml
+fi
+scope_analyzer="$ROOT_DIR/out/rust-coverage-scope-target/debug/connectanum-coverage-scope"
+python3 tool/native_coverage.py snapshot --analyzer "$scope_analyzer" \
+  --scope "$coverage_root/source-scopes.json"
+# Retain unmodified raw evidence; production.info has recalculated line totals
+# only. Missing platform sources stay visible in its separate component report.
+cargo llvm-cov --manifest-path native/transport/Cargo.toml --workspace \
+  --locked --features ffi-test --lcov --output-path "$coverage_root/lcov.info"
+python3 tool/native_coverage.py filter --analyzer "$scope_analyzer" \
+  --scope "$coverage_root/source-scopes.json" --lcov "$coverage_root/lcov.info" \
+  --output "$coverage_root/production.info"

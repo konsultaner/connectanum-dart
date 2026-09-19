@@ -1,13 +1,2 @@
-import 'dart:ffi' as ffi;
-
-import 'package:connectanum_client/src/transport/native/runtime.dart';
-
-String? nativeClientRuntimeSkipReason() {
-  final resolvedPath = NativeLibraryLoader.resolvePath();
-  try {
-    ffi.DynamicLibrary.open(resolvedPath);
-    return null;
-  } catch (error) {
-    return 'Native client runtime unavailable: $error';
-  }
-}
+export 'native_runtime_support_stub.dart'
+    if (dart.library.io) 'native_runtime_support_io.dart';

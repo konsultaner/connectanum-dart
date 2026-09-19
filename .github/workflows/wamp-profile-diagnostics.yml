@@ -72,6 +72,21 @@ jobs:
             --native-runtime-thread-counts "$INPUT_NATIVE_RUNTIME_THREAD_COUNTS" \
             --workload-timeout-ms "$INPUT_WORKLOAD_TIMEOUT_MS"
 
+      - name: Summarize WAMP profile diagnostics
+        if: always()
+        run: |
+          summary=out/wamp-profile-diagnostics/diagnostics-summary.tsv
+          {
+            printf '## WAMP Profile Diagnostics\n\n'
+            if [[ -f "$summary" ]]; then
+              printf '```text\n'
+              cat "$summary"
+              printf '```\n\nFull results and CPU/toolchain details are in the diagnostic artifact.\n'
+            else
+              printf 'Diagnostics did not reach scenario execution. Inspect the setup/build logs.\n'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload WAMP profile diagnostic artifacts
         if: always()
         uses: actions/upload-artifact@v7

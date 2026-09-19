@@ -11,12 +11,15 @@ import 'package:connectanum_bench/connectanum_bench.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
+import 'package:connectanum_client/connectanum.dart' as client;
 import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart'
     as native_e2ee;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
+
+import 'support/native_reply_callee.dart';
 
 void main() {
   final nativeLib = _resolveNativeLib();
@@ -44,6 +47,81 @@ void main() {
     tearDownAll(() async {
       await harness?.close();
     });
+
+    for (final webSocket in [false, true]) {
+      for (final wireSerializer in ['json', 'msgpack', 'cbor']) {
+        test(
+          'native lazy replies ${webSocket ? 'WebSocket' : 'RawSocket'} '
+          '$wireSerializer preserve PPT and encrypted payloads',
+          () async {
+            final binding = harness!.binding;
+            final rawPort = binding.listeners
+                .firstWhere(
+                  (listener) =>
+                      listener.settings?.protocols.contains(
+                        ListenerProtocol.rawsocket,
+                      ) ??
+                      false,
+                )
+                .port;
+            final webPort = binding.listeners
+                .firstWhere(
+                  (listener) =>
+                      listener.settings?.protocols.contains(
+                        ListenerProtocol.websocket,
+                      ) ??
+                      false,
+                )
+                .port;
+            final webUrl = 'ws://127.0.0.1:$webPort/wamp';
+            final callee = await NativeReplyCallee.start(
+              webSocket: webSocket,
+              wireSerializer: wireSerializer,
+              rawPort: rawPort,
+              webUrl: webUrl,
+              nativeLib: nativeLib!,
+            );
+            addTearDown(() async {
+              await callee.close();
+            });
+            final caller = client.Client(
+              realm: 'bench.secure',
+              authId: 'bench-user',
+              authenticationMethods: [
+                client.TicketAuthentication('bench-ticket'),
+              ],
+              transport: client.WebSocketTransport.withJsonSerializer(webUrl),
+              e2eeProvider: client.WampCborXsalsa20Poly1305Provider.single(
+                keyId: 'native-reply',
+                key: Uint8List.fromList(
+                  List.generate(32, (index) => index + 1),
+                ),
+              ),
+            );
+            addTearDown(caller.disconnect);
+            final callerSession = await caller.connect().first.timeout(
+              const Duration(seconds: 10),
+            );
+            var expectedReplies = 0;
+            for (final shape in ['explicit', 'materialized', 'encoded']) {
+              for (final mode in ['json', 'msgpack', 'cbor', 'wamp']) {
+                final result = await callerSession
+                    .callSingle(
+                      'bench.rpc.native_lazy',
+                      arguments: [shape, mode],
+                    )
+                    .timeout(const Duration(seconds: 10));
+                expectedReplies++;
+                expect(result.arguments, ['reply', expectedReplies]);
+                expect(result.argumentsKeywords, {'shape': shape});
+              }
+            }
+            expect(await callee.close(), 12);
+          },
+          skip: skipReason,
+        );
+      }
+    }
 
     test('Dart RawSocket RPC workload runs against a real router', () async {
       final samples = await harness!.runDart(

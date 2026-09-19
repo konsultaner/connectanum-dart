@@ -697,7 +697,7 @@ _HttpFastCgiResponse _parseFastCgiStdoutResponse(Uint8List bytes) {
   final headerText = utf8.decode(Uint8List.sublistView(bytes, 0, separator.$1));
   final body = Uint8List.sublistView(bytes, separator.$2);
   var status = HttpStatus.ok;
-  final headerValues = <String, List<String>>{};
+  final headerEntries = <MapEntry<String, String>>[];
   for (final line in const LineSplitter().convert(headerText)) {
     if (line.trim().isEmpty) {
       continue;
@@ -713,27 +713,41 @@ _HttpFastCgiResponse _parseFastCgiStdoutResponse(Uint8List bytes) {
     }
     if (name.toLowerCase() == 'status') {
       final code = int.tryParse(value.split(' ').first);
-      if (code == null || code < 100 || code > 999) {
+      if (code == null || code < 100 || code > 599) {
         throw _HttpFastCgiProtocolException('invalid_status');
       }
       status = code;
       continue;
     }
-    headerValues.putIfAbsent(name, () => <String>[]).add(value);
+    headerEntries.add(MapEntry(name, value));
   }
-  final blocked = _httpHopByHopHeaderNames(
-    headerValues.map((key, value) => MapEntry(key, value.join(','))),
-  );
+  final blocked = _httpHopByHopHeaderNames({
+    'connection': headerEntries
+        .where((entry) => entry.key.toLowerCase() == 'connection')
+        .map((entry) => entry.value)
+        .join(','),
+  });
   blocked.addAll(const {'content-length'});
   final headers = <String, String>{};
-  for (final entry in headerValues.entries) {
-    final name = entry.key.trim();
-    if (name.isEmpty || blocked.contains(name.toLowerCase())) {
+  final additionalHeaders = <MapEntry<String, String>>[];
+  final seen = <String>{};
+  for (final entry in headerEntries) {
+    final normalized = entry.key.toLowerCase();
+    if (blocked.contains(normalized)) {
       continue;
     }
-    headers[name] = entry.value.join(',');
+    if (seen.add(normalized)) {
+      headers[entry.key] = entry.value;
+    } else {
+      additionalHeaders.add(entry);
+    }
   }
-  return _HttpFastCgiResponse(status: status, headers: headers, body: body);
+  return _HttpFastCgiResponse(
+    status: status,
+    headers: headers,
+    additionalHeaders: additionalHeaders,
+    body: body,
+  );
 }
 
 (int, int)? _httpFastCgiHeaderSeparator(Uint8List bytes) {
@@ -814,11 +828,13 @@ class _HttpFastCgiResponse {
   const _HttpFastCgiResponse({
     required this.status,
     required this.headers,
+    required this.additionalHeaders,
     required this.body,
   });
 
   final int status;
   final Map<String, String> headers;
+  final List<MapEntry<String, String>> additionalHeaders;
   final Uint8List body;
 }
 
@@ -1048,6 +1064,8 @@ class RouterBinding {
   final Map<String, _RouterMcpEndpoint> _mcpEndpoints = {};
   final Map<String, _PendingHttpAuthTransaction> _pendingHttpAuthTransactions =
       {};
+  final Set<_PendingHttpAuthTransaction> _activeHttpAuthTransactions = {};
+  bool _httpAuthDisposed = false;
   final Map<String, _HttpAuthTokenRecord> _httpAuthTokens = {};
   final Map<String, _HttpRefreshTokenRecord> _httpRefreshTokens = {};
   final Set<String> _httpRefreshTokensInFlight = {};
@@ -1735,10 +1753,15 @@ class RouterBinding {
 
   /// Stops the background boss isolate (if running) and releases resources.
   Future<void> dispose() async {
-    for (final pending in _pendingHttpAuthTransactions.values.toList()) {
-      unawaited(pending.abort(reason: 'binding_dispose'));
+    _httpAuthDisposed = true;
+    for (final pending in {
+      ..._pendingHttpAuthTransactions.values,
+      ..._activeHttpAuthTransactions,
+    }) {
+      unawaited(_abortHttpAuthForDisposal(pending));
     }
     _pendingHttpAuthTransactions.clear();
+    _activeHttpAuthTransactions.clear();
     _httpAuthTokens.clear();
     _httpRefreshTokens.clear();
     _httpRefreshTokensInFlight.clear();
@@ -2894,6 +2917,7 @@ class RouterBinding {
         response: NativeHttpResponse(
           status: fastCgiResponse.status,
           headers: fastCgiResponse.headers,
+          additionalHeaders: fastCgiResponse.additionalHeaders,
           body: NativeHttpResponseBytes(fastCgiResponse.body),
         ),
       );
@@ -4221,7 +4245,29 @@ class RouterBinding {
       helloDetails: helloDetails,
     );
 
-    final result = await authenticator.onHello(context);
+    final transaction = _PendingHttpAuthTransaction(
+      state: '',
+      realmUri: realmUri,
+      authMethod: authMethod,
+      authId: authId,
+      authenticator: authenticator,
+      context: context,
+      sessionProfileName: sessionProfile?.name,
+      routeScope: _HttpAuthRouteScope(
+        listenerId: request.listenerId,
+        route: route,
+      ),
+      expiresAt: DateTime.now().toUtc(),
+    );
+    final result = await _runHttpAuthStep(
+      transaction: transaction,
+      action: () => authenticator.onHello(context),
+    );
+    if (result == null || _httpAuthDisposed) {
+      await _abortHttpAuthForDisposal(transaction);
+      await _sendDisposedHttpAuthResponse(request, handshake);
+      return;
+    }
     if (result.status != AuthStatus.failure) {
       final grantCapacityDecision = _evaluateHttpAuthGrantCapacity(
         realmUri: realmUri,
@@ -4266,18 +4312,8 @@ class RouterBinding {
         }
         final authState = _randomHttpAuthToken();
         final timeoutMs = realmSettings.limits.authTimeoutMs;
-        _pendingHttpAuthTransactions[authState] = _PendingHttpAuthTransaction(
+        _pendingHttpAuthTransactions[authState] = transaction.copyWith(
           state: authState,
-          realmUri: realmUri,
-          authMethod: authMethod,
-          authId: authId,
-          authenticator: authenticator,
-          context: context,
-          sessionProfileName: sessionProfile?.name,
-          routeScope: _HttpAuthRouteScope(
-            listenerId: request.listenerId,
-            route: route,
-          ),
           expiresAt: now.add(
             Duration(milliseconds: timeoutMs > 0 ? timeoutMs : 10000),
           ),
@@ -4637,6 +4673,58 @@ class RouterBinding {
     ),
   );
 
+  Future<void> _abortHttpAuthForDisposal(
+    _PendingHttpAuthTransaction transaction,
+  ) async {
+    try {
+      await transaction.abort(reason: 'binding_dispose');
+    } catch (_) {
+      // Cleanup is best effort; plugin errors must not escape shutdown or leak
+      // authenticator-provided details into diagnostics.
+      onEvent?.call({
+        'source': 'binding',
+        'type': 'http_auth_abort_failed',
+        'reason': 'binding_dispose',
+      });
+    }
+  }
+
+  Future<AuthResult?> _runHttpAuthStep({
+    required _PendingHttpAuthTransaction transaction,
+    required Future<AuthResult> Function() action,
+  }) async {
+    AuthResult? result;
+    if (!_httpAuthDisposed) {
+      _activeHttpAuthTransactions.add(transaction);
+      try {
+        result = await action();
+      } catch (_) {
+        if (!_httpAuthDisposed) rethrow;
+      } finally {
+        _activeHttpAuthTransactions.remove(transaction);
+      }
+    }
+    // Callers must check disposal after awaiting this future, before publishing
+    // any result: disposal can also occur between this return and their resume.
+    return result;
+  }
+
+  Future<void> _sendDisposedHttpAuthResponse(
+    RouterHttpRequest request,
+    NativeHttpHandshake? handshake,
+  ) => _sendImmediateHttpResponse(
+    request: request,
+    handshake: handshake,
+    response: NativeHttpResponse(
+      status: HttpStatus.serviceUnavailable,
+      body: NativeHttpResponseJson(const <String, Object?>{
+        'status': 'error',
+        'reason': 'binding_disposed',
+        'message': 'Router authentication is shut down',
+      }),
+    ),
+  );
+
   Future<void> _continueHttpAuthTransaction({
     required RouterHttpRequest request,
     required NativeHttpHandshake? handshake,
@@ -4759,10 +4847,16 @@ class RouterBinding {
           ? Map<String, Object?>.from(extra)
           : const <String, Object?>{},
     );
-    final result = await pending.authenticator.onAuthenticate(
-      pending.context,
-      message,
+    final result = await _runHttpAuthStep(
+      transaction: pending,
+      action: () =>
+          pending.authenticator.onAuthenticate(pending.context, message),
     );
+    if (result == null || _httpAuthDisposed) {
+      await _abortHttpAuthForDisposal(pending);
+      await _sendDisposedHttpAuthResponse(request, handshake);
+      return;
+    }
     switch (result.status) {
       case AuthStatus.challenge:
         final now = DateTime.now().toUtc();
@@ -6545,10 +6639,17 @@ class RouterBinding {
       return;
     }
 
-    final range = _parseSingleHttpRange(
-      _headerValue(request.headers, HttpHeaders.rangeHeader),
-      size,
-    );
+    // RFC 9110: Range applies only to GET. These file validators are weak:
+    // filesystem mtime cannot prove that a file changed at most once per second.
+    // An If-Range condition therefore cannot authorize a partial representation.
+    final range =
+        method == 'GET' &&
+            _headerValue(request.headers, HttpHeaders.ifRangeHeader) == null
+        ? _parseSingleHttpRange(
+            _headerValue(request.headers, HttpHeaders.rangeHeader),
+            size,
+          )
+        : null;
     if (range?.unsatisfiable ?? false) {
       await _sendImmediateHttpResponse(
         request: request,
@@ -6580,14 +6681,12 @@ class RouterBinding {
         HttpHeaders.contentRangeHeader:
             'bytes ${range.start}-${range.end}/$size',
       };
-      final body = method == 'HEAD'
-          ? Uint8List(0)
-          : Uint8List.fromList(
-              await File(filePath)
-                  .openRead(range.start, range.end + 1)
-                  .expand((chunk) => chunk)
-                  .toList(),
-            );
+      final body = Uint8List.fromList(
+        await File(filePath)
+            .openRead(range.start, range.end + 1)
+            .expand((chunk) => chunk)
+            .toList(),
+      );
       await _sendImmediateHttpResponse(
         request: request,
         handshake: handshake,
@@ -6695,6 +6794,8 @@ class RouterBinding {
         return Uri.decodeComponent(rawSegment);
       } on FormatException {
         return null;
+      } on ArgumentError {
+        return null;
       }
     }();
     if (decoded == null ||
@@ -6738,9 +6839,13 @@ class RouterBinding {
     if (ifNoneMatch == null || ifNoneMatch.trim().isEmpty) {
       return false;
     }
+    final opaqueTag = etag.startsWith('W/') ? etag.substring(2) : etag;
     for (final candidate in ifNoneMatch.split(',')) {
       final trimmed = candidate.trim();
-      if (trimmed == '*' || trimmed == etag) {
+      final opaqueCandidate = trimmed.startsWith('W/')
+          ? trimmed.substring(2)
+          : trimmed;
+      if (trimmed == '*' || opaqueCandidate == opaqueTag) {
         return true;
       }
     }
@@ -6755,6 +6860,8 @@ class RouterBinding {
       final since = HttpDate.parse(ifModifiedSince).toUtc();
       return !_httpDateSeconds(modified).isAfter(_httpDateSeconds(since));
     } on FormatException {
+      return false;
+    } on HttpException {
       return false;
     }
   }
@@ -8503,7 +8610,7 @@ class _HttpAuthRouteScope {
 }
 
 class _PendingHttpAuthTransaction {
-  const _PendingHttpAuthTransaction({
+  _PendingHttpAuthTransaction({
     required this.state,
     required this.realmUri,
     required this.authMethod,
@@ -8524,6 +8631,7 @@ class _PendingHttpAuthTransaction {
   final String? sessionProfileName;
   final _HttpAuthRouteScope routeScope;
   final DateTime expiresAt;
+  bool _aborted = false;
 
   _PendingHttpAuthTransaction copyWith({String? state, DateTime? expiresAt}) {
     return _PendingHttpAuthTransaction(
@@ -8539,8 +8647,11 @@ class _PendingHttpAuthTransaction {
     );
   }
 
-  Future<void> abort({String? reason}) =>
-      authenticator.onAbort(context, reason: reason);
+  Future<void> abort({String? reason}) async {
+    if (_aborted) return;
+    _aborted = true;
+    await authenticator.onAbort(context, reason: reason);
+  }
 }
 
 class _HttpAuthIssueResult {

@@ -1,0 +1,56 @@
+name: Mutation Diagnostics
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dart:
+    name: Dart ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ (matrix.target == 'mcp' || matrix.target == 'mcp-cli-native') && 360 || 60 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [core-base64-vm, core-base64-web, core-msgpack-vm, core-msgpack-web, core-e2ee-web, core-lazy-web, mcp, mcp-cli-native]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.target == 'mcp-cli-native'
+      - id: chrome
+        uses: browser-actions/setup-chrome@v2
+      - name: Run complete target inventory (survivors fail the target)
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CONNECTANUM_MUTATIONS_NATIVE: ${{ matrix.target == 'mcp-cli-native' && '1' || '0' }}
+        run: bin/test-mutations --target "${{ matrix.target }}" --output out/mutations
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}
+          path: out/mutations
+          if-no-files-found: error
+
+  rust:
+    name: RawSocket ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-mutants --version 27.1.0 --locked
+      - name: Collect and audit complete RawSocket inventory (inactive cfg bodies remain visible)
+        run: bin/collect-native-mutations --output out/mutations
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-rawsocket-${{ matrix.os }}
+          path: out/mutations
+          if-no-files-found: error

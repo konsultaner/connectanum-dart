@@ -1,10 +1,3165 @@
 # Project State
 
-Last updated: 2026-09-15
-Current branch: `codex/beta6-legacy-abi-audit`
-Current milestone: clear the final deployment-chain audit blocker, then publish
+Last updated: 2026-09-19
+Current branch: `codex/regression-mutation-coverage`
+Current milestone: near-complete regression and mutation testing, per the
+operator's latest priority. The active plan is
+`docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work142 integrates a 24-case inbound E2EE context matrix across materialized
+and native EVENT/INVOCATION dispatch, actual versus fallback URIs, peer identity
+presence and event trust-level presence. A separate prefix-registration case
+checks the actual procedure and peer authentication metadata. Native runtime
+regressions cover optional capabilities, invalid resource IDs, protocol guards,
+idempotent cleanup and failed TLS reload recovery without losing a listener.
+Fast142-before passes before integration; all412 canonical Session cases pass
+on VM/JS/WASM and all28 real-native runtime cases pass. Formatting and analysis
+pass. Full VM142 and JS142 collections finish exit0 on frozen inputs. VM
+library38875/42673 (91.10%), client8655/9408 (92.00%) and router17147/19386
+(88.45%) retain59 unmeasured sources. Native router runtime gains45 covered
+lines to1239/1521 (81.46%); Session gains one to993/1027 (96.69%). Other router
+variation is unchanged-code timing evidence, not attributed to these tests.
+JS core7383/7690 (96.01%) and client2615/2728 (95.86%) retain162 unmeasured
+sources. Packaging765/787 (97.20%) retains12 unmeasured sources. All explicit
+98% audits still fail. Original serialized Verify142 exits0 after VM142,
+including3319 core and2485 client WASM cases. Final source/test/native hashes
+match, and no native consumers remain.
+Three individual mutation probes fail with real assertions on VM and JS, but
+do not replace complete campaign scores. The older Session140 campaign remains
+live on its isolated snapshot. Work141 and142 are verified together for the
+coverage feature branch; no merge, version change or publication. The native
+reservation is explicitly extended through143. VM/JS142 is the latest completed
+line evidence. Work140 image,
+profile and package checks pass; its main CI is still queued behind older live
+runs. Fresh hosted evidence is required for the142 snapshot.
+
+Next integrate the isolated six-case GOODBYE regression probe after Fast143.
+Original VM/JS/WASM pass. Three individual mutants (outbound deduplication,
+duplicate completion and lost notification) produce4/2/3 actual assertions on
+VM/JS, zero other errors. The observer preserves genuine StateError/TestFailure
+identity rather than swallowing action failures across zones. Preserve initial
+compile and invalid-browser-root failures separately; they earn no credit.
+This probe does not upgrade a complete mutation score. After integration,
+refresh native Cargo and Dart-driven FFI measurements as well as VM/browser
+evidence; the older native results are not current-snapshot completion proof.
+
+Work141 integrates healthy-session setup assertions across all five Session
+target suites, including timeout-wrapped connections; intentional immediate
+GOODBYE fixtures are unchanged. Nine startup regressions cover named method
+selection, synchronous challenge failure, early receive errors/closure/GOODBYE,
+verification failure identity and cleanup fanout despite a throwing method.
+In-memory invocation response tests await actual fixture delivery, then assert
+captured wire replies and payloads rather than waiting indefinitely for them.
+The original1ms delivery delay, production code and mutation scoring are unchanged.
+
+Fast141-before exits0 before edits; all387 canonical cases pass VM/JS/WASM,
+formatting and analysis pass. JS141 completes exit0: core7383/7690 (96.01%),
+client2612/2726 (95.82%),162 unmeasured sources; explicit98% audit fails.
+VM141 completes exit0: library38820/42673 (90.97%), client8654/9408 (91.99%),
+router17093/19386 (88.17%),59 unmeasured sources. Packaging765/787 (97.20%)
+retains12 unmeasured sources; all explicit98% audits still fail. Session VM
+gains18 covered lines to992/1027 (96.59%); router variation is unchanged-code
+timing evidence, not attributed to Session tests. Original serialized Verify141
+exits0, including2460 client WASM cases. Final input/native hashes match and
+no native consumers remain. Fast142-before runs before the next integration.
+The shared native reservation is explicitly extended through Work142. Full
+Session140 JS campaign remains live on its older isolated snapshot; do not start
+a duplicate or label its eventual result as141 evidence. On final canonical
+tests, three isolated single-mutant VM/JS probes each run all387 cases: initial
+closed-state produces323 assertions; wrong auth selection and lost early GOODBYE
+identity each produce one. All terminate exit1 with zero other errors; these are
+non-equivalence proofs, not a replacement for full mutation scores. Preserve
+failed probe baselines/compile errors separately. GLM review is unavailable;
+Qwen review completed and was checked against source, without weakening tests.
+
+Work140 is pushed as e433d615. Both package dry runs pass; new-head image/profile
+checks are running and main CI remains queued; strict audit is not green.
+VM/JS141 is the latest complete line evidence. No merge/version/publication.
+
+Work140 restores the legacy client test's inert PPT result assertions and fake
+router RESULT framing, fixes progressive keyword payload setup, and replaces
+five error-completer waits with direct observation preserving non-WAMP errors.
+Four controls verify WAMP identity/payload, unchanged StateError/TimeoutException,
+and rejection of unexpected success. Four additional native-message dispatch
+regressions exercise materialized RESULT correlation, mixed EVENT consumers and
+unsubscribe cleanup, plus INVOCATION responses/interruption/unregistration.
+These are portable decoded-message fixtures, not actual Rust/FFI measurements.
+All83 client cases pass on VM/JS/WASM, Fast140-before and analysis pass. Preserve
+the mistaken root browser launches (HTML relative-path load failures); correct
+package-root launches pass. No production or mutation classifier changes.
+
+Full VM140 and JS140 collections finish exit0 on frozen inputs. VM measures
+38814/42673 library lines (90.96%), client8636/9408 (91.79%), router17105/19386
+(88.23%), retaining59 unmeasured sources. Packaging remains765/787 (97.20%)
+with12 unmeasured sources. JS core7383/7690 (96.01%) and client2593/2726
+(95.12%) retain162 unmeasured sources. All explicit98% audits still fail.
+Session VM gains10 covered lines to974/1027 (94.84%); other unchanged-code VM
+deltas are timing-dependent observations, not attributed to these new tests.
+Original serialized Verify140 completes exit0, including2451 client WASM cases.
+Final source/test and native hashes match; no native consumers remain. The
+single Session140 JS mutation campaign remains running on its isolated frozen
+snapshot. Do not duplicate it or attribute newer tests to its eventual score.
+Native reservation extension through Work141 is requested, not yet confirmed.
+Work139 is pushed as ede8ab16; package/image/profile checks pass and CI is queued.
+Strict deployment audit remains non-green. No merge/publication/version change.
+VM/JS140 is the latest complete line evidence; isolated tests do not replace
+the older31.04% Session134b mutation score.
+
+Isolated readiness probes cover all378 cases in the five-file Session target.
+Original VM/JS/WASM pass. With only incomingClosed initialized true, VM/JS
+terminate with322 actual assertions and zero other errors, replacing impossible
+wire-receipt waits with meaningful healthy-session setup checks. Six separate
+startup cases pass VM/JS/WASM and distinguish named authenticator selection and
+early GOODBYE identity. Preserve initial probe timeouts/invalid browser launches;
+they earn no credit. Integrate proven probes after the next fast baseline, then
+refresh complete coverage/campaigns; these are not full mutation scores.
+
+Work139 integrates the proven delayed-fingerprint regression: after another
+caller finishes credential rotation, a late old fingerprint must reuse that
+replacement, with RPC socket indexes[0,1,1] and only two HELLOs. Its typed config
+fixture forwards real credential I/O. Also integrate two healthy meta startup
+ownership tests, asserting zero premature UNSUBSCRIBEs before explicit disposal
+and a subsequent live session event. All221 remote tests and97 meta cases on each
+of VM/JS/WASM pass; these are runtime results, not refreshed line measurements.
+Concurrent RPC correlation now observes request failure as well as wire receipt,
+retaining actual exceptions and joining pending requests in teardown. Retired
+handshake tests observe socket closure before attempting another cached RPC.
+
+Fast139-before and analysis pass. Complete meta-cache139 VM/JS campaigns and
+independent audits agree:90/101 assertion kills (89.11% raw/adjusted), eight
+survivors, three uncredited error-only outcomes,56 compile failures, no timeouts
+or waivers. Both baselines pass; the95% gates still fail. Original serialized
+Verify139 exits0, including2443 client WASM cases. Final input/native hashes
+match and no native consumers remain. Complete remote139 and independent audit
+agree:197/202 assertion kills (97.52% raw/adjusted), two unwaived survivors,
+three uncredited timeouts,101 compile failures, no error-only kills. Both
+baselines pass; the gate still fails on timeouts. VM/JS138 is the last complete line
+measurement. Preserve coverage139-verification. The shared native reservation
+remains held; Work140 fast baseline is running before Session test integration.
+Pushed552ab403 contains the generation fix; package/image/profile checks pass
+and main CI is queued. Parent04b9aa33 consumer
+job failed fetching a published beta.5 checksum with GitHub Releases HTTP500;
+the URL now returns200, but GitHub refuses a job retry while its workflow is
+active. Do not cancel it or bypass published dependencies. Strict audit remains
+non-green. No merge, publication or version change; full98%/95% scope is open.
+
+The isolated Session139 probe repairs previously inert PPT result assertions,
+a fake-router YIELD instead of RESULT, a progressive argument-map typo, and five
+unresolved error-completer paths. All79 copied tests pass VM/JS/WASM, including
+controls preserving genuine StateError/TimeoutException identity. One isolated
+incomingClosed mutation fails a real readiness assertion on VM/JS; it predates
+the final helper controls and must not upgrade any complete mutation score.
+Preserve session139-investigation and integrate after the fast baseline. Native
+reservation is explicitly confirmed through Work140 verification.
+
+Work138 fixes remote WAMP authentication session ownership across registry reset,
+late handshakes, stale failures/disconnects and concurrent credential rotation.
+Ten canonical wire regressions reproduce nine assertions before the fix and pass
+after it; all220 remote tests pass. A private session/generation lease prevents
+old work from installing, authorizing through or invalidating a newer session.
+Keep best-effort warmup/abort and the connecting-future identity guard. No wire,
+public API, version or mutation-classifier change. Fast138-before and analysis pass.
+
+Two canonical meta-cache disconnect-order tests now cover notification before
+receive/readiness closure. Full157-candidate VM and JS campaigns and independent
+audits agree:88/101 assertion kills (87.13% raw/adjusted), eight survivors, five
+uncredited error-only outcomes,56 compile failures, no timeouts or waivers.
+Both baselines pass; the95% gates still fail. Fresh VM138 collection exits0:
+38799/42673 library lines (90.92%),59 unmeasured sources; packaging765/787
+(97.20%),12 unmeasured sources. Fresh JS138 exits0: core7383/7690 (96.01%),
+client2582/2726 (94.72%),162 unmeasured sources. All explicit98% audits fail.
+The remote delegate gains20 covered/22 measured lines; other recorded socket/
+router deltas are timing-dependent observations in unchanged code.
+
+Original Session134b JS campaign is now complete:140/451 assertion kills
+(31.04% raw/adjusted),178 survivors,23 error-only outcomes,108 timeouts, two
+infrastructure errors and190 compile failures; both baselines and independent
+audit agree. This is its older recorded snapshot, not current138 evidence.
+The infrastructure errors retain leaked-renderer findings despite test-process
+exit0/1; neither earns kill credit. This exposes a substantial remaining client
+mutation gap, not a nearly complete whole-project milestone.
+
+Preserve coverage138-verification, vm138-current, browser138-current,
+remote138-mutations and meta-cache138[-web]-mutations. Full remote138 campaign
+and independent audit agree:193/202 assertion kills (95.54% raw/adjusted), three
+survivors, one error-only outcome, five timeouts and101 compile failures. Both
+baselines pass, but the gate fails because timeouts remain uncredited. Original
+serialized Verify138 exits0, including3817 router,3319 core WASM and2441 client
+WASM cases. Final input/native hashes match and no native consumers remain.
+The confirmed shared native reservation continues into Work139 fast/verification.
+Separate ignored probes already prove a delayed-fingerprint survivor non-equivalent
+(unwanted third connection), and two meta startup mutants independently release
+ten event subscriptions on valid replies. Their original suites pass; integrate
+these canonical regressions after the Work139 fast baseline, then refresh complete
+campaigns. Do not waive or credit isolated probes to current scores. After that,
+prioritize the large Session, router/FFI and remaining full-runtime inventory gaps.
+Pushed04b9aa33 package/image/profile checks pass; main CI remains queued.
+No merge, publication or version change; the full98%/95% goal remains incomplete.
+
+Work137 integrates13 remote-authentication regressions: old failed warmup versus
+replacement connection ownership, repaired cryptosign-file recovery, and real
+public-authenticator denial preservation across HELLO/AUTHENTICATE RESULT/ERROR
+variants. All210 focused tests pass. Production source and mutation inventory,
+classification, deadlines, thresholds and waivers are unchanged. Full292-candidate
+remote137 and independent saved-log audit agree:189/191 assertion kills (98.95%
+raw/adjusted), two unwaived survivors,101 compile failures, no timeouts or
+error-only kills. Both baselines pass. Source/support/runner hashes and candidate
+IDs match136b; all six former error-only cases and the connection-identity
+survivor now have real assertion evidence. Remaining survivors have source
+analysis in coverage137-verification/REVIEW.md, not equivalence waivers.
+
+Frozen Fast137-before and complete VM137 collection exit0. VM measures38784/42651
+library lines (90.93%), retaining59 unmeasured sources; packaging765/787 (97.20%),
+12 unmeasured sources. Explicit98% audits still fail. The line delta includes
+timing-dependent observations in unchanged socket/router paths, not a claimed
+line-coverage gain from the auth tests. JS136 selected inputs remain unchanged;
+WASM runtime passes are not measured WASM coverage. Original serialized Verify137
+exits0, including3807 router,3319 core WASM and2439 client WASM cases. Final
+source/dependency/native hashes match; no native consumers remain and its shared
+reservation is released.
+
+Separate ignored meta137-investigation probes prove four old meta mutations
+non-equivalent: disconnect notification before receive/readiness closure must not
+send network unsubscribes. Original95-case copied suite passes VM/JS/WASM; four
+individually mutated copies fail actual expected0/actual10 unsubscribe assertions.
+Integrate these tests only after frozen verification finishes, then refresh full
+canonical campaigns. Do not credit these probes to any existing mutation score.
+A separate remote137-investigation reproduces a higher-priority correctness bug:
+an old late WELCOME after registry reset replaces a successfully established new
+session, routing the next real RPC to connection0 instead of connection1. Fix
+attempt/session ownership next with canonical failing-before tests; inspect stale
+disconnect callbacks too. No production fix is claimed by Work137.
+Preserve coverage137-verification, remote137-mutations, vm137-current and
+meta137-investigation. Last pushed28adca89 package/image/profile checks pass;
+main CI remains queued. The original641-candidate Session JS campaign remains
+live on its older isolated inputs. Full98%/95% scope is incomplete. No merge,
+publication or version change.
+
+Work136 fixes encrypted progressive file sends after call retirement. Check the
+pending request before native E2EE preparation or transport send, matching the
+plain/buffered path without changing source ownership or byte forwarding. The
+new40-case portable suite reproduces13 assertion failures on original VM/JS/WASM
+source and passes all40 after the fix on each runtime. Keep it whole in canonical
+verification, coverage and both Session mutation targets; all64 script controls pass.
+
+The first Fast136 was invalidated by editing its live shell script and exited127;
+retain that failed evidence. The new frozen-input fast run exits0. Fresh JS136
+coverage passes3327 core and2439 client cases: core7383/7690 (96.01%), client
+2582/2726 (94.72%), with162 unmeasured library sources. The explicit98% audit fails.
+Client covered lines rise55 but the measured denominator rises60; this is not a
+percentage gain. VM136 exits0: library38778/42651 (90.92%), client8632/9408
+(91.75%),59 unmeasured sources; packaging765/787 (97.20%),12 unmeasured sources.
+Both explicit98% audits fail. Original frozen-input Verify136 exits0 and final
+source/native hashes match. Its native reservation was released after completion.
+Preserve coverage136-verification; do not edit running scripts.
+
+The next CI blocker is newly observed in parent e8118321 run35431908342:
+router-remote-wamp-vm has149/191 assertion kills (78.01%),33 uncredited timeouts,
+six error-only outcomes, three survivors and101 compile errors. Independent
+saved-log audit agrees and source/test hashes match. Every timeout includes the
+warmup test's line227 HELLO wait: early mutated configuration failure can prevent
+HELLO entirely. Work136b now races HELLO against warmup settlement, retaining the
+held-WELCOME ordering assertions and cleanup. Genuine TimeoutException remains an
+error. All197 focused tests pass. Full292-candidate remote136b and independent
+audit agree:182/191 assertion kills (95.29% raw/adjusted), three survivors, six
+uncredited error-only outcomes and101 compile failures. Both baselines pass;
+no timeouts or waivers. All33 former timeouts now have actual assertions in the
+new campaign, with unchanged production/support/runner hashes and candidate IDs.
+Fresh VM136b exits0 with the same measured totals above; both98% audits still
+fail. Original frozen Verify136b exits0, including2439 client WASM tests. Final
+source/dependency/native hashes match; the native runtime reservation is released.
+An ignored public-API probe proves the pending-connection identity survivor is
+not equivalent: removing its guard opens three connections instead of two after
+registry reset and an old handshake failure. Preserve remote136b-investigation;
+integrate that regression separately without attributing it to the running campaign.
+Preserve coverage136b-verification, vm136b-current, remote136b-mutations and
+hosted136-parent-remote-wamp. Last pushed81b3a76e package,
+image and profile checks pass; main CI is queued. The original641-candidate
+session134b JS campaign remains live on its older isolated snapshot. Full98%/95%
+scope remains incomplete. Push the implementation increment and refresh hosted
+checks/strict audit; no merge, publication or version change.
+
+Work135 repairs the auth mutation gates without changing production behavior,
+inventory, classification or thresholds. Three auth lifecycle tests now observe
+prompt HELLO completion while provider/cleanup futures remain held, and always
+release those holds in teardown. The HTTP stalled-body test observes early
+authentication failure alongside server entry, then checks completion before
+releasing the stalled body. Actual exceptions/timeouts remain visible to the
+runner; no watchdog timeout is turned into an assertion kill.
+
+Fast135-before, all367 focused regressions and original frozen-input Verify135
+exit0. Analysis and final input/native hashes pass; the native runtime window is
+released. Verification includes3794 router,753 bench,3319 core WASM and2399
+client WASM cases. These are runtime results, not new line-coverage measurements.
+Full auth135 campaigns and independent saved-log audit agree: auth-server has
+182/189 assertion kills (96.30% raw/adjusted), seven unwaived survivors and105
+compile failures. HTTP auth has186/197 (94.42% raw),98.94% adjusted with exactly
+the existing nine hash-pinned equivalents, two other survivors and77 compile
+failures. Both initial/restored baselines pass; no timeouts or error-only kills.
+All19 auth and13 HTTP formerly timed-out candidates now have real assertions.
+Preserve auth135-mutations and coverage135-verification, including final hashes,
+the unchanged auth survivor investigation and per-candidate comparisons.
+
+Pushed parent e8118321 has green hosted Fast Checks, package/image dry runs and
+WAMP profile checks. Main CI is not clean: its pre-Work135 auth tests reproduce
+the86.24% gate failure. Refresh hosted evidence for this implementation increment;
+do not confuse a local gate pass with a green deployment chain. Strict audit also
+retains feature-branch protection/default-workflow visibility findings. The
+original full641-candidate session134b JS campaign remains live on its isolated
+snapshot. Next inspect fresh CI, then fix the already-reproduced encrypted file
+send after progressive-call termination. Full98%/95% cross-runtime scope remains
+incomplete, including unmeasured sources; no master merge, release or version change.
+
+Work134 fixes native-direct lazy invocation replies losing payloads or omitting
+E2EE packing. Attach response context before using the shared outbound payload
+helper; preserve matching packed bytes, empty values and explicit null fallbacks.
+Corrected pre-fix VM/JS/WASM probes fail33 native assertions each. The canonical
+118-case reply suite and six real-native transport/serializer cases (72 RPCs)
+pass. Select the entire reply/profile suites in canonical measurement scripts.
+
+Fast134-before and frozen-input Verify134b exit0; final input/native hashes match.
+The final client browser runs each pass2399 cases with zero skips. Move the genuine
+native-provider test, retaining its assertions and awaited publish, into the
+canonical native suite rather than weakening mutation baseline skip rejection.
+Hosted Fast Checks exposed a fixture pinned to an unavailable cached test version;
+reuse bootstrap's workspace lock in the offline fixture. All64 runner controls
+(one Linux-only skip) and64 verification-script controls pass. Native users have
+finished and the shared runtime reservation is released.
+
+VM134 measures38770/42649 library lines (90.90%), retaining59 unmeasured sources;
+it predates the final native-test relocation and is not a final-harness refresh.
+Final JS134b measures core7382/7689 (96.01%) and client2527/2666 (94.79%), retaining
+162 unmeasured sources. Its changed denominator also reflects moving the native
+test, not only new covered code. Explicit98% audits fail. Full meta134 VM/JS
+campaigns each retain84/101 assertion kills (83.17%), six uncredited error-only
+outcomes,11 survivors and56 compile failures, with an agreeing independent audit.
+The complete641-candidate session JS campaign remains live, not a passing score.
+Preserve coverage134-verification, vm134-current, browser134b-current,
+meta-cache134-mutations and session134b-web-mutations under the milestone output.
+
+Parent5ece94bb hosted package/image/profile checks pass, but CI is not clean:
+Fast Checks failed (fixed locally), and auth-server/http-auth mutation gates
+score86.24%/92.02% with uncredited timeouts. Preserve their hosted134 artifacts and
+investigate before new feature work; do not weaken thresholds or count timeouts.
+A separate18-case probe also reproduces eight assertions on each VM/JS/WASM for
+encrypted file sends accepted after progressive-call termination. That next
+production bug is not fixed yet. The complete98%/95% milestone remains active;
+no master merge, package publication or version change.
+
+Work133 integrates40 portable E2EE profile-negotiation regressions and adds a
+concurrent meta-cache close oracle. Finite listener completion assertions replace
+unbounded waits while retaining cleanup and duplicate-event checks. Canonical VM
+verification, browser verification and JS coverage select the complete suites;
+the separate VM coverage script still needs the new profile suite wired in.
+Fast133-before and original frozen-input Verify133 exit0, including2281 client
+WASM cases plus one genuine native-only skip. Final input/native hashes match.
+The native runtime window stays reserved for the next reproduced-bug fix.
+
+Full157-candidate meta campaigns agree on VM and JS:84/101 viable assertion kills
+(83.17%;58 assertion-only,26 mixed), six uncredited error-only outcomes,11
+survivors and56 compile failures. Clean initial/restored baselines and the saved-log
+audit agree; no waivers, timeout credit or narrowed inventories. Canonical JS
+coverage is core7383/7691 (96.00%) and client2518/2701 (93.23%), retaining161
+unmeasured library files. The98%/95% targets still fail; WASM is runtime evidence,
+not measured coverage. Preserve coverage133-verification, browser133-current and
+meta-cache133-mutations under the milestone output root.
+
+An isolated reply comparison reproduces payload loss in native-direct lazy
+invocation responses on VM/JS/WASM: normal-path cases pass, while materialized,
+encoded and mismatched packed PPT replies lose their arguments. A broader probe
+also exposes omitted encryption and progressive payloads. Fix this shipped-path
+bug next, preserve matching packed-byte forwarding and E2EE response context,
+and wire new suites into VM measurement before refreshing evidence. Parent
+5ece94bb package/image dry runs pass; CI remains queued and profile evidence is
+pending. No master merge, publication or version change.
+
+Work132 corrects the pure-VM mutation runner's fail-fast measurement gap without
+changing classifiers, deadlines, inventories, waivers or the95% assertion gate.
+Complete each suite and cleanup so an early test error cannot hide a later real
+assertion, timeout or process failure. A real four-target Dart campaign reproduces
+the old behavior and verifies mixed assertion/error evidence versus uncredited
+error-only, timeout and crash outcomes. All63 runner controls (one Linux-only
+skip) and59 verification-script controls pass. Both canonical VM scripts now
+select the full92-case meta-cache suite; browser selection remains complete.
+
+Fast132-before and original frozen-input Verify132 exit0. Final input hashes and
+the native artifact match; the shared native window is released. Meta92 passes
+VM/JS/WASM; final canonical browser coverage and WASM verification each pass2240
+client cases plus one native-only skip. Focused VM meta coverage is259/259; this
+is not whole-client coverage. Canonical JS remains core7383/7691 (96.00%) and
+client2506/2698 (92.88%), retaining161 unmeasured library files. The explicit98%
+audit still fails and WASM remains runtime evidence, not measured coverage.
+
+Full157-candidate VM and JS meta campaigns now agree:82/101 viable assertion kills
+(81.19%), six error-only detections,12 survivors, one timeout and56 compile
+failures each. Clean initial/restored baselines, matching source/test hashes and
+the independent saved-log audit agree. No equivalence waivers or timeout/crash
+credit; both95% gates still fail honestly. Preserve coverage132-verification,
+coverage132-meta, browser132-current and meta-cache132-mutations under the
+milestone output root. An ignored32-case portable session-E2EE profile probe
+passes VM/JS/WASM but is not yet canonical or attributed to these measurements.
+Next integrate it and replace the meta disconnect test's unbounded completion
+wait with a finite lifecycle assertion before rerunning affected evidence.
+Parent f6049b8e package/image/profile checks pass; CI remains queued with no
+observed failures. Refresh hosted checks after the implementation push. The full
+98%/95% milestone remains active; no merge, publication or version change.
+
+Work131 fixes a reproduced meta-cache hydration race: the transport can close
+after the final Meta reply but before its disconnect callback closes the cache.
+Check session connectivity before accepting the initial snapshot. The canonical
+suite now has82 cases; all1905 focused meta/binding/local tests pass on VM, JS and
+WASM. Preserve all1814 binding and9 local-transport tests in canonical browser
+verification and coverage, removing only the binding suite's VM-only annotation.
+Fast131-before and frozen-input Verify131 exit0, including2230 client WASM cases
+plus one genuinely native-only skip. Input hashes and the native artifact match;
+the shared native window is released. Script58, mutation-runner62 (one Linux-only
+skip), and deployment-audit27 controls pass. Analysis has seven informational
+missing-brace lints in new test callbacks, with no errors or warnings.
+
+Canonical JS coverage measures core7383/7691 (96.00%) and client2506/2698
+(92.88%), retaining161 unmeasured library files. Meta-cache measures301/302 JS
+and258/259 in a separate focused VM run; binding JS measures643/652. These slices
+do not establish whole-package or WASM coverage; the explicit98% audit fails.
+Full157-candidate meta-cache inventories finish on each runtime with clean initial
+and restored baselines, matching source/test hashes and an agreeing saved-log
+audit. VM scores65/101 viable assertion kills (64.36%); JS scores66/101 (65.35%).
+Each has19 survivors and56 compile failures; VM has one timeout and16 error-only
+detections, JS seven timeouts and9 error-only detections. No waivers or crash/
+timeout credit. Both95% gates correctly fail and are not added as passing CI gates.
+
+Preserve coverage131-verification, browser131-current, coverage131-meta and
+meta-cache131-mutations under the milestone output root. An ignored92-case
+follow-up passes VM/JS/WASM, strengthening event notification, no-op identity,
+disconnect failure and concurrent Meta disappearance assertions. Eight isolated
+survivor controls using its earlier89-case snapshot now fail actual assertions.
+Separate unchanged82-case controls show VM --fail-fast hides later assertions
+after early test errors; complete execution exposes real mixed outcomes for two
+controls but correctly leaves another error-only. Integrate the stronger tests,
+add explicit meta VM verification selection, and correct this measurement gap
+before fresh campaigns. Never reattribute131 results to changed tests or runner.
+Parent ad456802 package/image/profile checks pass; CI is still queued without a
+known failure. Refresh hosted evidence after push. The complete98%/95% milestone
+remains active; no master merge, publication or version change.
+
+Work130 integrates portable client browser verification and measurement. A
+conditional test-support export preserves the original native library probe
+byte-for-byte on VM and avoids importing FFI on web. Both browser compilers pass
+329 canonical client/session/meta/WebSocket/form cases, with only the genuine
+native-provider case skipped. The focused VM run passes90 cases without skips.
+Explicit positive SCRAM parameter acceptance now kills all12 request mutants on
+VM and all12 on JS with assertion evidence; complete inventories, clean initial/
+restored baselines, matching hashes and the independent log audit agree. Both
+raw/adjusted scores are100%, with no waivers or timeout/crash credit. Add these
+two full-inventory targets to CI and strict audit expectations at the unchanged95%
+gate. This is the request-validation slice, not complete core mutation coverage.
+
+Fast130-before and frozen-input Verify130 exit0, including3794 router tests,
+3319 core WASM and329 client browser tests. Input hashes and the native artifact
+match; the native window is released. Analyzer,58 verification-script tests and27
+deployment-audit controls pass. Canonical JS coverage passes3327 core and329
+client tests: core7364/7676 (95.94%), client1785/2240 (79.69%),162 library sources
+unmeasured. The larger denominator replaces the misleadingly narrow forms slice;
+the explicit98% audit still fails. Browser WASM is runtime evidence, not measured
+package coverage. Preserve browser130-current, scram-request130-mutations and
+coverage130-verification under out/regression-coverage-2026-09-15.
+
+While verification inputs were frozen, ignored probes preserve all1814 binding
+regressions and pass on JS/WASM after changing only their entrypoint annotation
+and relocated fixture import; all9 canonical local-transport tests also pass on
+both. Integrate these complete suites next. Default/session and stateless public
+MCP HTTP constructors fail on both browser compilers in dart:io HttpClient with
+Unsupported operation: Platform._version. Form validation is not browser HTTP,
+session or OAuth support. These diagnostics and hashes are retained separately in
+coverage130-client-browser. Parent a0897235 package/image/profile checks pass;
+its main CI remains live without observed failures. The workflow has no concurrency
+cancellation: older branch runs remain live, rather than being stopped by a push.
+Refresh current-head hosted evidence after this implementation push. No merge,
+publication, version change or whole-milestone completion claim.
+
+Work129 adds14 controlled browser Worker lifecycle cases and10 portable SCRAM
+request regressions. Explicitly delivered success/error events and manual timers
+assert initialization recovery, buffer ownership/clearing, exact KDF parameters,
+late-response isolation, cancellation and exactly-once cleanup. Real-worker
+cryptography/responsiveness tests remain enabled. All55 focused JS and55 WASM
+tests pass;10 request tests pass on VM. Analyzer reports no issues for the new
+files. Fast129-before and frozen-input Verify129 complete with observed exit0,
+including3319 core WASM and250 client browser cases. Input hashes match and the
+unchanged native artifact/runtime window is released.
+
+Canonical JS coverage129 passes3327 core and248 client-form tests: core7319/7631
+(95.91%), client forms279/283 (98.59%), with171 library sources still unmeasured.
+The worker boundary now measures94/94 lines; this is not Worker-module or WASM
+coverage. The explicit98% audit still fails. Three new canonical mutation targets
+complete with clean initial/restored baselines, matching input hashes and an
+agreeing independent log audit. Worker27-candidate results:12 assertion kills,
+four uncredited test errors, six timeouts, two survivors and three compile failures;
+raw/adjusted assertion score50% (12/24 viable), up from37.5%, not the66.67%
+conventional detection score. The late-result guard is now detected as a test
+error, not credited as an assertion kill. Repeat-dispose and snapshot-growability
+survivors remain unwaived. Request VM and JS each score91.67% (11/12 assertions),
+not their100% conventional score: always rejecting valid key lengths currently
+causes an uncredited test error. Next strengthen that positive-input contract.
+
+A separate ignored client portability probe retains all76 main-client cases:
+75 pass on JS and WASM, with only the genuine native-FFI case skipped. Four
+canonical meta-cache tests also pass per browser compiler. The blocker is the
+main suite's FFI-only test-support import; integrate a conditional helper and
+broaden canonical client browser selection next. Its1198/1588 JS diagnostic is
+not accepted full-package coverage. Preserve coverage129-client-browser, raw
+browser129-current, scram-lifecycle129-mutations and coverage129-verification under
+out/regression-coverage-2026-09-15. Parent-head package/image/profile dry runs pass;
+main CI remains running without observed failed jobs. Strict audit remains
+non-green for pending CI and existing branch-protection/default-workflow findings.
+Collect fresh hosted evidence after this increment. No merge, release or version
+change; the complete98%/95% milestone remains active.
+
+Work128 integrates the prepared browser regressions and fixes a reproduced
+SCRAM worker boundary bug. Five canonical tests fail on both JS and WASM when a
+worker returns0/1/31/33/64 bytes for a32-byte request. Reject mismatched lengths
+before copying/completing, clear rejected bytes, and expose only a fixed error.
+All245 focused tests pass on each browser compiler, including the existing64MiB
+responsiveness checks;214 portable conformance/SCRAM tests pass on VM. Original
+native synchronous proof vectors remain unchanged; web uses asynchronous Argon2.
+All29 vendored fixture files are bundled byte-for-byte by a Python standard-library
+generator, with source/output hashes and read-only freshness checks. An independent
+MessagePack test oracle avoids dart2js's unsupported64-bit accessor; VM/WASM retain
+the original decoder as an additional cross-check. Ten fixture integrity controls
+and56 verification-script tests pass. Canonical browser verification and coverage
+now select the entire core test directory, not a hand-maintained subset; CI retains
+raw browser coverage as well as LCOV and summaries. No thresholds are reduced.
+
+Fast128-before and frozen-input Verify128 complete with observed exit0. Verify
+includes Rust/native, installed-package/live-router checks,3295 core WASM tests
+and250 client browser tests. All recorded source/test/tool inputs still match;
+the standard native artifact hash is unchanged and its runtime window is released.
+Canonical JS
+coverage128 completes exit0 with3303 core and248 client-form tests passing, matching
+input hashes, core7307/7631 (95.75%) and client forms279/283 (98.59%). Keep171
+library sources unmeasured; the explicit98% target audit fails. Analysis
+exits0 with seven existing informational null-aware-element lints in untouched
+tests. The original RouterBinding campaign3580 is now absent, with559/2399 outcomes
+and an incomplete report:205 detected failures (188 with assertion evidence,
+16 test errors, one unknown),122 compile failures,186 survivors,46 timeouts.
+Preserve that evidence without claiming a score or duplicating it.
+A separate27-candidate worker-boundary
+browser mutation campaign completes with clean initial/restored baselines and
+matching input hashes:9 assertion kills,6 uncredited test errors,6 timeouts,
+3 survivors,3 compile failures. Raw/adjusted assertion score is37.5% (9/24 viable),
+not the conventional62.5% detection score. The independent log audit agrees.
+Survivors concern repeat-dispose handling, snapshot growability and late-result
+protection; the latter still needs a deterministic queued-response regression.
+No equivalent waivers are applied. Whole-component
+mutation gaps,98% package/runtime targets, unmeasured sources and an independent
+WASM executable-line denominator remain open. PR CI35382375488 at4bfd4c2d is now
+complete, with all32 jobs passing. Hosted evidence for the new implementation
+increment remains to be collected after push. No merge, publishing or version change.
+
+Work125/126 advances WASM measurement without changing the frozen production/test
+snapshot. An independent source-map validator inventories350 Dart production
+files and rejects corrupt/incomplete observations. The full212-test completion
+WASM run passes, observing144 of149 mapped lines; the smaller two-test compilation
+mapped only130, demonstrating that maps alone cannot define an executable-line
+denominator. A one-shot exact-breakpoint collector passes the same212 tests with
+720 pauses instead of42202. Independent comparison preserves all line states and
+25 unresolved offsets; executable sections are byte-identical, with only generated
+bootstrap paths differing in debug metadata. All78 validator/retirement/comparator
+tests pass. Inventory-driven collection also passes77 MessagePack WASM tests and
+retains348 unmeasured files; JS fallback hits are not attributed to WASM. Workers
+and an independent executable-line denominator remain open; no WASM package score
+is claimed. Preserve prototypes/raw reports in wasm125-validator and
+wasm126-one-shot. Full-core JS session36285 terminates exit1 with3077 passes and
+five failures: four legacy synchronous Argon2 expectations and a filesystem-only
+conformance fixture loader. Its7237/7602 (95.20%) result is diagnostic, not accepted
+passing coverage. Seven prepared real-worker SCRAM contract regressions pass on
+both JS and WASM, preserving all three existing proof vectors, synchronous-web
+rejection and bound key reuse. They remain isolated under
+coverage126-scram-browser-contract pending integration; do not delete native
+vectors or drop browser conformance tests to make the broader suite pass.
+At the Work125/126 checkpoint PR CI35382375488 had11 passing jobs and the full
+RouterBinding campaign3580 was live with inputs matching settled Verify123.
+Work128 above supersedes that process/CI state and bundles these measurement notes
+with the implementation they informed.
+
+Work124 investigates the WASM measurement gap without changing production,
+tests, or the live Work123 mutation snapshot. On Dart3.13.1/test1.31.2/coverage1.15.1,
+the same two MCP completion tests produce134 source entries under Chrome JS but
+an empty coverage array under WASM. A separate debugger prototype records exact
+WASM byte-offset hits: six independent branch controls pass, including the real
+MCP completion validator. The unchanged canonical two-test WASM suite then passes
+with393 exact breakpoints out of402 mapped offsets and94 hit Dart source lines.
+Nine relocated offsets remain explicitly unresolved and receive no credit.
+Input/module/map hashes and ten corrupted/incomplete evidence controls pass.
+This is feasibility evidence, not package-wide WASM coverage or a completed
+collector; worker/startup coverage and the executable-source denominator remain
+open. Preserve raw evidence and prototype code in `wasm124-debugger`, alongside
+the JS/WASM control reports. Do not infer executable lines from source maps alone.
+At4bfd4c2d, package dry runs, router-image35382402068 and WAMP-profile35382403818
+pass. Strict audit124 still exits1 because main CI remains queued and the existing
+branch/default-workflow findings remain. The full2399-candidate RouterBinding
+campaign continues on its original process; do not duplicate it or release the
+native window. Settled Verify123 still covers the unchanged implementation.
+This bookkeeping remains uncommitted until a subsequent implementation change.
+
+Work123 adds multi-round HTTP authentication lifecycle regressions and reproduces
+a real shutdown bug: delayed HELLO/AUTHENTICATE success could issue credentials
+after binding disposal; delayed challenges could recreate pending state. Track
+active callbacks, abort them on disposal, and recheck shutdown in the caller
+after awaiting before publishing any result. Abort is idempotent; cleanup errors
+produce sanitized diagnostics rather than unhandled async failures. Eight late
+result/error regressions and two throwing-cleanup regressions fail before their
+respective fixes. All26 focused cases pass, including state rotation/replay,
+identity/route/profile preservation, async capacity checks, expiry, lockout,
+late factory creation and disposal. Polling deadlines now throw TimeoutException
+instead of assertion failures; two controls protect this measurement boundary.
+Fast123 and original Verify123 pass. Because cleanup/test changes occurred
+during the original verifier, settled-input Verify123 also completes with
+observed exit0 on original session7615, including native, installed-package/live-
+router and Chrome WASM tests. All captured workspace input hashes still match.
+Full VM123 coverage completes on original session52707 with observed exit0 and
+matching workspace hashes: auth455/455, bench2010/2254, client8570/9427,
+core6828/7243, MCP3775/3927, router17073/19364; aggregate38711/42670 (90.72%).
+RouterBinding measures3090/3666 (84.29%), with576 unhit lines. The client loses
+six measured hits versus VM115 in the unchanged socket-fragmentation buffer
+branch; do not reuse the higher old percentage. Packaging remains765/787
+(97.20%). Keep59 library and12 packaging sources unmeasured. Both explicit98%
+target audits fail; passing regression floors is not target completion.
+The earlier245-test runtime measurement predates final tests and is diagnostic
+only. Full router-binding inventory has2399 candidates; inventory is not a score.
+Preserve evidence under coverage123-http-auth-lifecycle and vm-current123. Keep
+the explicitly coordinated native window for the subsequent full campaign;
+no final router-binding mutation score for this changed source is claimed yet.
+
+Work122 adds 128 native-message binding boundary regressions without changing
+production code or measurement policy. Assert conflicting INTERRUPT mode
+authority, direct/eager custom-field loader state, absent-fragment behavior,
+caller overrides, full-frame handshake identity, minimal unknown frames,
+ABORT payload boundaries and JSON nested-list ownership across three serializers.
+All 3687 focused tests pass (1814 client, 1873 router), analysis is clean and
+focused file coverage remains 584/584 client and 575/575 router. These are not
+whole-package measurements. Fast122 and frozen-input Verify122 pass, including
+native, installed-package/live-router and Chrome WASM checks. Input hashes match;
+the native window is released to a consumer task. Both narrowed local reviews
+complete without concrete findings; the initial truncated review is retained.
+Full client492/router666 mutation campaigns complete on original sessions72358/
+77614 with observed exit0. Client has381 assertions,9 uncredited errors,8 survivors
+and94 compile failures:95.73% raw/adjusted assertions. Router has496 assertions,
+10 uncredited errors,13 survivors and147 compile failures:95.57% raw/adjusted.
+Both baselines, current source/test/support hashes, unchanged inventory comparisons
+and independent kill-log audits pass. These are focused binding gates, not whole
+component mutation coverage. Browser122 also completes exit0: selected core JS
+6628/6973 (95.05%), client forms279/283 (98.59%),172 unmeasured library sources;
+all captured input hashes match.
+Preserve all handles and `coverage122-binding-boundaries` input hashes. VM123
+now supersedes the previous full VM115 snapshot; WASM lines remain unmeasured. No new waivers,
+threshold changes, merge, publication or version changes. After the binding gates,
+prioritize genuine router HTTP auth continuation/lifecycle and native line gaps.
+
+Work121 strengthens the client/router native-message binding test oracles without
+changing production behavior. Add198 metadata-dispatch cases across JSON,
+MessagePack and CBOR, direct and non-direct, with valid competing full frames.
+Assert concrete types, message codes, IDs and control-field authority before
+casts or nullable dereferences. Known-valid synchronous full-frame parsing has
+narrow FormatException/ArgumentError success assertions; negative tests remain
+raw, and30 helper controls preserve unrelated runtime/infrastructure/resource
+failures. All3559 focused tests pass (1732 client,1827 router;3331 before),
+analysis is clean, and fresh focused VM file coverage is584/584 and575/575
+(100% each), not whole-package measurements. Fast121 and frozen-input Verify121
+complete with observed exit zero, including Rust/native, installed-package/live-
+router and Chrome WASM tests. Input hashes match; the native window is released
+to a consumer task. A broader VM refresh has not started; VM115 remains the
+last complete package snapshot.
+Client121 completes its492-candidate inventory with369 assertion kills,11
+uncredited errors,18 survivors and94 compile failures:92.71% raw/adjusted
+assertions, up from58.04% but below95%. Conventional detection95.48% does not
+satisfy the assertion gate. Both baselines and all three input hashes match;
+the independent log audit passes and the source/operator inventory is unchanged.
+Router121 also completes its666-candidate inventory:484 assertions,17 uncredited
+errors,18 survivors,147 compile failures and519 viable mutants;93.26% raw/adjusted
+assertions, up from64.74% but below95%. Both baselines and the independent audit
+pass; input hashes matched before Work122 edits. Preserve these completed reports
+as Work121 evidence, not evidence for the changed Work122 tests.
+Metadata fallback now has an explicit
+assertion kill where older evidence had only a test error. Remaining reviewed
+leads include full-frame type/optional-field assertions, conflicting INTERRUPT
+mode authority and non-direct custom-field loader state; they are not equivalent
+waivers or proven baseline production bugs. No thresholds, operators, inventory,
+equivalences or versions changed. Local companion suggestions were independently
+checked; the heavier GLM endpoint is unavailable. At c7710381 both package dry
+runs, router-image35367697258 and WAMP-profile35367698831 pass; main CI remains
+queued. Refresh hosted status after the test increment is pushed. The full
+milestone remains open; no merge or publication.
+
+Work120 adds remote-WAMP configuration and wire-result assertions, then finds
+and reproduces a production credential-identity collision. Three tests fail on
+the old32-bit fingerprint: different inline tokens have the same registry key,
+file-backed service credential rotation leaves its fingerprint unchanged, and
+a live delegate keeps its old session. SHA-256 over exact UTF-16BE code units
+fixes all three; temporary encoded bytes are cleared. Password KDFs and WAMP
+wire behavior are unchanged. Five independent Unicode digest vectors include
+unpaired surrogate values to prevent lossy UTF-8 encoding aliases.
+All197 focused tests pass (146 before), analysis is clean, and the fixed source
+measures571/574 VM lines (99.48%), not whole-router coverage. Fast120 and the
+original Verify120 pass. Two narrow test guards changed during Verify120, so
+frozen-input Verify120b now also completes with observed exit zero, including
+Rust/native, installed-package/live-router and Chrome WASM tests. Final input
+hashes match and the native window is released. Final
+`remote-wamp120c-mutations` completes
+with observed exit zero:292 candidates,182 assertion kills,six uncredited
+errors,three survivors,101 compile failures;95.29% raw/adjusted assertions,
+98.43% conventional detection. Both baselines, all14 current input hashes and
+the independent kill-log audit pass. No new equivalent waivers. The first
+asserts a map before using containsPair; the second asserts that synchronous
+inline cache-key construction does not raise RangeError. Other runtime and
+infrastructure failures remain uncredited. The earlier286-candidate
+`remote-wamp120-mutations` campaign
+has172 assertion kills,11 error-only outcomes,
+four survivors and99 compile failures (91.98% raw/adjusted assertions).
+It is diagnostic evidence on the old source, not evidence for the SHA-256 fix.
+The new source generates292 candidates with unchanged mutation policy and no
+new equivalences. The completed120b diagnostic predates those guards and has
+172 assertions,16 errors,three survivors,101 compile failures (90.05%). The
+controlled warmup test kills the former eagerError survivor. Preserve red/green
+regressions, final120c-input hashes and survivor review in
+`coverage120-remote-oracles`; final focused VM data is `remote-wamp120c-vm`.
+At predecessor f9fd4f41, package dry runs and WAMP profile35362469253 pass;
+main CI remains queued. Refresh CI, package, WAMP and router-image dry-run
+evidence after pushing this production change. Client and router binding
+assertion gates remain58.04%/64.74%; unchanged client baseline1621 tests passes.
+No merge, publication or version change. The complete milestone remains open.
+
+Work119 closes the benchmark-config assertion gate without production changes,
+inventory changes, new equivalents or lower thresholds. Known-valid in-memory
+parsing asserts FormatException/RangeError failures; malformed-input tests stay
+raw and unrelated runtime/infrastructure/resource failures retain their identity.
+New collection tests preserve fixed-length but replaceable YAML lists, mutable
+programmatic construction, and detached top-level options/JSON. All102 focused
+tests pass (86 before); analysis is clean. Focused VM file lines remain88/89
+(98.88%), not whole-package evidence. Full `bench-config119-mutations` exits zero:
+72 generated,44 assertion kills,28 compile failures, no survivors/errors/timeouts
+or waivers. Raw/adjusted assertion score100%, versus70.45% previously. Both
+baselines, current input hashes, unchanged inventory comparison and independent
+kill-log audit pass. Fast119 and settled-input Verify119 complete with observed
+exit zero, including native, installed-package/live-router and Chrome WASM
+tests. Final input hashes match; the native window is released to the consumer
+task for its own verification.
+The original final lazy118c browser campaign also completes with exit zero:
+223 assertion-backed detections (143 assertion-only,80 mixed),16 survivors,
+50 compile failures;93.31% raw/96.54% adjusted using eight existing equivalents.
+No error-only/unknown/timeouts; both baselines and input hashes pass. Survivor IDs
+match VM and retain Work118's review. This is JS evidence, not WASM line coverage.
+Independent audits of older, still input-matching complete campaigns identify
+the next gates: remote WAMP delegate59.89% assertions (68 error-only), client
+message binding58.04% (149 error-only), router message binding64.74% (165
+error-only). Their conventional scores do not satisfy the assertion target.
+Keep original reports and new audits under `coverage119-bench-oracles`; final
+bench evidence is in `bench-config119-mutations` and `bench-config119-vm`.
+At8e365bdc WAMP profile35359418143 passes; CI remains pending. The full milestone,
+broader component/runtime line gaps and unmeasured sources remain open.
+
+Work118 closes the lazy-payload VM and remote-authenticator assertion gates.
+No production behavior, source/operator inventory, threshold, version or
+equivalence changes. The additive payload contract suite checks single decoding,
+nullable fields, detached aliases, byte boundaries, plain/PPT discrimination,
+and encrypted forwarding. Both runtime entry points retain and hash all four
+suites. VM uses an explicit entry point because the runner sorts file paths
+before fail-fast. Existing malformed-input tests remain unchanged.
+Final `lazy118c-vm-mutations` passes:289 generated,221 assertion kills,two
+uncredited errors,16 survivors,50 compile failures;92.47% raw/95.67% adjusted
+using the eight existing source-pinned equivalents. Both baselines and current
+source/test/support hashes pass. Earlier lazy118/lazy-remote118b VM reports are
+diagnostics, not final results. Final payload tests pass155/155 on VM and Chrome
+JS. Browser mutation evidence for the final boundary tests is running in
+`lazy118c-web-mutations`; the earlier JS diagnostic completed below gate and
+must not be attributed to the changed test file.
+Remote tests assert status before dereferencing, preserve exact rejection and
+proof non-delivery checks, and cover sub-threshold rate limiting and a delegate
+becoming unavailable after a challenge. Final `remote118c-mutations` passes:
+191 generated,125 assertion kills,three survivors,63 compile failures;97.66%
+raw/adjusted, no errors/timeouts/waivers. The availability-bypass survivor is
+now assertion-killed. Both baselines and current input hashes pass. All128
+focused auth tests pass (93 before). Lazy payload file VM lines are412/413
+(99.76%); remote authenticator366/368 (99.46%), not whole-package measurements.
+Fast118 passes. Initial Verify118 found a stale tooling inventory expectation,
+now corrected. Verify118b and settled-input Verify118c both complete with
+observed exit zero, including Rust/native, installed-package/live-router and
+Chrome WASM tests. The61-test mutation tooling suite (one Linux-only skip) and
+54-test verification tooling suite pass. Final input hashes match and the native
+window is explicitly released to both consumer tasks. Preserve logs and
+snapshots under `coverage118-oracles`, `contracts118-vm`, `remote118c-vm`, and
+the named mutation directories in `out/regression-coverage-2026-09-15`.
+The full VM115/browser116/native snapshots remain the broader measurements.
+Continue final browser evidence, remaining CI gates and genuine whole-component
+line gaps. Benchmark-config's last assertion score is70.45%, despite95.45%
+conventional detection; the current86-test baseline passes, with no edits yet.
+The complete milestone is still active; no merge or publication.
+
+Work117 closes the router configuration and native benchmark-auth assertion
+gates without production changes, inventory changes, new equivalences or lower
+thresholds. Config tests explicitly assert valid parsing and preserve exact
+values, immutable collections, caller ownership and negative parser checks.
+Parser assertions preserve infrastructure errors. All424 focused tests pass
+(413 before); focused config-loader VM lines are522/525 (99.43%), not a whole
+router measurement. Full config117 records396 candidates,346 assertion kills,
+three error-only detections,ten survivors,37 compile failures:96.38% raw/adjusted
+assertion score versus49.86% before. Conventional detection remains97.21%.
+Native harness tests assert credential-path/certificate startup success without
+converting socket, process, timeout or native initialization failures to kills.
+All42 tests pass (33 before). Full bench-auth117 records35 candidates,19 assertion
+kills and16 compile failures:100%, no survivors/errors/timeouts/waivers.
+Both campaign baselines pass and input hashes match. Support-file enforcement
+now includes the config assertion helper; the60-test tooling suite passes (one
+Linux-only skip). Fast117 passes. Verify117 initially exposed the stale tooling
+support-file expectation; preserve that failure log. Settled-input Verify117b
+passes with observed exit zero, including Rust/native, installed-package/live-
+router and Chrome WASM suites. It was suspended at its own non-native parent
+while a consumer task released its preview router, then resumed on the same
+handle. Final input hashes match; the native window is explicitly released.
+MCP114 now completes:1098 candidates,812 assertion kills,24 survivors,262 compile
+failures;97.13% raw/adjusted, no errors/timeouts/waivers. Its original source/test/
+support hashes still match. All survivors were inspected; partial subscription
+capability advertisement and pending-release cleanup/interleavings remain
+priority test gaps, not equivalent waivers or proven baseline production bugs.
+E2EE116 also completes both runtimes:VM207/214 (96.73%) and JS210/214 (98.13%)
+assertion evidence, four survivors and55 compile failures each. VM retains three
+uncredited error-only outcomes; JS mixed detections contain actual assertions.
+Both baselines and final input checks pass. No new equivalent exclusions.
+Evidence: `out/regression-coverage-2026-09-15/coverage117-oracles`,
+`config117-mutations`, `config117-vm`, `bench-auth117-mutations`,
+`mcp114-library-mutations`, and `e2ee116-mutations`.
+The full VM115 and browser116 snapshots below remain the last broader line
+measurements; do not attribute these focused changes to whole-package gains.
+Continue lazy-payload, remote-auth and benchmark-config gates and genuine line
+gaps. Native/WASM/application coverage remains incomplete. No merge,
+publication or version change; the complete milestone remains active.
+
+Work116 closes both installer assertion gates without changing production code,
+candidate inventories, thresholds or equivalences. Known-valid downloads,
+extraction and recovery retries now use package-local success assertions;
+exact output, cleanup and retry-count checks remain. Timeout, process-launch
+and socket failures propagate unchanged. All110 focused tests pass (102 before
+edits). Full `installers116-mutations` exits zero: client96/101 assertion kills
+(95.05%), two error-only detections, three survivors and four compile failures;
+router95/99 (95.96%), four survivors and four compile failures. Conventional
+client detection is97.03%; raw/adjusted assertion scores have no waivers.
+Both baselines pass. The two remaining client errors are sibling Windows tar
+argument construction; do not count them as assertions. Directory-recursion
+and shell-launch survivors remain investigated but unwaived.
+E2EE success assertions preserve single evaluation, timeout identity, exact
+payload/metadata and malformed-input checks. All73 focused tests pass (70 before
+edits). Both runtime mutation targets hash the new support file. Completed VM
+inventory:269 candidates,207 assertion kills,three error-only detections,four
+survivors,55 compile failures;96.73% raw/adjusted assertion evidence, no waivers,
+both baselines passing. Its full VM+JS campaign remains running in
+`e2ee116-mutations`; JavaScript is not yet final. Four survivors were reviewed
+against the unchanged source hash; no new equivalences were declared.
+Core115 now completes with exit zero and all six VM/JS gates passing:
+registration24/24,metadata213/213,PEM/PKCS8 87/94 raw and87/87 adjusted using
+seven unchanged pinned equivalents per runtime. Mixed JS detections contain
+actual assertions; no error-only detections or timeouts. Input hashes match.
+Whole VM115 finishes with exit zero and matching hashes before Work116 edits:
+38,647/42,637 lines(90.64%),client8,576/9,427(90.97%); other package percentages
+unchanged. Packaging765/787(97.20%);59 library and12 packaging sources remain
+unmeasured. This is the last complete whole-workspace snapshot, not a run of
+the newer Work116 tests. Browser116 passes separately at selected core6628/6973
+(95.05%) and form-only client279/283(98.59%), with172 unmeasured sources and no
+WASM line measurement. Fast116 and settled-input Verify116 both pass with
+observed exit zero, including native, installed-package/live-router and Chrome
+WASM tests. Final input hashes match. The coordinated native window is released.
+Evidence and review notes: `out/regression-coverage-2026-09-15/coverage116-oracles`.
+At pushed head6118c474 package/image dry runs and WAMP profiles pass;
+CI still has failing mutation gates. Recheck the deployment chain after the
+next implementation push. MCP114 remains live on its unchanged snapshot.
+Continue remaining hosted lazy/config-loader/remote-auth/benchmark gates and
+the largest genuine coverage gaps. The complete milestone remains open; no
+merge, publication or version change.
+
+Work113/114 strengthens MCP and the newly enforced CI mutation gates without
+changing production behavior, thresholds or mutation classification. The MCP
+suite now has 851 passing tests, including standard meta-topic publish denial,
+raw positional/keyword forwarding, public schemas, catalog aliases, template
+selection and timeout-preserving success-oracle controls. Exact results and
+negative-input checks remain; success/type/cardinality assertions prevent
+unchecked exceptions from masquerading as assertion coverage. Fresh `mcp114-vm`
+measures the non-CLI library at 1,605/1,617 lines (99.26%). Its package-only
+selection measures 2,544/3,927 including CLI, not a replacement for broader
+router/CLI integration coverage or a whole-package improvement claim.
+Full metrics114c passes with 63 assertion kills and three survivors (95.45%).
+Authorization114b passes with 69 assertion kills, 28 compile errors and five
+survivors: 93.24% raw, 97.18% adjusted with three unchanged pinned equivalents.
+Subscribed114c passes separately on VM and JS: 15 assertion-based detections
+and seven compile errors each, 100% viable detection, no survivors/timeouts.
+All final campaign source/test hashes match. The historical 202-candidate MCP
+diagnostic is complete and preserved; the full 1,098-candidate `mcp114-library`
+campaign is running on the final test snapshot, so its final score is pending.
+Original MCP109 client evidence completes on its original snapshot: 1,597
+candidates, 514 assertion-only and two mixed detections with assertions, 452
+error-only detections, 308 survivors, 70 timeouts and 251 compile errors. Raw
+and adjusted conventional detection is 71.92%; assertion evidence is only
+38.34%. Both baselines pass, but the campaign exits one. Later client tests
+must not inherit that score. Preserve its individual outcomes for follow-up.
+Fast114b passes. Verify114 exits one after an unrelated consumer-application
+benchmark acquires the global native-runtime lock during remote-auth tests;
+subsequent already-initialized errors are a cascade, not eleven independent
+regressions. Preserve the failure log. The benchmark has finished and its
+owning task confirmed a native-runtime-free verification window.
+Hosted CI at `06726965` is not clean: besides locally repaired gates, PEM/PKCS8,
+registration, metadata, lazy payloads, E2EE, client/router installers, router
+config loading, remote authentication and benchmark config/auth have
+assertion-evidence gaps.
+Downloaded reports are in `hosted114-gate-failures` and
+`hosted114-pr-gate-failures`; fix them without relaxing gates. Package/image
+dry runs and WAMP profiles pass at that head. The complete coverage milestone
+remains open; no merge, publication or version change.
+
+Work115 strengthens valid PEM/PKCS8 decoding, registration-handler installation
+and lazy metadata/role materialization before dereference. Keep exact seed,
+ownership, delivery and feature assertions and all malformed-input tests. The
+OpenSSH wrapping test now uses the fixture's fixed seed rather than another
+parser invocation; missing-marker tests first assert valid PKCS8 construction.
+No production code, threshold, inventory or equivalence changes. All 414
+focused VM tests pass before and after the change. Completed VM inventories
+record registered 24/24 viable assertion kills, metadata 213/213, and PEM/PKCS8
+87/94 raw (92.55%), 87/87 adjusted with seven unchanged pinned equivalents.
+No error-only detections/timeouts, and both component baselines pass. JavaScript
+inventories continue in `core115-gate-mutations`; the overall gate is pending.
+Fresh focused VM coverage is PEM85/85, registered69/69, Details346/346 and
+CustomFields46/46; PKCS8 remains61/63. Browser115 passes separately with selected
+core6628/6973 (95.05%), form-only client279/283 (98.59%) and172 unmeasured sources.
+These subset measurements do not replace VM105 or prove WASM line coverage.
+Hash checks pass. Client/router installer fixture success checks also preserve
+timeouts; ten helper controls cover returned identity and sync/async failures.
+All46 CLI tests pass. `installers115-mutations` completes with exit one: client
+89/101 viable assertion kills (88.12%), nine error-only detections, three
+survivors and four compile errors; router88/99 (88.89%), seven error-only
+detections, four survivors and four compile errors. Raw/adjusted assertion
+scores are identical, with no waivers or timeouts; both baselines pass.
+Investigated all seven survivors without waiving recursive-parent creation or
+shell-launch behavior. Strengthen valid extraction/download success assertions
+in install_native_test.dart and release_installer_failure_test.dart next.
+Fast115 and settled-input Verify115 both pass with observed exit zero, including
+Rust, installed-package/live-router smokes and Chrome WASM tests. Browser115
+provides the separate JavaScript coverage evidence. Final component source,
+test and support hashes still match. Hosted checks for the new implementation
+commit remain required; full core-JS and MCP mutation campaigns are still live.
+
+Work112 fixes a fail-first mutation-gate defect: CLI success now requires the
+adjusted assertion lower bound, complete kill classification and no error or
+timeout outcomes. Conventional raw/adjusted detection scores remain unchanged
+and separately labeled. Reports record the gate metric, threshold and result;
+inventory-only/incomplete reports cannot claim a pass. All 60 runner tests pass
+(the Linux-only subreaper test is skipped on macOS).
+Explicit success/type/null assertions strengthen valid MCP completion parsing
+without replacing exact output or rejection checks. The unchanged 54-candidate
+inventory now yields 44 assertion kills and ten compile errors on both VM and
+JavaScript, no survivors/errors/timeouts or waivers. Before these test changes,
+the new gate correctly rejects 19 assertion kills plus 25 test-error detections
+despite a 100% conventional score. The 212 completion tests pass; focused VM
+coverage is 104/104 lines, not whole-core coverage. Fresh browser112b measures
+completion 123/123 JS lines; selected core remains 6,628/6,973 (95.05%), forms
+279/283 (98.59%), with 172 unmeasured sources and no WASM line coverage.
+Auth-server tests also assert the selected provider and successful repeated
+binding shutdown. Its 86 tests pass, including sync/async timeout preservation
+in the explicit success oracle; focused VM coverage remains 455/455 library
+lines. The first unchanged
+294-candidate auth campaign fails the stricter gate at 93.12% assertion evidence
+versus 96.30% conventional detection. The intermediate rerun exposes that
+completes propagates Future errors (94.71%); preserve it. Final auth-server112c
+records 176 assertion-only and six mixed detections with real assertions, seven
+survivors and 105 compile errors: 96.30% raw/adjusted assertion evidence, gate
+passed, no error-only detections/errors/timeouts. All seven survivors were
+reviewed against pinned public lifecycle/selection control flow; no counterexample
+was found, and none is waived. Final campaign and coverage hashes match.
+Fast112 and final settled-input Verify112b pass with observed exit zero,
+including Rust, installed-package smokes, JavaScript and WASM tests. Final
+component source/test/support hashes still match. The native owner is released.
+Work111 is verified and pushed as `a3892e14` on draft PR #93. Both package dry
+runs, router-image dry run and WAMP profiles pass; main CI remains pending at
+that head. The stricter gate exposes more CI work: MCP100-library source/test
+hashes still match, but its assertion evidence is 75.84% (170 error-only
+detections), not the passing conventional score. Fix those gaps next; do not
+weaken thresholds or relabel older detections. The full milestone remains open.
+
+Work111 adds 305 public MCP OAuth regressions: exact resource binding before
+token I/O, positive code/grant exchanges, exhaustive ASCII scope boundaries,
+Unicode/empty rejection, ordered scope union and HTTPS/loopback metadata rules.
+Valid form and step-up construction now assert success before retaining exact
+output checks. No production code, protocol behavior or mutation policy changes.
+All 1,464 MCP VM tests pass; all 248 form tests pass separately in JavaScript
+and WASM. The complete HTTP client file measures 1,862/1,955 VM lines (95.24%)
+in `client-mcp111-vm`, not whole-package coverage. The full-workspace coverage
+policy intentionally fails on this focused selection. WASM lines are unmeasured.
+A hash-pinned diagnostic replay retains 54 recorded candidates: 50 assertion
+kills, four compile errors, no survivors/timeouts, both baselines exit zero.
+This scoped replay is not the full 1,597-candidate campaign or its final score.
+The original MCP109 campaign remains running against its original test snapshot.
+The complete native110 rerun records 78 assertion kills and three SIGSEGV
+errors across 81 unchanged candidates: 96.30% raw/adjusted, no equivalents,
+survivors or timeouts. It improves on native108's 66 assertion kills. All three
+remaining errors mutate null-pointer guards before CStr::from_ptr; they are
+not assertion kills or evidence of an unmutated production defect. Strict audit
+still exits one with evidenceClean false; unsafe-function instrumentation and
+whole-native coverage remain open. Fast111 passes with observed exit zero after
+native110 exits; settled-input Verify111 passes with observed exit zero,
+including native tests, installed-package smokes, JavaScript and WASM.
+Work110 is verified and pushed as `72c6b904`; its package/image dry runs and WAMP
+profiles pass, main CI remains pending, and the initial strict audit is
+nonzero on pending checks and existing policy/visibility findings.
+
+Work110 addresses native fixture errors exposed by the completed boundary
+campaign. Background client results are observed before waiting for a server;
+successful early RawSocket IDs are retained and WebSocket acceptance can still
+precede client completion. Worker panics and deadlines remain non-assertion
+errors. Shared test wrappers check HTTP/WebSocket handshake consumption and
+rejection of writes after response completion, preserving all wire assertions.
+Borrowed metadata pointers are asserted non-null before unsafe fixture reads.
+All 177 FFI tests pass, including five deterministic helper regressions.
+The complete 16-candidate probe finishes without timeouts: strict audit records
+15 assertion kills and one custom-assert diagnostic error (93.75%, no waivers).
+Preserve that report; subsequent return-value assertions now emit standard
+diagnostics without changing the predicate or accepting arbitrary panic text.
+Fresh Fast110 and settled-input Verify110 pass with observed exit zero,
+including Rust, installed-package smokes and Chrome JavaScript/WASM tests.
+Final `native110b-current` input hashes still match. After verification exits,
+the full 81-candidate rerun runs as the sole local native owner with an inventory
+identical to native108. It completes with 78 assertion kills, three SIGSEGV
+errors, no survivors/timeouts and 96.30% raw/adjusted, no waivers. Preserve its
+nonzero strict audit separately from cargo-mutants' 81 conventional detections.
+No production native behavior or measurement policy changes.
+
+Work109 is verified and pushed as `e5410370` on PR #93. Both package dry runs,
+the router-image dry run and WAMP profiles pass; main CI remains pending.
+The initial strict hosted audit exits one on pending evidence and the existing
+feature-branch protection/workflow-discovery findings. Superseded old-head CI
+runs were cancelled after new-head runs appeared, not reported as successful.
+
+Work109 adds 840 public MCP client regressions: 248 form-schema/content cases
+and 592 live HTTP malformed-response/recovery cases across legacy/modern and
+direct/streamable APIs. Thirty fail-first assertions expose permissive calendar
+normalization and rejected lowercase RFC3339 timestamps; strict calendar/grammar
+validation fixes them while preserving valid response strings. All 1,159 client
+MCP VM tests pass. Focused `client-mcp109c-vm` measures the complete HTTP client
+file at 1,860/1,955 lines (95.14%), not whole-client coverage. Input hashes match.
+The whole-workspace policy intentionally fails on this focused selection.
+All 248 form cases also pass separately in JavaScript and WASM. Canonical browser
+verification/coverage now includes them, guarded by a fail-first script test;
+all 54 script tests pass. `browser109-current` completes: selected core JS
+6,628/6,973 (95.05%), form-only client JS 279/283 (98.59%), 172 unmeasured library
+sources. The form-only, tree-shaken browser denominator is not the whole HTTP
+client or package. WASM line coverage remains unmeasured.
+The complete-file `client-mcp109-mutations` campaign is running with 1,597
+candidates and baseline exit zero; its final assertion score is pending.
+Fresh Fast109 and settled-input Verify109 pass with observed exit zero,
+including Rust, installed-package smokes and Chrome JavaScript/WASM tests.
+Recorded source/test/config hashes still match. New-head hosted evidence is
+required.
+
+Native108 has now completed against its unchanged native scope: 66 assertion
+kills, 12 errors and three timeouts across 81 candidates, 81.48% raw/adjusted,
+zero equivalents or survivors. The 78 conventional detections are not 78
+assertion kills. The audit exits nonzero with `evidenceClean: false`; native
+work must address missing-result fixture errors, timeout outcomes and the
+unsafe-function instrumentation gap. Keep the prior native106 result separate.
+The complete coverage milestone remains open. No merge, publication or version
+change.
+
+Work108 adds native TLS verification/recovery, client string validation, HTTP
+status boundary and empty WebSocket subprotocol regressions. Both TLS transports
+use fresh self-signed certificates, alternate verification policy on one listener
+and exchange exact payloads in both directions. Buffer metadata assertions run
+before unsafe test reads. All 172 FFI tests pass. A deterministic fail-first
+test fixes a test-helper loop that ignored its deadline after negative HTTP
+handshake polls. Waiting failures remain non-assertion errors; do not inflate
+mutation scores by converting timeout panics into clock assertions.
+
+The repeated fast run exposes a real lab-runner race: Flutter can print the
+test-start marker between a log read and the terminal process check. Re-read
+the final log after exit, preserving subsequent child exit-status validation.
+A deterministic interleaving fails before the fix; all 15 lab-script tests pass
+afterward. These are fake-tool regressions, not emulator UI evidence. Settled
+Fast108c and Verify108 pass with observed exit zero, including Rust,
+installed-package smokes and Chrome JavaScript/WASM tests. Fresh Cargo-only
+`native108-current` coverage completes at core 8,431/10,052 (83.87%) and FFI
+4,655/5,798 (80.29%), retaining one core and three FFI unmeasured sources.
+`native-boundaries108-mutations` is running with the full FFI library suite as
+the sole local native owner. Its score is pending; keep the historical native106
+mutation result below separate. New-head hosted evidence is still required,
+and the full coverage goal remains unmet. No merge, publication or version change.
+
+Work107 repairs mutation CI job budgets without changing candidate inventories,
+per-mutant deadlines or score thresholds. At `92f5c33f`, the PR MCP job reaches
+1,062/1,098 candidates before its 120-minute limit; the push remote-WAMP job
+reaches 286/286 before its 20-minute limit interrupts completion. Their sibling
+same-head runs pass, but neither overall CI run is green. Full Verify, coverage,
+consumer checks, package/image dry runs and WAMP profiles pass. Explicit matrix
+overrides now allow MCP 180 minutes and remote-WAMP 45, preserving every other
+budget and the 20-minute default. A fail-first configuration regression guards
+the complete override mapping, duplicate/unknown targets and default; the
+existing inventory/artifact checks remain intact. All 27 deployment-audit tests,
+Fast107 and settled-input Verify107 pass with observed exit zero, including Rust,
+installed-package smokes and Chrome JavaScript/WASM tests. New-head hosted
+evidence is still required before calling the deployment chain clean.
+
+The completed `native-boundaries106-mutations` campaign has 81 candidates.
+Strict auditing against the unchanged native106b scope records 48 assertion
+kills, 17 survivors, 13 errors and three timeouts: 59.26% raw/adjusted, no waivers.
+Keep the 61 conventional cargo-mutants detections separate from assertion kills.
+The unsafe-function instrumentation gap remains. Next native work must cover
+TLS verification flags, empty client arguments and HTTP status boundaries, and
+replace missing-result test panics with explicit behavioral assertions where
+appropriate, without reclassifying historical errors or timeouts. The complete
+coverage goal remains unmet; no merge, publication or version change.
+
+Work106 adds 13 native C-ABI boundary regressions and fixes invalid HTTP buffer
+metadata, WebSocket status/length narrowing, and client port/header validation.
+Fail-first runs preserve ordinary assertion failures separately from native
+SIGABRT/SIGSEGV reproductions; crashes are not mutation assertion kills. Shared
+slice metadata checks reject null nonempty pointers, misalignment, impossible
+lengths and address wrap before dereferencing. Foreign callers must still supply
+live initialized allocations. Valid empty buffers and existing UTF-8 handling
+remain compatible. Live socket tests verify exact buffered/chunked response bytes,
+WebSocket rejection bytes, retry after rejected input, and consumed-handle errors.
+All 13 focused tests and the full Rust workspace pass. Final `native106b-current`
+Cargo-only coverage completes at core 8,416/10,052 (83.72%) and FFI 4,649/5,798
+(80.18%); do not combine it with the older, different-input Dart-driven report.
+The intermediate `native106-current` report predates the final string-range tests.
+Fast106 and settled-input Verify106 pass with observed exit zero, including
+Rust, installed-package smokes and Chrome WASM tests. The final native scope
+still matches after Verify. `native-boundaries106-mutations` is running with
+one worker and the full FFI library test suite. Mutation evidence for this
+increment is not complete: cargo-mutants 27.1.0 skips unsafe function bodies, including the
+new slice/header helpers. This is an explicit measurement gap, not a waiver.
+VM105 also completes before these native changes: 38,515/42,612 Dart library
+lines (90.39%), router 17,003/19,331 (87.96%), other package percentages unchanged
+from VM101, with 59 unmeasured library and 12 unmeasured packaging sources. Its
+632 Dart input hashes matched at completion. At pushed head `ab8942b3`, package
+and router-image dry runs and WAMP profiles pass; main CI has pending jobs and
+no observed failures. No merge, publication or version change.
+
+Work105 closes the native measurement gap between Rust unit tests and Dart
+callers. Fresh `native105-current` Cargo coverage completes at 8,374/10,052
+core lines (83.31%) and 4,589/5,808 FFI lines (79.01%). The new
+`bin/test-native-ffi-coverage` builds a fresh instrumented ffi-test library,
+runs ten isolated Dart test groups and retains raw profiles, logs, library and
+source/test/dependency hashes. It does not substitute passing Dart tests for
+native counters. All 337 selected tests pass; `native-ffi105-current` completes
+with ten nonempty profile sets, measuring 6,508/10,052 core lines (64.74%) and
+3,426/5,808 FFI lines (58.99%) from Dart execution alone. Identical Rust scope
+snapshots permit a line union: 8,445/10,052 (84.01%) core and 4,915/5,808 (84.62%)
+FFI, adding 71 and 326 hits respectively to Cargo-only evidence. Preserve the
+separate reports and the parent-hash-pinned `native-combined105-current` union;
+neither is a 98% gate or platform-wide
+completion. Legacy ABI, unsupported platforms and unmeasured files remain gaps.
+Nine collector tests include real Dart-to-cdylib branch counters, missing/empty
+profiles, failed build/test commands, timeout, library replacement, input drift,
+ignored dependency overrides and surviving child processes. Fail-first probes
+expose the last two tooling gaps before their corrections. The real fixture is
+wired into existing native coverage-tool verification, including hosted CI.
+All 52 verification-script tests and baseline Fast105 pass. Settled-input
+Verify105 completes with observed exit zero, including Rust, installed-package
+smokes and Chrome WASM tests. No native test/collection remains running. At pushed head
+`8b60e7f6`, package/image dry runs and WAMP profile checks pass; main CI still has
+pending jobs and no observed failures. No merge, publication or version change.
+
+Work103/104 closes the bearer claim-confusion and exact-expiration defects.
+JWT/OIDC and OAuth now compare issuer/audience strings exactly and reject
+non-string audience members, without changing configuration normalization.
+Optional factory clocks make exclusive expiry/inclusive not-before boundaries
+deterministic; network deadlines continue to use Stopwatch. The 90 new claim
+cases first expose 66 assertion failures; five exact-expiry cases also fail
+before the corresponding comparison fix. All 281 provider tests now pass.
+HTTP103 completes 274 candidates: 186 detections, 11 survivors, 77 compile errors,
+no timeouts/errors, both baselines zero (94.42% raw; 86.29% assertion lower bound).
+HTTP104 adds nine individually justified, source-hash-pinned equivalents, giving
+98.94% adjusted detection but only 90.43% adjusted assertion evidence. Preserve
+these historical reports rather than attributing them to later test changes.
+The final HTTP104b campaign completes all 274 candidates with both baselines zero:
+186 assertion detections, 11 survivors (nine individually justified equivalent),
+77 compile errors, no test-error detections, timeouts or infrastructure errors.
+Raw assertion/detection is 94.42%; adjusted assertion/detection is 98.94%.
+Source/test/support hashes match. Focused HTTP104b line coverage is 304/305
+(99.67%), with only the private registry constructor unexecuted, no exclusions.
+These are HTTP-provider component results, not whole-router completion.
+
+Ten new reverse-proxy binding regressions cover exact UTF-8 byte limits,
+oversized responses, header/body timeouts, upstream socket closure, recovery,
+invalid numeric limits and invalid targets rejected before connecting. The
+focused run and all 224 router-runtime tests pass. The final router-runtime104b
+report measures 2,469/3,636 binding lines (67.90%) for that test-file selection,
+including 31 lines missed by VM101. Do not replace or combine the whole-VM
+percentage with this narrower run. Its input hashes match.
+Add the complete HTTP auth mutation target to CI and the strict deployment audit,
+without lowering thresholds or changing per-mutant timeouts. The new guard test
+first fails on the missing job; all 83 runner/audit tests then pass (one optional
+Linux-only skip). Fast103 and Verify103 pass with observed exit zero. Verify104
+stops at formatting; fix the single test indentation. Settled-input Verify104b
+then completes with directly observed exit zero, including Rust, package consumer
+smokes and browser JS/WASM tests. The native runtime is free for fresh collection.
+At preceding pushed commit `1f07e393`, package/image dry runs and WAMP profiles
+pass; Full Verify passes while other main CI jobs remain pending. New-head hosted
+evidence and the strict audit remain required. No merge, publication or version change.
+The whole milestone remains incomplete: retain the VM101 per-package snapshot,
+unmeasured-source inventory and separate browser/native evidence below.
+
+Work102 closes two further fail-first HTTP-auth defects. Valid extreme JWT/OIDC
+dates plus nonzero leeway throw RangeError; compare elapsed durations without
+shifting the dates outside their representable bounds. Synchronous HTTP setup
+can exhaust the shared deadline before a timeout observer is installed and leak
+a late socket error. Observe each started operation before evaluating its budget,
+preserving awaited failures and forced client disposal. All 173 provider tests
+pass, including guarded-zone late open/close errors, exact UTF-8 byte limits,
+malformed UTF-8 denial/recovery, partial credential precedence and negative skew.
+The focused `http-auth102-vm` report measures 305/306 lines (99.67%), with the
+private registry constructor still uncovered. Its whole-workspace policy failure
+is expected for a focused run, not a passing package gate. Full-source HTTP102
+completes 272 candidates: 176 kills, 19 survivors, 77 compile errors, no timeouts
+or infrastructure errors. Both baselines pass; raw/adjusted detection is 90.26%,
+assertion lower bound 81.03% (158 assertion, 18 test-error detections), no waivers.
+Source/test/support hashes match. MCP100 also completes all 1,098 candidates:
+804 kills, 32 survivors, 262 compile errors, no timeouts/errors, both baselines
+zero and matching hashes. Raw/adjusted detection is 96.17%; its 634 assertion
+and 170 test-error detections give a 75.84% assertion lower bound. No waivers;
+this is non-CLI library evidence, not whole-package or cross-runtime completion.
+Fast102 and final Verify102 pass with directly observed exit zero, including
+Rust, package smokes and browser JS/WASM tests. No local campaign or native
+verification remains running. Pushed-head Fast Checks passes and hosted
+Full Verify is running; the strict audit still reports pending CI.
+
+Historical Work102 next-work finding (fixed by Work103 above): a signed-token probe confirms audience coercion
+and trimming can authenticate otherwise mismatching claims (numeric value versus
+configured string, empty array versus literal "[]", and padded strings). This is
+not fixed by Work102 and those survivors were not equivalent. RFC 7519 sections
+4.1.3 and 7.3 require string/array-of-string audience values and exact comparison.
+Preserve `/tmp/connectanum-coverage102-claim-probe.log`; add checked-in fail-first
+JWT/OIDC/OAuth cases before replacing the permissive token-claim comparison.
+Keep configuration-option parsing separate from untrusted claim validation.
+
+Work100/101 is pushed as `9ae1c14e`. Verify101 and fresh VM101 both complete with
+observed exit zero. VM101 measures 38,482/42,609 library lines (90.31%): auth
+server 100%, bench 89.17%, client 89.81%, core 94.27%, MCP 96.13%, router 87.80%.
+Its 59 unmeasured library sources remain visible. Separate packaging remains
+391/402 client (97.26%) and 374/385 router (97.14%), with 12 unmeasured sources.
+VM101's input manifest was checked before Work102 edits; do not attribute it to
+those newer inputs. PR93 is updated and remains draft. Current-head package,
+router-image dry run 35290093456 and WAMP profile 35290095322 checks pass; main
+CI is pending and the strict audit is not yet green. Cancel only the two
+superseded `1a187bc2` CI runs, preserving their logs. No merge or publication.
+
+Work101 fixes HTTP bearer validation and the hosted analyzer failure. JWT/OIDC
+now return an authentication failure for malformed signature encoding instead of
+throwing. Present invalid exp/nbf claims fail closed instead of becoming absent;
+valid fractional JWT NumericDates retain microsecond precision. OAuth requires
+integral time claims and checks nbf even when introspection says active=true.
+Keep omitted optional claims valid. Signed/real-HTTP fail-first regressions
+expose these defects; all 153 HTTP provider tests now pass. The final focused
+`http-auth101d-vm` report measures 301/302 lines (99.67%), with only the private
+registry constructor uncovered, no exclusions and matching input hashes. Add a
+98% file floor and the complete-source router-http-auth-vm mutation target;
+`http-auth101-mutations` completes at 141 kills, 49 survivors, one timeout and
+77 compile errors (73.82% raw/adjusted; 63.87% assertion lower bound). Both
+baselines pass. Add survivor-directed tests for otherwise-valid inactive tokens,
+actual self-signed TLS default denial/explicit opt-in, canonical claim precedence,
+iterable scope mapping and truncated signatures. The complete
+`http-auth101b-mutations` rerun completes at 158 kills, 32 survivors, one timeout
+and 77 compile errors, with both baselines zero: 82.72% raw/adjusted and a 73.30%
+assertion lower bound. No waivers or passing mutation gate. Source/test/support
+hashes match; the timeout-policy mutant remains a timeout, not an assertion kill.
+Focused analysis,
+coverage-tool tests and 55 mutation-runner tests pass (one optional skip).
+
+The CI correction is pushed separately as `1a187bc2`:
+Fast Checks fails analysis at native_transports_test.dart:397 because receive()
+is nullable. Local analysis reproduces the same error. Add an explicit non-null
+assertion to the paused-listener test; focused analysis and formatting now pass.
+Both current-head package dry runs pass. Hosted run 35286985122 then exposes
+a WebSocket EOF/reconnect fixture race: forced isolate exit can precede native
+socket cleanup, so rebinding the same port fails. Waiting for natural isolate
+exit times out on WebSocket peers and fails Verify100. Instead acknowledge the
+awaited listener closure explicitly, then dispose/rebind. All six EOF cases and
+all 50 native transport tests pass afterward. This second correction is
+verified by completed Verify101; hosted CI is red until the fix is pushed and
+replacement checks pass. Cancel
+six superseded branch CI runs to release runner capacity, preserving their logs
+and all local campaigns. The strict deployment audit remains non-green.
+
+Native99 has completed: 157 kills, 94 survivors, 32 timeouts, one error and 84
+compile errors across 368 candidates, with both baselines zero. Conventional
+raw/adjusted detection is 55.28%; the assertion-detected lower bound is 45.07%
+(93 assertion, 35 mixed and 29 test-error detections). No waivers. This campaign
+predates the one-line analyzer fix; its recorded test hash remains historical.
+Fast100 passes; Verify100 fails as recorded above. Fresh Verify101 completes
+on settled inputs with directly observed exit zero, including Rust, package
+smokes and browser JS/WASM suites. The native runtime is released for a fresh
+whole-workspace VM coverage run. The
+new HTTP regressions run independently without native FFI. Do not launch a
+duplicate verification or attribute incomplete/old campaigns to revised inputs.
+
+Work100 is locally verified; its full mutation campaign remains in progress.
+A real HTTP/SSE regression proves that
+rejecting a request-scoped resource update publication leaks an unhandled
+`StateError: No element` from the notification future during listener cleanup.
+Attach an error observer before awaiting publication; the later notification
+await still propagates errors. Keep acknowledgement/filter rejection, malformed
+notifications, successful rereads and sessionless cleanup explicitly tested.
+Survivor-directed MCP assertions cover option-alias precedence, recipient-list
+validation before WAMP dispatch, recovery, completion diagnostics, raw meta
+match overrides and discarding revoked pending events without serialization.
+All 756 MCP tests and focused analysis pass. `mcp100b-vm` measures 1,605/1,617
+non-CLI library lines (99.26%), but only 939/2,310 CLI lines with this isolated
+test selection: 2,544/3,927 overall (64.78%). Do not replace the broader historical
+VM96 package percentage with this narrower test-run result or combine their
+different snapshots. Input hashes match; whole-workspace gates remain non-green.
+The full 1,098-candidate `mcp100-library-mutations` campaign has a clean baseline
+and is running; it is not a CLI mutation campaign or a final score.
+
+MCP100 remains live; preserve it rather than starting a duplicate. MCP97 has
+completed at 798 kills, 38 survivors and 262
+compile errors (95.45% conventional detection); its separate `kill-evidence100`
+audit finds 627 assertion detections and 171 test errors, a 75% assertion lower
+bound. Its tests predate Work100. Pushed Work99 `94c04567` has passing hosted
+package/image/profile dry runs; main CI still has running/queued jobs. Do not
+merge, publish or call the whole coverage milestone complete.
+
+Work99 reproduces and fixes a native transport lifecycle bug: a real peer sends
+WELCOME then closes, but the old receive worker never completes its Dart stream
+or notifies `onConnectionLost`. Its isolate exit port was only observed during
+explicit close. Route data/error/exit through one ordered port, buffer handles
+until the pump attaches, capture attempt-owned state, guard stale pumps and let
+connection-loss notification proceed even when a stream subscriber is paused.
+Yield between synchronous native wait batches so stop messages can run; retain
+bounded shutdown waits and distinguish unexpected EOF from WAMP GOODBYE.
+Nineteen new regressions cover RawSocket/WebSocket and JSON/MessagePack/CBOR EOF,
+graceful shutdown, reconnect, close during worker startup and a paused listener.
+All 107 focused transport/file tests and targeted analysis pass. The fresh
+`native-transports99-vm` report measures 418/466 wrapper lines (89.70%), with
+matching source/test/runtime/native hashes; it is not Rust or whole-workspace
+coverage. Verify99 passes with directly observed exit zero on the settled inputs,
+including Rust, package/consumer smokes and browser JS/WASM suites. The native
+runtime is released for the next complete mutation campaign. MCP97 remains
+live separately. Work98 is pushed as `e94f5462`; its package/image/profile dry
+runs pass, main CI is pending, and the strict deployment audit is non-green.
+No current mutation result exists for the Work99 implementation yet; the next
+campaign must use a fresh `native-transports99-mutations` output directory.
+
+Work98 adds explicit mutation kill-cause diagnostics without changing outcomes,
+denominators or thresholds. New reports distinguish assertion failures, caught
+test errors, mixed detections and unknown evidence. A read-only auditor emits
+separate hash-pinned diagnostics for historical logs; it never refreshes their
+source/test provenance. All 55 runner/auditor tests pass (one optional skip).
+The first complete native transport campaign is 107 kills, 126 survivors,
+23 timeouts and 92 compile errors across 348 candidates: 41.80% raw/adjusted,
+with both baselines passing. Its audit finds 58 assertion, 36 test-error and
+13 mixed detections, a 27.73% assertion-detected lower bound. No waivers.
+
+Twelve further native transport regressions protect literal binary-header
+boundaries through uint32/int64 limits, damaged payload suffixes, receive-batch
+sentinels/caps, and failed-open/close/reconnect readiness across both transports
+and all three serializers. All 31 transport and 57 runtime/file cases pass.
+`native-transports98-vm` measures 388/440 wrapper lines (88.18%), up from 85.68%,
+with matching source/test/support/native hashes. The native mutation campaign
+above predates these tests; it is not their final mutation score. Fast98 passes.
+Verify98 has terminated after its final successful 2,970 core WASM and two
+WebSocket WASM tests; its original command handle was lost across an app restart,
+so the terminal exit code was not directly recovered. The full log is
+`/tmp/connectanum-coverage98-verify.log`; passing WASM tests remain distinct from
+unmeasured WASM line coverage. MCP97 is still running; do not duplicate it.
+The latest pushed head's main CI is pending with no failed jobs observed;
+package/image/profile dry runs pass. Next close native lifecycle/error-path
+survivors and rerun complete campaigns, keeping the whole milestone open.
+
+Work97 adds deterministic custom-CA isolation and native file-transport wire
+regressions. A fresh Dart subprocess uses a fixture-only default trust store;
+eight TLS handshakes verify default/client-only trust and custom-CA replacement
+with and without client credentials. The previous trust-policy comparison
+survivor now fails the explicit result assertion, not a timeout or process crash.
+The complete `remote-delegate97b-mutations` rerun finishes 286 candidates with
+180 kills, seven survivors and 99 compile errors (96.2567% raw/adjusted), both
+baselines zero and all source/test/support hashes verified. No waivers.
+
+Eighteen native transport combinations exercise RawSocket/WebSocket, all three
+serializers and clear/XSalsa20/AES-GCM file sends on the same open connection.
+Independent wire decoding and portable E2EE decryption protect file offsets,
+binary/base64 framing, size boundaries through 65,536 bytes, invalid/closed
+sources, runtime ownership and subsequent ordinary messages. All 57 file/runtime
+tests and the existing transport suite pass. `native-files97b-vm`, explicitly
+pinned to the current `ffi-test` artifact with its hash recorded, measures the
+transport wrapper at 377/440 lines (85.68%), up from 271/440 (61.59%); the 63
+uncovered lines remain visible. Add a complete-source
+`client-native-transports-vm` mutation target, not an unearned 95% CI gate.
+All 48 mutation-runner tests pass, with one optional skip. Fast97 and Verify97
+pass, including Rust, native/package/consumer smokes, 2,970 core WASM and two
+WebSocket WASM tests. WASM line coverage remains unmeasured. The new 348-candidate
+native transport campaign has a clean baseline and is the sole native-runtime
+owner; preserve it on resume. Its initial timeouts are not kills.
+
+VM96 completes at 38,236/42,569 measured library lines (89.82%), with 59
+unmeasured library sources; it predates Work97. MCP95 completes 1,098 candidates
+at 798 kills, 38 survivors and 262 compile errors (95.45%), both baselines zero.
+Its CLI-options test hash differs from current source: retain it as historical
+evidence only. MCP97 now runs on the current snapshot without overlapping MCP95.
+The pushed Work96 head's package/image/profile checks pass; main CI is running.
+
+Measurement terminology correction: the Dart runner's `killed` category includes
+completed tests that report caught runtime exceptions as well as expectation
+failures. It excludes process crashes, missing completion, timeouts, compilation
+and detected infrastructure failures. Historical entries calling every kill an
+"assertion kill" are too broad. For example, the final remote-authenticator96b
+logs contain 85 assertion-failure and 39 runtime-error events across its 124
+killed mutants. The reported 96.875% is the conventional test-detection score,
+not an assertion-only score. Next measurement work should expose kill causes
+separately without discarding raw outcomes or silently changing denominators.
+
+Work96 adds survivor-directed configuration and remote-authentication tests.
+All 413 configuration tests pass. `router-config96-mutations` completes all
+396 candidates with 349 assertion kills, 10 survivors and 37 compile errors:
+97.2145% raw/adjusted, up from 85.5153%. Both baselines pass and all recorded
+source/test/support hashes match. Add the complete target to the 95% CI matrix;
+`router-config96-vm` retains 522/525 lines (99.43%). No equivalence waivers.
+
+Direct remote-authenticator tests complement worker-level tests for schema
+validation, immutable payloads, single-use proofs, abort/expiry, shared rate
+limits and delegate backoff. The final 93-case suite passes, and
+`remote-auth96c-vm` measures 365/368 lines (99.18%), up from 297/368 (80.71%).
+Add a 98% file floor and a whole-source mutation target. The first campaign
+scores 79.6875% (102 kills, 26 survivors, 63 compile errors); its surviving
+provider acceptance, fake identity, disabled policy and backoff arithmetic
+cases drive further assertions. `remote-auth96b-mutations` completes the final
+191-candidate inventory at 124 kills, 4 survivors and 63 compile errors:
+96.875% raw/adjusted, both baselines zero and matching source/test hashes.
+Add its complete-source 95% CI gate. No waivers; preserve exact-time-boundary,
+private-list growth and pending-delegate availability survivors. The first
+campaign is historical evidence, not evidence for the expanded tests.
+
+The deployment auditor now requires the five previously missing mutation gates
+and both new gates. A fail-first workflow-matrix test protects
+inventory consistency and rejects duplicate targets. All 27 audit tests and
+47 mutation-runner tests pass (one optional runner skip). Fast96 passes.
+Verify95b captured three test-development fixture mistakes before their
+correction; Verify96 captured old audit fixtures during the gate update.
+Verify96b now passes on settled Dart/Rust tests, including the final regression
+cases, native/package smokes and 2,970 core plus two WebSocket WASM cases. The
+final authenticator gate was added after its audit phase ended; all 27 audit
+tests also pass separately for the final workflow/fixture snapshot. Bash syntax,
+workflow YAML parsing, targeted Dart analysis and formatting checks pass.
+
+VM95 finished successfully: 38,176/42,569 measured library lines (89.68%),
+with 59 unmeasured library sources. This predates Work96 tests; do not attribute
+focused gains to that whole-workspace snapshot. Browser WASM line coverage and
+other unmeasured scopes remain explicit. MCP95 remains live with its earlier
+test-snapshot caveat; preserve it without a duplicate campaign.
+
+Work95 is pushed as `64dfc805`; draft PR #93 remains open. Its package, image
+and profile dry runs pass; only its MCP mutation CI job remains pending.
+Work96 is locally verified; its fresh hosted evidence is pending.
+Retain known unprotected feature-branch and default-branch workflow-visibility
+findings; queued hosted checks are not a clean deployment audit.
+
+Work95 also closes the router configuration loader's malformed-input gap.
+Map, JSON and YAML regressions assert exact configuration errors for permission,
+authentication, provider, listener, header, metrics and rate-limit boundaries.
+Positive cases protect alias precedence, disabling, legacy transport defaults,
+immutable outputs and input preservation. All 385 focused configuration cases
+pass; `router-config95b-vm` measures the entire loader at 522/525 lines (99.43%),
+up from 429/525 (81.71%). Keep the private constructor and two unreachable
+helper failure branches in the denominator; no exclusions. Input hashes are
+recorded, and a 98% file floor protects the result. The full-source
+`router-config95-mutations` campaign has 396 candidates and a clean baseline;
+its manifest includes all five tests and the external quickstart YAML fixture.
+The manifest guard fails first, then all 46 runner tests pass (one optional skip).
+Fast95 and full Verify95 pass, including the final configuration tests, router
+CLI integration, native/package smokes, Rust and browser WASM checks. WASM
+line coverage remains unmeasured. The separate final formatting/analysis and
+46-case mutation-runner test checks also pass. Fresh `vm-current95` now collects
+with recorded inputs as the sole native-runtime owner; both mutation campaigns
+are Dart-only. The prior pushed head's CI `35263839205` passes, as do its package,
+image and profile dry runs. No new package percentages are claimed until this
+collection finishes. The configuration mutation campaign already identifies
+missing assertions for legacy transport option selection and absent/default
+sections; investigate its complete survivor inventory before starting a final
+rerun. Its high line coverage is not mutation completion.
+
+Work94 revalidates the clean pushed `d33b6be3` worktree after the status table.
+Its package/image/profile dry runs pass; CI remains pending. VM93b finishes zero
+at 37,903/42,555 measured lines (89.07%), with 59 unmeasured library sources.
+This predates Work94's changes and remains a separate historical snapshot.
+
+Remote-auth wire regressions reproduce 15 fail-open status cases: an explicit
+unknown/null/mistyped status can fall through to legacy challenge or success,
+including `challenge` on AUTHENTICATE. Require the absence of `status` before
+using legacy shorthand. Preserve supported status maps and camel/snake-case
+status-less replies. The complete delegate now has 145 passing focused cases
+covering all six RawSocket/WebSocket and JSON/MessagePack/CBOR combinations,
+out-of-order calls, timeout/abort recovery, registry warmup, credential rotation,
+key formats, malformed configuration and RPC payload/error propagation.
+`remote-delegate94d-vm` measures 568/571 lines (99.47%), versus 392/569 (68.89%);
+input hashes are recorded. The focused report deliberately retains missing
+workspace scope rather than claiming whole-router coverage. Add a 98% file floor
+and a complete-source mutation target with certificate/key-fixture inputs.
+The first delegate mutation campaign scores 87.70%; survivor-directed TLS,
+cache identity, alias precedence and connection recovery assertions lift the
+final `remote-delegate94b-mutations` campaign to 179 kills / 8 survivors /
+99 compile errors (95.7219% raw/adjusted). Both baselines exit zero and all
+source/test/support hashes match. Add its complete-source CI gate at 95%.
+No equivalence waivers. The trusted-root-policy survivor remains a real test
+gap: fixture-only TLS contexts do not prove rejection of system trust roots
+when a custom CA is supplied. The file-path cache guard changes absent/null
+cache metadata, not credential resolution; connection and collector guards
+remain visible for further lifecycle/configuration assertions.
+
+Fast94 passes, but full Verify94 exposes a real MCP CLI failure: generated
+base64url bearer tokens beginning with `--` are mistaken for options. Four
+deterministic credential cases reproduce it before the parser fix. Accept
+opaque double-hyphen credentials without consuming known options, support
+`--option=value` for ambiguous values, preserve embedded equals and reject
+duplicate/valued flags. Work95's GLM review identifies assignment-form options
+being consumed as credentials; 16 fail-first cases reproduce it. Normalize the
+lookahead option name before checking known options. All 393 final CLI tests
+pass; the earlier 69 real-router CLI cases pass after the original parser fix.
+Following-option assertions and assignment syntax in help protect usability.
+Fast95 and full Verify95 pass; fresh workspace coverage owns the native runtime.
+
+MCP92 finishes 1,098/1,098: 798 assertion kills, 38 survivors, 262 compile errors,
+95.4545% raw/adjusted, both baselines zero and all source/test/support hashes
+matching at that snapshot. Add the complete MCP library target to the 95% CI gate with sufficient
+job time. This excludes neither survivors nor compile outcomes from evidence;
+compile errors are not kills. It is library evidence, not CLI or whole-package
+completion. Surviving revocation guards cannot expose a revoked pending handle:
+the subscribe path rejects it before publication and reconciliation drains it;
+release futures also share a single cleanup operation. Keep those survivors
+visible for further lifecycle/resource assertions, not equivalent waivers.
+The CLI regressions subsequently change its test inventory, so MCP92 is now
+historical evidence. Fresh `mcp95-library-mutations` has a clean baseline, but
+also predates the final assignment-lookahead regressions. Preserve the live
+campaign and label that snapshot honestly; a final-snapshot rerun is still due
+after it finishes. No final score is claimed for it yet.
+No merge, publication or version change. The full coverage goal remains active.
+
+Work93 resumes the pending remote-auth benchmark tests after the status-only
+table. The existing fast gate and VM92 collection both finish zero; do not
+restart them. VM92 measures 37,779/42,555 lines (88.78%), with 59 unmeasured
+library sources. Packaging remains 765/787 (97.20%) with 12 unmeasured sources.
+These precede Work93's benchmark changes, not new whole-package results.
+
+Five fail-first configuration cases expose unchecked casts for non-string RPC
+and transport map keys and non-string transport types. Skip malformed candidates
+as the existing parser does for other invalid fields, preserving discovery of
+a later valid service. All 32 configuration tests pass. A live native TLS test
+checks both configured realms, valid/invalid tickets, invalid RPC tokens,
+service-role authorization, credential-file creation, listener release and
+restart. Final `remote-auth93b-vm` measures 137/138 harness lines (99.28%), up
+from 36/138 (26.09%); the remaining line is the missing-certificate failure.
+Add a 98% file floor and a complete native mutation target with certificate
+inputs. The final 33-test run additionally rejects a wrong service ticket and
+an unfinished pre-restart transaction, then proves a fresh login succeeds.
+All recorded source/test/certificate hashes match.
+
+Client binding92 completes at 380 kills / 18 survivors / 94 compile errors:
+95.4774% raw/adjusted, both baselines zero and all source/test/support hashes
+matching. Add its complete target to the CI mutation matrix without changing
+the 95% threshold. This is binding-source evidence, not whole-client coverage.
+Router binding91 completes at 483 / 36 / 147 (93.06%), both baselines zero.
+Add 39 optional-frame and authoritative-metadata boundary regressions; all
+1,710 router binding tests pass and analysis is clean. A fresh, separate
+`router-binding93-mutations` runs against these tests. Keep MCP92 running with
+unchanged inputs. Full `bin/verify` finishes zero, including final benchmark and
+router tests, Rust, installed-package/native smokes, 2,970 core WASM tests and
+two browser WebSocket tests. WASM line coverage remains unmeasured. Fresh
+`vm-current93` is the sole native-runtime owner; defer the new benchmark mutation
+campaign until collection releases that slot. No merge, publication, version
+change or equivalence waiver; the full milestone is open.
+
+The Work93 implementation is pushed as `add1cda2`; PR #93 is updated. Both
+package dry runs (`35261639243`/`35261650721`) and image dry run `35261664089`
+pass. Profile `35261666364` and CI `35261639245`/`35261651038` remain pending;
+the strict audit correctly fails pending evidence and retains the known feature-
+branch protection/default-branch workflow visibility findings.
+
+VM93 finishes zero at 37,886/42,555 library lines (89.03%): bench 89.17%, client
+88.46%, other package scores unchanged. Packaging is 765/787 (97.20%), with 12
+unmeasured sources; the 59 unmeasured library sources remain. This snapshot
+precedes the following extra
+benchmark assertions, not final evidence for them.
+
+The complete native harness campaign initially scores 84.21% (16 kills, three
+survivors, 16 compile errors). Its survivors expose missing tests for supplied
+logger use, fake challenges on denied identities and recursively creating more
+than one missing directory. Strengthen the live regression without changing
+production behavior. All 33 focused tests pass; final `remote-auth93c-vm` remains
+137/138 (99.28%) with input hashes. Fresh `remote-auth93b-mutations` completes
+35/35: 19 kills, 16 compile errors, zero survivors/errors/timeouts/equivalents,
+100% raw/adjusted, both baselines zero, unchanged native artifact and matching
+source/test/certificate hashes. Add a native-enabled 95% CI target. This is the
+complete harness source, not the full bench package. Router binding93 also
+finishes: 501 kills / 18 survivors / 147 compile errors, 96.5318% raw/adjusted,
+both baselines zero and matching hashes. Add its complete-source CI gate too;
+all remaining survivors stay visible and unwaived. The second full `bin/verify`
+finishes zero on the final tests, including all 722 benchmark cases, native/
+package smokes, 2,970 core WASM cases and two browser WebSocket cases. Fresh
+`vm-current93b` collects with final input hashes as the sole native-runtime user.
+Preserve MCP92; no new whole-workspace result is claimed for these final
+assertions yet. The complete goal remains active.
+
+Work92 resumes after the status-only table response and preserves the existing
+binding campaign. VM91 finishes at 37,776/42,553 measured lines (88.77%): client
+88.40%, router 85.68%, core 94.22%, MCP 95.91%, auth-server 100% and bench 84.69%.
+Keep 59 unmeasured library sources and 12 packaging sources visible. These are
+pre-Work92 results, not coverage of the new handshake guard.
+
+Twelve fail-first MCP tests expose tool dispatch after an absent, notification-only
+or failed initialize request. Track successful initialization privately before
+accepting notifications/initialized; preserve the public lifecycle enum and the
+router's separate stateless/direct JSON path. Early acknowledgements do not carry
+over to a later handshake. This is a protocol readiness defect, not evidence of
+an authentication bypass. Fix the validation-test fixture to perform a real
+handshake rather than weakening its operation assertions.
+
+There are 28 new regressions; all 689 MCP tests pass. Notification-only batches,
+invalid duplicate IDs, contextual malformed-message errors, terminal shutdown,
+concurrent pending-subscription release, retry and failed-subscribe cleanup now
+have explicit assertions. Focused `mcp92-vm` measures the complete MCP library at
+1,601/1,617 (99.01%), with input hashes. Its canonical check deliberately fails
+missing workspace scope and absent native CLI integration; it is not a new
+whole-package score. Fresh `mcp92-library-mutations` has 1,098 candidates and a
+passing baseline; the old MCP89 score is now historical. `bin/test-fast` passes;
+full `bin/verify` finishes zero, including the final client boundary cases,
+native installed-package/router/MCP smoke, 2,970 core WASM tests and two browser
+WebSocket tests. WASM line coverage remains unmeasured. Fresh `vm-current92`
+collects as the sole native-runtime owner. Package analysis
+has four pre-existing informational suggestions and no errors/warnings. Current
+pushed-head package/image/profile checks pass; CI remains pending. No merge,
+publication, version change, weakened floor or equivalence waiver. The full
+cross-component/runtime milestone remains open.
+
+The client half of binding91 completes: 378 kills, 20 survivors and 94 compile
+errors, both baselines zero; 94.9749% raw/adjusted is below 95%, not a rounded
+pass. Add three closing-frame boundary cases across JSON/MessagePack/CBOR:
+details without a reason retain their message/ABORT extensions and use the
+existing empty reason default. All 1,621 client binding tests pass and analysis
+is clean. Fresh `client-binding92-mutations` reruns the completed client target;
+the original router campaign remains live with unchanged source/tests. Neither
+running campaign is a final score.
+
+Work92 is pushed as `7c64f901` and PR #93 is updated. Push package dry-run
+`35258344706` passes; PR package dry-run `35258355527`, CI
+`35258344621`/`35258355550`, router image `35258371694` and WAMP profile
+`35258373290` are pending. A live CI watcher follows the pushed head. The strict
+audit exits one for pending jobs/logs plus the known unprotected feature branch
+and default-branch mutation-workflow visibility findings; all selected runs
+match this head. Preserve VM92 and the three mutation processes. These post-push
+notes stay uncommitted until the next implementation increment.
+
+Work91 resumes the pending binding tests on pushed `ae2e0208`; the latest short
+table response was status only. Preserve the live mutation campaigns and the
+existing fast gate instead of duplicating them. VM90 completes: auth-server
+100%, core 94.22%, client 88.00%, MCP 95.91%, router 85.50%, bench 84.69%; overall
+37,704/42,553 (88.60%), with 59 unmeasured library sources. These are pre-Work91
+scores, not updated whole-package coverage. Packaging remains client 97.26% /
+router 97.14%, with 12 unmeasured sources.
+
+There are 645 additional native-binding contract cases, with all 3,289 focused
+tests passing across JSON/MessagePack/CBOR. They assert every supported lazy
+session-message type, anchor/correlation/payload preservation, missing metadata
+flags, unsupported-code fallback, auth-field precedence including empty strings,
+independent presence/feature bits, non-direct options, extension separation,
+malformed/absent/null fragments and unsupported payload serializers. No production
+behavior changes. `binding91g-vm` measures client binding 584/584 and router
+binding 575/575, both 100%, with recorded input hashes. New 98% file floors protect
+both sources; the focused canonical report still correctly fails missing-scope
+checks and is not whole-package, Rust or FFI-runtime coverage.
+
+The old binding campaign finishes: client 304 kills / 94 survivors / 94 compile
+errors (76.38% raw/adjusted), router 334 / 183 / 147 (64.60% raw/adjusted).
+Both original/restored baselines pass, with no errors/timeouts or equivalents.
+These are historical test snapshots, and router also predates Work90's final
+shorthand fix. Fresh `binding91-mutations` now runs against the current tests.
+MCP89 finishes at 94.36% raw/adjusted: 786 assertion kills, 47 survivors and 262
+compile errors, both baselines zero, no errors/timeouts or equivalence waivers.
+Its source/test/support hashes still match; this improves the complete MCP
+library target from Work88's 79.71% but remains below 95%, and is not CLI coverage.
+Investigate the JSON-RPC validation/lifecycle and pub/sub release/revocation
+survivors before lower-risk collection/default-value cases. The fast gate
+completed all scheduled suites;
+full `bin/verify` finishes zero, including the final router auth/option tests,
+Rust, installed-package/native smoke checks, 2,970 core WASM tests and two browser
+WebSocket tests. WASM line coverage remains unmeasured. Fresh `vm-current91` is
+the sole native-runtime owner. Qwen review produced no confirmed defects; its
+default-value/nullability concerns contradict the inspected APIs and explicit
+tests. Workspace analysis completed with five informational suggestions, no
+errors or warnings; final changed-test analysis has only the existing shared
+fixture suggestion. Work91 is pushed as `3192d18d` and PR #93 is updated.
+New-head package dry runs pass; CI runs `35255325927`/`35255336229`, router image
+dry run `35255395875` and WAMP profile run `35255397411` remain queued/running.
+The strict audit correctly fails pending evidence and retains the known
+unprotected feature-branch and default-branch mutation-workflow visibility
+findings. No merge, publication, version change, weakened floor or equivalence
+waiver. Post-push evidence notes stay uncommitted for the next implementation
+increment. The complete goal remains open.
+
+Work90 follows pushed `c8508221`. The previous table was status only; this
+continuation revalidated the clean worktree and live campaigns without restarting
+them. VM89 completes successfully: auth-server 100%, core 94.20%, client 86.86%,
+MCP 95.91%, router 84.61%, bench 84.69%; 59 unmeasured library sources remain.
+Packaging stays client 97.26% / router 97.14%, with 12 unmeasured sources.
+These measurements precede Work90 and are not scores for its new tests.
+
+Eighteen failing native-frame regressions expose dropped
+`progressive_call_invocations` announcements in client/router role mappers.
+The corresponding metadata cases already pass. Add the missing dealer/callee/
+caller mappings, preserving the existing wire contract. Further fail-first tests
+expose valid ABORT dictionaries without a message throwing, router full-frame
+custom details being discarded, and optional ABORT payloads being lost.
+Preserve empty/absent values, details and payloads on full-frame/fragment/metadata
+paths; malformed message text still fails closed. A review regression also
+preserves the router's existing text shorthand. All 2,644 focused binding
+tests pass across JSON/MessagePack/CBOR. The focused `binding90e-vm` report
+measures client binding 545/584 (93.32%) and router binding 515/575 (89.57%).
+It is not whole-package or native Rust coverage and deliberately fails the
+canonical missing-scope policy. Its input hashes are recorded alongside it.
+
+Both full binding sources now have mutation targets with inventoried shared
+oracles, guarded by a fail-first tooling check. All 43 mutation-tooling checks
+pass (one optional native fixture skipped). `binding90-mutations` is running
+the 492-candidate client campaign before the router campaign, with a passing
+baseline; `mcp89-library-mutations` remains live and is not a final score.
+The binding campaign's router snapshot predates the shorthand correction and
+must not be attributed to the final router code/tests; let it finish, then
+rerun that target. The client snapshot's source/test/support hashes still match.
+`bin/test-fast` and full `bin/verify` finish zero, including Rust,
+installed-package/native router/MCP smoke checks, 2,970 core WASM tests and two
+browser WebSocket tests. The router suite executes the final shorthand tests.
+WASM line coverage is still unmeasured. Workspace analysis exits zero with five
+informational null-aware-element suggestions (four pre-existing), not errors.
+Fresh `vm-current90` coverage is now the sole native-runtime owner. Work89
+package/image/profile hosted checks pass; both CI runs are pending. No merge,
+publication, version change, weakened floor or waiver.
+The complete cross-component/runtime goal remains unfinished.
+
+Work89 follows pushed `205a179e`. The previous short coverage-table response
+was status only; this continuation resumes the pending test file and confirms
+the existing fast gate passed before further edits. There are 156 new MCP
+regressions for exact public catalog schemas/safety hints, isolated metadata,
+per-procedure mapping/deadlines, session tool selection, cursor boundaries,
+resource lookup, capability advertisement, lossless result conversion and
+bounded pub/sub queues. All 661 MCP tests and package analysis pass.
+`mcp89-vm` measures the complete library at 1,598/1,615 (98.95%), with no
+missing library-component sources. This focused report does not run native CLI
+integration and is not a whole-package score; its canonical policy correctly
+fails for missing scopes and insufficient CLI coverage.
+
+The previous full MCP library campaign finishes at 79.71% raw/adjusted:
+664 assertion kills, 169 survivors, 262 compile errors, both baselines zero,
+no errors/timeouts or equivalents. That is Work88 evidence, not a score for
+the new tests. Fresh `mcp89-library-mutations` is running all 1,095 candidates
+with a passing baseline and all 20 current test files in its resolved inventory.
+Full `bin/verify` passes, including Rust, installed-package/native router smoke
+checks, 2,970 core WASM tests and two browser WebSocket tests. WASM line coverage
+is still unmeasured. Fresh `vm-current89` workspace coverage is running as the
+sole native-runtime owner; VM88 remains the last complete workspace report.
+The pushed Work88
+package checks, router-image dry run and WAMP profile benchmark pass; both CI
+runs remain in progress. No merge, publication, version change, threshold
+weakening or equivalence waiver. The full milestone remains incomplete.
+
+Work88 was implemented on top of `417b2ca1`. Twenty CLI refresh/revocation
+regressions and two retained pub/sub callback-withdrawal/recovery cases pass
+with all 505 MCP package tests. The focused `mcp88-final-vm` report measures
+the complete MCP library component at 1,592/1,615 (98.58%) and WAMP API at
+620/630 (98.41%), now protected by a 98% file floor. This package-only test
+run lacks native CLI integration and is not updated whole-MCP coverage.
+The complete 1,095-candidate `mcp88-library-mutations` campaign is running;
+the original whole-MCP and native CLI mutation scopes are retained.
+
+Five fail-first key-loader cases expose accepted malformed OpenSSH footers
+and legacy raw PKCS8 keys rejected by an inner ASN.1 parser. Require the
+normalized OpenSSH footer; restrict the existing raw fallback after parse
+failure to 32/64-byte keys, retaining nested-seed precedence. There are 51 new
+key boundary cases; all 59 focused old/new tests pass separately on VM,
+JavaScript and WASM. Full core VM passes 3,123 tests. PKCS8 measures 61/63
+VM lines and 56/56 JavaScript lines; WASM line coverage remains unmeasured.
+Browser verification/coverage now include these tests. Canonical `browser88`
+passes 2,970 tests, measuring core 6,623/6,973 (94.98%); 173 unmeasured library
+sources remain visible. Workspace analysis, 50 launcher checks and 41 mutation
+tool checks pass (one optional native fixture skipped).
+
+Both original key-loader campaigns in `keys88-mutations` finish at 81.91%
+raw/adjusted: 77 assertion kills, 17 survivors, six compile errors each, no
+errors/timeouts, both baselines zero, no waivers. Eight follow-up tests now
+cover independent OpenSSH-generated CBC decryption, malformed magic/count/type,
+unsupported cipher/KDF and preserved parser errors. All 67 focused cases pass
+on VM/JS. The newer `keys88c-vm` / `keys88c-js` reports measure PEM at 85/85 VM
+and 72/73 JS, now protected by 98% floors; PKCS8 stays 61/63 VM and 56/56 JS,
+with a 98% JS floor. The complete `keys88c-mutations` rerun finishes on both
+runtimes at 92.55% raw/adjusted: 87 kills, seven survivors, six compile errors,
+both baselines zero and no errors/timeouts. Ten actionable survivors are now
+killed. Seven individually source-pinned equivalence proofs cover fixed-size
+PKCS8 line wrapping and the ignored PointyCastle CTR direction argument; the
+fresh `keys88d-mutations` campaign passes both runtimes at 92.55% raw / 100%
+adjusted, retaining 87 kills, seven equivalents and six compile errors each.
+Both original/restored baselines pass, all input hashes match, and no crashes
+or timeouts count as kills. Older reports remain unchanged. Canonical
+`browser88c` passes 2,978 tests, measuring core
+6,628/6,973 (95.05%), with 173 unmeasured sources still visible.
+
+Native87 finishes all 613 candidates at 42.29% raw/adjusted: 214 kills, 259
+survivors, 107 compile errors, 14 errors and 19 timeouts. Both baselines pass,
+native artifact is unchanged, and all recorded source/test/support hashes
+match. Errors/timeouts are not kills. This remains a substantial unresolved
+native-client test gap. Its next campaign includes the previously omitted
+existing native library-loader suite, guarded by a fail-first inventory test.
+Fresh `bin/test-fast` and full VM88 collection pass. VM88 measures core at
+6,823/7,243 (94.20%) and MCP at 3,746/3,912 (95.76%), including CLI
+2,154/2,297 (93.77%). Other package scores are unchanged from VM87; 59
+unmeasured library sources remain visible. Packaging remains separate at
+client 97.26% / router 97.14%, with 12 unmeasured sources. Serial final
+`bin/verify` passes, including Rust, installed-package MCP/router smoke checks,
+2,970 core WASM tests and two browser WebSocket tests. WASM line instrumentation
+is still missing; these are test passes, not a WASM coverage percentage.
+The native runtime is now free. New-head hosted checks remain pending.
+Both key-file mutation targets are added to CI at the unchanged 95% threshold,
+and the deployment audit requires their jobs. All 26 audit tooling tests pass.
+Work87 verification is not claimed as final
+verification for these edits. No merge, publication or version change.
+Both Work87 CI runs and all four package/image/profile checks now pass. The
+completed-head strict audit retains only the known unprotected feature branch
+and default-branch mutation-workflow visibility findings; neither is bypassed.
+
+Work87 follows pushed `a7562b23`. Sixteen fail-first native cases reproduce
+UTF-16 character counts truncating UTF-8 E2EE key IDs, including distinct IDs
+aliasing one native key and file encryption failing to find the intended key.
+Four FFI calls now pass byte lengths. The new real-loopback suite passes 39
+tests for JSON/MessagePack/CBOR file slices, segmented sends, both E2EE ciphers,
+portable-provider interoperability, received payload ownership/cache isolation,
+release, rejection and recovery. Verification/coverage launchers include it;
+49 launcher tests pass. A full-source native-client mutation target is added.
+Native87b is a focused report, not whole-client coverage. The clean fast gate
+and full VM87 collection pass; serial final `bin/verify` passes. VM87
+measures client 8,120/9,355 (86.80%), including native runtime 608/755 (80.53%),
+and router 16,330/19,287 (84.67%). Core remains 93.90%, MCP 95.40%, auth-server
+100%, and bench 84.69%. All 59 unmeasured library sources remain visible.
+Packaging is separate: client 97.26%, router 97.14%, 12 unmeasured sources.
+
+Hosted `a7562b23` package/image/profile checks pass, but push CI's auth-server
+mutation gate exposed two historical deadline-only detections after the runner
+classification fix. Three lifecycle/binding tests now assert response/callback
+state while providers remain pending and unblock providers in finally. All 84
+auth tests pass. The complete Auth87 campaign passes at 96.30% raw/adjusted:
+182 assertion kills, seven survivors, 105 compile errors, no timeouts/errors or
+waivers, both baselines zero. Source/test/support hashes match. Both formerly
+timed-out mutants now fail direct assertions.
+An earlier fast87 run was invalidated by editing its running Bash launcher,
+causing a shifted read offset; it is not accepted evidence. The clean rerun
+passed. Final verification includes Rust, installed-package MCP smoke checks,
+2,903 core WASM tests and two browser WebSocket tests. Work87 is pushed as
+`417b2ca1`; PR #93 is updated. The full 613-candidate native-client campaign
+at `native87-mutations` has a passing clean baseline and is running as the sole
+local native-runtime owner. Do not start another native suite/build meanwhile.
+Hosted CI `35233785010`/`35233789407`, package checks
+`35233785025`/`35233789398`, image dry run `35233804665`, and profile benchmark
+`35233807361` cover this head. Both package checks pass; other evidence is
+pending. Strict audit correctly fails pending checks and retains the known
+feature-branch protection/default-branch workflow visibility findings. No
+merge, publication, version change or weakened threshold. Post-push bookkeeping
+remains uncommitted until bundled with the next implementation increment.
+
+Work86 follows pushed commit `9e9579bf`. The full VM85 report completed:
+auth-server 100%, core 93.90%, client 85.11%, MCP 95.40%, router 84.53%,
+bench 84.69%; 59 library sources remain unmeasured. Packaging remains separate
+at client 97.26% / router 97.14%, with 12 unmeasured packaging sources.
+These are pre-work86 measurements, not whole-goal completion evidence.
+
+Five new HTTP regressions cover profile enforcement independently of the outer
+transport bearer guard, route/realm auth-method denial, and policy revalidation
+for cached access sessions and refresh grants. The full runtime suite passes
+214 tests and measures 28 previously uncovered binding lines. Diagnostic replay
+`binding86b-security-replay/report.json` kills all six selected security survivors
+by direct assertions, with passing original/restored baselines and unchanged
+native artifact/source hashes. This is not a whole-binding mutation score.
+
+Fail-first tooling fixes preserve empty GitHub run-state fields, classify
+polling-helper/Future deadlines as timeouts rather than assertion kills, and
+retain independent log files for the same mutant across runtime targets.
+Mutation reports now record the runner hash and each outcome's log path.
+The audit suite passes 26 tests; mutation tooling passes 39 tests (one optional
+native fixture skipped). Earlier reports need the recorded classifier and log
+provenance checked before reuse; in particular, the first work86 RPC replay
+failed by a helper deadline and is not accepted as a behavioral kill.
+Stored-log reclassification removes 175 false kills: 165 from incomplete
+binding66 (438 kills / 487 survivors / 394 compile errors / 176 timeouts) and
+10 from workload84 (47.93% raw/adjusted, 19 timeouts). Original reports remain
+untouched; these are corrections to historical evidence, not fresh scores.
+Invocation85 VM/browser log paths collided, so independent log-level verification
+of its VM outcomes is unavailable. Fresh Invocation86 completes both runtimes
+with independent logs: 100 assertion kills, six survivors and 22 compile errors
+each (94.34% raw/adjusted), passing original/restored baselines and matching
+source/test hashes. No crashes, timeouts or equivalence waivers; the command
+correctly fails the unmet 95% threshold.
+Fresh `bin/test-fast` and full `bin/verify` pass, including 2,903 core WASM and
+two browser WebSocket tests. New-head hosted evidence is pending. Prior-head
+CI, package, router-image and WAMP benchmark dry runs are green. The strict
+completed-head audit retains only the unprotected feature branch and mutation
+workflow absent from default-branch discovery findings. Neither is bypassed.
+No merge, publication, version change or weakened threshold.
+
+Work85 resumes after all mutation processes ended. Binding66 stopped incomplete
+at 1,495/2,379 candidates, with no restored-baseline result; its partial score is
+not completion evidence. Serializer82 finished with both baselines passing:
+CBOR VM 82.85% / JavaScript 82.20%, MessagePack VM 80.53% / JavaScript 82.02%.
+CBOR retains one VM and five browser timeouts, not assertion kills. Workload84
+finished at 50.89%, with 157 survivors and nine timeouts. No thresholds or scopes
+are weakened, and these are source-target scores, not whole-package scores.
+
+Fresh fast85 found a cross-package regression in the uncommitted terminal
+Invocation change: synchronous adapter rejection must preserve the existing
+retryable state. Terminal dispatch now reserves closure against reentry, rolls
+back on rejection and preserves the original exception/stack. Progressive
+callbacks do not undo closure from an accepted nested final reply. The existing
+client regression is retained and strengthened to prove a successful retry is
+actually sent exactly once. Earlier work78 post-throw closure assumptions were
+incompatible with that established contract and are superseded, not a new WAMP
+requirement. Invocation78 scores are historical after this source/test change.
+Focused core/client tests and fresh `bin/test-fast` pass. Invocation85 completes
+both VM and JavaScript campaigns at 100 kills, six survivors and 22 compile
+errors (94.34% raw/adjusted), both baselines zero, no crashes/timeouts/waivers.
+All eight recorded source/test/support hashes match the staged files. The strict
+mutation command exits one for the unmet 95% threshold. Full `bin/verify` passes
+after serialized native use, including Rust, Dart, consumer smoke, 2,903 core
+Chrome/WASM tests and two browser WebSocket tests. Commit/push and new-head
+hosted checks remain pending. No package release or version change.
+
+The following work83/84 notes describe their original snapshots; references to
+running campaigns or a native owner below are superseded by the work85 status.
+
+Current working follow-up closes benchmark-tool regression gaps without using
+the native runtime owned by binding66. The HTTP stream suite now passes 439
+tests and measures all 222 executable VM lines, protected by a new 98% file
+floor. Its complete snapshot84 mutation campaign records 52 assertion kills,
+one survivor, 84 compile errors and one timeout: 96.30% raw/adjusted, with both
+baselines passing. The timeout is not a kill and the strict command still exits
+nonzero; this is not a clean required mutation CI gate. No equivalences waived.
+
+Fifteen fail-first loopback WebSocket cases prove cancel-cycle benchmarks were
+counting authorization, missing-procedure, timeout and arbitrary errors as
+successful cancellation. The facade now accepts only standard cancellation or
+the existing legacy cancellation URI and preserves all other errors. This does
+not change router wire behavior. Forty-seven wire regressions cover call
+variants, acknowledged publishing, subscription delivery/revocation, registration
+cleanup, progressive calls, disconnects and concurrent cancellation/recovery.
+The HTTP and workload wrappers pass 558 tests together; full repository analysis,
+48 launcher checks, 37 mutation-runner checks (one optional native fixture skip),
+16 coverage-checker checks and public-reference validation pass. The focused
+report at `out/regression-coverage-2026-09-15/bench84b-final-vm` is not whole-package
+coverage: native paths and other source files remain unmeasured in that run.
+
+The new full-source workload mutation campaign has 519 candidates and a passing
+baseline, with source/test/fixture hashes retained. It is running alongside the
+existing serializer82 campaigns; binding66 remains the sole native owner.
+Fresh bin/test-fast, bin/verify, commit and push remain queued behind that owner.
+No merge, publication, version change or weakened threshold.
+
+The preceding working follow-up hardens PPT decoding and protects binary forwarding.
+Eleven fail-first cases reproduce MessagePack null keyword values throwing on
+iteration, copying and forwarding; the map now retains nullable values. Ten
+further fail-first cases show CBOR/MessagePack PPT defer non-string keyword-key
+errors until application access; both now reject them eagerly with redacted
+FormatException. Two CBOR fail-first cases reproduce ignored map keys bypassing
+UTF-8 validation. The fallback validates text keys without changing the known-key
+zero-copy path. Valid unknown fields, string keys and nullable values remain
+compatible. There are 158 CBOR binary/fragment/truncation tests and 43 shared PPT
+null/key-contract tests, selected by the canonical serializer directory suites.
+
+Core82 passes 3,071 VM / 2,910 JavaScript / 2,902 WASM tests and full analysis.
+VM measures 6,721/7,231 core lines (92.95%); JavaScript measures 6,253/6,591
+(94.87%) with 181 unmeasured library sources still visible. CBOR is 1,281/1,300
+VM (98.54%) and 1,329/1,370 JS (97.01%). These remain core-only measurements;
+WASM passing tests are not measured WASM line coverage.
+
+Serializer mutation entrypoints retain every original suite and support-file
+hash, including the JS-only codec tests in a separate browser wrapper. A guard
+against omitted files passes with all 46 launcher tests; 37 mutation-runner,
+four mutation-generator, 16 coverage-checker and 24 deployment-audit tests pass,
+with one optional native fixture skipped. The original and wrapped VM
+selection both pass 2,098 tests (6.4 versus 4.1 seconds locally); the browser
+wrapper passes 2,103. Full VM and JavaScript campaigns are now running CBOR then
+MessagePack against snapshot82; CBOR inventories 1,166 mutations in each runtime
+with passing baselines. Partial counts are not completed scores. Binding66 is
+still the sole native owner, so fresh bin/test-fast, bin/verify, commit and push
+remain pending. No merge, publication, version change or equivalence waiver.
+
+The older CBOR73 full campaign is complete: 684 assertion kills, 238 survivors,
+239 compile errors and one timeout (74.11% raw/adjusted), both baselines passing.
+The diagnostic PPT79 replay catches 69 of 87 selected prior survivors, leaving
+18, without errors/timeouts and with passing baselines. It predates the new
+decoder fixes and expanded tests; neither result is final snapshot82 evidence.
+
+Previous working follow-up fixes terminal Invocation dispatch re-entrancy. Seven
+fail-first regressions reproduce duplicate terminal responses, retries after a
+terminal adapter throws, and callback mutation of progress changing completion.
+Terminal state is now set before invoking the response adapter; progressive
+delivery stays open, and missing-adapter failures remain recoverable. The full
+Invocation wrapper passes 267 tests, including nine lifecycle cases. Core78 VM
+passes 2,870 tests and measures 6,715/7,226 lines (92.93%); Invocation is 190/191
+(99.48%). JavaScript78 passes 2,709 tests and WASM78 passes 2,701. Both completed
+Invocation78 mutation campaigns record 99 assertion kills, six survivors and
+22 compile errors (94.29% raw/adjusted), passing baselines and no other outcomes.
+Source hash f3a143bb7b18c5ac3594850b09141f8405ac6b6139157c6c009ae77beb937c6c
+supersedes the earlier Invocation mutation snapshots; do not reuse their scores.
+
+The previous Invocation77 snapshot adds 75 regressions for fragmented forwarding,
+metadata, timeout boundaries, provider preference and responder state. It passes
+2,859 core VM / 2,698 JS / 2,690 WASM tests. Invocation measures 192/193 VM and
+226/228 JS lines; 98% file floors now protect both runtimes. Both complete
+Invocation77 mutation campaigns record 101 kills, seven survivors and 22 compile
+errors (93.52% raw/adjusted), with both baselines passing and no other outcomes.
+No equivalences are waived. Two subsequent orphan-decoder contract tests and the
+terminal response fix postdate that evidence. Metadata CI/audit integration passes
+all 24 audit tests; canonical launchers pass 45 checks and measurement tools pass
+57 checks with one optional native fixture skipped. Fresh full verification,
+commit and push remain pending behind the live binding66 native campaign.
+
+Previous working follow-up fixes data loss when Invocation.respondWith transcodes
+a lazy non-WAMP PPT response instead of reusing matching packed bytes. Fourteen
+of 17 initial cases fail before the fix; the expanded 25-case matrix and existing
+Invocation suite pass all 45 cases. The fallback now reads lazy args/kwargs with
+explicit-value fallback, while matching serializers retain identical packed bytes
+without decoding. Decode failure emits no response and permits explicit recovery.
+Canonical browser/WASM launchers now include the new matrix after two fail-first
+launcher checks. Core76 VM passes 2,784 tests (6,683/7,228 lines, 92.46%);
+JavaScript passes 2,623 (6,194/6,566, 94.33%); WASM passes 2,615 without measured
+line coverage. Full analysis passes. These are core-only reports, not final
+whole-workspace evidence; missing sources remain visible.
+
+The first full-source Invocation76 VM mutation campaign catches 52/108 viable
+mutants (48.15%), with 56 survivors and 22 compile errors across 130 candidates,
+both baselines passing and no errors/timeouts/equivalences. Further regression
+work covers fragmented payloads, mixed encoded/materialized fields, decode counts,
+timeouts, responder closure, view metadata and outbound E2EE context. That work
+postdates Invocation76 and core76 evidence; do not attribute older scores to it.
+
+Previous working follow-up fixes lazy metadata write/removal semantics and stale
+subscription handlers. Eight fail-first cases reproduce pending loaders restoring
+removed keys or overwriting explicit values, including null. Removal now resolves
+pending entries first; ordinary-map and Details custom merges preserve explicit
+writes. The metadata suite has 295 cases, including independent absent/null/false/
+true assertions for each role capability. Its first full VM mutation campaign
+caught 137/213 viable mutants (64.32%); expanded assertions catch all 213, with
+44 compile errors separate and both baselines passing. Final style-adjusted
+metadata74c confirms all 213 assertion kills with the final test hash, no other
+outcomes and both baselines passing. The older complete browser74 campaign
+matches the initial 64.32% result. Final browser74b is complete on the expanded
+suite: 213 assertion kills, 44 compile errors, 100% viable, both baselines passing
+and no other outcomes. Its source and support-test hashes match metadata74c VM.
+Both metadata gates are now required in CI and the deployment audit, after four
+fail-first job-list mismatches. Browser metadata gets a 90-minute job budget for
+the complete inventory; the 95% mutation threshold remains unchanged.
+
+Thirty-one new subscription regressions reproduce two stale-handler cases and
+cover handler masks, direct/lazy/payload delivery, broadcast listeners, revocation
+and delayed cancellation. Override streams now resolve the current callback,
+matching Registered. All 37 focused cases pass on VM, JavaScript and WASM. Both
+complete subscription75 mutation campaigns catch all 15 viable mutants, with
+seven compile errors, passing baselines and no survivors/errors/timeouts/waivers.
+Subscription gates are required by CI and its audit; all 24 audit tests pass
+after reproducing job-list mismatch, including missing-job checks. All 44 launcher
+tests and 53 measurement-tool tests pass (one optional native fixture skipped).
+VM file floors now protect Details, custom fields and Subscribed at 98%; browser
+floors protect Details and Subscribed, not the still-below-target custom helper.
+
+Full core75b VM passes 2,759 tests and measures 6,679/7,226 lines (92.43%).
+Details is 346/346, custom fields 46/46 and Subscribed 51/51. The last complete
+JavaScript75b selection passes 2,598 tests, measuring 6,180/6,562 (94.18%);
+Details is 379/379 and Subscribed 46/46, but custom fields remain 54/56 (96.43%).
+WASM75b passes 2,590 tests without a line-coverage claim. Final style-adjusted
+workspace analysis passes without issues. The core-only VM report
+retains missing-package findings and 172 unmeasured library sources; it is not
+whole-workspace evidence. Native binding66 still owns the native runtime, so
+fresh bin/verify, commit and push remain pending. No merge, release or version
+change. The full coverage goal remains active.
+
+Previous working follow-up adds 52 registration delivery/lifecycle tests and 425
+CBOR frame-variant tests. Registered measures 69/69 VM and 84/84 JavaScript
+lines; final registered73 full-source campaigns each record 24 assertion kills
+and 22 compile errors across 46 candidates, both baselines passing, no survivors,
+errors, timeouts or equivalences. The earlier browser72 campaign retains three
+timeouts caused by test waits when a mutant prevents stream attachment. Explicit
+attachment assertions and failure-safe cancellation cleanup replace those waits;
+an immediate listener-cancellation regression catches the final delivery mutant.
+Both registration targets and 98% file floors are wired into CI and its audit;
+all 24 audit tests pass after a fail-first missing-job check.
+
+CBOR frame-variant regressions reproduce 60 malformed progress/receive_progress
+cases accepted only through tagged fallback decoding. Fallback bool? casts now
+match the fast path while preserving null/true/false values. Tests cover the
+self-described tag, definite/indefinite outer and nested containers, metadata,
+all seven payload-bearing messages, chunked UTF-8/binary values, truncation and
+recovery. The first 408-case snapshot passes full core73 VM (2,431), JavaScript
+(2,249) and WASM (2,241); VM core is 6,575/7,226 (90.99%), CBOR 1,259/1,296
+(97.15%), and JavaScript core 5,899/6,430 (91.74%), with unmeasured sources still
+visible. The final 425-case snapshot passes core73b VM (2,448), measuring
+6,592/7,226 core lines (91.23%) and 1,276/1,296 CBOR lines (98.46%). A 98% CBOR
+VM file floor now protects that result. The canonical browser selection also
+includes the existing challenge/welcome and feature-announcement suites after a
+fail-first launcher check. Final JavaScript73c passes 2,275 tests and measures
+6,027/6,430 core lines (93.73%); CBOR remains 1,307/1,363 (95.89%), below target.
+WASM73c passes 2,267 tests without a line-coverage claim. Workspace analysis,
+formatting, 42 launcher tests and 16 coverage-checker tests pass. The new complete
+CBOR VM mutation campaign completes all 1,162 candidates: 684 assertion kills,
+238 survivors, 239 compile errors and one timeout (74.11% raw/adjusted), with
+passing clean/restored baselines and matching source/test hashes. These are
+not whole-workspace coverage claims. The live binding66 native owner still gates
+fresh bin/verify, commit and push. No merge, release or version change.
+
+Previous working follow-up adds 210 MCP completion regression cases, bringing the
+focused suite to 212 tests. Request parsing, typed dictionary keys, nullable and
+empty optionals, Unicode partial values, immutable snapshots, candidate ordering,
+100-item limits, totals and field-specific errors now have independent assertions.
+Core71b passes 1,971 VM tests; canonical JavaScript passes 1,789 and its coverage
+policy; WASM passes 1,781, without a WASM coverage claim. Completion measures
+104/104 VM and 123/123 JavaScript lines. Full-source VM and browser mutation71b each catch all
+44 viable mutations; ten compile errors are separate, with no survivors, runtime
+errors, timeouts or equivalences and both baselines passing. The first 204-test
+snapshot caught 41/44 (93.18%); retain it separately. The first browser campaign
+has a Chromium descendant-cleanup error and is not clean evidence. The final
+browser campaign uses a single-compilation wrapper and matches the VM result.
+Core-only VM is 6,462/7,229 (89.39%); JavaScript is 5,722/6,358 (90.00%) with
+182 unmeasured library sources visible. Browser scope now includes completion
+and its dependencies, so its denominator differs from work70. Canonical browser
+verification/coverage includes the completion suites and both runtimes enforce
+a 98% completion-file floor. Both complete mutation targets are now required in
+CI and the deployment audit. These are not whole-component completion claims.
+No production behavior changes in this slice. The live binding66 native owner
+still gates fresh bin/verify, commit and push for the combined increment.
+
+Previous working follow-up adds 469 payload-container assertions across JSON,
+MessagePack and CBOR and all seven payload-bearing WAMP message types. Core70
+passes 1,761 VM tests, JavaScript 1,577 and WASM 1,569. VM remains 6,427/7,229;
+JavaScript is 5,548/6,164 (90.01%). A diagnostic 31-candidate payload-guard replay
+records 21 assertion kills, five survivors in lazy binary optimization and five
+compile errors, with passing clean/restored baselines and no errors/timeouts.
+All selected eager container guards are killed. No equivalences are waived and
+this selected replay is not a component score. No production behavior changes.
+
+The older full-source MessagePack67 VM campaign is now complete: 608 assertion
+kills, 221 survivors and 209 compile errors across 1,038 candidates, 73.34% raw
+and adjusted, clean/restored baselines passing, no errors/timeouts/equivalences.
+It predates work68-71 and must not be attributed to the newer source/tests.
+The complete MessagePack71 VM campaign records 668 assertion kills, 162 survivors
+and 209 compile errors across 1,039 candidates (80.48% raw/adjusted), both
+baselines passing and no errors/timeouts/equivalences. It predates the later CBOR,
+metadata and subscription changes and is not final-snapshot evidence for them.
+Workspace analysis, formatting and public-artifact checks passed that snapshot.
+
+Previous working follow-up adds 279 independent outbound wire assertions across
+JSON, MessagePack and CBOR. They protect PPT metadata, escaping, absent/empty
+fields, progress defaults, subscription revocation, retained lazy segments and
+cross-serializer transcoding. Core69b passes 1,292 VM tests; canonical JavaScript
+passes 1,108 tests and its coverage policy; WASM passes 1,100 tests. Core-only VM
+coverage rises to 6,427/7,229 (88.91%), with JSON serialization at 96.59% and
+MessagePack at 93.89%. Browser core coverage is 5,541/6,164 (89.89%). Scope and
+unmeasured-source limitations remain unchanged. An isolated diagnostic replay
+catches 18 of 25 previous outbound survivors, retaining seven without waivers;
+both baselines pass, with no compile errors, crashes or timeouts. This is not a
+whole-component mutation score. No new production behavior changes in this slice.
+The active native owner still gates fresh bin/verify, commit and push for the
+combined work67-69 increment. No merge, publication or version change.
+
+Previous working follow-up rejects malformed AUTHENTICATE.Extra dictionaries in
+JSON, MessagePack and CBOR instead of silently replacing them with empty metadata
+or stringifying top-level keys. Thirty-seven fail-first cases reproduce the gap;
+all 69 focused tests now pass, including valid SCRAM/custom/null/binary metadata,
+recovery after rejected input, and empty/non-integer MessagePack message types.
+Core68 passes 1,013 VM tests; canonical browser68 passes 829 JavaScript tests and
+its coverage policy; the corresponding WASM suite passes 821 tests. Core-only VM
+coverage is 6,360/7,229 (87.98%); browser coverage is 5,464/6,162 (88.67%). These
+are not full-workspace or WASM coverage measurements. An isolated 13-candidate
+guard replay records ten assertion kills and three compile errors, with clean
+and restored baselines passing. It is diagnostic, not a whole-component score.
+The binding66 and msgpack67 campaigns remain active against their older isolated
+snapshots. Fresh bin/verify, commit and push remain pending until binding66
+releases the shared native runtime. No merge, publication or version change.
+
+Previous working follow-up hardens MessagePack framing and mutation configuration.
+Fifty-four fail-first cases reproduce malformed frames falling through the bounds
+scanner into low-level decoder errors. The scanner now rejects them with redacted
+FormatException values, without changing valid-message parsing. The new wire and
+router-ingress suites contain 210 tests. Broader validation passes 959 core VM,
+775 JavaScript coverage and 667 WASM serializer/lazy-payload tests. The isolated
+VM serializer measures 1,152/1,264 lines (91.14%); JavaScript measures 1,170/1,354
+(86.41%). These are not workspace-wide or WASM line-coverage claims.
+Mutation configuration now rejects duplicate target/equivalence JSON keys before
+creating output or starting a campaign. Six fail-first cases pass after the fix;
+37 runner tests (one optional real-native fixture skipped) and four generator
+tests pass, including additional escaped-key checks. Corrected whole-source
+inventories contain 1,038 VM serializer and 1,272 browser serializer/codec
+candidates. The VM campaign is running against the uncommitted source/test
+snapshot from work67; inventory and partial results are not completed scores.
+Later work68 changes are not covered by that campaign. Preserve the
+earlier accidentally shadowed codec inventory separately. Changes remain
+uncommitted pending fresh bin/verify after the active binding66 campaign releases
+the native runtime. Verification66 and hosted evidence below predate this work.
+
+Previous follow-up closes configured HTTP file-response gaps in router_binding.dart,
+the largest measured library gap (699 uncovered VM65 lines). Fail-first tests
+reproduce HEAD incorrectly honoring Range, ignored If-Range, non-weak cache-tag
+comparison, and unanswered requests for malformed percent escapes. The expanded
+suite also reproduces unanswered invalid HTTP-date requests. All 81 focused
+cases and 214 broader runtime/metrics cases now pass. Full-file responses retain
+the native file-backed response path; GET ranges still buffer the selected bytes.
+The new whole-file router-binding-vm mutation target inventories 2,379 candidates.
+Full coverage66 and serial verify66 pass. Fresh VM coverage is 36,799/42,501
+(86.58%); router is 16,290/19,287 (84.46%) and binding is 2,965/3,636 (81.55%).
+The explicit 98% target still fails, with 59 unmeasured library sources visible.
+The complete mutation campaign has started on d44d3ea7 with a passing baseline;
+its partial outcomes are not a completed score. The overall goal remains active.
+
+Latest pushed checkpoint: d44d3ea7 on PR #93 contains the file-response fixes.
+Package publishing dry runs 35084904972/35084901145 and router-image dry run
+35084941801 pass. The image run verifies MCP smoke and multi-platform builds
+without publishing. Exact-head PR CI 35084904963 passes all 14 jobs; push CI
+35084901062 also passes. Strict audit66 confirms clean jobs/logs and relevant
+publishing/image evidence, but retains the unprotected feature-branch and
+mutation workflow absent from master findings. Rechecked master CI,
+standard WAMP benchmarks, all seven latest beta.5 package publications and native
+artifacts pass. The separate heavy performance diagnostics remain red as below.
+
+Previous pushed checkpoint: 748ddf21 on PR #93 adds metrics regression and mutation
+gates. Exact-head PR CI 35079233511 (all 14 jobs), push CI 35079229883 and package
+publishing dry runs 35079233562/35079229726 pass. Strict audit65 confirms clean
+jobs/logs and publishing evidence but retains the unprotected feature-branch and
+mutation workflow absent from master findings. No merge, release or protection
+change was performed. Prior 0ca81adf restores independent plain lazy
+event decoding. Its PR CI 35068960263 and publishing dry-run 35068960262
+pass; audit63 confirms clean jobs/logs and relevant publishing evidence but keeps
+the unprotected feature-branch and mutation workflow absent from master findings.
+Prior 6a8a2bf7 application artifacts 35065961167 pass. Audit56 also confirms clean CI jobs/logs and publishing
+evidence but fails the existing unprotected
+feature branch and mutation-diagnostics workflow absent from master findings.
+Do not merge or relax gates to remove these findings. The prior HTTP-body fix's
+router-image dry-run passes.
+Native30 is complete: 93 assertion kills,
+19 survivors, five compile errors, ten errors and two timeouts across 129
+candidates (75.00% raw/adjusted). Evidence remains unclean, not a passing gate.
+
+Deployment investigation: fresh WAMP Profile Diagnostics 35063947294 fails 24
+unchanged throughput checks across twelve 4 MiB native WebSocket pub/sub cases.
+Data-window throughput is 0.34-1.63 Gbit/s against the 2 Gbit/s floor. The older
+32707969763 run also failed, but only four lifecycle/data checks. Different
+runner hosts and SDK versions prevent attributing the difference to code alone.
+Retained artifacts are under out/regression-coverage-2026-09-15/deployment57.
+The first failing gate prevented the remaining four file/large-RawSocket
+diagnostics from running. Fail-first launcher regressions reproduce this; the
+runner now collects all remaining scenarios, preserves workload/gate exit codes,
+skips gates on failed workloads and still exits nonzero for any failure. CPU
+details and an always-published workflow summary make the evidence inspectable.
+All 39 launcher tests pass, including seven diagnostic failure/success cases.
+This repairs evidence collection, not the throughput regression. Do not lower
+floors or claim the diagnostic chain is green. Historical CI 35041876161 failed
+on Chrome sandbox startup, repaired by dd8cb16d and subsequent green runs;
+35037800535 failed downloading the published router asset with a connection
+reset. The latter remains a download-resilience risk, not a proven code fix.
+Latest master CI, publishing dry-run, profile benchmarks and release publishing
+are green; master branch protection is present. Do not merge or publish for this
+coverage task. Full verification58 and verification59 pass, including the
+diagnostic runner changes.
+
+Hosted diagnostics 35065981089 proves the repaired runner executes all eight
+scenarios and publishes the status table/artifacts despite gate failures.
+WebSocket fragmentation and file transfer fail; the other six scenarios pass.
+The newly exposed JSON WebSocket 64 MiB Dart-buffered file case measures 1.235
+Gbit/s data and 1.181 Gbit/s lifecycle, below the unchanged 2 Gbit/s floors.
+Retain the complete artifact under deployment59. This separate file gate remains
+open; the chain is not green.
+
+WebSocket pub/sub root cause: fe562ea1 made LazyEventPayload keyword-only reads
+decode the entire plain positional body, undoing lazy delivery. Eight fail-first
+assertions reproduce independent-field and deferred-error regressions. Plain
+getters now decode only their requested field; PPT/E2EE retains the shared cached
+unwrap path. A matched isolated-port local 24-workload matrix changes no scenario
+or gate: CBOR pub/sub improves from 0.577-0.618 to 2.372-4.065 Gbit/s and all
+checks pass, versus 16 prior gate findings. Source/native/scenario hashes and
+reports are retained under deployment60/websocket-isolated and
+deployment61/websocket-after. This is one local comparison, not hosted confirmation
+or a statistical distribution; fresh hosted diagnostics are still required.
+The final focused event suites pass 90 tests each on VM, Chrome JS and WASM.
+Event63 inventories all 22 mutations in event.dart: 18 assertion kills, one
+survivor, three compile errors, no errors/timeouts/equivalences, both baselines
+passing, 94.74% raw/adjusted. Preserve Event61 (36.84%) separately. The remaining
+decoded-flag survivor forwards to a helper that checks the same flag; no waiver
+has been applied. This slice does not replace package-wide mutation coverage.
+Full verification62 and final-snapshot verification63 pass.
+The first browser invocation used the wrong working directory and timed out
+loading assets; corrected package-directory runs pass. Preserve that invocation
+and initial test-authoring compilation errors as non-product failures.
+
+Hosted follow-up 35068969747 confirms the lazy-getter improvement: only two
+fragmentation findings remain, both TLS/CBOR lifecycle rates (1.874 and 1.946
+Gbit/s versus 2 Gbit/s). All data-window floors pass. JSON WebSocket 64 MiB
+Dart-buffered file transfer still fails at 1.194/1.147 Gbit/s data/lifecycle.
+All eight scenarios complete; six pass. Preserve deployment63 artifacts and do
+not claim all performance gates pass. A local five-round ASCII-copy probe rejects
+an alternate string-copy implementation as slower; no production change follows.
+
+Router metrics model follow-up: ten tests cover the exact JSON counter/key
+contract, absent/zero values, copy preservation/replacement, process byte counts,
+HTTP request/response telemetry, listener breakdowns and default/active throttles.
+VM coverage is 249/249 (100%); JavaScript is 173/174 (99.43%). Both and WASM tests
+pass; WASM has no measured line coverage. This portable model slice does not
+establish browser support or coverage for the router runtime. Complete Metrics65
+mutations record 63 assertion kills and three survivors across all 66 candidates,
+95.45% raw/adjusted, clean/restored baselines passing, no compile errors, crashes,
+timeouts or waivers. Remaining mutations only change returned-list growability;
+retain them without asserting incidental list behavior merely to inflate scores.
+Metrics64's prior 62/66 result remains separately retained. CI now includes the
+95% metrics mutation gate and a 98% VM file floor; deployment cleanliness requires
+the mutation job and missing-job regressions cover it. Fast64 passes. Full VM
+library coverage65 measures 36,772/42,496 (86.53%): auth 100%, core 90.22%, client
+85.10%, router 84.34%, MCP 95.40%, bench 81.20%. All current regression floors
+pass, but the explicit 98% target check fails. Keep 59 unmeasured library sources
+visible. Separate packaging coverage is client 391/402 (97.26%) and router
+374/385 (97.14%), with 12 unmeasured packaging sources. Full coverage65 and the
+subsequent serial verify65 both exit zero, including native checks, the real LLVM
+fixture and JavaScript/WASM suites. Hosted metrics CI confirms 63 kills/three
+survivors (95.45%) across all 66 candidates with both baselines passing and
+matching local source/test hashes; its artifact uses the synthetic PR merge
+commit c06dfe24. The first browser65 invocation exited 137
+before producing output; the authoritative terminal result was retained and the
+corrected retry65b passes. The overall coverage milestone remains incomplete.
+
+Application messaging follow-up: server58 passes all 205 tests and measures
+3,298/3,531 VM lines (93.40%); server.dart is 773/868 (89.06%) and mailbox storage
+248/252 (98.41%). Six real-router RPC tests exercise authenticated device-bound
+send/sync/receipt/one-time consume, account isolation, cursor-only notifications,
+idempotency, malformed requests, durable attachments and redacted storage errors.
+Directory and dangling-symlink mailbox paths previously appeared empty because
+File.exists() returns false for them. Direct and RPC fail-first tests reproduce
+the bug; non-file obstructions now fail closed while a truly missing file keeps
+its existing empty-store behavior. Recovery preserves messages and cursors. The
+symlink test explicitly skips Windows; do not claim Windows link coverage.
+Server-wide 98% and 81 unmeasured application-source gaps remain open.
+Message57 inventories both mailbox/message-service sources: 236 candidates,
+140 assertion kills, 68 survivors, 28 compile errors, no errors/timeouts or
+equivalences, 67.31% raw/adjusted, with passing clean/restored baselines. This is
+the pure-unit target, not RPC mutation evidence. Push56 completes at 229 kills,
+24 survivors and 44 compile errors across 297 candidates, 90.51% raw/adjusted,
+clean/restored baselines passing, no errors/timeouts/equivalences. Both mutation
+targets remain below 95%; preserve the earlier push campaigns separately.
+
+Current application-server follow-up: app-server56 passes 196 tests and measures
+3,225/3,528 VM lines (91.41%), up from app-server44's 89.70%. FCM gateway and
+push service measure 100%; subscription storage measures 182/184 (98.91%).
+The server-wide 98% gate still fails and 81 unmeasured application sources remain
+explicit. Offline initialization tests reproduce three base-client leaks before
+the fix: googleapis_auth does not close a caller-owned HTTP client. The gateway
+now closes both owners and disposes late authentication results after timeout.
+Two additional fail-first regressions reproduce indefinite stalled/slow-drip
+response bodies. A single header/body deadline now cancels body subscriptions.
+Synthetic credential fixtures never use real accounts or network access.
+Tests also cover credential-size boundaries, redacted startup failure, persisted
+subscription validation, unsubscribe/revocation isolation, queue bounds,
+storage-failure recovery, successful-response validation and cumulative byte caps.
+Fast54 and full verification54 pass; verification54 predates the final body-read
+fix. Serial full verification55 passes after server55 collection, including native
+HTTP/3, the real LLVM fixture and both browser compilers. Later server56 tests,
+focused analysis and formatting pass. New storage/dispatcher regressions reject
+malformed schemas and independently duplicated binding keys/provider tokens,
+preserve account isolation and atomic failed token transfer, distinguish stale
+compare-and-delete, same-length mute updates and exact presentation bounds.
+An isolated child process verifies chmod failure; its executable lines are not
+attributed to the parent coverage report. Windows permission behavior remains a
+separate runtime gap. Preserve the initial nullable-test compilation failure
+and premature coverage-check failure separately from the corrected passing runs.
+The new app-server-push-vm target inventories all three push implementation files.
+Complete push54 records 176 kills, 61 survivors, 44 compile errors and seven
+timeouts across 288 candidates (72.13% raw/adjusted, no equivalences, both
+baselines passing). This is unclean evidence from the earlier snapshot, before
+the body deadline and subsequent distinguishing tests; do not attribute those
+later changes to it. Complete push55 uses the subsequent body/lifecycle snapshot:
+200 kills, 53 survivors, 44 compile errors and zero errors/timeouts/equivalences
+across 297 candidates, 79.05% raw/adjusted, both baselines passing. Its inventory
+is 116 binary, 142 condition, 25 boolean, ten negation and four null-fallback
+candidates. The later server56 storage/dispatcher/typed-error tests are not part
+of that snapshot and require a fresh campaign. Timeouts remain separate, never
+assertion kills. The 95% target remains unmet.
+
+Consumer protocol follow-up: app-shared52 passes all 136 tests and measures
+1,537/1,540 executable VM lines (99.81%), up from 90.83%. Account/profile input
+regressions reproduce silent integer-to-byte truncation and malformed receipt
+timestamps escaping as TypeError. Validate byte ranges and timestamp types before
+conversion. Call signaling, attachment/message receipts, expiry and backup/push
+wire validation have additional behavioral regressions. A new application scope
+keeps shared/server/client totals separate, inventories unmeasured application
+sources, and excludes tests/package libraries from its denominator. The shared
+98% gate passes through bin/test-app-shared-coverage; CI wiring retains LCOV,
+raw data and summary. The 94 unmeasured application files (including the shared
+export/constant-only files) remain explicit; this is not Flutter/server evidence.
+Sixteen coverage-tool and 38 launcher tests pass. Full verification33 and
+standalone consumer verification33 pass, including Flutter/browser tests and
+the release web build. Shared analysis and the latest canonical collection pass.
+Fresh bin/test-fast35 and final verification35 pass, including the real LLVM
+fixture and both core browser compilers. Later shared-only boundary tests pass
+their complete VM/JavaScript collections and focused analysis/formatting.
+
+Separate JavaScript coverage exposed missing rejection tests despite the high VM
+percentage: app-shared37-browser measured 1,671/1,762 (94.83%). New cross-runtime
+tests cover malformed endpoints, backup/chunk bounds, encrypted envelope shapes,
+receipt aliases/order, device identity/time validation, call state transitions,
+attachment limits and malformed consent metadata. app-shared52-browser now
+measures 1,768/1,792 (98.66%), with all 136 tests passing and no new exclusions.
+Direct ICE constructors, exact sixteen-device offer limits and individually
+inconsistent offers address additional mutation survivors. All 136 tests also
+pass on Chrome/WASM, without claiming WASM line coverage. The canonical collector
+now selects vm/chrome explicitly, rejects missing Chrome/unknown runtimes, and
+retains separate artifacts. Both modes enforce the same 98% policy and required
+sources; browser formatting omits VM ignore comments. CI wiring for the new
+JavaScript gate passes on 3742159b. Launcher failure-path regressions pass.
+New tests independently cover MCP capabilities/types/routes, constructor resource
+limits, 500-message pagination, legacy receipt parsing and order-independent
+receipt aggregation. Push limits include exact provider/token/mute maxima and
+timestamp ordering. Persisted call ciphertext accepts padded/unpadded Base64url
+but rejects the standard '+'/'/' alphabet. The first WASM51 attempt used a
+nonexistent manually supplied Chrome path; preserve it as infrastructure failure.
+WASM53 uses the repository's detected launcher and passes. Fast49 passes;
+full verification51 passes serially, including the real LLVM fixture, native
+HTTP/3, 528 core WASM tests and two WebSocket WASM tests. Analysis and formatting
+of all shared protocol tests pass.
+
+Application server app-server44 passes 148 tests at 3,154/3,516 VM lines (89.70%),
+up from app-server38's 3,077/3,516 (87.51%), still below 98%. Real SCRAM/WebSocket
+tests cover signed call lifecycle, duplicate replay, cursor-only wakeups, paging,
+account/device isolation, malformed/spoofed/tampered calls, state-conflict errors
+and redacted filesystem failures followed by same-session recovery. server.dart
+improves from 635/868 to 706/868. The executable/export facade remain unmeasured;
+81 unmeasured application sources are explicit. A focused run overlapped fast42
+and hit the shared native-runtime lock; preserve that failure. The complete
+server44 collection ran only after fast42 passed and all 148 tests passed.
+Full verify45 passes serially afterward, including the real LLVM fixture and
+Chrome JavaScript/WASM suites. This is not Flutter/client coverage.
+
+Standalone mutation execution now snapshots application component inputs and
+their ignored dependency lockfiles, resolves the standalone Dart package offline
+in its own directory, and records dependency hashes/logs. Production sources
+remain restricted to component lib/bin paths. Five new runner regressions cover
+snapshot isolation, lockfile symlinks, complete source inventory and independent
+resolution/failure; all 35 runner tests pass (one Linux-only skip on macOS).
+The full app-shared35 campaign is complete: 798 kills, 272 survivors and 244
+compile errors across 1,314 candidates, 74.58% raw/adjusted, no errors/timeouts
+or equivalences, with both baselines passing. Preserve its original 97-test
+snapshot. Complete app-shared41 uses the later 112-test oracle: 894 kills,
+175 survivors, 245 compile errors, no errors/timeouts/equivalences, and passing
+clean/restored baselines across all 1,314 candidates (83.63% raw/adjusted).
+Full app-shared51 is complete against 135 tests: 986 kills, 83 survivors,
+245 compile errors, no errors/timeouts/equivalences across 1,314 candidates;
+raw and adjusted scores are 92.24%, with clean and restored baselines passing.
+Operators remain 697 binary, 538 condition, 30 boolean, 46 negation and three
+null-fallback candidates. It improves on shared41's 83.63% but remains below 95%.
+The final Base64url regression was added afterward and must not be attributed
+to that snapshot. Its separate call52 evidence remains below.
+The separate complete app-call48 campaign uses 115 tests and all 214 mutations:
+174 kills, nine survivors, 31 compile errors, no errors/timeouts/equivalences,
+passing clean/restored baselines, 95.08% raw/adjusted. Its operator inventory is
+105 binary, 90 condition, eight boolean, eight negation and three null-fallback
+candidates. Complete app-call52 uses the 136-test oracle: 175 kills, eight
+survivors, 31 compile errors, no errors/timeouts/equivalences, both baselines
+passing, and 95.63% raw/adjusted. Mutant 016877bb31d79bafabca is now an assertion
+kill: persisted ciphertext with the standard alphabet would otherwise be
+accepted. This call slice does not replace the full shared production inventory.
+Subsequent constructor, typed-avatar and ciphertext boundary tests address
+observed survivors; the separate profile36 campaign confirms the constructor
+size-limit mutant is killed. Complete profile36 has 124 kills, seven survivors
+and 19 compile errors (94.66% raw/adjusted), with both baselines passing and no
+errors/timeouts. Complete profile37 adds the typed-avatar boundary oracle:
+125 kills, six survivors, 19 compile errors (95.42% raw/adjusted), with both
+baselines passing and no errors/timeouts/equivalences. Neither slice replaces
+the full application inventory, which predates the later browser-guided tests.
+
+Older PR run 35045484401 also exhausts the 90-minute core-lazy-web job budget:
+its artifact retains 272/289 outcomes (208 kills, 15 survivors, 49 compile errors,
+no recorded errors/timeouts) and is incomplete. Normal mutants repeatedly take
+about 23 seconds to compile/run three suites; no individual hang is established.
+A single grouped browser entrypoint retains exactly the same 84 named tests:
+both baselines pass, reducing local wall time from 12.76 to 5.60 seconds. Its
+three imported suites remain hashed support inputs. The complete 289-candidate
+lazy33 campaign passes both baselines: 223 kills, 16 survivors, 50 compile errors,
+zero errors/timeouts. Its raw score is 93.31%, adjusted 96.54% after the existing
+eight individually pinned equivalences. Neither inventory nor job/per-test
+budgets are reduced or relaxed. Replacement PR CI 35053842965 passes the
+core-lazy-web gate without a retry or timeout increase.
+
+CI readiness priority: PR run 35045484401 timed out in
+http1_stream_reader_reclaims_after_completion; same-commit push verification
+passed, which does not resolve the intermittent hang. A coordinated regression
+reproduces completion overtaking a reader's condition-check mutex. mark_finished
+now holds that mutex while changing the predicate and notifying, closing the
+lost-wakeup window for both success and error completion. All six HTTP-body
+tests and Rust formatting pass; no CI/read timeout was increased. Fresh
+bin/test-fast passes. Final bin/verify passes with the real LLVM fixture and
+both browser compilers; native30 completed serially afterward. Replacement
+Full Verify in PR CI 35053842965 passes with clean hosted logs.
+
+Configuration coverage checkpoint: full vm-current28 passes at 36,650/42,494
+production lines (86.25%), up 222 covered lines. Router coverage is now
+16,148/19,282 (83.75%); router_settings.dart is 480/480 (100%), with a 98% file
+floor. Other package totals and the 59 unmeasured library sources are unchanged.
+Packaging remains client 391/402 and router 374/385, with twelve unmeasured
+sources. This is not the per-component/runtime goal's completion.
+
+The settings regression suites cover value/copy contracts, nested collections,
+OpenMetrics enrichment and route precedence, opt-in identity disclosure and realm
+creation, capacity/threshold boundaries, and explicit protocol precedence.
+All 157 settings/loader tests and focused analysis pass. The initial complete
+settings29 mutation inventory has 182 kills, 37 survivors and 118 compile errors:
+83.11% raw/adjusted, no timeouts/errors or equivalence exclusions. Retain it.
+The isolated baseline needed the quickstart YAML fixture; declared supportFiles
+now copy explicitly listed files outside packages and record hashes, rejecting
+missing/unlisted/unsafe paths and symlinks. Thirty runner regressions pass
+(one Linux-only test skipped on macOS). Complete settings30 has 193 kills,
+26 survivors and 118 compile errors, no errors/timeouts and both baselines passing.
+Its raw score is 88.13%; seven individually source-hash-pinned private-helper
+equivalences give 91.04% adjusted, still below 95%. Public equality fast paths
+remain unresolved:
+subclassable settings getters prevent blanket equivalence claims.
+
+Native27 completed all 129 candidates with eight assertion kills, 95 errors,
+19 survivors, five compile errors and two timeouts. Custom Rust assert messages
+do not carry the standard assertion marker required by the strict auditor.
+The tests retain their predicates but use standard diagnostics; a real-rustc
+fixture distinguishes these from custom/production panics. All 21 tooling and
+21 focused RawSocket tests pass; production RawSocket behavior is unchanged.
+Fresh bin/test-fast and bin/verify passed, including the real LLVM fixture and
+both browser compilers, before the latest snapshot-tool and boundary-test edits.
+Native28 finished with 21 audited kills, 82 errors, 19 survivors, five compile
+errors and two timeouts. Its multi-assertion logs exposed an auditor parser bug:
+a greedy DOTALL header swallowed multiple failure blocks. A failing regression
+and real two-test rustc fixture prove the fix; all 23 tooling tests pass, and
+extra/duplicate headers, mixed panics, crashes and incomplete suites still fail
+closed. Preserve the original audit. A separate parser-recheck report, with tool
+hashes retained, finds 92 kills, eleven errors, 19 survivors, five compile errors
+and two timeouts (74.19% raw/adjusted); this is still unclean evidence, not a pass.
+The running native30 campaign will collect fresh final-snapshot evidence.
+
+Separate consumer shared-protocol baseline app-shared29: all 56 tests pass,
+with 1,396/1,537 measured VM lines (90.83%). The export facade and constant-only
+protocol source have no executable records. This does not measure the Flutter
+client or application server, and the package-only coverage checker does not
+yet enforce this separate application scope. Hosted candidate evidence and the
+complete cross-runtime coverage/mutation milestone remain outstanding.
+
+Hosted browser launcher follow-up: 4b551b78 is pushed to PR #93. Its new
+core-lazy-web job fails before mutations because raw Chrome cannot initialize
+its sandbox on the hosted Linux runner. The entrypoint bypassed the canonical
+browser launcher already used by verification/coverage. A deterministic launcher
+regression reproduces the missing CI flag. Reusing ensure_chrome_env passes seven
+cases, retaining local browser flags, Chrome-free VM operation, native opt-in,
+and failure before the runner when browser setup fails. No score,
+classification, timeout or threshold is relaxed. All 36 verification-script
+tests, fresh bin/test-fast and final bin/verify pass, including the real LLVM
+fixture and both browser compilers. Replacement hosted evidence remains required.
+
+Full coverage25 collections pass serially after final-snapshot bin/verify.
+VM library coverage is 36,428/42,494 (85.73%): auth server 100%, core 90.15%,
+client 85.10%, router 82.60%, bench 81.20%, MCP package 95.40%. MCP library and
+CLI remain separate at 98.20% and 93.43%; 59 library sources are unmeasured.
+Packaging measures client 391/402 (97.26%) and router 374/385 (97.14%), with
+twelve unmeasured sources. macOS arm64 native production coverage is ct_core
+8,373/10,051 (83.31%) and ct_ffi 4,585/5,808 (78.94%); four unmeasured candidate
+sources remain explicit. These reports do not establish the full milestone.
+
+FastCGI/browser checkpoint (not goal completion): the complete lazy20 JavaScript
+inventory passes its clean/restored baselines with 223 kills, 16 survivors and
+50 compile errors, with no timeouts/errors. Raw score is 93.31%; eight individually
+source-hash-pinned equivalences give 96.54% adjusted. The new required
+core-lazy-web mutation job enforces that complete inventory separately from VM.
+All 24 deployment-audit regressions pass with the thirteen-job contract.
+
+Public-route regressions reproduce folded FastCGI cookies and invalid 600/999
+status acceptance. Repeated fields now survive through the existing FFI header
+array, without an ABI change; all case-insensitive Connection tokens are removed
+and status codes must be 100..599. Thirty focused tests pass, covering record
+fragments/padding, malformed records/headers, limits, timeout, binary bodies,
+error privacy and upstream socket closure. A real native HTTP wire test verifies
+three separate cookie fields including an Expires comma. Six additional real
+HTTP/2 and HTTP/3 regressions reproduce native header-map overwriting in plain,
+buffered and streaming replies; all pass after preserving repeated fields.
+Content-Length remains computed once for buffered/plain replies and removed for
+streaming replies. A separate regression caught conflicting lengths in HTTP/2's
+plain path; its computed length is now inserted last. Analysis and the fresh
+pre-change bin/test-fast pass. The initial bin/verify passes, including the real
+LLVM fixture and both browser compilers, but its native phase predates these Rust
+changes and cannot verify the final native snapshot. Full VM collection
+vm-current24 failed the legacy ABI fixture and produced no valid new total:
+Cargo succeeded, but the test helper rejected its library because a cfg(test)
+source was newer. A deterministic fake-Cargo regression reproduces this in both
+normal and legacy resolution. The helper now trusts Cargo freshness after a
+successful build, still rejecting build failures and missing output; all six
+cases pass. Fresh bin/test-fast and final-snapshot bin/verify pass, including
+all six native header tests, the real legacy ABI regression, 34 verification-
+script tests, the real LLVM fixture and both browser compilers. Full VM
+collection vm-current25 is running; native25-current is queued serially afterward.
+Candidate hosted evidence remains required; no new whole-component percentage
+is claimed until these collections finish.
+
+Hosted 7984160 CI (35037801775) and publishing dry-run (35037801711) passed.
+The local thirteen-job audit correctly cannot find the newly added browser gate
+in that older twelve-job run. Feature-branch protection and the diagnostic
+workflow's absence from master remain explicit strict-audit findings; no merge,
+publication, or release-readiness claim is authorized by these results.
+
+Native23 has now finished all 129 RawSocket candidates: 12 audited assertion
+kills, 91 errors, 19 survivors, five compile errors and two timeouts. Its evidence
+is unclean, not a passing score. Logs show test unwrap/expect panics alongside
+assertion failures; the strict auditor correctly does not relabel these mixed
+outcomes as kills. Preserve this inventory and improve the tests/evidence next.
+No full component/runtime has reached the overall milestone through this slice.
+
+Native evidence checkpoint (not goal completion): the complete native22 RawSocket
+inventory at ab4511a6 contains 129 candidates. Cargo reports 89 caught, but strict
+libtest/source auditing confirms only 17 explicit assertion kills, with 72 errors,
+22 survivors, five compile errors and 13 timeouts. Raw/adjusted candidate score is
+13.71%, with no equivalences; this is failed evidence, not a production score.
+Platform-inactive bodies remain in the inventory. Preserve the original results.
+Earlier native20 omitted sibling TLS fixtures and failed its baseline; native21
+rejected incompatible --in-place/--jobs flags. Neither established a score.
+
+The new collector preserves sibling fixtures in a private snapshot, materializes
+symlinks, pins inputs/tools/logs and checks clean/restored test identities. A
+symlink regression failed before the isolation fix. All 21 native tooling tests
+and 33 verification-script tests pass, including real rustc/cargo-mutants fixtures.
+Fast/Verify install pinned cargo-mutants; Linux/macOS diagnostic workflows now use
+the auditor rather than Cargo's caught count. Survivors and unclean evidence fail
+the diagnostic command. RawSocket tests now assert complete response bytes,
+reject optional probing for ineligible peers and avoid waiting for responses
+before checking negotiation results. bin/test-fast and bin/verify pass, including
+the real LLVM fixture and both browser compilers. Fresh native23 production
+coverage passes: macOS arm64 ct_core 8,357/10,051 (83.15%), ct_ffi 4,589/5,808
+(79.01%), RawSocket 254/267 (95.13%). Four unmeasured candidate files remain
+explicit. The serialized native23 complete mutation inventory is now running;
+its pending result is not a passing score. New candidate hosted evidence is
+still required for these changes.
+
+Hosted ab4511a6 CI passed all twelve jobs and package publishing dry-run passed.
+Strict release audit still fails because this non-release branch is unprotected
+and mutation-diagnostics.yml is not yet on master. No merge/publication is
+authorized. The completed lazy19 browser inventory retains its cycle-related
+error (222 kills, 16 survivors, 50 compile errors, one error); the independent
+lazy20 inventory with the bounded cycle fixture is still running. Neither that
+pending run nor the older native/VM totals establishes the full milestone.
+
+RawSocket cancellation checkpoint (not goal completion): a deterministic
+paused-time regression reproduces loss of the first standard-frame byte when
+the optional two-byte upgrade probe times out after a partial read. The probe
+now retains its buffer/count outside the cancellable future and uses
+cancellation-safe reads; timeout fallback restores the consumed prefix. All
+20 RawSocket tests pass, including empty/partial probe EOF, split upgrade bytes,
+serializer negotiation and zero-copy file delivery. Tokio test-util is a
+dev-only dependency. bin/test-fast finished successfully; a new full bin/verify
+with the real LLVM fixture is running before the first complete RawSocket
+mutation campaign. The campaign is queued, not passing evidence. Earlier
+transport/benchmark discovery enumerated 3,356/1,289 candidates, including
+cfg-inactive candidates; these are inventories, not production mutation scores.
+The MCP/browser checkpoint is committed as 1f64bd04; candidate hosted evidence
+is still required. No whole-component/runtime target is complete by this change.
+
+Batch metadata/browser runner checkpoint (not goal completion): 69 real-router
+CLI regressions and 329 focused CLI tests pass. Adversarial batch responses cover
+session counts/details, registration/subscription discovery and membership,
+catalog omissions and tool errors, with no further HTTP request after rejection.
+Three wrong-procedure regressions reproduced missing checks on session batch
+metadata; count/list/get now use the existing optional procedure-identity check.
+Positive controls preserve wrapped replies with/without that optional field and
+named flat replies. Fresh cli19d coverage is 2,146/2,297 lines (93.43%); raise the
+CLI floor to 93.4%, not the still-unmet 98% target.
+
+A package-root Chrome fixture independently reproduced fail-fast omitting
+tearDownAll and later tests after an assertion failure. Chrome mutation commands
+now finish their suites. Immediate descendant detection and error classification
+remain strict, and diagnostics record executable identity without arguments.
+All 27 runner tests pass on macOS except the explicitly Linux-only zombie test.
+The original browser campaign's errored outcome is preserved; its specific
+leftover process identity/root cause remains unproven. The new complete lazy19-js
+inventory is running, not a passing score. It exposed a cycle-detection mutant
+that loops until the browser connection closes, correctly classified as an
+error. A bounded cyclic-map fixture now precedes the ordinary cyclic-container
+case. All 55 focused tests pass on VM, JavaScript and WASM; isolated exact-mutant
+replay has passing clean/restored baselines and an assertion kill. This diagnostic
+does not replace the old campaign outcome or establish a new complete score.
+A fresh bin/test-fast passed before these changes; serialized focused collection
+and bin/verify with the real LLVM fixture enabled passed. Hosted e051650b CI is
+running after its Fast
+Checks and mutation/browser/application gates passed. Latest changes are not yet
+committed and still require their own hosted evidence.
+
+MCP CLI adversarial-response checkpoint (not goal completion): public HTTP tests
+now reject inconsistent session counts/IDs, malformed registration/subscription
+metadata, unexpected live members, incorrect publication acknowledgements and
+misrouted/dropped/unobserved events. Positive cases retain integral JSON-number
+and session-detail field compatibility. Three regressions reproduced leaked
+subscriptions when the CLI rejected a returned topic or queue limit before its
+cleanup block. Validation now runs inside the unsubscribe boundary in direct,
+active-direct and Streamable paths. Six real-router fault-proxy cases confirm
+unsubscribe acknowledgement, and session deletion where applicable.
+
+All 329 focused CLI tests and 14 real-router CLI tests pass. Fresh combined CLI
+coverage measures 2,111/2,291 lines (92.14%, previously 89.92%); its CI floor is
+92.1%, not the still-unmet 98% target. A separate verification failure exposed a
+pub-token cleanup pipeline race: early grep exit plus pipefail could skip removal
+and hide listing failures. A deterministic pipe-capacity regression fails both
+cases before the fix; capture-before-grep now preserves failures. The hosted
+aff93292 CI and publishing dry run passed, but strict log audit correctly rejected
+the skipped real LLVM fixture. Fast Checks and Full Verify now install pinned
+LLVM coverage tooling and explicitly run that fixture, without weakening the
+audit. All 31 verification-script regressions and all 13 native coverage
+integration tests pass. No real user token configuration is touched by the
+isolated fixtures.
+
+The completed vm-current17 full collection at aff93292 measures 36,296/42,478
+lines (85.45%), with 59 unmeasured library sources. Core is 90.15%, client 85.10%,
+router 82.40%, bench 81.20%, MCP 93.34%, and auth 100%; those results precede the
+new CLI patch and must not be replaced with a favorable focused-report union.
+The serialized bin/test-fast, final-snapshot CLI collection and bin/verify queue
+passed. The subsequent LLVM workflow/test changes also pass their focused gates;
+new candidate hosted CI/audit evidence is still required. The complete
+lazy17-js-mutations inventory has 222 kills, 16 survivors, 50 compile errors and
+one infrastructure error, with passing clean/restored baselines. Its 92.89% raw
+and 96.10% adjusted scores are not a passing gate: a test process left a live
+descendant after an assertion failure. Preserve that error and investigate the
+browser command lifecycle rather than relabeling it as a kill. A fresh complete
+native CLI inventory is still required; the old 65.73% result is not a score for
+these changes. Evidence is under cli18-final, cli18*, vm-current17 and the
+preserved earlier output directories. The whole-component/runtime coverage and
+mutation goal remains open.
+
+Lazy payload checkpoint (not whole-component completion): independently
+reproduced repeated decoding of empty packed envelopes, invalid integer bytes
+being narrowed before E2EE validation, and owned copies retaining nested mutable
+aliases. Successful packed decoding now releases its callback, byte coercion
+checks 0..255, and owned copies detach WAMP list/map/binary graphs without eager
+decoding, preserving internal aliases and cycles. Providers/contexts/callbacks
+remain shared by design. Eighty-four focused regressions pass on VM, browser
+JavaScript and WASM. The payload file measures 412/413 VM lines (99.76%) and
+482/488 JavaScript lines (98.77%); enforce 98% file floors in both collectors.
+WASM test success is not a measured WASM line-coverage claim.
+
+The complete first lazy-payload inventory has 189 kills / 239 viable (79.08%),
+50 survivors and 50 compile errors. Distinguishing tests raise the next complete
+VM inventory to 216/239 (90.38%), with 23 survivors and no timeouts/errors.
+Further boundary/serializer/subclass regressions produce a complete VM inventory
+of 223 kills, 16 survivors and 50 compile errors, with passing clean/restored
+baselines and no timeouts/errors. Raw score is 93.31%; eight individually
+source-hash-pinned equivalences give an adjusted 96.54%. Add the required
+core-lazy-vm CI gate and twelve-job audit contract; all 24 audit regressions pass.
+The separate lazy17-js-mutations inventory remains live, not a passing result.
+The proofs cover only redundant packed-cache guards and private bytes/decoder
+pair invariants, not forced whole-branch or public provider/context mutations.
+
+A browser baseline exposed Dart 3.13.1 dart2js folding scalar spy-field reads to
+their initial values after indirect provider dispatch. A minimal reproduction
+and generated JavaScript are retained in lazy16-probe_test.dart and the local
+diagnostic logs. The test spy now records all calls/inputs in an event log;
+the same exact provider, context and count assertions pass on all three runtimes.
+The failed browser baseline is retained, never counted as a mutation result.
+
+Fresh full browser collection passes 536 tests and measures 5,291/6,089 core
+lines (86.89%), with 185 other library files explicitly unmeasured by this
+browser slice. Do not substitute the payload file's 98% result for core-wide
+completion. Final reports and the complete VM operator inventory are retained.
+
+The original mcp-cli-native10 campaign has now completed all 1,179 mutants:
+560 kills, 292 survivors, 327 compile errors, passing clean/restored baselines,
+no timeouts/errors or equivalences; raw/adjusted 65.73%. This is an explicit
+remaining CLI mutation gap, not a passing gate. The existing verification queue
+then passed bin/test-fast, bin/verify and fresh native production coverage in
+that order. The new macOS arm64 production-only report measures ct_core at
+8,348/10,045 lines (83.11%) and ct_ffi at 4,589/5,808 (79.01%). It separately
+excludes 4,084 and 3,396 test/helper lines with AST reasons, retains raw evidence,
+and lists four unmeasured candidate files. These are not Linux or benchmark-crate
+measurements and do not meet the 98% target.
+Current implementation/test/config changes are locally verified; candidate
+commit/push and hosted CI/audit evidence remain pending. Evidence is under
+lazy15*, lazy16*, lazy17*, mcp-cli-native10 and native-scope12 in
+out/regression-coverage-2026-09-15. The full goal remains open.
+
+E2EE and benchmark configuration coverage checkpoint (not whole-component
+completion): E2EE payload VM coverage is 292/295 (98.98%) and browser JavaScript
+341/344 (99.13%). Seventy focused E2EE tests pass on VM, JavaScript and WASM;
+the complete core VM suite passes 665 tests. Regressions reproduce and fix key
+and ciphertext byte narrowing, plaintext key retention in length errors, and
+raw parser exceptions escaping authenticated malformed CBOR. Valid cryptographic
+wire behavior is checked with roundtrips and independent OpenSSL AES-GCM vectors.
+
+The complete E2EE VM inventory has 269 mutants: 210 killed, four survivors,
+55 compile errors, no timeouts/errors, and passing clean/restored baselines.
+Raw and adjusted scores are both 98.13%; no equivalences are waived. An
+adversarial public List implementation distinguishes the missing-identity guard,
+rather than assuming that survivor is equivalent. The separate complete browser
+inventory completed on the earlier 69-test snapshot with 209 kills, five
+survivors and 55 compile errors: raw/adjusted 97.66%, passing baselines and no
+timeouts/errors. The extra missing-identity regression independently passes on
+both browser compilers but is not included in that older inventory's score.
+
+Benchmark configuration measures 88/89 lines (98.88%) with 86 passing tests.
+Its complete 72-mutant inventory has 42 kills, two survivors, 28 compile errors,
+no timeouts/errors and passing baselines: raw/adjusted 95.45%, no waivers.
+Tests cover YAML shape/key rejection, required fields, numeric conversion,
+duration boundaries, option ownership and JSON roundtrips, without changing
+production parsing policy. Both files now have 98% floors and VM mutation CI
+gates. Browser verification/coverage includes E2EE; the expanded browser collector
+passes 451 tests at 4,693/5,526 lines (84.93%), still below the core-wide goal.
+All 24 deployment-audit and 29 verification-script regressions pass with the
+new eleven-job CI contract. Implementation/test/config changes remain staged,
+uncommitted, pending the serialized full verification below. Reports and logs
+are under out/regression-coverage-2026-09-15/e2ee14*, bench-config14b* and
+native-scope12. The full regression/mutation objective remains incomplete.
+
+Native measurement tooling checkpoint (not a new coverage percentage): add a
+standalone syn-based source-scope analyzer and a hash-pinned LCOV filter. They
+separate inline/external test modules and ffi-test-only helpers from production
+candidate lines, retain unknown platform predicates, and reject stale inputs,
+mixed production/test lines, unresolved modules and opaque scope generation.
+The current 35-file native source graph classifies without broad exclusions:
+22 production candidates and 13 test-only files. Raw LLVM evidence is preserved;
+filtered output recalculates line totals only and lists unmeasured sources.
+
+Eleven Rust analyzer tests, 13 Python integration tests and 28 verification-script
+tests pass. The integration run includes real LLVM instrumentation of an isolated
+fixture, and rustc checks the module-path rule. Those regressions exposed and
+corrected statement-semicolon, blank/comment-region and explicit #[path] handling
+in the new analyzer; they are tooling fixes, not native runtime fixes. Clippy,
+formatting, shell syntax and Python compilation checks pass. The independent
+tool Cargo target never rebuilds or loads ct_ffi.
+
+Fresh bin/test-fast, bin/verify and bin/test-native-coverage have passed serially
+after the completed mcp-cli-native10 campaign. Production percentages above use
+that fresh hash-pinned collection, never the old unpinned native-raw-lcov.info.
+For pushed 9954fc32, CI
+35016060507 is fully green, including VM Coverage and all four existing mutation
+gates; publish dry-run 35016060485 and its relevant clean-CI/logs/package audit
+pass. That hosted evidence does not verify the current uncommitted candidate or
+its two additional mutation gates. Candidate hosted evidence remains pending.
+
+Latest packaging checkpoint: deterministic regressions reproduce shared cwd and
+exitCode interference between concurrent hook/installer tests. Hook fixtures now
+own temporary package roots and use zone-local cwd; they no longer delete real
+checkout caches. Installer command execution returns its own status; the process
+entrypoint still sets exitCode. Real subprocess tests verify success, usage and
+failure exit codes and output streams with a preseeded verified archive cache.
+Additional regressions cover failed publication rename cleanup, default consumer
+installation paths, unsupported release targets and source disappearance before
+Cargo launch. Architecture selection retains its behavior in a pure helper with
+independent x64, arm64 and aarch64 vectors, killing the host-dependent survivors.
+
+All 184 focused tests pass on macOS arm64 and isolated Linux x64, including a
+macOS run with the native-library environment used by canonical verification.
+Focused packaging coverage is 391/402 (97.26%) client and 374/385 (97.14%) router
+on macOS; Linux is 388/402 (96.52%) and 371/385 (96.36%). Each CLI is 53/53.
+The Linux-proven hook floors increase to 95.9% client and 95.7% router; the 98%
+target and 12 unmeasured packaging sources remain explicit. These focused
+reports do not replace full VM, browser, Rust or application measurements.
+Complete macOS installer mutations are client 98 killed / 3 survived / 4 compile
+errors (105 generated, 97.03%) and router 95 / 4 / 4 (103, 95.96%). Linux router
+independently confirms 95 / 4 / 4. All clean/restored baselines pass, with no
+timeouts, infrastructure errors or equivalence exclusions. The router installer
+is now a required CI mutation gate and deployment-audit job, not just a local
+diagnostic. Retained evidence: packaging11-macos, packaging11c-linux,
+installers11-macos and router-installer11b-linux under the coverage output root.
+
+Hosted repair still needs confirmation: 0c1170ea passes Full Verify but CI
+35010985044 fails packaging floors derived from macOS rather than Linux branch
+execution. Current Linux measurements pass stronger floors without exclusions.
+For e8a697bc, CI 35012835384 passes Full Verify and the existing mutation gates;
+VM Coverage remains in progress. Its package dry-run 35012835188 passes.
+The last full local bin/test-fast and bin/verify passed before these edits at
+the unchanged e8a697bc checkpoint. Fresh full verification is pending behind the
+live mcp-cli-native10 inventory; do not rebuild its pinned native library or
+claim the new patch has completed full verification. The overall goal is open.
+
+Earlier checkpoints below retain their original scope and evidence.
+
+Hosted checkpoint 3f87906e: CI 35010146390 exposed a Linux mutation-runner
+regression. All three mutation baselines passed their Dart assertions but were
+marked infrastructure errors because killpg also succeeds for zombie-only
+groups. A deterministic Linux subreaper regression reproduces this without
+Dart timing assumptions. Inspect process states before cleanup: dead Z/X members
+do not invalidate results, live fixtures still do, and inspection failure stays
+fail-closed. Four Linux process regressions pass after the fix, including an
+actual orphan holding a listening socket. Repair 0c1170ea passes all three
+hosted mutation gates, browser coverage and Fast Checks in CI 35010985044;
+Full Verify passes; VM Coverage later fails the packaging floors described
+above. Package dry-run 35010994084 passes.
+
+Build-hook execution checkpoint: each hook now delegates its unchanged native
+operation to buildNativeAssets; the SDK wrapper still reports HookError and exits.
+Thirty-one tests per package cover supported/unsupported target selection,
+configuration precedence, source dependency inventory, timestamp-driven cache
+reuse/rebuild, missing configuration/source/output, compiler errors and unchanged
+installed output. The default Cargo runner smoke uses an owned POSIX shell
+fixture, not a real native build; Windows execution still needs evidence.
+Router CLI tests now cover all 52 executable lines, like the client CLI.
+Focused packaging coverage is client 381/402 (94.78%) and router 364/385
+(94.55%), including hooks at 329/350 (94.00%) and 312/333 (93.69%). These are
+separate per-package runs with 12 other packaging entry points still unmeasured,
+not a replacement for the last full VM report. The corresponding floors rise
+without reducing the 98% target. A combined concurrent hook run exposed existing
+process-global cwd/exitCode interference; canonical per-package runs pass.
+The complete router installer library/CLI inventory improves from 93 kills and
+six survivors to 94 kills and five survivors after adding real-tar extraction
+with paths containing spaces. Both have 103 generated mutants, four compile
+errors, passing clean/restored baselines and no errors/timeouts. The current
+macOS arm64 score is 94.95%, below 95%, with no equivalence exclusions. Remaining
+survivors are three recursive-directory flags, shell invocation and the host
+architecture condition. Linux x64 evidence is pending; this target is not yet
+a required CI gate. Final bin/verify passes with Cargo retries disabled, including
+745 router tests, isolated remote authentication, zero-copy and browser/WASM.
+Baseline hosted Dart VM coverage is 83.72% (33,515/40,031 measured lines), with
+6,516 uncovered lines and no mutation-testing gate. Rust, browser-only paths and
+standalone application coverage are not represented by that percentage.
+Targets are 98% executable-line coverage per component/runtime and 95% viable
+mutation kills, with security-critical survivors investigated. These are goals,
+not achieved results. The component security audit and beta.6 release remain
+pending; PR #92 merged into master as `f3323e48` on 2026-09-15, with green CI
+`34962388214`, publish dry-run `34962388215`, and WAMP benchmarks `34962388212`.
+Publication is outside the current coverage goal.
+
+Latest local evidence: the HTTP/3 address-family collision now has deterministic
+before/after regressions and a passing full `bin/verify`. Fresh full VM coverage
+passes its ratchets at 36,084/42,451 lines (85.00%), with 6,367 measured lines
+uncovered and 59 unmeasured library files. MCP including its CLI measures
+3,646/3,906 (93.34%); the CLI itself is 2,060/2,291 (89.92%). These are still
+below the goal. The native CLI campaign stopped after 24/1,179 mutants because
+Dart fail-fast orphaned a router: 16 assertion kills and eight infrastructure
+errors, not a complete score. The runner now reaps owned descendants on normal
+exits, rejects leaked-fixture results, and finishes each isolated native test
+file's teardown before stopping. Four diagnostic replays have three assertion
+kills and one survivor, passing clean/restored baselines and no errors/timeouts.
+CI 35003806341 and package dry-run 35003806383 pass for 129c2eda; new changes
+below have passing local verification but still need their own hosted evidence.
+
+Packaging checkpoint: all 52 client installer/build-hook tests pass. New tests
+reproduce interrupted HTTP downloads poisoning both installers' archive caches;
+unique staging plus rename after successful IO now permits a clean retry.
+Archive/checksum truncation, client closure, temporary cleanup, invalid checksums,
+missing libraries, corrupt tar and extraction retry preserve installed output.
+The installer library measures 116/122 (95.08%). Separately measured packaging
+entry points are 297/400 (74.25%): build hook 245/348 (70.40%) and install CLI
+52/52 (100%). Fifteen CLI tests check help/usage output, exact exit codes,
+environment/argument precedence, absolute/relative output paths and cached
+success without network IO. Fourteen other packaging files remain unmeasured in this focused
+run. The root gates now include test/hook, and full VM collection will retain a
+separate packaging LCOV/summary with explicit source-inventory and floor checks.
+These focused measurements do not replace the latest complete VM report.
+The complete 105-mutant installer library/CLI inventory improves from 58 kills
+and 43 survivors (57.43%) to 97 kills and four survivors (96.04%). Both runs
+have four compile errors, no equivalences/timeouts/errors, and passing
+clean/restored baselines. All four remaining survivors are unwaived: three
+recursive-directory flags and an architecture condition matching this arm64
+host. The client installer mutation gate is now required by CI and the audit;
+hook mutation coverage remains separate unfinished work. The same HTTP cache
+bug reproduced in both router installers; their mirrored fix passes all 30
+router hook/installer tests and analysis. Router installer coverage is 105/111
+(94.59%); its separate hook is 228/331 (68.88%) and CLI 22/52 (42.31%).
+A native JSON buffer test
+also lacked the shared global-message-store guard and failed during full Rust
+verification; it now acquires that guard. Fresh full verification and coverage
+finished serially before restarting the native CLI campaign. Fresh
+`bin/test-fast` and final `bin/verify` pass with Cargo retries disabled, including
+698 router tests, isolated remote auth, zero-copy, 374 core WASM tests and two
+WebSocket WASM tests. All 24 updated deployment-audit regressions also pass.
+The fresh full VM/packaging collector passes after verification. Its separate
+packaging report measures 547/783 lines (69.86%), with 12 unmeasured entry points;
+client packaging is 297/400 and router packaging is 250/383. Raw reports and logs
+are retained under out/regression-coverage-2026-09-15/vm-current9 and packaging9.
+No favorable union of prior runs is used. Earlier
+checkpoints below are historical; the overall goal remains unmet.
+
+Testing checkpoint: the expanded VM collector and additional authentication
+regressions measure 33,891/40,033 lines (84.66%) in the latest full run,
+with 6,142 measured lines still uncovered.
+Authentication-server coverage is 455/455 (100%), including malformed third-party
+authenticator results through the public plugin interface. Browser Base64
+coverage is 144/144 (100%), within a separately measured
+core-browser scope of 4,291/5,201 (82.50%). These are scoped measurements, not
+repository-wide completion. The new browser regressions reproduced and fixed
+invalid-sentinel corruption in Base64 decoding under dart2js.
+Full `bin/test-fast`, `bin/verify`, static analysis, VM coverage collection and
+core Chrome coverage have passed locally. The latest full verification passes
+native integration plus Chrome JavaScript and WASM tests. All 11 mutation-runner
+regressions also pass, including rejection of an empty target configuration.
+One earlier serialized run hit an intermittent HTTP/3 handshake timeout; its
+cause remains unproven despite 20 subsequent five-test HTTP/3 group passes and
+the successful full verification. Retain this reliability risk in the plan.
+The authorization mutation
+inventory has 69 killed, 28 unviable and five survivors, three individually
+justified as equivalent: 93.24% raw and 97.18% adjusted. Authentication-server
+has 181 killed, 105 unviable and eight survivors (95.77%, no exclusions).
+Base64 and native RawSocket mutation gaps remain under investigation; no complete-project
+mutation score is claimed. CI configuration now enforces per-package floors,
+measured-source inventory, focused browser floors and authorization/auth-server mutations.
+The broader diagnostic mutation workflow is manual and is not yet a green gate.
+Coverage changes are on the coverage branch, not released. Hosted evidence
+above covers the merged baseline, not this coverage candidate.
+
+Follow-up checkpoint: 154 MCP package tests pass and measure 1,586/1,615 VM
+library lines (98.20%). The large router-hosted CLI remains unmeasured, so this
+is not complete-component coverage. Real-Session bridge tests exposed WAMP
+failures rendered as `Instance of 'Error'`; the delegate now returns only the
+error URI, not private details or payloads. Registry/cursor lifecycle and
+malformed-request tests verify that invalid operations never reach handlers.
+Core browser coverage now measures 4,345/5,201 (83.54%), with MessagePack codec
+coverage at 180/185 (97.30%) and 381 passing tests. The first full MessagePack
+browser mutation run has 173 kills, nine compile errors and 52 survivors
+(76.89% viable score). The refined complete inventory improves to 193 kills,
+nine compile errors and 32 survivors (85.78%), with passing clean/restored
+baselines and no timeouts or infrastructure errors. The full 2,274-mutant MCP
+inventory is running. No passing mutation claim is made for either scope.
+A silent-peer regression bounds the ffi-test HTTP/3 handshake before the Dart
+test tears down its listener. This improves failure diagnostics but does not
+prove the original intermittent handshake cause. Fresh `bin/test-fast` and
+`bin/verify` pass, including native HTTP/3 and Chrome WASM tests. The separate
+browser coverage command verifies Chrome JavaScript.
+The strict deployment audit now expects the
+new coverage/mutation jobs, with a reproduced-before regression for that
+workflow contract; all 24 audit tests pass. A reproduced mutation-classifier
+bug now rejects signal-terminated processes even if they emitted failure JSON
+before crashing. All 12 runner tests pass, and new reports retain exit codes.
+The live inventories started before that guard and remain diagnostic evidence;
+fresh hosted mutation gates will use the corrected runner. Fresh full VM
+coverage collection passes, serialized after verification, including the
+98% measured MCP floor. Sixty-one library files remain unmeasured; retain
+that inventory separately from the measured percentage.
+The complete repository-wide coverage goal remains unmet.
+
+Hosted gate repair: draft PR #93 contains `d5ecb305`. Its authentication
+mutation job in CI `34982430544` reports 18 timeouts (86.24%), despite the
+local passing inventory. Linux directory discovery runs lifecycle tests first;
+some awaited provider entry after a mutant had already returned failure.
+New test helpers assert premature completion, and mutation execution now records
+sorted test-file arguments. The exact formerly timed-out mutant now produces
+an assertion kill in the isolated lifecycle test without changing timeouts.
+All 84 authentication tests and 14 mutation-runner tests pass. A complete
+294-mutant rerun has 182 kills, seven unwaived survivors and 105 compile errors
+(96.30% raw/adjusted), with passing clean/restored baselines and no timeouts or
+infrastructure errors. RPC envelope isolation supplies the additional kill.
+JavaScript MessagePack truncation/admission regressions pass; their complete
+234-mutant inventory has 197 kills, 28 survivors and nine compile errors
+(87.56%), with clean/restored baselines and no timeouts/errors. This inventory
+started before deterministic test ordering and remains diagnostic, below 95%.
+`bin/test-fast` and `bin/verify` pass, including native HTTP/3 and Chrome WASM.
+Repair `e2f488f7` is pushed; hosted CI `34985212120` is running, with green
+browser coverage, both mutation gates and package dry-run `34985212069`.
+The hosted authentication report confirms 182 kills, seven survivors and 105
+compile errors (96.30%), with no timeouts/errors and passing baselines.
+Full hosted CI `34985212120` and the required candidate CI/log/publish-dry-run
+audit pass for `e2f488f7`. The original HTTP/3 handshake cause and
+complete-component coverage gaps remain open.
+
+MCP executable checkpoint: 225 new public CLI tests cover option validation,
+credential redaction, no-network dry runs, real HTTP discovery, paginated
+tool/resource/template/prompt access, malformed catalogs, ticket-auth endpoint
+discovery and grant identity rejection. All 379 MCP tests pass. Newly measuring
+the CLI exposes 2,291 executable lines, of which 463 are covered (20.21%). The
+measured MCP package total is now 2,049/3,906 (52.46%), not the formerly reported
+98.20% library-only slice. That original 1,586/1,615 library scope retains its
+98% gate as an explicit source cohort; the newly measured CLI has a separate
+20.2% regression floor. Package/overall denominators retain all CLI lines, and
+missing cohort sources fail closed. Every measured MCP source must belong to
+exactly one component. All eleven coverage-checker tests pass.
+Twelve individually selected prior CLI survivors replay with eleven kills and
+one compile error, passing clean/restored baselines and no timeouts/errors.
+This diagnostic sample is not a full MCP mutation score; the older complete
+inventory is still running in its existing snapshot. A separate complete
+1,179-mutant CLI inventory has completed against the new tests: 221 killed,
+631 surviving and 327 compile errors, no timeouts/errors, passing clean/restored
+baselines, and 25.94% raw/adjusted score with no equivalences. All source/test
+hashes match the current files. This complete CLI inventory remains far below
+95%; the older full MCP run is still separate diagnostic evidence.
+Local `bin/test-fast` and
+`bin/verify` pass; the final five auth regressions and exit-code test isolation
+adjustment also pass in the fresh 379-test package run. Full VM coverage
+collection passes, serialized after verification: 34,337/42,324 (81.13%), with
+7,987 uncovered measured lines and 60 unmeasured library files. Client and
+router error/cleanup callback hits vary from the earlier report; the fresh
+count, not a union of favorable hits, is the current single-run measurement.
+Commit `5fa96e89` is pushed to PR #93. Final-state `bin/verify`, CI
+`34990192211`, and publish dry-run `34990192207` were started. The dry-run
+passes, but local verification reproduced the HTTP/3 handshake timeout in
+`serves protected direct JSON WAMP helpers over native HTTP/3`, at POST
+`/mcp/secure`. Hosted CI `34990192211` has since passed all seven jobs.
+Its Linux VM artifact measures 34,345/42,324 (81.15%), including MCP
+2,049/3,906 (52.46%) and 60 unmeasured library files. Keep it separate from
+the local VM measurement; it does not establish the 98% target.
+
+HTTP/3 investigation: a new deterministic FFI regression proves that the
+per-request test client destroyed its Tokio runtime without draining QUIC,
+leaving the router waiting for its peer idle timeout. It now closes and drains
+its endpoint on both successful and failed requests; the existing five-second
+handshake deadline is unchanged. A second reproduced production bug classified
+H3_NO_ERROR during HTTP/3 setup as a protocol failure. The router now reports
+that normal peer close as graceful, while H3_INTERNAL_ERROR remains an error.
+Two deterministic closed-peer tests avoid scheduler-dependent setup races and
+assert single close events and registry cleanup. The FFI cleanup/error and
+silent-peer deadline tests pass, as do all 77 native router integration tests.
+Debug-only endpoint/admission traces provide correlation for future handshake
+failures. These fixes do not yet prove the original intermittent handshake
+cause. Fresh `bin/test-fast` and final `bin/verify` pass, including all 671
+router tests, isolated remote-auth integration and Chrome WASM checks, with no
+overlapping full coverage collector. Commit `d097afaf` is pushed to draft
+PR #93. Its package dry-run `34992820507` passes; CI `34992820252` is running
+and the required candidate CI/log/publish-dry-run audit remains pending.
+The full coverage goal remains unmet.
+
+Public CLI integration checkpoint: nine new tests invoke the CLI in-process
+against the real, child-process public router example. They exercise both
+compatibility versions, public and bearer-protected SSE/JSON-response sessions,
+session deletion, registration/subscription metadata, pub/sub, resource updates,
+ticket/WAMP-CRA/SCRAM grants, refresh and revocation. The integration-only
+measurement covers 1,932/2,291 CLI lines (84.33%). A fresh combined run of all
+234 CLI unit/integration tests passes and measures 2,060/2,291 (89.92%), with
+231 uncovered lines; its regression floor rises to 89.9%. Full VM collection
+is still required. No repository-wide increase is inferred from this slice.
+The tests reproduced an example shutdown leak: Future.any over two signal
+subscriptions left the unused listener alive after shutdown. Explicitly
+cancelling both subscriptions fixes normal SIGTERM and SIGINT exit, with
+bounded, idempotent child cleanup in the tests. Native fixtures remain serial.
+The new complete `mcp-cli-native` inventory has 1,179 mutants and includes
+both CLI unit tests and these integration tests. Execution is pending; its
+required native library and support files are hash-recorded, and missing or
+changed native artifacts invalidate evidence. Suite-fixture failures now count
+as infrastructure errors, not kills; all 18 mutation-runner regressions pass.
+The older full MCP diagnostic inventory completed with 659 kills, 1,349
+survivors, 262 compile errors and four timeouts: 32.75% raw/adjusted, no
+equivalences, with passing clean/restored baselines. It predates the latest
+tests and runner guards and is not a passing/current mutation claim. The four
+timeouts came from a publish test awaiting an event after tool failure. It now
+asserts success before a same-stream WAMP barrier; all four targeted replay
+mutants produce assertion kills with passing clean/restored baselines and no
+timeouts/errors. This replay is not a complete inventory score.
+Candidate `d097afaf` now has all seven CI jobs green and passes the required
+CI/log/publish-dry-run audit. That evidence does not cover the uncommitted CLI
+integration checkpoint. Fresh `bin/test-fast` passes; final `bin/verify` is
+running, with full VM coverage and native mutation execution to follow serially.
+
+HTTP/3 causal regression checkpoint: that verification failed again in the
+protected native HTTP/3 test. Temporary socket-level diagnostics then captured
+the client sending Initial packets and the server successfully replying, but
+no replies arriving at the client. On macOS its dual-stack ephemeral bind had
+overlapped an existing IPv4 UDP socket, which owned the reply port. A probe using
+only fresh test-owned sockets reproduces the misdelivery. The test client now
+binds the destination address family; both new regressions fail with the old
+bind and pass with the fix. They check IPv4/IPv6 selection and rejection of a
+forced occupied IPv4 port. All eight Rust HTTP/3 test clients use the same
+helper. The five-second handshake deadline is unchanged; temporary packet
+instrumentation is removed. All four focused FFI regressions and a fresh
+`bin/test-fast` pass. Full `bin/verify` passes on the fixed tree, including 152
+ffi-test cases, 680 router tests, isolated remote auth, zero-copy, 374 core WASM
+tests and two WebSocket WASM tests. Fresh full VM collection also passes at
+35,930/42,324 lines (84.89%), retaining all CLI lines and validating its 89.9%
+floor after fixture extraction. The complete native CLI mutation campaign
+remains the next step; no complete native CLI mutation score is claimed.
+Mutation classification is additionally checked against actual Dart reporter
+output for healthy/assertion-failing tests, setup/teardown failures, teardown
+after assertion failure, timeouts and abrupt exits. All 19 runner tests pass.
+The latest hosted green evidence still covers d097afaf, not this local fix.
+
+Previous release milestone: clear the final deployment-chain audit blocker, then publish
 the synchronized `3.0.0-beta.6` tester release from protected `master`. The
-active plan remains
+paused release/security plan is
 `docs/exec-plans/2026-09-10-component-security-audit.md`; the broader audit and
 WampApp feature plan remain open after this prerelease. Release PR #91 merged
 SA-001 through SA-018 at `2e062228`; older checkpoint wording that calls those

@@ -2832,6 +2832,14 @@ fn start_http3_listener(
                 Some(_) = handshakes.join_next(), if !handshakes.is_empty() => {},
                 incoming = endpoint_for_task.accept() => {
                     let Some(incoming) = incoming else { break };
+                    #[cfg(feature = "ffi-test")]
+                    if ffi_test_debug_logs_enabled() {
+                        eprintln!(
+                            "http3 incoming on {:?} at {} from {}, pending handshakes {} of {}",
+                            listener_id, local_addr, incoming.remote_address(),
+                            handshakes.len(), max_pending_handshakes
+                        );
+                    }
                     if handshakes.len() >= max_pending_handshakes {
                         incoming.refuse();
                         continue;
@@ -5984,6 +5992,8 @@ mod http2_security_tests;
 
 #[cfg(test)]
 mod http1_response_tests;
+#[cfg(test)]
+mod http_response_headers_tests;
 
 #[cfg(test)]
 mod stats_tests {
@@ -6922,15 +6932,23 @@ async fn serve_http3_requests(
     {
         Ok(conn) => conn,
         Err(err) => {
-            eprintln!(
-                "http3 handshake failed for listener {:?}: {}",
-                listener_id, err
-            );
-            registry.finish_http_connection(
-                connection_id,
-                HttpConnectionCloseReason::ProtocolError,
-                Some(err.to_string()),
-            );
+            if err.is_h3_no_error() {
+                registry.finish_http_connection(
+                    connection_id,
+                    HttpConnectionCloseReason::Graceful,
+                    None,
+                );
+            } else {
+                eprintln!(
+                    "http3 handshake failed for listener {:?}: {}",
+                    listener_id, err
+                );
+                registry.finish_http_connection(
+                    connection_id,
+                    HttpConnectionCloseReason::ProtocolError,
+                    Some(err.to_string()),
+                );
+            }
             return;
         }
     };
@@ -7513,16 +7531,16 @@ async fn send_http2_plain_response(
     let mut builder = Http2Response::builder().status(http2_status);
     {
         let header_map = builder.headers_mut().expect("headers available");
-        if let Ok(value) = Http2HeaderValue::from_str(&body.len().to_string()) {
-            header_map.insert(Http2HeaderName::from_static("content-length"), value);
-        }
         for (name, value) in extra_headers {
             if let (Ok(name), Ok(val)) = (
                 Http2HeaderName::from_bytes(name.as_bytes()),
                 Http2HeaderValue::from_str(value),
             ) {
-                header_map.insert(name, val);
+                header_map.append(name, val);
             }
+        }
+        if let Ok(value) = Http2HeaderValue::from_str(&body.len().to_string()) {
+            header_map.insert(Http2HeaderName::from_static("content-length"), value);
         }
     }
     let response = builder.body(()).map_err(|err| err.to_string())?;
@@ -7562,7 +7580,7 @@ async fn send_http2_response_from_dispatch(
                         Http2HeaderName::from_bytes(name.as_bytes()),
                         Http2HeaderValue::from_str(value),
                     ) {
-                        header_map.insert(name, value);
+                        header_map.append(name, value);
                     }
                 }
                 if let Ok(len_value) = Http2HeaderValue::from_str(&body_bytes.len().to_string()) {
@@ -7591,7 +7609,7 @@ async fn send_http2_response_from_dispatch(
                         Http2HeaderName::from_bytes(name.as_bytes()),
                         Http2HeaderValue::from_str(value),
                     ) {
-                        header_map.insert(name, value);
+                        header_map.append(name, value);
                     }
                 }
             }
@@ -8107,7 +8125,7 @@ async fn send_http3_plain_response(
                 HeaderName::from_bytes(name.as_bytes()),
                 HeaderValue::from_str(value),
             ) {
-                header_map.insert(name, value);
+                header_map.append(name, value);
             }
         }
         if let Ok(len_value) = HeaderValue::from_str(&body.len().to_string()) {
@@ -8150,7 +8168,7 @@ async fn send_http3_response_from_dispatch(
                         HeaderName::from_bytes(name.as_bytes()),
                         HeaderValue::from_str(value),
                     ) {
-                        header_map.insert(name, value);
+                        header_map.append(name, value);
                     }
                 }
                 if let Ok(len_value) = HeaderValue::from_str(&body_bytes.len().to_string()) {
@@ -8181,7 +8199,7 @@ async fn send_http3_response_from_dispatch(
                         HeaderName::from_bytes(name.as_bytes()),
                         HeaderValue::from_str(value),
                     ) {
-                        header_map.insert(name, value);
+                        header_map.append(name, value);
                     }
                 }
             }

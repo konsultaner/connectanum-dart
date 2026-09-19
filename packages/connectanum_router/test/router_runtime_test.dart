@@ -26,6 +26,8 @@ import 'package:connectanum_core/connectanum_core.dart'
         RegisterOptions;
 import 'package:connectanum_core/connectanum_core.dart' show YieldOptions;
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/router/config/auth_registry.dart';
+import 'package:connectanum_router/src/router/config/authenticator.dart';
 import 'package:connectanum_router/src/router/auth/security.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
@@ -93,8 +95,11 @@ class _TestFastCgiRecordReader {
   }
 }
 
-Future<_TestFastCgiRequest> _readTestFastCgiRequest(Socket socket) async {
-  final reader = _TestFastCgiRecordReader(socket);
+Future<_TestFastCgiRequest> _readTestFastCgiRequest(
+  Socket socket, {
+  _TestFastCgiRecordReader? recordReader,
+}) async {
+  final reader = recordReader ?? _TestFastCgiRecordReader(socket);
   final paramsBytes = BytesBuilder(copy: false);
   final bodyBytes = BytesBuilder(copy: false);
   var paramsComplete = false;
@@ -773,7 +778,7 @@ Future<void> _waitUntil(
   final deadline = DateTime.now().add(timeout);
   while (!condition()) {
     if (DateTime.now().isAfter(deadline)) {
-      fail('Condition not met within $timeout');
+      throw TimeoutException('Condition not met within $timeout', timeout);
     }
     await Future<void>.delayed(pollInterval);
   }
@@ -793,6 +798,282 @@ Map<String, Object?> _jsonResponseBody(NativeHttpResponse response) {
     );
   }
   throw StateError('Unsupported HTTP response body: ${body.runtimeType}');
+}
+
+Future<({NativeHttpResponse response, List<Map<String, Object?>> events})>
+_fastCgiResponseFixture(
+  Future<void> Function(Socket socket) respond, {
+  Map<String, Object?> options = const {},
+}) async {
+  final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  final sockets = <Socket>[];
+  final served = Completer<void>();
+  final subscription = upstream.listen((socket) async {
+    sockets.add(socket);
+    try {
+      final reader = _TestFastCgiRecordReader(socket);
+      await _readTestFastCgiRequest(socket, recordReader: reader);
+      await respond(socket);
+      expect(reader._offset, reader._buffer.length);
+      expect(
+        await reader._iterator.moveNext().timeout(const Duration(seconds: 2)),
+        isFalse,
+        reason: 'Router must close the upstream socket after every response',
+      );
+      served.complete();
+    } catch (error, stack) {
+      served.completeError(error, stack);
+    }
+  });
+  // Observe failures immediately, while the router's reply is still pending.
+  final upstreamResult = served.future.then<Object?>(
+    (_) => null,
+    onError: (Object error, StackTrace stack) => error,
+  );
+  addTearDown(() async {
+    for (final socket in sockets) {
+      socket.destroy();
+    }
+    await subscription.cancel();
+    await upstream.close();
+  });
+  final runtime = _HandleRuntime();
+  final settings = RouterSettingsBuilder()
+    ..addListenerFromBuilder(
+      ListenerSettingsBuilder('http', '127.0.0.1:0')
+        ..addProtocol(ListenerProtocol.http)
+        ..setHttpOptions(
+          HttpListenerSettings(
+            routes: [
+              HttpRouteSettings(
+                match: const HttpRouteMatch(prefix: '/php'),
+                action: HttpRouteAction(
+                  type: HttpRouteActionType.fastCgi,
+                  delegate: 'tcp://${upstream.address.host}:${upstream.port}',
+                  options: {
+                    'document_root': '/srv/consumer/public',
+                    'strip_prefix': true,
+                    'timeout_ms': 1000,
+                    ...options,
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+    );
+  final router = Router(
+    RouterConfig(
+      endpoints: [
+        Endpoint(
+          host: '127.0.0.1',
+          port: 0,
+          tlsMode: TlsMode.native,
+          maxRawSocketSizeExponent: 16,
+          sniCertificates: [_cert('localhost')],
+        ),
+      ],
+    ),
+    settings: settings.build(),
+  );
+  final events = <Map<String, Object?>>[];
+  final binding = router.start(
+    runtime,
+    onEvent: (event) {
+      if (event is Map<String, Object?>) events.add(event);
+    },
+  );
+  addTearDown(binding.dispose);
+  await Future<void>.delayed(Duration.zero);
+  const connectionId = 146;
+  runtime.setConnectionProtocol(connectionId, NativeConnectionProtocol.http);
+  runtime.enqueueHttpHandshake(
+    binding.listeners.single.listenerId,
+    connectionId,
+    NativeHttpHandshake.synthetic(
+      handle: 146,
+      method: 'GET',
+      target: '/php/index.php',
+      path: '/php/index.php',
+      protocol: 'http/1.1',
+      headers: const {'host': 'consumer.example'},
+      body: Uint8List(0),
+      realm: 'router.http',
+      procedure: 'router.http.fastcgi',
+    ),
+  );
+  await _waitUntil(
+    () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+    timeout: const Duration(seconds: 5),
+  );
+  expect(await upstreamResult.timeout(const Duration(seconds: 2)), isNull);
+  return (
+    response: runtime.httpResponses[connectionId]!.single,
+    events: events,
+  );
+}
+
+class _ProxyResponseFixture {
+  _ProxyResponseFixture(this.runtime, this.binding, this.events);
+
+  final _HandleRuntime runtime;
+  final RouterBinding binding;
+  final List<Map<String, Object?>> events;
+  int nextId = 1900;
+
+  static Future<_ProxyResponseFixture> start(
+    Map<String, Object?> options,
+  ) async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: const HttpRouteMatch(prefix: '/api'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.reverseProxy,
+                    options: options,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final events = <Map<String, Object?>>[];
+    final binding =
+        Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: settings.build(),
+        ).start(
+          runtime,
+          onEvent: (event) {
+            if (event is Map<String, Object?>) events.add(event);
+          },
+        );
+    addTearDown(binding.dispose);
+    await Future<void>.delayed(Duration.zero);
+    return _ProxyResponseFixture(runtime, binding, events);
+  }
+
+  Future<NativeHttpResponse> request() async {
+    final id = nextId++;
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: binding.listeners.single.listenerId,
+      connectionId: id,
+      handle: id,
+      method: 'GET',
+      target: '/api/resource',
+      headers: const {},
+      body: null,
+      realm: 'router.http',
+      procedure: 'router.http.reverse_proxy',
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[id]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 5),
+    );
+    return runtime.httpResponses[id]!.single;
+  }
+}
+
+class _ConfiguredFileFixture {
+  _ConfiguredFileFixture(this.directory, this.file, this.runtime, this.binding);
+
+  final Directory directory;
+  final File file;
+  final _HandleRuntime runtime;
+  final RouterBinding binding;
+  int _nextId = 1700;
+
+  Future<NativeHttpResponse> request({
+    String method = 'GET',
+    String path = '/assets/hello.txt',
+    Map<String, String> headers = const {},
+  }) async {
+    final id = _nextId++;
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: binding.listeners.single.listenerId,
+      connectionId: id,
+      handle: id,
+      method: method,
+      target: path,
+      headers: headers,
+      body: null,
+      realm: 'router.http',
+      procedure: 'router.http.file',
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[id]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    return runtime.httpResponses[id]!.single;
+  }
+}
+
+Future<_ConfiguredFileFixture> _configuredFileFixture({
+  HttpRouteAction? action,
+}) async {
+  final directory = await Directory.systemTemp.createTemp('router-file-test-');
+  addTearDown(() => directory.delete(recursive: true));
+  final file = await File(
+    '${directory.path}/hello.txt',
+  ).writeAsString('0123456789abcdef');
+  await file.setLastModified(DateTime.utc(2024, 3, 4, 5, 6, 7, 125));
+  final runtime = _HandleRuntime();
+  final settings = RouterSettingsBuilder()
+    ..addListenerFromBuilder(
+      ListenerSettingsBuilder('http', '127.0.0.1:0')
+        ..addProtocol(ListenerProtocol.http)
+        ..setHttpOptions(
+          HttpListenerSettings(
+            routes: [
+              HttpRouteSettings(
+                match: const HttpRouteMatch(prefix: '/assets'),
+                action:
+                    action ??
+                    HttpRouteAction(
+                      type: HttpRouteActionType.file,
+                      directory: directory.path,
+                      cacheControl: 'max-age=60',
+                    ),
+              ),
+            ],
+          ),
+        ),
+    );
+  final binding = Router(
+    RouterConfig(
+      endpoints: [
+        Endpoint(
+          host: '127.0.0.1',
+          port: 0,
+          tlsMode: TlsMode.native,
+          maxRawSocketSizeExponent: 16,
+          sniCertificates: [_cert('localhost')],
+        ),
+      ],
+    ),
+    settings: settings.build(),
+  ).start(runtime);
+  addTearDown(binding.dispose);
+  await Future<void>.delayed(Duration.zero);
+  return _ConfiguredFileFixture(directory, file, runtime, binding);
 }
 
 void _enqueueSyntheticHttpRequest({
@@ -1445,6 +1726,9 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
   int tokenTtlMs = 60000,
   int refreshTokenTtlMs = 300000,
   bool rotateRefreshTokens = true,
+  Map<String, Object?> secureRouteOptions = const {},
+  bool enableProtectedPublish = false,
+  List<String> profileAuthMethods = const ['ticket', 'wampcra', 'scram'],
 }) {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
@@ -1475,14 +1759,22 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
           RoleSettingsBuilder('member')..addPermissionFromBuilder(
             PermissionSettingsBuilder('com.example.')
               ..setMatchPolicy(PermissionMatchPolicy.prefix)
-              ..allowOperations(const ['call']),
+              ..allowOperations([
+                'call',
+                if (enableProtectedPublish) 'publish',
+              ]),
           ),
         )
         ..addRoleFromBuilder(
           RoleSettingsBuilder('internal')..addPermissionFromBuilder(
             PermissionSettingsBuilder('com.example.')
               ..setMatchPolicy(PermissionMatchPolicy.prefix)
-              ..allowOperations(const ['call', 'register', 'unregister']),
+              ..allowOperations([
+                'call',
+                'register',
+                'unregister',
+                if (enableProtectedPublish) 'subscribe',
+              ]),
           ),
         ),
     )
@@ -1493,7 +1785,7 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
     ..addSessionProfileFromBuilder(
       SessionProfileSettingsBuilder('http-ticket')
         ..setRealm('realm1')
-        ..setAuthMethods(const ['ticket', 'wampcra', 'scram']),
+        ..setAuthMethods(profileAuthMethods),
     )
     ..addListenerFromBuilder(
       (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
@@ -1525,8 +1817,20 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
                     type: HttpRouteActionType.rpc,
                     procedure: 'com.example.api.secure',
                     sessionProfile: 'http-ticket',
+                    options: secureRouteOptions,
                   ),
                 ),
+                if (enableProtectedPublish)
+                  HttpRouteSettings(
+                    match: const HttpRouteMatch(path: '/api/events'),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.publish,
+                      realm: 'realm1',
+                      topic: 'com.example.events',
+                      sessionProfile: 'http-ticket',
+                      options: secureRouteOptions,
+                    ),
+                  ),
                 HttpRouteSettings(
                   match: HttpRouteMatch(path: '/mcp/secure'),
                   action: HttpRouteAction(
@@ -2254,7 +2558,636 @@ RouterSettings _buildRestrictedInternalSessionSettings() {
   return builder.build();
 }
 
+class _RoundAuthenticator extends Authenticator {
+  final contexts = <AuthenticatorContext>[];
+  final messages = <AuthenticateMessage>[];
+  final abortReasons = <String?>[];
+  final abortContexts = <AuthenticatorContext>[];
+  bool failAbort = false;
+  AuthenticatorContext? helloContext;
+  Future<AuthResult> Function()? hello;
+  Future<AuthResult> Function()? authenticate;
+
+  @override
+  String get method => 'test-http-rounds';
+
+  static AuthResult challenge(int round) => AuthResult.challenge(
+    AuthChallenge(
+      challenge: <String, Object?>{'round': round},
+      extra: <String, Object?>{'nonce': 'round-$round'},
+    ),
+  );
+
+  static AuthResult success() => AuthResult.success(
+    const AuthSuccess(
+      authId: 'user-1',
+      authRole: 'member',
+      details: {'authprovider': 'round-provider', 'verified_rounds': 3},
+    ),
+  );
+
+  @override
+  Future<AuthResult> onHello(AuthenticatorContext context) async {
+    helloContext = context;
+    return hello == null ? challenge(1) : await hello!();
+  }
+
+  @override
+  Future<AuthResult> onAuthenticate(
+    AuthenticatorContext context,
+    AuthenticateMessage message,
+  ) async {
+    contexts.add(context);
+    messages.add(message);
+    return authenticate == null ? success() : await authenticate!();
+  }
+
+  @override
+  Future<void> onAbort(AuthenticatorContext context, {String? reason}) async {
+    if (helloContext != null) expect(context, same(helloContext));
+    abortContexts.add(context);
+    abortReasons.add(reason);
+    if (failAbort) throw StateError('Authenticator cleanup failed');
+  }
+}
+
+class _RoundAuthenticatorFactory extends AuthenticatorFactory {
+  _RoundAuthenticatorFactory(
+    Iterable<_RoundAuthenticator> authenticators,
+    this.beforeCreate,
+  ) : remaining = Queue.of(authenticators);
+
+  final Queue<_RoundAuthenticator> remaining;
+  final Future<void> Function()? beforeCreate;
+
+  @override
+  String get method => 'test-http-rounds';
+
+  @override
+  Future<Authenticator> create(
+    RealmSettings realm,
+    Map<String, Object?> options,
+  ) async {
+    expect(remaining, isNotEmpty, reason: 'Unexpected authentication attempt');
+    await beforeCreate?.call();
+    return remaining.removeFirst();
+  }
+}
+
+class _HttpRoundFixture {
+  _HttpRoundFixture(this.runtime, this.binding, this.events);
+
+  final _HandleRuntime runtime;
+  final RouterBinding binding;
+  final List<Map<String, Object?>> events;
+  int nextConnection = 9000;
+
+  static Future<_HttpRoundFixture> start(
+    List<_RoundAuthenticator> authenticators, {
+    RouterSettings? settings,
+    Future<void> Function()? beforeCreate,
+  }) async {
+    final factory = _RoundAuthenticatorFactory(authenticators, beforeCreate);
+    AuthenticatorRegistry.registerFactory(factory);
+    addTearDown(() => AuthenticatorRegistry.unregisterFactory(factory.method));
+    final base = settings ?? _buildRouterSettingsWithHttpAuthBridge();
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final binding =
+        Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: base.copyWith(
+            authenticators: {
+              ...base.authenticators,
+              'ticket-basic': AuthenticatorDefinition(type: factory.method),
+            },
+          ),
+        ).start(
+          runtime,
+          onEvent: (event) {
+            if (event is Map<String, Object?>) events.add(event);
+          },
+        );
+    addTearDown(binding.dispose);
+    await Future<void>.delayed(Duration.zero);
+    return _HttpRoundFixture(runtime, binding, events);
+  }
+
+  Future<NativeHttpResponse> post(
+    Map<String, Object?> body, {
+    String target = '/auth',
+  }) async {
+    final connection = nextConnection++;
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: binding.listeners.single.listenerId,
+      connectionId: connection,
+      handle: connection,
+      method: 'POST',
+      target: target,
+      headers: const {'content-type': 'application/json'},
+      body: body,
+      realm: 'router.http',
+      procedure: 'router.http.auth',
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[connection]?.isNotEmpty ?? false,
+    );
+    return runtime.httpResponses[connection]!.single;
+  }
+
+  Future<NativeHttpResponse> hello() => post(const {
+    'realm': 'realm1',
+    'authid': 'user-1',
+    'authmethod': 'ticket',
+    'authextra': {'origin': 'consumer'},
+  });
+
+  Future<NativeHttpResponse> reply(String state, {String target = '/auth'}) =>
+      post({
+        'state': state,
+        'signature': 'round-proof',
+        'extra': {'response': 'consumer'},
+      }, target: target);
+}
+
+String _expectRoundChallenge(NativeHttpResponse response, int round) {
+  expect(response.status, HttpStatus.unauthorized);
+  expect(response.headers[HttpHeaders.wwwAuthenticateHeader], 'Bearer');
+  final body = _jsonResponseBody(response);
+  expect(body['state'], isA<String>());
+  final state = body['state'] as String;
+  expect(state, isNotEmpty);
+  expect(body, {
+    'status': 'challenge',
+    'state': state,
+    'realm': 'realm1',
+    'authmethod': 'ticket',
+    'challenge': {'round': round},
+    'extra': {'nonce': 'round-$round'},
+  });
+  return state;
+}
+
+void _expectRoundError(
+  NativeHttpResponse response,
+  String reason, {
+  int status = HttpStatus.unauthorized,
+}) {
+  expect(response.status, status);
+  expect(
+    _jsonResponseBody(response),
+    allOf(
+      containsPair('status', 'error'),
+      containsPair('reason', reason),
+      isNot(contains('state')),
+      isNot(contains('access_token')),
+      isNot(contains('refresh_token')),
+    ),
+  );
+}
+
+void _httpRoundAuthenticationTests() {
+  group('HTTP authentication rounds', () {
+    setUp(AuthSecurityTracker.reset);
+    tearDown(AuthSecurityTracker.reset);
+
+    test(
+      'poll deadline is an uncredited timeout, not an assertion failure',
+      () async {
+        await expectLater(
+          _waitUntil(() => false, timeout: Duration.zero),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
+    test('satisfied poll condition succeeds at a zero deadline', () async {
+      await _waitUntil(() => true, timeout: Duration.zero);
+    });
+
+    for (final timeout in [0, 10000]) {
+      test(
+        'rotates states and preserves identity with timeout $timeout',
+        () async {
+          final auth = _RoundAuthenticator();
+          auth.authenticate = () async => auth.messages.length < 3
+              ? _RoundAuthenticator.challenge(auth.messages.length + 1)
+              : _RoundAuthenticator.success();
+          final fixture = await _HttpRoundFixture.start(
+            [auth],
+            settings: _buildRouterSettingsWithHttpAuthBridge(
+              authTimeoutMs: timeout,
+            ),
+          );
+          final states = <String>[
+            _expectRoundChallenge(await fixture.hello(), 1),
+          ];
+          for (var round = 2; round <= 3; round++) {
+            final state = _expectRoundChallenge(
+              await fixture.reply(states.last),
+              round,
+            );
+            expect(states, isNot(contains(state)));
+            for (final previous in states) {
+              _expectRoundError(await fixture.reply(previous), 'invalid_state');
+            }
+            expect(auth.messages, hasLength(round - 1));
+            states.add(state);
+          }
+          final success = await fixture.reply(states.last);
+          expect(success.status, HttpStatus.ok);
+          expect(
+            _jsonResponseBody(success),
+            allOf([
+              containsPair('status', 'ok'),
+              containsPair('realm', 'realm1'),
+              containsPair('authid', 'user-1'),
+              containsPair('authrole', 'member'),
+              containsPair('authmethod', 'ticket'),
+              containsPair('authprovider', 'round-provider'),
+              containsPair('details', {
+                'authprovider': 'round-provider',
+                'verified_rounds': 3,
+              }),
+              containsPair('access_token', isNotEmpty),
+              containsPair('refresh_token', isNotEmpty),
+              isNot(contains('state')),
+            ]),
+          );
+          expect(auth.contexts, hasLength(3));
+          for (final context in auth.contexts) {
+            expect(context, same(auth.helloContext));
+            expect(context.helloDetails, {
+              'authid': 'user-1',
+              'authmethods': ['ticket'],
+              'authextra': {'origin': 'consumer'},
+            });
+          }
+          for (final message in auth.messages) {
+            expect(message.signature, 'round-proof');
+            expect(message.extra, {'response': 'consumer'});
+          }
+          _expectRoundError(await fixture.reply(states.last), 'invalid_state');
+          expect(auth.messages, hasLength(3));
+          expect(auth.abortReasons, isEmpty);
+        },
+      );
+    }
+
+    for (final profile in [false, true]) {
+      test(
+        'preserves ${profile ? 'profile' : 'route'} binding after rotation',
+        () async {
+          final auth = _RoundAuthenticator()
+            ..authenticate = () async => _RoundAuthenticator.challenge(2);
+          final fixture = await _HttpRoundFixture.start(
+            [auth],
+            settings: profile
+                ? _buildRouterSettingsWithHttpAuthProfileIsolation()
+                : _buildRouterSettingsWithHttpAuthRouteIsolation(),
+          );
+          final first = _expectRoundChallenge(await fixture.hello(), 1);
+          final second = _expectRoundChallenge(await fixture.reply(first), 2);
+          final reason = profile ? 'wrong_session_profile' : 'wrong_auth_route';
+          _expectRoundError(
+            await fixture.reply(second, target: '/auth/alternate'),
+            reason,
+          );
+          expect(auth.abortReasons, [reason]);
+          expect(auth.messages, hasLength(1));
+          _expectRoundError(await fixture.reply(second), 'invalid_state');
+          expect(auth.abortReasons, [reason]);
+        },
+      );
+    }
+
+    test('consumes missing-signature state and releases capacity', () async {
+      final auth = _RoundAuthenticator()
+        ..authenticate = () async => _RoundAuthenticator.challenge(2);
+      final replacement = _RoundAuthenticator();
+      final fixture = await _HttpRoundFixture.start([
+        auth,
+        replacement,
+      ], settings: _buildRouterSettingsWithHttpAuthBridge(maxPendingAuth: 1));
+      final first = _expectRoundChallenge(await fixture.hello(), 1);
+      final second = _expectRoundChallenge(await fixture.reply(first), 2);
+      _expectRoundError(
+        await fixture.post({'state': second}),
+        'missing_signature',
+        status: HttpStatus.badRequest,
+      );
+      expect(auth.abortReasons, ['missing_signature']);
+      expect(auth.messages, hasLength(1));
+      _expectRoundError(await fixture.reply(second), 'invalid_state');
+      final next = _expectRoundChallenge(await fixture.hello(), 1);
+      expect((await fixture.reply(next)).status, HttpStatus.ok);
+    });
+
+    for (final message in <String?>[null, 'Second factor rejected']) {
+      test('cleans up failed rounds with message $message', () async {
+        final auth = _RoundAuthenticator();
+        auth.authenticate = () async => auth.messages.length == 1
+            ? _RoundAuthenticator.challenge(2)
+            : AuthResult.failure(
+                AuthFailure(
+                  reason: 'wamp.error.not_authorized',
+                  message: message,
+                ),
+              );
+        final fixture = await _HttpRoundFixture.start([auth]);
+        final first = _expectRoundChallenge(await fixture.hello(), 1);
+        final second = _expectRoundChallenge(await fixture.reply(first), 2);
+        final failure = await fixture.reply(second);
+        _expectRoundError(failure, 'wamp.error.not_authorized');
+        expect(_jsonResponseBody(failure), {
+          'status': 'error',
+          'reason': 'wamp.error.not_authorized',
+          'message': ?message,
+        });
+        expect(auth.abortReasons, ['authenticate_failed']);
+        _expectRoundError(await fixture.reply(second), 'invalid_state');
+        expect(auth.messages, hasLength(2));
+      });
+    }
+
+    test('rejects concurrent replay while authenticator is awaiting', () async {
+      final result = Completer<AuthResult>();
+      addTearDown(() {
+        if (!result.isCompleted) result.complete(_RoundAuthenticator.success());
+      });
+      final auth = _RoundAuthenticator()..authenticate = () => result.future;
+      final fixture = await _HttpRoundFixture.start([auth]);
+      final first = _expectRoundChallenge(await fixture.hello(), 1);
+      final pending = fixture.reply(first);
+      await _waitUntil(() => auth.messages.length == 1);
+      _expectRoundError(await fixture.reply(first), 'invalid_state');
+      expect(auth.messages, hasLength(1));
+      result.complete(_RoundAuthenticator.challenge(2));
+      final second = _expectRoundChallenge(await pending, 2);
+      expect(second, isNot(first));
+      auth.authenticate = null;
+      expect((await fixture.reply(second)).status, HttpStatus.ok);
+      expect(auth.abortReasons, isEmpty);
+    });
+
+    for (final grant in [false, true]) {
+      test(
+        'rechecks ${grant ? 'grant' : 'challenge'} capacity after async reply',
+        () async {
+          final result = Completer<AuthResult>();
+          addTearDown(() {
+            if (!result.isCompleted) {
+              result.complete(_RoundAuthenticator.success());
+            }
+          });
+          final auth = _RoundAuthenticator()
+            ..authenticate = () => result.future;
+          final competing = _RoundAuthenticator();
+          final fixture = await _HttpRoundFixture.start(
+            [auth, competing],
+            settings: _buildRouterSettingsWithHttpAuthBridge(
+              maxPendingAuth: grant ? 2 : 1,
+              maxHttpAuthGrants: grant ? 1 : 2,
+            ),
+          );
+          final first = _expectRoundChallenge(await fixture.hello(), 1);
+          final pending = fixture.reply(first);
+          await _waitUntil(() => auth.messages.length == 1);
+          final other = _expectRoundChallenge(await fixture.hello(), 1);
+          if (grant) expect((await fixture.reply(other)).status, HttpStatus.ok);
+          result.complete(
+            grant
+                ? _RoundAuthenticator.success()
+                : _RoundAuthenticator.challenge(2),
+          );
+          _expectRoundError(
+            await pending,
+            grant ? 'auth_grant_capacity_exhausted' : 'auth_capacity_exhausted',
+            status: grant
+                ? HttpStatus.serviceUnavailable
+                : HttpStatus.tooManyRequests,
+          );
+          expect(auth.abortReasons, [
+            grant
+                ? 'http_auth_grant_capacity_exhausted'
+                : 'http_auth_capacity_exhausted',
+          ]);
+          _expectRoundError(await fixture.reply(first), 'invalid_state');
+          if (!grant) {
+            expect((await fixture.reply(other)).status, HttpStatus.ok);
+          }
+          expect(competing.abortReasons, isEmpty);
+        },
+      );
+    }
+
+    test('expires rotated state and releases challenge capacity', () async {
+      final auth = _RoundAuthenticator()
+        ..authenticate = () async => _RoundAuthenticator.challenge(2);
+      final replacement = _RoundAuthenticator();
+      final fixture = await _HttpRoundFixture.start(
+        [auth, replacement],
+        settings: _buildRouterSettingsWithHttpAuthBridge(
+          maxPendingAuth: 1,
+          authTimeoutMs: 500,
+        ),
+      );
+      final first = _expectRoundChallenge(await fixture.hello(), 1);
+      final second = _expectRoundChallenge(await fixture.reply(first), 2);
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+      _expectRoundError(await fixture.reply(second), 'invalid_state');
+      expect(auth.abortReasons, ['http_auth_timeout']);
+      expect(auth.messages, hasLength(1));
+      final next = _expectRoundChallenge(await fixture.hello(), 1);
+      expect((await fixture.reply(next)).status, HttpStatus.ok);
+    });
+
+    test('applies identity lockout to rotated challenge', () async {
+      final auth = _RoundAuthenticator()
+        ..authenticate = () async => _RoundAuthenticator.challenge(2);
+      final settings = _buildRouterSettingsWithHttpAuthBridge(maxFailedAuth: 1);
+      final fixture = await _HttpRoundFixture.start([auth], settings: settings);
+      final first = _expectRoundChallenge(await fixture.hello(), 1);
+      final second = _expectRoundChallenge(await fixture.reply(first), 2);
+      AuthSecurityTracker.recordFailure(
+        'realm1',
+        'user-1',
+        settings.realms.single.limits,
+      );
+      _expectRoundError(
+        await fixture.reply(second),
+        'auth_locked_out',
+        status: HttpStatus.tooManyRequests,
+      );
+      expect(auth.abortReasons, ['http_auth_locked_out']);
+      expect(auth.messages, hasLength(1));
+      _expectRoundError(await fixture.reply(second), 'invalid_state');
+    });
+
+    for (final duringHello in [false, true]) {
+      for (final outcome in ['challenge', 'success', 'failure', 'error']) {
+        test(
+          'disposal rejects late $outcome during ${duringHello ? 'hello' : 'reply'}',
+          () async {
+            final result = Completer<AuthResult>();
+            addTearDown(() {
+              if (!result.isCompleted) {
+                result.complete(_RoundAuthenticator.success());
+              }
+            });
+            final auth = _RoundAuthenticator();
+            if (duringHello) {
+              auth.hello = () => result.future;
+            } else {
+              auth.authenticate = () => result.future;
+            }
+            final fixture = await _HttpRoundFixture.start([auth]);
+            final pending = duringHello
+                ? fixture.hello()
+                : fixture.reply(
+                    _expectRoundChallenge(await fixture.hello(), 1),
+                  );
+            await _waitUntil(
+              () => duringHello
+                  ? auth.helloContext != null
+                  : auth.messages.isNotEmpty,
+            );
+            await fixture.binding.dispose();
+            final abortsAtDisposal = List<String?>.of(auth.abortReasons);
+            if (outcome == 'error') {
+              result.completeError(StateError('Authenticator stopped'));
+            } else {
+              result.complete(switch (outcome) {
+                'challenge' => _RoundAuthenticator.challenge(2),
+                'success' => _RoundAuthenticator.success(),
+                _ => AuthResult.failure(
+                  const AuthFailure(reason: 'wamp.error.not_authorized'),
+                ),
+              });
+            }
+            final response = await pending;
+            _expectRoundError(
+              response,
+              'binding_disposed',
+              status: HttpStatus.serviceUnavailable,
+            );
+            expect(abortsAtDisposal, ['binding_dispose']);
+            await fixture.binding.dispose();
+            expect(auth.abortReasons, ['binding_dispose']);
+          },
+        );
+      }
+    }
+
+    for (final duringHello in [false, true]) {
+      test(
+        'disposal contains cleanup errors during ${duringHello ? 'hello' : 'reply'}',
+        () async {
+          final result = Completer<AuthResult>();
+          addTearDown(() {
+            if (!result.isCompleted) {
+              result.complete(_RoundAuthenticator.success());
+            }
+          });
+          final auth = _RoundAuthenticator()..failAbort = true;
+          if (duringHello) {
+            auth.hello = () => result.future;
+          } else {
+            auth.authenticate = () => result.future;
+          }
+          final fixture = await _HttpRoundFixture.start([auth]);
+          final pending = duringHello
+              ? fixture.hello()
+              : fixture.reply(_expectRoundChallenge(await fixture.hello(), 1));
+          await _waitUntil(
+            () => duringHello
+                ? auth.helloContext != null
+                : auth.messages.isNotEmpty,
+          );
+          await fixture.binding.dispose();
+          result.complete(_RoundAuthenticator.success());
+          _expectRoundError(
+            await pending,
+            'binding_disposed',
+            status: HttpStatus.serviceUnavailable,
+          );
+          expect(auth.abortReasons, ['binding_dispose']);
+          expect(
+            fixture.events.where(
+              (event) => event['type'] == 'http_auth_abort_failed',
+            ),
+            [
+              {
+                'source': 'binding',
+                'type': 'http_auth_abort_failed',
+                'reason': 'binding_dispose',
+              },
+            ],
+          );
+        },
+      );
+    }
+
+    test(
+      'does not start a late-created authenticator after disposal',
+      () async {
+        final entered = Completer<void>();
+        final release = Completer<void>();
+        addTearDown(() {
+          if (!release.isCompleted) release.complete();
+        });
+        final auth = _RoundAuthenticator();
+        final fixture = await _HttpRoundFixture.start(
+          [auth],
+          beforeCreate: () async {
+            entered.complete();
+            await release.future;
+          },
+        );
+        final pending = fixture.hello();
+        await entered.future.timeout(const Duration(seconds: 2));
+        await fixture.binding.dispose();
+        release.complete();
+        _expectRoundError(
+          await pending,
+          'binding_disposed',
+          status: HttpStatus.serviceUnavailable,
+        );
+        expect(auth.helloContext, isNull);
+        expect(auth.messages, isEmpty);
+        expect(auth.abortReasons, ['binding_dispose']);
+        expect(auth.abortContexts.single.helloDetails['authid'], 'user-1');
+        expect(auth.abortContexts.single.realm.name, 'realm1');
+      },
+    );
+
+    test('disposes rotated challenge exactly once', () async {
+      final auth = _RoundAuthenticator()
+        ..authenticate = () async => _RoundAuthenticator.challenge(2);
+      final fixture = await _HttpRoundFixture.start([auth]);
+      final first = _expectRoundChallenge(await fixture.hello(), 1);
+      _expectRoundChallenge(await fixture.reply(first), 2);
+      await fixture.binding.dispose();
+      expect(auth.abortReasons, ['binding_dispose']);
+      await fixture.binding.dispose();
+      expect(auth.abortReasons, ['binding_dispose']);
+    });
+  });
+}
+
 void main() {
+  _httpRoundAuthenticationTests();
   group('Router start', () {
     test('binds endpoints to runtime and applies config', () {
       final runtime = _FakeRuntime();
@@ -4314,6 +5247,416 @@ void main() {
     );
   });
 
+  group('configured file contract', () {
+    for (final range in ['bytes=2-5', 'bytes=100-', 'bytes=-0']) {
+      test('HEAD ignores Range $range', () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          method: 'HEAD',
+          headers: {HttpHeaders.rangeHeader: range},
+        );
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+        expect(
+          response.headers,
+          isNot(contains(HttpHeaders.contentRangeHeader)),
+        );
+        expect((response.body as NativeHttpResponseBytes).bytes, isEmpty);
+      });
+    }
+
+    for (final validator in [
+      'stale tag',
+      'current weak tag',
+      'strong-looking current tag',
+      'current date',
+      'stale date',
+      'future date',
+      'malformed date',
+      'empty',
+    ]) {
+      test('If-Range $validator returns the complete representation', () async {
+        final fixture = await _configuredFileFixture();
+        final initial = await fixture.request();
+        final etag = initial.headers[HttpHeaders.etagHeader]!;
+        final value = switch (validator) {
+          'stale tag' => '"stale"',
+          'current weak tag' => etag,
+          'strong-looking current tag' => etag.substring(2),
+          'current date' => initial.headers[HttpHeaders.lastModifiedHeader]!,
+          'stale date' => HttpDate.format(DateTime.utc(2023)),
+          'future date' => HttpDate.format(DateTime.utc(2025)),
+          'malformed date' => 'not-a-date',
+          _ => '',
+        };
+        final response = await fixture.request(
+          headers: {
+            HttpHeaders.rangeHeader: 'bytes=2-5',
+            HttpHeaders.ifRangeHeader: value,
+          },
+        );
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+        expect(
+          response.headers,
+          isNot(contains(HttpHeaders.contentRangeHeader)),
+        );
+        expect(response.headers[HttpHeaders.etagHeader], etag);
+        final body = response.body as NativeHttpResponseFile;
+        expect(await File(body.path).readAsString(), '0123456789abcdef');
+      });
+    }
+
+    for (final method in ['GET', 'HEAD']) {
+      for (final tagKind in ['weak', 'strong-looking', 'list', 'wildcard']) {
+        test(
+          '$method If-None-Match uses weak comparison for $tagKind',
+          () async {
+            final fixture = await _configuredFileFixture();
+            final initial = await fixture.request();
+            final etag = initial.headers[HttpHeaders.etagHeader]!;
+            final value = switch (tagKind) {
+              'weak' => etag,
+              'strong-looking' => etag.substring(2),
+              'list' => '"stale", ${etag.substring(2)}, "other"',
+              _ => '*',
+            };
+            final response = await fixture.request(
+              method: method,
+              headers: {
+                HttpHeaders.ifNoneMatchHeader: value,
+                HttpHeaders.rangeHeader: 'bytes=100-',
+              },
+            );
+            expect(response.status, HttpStatus.notModified);
+            expect(response.headers[HttpHeaders.etagHeader], etag);
+            expect(
+              response.headers[HttpHeaders.cacheControlHeader],
+              'max-age=60',
+            );
+            expect(
+              response.headers,
+              isNot(contains(HttpHeaders.contentLengthHeader)),
+            );
+            expect(
+              response.headers,
+              isNot(contains(HttpHeaders.contentRangeHeader)),
+            );
+            expect((response.body as NativeHttpResponseBytes).bytes, isEmpty);
+          },
+        );
+      }
+    }
+
+    for (final (header, expected, contentRange) in [
+      ('bytes=0-0', '0', 'bytes 0-0/16'),
+      ('bytes=15-15', 'f', 'bytes 15-15/16'),
+      ('bytes=12-', 'cdef', 'bytes 12-15/16'),
+      ('bytes=12-99', 'cdef', 'bytes 12-15/16'),
+      ('bytes=-4', 'cdef', 'bytes 12-15/16'),
+      ('bytes=-16', '0123456789abcdef', 'bytes 0-15/16'),
+      ('bytes=-99', '0123456789abcdef', 'bytes 0-15/16'),
+    ]) {
+      test('GET serves exact range $header', () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          headers: {HttpHeaders.rangeHeader: header},
+        );
+        expect(response.status, HttpStatus.partialContent);
+        expect(response.headers[HttpHeaders.contentRangeHeader], contentRange);
+        expect(
+          response.headers[HttpHeaders.contentLengthHeader],
+          '${expected.length}',
+        );
+        expect(
+          (response.body as NativeHttpResponseBytes).bytes,
+          utf8.encode(expected),
+        );
+      });
+    }
+
+    for (final range in [
+      'bytes=16-',
+      'bytes=4-2',
+      'bytes=-0',
+      'bytes=-x',
+      'bytes=x-3',
+      'bytes=1-x',
+      'bytes=3',
+    ]) {
+      test('GET rejects unsatisfiable or malformed range $range', () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          headers: {HttpHeaders.rangeHeader: range},
+        );
+        expect(response.status, HttpStatus.requestedRangeNotSatisfiable);
+        expect(response.headers[HttpHeaders.contentRangeHeader], 'bytes */16');
+        expect(response.headers[HttpHeaders.contentLengthHeader], '0');
+        expect((response.body as NativeHttpResponseBytes).bytes, isEmpty);
+      });
+    }
+
+    for (final range in ['', 'items=0-1', 'bytes=', 'bytes=0-1,4-5']) {
+      test('GET ignores unsupported range $range', () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          headers: {HttpHeaders.rangeHeader: range},
+        );
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+        expect(
+          response.headers,
+          isNot(contains(HttpHeaders.contentRangeHeader)),
+        );
+        expect(response.body, isA<NativeHttpResponseFile>());
+      });
+    }
+
+    test('empty file has no satisfiable byte range', () async {
+      final fixture = await _configuredFileFixture();
+      await fixture.file.writeAsBytes([]);
+      final response = await fixture.request(
+        headers: const {HttpHeaders.rangeHeader: 'bytes=0-0'},
+      );
+      expect(response.status, HttpStatus.requestedRangeNotSatisfiable);
+      expect(response.headers[HttpHeaders.contentRangeHeader], 'bytes */0');
+      expect((response.body as NativeHttpResponseBytes).bytes, isEmpty);
+    });
+
+    for (final path in [
+      '/assets',
+      '/assets/',
+      '/assets/.',
+      '/assets/..',
+      '/assets/%2Fhello.txt',
+      '/assets/%5Chello.txt',
+      '/assets/%00hello.txt',
+      '/assets/%1Fhello.txt',
+      '/assets/%7Fhello.txt',
+      '/assets/%ZZ',
+      '/assets/%',
+      '/assets/%C3%28',
+      '/assets/missing.txt',
+    ]) {
+      test(
+        'rejects unsafe or missing path $path without disclosing storage',
+        () async {
+          final fixture = await _configuredFileFixture();
+          final response = await fixture.request(path: path);
+          expect(response.status, HttpStatus.notFound);
+          final error = (response.body as NativeHttpResponseJson).value;
+          expect(error, containsPair('reason', 'file_not_found'));
+          expect(jsonEncode(error), isNot(contains(fixture.directory.path)));
+        },
+      );
+    }
+
+    for (final (date, expectedStatus) in [
+      ('Mon, 04 Mar 2024 05:06:07 GMT', HttpStatus.notModified),
+      ('Mon, 04 Mar 2024 05:06:08 GMT', HttpStatus.notModified),
+      ('Mon, 04 Mar 2024 05:06:06 GMT', HttpStatus.ok),
+      ('not-a-date', HttpStatus.ok),
+      ('', HttpStatus.ok),
+    ]) {
+      test('If-Modified-Since $date respects HTTP date precision', () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          headers: {
+            HttpHeaders.ifModifiedSinceHeader: date,
+          },
+        );
+        expect(response.status, expectedStatus);
+        expect(
+          response.headers[HttpHeaders.lastModifiedHeader],
+          'Mon, 04 Mar 2024 05:06:07 GMT',
+        );
+        if (expectedStatus == HttpStatus.notModified) {
+          expect(
+            response.headers,
+            isNot(contains(HttpHeaders.contentLengthHeader)),
+          );
+          expect((response.body as NativeHttpResponseBytes).bytes, isEmpty);
+        } else {
+          expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+          expect(response.body, isA<NativeHttpResponseFile>());
+        }
+      });
+    }
+
+    test(
+      'nonmatching ETag takes precedence over a future cache date',
+      () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(
+          headers: {
+            HttpHeaders.ifNoneMatchHeader: 'W/"unrelated"',
+            HttpHeaders.ifModifiedSinceHeader: HttpDate.format(
+              DateTime.utc(2030),
+            ),
+          },
+        );
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+        expect(response.body, isA<NativeHttpResponseFile>());
+      },
+    );
+
+    test('If-Range cannot change an ordinary request without Range', () async {
+      final fixture = await _configuredFileFixture();
+      final response = await fixture.request(
+        headers: const {HttpHeaders.ifRangeHeader: '"stale"'},
+      );
+      expect(response.status, HttpStatus.ok);
+      expect(response.headers[HttpHeaders.contentLengthHeader], '16');
+      expect(response.body, isA<NativeHttpResponseFile>());
+    });
+
+    for (final (name, contentType) in [
+      ('file.HTML', 'text/html; charset=utf-8'),
+      ('file.htm', 'text/html; charset=utf-8'),
+      ('file.css', 'text/css; charset=utf-8'),
+      ('file.js', 'text/javascript; charset=utf-8'),
+      ('file.mjs', 'text/javascript; charset=utf-8'),
+      ('file.json', 'application/json'),
+      ('file.svg', 'image/svg+xml'),
+      ('file.png', 'image/png'),
+      ('file.jpg', 'image/jpeg'),
+      ('file.jpeg', 'image/jpeg'),
+      ('file.gif', 'image/gif'),
+      ('file.webp', 'image/webp'),
+      ('file.ico', 'image/x-icon'),
+      ('file.wasm', 'application/wasm'),
+      ('file.pdf', 'application/pdf'),
+      ('file', null),
+      ('file.', null),
+      ('file.unknown', null),
+    ]) {
+      test('file content type and binary body for $name', () async {
+        final fixture = await _configuredFileFixture();
+        final bytes = [0, 1, 127, 128, 255];
+        await File('${fixture.directory.path}/$name').writeAsBytes(bytes);
+        final response = await fixture.request(path: '/assets/$name');
+        expect(response.status, HttpStatus.ok);
+        if (contentType == null) {
+          expect(
+            response.headers,
+            isNot(contains(HttpHeaders.contentTypeHeader)),
+          );
+        } else {
+          expect(response.headers[HttpHeaders.contentTypeHeader], contentType);
+        }
+        expect(response.headers[HttpHeaders.contentLengthHeader], '5');
+        final body = response.body as NativeHttpResponseFile;
+        expect(await File(body.path).readAsBytes(), bytes);
+      });
+    }
+
+    test(
+      'decoded filenames and nested separators retain their content',
+      () async {
+        final fixture = await _configuredFileFixture();
+        final nested = await Directory(
+          '${fixture.directory.path}/nested',
+        ).create();
+        await File('${nested.path}/a b.txt').writeAsString('nested');
+        final response = await fixture.request(
+          path: '/assets//nested/a%20b.txt',
+        );
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers[HttpHeaders.contentLengthHeader], '6');
+        expect(
+          await File(
+            (response.body as NativeHttpResponseFile).path,
+          ).readAsString(),
+          'nested',
+        );
+      },
+    );
+
+    test(
+      'symlinks stay inside the configured root',
+      () async {
+        final fixture = await _configuredFileFixture();
+        final sibling = await Directory(
+          '${fixture.directory.path}-sibling',
+        ).create();
+        addTearDown(() => sibling.delete(recursive: true));
+        final secret = await File(
+          '${sibling.path}/secret.txt',
+        ).writeAsString('outside-secret');
+        await Link('${fixture.directory.path}/outside.txt').create(secret.path);
+        await Link(
+          '${fixture.directory.path}/inside.txt',
+        ).create(fixture.file.path);
+        await Link(
+          '${fixture.directory.path}/dangling.txt',
+        ).create('${sibling.path}/missing');
+        for (final name in ['outside', 'dangling']) {
+          final response = await fixture.request(path: '/assets/$name.txt');
+          expect(response.status, HttpStatus.notFound);
+          final error = (response.body as NativeHttpResponseJson).value;
+          expect(error, containsPair('reason', 'file_not_found'));
+          expect(jsonEncode(error), isNot(contains('outside-secret')));
+          expect(jsonEncode(error), isNot(contains(sibling.path)));
+        }
+        final inside = await fixture.request(path: '/assets/inside.txt');
+        expect(inside.status, HttpStatus.ok);
+        expect(
+          await File(
+            (inside.body as NativeHttpResponseFile).path,
+          ).readAsString(),
+          '0123456789abcdef',
+        );
+      },
+      skip: Platform.isWindows
+          ? 'Creating symlinks requires Windows privileges.'
+          : false,
+    );
+
+    test('an inaccessible configured root returns a redacted error', () async {
+      final parent = await Directory.systemTemp.createTemp(
+        'router-file-missing-root-',
+      );
+      addTearDown(() => parent.delete(recursive: true));
+      final fixture = await _configuredFileFixture(
+        action: HttpRouteAction(
+          type: HttpRouteActionType.file,
+          directory: '${parent.path}/missing',
+        ),
+      );
+      final response = await fixture.request();
+      expect(response.status, HttpStatus.internalServerError);
+      final error = (response.body as NativeHttpResponseJson).value;
+      expect(error, containsPair('reason', 'file_route_misconfigured'));
+      expect(jsonEncode(error), isNot(contains(parent.path)));
+    });
+
+    test('directories are not returned as files', () async {
+      final fixture = await _configuredFileFixture();
+      await Directory('${fixture.directory.path}/nested').create();
+      final response = await fixture.request(path: '/assets/nested');
+      expect(response.status, HttpStatus.notFound);
+      expect(
+        (response.body as NativeHttpResponseJson).value,
+        containsPair('reason', 'file_not_found'),
+      );
+    });
+
+    test(
+      'POST file request is rejected with explicit allowed methods',
+      () async {
+        final fixture = await _configuredFileFixture();
+        final response = await fixture.request(method: 'POST');
+        expect(response.status, HttpStatus.methodNotAllowed);
+        expect(response.headers[HttpHeaders.allowHeader], 'GET, HEAD');
+        expect(
+          (response.body as NativeHttpResponseJson).value,
+          containsPair('reason', 'method_not_allowed'),
+        );
+      },
+    );
+  });
+
   test('dispatches handler HTTP routes without WAMP fallback', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()
@@ -4700,6 +6043,357 @@ void main() {
     );
   });
 
+  test('FastCGI keeps independent cookies instead of comma folding', () async {
+    const first = 'sid=opaque; Expires=Wed, 09 Jun 2032 10:18:14 GMT; HttpOnly';
+    const second = 'language=de; Path=/; Secure';
+    final result = await _fastCgiResponseFixture((socket) async {
+      socket
+        ..add(
+          _testFastCgiRecord(
+            _testFastCgiStdOut,
+            Uint8List.fromList(
+              utf8.encode(
+                'Content-Type: text/plain\r\n'
+                'Set-Cookie: $first\r\nSet-Cookie: $second\r\n\r\nok',
+              ),
+            ),
+          ),
+        )
+        ..add(_testFastCgiRecord(_testFastCgiEndRequest, Uint8List(8)));
+      await socket.flush();
+    });
+    expect(result.response.status, HttpStatus.ok);
+    expect(result.response.headers['Set-Cookie'], first);
+    expect(
+      result.response.additionalHeaders.map(
+        (entry) => (entry.key, entry.value),
+      ),
+      [
+        ('Set-Cookie', second),
+      ],
+    );
+    expect(
+      (result.response.body as NativeHttpResponseBytes).bytes,
+      utf8.encode('ok'),
+    );
+  });
+
+  test(
+    'FastCGI preserves repeated fields and filters all Connection tokens',
+    () async {
+      final result = await _fastCgiResponseFixture((socket) async {
+        socket
+          ..add(
+            _testFastCgiRecord(
+              _testFastCgiStdOut,
+              Uint8List.fromList(
+                utf8.encode(
+                  'Status: 202 Accepted\n'
+                  'Set-Cookie: first=1\nset-cookie: second=2\nSET-COOKIE: third=3\n'
+                  'X-List: first\nx-list: second\n'
+                  'Connection: X-Secret\nconnection: X-Other\n'
+                  'X-Secret: secret\nX-Other: secret\n'
+                  'Transfer-Encoding: chunked\nContent-Length: 999\n\nbinary',
+                ),
+              ),
+            ),
+          )
+          ..add(_testFastCgiRecord(_testFastCgiEndRequest, Uint8List(8)));
+        await socket.flush();
+      });
+      expect(result.response.status, 202);
+      expect(result.response.headers, {
+        'Set-Cookie': 'first=1',
+        'X-List': 'first',
+      });
+      expect(
+        result.response.additionalHeaders.map(
+          (entry) => (entry.key, entry.value),
+        ),
+        [
+          ('set-cookie', 'second=2'),
+          ('SET-COOKIE', 'third=3'),
+          ('x-list', 'second'),
+        ],
+      );
+      expect(
+        (result.response.body as NativeHttpResponseBytes).bytes,
+        utf8.encode('binary'),
+      );
+    },
+  );
+
+  for (final separator in ['\r\n', '\n']) {
+    test(
+      'FastCGI assembles padded records and binary body (${separator.length})',
+      () async {
+        final stdout = [
+          ...utf8.encode(
+            'Content-Type: application/octet-stream$separator$separator',
+          ),
+          0,
+          255,
+          128,
+          10,
+        ];
+        final result = await _fastCgiResponseFixture((socket) async {
+          for (final byte in stdout) {
+            // Flush record fragments independently; neither padding nor stderr
+            // belongs to the CGI stdout response or its size budget.
+            final record = _testFastCgiRecord(
+              _testFastCgiStdOut,
+              Uint8List.fromList([byte]),
+            );
+            record[6] = 3;
+            socket.add(record.sublist(0, 5));
+            await socket.flush();
+            socket.add([...record.sublist(5), 255, 254, 253]);
+            await socket.flush();
+          }
+          socket
+            ..add(
+              _testFastCgiRecord(
+                7,
+                Uint8List.fromList(utf8.encode('private stderr secret')),
+              ),
+            )
+            ..add(_testFastCgiRecord(_testFastCgiStdOut, Uint8List(0)))
+            ..add(_testFastCgiRecord(_testFastCgiEndRequest, Uint8List(8)));
+          await socket.flush();
+        }, options: {'max_response_bytes': stdout.length});
+        expect(result.response.status, 200);
+        expect(result.response.headers, {
+          'Content-Type': 'application/octet-stream',
+        });
+        expect(result.response.additionalHeaders, isEmpty);
+        expect((result.response.body as NativeHttpResponseBytes).bytes, [
+          0,
+          255,
+          128,
+          10,
+        ]);
+        expect(jsonEncode(result.events), isNot(contains('secret')));
+      },
+    );
+  }
+
+  final malformedFastCgi = <String, ({List<int> bytes, String reason})>{
+    'wrong version': (
+      bytes: [2, 6, 0, 1, 0, 0, 0, 0],
+      reason: 'invalid_record',
+    ),
+    'management request id': (
+      bytes: [1, 6, 0, 0, 0, 0, 0, 0],
+      reason: 'invalid_record',
+    ),
+    'foreign request id': (
+      bytes: [1, 6, 1, 1, 0, 0, 0, 0],
+      reason: 'invalid_record',
+    ),
+    'truncated record header': (bytes: [1, 6, 0, 1], reason: 'unexpected_eof'),
+    'truncated content': (
+      bytes: [1, 6, 0, 1, 0, 2, 0, 0, 65],
+      reason: 'unexpected_eof',
+    ),
+    'truncated padding': (
+      bytes: [1, 6, 0, 1, 0, 0, 2, 0, 65],
+      reason: 'unexpected_eof',
+    ),
+    'short end record': (
+      bytes: _testFastCgiRecord(3, Uint8List(7)),
+      reason: 'request_failed',
+    ),
+    'failed end status': (
+      bytes: _testFastCgiRecord(
+        3,
+        Uint8List.fromList([0, 0, 0, 0, 1, 0, 0, 0]),
+      ),
+      reason: 'request_failed',
+    ),
+    'empty stdout': (
+      bytes: _testFastCgiRecord(3, Uint8List(8)),
+      reason: 'missing_headers',
+    ),
+  };
+  for (final fixture in malformedFastCgi.entries) {
+    test(
+      'FastCGI rejects ${fixture.key} without leaking upstream data',
+      () async {
+        final result = await _fastCgiResponseFixture((socket) async {
+          socket.add(fixture.value.bytes);
+          await socket.flush();
+          await socket.close();
+        });
+        expect(result.response.status, HttpStatus.badGateway);
+        expect(
+          _jsonResponseBody(result.response)['reason'],
+          'fastcgi_protocol_error',
+        );
+        final errors = result.events.where(
+          (event) => event['type'] == 'http_fastcgi_error',
+        );
+        expect(errors.single['reason'], fixture.value.reason);
+        expect(errors.single.containsKey('stackTrace'), isFalse);
+        expect(
+          result.events.any(
+            (event) => event['type'] == 'http_fastcgi_response_sent',
+          ),
+          isFalse,
+        );
+      },
+    );
+  }
+
+  for (final header in [
+    'Broken secret',
+    ': secret',
+    ' : secret',
+    'Status: secret',
+    'Status: 99 secret',
+    'Status: 600 secret',
+    'Status: 999 secret',
+    'Status: 1000 secret',
+  ]) {
+    test(
+      'FastCGI rejects invalid CGI header ${header.split(':').first}',
+      () async {
+        final result = await _fastCgiResponseFixture((socket) async {
+          socket
+            ..add(
+              _testFastCgiRecord(
+                6,
+                Uint8List.fromList(utf8.encode('$header\r\n\r\nprivate body')),
+              ),
+            )
+            ..add(_testFastCgiRecord(3, Uint8List(8)));
+          await socket.flush();
+        });
+        expect(result.response.status, 502);
+        expect(
+          _jsonResponseBody(result.response)['reason'],
+          'fastcgi_protocol_error',
+        );
+        expect(
+          jsonEncode(_jsonResponseBody(result.response)),
+          isNot(contains('secret')),
+        );
+        expect(jsonEncode(result.events), isNot(contains('secret')));
+      },
+    );
+  }
+
+  for (final status in [100, 200, 599]) {
+    test('FastCGI accepts valid status boundary $status', () async {
+      final result = await _fastCgiResponseFixture((socket) async {
+        socket
+          ..add(
+            _testFastCgiRecord(
+              6,
+              Uint8List.fromList(utf8.encode('sTaTuS: $status\n\n')),
+            ),
+          )
+          ..add(_testFastCgiRecord(3, Uint8List(8)));
+        await socket.flush();
+      });
+      expect(result.response.status, status);
+      expect(result.response.headers, isEmpty);
+      expect((result.response.body as NativeHttpResponseBytes).bytes, isEmpty);
+    });
+  }
+
+  test(
+    'FastCGI invalid header encoding fails closed without exposing bytes',
+    () async {
+      final result = await _fastCgiResponseFixture((socket) async {
+        socket
+          ..add(
+            _testFastCgiRecord(
+              6,
+              Uint8List.fromList([88, 58, 255, 13, 10, 13, 10]),
+            ),
+          )
+          ..add(_testFastCgiRecord(3, Uint8List(8)));
+        await socket.flush();
+      });
+      expect(result.response.status, 502);
+      expect(_jsonResponseBody(result.response), {
+        'status': 'error',
+        'reason': 'fastcgi_failed',
+        'message': 'FastCGI upstream request failed',
+      });
+      final error = result.events
+          .where((event) => event['type'] == 'http_fastcgi_error')
+          .single;
+      expect(error['reason'], 'upstream_failed');
+      expect(error.containsKey('error'), isFalse);
+      expect(error.containsKey('stackTrace'), isFalse);
+    },
+  );
+
+  test('FastCGI enforces the cumulative stdout limit', () async {
+    final result = await _fastCgiResponseFixture((socket) async {
+      socket
+        ..add(
+          _testFastCgiRecord(6, Uint8List.fromList(utf8.encode('X: y\n\n'))),
+        )
+        ..add(_testFastCgiRecord(6, Uint8List.fromList([1, 2, 3, 4])))
+        ..add(_testFastCgiRecord(3, Uint8List(8)));
+      await socket.flush();
+    }, options: {'max_response_bytes': 9});
+    expect(result.response.status, 502);
+    expect(
+      _jsonResponseBody(result.response)['reason'],
+      'fastcgi_response_too_large',
+    );
+    expect(
+      result.events
+          .where((event) => event['type'] == 'http_fastcgi_error')
+          .single['reason'],
+      'response_too_large',
+    );
+  });
+
+  test(
+    'FastCGI incomplete response expires without sending partial data',
+    () async {
+      final result = await _fastCgiResponseFixture((socket) async {
+        socket.add(
+          _testFastCgiRecord(
+            6,
+            Uint8List.fromList(utf8.encode('X: secret\n\npartial')),
+          ),
+        );
+        await socket.flush();
+      }, options: {'timeout_ms': 50});
+      expect(result.response.status, 504);
+      expect(_jsonResponseBody(result.response)['reason'], 'fastcgi_timeout');
+      expect(jsonEncode(result.events), isNot(contains('secret')));
+      expect(
+        result.events.any(
+          (event) => event['type'] == 'http_fastcgi_response_sent',
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  test('native HTTP repeated headers own their immutable input snapshot', () {
+    final headers = {'Set-Cookie': 'first=1'};
+    final additional = [const MapEntry('set-cookie', 'second=2')];
+    final response = NativeHttpResponse(
+      status: 200,
+      headers: headers,
+      additionalHeaders: additional,
+      body: NativeHttpResponseBytes(Uint8List(0)),
+    );
+    headers.clear();
+    additional.clear();
+    expect(response.headers, {'Set-Cookie': 'first=1'});
+    expect(response.additionalHeaders.single.value, 'second=2');
+    expect(() => response.additionalHeaders.clear(), throwsUnsupportedError);
+    expect(() => response.headers.clear(), throwsUnsupportedError);
+  });
+
   test('does not leak FastCGI target details when upstream fails', () async {
     final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
     final upstreamAccepted = Completer<void>();
@@ -5079,6 +6773,153 @@ void main() {
       expect(serialized, isNot(contains('private-secret')));
     },
   );
+
+  for (final mode in ['exact', 'oversize', 'headers-timeout', 'body-timeout']) {
+    test(
+      'reverse proxy response boundary $mode closes upstream and recovers',
+      () async {
+        final upstream = await ServerSocket.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final sockets = <Socket>[];
+        final closed = <Completer<void>>[];
+        final payload = utf8.encode('a\u{1f30d}b');
+        final subscription = upstream.listen((socket) {
+          sockets.add(socket);
+          final finished = Completer<void>();
+          closed.add(finished);
+          var request = '';
+          var sent = false;
+          socket.listen(
+            (bytes) {
+              request += ascii.decode(bytes);
+              if (sent || !request.contains('\r\n\r\n')) return;
+              sent = true;
+              final recovery = sockets.length > 1;
+              if (!recovery && mode == 'headers-timeout') return;
+              final body = recovery ? utf8.encode('ok') : payload;
+              socket.write(
+                'HTTP/1.1 200 OK\r\nContent-Length: ${body.length}\r\n\r\n',
+              );
+              socket.add(
+                !recovery && mode == 'body-timeout' ? body.sublist(0, 1) : body,
+              );
+            },
+            onDone: () {
+              finished.complete();
+              socket.destroy();
+            },
+          );
+        });
+        addTearDown(() async {
+          for (final socket in sockets) {
+            socket.destroy();
+          }
+          await subscription.cancel();
+          await upstream.close();
+        });
+        final fixture = await _ProxyResponseFixture.start({
+          'upstream': 'http://127.0.0.1:${upstream.port}/private?token=secret',
+          'timeout_ms': mode.endsWith('timeout') ? 1000 : 2000,
+          'max_response_bytes': mode == 'oversize'
+              ? payload.length - 1
+              : payload.length,
+        });
+        final response = await fixture.request();
+        if (mode == 'exact') {
+          expect(response.status, HttpStatus.ok);
+          expect((response.body as NativeHttpResponseBytes).bytes, payload);
+        } else {
+          expect(
+            response.status,
+            mode == 'oversize'
+                ? HttpStatus.badGateway
+                : HttpStatus.gatewayTimeout,
+          );
+          final reason = mode == 'oversize' ? 'response_too_large' : 'timeout';
+          expect(
+            _jsonResponseBody(response)['reason'],
+            'reverse_proxy_$reason',
+          );
+          final error = fixture.events.singleWhere(
+            (event) => event['type'] == 'http_reverse_proxy_error',
+          );
+          expect(error['reason'], reason);
+          final serialized = jsonEncode([_jsonResponseBody(response), error]);
+          expect(serialized, isNot(contains('secret')));
+          expect(serialized, isNot(contains('/private')));
+          expect(error.containsKey('error'), isFalse);
+          expect(error.containsKey('stackTrace'), isFalse);
+          expect(
+            fixture.events.where(
+              (event) => event['type'] == 'http_reverse_proxy_response_sent',
+            ),
+            isEmpty,
+          );
+        }
+        expect(sockets, hasLength(1));
+        await closed.single.future.timeout(const Duration(seconds: 2));
+        final recovered = await fixture.request();
+        expect(recovered.status, HttpStatus.ok);
+        expect(
+          (recovered.body as NativeHttpResponseBytes).bytes,
+          utf8.encode('ok'),
+        );
+        expect(sockets, hasLength(2));
+        await closed.last.future.timeout(const Duration(seconds: 2));
+      },
+    );
+  }
+
+  for (final (key, value, reason) in <(String, Object, String)>[
+    ('timeout_ms', 0, 'invalid_option'),
+    ('timeoutMs', 0.5, 'invalid_option'),
+    ('max_response_bytes', -1, 'invalid_option'),
+    ('maxResponseBytes', ' 0 ', 'invalid_option'),
+    ('upstream', 'ftp://private.example/secret', 'invalid_target'),
+    ('upstream', '/private/secret', 'invalid_target'),
+  ]) {
+    test(
+      'reverse proxy config rejects $key=$value before connecting',
+      () async {
+        final upstream = await ServerSocket.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        var connections = 0;
+        final subscription = upstream.listen((socket) {
+          connections++;
+          socket.destroy();
+        });
+        addTearDown(() async {
+          await subscription.cancel();
+          await upstream.close();
+        });
+        final fixture = await _ProxyResponseFixture.start({
+          'upstream': 'http://127.0.0.1:${upstream.port}/private?token=secret',
+          key: value,
+        });
+        final response = await fixture.request();
+        expect(response.status, HttpStatus.badGateway);
+        expect(_jsonResponseBody(response)['reason'], 'reverse_proxy_$reason');
+        final error = fixture.events.singleWhere(
+          (event) => event['type'] == 'http_reverse_proxy_config_error',
+        );
+        expect(error['reason'], reason);
+        expect(connections, 0);
+        expect(
+          fixture.events.where(
+            (event) => event['type'] == 'http_reverse_proxy_request',
+          ),
+          isEmpty,
+        );
+        final serialized = jsonEncode([_jsonResponseBody(response), error]);
+        expect(serialized, isNot(contains('secret')));
+        expect(serialized, isNot(contains('private')));
+      },
+    );
+  }
 
   test('rate limits handler HTTP routes before handler dispatch', () async {
     final runtime = _HandleRuntime();
@@ -6977,6 +8818,375 @@ void main() {
       isFalse,
     );
   });
+
+  for (final publish in [false, true]) {
+    test(
+      'HTTP profile auth guards ${publish ? 'publish' : 'RPC'} without transport bearer enforcement',
+      () async {
+        final runtime = _HandleRuntime();
+        final events = <Map<String, Object?>>[];
+        final binding =
+            Router(
+              RouterConfig(
+                endpoints: [
+                  Endpoint(
+                    host: '127.0.0.1',
+                    port: 0,
+                    tlsMode: TlsMode.native,
+                    maxRawSocketSizeExponent: 16,
+                    sniCertificates: [_cert('localhost')],
+                  ),
+                ],
+              ),
+              settings: _buildRouterSettingsWithHttpAuthBridge(
+                secureRouteOptions: const {'require_bearer': false},
+                enableProtectedPublish: true,
+              ),
+            ).start(
+              runtime,
+              onEvent: (event) {
+                if (event is Map<String, Object?>) events.add(event);
+              },
+            );
+        addTearDown(binding.dispose);
+        await Future<void>.delayed(Duration.zero);
+        final listenerId = binding.listeners.single.listenerId;
+        final service = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'service',
+          authRole: 'internal',
+        );
+        addTearDown(service.close);
+        var calls = 0;
+        final publications = <Event>[];
+        final registration = await service.register('com.example.api.secure');
+        registration.onInvoke((invocation) {
+          calls++;
+          HttpInvocationContext.maybeFromInvocation(
+            invocation,
+          )!.sendText(body: 'authenticated', status: HttpStatus.ok);
+        });
+        final subscription = await service.subscribe('com.example.events');
+        subscription.onEvent(publications.add);
+
+        var nextConnection = 2400;
+        Future<NativeHttpResponse> send(
+          Map<String, String> headers, {
+          bool expectDenied = false,
+        }) async {
+          final id = nextConnection++;
+          _enqueueSyntheticHttpRequest(
+            runtime: runtime,
+            listenerId: listenerId,
+            connectionId: id,
+            handle: id,
+            method: 'POST',
+            target: publish ? '/api/events' : '/api/secure',
+            headers: headers,
+            body: const {'message': 'authorized-only'},
+            realm: 'realm1',
+            procedure: publish
+                ? 'router.http.publish'
+                : 'com.example.api.secure',
+          );
+          if (expectDenied) {
+            Iterable<Map<String, Object?>> unexpectedActivity() => events.where(
+              (event) =>
+                  event['connectionId'] == id &&
+                  const [
+                    'http_request_session_error',
+                    'http_publish_session_error',
+                    'http_request_dispatched',
+                    'http_publish_dispatched',
+                  ].contains(event['type']),
+            );
+            await _waitUntil(
+              () =>
+                  (runtime.httpResponses[id]?.isNotEmpty ?? false) ||
+                  unexpectedActivity().isNotEmpty,
+            );
+            expect(
+              unexpectedActivity(),
+              isEmpty,
+              reason:
+                  'Unauthenticated requests must be rejected before session creation or dispatch',
+            );
+          }
+          await _waitUntil(
+            () => runtime.httpResponses[id]?.isNotEmpty ?? false,
+          );
+          return runtime.httpResponses[id]!.single;
+        }
+
+        for (final headers in <Map<String, String>>[
+          const {},
+          const {'authorization': 'Basic credentials'},
+          const {'authorization': 'Bearer '},
+        ]) {
+          final denied = await send(headers, expectDenied: true);
+          expect(denied.status, HttpStatus.unauthorized);
+          expect(
+            _jsonResponseBody(denied),
+            containsPair('message', 'Bearer token required'),
+          );
+          expect(calls, 0);
+          expect(publications, isEmpty);
+          expect(
+            events.where(
+              (event) =>
+                  event['type'] == 'http_request_dispatched' ||
+                  event['type'] == 'http_publish_dispatched',
+            ),
+            isEmpty,
+          );
+        }
+
+        final tokens = await _issueTicketHttpTokens(
+          runtime: runtime,
+          listenerId: listenerId,
+        );
+        final allowed = await send({
+          'authorization': 'Bearer ${tokens.accessToken}',
+        });
+        expect(allowed.status, publish ? HttpStatus.accepted : HttpStatus.ok);
+        if (publish) {
+          await _waitUntil(() => publications.isNotEmpty);
+          expect(publications, hasLength(1));
+          final http = publications.single.argumentsKeywords!['_http'] as Map;
+          expect(jsonDecode(utf8.decode(http['body'] as Uint8List)), {
+            'message': 'authorized-only',
+          });
+          expect(calls, 0);
+        } else {
+          expect(calls, 1);
+          expect(
+            (allowed.body as NativeHttpResponseText).text,
+            'authenticated',
+          );
+          expect(publications, isEmpty);
+        }
+      },
+    );
+  }
+
+  for (final restrictRealm in [false, true]) {
+    test(
+      'HTTP auth rejects method excluded by ${restrictRealm ? 'realm' : 'profile'} before challenge',
+      () async {
+        var settings = _buildRouterSettingsWithHttpAuthBridge(
+          maxPendingAuth: 1,
+          profileAuthMethods: restrictRealm
+              ? const ['ticket', 'wampcra', 'scram']
+              : const ['ticket'],
+        );
+        if (restrictRealm) {
+          final realm = settings.realms.single;
+          settings = settings.copyWith(
+            realms: [
+              RealmSettings(
+                name: realm.name,
+                auth: RealmAuthSettings(
+                  methods: const ['ticket'],
+                  methodOptions: realm.auth.methodOptions,
+                ),
+                roles: realm.roles,
+                limits: realm.limits,
+              ),
+            ],
+          );
+        }
+        final runtime = _HandleRuntime();
+        final events = <Map<String, Object?>>[];
+        final binding =
+            Router(
+              RouterConfig(
+                endpoints: [
+                  Endpoint(
+                    host: '127.0.0.1',
+                    port: 0,
+                    tlsMode: TlsMode.native,
+                    maxRawSocketSizeExponent: 16,
+                    sniCertificates: [_cert('localhost')],
+                  ),
+                ],
+              ),
+              settings: settings,
+            ).start(
+              runtime,
+              onEvent: (event) {
+                if (event is Map<String, Object?>) events.add(event);
+              },
+            );
+        addTearDown(binding.dispose);
+        await Future<void>.delayed(Duration.zero);
+        final listenerId = binding.listeners.single.listenerId;
+        for (var id = 2500; id < 2503; id++) {
+          _enqueueSyntheticHttpRequest(
+            runtime: runtime,
+            listenerId: listenerId,
+            connectionId: id,
+            handle: id,
+            method: 'POST',
+            target: '/auth',
+            headers: const {'content-type': 'application/json'},
+            body: const {
+              'realm': 'realm1',
+              'authmethod': 'wampcra',
+              'authid': 'user-1',
+            },
+            realm: 'router.http',
+            procedure: 'router.http.auth',
+          );
+          await _waitUntil(
+            () => runtime.httpResponses[id]?.isNotEmpty ?? false,
+          );
+          final response = runtime.httpResponses[id]!.single;
+          expect(response.status, HttpStatus.unauthorized);
+          final body = _jsonResponseBody(response);
+          expect(body['reason'], 'unsupported_authmethod');
+          expect(
+            body['message'],
+            restrictRealm
+                ? 'authmethod wampcra is not enabled for realm realm1'
+                : 'authmethod wampcra is not allowed for this route',
+          );
+          expect(body, isNot(contains('state')));
+          expect(body, isNot(contains('access_token')));
+          expect(body, isNot(contains('challenge')));
+        }
+        expect(
+          events.where(
+            (event) =>
+                event['type'] == 'http_auth_capacity_exhausted' ||
+                event['type'] == 'http_auth_locked_out',
+          ),
+          isEmpty,
+        );
+        // Denied methods must neither consume pending capacity nor lock out a user.
+        final tokens = await _issueTicketHttpTokens(
+          runtime: runtime,
+          listenerId: listenerId,
+        );
+        expect(tokens.accessToken, isNotEmpty);
+        expect(tokens.refreshToken, isNotEmpty);
+      },
+    );
+  }
+
+  test(
+    'HTTP grants recheck changed profile policy before use and refresh',
+    () async {
+      final methods = <String>['ticket', 'wampcra'];
+      final base = _buildRouterSettingsWithHttpAuthBridge();
+      final settings = base.copyWith(
+        sessionProfiles: [
+          for (final profile in base.sessionProfiles)
+            if (profile.name == 'http-ticket')
+              SessionProfileSettings(
+                name: profile.name,
+                realm: profile.realm,
+                auth: SessionProfileAuthSettings(methods: methods),
+              )
+            else
+              profile,
+        ],
+      );
+      final runtime = _HandleRuntime();
+      final binding = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: settings,
+      ).start(runtime);
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      final service = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'service',
+        authRole: 'internal',
+      );
+      addTearDown(service.close);
+      var calls = 0;
+      final registration = await service.register('com.example.api.secure');
+      registration.onInvoke((invocation) {
+        calls++;
+        HttpInvocationContext.maybeFromInvocation(
+          invocation,
+        )!.sendText(body: 'authenticated', status: HttpStatus.ok);
+      });
+      final tokens = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
+      );
+      var nextConnection = 2600;
+      Future<NativeHttpResponse> send({bool refresh = false}) async {
+        final id = nextConnection++;
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: id,
+          handle: id,
+          method: 'POST',
+          target: refresh ? '/auth' : '/api/secure',
+          headers: {
+            'content-type': 'application/json',
+            if (!refresh) 'authorization': 'Bearer ${tokens.accessToken}',
+          },
+          body: refresh
+              ? {
+                  'grant_type': 'refresh_token',
+                  'refresh_token': tokens.refreshToken,
+                }
+              : null,
+          realm: 'realm1',
+          procedure: refresh ? 'router.http.auth' : 'com.example.api.secure',
+        );
+        await _waitUntil(() => runtime.httpResponses[id]?.isNotEmpty ?? false);
+        return runtime.httpResponses[id]!.single;
+      }
+
+      // Populate the internal-session cache before the profile becomes stricter.
+      expect((await send()).status, HttpStatus.ok);
+      expect(calls, 1);
+      methods.remove('ticket');
+      final deniedCall = await send();
+      expect(deniedCall.status, HttpStatus.unauthorized);
+      expect(
+        _jsonResponseBody(deniedCall),
+        containsPair('reason', 'wrong_authmethod'),
+      );
+      expect(calls, 1);
+      final deniedRefresh = await send(refresh: true);
+      expect(deniedRefresh.status, HttpStatus.unauthorized);
+      final deniedBody = _jsonResponseBody(deniedRefresh);
+      expect(deniedBody, containsPair('reason', 'wrong_authmethod'));
+      expect(deniedBody, isNot(contains('access_token')));
+      expect(deniedBody, isNot(contains('refresh_token')));
+      expect(calls, 1);
+
+      // A rejected refresh must not consume or rotate the existing grant.
+      methods.add('ticket');
+      expect((await send()).status, HttpStatus.ok);
+      expect(calls, 2);
+      final refreshed = await send(refresh: true);
+      expect(refreshed.status, HttpStatus.ok);
+      final body = _jsonResponseBody(refreshed);
+      expect(body['access_token'], isNot(tokens.accessToken));
+      expect(body['access_token'], isA<String>());
+      expect(body['refresh_token'], isNot(tokens.refreshToken));
+      expect(body['refresh_token'], isA<String>());
+      expect(calls, 2);
+    },
+  );
 
   test(
     'rejects protected HTTP routes on insecure listeners before dispatch',

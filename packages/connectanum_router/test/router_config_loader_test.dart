@@ -7,14 +7,20 @@ import 'package:connectanum_router/src/router/config/router_settings_builder.dar
 import 'package:connectanum_router/src/router/config/router_settings_codec.dart';
 import 'package:test/test.dart';
 
+import 'support/config_assertions.dart';
+
 void main() {
   group('RouterConfigLoader', () {
     test('loads the maintained getting-started YAML', () async {
       final repositoryRoot = _findRepositoryRoot();
-      final settings = await RouterConfigLoaderIo.fromFile(
-        '${repositoryRoot.path}/examples/quickstart/router.yaml',
+      final settings = await expectConfigLoad(
+        () => RouterConfigLoaderIo.fromFile(
+          '${repositoryRoot.path}/examples/quickstart/router.yaml',
+        ),
       );
 
+      expect(settings.realms, hasLength(1));
+      expect(settings.listeners, hasLength(1));
       expect(settings.realms.single.name, 'realm1');
       expect(settings.authenticators.keys, contains('anonymous'));
       expect(settings.workerPool.minWorkers, 1);
@@ -24,7 +30,7 @@ void main() {
     });
 
     test('parses shared session profiles and references', () {
-      final settings = RouterConfigLoader.fromMap({
+      final settings = loadValidRouterConfig({
         'router': <String, Object?>{
           'realms': [
             <String, Object?>{
@@ -122,6 +128,14 @@ void main() {
       });
 
       expect(settings.sessionProfiles, hasLength(3));
+      expect(settings.listeners, hasLength(1));
+      expect(settings.realms, hasLength(1));
+      expect(settings.internalRealms, hasLength(1));
+      expect(settings.listeners.single.http?.routes, hasLength(2));
+      expect(
+        settings.sessionProfiles.map((profile) => profile.name),
+        contains('http-handler'),
+      );
       expect(settings.listeners.single.sessionProfile, 'public-wamp');
       expect(settings.listeners.single.http?.sessionProfile, 'public-http');
       expect(
@@ -247,7 +261,7 @@ void main() {
     });
 
     test('parses and round-trips per-method HTTP route actions', () {
-      final settings = RouterConfigLoader.fromMap({
+      final settings = loadValidRouterConfig({
         'router': <String, Object?>{
           'listeners': [
             <String, Object?>{
@@ -307,7 +321,7 @@ void main() {
     });
 
     test('parses session_proxy HTTP route action aliases', () {
-      final settings = RouterConfigLoader.fromMap({
+      final settings = loadValidRouterConfig({
         'router': <String, Object?>{
           'listeners': [
             <String, Object?>{
@@ -345,7 +359,7 @@ void main() {
     });
 
     test('parses internal realms and open metrics settings', () {
-      final settings = RouterConfigLoader.fromMap({
+      final settings = loadValidRouterConfig({
         'router': <String, Object?>{
           'realms': [
             <String, Object?>{
@@ -424,7 +438,7 @@ void main() {
     });
 
     test('parses transport/backpressure alert settings', () {
-      final settings = RouterConfigLoader.fromMap({
+      final settings = loadValidRouterConfig({
         'router': <String, Object?>{
           'realms': [
             <String, Object?>{
@@ -702,7 +716,7 @@ void main() {
     });
 
     test('parses handler HTTP route action aliases and delegates', () {
-      final settings = RouterConfigLoader.fromMap({
+      final settings = loadValidRouterConfig({
         'router': <String, Object?>{
           'listeners': [
             <String, Object?>{
@@ -755,7 +769,7 @@ void main() {
     });
 
     test('parses HTTP adapter route action aliases and endpoints', () {
-      final settings = RouterConfigLoader.fromMap({
+      final settings = loadValidRouterConfig({
         'router': <String, Object?>{
           'listeners': [
             <String, Object?>{
@@ -808,7 +822,7 @@ void main() {
     });
 
     test('parses multi-protocol listener with http routes', () {
-      final settings = RouterConfigLoader.fromMap({
+      final settings = loadValidRouterConfig({
         'router': <String, Object?>{
           'realms': [
             <String, Object?>{

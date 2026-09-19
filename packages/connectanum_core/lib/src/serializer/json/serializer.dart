@@ -331,14 +331,15 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.codeAuthenticate) {
         validateWampMessageFieldCount(message.length);
-        return Authenticate(signature: message[1] as String?)
-          ..extra = message[2] is Map
-              ? Map<String, Object?>.from(
-                  _normalizeJsonStringKeyMap(
-                    message[2] as Map<dynamic, dynamic>,
-                  ),
-                )
-              : <String, Object?>{};
+        final extra = message[2];
+        if (extra is! Map || extra.keys.any((key) => key is! String)) {
+          throw const FormatException(
+            'AUTHENTICATE.Extra must be a dictionary with string keys',
+          );
+        }
+        return Authenticate(
+          signature: message[1] as String?,
+        )..extra = Map<String, Object?>.from(_normalizeJsonStringKeyMap(extra));
       }
       if (messageId == MessageTypes.codeWelcome) {
         validateWampMessageFieldCount(message.length);

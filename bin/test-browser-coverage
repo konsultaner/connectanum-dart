@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+dart_workspace_bootstrap
+python3 tool/build_conformance_fixtures.py --check
+if ! ensure_chrome_env; then
+  printf 'Chrome is required for browser coverage; no empty report will be emitted.\n' >&2
+  exit 1
+fi
+coverage_root="${CONNECTANUM_BROWSER_COVERAGE_DIR:-$ROOT_DIR/out/coverage-browser}"
+if [[ "$coverage_root" != /* ]]; then coverage_root="$ROOT_DIR/$coverage_root"; fi
+if [[ -e "$coverage_root" ]]; then
+  printf 'Choose a fresh CONNECTANUM_BROWSER_COVERAGE_DIR.\n' >&2
+  exit 2
+fi
+mkdir -p "$coverage_root"
+(
+  cd packages/connectanum_core
+  run_command_with_timeout "Core browser coverage" 900 dart test test \
+    -p chrome --compiler=dart2js --concurrency=1 --timeout=5m \
+    --coverage="$coverage_root/raw/core"
+)
+(
+  cd packages/connectanum_client
+  run_command_with_timeout "Client browser coverage" 420 dart test \
+    test/client_test.dart \
+    test/meta_state_cache_test.dart \
+    test/session_e2ee_profile_test.dart \
+    test/session_lazy_reply_test.dart \
+    test/session_progressive_file_test.dart \
+    test/transport/native/message_binding_test.dart \
+    test/transport/local \
+    test/transport/websocket/websocket_transport_web_test.dart \
+    test/mcp/form_elicitation_regression_test.dart \
+    -p chrome --compiler=dart2js --concurrency=1 --timeout=5m \
+    --coverage="$coverage_root/raw/client"
+)
+# VM ignore comments are deliberately not applied to browser source maps.
+dart pub global run coverage:format_coverage --lcov --in="$coverage_root/raw" \
+  --out="$coverage_root/lcov.info" --package="$ROOT_DIR" --base-directory="$ROOT_DIR" \
+  --report-on=packages/connectanum_core/lib \
+  --report-on=packages/connectanum_client/lib
+python3 tool/check_coverage.py "$coverage_root/lcov.info" --runtime chrome \
+  --output "$coverage_root/summary.json" --policy tool/browser_coverage_policy.json

@@ -126,6 +126,36 @@ expected_ci_jobs=(
   'WampApp Consumer'
   'Dart VM Coverage'
   'Full Verify'
+  'Core Browser Coverage'
+  'router-authorization Mutation Gate'
+  'router-metrics-vm Mutation Gate'
+  'core-mcp-completion-vm Mutation Gate'
+  'core-mcp-completion-web Mutation Gate'
+  'core-registered-vm Mutation Gate'
+  'core-registered-web Mutation Gate'
+  'core-subscribed-vm Mutation Gate'
+  'core-subscribed-web Mutation Gate'
+  'core-metadata-vm Mutation Gate'
+  'core-metadata-web Mutation Gate'
+  'auth-server Mutation Gate'
+  'client-installer Mutation Gate'
+  'router-installer Mutation Gate'
+  'core-e2ee-vm Mutation Gate'
+  'bench-config Mutation Gate'
+  'core-lazy-vm Mutation Gate'
+  'core-lazy-web Mutation Gate'
+  'core-pem-pkcs8-vm Mutation Gate'
+  'core-pem-pkcs8-web Mutation Gate'
+  'client-message-binding-vm Mutation Gate'
+  'router-message-binding-vm Mutation Gate'
+  'bench-remote-auth-native Mutation Gate'
+  'mcp-library Mutation Gate'
+  'router-remote-wamp-vm Mutation Gate'
+  'router-config-loader-vm Mutation Gate'
+  'router-remote-authenticator-vm Mutation Gate'
+  'router-http-auth-vm Mutation Gate'
+  'core-scram-request-vm Mutation Gate'
+  'core-scram-request-web Mutation Gate'
 )
 dart_package_publish_workflow='Dart Package Publish Dry Run'
 expected_dart_package_publish_jobs=('Publish Dry Run')
@@ -1100,7 +1130,8 @@ print_dart_package_publish_dry_run_gate() {
       --json status,conclusion,headSha \
       --jq '[.status, (.conclusion // "pending"), .headSha] | @tsv'
   )"
-  IFS=$'\t' read -r run_status run_conclusion run_head_sha <<<"$run_state"
+  # Bash whitespace IFS collapses empty TSV columns, shifting pending run fields.
+  IFS=$'\x1f' read -r run_status run_conclusion run_head_sha <<<"${run_state//$'\t'/$'\x1f'}"
 
   if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
     printf 'Finding: latest Dart package publish dry-run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
@@ -1225,7 +1256,7 @@ print_native_release_dry_run_gate() {
       --json status,conclusion,headSha,event \
       --jq '[.status, (.conclusion // "pending"), .headSha, .event] | @tsv'
   )"
-  IFS=$'\t' read -r run_status run_conclusion run_head_sha run_event <<<"$run_state"
+  IFS=$'\x1f' read -r run_status run_conclusion run_head_sha run_event <<<"${run_state//$'\t'/$'\x1f'}"
 
   if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
     printf 'Finding: latest Native Artifacts dry-run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
@@ -1527,7 +1558,7 @@ print_router_image_dry_run_gate() {
       --json status,conclusion,headSha,event \
       --jq '[.status, (.conclusion // "pending"), .headSha, .event] | @tsv'
   )"
-  IFS=$'\t' read -r run_status run_conclusion run_head_sha run_event <<<"$run_state"
+  IFS=$'\x1f' read -r run_status run_conclusion run_head_sha run_event <<<"${run_state//$'\t'/$'\x1f'}"
 
   if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
     printf 'Finding: latest Router Image dry-run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
@@ -1744,7 +1775,7 @@ print_wamp_profile_benchmarks_gate() {
       --json status,conclusion,headSha,event \
       --jq '[.status, (.conclusion // "pending"), .headSha, .event] | @tsv'
   )"
-  IFS=$'\t' read -r run_status run_conclusion run_head_sha run_event <<<"$run_state"
+  IFS=$'\x1f' read -r run_status run_conclusion run_head_sha run_event <<<"${run_state//$'\t'/$'\x1f'}"
 
   if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
     printf 'Finding: latest WAMP Profile Benchmarks run is not green: %s/%s.\n' "$run_status" "$run_conclusion"
@@ -2556,7 +2587,7 @@ if [[ "$check_clean_latest_ci" -eq 1 ]]; then
         --json status,conclusion,headSha \
         --jq '[.status, (.conclusion // "pending"), .headSha] | @tsv'
     )"
-    IFS=$'\t' read -r latest_ci_status latest_ci_conclusion latest_ci_head_sha <<<"$latest_ci_state"
+    IFS=$'\x1f' read -r latest_ci_status latest_ci_conclusion latest_ci_head_sha <<<"${latest_ci_state//$'\t'/$'\x1f'}"
 
     if [[ "$latest_ci_status" != "completed" || "$latest_ci_conclusion" != "success" ]]; then
       printf 'Finding: latest CI run is not green: %s/%s.\n' "$latest_ci_status" "$latest_ci_conclusion"
@@ -2639,7 +2670,7 @@ if [[ "$scan_latest_ci_logs" -eq 1 ]]; then
         --json status,conclusion,headSha \
         --jq '[.status, (.conclusion // "pending"), .headSha] | @tsv'
     )"
-    IFS=$'\t' read -r latest_ci_log_status latest_ci_log_conclusion latest_ci_log_head_sha <<<"$latest_ci_log_state"
+    IFS=$'\x1f' read -r latest_ci_log_status latest_ci_log_conclusion latest_ci_log_head_sha <<<"${latest_ci_log_state//$'\t'/$'\x1f'}"
 
     if [[ "$require_clean_latest_ci_logs" -eq 1 && ( "$latest_ci_log_status" != "completed" || "$latest_ci_log_conclusion" != "success" ) ]]; then
       printf 'Finding: latest CI logs are not a complete green signal yet: %s/%s.\n' "$latest_ci_log_status" "$latest_ci_log_conclusion"

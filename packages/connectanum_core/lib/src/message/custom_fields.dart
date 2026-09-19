@@ -70,9 +70,7 @@ class LazyStringKeyMap<T> extends MapBase<String, T> {
 
   @override
   T? remove(Object? key) {
-    if (_values.containsKey(key)) {
-      return _values.remove(key);
-    }
+    // Materialize pending values before removal so they cannot restore the key.
     _ensureLoaded();
     return _values.remove(key);
   }
@@ -86,7 +84,9 @@ void attachLazyStringKeyMapLoader<T>(
     lazyMap.attachLoader(loader);
     return;
   }
-  map.addAll(loader());
+  for (final entry in loader().entries) {
+    map.putIfAbsent(entry.key, () => entry.value);
+  }
 }
 
 Map<String, T> lazyStringKeyMap<T>({

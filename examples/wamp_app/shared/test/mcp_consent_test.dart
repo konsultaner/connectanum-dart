@@ -2,6 +2,36 @@ import 'package:test/test.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 void main() {
+  test(
+    'consent wire parsing rejects missing flags and malformed timestamps',
+    () {
+      for (final value in <Map<String, dynamic>?>[
+        null,
+        {},
+        {'profile_read_allowed': 1, 'revision': 0},
+        {'profile_read_allowed': false, 'revision': '0'},
+        {'profile_read_allowed': false, 'revision': 1, 'updated_at': true},
+        {'profile_read_allowed': false, 'revision': 1, 'updated_at': 'invalid'},
+      ]) {
+        expect(
+          () => WampAppMcpConsent.fromWampKeywords(value),
+          throwsFormatException,
+        );
+      }
+      for (final value in <Map<String, dynamic>?>[
+        null,
+        {},
+        {'profile_read_allowed': 1, 'expected_revision': 0},
+        {'profile_read_allowed': false, 'expected_revision': '0'},
+      ]) {
+        expect(
+          () => WampAppMcpConsentUpdate.fromWampKeywords(value),
+          throwsFormatException,
+        );
+      }
+    },
+  );
+
   test('MCP consent defaults to denied and round-trips updates', () {
     expect(WampAppMcpConsent.denied.profileReadAllowed, isFalse);
     expect(WampAppMcpConsent.denied.revision, 0);

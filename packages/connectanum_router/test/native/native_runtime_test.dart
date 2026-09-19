@@ -17,6 +17,13 @@ import 'package:test/test.dart';
 
 import '../support/native_lib.dart';
 
+class _MinimalRuntime extends NativeRuntime {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(
+    'Unexpected runtime operation: ${invocation.memberName}',
+  );
+}
+
 void main() {
   final libraryPath = resolveOrBuildNativeLib();
   final usesWide =
@@ -27,7 +34,279 @@ void main() {
       ? 'Native ct_ffi library not found'
       : null;
 
+  group('NativeRuntime optional capabilities', () {
+    final runtime = _MinimalRuntime();
+    test('absent subprotocol and metrics remain absent', () {
+      expect(runtime.connectionWebSocketProtocol(42), isNull);
+      expect(runtime.pollRouterMetrics(), isNull);
+    });
+    test('unsupported HTTP responses fail explicitly', () {
+      expect(
+        () => runtime.sendHttpResponse(
+          handshakeHandle: 42,
+          response: NativeHttpResponse(
+            status: 204,
+            body: NativeHttpResponseText(''),
+          ),
+        ),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => runtime.openHttpResponseStream(
+          handshakeHandle: 42,
+          status: 200,
+          headers: const {},
+        ),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => runtime.openHttpResponseStreamDescriptor(
+          handshakeHandle: 42,
+          status: 200,
+          headers: const {},
+        ),
+        throwsUnsupportedError,
+      );
+    });
+    test('unsupported TLS reload does not report success', () {
+      expect(runtime.reloadTls, throwsUnsupportedError);
+    });
+  });
+
   group('NativeTransportRuntime', () {
+    group('resource error contracts', () {
+      late NativeTransportRuntime runtime;
+      late int listener;
+
+      Uint8List endpointConfig([String host = '127.0.0.1']) =>
+          Uint8List.fromList(
+            utf8.encode(
+              jsonEncode({
+                'schema': 'connectanum.router',
+                'version': 1,
+                'endpoints': [
+                  {
+                    'host': host,
+                    'port': 0,
+                    'tls_mode': 'disabled',
+                    'protocols': ['rawsocket'],
+                  },
+                ],
+              }),
+            ),
+          );
+
+      setUp(() {
+        runtime = NativeTransportRuntime(libraryPath: libraryPath!);
+        addTearDown(runtime.dispose);
+        runtime.start();
+        addTearDown(runtime.shutdown);
+        runtime.applyRouterConfig(endpointConfig());
+        listener = runtime.listen('127.0.0.1', 0);
+        expect(listener, greaterThan(0));
+        expect(runtime.getLocalPort(listener), greaterThan(0));
+      });
+
+      const absent = 0x7ffffffe;
+      final operations = <String, (int, void Function(NativeTransportRuntime))>{
+        'listener port': (
+          NativeTransportErrorCode.listenerNotFound,
+          (r) => r.getLocalPort(absent),
+        ),
+        'listener HTTP3 port': (
+          NativeTransportErrorCode.listenerNotFound,
+          (r) => r.getHttp3Port(absent),
+        ),
+        'listener close': (
+          NativeTransportErrorCode.listenerNotFound,
+          (r) => r.closeListener(absent),
+        ),
+        'listener poll': (
+          NativeTransportErrorCode.listenerNotFound,
+          (r) => r.pollConnection(absent),
+        ),
+        'connection protocol': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.connectionProtocol(absent),
+        ),
+        'connection close': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.closeConnection(absent),
+        ),
+        'connection exponent': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.connectionMaxRawSocketExponent(absent),
+        ),
+        'connection subprotocol': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.connectionWebSocketProtocol(absent),
+        ),
+        'HTTP handshake': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.takeHttpHandshake(absent),
+        ),
+        'HTTP2 handshake': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.takeHttp2Handshake(absent),
+        ),
+        'HTTP3 handshake': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.takeHttp3Handshake(absent),
+        ),
+        'WebSocket handshake': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.takeWebSocketHandshake(absent),
+        ),
+        'HTTP3 connection': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.takeHttp3Connection(absent),
+        ),
+        'HTTP3 stream': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.pollHttp3Stream(absent),
+        ),
+        'HTTP3 request': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.pollHttp3Request(absent),
+        ),
+        'message poll': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.pollMessage(absent),
+        ),
+        'message handle poll': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.pollMessageHandle(absent),
+        ),
+        'WebSocket message poll': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.pollWebSocketMessageHandle(absent),
+        ),
+        'message send': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.sendMessage(absent, Uint8List.fromList([91, 93])),
+        ),
+      };
+
+      for (final entry in operations.entries) {
+        test('${entry.key} preserves native error and healthy listener', () {
+          expect(
+            () => entry.value.$2(runtime),
+            throwsA(
+              isA<NativeTransportException>().having(
+                (error) => error.code,
+                'native code',
+                entry.value.$1,
+              ),
+            ),
+          );
+          expect(runtime.getLocalPort(listener), greaterThan(0));
+          expect(runtime.getHttp3Port(listener), 0);
+          expect(runtime.pollConnection(listener), 0);
+        });
+      }
+
+      test(
+        'wrong-protocol queries preserve RawSocket frame delivery',
+        () async {
+          final socket = await Socket.connect(
+            '127.0.0.1',
+            runtime.getLocalPort(listener),
+          );
+          addTearDown(() async {
+            await _socketQueues.remove(socket)?.cancel(immediate: true);
+            _socketLeftovers.remove(socket);
+            socket.destroy();
+          });
+          await _performHandshake(socket);
+          final connection = await _pollConnectionUntil(runtime, listener);
+          expect(
+            runtime.connectionProtocol(connection),
+            NativeConnectionProtocol.rawsocket,
+          );
+          final queries = <String, Object? Function(int)>{
+            'WebSocket subprotocol': runtime.connectionWebSocketProtocol,
+            'WebSocket handshake': runtime.takeWebSocketHandshake,
+            'HTTP handshake': runtime.takeHttpHandshake,
+            'HTTP2 handshake': runtime.takeHttp2Handshake,
+            'HTTP3 handshake': runtime.takeHttp3Handshake,
+            'HTTP3 connection': runtime.takeHttp3Connection,
+            'HTTP3 stream': runtime.pollHttp3Stream,
+            'HTTP3 request': runtime.pollHttp3Request,
+          };
+          for (final entry in queries.entries) {
+            expect(
+              () => entry.value(connection),
+              throwsA(
+                isA<NativeTransportException>().having(
+                  (error) => error.code,
+                  'native code',
+                  NativeTransportErrorCode.unsupportedProtocol,
+                ),
+              ),
+              reason: entry.key,
+            );
+            expect(
+              runtime.connectionProtocol(connection),
+              NativeConnectionProtocol.rawsocket,
+              reason: entry.key,
+            );
+          }
+          // The optional WebSocket poll maps "unsupported" to no available handle.
+          expect(runtime.pollWebSocketMessageHandle(connection), 0);
+          final payload = Uint8List.fromList(utf8.encode('[2,123,{}]'));
+          runtime.sendMessage(connection, payload);
+          expect(await _readFrame(socket), orderedEquals(payload));
+          runtime.closeConnection(connection);
+          expect(
+            () => runtime.connectionProtocol(connection),
+            throwsA(
+              isA<NativeTransportException>().having(
+                (error) => error.code,
+                'native code',
+                NativeTransportErrorCode.connectionNotFound,
+              ),
+            ),
+          );
+        },
+      );
+
+      test('releasing empty handshakes is idempotent', () {
+        for (final handle in [0, -1]) {
+          for (var repeat = 0; repeat < 2; repeat++) {
+            runtime.releaseHttpHandshake(handle);
+            runtime.releaseHttp2Handshake(handle);
+            runtime.releaseHttp3Handshake(handle);
+          }
+        }
+        expect(runtime.getLocalPort(listener), greaterThan(0));
+        final port = runtime.getLocalPort(listener);
+        // Reload counts reconfigured listeners, including cleartext endpoints.
+        expect(runtime.reloadTls(), 1);
+        expect(runtime.getLocalPort(listener), port);
+        runtime.closeListener(listener);
+        expect(runtime.reloadTls(), 0);
+      });
+      test('failed TLS reload preserves listener and can recover', () {
+        final port = runtime.getLocalPort(listener);
+        runtime.applyRouterConfig(endpointConfig('127.0.0.2'));
+        expect(
+          runtime.reloadTls,
+          throwsA(
+            isA<NativeTransportException>().having(
+              (error) => error.code,
+              'native code',
+              NativeTransportErrorCode.endpointNotConfigured,
+            ),
+          ),
+        );
+        expect(runtime.getLocalPort(listener), port);
+        runtime.applyRouterConfig(endpointConfig());
+        expect(runtime.reloadTls(), 1);
+        expect(runtime.getLocalPort(listener), port);
+        expect(runtime.pollConnection(listener), 0);
+      });
+    }, skip: skipReason);
+
     test('start, listen, poll and shutdown', () async {
       final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
       addTearDown(runtime.dispose);
@@ -352,12 +631,32 @@ void main() {
         handshakeHandle: inlineHandshake.handle,
         response: NativeHttpResponse(
           status: 204,
+          headers: const {'Set-Cookie': 'sid=first; HttpOnly'},
+          additionalHeaders: const [
+            MapEntry(
+              'SET-cookie',
+              'language=de; Expires=Wed, 09 Jun 2032 10:18:14 GMT',
+            ),
+            MapEntry('set-cookie', 'theme=dark; Secure'),
+          ],
           body: NativeHttpResponseBytes(Uint8List(0)),
         ),
       );
       inlineHandshake.release();
       final inlineResponse = await _readHttpResponse(inlineSocket);
       expect(inlineResponse, contains('204 No Content'));
+      expect(
+        const LineSplitter()
+            .convert(inlineResponse)
+            .where(
+              (line) => line.toLowerCase().startsWith('set-cookie:'),
+            ),
+        [
+          'set-cookie: sid=first; HttpOnly',
+          'set-cookie: language=de; Expires=Wed, 09 Jun 2032 10:18:14 GMT',
+          'set-cookie: theme=dark; Secure',
+        ],
+      );
 
       final streamingSocket = await Socket.connect('127.0.0.1', port);
       addTearDown(streamingSocket.close);

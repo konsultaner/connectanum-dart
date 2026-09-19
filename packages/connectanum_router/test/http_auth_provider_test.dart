@@ -229,13 +229,31 @@ void main() {
       },
     );
 
-    final authentication = provider.authenticate(
-      _request(token: 'opaque-token'),
+    HttpAuthResult? observedResult;
+    final authentication = provider
+        .authenticate(_request(token: 'opaque-token'))
+        .then((value) => observedResult = value);
+    await Future.any<void>([
+      responseStarted.future,
+      authentication.then<void>((_) {}),
+    ]).timeout(const Duration(seconds: 3));
+    expect(
+      responseStarted.isCompleted,
+      isTrue,
+      reason: 'Authentication must reach the stalled response body',
     );
-    await responseStarted.future.timeout(const Duration(seconds: 3));
-    final result = await authentication.timeout(const Duration(seconds: 3));
+    // Observe the configured deadline while the response body is still held.
+    await Future<void>.delayed(const Duration(milliseconds: 750));
+    final result = observedResult;
+    releaseResponse.complete();
+    await authentication.timeout(const Duration(seconds: 3));
 
-    expect(result.success, isFalse);
+    expect(
+      result,
+      isNotNull,
+      reason: 'The provider must finish before the stalled body is released',
+    );
+    expect(result!.success, isFalse);
     expect(result.failure!.reason, 'auth_timeout');
     expect(result.failure!.message, isNot(contains('opaque-token')));
   });

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+ensure_rust_env
+if [[ "$(cargo mutants --version 2>/dev/null || true)" != 'cargo-mutants 27.1.0' ]]; then
+  printf 'Install the native mutation verifier: cargo install cargo-mutants --locked --version 27.1.0\n' >&2
+  exit 1
+fi
+python3 tool/test_native_mutations.py
