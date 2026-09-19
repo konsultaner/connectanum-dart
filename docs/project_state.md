@@ -6,6 +6,41 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work130 integrates portable client browser verification and measurement. A
+conditional test-support export preserves the original native library probe
+byte-for-byte on VM and avoids importing FFI on web. Both browser compilers pass
+329 canonical client/session/meta/WebSocket/form cases, with only the genuine
+native-provider case skipped. The focused VM run passes90 cases without skips.
+Explicit positive SCRAM parameter acceptance now kills all12 request mutants on
+VM and all12 on JS with assertion evidence; complete inventories, clean initial/
+restored baselines, matching hashes and the independent log audit agree. Both
+raw/adjusted scores are100%, with no waivers or timeout/crash credit. Add these
+two full-inventory targets to CI and strict audit expectations at the unchanged95%
+gate. This is the request-validation slice, not complete core mutation coverage.
+
+Fast130-before and frozen-input Verify130 exit0, including3794 router tests,
+3319 core WASM and329 client browser tests. Input hashes and the native artifact
+match; the native window is released. Analyzer,58 verification-script tests and27
+deployment-audit controls pass. Canonical JS coverage passes3327 core and329
+client tests: core7364/7676 (95.94%), client1785/2240 (79.69%),162 library sources
+unmeasured. The larger denominator replaces the misleadingly narrow forms slice;
+the explicit98% audit still fails. Browser WASM is runtime evidence, not measured
+package coverage. Preserve browser130-current, scram-request130-mutations and
+coverage130-verification under out/regression-coverage-2026-09-15.
+
+While verification inputs were frozen, ignored probes preserve all1814 binding
+regressions and pass on JS/WASM after changing only their entrypoint annotation
+and relocated fixture import; all9 canonical local-transport tests also pass on
+both. Integrate these complete suites next. Default/session and stateless public
+MCP HTTP constructors fail on both browser compilers in dart:io HttpClient with
+Unsupported operation: Platform._version. Form validation is not browser HTTP,
+session or OAuth support. These diagnostics and hashes are retained separately in
+coverage130-client-browser. Parent a0897235 package/image/profile checks pass;
+its main CI remains live without observed failures. The workflow has no concurrency
+cancellation: older branch runs remain live, rather than being stopped by a push.
+Refresh current-head hosted evidence after this implementation push. No merge,
+publication, version change or whole-milestone completion claim.
+
 Work129 adds14 controlled browser Worker lifecycle cases and10 portable SCRAM
 request regressions. Explicitly delivered success/error events and manual timers
 assert initialization recovery, buffer ownership/clearing, exact KDF parameters,

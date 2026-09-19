@@ -103,6 +103,23 @@ class VerificationScriptsTest(unittest.TestCase):
         self.assertIn('path: out/mutations', job)
         self.assertIn('if-no-files-found: error', job)
 
+    def test_scram_request_mutation_gates_cover_vm_and_browser(self):
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
+        matrix = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
+        self.assertLessEqual({'core-scram-request-vm', 'core-scram-request-web'},
+                             {target.strip() for target in matrix})
+        chrome_setup = job.split('- id: chrome', 1)[1].split('- name:', 1)[0]
+        self.assertIn("matrix.target == 'core-scram-request-web'", chrome_setup)
+        self.assertIn('browser-actions/setup-chrome@', chrome_setup)
+        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
+        self.assertNotIn('--threshold', job)
+        self.assertIn('if: always()', job)
+        self.assertIn('path: out/mutations', job)
+        audit = (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text()
+        for target in ('core-scram-request-vm', 'core-scram-request-web'):
+            self.assertIn(f"'{target} Mutation Gate'", audit)
+
     @unittest.skipIf(os.name == 'nt', 'The diagnostic launcher requires Bash')
     def test_wamp_diagnostics_collect_all_results_without_masking_failures(self):
         names = [
@@ -1290,7 +1307,35 @@ fi
                 self.assertIn("cd packages/connectanum_client", script)
         coverage = (REPO_ROOT / "bin" / "test-browser-coverage").read_text(encoding="utf-8")
         self.assertIn('--report-on=packages/connectanum_client/lib', coverage)
-        self.assertIn('--coverage="$coverage_root/raw/client-forms"', coverage)
+        self.assertIn('--coverage="$coverage_root/raw/client"', coverage)
+
+    def assert_client_browser_suites_selected(self, script: str) -> None:
+        client = script.split("cd packages/connectanum_client", 1)[1]
+        for relative_path in (
+            "test/client_test.dart",
+            "test/meta_state_cache_test.dart",
+            "test/transport/websocket/websocket_transport_web_test.dart",
+            "test/mcp/form_elicitation_regression_test.dart",
+        ):
+            self.assertIn(relative_path, client)
+            self.assertTrue((REPO_ROOT / "packages/connectanum_client" / relative_path).exists())
+        self.assertNotRegex(client, r"--(?:name|plain-name|tags|exclude-tags)\b")
+
+    def test_browser_commands_retain_client_session_meta_socket_and_form_suites(self):
+        for name in ("test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text()
+                self.assert_client_browser_suites_selected(script)
+                for relative_path in (
+                    "test/client_test.dart",
+                    "test/meta_state_cache_test.dart",
+                    "test/transport/websocket/websocket_transport_web_test.dart",
+                    "test/mcp/form_elicitation_regression_test.dart",
+                ):
+                    with self.assertRaises(AssertionError):
+                        self.assert_client_browser_suites_selected(script.replace(relative_path, ""))
+                with self.assertRaises(AssertionError):
+                    self.assert_client_browser_suites_selected(script + " --name selected")
 
     def test_browser_verification_and_coverage_include_key_file_boundaries(self) -> None:
         for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):

@@ -154,6 +154,8 @@ expected_ci_jobs=(
   'router-config-loader-vm Mutation Gate'
   'router-remote-authenticator-vm Mutation Gate'
   'router-http-auth-vm Mutation Gate'
+  'core-scram-request-vm Mutation Gate'
+  'core-scram-request-web Mutation Gate'
 )
 dart_package_publish_workflow='Dart Package Publish Dry Run'
 expected_dart_package_publish_jobs=('Publish Dry Run')

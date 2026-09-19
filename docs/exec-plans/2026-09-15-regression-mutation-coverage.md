@@ -67,6 +67,51 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work130 Canonical Client Browser Scope And SCRAM Request Gates
+
+- Resume the original Fast130 process rather than starting another baseline;
+  observe exit0 before edits. Reproduce the main-client suite's FFI import loading
+  failure on JS/WASM, then conditionally export the unchanged native probe or a
+  browser skip reason. Preserve the native-provider case: the focused VM run
+  passes90 tests without skips; canonical browser selection passes329 plus one
+  genuinely native-only skip on each compiler. Add main-client and meta-cache
+  suites to verification; coverage now includes those and WebSocket/form suites.
+- Assert positive SCRAM lower-bound acceptance by observing only the recognized
+  ArgumentError rejection. Rethrow unrelated errors; no generic exception-to-
+  assertion conversion. Complete12-candidate VM and12-candidate JS request
+  inventories score100% raw/adjusted assertion kills. Both initial/restored
+  baselines exit0, hashes match and independent saved-log audit agrees. JS has six
+  assertion-only and six mixed outcomes, all with actual assertion failures;
+  there are no test-error-only kills, timeouts, compile failures or waivers.
+  Register both CI gates at the unchanged95% threshold and require their jobs in
+  the strict deployment audit. The wider Work129 Worker50% result remains open.
+- Analysis,58 script controls,27 audit controls and frozen Verify130 pass; verify
+  includes3794 router,3319 core WASM and329 client browser tests. All recorded
+  inputs and native artifact hash match; release the native window. Local review's
+  suggestion to loosen the narrow error-message filter is rejected: a valid
+  constructor must not reject, and unrelated errors must remain uncredited.
+  Its untracked-file concern is addressed by committing both helper variants;
+  focused CI review finds no concrete issue. No threshold or timeout change.
+- Canonical JS measurement passes3327 core and329 client tests: core7364/7676
+  (95.94%), client1785/2240 (79.69%),162 library files unmeasured. The broader
+  client scope exposes actual gaps; it does not regress to the forms-only98.59%
+  claim. Preserve raw reports and failed explicit98% target audit. These are
+  measured compiler-selected sources, not complete package/WASM coverage.
+- Ignored browser probes preserve every one of1814 message-binding cases and
+  pass on JS/WASM with only entrypoint/relative-import changes; all9 unchanged
+  local-transport auth cases pass too. Integrate their entire suites next.
+  Both default and stateless MCP HTTP constructors reproduce Unsupported
+  operation: Platform._version through dart:io HttpClient on both compilers.
+  Portable form tests do not establish browser HTTP/session/OAuth readiness.
+  No production HTTP change is made here. Retain probes and hashes separately.
+- Evidence directories: coverage130-verification, browser130-current,
+  scram-request130-mutations and coverage130-client-browser under the milestone
+  output root. Parent a0897235 package/image/profile checks pass; main CI remains
+  live with no observed failure. GitHub CI triggers both push and PR and has no
+  concurrency cancellation; do not assume older runs were canceled. Inspect
+  current-head hosted checks after push without duplicating manual dispatches.
+  Keep the full component/runtime98%/95% goal active; no merge/release/version bump.
+
 ### Work129 Deterministic SCRAM Lifecycle And Remaining Browser Scope
 
 - Observe the original fast129 baseline and JS/WASM prototype sessions exit0

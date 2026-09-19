@@ -210,7 +210,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [router-authorization, router-metrics-vm, core-mcp-completion-vm, core-mcp-completion-web, core-registered-vm, core-registered-web, core-subscribed-vm, core-subscribed-web, core-metadata-vm, core-metadata-web, auth-server, client-installer, router-installer, core-e2ee-vm, bench-config, core-lazy-vm, core-lazy-web, core-pem-pkcs8-vm, core-pem-pkcs8-web, client-message-binding-vm, router-message-binding-vm, bench-remote-auth-native, mcp-library, router-remote-wamp-vm, router-config-loader-vm, router-remote-authenticator-vm, router-http-auth-vm]
+        target: [router-authorization, router-metrics-vm, core-mcp-completion-vm, core-mcp-completion-web, core-registered-vm, core-registered-web, core-subscribed-vm, core-subscribed-web, core-metadata-vm, core-metadata-web, auth-server, client-installer, router-installer, core-e2ee-vm, bench-config, core-lazy-vm, core-lazy-web, core-pem-pkcs8-vm, core-pem-pkcs8-web, client-message-binding-vm, router-message-binding-vm, bench-remote-auth-native, mcp-library, router-remote-wamp-vm, router-config-loader-vm, router-remote-authenticator-vm, router-http-auth-vm, core-scram-request-vm, core-scram-request-web]
         include:
           # Complete campaigns exceeded 120/20 minutes while still progressing.
           # These are job budgets; per-mutant deadlines and thresholds stay fixed.
@@ -240,7 +240,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         if: matrix.target == 'bench-remote-auth-native'
       - id: chrome
-        if: matrix.target == 'core-lazy-web' || matrix.target == 'core-mcp-completion-web' || matrix.target == 'core-registered-web' || matrix.target == 'core-subscribed-web' || matrix.target == 'core-metadata-web' || matrix.target == 'core-pem-pkcs8-web'
+        if: matrix.target == 'core-lazy-web' || matrix.target == 'core-mcp-completion-web' || matrix.target == 'core-registered-web' || matrix.target == 'core-subscribed-web' || matrix.target == 'core-metadata-web' || matrix.target == 'core-pem-pkcs8-web' || matrix.target == 'core-scram-request-web'
         uses: browser-actions/setup-chrome@v2
       - name: Run the complete target AST mutation inventory
         env:
@@ -265,7 +265,7 @@ jobs:
       - id: chrome
         uses: browser-actions/setup-chrome@v2
       - run: dart pub global activate coverage 1.15.1
-      - name: Measure full core browser suite and MCP forms
+      - name: Measure full core browser suite and portable client suites
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
           CONNECTANUM_BROWSER_COVERAGE_DIR: out/coverage-browser

@@ -40,14 +40,35 @@ void main() {
     ScramAuthentication.kdfPbkdf2,
   ]) {
     test('preserves positive lower bounds and the selected $kdf', () {
-      final request = ScramKeyDerivationRequest(
-        password: Uint8List.fromList([255]),
-        salt: Uint8List.fromList([128]),
-        kdf: kdf,
-        iterations: 1,
-        memory: 1,
-        keyLength: 1,
+      ScramKeyDerivationRequest? accepted;
+      ArgumentError? rejection;
+      try {
+        accepted = ScramKeyDerivationRequest(
+          password: Uint8List.fromList([255]),
+          salt: Uint8List.fromList([128]),
+          kdf: kdf,
+          iterations: 1,
+          memory: 1,
+          keyLength: 1,
+        );
+      } on ArgumentError catch (error) {
+        // Observe only the constructor's documented validation rejection.
+        // Unrelated runtime errors must not become assertion-kill evidence.
+        if (error is RangeError ||
+            error.message != 'must be positive' ||
+            error.invalidValue != 1 ||
+            !['iterations', 'memory', 'keyLength'].contains(error.name)) {
+          rethrow;
+        }
+        rejection = error;
+      }
+      expect(
+        rejection,
+        isNull,
+        reason: 'Positive lower bounds must be accepted for $kdf',
       );
+      expect(accepted, isNotNull);
+      final request = accepted!;
       expect(request.kdf, kdf);
       expect(request.iterations, 1);
       expect(request.memory, 1);
