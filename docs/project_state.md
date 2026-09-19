@@ -6,6 +6,50 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work138 fixes remote WAMP authentication session ownership across registry reset,
+late handshakes, stale failures/disconnects and concurrent credential rotation.
+Ten canonical wire regressions reproduce nine assertions before the fix and pass
+after it; all220 remote tests pass. A private session/generation lease prevents
+old work from installing, authorizing through or invalidating a newer session.
+Keep best-effort warmup/abort and the connecting-future identity guard. No wire,
+public API, version or mutation-classifier change. Fast138-before and analysis pass.
+
+Two canonical meta-cache disconnect-order tests now cover notification before
+receive/readiness closure. Full157-candidate VM and JS campaigns and independent
+audits agree:88/101 assertion kills (87.13% raw/adjusted), eight survivors, five
+uncredited error-only outcomes,56 compile failures, no timeouts or waivers.
+Both baselines pass; the95% gates still fail. Fresh VM138 collection exits0:
+38799/42673 library lines (90.92%),59 unmeasured sources; packaging765/787
+(97.20%),12 unmeasured sources. Fresh JS138 exits0: core7383/7690 (96.01%),
+client2582/2726 (94.72%),162 unmeasured sources. All explicit98% audits fail.
+The remote delegate gains20 covered/22 measured lines; other recorded socket/
+router deltas are timing-dependent observations in unchanged code.
+
+Original Session134b JS campaign is now complete:140/451 assertion kills
+(31.04% raw/adjusted),178 survivors,23 error-only outcomes,108 timeouts, two
+infrastructure errors and190 compile failures; both baselines and independent
+audit agree. This is its older recorded snapshot, not current138 evidence.
+The infrastructure errors retain leaked-renderer findings despite test-process
+exit0/1; neither earns kill credit. This exposes a substantial remaining client
+mutation gap, not a nearly complete whole-project milestone.
+
+Preserve coverage138-verification, vm138-current, browser138-current,
+remote138-mutations and meta-cache138[-web]-mutations. Full remote138 campaign
+and independent audit agree:193/202 assertion kills (95.54% raw/adjusted), three
+survivors, one error-only outcome, five timeouts and101 compile failures. Both
+baselines pass, but the gate fails because timeouts remain uncredited. Original
+serialized Verify138 exits0, including3817 router,3319 core WASM and2441 client
+WASM cases. Final input/native hashes match and no native consumers remain.
+The confirmed shared native reservation continues into Work139 fast/verification.
+Separate ignored probes already prove a delayed-fingerprint survivor non-equivalent
+(unwanted third connection), and two meta startup mutants independently release
+ten event subscriptions on valid replies. Their original suites pass; integrate
+these canonical regressions after the Work139 fast baseline, then refresh complete
+campaigns. Do not waive or credit isolated probes to current scores. After that,
+prioritize the large Session, router/FFI and remaining full-runtime inventory gaps.
+Pushed04b9aa33 package/image/profile checks pass; main CI remains queued.
+No merge, publication or version change; the full98%/95% goal remains incomplete.
+
 Work137 integrates13 remote-authentication regressions: old failed warmup versus
 replacement connection ownership, repaired cryptosign-file recovery, and real
 public-authenticator denial preservation across HELLO/AUTHENTICATE RESULT/ERROR

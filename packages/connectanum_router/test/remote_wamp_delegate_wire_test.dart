@@ -18,6 +18,119 @@ void main() {
   tearDown(RemoteWampDelegateRegistry.clear);
   tearDown(RemoteAuthenticator.resetRateLimiter);
 
+  test(
+    'reset during connection preparation opens no stale service socket',
+    () async {
+      final service = await _Service.start();
+      addTearDown(service.close);
+      final delegate = service.delegate();
+      final first = delegate.warmUpSession();
+      RemoteWampDelegateRegistry.clear();
+      await first;
+      expect(service.hellos, isEmpty);
+      expect(service.calls, isEmpty);
+      expect(_helloSuccess(await delegate.onHello(_hello())).authId, 'alice');
+      expect(service.hellos, hasLength(1));
+      expect(service.callConnections, [0]);
+    },
+  );
+
+  for (final operation in ['warmup', 'hello', 'authenticate', 'abort']) {
+    for (final reply in ['welcome', 'abort']) {
+      test(
+        'retired $operation $reply cannot replace or close the current session',
+        () async {
+          final service = await _Service.start();
+          addTearDown(service.close);
+          final firstHello = Completer<void>();
+          void Function()? releaseOld;
+          service.rejectHello = reply == 'abort';
+          service.scheduleWelcome = (send) {
+            if (service.hellos.length == 1) {
+              releaseOld = send;
+              firstHello.complete();
+            } else {
+              send();
+            }
+          };
+          final delegate = service.delegate();
+          final first = switch (operation) {
+            'warmup' => delegate.warmUpSession(),
+            'abort' => delegate.onAbort(_abort()),
+            'hello' => expectLater(
+              delegate.onHello(_hello()),
+              throwsA(isA<RemoteDelegateUnavailableException>()),
+            ),
+            _ => expectLater(
+              delegate.onAuthenticate(_authenticate()),
+              throwsA(isA<RemoteDelegateUnavailableException>()),
+            ),
+          };
+          try {
+            await Future.any<void>([
+              firstHello.future,
+              first,
+            ]).timeout(const Duration(seconds: 3));
+            expect(service.hellos, hasLength(1));
+            RemoteWampDelegateRegistry.clear();
+            service.rejectHello = false;
+            await delegate.warmUpSession();
+            expect(service.hellos, hasLength(2));
+            expect(
+              _helloSuccess(await delegate.onHello(_hello())).authId,
+              'alice',
+            );
+            expect(service.callConnections, [1]);
+            releaseOld!();
+            releaseOld = null;
+            await first;
+            expect(
+              _helloSuccess(await delegate.onHello(_hello())).authId,
+              'alice',
+            );
+            expect(service.callConnections, [1, 1]);
+            expect(service.hellos, hasLength(2));
+            await service.sockets.first.done.timeout(
+              const Duration(seconds: 3),
+            );
+          } finally {
+            releaseOld?.call();
+            await first;
+          }
+        },
+      );
+    }
+  }
+
+  test(
+    'concurrent credential rotation shares one replacement session',
+    () async {
+      final service = await _Service.start();
+      addTearDown(service.close);
+      final temp = Directory.systemTemp.createTempSync('remote-wire-rotation-');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final secret = File('${temp.path}/secret')
+        ..writeAsStringSync('first-secret');
+      final delegate = service.delegate(
+        rpc: {
+          'service_auth_method': 'ticket',
+          'service_auth_secret_file': secret.path,
+        },
+      );
+      expect(_helloSuccess(await delegate.onHello(_hello())).authId, 'alice');
+      secret.writeAsStringSync('second-secret');
+      final replies = await Future.wait([
+        for (var i = 0; i < 8; i++) delegate.onHello(_hello(id: 'rotated-$i')),
+      ]);
+      expect(
+        replies.map((reply) => _helloSuccess(reply).authId),
+        everyElement('alice'),
+      );
+      expect(service.hellos, hasLength(2));
+      expect(service.callConnections, [0, ...List<int>.filled(8, 1)]);
+    },
+  );
+
   // All branch payloads are well-formed so a wrong discriminator is observed
   // as the wrong authentication result, not an incidental missing-field error.
   for (final status in ['success', 'challenge', 'failure', 'invalid', null]) {
@@ -1038,6 +1151,7 @@ class _Service {
   final rawSockets = <Socket>[];
   final senders = <void Function(List<Object?>)>[];
   final calls = <List<dynamic>>[];
+  final callConnections = <int>[];
   final hellos = <List<dynamic>>[];
   bool rejectHello = false;
   void Function(void Function())? scheduleWelcome;
@@ -1168,6 +1282,7 @@ class _Service {
         }
       case 48:
         calls.add(frame);
+        callConnections.add(senders.indexOf(send));
         final reply = respond(frame);
         if (reply != null) send(reply);
       case 6:

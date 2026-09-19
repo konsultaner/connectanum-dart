@@ -67,6 +67,47 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work138 Generation-Owned Remote Sessions
+
+- Reproduce nine actual assertions across ten new remote-auth wire cases on
+  original source before changing behavior. Own session installation, RPC results,
+  failure cleanup and disconnect callbacks by generation; retry current state
+  after stale fingerprint I/O. Preserve public WAMP behavior and best-effort
+  warmup/abort. All220 remote tests, Fast138-before and analysis pass. Keep the
+  original failing logs/source hash; a mistaken nonexistent-file test command is
+  separately retained as a command error, not a production regression.
+- Integrate two meta-cache disconnect-order tests. Full157-candidate VM/JS
+  campaigns and independent audits agree:88/101 assertion kills (87.13% raw/
+  adjusted), eight survivors, five error-only outcomes,56 compile failures;
+  no timeouts/waivers. Both baselines pass;95% gates still fail. Never upgrade
+  the score using separate ignored probes or by crediting generic test errors.
+- Fresh VM138 exits0:38799/42673 library lines (90.92%),59 unmeasured sources;
+  packaging765/787 (97.20%),12 unmeasured sources. Fresh JS138 exits0: core
+  7383/7690 (96.01%), client2582/2726 (94.72%),162 unmeasured sources. All98%
+  audits fail. Preserve exact per-file delta:20/22 new delegate covered/measured
+  lines, plus timing-dependent socket/router changes in unmodified production.
+- Original Session134b JS campaign completes with140/451 assertion kills
+  (31.04%),178 survivors,23 error-only outcomes,108 timeouts, two infrastructure
+  errors and190 compile failures. Both baselines and independent audit agree.
+  Its recorded source/tests are older, not current138 inputs. Keep renderer
+  cleanup failures uncredited even when the test process has passed or asserted.
+  Triage finite procedure-registration/invocation observations and cleanup before
+  refreshing the full Session campaign; do not increase deadlines to force a pass.
+- Full remote138 campaign and independent audit agree:193/202 assertion kills
+  (95.54% raw/adjusted), three survivors, one error-only outcome, five timeouts
+  and101 compile failures. Both baselines pass; gate fails on timeouts. Original
+  serialized Verify138 exits0, including3817 router,3319 core WASM and2441 client
+  WASM cases. Final input/native hashes match; no native consumers remain.
+  The confirmed shared native reservation continues into Work139 verification.
+  Preserve coverage138-verification and full reports. New remote fingerprint
+  survivor afa0f0b40a8bbada4530 is proven non-equivalent by an ignored real-wire
+  probe: a delayed old fingerprint opens a third connection after its replacement
+  has completed. No waiver or current-score credit. Two ignored meta probes also
+  produce independent premature-UNSUBSCRIBE assertions while retaining original
+  errors; full copied97-case suite passes VM/JS/WASM. Integrate these after
+  frozen verification, refresh matching campaigns, then address larger
+  Session/router/native coverage gaps. Complete98%/95% scope remains open.
+
 ### Work137 Remote Authentication Behavioral Assertions
 
 - Add13 canonical regressions: an old failed warmup cannot clear replacement

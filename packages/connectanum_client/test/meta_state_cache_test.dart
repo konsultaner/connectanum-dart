@@ -4,6 +4,42 @@ import 'package:connectanum_client/connectanum.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (final failed in [false, true]) {
+    test(
+      'disconnect notification precedes receive close failed=$failed',
+      () async {
+        final (transport, cache) = await _cacheFixture();
+        final before = cache.snapshot;
+        var doneCount = 0;
+        final snapshots = <WampMetaStateSnapshot>[];
+        final listener = cache.changes.listen(
+          snapshots.add,
+          onDone: () => doneCount++,
+        );
+        addTearDown(listener.cancel);
+        expect(transport.isReady, isTrue);
+        if (failed) {
+          transport._disconnect!.completeError(
+            StateError('fixture disconnect'),
+          );
+        } else {
+          transport._disconnect!.complete();
+        }
+        await _drainMetaCallbacks();
+        expect(transport.isReady, isTrue);
+        expect(cache.isClosed, isTrue);
+        expect(doneCount, 1);
+        expect(transport.unsubscribeCount, 0);
+        expect(transport.sentMessages.whereType<Unsubscribe>(), isEmpty);
+        expect(cache.snapshot, same(before));
+        expect(snapshots, isEmpty);
+        await cache.close();
+        expect(transport.unsubscribeCount, 0);
+        await transport.shutdown();
+        expect(doneCount, 1);
+      },
+    );
+  }
   _metaRegressionContracts();
   group('WampMetaStateCache', () {
     test(
