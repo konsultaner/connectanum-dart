@@ -117,6 +117,11 @@ void main() {
         final callback = Completer<AuthResult>();
         final cleanup = Completer<void>();
         final cleanupEntered = Completer<void>();
+        addTearDown(() async {
+          if (!callback.isCompleted) callback.complete(_success());
+          if (!cleanup.isCompleted) cleanup.complete();
+          await _drain();
+        });
         factory.authenticator.cleanup = cleanup.future;
         factory.authenticator.abortHook = () {
           cleanupEntered.complete();
@@ -124,17 +129,17 @@ void main() {
           unawaited(server.close());
         };
         if (callbackBusy) factory.authenticator.hello = callback.future;
-        final result = server.onHello(hello('reentrant'));
+        final result = _HelloObservation(server.onHello(hello('reentrant')));
         await expectCallbackEntry(
           factory.authenticator.helloEntered.future,
-          result,
+          result.future,
         );
         if (!callbackBusy) {
-          expect((await result).status, RemoteHelloStatus.challenge);
+          expect((await result.settled()).status, RemoteHelloStatus.challenge);
         }
         await abort('reentrant');
         if (callbackBusy) {
-          final failure = (await result).failure;
+          final failure = (await result.settled()).failure;
           expect(failure?.reason, 'wamp.error.authentication_failed');
           expect(failure?.message, 'Remote authentication aborted');
           expect(factory.authenticator.abortCalls, 0);
@@ -358,20 +363,26 @@ void main() {
     () async {
       final pendingHello = Completer<AuthResult>();
       final cleanup = Completer<void>();
+      addTearDown(() async {
+        if (!pendingHello.isCompleted) pendingHello.complete(_success());
+        if (!cleanup.isCompleted) cleanup.complete();
+        await _drain();
+      });
       factory.authenticator.hello = pendingHello.future;
       factory.authenticator.cleanup = cleanup.future;
-      final first = server.onHello(hello('first'));
+      final first = _HelloObservation(server.onHello(hello('first')));
       await expectCallbackEntry(
         factory.authenticator.helloEntered.future,
-        first,
+        first.future,
       );
       await abort('first');
       expect(
-        (await first.timeout(const Duration(seconds: 1))).status,
+        (await first.settled()).status,
         RemoteHelloStatus.failure,
       );
+      final second = _HelloObservation(server.onHello(hello('second')));
       expect(
-        (await server.onHello(hello('second'))).status,
+        (await second.settled()).status,
         RemoteHelloStatus.failure,
       );
       expect(server.pendingAuthenticationCounts, {'realm1': 1});
@@ -715,14 +726,20 @@ void main() {
       final events = <AuthAuditEvent>[];
       AuthAuditLogger.registerSink(events.add);
       final pendingHello = Completer<AuthResult>();
+      addTearDown(() async {
+        if (!pendingHello.isCompleted) {
+          pendingHello.completeError(StateError('credential material'));
+        }
+        await _drain();
+      });
       factory.authenticator.hello = pendingHello.future;
-      final result = server.onHello(hello('late-error'));
+      final result = _HelloObservation(server.onHello(hello('late-error')));
       await expectCallbackEntry(
         factory.authenticator.helloEntered.future,
-        result,
+        result.future,
       );
       await abort('late-error');
-      await result;
+      expect((await result.settled()).status, RemoteHelloStatus.failure);
       pendingHello.completeError(StateError('credential material'));
       await _drain();
       expect(events, isEmpty);
@@ -879,6 +896,26 @@ void main() {
 Future<void> _drain() async {
   for (var i = 0; i < 20; i++) {
     await Future<void>.value();
+  }
+}
+
+class _HelloObservation {
+  _HelloObservation(this.future) {
+    // Keep asynchronous errors visible to the test runner, including timeouts.
+    unawaited(future.then((value) => _response = value));
+  }
+
+  final Future<RemoteHelloResponse> future;
+  RemoteHelloResponse? _response;
+
+  Future<RemoteHelloResponse> settled() async {
+    await _drain();
+    expect(
+      _response,
+      isNotNull,
+      reason: 'HELLO must settle without releasing the held provider callback',
+    );
+    return _response!;
   }
 }
 

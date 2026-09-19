@@ -6,6 +6,37 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work135 repairs the auth mutation gates without changing production behavior,
+inventory, classification or thresholds. Three auth lifecycle tests now observe
+prompt HELLO completion while provider/cleanup futures remain held, and always
+release those holds in teardown. The HTTP stalled-body test observes early
+authentication failure alongside server entry, then checks completion before
+releasing the stalled body. Actual exceptions/timeouts remain visible to the
+runner; no watchdog timeout is turned into an assertion kill.
+
+Fast135-before, all367 focused regressions and original frozen-input Verify135
+exit0. Analysis and final input/native hashes pass; the native runtime window is
+released. Verification includes3794 router,753 bench,3319 core WASM and2399
+client WASM cases. These are runtime results, not new line-coverage measurements.
+Full auth135 campaigns and independent saved-log audit agree: auth-server has
+182/189 assertion kills (96.30% raw/adjusted), seven unwaived survivors and105
+compile failures. HTTP auth has186/197 (94.42% raw),98.94% adjusted with exactly
+the existing nine hash-pinned equivalents, two other survivors and77 compile
+failures. Both initial/restored baselines pass; no timeouts or error-only kills.
+All19 auth and13 HTTP formerly timed-out candidates now have real assertions.
+Preserve auth135-mutations and coverage135-verification, including final hashes,
+the unchanged auth survivor investigation and per-candidate comparisons.
+
+Pushed parent e8118321 has green hosted Fast Checks, package/image dry runs and
+WAMP profile checks. Main CI is not clean: its pre-Work135 auth tests reproduce
+the86.24% gate failure. Refresh hosted evidence for this implementation increment;
+do not confuse a local gate pass with a green deployment chain. Strict audit also
+retains feature-branch protection/default-workflow visibility findings. The
+original full641-candidate session134b JS campaign remains live on its isolated
+snapshot. Next inspect fresh CI, then fix the already-reproduced encrypted file
+send after progressive-call termination. Full98%/95% cross-runtime scope remains
+incomplete, including unmeasured sources; no master merge, release or version change.
+
 Work134 fixes native-direct lazy invocation replies losing payloads or omitting
 E2EE packing. Attach response context before using the shared outbound payload
 helper; preserve matching packed bytes, empty values and explicit null fallbacks.

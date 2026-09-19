@@ -67,6 +67,53 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work135 Complete Authentication Lifecycle Mutation Oracles
+
+- Download and independently audit the complete hosted parent auth-server and
+  HTTP-auth reports. Their19 and13 timeouts include earlier assertion failures;
+  preserve timeout precedence rather than regrading those campaigns as passing.
+  The timeout stack traces identify three auth lifecycle tests and one HTTP
+  stalled-body test. Their pre-edit hashes match the hosted inputs.
+- Observe HELLO completion over the existing finite microtask drain while the
+  provider callback remains held. Retain all capacity, reentrant/duplicate
+  cleanup, status and late-error assertions; release callback/cleanup holds in
+  teardown even when assertions fail. The observer does not catch Future errors,
+  so real exceptions/timeouts remain visible to the test runner. The HTTP test
+  races response entry against authentication, observes the configured500ms
+  deadline with the body still held, releases it and joins the original operation.
+  It asserts an already-returned auth_timeout result, not a watchdog exception.
+- Fast135-before, all367 focused auth/HTTP cases and original Verify135 exit0.
+  Analysis is clean; frozen input and native hashes match. Verification includes
+  3794 router,753 benchmark,3319 core WASM and2399 client WASM cases. Native users
+  have finished and the shared runtime window is released. No new line-coverage
+  measurement or WASM instrumentation claim; existing missing scopes remain.
+- The original complete auth135 process exits0:294 auth-server candidates have
+  182 assertion-backed kills (160 assertion-only,22 mixed), seven survivors and
+  105 compile errors. Raw/adjusted score96.2963%, no waivers. All274 HTTP-auth
+  candidates have186 assertion-backed kills (159 assertion-only,27 mixed),11
+  survivors and77 compile errors. Raw94.4162%, adjusted98.9362% with exactly nine
+  pre-existing source-hash-pinned equivalents; two other survivors remain.
+  Both initial/restored baselines pass; no timeout/error-only/crash credit.
+  Independent saved-log audit and current source/test/support hashes agree.
+  Both unchanged95% gates pass. All32 formerly timed-out candidates now contain
+  actual assertion evidence. Inventories, production and classifier are unchanged.
+- All seven auth survivors/source hashes match the prior individual control-flow
+  investigation; copy that evidence and its equality check, without adding a
+  waiver or deleting defensive guards. Qwen review's alleged missing HTTP
+  teardown contradicts existing setup. Retain true exception propagation and
+  the finite in-memory oracle, rather than following advice to weaken thresholds.
+- Preserve auth135-mutations and coverage135-verification with logs, hash checks,
+  companion advice, survivor notes and per-candidate before/after comparisons.
+  Parent e8118321 hosted Fast Checks now passes, confirming Work134's fixture fix.
+  Package/image/profile checks pass; main CI still contains the pre-Work135 auth
+  gate failure at86.24%. Collect candidate hosted evidence after this test/code
+  increment. Strict branch-protection/default-workflow findings remain separate.
+- Keep original session134b JS process running; its641-candidate inventory is
+  isolated and not attributable to later test/source changes. Next address any
+  fresh CI failure, then the confirmed progressive encrypted-file terminal-state
+  bug. The complete per-component/runtime98%/95% objective remains open; no
+  merge to master, publication or version change.
+
 ### Work134 Native Reply Payloads And Portable Mutation Fixtures
 
 - Reproduce33 native reply assertion failures in the corrected86-case probe on
