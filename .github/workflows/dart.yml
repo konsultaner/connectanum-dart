@@ -265,7 +265,7 @@ jobs:
       - id: chrome
         uses: browser-actions/setup-chrome@v2
       - run: dart pub global activate coverage 1.15.1
-      - name: Measure browser serializers and SCRAM Worker
+      - name: Measure full core browser suite and MCP forms
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
           CONNECTANUM_BROWSER_COVERAGE_DIR: out/coverage-browser
@@ -274,7 +274,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: core-browser-coverage
-          path: |
-            out/coverage-browser/lcov.info
-            out/coverage-browser/summary.json
+          path: out/coverage-browser
           if-no-files-found: error

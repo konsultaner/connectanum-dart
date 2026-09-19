@@ -77,30 +77,8 @@ run_core_browser_tests() {
 
     run_command_with_timeout \
       "Core browser tests" \
-      "${CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-420}" \
-      dart test \
-        test/authentication/scram_key_derivation_web_test.dart \
-        test/authentication/cryptosign_authentication_test.dart \
-        test/authentication/cryptosign/key_file_boundaries_test.dart \
-        test/serializer \
-        test/message_e2ee_payload_test.dart \
-        test/message_e2ee_regression_test.dart \
-        test/message_lazy_payload_regression_test.dart \
-        test/message_invocation_test.dart \
-        test/message_invocation_transcoding_test.dart \
-        test/message_invocation_regression_test.dart \
-        test/message_invocation_response_lifecycle_test.dart \
-        test/message_result_test.dart \
-        test/message_registered_regression_test.dart \
-        test/message_subscribed_test.dart \
-        test/message_subscribed_regression_test.dart \
-        test/serializer_challenge_welcome_test.dart \
-        test/details_feature_announcement_test.dart \
-        test/custom_fields_test.dart \
-        test/custom_fields_regression_test.dart \
-        test/message_details_regression_test.dart \
-        test/mcp_completion_test.dart \
-        test/mcp_completion_regression_test.dart \
+      "${CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-900}" \
+      dart test test \
         -p chrome \
         --compiler="$browser_compiler" \
         --timeout=5m \
@@ -197,6 +175,8 @@ python3 tool/test_package_wamp_app.py
 python3 tool/test_run_wamp_app_lab.py
 python3 tool/test_check_wamp_app_benchmarks.py
 python3 tool/test_verification_scripts.py
+python3 tool/build_conformance_fixtures.py --check
+python3 tool/test_build_conformance_fixtures.py
 python3 tool/check_public_artifact_references.py
 python3 tool/test_public_artifact_references.py
 python3 tool/test_dart_package_publish_dry_run.py

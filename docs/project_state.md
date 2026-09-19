@@ -1,10 +1,97 @@
 # Project State
 
-Last updated: 2026-09-18
+Last updated: 2026-09-19
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work128 integrates the prepared browser regressions and fixes a reproduced
+SCRAM worker boundary bug. Five canonical tests fail on both JS and WASM when a
+worker returns0/1/31/33/64 bytes for a32-byte request. Reject mismatched lengths
+before copying/completing, clear rejected bytes, and expose only a fixed error.
+All245 focused tests pass on each browser compiler, including the existing64MiB
+responsiveness checks;214 portable conformance/SCRAM tests pass on VM. Original
+native synchronous proof vectors remain unchanged; web uses asynchronous Argon2.
+All29 vendored fixture files are bundled byte-for-byte by a Python standard-library
+generator, with source/output hashes and read-only freshness checks. An independent
+MessagePack test oracle avoids dart2js's unsupported64-bit accessor; VM/WASM retain
+the original decoder as an additional cross-check. Ten fixture integrity controls
+and56 verification-script tests pass. Canonical browser verification and coverage
+now select the entire core test directory, not a hand-maintained subset; CI retains
+raw browser coverage as well as LCOV and summaries. No thresholds are reduced.
+
+Fast128-before and frozen-input Verify128 complete with observed exit0. Verify
+includes Rust/native, installed-package/live-router checks,3295 core WASM tests
+and250 client browser tests. All recorded source/test/tool inputs still match;
+the standard native artifact hash is unchanged and its runtime window is released.
+Canonical JS
+coverage128 completes exit0 with3303 core and248 client-form tests passing, matching
+input hashes, core7307/7631 (95.75%) and client forms279/283 (98.59%). Keep171
+library sources unmeasured; the explicit98% target audit fails. Analysis
+exits0 with seven existing informational null-aware-element lints in untouched
+tests. The original RouterBinding campaign3580 is now absent, with559/2399 outcomes
+and an incomplete report:205 detected failures (188 with assertion evidence,
+16 test errors, one unknown),122 compile failures,186 survivors,46 timeouts.
+Preserve that evidence without claiming a score or duplicating it.
+A separate27-candidate worker-boundary
+browser mutation campaign completes with clean initial/restored baselines and
+matching input hashes:9 assertion kills,6 uncredited test errors,6 timeouts,
+3 survivors,3 compile failures. Raw/adjusted assertion score is37.5% (9/24 viable),
+not the conventional62.5% detection score. The independent log audit agrees.
+Survivors concern repeat-dispose handling, snapshot growability and late-result
+protection; the latter still needs a deterministic queued-response regression.
+No equivalent waivers are applied. Whole-component
+mutation gaps,98% package/runtime targets, unmeasured sources and an independent
+WASM executable-line denominator remain open. PR CI35382375488 at4bfd4c2d is now
+complete, with all32 jobs passing. Hosted evidence for the new implementation
+increment remains to be collected after push. No merge, publishing or version change.
+
+Work125/126 advances WASM measurement without changing the frozen production/test
+snapshot. An independent source-map validator inventories350 Dart production
+files and rejects corrupt/incomplete observations. The full212-test completion
+WASM run passes, observing144 of149 mapped lines; the smaller two-test compilation
+mapped only130, demonstrating that maps alone cannot define an executable-line
+denominator. A one-shot exact-breakpoint collector passes the same212 tests with
+720 pauses instead of42202. Independent comparison preserves all line states and
+25 unresolved offsets; executable sections are byte-identical, with only generated
+bootstrap paths differing in debug metadata. All78 validator/retirement/comparator
+tests pass. Inventory-driven collection also passes77 MessagePack WASM tests and
+retains348 unmeasured files; JS fallback hits are not attributed to WASM. Workers
+and an independent executable-line denominator remain open; no WASM package score
+is claimed. Preserve prototypes/raw reports in wasm125-validator and
+wasm126-one-shot. Full-core JS session36285 terminates exit1 with3077 passes and
+five failures: four legacy synchronous Argon2 expectations and a filesystem-only
+conformance fixture loader. Its7237/7602 (95.20%) result is diagnostic, not accepted
+passing coverage. Seven prepared real-worker SCRAM contract regressions pass on
+both JS and WASM, preserving all three existing proof vectors, synchronous-web
+rejection and bound key reuse. They remain isolated under
+coverage126-scram-browser-contract pending integration; do not delete native
+vectors or drop browser conformance tests to make the broader suite pass.
+At the Work125/126 checkpoint PR CI35382375488 had11 passing jobs and the full
+RouterBinding campaign3580 was live with inputs matching settled Verify123.
+Work128 above supersedes that process/CI state and bundles these measurement notes
+with the implementation they informed.
+
+Work124 investigates the WASM measurement gap without changing production,
+tests, or the live Work123 mutation snapshot. On Dart3.13.1/test1.31.2/coverage1.15.1,
+the same two MCP completion tests produce134 source entries under Chrome JS but
+an empty coverage array under WASM. A separate debugger prototype records exact
+WASM byte-offset hits: six independent branch controls pass, including the real
+MCP completion validator. The unchanged canonical two-test WASM suite then passes
+with393 exact breakpoints out of402 mapped offsets and94 hit Dart source lines.
+Nine relocated offsets remain explicitly unresolved and receive no credit.
+Input/module/map hashes and ten corrupted/incomplete evidence controls pass.
+This is feasibility evidence, not package-wide WASM coverage or a completed
+collector; worker/startup coverage and the executable-source denominator remain
+open. Preserve raw evidence and prototype code in `wasm124-debugger`, alongside
+the JS/WASM control reports. Do not infer executable lines from source maps alone.
+At4bfd4c2d, package dry runs, router-image35382402068 and WAMP-profile35382403818
+pass. Strict audit124 still exits1 because main CI remains queued and the existing
+branch/default-workflow findings remain. The full2399-candidate RouterBinding
+campaign continues on its original process; do not duplicate it or release the
+native window. Settled Verify123 still covers the unchanged implementation.
+This bookkeeping remains uncommitted until a subsequent implementation change.
 
 Work123 adds multi-round HTTP authentication lifecycle regressions and reproduces
 a real shutdown bug: delayed HELLO/AUTHENTICATE success could issue credentials

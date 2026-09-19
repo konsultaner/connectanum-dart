@@ -67,6 +67,181 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work128 Full Core Browser Integration And Worker Length Validation
+
+- Revalidate the native window rather than inferring liveness from stale logs.
+  Session3580 is absent and no matching mutation/native artifact user remains.
+  Its2399-candidate RouterBinding report stops at559 outcomes, complete=false:
+  205 detected failures (188 assertion-backed,16 test errors,one unknown),122
+  compile failures,186 survivors,46 timeouts. No accepted
+  final score. Preserve it; the current runner cannot resume existing output.
+- Fast128-before completes exit0 before tracked implementation edits. Integrate
+  the prepared Work127 conformance/SCRAM tests without deleting original cases.
+  All29 vendored fixture files preserve exact bytes, including numeric spellings,
+  Unicode and line endings. Python stdlib generation plus SHA-pinned freshness
+  checks requires no new Node runtime in canonical verification. Ten controls
+  reject changed/added/deleted sources, modified/missing outputs, symlinks, unsafe
+  names, empty inventories and input drift; empty files remain represented.
+- Retain101 conformance cases and add96 literal/malformed controls for an
+  independent test-only MessagePack reference. BigInt bounds precede int conversion;
+  unsupported values fail closed. VM/WASM cross-check the original msgpack_dart
+  oracle too. Preserve all17 legacy SCRAM cases and fixed native proof vectors;
+  browser Argon2 uses real workers, with seven additional worker contract tests.
+- Add18 worker boundary/lifecycle regressions. Five wrong-length cases reproduce
+  an actual missing check on both JS and WASM from the canonical package path.
+  Validate exact requested keyLength before copying/completing and clear malformed
+  results before failing with a fixed diagnostic. Cover valid16/32/64-byte results,
+  non-byte responses, concurrent request isolation, failure recovery and disposal.
+  All245 focused browser tests pass per compiler;214 conformance/SCRAM VM cases pass.
+  These are test-worker fault injections, not evidence of attacker control of the
+  production Worker. Existing64MiB event-loop responsiveness regressions also pass.
+- Canonical browser verification/coverage now runs the entire core test directory
+  from its package root; source-contract tests reject reversion to a selected
+  subtree or test-name filters. All56 script tests pass. Increase the bounded
+  whole-suite allowance from420s to900s for the larger inventory; per-test timeout
+  and coverage targets remain unchanged. Upload raw browser coverage in CI.
+- Canonical browser coverage128 completes exit0 with3303 core tests and248 client
+  form cases. Current hashes match: core7307/7631 (95.75%), client forms279/283
+  (98.59%),171 unmeasured library sources. The explicit98% audit fails. This is
+  JS measurement, not WASM or Worker-module coverage.
+- The complete27-candidate worker campaign finishes with both baselines exit0,
+  matching source/test hashes and an agreeing independent kill-log audit. Nine
+  assertion-backed kills, six uncredited test errors, six timeouts, three survivors
+  and three compile failures yield37.5% raw/adjusted assertions, not the62.5%
+  conventional detection score. Removing/inverting the new length guard produces
+  assertion failures; always rejecting valid lengths currently yields test errors
+  and is uncredited. No waivers or policy changes. Investigate survivors at the
+  repeated-dispose guard, disposable list growability and completed-result guard;
+  the latter requires explicit queued-response/late-result coverage. Next use
+  deterministic browser boundary fault injection rather than turning timeouts
+  into assertions or attributing old scores to stronger tests.
+- Frozen-input Verify128 completes with observed exit0 on original session88782,
+  including Rust/native, installed-package/live-router checks,3295 core WASM tests
+  and250 client browser cases. All recorded source/test/tool hashes match. No
+  native artifact users remain, its SHA is unchanged, and the coordinated native
+  window is released. No new native campaign. The full98%/95% milestone is not
+  complete. Main PR CI35382375488
+  at4bfd4c2d is now green across32 jobs; refresh hosted evidence after this increment.
+- Evidence: /tmp/connectanum-coverage128-* logs and input hashes, plus ignored
+  coverage128-worker-boundary, scram-worker128-mutations and browser128-current
+  under out/regression-coverage-2026-09-15. Broader local review hit its output
+  limit; a narrow worker-check review found no concrete issue. Fixture review
+  incorrectly claimed empty-string decoding and impossible traversal filenames
+  were bugs; source inspection and integrity controls refute those claims. The
+  independent GLM endpoint is unavailable. Do not treat advisory output as proof.
+
+### Work125/126 WASM Integrity And Collector Overhead
+
+- Independently decode source-map VLQ and verify exact inventories, source/module/
+  map hashes, breakpoint classifications and raw pause locations. Inventory350
+  production Dart files across packages and example application; unselected or
+  unmapped files stay visible. The validator's43 unit tests pass.
+- Original browser session83543 completes exit0 with212 unchanged completion tests.
+  Observe144 of149 mapped source lines, four not observed and one partially
+  instrumented/not observed. Keep349 other files unmeasured. The smaller two-test
+  compilation mapped130 lines: compiled maps alone are not an executable-source
+  denominator, even with O0. No package-wide WASM percentage is claimed.
+- A new ignored one-shot launcher retires each exact breakpoint only after a
+  validated hit and acknowledged removal, preserves its initial inventory and
+  retirement events, and atomically replaces reports. Session40513 passes the
+  same212 tests, with720 debugger pauses instead of42202. Independent validation
+  confirms identical line states and all25 unresolved offsets. These are boolean
+  observations, not hit-frequency or production performance measurements.
+- Inspect raw module hash differences rather than hiding them. They occur only
+  in generated package:test bootstrap names in the debug name section and one
+  source-map URI per module. A section-aware comparator verifies byte-identical
+  executable/other sections and exact source-map content except that URI. Its12
+  tests reject code, offset, production-URI and unrelated-debug-name corruption.
+  Together with23 retirement/I/O tests, all78 Node tests pass.
+- Inventory-driven session88665 passes77 MessagePack codec WASM tests. Two sources
+  have212 mapped lines: nine observed,185 not observed,18 partially instrumented
+  and not observed. Preserve348 unmeasured sources. The existing JS-only fallback
+  suite is not applicable to this run; WASM takes its supported64-bit ByteData
+  delegate path. Do not import JS hits or automatically exclude fallback lines.
+- [V8 IsBreakable](https://raw.githubusercontent.com/v8/v8/14.9.155/src/wasm/wasm-opcodes-inl.h)
+  and [FindNextBreakablePosition](https://raw.githubusercontent.com/v8/v8/14.9.155/src/wasm/wasm-debug.cc)
+  explain the captured control-opcode relocations. Keep those unresolved without
+  credit. An observed different exact offset on the same Dart line is independent
+  evidence, not a waiver. The [WASM custom-section definition](https://webassembly.github.io/spec/core/appendix/custom.html)
+  supports retaining debug names separately from executable-section comparison.
+- Workers/startup/deferred-target completeness, executable-line inventory and
+  portable canonical/CI integration are still open. Prototype files, validators,
+  raw maps/modules and reproducible commands are in wasm125-validator and
+  wasm126-one-shot. They are not a shipped measurement gate.
+- Preserve native campaign3580 and its frozen artifact/source/test snapshot.
+  All captured hashes match settled Verify123. Full-core JS session36285 completes
+  exit1 with3077 passing tests and five failures. Four legacy tests incorrectly
+  expect synchronous Argon2 to succeed on web; conformance setup attempts to read
+  vendored fixtures through dart:io. The7237/7602 (95.20%) line result remains
+  diagnostic, not accepted green coverage. Preserve raw data in browser126-core-all.
+- Prepare seven real-worker SCRAM contract regressions in the ignored
+  coverage126-scram-browser-contract directory. JS session3463 and WASM22985 pass
+  all seven: synchronous Argon2 rejects without producing a client key, async
+  derivation preserves the unchanged ASCII/UTF-8/UTF-16 proof vectors, and properly
+  bound worker-derived client/server keys reproduce the cached proof. The first
+  outside-package browser invocation41438 times out during suite loading; running
+  from repository root resolves the test-server path. It is a retained diagnostic,
+  not a passing test. Scratch-path analysis reports two dependency-layout infos;
+  package integration and canonical verification remain pending.
+- Next integrate platform-correct SCRAM regression expectations without deleting
+  native vector assertions and make the conformance fixture harness browser-readable
+  rather than dropping its tests. Do not restore synchronous web Argon2 or infer
+  final runtime coverage from this failed full-core baseline.
+- Main PR CI35382375488 has11 successful jobs, including Fast Checks, WampApp
+  Consumer and Core Browser Coverage, with no failed jobs observed at this check.
+  Remaining jobs and final strict hosted success are still pending.
+- Local companion advice was checked independently. Broad requests hit output
+  limits; narrow advice to mark a removal retired before acknowledgement was
+  rejected. The paused target cannot execute another hit before resume, and a CDP
+  error invalidates the report. GLM was separately checked and unavailable.
+  No production changes, new waivers or threshold/operator changes. Bookkeeping
+  remains uncommitted until it can accompany an implementation increment.
+
+### Work124 WASM Measurement Feasibility
+
+- Preserve the original full RouterBinding mutation process and frozen inputs.
+  Browser-only probes use `CONNECTANUM_SKIP_NATIVE_BUILD=1` with the native
+  library environment unset; no native build/runtime or replacement campaign.
+- Confirm an instrumentation gap with identical canonical MCP completion tests:
+  Chrome JS emits134 coverage source entries, including production Dart sources;
+  WASM emits `coverage: []` despite both tests passing. Installed versions are
+  Dart3.13.1, test1.31.2, coverage1.15.1 and Chromium149.0.7805.0.
+- Investigate the [Chrome debugger protocol](https://chromedevtools.github.io/devtools-protocol/v8/Debugger/)
+  and [WebAssembly source-map conventions](https://github.com/WebAssembly/tool-conventions/blob/main/Debugging.md).
+  Unlike the JS profiler path, debugger breakpoints can observe actual WASM byte
+  offsets. Six separate controls distinguish taken and untaken branches in a
+  tiny fixture and the real MCP completion validator. Browser bytecode matches
+  the compiled module, all selected fixture breakpoints resolve exactly, and
+  each hit's call-frame location matches its requested offset.
+- An ignored prototype Chrome launcher inserts a barrier after WASM compilation
+  but before instantiation, then instruments the unchanged package:test harness.
+  Final v4 session8795 exits0 with both existing tests passing, no observer
+  errors,393 exact breakpoint locations and94 observed Dart source lines. The
+  complete402-offset selected inventory retains nine relocated locations as
+  unresolved; those are removed and receive no hit credit. Do not treat nearby
+  instruction placement as execution of the requested source location.
+- Preserve compiled WASM, source maps, source hashes, debugger events and browser
+  version. Independent report checks pass and reject ten corrupted/incomplete
+  evidence controls. Earlier v1/v2/v3 probes retain their source-map URL,
+  nonexact-breakpoint and output-pipe diagnostics; they are not final evidence.
+  The first local review's proposed profiler cross-check is inapplicable because
+  the profiler emits no WASM entries. The later broad review was token-limited
+  and is not approval.
+- Evidence is under `out/regression-coverage-2026-09-15/wasm124-debugger`, with
+  controls in `wasm124-probe` and `js124-control`. Reproduce the checks with
+  `node out/regression-coverage-2026-09-15/wasm124-debugger/check-results.mjs`.
+  This does not yet establish a production collector, executable-line inventory,
+  package-wide percentage, worker/deferred-module coverage or startup coverage.
+  Source maps also contain declaration/end positions; they are not an independent
+  executable-line denominator. No source exclusions, threshold changes or
+  package-wide WASM coverage claims are introduced.
+- Package dry runs, router-image35382402068 and WAMP-profile35382403818 pass for
+  exact head4bfd4c2d. Strict audit124 exits1 while main CI is queued; branch
+  protection/default-workflow findings remain. Keep original CI observers and
+  the full2399-candidate native mutation process. Settled Verify123 and captured
+  workspace hashes still cover the untouched implementation. Leave these notes
+  uncommitted until they can accompany an implementation increment.
+
 ### Work123 HTTP Authentication Lifecycle
 
 - Add26 focused contracts for multi-round state rotation, replay, identity and

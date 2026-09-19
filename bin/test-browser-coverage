@@ -3,6 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 cd_repo_root
 dart_workspace_bootstrap
+python3 tool/build_conformance_fixtures.py --check
 if ! ensure_chrome_env; then
   printf 'Chrome is required for browser coverage; no empty report will be emitted.\n' >&2
   exit 1
@@ -16,22 +17,7 @@ fi
 mkdir -p "$coverage_root"
 (
   cd packages/connectanum_core
-  run_command_with_timeout "Core browser coverage" 420 dart test \
-    test/authentication/scram_key_derivation_web_test.dart test/serializer \
-    test/authentication/cryptosign_authentication_test.dart \
-    test/authentication/cryptosign/key_file_boundaries_test.dart \
-    test/message_e2ee_payload_test.dart test/message_e2ee_regression_test.dart \
-    test/message_lazy_payload_regression_test.dart \
-    test/message_invocation_test.dart test/message_result_test.dart \
-    test/message_invocation_transcoding_test.dart \
-    test/message_invocation_regression_test.dart \
-    test/message_invocation_response_lifecycle_test.dart \
-    test/message_registered_regression_test.dart \
-    test/message_subscribed_test.dart test/message_subscribed_regression_test.dart \
-    test/serializer_challenge_welcome_test.dart test/details_feature_announcement_test.dart \
-    test/custom_fields_test.dart test/custom_fields_regression_test.dart \
-    test/message_details_regression_test.dart \
-    test/mcp_completion_test.dart test/mcp_completion_regression_test.dart \
+  run_command_with_timeout "Core browser coverage" 900 dart test test \
     -p chrome --compiler=dart2js --concurrency=1 --timeout=5m \
     --coverage="$coverage_root/raw/core"
 )

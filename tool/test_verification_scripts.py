@@ -1210,16 +1210,53 @@ fi
         )
         self.assertIn('return "$status"', script)
 
+    def assert_core_browser_test_selected(self, relative_path: str, script: str) -> None:
+        core = script.split("cd packages/connectanum_core", 1)[1]
+        core = re.split(r"\n\s*\)", core, maxsplit=1)[0].replace("\\\n", " ")
+        # Selecting the whole test tree prevents future suites from being omitted.
+        self.assertRegex(core, r"\bdart\s+test\s+test\s+-p\s+chrome\b")
+        self.assertNotRegex(core, r"--(?:name|plain-name|tags|exclude-tags)\b")
+        self.assertTrue((REPO_ROOT / "packages/connectanum_core" / relative_path).exists())
+
+    def test_browser_suite_includes_portable_conformance_and_worker_boundaries(self) -> None:
+        for name in ("test-all", "test-browser-coverage"):
+            script = (REPO_ROOT / "bin" / name).read_text()
+            for relative_path in (
+                "test/conformance/wamp_singlemessage_conformance_test.dart",
+                "test/conformance/msgpack_reference_test.dart",
+                "test/authentication/scram_authentication_test.dart",
+                "test/authentication/scram_worker_boundary_test.dart",
+                "test/authentication/scram_web_contract_test.dart",
+            ):
+                with self.subTest(script=name, test=relative_path):
+                    self.assert_core_browser_test_selected(relative_path, script)
+            with self.assertRaises(AssertionError):
+                self.assert_core_browser_test_selected(
+                    "test/conformance", script.replace("dart test test ", "dart test test/serializer "),
+                )
+            with self.assertRaises(AssertionError):
+                self.assert_core_browser_test_selected(
+                    "test/conformance", script.replace("-p chrome", "-p chrome --name selected"),
+                )
+
+    def test_canonical_commands_reject_stale_conformance_fixtures(self) -> None:
+        for name in ("test-fast", "test-all", "test-browser-coverage"):
+            with self.subTest(script=name):
+                script = (REPO_ROOT / "bin" / name).read_text()
+                self.assertIn("python3 tool/build_conformance_fixtures.py --check", script)
+        for path in (TEST_FAST, TEST_ALL):
+            self.assertIn("python3 tool/test_build_conformance_fixtures.py", path.read_text())
+
     def test_full_verify_runs_core_browser_security_tests(self) -> None:
         script = TEST_ALL.read_text(encoding="utf-8")
 
         self.assertIn("run_core_browser_tests()", script)
-        self.assertIn(
+        self.assert_core_browser_test_selected(
             "test/authentication/scram_key_derivation_web_test.dart",
             script,
         )
-        self.assertIn(
-            "test/serializer \\\n",
+        self.assert_core_browser_test_selected(
+            "test/serializer",
             script,
         )
         self.assertIn('"Core browser tests"', script)
@@ -1232,18 +1269,18 @@ fi
         for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
             with self.subTest(script=path.name):
                 script = path.read_text(encoding="utf-8")
-                self.assertIn("test/message_e2ee_payload_test.dart", script)
-                self.assertIn("test/message_e2ee_regression_test.dart", script)
-                self.assertIn("test/message_lazy_payload_regression_test.dart", script)
-                self.assertIn("test/message_invocation_test.dart", script)
-                self.assertIn("test/message_result_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_e2ee_payload_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_e2ee_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_lazy_payload_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_invocation_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_result_test.dart", script)
 
     def test_browser_verification_and_coverage_include_completion_boundaries(self) -> None:
         for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
             with self.subTest(script=path.name):
                 script = path.read_text(encoding="utf-8")
-                self.assertIn("test/mcp_completion_test.dart", script)
-                self.assertIn("test/mcp_completion_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/mcp_completion_test.dart", script)
+                self.assert_core_browser_test_selected("test/mcp_completion_regression_test.dart", script)
 
     def test_browser_verification_and_coverage_include_mcp_form_boundaries(self) -> None:
         for name in ("test-all", "test-browser-coverage"):
@@ -1259,44 +1296,44 @@ fi
         for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
             with self.subTest(script=path.name):
                 script = path.read_text(encoding="utf-8")
-                self.assertIn("test/authentication/cryptosign_authentication_test.dart", script)
-                self.assertIn("test/authentication/cryptosign/key_file_boundaries_test.dart", script)
+                self.assert_core_browser_test_selected("test/authentication/cryptosign_authentication_test.dart", script)
+                self.assert_core_browser_test_selected("test/authentication/cryptosign/key_file_boundaries_test.dart", script)
 
     def test_browser_verification_and_coverage_include_registration_lifecycle(self) -> None:
         for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
             with self.subTest(script=path.name):
                 script = path.read_text(encoding="utf-8")
-                self.assertIn("test/message_registered_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_registered_regression_test.dart", script)
 
     def test_browser_verification_and_coverage_include_handshake_metadata(self) -> None:
         for name in ("test-all", "test-browser-coverage"):
             with self.subTest(script=name):
                 script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
-                self.assertIn("test/serializer_challenge_welcome_test.dart", script)
-                self.assertIn("test/details_feature_announcement_test.dart", script)
+                self.assert_core_browser_test_selected("test/serializer_challenge_welcome_test.dart", script)
+                self.assert_core_browser_test_selected("test/details_feature_announcement_test.dart", script)
 
     def test_browser_verification_and_coverage_include_lazy_metadata(self) -> None:
         for name in ("test-all", "test-browser-coverage"):
             with self.subTest(script=name):
                 script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
-                self.assertIn("test/custom_fields_test.dart", script)
-                self.assertIn("test/custom_fields_regression_test.dart", script)
-                self.assertIn("test/message_details_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/custom_fields_test.dart", script)
+                self.assert_core_browser_test_selected("test/custom_fields_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_details_regression_test.dart", script)
 
     def test_browser_verification_and_coverage_include_subscription_lifecycle(self) -> None:
         for name in ("test-all", "test-browser-coverage"):
             with self.subTest(script=name):
                 script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
-                self.assertIn("test/message_subscribed_test.dart", script)
-                self.assertIn("test/message_subscribed_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_subscribed_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_subscribed_regression_test.dart", script)
 
     def test_browser_verification_and_coverage_include_ppt_transcoding(self) -> None:
         for name in ("test-all", "test-browser-coverage"):
             with self.subTest(script=name):
                 script = (REPO_ROOT / "bin" / name).read_text(encoding="utf-8")
-                self.assertIn("test/message_invocation_transcoding_test.dart", script)
-                self.assertIn("test/message_invocation_regression_test.dart", script)
-                self.assertIn("test/message_invocation_response_lifecycle_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_invocation_transcoding_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_invocation_regression_test.dart", script)
+                self.assert_core_browser_test_selected("test/message_invocation_response_lifecycle_test.dart", script)
 
     def test_timeout_helper_does_not_leave_success_watchdog_alive(self) -> None:
         script = textwrap.dedent(
