@@ -6,6 +6,37 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work132 corrects the pure-VM mutation runner's fail-fast measurement gap without
+changing classifiers, deadlines, inventories, waivers or the95% assertion gate.
+Complete each suite and cleanup so an early test error cannot hide a later real
+assertion, timeout or process failure. A real four-target Dart campaign reproduces
+the old behavior and verifies mixed assertion/error evidence versus uncredited
+error-only, timeout and crash outcomes. All63 runner controls (one Linux-only
+skip) and59 verification-script controls pass. Both canonical VM scripts now
+select the full92-case meta-cache suite; browser selection remains complete.
+
+Fast132-before and original frozen-input Verify132 exit0. Final input hashes and
+the native artifact match; the shared native window is released. Meta92 passes
+VM/JS/WASM; final canonical browser coverage and WASM verification each pass2240
+client cases plus one native-only skip. Focused VM meta coverage is259/259; this
+is not whole-client coverage. Canonical JS remains core7383/7691 (96.00%) and
+client2506/2698 (92.88%), retaining161 unmeasured library files. The explicit98%
+audit still fails and WASM remains runtime evidence, not measured coverage.
+
+Full157-candidate VM and JS meta campaigns now agree:82/101 viable assertion kills
+(81.19%), six error-only detections,12 survivors, one timeout and56 compile
+failures each. Clean initial/restored baselines, matching source/test hashes and
+the independent saved-log audit agree. No equivalence waivers or timeout/crash
+credit; both95% gates still fail honestly. Preserve coverage132-verification,
+coverage132-meta, browser132-current and meta-cache132-mutations under the
+milestone output root. An ignored32-case portable session-E2EE profile probe
+passes VM/JS/WASM but is not yet canonical or attributed to these measurements.
+Next integrate it and replace the meta disconnect test's unbounded completion
+wait with a finite lifecycle assertion before rerunning affected evidence.
+Parent f6049b8e package/image/profile checks pass; CI remains queued with no
+observed failures. Refresh hosted checks after the implementation push. The full
+98%/95% milestone remains active; no merge, publication or version change.
+
 Work131 fixes a reproduced meta-cache hydration race: the transport can close
 after the final Meta reply but before its disconnect callback closes the cache.
 Check session connectivity before accepting the initial snapshot. The canonical

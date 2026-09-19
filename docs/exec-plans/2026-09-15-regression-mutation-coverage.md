@@ -67,6 +67,42 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work132 Complete VM Mutation Oracles And Meta Lifecycle Assertions
+
+- Remove pure-VM fail-fast, retaining complete browser/native-file execution,
+  isolated-file sequencing, deadlines and classification. Reproduce the old
+  omission using a real Dart package: an early runtime error hides a later
+  assertion, timeout or process exit. The canonical four-target control verifies
+  actual mixed evidence only when an assertion fails; error-only, timeout and
+  process failure remain uncredited. All63 runner controls (one Linux-only skip)
+  and59 script controls pass, including positive/negative complete-suite selectors.
+- Integrate the92-case meta suite with finite first/duplicate event assertions,
+  immutable no-op identity, failed disconnect and exact concurrent-disappearance
+  success oracles. Both VM scripts explicitly select the entire suite. Focused
+  VM/JS/WASM pass; final VM meta coverage259/259 is a module slice only.
+- Preserve and finish the original Fast132, Verify132, browser coverage and full
+  mutation processes. Fast and Verify exit0; frozen inputs and native hash still
+  match. Release the native window after lsof confirms no remaining users.
+  Browser coverage and WASM verification pass2240 client cases plus one genuine
+  native-only skip. Canonical JS core7383/7691 and client2506/2698 retain161
+  unmeasured sources; the98% audit remains red. No measured WASM score is claimed.
+- Full157-candidate inventories per runtime have56 compile failures and101 viable
+  mutants:82 assertion kills (58 assertion-only,24 mixed), six error-only
+  detections,12 survivors and one timeout. Both raw/adjusted assertion scores are
+  81.19%, with no waivers. Initial/restored baselines and independent log audit
+  pass; recorded source/test hashes match. The unchanged95% gates fail honestly.
+- Qwen review completed. Its alleged isolated-file argument retention and absent
+  fixture teardown contradict source/controls; no-op identity is observable
+  because public immutable models retain identity equality. Do not weaken these
+  assertions. The unbounded disconnect wait is a real remaining mutation-oracle
+  gap, not a passing-score claim; improve it in the next snapshot. Optional GLM
+  judge endpoint is unavailable independently of the working Qwen backend.
+- Preserve coverage132-verification, coverage132-meta, browser132-current and
+  meta-cache132-mutations. The ignored32-case session-E2EE profile probe passes
+  all three runtimes but remains outside canonical evidence. Integrate it next.
+  Parent f6049b8e package/image/profile checks pass; CI remains queued. Refresh
+  the hosted chain after push; no merge, publication or version change.
+
 ### Work131 Meta Hydration Race And Portable Binding Regressions
 
 - Preserve the original Fast131, Verify131 and two mutation processes until

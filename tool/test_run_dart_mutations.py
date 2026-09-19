@@ -766,6 +766,93 @@ class MutationRunnerTests(unittest.TestCase):
                     else:
                         self.assertIsNone(evidence, output)
 
+    def test_real_vm_campaign_preserves_later_assertions_and_terminal_failures(self):
+        source_path = 'packages/fixture/lib/flag.dart'
+        source = 'bool enabled() => true;'
+        mutation = {'file': source_path, 'offset': source.index('true'), 'length': 4,
+                    'line': 1, 'original': 'true', 'replacement': 'false',
+                    'operator': 'boolean'}
+        cases = {
+            'assertion': 'expect(enabled(), isTrue);',
+            'error_only': 'expect(1, 1);',
+            'timeout': 'if (!enabled()) await Future<void>.delayed(const Duration(seconds: 5));',
+            'exit': 'if (!enabled()) exit(2);',
+        }
+        real_run = runner.run
+
+        def create_fixture(work, support_files):
+            self.assertEqual(support_files, [])
+            (work / 'pubspec.yaml').write_text(
+                "name: mutation_oracle_fixture\nenvironment:\n  sdk: ^3.10.0\n"
+                "dev_dependencies:\n  test: 1.31.2\n")
+            production = work / source_path
+            production.parent.mkdir(parents=True)
+            production.write_text(source)
+            for name, body in cases.items():
+                test = work / f'packages/fixture/test/{name}_test.dart'
+                test.parent.mkdir(parents=True, exist_ok=True)
+                test.write_text(
+                    "import 'dart:io';\nimport 'package:test/test.dart';\n"
+                    "import '../lib/flag.dart';\nvoid main() {\n"
+                    "test('early runtime rejection', () {\n"
+                    "  if (!enabled()) throw StateError('controlled runtime rejection');\n"
+                    "});\n"
+                    f"test('later behavior', () async {{ {body} }});\n"
+                    "}\n")
+
+        def execute(command, cwd, timeout):
+            if command[1] == 'tool/dart_mutations.dart':
+                return 0, json.dumps([mutation])
+            return real_run(command, cwd, timeout)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = root / 'config.json'
+            config.write_text(json.dumps({name: {
+                'sources': [source_path],
+                'tests': [f'packages/fixture/test/{name}_test.dart'],
+                'testTimeoutSeconds': 1,
+            } for name in cases}))
+            equivalents = root / 'equivalents.json'
+            equivalents.write_text('{}')
+            output = root / 'report'
+            args = ['runner', '--config', str(config), '--equivalents', str(equivalents),
+                    '--output', str(output), '--timeout', '45']
+            with patch.object(sys, 'argv', args), \
+                 patch.object(runner, 'snapshot', side_effect=create_fixture), \
+                 patch.object(runner, 'run', side_effect=execute):
+                self.assertEqual(runner.main(), 1)
+            report = json.loads((output / 'mutation-report.json').read_text())
+            self.assertTrue(report['complete'])
+            self.assertEqual(report['gate']['threshold'], 95)
+            for name, target in report['targets'].items():
+                with self.subTest(case=name):
+                    self.assertEqual(target['generated'], 1)
+                    self.assertEqual(target['viable'], 1)
+                    self.assertEqual(target['baselineExitCode'], 0)
+                    self.assertEqual(target['restoredBaselineExitCode'], 0)
+                    self.assertEqual(target['testHashes'].keys(),
+                                     {f'packages/fixture/test/{name}_test.dart'})
+                    outcome = target['outcomes'][0]
+                    log = (output / outcome['log']).read_text()
+                    self.assertEqual(outcome['status'],
+                                     {'timeout': 'timeout', 'exit': 'error'}.get(name, 'killed'), log)
+                    if name == 'assertion':
+                        self.assertEqual(outcome['killEvidence'], {
+                            'cause': 'mixed', 'assertionFailures': 1,
+                            'testErrors': 1, 'unclassifiedFailures': 0,
+                        }, log)
+                        self.assertEqual(target['assertionScoreLowerBound'], 100)
+                        self.assertEqual(target['adjustedAssertionScoreLowerBound'], 100)
+                        self.assertTrue(target['gatePassed'])
+                    else:
+                        self.assertEqual(target['assertionScoreLowerBound'], 0)
+                        self.assertFalse(target['gatePassed'])
+                        if name == 'error_only':
+                            self.assertEqual(outcome['killEvidence']['cause'], 'testError', log)
+                        else:
+                            self.assertNotIn('killEvidence', outcome)
+
     def test_native_artifact_is_required_and_hashed_not_silently_skipped(self):
         with tempfile.TemporaryDirectory() as directory:
             library = Path(directory) / 'library.bin'
@@ -1000,15 +1087,12 @@ class MutationRunnerTests(unittest.TestCase):
                 else:
                     current = (work / source_path).read_text()
                 seen.append(current)
+                self.assertNotIn('--fail-fast', command)
                 if browser:
                     self.assertIn('--compiler=dart2js', command)
                     self.assertEqual(command[command.index('--platform') + 1], 'chrome')
-                    self.assertNotIn('--fail-fast', command)
-                elif not native:
-                    self.assertIn('--fail-fast', command)
                 if native:
                     self.assertIn('--timeout=20s', command)
-                    self.assertNotIn('--fail-fast', command)
                     if status == 'artifactChanged' and len(seen) == 3:
                         library.write_bytes(b'replaced artifact')
                 if (status == 'baselineFailure' or

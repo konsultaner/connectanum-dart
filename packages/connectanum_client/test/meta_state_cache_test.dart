@@ -42,13 +42,17 @@ void main() {
           throwsUnsupportedError,
         );
 
-        final changed = cache.changes.first;
+        final changed = <WampMetaStateSnapshot>[];
+        final listener = cache.changes.listen(changed.add);
+        addTearDown(listener.cancel);
         transport.emitMeta('wamp.session.on_leave', <dynamic>[
           1,
           'one',
           'user',
         ]);
-        final snapshot = await changed;
+        await _drainMetaCallbacks();
+        expect(changed, hasLength(1));
+        final snapshot = changed.single;
         expect(snapshot.sessions, isNot(contains(1)));
         expect(snapshot.registrations[10]!.callees, <int>{2});
         expect(snapshot.subscriptions[20]!.subscribers, <int>{2});
@@ -172,13 +176,17 @@ final class _MetaTransport extends AbstractTransport {
   @override
   Future<void> close({dynamic error}) => shutdown();
 
-  Future<void> shutdown() async {
+  Future<void> shutdown({Object? error}) async {
     if (!_isOpen) {
       return;
     }
     _isOpen = false;
     if (!(_disconnect?.isCompleted ?? true)) {
-      _disconnect!.complete();
+      if (error == null) {
+        _disconnect!.complete();
+      } else {
+        _disconnect!.completeError(error);
+      }
     }
     await _inbound.close();
   }
@@ -362,6 +370,147 @@ Future<(_MetaTransport, WampMetaStateCache)> _cacheFixture([
 Future<void> _drainMetaCallbacks() => Future<void>.delayed(Duration.zero);
 
 void _metaRegressionContracts() {
+  for (final entry in {
+    'wamp.session.get': Error.noSuchSession,
+    'wamp.registration.get': Error.noSuchRegistration,
+    'wamp.subscription.get': Error.noSuchSubscription,
+  }.entries) {
+    test(
+      'startup explicitly tolerates concurrent disappearance from ${entry.key}',
+      () async {
+        final transport = _MetaTransport(emitHydrationEvents: false);
+        addTearDown(transport.shutdown);
+        transport.onSend = (message) {
+          if (message is! Call || message.procedure != entry.key) return false;
+          transport._error(message, entry.value);
+          return true;
+        };
+        final session = await _startSession(transport);
+        WampMetaStateCache? cache;
+        Error? disappearance;
+        try {
+          cache = await WampMetaStateCache.start(session);
+        } on Error catch (error) {
+          if (error.error != entry.value) rethrow;
+          disappearance = error;
+        }
+        if (cache != null) addTearDown(cache.close);
+        expect(
+          disappearance,
+          isNull,
+          reason:
+              'An object removed during hydration is omitted, not a failed cache startup',
+        );
+        expect(cache, isNotNull);
+        if (entry.key == 'wamp.session.get') {
+          expect(cache!.snapshot.sessions, isEmpty);
+        } else if (entry.key == 'wamp.registration.get') {
+          expect(cache!.snapshot.registrations, isEmpty);
+        } else {
+          expect(cache!.snapshot.subscriptions, isEmpty);
+        }
+        expect(cache.isClosed, isFalse);
+      },
+    );
+  }
+
+  test(
+    'failed disconnect notification closes the cache without dead-session writes',
+    () async {
+      final (transport, cache) = await _cacheFixture();
+      final done = cache.changes.drain<void>();
+      await transport.shutdown(
+        error: StateError('controlled disconnect failure'),
+      );
+      await done;
+      expect(cache.isClosed, isTrue);
+      expect(transport.unsubscribeCount, 0);
+      await cache.close();
+      expect(transport.unsubscribeCount, 0);
+    },
+  );
+
+  test(
+    'change listeners observe the corresponding current snapshot during bursts',
+    () async {
+      final (transport, cache) = await _cacheFixture();
+      final currentAtDelivery = <bool>[];
+      final snapshots = <WampMetaStateSnapshot>[];
+      final listener = cache.changes.listen((snapshot) {
+        currentAtDelivery.add(identical(cache.snapshot, snapshot));
+        snapshots.add(snapshot);
+      });
+      addTearDown(listener.cancel);
+      transport.emitMeta('wamp.session.on_join', [
+        {'session': 2},
+      ]);
+      transport.emitMeta('wamp.session.on_join', [
+        {'session': 3},
+      ]);
+      await _drainMetaCallbacks();
+      expect(currentAtDelivery, [true, true]);
+      expect(snapshots.map((s) => s.sessions.keys.toList()), [
+        [1, 2],
+        [1, 2, 3],
+      ]);
+    },
+  );
+
+  for (final registration in [true, false]) {
+    final kind = registration ? 'registration' : 'subscription';
+    final id = registration ? 10 : 20;
+    for (final adding in [true, false]) {
+      final action = registration
+          ? (adding ? 'register' : 'unregister')
+          : (adding ? 'subscribe' : 'unsubscribe');
+      test(
+        '$kind no-op $action preserves immutable metadata identity',
+        () async {
+          final (transport, cache) = await _cacheFixture();
+          final before = cache.snapshot;
+          final events = <WampMetaStateSnapshot>[];
+          final listener = cache.changes.listen(events.add);
+          addTearDown(listener.cancel);
+          transport.emitMeta('wamp.$kind.on_$action', [adding ? 1 : 999, id]);
+          await _drainMetaCallbacks();
+          expect(events, isEmpty);
+          expect(cache.snapshot, same(before));
+          transport.emitMeta('wamp.session.on_join', [
+            {'session': 2},
+          ]);
+          await _drainMetaCallbacks();
+          expect(events, hasLength(1));
+          expect(
+            cache.snapshot.registrations[10],
+            same(before.registrations[10]),
+          );
+          expect(
+            cache.snapshot.subscriptions[20],
+            same(before.subscriptions[20]),
+          );
+        },
+      );
+    }
+  }
+
+  test(
+    'unrelated session departure retains metadata identity and membership',
+    () async {
+      final (transport, cache) = await _cacheFixture();
+      final before = cache.snapshot;
+      final events = <WampMetaStateSnapshot>[];
+      final listener = cache.changes.listen(events.add);
+      addTearDown(listener.cancel);
+      transport.emitMeta('wamp.session.on_leave', [999]);
+      await _drainMetaCallbacks();
+      expect(events, hasLength(1));
+      expect(cache.snapshot.registrations[10], same(before.registrations[10]));
+      expect(cache.snapshot.subscriptions[20], same(before.subscriptions[20]));
+      expect(cache.snapshot.registrations[10]!.callees, {1});
+      expect(cache.snapshot.subscriptions[20]!.subscribers, {1});
+    },
+  );
+
   group('Meta cache behavioral boundaries', () {
     test(
       'subscription failure releases partial ownership and allows retry',
@@ -369,8 +518,9 @@ void _metaRegressionContracts() {
         final transport = _MetaTransport(emitHydrationEvents: false);
         addTearDown(transport.shutdown);
         transport.onSend = (message) {
-          if (message is! Subscribe || transport._subscriptionIds.length != 3)
+          if (message is! Subscribe || transport._subscriptionIds.length != 3) {
             return false;
+          }
           transport._inbound.add(
             Error(
               MessageTypes.codeSubscribe,
@@ -445,8 +595,9 @@ void _metaRegressionContracts() {
         addTearDown(transport.shutdown);
         transport.onSend = (message) {
           if (message is! Call ||
-              message.procedure != 'wamp.subscription.list_subscribers')
+              message.procedure != 'wamp.subscription.list_subscribers') {
             return false;
+          }
           transport._result(message, [
             <int>[1],
           ]);
@@ -564,11 +715,16 @@ void _metaRegressionContracts() {
           expect(members(cache.snapshot), isEmpty);
           expect(contains(cache.snapshot), isTrue);
           transport.emitMeta('wamp.$kind.on_delete', [1, 77]);
+          await _drainMetaCallbacks();
+          expect(observed, hasLength(4));
+          expect(contains(cache.snapshot), isFalse);
+          final deleted = cache.snapshot;
           transport.emitMeta('wamp.$kind.on_delete', [1, 77]);
           await _drainMetaCallbacks();
           expect(observed, hasLength(4));
           expect(contains(cache.snapshot), isFalse);
           expect(contains(created), isTrue);
+          expect(cache.snapshot, same(deleted));
         },
       );
     }
@@ -708,8 +864,9 @@ void _metaRegressionContracts() {
           addTearDown(transport.shutdown);
           late Error rejection;
           transport.onSend = (message) {
-            if (message is! Call || message.procedure != procedure)
+            if (message is! Call || message.procedure != procedure) {
               return false;
+            }
             rejection = Error(
               MessageTypes.codeCall,
               message.requestId,
@@ -744,8 +901,9 @@ void _metaRegressionContracts() {
       () async {
         final transport = _MetaTransport(emitHydrationEvents: false);
         transport.onSend = (message) {
-          if (message is! Call || message.procedure != 'wamp.session.get')
+          if (message is! Call || message.procedure != 'wamp.session.get') {
             return false;
+          }
           transport._error(message, Error.noSuchSession);
           return true;
         };
@@ -828,8 +986,9 @@ void _metaRegressionContracts() {
           final transport = _MetaTransport(emitHydrationEvents: false);
           addTearDown(transport.shutdown);
           transport.onSend = (message) {
-            if (message is! Call || message.procedure != procedure)
+            if (message is! Call || message.procedure != procedure) {
               return false;
+            }
             transport._result(message, [value]);
             return true;
           };
@@ -857,8 +1016,10 @@ void _metaRegressionContracts() {
             final transport = _MetaTransport(emitHydrationEvents: false);
             addTearDown(transport.shutdown);
             transport.onSend = (message) {
-              if (message is! Call || message.procedure != 'wamp.session.list')
+              if (message is! Call ||
+                  message.procedure != 'wamp.session.list') {
                 return false;
+              }
               transport._inbound.add(
                 Result(
                   message.requestId,
@@ -891,8 +1052,9 @@ void _metaRegressionContracts() {
       () async {
         final transport = _MetaTransport(emitHydrationEvents: false);
         transport.onSend = (message) {
-          if (message is! Call || !message.procedure.endsWith('.get'))
+          if (message is! Call || !message.procedure.endsWith('.get')) {
             return false;
+          }
           final values = switch (message.procedure) {
             'wamp.session.get' => <String, dynamic>{
               'session': 1,

@@ -1264,6 +1264,23 @@ fi
         for path in (TEST_FAST, TEST_ALL):
             self.assertIn("python3 tool/test_build_conformance_fixtures.py", path.read_text())
 
+    def test_vm_commands_include_the_complete_meta_cache_suite(self) -> None:
+        command = 'dart test packages/connectanum_client/test/meta_state_cache_test.dart'
+
+        def assert_selected(script: str, function: str) -> None:
+            body = script.split(f'{function}() {{', 1)[1].split('\n}', 1)[0]
+            self.assertRegex(body, rf'(?m)^  {re.escape(command)}$')
+
+        for path, function in ((TEST_FAST, 'run_client_fast_tests'),
+                               (TEST_ALL, 'run_client_vm_tests')):
+            with self.subTest(script=path.name):
+                script = path.read_text()
+                assert_selected(script, function)
+                with self.assertRaises(AssertionError):
+                    assert_selected(script.replace(command, '# omitted Meta suite'), function)
+                with self.assertRaises(AssertionError):
+                    assert_selected(script.replace(command, command + ' --name selected'), function)
+
     def test_full_verify_runs_core_browser_security_tests(self) -> None:
         script = TEST_ALL.read_text(encoding="utf-8")
 

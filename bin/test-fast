@@ -15,6 +15,7 @@ run_client_fast_tests() {
   fi
 
   dart test packages/connectanum_client/test/client_test.dart
+  dart test packages/connectanum_client/test/meta_state_cache_test.dart
   dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
   dart test packages/connectanum_client/test/file_transfer_test.dart
   dart test packages/connectanum_client/test/transport/local

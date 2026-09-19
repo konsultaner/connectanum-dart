@@ -426,8 +426,7 @@ def main():
                 else:
                     test_files.add(test_path)
                     runnable_tests.add(test_path)
-            # Directory discovery order varies by filesystem. With fail-fast,
-            # that can change an assertion kill into a different test's timeout.
+            # Stable discovery makes deadline-bound execution reproducible.
             resolved_tests = sorted(str(path.relative_to(work)) for path in runnable_tests)
             if not resolved_tests:
                 raise ValueError(f'No runnable test files for {name}')
@@ -451,16 +450,15 @@ def main():
             test_timeout = target.get('testTimeoutSeconds', 5)
             if isinstance(test_timeout, bool) or not isinstance(test_timeout, (int, float)) or not math.isfinite(test_timeout) or test_timeout <= 0:
                 raise ValueError('testTimeoutSeconds must be finite and positive')
-            command = ['dart', 'test', '--reporter=json', '--concurrency=1', '--fail-fast',
+            # An early test error must not hide later assertions or terminal
+            # failures. Finish the suite and cleanup within the existing deadline.
+            command = ['dart', 'test', '--reporter=json', '--concurrency=1',
                        f'--timeout={test_timeout}s', *resolved_tests]
             platform = target.get('platform', 'vm')
             if platform not in ('vm', 'chrome'):
                 raise ValueError(f'Unsupported test platform: {platform}')
             command.extend(['--platform', platform])
             if platform == 'chrome':
-                # Complete browser suites and their cleanup before shutting down
-                # the compiler pool, rather than exiting with queued compiles.
-                command.remove('--fail-fast')
                 command.append('--compiler=dart2js')
             if test_root != Path('.'):
                 command = [os.path.relpath(work / arg, work / test_root) if arg in resolved_tests else arg
@@ -472,9 +470,7 @@ def main():
             test_arguments = [os.path.relpath(work / arg, test_cwd) for arg in resolved_tests]
             commands = [command]
             if isolate_files:
-                # Dart fail-fast can skip tearDownAll even within one suite.
-                # Finish each file's cleanup, then stop before the next file.
-                command = [arg for arg in command if arg != '--fail-fast']
+                # Finish each file's cleanup, then classify before the next file.
                 commands = [[arg for arg in command if arg not in test_arguments or arg == selected]
                             for selected in test_arguments]
             result['testCommands'] = commands
