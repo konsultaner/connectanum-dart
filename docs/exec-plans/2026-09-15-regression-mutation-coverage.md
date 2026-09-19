@@ -67,6 +67,46 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work137 Remote Authentication Behavioral Assertions
+
+- Add13 canonical regressions: an old failed warmup cannot clear replacement
+  connection ownership; repaired cryptosign-file warmup must establish one real
+  HELLO; public authenticators preserve safe HELLO/AUTHENTICATE denial payloads
+  across six RESULT/ERROR shapes without authorizing conflicting success fields.
+  Release held responses and join pending work; genuine timeouts remain errors.
+- All210 focused tests and frozen Fast137-before pass. Full292-candidate campaign
+  and independent saved-log audit both exit0:189/191 assertion kills (98.95288%
+  raw/adjusted),100 assertion-only,89 mixed, two survivors and101 compile errors.
+  Initial/restored baselines pass; no timeout, error-only or waiver credit.
+  Candidate IDs and source/support/runner hashes match136b. All six old error-only
+  cases and the connection-identity survivor now have behavioral assertions.
+  Source-inspect both remaining survivors (absent-field early return and internal
+  list growability), retaining them unwaived. No production/classifier change.
+- Complete VM137 collection exits0:38784/42651 library lines (90.9334%),59
+  unmeasured sources; packaging765/787 (97.2046%),12 unmeasured sources. Both98%
+  audits fail. Preserve the exact per-file delta: six socket partial-frame lines
+  lose observations and12 unchanged router lines gain them. Do not attribute
+  those timing-dependent differences to the new authentication tests. JS136
+  selected inputs are unchanged. Original serialized Verify137 exits0, including
+  3807 router,3319 core WASM and2439 client WASM cases. Final source/dependency/
+  native hashes match; release the native reservation after confirming no users.
+- Ignored meta137-investigation proves four non-equivalent disconnect-ordering
+  mutations using unwanted wire unsubscribes, without exception-to-assertion
+  wrappers. The copied95-case suite passes VM/JS/WASM. Integrate its two new
+  cases after frozen verification, then collect separate canonical evidence.
+  Preserve source/config/probe hashes, each mutated copy, logs and companion
+  adjudication; no full-campaign score is changed by these probes.
+- Preserve coverage137-verification, remote137-mutations, vm137-current and
+  meta137-investigation. Pushed28adca89 package/image/profile checks pass; main
+  CI stays queued. The original full Session JS campaign continues on its own
+  older snapshot. The complete98%/95% milestone remains open; no merge/release.
+- Next correctness priority: remote137-investigation reproduces stale successful
+  connection installation after reset. Complete a replacement, verify a real RPC
+  uses connection1, then release connection0's late WELCOME; the next RPC uses0
+  instead of1. Retain actual failing assertion/source hashes. Integrate before
+  fixing attempt/session ownership, and inspect stale disconnect callbacks;
+  Work137 changes no production behavior and does not fix this new finding.
+
 ### Work136 Progressive Native File Lifecycle
 
 - Reproduce13 actual assertions among40 portable cases on original VM/JS/WASM

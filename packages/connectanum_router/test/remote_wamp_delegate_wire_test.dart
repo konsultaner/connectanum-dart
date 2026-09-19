@@ -16,6 +16,7 @@ import 'package:test/test.dart';
 
 void main() {
   tearDown(RemoteWampDelegateRegistry.clear);
+  tearDown(RemoteAuthenticator.resetRateLimiter);
 
   // All branch payloads are well-formed so a wrong discriminator is observed
   // as the wrong authentication result, not an incidental missing-field error.
@@ -129,10 +130,188 @@ void main() {
       await delegate.warmUpSession();
       expect(service.hellos, isEmpty);
       key.writeAsStringSync(base64Encode(List<int>.filled(32, 7)));
+      await delegate.warmUpSession();
+      expect(service.hellos, hasLength(1));
       expect(_helloSuccess(await delegate.onHello(_hello())).authId, 'alice');
       expect(service.hellos, hasLength(1));
     },
   );
+
+  test(
+    'an old failed warmup cannot clear a newer pending connection',
+    () async {
+      final service = await _Service.start();
+      addTearDown(service.close);
+      final firstHello = Completer<void>();
+      final secondHello = Completer<void>();
+      final releases = <void Function()>[];
+      final warming = <Future<void>>[];
+      service.rejectHello = true;
+      service.scheduleWelcome = (send) {
+        if (service.hellos.length == 1) {
+          releases.add(send);
+          firstHello.complete();
+        } else if (service.hellos.length == 2) {
+          releases.add(send);
+          secondHello.complete();
+        } else {
+          send();
+        }
+      };
+      final delegate = service.delegate();
+      final first = delegate.warmUpSession();
+      warming.add(first);
+      try {
+        await Future.any<void>([
+          firstHello.future,
+          first,
+        ]).timeout(const Duration(seconds: 3));
+        expect(service.hellos, hasLength(1));
+        RemoteWampDelegateRegistry.clear();
+        service.rejectHello = false;
+        final second = delegate.warmUpSession();
+        warming.add(second);
+        await Future.any<void>([
+          secondHello.future,
+          second,
+        ]).timeout(const Duration(seconds: 3));
+        expect(service.hellos, hasLength(2));
+        releases.removeAt(0)();
+        await first;
+        warming.add(delegate.warmUpSession());
+        releases.removeAt(0)();
+        await Future.wait(warming);
+        expect(service.hellos, hasLength(2));
+        expect(_helloSuccess(await delegate.onHello(_hello())).authId, 'alice');
+        expect(service.hellos, hasLength(2));
+      } finally {
+        for (final release in releases) {
+          release();
+        }
+        await Future.wait(warming);
+      }
+    },
+  );
+
+  for (final phase in ['hello', 'authenticate']) {
+    for (final variant in [
+      'result-minimal',
+      'result-invalid-arguments',
+      'result-detailed',
+      'error-empty',
+      'error-invalid-details',
+      'error-positional',
+    ]) {
+      test('authenticator preserves $phase denial from $variant', () async {
+        final service = await _Service.start();
+        addTearDown(service.close);
+        final detailed = variant == 'result-detailed';
+        final resultPayload = <String, Object?>{
+          'status': 'failure',
+          'reason': 'fixture.denied',
+          'authId': 'must-not-authorize',
+          'authRole': 'admin',
+          if (variant != 'result-minimal') 'message': 'Denied',
+          if (variant == 'result-invalid-arguments')
+            'arguments': {'ignored': true},
+          if (detailed) ...{
+            'details': {'retry': false},
+            'arguments': ['diagnostic', 17],
+            'argumentsKeywords': {'trace': 'public-fixture'},
+          },
+        };
+        final errorArguments = <Object?>[
+          if (variant == 'error-positional') 'positional reason',
+        ];
+        final errorKeywords = <String, Object?>{
+          if (variant == 'error-invalid-details') ...{
+            'message': 'Denied',
+            'details': 'not-a-map',
+          },
+          if (variant == 'error-positional') 'details': {'retry': false},
+        };
+        service.respond = (call) {
+          if (phase == 'authenticate' && service.calls.length == 1) {
+            return _result(call, {
+              'status': 'challenge',
+              'authId': 'alice',
+              'challenge': {'nonce': 'fixture'},
+            });
+          }
+          return variant.startsWith('result')
+              ? _result(call, resultPayload)
+              : [
+                  8,
+                  48,
+                  call[1],
+                  {},
+                  'fixture.denied',
+                  errorArguments,
+                  errorKeywords,
+                ];
+        };
+        final authenticator = await const RemoteAuthenticatorFactory().create(
+          _realm,
+          {
+            'fake_challenge_on_hello_failure': false,
+            'rpc': {
+              'transport': service.transportConfig,
+              'connect_timeout_ms': 1000,
+              'call_timeout_ms': 1000,
+              'hello_procedure': 'fixture.hello',
+              'authenticate_procedure': 'fixture.authenticate',
+            },
+          },
+        );
+        final context = _context(details: {'authid': 'alice'});
+        var result = await authenticator.onHello(context);
+        if (phase == 'authenticate') {
+          expect(result.status, AuthStatus.challenge);
+          expect(result.challenge!.challenge, {'nonce': 'fixture'});
+          result = await authenticator.onAuthenticate(
+            context,
+            AuthenticateMessage(signature: 'proof'),
+          );
+        }
+        expect(result.status, AuthStatus.failure);
+        expect(result.success, isNull);
+        expect(result.challenge, isNull);
+        expect(result.failure, isNotNull);
+        final failure = result.failure!;
+        expect(failure.reason, 'fixture.denied');
+        expect(failure.message, switch (variant) {
+          'result-minimal' || 'error-empty' => null,
+          'error-positional' => 'positional reason',
+          _ => 'Denied',
+        });
+        expect(
+          failure.details,
+          detailed || variant == 'error-positional' ? {'retry': false} : {},
+        );
+        expect(
+          failure.arguments,
+          variant.startsWith('error')
+              ? errorArguments
+              : detailed
+              ? ['diagnostic', 17]
+              : null,
+        );
+        expect(
+          failure.argumentsKeywords,
+          variant.startsWith('error')
+              ? errorKeywords
+              : detailed
+              ? {'trace': 'public-fixture'}
+              : null,
+        );
+        expect(service.hellos, hasLength(1));
+        expect(service.calls.map((call) => call[3]), [
+          'fixture.hello',
+          if (phase == 'authenticate') 'fixture.authenticate',
+        ]);
+      });
+    }
+  }
 
   for (final operation in ['hello', 'authenticate']) {
     test(

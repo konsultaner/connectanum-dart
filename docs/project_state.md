@@ -6,6 +6,45 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work137 integrates13 remote-authentication regressions: old failed warmup versus
+replacement connection ownership, repaired cryptosign-file recovery, and real
+public-authenticator denial preservation across HELLO/AUTHENTICATE RESULT/ERROR
+variants. All210 focused tests pass. Production source and mutation inventory,
+classification, deadlines, thresholds and waivers are unchanged. Full292-candidate
+remote137 and independent saved-log audit agree:189/191 assertion kills (98.95%
+raw/adjusted), two unwaived survivors,101 compile failures, no timeouts or
+error-only kills. Both baselines pass. Source/support/runner hashes and candidate
+IDs match136b; all six former error-only cases and the connection-identity
+survivor now have real assertion evidence. Remaining survivors have source
+analysis in coverage137-verification/REVIEW.md, not equivalence waivers.
+
+Frozen Fast137-before and complete VM137 collection exit0. VM measures38784/42651
+library lines (90.93%), retaining59 unmeasured sources; packaging765/787 (97.20%),
+12 unmeasured sources. Explicit98% audits still fail. The line delta includes
+timing-dependent observations in unchanged socket/router paths, not a claimed
+line-coverage gain from the auth tests. JS136 selected inputs remain unchanged;
+WASM runtime passes are not measured WASM coverage. Original serialized Verify137
+exits0, including3807 router,3319 core WASM and2439 client WASM cases. Final
+source/dependency/native hashes match; no native consumers remain and its shared
+reservation is released.
+
+Separate ignored meta137-investigation probes prove four old meta mutations
+non-equivalent: disconnect notification before receive/readiness closure must not
+send network unsubscribes. Original95-case copied suite passes VM/JS/WASM; four
+individually mutated copies fail actual expected0/actual10 unsubscribe assertions.
+Integrate these tests only after frozen verification finishes, then refresh full
+canonical campaigns. Do not credit these probes to any existing mutation score.
+A separate remote137-investigation reproduces a higher-priority correctness bug:
+an old late WELCOME after registry reset replaces a successfully established new
+session, routing the next real RPC to connection0 instead of connection1. Fix
+attempt/session ownership next with canonical failing-before tests; inspect stale
+disconnect callbacks too. No production fix is claimed by Work137.
+Preserve coverage137-verification, remote137-mutations, vm137-current and
+meta137-investigation. Last pushed28adca89 package/image/profile checks pass;
+main CI remains queued. The original641-candidate Session JS campaign remains
+live on its older isolated inputs. Full98%/95% scope is incomplete. No merge,
+publication or version change.
+
 Work136 fixes encrypted progressive file sends after call retirement. Check the
 pending request before native E2EE preparation or transport send, matching the
 plain/buffered path without changing source ownership or byte forwarding. The
