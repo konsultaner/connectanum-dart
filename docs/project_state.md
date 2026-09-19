@@ -6,6 +6,43 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work129 adds14 controlled browser Worker lifecycle cases and10 portable SCRAM
+request regressions. Explicitly delivered success/error events and manual timers
+assert initialization recovery, buffer ownership/clearing, exact KDF parameters,
+late-response isolation, cancellation and exactly-once cleanup. Real-worker
+cryptography/responsiveness tests remain enabled. All55 focused JS and55 WASM
+tests pass;10 request tests pass on VM. Analyzer reports no issues for the new
+files. Fast129-before and frozen-input Verify129 complete with observed exit0,
+including3319 core WASM and250 client browser cases. Input hashes match and the
+unchanged native artifact/runtime window is released.
+
+Canonical JS coverage129 passes3327 core and248 client-form tests: core7319/7631
+(95.91%), client forms279/283 (98.59%), with171 library sources still unmeasured.
+The worker boundary now measures94/94 lines; this is not Worker-module or WASM
+coverage. The explicit98% audit still fails. Three new canonical mutation targets
+complete with clean initial/restored baselines, matching input hashes and an
+agreeing independent log audit. Worker27-candidate results:12 assertion kills,
+four uncredited test errors, six timeouts, two survivors and three compile failures;
+raw/adjusted assertion score50% (12/24 viable), up from37.5%, not the66.67%
+conventional detection score. The late-result guard is now detected as a test
+error, not credited as an assertion kill. Repeat-dispose and snapshot-growability
+survivors remain unwaived. Request VM and JS each score91.67% (11/12 assertions),
+not their100% conventional score: always rejecting valid key lengths currently
+causes an uncredited test error. Next strengthen that positive-input contract.
+
+A separate ignored client portability probe retains all76 main-client cases:
+75 pass on JS and WASM, with only the genuine native-FFI case skipped. Four
+canonical meta-cache tests also pass per browser compiler. The blocker is the
+main suite's FFI-only test-support import; integrate a conditional helper and
+broaden canonical client browser selection next. Its1198/1588 JS diagnostic is
+not accepted full-package coverage. Preserve coverage129-client-browser, raw
+browser129-current, scram-lifecycle129-mutations and coverage129-verification under
+out/regression-coverage-2026-09-15. Parent-head package/image/profile dry runs pass;
+main CI remains running without observed failed jobs. Strict audit remains
+non-green for pending CI and existing branch-protection/default-workflow findings.
+Collect fresh hosted evidence after this increment. No merge, release or version
+change; the complete98%/95% milestone remains active.
+
 Work128 integrates the prepared browser regressions and fixes a reproduced
 SCRAM worker boundary bug. Five canonical tests fail on both JS and WASM when a
 worker returns0/1/31/33/64 bytes for a32-byte request. Reject mismatched lengths

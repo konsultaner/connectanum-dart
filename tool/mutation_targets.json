@@ -1,4 +1,25 @@
 {
+  "core-scram-worker-web": {
+    "sources": ["packages/connectanum_core/lib/src/authentication/scram_key_derivation_web.dart"],
+    "tests": [
+      "packages/connectanum_core/test/authentication/scram_worker_boundary_test.dart",
+      "packages/connectanum_core/test/authentication/scram_key_derivation_web_test.dart",
+      "packages/connectanum_core/test/authentication/scram_web_contract_test.dart",
+      "packages/connectanum_core/test/authentication/scram_worker_lifecycle_test.dart"
+    ],
+    "platform": "chrome",
+    "testRoot": "packages/connectanum_core"
+  },
+  "core-scram-request-vm": {
+    "sources": ["packages/connectanum_core/lib/src/authentication/scram_key_derivation.dart"],
+    "tests": ["packages/connectanum_core/test/authentication/scram_key_derivation_request_test.dart"]
+  },
+  "core-scram-request-web": {
+    "sources": ["packages/connectanum_core/lib/src/authentication/scram_key_derivation.dart"],
+    "tests": ["packages/connectanum_core/test/authentication/scram_key_derivation_request_test.dart"],
+    "platform": "chrome",
+    "testRoot": "packages/connectanum_core"
+  },
   "client-mcp-http-vm": {
     "sources": ["packages/connectanum_client/lib/src/mcp/streamable_http_client.dart"],
     "tests": ["packages/connectanum_client/test/mcp"]

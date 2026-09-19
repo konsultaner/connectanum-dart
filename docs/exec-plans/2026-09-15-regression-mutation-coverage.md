@@ -67,6 +67,57 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work129 Deterministic SCRAM Lifecycle And Remaining Browser Scope
+
+- Observe the original fast129 baseline and JS/WASM prototype sessions exit0
+  before integrating tracked changes; do not restart completed campaigns. Add14
+  browser lifecycle cases plus10 portable request/exception cases. A controlled
+  Worker records transfer arguments without pretending to perform real buffer
+  detachment; real-worker cryptography, cancellation and responsiveness tests
+  remain. Restore globals per test and use explicitly delivered events/manual
+  timers rather than counting test-runner deadlines as assertions.
+- All55 focused cases pass on each browser compiler,10 request cases pass on VM,
+  and the new files analyze cleanly. Canonical JS coverage completes3327 core and
+  248 client-form cases: core7319/7631 (95.91%), client forms279/283 (98.59%),171
+  unmeasured library sources. Worker boundary94/94 is a measured slice, not a
+  component/runtime completion claim. The explicit98% target audit fails.
+- Add reproducible core-scram-worker-web, core-scram-request-vm and
+  core-scram-request-web targets, retaining the full source/operator inventories
+  and all existing worker tests. Run bin/test-mutations with all three targets,
+  output scram-lifecycle129-mutations and process timeout60. Report complete=true;
+  every initial/restored baseline exits0, and source/test hashes match.
+- Worker27 candidates produce12 assertion-backed kills, four uncredited test
+  errors, six timeouts, two survivors and three compile errors:50% raw/adjusted
+  assertion score, not66.67% conventional detections. Late-result guard removal
+  now causes six test errors; retain that diagnostic without assertion credit.
+  Repeat-dispose and disposable snapshot growability survive; no equivalence
+  waivers. Request VM/JS each produce11 assertion kills and one uncredited test
+  error among12 candidates:91.67%, not100%. The latter always rejects valid
+  keyLength values; add an explicit positive acceptance assertion, not blanket
+  conversion of arbitrary crashes/deadlines to test failures. All three95% gates fail
+  honestly. A separate audit of saved logs agrees with the campaign classifications.
+- Frozen Verify129 exits0, including Rust/native, public installed-package/live
+  router checks,3319 core WASM cases and250 client browser cases. All recorded
+  inputs and native artifact SHA256 match afterward; release the native window.
+- While inputs were frozen, an ignored main-client browser probe replaces only
+  its FFI-only support import and adds browser metadata. All76 cases remain:
+  75 pass on JS/WASM; one genuine native provider case is inapplicable. Four
+  meta-cache cases pass on both compilers. Diagnostic JS1198/1588 (75.44%) retains
+  223 repository library sources as unmeasured and fails policy. Preserve the
+  prototype, hashes and logs in coverage129-client-browser; it is not canonical
+  package coverage. Next integrate conditional test support and broader client
+  browser selection without removing native cases.
+- Parent b6b62f4f package, image35421916560 and WAMP35421917385 dry runs pass.
+  Main CI35421877676 is still live with no observed failed job. Strict audit129
+  remains non-green for pending CI, unprotected feature branch and the mutation
+  diagnostics workflow not yet discoverable from the default branch. No merge or
+  branch-policy change to silence these findings. Refresh hosted evidence after
+  push. Evidence lives under coverage129-verification, browser129-current and
+  scram-lifecycle129-mutations. Narrow local review found no concrete global
+  restoration bug; suggested timer cleanup is already owned by deriver teardown,
+  and the manual timer does not schedule platform work. GLM is independently
+  unreachable; routine local companions ran successfully. The full goal is open.
+
 ### Work128 Full Core Browser Integration And Worker Length Validation
 
 - Revalidate the native window rather than inferring liveness from stale logs.
