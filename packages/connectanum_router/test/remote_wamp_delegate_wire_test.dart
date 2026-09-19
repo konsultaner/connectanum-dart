@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:connectanum_core/authentication.dart'
+    show AbstractAuthentication;
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_core/json_serializer.dart' as json;
 import 'package:connectanum_core/msgpack_serializer.dart' as msgpack;
@@ -17,6 +19,58 @@ import 'package:test/test.dart';
 void main() {
   tearDown(RemoteWampDelegateRegistry.clear);
   tearDown(RemoteAuthenticator.resetRateLimiter);
+
+  test(
+    'old fingerprint completion reuses a completed rotated session',
+    () async {
+      final service = await _Service.start();
+      addTearDown(service.close);
+      final temp = Directory.systemTemp.createTempSync('remote-fingerprint-');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final secret = File('${temp.path}/secret')
+        ..writeAsStringSync('first-secret');
+      final config = _FingerprintGate(
+        RemoteWampDelegateConfig.parse({
+          'rpc': {
+            'connect_timeout_ms': 1000,
+            'call_timeout_ms': 1000,
+            'transport': service.transportConfig,
+            'service_auth_method': 'ticket',
+            'service_auth_secret_file': secret.path,
+          },
+        }, _realm),
+      );
+      final delegate = WampRemoteAuthenticatorDelegate(config);
+      expect(_helloSuccess(await delegate.onHello(_hello())).authId, 'alice');
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      config.holdNextFingerprint = () async {
+        entered.complete();
+        await release.future;
+      };
+      final delayed = delegate.onHello(_hello(id: 'delayed'));
+      try {
+        await Future.any([
+          entered.future,
+          delayed,
+        ]).timeout(const Duration(seconds: 3));
+        expect(entered.isCompleted, isTrue);
+        secret.writeAsStringSync('second-secret');
+        expect(
+          _helloSuccess(await delegate.onHello(_hello(id: 'rotated'))).authId,
+          'alice',
+        );
+        expect(service.callConnections, [0, 1]);
+        release.complete();
+        expect(_helloSuccess(await delayed).authId, 'alice');
+        expect(service.callConnections, [0, 1, 1]);
+        expect(service.hellos, hasLength(2));
+      } finally {
+        if (!release.isCompleted) release.complete();
+        await delayed;
+      }
+    },
+  );
 
   test(
     'reset during connection preparation opens no stale service socket',
@@ -84,15 +138,15 @@ void main() {
             releaseOld!();
             releaseOld = null;
             await first;
+            await service.sockets.first.done.timeout(
+              const Duration(seconds: 3),
+            );
             expect(
               _helloSuccess(await delegate.onHello(_hello())).authId,
               'alice',
             );
             expect(service.callConnections, [1, 1]);
             expect(service.hellos, hasLength(2));
-            await service.sockets.first.done.timeout(
-              const Duration(seconds: 3),
-            );
           } finally {
             releaseOld?.call();
             await first;
@@ -671,7 +725,13 @@ void main() {
       final delegate = service.delegate();
       final first = delegate.onHello(_hello(id: 'first'));
       final second = delegate.onAuthenticate(_authenticate(id: 'second'));
-      await received.future.timeout(const Duration(seconds: 3));
+      final replies = Future.wait<Object>([first, second]);
+      addTearDown(() => replies);
+      addTearDown(RemoteWampDelegateRegistry.clear);
+      await Future.any([
+        received.future,
+        replies,
+      ]).timeout(const Duration(seconds: 3));
       expect(service.calls, hasLength(2));
       expect(service.senders, hasLength(1));
       for (final call in service.calls.reversed) {
@@ -1139,6 +1199,51 @@ List<Object?> _result(List<dynamic> call, Map<String, Object?> payload) => [
   <Object?>[],
   payload,
 ];
+
+// Delay real credential I/O without mocking its fingerprint or authentication.
+class _FingerprintGate implements RemoteWampDelegateConfig {
+  _FingerprintGate(this.inner);
+
+  final RemoteWampDelegateConfig inner;
+  Future<void> Function()? holdNextFingerprint;
+
+  @override
+  Future<String> connectionFingerprint() async {
+    final hold = holdNextFingerprint;
+    holdNextFingerprint = null;
+    final fingerprint = await inner.connectionFingerprint();
+    await hold?.call();
+    return fingerprint;
+  }
+
+  @override
+  String get realm => inner.realm;
+  @override
+  RemoteWampTransportConfig get transport => inner.transport;
+  @override
+  String get helloProcedure => inner.helloProcedure;
+  @override
+  String get authenticateProcedure => inner.authenticateProcedure;
+  @override
+  String get abortProcedure => inner.abortProcedure;
+  @override
+  Duration get callTimeout => inner.callTimeout;
+  @override
+  Duration get connectTimeout => inner.connectTimeout;
+  @override
+  String? get authId => inner.authId;
+  @override
+  String? get authRole => inner.authRole;
+  @override
+  Map<String, dynamic>? get authExtra => inner.authExtra;
+  @override
+  String cacheKey() => inner.cacheKey();
+  @override
+  Future<List<AbstractAuthentication>> buildAuthenticationMethods() =>
+      inner.buildAuthenticationMethods();
+  @override
+  Future<String?> resolveAuthToken() => inner.resolveAuthToken();
+}
 
 /// A wire-level peer keeps the response oracle independent of the delegate.
 class _Service {

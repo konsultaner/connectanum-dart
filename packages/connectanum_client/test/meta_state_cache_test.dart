@@ -4,6 +4,64 @@ import 'package:connectanum_client/connectanum.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (final keywordMetadata in [false, true]) {
+    test(
+      'healthy startup retains event ownership keywords=$keywordMetadata',
+      () async {
+        final transport = _MetaTransport(emitHydrationEvents: false);
+        addTearDown(transport.shutdown);
+        if (keywordMetadata) {
+          transport.onSend = (message) {
+            if (message is! Call || !message.procedure.endsWith('.get')) {
+              return false;
+            }
+            final metadata = switch (message.procedure) {
+              'wamp.session.get' => <String, dynamic>{
+                'session': 1,
+                'authid': 'alice',
+              },
+              'wamp.registration.get' => <String, dynamic>{
+                'id': 10,
+                'uri': 'app.call',
+              },
+              'wamp.subscription.get' => <String, dynamic>{
+                'id': 20,
+                'uri': 'app.events',
+              },
+              _ => throw StateError('Unexpected metadata request'),
+            };
+            transport._inbound.add(
+              Result(
+                message.requestId,
+                ResultDetails(),
+                argumentsKeywords: metadata,
+              ),
+            );
+            return true;
+          };
+        }
+        final session = await _startSession(transport);
+        WampMetaStateCache? cache;
+        addTearDown(() async => cache?.close());
+        // LIFO: observe ownership before disposal, even when startup throws.
+        addTearDown(() {
+          expect(transport.unsubscribeCount, 0);
+          expect(transport.sentMessages.whereType<Unsubscribe>(), isEmpty);
+        });
+        cache = await WampMetaStateCache.start(session);
+        expect(cache.isClosed, isFalse);
+        expect(cache.snapshot.sessions.keys, [1]);
+        expect(cache.snapshot.registrations.keys, [10]);
+        expect(cache.snapshot.subscriptions.keys, [20]);
+        transport.emitMeta('wamp.session.on_join', [
+          {'session': 7, 'authid': 'new-member'},
+        ]);
+        await _drainMetaCallbacks();
+        expect(cache.snapshot.sessions[7]?.authId, 'new-member');
+      },
+    );
+  }
+
   for (final failed in [false, true]) {
     test(
       'disconnect notification precedes receive close failed=$failed',

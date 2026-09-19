@@ -67,6 +67,40 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work139 Fingerprint And Startup Ownership Regressions
+
+- Integrate the previously isolated completed-replacement fingerprint probe as a
+  canonical test, using a typed forwarding configuration and real secret rotation.
+  Assert RPC connection indexes[0,1,1], not the mutant's[0,1,2]. Integrate both
+  meta healthy-startup probes with pre-disposal ownership assertions and later
+  event delivery. All221 remote tests and97 meta tests on VM/JS/WASM pass.
+- Observe concurrent call settlement alongside peer receipt, preserving genuine
+  errors and teardown joining. Observe retired socket closure before reusing a
+  cached connection. Do not relabel deadline expiry or infinite mutated retries
+  as assertions. No production, inventory, classifier, waiver or threshold change.
+- Fast139-before and analysis pass. Complete157-candidate meta139 VM/JS campaigns
+  and independent audits agree:90/101 assertion kills (89.11% raw/adjusted),
+  eight survivors, three error-only outcomes,56 compile failures, no timeouts
+  or waivers. Both baselines pass;95% gates still fail. Original Verify139
+  exits0, including2443 client WASM cases; final input/native hashes match and
+  no native consumers remain. Complete303-candidate remote139 and independent
+  audit agree:197/202 assertion kills (97.52% raw/adjusted), two survivors,
+  three timeouts,101 compile failures, no error-only kills or waivers. Both
+  baselines pass; the gate still fails on timeouts. Work140 fast baseline runs
+  under the explicitly extended native reservation.
+  Current line measurement remains138; do not attribute it to139 tests.
+- Pushed552ab403 package/image/profile checks pass and main CI
+  is queued. Parent04b9aa33 consumer failure is a published beta.5 checksum HTTP500,
+  not a test assertion. Same URL now returns200; one job retry request was refused
+  because the parent workflow remains active. Preserve its log and current strict
+  audit findings. Do not bypass published package consumption or cancel campaigns.
+- An isolated Session probe restores inert PPT result assertions and correct
+  fake-router RESULT framing, fixes progressive keyword setup, and replaces five
+  error-completer waits while preserving unexpected error identity. All79 copied
+  cases pass VM/JS/WASM. An earlier isolated incomingClosed mutant fails an
+  actual readiness assertion on VM/JS, not a deadline. Integrate after fast140;
+  do not attribute isolated probes to the older Session134b mutation score.
+
 ### Work138 Generation-Owned Remote Sessions
 
 - Reproduce nine actual assertions across ten new remote-auth wire cases on

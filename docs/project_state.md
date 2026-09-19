@@ -6,6 +6,44 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work139 integrates the proven delayed-fingerprint regression: after another
+caller finishes credential rotation, a late old fingerprint must reuse that
+replacement, with RPC socket indexes[0,1,1] and only two HELLOs. Its typed config
+fixture forwards real credential I/O. Also integrate two healthy meta startup
+ownership tests, asserting zero premature UNSUBSCRIBEs before explicit disposal
+and a subsequent live session event. All221 remote tests and97 meta cases on each
+of VM/JS/WASM pass; these are runtime results, not refreshed line measurements.
+Concurrent RPC correlation now observes request failure as well as wire receipt,
+retaining actual exceptions and joining pending requests in teardown. Retired
+handshake tests observe socket closure before attempting another cached RPC.
+
+Fast139-before and analysis pass. Complete meta-cache139 VM/JS campaigns and
+independent audits agree:90/101 assertion kills (89.11% raw/adjusted), eight
+survivors, three uncredited error-only outcomes,56 compile failures, no timeouts
+or waivers. Both baselines pass; the95% gates still fail. Original serialized
+Verify139 exits0, including2443 client WASM cases. Final input/native hashes
+match and no native consumers remain. Complete remote139 and independent audit
+agree:197/202 assertion kills (97.52% raw/adjusted), two unwaived survivors,
+three uncredited timeouts,101 compile failures, no error-only kills. Both
+baselines pass; the gate still fails on timeouts. VM/JS138 is the last complete line
+measurement. Preserve coverage139-verification. The shared native reservation
+remains held; Work140 fast baseline is running before Session test integration.
+Pushed552ab403 contains the generation fix; package/image/profile checks pass
+and main CI is queued. Parent04b9aa33 consumer
+job failed fetching a published beta.5 checksum with GitHub Releases HTTP500;
+the URL now returns200, but GitHub refuses a job retry while its workflow is
+active. Do not cancel it or bypass published dependencies. Strict audit remains
+non-green. No merge, publication or version change; full98%/95% scope is open.
+
+The isolated Session139 probe repairs previously inert PPT result assertions,
+a fake-router YIELD instead of RESULT, a progressive argument-map typo, and five
+unresolved error-completer paths. All79 copied tests pass VM/JS/WASM, including
+controls preserving genuine StateError/TimeoutException identity. One isolated
+incomingClosed mutation fails a real readiness assertion on VM/JS; it predates
+the final helper controls and must not upgrade any complete mutation score.
+Preserve session139-investigation and integrate after the fast baseline. Native
+reservation is explicitly confirmed through Work140 verification.
+
 Work138 fixes remote WAMP authentication session ownership across registry reset,
 late handshakes, stale failures/disconnects and concurrent credential rotation.
 Ten canonical wire regressions reproduce nine assertions before the fix and pass
