@@ -10,11 +10,7 @@ import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
-import 'test_support/native_runtime_support.dart';
-
 void main() {
-  final nativeClientRuntimeUnavailableReason = nativeClientRuntimeSkipReason();
-
   group('Client', () {
     test('session creation without authentication process', () async {
       final transport = _MockTransport();
@@ -3863,64 +3859,6 @@ void main() {
         await invocationSeen.future;
         await session.close(timeout: Duration.zero);
       },
-    );
-    test(
-      'publishLazyPayload supports a native session E2EE provider resolver',
-      () async {
-        final transport = _MockTransport();
-        final inspectingProvider =
-            NativeWampCborXsalsa20Poly1305Provider.single(
-              keyId: 'kid-server-a',
-              key: List<int>.generate(32, (index) => index + 1),
-            );
-        addTearDown(inspectingProvider.release);
-        final client = Client(
-          realm: 'test.realm',
-          transport: transport,
-          e2eeProviderResolver: (_) =>
-              NativeWampCborXsalsa20Poly1305Provider.single(
-                keyId: 'kid-server-a',
-                key: List<int>.generate(32, (index) => index + 1),
-              ),
-        );
-
-        transport.outbound.stream.listen((message) {
-          if (message.id == MessageTypes.codeHello) {
-            transport.receiveMessage(
-              Welcome(
-                42,
-                Details.forWelcome(authExtra: _negotiatedE2eeAuthExtra()),
-              ),
-            );
-            return;
-          }
-          if (message.id == MessageTypes.codePublish) {
-            final publish = message as Publish;
-            expect(publish.options?.pptSerializer, equals('cbor'));
-            expect(publish.options?.pptCipher, equals('xsalsa20poly1305'));
-            expect(publish.options?.pptKeyId, equals('kid-server-a'));
-            final decoded = inspectingProvider.unpackPayload(
-              publish.arguments,
-              publish.options!,
-            );
-            expect(decoded.arguments, equals(const ['wrapped']));
-            expect(decoded.argumentsKeywords, equals(const {'worker': 4}));
-            expect(publish.argumentsKeywords, isNull);
-          }
-        });
-
-        final session = await client.connect().first;
-        await session.publishLazyPayload(
-          'ppt.topic',
-          payload: LazyMessagePayload.materialized(
-            arguments: const ['wrapped'],
-            argumentsKeywords: const {'worker': 4},
-          ),
-          options: PublishOptions(pptScheme: 'wamp'),
-        );
-        await session.close(timeout: Duration.zero);
-      },
-      skip: nativeClientRuntimeUnavailableReason,
     );
     test('publishLazyPayload forwards E2EE runtime context', () async {
       final transport = _MockTransport();

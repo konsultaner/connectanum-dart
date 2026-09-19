@@ -1311,6 +1311,77 @@ fi
             script,
         )
 
+    def test_vm_commands_include_the_complete_lazy_reply_suite(self):
+        command = 'dart test packages/connectanum_client/test/session_lazy_reply_test.dart'
+        for path, function in ((TEST_FAST, 'run_client_fast_tests'),
+                               (TEST_ALL, 'run_client_vm_tests')):
+            with self.subTest(script=path.name):
+                body = path.read_text().split(f'{function}() {{', 1)[1].split('\n}', 1)[0]
+                pattern = rf'(?m)^  {re.escape(command)}$'
+                self.assertRegex(body, pattern)
+                for replacement in ('# omitted suite', command + ' --name selected'):
+                    with self.assertRaises(AssertionError):
+                        self.assertRegex(body.replace(command, replacement), pattern)
+
+    def test_vm_coverage_includes_complete_session_profile_and_reply_suites(self):
+        script = (REPO_ROOT / 'bin' / 'test-coverage').read_text()
+        for label, suite in (
+            ('e2ee_profile', 'session_e2ee_profile_test.dart'),
+            ('lazy_reply', 'session_lazy_reply_test.dart'),
+        ):
+            with self.subTest(suite=suite):
+                command = (f'run_package_coverage connectanum_client '
+                           f'connectanum_client_{label} test/{suite}')
+                pattern = rf'(?m)^{re.escape(command)}$'
+                self.assertRegex(script, pattern)
+                for replacement in ('# omitted suite', command + ' --name selected'):
+                    with self.assertRaises(AssertionError):
+                        self.assertRegex(script.replace(command, replacement), pattern)
+
+    def test_session_mutation_targets_retain_complete_source_and_suites(self):
+        targets = json.loads((REPO_ROOT / 'tool' / 'mutation_targets.json').read_text())
+        for name in ('client-session-vm', 'client-session-web'):
+            with self.subTest(target=name):
+                target = targets[name]
+                self.assertEqual(target['sources'], [
+                    'packages/connectanum_client/lib/src/protocol/session.dart',
+                ])
+                for suite in ('client_test.dart', 'meta_state_cache_test.dart',
+                              'session_e2ee_profile_test.dart', 'session_lazy_reply_test.dart'):
+                    self.assertIn(f'packages/connectanum_client/test/{suite}', target['tests'])
+                for helper in ('native_runtime_support.dart', 'native_runtime_support_io.dart',
+                               'native_runtime_support_stub.dart'):
+                    self.assertIn(f'packages/connectanum_client/test/test_support/{helper}',
+                                  target['supportFiles'])
+        self.assertTrue(targets['client-session-vm']['requiresNativeLibrary'])
+        self.assertIn('packages/connectanum_client/test/client_on_transport_io_events_test.dart',
+                      targets['client-session-vm']['tests'])
+        native_suite = 'packages/connectanum_client/test/transport/native/e2ee_provider_test.dart'
+        self.assertIn(native_suite, targets['client-session-vm']['tests'])
+        self.assertNotIn(native_suite, targets['client-session-web']['tests'])
+        self.assertEqual(targets['client-session-web']['platform'], 'chrome')
+        self.assertEqual(targets['client-session-web']['testRoot'], 'packages/connectanum_client')
+
+    def test_native_resolver_regression_remains_in_vm_verification_and_coverage(self):
+        suite = 'packages/connectanum_client/test/transport/native/e2ee_provider_test.dart'
+        command = f'dart test {suite}'
+        for path in (TEST_FAST, TEST_ALL):
+            with self.subTest(script=path.name):
+                script = path.read_text()
+                pattern = rf'(?m)^\s*{re.escape(command)}$'
+                self.assertRegex(script, pattern)
+                for replacement in ('# omitted native suite', command + ' --name selected'):
+                    with self.assertRaises(AssertionError):
+                        self.assertRegex(script.replace(command, replacement), pattern)
+        coverage = (REPO_ROOT / 'bin/test-coverage').read_text()
+        self.assertIn('test/transport/native/e2ee_provider_test.dart', coverage)
+        native = (REPO_ROOT / suite).read_text()
+        portable = (REPO_ROOT / 'packages/connectanum_client/test/client_test.dart').read_text()
+        name = 'publishLazyPayload supports a native session E2EE provider resolver'
+        self.assertIn(name, native)
+        self.assertNotIn(name, portable)
+        self.assertNotIn('nativeClientRuntimeSkipReason', portable)
+
     def test_browser_verification_and_coverage_include_e2ee_regressions(self) -> None:
         for path in (TEST_ALL, REPO_ROOT / "bin" / "test-browser-coverage"):
             with self.subTest(script=path.name):
@@ -1344,6 +1415,7 @@ fi
             "test/client_test.dart",
             "test/meta_state_cache_test.dart",
             "test/session_e2ee_profile_test.dart",
+            "test/session_lazy_reply_test.dart",
             "test/transport/native/message_binding_test.dart",
             "test/transport/local",
             "test/transport/websocket/websocket_transport_web_test.dart",
@@ -1362,6 +1434,7 @@ fi
                     "test/client_test.dart",
                     "test/meta_state_cache_test.dart",
                     "test/session_e2ee_profile_test.dart",
+                    "test/session_lazy_reply_test.dart",
                     "test/transport/native/message_binding_test.dart",
                     "test/transport/local",
                     "test/transport/websocket/websocket_transport_web_test.dart",

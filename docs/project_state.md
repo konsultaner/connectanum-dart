@@ -6,6 +6,42 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work134 fixes native-direct lazy invocation replies losing payloads or omitting
+E2EE packing. Attach response context before using the shared outbound payload
+helper; preserve matching packed bytes, empty values and explicit null fallbacks.
+Corrected pre-fix VM/JS/WASM probes fail33 native assertions each. The canonical
+118-case reply suite and six real-native transport/serializer cases (72 RPCs)
+pass. Select the entire reply/profile suites in canonical measurement scripts.
+
+Fast134-before and frozen-input Verify134b exit0; final input/native hashes match.
+The final client browser runs each pass2399 cases with zero skips. Move the genuine
+native-provider test, retaining its assertions and awaited publish, into the
+canonical native suite rather than weakening mutation baseline skip rejection.
+Hosted Fast Checks exposed a fixture pinned to an unavailable cached test version;
+reuse bootstrap's workspace lock in the offline fixture. All64 runner controls
+(one Linux-only skip) and64 verification-script controls pass. Native users have
+finished and the shared runtime reservation is released.
+
+VM134 measures38770/42649 library lines (90.90%), retaining59 unmeasured sources;
+it predates the final native-test relocation and is not a final-harness refresh.
+Final JS134b measures core7382/7689 (96.01%) and client2527/2666 (94.79%), retaining
+162 unmeasured sources. Its changed denominator also reflects moving the native
+test, not only new covered code. Explicit98% audits fail. Full meta134 VM/JS
+campaigns each retain84/101 assertion kills (83.17%), six uncredited error-only
+outcomes,11 survivors and56 compile failures, with an agreeing independent audit.
+The complete641-candidate session JS campaign remains live, not a passing score.
+Preserve coverage134-verification, vm134-current, browser134b-current,
+meta-cache134-mutations and session134b-web-mutations under the milestone output.
+
+Parent5ece94bb hosted package/image/profile checks pass, but CI is not clean:
+Fast Checks failed (fixed locally), and auth-server/http-auth mutation gates
+score86.24%/92.02% with uncredited timeouts. Preserve their hosted134 artifacts and
+investigate before new feature work; do not weaken thresholds or count timeouts.
+A separate18-case probe also reproduces eight assertions on each VM/JS/WASM for
+encrypted file sends accepted after progressive-call termination. That next
+production bug is not fixed yet. The complete98%/95% milestone remains active;
+no master merge, package publication or version change.
+
 Work133 integrates40 portable E2EE profile-negotiation regressions and adds a
 concurrent meta-cache close oracle. Finite listener completion assertions replace
 unbounded waits while retaining cleanup and duplicate-event checks. Canonical VM

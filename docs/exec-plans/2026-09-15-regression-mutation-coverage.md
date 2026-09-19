@@ -67,6 +67,56 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work134 Native Reply Payloads And Portable Mutation Fixtures
+
+- Reproduce33 native reply assertion failures in the corrected86-case probe on
+  VM/JS/WASM before changing production. Share outbound lazy payload packing with
+  the normal path and attach Yield E2EE context first. Preserve packed-byte
+  identity for matching encodings, transcode mismatches, preserve empty values,
+  and use explicit fallbacks only for null payload members. The final118 portable
+  regressions cover payload forms, three serializers, progressive/final replies,
+  closed/error handling and real Dart E2EE. They model the native message boundary,
+  not FFI execution. Six separate real-native RawSocket/WebSocket serializer cases
+  verify72 RPCs with a dedicated callee isolate and bounded cleanup.
+- Select full reply/profile suites in canonical VM/browser verification and
+  measurement. Add complete641-candidate Session VM/JS targets without claiming
+  passing gates. Move the genuine native-provider client test to the native suite,
+  preserving all six assertions and awaiting the publish. Keep it in the VM
+  mutation target; portable client tests no longer skip a native-only case.
+  The unchanged classifier accepts the326-case clean JS campaign baseline.
+- Hosted Fast Checks failed after bootstrap resolved test1.32.0 but the isolated
+  reporter fixture demanded offline test1.31.2. Copy the workspace lock into the
+  fixture and retain real offline resolution and the four-target classifier
+  campaign. Mocked version controls verify both lock snapshots. All64 runner
+  controls (one Linux-only skip) and64 verification-script controls pass. No
+  classifier, inventory, timeout-credit or threshold weakening.
+- Original Fast134-before and frozen-input Verify134b complete with exit0.
+  Final input/native hashes match. Native integration, packaging/consumer smokes,
+  router3794, bench753, core3319 WASM and client2399 WASM pass; final JS also
+  passes2399 client cases with zero skips. Analyzer is clean. Native users are
+  finished and the shared runtime window is released. Preserve original logs,
+  hashes, companion reviews and corrected failing probes in coverage134-verification.
+- VM134 measures38770/42649 (90.90%) with59 unmeasured library files, before the
+  final native-test move. Packaging765/787 retains12 unmeasured sources. Final
+  browser134b is core7382/7689 and client2527/2666, with162 unmeasured sources;
+  the denominator changes partly because the native-only stub left JS. Explicit
+  98% audits fail; WASM passing tests are not measured line coverage. Preserve
+  historical snapshots instead of reattributing them to final harness inputs.
+- Full157-candidate meta134 VM/JS campaigns agree:84/101 assertion kills,
+  56 compile failures, six uncredited error-only outcomes and11 survivors.
+  Raw/adjusted assertion score83.17%, no waivers; initial/restored baselines and
+  independent saved-log audit pass. Both95% gates fail. Session134b JS remains a
+  live full641-candidate campaign with isolated, hash-pinned inputs; do not restart
+  or relabel it as later-source evidence.
+- Parent5ece94bb hosted package/image/profile checks pass. Main CI has failed
+  Fast Checks and auth-server/http-auth mutation gates (86.24%/92.02%). Retain
+  hosted134-auth-server and hosted134-http-auth artifacts for timeout/oracle
+  investigation. Refresh the chain after pushing this implementation increment.
+  An ignored18-case progressive-file probe passes10 and fails eight actual
+  assertions on VM/JS/WASM: the encrypted native branch sends after final result,
+  RPC error, disconnect or subscription cancellation. Fix after CI blockers;
+  preserve the probe and pre-fix hashes. No full-goal completion, merge or release.
+
 ### Work133 Profile Negotiation And Finite Meta Disposal Oracles
 
 - Integrate40 portable session-E2EE negotiation tests covering both supported

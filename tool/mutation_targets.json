@@ -1,4 +1,38 @@
 {
+  "client-session-vm": {
+    "sources": ["packages/connectanum_client/lib/src/protocol/session.dart"],
+    "tests": [
+      "packages/connectanum_client/test/client_test.dart",
+      "packages/connectanum_client/test/client_on_transport_io_events_test.dart",
+      "packages/connectanum_client/test/transport/native/e2ee_provider_test.dart",
+      "packages/connectanum_client/test/meta_state_cache_test.dart",
+      "packages/connectanum_client/test/session_e2ee_profile_test.dart",
+      "packages/connectanum_client/test/session_lazy_reply_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_client/test/test_support/native_runtime_support.dart",
+      "packages/connectanum_client/test/test_support/native_runtime_support_io.dart",
+      "packages/connectanum_client/test/test_support/native_runtime_support_stub.dart"
+    ],
+    "requiresNativeLibrary": true,
+    "testTimeoutSeconds": 30
+  },
+  "client-session-web": {
+    "sources": ["packages/connectanum_client/lib/src/protocol/session.dart"],
+    "tests": [
+      "packages/connectanum_client/test/client_test.dart",
+      "packages/connectanum_client/test/meta_state_cache_test.dart",
+      "packages/connectanum_client/test/session_e2ee_profile_test.dart",
+      "packages/connectanum_client/test/session_lazy_reply_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_client/test/test_support/native_runtime_support.dart",
+      "packages/connectanum_client/test/test_support/native_runtime_support_io.dart",
+      "packages/connectanum_client/test/test_support/native_runtime_support_stub.dart"
+    ],
+    "platform": "chrome",
+    "testRoot": "packages/connectanum_client"
+  },
   "client-meta-cache-vm": {
     "sources": ["packages/connectanum_client/lib/src/meta/meta_state_cache.dart"],
     "tests": ["packages/connectanum_client/test/meta_state_cache_test.dart"]

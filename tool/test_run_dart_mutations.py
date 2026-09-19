@@ -20,7 +20,34 @@ def events(*items):
     return '\n'.join(json.dumps(item) for item in items)
 
 
+def write_reporter_fixture_dependencies(work):
+    (work / 'pubspec.yaml').write_text(
+        "name: mutation_oracle_fixture\nenvironment:\n  sdk: ^3.10.0\n"
+        "dev_dependencies:\n  test: any\n")
+    # Offline fixtures must use the dependencies bootstrap actually resolved.
+    (work / 'pubspec.lock').write_bytes((runner.ROOT / 'pubspec.lock').read_bytes())
+
+
 class MutationRunnerTests(unittest.TestCase):
+    def test_reporter_fixture_reuses_workspace_lock_not_a_local_test_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / 'workspace'
+            work = root / 'fixture'
+            workspace.mkdir()
+            work.mkdir()
+            for version in ('1.31.2', '1.32.0'):
+                with self.subTest(version=version):
+                    lock = (f'packages:\n  test:\n    version: "{version}"\n'
+                            '  test_api:\n    version: "0.7.14"\n')
+                    (workspace / 'pubspec.lock').write_text(lock)
+                    with patch.object(runner, 'ROOT', workspace):
+                        write_reporter_fixture_dependencies(work)
+                    self.assertEqual((work / 'pubspec.lock').read_text(), lock)
+                    manifest = (work / 'pubspec.yaml').read_text()
+                    self.assertIn('  test: any\n', manifest)
+                    self.assertNotIn(version, manifest)
+
     def test_http_auth_target_is_complete_and_required_in_ci(self):
         target = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())['router-http-auth-vm']
         self.assertEqual(target['sources'], [
@@ -782,9 +809,7 @@ class MutationRunnerTests(unittest.TestCase):
 
         def create_fixture(work, support_files):
             self.assertEqual(support_files, [])
-            (work / 'pubspec.yaml').write_text(
-                "name: mutation_oracle_fixture\nenvironment:\n  sdk: ^3.10.0\n"
-                "dev_dependencies:\n  test: 1.31.2\n")
+            write_reporter_fixture_dependencies(work)
             production = work / source_path
             production.parent.mkdir(parents=True)
             production.write_text(source)
