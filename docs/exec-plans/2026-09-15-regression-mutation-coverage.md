@@ -67,6 +67,40 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work140 Session Oracles And Native Message Dispatch
+
+- Integrate the proven Session probe after Fast140-before exits0. Await actual
+  PPT RESULT and assert its complete metadata/payload; correct fake-router YIELD
+  conversion and progressive keyword setup. Observe five expected WAMP errors
+  directly without swallowing StateError/TimeoutException. Four helper controls
+  prove the distinction. No runtime timeout is converted into a mutation kill.
+- Four new portable native-message cases cover ordinary RESULT request matching,
+  unknown/retired IDs, mixed EVENT consumers and unsubscribe wire identity, and
+  materialized INVOCATION response/interruption plus unregistration. These do
+  not claim actual FFI ownership or Rust execution coverage. Explicitly close
+  fixture controllers with listeners still attached, then cancel listeners.
+- All83 canonical cases pass VM/JS/WASM; formatting and analysis pass. Retain
+  initial root-launched browser failures due to fixture-relative script paths;
+  package-root runs pass. Session139 isolated evidence remains hash-matched.
+- Full VM140/JS140 collections finish exit0. VM38814/42673 (90.96%), client
+  8636/9408 (91.79%), router17105/19386 (88.23%);59 unmeasured sources remain.
+  Packaging765/787 (97.20%) retains12 unmeasured sources. JS core7383/7690
+  (96.01%), client2593/2726 (95.12%);162 unmeasured sources remain. All98%
+  audits fail. Session VM gains10 covered lines to974/1027; other unchanged-code
+  line deltas are timing-dependent, not credited to the new tests.
+- Original serialized Verify140 finishes exit0, including2451 client WASM cases.
+  Final source/test/native hashes match; no native consumers remain. The one
+  Session140 JS campaign remains live on its isolated snapshot; never relabel
+  its eventual result as evidence for later tests. Reservation extension through
+  Work141 is requested, not yet confirmed.
+- Isolated five-file readiness copies pass all378 cases VM/JS/WASM; a single
+  incomingClosed=true mutant produces322 actual assertions and no other errors
+  on VM/JS. Six startup probes cover named auth selection and early failures.
+  Preserve initial mixed-timeout and invalid browser-launch evidence. Integrate
+  only after the next fast baseline; isolated probes do not upgrade full scores.
+- Pushed ede8ab16 includes Work139. Package/image/profile checks pass; main CI
+  remains queued and strict audit exits1. Full98%/95% scope remains incomplete.
+
 ### Work139 Fingerprint And Startup Ownership Regressions
 
 - Integrate the previously isolated completed-replacement fingerprint probe as a

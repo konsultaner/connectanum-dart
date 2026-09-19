@@ -11,7 +11,279 @@ import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('WAMP error observation helper', () {
+    test('returns the original WAMP error including payload', () async {
+      final error = Error(
+        MessageTypes.codeCall,
+        42,
+        {},
+        Error.notAuthorized,
+        arguments: ['denied'],
+        argumentsKeywords: {'resource': 'restricted'},
+      );
+      final observed = await _receiveWampError(Future<Object?>.error(error));
+      expect(observed, same(error));
+      expect(observed.arguments, ['denied']);
+      expect(observed.argumentsKeywords, {'resource': 'restricted'});
+    });
+
+    for (final error in <Object>[
+      StateError('transport closed'),
+      TimeoutException('operation expired'),
+    ]) {
+      test('preserves unexpected ${error.runtimeType}', () async {
+        await expectLater(
+          _receiveWampError(Future<Object?>.error(error)),
+          throwsA(same(error)),
+        );
+      });
+    }
+
+    test('rejects a successful reply when WAMP error is required', () async {
+      await expectLater(
+        _receiveWampError(Future<Object?>.value()),
+        throwsA(
+          isA<TestFailure>().having(
+            (failure) => failure.message,
+            'message',
+            'Expected a WAMP error reply',
+          ),
+        ),
+      );
+    });
+  });
+
   group('Client', () {
+    test(
+      'native materialized call results correlate and ignore unknown IDs',
+      () async {
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message is Hello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+          } else if (message is Call) {
+            transport.receiveObject(
+              _nativeDirectResultMessage(
+                requestId: message.requestId + 1000,
+                pptScheme: 'x_custom_scheme',
+                pptSerializer: 'cbor',
+                argsBytes: Uint8List.fromList([0xff]),
+              ),
+            );
+            transport.receiveObject(
+              _nativeDirectResultMessage(
+                requestId: message.requestId,
+                pptScheme: 'x_custom_scheme',
+                pptSerializer: 'cbor',
+                argsBytes: _encodeNativePptArguments(
+                  arguments: ['reply', message.requestId],
+                  argumentsKeywords: {'procedure': message.procedure},
+                ),
+              ),
+            );
+          }
+        });
+        final sent = <AbstractMessage>[];
+        final wire = transport.outbound.stream.listen(sent.add);
+        addTearDown(wire.cancel);
+        addTearDown(transport.outbound.close);
+        final client = Client(realm: 'test.realm', transport: transport);
+        addTearDown(client.disconnect);
+        final session = await client.connect().first;
+        final first = await session.call('first').single;
+        expect(first.arguments, ['reply', first.callRequestId]);
+        expect(first.argumentsKeywords, {'procedure': 'first'});
+        expect(first.details.pptScheme, 'x_custom_scheme');
+        expect(first.details.pptSerializer, 'cbor');
+        transport.receiveObject(
+          _nativeDirectResultMessage(
+            requestId: first.callRequestId,
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+            argsBytes: Uint8List.fromList([0xff]),
+          ),
+        );
+        final second = await session.call('second').single;
+        expect(second.callRequestId, isNot(first.callRequestId));
+        expect(second.arguments, ['reply', second.callRequestId]);
+        expect(second.argumentsKeywords, {'procedure': 'second'});
+        expect(sent.whereType<Call>().map((call) => call.procedure), [
+          'first',
+          'second',
+        ]);
+        expect(sent.whereType<Call>().map((call) => call.requestId), [
+          first.callRequestId,
+          second.callRequestId,
+        ]);
+        expect(session.isConnected(), isTrue);
+      },
+    );
+
+    test(
+      'native events fan out across mixed consumers until unsubscribe',
+      () async {
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message is Hello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+          } else if (message is Subscribe) {
+            transport.receiveObject(Subscribed(message.requestId, 4343));
+          } else if (message is Unsubscribe) {
+            transport.receiveObject(Unsubscribed(message.requestId, null));
+          }
+        });
+        final sent = <AbstractMessage>[];
+        final wire = transport.outbound.stream.listen(sent.add);
+        addTearDown(wire.cancel);
+        addTearDown(transport.outbound.close);
+        final client = Client(realm: 'test.realm', transport: transport);
+        addTearDown(client.disconnect);
+        final session = await client.connect().first;
+        final materialized = <Event>[];
+        final payloads = <EventPayload>[];
+        final lazy = <LazyEventPayload>[];
+        final subscribed = await session.subscribe('ppt.topic');
+        subscribed.onEvent(materialized.add);
+        await session.subscribePayloadHandler('ppt.topic', payloads.add);
+        await session.subscribeLazyPayloadHandler('ppt.topic', lazy.add);
+        NativeSessionMessage event(int subscriptionId, Uint8List bytes) =>
+            _nativeDirectEventMessage(
+              subscriptionId: subscriptionId,
+              publicationId: 8401,
+              topic: 'ppt.topic',
+              pptScheme: 'x_custom_scheme',
+              pptSerializer: 'cbor',
+              argsBytes: bytes,
+            );
+        transport.receiveObject(event(9999, Uint8List.fromList([0xff])));
+        transport.receiveObject(
+          event(
+            4343,
+            _encodeNativePptArguments(
+              arguments: ['event'],
+              argumentsKeywords: {'worker': 7},
+            ),
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(materialized, hasLength(1));
+        expect(payloads, hasLength(1));
+        expect(lazy, hasLength(1));
+        expect(materialized.single.publicationId, 8401);
+        expect(materialized.single.details.topic, 'ppt.topic');
+        expect(materialized.single.arguments, ['event']);
+        expect(materialized.single.argumentsKeywords, {'worker': 7});
+        expect(payloads.single.arguments, ['event']);
+        expect(payloads.single.argumentsKeywords, {'worker': 7});
+        expect(lazy.single.toPayload().arguments, ['event']);
+        expect(lazy.single.toPayload().argumentsKeywords, {'worker': 7});
+        await session.unsubscribe(subscribed.subscriptionId);
+        expect(sent.whereType<Unsubscribe>(), hasLength(1));
+        expect(sent.whereType<Unsubscribe>().single.subscriptionId, 4343);
+        transport.receiveObject(event(4343, Uint8List.fromList([0xff])));
+        await Future<void>.delayed(Duration.zero);
+        expect(materialized, hasLength(1));
+        expect(payloads, hasLength(1));
+        expect(lazy, hasLength(1));
+        expect(session.isConnected(), isTrue);
+      },
+    );
+
+    for (final interrupt in [false, true]) {
+      test(
+        'native materialized invocation lifecycle interrupt=$interrupt',
+        () async {
+          final replies = <AbstractMessage>[];
+          final transport = _SessionOptimizedMockTransport((
+            message,
+            transport,
+          ) {
+            if (message is Hello) {
+              transport.receiveObject(Welcome(42, Details.forWelcome()));
+            } else if (message is Register) {
+              transport.receiveObject(Registered(message.requestId, 5353));
+            } else if (message is Unregister) {
+              transport.receiveObject(Unregistered(message.requestId));
+            } else {
+              replies.add(message);
+            }
+          });
+          final sent = <AbstractMessage>[];
+          final wire = transport.outbound.stream.listen(sent.add);
+          addTearDown(wire.cancel);
+          addTearDown(transport.outbound.close);
+          final client = Client(realm: 'test.realm', transport: transport);
+          addTearDown(client.disconnect);
+          final session = await client.connect().first;
+          final registered = await session.register('ppt.proc');
+          final invocations = <Invocation>[];
+          registered.onInvoke(invocations.add);
+          NativeSessionMessage invocation(int id, Uint8List bytes) =>
+              _nativeDirectInvocationMessage(
+                requestId: id,
+                registrationId: 5353,
+                procedure: 'ppt.proc',
+                pptScheme: 'x_custom_scheme',
+                pptSerializer: 'cbor',
+                argsBytes: bytes,
+              );
+          transport.receiveObject(
+            invocation(
+              9401,
+              _encodeNativePptArguments(
+                arguments: ['invoke'],
+                argumentsKeywords: {'worker': 8},
+              ),
+            ),
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(invocations, hasLength(1));
+          final received = invocations.single;
+          expect(received.requestId, 9401);
+          expect(received.registrationId, 5353);
+          expect(received.details.procedure, 'ppt.proc');
+          expect(received.arguments, ['invoke']);
+          expect(received.argumentsKeywords, {'worker': 8});
+          if (interrupt) {
+            transport.receiveObject(
+              _nativeDirectInterruptMessage(
+                requestId: 9401,
+                mode: CancelOptions.modeKill,
+              ),
+            );
+          } else {
+            received.respondWith(arguments: ['completed']);
+          }
+          await Future<void>.delayed(Duration.zero);
+          expect(replies, hasLength(1));
+          if (interrupt) {
+            expect(replies.single, isA<Error>());
+            final error = replies.single as Error;
+            expect(error.requestTypeId, MessageTypes.codeInvocation);
+            expect(error.requestId, 9401);
+            expect(error.error, Error.errorInvocationCanceled);
+            expect(error.arguments, [CancelOptions.modeKill]);
+          } else {
+            expect(replies.single, isA<Yield>());
+            final result = replies.single as Yield;
+            expect(result.invocationRequestId, 9401);
+            expect(result.arguments, ['completed']);
+          }
+          expect(received.responseClosed, isTrue);
+          await session.unregister(registered.registrationId);
+          expect(sent.whereType<Unregister>(), hasLength(1));
+          expect(sent.whereType<Unregister>().single.registrationId, 5353);
+          transport.receiveObject(invocation(9402, Uint8List.fromList([0xff])));
+          await Future<void>.delayed(Duration.zero);
+          expect(invocations, hasLength(1));
+          expect(replies, hasLength(2));
+          final missing = replies.last as Error;
+          expect(missing.requestTypeId, MessageTypes.codeInvocation);
+          expect(missing.requestId, 9402);
+          expect(missing.error, Error.noSuchRegistration);
+          expect(session.isConnected(), isTrue);
+        },
+      );
+    }
+
     test('session creation without authentication process', () async {
       final transport = _MockTransport();
       final client = Client(realm: 'test.realm', transport: transport);
@@ -443,7 +715,7 @@ void main() {
       final cancelRequestErrorRequestIds = <int>{};
 
       // ALL ROUTER MOCK RESULTS
-      transport.outbound.stream.listen((message) {
+      final routerSubscription = transport.outbound.stream.listen((message) {
         if (message.id == MessageTypes.codeHello) {
           transport.receiveMessage(Welcome(42, Details.forWelcome()));
         } else if (message.id == MessageTypes.codeRegister) {
@@ -597,7 +869,17 @@ void main() {
           yieldCompleter2.complete(message);
         } else if (message.id == MessageTypes.codeYield &&
             (message as Yield).options?.pptScheme == 'x_custom_scheme') {
-          transport.receiveMessage(message);
+          transport.receiveMessage(
+            Result(
+              message.invocationRequestId,
+              ResultDetails(
+                pptScheme: message.options!.pptScheme,
+                pptSerializer: message.options!.pptSerializer,
+              ),
+              arguments: message.arguments,
+              argumentsKeywords: message.argumentsKeywords,
+            ),
+          );
         } else if (message.id == MessageTypes.codeYield &&
             (message as Yield).argumentsKeywords!['value'] == 0) {
           yieldCompleter.complete(message);
@@ -616,23 +898,17 @@ void main() {
         }
       });
 
+      addTearDown(routerSubscription.cancel);
+      addTearDown(transport.outbound.close);
+      addTearDown(client.disconnect);
       final session = await client.connect().first;
-      final registrationErrorCompleter = Completer<Error>();
+      expect(session.isConnected(), isTrue);
 
       // NOT WORKING REGISTRATION
 
-      unawaited(
-        session
-            .register('my.error')
-            .then(
-              (registered) {},
-              onError: (error) {
-                registrationErrorCompleter.complete(error);
-              },
-            ),
+      final registrationError = await _receiveWampError(
+        session.register('my.error'),
       );
-
-      final registrationError = await registrationErrorCompleter.future;
       expect(registrationError, isNotNull);
       expect(
         registrationError.requestTypeId,
@@ -774,7 +1050,7 @@ void main() {
       expect(pptYieldMessage, isNotNull);
 
       // PPT RESULT
-      session
+      final pptResult = await session
           .call(
             'my.procedure',
             arguments: <dynamic>[100, 'two', true],
@@ -784,19 +1060,15 @@ void main() {
               pptSerializer: 'cbor',
             ),
           )
-          .listen(
-            (result) => () {
-              expect(result, isNotNull);
-              expect(result.details.pptScheme, equals('x_custom_scheme'));
-              expect(result.details.pptSerializer, equals('cbor'));
-              expect(result.argumentsKeywords!['key1'], equals(100));
-              expect(result.argumentsKeywords!['key2'], equals('two'));
-              expect(result.argumentsKeywords!['key3'], equals(true));
-              expect(result.arguments![0], equals(100));
-              expect(result.arguments![1], equals('two'));
-              expect(result.arguments![2], equals(true));
-            },
-          );
+          .single;
+      expect(pptResult.details.pptScheme, equals('x_custom_scheme'));
+      expect(pptResult.details.pptSerializer, equals('cbor'));
+      expect(pptResult.argumentsKeywords, {
+        'key1': 100,
+        'key2': 'two',
+        'key3': true,
+      });
+      expect(pptResult.arguments, [100, 'two', true]);
 
       // PROGRESSIVE CALL
 
@@ -832,7 +1104,7 @@ void main() {
       // PROGRESSIVE RESULT
 
       final progressiveCallArgumentsKeywords = HashMap<String, Object>();
-      progressiveArgumentsKeywords['value'] = 2;
+      progressiveCallArgumentsKeywords['value'] = 2;
       final resultList = <Result>[];
       await for (final result in session.call(
         'my.procedure',
@@ -843,6 +1115,10 @@ void main() {
         resultList.add(result);
       }
       expect(resultList.length, equals(2));
+      expect(resultList.first.details.progress, isTrue);
+      expect(resultList.first.arguments, ['called']);
+      expect(resultList.last.details.progress, isFalse);
+      expect(resultList.last.argumentsKeywords, {'value': 2});
 
       // ERROR BY EXCEPTION
 
@@ -889,19 +1165,16 @@ void main() {
 
       final errorCallArgumentsKeywords = HashMap<String, Object>();
       errorCallArgumentsKeywords['value'] = -3;
-      final errorCallCompleter = Completer<Error>();
-      session
-          .call(
-            'my.procedure',
-            options: CallOptions(receiveProgress: true),
-            arguments: ['was an error'],
-            argumentsKeywords: errorCallArgumentsKeywords,
-          )
-          .listen(
-            (result) {},
-            onError: (error) => errorCallCompleter.complete(error),
-          );
-      var callError = await errorCallCompleter.future;
+      final callError = await _receiveWampError(
+        session
+            .call(
+              'my.procedure',
+              options: CallOptions(receiveProgress: true),
+              arguments: ['was an error'],
+              argumentsKeywords: errorCallArgumentsKeywords,
+            )
+            .first,
+      );
       expect(callError, isNotNull);
       expect(callError.requestTypeId, equals(MessageTypes.codeCall));
       expect(callError.arguments![0], equals('was an error'));
@@ -911,40 +1184,36 @@ void main() {
 
       final errorCallCancellation = HashMap<String, Object>();
       errorCallCancellation['value'] = -4;
-      final errorCallCancellationCompleter = Completer<Error>();
       final cancellationCompleter = Completer<String>();
-      session
-          .call(
-            'my.procedure',
-            argumentsKeywords: errorCallCancellation,
-            cancelCompleter: cancellationCompleter,
-          )
-          .listen(
-            (result) {},
-            onError: (error) => errorCallCancellationCompleter.complete(error),
-          );
+      final cancellationResult = _receiveWampError(
+        session
+            .call(
+              'my.procedure',
+              argumentsKeywords: errorCallCancellation,
+              cancelCompleter: cancellationCompleter,
+            )
+            .first,
+      );
       cancellationCompleter.complete(CancelOptions.modeKillNoWait);
-      var cancelError = await errorCallCancellationCompleter.future;
+      final cancelError = await cancellationResult;
       expect(cancelError, isNotNull);
       expect(cancelError.requestTypeId, equals(MessageTypes.codeCall));
       expect(cancelError.arguments![0], equals(CancelOptions.modeKillNoWait));
 
       // ERROR BY CANCELLATION REQUEST
 
-      final cancelRequestErrorCompleter = Completer<Error>();
       final cancelRequestCompleter = Completer<String>();
-      session
-          .call(
-            'my.procedure',
-            argumentsKeywords: HashMap<String, Object>()..['value'] = -5,
-            cancelCompleter: cancelRequestCompleter,
-          )
-          .listen(
-            (result) {},
-            onError: (error) => cancelRequestErrorCompleter.complete(error),
-          );
+      final cancelRequestResult = _receiveWampError(
+        session
+            .call(
+              'my.procedure',
+              argumentsKeywords: HashMap<String, Object>()..['value'] = -5,
+              cancelCompleter: cancelRequestCompleter,
+            )
+            .first,
+      );
       cancelRequestCompleter.complete(CancelOptions.modeKillNoWait);
-      var cancelRequestError = await cancelRequestErrorCompleter.future;
+      final cancelRequestError = await cancelRequestResult;
       expect(cancelRequestError, isNotNull);
       expect(cancelRequestError.requestTypeId, equals(MessageTypes.codeCancel));
       expect(cancelRequestError.arguments![0], equals('cancel failed'));
@@ -973,16 +1242,7 @@ void main() {
 
       // UNREGISTER ERROR
 
-      final errorUnregisterCompleter = Completer<Error>();
-      unawaited(
-        session
-            .unregister(-1)
-            .then(
-              (message) {},
-              onError: (error) => errorUnregisterCompleter.complete(error),
-            ),
-      );
-      var unregisterError = await errorUnregisterCompleter.future;
+      final unregisterError = await _receiveWampError(session.unregister(-1));
       expect(unregisterError, isNotNull);
       expect(
         unregisterError.requestTypeId,
@@ -4310,6 +4570,15 @@ Map<String, dynamic> _negotiatedE2eeAuthExtra({
       'peer_key_id': peerKeyId,
     },
   };
+}
+
+Future<Error> _receiveWampError(Future<Object?> operation) async {
+  try {
+    await operation;
+  } on Error catch (error) {
+    return error;
+  }
+  fail('Expected a WAMP error reply');
 }
 
 class _MockTransport extends AbstractTransport {

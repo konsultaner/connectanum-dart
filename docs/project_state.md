@@ -6,6 +6,44 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work140 restores the legacy client test's inert PPT result assertions and fake
+router RESULT framing, fixes progressive keyword payload setup, and replaces
+five error-completer waits with direct observation preserving non-WAMP errors.
+Four controls verify WAMP identity/payload, unchanged StateError/TimeoutException,
+and rejection of unexpected success. Four additional native-message dispatch
+regressions exercise materialized RESULT correlation, mixed EVENT consumers and
+unsubscribe cleanup, plus INVOCATION responses/interruption/unregistration.
+These are portable decoded-message fixtures, not actual Rust/FFI measurements.
+All83 client cases pass on VM/JS/WASM, Fast140-before and analysis pass. Preserve
+the mistaken root browser launches (HTML relative-path load failures); correct
+package-root launches pass. No production or mutation classifier changes.
+
+Full VM140 and JS140 collections finish exit0 on frozen inputs. VM measures
+38814/42673 library lines (90.96%), client8636/9408 (91.79%), router17105/19386
+(88.23%), retaining59 unmeasured sources. Packaging remains765/787 (97.20%)
+with12 unmeasured sources. JS core7383/7690 (96.01%) and client2593/2726
+(95.12%) retain162 unmeasured sources. All explicit98% audits still fail.
+Session VM gains10 covered lines to974/1027 (94.84%); other unchanged-code VM
+deltas are timing-dependent observations, not attributed to these new tests.
+Original serialized Verify140 completes exit0, including2451 client WASM cases.
+Final source/test and native hashes match; no native consumers remain. The
+single Session140 JS mutation campaign remains running on its isolated frozen
+snapshot. Do not duplicate it or attribute newer tests to its eventual score.
+Native reservation extension through Work141 is requested, not yet confirmed.
+Work139 is pushed as ede8ab16; package/image/profile checks pass and CI is queued.
+Strict deployment audit remains non-green. No merge/publication/version change.
+VM/JS140 is the latest complete line evidence; isolated tests do not replace
+the older31.04% Session134b mutation score.
+
+Isolated readiness probes cover all378 cases in the five-file Session target.
+Original VM/JS/WASM pass. With only incomingClosed initialized true, VM/JS
+terminate with322 actual assertions and zero other errors, replacing impossible
+wire-receipt waits with meaningful healthy-session setup checks. Six separate
+startup cases pass VM/JS/WASM and distinguish named authenticator selection and
+early GOODBYE identity. Preserve initial probe timeouts/invalid browser launches;
+they earn no credit. Integrate proven probes after the next fast baseline, then
+refresh complete coverage/campaigns; these are not full mutation scores.
+
 Work139 integrates the proven delayed-fingerprint regression: after another
 caller finishes credential rotation, a late old fingerprint must reuse that
 replacement, with RPC socket indexes[0,1,1] and only two HELLOs. Its typed config
