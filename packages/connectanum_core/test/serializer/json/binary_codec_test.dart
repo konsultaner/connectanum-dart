@@ -186,6 +186,134 @@ void main() {
     }
   });
 
+  test('mixed alphabet tails preserve independently specified octets', () {
+    for (final (encoded, expected) in [
+      ('00A0', [211, 64, 52]),
+      ('00a0', [211, 70, 180]),
+      ('aB3+', [104, 29, 254]),
+    ]) {
+      final wire = Uint8List.fromList(ascii.encode(encoded));
+      expect(_decode(encoded, 0), orderedEquals(expected));
+      expect(_canonical(wire, 0, wire.length), orderedEquals(expected));
+      expect(_encode(Uint8List.fromList(expected)), orderedEquals(wire));
+    }
+  });
+
+  test('alphabet classes mix in both initial and final quartets', () {
+    const alphabet =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    // All-A context can mask a broken tail by triggering SDK fallback earlier.
+    for (final context in ['A', 'a', '0', '+', '/']) {
+      for (final character in alphabet.split('')) {
+        for (var position = 0; position < 8; position++) {
+          final encoded = (context * 8).replaceRange(
+            position,
+            position + 1,
+            character,
+          );
+          final expected = base64.decode(encoded);
+          final wire = Uint8List.fromList([255, ...ascii.encode(encoded), 255]);
+          expect(
+            _decode('!$encoded', 1),
+            orderedEquals(expected),
+            reason: '$encoded, position $position',
+          );
+          expect(
+            _canonical(wire, 1, wire.length - 1),
+            orderedEquals(expected),
+            reason: '$encoded, position $position',
+          );
+        }
+      }
+    }
+  });
+
+  test('invalid character boundaries cannot become valid sextets', () {
+    const acceptedCharacters =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/-_=';
+    for (final codeUnit in [
+      ...List.generate(256, (index) => index),
+      0x100,
+      0xd800,
+      0xdfff,
+      0xffff,
+    ]) {
+      final invalid = String.fromCharCode(codeUnit);
+      if (acceptedCharacters.contains(invalid)) continue;
+      for (final context in ['A', 'a', '0', '+', '/']) {
+        for (var position = 0; position < 8; position++) {
+          final encoded = (context * 8).replaceRange(
+            position,
+            position + 1,
+            invalid,
+          );
+          final reason = 'code unit $codeUnit in $context at $position';
+          expect(
+            () => base64.decode(encoded),
+            throwsFormatException,
+            reason: reason,
+          );
+          expect(
+            () => decodeBase64Bytes('!$encoded', 1),
+            throwsFormatException,
+            reason: reason,
+          );
+          if (codeUnit <= 255) {
+            final wire = Uint8List.fromList([255, ...encoded.codeUnits, 255]);
+            expect(
+              _canonical(wire, 1, wire.length - 1),
+              isNull,
+              reason: reason,
+            );
+          }
+        }
+      }
+    }
+  });
+
+  test('padding bits are validated across every alphabet class', () {
+    const alphabet =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    for (final context in ['A', 'a', '0', '+', '/']) {
+      for (var index = 0; index < alphabet.length; index++) {
+        for (final (tail, valid) in [
+          ('$context${alphabet[index]}==', index % 16 == 0),
+          ('$context$context${alphabet[index]}=', index % 4 == 0),
+        ]) {
+          for (final prefix in ['', '0a+/']) {
+            final encoded = '$prefix$tail';
+            final wire = Uint8List.fromList(ascii.encode(encoded));
+            if (valid) {
+              final expected = base64.decode(encoded);
+              expect(
+                _decode(encoded, 0),
+                orderedEquals(expected),
+                reason: encoded,
+              );
+              expect(
+                _canonical(wire, 0, wire.length),
+                orderedEquals(expected),
+                reason: encoded,
+              );
+            } else {
+              expect(
+                () => base64.decode(encoded),
+                throwsFormatException,
+                reason: encoded,
+              );
+              expect(
+                () => decodeBase64Bytes(encoded, 0),
+                throwsFormatException,
+                reason: encoded,
+              );
+              expect(_canonical(wire, 0, wire.length), isNull, reason: encoded);
+            }
+          }
+        }
+      }
+    }
+  });
+
   test('text subranges work with every prefix alignment', () {
     for (var start = 0; start < 9; start++) {
       for (final length in [0, 1, 2, 3, 4, 17]) {

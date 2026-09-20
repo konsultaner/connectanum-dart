@@ -210,7 +210,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [router-authorization, router-metrics-vm, core-mcp-completion-vm, core-mcp-completion-web, core-registered-vm, core-registered-web, core-subscribed-vm, core-subscribed-web, core-metadata-vm, core-metadata-web, auth-server, client-installer, router-installer, core-e2ee-vm, bench-config, core-lazy-vm, core-lazy-web, core-pem-pkcs8-vm, core-pem-pkcs8-web, client-message-binding-vm, router-message-binding-vm, bench-remote-auth-native, mcp-library, router-remote-wamp-vm, router-config-loader-vm, router-remote-authenticator-vm, router-http-auth-vm, core-scram-request-vm, core-scram-request-web, client-meta-cache-vm, client-meta-cache-web]
+        target: [router-authorization, router-metrics-vm, core-mcp-completion-vm, core-mcp-completion-web, core-registered-vm, core-registered-web, core-subscribed-vm, core-subscribed-web, core-metadata-vm, core-metadata-web, auth-server, client-installer, router-installer, core-e2ee-vm, bench-config, core-lazy-vm, core-lazy-web, core-pem-pkcs8-vm, core-pem-pkcs8-web, client-message-binding-vm, router-message-binding-vm, bench-remote-auth-native, mcp-library, router-remote-wamp-vm, router-config-loader-vm, router-remote-authenticator-vm, router-http-auth-vm, core-scram-request-vm, core-scram-request-web, client-meta-cache-vm, client-meta-cache-web, core-base64-vm, core-base64-web]
         include:
           # Complete campaigns exceeded 120/20 minutes while still progressing.
           # These are job budgets; per-mutant deadlines and thresholds stay fixed.
@@ -230,6 +230,8 @@ jobs:
             timeout_minutes: 90
           - target: core-pem-pkcs8-web
             timeout_minutes: 90
+          - target: core-base64-web
+            timeout_minutes: 45
           - target: client-message-binding-vm
             timeout_minutes: 90
           - target: router-message-binding-vm
@@ -240,7 +242,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         if: matrix.target == 'bench-remote-auth-native'
       - id: chrome
-        if: matrix.target == 'core-lazy-web' || matrix.target == 'core-mcp-completion-web' || matrix.target == 'core-registered-web' || matrix.target == 'core-subscribed-web' || matrix.target == 'core-metadata-web' || matrix.target == 'core-pem-pkcs8-web' || matrix.target == 'core-scram-request-web' || matrix.target == 'client-meta-cache-web'
+        if: matrix.target == 'core-lazy-web' || matrix.target == 'core-mcp-completion-web' || matrix.target == 'core-registered-web' || matrix.target == 'core-subscribed-web' || matrix.target == 'core-metadata-web' || matrix.target == 'core-pem-pkcs8-web' || matrix.target == 'core-scram-request-web' || matrix.target == 'client-meta-cache-web' || matrix.target == 'core-base64-web'
         uses: browser-actions/setup-chrome@v2
       - name: Run the complete target AST mutation inventory
         env:

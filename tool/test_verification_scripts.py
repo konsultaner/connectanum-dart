@@ -155,6 +155,7 @@ test -s native/transport/Cargo.lock
             'core-lazy-web': 90,
             'core-metadata-web': 90,
             'core-pem-pkcs8-web': 90,
+            'core-base64-web': 45,
             'client-message-binding-vm': 90,
             'router-message-binding-vm': 90,
         })
@@ -189,6 +190,24 @@ test -s native/transport/Cargo.lock
         self.assertIn('path: out/mutations', job)
         audit = (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text()
         for target in ('core-scram-request-vm', 'core-scram-request-web'):
+            self.assertIn(f"'{target} Mutation Gate'", audit)
+
+    def test_base64_mutation_gates_cover_vm_and_browser(self):
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
+        matrix = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
+        targets = {'core-base64-vm', 'core-base64-web'}
+        self.assertLessEqual(targets, {target.strip() for target in matrix})
+        chrome_setup = job.split('- id: chrome', 1)[1].split('- name:', 1)[0]
+        self.assertIn("matrix.target == 'core-base64-web'", chrome_setup)
+        self.assertIn('browser-actions/setup-chrome@', chrome_setup)
+        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
+        self.assertNotIn('--threshold', job)
+        self.assertIn('if: always()', job)
+        self.assertIn('path: out/mutations', job)
+        self.assertIn('if-no-files-found: error', job)
+        audit = (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text()
+        for target in targets:
             self.assertIn(f"'{target} Mutation Gate'", audit)
 
     def test_meta_cache_mutation_gates_cover_vm_and_browser(self):

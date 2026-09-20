@@ -1,4 +1,360 @@
 {
+  "core-base64-vm": {
+    "fa25245fcdab0889bd72": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the non-multiple-of-four guard true delegates every nonempty valid range to base64.decoder.convert(input, start). Empty and invalid ranges have already returned/thrown. The original fast path returns only canonical Base64 with zero padding bits; all other inputs delegate to that same SDK decoder. For canonical inputs both compute the same octets in a fresh mutable Uint8List. There is no callback or shared output state."
+    },
+    "c5bc166196419af8b644": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing length & 3 by length | 3 makes this guard true for every remaining positive length, so it delegates to the identical SDK call. The preceding range check and empty case are unchanged. Original successful fast-path inputs are canonical quartets with valid padding bits, which the SDK decodes to the same fresh mutable octets; noncanonical input already delegates."
+    },
+    "60d4bcb707f398dd1d85": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final-equals guard true changes only strings not ending in '='. It gives these strings padding one or two. The padding-one branch rejects the non-'=' final character; the padding-two branch also checks it. Both delegate to the unchanged SDK before returning the mis-sized local buffer. Strings ending in '=' and earlier range/length failures are unchanged."
+    },
+    "5960021fe63fe0599864": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final-equals guard false changes only strings ending in '='. Padding becomes zero; the final '=' maps to -1 in c or d and delegates to the SDK before a buffer can return. Inputs without final '=' are unchanged. Original canonical padded octets and malformed-padding exceptions are identical to the SDK result."
+    },
+    "a45afcae2e8ea8188d06": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Inverting the final-equals comparison assigns zero padding to strings ending in '=' and nonzero padding to others. The former reach the invalid c/d sentinel, the latter fail the explicit final-'=' check in the selected padding branch. Both delegate to the unchanged SDK; the original fast path and SDK agree on canonical octets, and malformed inputs retain SDK errors."
+    },
+    "6025d9230d45fd63ec45": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the second-last-equals guard true acts only after the last character was '='. A single-padding string is treated as double padding, but then its non-'=' c character fails the double-padding validation and delegates before any output return. Actual double padding is unchanged; malformed data keeps SDK rejection."
+    },
+    "a080222501655d7e3741": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the second-last-equals guard false changes double padding to single padding. Its c character is still '=' and maps to -1, so the unchanged c<0 check delegates before writing or returning output. Other inputs are unchanged; the SDK preserves canonical padded octets and rejects invalid padding."
+    },
+    "4f98c61c36b30a8db022": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Inverting the second-last-equals comparison changes double padding to single (c is '=' and triggers SDK fallback), and single padding to double (c is not '=' and triggers the double-padding validation fallback). Both routes delegate before returning the mis-sized local buffer. Unpadded and early-failure paths are unchanged."
+    },
+    "727e2fb99281c9b87019": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the non-final quartet sentinel guard true delegates on the first non-final quartet. Single-quartet inputs never reach this site. The call decodes the original input and start, not a partially consumed slice. Valid canonical bytes match the original bit assembly; any invalid alphabet or later padding already leads to the same SDK rejection/decode."
+    },
+    "f6e9c9743cfb77fb8300": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing the sentinel &0x80 by |0x80 makes the non-final quartet guard nonzero for sextets 0..63 and sentinel -1 on VM and JS. Thus this is unconditional SDK delegation at the first loop iteration, before output escapes. Single-quartet paths are unchanged; the SDK receives the full original slice."
+    },
+    "9f0aa6093d70ac8b821b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final a/b sentinel guard true delegates the whole original slice after processing any earlier quartets. The local buffer has not escaped. Canonical octets are identical in SDK and bit assembly; malformed or noncanonical input follows the same SDK acceptance/rejection. Input String is immutable and no callback can observe the discarded buffer."
+    },
+    "b2e3e0a1ff3b343be6af": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing final (a|b)&0x80 by (a|b)|0x80 makes the guard nonzero for every possible helper result, 0..63 or -1. It therefore delegates the original immutable String slice to the SDK before any return of the local output. Earlier invalid-input delegation is unchanged; canonical output bytes and ownership match."
+    },
+    "5eaacdca9db8a2bd4161": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==2 true leaves double-padding inputs unchanged. Every other input must have c or d different from '=', since padding was counted from the immutable final two characters. The double-padding validation then delegates before output writes. The SDK gives the same canonical bytes or malformed-input error as the original path."
+    },
+    "7432240d0ece7d9dabb8": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==2 false changes only actual double-padding input. Its c is '=' by the padding-count invariant, maps to -1 and hits the unchanged c<0 fallback before writes. Other paths are unchanged. Delegation uses the original input/start and preserves padded bytes and invalid-padding rejection."
+    },
+    "7f5a4d9fc40ec4e1e360": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing padding==2 by padding!=2 sends padding zero/one to the double-padding guard, which rejects their non-'=' c or d and delegates. Actual double padding bypasses that branch but its c='=' triggers c<0 fallback. No changed path returns partial output; the same SDK preserves bytes or rejects malformed input."
+    },
+    "4791f38beed84cdbecb2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing double-padding validation true replaces successful one-byte final-quartet decoding with SDK delegation. Invalid double padding already delegates. Preceding guards and non-double-padding paths are unchanged. Canonical padding-two bytes are mathematically (a<<2)|(b>>4) with b's low four bits zero, identical to the SDK."
+    },
+    "d15222322caf228445b0": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "This changes only the first || between the two character checks, not the || before the padding-bit check. Reaching padding==2 proves c and d were both '=' in this immutable String. Both character inequalities are false, so their disjunction and conjunction are false. The remaining b&0x0f validation and every output/exception path are unchanged."
+    },
+    "693df19b5d62357f16ef": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c!='=' to c=='=' inside padding==2 makes that validation true, because counting two paddings already proved c='='. The branch consequently delegates to the SDK. Non-double-padding inputs do not evaluate this site; valid one-byte tails and malformed padding retain their original decoded bytes or SDK rejection."
+    },
+    "aa8ee428b16b1946318d": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d!='=' to d=='=' inside padding==2 makes validation true because the outer padding scan already proved d='='. This selects SDK delegation, never a partial output return. All non-double-padding paths are unchanged; double-padding canonical bytes and invalid-padding errors match the original."
+    },
+    "0e80d4844155ed8243b5": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing b&0x0f to b|0x0f makes the double-padding bit check nonzero for every admitted sextet b (0..63); invalid b already delegated. Thus this branch always delegates to the SDK. All other branches are unchanged; SDK produces the same canonical one-byte tail or rejects nonzero padding bits."
+    },
+    "fe8d6541219ed4f7a015": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing c<0 true delegates at the final c after the double-padding return has been handled. Earlier quartets remain private in an unreturned buffer. The SDK consumes the full original slice, giving identical canonical two/three-byte tails and unchanged malformed-input rejection. The preceding a/b and range guards remain intact."
+    },
+    "2ce9120a6ed7f97cf437": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c<0 to c<=0 adds delegation only for c==0 ('A'); negative sentinel cases already delegate and positive sextets are unchanged. With c==0, the original final byte assembly and padding-bit validation are exactly the SDK's canonical result; d/other invalid input is rejected by that same SDK. Output does not escape before delegation."
+    },
+    "14f987a4c9644b8f2cca": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==1 true affects only padding zero, since padding two has already returned/delegated. A padding-zero final character cannot be '=' under the unchanged scan, so the padding-one validation delegates before returning. Actual padding-one inputs are unchanged. Any locally written bytes are discarded; SDK uses the original slice."
+    },
+    "09c80bdcd6d4917b6595": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==1 false affects only padding-one inputs after c was validated. Their d is '=' by the immutable padding scan and decodes to -1, causing SDK delegation at d<0 before the third write. Canonical two-byte tails and nonzero-padding-bit errors match the SDK. Other paths are unchanged."
+    },
+    "0f43e9f05d0c5d381d70": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing padding==1 by padding!=1 exchanges the final routes: padding zero enters validation and fails d!='=', while padding one bypasses validation and fails the d=-1 sentinel check. Both delegate before output escapes; padding two already returned. SDK preserves canonical bytes and malformed-input rejection."
+    },
+    "937e044a868e2cfbe45d": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding-one validation true replaces its successful return with SDK delegation and leaves invalid cases delegated. Padding-zero/two paths are unchanged. The original valid case requires c&3==0 and d='=', precisely the SDK two-byte-tail rule; output bytes, mutability and ownership agree."
+    },
+    "91ea577fa9f2f6c6fbfb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d!='=' to d=='=' inside padding==1 makes validation true because d='=' was established by the scan. This delegates to the same SDK; malformed padding is still rejected and valid two-byte final quartets decode identically. All other padding paths are unaffected."
+    },
+    "1fb3dfc958c5f90583b7": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c&3 to c|3 makes the padding-one bit check nonzero for every admitted nonnegative sextet c; invalid c already delegated. Thus every padding-one input delegates. The SDK agrees with the original on canonical two-byte tails and rejects nonzero low padding bits. Other paths are unchanged."
+    },
+    "e712c6945b6462eb67bb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing d<0 true delegates only the final unpadded quartet path; padded inputs have already returned/delegated. No local output escapes. The full original slice is decoded by the SDK, matching all valid sextet assemblies and the existing invalid-alphabet rejection."
+    },
+    "141ab2b6a0cb00b7a5e4": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d<0 to d<=0 adds SDK delegation only for final d==0 ('A'); invalid -1 already delegated and all positive d values are unchanged. For d==0 the original final assembly (c<<6)|0 matches the SDK exactly. Earlier private buffer writes are not observable and no alias is returned."
+    },
+    "b49b540a019c2bbdef44": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the uppercase-range condition false maps only A..Z from their sextets to -1; later lower/digit/symbol ranges are disjoint. Any affected quartet now triggers the sentinel or c/d-negative SDK fallback before an output return. Unaffected inputs decode as before; SDK canonical uppercase decoding preserves the original octets."
+    },
+    "30974b4fe045ccb0c92b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase lower bound >= to > excludes only 'A'. It cannot match a later helper range, so it returns -1 rather than zero. Any affected quartet delegates at its existing sentinel/negative check. All other helper mappings are unchanged; SDK decoding of 'A' supplies the original zero sextet and exact bytes."
+    },
+    "860a29761595c9ba9f9a": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase lower bound >=0x41 to <0x41 maps 0..64 to codeUnit-65, values -65..-1, all caught by the 0x80 sentinel or negative guards on VM/JS. Uppercase A..Z now maps to -1 via disjoint later branches. Other letters/digits/symbols either keep their mapping or delegate. No invalid nonnegative sextet is introduced; SDK preserves all original acceptance/results."
+    },
+    "c00d27ea2c7fd4063aa9": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase upper bound <= to < excludes only 'Z', which falls through disjoint later ranges to -1. The existing quartet sentinel/negative checks then delegate; all other mappings are unchanged. SDK decodes 'Z' with the original sextet 25 and returns identical octets or the same invalid-padding error."
+    },
+    "2eda92d5e60d450417ea": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the lowercase-range condition false changes only a..z to sentinel -1, since later digit/symbol ranges are disjoint. Affected quartets delegate before output returns, while others are unchanged. SDK lowercase sextets exactly match the original +26 mapping and preserve malformed-input rejection."
+    },
+    "e148ad7fd29a1ecff3f4": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase lower bound >= to > excludes only 'a'. It falls through later disjoint ranges to -1 and triggers the existing SDK fallback wherever it occurs. Other mappings are unchanged; SDK supplies the original sextet 26 and preserves exact decoded bytes and padding rejection."
+    },
+    "b997b07e2f84d37f97c3": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase upper bound <= to < excludes only 'z', mapping it to -1 instead of 51. Affected quartets delegate through existing sentinel/negative guards, not partial returns. All other mappings are unchanged, and SDK decoding restores the same octets and invalid-padding behavior."
+    },
+    "787821a43aecdb687ddb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase +26 to -26 yields -26..-1 for a..z. Every such negative value has the 0x80 sentinel bit set on VM and JS and also satisfies the final c/d<0 checks. Thus affected inputs delegate, not truncate; unaffected mappings are identical. SDK uses the original lowercase sextets and preserves exact results."
+    },
+    "6aa1da496c87aab348d0": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the digit-range condition false maps only 0..9 to -1 because the remaining symbol ranges are disjoint. Affected inputs hit the existing sentinel/negative fallback before returning output. Other mappings and all range checks are unchanged; SDK digits supply the original sextets 52..61."
+    },
+    "9bfd9885c37ee83b6654": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit lower bound >= to > excludes only '0', which now maps to -1 and delegates through existing sentinel/negative guards. Other characters are unchanged. SDK decodes '0' as the original sextet 52, preserving octets and malformed-padding rejection."
+    },
+    "f5ecc2953e1c7c603ba2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit upper bound <= to < excludes only '9'. It falls through the symbol cases to -1; affected quartets delegate before output escapes. All other helper mappings are unchanged. SDK restores the original sextet 61 and identical success/error behavior."
+    },
+    "b8062c8af56e947bfee2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit +52 to -52 yields -52..-43 for 0..9. These values all carry sentinel bit 0x80 on VM/JS and satisfy final c/d<0, so every affected quartet delegates. There is no newly accepted invalid sextet; the SDK preserves the original digit mapping, bytes and padding rejection."
+    },
+    "bd28df39fcfc0786db1b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the plus-symbol guard false maps only '+' from sextet 62 to -1; the slash case cannot match it. Existing quartet sentinel/negative guards delegate any affected input, while all other mappings stay identical. SDK accepts '+' with the original sextet and preserves decoded bytes/rejections."
+    },
+    "36176ca3e10c5f119f3e": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the slash-symbol guard false maps only '/' from sextet 63 to -1. Every occurrence is caught by an existing quartet sentinel or c/d-negative check and delegates before output escapes. All other mappings are unchanged; SDK slash decoding preserves the original octets and errors."
+    }
+  },
+  "core-base64-web": {
+    "fa25245fcdab0889bd72": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the non-multiple-of-four guard true delegates every nonempty valid range to base64.decoder.convert(input, start). Empty and invalid ranges have already returned/thrown. The original fast path returns only canonical Base64 with zero padding bits; all other inputs delegate to that same SDK decoder. For canonical inputs both compute the same octets in a fresh mutable Uint8List. There is no callback or shared output state."
+    },
+    "c5bc166196419af8b644": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing length & 3 by length | 3 makes this guard true for every remaining positive length, so it delegates to the identical SDK call. The preceding range check and empty case are unchanged. Original successful fast-path inputs are canonical quartets with valid padding bits, which the SDK decodes to the same fresh mutable octets; noncanonical input already delegates."
+    },
+    "60d4bcb707f398dd1d85": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final-equals guard true changes only strings not ending in '='. It gives these strings padding one or two. The padding-one branch rejects the non-'=' final character; the padding-two branch also checks it. Both delegate to the unchanged SDK before returning the mis-sized local buffer. Strings ending in '=' and earlier range/length failures are unchanged."
+    },
+    "5960021fe63fe0599864": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final-equals guard false changes only strings ending in '='. Padding becomes zero; the final '=' maps to -1 in c or d and delegates to the SDK before a buffer can return. Inputs without final '=' are unchanged. Original canonical padded octets and malformed-padding exceptions are identical to the SDK result."
+    },
+    "a45afcae2e8ea8188d06": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Inverting the final-equals comparison assigns zero padding to strings ending in '=' and nonzero padding to others. The former reach the invalid c/d sentinel, the latter fail the explicit final-'=' check in the selected padding branch. Both delegate to the unchanged SDK; the original fast path and SDK agree on canonical octets, and malformed inputs retain SDK errors."
+    },
+    "6025d9230d45fd63ec45": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the second-last-equals guard true acts only after the last character was '='. A single-padding string is treated as double padding, but then its non-'=' c character fails the double-padding validation and delegates before any output return. Actual double padding is unchanged; malformed data keeps SDK rejection."
+    },
+    "a080222501655d7e3741": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the second-last-equals guard false changes double padding to single padding. Its c character is still '=' and maps to -1, so the unchanged c<0 check delegates before writing or returning output. Other inputs are unchanged; the SDK preserves canonical padded octets and rejects invalid padding."
+    },
+    "4f98c61c36b30a8db022": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Inverting the second-last-equals comparison changes double padding to single (c is '=' and triggers SDK fallback), and single padding to double (c is not '=' and triggers the double-padding validation fallback). Both routes delegate before returning the mis-sized local buffer. Unpadded and early-failure paths are unchanged."
+    },
+    "727e2fb99281c9b87019": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the non-final quartet sentinel guard true delegates on the first non-final quartet. Single-quartet inputs never reach this site. The call decodes the original input and start, not a partially consumed slice. Valid canonical bytes match the original bit assembly; any invalid alphabet or later padding already leads to the same SDK rejection/decode."
+    },
+    "f6e9c9743cfb77fb8300": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing the sentinel &0x80 by |0x80 makes the non-final quartet guard nonzero for sextets 0..63 and sentinel -1 on VM and JS. Thus this is unconditional SDK delegation at the first loop iteration, before output escapes. Single-quartet paths are unchanged; the SDK receives the full original slice."
+    },
+    "9f0aa6093d70ac8b821b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final a/b sentinel guard true delegates the whole original slice after processing any earlier quartets. The local buffer has not escaped. Canonical octets are identical in SDK and bit assembly; malformed or noncanonical input follows the same SDK acceptance/rejection. Input String is immutable and no callback can observe the discarded buffer."
+    },
+    "b2e3e0a1ff3b343be6af": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing final (a|b)&0x80 by (a|b)|0x80 makes the guard nonzero for every possible helper result, 0..63 or -1. It therefore delegates the original immutable String slice to the SDK before any return of the local output. Earlier invalid-input delegation is unchanged; canonical output bytes and ownership match."
+    },
+    "5eaacdca9db8a2bd4161": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==2 true leaves double-padding inputs unchanged. Every other input must have c or d different from '=', since padding was counted from the immutable final two characters. The double-padding validation then delegates before output writes. The SDK gives the same canonical bytes or malformed-input error as the original path."
+    },
+    "7432240d0ece7d9dabb8": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==2 false changes only actual double-padding input. Its c is '=' by the padding-count invariant, maps to -1 and hits the unchanged c<0 fallback before writes. Other paths are unchanged. Delegation uses the original input/start and preserves padded bytes and invalid-padding rejection."
+    },
+    "7f5a4d9fc40ec4e1e360": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing padding==2 by padding!=2 sends padding zero/one to the double-padding guard, which rejects their non-'=' c or d and delegates. Actual double padding bypasses that branch but its c='=' triggers c<0 fallback. No changed path returns partial output; the same SDK preserves bytes or rejects malformed input."
+    },
+    "4791f38beed84cdbecb2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing double-padding validation true replaces successful one-byte final-quartet decoding with SDK delegation. Invalid double padding already delegates. Preceding guards and non-double-padding paths are unchanged. Canonical padding-two bytes are mathematically (a<<2)|(b>>4) with b's low four bits zero, identical to the SDK."
+    },
+    "d15222322caf228445b0": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "This changes only the first || between the two character checks, not the || before the padding-bit check. Reaching padding==2 proves c and d were both '=' in this immutable String. Both character inequalities are false, so their disjunction and conjunction are false. The remaining b&0x0f validation and every output/exception path are unchanged."
+    },
+    "693df19b5d62357f16ef": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c!='=' to c=='=' inside padding==2 makes that validation true, because counting two paddings already proved c='='. The branch consequently delegates to the SDK. Non-double-padding inputs do not evaluate this site; valid one-byte tails and malformed padding retain their original decoded bytes or SDK rejection."
+    },
+    "aa8ee428b16b1946318d": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d!='=' to d=='=' inside padding==2 makes validation true because the outer padding scan already proved d='='. This selects SDK delegation, never a partial output return. All non-double-padding paths are unchanged; double-padding canonical bytes and invalid-padding errors match the original."
+    },
+    "0e80d4844155ed8243b5": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing b&0x0f to b|0x0f makes the double-padding bit check nonzero for every admitted sextet b (0..63); invalid b already delegated. Thus this branch always delegates to the SDK. All other branches are unchanged; SDK produces the same canonical one-byte tail or rejects nonzero padding bits."
+    },
+    "fe8d6541219ed4f7a015": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing c<0 true delegates at the final c after the double-padding return has been handled. Earlier quartets remain private in an unreturned buffer. The SDK consumes the full original slice, giving identical canonical two/three-byte tails and unchanged malformed-input rejection. The preceding a/b and range guards remain intact."
+    },
+    "2ce9120a6ed7f97cf437": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c<0 to c<=0 adds delegation only for c==0 ('A'); negative sentinel cases already delegate and positive sextets are unchanged. With c==0, the original final byte assembly and padding-bit validation are exactly the SDK's canonical result; d/other invalid input is rejected by that same SDK. Output does not escape before delegation."
+    },
+    "14f987a4c9644b8f2cca": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==1 true affects only padding zero, since padding two has already returned/delegated. A padding-zero final character cannot be '=' under the unchanged scan, so the padding-one validation delegates before returning. Actual padding-one inputs are unchanged. Any locally written bytes are discarded; SDK uses the original slice."
+    },
+    "09c80bdcd6d4917b6595": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==1 false affects only padding-one inputs after c was validated. Their d is '=' by the immutable padding scan and decodes to -1, causing SDK delegation at d<0 before the third write. Canonical two-byte tails and nonzero-padding-bit errors match the SDK. Other paths are unchanged."
+    },
+    "0f43e9f05d0c5d381d70": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing padding==1 by padding!=1 exchanges the final routes: padding zero enters validation and fails d!='=', while padding one bypasses validation and fails the d=-1 sentinel check. Both delegate before output escapes; padding two already returned. SDK preserves canonical bytes and malformed-input rejection."
+    },
+    "937e044a868e2cfbe45d": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding-one validation true replaces its successful return with SDK delegation and leaves invalid cases delegated. Padding-zero/two paths are unchanged. The original valid case requires c&3==0 and d='=', precisely the SDK two-byte-tail rule; output bytes, mutability and ownership agree."
+    },
+    "91ea577fa9f2f6c6fbfb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d!='=' to d=='=' inside padding==1 makes validation true because d='=' was established by the scan. This delegates to the same SDK; malformed padding is still rejected and valid two-byte final quartets decode identically. All other padding paths are unaffected."
+    },
+    "1fb3dfc958c5f90583b7": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c&3 to c|3 makes the padding-one bit check nonzero for every admitted nonnegative sextet c; invalid c already delegated. Thus every padding-one input delegates. The SDK agrees with the original on canonical two-byte tails and rejects nonzero low padding bits. Other paths are unchanged."
+    },
+    "e712c6945b6462eb67bb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing d<0 true delegates only the final unpadded quartet path; padded inputs have already returned/delegated. No local output escapes. The full original slice is decoded by the SDK, matching all valid sextet assemblies and the existing invalid-alphabet rejection."
+    },
+    "141ab2b6a0cb00b7a5e4": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d<0 to d<=0 adds SDK delegation only for final d==0 ('A'); invalid -1 already delegated and all positive d values are unchanged. For d==0 the original final assembly (c<<6)|0 matches the SDK exactly. Earlier private buffer writes are not observable and no alias is returned."
+    },
+    "b49b540a019c2bbdef44": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the uppercase-range condition false maps only A..Z from their sextets to -1; later lower/digit/symbol ranges are disjoint. Any affected quartet now triggers the sentinel or c/d-negative SDK fallback before an output return. Unaffected inputs decode as before; SDK canonical uppercase decoding preserves the original octets."
+    },
+    "30974b4fe045ccb0c92b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase lower bound >= to > excludes only 'A'. It cannot match a later helper range, so it returns -1 rather than zero. Any affected quartet delegates at its existing sentinel/negative check. All other helper mappings are unchanged; SDK decoding of 'A' supplies the original zero sextet and exact bytes."
+    },
+    "860a29761595c9ba9f9a": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase lower bound >=0x41 to <0x41 maps 0..64 to codeUnit-65, values -65..-1, all caught by the 0x80 sentinel or negative guards on VM/JS. Uppercase A..Z now maps to -1 via disjoint later branches. Other letters/digits/symbols either keep their mapping or delegate. No invalid nonnegative sextet is introduced; SDK preserves all original acceptance/results."
+    },
+    "c00d27ea2c7fd4063aa9": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase upper bound <= to < excludes only 'Z', which falls through disjoint later ranges to -1. The existing quartet sentinel/negative checks then delegate; all other mappings are unchanged. SDK decodes 'Z' with the original sextet 25 and returns identical octets or the same invalid-padding error."
+    },
+    "2eda92d5e60d450417ea": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the lowercase-range condition false changes only a..z to sentinel -1, since later digit/symbol ranges are disjoint. Affected quartets delegate before output returns, while others are unchanged. SDK lowercase sextets exactly match the original +26 mapping and preserve malformed-input rejection."
+    },
+    "e148ad7fd29a1ecff3f4": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase lower bound >= to > excludes only 'a'. It falls through later disjoint ranges to -1 and triggers the existing SDK fallback wherever it occurs. Other mappings are unchanged; SDK supplies the original sextet 26 and preserves exact decoded bytes and padding rejection."
+    },
+    "b997b07e2f84d37f97c3": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase upper bound <= to < excludes only 'z', mapping it to -1 instead of 51. Affected quartets delegate through existing sentinel/negative guards, not partial returns. All other mappings are unchanged, and SDK decoding restores the same octets and invalid-padding behavior."
+    },
+    "787821a43aecdb687ddb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase +26 to -26 yields -26..-1 for a..z. Every such negative value has the 0x80 sentinel bit set on VM and JS and also satisfies the final c/d<0 checks. Thus affected inputs delegate, not truncate; unaffected mappings are identical. SDK uses the original lowercase sextets and preserves exact results."
+    },
+    "6aa1da496c87aab348d0": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the digit-range condition false maps only 0..9 to -1 because the remaining symbol ranges are disjoint. Affected inputs hit the existing sentinel/negative fallback before returning output. Other mappings and all range checks are unchanged; SDK digits supply the original sextets 52..61."
+    },
+    "9bfd9885c37ee83b6654": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit lower bound >= to > excludes only '0', which now maps to -1 and delegates through existing sentinel/negative guards. Other characters are unchanged. SDK decodes '0' as the original sextet 52, preserving octets and malformed-padding rejection."
+    },
+    "f5ecc2953e1c7c603ba2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit upper bound <= to < excludes only '9'. It falls through the symbol cases to -1; affected quartets delegate before output escapes. All other helper mappings are unchanged. SDK restores the original sextet 61 and identical success/error behavior."
+    },
+    "b8062c8af56e947bfee2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit +52 to -52 yields -52..-43 for 0..9. These values all carry sentinel bit 0x80 on VM/JS and satisfy final c/d<0, so every affected quartet delegates. There is no newly accepted invalid sextet; the SDK preserves the original digit mapping, bytes and padding rejection."
+    },
+    "bd28df39fcfc0786db1b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the plus-symbol guard false maps only '+' from sextet 62 to -1; the slash case cannot match it. Existing quartet sentinel/negative guards delegate any affected input, while all other mappings stay identical. SDK accepts '+' with the original sextet and preserves decoded bytes/rejections."
+    },
+    "36176ca3e10c5f119f3e": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the slash-symbol guard false maps only '/' from sextet 63 to -1. Every occurrence is caught by an existing quartet sentinel or c/d-negative check and delegates before output escapes. All other mappings are unchanged; SDK slash decoding preserves the original octets and errors."
+    }
+  },
   "client-meta-cache-vm": {
     "b0eeeeb14fd9b59ee2f9": {
       "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",

@@ -158,6 +158,8 @@ expected_ci_jobs=(
   'core-scram-request-web Mutation Gate'
   'client-meta-cache-vm Mutation Gate'
   'client-meta-cache-web Mutation Gate'
+  'core-base64-vm Mutation Gate'
+  'core-base64-web Mutation Gate'
 )
 dart_package_publish_workflow='Dart Package Publish Dry Run'
 expected_dart_package_publish_jobs=('Publish Dry Run')

@@ -94,11 +94,43 @@ Equivalent mutants require individual reasons and matching source hashes in
 raw score remains visible alongside the adjusted score. Do not waive survivors
 merely to reach a number: add a distinguishing regression or prove equivalence.
 
+### Base64 Functional Equivalents
+
+The VM and JavaScript Base64 targets retain all generated candidates. Individual
+proofs in `tool/mutation_equivalents.json` are pinned to production source hash
+`4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02`.
+The 44 string-decoder proofs cover changed guards that either evaluate identically
+or delegate to the same SDK decoder without returning partial output. They do
+not waive arithmetic corruption, new accepted invalid characters, or the
+byte-decoder candidate `8be0ffb08e2b2f783bc2`.
+
+The relevant invariant is that the custom string path returns only canonical
+quartets with zero unused padding bits; all other inputs already delegate to
+`base64.decoder.convert(input, start)`. Both paths produce the same octets in
+a fresh mutable `Uint8List`. Range validation happens before the changed guards;
+the input String is immutable and the intermediate output never escapes.
+For each alphabet-mapping proof, all altered values are checked to be invalid
+negative sextets caught by every applicable sentinel/negative guard, on both
+VM and JavaScript. Positive out-of-range sextets are not equivalent: mixed-class
+and invalid-character regressions must distinguish them.
+
+SDK allocation and padding behavior were also inspected in Dart 3.13.1
+`lib/convert/base64.dart` (SHA256
+`db95fe2459011ca9e8a2478d60b0d133376984687493dfdf0d01b14f7b7669ee`).
+Its canonical output allocation is exact-size; invalid and URL-safe input uses
+the same SDK call in both versions. Reassess these proofs if that dependency
+behavior changes. These are functional equivalences, not performance claims:
+an extra SDK fallback can be slower, and mutation scores do not replace the
+transport/serializer benchmark evidence.
+
 ## CI Scope
 
 CI enforces Dart VM package floors, core browser floors and the full authorization
 and authentication-server AST mutation inventories. It uploads detailed coverage
 and mutation artifacts.
+Base64 VM and JavaScript run their complete inventories in required mutation
+jobs at the unchanged 95% assertion-backed gate. Raw and equivalence-adjusted
+scores, every outcome and the restored baseline remain in the artifacts.
 The separate, manually dispatched **Mutation Diagnostics** workflow measures
 Base64 and MessagePack on VM/Chrome, the MCP production source inventory
 (including its router-hosted CLI), and RawSocket on Linux/macOS. The MCP target

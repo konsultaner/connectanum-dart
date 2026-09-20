@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work153 integrates the mixed-context Base64 regressions and adds malformed
+Latin-1/UTF-16 boundary and padding-bit matrices, retaining every prior assertion.
+Fast153 passes before edits; focused tests pass20 on VM and20 on JavaScript.
+Both fresh full269-candidate mutation campaigns exit0:221 pure assertion kills,
+45 survivors,3 compile failures, no errors/timeouts/error-only credit. Three
+previously surviving non-equivalent mappings now fail assertions, including
+acceptance of '[' as a sextet. Raw221/266=83.08%;44 individually justified,
+source-hash-pinned immutable-string equivalents give adjusted221/222=99.55%.
+The mutable-byte candidate8be0ffb08e2b2f783bc2 remains unwaived. Both original
+and restored baselines pass; independent audits and source/test hashes match.
+Targeted Base64 line evidence is130/130 VM and144/144 JS, not whole-core coverage
+and not WASM measurement. Safe SDK delegation proofs are functional only, not
+performance claims; benchmarks remain separate. Required VM/JS Base64 CI gates,
+Chrome setup,45-minute browser job budget and strict deployment-audit expectations
+are added without weakening95% or per-mutant deadlines. The new wiring test
+fails first then passes. Initial Verify153 finds four successful audit fixtures
+missing the gates; all four are repaired and missing-job rejection is preserved.
+Final-b full Verify153 exits0, including browser JS/WASM; frozen inputs match.
+The shared native window is released. The increment is ready to commit/push;
+exact-new-head hosted CI/package/image/profile evidence is still outstanding.
+Evidence: `out/regression-coverage-2026-09-15/coverage153-verification`,
+`base64-153-{vm,web}-mutations`, and `base64-153-lines-{vm,js}`. Whole-milestone
+98%/95% completion remains unproven; MessagePack/session, broader native,
+WASM instrumentation, packaging and example-application gaps remain active.
+
 Work152 strengthens Base64/MessagePack positive completion assertions while
 preserving all prior value and rejection checks. New regressions cover empty
 MessagePack scalars at view boundaries, nested wide keys/binary views, oversized

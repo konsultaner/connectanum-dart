@@ -67,6 +67,37 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work153 Base64 Contexts And Required Runtime Gates
+
+- Complete Fast153 before edits. Retain all previous tests and add independent
+  mixed-alphabet octets, all alphabet-class contexts in both quartet positions,
+  malformed Latin-1/UTF-16 boundaries and padding-bit matrices. Focused VM and
+  JS tests each pass20. Production codec behavior is unchanged.
+- Both complete269-candidate campaigns exit0 with221 pure assertion kills,
+  45 survivors and3 compile failures; no errors/timeouts or error-only credit.
+  The new oracles kill a006f04adb7f935512f9,659a8e6c61608d477adc and
+  ced5d0ea751b21a26f15 rather than waiving these real behavior differences.
+  Raw221/266=83.08%;44 individually written immutable-string proofs pinned to
+  the source hash yield adjusted221/222=99.55%. Candidate8be0ffb08e2b2f783bc2
+  for mutable byte input remains unwaived. Both original/restored baselines,
+  independent log audits and canonical source/test hashes agree. Preserve152.
+- Separate targeted line collection measures Base64 VM130/130 andJS144/144.
+  This does not replace broader package measurements or measure WASM. The
+  functional SDK-delegation proofs do not claim performance equivalence.
+- Make both Base64 inventories required CI gates at the unchanged95% threshold,
+  configure Chrome and a45-minute full browser job budget, and require the jobs
+  in the strict deployment audit. A new wiring regression fails before the
+  workflow change, then passes. Initial Verify153 identifies four stale audit
+  success fixtures; update them and extend the missing-job rejection loop to
+  both gates. The focused audit regression and all69 verification-script tests
+  pass. Final-b full bin/verify exits0, including JS/WASM, with frozen inputs
+  matching. Release the shared native window. Commit/push and exact-head hosted
+  deployment-chain evidence are next; no green-chain claim yet.
+- Qwen's proposed hardcoded bytes and two speculative test-review concerns were
+  checked against arithmetic, SDK behavior and Uint8List's input domain; no
+  assertions were weakened. GLM is unavailable. Keep raw and adjusted scores,
+  dependency-proof boundaries and the failed initial verification visible.
+
 ### Work152 Serializer Assertions And Wire Boundaries (Locally Verified)
 
 - Push verified151 as0d6bec0b and update PR93. Exact-head image35506393279 and
