@@ -6,6 +6,32 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work160 expands benchmark regression evidence, prioritizing previously unmeasured
+native factory paths and real runner accounting. A 66-case factory suite exercises
+Dart/native RawSocket/WebSocket JSON/MsgPack/CBOR, TLS, authentication rejection,
+owned E2EE disposal, benchmark-key interoperability and configuration defaults.
+The runner suite now has 18 cases for YAML aliases, exact sample/byte counts,
+dry-run/no-load behavior and CLI contracts. Reverse-order execution exposed a
+test fixture's shared native runtime leak; scoped teardown fixes it, with both
+orders verified. Final full benchmark coverage is 2118/2254 (93.97%), versus
+2010/2254 (89.17%) in Work159; all 836 benchmark tests pass. The first
+verification failed a stale mutation support-file assertion; all 70 updated
+tooling contracts pass. Final bin/verify exits 0, including browser WASM tests;
+frozen source/test hashes match. Complete mutation targets
+cover all 89 runner and 519 workload AST candidates, not a sampled region. The
+pre-teardown campaign was intentionally interrupted and remains incomplete;
+final-snapshot campaigns are running in isolated workspaces (session 51979).
+The native test window remains reserved until they finish. No package versions or production behavior
+have changed. The full 98%/95% goal remains incomplete.
+
+Work154's original frozen campaign is now complete and independently audited:
+Invocation VM 91/108 (84.26%), Invocation JS 92/108 (85.19%), Session JS 222/460
+(48.26%) strict assertion scores. All fail 95%; these historical results do not
+describe the later Work155/156 assertions. A separate minimal fake-worker repro
+also proves concurrent NativeWampWorker.start calls spawn two processes instead
+of sharing startup. Its child processes were cleaned up; lifecycle ownership is
+the next concrete implementation gap after the current benchmark evidence run.
+
 Work159 fixes active MCP SSE listener isolation after write failures. Throwing
 diagnostic observers previously interrupted healthy fanout, turned catalog
 refresh into HTTP 500 and skipped heartbeat cleanup. Active failures now report
@@ -32,6 +58,14 @@ Packaging remains 765/787 (97.20%), with 12 unmeasured sources and a failing
 98% target audit. Final input hashes match; after-native artifact hashes match
 and the shared native window is released. The full 98%/95% goal is
 incomplete. No merge, publication or version change is authorized.
+
+Implementation `235b3faf` is pushed and PR #93 remains draft/unmerged. Exact-head
+CI runs 35522595419/35522592735, package dry-runs 35522595435/35522592722,
+explicit image dry-run 35522602053 and profile benchmarks 35522603252 are queued.
+All 74 PR checks are queued. The strict audit exits 1 for pending/unstarted jobs
+and feature-branch protection, not a demonstrated test failure. VM159 collection
+and packaging formatting completed successfully. This post-push bookkeeping
+stays uncommitted until the next implementation bundle; no docs-only commit.
 
 Work158 reproduces router-hosted MCP subscription-admission leaks with throwing
 diagnostic observers. Sixteen public HTTP/WAMP regressions cover unsupported and

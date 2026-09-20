@@ -364,6 +364,7 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
     def test_bench_workload_mutations_hash_wire_suites_and_tls_fixtures(self):
         targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
         target = targets['bench-wamp-workload-vm']
+        self.assertTrue(target['requiresNativeLibrary'])
         root = REPO_ROOT / 'packages/connectanum_bench'
         entrypoint = root / 'test/support/wamp_workload_mutation_suite.dart'
         self.assertEqual(target['sources'], [
@@ -373,7 +374,7 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         expected = {root / 'test' / name for name in [
             'wamp_workload_runner_test.dart', 'wamp_session_wire_regression_test.dart',
             'wamp_session_factory_test.dart', 'wamp_transport_targets_test.dart',
-            'wamp_sample_test.dart',
+            'wamp_sample_test.dart', 'wamp_factory_regression_test.dart',
         ]}
         fixtures = {'native/bench/bench_tls.crt', 'native/bench/bench_tls.key'}
         self.assertEqual(set(target['supportFiles']), fixtures | {
@@ -383,6 +384,26 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         self.assertEqual({(entrypoint.parent / path).resolve() for path, _ in imports}, expected)
         for path, alias in imports:
             self.assertRegex(source, rf"group\('[^']+', {alias}\.main\)")
+
+    def test_bench_runner_mutations_include_native_integration_entrypoint(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['bench-runner-vm']
+        root = REPO_ROOT / 'packages/connectanum_bench'
+        entrypoint = root / 'test/support/benchmark_runner_mutation_suite.dart'
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_bench/lib/src/benchmark_runner.dart'])
+        self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
+        self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
+        self.assertTrue(target['requiresNativeLibrary'])
+        self.assertEqual(target['testTimeoutSeconds'], 10)
+        self.assertEqual(set(target['supportFiles']), {
+            'packages/connectanum_bench/test/wamp_transport_integration_test.dart',
+            'packages/connectanum_bench/test/support/native_reply_callee.dart',
+        })
+        source = entrypoint.read_text()
+        self.assertIn("import '../wamp_transport_integration_test.dart' as integration;", source)
+        self.assertIn('integration.benchmarkRunnerRegressionTests()', source)
+        self.assertNotIn('integration.main()', source)
 
     def test_serializer_mutation_wrappers_preserve_complete_runtime_inventory(self):
         targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())

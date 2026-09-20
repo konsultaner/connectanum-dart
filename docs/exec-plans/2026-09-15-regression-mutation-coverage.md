@@ -67,6 +67,38 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work160 Benchmark Factories And Runner Evidence
+
+- Fast160 passes before repository edits. Add independent wire peers for all
+  Dart/native transport/serializer combinations, TLS, ticket rejection, payload
+  preservation and owned provider disposal. Explicit defaults and independent
+  benchmark-key decoding strengthen assertion-based mutation detection.
+- Expand real YAML runner coverage to exact six-sample/102-byte accounting,
+  dry-run/no-load distinctions and CLI requirements/defaults. Focused suites have
+  66 factory and 18 runner cases. The reversed file order fails before native
+  client runtime teardown and passes afterward; keep that negative control.
+- Add a complete runner mutation target and extend the workload target's hashed
+  support inventory and required native artifact. Seventy tooling contract tests
+  pass after updating the stale inventory expectation exposed by first verify.
+- Final full benchmark-only collection: 2118/2254 (93.97%), with all 836 tests
+  passing. This is not a new whole-workspace VM score. Final bin/verify exits 0,
+  including browser WASM tests; frozen source/test hashes match. The complete
+  89/519-candidate campaigns are running in isolated workspaces (session 51979),
+  with the native test window still reserved. No completed mutation score yet.
+  The pre-teardown campaign was deliberately interrupted, retained without a
+  completed score, and will not be attributed to the final test snapshot.
+- Work154 completed its original campaign and independent audit. Historical
+  strict scores are Invocation VM 91/108, Invocation JS 92/108 and Session JS
+  222/460, all below 95%. Timeouts and error-only outcomes receive no kill credit.
+- A minimal public NativeWampWorker.start concurrency repro produces two child
+  processes (expected one); both are cleaned up. Next implementation work should
+  make startup and old-exit/pending ownership generation-safe and cover failure,
+  restart and cancellation with fake child processes. Preserve this pre-fix
+  evidence under coverage160-verification; it does not load the native library.
+- Evidence root: out/regression-coverage-2026-09-15/coverage160-verification;
+  bench160-current is initial coverage, bench160-final is reserved for the final
+  snapshot, and bench160-final-mutations is the final campaign output.
+
 ### Work159 Active MCP Stream Failure Isolation
 
 - Fast159 passes before edits. Add 23 public-router cases for active resource,
@@ -124,6 +156,14 @@ The initial and final snapshots remain separately auditable; no 95% claim.
 Evidence: mcp159-live-probe (initial snapshot), mcp159-live-final-probe,
 js159-current and coverage159-verification under
 out/regression-coverage-2026-09-15.
+
+Implementation `235b3faf` is pushed; PR #93 remains draft/unmerged. Exact-head
+CI runs 35522595419/35522592735, package dry-runs 35522595435/35522592722,
+explicit image dry-run 35522602053 and profile benchmarks 35522603252 are queued.
+All 74 PR checks are queued. The strict audit exits 1 on pending/unstarted jobs
+and feature-branch protection, not a proven test failure. Preserve these run IDs;
+do not duplicate dispatches. VM159 and packaging formatting exited 0. Post-push
+bookkeeping waits for the next code bundle. The complete coverage goal is active.
 
 ### Work158 MCP Subscription Admission Ownership
 
