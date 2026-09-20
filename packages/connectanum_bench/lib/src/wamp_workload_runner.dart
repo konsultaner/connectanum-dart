@@ -997,7 +997,27 @@ class WampWorkloadRunner {
     WampSession? sender;
     WampSession? receiver;
     WampRegistration? registration;
+    Future<WampRegistration>? pendingRegistration;
     final procedure = _externalProcedureUri(scenario.uri, workerId);
+    var operationFailed = false;
+    (Object, StackTrace)? cleanupFailure;
+    Future<void> cleanup(
+      Future<void> Function() operation, {
+      required String logLabel,
+      required String details,
+    }) async {
+      try {
+        await _runCleanupOperation(
+          operation,
+          logLabel: logLabel,
+          details: details,
+        );
+      } catch (error, stackTrace) {
+        cleanupFailure ??= (error, stackTrace);
+        _logger.warning('$logLabel cleanup failed $details');
+      }
+    }
+
     try {
       sender = await _openSession(
         scenario,
@@ -1012,11 +1032,22 @@ class WampWorkloadRunner {
         timeoutLabel: 'file_receiver',
         logLabel: 'file receiver',
       );
-      registration = await (receiver as WampFileSession).registerFileReceiver(
+      pendingRegistration = (receiver as WampFileSession).registerFileReceiver(
         procedure,
         maxConcurrentTransfers: scenario.inFlightPerSession,
         maxChunkSize: scenario.fileChunkBytes,
         idleTimeout: _eventTimeout,
+      );
+      registration = await _runTimedOperation(
+        pendingRegistration,
+        timeout: _eventTimeout,
+        timeoutLabel: 'file_receiver_registration',
+        logLabel: 'file receiver registration',
+        details: _operationDetails(
+          scenario,
+          workerId: workerId,
+          targetUri: procedure,
+        ),
       );
       return await _runWithInFlightLimit(
         iterations: scenario.iterations,
@@ -1030,9 +1061,38 @@ class WampWorkloadRunner {
           sender!,
         ),
       );
+    } catch (_) {
+      operationFailed = true;
+      rethrow;
     } finally {
+      if (registration == null && pendingRegistration != null) {
+        // A timed-out registration may still arrive after its session is closed.
+        unawaited(
+          pendingRegistration.then<void>(
+            (lateRegistration) async {
+              try {
+                await _runCleanupOperation(
+                  lateRegistration.cancel,
+                  logLabel: 'late file receiver registration',
+                  details: _operationDetails(
+                    scenario,
+                    workerId: workerId,
+                    targetUri: procedure,
+                  ),
+                );
+              } catch (_) {
+                _logger.warning(
+                  'late file receiver registration cleanup failed',
+                );
+              }
+            },
+            // The original failure has already reached the caller.
+            onError: (Object _, StackTrace _) {},
+          ),
+        );
+      }
       if (registration != null) {
-        await _runCleanupOperation(
+        await cleanup(
           registration.cancel,
           logLabel: 'file receiver registration',
           details: _operationDetails(
@@ -1043,7 +1103,7 @@ class WampWorkloadRunner {
         );
       }
       if (receiver != null) {
-        await _runCleanupOperation(
+        await cleanup(
           receiver.close,
           logLabel: 'file receiver session',
           details: _operationDetails(
@@ -1054,7 +1114,7 @@ class WampWorkloadRunner {
         );
       }
       if (sender != null) {
-        await _runCleanupOperation(
+        await cleanup(
           sender.close,
           logLabel: 'file sender session',
           details: _operationDetails(
@@ -1063,6 +1123,10 @@ class WampWorkloadRunner {
             targetUri: procedure,
           ),
         );
+      }
+      final failure = cleanupFailure;
+      if (!operationFailed && failure != null) {
+        Error.throwWithStackTrace(failure.$1, failure.$2);
       }
     }
   }

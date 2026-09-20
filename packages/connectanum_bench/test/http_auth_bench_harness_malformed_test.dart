@@ -180,8 +180,9 @@ class _Fixture {
     final request = await client.postUrl(
       Uri.parse('http://127.0.0.1:$port/introspect'),
     );
-    if (authorization != null)
+    if (authorization != null) {
       request.headers.set(HttpHeaders.authorizationHeader, authorization);
+    }
     request.headers.contentType = ContentType(
       'application',
       'x-www-form-urlencoded',

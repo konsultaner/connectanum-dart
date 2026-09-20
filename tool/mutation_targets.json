@@ -155,6 +155,10 @@
     "supportFiles": [
       "packages/connectanum_bench/test/wamp_workload_runner_test.dart",
       "packages/connectanum_bench/test/wamp_workload_failure_regression_test.dart",
+      "packages/connectanum_bench/test/wamp_file_workload_integrity_test.dart",
+      "packages/connectanum_bench/test/wamp_file_workload_scheduling_test.dart",
+      "packages/connectanum_bench/test/wamp_file_registration_deadline_test.dart",
+      "packages/connectanum_bench/test/wamp_file_cleanup_failure_test.dart",
       "packages/connectanum_bench/test/wamp_session_wire_regression_test.dart",
       "packages/connectanum_bench/test/wamp_session_factory_test.dart",
       "packages/connectanum_bench/test/wamp_factory_regression_test.dart",
@@ -205,7 +209,8 @@
       "packages/connectanum_bench/test/http_auth_bench_harness_test.dart",
       "packages/connectanum_bench/test/http_auth_bench_harness_boundaries_test.dart",
       "packages/connectanum_bench/test/http_auth_bench_harness_configuration_test.dart",
-      "packages/connectanum_bench/test/http_auth_bench_harness_malformed_test.dart"
+      "packages/connectanum_bench/test/http_auth_bench_harness_malformed_test.dart",
+      "packages/connectanum_bench/test/http_auth_bench_harness_sharing_test.dart"
     ],
     "testRoot": "packages/connectanum_bench"
   },

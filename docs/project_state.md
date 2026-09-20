@@ -1,10 +1,54 @@
 # Project State
 
-Last updated: 2026-09-20
+Last updated: 2026-09-21
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work168 promotes 26 regression tests after Fast168 passed. Eight canonical
+pre-fix assertion failures reproduce unbounded file-receiver registration,
+cleanup skipping acquired sessions, and cleanup errors replacing the original
+failure. File registration now owns the scenario deadline and cancels late
+registrations. Every acquired resource gets a cleanup attempt; the original
+operation error remains primary, or the first cleanup error is reported after
+otherwise successful work. Controlled timers cover late failures and safe
+diagnostics. File-byte, latency-unit, scheduling and shared-listener tests join
+the complete mutation inventories. All 182 focused tests, clean package analysis
+and 73 tooling contracts pass. The complete Work168 HTTP auth mutation campaign
+now independently audits 53/58 assertion-backed detections (91.38%), versus
+51/58 previously. Both baselines pass; there are five survivors, 32 compile
+errors, zero error-only detections and no waivers. The 95% gate still fails.
+Evidence is in bench168-http-mutations; input hashes pass. Verify168 passes,
+including 3343 core WASM and 2568 client WASM tests. Fresh complete repository
+VM/packaging collection passes at vm168-current with matching source/test/native
+hashes. Library scores are auth server 100%, benchmark 99.35% (2307/2322), MCP
+96.13%, core 94.34%, client 92.09% and router 88.84%. Workload is 1249/1262
+(98.97%). Measured packaging is 765/787 (97.20%); 12 packaging sources remain
+unmeasured. The full 98% audit still fails with 59 unmeasured library sources and
+missing external runtime/scope evidence. Passing WASM tests are not measured
+WASM coverage. Do not apply Work167 workload scores to these changed tests.
+Cell2011, Verify168/session55517, coverage/session59965, Fast168/session58250 and
+HTTP mutations/session25220 are terminal; the native window is released.
+Verification logs are retained in coverage168-verification. Keep PR #93 draft,
+the full milestone active, and make no merge, publication or version change.
+
+The next isolated follow-up at coverage169-probes has nine passing tests: three
+real-HTTP-parser lifecycle/error-classification tests using controlled memory
+sockets and six workload latency/byte-accounting tests. Selected controls give
+genuine assertion failures for force-close rollback/shutdown, transport errors
+misclassified as bad forms, and five individual latency-unit mutations. These
+are not canonical tests or full campaign scores. Promote after fresh test-fast,
+then rerun the complete affected mutation inventories and verification.
+
+Work167's full workload campaign is terminal and independently audited: 520
+generated, 339 viable, 154 assertion-backed detections (45.43%), 29 error-only
+detections, 120 survivors, 36 timeouts, 181 compile errors and no waivers. Both
+baselines and final source/native hashes pass. Conventional detection is
+183/339 (53.98%); the 95% assertion gate fails. Cell1935 and audit session61299
+are terminal, not native-window owners. Evidence is in bench167-workload-mutations
+under out/regression-coverage-2026-09-15. Exact-head Work167 hosted checks were
+all queued at the last observation, not demonstrated test failures.
 
 Work167 integrates malformed HTTP introspection handling and 43 regression
 tests after Fast167 passed. Eighteen canonical pre-fix assertions reproduce
@@ -23,13 +67,13 @@ Verify167 passes, including 1234 benchmark, 3894 router, 3343 core WASM and
 (99.35%); workload improves to 1234/1247 (98.96%) and every measured benchmark
 source file clears 98%. Ten child reports and all input/native hashes pass.
 The full audit still fails for absent external scopes; this is not a whole-repo
-or all-runtime score. Cell1891 is terminal. Cell1935 now owns the complete
-workload mutation campaign and pinned native window; preserve it. An initial
+or all-runtime score. Cell1891 is terminal. The workload campaign is now complete
+as recorded above. An initial
 launch stopped before creating a campaign because CONNECTANUM_NATIVE_LIB was
 unset; the corrected launch uses the verified artifact without rebuilding it.
-No workload score or hosted pass is claimed yet. Ten isolated follow-up tests
-for listener sharing and file-byte integrity pass, but are not canonical or
-credited to this snapshot; see coverage167-probes/EVIDENCE.md. Keep the full
+No hosted pass is claimed. Listener-sharing and file-byte follow-ups were not
+part of this snapshot; their strengthened versions are promoted in Work168.
+Historical probe evidence remains in coverage167-probes/EVIDENCE.md. Keep the full
 goal active and PR #93 draft, with no merge, publication or version change.
 
 Work166 closes the benchmark runner's child-process measurement gap without

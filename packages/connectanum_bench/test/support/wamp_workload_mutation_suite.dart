@@ -13,10 +13,18 @@ import '../wamp_transport_targets_boundaries_test.dart' as target_boundaries;
 import '../wamp_transport_targets_ranking_test.dart' as target_ranking;
 import '../wamp_workload_runner_test.dart' as workloads;
 import '../wamp_workload_failure_regression_test.dart' as workload_failures;
+import '../wamp_file_workload_integrity_test.dart' as file_integrity;
+import '../wamp_file_workload_scheduling_test.dart' as file_scheduling;
+import '../wamp_file_registration_deadline_test.dart' as file_deadlines;
+import '../wamp_file_cleanup_failure_test.dart' as file_cleanup;
 
 void main() {
   group('workload behavior', workloads.main);
   group('workload failure regressions', workload_failures.main);
+  group('file payload integrity', file_integrity.main);
+  group('file transfer scheduling', file_scheduling.main);
+  group('file registration deadlines', file_deadlines.main);
+  group('file cleanup failures', file_cleanup.main);
   group('wire integration', wire.main);
   group('session factory', factories.main);
   group('factory regression matrix', factory_regressions.main);

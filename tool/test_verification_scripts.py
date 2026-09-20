@@ -374,6 +374,10 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         expected = {root / 'test' / name for name in [
             'wamp_workload_runner_test.dart', 'wamp_session_wire_regression_test.dart',
             'wamp_workload_failure_regression_test.dart',
+            'wamp_file_workload_integrity_test.dart',
+            'wamp_file_workload_scheduling_test.dart',
+            'wamp_file_registration_deadline_test.dart',
+            'wamp_file_cleanup_failure_test.dart',
             'wamp_session_factory_test.dart', 'wamp_transport_targets_test.dart',
             'wamp_sample_test.dart', 'wamp_factory_regression_test.dart',
             'wamp_sample_boundaries_test.dart', 'wamp_scenario_boundaries_test.dart',
