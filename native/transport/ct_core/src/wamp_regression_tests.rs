@@ -1,13 +1,16 @@
+use super::test_support::{assert_condition, AssertError, AssertSuccess};
 use super::*;
+#[path = "wamp_regression_tests/followup.rs"]
+mod followup;
 use serde_json::{json, Value as Json};
 
 const SERIALIZERS: [Serializer; 3] = [Serializer::Json, Serializer::MessagePack, Serializer::Cbor];
 
 fn wire(serializer: Serializer, value: &Json) -> Bytes {
     Bytes::from(match serializer {
-        Serializer::Json => serde_json::to_vec(value).unwrap(),
-        Serializer::MessagePack => rmp_serde::to_vec(value).unwrap(),
-        Serializer::Cbor => serde_cbor::to_vec(value).unwrap(),
+        Serializer::Json => serde_json::to_vec(value).assert_success(),
+        Serializer::MessagePack => rmp_serde::to_vec(value).assert_success(),
+        Serializer::Cbor => serde_cbor::to_vec(value).assert_success(),
         _ => unreachable!(),
     })
 }
@@ -46,7 +49,7 @@ fn message_boundary_rejects_trailing_values_and_garbage() {
             }
         }
     }
-    assert!(
+    assert_condition!(
         accepted.is_empty(),
         "accepted bytes outside the WAMP message: {accepted:?}"
     );
@@ -56,7 +59,8 @@ fn message_boundary_rejects_trailing_values_and_garbage() {
 fn json_message_boundary_permits_only_json_whitespace() {
     let raw = Bytes::from_static(b" \t\r\n[67,7] \t\r\n");
     for split in 0..=raw.len() {
-        let parsed = parse_message_segments(Serializer::Json, fragments(&raw, split)).unwrap();
+        let parsed =
+            parse_message_segments(Serializer::Json, fragments(&raw, split)).assert_success();
         assert_eq!(parsed.message, WampMessage::Unregistered { request_id: 7 });
         assert_eq!(parsed.raw.into_bytes(), raw);
     }
@@ -321,13 +325,13 @@ fn message_cases() -> Vec<(Json, WampMessage, Vec<&'static str>)> {
 
 fn check_valid(serializer: Serializer, value: &Json, expected: &WampMessage) {
     let raw = wire(serializer, value);
-    let parsed = parse_message(serializer, raw.clone()).unwrap();
+    let parsed = parse_message(serializer, raw.clone()).assert_success();
     assert_eq!(&parsed.message, expected, "{serializer:?}: {value}");
-    assert_eq!(parsed.message.code(), value[0].as_u64().unwrap());
+    assert_eq!(parsed.message.code(), value[0].as_u64().assert_success());
     assert_eq!(parsed.serializer, serializer);
     assert_eq!(parsed.raw.into_bytes(), raw);
     for split in 0..=raw.len() {
-        let parsed = parse_message_segments(serializer, fragments(&raw, split)).unwrap();
+        let parsed = parse_message_segments(serializer, fragments(&raw, split)).assert_success();
         assert_eq!(
             &parsed.message, expected,
             "{serializer:?} split={split}: {value}"
@@ -349,7 +353,7 @@ fn all_message_fields_survive_every_segment_boundary() {
 fn missing_and_wrong_required_fields_have_specific_errors() {
     for serializer in SERIALIZERS {
         for (value, _, labels) in message_cases() {
-            let fields = value.as_array().unwrap();
+            let fields = value.as_array().assert_success();
             for (offset, label) in labels.into_iter().enumerate() {
                 let index = offset + 1;
                 let missing = Json::Array(fields[..index].to_vec());
@@ -364,11 +368,11 @@ fn missing_and_wrong_required_fields_have_specific_errors() {
                             parse_message(serializer, raw)
                         }
                     };
-                    assert!(
+                    assert_condition!(
                         matches!(parse(&missing), Err(ParseError::MissingElement(actual)) if actual == label),
                         "{serializer:?} segmented={segmented} missing={missing} label={label}"
                     );
-                    let error = parse(&wrong).unwrap_err();
+                    let error = parse(&wrong).assert_error();
                     let correct = match &fields[index] {
                         Json::String(_) if serializer == Serializer::Json => {
                             matches!(&error, ParseError::Deserialize(message) if message.contains("expected a string"))
@@ -384,7 +388,7 @@ fn missing_and_wrong_required_fields_have_specific_errors() {
                         }
                         _ => panic!("unsupported test fixture field"),
                     };
-                    assert!(
+                    assert_condition!(
                         correct,
                         "{serializer:?} segmented={segmented}: {wrong}: {error:?}"
                     );
@@ -407,16 +411,17 @@ fn empty_non_array_and_invalid_code_messages_fail_closed() {
         ] {
             let raw = wire(serializer, &value);
             for split in 0..=raw.len() {
-                let error = parse_message_segments(serializer, fragments(&raw, split)).unwrap_err();
+                let error =
+                    parse_message_segments(serializer, fragments(&raw, split)).assert_error();
                 if value == json!([]) {
-                    assert!(matches!(error, ParseError::MissingElement("message code")));
+                    assert_condition!(matches!(error, ParseError::MissingElement("message code")));
                 } else if value.is_array() {
-                    assert!(matches!(
+                    assert_condition!(matches!(
                         error,
                         ParseError::ExpectedIdentifier("message code")
                     ));
                 } else {
-                    assert!(matches!(
+                    assert_condition!(matches!(
                         error,
                         ParseError::ExpectedArray | ParseError::Deserialize(_)
                     ));
@@ -438,13 +443,13 @@ fn empty_non_array_and_invalid_code_messages_fail_closed() {
                     } else {
                         parse_message(serializer, raw.clone())
                     }
-                    .unwrap_err();
+                    .assert_error();
                     let correct = if value[index].is_string() {
                         matches!(error, ParseError::ExpectedString(actual) if actual == label)
                     } else {
                         matches!(error, ParseError::ExpectedIdentifier(actual) if actual == label)
                     };
-                    assert!(
+                    assert_condition!(
                         correct,
                         "{serializer:?} segmented={segmented} null {label}: {error:?}"
                     );
@@ -460,7 +465,7 @@ fn empty_non_array_and_invalid_code_messages_fail_closed() {
             } else {
                 parse_message(serializer, raw)
             };
-            assert!(
+            assert_condition!(
                 matches!(result, Err(ParseError::UnsupportedSerializer(actual)) if actual == serializer)
             );
         }
@@ -497,12 +502,12 @@ fn all_payload_messages_preserve_absent_null_empty_and_populated_arguments() {
                     Some(json!({"name":"value"})),
                 ] {
                     let mut value = template.clone();
-                    value.as_array_mut().unwrap().push(args.clone());
+                    value.as_array_mut().assert_success().push(args.clone());
                     if let Some(kwargs) = &kwargs {
-                        value.as_array_mut().unwrap().push(kwargs.clone());
+                        value.as_array_mut().assert_success().push(kwargs.clone());
                     }
                     let mut expected = expected.clone();
-                    *payload_mut(&mut expected).unwrap() = Payload {
+                    *payload_mut(&mut expected).assert_success() = Payload {
                         args: (!args.is_null()).then(|| wire(serializer, &args)),
                         kwargs: kwargs
                             .filter(|value| !value.is_null())
@@ -524,7 +529,7 @@ fn optional_metadata_and_heartbeat_counters_preserve_their_fields() {
         ] {
             for value in [Json::Null, json!({}), json!({"flag":true})] {
                 let mut raw = template.clone();
-                raw.as_array_mut().unwrap().push(value.clone());
+                raw.as_array_mut().assert_success().push(value.clone());
                 let map = if value == json!({"flag":true}) {
                     metadata()
                 } else {
@@ -544,8 +549,8 @@ fn optional_metadata_and_heartbeat_counters_preserve_their_fields() {
                 check_valid(serializer, &raw, &expected);
             }
             let mut invalid = template;
-            invalid.as_array_mut().unwrap().push(json!([]));
-            assert!(
+            invalid.as_array_mut().assert_success().push(json!([]));
+            assert_condition!(
                 matches!(parse_message(serializer, wire(serializer, &invalid)), Err(ParseError::ExpectedMap(actual)) if actual == label)
             );
         }
@@ -554,7 +559,7 @@ fn optional_metadata_and_heartbeat_counters_preserve_their_fields() {
             let mut value = json!([7, {}]);
             value
                 .as_array_mut()
-                .unwrap()
+                .assert_success()
                 .extend(counters[..count].iter().map(|n| json!(n)));
             let expected = WampMessage::Heartbeat {
                 details: ValueMap::new(),
@@ -571,10 +576,10 @@ fn optional_metadata_and_heartbeat_counters_preserve_their_fields() {
             let mut value = json!([7, {}, 17, 29, 43]);
             value[index + 2] = json!(-1);
             let raw = wire(serializer, &value);
-            assert!(
+            assert_condition!(
                 matches!(parse_message(serializer, raw.clone()), Err(ParseError::ExpectedIdentifier(actual)) if actual == label)
             );
-            assert!(
+            assert_condition!(
                 matches!(parse_message_segments(serializer, fragments(&raw, 1)), Err(ParseError::ExpectedIdentifier(actual)) if actual == label)
             );
         }
@@ -602,7 +607,7 @@ fn payload_shape_errors_identify_the_message_and_argument_slot() {
             let prefix = labels
                 .iter()
                 .find(|(code, _)| template[0] == *code)
-                .unwrap()
+                .assert_success()
                 .1;
             for kwargs in [false, true] {
                 for wrong in [
@@ -613,9 +618,9 @@ fn payload_shape_errors_identify_the_message_and_argument_slot() {
                 ] {
                     let mut value = template.clone();
                     if kwargs {
-                        value.as_array_mut().unwrap().push(json!([]));
+                        value.as_array_mut().assert_success().push(json!([]));
                     }
-                    value.as_array_mut().unwrap().push(wrong);
+                    value.as_array_mut().assert_success().push(wrong);
                     let raw = wire(serializer, &value);
                     let expected_label = format!(
                         "{prefix}.{}",
@@ -632,7 +637,7 @@ fn payload_shape_errors_identify_the_message_and_argument_slot() {
                         } else {
                             matches!(result, Err(ParseError::ExpectedList(label)) if label == expected_label)
                         };
-                        assert!(correct, "{serializer:?} segmented={segmented}: {value}: expected {expected_label}");
+                        assert_condition!(correct, "{serializer:?} segmented={segmented}: {value}: expected {expected_label}");
                     }
                 }
             }
@@ -721,17 +726,17 @@ fn msgpack_marker_widths_preserve_lazy_payload_ranges_and_reject_every_truncatio
             },
         };
         for split in 0..=raw.len() {
-            let parsed =
-                parse_message_segments(Serializer::MessagePack, fragments(&raw, split)).unwrap();
+            let parsed = parse_message_segments(Serializer::MessagePack, fragments(&raw, split))
+                .assert_success();
             assert_eq!(parsed.message, expected, "marker={marker:x} split={split}");
         }
         for length in 0..raw.len() {
             let truncated = raw.slice(..length);
-            assert!(
+            assert_condition!(
                 parse_message(Serializer::MessagePack, truncated.clone()).is_err(),
                 "marker={marker:x} length={length}"
             );
-            assert!(
+            assert_condition!(
                 parse_message_segments(Serializer::MessagePack, fragments(&truncated, length / 2))
                     .is_err(),
                 "segmented marker={marker:x} length={length}"
@@ -742,14 +747,14 @@ fn msgpack_marker_widths_preserve_lazy_payload_ranges_and_reject_every_truncatio
         let data = RawFrame::Contiguous(Bytes::from(with_sentinel));
         let mut offset = 0;
         assert_eq!(
-            msgpack_read_value_range(&data, &mut offset).unwrap(),
+            msgpack_read_value_range(&data, &mut offset).assert_success(),
             0..value.len()
         );
         assert_eq!(offset, value.len());
-        assert_eq!(read_u8(&data, &mut offset).unwrap(), 0x7f);
+        assert_eq!(read_u8(&data, &mut offset).assert_success(), 0x7f);
     }
     let reserved = Bytes::from_static(&[0x94, 50, 7, 0x80, 0x91, 0xc1]);
-    assert!(
+    assert_condition!(
         matches!(parse_message(Serializer::MessagePack, reserved), Err(ParseError::Deserialize(message)) if message.contains("reserved MessagePack marker"))
     );
 }
@@ -780,19 +785,21 @@ fn binary_array_headers_decode_all_widths_and_reject_truncation() {
             let raw = Bytes::from(raw);
             let expected = WampMessage::Unregistered { request_id: 7 };
             assert_eq!(
-                parse_message(serializer, raw.clone()).unwrap().message,
+                parse_message(serializer, raw.clone())
+                    .assert_success()
+                    .message,
                 expected
             );
             for split in 0..=raw.len() {
                 assert_eq!(
                     parse_message_segments(serializer, fragments(&raw, split))
-                        .unwrap()
+                        .assert_success()
                         .message,
                     expected
                 );
             }
             for length in 0..raw.len() {
-                assert!(
+                assert_condition!(
                     parse_message(serializer, raw.slice(..length)).is_err(),
                     "{serializer:?} header={header:?} length={length}"
                 );
@@ -806,14 +813,16 @@ fn binary_array_headers_decode_all_widths_and_reject_truncation() {
         vec![0x9f, 0x18, 67],
         vec![0x80, 0x00],
     ] {
-        assert!(matches!(
+        assert_condition!(matches!(
             parse_message(Serializer::Cbor, Bytes::from(raw)),
             Err(ParseError::Deserialize(_))
         ));
     }
     let indefinite = Bytes::from_static(&[0x9f, 0x18, 67, 7, 0xff]);
     assert_eq!(
-        parse_message(Serializer::Cbor, indefinite).unwrap().message,
+        parse_message(Serializer::Cbor, indefinite)
+            .assert_success()
+            .message,
         WampMessage::Unregistered { request_id: 7 }
     );
 }
@@ -824,46 +833,46 @@ fn raw_frame_ranges_preserve_bytes_and_storage_ownership() {
     for split in 0..=raw.len() {
         let frame = RawFrame::from_segments(fragments(&raw, split));
         assert_eq!(frame.len(), 8);
-        assert!(frame.as_contiguous().is_none());
+        assert_condition!(frame.as_contiguous().is_none());
         assert_eq!(frame.clone().into_bytes(), raw);
         for index in 0..raw.len() {
-            assert_eq!(frame.read_byte(index).unwrap(), raw[index]);
+            assert_eq!(frame.read_byte(index).assert_success(), raw[index]);
         }
-        assert!(matches!(
+        assert_condition!(matches!(
             frame.read_byte(8),
             Err(ParseError::Deserialize(_))
         ));
         for start in 0..=raw.len() {
             for end in start..=raw.len() {
-                let slice = frame.slice_or_copy(&(start..end)).unwrap();
+                let slice = frame.slice_or_copy(&(start..end)).assert_success();
                 assert_eq!(
                     slice,
                     raw.slice(start..end),
                     "split={split} range={start}..{end}"
                 );
                 if start < end && (end <= split || start >= split) {
-                    assert!(
+                    assert_condition!(
                         frame.contains_slice(&slice),
                         "in-segment range must remain zero-copy"
                     );
                 }
             }
         }
-        assert!(matches!(
+        assert_condition!(matches!(
             frame.slice_or_copy(&(0..9)),
             Err(ParseError::Deserialize(_))
         ));
-        let retained = frame.slice_or_copy(&(1..7)).unwrap();
+        let retained = frame.slice_or_copy(&(1..7)).assert_success();
         drop(frame);
         assert_eq!(retained.as_ref(), b"bcdefg");
     }
     let contiguous = RawFrame::Contiguous(raw.clone());
     assert_eq!(contiguous.as_contiguous(), Some(&raw));
-    assert!(matches!(
+    assert_condition!(matches!(
         contiguous.read_byte(8),
         Err(ParseError::Deserialize(_))
     ));
-    assert!(matches!(
+    assert_condition!(matches!(
         contiguous.slice_or_copy(&(7..9)),
         Err(ParseError::Deserialize(_))
     ));
@@ -878,14 +887,14 @@ fn segmented_reader_respects_empty_reads_partial_reads_and_eof() {
         Bytes::from_static(b"cde"),
         Bytes::new(),
     ]);
-    assert_eq!(reader.read(&mut []).unwrap(), 0);
+    assert_eq!(reader.read(&mut []).assert_success(), 0);
     let mut buffer = [0xaa; 3];
-    assert_eq!(reader.read(&mut buffer).unwrap(), 3);
+    assert_eq!(reader.read(&mut buffer).assert_success(), 3);
     assert_eq!(buffer, *b"abc");
-    assert_eq!(reader.read(&mut []).unwrap(), 0);
-    assert_eq!(reader.read(&mut buffer).unwrap(), 2);
+    assert_eq!(reader.read(&mut []).assert_success(), 0);
+    assert_eq!(reader.read(&mut buffer).assert_success(), 2);
     assert_eq!(buffer, *b"dec");
-    assert_eq!(reader.read(&mut buffer).unwrap(), 0);
-    assert_eq!(reader.read(&mut buffer).unwrap(), 0);
+    assert_eq!(reader.read(&mut buffer).assert_success(), 0);
+    assert_eq!(reader.read(&mut buffer).assert_success(), 0);
     assert_eq!(buffer, *b"dec");
 }

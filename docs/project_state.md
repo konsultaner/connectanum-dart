@@ -6,6 +6,38 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work147 is in progress after pushed Work146 e1f4b785. Fast147-before passes;
+six native regression groups plus two assertion-helper controls pass all35
+canonical WAMP tests. Existing assertions are preserved and test unwrap/custom
+panic observations are made explicit assertions; production parser behavior and
+mutation classification are unchanged. The selected17-mutant probe has17 actual
+assertions with matching original/restored baselines, not a full score. The full
+native147 campaign now completes all399 candidates:268/330 assertion kills
+(81.21%),48 error outcomes,11 survivors, three timeouts and69 compile failures,
+without waivers. Both35-test baselines pass and source/test/fixture hashes match
+canonical inputs. Cargo's316 catches (95.76%) are not the assertion score.
+Cargo147 and all ten FFI147 groups complete with identical source inventories.
+Their newline-safe union measures core8765/10064 (87.09%), FFI4987/5798 (86.01%)
+and wamp.rs1726/1764 (97.85%); unmeasured sources remain visible. Full Verify147
+exits0, including2496 client WASM cases, and the frozen input manifest still
+matches. A separate canonical-tool audit agrees on every native147 outcome.
+
+Next integrate the isolated native148-runner-probe after the fast gate. Its
+four new tests and full27-test tooling suite pass, including real Rust/mutation
+fixtures, after fail-first missing-target errors. Add reproducible core-wamp
+selection beside the unchanged default core-rawsocket, with matching baseline
+filters, fail-closed unknown targets and Linux/macOS diagnostic coverage. This
+probe has not changed canonical tooling or earned final verification credit.
+
+MCP144 now completes all1098 candidates:812/836 assertion-backed kills (97.13%),
+24 survivors,262 compile failures, no equivalence waivers or timeouts. Both
+baselines and the independent audit pass; all36 source/test/support hashes still
+match. Keep583 pure-assertion and229 mixed diagnostic outcomes visible. This
+closes the library target's95% mutation gate, not CLI/package coverage or all
+remaining survivor investigations. The Session144 JS campaign is still live.
+The e1f4b785 package dry run and profile gate pass; image/main CI remain pending
+and the strict chain audit is not green. No merge, publication or version change.
+
 Work143/144 integrates six portable Session GOODBYE regressions and their
 VM/browser/coverage/mutation command selection guards. All418 selected Session
 cases pass VM/JS/WASM. JS143 collection finishes: core7383/7690 (96.01%),

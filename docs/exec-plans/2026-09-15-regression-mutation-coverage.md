@@ -67,6 +67,62 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work147 Native Assertion Oracles And Completed MCP Evidence (In Progress)
+
+- Fast147-before exits0 before canonical edits. Integrate six native groups:
+  all nine CBOR payload variants retain original wire bytes and allocation,
+  length words preserve nonuniform bytes across offsets/segments, exact CBOR
+  headers and MessagePack payload header widths are checked, HEARTBEAT preserves
+  its existing serializer-specific null contract, and CALL identifiers preserve
+  positive integer widths and reject negative wraparound.
+- Replace test unwraps and custom panic-only observations with explicit success,
+  presence, rejection and message-variant assertions. Preserve all previous
+  payload/ownership/error assertions and add two fixed helper controls proving
+  value/error identity and false-expectation assertion diagnostics. The helper
+  controls catch only their own fixed failures, not production parser calls.
+  The production parser prefix and mutation auditor are unchanged. An old
+  unsupported-serializer test now asserts its formerly discarded `matches!`.
+- All35 canonical native WAMP tests pass. A selected17-candidate probe now has
+  17 independently audited assertions and matching35-test original/restored
+  baselines, versus13 assertions/four errors before strengthening. This is not
+  a full score. Preserve compile-only probe errors separately. A fresh complete
+  native147 campaign finishes all399 candidates on a private snapshot whose
+  hashes exactly match canonical native sources/tests/fixtures. Original and
+  restored35-test baselines pass. The strict audit credits268/330 assertions
+  (81.21%),48 errors,11 survivors, three timeouts and69 compile failures; no
+  waivers. Cargo's316 catches (95.76%) do not meet the assertion-backed gate.
+  Preserve all individual logs and operator outcomes in native-wamp147-mutations.
+  Cargo147 and all ten FFI147 groups complete with identical parsed source
+  inventories. The newline-safe raw union in native147-combined measures core
+  8765/10064 (87.09%), FFI4987/5798 (86.01%) and wamp.rs1726/1764 (97.85%).
+  Core has one unmeasured source and FFI three; this is macOS arm64 evidence,
+  not other-platform or legacy-ABI completion. Full Verify147 exits0 including
+  2496 client WASM cases, with frozen147 inputs unchanged. A fresh canonical-tool
+  audit independently agrees on every native outcome, count and score. Preserve
+  the verification logs and input manifest in coverage147-verification.
+- Final helper review was checked manually: `as_ref()` borrows the original
+  error, and Rust captured-format syntax retains context; the suggested
+  ownership/format defects are not present. No production panic is intercepted.
+- Next integrate native148-runner-probe after a fresh fast gate. Its four new
+  tests cover target/source/filter identity, default compatibility, CLI argument
+  forwarding, unknown-target rejection before effects, and incomplete timeout
+  evidence. Initial missing-target API errors are preserved; all27 isolated
+  tooling tests then pass, including real Rust/cargo-mutants fixtures. Add
+  core-wamp alongside core-rawsocket to the canonical collector and Linux/macOS
+  diagnostic matrix with a fail-first workflow guard. Do not claim this probe
+  as canonical verification. Qwen review did not complete; Gemma's suggested
+  missing nested WAMP tests is contradicted by the actual35-test inventory.
+- MCP144 completes all1098 candidates, original/restored baselines pass and
+  independent audit agrees:812/836 assertions (97.13%),24 survivors,262 compile
+  failures, no waivers, no timeouts or error-only kills. The report retains583
+  pure assertion and229 mixed diagnostic outcomes. All36 source/test/support
+  hashes still match. This measures the MCP library target, not CLI coverage or
+  the complete package/runtime milestone. Inspect remaining lifecycle and
+  capability survivors; no security-critical survivor is waived by assumption.
+- Work146 is pushed as e1f4b785. Its package dry run and WAMP profile gate pass;
+  image/main CI are incomplete. Strict audit exits1 while those checks remain
+  unfinished. Preserve the original Session144 JS campaign; it is still live.
+
 ### Work146 Native Message Boundaries And Meta CI Gates (In Progress)
 
 - Fast146-before exits0 before canonical changes. Add twelve table-driven native
