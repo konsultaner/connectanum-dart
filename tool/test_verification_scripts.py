@@ -537,6 +537,22 @@ fi
         self.assertIn("os: [ubuntu-latest, macos-latest]", native_job)
         self.assertIn("if: always()", native_job)
 
+    def test_native_diagnostics_runs_each_complete_target_on_each_platform(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/mutation-diagnostics.yml").read_text()
+        native_job = workflow.split("\n  rust:\n", 1)[1]
+        self.assertIn("os: [ubuntu-latest, macos-latest]", native_job)
+        self.assertIn("target: [core-rawsocket, core-wamp]", native_job)
+        self.assertIn("runs-on: ${{ matrix.os }}", native_job)
+        self.assertIn("name: Native ${{ matrix.target }} / ${{ matrix.os }}", native_job)
+        self.assertIn('bin/collect-native-mutations --output out/mutations --target "${{ matrix.target }}"', native_job)
+        self.assertIn("fail-fast: false", native_job)
+        self.assertIn("if: always()", native_job)
+        self.assertIn("name: mutations-${{ matrix.target }}-${{ matrix.os }}", native_job)
+        self.assertIn("path: out/mutations", native_job)
+        self.assertIn("if-no-files-found: error", native_job)
+        for bypass in ["continue-on-error:", "--regex", "--exclude-re", "--shard", "|| true"]:
+            self.assertNotIn(bypass, native_job)
+
     def test_client_resource_restart_runs_in_both_gates(self) -> None:
         command = (
             "dart test packages/connectanum_client/test/transport/native/"

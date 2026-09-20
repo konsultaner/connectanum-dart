@@ -67,6 +67,50 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work148/149 Native Target Reproduction And Helper Contracts (Locally Verified)
+
+- Fast148-before exits0 before canonical edits. Add four collector regressions
+  and one workflow regression first: the original code gives two assertion
+  failures and ten missing-target/CLI errors. Integrate the isolated target
+  mapping without changing the default RawSocket invocation, complete candidate
+  inventories, source/tool hashes, private Cargo directories, timeout evidence or
+  assertion scoring. All29 focused tooling/wiring tests pass afterward, including
+  the real Rust and cargo-mutants fixtures. `bin/collect-native-mutations --help`
+  lists both targets. Unknown targets fail in the Python collector before its
+  filesystem/process effects; the shell wrapper still runs its preflight checks.
+- The manual native diagnostic workflow runs both core-rawsocket and core-wamp
+  on Linux/macOS. Each matrix entry retains uniquely named artifacts with
+  `always()`, independent failures and no error suppression or candidate sampling.
+  The existing diagnostic failure policy remains; this is not a claimed95% pass.
+- Three native helper regression groups compare generic serializer wire bytes
+  and decoded nested values on every segment boundary, reject empty/unsupported
+  input and invalid JSON map keys, preserve signed numeric and Unicode conversions
+  with exact error labels, and preserve all17 non-payload messages on replacement.
+  Existing public wire and ownership regressions remain. All38 canonical WAMP
+  tests pass. Five selected surviving numeric/character mutants now produce five
+  independently audited assertions with matching38-test original/restored
+  baselines and unchanged source hashes. Keep this probe separate from the full
+  campaign score; no production behavior or equivalence policy changes.
+- Cargo149 coverage completes: wamp.rs1750/1764 (99.21%), core8717/10064 (86.62%)
+  and FFI4658/5798 (80.34%) before adding Dart-driven FFI evidence. The unchanged
+  production denominator prevents credit from newly added test-only lines. FFI149
+  completes all ten groups and its parsed source inventory equals Cargo149's.
+  Their newline-safe union measures core8787/10064 (87.31%), FFI4987/5798 (86.01%)
+  and wamp.rs1750/1764 (99.21%). Missing sources remain visible. The complete
+  canonical core-wamp149 mutation campaign completes399 candidates with matching
+  original/restored38-test baselines. It credits273/330 assertions (82.73%),
+  with48 errors, six survivors, three timeouts and69 compile failures, no waivers.
+  Independent audit agrees on every outcome. Cargo's321 catches are not assertion
+  kills. Full Verify149 exits0, including3319 core and2496 client WASM tests.
+  The final code/test/configuration hashes still match the frozen149 manifest.
+- Companion review was checked against the actual tests/configuration. The
+  nested map and expected JSON have identical shapes; unsupported codecs assert
+  rejection, not round-trip success. Conditioning artifact upload on a successful
+  mutation run would discard required failure evidence and was not adopted.
+- Work147 is pushed as c5aeb13d and PR93 is updated. Package dry run, WAMP
+  profile35499859544 and image35499858505 pass; main CI remains incomplete.
+  Preserve Session144's live isolated campaign; no newer test score is inferred.
+
 ### Work147 Native Assertion Oracles And Completed MCP Evidence (In Progress)
 
 - Fast147-before exits0 before canonical edits. Integrate six native groups:

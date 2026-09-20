@@ -6,7 +6,35 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Work147 is in progress after pushed Work146 e1f4b785. Fast147-before passes;
+Work148/149 is locally verified on top of pushed c5aeb13d. Fast148-before exits0.
+The canonical collector now supports core-wamp alongside the unchanged default
+core-rawsocket, with complete inventories, matching baseline filters, isolated
+source/target directories and fail-closed unknown targets. Linux/macOS diagnostic
+jobs cover both targets with distinct artifacts retained on failure. Five new
+canonical tooling/wiring tests fail before implementation; all29 focused tests
+pass afterward, including real Rust/cargo-mutants fixtures.
+
+Three additional native regression groups assert generic codec bytes/values,
+signed numeric and Unicode helper contracts, error labels and preservation of
+all17 non-payload messages. All38 canonical WAMP tests pass. A selected five-mutant
+probe has five independently audited assertions and matching38-test original and
+restored baselines; this is not a complete mutation score. Fresh Cargo149 coverage
+measures wamp.rs1750/1764 (99.21%), with the production denominator unchanged.
+Cargo-only core8717/10064 (86.62%) and FFI4658/5798 (80.34%) are not the combined
+native totals. FFI149 completes all ten groups with matching source inventories;
+the newline-safe149 union measures core8787/10064 (87.31%) and
+FFI4987/5798 (86.01%). Missing sources remain visible. The complete canonical
+core-wamp149 campaign finishes399 candidates:273/330 assertion kills (82.73%),
+48 errors, six survivors, three timeouts and69 compile failures, no waivers.
+Both38-test baselines pass; independent audit agrees on every outcome. Cargo's
+321 catches are not assertion kills. Full Verify149 exits0, including3319 core
+and2496 client WASM tests; the frozen149 input hashes still match. No whole-native
+95% mutation or98% line gate is claimed.
+The original Session144 browser campaign remains live and must not be restarted.
+c5aeb13d package dry run, WAMP profile and Router Image checks pass; main CI
+remains incomplete, so the strict deployment chain is not green.
+
+Work147 is pushed as c5aeb13d. Fast147-before passes;
 six native regression groups plus two assertion-helper controls pass all35
 canonical WAMP tests. Existing assertions are preserved and test unwrap/custom
 panic observations are made explicit assertions; production parser behavior and
@@ -22,12 +50,12 @@ and wamp.rs1726/1764 (97.85%); unmeasured sources remain visible. Full Verify147
 exits0, including2496 client WASM cases, and the frozen input manifest still
 matches. A separate canonical-tool audit agrees on every native147 outcome.
 
-Next integrate the isolated native148-runner-probe after the fast gate. Its
+The isolated native148-runner-probe preceded the integrated work above. Its
 four new tests and full27-test tooling suite pass, including real Rust/mutation
 fixtures, after fail-first missing-target errors. Add reproducible core-wamp
 selection beside the unchanged default core-rawsocket, with matching baseline
 filters, fail-closed unknown targets and Linux/macOS diagnostic coverage. This
-probe has not changed canonical tooling or earned final verification credit.
+probe itself is not final canonical verification evidence.
 
 MCP144 now completes all1098 candidates:812/836 assertion-backed kills (97.13%),
 24 survivors,262 compile failures, no equivalence waivers or timeouts. Both

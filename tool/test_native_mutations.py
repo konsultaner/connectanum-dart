@@ -371,6 +371,85 @@ class NativeMutationTests(unittest.TestCase):
                              '/private/test work/native/transport/Cargo.toml')
             self.assertEqual(command[-3:], ['--', 'rawsocket::tests', '--test-threads=1'])
 
+    def test_explicit_targets_keep_complete_matching_private_commands(self):
+        work = Path('/private/test work')
+        for target, source, test_filter in [
+                ('core-rawsocket', 'ct_core/src/rawsocket.rs', 'rawsocket::tests'),
+                ('core-wamp', 'ct_core/src/wamp.rs', 'wamp::')]:
+            with self.subTest(target=target):
+                campaign, restored = collector.commands(work, Path('/evidence'), target)
+                self.assertEqual(campaign[campaign.index('--file') + 1], source)
+                self.assertIn('--in-place', campaign)
+                self.assertIn('--no-config', campaign)
+                self.assertIn('--cargo-arg=--locked', campaign)
+                for forbidden in ['--regex', '--exclude-re', '--shard', '--jobs', '--skip']:
+                    self.assertNotIn(forbidden, campaign)
+                for command in [campaign, restored]:
+                    self.assertEqual(command[:2], ['env', 'CARGO_TARGET_DIR=/private/test work/target'])
+                    self.assertEqual(command[command.index('--package') + 1], 'ct_core')
+                    self.assertEqual(command[command.index('--manifest-path') + 1],
+                                     '/private/test work/native/transport/Cargo.toml')
+                    self.assertEqual(command[-4:], ['--lib', '--', test_filter, '--test-threads=1'])
+        self.assertEqual(collector.commands(work, Path('/evidence')),
+                         collector.commands(work, Path('/evidence'), 'core-rawsocket'))
+
+    def test_unknown_native_target_fails_before_side_effects(self):
+        for target in ['', 'wamp', '../core-wamp', 'core-wamp --regex .']:
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as temporary:
+                root, output = Path(temporary), Path(temporary) / 'evidence'
+                with patch.object(collector.native_coverage, 'snapshot') as snapshot, \
+                        patch.object(collector.subprocess, 'check_output') as version, \
+                        patch.object(collector, 'run') as command:
+                    with self.assertRaisesRegex(ValueError, 'Unknown native mutation target'):
+                        collector.commands(root, output, target)
+                    with self.assertRaisesRegex(ValueError, 'Unknown native mutation target'):
+                        collector.collect(root, output, Path('analyzer'), target)
+                    snapshot.assert_not_called()
+                    version.assert_not_called()
+                    command.assert_not_called()
+                    self.assertFalse(output.exists())
+
+    def test_cli_passes_default_and_explicit_targets_without_reinterpreting_paths(self):
+        for target in [None, 'core-rawsocket', 'core-wamp']:
+            with self.subTest(target=target):
+                argv = ['collector', '--output', 'evidence with spaces', '--analyzer', 'analyzer with spaces']
+                if target:
+                    argv.extend(['--target', target])
+                with patch('sys.argv', argv), patch.object(collector, 'collect', return_value=17) as collect:
+                    self.assertEqual(collector.main(), 17)
+                    collect.assert_called_once_with(
+                        collector.native_coverage.REPO, Path('evidence with spaces').resolve(),
+                        Path('analyzer with spaces').resolve(), target or 'core-rawsocket')
+        with patch('sys.argv', ['collector', '--output', 'evidence', '--analyzer', 'analyzer',
+                                '--target', 'invalid']), patch('sys.stderr'), \
+                patch.object(collector, 'collect') as collect:
+            with self.assertRaises(SystemExit) as error:
+                collector.main()
+            self.assertEqual(error.exception.code, 2)
+            collect.assert_not_called()
+
+    def test_wamp_target_is_recorded_even_when_campaign_times_out(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, output = Path(temporary) / 'repo', Path(temporary) / 'evidence'
+            root.mkdir()
+            with patch.object(collector.native_coverage, 'snapshot', return_value={**SCOPE, 'inputHashes': {}}), \
+                    patch.object(collector.native_coverage, 'digest', return_value='hash'), \
+                    patch.object(collector.subprocess, 'check_output', return_value='cargo-mutants 27.1.0\n'), \
+                    patch.object(collector, 'copy_inputs'), \
+                    patch.object(collector, 'run', return_value=(None, 'partial WAMP log')) as command, \
+                    patch.object(collector.native_mutations, 'audit') as auditor:
+                with self.assertRaisesRegex(RuntimeError, 'timed out'):
+                    collector.collect(root, output, Path('analyzer'), 'core-wamp')
+                auditor.assert_not_called()
+                self.assertEqual(command.call_count, 1)
+            manifest = json.loads((output / 'run-manifest.json').read_text())
+            self.assertEqual(manifest['scope'], 'core-wamp')
+            self.assertFalse(manifest['complete'])
+            self.assertEqual(manifest['campaignCommand'][-3:], ['--', 'wamp::', '--test-threads=1'])
+            self.assertEqual(manifest['restoredCommand'][-3:], ['--', 'wamp::', '--test-threads=1'])
+            self.assertEqual((output / 'campaign.log').read_text(), 'partial WAMP log')
+            self.assertFalse((output / 'audited-results.json').exists())
+
     def test_collector_retains_timeout_evidence_and_never_audits_it_as_complete(self):
         with tempfile.TemporaryDirectory() as temporary:
             root, output = Path(temporary) / 'repo', Path(temporary) / 'evidence'

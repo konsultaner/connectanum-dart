@@ -2,6 +2,8 @@ use super::test_support::{assert_condition, AssertError, AssertSuccess};
 use super::*;
 #[path = "wamp_regression_tests/followup.rs"]
 mod followup;
+#[path = "wamp_regression_tests/helper_contracts.rs"]
+mod helper_contracts;
 use serde_json::{json, Value as Json};
 
 const SERIALIZERS: [Serializer; 3] = [Serializer::Json, Serializer::MessagePack, Serializer::Cbor];

@@ -35,22 +35,23 @@ jobs:
           if-no-files-found: error
 
   rust:
-    name: RawSocket ${{ matrix.os }}
+    name: Native ${{ matrix.target }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        target: [core-rawsocket, core-wamp]
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo install cargo-mutants --version 27.1.0 --locked
-      - name: Collect and audit complete RawSocket inventory (inactive cfg bodies remain visible)
-        run: bin/collect-native-mutations --output out/mutations
+      - name: Collect and audit complete native target inventory (inactive cfg bodies remain visible)
+        run: bin/collect-native-mutations --output out/mutations --target "${{ matrix.target }}"
       - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mutations-rawsocket-${{ matrix.os }}
+          name: mutations-${{ matrix.target }}-${{ matrix.os }}
           path: out/mutations
           if-no-files-found: error
