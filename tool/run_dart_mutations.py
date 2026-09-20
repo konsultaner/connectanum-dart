@@ -89,6 +89,26 @@ def machine_events(output):
     return events
 
 
+def is_deadline_error(event):
+    if event.get('type') != 'error':
+        return False
+    message = event.get('error', '')
+    if not isinstance(message, str):
+        return False
+    prefixes = ('TimeoutException:', 'TimeoutException after ',
+                'Test timed out after ', 'Condition not met within ',
+                'Timed out waiting for ')
+    if message.startswith(prefixes):
+        return True
+    # throwsA wraps the actual exception in TestFailure, unlike an awaited future.
+    if re.search(r'(?:^|\n)\s*Which: threw TimeoutException[:<]', message):
+        return True
+    # Recognize the exact historical polling helper, not arbitrary business text.
+    return (message.strip() ==
+            'Expected: true\n  Actual: <false>\nControlled child did not reach its barrier.'
+            and '_WorkerFixture.waitFor' in event.get('stackTrace', ''))
+
+
 def classify(returncode, output):
     if returncode is None:
         return 'timeout'
@@ -119,12 +139,8 @@ def classify(returncode, output):
     if returncode == 0 and done[-1].get('success') is True:
         return 'survived'
     if returncode != 0 and done[-1].get('success') is False:
-        # Polling helpers use fail(), but an elapsed deadline is not a behavioral kill.
-        timeout_prefixes = ('TimeoutException:', 'TimeoutException after ',
-                            'Test timed out after ', 'Condition not met within ',
-                            'Timed out waiting for ')
-        if any(e.get('type') == 'error' and
-               e.get('error', '').startswith(timeout_prefixes) for e in events):
+        # An elapsed deadline is not assertion evidence, even inside a matcher.
+        if any(is_deadline_error(e) for e in events):
             return 'timeout'
         if any(e.get('result') in ('error', 'failure') for e in real):
             return 'killed'

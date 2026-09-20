@@ -167,10 +167,14 @@
   },
   "bench-runner-vm": {
     "sources": ["packages/connectanum_bench/lib/src/benchmark_runner.dart"],
-    "tests": ["packages/connectanum_bench/test/support/benchmark_runner_mutation_suite.dart"],
+    "tests": [
+      "packages/connectanum_bench/test/support/benchmark_runner_mutation_suite.dart",
+      "packages/connectanum_bench/test/benchmark_runner_build_test.dart"
+    ],
     "supportFiles": [
       "packages/connectanum_bench/test/wamp_transport_integration_test.dart",
-      "packages/connectanum_bench/test/support/native_reply_callee.dart"
+      "packages/connectanum_bench/test/support/native_reply_callee.dart",
+      "packages/connectanum_bench/test/support/benchmark_build_probe.dart"
     ],
     "testRoot": "packages/connectanum_bench",
     "requiresNativeLibrary": true,

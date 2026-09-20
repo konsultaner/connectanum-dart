@@ -12,6 +12,18 @@ import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test(
+    'fixture deadline is a timeout rather than an assertion failure',
+    () async {
+      final fixture = await _WorkerFixture.create();
+      await expectLater(
+        fixture.waitFor(() => false, timeout: Duration.zero),
+        throwsA(isA<TimeoutException>()),
+      );
+    },
+    skip: Platform.isWindows ? 'POSIX executable fixture' : false,
+  );
+
   group(
     'worker lifecycle',
     () {
@@ -116,8 +128,12 @@ void main() {
           final fixture = await _WorkerFixture.create();
           fixture.enable('hold-stop');
           await fixture.worker.start();
-          final closing = fixture.worker.close();
-          final alsoClosing = fixture.worker.close();
+          var closed = false;
+          var alsoClosed = false;
+          final closing = fixture.worker.close().then((_) => closed = true);
+          final alsoClosing = fixture.worker.close().then(
+            (_) => alsoClosed = true,
+          );
           var restarted = false;
           final restarting = fixture.worker.start().then(
             (_) => restarted = true,
@@ -130,6 +146,8 @@ void main() {
             reason: 'Restart must not overlap the closing generation.',
           );
           expect(fixture.pids, hasLength(1));
+          expect(closed, isFalse, reason: 'The first close must await exit.');
+          expect(alsoClosed, isFalse, reason: 'Each close must await exit.');
           fixture.disable('hold-stop');
           await Future.wait([closing, alsoClosing, restarting]);
           expect(fixture.pids, hasLength(2));
@@ -143,8 +161,10 @@ void main() {
         () async {
           final logger = Logger('worker-close-at-ready');
           final closed = Completer<void>();
+          final records = <String>[];
           late _WorkerFixture fixture;
           final subscription = logger.onRecord.listen((record) {
+            records.add(record.message);
             if (record.message.endsWith('close-after-ready')) {
               fixture.worker.close().then(
                 closed.complete,
@@ -157,6 +177,10 @@ void main() {
           fixture.enable('close-after-ready');
           await expectLater(fixture.worker.start(), throwsStateError);
           await closed.future;
+          expect(
+            records.any((message) => message.contains('late-after-close')),
+            isFalse,
+          );
           await fixture.expectNoLiveChildren();
         },
       );
@@ -235,29 +259,40 @@ void main() {
       test(
         'startup diagnostics remain visible without consuming a response',
         () async {
-          final records = <String>[];
+          final records = <LogRecord>[];
           final logger = Logger('worker-fixture');
           final subscription = logger.onRecord.listen(
-            (record) => records.add(record.message),
+            records.add,
           );
           addTearDown(subscription.cancel);
           final fixture = await _WorkerFixture.create(logger: logger);
           fixture.enable('diagnostics');
           expect(await fixture.worker.run(_scenario()), hasLength(1));
           expect(
-            records,
+            records.map((record) => record.message),
             contains('Unexpected native worker output: startup diagnostic'),
           );
-          expect(records, contains('native worker stderr: stderr diagnostic'));
+          expect(
+            records.map((record) => record.message),
+            contains('native worker stderr: stderr diagnostic'),
+          );
+          expect(
+            records.map((record) => record.loggerName),
+            everyElement('worker-fixture'),
+          );
         },
       );
 
-      for (final packageEntrypoint in [false, true]) {
+      for (final (dartEntrypoint, packageEntrypoint) in [
+        (false, false),
+        (true, false),
+        (true, true),
+      ]) {
         test(
-          'Dart launch arguments preserve endpoints, package=$packageEntrypoint',
+          'Launch preserves endpoints and cwd, dart=$dartEntrypoint package=$packageEntrypoint',
           () async {
             final fixture = await _WorkerFixture.create(
-              dartEntrypoint: true,
+              dartEntrypoint: dartEntrypoint,
               packageEntrypoint: packageEntrypoint,
             );
             await fixture.worker.start();
@@ -265,10 +300,33 @@ void main() {
               '${fixture.directory.path}/args-${fixture.pids.single}',
             ).readAsLinesSync();
             expect(
-              args.take(packageEntrypoint ? 2 : 1),
-              packageEntrypoint
+              args.take(
+                !dartEntrypoint
+                    ? 0
+                    : packageEntrypoint
+                    ? 2
+                    : 1,
+              ),
+              !dartEntrypoint
+                  ? <String>[]
+                  : packageEntrypoint
                   ? ['run', 'connectanum_bench:wamp_client_worker']
                   : [fixture.worker.workerScriptPath],
+            );
+            expect(
+              fixture.worker.dartExecutable,
+              dartEntrypoint
+                  ? fixture.executable.path
+                  : Platform.resolvedExecutable,
+            );
+            expect(
+              File(
+                '${fixture.directory.path}/cwd-${fixture.pids.single}',
+              ).readAsStringSync().trim(),
+              (dartEntrypoint && !packageEntrypoint
+                      ? fixture.directory
+                      : Directory.current)
+                  .resolveSymbolicLinksSync(),
             );
             expect(args[args.indexOf('--realm') + 1], 'bench.control');
             expect(
@@ -554,16 +612,20 @@ class _WorkerFixture {
 
   bool hasMarker(String name) =>
       directory.listSync().any((file) => file.path.contains('/$name-'));
-  Future<void> waitFor(bool Function() condition) async {
+  Future<void> waitFor(
+    bool Function() condition, {
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
     final clock = Stopwatch()..start();
-    while (!condition() && clock.elapsed < const Duration(seconds: 2)) {
+    while (!condition() && clock.elapsed < timeout) {
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
-    expect(
-      condition(),
-      isTrue,
-      reason: 'Controlled child did not reach its barrier.',
-    );
+    if (!condition()) {
+      throw TimeoutException(
+        'Controlled child did not reach its barrier.',
+        timeout,
+      );
+    }
   }
 
   Future<void> expectNoLiveChildren() async {
@@ -582,10 +644,11 @@ const _script = r'''#!/bin/sh
 root=${0%/*}
 printf '%s\n' "$$" >> "$root/pids"
 printf '%s\n' "$@" > "$root/args-$$"
+pwd -P > "$root/cwd-$$"
 [ -f "$root/exit-before-ready" ] && exit 7
 while [ -f "$root/hold-ready" ]; do sleep 0.01; done
 if [ -f "$root/diagnostics" ]; then printf 'startup diagnostic\n'; printf 'stderr diagnostic\n' >&2; fi
-if [ -f "$root/close-after-ready" ]; then printf 'READY\nclose-after-ready\n'
+if [ -f "$root/close-after-ready" ]; then printf 'READY\nclose-after-ready\nlate-after-close\n'
 elif [ -f "$root/legacy-ready" ]; then printf 'bootstrap...READY\n'
 else printf 'READY\n'; fi
 if [ -f "$root/close-input" ]; then

@@ -115,8 +115,10 @@ class MutationRunnerTests(unittest.TestCase):
             source = root / 'mutation-report.json'
             (root / 'mutant.log').write_text('crashed')
             source.write_text(json.dumps(original))
-            with self.assertRaisesRegex(ValueError, 'saved kill classifies as error'):
-                evidence_audit.audit(source)
+            for reclassify_deadlines in (False, True):
+                with self.subTest(reclassify_deadlines=reclassify_deadlines):
+                    with self.assertRaisesRegex(ValueError, 'saved kill classifies as error'):
+                        evidence_audit.audit(source, reclassify_deadlines=reclassify_deadlines)
             original['targets']['fixture']['outcomes'] = [{'status': 'survived'}]
             source.write_text(json.dumps(original))
             with self.assertRaisesRegex(ValueError, 'saved score'):
@@ -758,6 +760,10 @@ class MutationRunnerTests(unittest.TestCase):
             ('future_timeout', '',
              'await Future<void>.delayed(const Duration(seconds: 5))'
              '.timeout(const Duration(milliseconds: 1));', 'timeout'),
+            ('wrapped_timeout', '',
+             "await expectLater(Future<void>.error(TimeoutException('elapsed')), "
+             "throwsA(isA<FormatException>()));", 'timeout'),
+            ('legacy_poll_timeout', '', 'await _WorkerFixture().waitFor();', 'timeout'),
             ('poll_deadline', '', "fail('Condition not met within 0:00:02.000000');",
              'timeout'),
             ('event_deadline', '', "fail('Timed out waiting for subscription events');",
@@ -772,7 +778,9 @@ class MutationRunnerTests(unittest.TestCase):
                 with self.subTest(case=name):
                     source = Path(directory) / f'{name}_test.dart'
                     source.write_text(
-                        "import 'dart:io';\nimport 'package:test/test.dart';\n"
+                        "import 'dart:io';\nimport 'dart:async';\nimport 'package:test/test.dart';\n"
+                        "class _WorkerFixture { Future<void> waitFor() async { "
+                        "expect(false, isTrue, reason: 'Controlled child did not reach its barrier.'); } }\n"
                         "void main() { group('fixture isolation', () {\n"
                         f"{lifecycle}\n"
                         f"test('contract', () async {{ {body} }});\n"
@@ -1304,6 +1312,95 @@ class MutationRunnerTests(unittest.TestCase):
                     {'type': 'done', 'success': False},
                 )
                 self.assertEqual(classify(1, output), 'timeout')
+
+    def test_wrapped_and_legacy_deadlines_are_not_assertion_kills(self):
+        for message, stack in (
+            ("Expected: throws <Instance of 'FormatException'>\n"
+             "  Actual: <Instance of 'Future<void>'>\n"
+             "   Which: threw TimeoutException:<TimeoutException after 0:00:02.000000: Future not completed>\n", ''),
+            ('Expected: true\n  Actual: <false>\nControlled child did not reach its barrier.\n',
+             'test/native_wamp_worker_lifecycle_test.dart 562:5 _WorkerFixture.waitFor'),
+        ):
+            with self.subTest(message=message):
+                output = events(
+                    {'type': 'testStart', 'test': {'id': 1, 'name': 'deadline'}},
+                    {'type': 'error', 'testID': 1, 'error': message,
+                     'stackTrace': stack, 'isFailure': True},
+                    {'type': 'testDone', 'testID': 1, 'result': 'failure'},
+                    {'type': 'done', 'success': False},
+                )
+                self.assertEqual(classify(1, output), 'timeout')
+
+    def test_timeout_business_text_remains_an_assertion(self):
+        for message, stack in (
+            ("Expected: 'TimeoutException: absent'\n  Actual: 'wrong payload'\n", ''),
+            ('Expected: true\n  Actual: <false>\nControlled child did not reach its barrier.\n', ''),
+            ('Which: threw StateError:<TimeoutException in business data>\n', ''),
+            ('Expected: true\n  Actual: <false>\nDifferent contract.\n', '_WorkerFixture.waitFor'),
+        ):
+            with self.subTest(message=message, stack=stack):
+                output = events(
+                    {'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+                    {'type': 'error', 'testID': 1, 'error': message,
+                     'stackTrace': stack, 'isFailure': True},
+                    {'type': 'testDone', 'testID': 1, 'result': 'failure'},
+                    {'type': 'done', 'success': False},
+                )
+                self.assertEqual(classify(1, output), 'killed')
+
+    def test_deadline_audit_requires_opt_in_and_preserves_original_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = events(
+                {'type': 'testStart', 'test': {'id': 1, 'name': 'deadline'}},
+                {'type': 'error', 'testID': 1, 'isFailure': True,
+                 'error': 'Which: threw TimeoutException:<TimeoutException: elapsed>'},
+                {'type': 'testDone', 'testID': 1, 'result': 'failure'},
+                {'type': 'done', 'success': False},
+            )
+            (root / 'mutant.log').write_text(log)
+            outcomes = [{'id': 'deadline', 'status': 'killed', 'exitCode': 1,
+                         'log': 'mutant.log', 'killEvidence': {'cause': 'assertion'}}]
+            old_summary = runner.summarize(outcomes)
+            original = {'schemaVersion': 1, 'complete': True,
+                        'runnerSha256': 'historical-runner',
+                        'gate': {'threshold': 95, 'passed': True},
+                        'targets': {'fixture': {**old_summary, 'generated': 1,
+                            'gatePassed': True, 'sourceHashes': {'lib/a.dart': 'source-hash'},
+                            'testHashes': {'test/a.dart': 'test-hash'}, 'outcomes': outcomes}}}
+            source = root / 'report.json'
+            source.write_text(json.dumps(original))
+            original_bytes = source.read_bytes()
+            with self.assertRaisesRegex(ValueError, 'saved kill classifies as timeout'):
+                evidence_audit.audit(source)
+            corrected = evidence_audit.audit(source, reclassify_deadlines=True)
+            self.assertEqual(source.read_bytes(), original_bytes)
+            self.assertEqual((root / 'mutant.log').read_text(), log)
+            target = corrected['targets']['fixture']
+            self.assertEqual(target['sourceHashes'], {'lib/a.dart': 'source-hash'})
+            self.assertEqual(target['testHashes'], {'test/a.dart': 'test-hash'})
+            self.assertEqual(target['counts'], {'timeout': 1})
+            self.assertEqual(target['viable'], 1)
+            self.assertEqual(target['assertionScoreLowerBound'], 0)
+            self.assertFalse(target['gatePassed'])
+            self.assertFalse(corrected['gate']['passed'])
+            self.assertEqual(target['historicalSummary']['score'], 100)
+            self.assertEqual(target['historicalSummary']['counts'], {'killed': 1})
+            self.assertEqual(target['outcomes'][0]['historicalStatus'], 'killed')
+            self.assertNotIn('killEvidence', target['outcomes'][0])
+            self.assertEqual(corrected['killEvidenceAudit']['sourceReportSha256'],
+                             runner.hashlib.sha256(original_bytes).hexdigest())
+            self.assertEqual(target['outcomes'][0]['logSha256'], runner.hashlib.sha256(log.encode()).hexdigest())
+            self.assertEqual(corrected['killEvidenceAudit']['reclassifiedDeadlines'], 1)
+            with patch.object(sys, 'argv', ['audit', str(source), '--output', str(root / 'new.json'),
+                                          '--reclassify-deadlines']):
+                self.assertEqual(evidence_audit.main(), 0)
+                with self.assertRaises(FileExistsError):
+                    evidence_audit.main()
+            original['targets']['fixture']['score'] = 0
+            source.write_text(json.dumps(original))
+            with self.assertRaisesRegex(ValueError, 'saved score'):
+                evidence_audit.audit(source, reclassify_deadlines=True)
 
     def test_utf16_offsets_preserve_non_ascii_prefix(self):
         source = "// \U0001f512\nreturn a == b;"

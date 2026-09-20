@@ -392,13 +392,17 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         entrypoint = root / 'test/support/benchmark_runner_mutation_suite.dart'
         self.assertEqual(target['sources'], [
             'packages/connectanum_bench/lib/src/benchmark_runner.dart'])
-        self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
+        self.assertEqual(set(target['tests']), {
+            entrypoint.relative_to(REPO_ROOT).as_posix(),
+            'packages/connectanum_bench/test/benchmark_runner_build_test.dart',
+        })
         self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
         self.assertTrue(target['requiresNativeLibrary'])
         self.assertEqual(target['testTimeoutSeconds'], 10)
         self.assertEqual(set(target['supportFiles']), {
             'packages/connectanum_bench/test/wamp_transport_integration_test.dart',
             'packages/connectanum_bench/test/support/native_reply_callee.dart',
+            'packages/connectanum_bench/test/support/benchmark_build_probe.dart',
         })
         source = entrypoint.read_text()
         self.assertIn("import '../wamp_transport_integration_test.dart' as integration;", source)

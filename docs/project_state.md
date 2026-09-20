@@ -6,6 +6,64 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work163 corrects mutation deadline accounting. `_WorkerFixture.waitFor` used
+`expect` for elapsed polling deadlines; `throwsA` can also wrap TimeoutException
+in TestFailure. Negative controls reproduce both false assertion-kill paths.
+The classifier now recognizes the actual wrapper and the exact legacy fixture
+signature without treating unrelated business/print text as a deadline. The
+fixture throws typed TimeoutException. A regression fails before that change.
+All 47 focused Dart tests and analyzer pass; 66 mutation-tooling tests pass with
+one additional Linux-only subreaper check skipped on this Mac. The opt-in deadline re-audit
+preserves original reports/logs/hashes and historical summaries, corrects only
+kill-to-timeout outcomes, and cannot upgrade gates. Canonical re-audits confirm
+Work161 worker 15/69 (21.74%); the old 40.58% strict claim is withdrawn. Work160
+runner/workload scores are unchanged. Corrected artifacts are named
+deadline-corrected-audit.json alongside the original campaigns; these are
+historical replay, not fresh source/test campaigns. Further canonical replays of
+lifecycle154, auth135, ci143 remote/MCP, remote144, base64-153 VM/JS, msgpack152 JS
+and meta-cache145 VM/JS find zero additional corrections; ci143 MCP remains
+incomplete. A completed focused companion review was independently checked:
+the AND-gated updates cannot upgrade failed gates, original gates are retained,
+and log parsing/hashing uses the same bytes. GLM is unavailable locally.
+Fast163 and Verify163 passed, including 879 benchmark tests, 3894 router tests,
+3343 core WASM tests and 2568 client WASM tests. Fresh worker163 tests pass all
+37 cases and measure 209/209 worker lines (VM/POSIX only). Full bench163 coverage
+passes 879 tests and measures 2189/2296 lines (95.34%). The benchmark-only 98%
+audit still fails; other packages/scopes absent from this report remain unmeasured.
+Source/test and native hashes match. Supervisor cell1590 completed verification
+and coverage and now owns the full native runner mutation campaign. Cell1591
+owns the separate full 85-candidate worker163 campaign; its fixtures do not load
+native code. Both campaigns are active: preserve them rather than launching
+duplicates. Inputs are frozen in /tmp/connectanum-coverage163-frozen-inputs.sha256;
+logs and manifests are retained under coverage163-verification in the evidence
+directory. Final mutation scores are pending. The implementation bundle is ready
+for a feature-branch commit; no merge, publication or version change. The full
+milestone remains incomplete.
+
+Work162 fixes BenchmarkRunner's native-build pipe deadlock: stdout and stderr
+are drained concurrently without changing exit-code handling. The package's
+ten-case real-process matrix reproduced four hangs before the fix and now
+passes, including 512 KiB on either/both pipes, byte-exact non-UTF-8 output,
+failure metadata and build-disabled behavior. Fake cargo and a deliberately
+missing router config prevent real builds/FFI loads. Fixtures are POSIX-only;
+Windows evidence remains missing. Child-process execution is not automatically
+included in parent test coverage and must not be credited without instrumentation.
+Worker survivor follow-ups assert injected logger identity, both concurrent
+close futures, late buffered diagnostics, launch working directories and relative
+entrypoint normalization. All 46 focused tests, analysis and 71 tooling contracts
+pass. Supervisor cell1543 completed Verify162 (exit0, including WASM), then
+bench162-final (878 passing tests, 2189/2296 measured lines, 95.34%). Its input
+hash check correctly stopped the chain after classifier test changes; no runner
+campaign started. These are pre-Work163 verification/coverage, not final evidence
+for the classifier/fixture correction. Cell 1544's worker campaign was
+deliberately interrupted (exit130, 30/85 outcomes, complete=false) after finding
+the measurement defect. Its raw files are retained; do not report a final score.
+Cells1543/1544 are terminal; do not resume/restart them. The native window is
+reserved for the full runner163 mutation campaign. Work162 inputs are in
+/tmp/connectanum-coverage162-frozen-inputs.sha256. Older mutation scores do not
+describe these stronger tests. Work162 is uncommitted.
+Fast161/Verify161 were Work162's pre-edit baseline; Verify162 passed before Work163.
+
 Work161 is locally verified: NativeWampWorker now owns startup, readiness, pending
 responses and cleanup per process generation. Concurrent starts share launch;
 explicit close cancels active/queued work and starts waiting for prior cleanup;
@@ -16,9 +74,10 @@ close-during-cleanup repro failed separately before adding its epoch guard.
 All 32 focused tests now pass, with 209/209 measured worker lines (100%) and no
 analyzer issues. This is one VM/POSIX-tested source file, not whole-bench or
 Windows evidence. Seventy-one tooling contracts pass. The complete 85-candidate
-worker mutation campaign is independently audited: 28/69 (40.58%) strict kills,
+worker mutation campaign originally reported 28/69 (40.58%) assertion kills,
 13 survivors, 24 timeouts, four error-only detections and 16 compile errors.
-Both baselines pass; no waivers and no 95% claim. Its fake child fixtures do not
+That strict claim is withdrawn by the deadline audit above. Both baselines pass;
+no waivers and no 95% claim. Its fake child fixtures do not
 load the native artifact. Work160's native campaign also completed and was
 audited. Supervisor cell 1462 completed: bin/test-fast and bin/verify exit 0,
 including browser WASM tests. Final full benchmark coverage is 2189/2295
@@ -28,8 +87,12 @@ hashes and the native artifact hash match. The benchmark-only audit still fails
 native users when collecting follow-up evidence.
 Frozen inputs and negative controls are retained under
 coverage161-verification and worker161-* in out/regression-coverage-2026-09-15.
-Work161 is ready for its implementation commit. No publication, merge or version
-change has occurred; the full 98%/95% goal is incomplete.
+Work161 implementation 994fc7e9 is pushed. PR #93 remains draft/unmerged. Exact
+head CI 35528227174/35528224246, package dry-runs 35528227142/35528224252,
+image dry-run 35528256121 and profile benchmarks 35528256494 are queued. The
+strict audit exits 1 for pending evidence and feature-branch protection, not a
+demonstrated test failure. No publication, merge or version change occurred;
+the full 98%/95% goal is incomplete.
 
 Work160 expands benchmark regression evidence, prioritizing previously unmeasured
 native factory paths and real runner accounting. A 66-case factory suite exercises
@@ -67,7 +130,8 @@ is used; coverage162-probes retains a ten-case isolated matrix with six passing
 controls and four stderr-backpressure failures. It verifies binary output,
 exact arguments, working directory and exit-code metadata. Startup barriers prevent fixture timing
 from being mistaken for a pipe failure, and owned child cleanup is verified.
-The build-drain fix is next after committing the verified Work161 snapshot.
+The build-drain fix and additional worker assertions are now the Work162 changes
+described above; retain this negative-control evidence separately.
 
 Work154's original frozen campaign is now complete and independently audited:
 Invocation VM 91/108 (84.26%), Invocation JS 92/108 (85.19%), Session JS 222/460
