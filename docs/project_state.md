@@ -6,6 +6,36 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work156 reproduces terminal progressive-call reentry before production edits:
+32 assertion failures across VM/WASM show ordinary/lazy and plain/native-E2EE
+file callbacks accepting additional input after the final CALL. Final dispatch
+now reserves the local finished state before transport/provider callbacks and
+rolls it back on synchronous rejection, preserving retry and exception identity.
+Progressive nested sends remain valid; an accepted nested final is not reopened
+when its outer progress callback throws. Local drain remains available after
+finish and does not imply a remote acknowledgement. Nineteen public-session
+regressions and eight file cases cover exact accepted frames, payloads, pacing,
+reentry, retry and source ownership. Focused suites pass67 each on VM, JavaScript
+and WASM. Complete suite selection is pinned in fast/full verification, VM/JS
+coverage and session mutation inventories; the wiring checks fail first, then
+all69 pass. Fast156 passes before edits. The complete24-candidate class probe
+detects all15 viable mutants on VM/JS (12 pure,3 mixed assertions), with9 compile
+failures and no survivors/timeouts/error-only credit or waivers. Original/restored
+baselines, independent audit and package source/test hashes agree. This class-only
+result is not a whole-session score; the full changed inventory has648 candidates.
+Full Verify156 exits0, including3343 core and2568 client WASM tests, and frozen
+inputs match. Fresh JS156 measurement passes: core7388/7695 (96.01%)
+and client2651/2753 (96.29%), with162 unmeasured sources still visible. Frozen
+inputs match and the explicit98% audit still fails. Exact-new-head hosted evidence
+remains outstanding. Full VM156 line collection is now live (unified session24676,
+initial PID32852, log /tmp/connectanum-coverage156-vm-lines.log, output
+out/regression-coverage-2026-09-15/vm156-current). The shared native window remains
+reserved until that collection finishes; do not duplicate it or overlap builds.
+The older Work154 full Session campaign remains isolated/live and cannot gain
+credit from these new tests. Evidence: session156-draft,
+session156-finalization-probe and coverage156-verification under
+out/regression-coverage-2026-09-15. The whole98%/95% milestone remains incomplete.
+
 Work155 strengthens invocation success and reentry assertions after pre-edit
 Fast155 exits0. Valid lazy/PPT/E2EE dispatch, authenticated unpacking, zero/null
 timeout validation and error replies now assert normal completion once while

@@ -9,6 +9,7 @@
       "packages/connectanum_client/test/session_e2ee_profile_test.dart",
       "packages/connectanum_client/test/session_lazy_reply_test.dart",
       "packages/connectanum_client/test/session_progressive_file_test.dart",
+      "packages/connectanum_client/test/session_progressive_call_test.dart",
       "packages/connectanum_client/test/session_goodbye_test.dart"
     ],
     "supportFiles": [
@@ -28,6 +29,7 @@
       "packages/connectanum_client/test/session_e2ee_profile_test.dart",
       "packages/connectanum_client/test/session_lazy_reply_test.dart",
       "packages/connectanum_client/test/session_progressive_file_test.dart",
+      "packages/connectanum_client/test/session_progressive_call_test.dart",
       "packages/connectanum_client/test/session_goodbye_test.dart"
     ],
     "supportFiles": [

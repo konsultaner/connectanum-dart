@@ -16,6 +16,7 @@ run_client_vm_tests() {
   dart test packages/connectanum_client/test/session_e2ee_profile_test.dart
   dart test packages/connectanum_client/test/session_lazy_reply_test.dart
   dart test packages/connectanum_client/test/session_progressive_file_test.dart
+  dart test packages/connectanum_client/test/session_progressive_call_test.dart
   dart test packages/connectanum_client/test/session_goodbye_test.dart
   dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
   dart test packages/connectanum_client/test/file_transfer_test.dart
@@ -135,6 +136,7 @@ run_client_browser_websocket_test() {
         test/session_e2ee_profile_test.dart
         test/session_lazy_reply_test.dart
         test/session_progressive_file_test.dart
+        test/session_progressive_call_test.dart
         test/session_goodbye_test.dart
         test/transport/native/message_binding_test.dart
         test/transport/local

@@ -96,11 +96,7 @@ class ProgressiveCall {
   }
 
   void finishLazy(LazyMessagePayload payload) {
-    if (_finished) {
-      throw StateError('The progressive call is already finished');
-    }
-    _send(payload, false);
-    _finished = true;
+    _finish(() => _send(payload, false));
   }
 
   void sendFileSegment(
@@ -123,15 +119,29 @@ class ProgressiveCall {
     required int offset,
     required int length,
   }) {
+    _finish(() {
+      final send = _sendFileSegment;
+      if (send == null) {
+        throw UnsupportedError(
+          'This progressive call cannot send file segments',
+        );
+      }
+      send(source, offset, length, false);
+    });
+  }
+
+  void _finish(void Function() send) {
     if (_finished) {
       throw StateError('The progressive call is already finished');
     }
-    final send = _sendFileSegment;
-    if (send == null) {
-      throw UnsupportedError('This progressive call cannot send file segments');
-    }
-    send(source, offset, length, false);
+    // Reserve the final chunk before a transport/provider can reenter this call.
     _finished = true;
+    try {
+      send();
+    } catch (_) {
+      _finished = false;
+      rethrow;
+    }
   }
 }
 

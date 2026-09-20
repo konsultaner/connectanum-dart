@@ -9,6 +9,50 @@ import 'package:test/test.dart';
 void main() {
   for (final encrypted in [false, true]) {
     group('encrypted=$encrypted progressive file lifecycle', () {
+      for (final nestedFile in [false, true]) {
+        for (final nestedFinish in [false, true]) {
+          test(
+            'final file rejects nested file=$nestedFile finish=$nestedFinish',
+            () async {
+              final fixture = await _connect(encrypted);
+              final call = fixture.start();
+              final source = call.handle.openFileSource('fixture.bin', 8);
+              addTearDown(source.close);
+              var callbacks = 0;
+              bool? closedDuringSend;
+              Object? nestedFailure;
+              fixture.transport.afterSegment = () {
+                if (callbacks++ != 0) return;
+                closedDuringSend = call.handle.isFinished;
+                try {
+                  if (nestedFile) {
+                    _send(call.handle, source, nestedFinish);
+                  } else if (nestedFinish) {
+                    call.handle.finish(arguments: ['nested']);
+                  } else {
+                    call.handle.sendChunk(arguments: ['nested']);
+                  }
+                } catch (error) {
+                  nestedFailure = error;
+                }
+              };
+              expect(() => _send(call.handle, source, true), returnsNormally);
+              expect(fixture.transport.segments, hasLength(1));
+              expect(fixture.transport.sent.whereType<Call>(), hasLength(1));
+              expect(callbacks, 1);
+              expect(closedDuringSend, isTrue);
+              expect(nestedFailure, isA<StateError>());
+              expect(call.handle.isFinished, isTrue);
+              final segment = fixture.transport.segments.single;
+              expect(segment.message.requestId, call.handle.requestId);
+              expect(segment.message.options?.progress, isFalse);
+              expect(segment.source, same(source));
+              expect((source as _Source).closed, isFalse);
+            },
+          );
+        }
+      }
+
       for (final terminal in [
         'result',
         'wamp.error.canceled',
@@ -371,6 +415,7 @@ class _Segments extends AbstractTransport
   bool fileSupported = true;
   bool nativeSupported = true;
   Object? sendError;
+  void Function()? afterSegment;
   bool _open = false;
   @override
   final Completer<void> onDisconnect = Completer<void>();
@@ -419,6 +464,7 @@ class _Segments extends AbstractTransport
   }) {
     if (sendError != null) throw sendError!;
     segments.add(_Segment(message as Call, source, offset, length, null));
+    afterSegment?.call();
   }
 
   @override
@@ -431,6 +477,7 @@ class _Segments extends AbstractTransport
   }) {
     if (sendError != null) throw sendError!;
     segments.add(_Segment(message as Call, source, offset, length, e2ee));
+    afterSegment?.call();
   }
 }
 

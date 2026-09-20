@@ -67,6 +67,54 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work156 Progressive Input Finalization And Pacing
+
+- Fast156 passes before edits. Public-session prototypes produce32 assertion
+  failures before the fix: eight ordinary/lazy and eight file reentry cases on
+  each of VM/WASM. Bounded synchronous callbacks expose extra accepted CALLs or
+  segments, not merely a transient local flag. The file E2EE cases exercise the
+  portable provider/transport interface, not a real native crypto integration.
+- Reserve the finished state before final dispatch and roll it back on a
+  synchronous throw. Share the invariant between finishLazy and finishFileSegment
+  without changing public void callbacks or WAMP messages. Keep progressive
+  reentry valid, preserve exception identity and rejected-send retries, and do
+  not reopen an accepted nested final when an outer progress callback throws.
+- Protocol rationale: [WAMP section11.2 Progressive Call Invocations](https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-invocations)
+  requires the input sequence to end with progress absent/false, with a common
+  request ID across chunks. Results remain independent of the input sequence.
+  Reserving the local terminal state preserves that boundary under synchronous
+  reentry; it is an implementation choice, not a spec-mandated private flag.
+  Rollback preserves local dispatch rejection semantics, not delivery assurance.
+- Integrate the public drain prototype with controlled completion, failure/retry,
+  independent concurrent futures and no-op unsupported transports. Final input
+  still allows local write pacing; it must not wait for a remote RESULT. The new
+  complete19-case suite and eight additional file cases pass67 total per runtime
+  on VM, explicit dart2js and dart2wasm. All69 script tests pass after a fail-first
+  check of fast/full, VM/JS coverage and session mutation command selection.
+- Qwen reviewed the actual diff; the proposed async callback API change is not
+  compatible with the existing contract, and retained file tests already cover
+  its alleged missing retry scenario. GLM is independently unreachable. Keep
+  native verification serialized and retain the older Work154 isolated campaign.
+  Full Verify156 exits0, including3343 core and2568 client WASM cases. Frozen
+  input hashes match. Full VM156 collection is live on session24676/PID32852;
+  retain the shared native reservation until completion, then inspect the report
+  and explicit98% audit before claiming new VM coverage.
+- The complete ProgressiveCall-class AST probe executes24 candidates per VM/JS:
+  15/15 viable assertion-backed detections (12 pure,3 mixed),9 compile failures,
+  no survivors, timeouts, error-only kills or waivers. Original/restored baselines
+  pass and independent log auditing agrees; all package Dart source/test hashes
+  match the snapshot. The former drain-delegation survivor now fails assertions.
+  This is class-only evidence, not a whole-session score. Sharing the finalization
+  guard removes two duplicated mutations: the full source inventory is648 rather
+  than650, and both complete inventories remain visible. The live Work154
+  campaign still describes its older650-candidate snapshot.
+- Full JS156 collection exits0: core7388/7695 (96.01%) and client2651/2753
+  (96.29%), with162 unmeasured sources. Both complete suites pass and frozen
+  canonical inputs match. The explicit98% audit still exits1; no WASM line
+  measurement is inferred. A fresh full VM collection follows serialized
+  verification. Browser package regression floors still need refreshing,
+  including an explicit client package floor; this does not change the98% goal.
+
 ### Work155 Invocation Success Oracles And Finite Reentry
 
 - Pre-edit Fast155 exits0. Keep every prior value and rejection assertion while
