@@ -211,8 +211,20 @@ class _ProviderBinding {
       return;
     }
 
-    final body = await utf8.decoder.bind(request).join();
-    final form = Uri.splitQueryString(body, encoding: utf8);
+    late Map<String, String> form;
+    try {
+      final body = await utf8.decoder.bind(request).join();
+      form = Uri.splitQueryString(body, encoding: utf8);
+    } catch (error) {
+      if (error is! FormatException && error is! ArgumentError) rethrow;
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode(const <String, Object?>{'active': false}),
+      );
+      await request.response.close();
+      return;
+    }
     final token = form['token'];
     final active = token == HttpAuthBenchHarness.defaultOAuthAccessToken;
     request.response.headers.contentType = ContentType.json;

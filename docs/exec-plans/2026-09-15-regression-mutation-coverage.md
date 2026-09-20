@@ -67,6 +67,38 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work167 Malformed Requests And Workload Failure Assertions
+
+- Fast167 passed before promotion. Thirty real-HTTP malformed/auth-order/recovery
+  tests reproduce 18 canonical assertion failures before the narrow parser fix.
+  Malformed UTF-8 and form escaping now return HTTP 400 inactive JSON without
+  input reflection; authorization still runs first. Thirteen workload regressions
+  verify chunk-count validation, timeout failure modes, missing IDs, diagnostics
+  and cleanup. All 96 focused tests, analysis and 73 tooling contracts pass.
+- Complete HTTP mutation campaign: 90 generated, 58 viable, 51 assertion kills
+  (87.93%), two error-only detections, five survivors, 32 compile errors, no
+  waivers. Raw detection is 53/58 (91.38%). Both original/restored baselines pass
+  and the independent audit passes; the 95% gate fails. New parser branches add
+  four viable candidates, including a surviving non-parse-error rethrow guard.
+  Do not exclude it or count bind crashes as assertion kills.
+- Verify167 passes, including 1234 benchmark, 3894 router, 3343 core WASM and
+  2568 client WASM tests. Fresh complete parent/child benchmark coverage is
+  2292/2307 (99.35%), workload 1234/1247 (98.96%), with all measured library
+  source files above 98%. Ten real child reports and frozen input/native hashes
+  pass. The full scope audit still fails on absent packages/runtimes; the
+  exports-only barrel is not fabricated as covered. Cell1891 is terminal.
+- Cell1935 owns the complete workload mutation campaign and pinned native window.
+  Preserve it rather than launching another native run. Initial cell1932 stopped
+  before creating a campaign due to missing CONNECTANUM_NATIVE_LIB; the corrected
+  launch explicitly reuses the verified artifact without rebuilding it. No final
+  workload mutation score or hosted pass is claimed yet.
+- Separate ignored follow-ups pass: one shared-listener/route test with two
+  selected equality mutants rejected by assertions, and nine real generated-file
+  integrity/cleanup tests. They do not contribute to Work167's scores. Promotion
+  steps, hashes and review checks are in coverage167-probes/EVIDENCE.md. After
+  the frozen window ends, integrate these with fresh verification and whole-source
+  campaigns rather than applying historical mutation scores to new tests.
+
 ### Work166 Child VM Coverage And Boundary Mutation Evidence
 
 - Fast166 passed before canonical changes. Added opt-in child VM instrumentation

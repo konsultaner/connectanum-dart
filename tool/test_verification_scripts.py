@@ -373,6 +373,7 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
         expected = {root / 'test' / name for name in [
             'wamp_workload_runner_test.dart', 'wamp_session_wire_regression_test.dart',
+            'wamp_workload_failure_regression_test.dart',
             'wamp_session_factory_test.dart', 'wamp_transport_targets_test.dart',
             'wamp_sample_test.dart', 'wamp_factory_regression_test.dart',
             'wamp_sample_boundaries_test.dart', 'wamp_scenario_boundaries_test.dart',

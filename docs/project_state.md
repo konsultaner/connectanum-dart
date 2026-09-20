@@ -6,6 +6,32 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work167 integrates malformed HTTP introspection handling and 43 regression
+tests after Fast167 passed. Eighteen canonical pre-fix assertions reproduce
+uncaught UTF-8/form-decoding failures. The narrow fix returns HTTP 400 inactive
+JSON, keeps credential rejection before decoding, and preserves valid-request
+recovery without reflecting input. The 13 workload controls exercise progressive
+chunk validation, timeout validation, missing meta IDs, diagnostics and cleanup.
+All 96 focused tests, package analysis and 73 tooling contracts pass. Complete
+HTTP mutation evidence is 51/58 assertion-backed detections (87.93%; raw 53/58,
+two error-only detections, five survivors, 32 compile errors, no waivers).
+Both baselines and the independent audit pass; the 95% gate still fails.
+The added parser branches expand the denominator, so do not compare raw kill
+counts alone. Evidence: bench167-http-mutations under the usual out directory.
+Verify167 passes, including 1234 benchmark, 3894 router, 3343 core WASM and
+2568 client WASM tests. Fresh parent/child benchmark VM coverage is 2292/2307
+(99.35%); workload improves to 1234/1247 (98.96%) and every measured benchmark
+source file clears 98%. Ten child reports and all input/native hashes pass.
+The full audit still fails for absent external scopes; this is not a whole-repo
+or all-runtime score. Cell1891 is terminal. Cell1935 now owns the complete
+workload mutation campaign and pinned native window; preserve it. An initial
+launch stopped before creating a campaign because CONNECTANUM_NATIVE_LIB was
+unset; the corrected launch uses the verified artifact without rebuilding it.
+No workload score or hosted pass is claimed yet. Ten isolated follow-up tests
+for listener sharing and file-byte integrity pass, but are not canonical or
+credited to this snapshot; see coverage167-probes/EVIDENCE.md. Keep the full
+goal active and PR #93 draft, with no merge, publication or version change.
+
 Work166 closes the benchmark runner's child-process measurement gap without
 excluding production code. The opt-in authenticated loopback VM collector uses
 the workspace coverage package, preserves byte-exact build output and the 2s
@@ -29,7 +55,7 @@ bench166-boundary-mutations and coverage166-verification under the usual out
 directory. Hosted checks remain pending; keep PR #93 draft, with no merge,
 publication or version change. The full 98%/95% goal remains incomplete.
 
-Next priority after a fresh baseline: fix malformed HTTP auth benchmark request
+Work166's next priority after a fresh baseline was malformed HTTP auth benchmark request
 handling. Two isolated assertions reproduce uncaught UTF-8/form-decoding errors
 instead of HTTP 400. An ignored candidate returns inactive JSON without echoing
 input; all 55 copied HTTP tests pass, including recovery after malformed input.

@@ -12,9 +12,11 @@ import '../wamp_transport_targets_test.dart' as targets;
 import '../wamp_transport_targets_boundaries_test.dart' as target_boundaries;
 import '../wamp_transport_targets_ranking_test.dart' as target_ranking;
 import '../wamp_workload_runner_test.dart' as workloads;
+import '../wamp_workload_failure_regression_test.dart' as workload_failures;
 
 void main() {
   group('workload behavior', workloads.main);
+  group('workload failure regressions', workload_failures.main);
   group('wire integration', wire.main);
   group('session factory', factories.main);
   group('factory regression matrix', factory_regressions.main);
