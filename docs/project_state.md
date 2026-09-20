@@ -6,6 +6,29 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work158 reproduces router-hosted MCP subscription-admission leaks with throwing
+diagnostic observers. Sixteen public HTTP/WAMP regressions cover unsupported and
+native stream-open failures, acknowledgment write failures, secondary close
+failures, and retained shared-resource listeners. The pinned pre-fix replay
+produces eight assertion failures. Route preparation, activation rollback and
+close now guarantee owned cleanup in finally blocks; observers still propagate,
+healthy listeners retain their subscriptions, and retries reuse bounded capacity.
+The focused matrix passes. Fast158 passed before edits. The complete25-candidate
+probe of the selected admission/activation/close regions records7 assertion-backed
+kills (3 pure,4 mixed),2 error-only outcomes,6 timeouts,4 survivors and6 compile
+errors. Its raw detection score is47.37%; strict assertion score is7/19 (36.84%),
+with no equivalence waivers. This is not whole-router coverage; the source has
+2312 AST candidates. Both baselines and independent audit pass; input/native
+hashes match. Fresh JS158 exits0: core7388/7695 (96.01%) and client2651/2753
+(96.29%), with162 unmeasured sources visible; the98% audit fails. Frozen inputs
+match. Full Verify158 exits0, including3871 router,3343 core WASM and2568 client
+WASM tests. Final frozen inputs match. Fresh VM158 collection started after
+verification's native consumers, with no overlapping native users;
+the native-library hash still matches. The full98%/95% goal remains incomplete,
+and no newer full-VM score is claimed until collection finishes.
+Evidence: mcp158-admission-probe and coverage158-verification under
+out/regression-coverage-2026-09-15. Existing Work154 mutation work stays isolated.
+
 Work157 reproduces HTTP stream cleanup leaks before changing production code:
 when stream finish and the diagnostic observer both throw, request ownership is
 removed but the handshake is not released. Both finalizers now use finally to
@@ -47,6 +70,12 @@ js157-current, vm157-current and coverage157-verification under
 out/regression-coverage-2026-09-15. The older Work154 Session campaign remains
 isolated/live on its original snapshot. PR93 remains draft/unmerged, and the
 whole98%/95% milestone is incomplete. Do not publish or change versions.
+Implementation8698b3d0 is pushed and PR93 updated, draft/unmerged. Exact-head
+CI35517491832/35517488279, package35517491702/35517488255, explicit image dry-run
+35517507306 and profile35517507747 are queued. Strict deployment audit exits1
+for pending checks/not-yet-started jobs and feature-branch protection, not a
+proven test failure. This delivery bookkeeping remains uncommitted until the
+next implementation bundle. The native window has been released.
 
 Work156 reproduces terminal progressive-call reentry before production edits:
 32 assertion failures across VM/WASM show ordinary/lazy and plain/native-E2EE

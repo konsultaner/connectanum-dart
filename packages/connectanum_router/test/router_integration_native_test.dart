@@ -28,6 +28,33 @@ import 'support/native_lib.dart';
 import 'package:test/test.dart';
 import 'package:http2/transport.dart' as http2;
 
+class _FailingMcpStream implements NativeHttpResponseStream {
+  _FailingMcpStream(this.inner, {required this.failClose});
+
+  final NativeHttpResponseStream inner;
+  final bool failClose;
+  final writeError = StateError('controlled MCP acknowledgment failure');
+  final closeError = StateError('controlled MCP close failure');
+  int addAttempts = 0;
+  int closeAttempts = 0;
+
+  @override
+  bool get isClosed => inner.isClosed;
+
+  @override
+  void add(Uint8List bytes) {
+    addAttempts++;
+    throw writeError;
+  }
+
+  @override
+  void close([Uint8List? bytes]) {
+    closeAttempts++;
+    inner.close(bytes);
+    if (failClose) throw closeError;
+  }
+}
+
 class _HybridRuntime implements NativeRuntimeWithHandles {
   _HybridRuntime(this._inner, List<int> connectionSequence)
     : _connections = Queue<int>.from(connectionSequence) {
@@ -44,6 +71,8 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
   final Map<int, NativeHttp3Connection> _http3Connections = {};
   final Map<int, Queue<NativeHttp2Handshake>> _http2Handshakes = {};
   final Set<int> _syntheticConnections = <int>{};
+  Object? nextStreamOpenError;
+  _FailingMcpStream Function(NativeHttpResponseStream)? nextStreamWrapper;
 
   @override
   void start() => _inner.start();
@@ -341,11 +370,19 @@ class _HybridRuntime implements NativeRuntimeWithHandles {
     required int handshakeHandle,
     required int status,
     required Map<String, String> headers,
-  }) => _inner.openHttpResponseStream(
-    handshakeHandle: handshakeHandle,
-    status: status,
-    headers: headers,
-  );
+  }) {
+    final error = nextStreamOpenError;
+    nextStreamOpenError = null;
+    if (error != null) throw error;
+    final stream = _inner.openHttpResponseStream(
+      handshakeHandle: handshakeHandle,
+      status: status,
+      headers: headers,
+    );
+    final wrapper = nextStreamWrapper;
+    nextStreamWrapper = null;
+    return wrapper == null ? stream : wrapper(stream);
+  }
 
   @override
   NativeHttpResponseStreamDescriptor openHttpResponseStreamDescriptor({
@@ -466,6 +503,7 @@ class _RouterHarness {
     RouterConfig? config,
     RouterSettings? settings,
     List<int>? connectionSequence,
+    void Function(Map<String, Object?>)? onEvent,
   }) async {
     final innerRuntime = NativeTransportRuntime(libraryPath: nativeLib);
     final runtime = _HybridRuntime(
@@ -487,6 +525,7 @@ class _RouterHarness {
           pendingEvents.add(event);
           pendingSignals.add(null);
           events.add(event);
+          onEvent?.call(event);
         }
       },
     );
@@ -6259,6 +6298,256 @@ void main() {
       },
       skip: skipReason,
     );
+
+    for (final fault in ['unsupported', 'native', 'ack', 'ack-close']) {
+      for (final throwObserver in [false, true]) {
+        for (final retainedOwner in [false, true]) {
+          test(
+            'MCP stream admission cleanup fault=$fault observer=$throwObserver retained=$retainedOwner',
+            () async {
+              const resource = 'app://mcp/live-context';
+              const topic = 'app.events.resource.context';
+              final diagnostics = <Map<String, Object?>>[];
+              var observeErrors = true;
+              final observerError = StateError(
+                'controlled MCP observer failure',
+              );
+              final harness = await _RouterHarness.start(
+                connectionId: 9144,
+                nativeLib: nativeLib,
+                settings: _buildMcpSmokeSettings(
+                  maxRequestScopedListenerCount: retainedOwner ? 2 : 1,
+                  maxWampSubscriptionCount: 1,
+                ),
+                onEvent: (event) {
+                  if (event['type'] == 'mcp_sse_stream_open_unsupported' ||
+                      event['type'] == 'mcp_sse_stream_open_error' ||
+                      event['type'] == 'mcp_request_scoped_sse_write_error') {
+                    diagnostics.add(event);
+                    if (throwObserver && observeErrors) throw observerError;
+                  }
+                },
+              );
+              addTearDown(harness.dispose);
+              final port = harness.binding.listeners.single.port;
+              final endpoint = Uri.parse('http://127.0.0.1:$port/mcp/public');
+              final client = McpStreamableHttpClient.stateless(
+                endpoint,
+                clientInfo: const {
+                  'name': 'stream-cleanup',
+                  'version': '1.0.0',
+                },
+              );
+              addTearDown(() => client.close(force: true));
+              final service = await harness.binding.createInternalSession(
+                realmUri: 'realm1',
+                authId: 'stream-cleanup-service',
+                authRole: 'internal',
+              );
+              addTearDown(service.close);
+              StreamIterator<Map<String, Object?>>? retainedNotifications;
+              int? retainedSubscriptionId;
+              if (retainedOwner) {
+                final retained = await client.listen(
+                  id: 'retained-admission',
+                  resourceSubscriptions: [resource],
+                );
+                addTearDown(retained.close);
+                retainedNotifications = StreamIterator(retained.notifications);
+                addTearDown(retainedNotifications.cancel);
+                final lookup = await client.lookupWampSubscriptionDirect(topic);
+                retainedSubscriptionId = (lookup.arguments.single as num)
+                    .toInt();
+              }
+              _FailingMcpStream? failedStream;
+              final openError = fault == 'unsupported'
+                  ? UnsupportedError('controlled MCP stream unavailable')
+                  : NativeTransportException(
+                      -14,
+                      'controlled MCP open failure',
+                    );
+              if (fault == 'unsupported' || fault == 'native') {
+                harness.runtime.nextStreamOpenError = openError;
+              } else {
+                harness.runtime.nextStreamWrapper = (stream) => failedStream =
+                    _FailingMcpStream(stream, failClose: fault == 'ack-close');
+              }
+              final httpClient = HttpClient();
+              addTearDown(() => httpClient.close(force: true));
+              final request = await httpClient.postUrl(endpoint);
+              request.headers
+                ..contentType = ContentType.json
+                ..set('Accept', 'application/json, text/event-stream')
+                ..set('MCP-Protocol-Version', '2026-07-28')
+                ..set('Mcp-Method', 'subscriptions/listen');
+              final body = utf8.encode(
+                jsonEncode({
+                  'jsonrpc': '2.0',
+                  'id': 'failed-admission',
+                  'method': 'subscriptions/listen',
+                  'params': {
+                    '_meta': {
+                      'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                      'io.modelcontextprotocol/clientCapabilities':
+                          <String, Object?>{},
+                    },
+                    'notifications': {
+                      'resourceSubscriptions': [resource],
+                    },
+                  },
+                }),
+              );
+              request.contentLength = body.length;
+              request.add(body);
+              final response = request
+                  .close()
+                  .then<Object>(
+                    (response) async => {
+                      'status': response.statusCode,
+                      'body': await utf8.decoder.bind(response).join(),
+                    },
+                  )
+                  .catchError((Object error) => error);
+              if (throwObserver) {
+                final error = await harness
+                    .nextEvent('http_request_handler_error')
+                    .timeout(const Duration(seconds: 5));
+                expect(error['error'], observerError.toString());
+                httpClient.close(force: true);
+                await response;
+              } else {
+                final result = await response.timeout(
+                  const Duration(seconds: 5),
+                );
+                expect(result, isA<Map<String, Object?>>());
+                final payload = result as Map<String, Object?>;
+                expect(payload['status'], failedStream == null ? 500 : 200);
+                if (failedStream == null) {
+                  final body = jsonDecode(payload['body']! as String) as Map;
+                  expect(body['id'], 'failed-admission');
+                  expect(
+                    body['error'],
+                    containsPair('code', McpErrorCodes.internalError),
+                  );
+                } else {
+                  expect(payload['body'], isEmpty);
+                }
+              }
+
+              observeErrors = false;
+              // A public request after failure observes completed cleanup, not
+              // merely a diagnostic emitted before the resources are released.
+              final lookup = await client.lookupWampSubscriptionDirect(topic);
+              expect(
+                lookup.arguments,
+                retainedOwner ? [retainedSubscriptionId] : isEmpty,
+                reason: 'release only the failed listener resource ownership',
+              );
+              if (retainedOwner) {
+                final count = await client
+                    .countWampSubscriptionSubscribersDirect(
+                      retainedSubscriptionId!,
+                    );
+                expect(count.arguments, [1]);
+              }
+              expect(diagnostics, hasLength(fault == 'ack-close' ? 2 : 1));
+              expect(
+                diagnostics.first['error'],
+                (failedStream?.writeError ?? openError).toString(),
+              );
+              expect(diagnostics.first['stackTrace'], isNotEmpty);
+              if (failedStream != null) {
+                expect(failedStream!.addAttempts, 1);
+                expect(failedStream!.closeAttempts, 1);
+                expect(failedStream!.isClosed, isTrue);
+                if (fault == 'ack-close') {
+                  expect(
+                    diagnostics.last['error'],
+                    failedStream!.closeError.toString(),
+                  );
+                }
+              }
+
+              final recovery = await client
+                  .listen(
+                    id: 'recovered-admission',
+                    resourceSubscriptions: [resource],
+                  )
+                  .then<Object>((subscription) => subscription)
+                  .catchError((Object error) => error);
+              expect(
+                recovery,
+                isA<McpStreamableSubscription>(),
+                reason: 'failed admission must release listener capacity',
+              );
+              final recovered = recovery as McpStreamableSubscription;
+              addTearDown(recovered.close);
+              expect(
+                recovered.acknowledgedNotifications.resourceSubscriptions,
+                [
+                  resource,
+                ],
+              );
+              expect(client.sessionId, isNull);
+              final notifications = StreamIterator<Map<String, Object?>>(
+                recovered.notifications,
+              );
+              addTearDown(notifications.cancel);
+              await service.publish(
+                topic,
+                options: core.PublishOptions(acknowledge: true),
+              );
+              expect(
+                await notifications.moveNext().timeout(
+                  const Duration(seconds: 5),
+                ),
+                isTrue,
+              );
+              expect(
+                notifications.current['method'],
+                'notifications/resources/updated',
+              );
+              expect(
+                notifications.current['params'],
+                containsPair('uri', resource),
+              );
+              expect(
+                (notifications.current['params'] as Map)['_meta'],
+                containsPair(
+                  'io.modelcontextprotocol/subscriptionId',
+                  'recovered-admission',
+                ),
+              );
+              if (retainedNotifications != null) {
+                expect(
+                  await retainedNotifications.moveNext().timeout(
+                    const Duration(seconds: 5),
+                  ),
+                  isTrue,
+                );
+                expect(
+                  retainedNotifications.current['method'],
+                  'notifications/resources/updated',
+                );
+                expect(
+                  retainedNotifications.current['params'],
+                  containsPair('uri', resource),
+                );
+                expect(
+                  (retainedNotifications.current['params'] as Map)['_meta'],
+                  containsPair(
+                    'io.modelcontextprotocol/subscriptionId',
+                    'retained-admission',
+                  ),
+                );
+              }
+              await recovered.close();
+            },
+            skip: skipReason,
+          );
+        }
+      }
+    }
 
     test(
       'bounds modern request-scoped MCP SSE acknowledgment events and releases capacity',

@@ -2989,31 +2989,36 @@ Future<void> _handleMcpHttpRequestForBinding(
         );
         return;
       }
-      final stream = _mcpOpenSseResponse(
-        binding,
-        request: request,
-        handshake: handshake,
-        protocolVersion: effectiveResponseMcpProtocolVersion,
-        extraHeaders: corsHeaders,
-      );
-      if (stream == null) {
-        await endpoint.releaseModernSubscriptionPreparation(preparation);
-        await binding._sendImmediateHttpResponse(
+      try {
+        final stream = _mcpOpenSseResponse(
+          binding,
           request: request,
           handshake: handshake,
-          response: _mcpJsonRpcHttpError(
-            status: HttpStatus.internalServerError,
-            code: mcp.McpErrorCodes.internalError,
-            message: 'MCP subscription stream could not be opened',
-            id: _recoverDirectJsonRequestId(rawMessage),
-            protocolVersion: effectiveResponseMcpProtocolVersion,
-            extraHeaders: corsHeaders,
-          ),
+          protocolVersion: effectiveResponseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
         );
+        if (stream == null) {
+          await endpoint.releaseModernSubscriptionPreparation(preparation);
+          await binding._sendImmediateHttpResponse(
+            request: request,
+            handshake: handshake,
+            response: _mcpJsonRpcHttpError(
+              status: HttpStatus.internalServerError,
+              code: mcp.McpErrorCodes.internalError,
+              message: 'MCP subscription stream could not be opened',
+              id: _recoverDirectJsonRequestId(rawMessage),
+              protocolVersion: effectiveResponseMcpProtocolVersion,
+              extraHeaders: corsHeaders,
+            ),
+          );
+          return;
+        }
+        await endpoint.activateModernSubscription(preparation, stream);
         return;
+      } finally {
+        // Opening a stream can also fail through a diagnostic observer.
+        await endpoint.releaseModernSubscriptionPreparation(preparation);
       }
-      await endpoint.activateModernSubscription(preparation, stream);
-      return;
     }
 
     final rawResponse = await endpoint._handleMessageAfterRefresh(
@@ -4338,19 +4343,26 @@ class _RouterMcpEndpoint {
       stream: stream,
     );
     _modernSubscriptions[token] = subscription;
-    await _releaseModernSubscriptionPreparation(preparation);
-    if (!_writeModernSubscriptionBytes(
-      subscription,
-      preparation.acknowledgmentBytes,
-    )) {
-      await _closeModernSubscription(token);
-      return false;
+    var activated = false;
+    try {
+      await _releaseModernSubscriptionPreparation(preparation);
+      if (!_writeModernSubscriptionBytes(
+        subscription,
+        preparation.acknowledgmentBytes,
+      )) {
+        return false;
+      }
+      subscription.heartbeat = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => _sendModernHeartbeat(token),
+      );
+      activated = true;
+      return true;
+    } finally {
+      if (!activated) {
+        await _closeModernSubscription(token);
+      }
     }
-    subscription.heartbeat = Timer.periodic(
-      const Duration(seconds: 15),
-      (_) => _sendModernHeartbeat(token),
-    );
-    return true;
   }
 
   void _releaseModernSubscriptionCapacity() {
@@ -4508,8 +4520,9 @@ class _RouterMcpEndpoint {
       }
     } catch (error, stackTrace) {
       _reportModernSubscriptionWriteError(error, stackTrace);
+    } finally {
+      await _cleanupUnusedResourceSubscriptions();
     }
-    await _cleanupUnusedResourceSubscriptions();
   }
 
   Future<void> _reconcileResourceSubscriptionAuthorization(

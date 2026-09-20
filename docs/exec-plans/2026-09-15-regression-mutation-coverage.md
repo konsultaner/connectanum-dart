@@ -67,6 +67,41 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work158 MCP Subscription Admission Ownership
+
+- Fast158 passes before edits. Sixteen public HTTP/WAMP cases cover unsupported
+  and native stream-open errors, acknowledgment add/close errors, diagnostic
+  callbacks that throw, and an existing healthy owner sharing the resource.
+  A pinned replay of8698b3d0 produces eight assertion failures. After the fix,
+  all sixteen pass: exact diagnostic order, failed-stream closure, public WAMP
+  lookup/count, bounded listener recovery, and notification subscription IDs.
+- Always release admission preparation if stream open/reporting throws. Roll
+  back registered ownership if acknowledgment/activation fails. Run unused WAMP
+  resource cleanup even when close-error reporting throws. Preparation release
+  is explicitly idempotent; callbacks remain observable and no wire API changes.
+- Complete25-candidate selected-region probe:7 assertion-backed kills (3 pure,
+  4 mixed),2 error-only detections,6 timeouts,4 survivors,6 compile errors.
+  Raw detection47.37%, strict assertion7/19 (36.84%), no equivalence waivers.
+  Preserve every outcome. Source inventory2312 remains visible; this is not a
+  whole-router campaign. Baselines, independent log audit and input/native
+  hashes agree. Surviving private return values and response-limit boundaries
+  need individual investigation; no passing95% mutation gate is claimed.
+- Qwen planning/two reviews completed. Source inspection disproves double
+  release and nondeterministic synchronous diagnostic-order claims. Later
+  heartbeat/fanout observer failures remain distinct coverage work. GLM was
+  independently checked and unavailable. Review triage is retained with evidence.
+- Fresh JS158 exits0: core7388/7695 (96.01%), client2651/2753 (96.29%), with162
+  unmeasured sources and a failing98% audit. Full Verify158 exits0, including3871
+  router,3343 core WASM and2568 client WASM tests. Final frozen inputs match.
+  Fresh VM158 collection started after native verification;
+  the native artifact hash matches and no native
+  users overlap. Wait for completion before claiming new VM percentages.
+  Serialize all native consumers. Keep the older154 campaign on its immutable
+  snapshot. Do not merge, publish, change versions or mark the milestone done.
+
+Evidence: mcp158-admission-probe and coverage158-verification under
+out/regression-coverage-2026-09-15.
+
 ### Work157 HTTP Cleanup And Browser Coverage Gates
 
 - Fast157 passes before edits. Public-router regressions reproduce skipped
@@ -112,6 +147,11 @@ caught and timed-out outcomes separately.
   WASM test passes are not measured WASM line coverage.
   Evidence: http157-cleanup-probe, http157-finalizer-probe and
   coverage157-verification. Keep PR93 draft; no merge/publication/version change.
+- Implementation8698b3d0 is pushed. Exact-head CI35517491832/35517488279,
+  package35517491702/35517488255, image35517507306 (explicit dry-run) and
+  profile35517507747 are queued. Strict audit exits1 on pending jobs and
+  feature-branch protection, not a proven test failure. PR93 is updated and
+  remains draft/unmerged. Post-push bookkeeping waits for the next code bundle.
 
 ### Work156 Progressive Input Finalization And Pacing
 
