@@ -1,6 +1,6 @@
 {
   "target": 98,
-  "packages": {"connectanum_core": 83.5},
+  "packages": {"connectanum_core": 96, "connectanum_client": 96.29},
   "files": {
     "packages/connectanum_core/lib/src/authentication/cryptosign/pem.dart": 98,
     "packages/connectanum_core/lib/src/authentication/cryptosign/pkcs8.dart": 98,

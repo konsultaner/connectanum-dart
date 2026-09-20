@@ -4,6 +4,7 @@
 import argparse
 import json
 import math
+from fractions import Fraction
 from pathlib import Path
 
 
@@ -120,7 +121,7 @@ def findings(result, policy, require_target=False):
             item = result[section].get(name)
             if item is None or not item['total']:
                 problems.append(f'{name}: no executable coverage data')
-            elif item['covered'] * 100 < threshold * item['total']:
+            elif item['covered'] * 100 < Fraction(str(threshold)) * item['total']:
                 problems.append(f'{name}: {item["percent"]:.3f}% below {threshold}%')
     for name, item in component_stats(result, policy.get('components', {})).items():
         threshold = policy['target'] if require_target else policy['components'][name]['floor']
@@ -128,7 +129,7 @@ def findings(result, policy, require_target=False):
             problems.append(f'{name}: missing executable coverage for {source}')
         if not item['total']:
             problems.append(f'{name}: no executable coverage data')
-        elif item['covered'] * 100 < threshold * item['total']:
+        elif item['covered'] * 100 < Fraction(str(threshold)) * item['total']:
             problems.append(f'{name}: {item["percent"]:.3f}% below {threshold}%')
     for package in policy.get('componentPackages', []):
         if not result['packages'].get(package, {}).get('total'):
@@ -143,7 +144,7 @@ def findings(result, policy, require_target=False):
                     problems.append(f'{source}: expected exactly one component, found {owners}')
     if require_target:
         for name, item in result['files'].items():
-            if item['total'] and item['covered'] * 100 < policy['target'] * item['total']:
+            if item['total'] and item['covered'] * 100 < Fraction(str(policy['target'])) * item['total']:
                 problem = f'{name}: {item["percent"]:.3f}% below {policy["target"]}%'
                 if problem not in problems:
                     problems.append(problem)

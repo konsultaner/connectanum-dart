@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import sys
 import tempfile
 import unittest
@@ -8,6 +9,51 @@ from check_coverage import findings, read_lcov, report
 
 
 class CoverageTests(unittest.TestCase):
+    def test_browser_policy_gates_both_measured_packages(self):
+        policy = json.loads((Path(__file__).parent / 'browser_coverage_policy.json').read_text())
+        self.assertEqual(policy['target'], 98)
+        for package in ('connectanum_core', 'connectanum_client'):
+            with self.subTest(package=package):
+                self.assertIn(package, policy['packages'])
+                self.assertGreaterEqual(policy['packages'][package], 96)
+                with tempfile.TemporaryDirectory() as directory:
+                    result = report({}, Path(directory), runtime='chrome')
+                    self.assertIn(f'{package}: no executable coverage data', findings(result, policy))
+
+    def test_browser_client_regression_fails_even_with_perfect_core(self):
+        policy = json.loads((Path(__file__).parent / 'browser_coverage_policy.json').read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            result = report({
+                'packages/connectanum_core/lib/core.dart': {1: 1},
+                'packages/connectanum_client/lib/client.dart': {
+                    line: int(line <= 9629) for line in range(1, 10001)
+                },
+            }, Path(directory), runtime='chrome')
+            package_policy = {'target': policy['target'], 'packages': policy['packages']}
+            self.assertEqual(findings(result, package_policy), [])
+            result['packages']['connectanum_client']['covered'] -= 1
+            result['packages']['connectanum_client']['percent'] = 96.28
+            self.assertIn('connectanum_client: 96.280% below 96.29%',
+                          findings(result, package_policy))
+            self.assertIn('connectanum_client: 96.280% below 98%',
+                          findings(result, package_policy, require_target=True))
+
+    def test_decimal_threshold_equality_and_one_line_regression(self):
+        source = 'packages/core/lib/core.dart'
+        policy = {'target': 96.29, 'packages': {'core': 96.29},
+                  'files': {source: 96.29},
+                  'components': {'library': {'floor': 96.29, 'sources': [source]}}}
+        with tempfile.TemporaryDirectory() as directory:
+            for covered in (9629, 9628):
+                result = report({source: {line: int(line <= covered)
+                                         for line in range(1, 10001)}}, Path(directory))
+                result['unmeasuredScopes'] = []
+                expected = ([] if covered == 9629 else [
+                    f'{name}: 96.280% below 96.29%' for name in ('core', source, 'library')])
+                for target in (False, True):
+                    with self.subTest(covered=covered, target=target):
+                        self.assertEqual(findings(result, policy, require_target=target), expected)
+
     def test_application_scope_is_separate_and_cannot_include_tests_or_packages(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

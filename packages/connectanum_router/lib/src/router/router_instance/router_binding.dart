@@ -7215,60 +7215,73 @@ class RouterBinding {
   void _finishStreamingResponse(_PendingHttpCall pending) {
     final stream = pending.responseStream;
     pending.responseStream = null;
-    if (stream != null && !stream.isClosed) {
-      try {
-        stream.close();
-      } catch (error, stackTrace) {
-        onEvent?.call({
-          'source': 'binding',
-          'type': 'http_response_stream_finish_error',
-          'httpRequestId': pending.id,
-          'listenerId': pending.request.listenerId,
-          'connectionId': pending.request.connectionId,
-          'error': error.toString(),
-          'stackTrace': stackTrace.toString(),
-        });
+    try {
+      if (stream != null && !stream.isClosed) {
+        try {
+          stream.close();
+        } catch (error, stackTrace) {
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'http_response_stream_finish_error',
+            'httpRequestId': pending.id,
+            'listenerId': pending.request.listenerId,
+            'connectionId': pending.request.connectionId,
+            'error': error.toString(),
+            'stackTrace': stackTrace.toString(),
+          });
+        }
       }
+    } finally {
+      _completeHttpRequest(pending.id);
     }
-    _completeHttpRequest(pending.id);
   }
 
   void _completeHttpRequest(int httpRequestId) {
     final pending = _pendingHttpCalls.remove(httpRequestId);
     final stream = pending?.responseStream;
-    if (stream != null && !stream.isClosed) {
+    try {
+      if (stream != null && !stream.isClosed) {
+        try {
+          stream.close();
+        } catch (error, stackTrace) {
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'http_response_stream_finish_error',
+            'httpRequestId': httpRequestId,
+            'error': error.toString(),
+            'stackTrace': stackTrace.toString(),
+          });
+        }
+      }
+    } finally {
+      // Observer failures must not strand the other owned resources.
       try {
-        stream.close();
-      } catch (error, stackTrace) {
-        onEvent?.call({
-          'source': 'binding',
-          'type': 'http_response_stream_finish_error',
-          'httpRequestId': httpRequestId,
-          'error': error.toString(),
-          'stackTrace': stackTrace.toString(),
-        });
+        final directStream = pending?.directResponseStream;
+        if (directStream != null &&
+            pending?.directResponseStreamCompleted != true) {
+          try {
+            NativeHttpResponseStream.borrowed(
+              handle: directStream.handle,
+              libraryPath: directStream.libraryPath,
+            ).close();
+          } catch (error, stackTrace) {
+            onEvent?.call({
+              'source': 'binding',
+              'type': 'http_response_stream_finish_error',
+              'httpRequestId': httpRequestId,
+              'error': error.toString(),
+              'stackTrace': stackTrace.toString(),
+            });
+          }
+        }
+      } finally {
+        try {
+          pending?.subscription.cancel();
+        } finally {
+          pending?.handshake?.release();
+        }
       }
     }
-    final directStream = pending?.directResponseStream;
-    if (directStream != null &&
-        pending?.directResponseStreamCompleted != true) {
-      try {
-        NativeHttpResponseStream.borrowed(
-          handle: directStream.handle,
-          libraryPath: directStream.libraryPath,
-        ).close();
-      } catch (error, stackTrace) {
-        onEvent?.call({
-          'source': 'binding',
-          'type': 'http_response_stream_finish_error',
-          'httpRequestId': httpRequestId,
-          'error': error.toString(),
-          'stackTrace': stackTrace.toString(),
-        });
-      }
-    }
-    pending?.subscription.cancel();
-    pending?.handshake?.release();
   }
 
   void _scheduleInternalBootstrap() {

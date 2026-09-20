@@ -67,6 +67,52 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work157 HTTP Cleanup And Browser Coverage Gates
+
+- Fast157 passes before edits. Public-router regressions reproduce skipped
+  handshake release when stream finish and its diagnostic observer throw.
+  The pre-fix two-method negative control fails five assertions against the
+  final12-case matrix, including normal/direct/hybrid ownership and terminal
+  success/error. This is an ownership bug, not a WAMP wire-format change.
+- Always attempt remaining owned cleanup in finally blocks. Keep observer
+  exceptions observable, remove pending ownership before callbacks, do not
+  finish an already-completed direct response, and preserve independent calls.
+  Tests assert exact finish attempts/diagnostics, one release before an error
+  escapes, late-open rejection and a second concurrent response completing.
+  The deliberately unallocated direct handle tests the real borrowed FFI error
+  path, not a successful native socket close. The full runtime file passes262.
+- A complete16-candidate AST probe of both methods kills all4 viable mutations
+  with pure assertions;12 candidates fail compilation. No timeout/error-only
+  credit, survivors or waivers. Original/restored baselines, independent log
+  audit and source/test/native hashes agree. Full binding inventory2399 remains
+  visible: this method-level100% is not a whole-router score. The earlier probe
+  produced four timeouts and remains retained; the final barrier waits for any
+  observable completion, then asserts exact values instead of timing out while
+  waiting for the expected diagnostic.
+- Browser policy previously omitted client package coverage and retained an
+  obsolete core83.5% floor. Fail-first tests pin both packages. Raise core to96%
+  and add client96.29%; the final98% target is unchanged. Additional fail-first
+  tests expose binary-float rejection of exact96.29% equality. Fraction-based
+  decimal comparison fixes all threshold paths without rounding or tolerances.
+  Coverage-tool tests pass19; verification wiring tests pass69.
+- Qwen planning/review completed; unsupported double-close claims were checked
+  against descriptor/stream types, synchronous ownership removal and the hybrid
+  assertions. GLM was checked independently and is unavailable. JS157 passes
+  the stronger floors: core7388/7695 (96.01%), client2651/2753 (96.29%). The
+  explicit98% audit fails, with162 unmeasured sources visible; frozen inputs
+  match. The final replay pins pre-fix commit78c544c3 and reproduces all results.
+  Full Verify157 exits0, including3855 router tests and3343 core/2568 client
+  WASM tests; frozen inputs match. VM157 library coverage is38925/42680 (91.20%),
+  including router17183/19386 (88.64%). Other package percentages are unchanged
+  from VM156; the98% audit fails and59 unmeasured sources remain visible.
+  Full VM157 collection exits0; packaging remains765/787 (97.20%), with12
+  unmeasured sources and a failing98% audit. Final input hashes match.
+  Native consumers were serialized and final
+  source/artifact hashes checked before releasing the shared native window.
+  WASM test passes are not measured WASM line coverage.
+  Evidence: http157-cleanup-probe, http157-finalizer-probe and
+  coverage157-verification. Keep PR93 draft; no merge/publication/version change.
+
 ### Work156 Progressive Input Finalization And Pacing
 
 - Fast156 passes before edits. Public-session prototypes produce32 assertion
@@ -96,9 +142,10 @@ caught and timed-out outcomes separately.
   its alleged missing retry scenario. GLM is independently unreachable. Keep
   native verification serialized and retain the older Work154 isolated campaign.
   Full Verify156 exits0, including3343 core and2568 client WASM cases. Frozen
-  input hashes match. Full VM156 collection is live on session24676/PID32852;
-  retain the shared native reservation until completion, then inspect the report
-  and explicit98% audit before claiming new VM coverage.
+  input hashes match. Full VM156 collection exits0 and the shared native window
+  is released. Packaging remains765/787 (97.20%), with12 unmeasured sources;
+  the explicit98% audit fails. Final input hashes match, and the native-library
+  hash matched when the native test/collection phases finished before release.
 - The complete ProgressiveCall-class AST probe executes24 candidates per VM/JS:
   15/15 viable assertion-backed detections (12 pure,3 mixed),9 compile failures,
   no survivors, timeouts, error-only kills or waivers. Original/restored baselines
@@ -111,9 +158,22 @@ caught and timed-out outcomes separately.
 - Full JS156 collection exits0: core7388/7695 (96.01%) and client2651/2753
   (96.29%), with162 unmeasured sources. Both complete suites pass and frozen
   canonical inputs match. The explicit98% audit still exits1; no WASM line
-  measurement is inferred. A fresh full VM collection follows serialized
+  measurement is inferred. The full VM collection follows serialized
   verification. Browser package regression floors still need refreshing,
   including an explicit client package floor; this does not change the98% goal.
+- VM156 library evidence is38877/42680 (91.09%), with59 unmeasured sources.
+  Auth100%, bench89.17%, client92.07%, core94.34%, MCP96.13%, router88.39%.
+  The explicit98% audit still fails. Do not hide the lower router measurement:
+  unchanged production sources lose12 previous hits and gain one. Missing hits
+  are native/runtime.dart1869/3844/3861/3863, router_binding.dart7256-7266's
+  borrowed-stream cleanup/error branch and router_internal_session.dart83;
+  router_mcp.dart3221 is newly covered. Add deterministic failure/lifecycle
+  assertions instead of rerunning or substituting older counts for this report.
+- Implementation78c544c3 is pushed; PR93 remains draft/unmerged. Exact-head CI
+  35514530549/35514527810, package35514530479/35514527815, image35514537707
+  (explicit dry-run) and profile35514538403 are queued. Strict audit exits1 on
+  pending checks/feature-branch protection, not a proven test failure. Keep the
+  post-push measurement notes uncommitted until the next implementation bundle.
 
 ### Work155 Invocation Success Oracles And Finite Reentry
 

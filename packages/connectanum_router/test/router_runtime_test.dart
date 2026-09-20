@@ -575,6 +575,102 @@ class _UnsupportedConfigRuntime extends _FakeRuntime {
   }
 }
 
+class _TrackedHttpHandshake implements NativeHttpHandshake {
+  _TrackedHttpHandshake(this.handle)
+    : _delegate = NativeHttpHandshake.synthetic(
+        handle: handle,
+        method: 'GET',
+        target: '/api/stream',
+        path: '/api/stream',
+        protocol: 'http/1.1',
+        realm: 'realm1',
+        procedure: 'com.example.api.stream',
+      );
+
+  final NativeHttpHandshake _delegate;
+  int releases = 0;
+  @override
+  final int handle;
+  @override
+  String get method => _delegate.method;
+  @override
+  String get target => _delegate.target;
+  @override
+  String get path => _delegate.path;
+  @override
+  String get protocol => _delegate.protocol;
+  @override
+  int get version => _delegate.version;
+  @override
+  Map<String, String> get headers => _delegate.headers;
+  @override
+  Map<String, List<String>> get headerValues => _delegate.headerValues;
+  @override
+  Set<String> get duplicateHeaderNames => _delegate.duplicateHeaderNames;
+  @override
+  NativeHttpRequestBody get body => _delegate.body;
+  @override
+  String? get query => _delegate.query;
+  @override
+  String? get realm => _delegate.realm;
+  @override
+  String? get procedure => _delegate.procedure;
+  @override
+  void release() {
+    releases++;
+    _delegate.release();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _HttpCleanupRuntime extends _HandleRuntime {
+  _HttpCleanupRuntime({required this.direct});
+  final bool direct;
+  final List<int> finishAttempts = [];
+  final Object finishError = StateError(
+    'controlled HTTP stream finish failure',
+  );
+
+  @override
+  NativeHttpResponseStream openHttpResponseStream({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) => _FakeHttpResponseStream(
+    handle: handshakeHandle,
+    onChunk: (chunk) {
+      responseStreamChunks.putIfAbsent(handshakeHandle, () => []).add(chunk);
+    },
+    onClose: () {
+      finishAttempts.add(handshakeHandle);
+      throw finishError;
+    },
+  );
+
+  @override
+  NativeHttpResponseStreamDescriptor openHttpResponseStreamDescriptor({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    if (!direct) {
+      return super.openHttpResponseStreamDescriptor(
+        handshakeHandle: handshakeHandle,
+        status: status,
+        headers: headers,
+      );
+    }
+    // An unallocated handle deterministically fails on finish without depending
+    // on socket timing. No native streams are allocated by this fake runtime.
+    return NativeHttpResponseStreamDescriptor(
+      handle: 0x7fffffff,
+      libraryPath: Platform.environment['CONNECTANUM_NATIVE_LIB'],
+    );
+  }
+}
+
 class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
   final Map<int, Queue<int>> _pendingHandles = {};
   int _nextHandle = 1;
@@ -14450,6 +14546,209 @@ void main() {
       anyOf('invalid_refresh_token', 'expired_refresh_token'),
     );
   });
+
+  for (final mode in ['fallback', 'direct', 'hybrid']) {
+    final direct = mode != 'fallback';
+    final fallback = mode != 'direct';
+    for (final failCall in [false, true]) {
+      for (final throwObserver in [false, true]) {
+        test(
+          'HTTP stream cleanup mode=$mode error=$failCall observer=$throwObserver',
+          () async {
+            final runtime = _HttpCleanupRuntime(direct: direct);
+            final router = Router(
+              RouterConfig(
+                endpoints: [
+                  Endpoint(
+                    host: '127.0.0.1',
+                    port: 0,
+                    tlsMode: TlsMode.native,
+                    maxRawSocketSizeExponent: 16,
+                    sniCertificates: [_cert('localhost')],
+                  ),
+                ],
+              ),
+              settings: _buildRouterSettingsWithPendingProtocols(),
+            );
+            final errors = <Object>[];
+            final releasesWhenErrorEscapes = <List<int>>[];
+            final handshakes = [
+              _TrackedHttpHandshake(9001),
+              _TrackedHttpHandshake(9002),
+            ];
+            final finishEvents = <Map<String, Object?>>[];
+            final observerError = StateError('controlled diagnostic failure');
+            final binding = runZonedGuarded(
+              () => router.start(
+                runtime,
+                onEvent: (event) {
+                  if (event is Map<String, Object?> &&
+                      event['type'] == 'http_response_stream_finish_error') {
+                    finishEvents.add(event);
+                    if (throwObserver) throw observerError;
+                  }
+                },
+              ),
+              (error, _) {
+                errors.add(error);
+                releasesWhenErrorEscapes.add([
+                  for (final handshake in handshakes) handshake.releases,
+                ]);
+              },
+            )!;
+            addTearDown(binding.dispose);
+            final session = await binding.createInternalSession(
+              realmUri: 'realm1',
+            );
+            final registration = await session.register(
+              'com.example.api.stream',
+            );
+            final contexts = <HttpInvocationContext>[];
+            registration.onInvoke((invocation) {
+              contexts.add(
+                HttpInvocationContext.maybeFromInvocation(invocation)!,
+              );
+            });
+            for (var index = 0; index < handshakes.length; index++) {
+              runtime.setConnectionProtocol(
+                56 + index,
+                NativeConnectionProtocol.http,
+              );
+              runtime.enqueueHttpHandshake(
+                binding.listeners.single.listenerId,
+                56 + index,
+                handshakes[index],
+              );
+            }
+            await _waitUntil(() => contexts.length == 2);
+            final first = contexts[0];
+            final second = contexts[1];
+            expect(first.requestId, isNot(second.requestId));
+            expect(handshakes.map((value) => value.releases), [0, 0]);
+
+            Future<Map<Object?, Object?>> requestDescriptor() async {
+              final reply = ReceivePort();
+              try {
+                final port =
+                    first.invocation.details.custom[HttpInvocationKeys
+                            .responseStreamControlPort]
+                        as SendPort;
+                port.send({
+                  'type': HttpInvocationControlMessages.openResponseStream,
+                  'requestId': first.requestId,
+                  'status': 206,
+                  'headers': <String, String>{'x-stream': 'cleanup'},
+                  'replyPort': reply.sendPort,
+                });
+                return Map<Object?, Object?>.from(
+                  await reply.first.timeout(const Duration(seconds: 2)) as Map,
+                );
+              } finally {
+                reply.close();
+              }
+            }
+
+            if (direct) {
+              expect((await requestDescriptor())['handle'], 0x7fffffff);
+            }
+            if (fallback) {
+              HttpResponseUtil.respond(
+                first.invocation,
+                HttpResponseUtil.bytes(
+                  requestId: first.requestId,
+                  status: 206,
+                  body: Uint8List.fromList([1, 2, 3]),
+                ),
+                progress: true,
+              );
+              await _waitUntil(() => runtime.responseStreamChunks.isNotEmpty);
+              expect(runtime.responseStreamChunks, {
+                9001: [
+                  [1, 2, 3],
+                ],
+              });
+            }
+
+            if (failCall) {
+              first.invocation.respondWith(
+                isError: true,
+                errorUri: 'com.example.failed',
+              );
+            } else if (!fallback) {
+              first.invocation.respondWith();
+            } else {
+              first.sendBytes(body: Uint8List.fromList([4, 5]));
+            }
+            final expectedFinishErrors = [
+              if (fallback) runtime.finishError.toString(),
+              if (direct && (fallback || failCall)) 'native handle unavailable',
+            ];
+            final expectsFinishError = expectedFinishErrors.isNotEmpty;
+            await _waitUntil(
+              () =>
+                  handshakes.first.releases != 0 ||
+                  finishEvents.isNotEmpty ||
+                  errors.isNotEmpty,
+            );
+            // The control protocol is a public observable completion barrier:
+            // no late stream may be opened for a completed HTTP request.
+            expect(await requestDescriptor(), {
+              'error': 'pending_http_request_not_found',
+            });
+            expect(handshakes.first.releases, 1);
+            expect(
+              releasesWhenErrorEscapes,
+              throwObserver && expectsFinishError
+                  ? [
+                      [1, 0],
+                    ]
+                  : isEmpty,
+              reason:
+                  'Owned resources must be released before reporting an uncaught observer error',
+            );
+            expect(
+              handshakes.last.releases,
+              0,
+              reason: 'Independent request is still active',
+            );
+            expect(runtime.finishAttempts, fallback ? [9001] : isEmpty);
+            expect(
+              errors,
+              throwObserver && expectsFinishError
+                  ? [same(observerError)]
+                  : isEmpty,
+            );
+            expect(finishEvents, hasLength(expectedFinishErrors.length));
+            for (var index = 0; index < finishEvents.length; index++) {
+              final event = finishEvents[index];
+              expect(event['httpRequestId'], first.requestId);
+              expect(event['error'], contains(expectedFinishErrors[index]));
+              expect(event['stackTrace'], isNotEmpty);
+            }
+            if (fallback) {
+              expect(
+                runtime.responseStreamChunks[9001],
+                failCall
+                    ? [
+                        [1, 2, 3],
+                      ]
+                    : [
+                        [1, 2, 3],
+                        [4, 5],
+                      ],
+              );
+            }
+
+            second.sendText(body: 'independent response', status: 207);
+            await _waitUntil(() => handshakes.last.releases != 0);
+            expect(handshakes.map((value) => value.releases), [1, 1]);
+            expect(runtime.httpResponses[57]!.single.status, 207);
+            expect(finishEvents, hasLength(expectedFinishErrors.length));
+          },
+        );
+      }
+    }
+  }
 
   test(
     'streams HTTP response chunks when progressive results emitted',

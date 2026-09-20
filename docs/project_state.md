@@ -6,6 +6,48 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work157 reproduces HTTP stream cleanup leaks before changing production code:
+when stream finish and the diagnostic observer both throw, request ownership is
+removed but the handshake is not released. Both finalizers now use finally to
+attempt all owned cleanup, including unfinished borrowed direct streams,
+subscription cancellation and handshake release. Observer errors remain
+observable after cleanup; no WAMP messages or public signatures change. Twelve
+public-router cases cover normal/direct/hybrid streams, final/error replies,
+throwing observers, exact finish attempts, pending-request removal, release
+ordering and an independent concurrent request. Replacing the two finalizers
+with their pre-fix versions fails five assertions. The full router runtime file
+passes262 tests. The complete16-candidate method probe detects all4 viable
+mutants through pure assertions, with12 compile failures and zero survivors,
+timeouts, error-only credit or equivalence waivers. Independent audit and frozen
+source/test/native hashes agree. The replay pins pre-fix commit78c544c3 rather
+than mutable HEAD. This is not a whole-router mutation score;
+the full binding inventory has2399 candidates. The initial probe's four timeouts
+remain recorded separately; an observable-completion barrier replaced a wait
+for the expected diagnostic before the final rerun.
+Browser regression policy now includes client96.29% and raises core to96%,
+without changing the98% target. Fail-first tests also exposed decimal threshold
+rounding: exactly9629/10000 lines could fail a96.29% floor. Exact rational
+comparisons fix package/file/component/target equality while retaining one-line
+regression rejection. All19 coverage-tool tests and69 wiring tests pass.
+Fast157 passed before edits. Fresh JS157 passes the strengthened floors:
+core7388/7695 (96.01%) and client2651/2753 (96.29%), with162 unmeasured sources
+still visible. The explicit98% audit fails and frozen inputs match. Full
+Verify157 exits0, including3855 router tests and3343 core/2568 client WASM tests;
+frozen inputs match. Fresh VM157 libraries measure38925/42680 (91.20%):
+auth100%, bench89.17%, client92.07%, core94.34%, MCP96.13%, router88.64%
+(17183/19386). The98% audit fails and59 unmeasured sources remain visible.
+Full VM157 collection exits0. Packaging remains765/787 (97.20%), with12
+unmeasured sources and a failing98% audit. Final input hashes match.
+VM collection started only after
+Verify157's native consumers and the pinned mutation replay completed; no native
+users overlap. Post-native source/artifact hashes match and the shared native
+window is released. No new Rust or WASM line-coverage claim is made. Evidence:
+http157-cleanup-probe (superseded timeouts), http157-finalizer-probe,
+js157-current, vm157-current and coverage157-verification under
+out/regression-coverage-2026-09-15. The older Work154 Session campaign remains
+isolated/live on its original snapshot. PR93 remains draft/unmerged, and the
+whole98%/95% milestone is incomplete. Do not publish or change versions.
+
 Work156 reproduces terminal progressive-call reentry before production edits:
 32 assertion failures across VM/WASM show ordinary/lazy and plain/native-E2EE
 file callbacks accepting additional input after the final CALL. Final dispatch
@@ -27,14 +69,25 @@ Full Verify156 exits0, including3343 core and2568 client WASM tests, and frozen
 inputs match. Fresh JS156 measurement passes: core7388/7695 (96.01%)
 and client2651/2753 (96.29%), with162 unmeasured sources still visible. Frozen
 inputs match and the explicit98% audit still fails. Exact-new-head hosted evidence
-remains outstanding. Full VM156 line collection is now live (unified session24676,
-initial PID32852, log /tmp/connectanum-coverage156-vm-lines.log, output
-out/regression-coverage-2026-09-15/vm156-current). The shared native window remains
-reserved until that collection finishes; do not duplicate it or overlap builds.
+remains outstanding. Full VM156 library measurement is38877/42680 (91.09%):
+auth100%, bench89.17%, client92.07%, core94.34%, MCP96.13%, router88.39%, with59
+unmeasured sources. The explicit98% audit fails. Router sources are unchanged
+from e1f4b785, but12 earlier hits are missing and one is newly hit: borrowed HTTP
+stream cleanup/error paths, error formatting and internal-session lifecycle need
+deterministic tests, not percentage-seeking reruns. VM156 collection exits0;
+packaging remains765/787 (97.20%), with12 unmeasured sources and a failing98%
+audit. Final input hashes match; the native-library hash matched when all native
+consumers finished and the shared window was released. Evidence is in
+out/regression-coverage-2026-09-15/vm156-current and coverage156-verification.
 The older Work154 full Session campaign remains isolated/live and cannot gain
 credit from these new tests. Evidence: session156-draft,
 session156-finalization-probe and coverage156-verification under
 out/regression-coverage-2026-09-15. The whole98%/95% milestone remains incomplete.
+Implementation78c544c3 is pushed and PR93 updated, draft/unmerged. CI35514530549/
+35514527810, package35514530479/35514527815, image35514537707 (explicit dry-run)
+and profile35514538403 are queued on that head. Strict audit exits1 for pending
+checks/feature-branch protection, not a proven test failure. This post-push
+measurement/delivery bookkeeping waits for the next implementation bundle.
 
 Work155 strengthens invocation success and reentry assertions after pre-edit
 Fast155 exits0. Valid lazy/PPT/E2EE dispatch, authenticated unpacking, zero/null
