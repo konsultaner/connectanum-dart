@@ -378,25 +378,30 @@ class WampWorkloadRunner {
             }),
     ];
     final start = DateTime.now();
-    await _runTimedOperation(
-      publisher.publishLazyPayload(
-        scenario.uri,
-        payload: payloadFactory(metadata),
-        options: _buildPublishOptions(scenario),
-      ),
-      timeout: _eventTimeout,
-      timeoutLabel: 'pubsub_publish_timeout',
-      logLabel: 'PUBSUB publish',
-      details: _operationDetails(
-        scenario,
-        workerId: workerId,
-        iteration: iteration,
-      ),
-    );
-    _logger.fine(
-      'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
-    );
-    await Future.wait(eventFutures);
+    // Observe deliveries and ACK together, including synchronous publish errors.
+    await Future.wait<void>([
+      ...eventFutures,
+      Future<void>.sync(() async {
+        await _runTimedOperation(
+          publisher.publishLazyPayload(
+            scenario.uri,
+            payload: payloadFactory(metadata),
+            options: _buildPublishOptions(scenario),
+          ),
+          timeout: _eventTimeout,
+          timeoutLabel: 'pubsub_publish_timeout',
+          logLabel: 'PUBSUB publish',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            iteration: iteration,
+          ),
+        );
+        _logger.fine(
+          'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
+        );
+      }),
+    ], eagerError: true);
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     _logger.fine(
       'PUBSUB publish done worker=$workerId iteration=$iteration uri=${scenario.uri} '
@@ -2027,9 +2032,18 @@ class WampEventBuffer {
     wamp_core.LazyEventPayload? matchedEvent;
     while (_buffer.isNotEmpty) {
       final event = _buffer.removeFirst();
-      if (matchedEvent == null && matcher(event)) {
-        matchedEvent = event;
-        continue;
+      try {
+        if (matchedEvent == null && matcher(event)) {
+          matchedEvent = event;
+          continue;
+        }
+      } catch (_) {
+        // Restore the throwing event and its scanned prefix before propagating.
+        _buffer.addFirst(event);
+        while (replayBuffer.isNotEmpty) {
+          _buffer.addFirst(replayBuffer.removeLast());
+        }
+        rethrow;
       }
       replayBuffer.addLast(event);
     }

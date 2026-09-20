@@ -375,6 +375,9 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
             'wamp_workload_runner_test.dart', 'wamp_session_wire_regression_test.dart',
             'wamp_session_factory_test.dart', 'wamp_transport_targets_test.dart',
             'wamp_sample_test.dart', 'wamp_factory_regression_test.dart',
+            'wamp_sample_boundaries_test.dart', 'wamp_scenario_boundaries_test.dart',
+            'wamp_event_buffer_regression_test.dart', 'wamp_pubsub_failure_regression_test.dart',
+            'wamp_transport_targets_boundaries_test.dart',
         ]}
         fixtures = {'native/bench/bench_tls.crt', 'native/bench/bench_tls.key'}
         self.assertEqual(set(target['supportFiles']), fixtures | {
@@ -395,6 +398,7 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         self.assertEqual(set(target['tests']), {
             entrypoint.relative_to(REPO_ROOT).as_posix(),
             'packages/connectanum_bench/test/benchmark_runner_build_test.dart',
+            'packages/connectanum_bench/test/benchmark_runner_accounting_test.dart',
         })
         self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
         self.assertTrue(target['requiresNativeLibrary'])
@@ -408,6 +412,22 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         self.assertIn("import '../wamp_transport_integration_test.dart' as integration;", source)
         self.assertIn('integration.benchmarkRunnerRegressionTests()', source)
         self.assertNotIn('integration.main()', source)
+
+    def test_bench_auth_and_targets_mutate_whole_sources_with_all_regressions(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        root = REPO_ROOT / 'packages/connectanum_bench'
+        for name, stem in [('bench-http-auth-vm', 'http_auth_bench_harness'),
+                           ('bench-transport-targets-vm', 'wamp_transport_targets')]:
+            with self.subTest(target=name):
+                target = targets[name]
+                self.assertEqual(target['sources'], [
+                    f'packages/connectanum_bench/lib/src/{stem}.dart'])
+                self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
+                self.assertEqual(set(target['tests']), {
+                    path.relative_to(REPO_ROOT).as_posix()
+                    for path in (root / 'test').glob(f'{stem}*_test.dart')})
+                self.assertNotIn('sourceRegions', target)
+                self.assertFalse(target.get('requiresNativeLibrary', False))
 
     def test_bench_worker_mutations_cover_complete_process_lifecycle(self):
         targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())

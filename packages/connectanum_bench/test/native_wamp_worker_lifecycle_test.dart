@@ -12,6 +12,41 @@ import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (var turns = 0; turns < 6; turns++) {
+    test(
+      'close settles a scenario during ready handoff ($turns microtasks)',
+      () async {
+        final fixture = await _WorkerFixture.create();
+        await fixture.worker.start();
+        var settled = false;
+        Object? failure;
+        fixture.worker
+            .runWithMetrics(_scenario())
+            .then(
+              (_) {
+                settled = true;
+              },
+              onError: (Object error) {
+                failure = error;
+                settled = true;
+              },
+            );
+        for (var turn = 0; turn < turns; turn++) {
+          await Future<void>.value();
+        }
+        await fixture.worker.close();
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          settled,
+          isTrue,
+          reason: 'Closed worker must settle its scenario.',
+        );
+        expect(failure, isA<StateError>());
+        await fixture.expectNoLiveChildren();
+      },
+      skip: Platform.isWindows,
+    );
+  }
   test(
     'fixture deadline is a timeout rather than an assertion failure',
     () async {

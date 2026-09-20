@@ -6,6 +6,63 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work165 integrates the three Work164 benchmark fixes after Fast165 passed:
+HTTP auth startup rollback, FIFO preservation after replay matcher failure, and
+joint ownership of pub/sub delivery and ACK failures. The promoted regressions
+reproduce 11 assertion failures before the fixes. All 1123 benchmark tests now
+pass, package analysis is clean, and all 72 verification-tooling contracts pass.
+New runner-accounting tests exercise measured means, scenario counter deltas,
+duration/dry-run scheduling and secure-listener rejection; the six worker
+handoff controls are integrated without a speculative production change.
+The full-source HTTP auth and transport-target mutation runs complete with
+independent audits: 40/54 (74.07%) and 28/34 (82.35%) assertion-backed detections.
+Their raw detection scores are 42/54 and 30/34; no waivers, both 95% gates fail.
+Verify165 passes, including 3894 router, 3343 core WASM and 2568 client WASM
+tests. Fresh benchmark VM library coverage is 2260/2301 (98.22%), up from
+2189/2296 (95.34%), with all 1123 tests passing. This package aggregate does not
+pass the complete 98% audit: benchmark_runner.dart is still 93.33% and
+wamp_workload_runner.dart 97.83%, and missing external scopes stay visible.
+The unmeasured benchmark barrel is exports-only, not a fabricated 100% result.
+Supervisor cell1759 is terminal; source/test and native hash checks pass.
+Evidence is retained in coverage165-verification, bench165-final and
+bench165-boundary-mutations under out/regression-coverage-2026-09-15.
+Next, integrate the 18 HTTP configuration and nine transport-ranking follow-up
+probes after a fresh baseline and close remaining runner/workload assertions;
+recollect full target campaigns rather than applying old scores to new tests.
+The ignored probes are not part of the frozen campaign scores. Exact-head
+hosted verification must follow the implementation push; keep PR #93 draft.
+
+Runner163 is now terminal and independently audited: 89 generated, 72 viable,
+26 assertion-backed kills (36.11%), 21 error-only detections, 25 survivors and
+17 compile errors. Both baselines and final frozen input/native hashes pass;
+the 95% gate fails with no waivers. Do not resume old cells1590/1591 or Fast165.
+The full 98%/95% milestone remains incomplete. No merge, publication or version
+change is authorized; bundle this state with the implementation commit.
+
+Work164 is isolated while runner163 owns the frozen package snapshot and native
+window. Three benchmark bugs have pre-fix assertion evidence: partial HTTP auth
+harness startup leaks previously bound listeners (two failures for one/three
+listeners), replay matcher exceptions discard buffered events (three failures),
+and pub/sub disconnect/publish failures leave event Futures unobserved while
+waiting for ACK (six failures). Candidate fixes and boundary tests pass 292
+cases, including all 60 existing workload tests; these are ignored prototypes,
+not integrated production fixes or new package coverage. Evidence, source
+hashes, reproduction commands and promotion steps are retained under
+`out/regression-coverage-2026-09-15/coverage164-probes/EVIDENCE.md`. Both frozen
+input and native hash checks pass. Scratch analysis has dependency-scope info
+diagnostics, so package analysis is still required after promotion. Preserve
+runner163 rather than starting another native campaign. After it completes,
+run bin/test-fast, integrate the regressions/fixes, then collect fresh coverage,
+bin/verify and mutation evidence. PR #93 still has 74 queued checks with no
+assigned runners; this is not a demonstrated hosted test failure. No new commit,
+merge, publication or version change; keep all bookkeeping for the next code
+bundle and the full goal incomplete.
+
+A follow-up Work164 worker handoff probe passes all six tested microtask
+positions; its copied canonical lifecycle suite passes 36 tests. The suspected
+handoff race is not reproduced: no worker production patch or equivalence waiver
+was added. Final scratch analysis includes 46 dependency-scope info diagnostics.
+
 Work163 corrects mutation deadline accounting. `_WorkerFixture.waitFor` used
 `expect` for elapsed polling deadlines; `throwsA` can also wrap TimeoutException
 in TestFailure. Negative controls reproduce both false assertion-kill paths.
@@ -39,6 +96,22 @@ logs and manifests are retained under coverage163-verification in the evidence
 directory. Final mutation scores are pending. The implementation bundle is ready
 for a feature-branch commit; no merge, publication or version change. The full
 milestone remains incomplete.
+
+Work162/163 implementation 5c56a12b is pushed to the coverage feature branch.
+Cell1591 has now completed the full worker163 campaign: both baselines pass,
+85 candidates, 69 viable, 22 assertion-backed kills (19 assertion-only and three
+mixed), four error-only detections, 37 timeouts, six survivors and 16 compile
+errors. Raw detection is 26/69 (37.68%); strict/adjusted assertion score is 22/69
+(31.88%), versus corrected historical 15/69 (21.74%). No waivers; 95% fails.
+Independent audit and frozen input hashes pass. Cell1591 is terminal: do not
+restart it. Cell1590 still owns the full 89-candidate runner campaign; its baseline
+passes and final results are pending. Exact-head CI35531155716/35531153071,
+package dry-runs35531155711/35531153050, image35531168113 and profile35531169225
+are queued. All 74 PR checks are queued. The strict audit exits1 for pending
+evidence and feature-branch protection, not a demonstrated test failure. Its log
+is retained in coverage163-verification. PR #93 is updated and remains
+draft/unmerged. This post-push bookkeeping stays uncommitted until the next
+implementation bundle.
 
 Work162 fixes BenchmarkRunner's native-build pipe deadlock: stdout and stderr
 are drained concurrently without changing exit-code handling. The package's

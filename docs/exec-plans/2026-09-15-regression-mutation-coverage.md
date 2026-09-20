@@ -67,6 +67,78 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work165 Integrated Benchmark Failure Regressions
+
+- Fast165 passed before canonical edits. Runner163 completed, both baselines and
+  final input/native hashes pass, and its independent audit reports 26/72
+  assertion-backed detections (36.11%), 21 error-only detections, 25 survivors,
+  17 compile errors and no timeouts/waivers. Its 95% gate fails.
+- Promoted HTTP startup rollback, replay FIFO restoration, and joint pub/sub ACK
+  and delivery error ownership. The canonical pre-fix run reproduces all 11
+  assertion failures. The complete benchmark suite now passes 1123 tests;
+  package analysis and all 72 verification-tooling contracts pass.
+- Added native runner counter/latency/scheduling assertions and six worker
+  handoff controls. No change to WAMP wire behavior or public APIs.
+- Full-source mutation targets now include all promoted boundary suites plus
+  HTTP auth and transport target modules. Their first complete audited scores
+  are 40/54 (74.07%) and 28/34 (82.35%) assertion-backed kills, with raw detections
+  42/54 and 30/34. Retain compile errors, test errors and survivors separately;
+  no waivers, both 95% gates fail. Evidence: bench165-boundary-mutations under
+  out/regression-coverage-2026-09-15.
+- Verify165 passes including 3894 router, 3343 core WASM and 2568 client WASM
+  tests. Full benchmark VM library coverage passes all 1123 tests and measures
+  2260/2301 lines (98.22%), versus 2189/2296 (95.34%). The complete target audit
+  still fails: runner 168/180 (93.33%) and workload 1220/1247 (97.83%) miss
+  per-file floors, and absent other packages/runtime scopes remain unmeasured.
+  The sole unmeasured benchmark library path is its exports-only barrel.
+  Do not credit CLI, Rust/FFI or browser coverage from this library-only report.
+- Supervisor cell1759 is terminal; frozen source/test and native hash checks
+  pass. Follow-up HTTP configuration (18 cases) and transport-ranking (nine)
+  tests pass as ignored probes; their assertions are not credited to the frozen
+  campaigns. Promote them with inventory contracts, strengthen remaining
+  runner/workload assertions, then recollect whole-target mutation evidence.
+- A narrow local review was checked independently: eagerError does not cancel
+  Future.wait inputs or delay the first error; success still requires ACK and
+  all deliveries. Replay restores a local queue in FIFO order. No demonstrated
+  HttpServer.close failure justifies speculative injectable-server APIs. GLM's
+  separate endpoint is unreachable. Whole-goal completion remains unproven.
+
+### Work164 Isolated Failure Ownership Regressions
+
+- Preserve the live full runner163 mutation campaign and its frozen root/native
+  inputs. All new source/test experiments are ignored copies under
+  `out/regression-coverage-2026-09-15/coverage164-probes/`.
+- Reproduce partial HTTP auth harness bind rollback failure for one and three
+  earlier listeners. Both canonical cases fail rebind assertions before isolated
+  cleanup-on-failure candidates; 32 candidate tests pass, including retry.
+- Reproduce replay matcher data loss at the first/middle/last queued event.
+  Preserve synchronous exception behavior and FIFO while restoring the scanned
+  prefix. Seven candidate tests pass versus three canonical assertion failures.
+- Reproduce pub/sub errors escaping while ACK is pending, or after synchronous
+  and asynchronous publish failure. Candidate Future.wait owns ACK and delivery
+  errors together and fails promptly without abandoning secondary errors.
+  Six canonical assertion failures become 12 passing cases, including two-peer
+  success, ACK/event ordering, metadata forms, error identity and payload release.
+- The combined candidate/boundary matrix passes 292 tests, including 60 existing
+  workload tests, 50 sample, 109 scenario and 22 transport-target cases. Scratch
+  analyzer exits zero with dependency-scope informational diagnostics, not a
+  clean package analyzer claim. Frozen source/test and native hashes still match.
+- Qwen review leads were checked against the behavior tests; its FIFO reversal
+  and Future.wait secondary-error claims are invalid. Add the useful mixed
+  payload-delivery failure control. Keep candidate evidence distinct from
+  package verification, and promote only after the live campaign is terminal.
+- No canonical implementation/test edit, commit, publication or version change
+  in Work164 yet. After promotion, run fresh package analysis, coverage, bin/verify
+  and full target campaigns; older mutation scores do not describe these tests.
+  Evidence.md records commands, caveats and promotion steps. The whole 98%/95%
+  goal remains incomplete; GitHub's 74 exact-head checks remain queued.
+- Investigate worker survivors without treating unexplored guards as equivalent.
+  A six-position microtask handoff/close probe passes on canonical code; the
+  copied lifecycle suite passes 36 cases. The suspected hang is not reproduced,
+  so no worker fix or waiver follows. GLM is independently unavailable and Qwen
+  did not supply a concrete reachable counterexample. Final scratch analysis
+  has 46 dependency-scope info diagnostics; worker163 scores remain unchanged.
+
 ### Work163 Conservative Deadline Accounting
 
 - Two classifier negative controls reproduce missed deadlines: the exact legacy
@@ -103,6 +175,17 @@ caught and timed-out outcomes separately.
   Freeze: /tmp/connectanum-coverage163-frozen-inputs.sha256; logs/manifests retained
   in coverage163-verification. Final mutation results are pending. Bundle this
   bookkeeping with the implementation commit; keep the milestone incomplete.
+- Implementation 5c56a12b is pushed. Cell1591 completed worker163: 85 candidates,
+  69 viable, 22 assertion kills (19 pure, three mixed), four error-only detections,
+  37 timeouts, six survivors and 16 compile errors. Both baselines pass. Raw
+  detection 26/69 (37.68%); strict/adjusted assertion 22/69 (31.88%), no waivers.
+  Independent audit and input hashes pass; the 95% gate fails. Cell1591 is terminal.
+  Cell1590 still owns the full 89-candidate runner campaign with a clean baseline.
+  Exact-head CI35531155716/35531153071, package35531155711/35531153050,
+  image35531168113 and profile35531169225 are queued; all 74 PR checks are queued.
+  Strict audit exits1 for pending evidence and feature-branch protection, not a
+  demonstrated test failure. PR #93 is updated and remains draft/unmerged; no
+  publication or version change. Notes stay uncommitted for the next code bundle.
 
 ### Work162 Build Pipe Drain And Worker Assertions
 

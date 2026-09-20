@@ -31,15 +31,20 @@ class HttpAuthBenchHarness {
     }
     final targetLogger = logger ?? Logger('HttpAuthBenchHarness');
     final servers = <HttpServer>[];
-    for (final serverConfig in config.servers) {
-      targetLogger.info(
-        'Starting HTTP auth bench harness on ${serverConfig.host}:${serverConfig.port}',
-      );
-      final bindHost =
-          InternetAddress.tryParse(serverConfig.host) ?? serverConfig.host;
-      final server = await HttpServer.bind(bindHost, serverConfig.port);
-      server.listen((request) => serverConfig.handle(request, targetLogger));
-      servers.add(server);
+    try {
+      for (final serverConfig in config.servers) {
+        targetLogger.info(
+          'Starting HTTP auth bench harness on ${serverConfig.host}:${serverConfig.port}',
+        );
+        final bindHost =
+            InternetAddress.tryParse(serverConfig.host) ?? serverConfig.host;
+        final server = await HttpServer.bind(bindHost, serverConfig.port);
+        servers.add(server);
+        server.listen((request) => serverConfig.handle(request, targetLogger));
+      }
+    } catch (_) {
+      await Future.wait(servers.map((server) => server.close(force: true)));
+      rethrow;
     }
     return HttpAuthBenchHarness._(logger: targetLogger, servers: servers);
   }
