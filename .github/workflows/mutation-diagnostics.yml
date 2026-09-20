@@ -2,6 +2,10 @@ name: Mutation Diagnostics
 
 on:
   workflow_dispatch:
+  push:
+    branches: ['**']
+    paths:
+      - '.github/workflows/mutation-diagnostics.yml'
 
 permissions:
   contents: read

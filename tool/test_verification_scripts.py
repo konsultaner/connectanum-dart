@@ -553,6 +553,23 @@ fi
         for bypass in ["continue-on-error:", "--regex", "--exclude-re", "--shard", "|| true"]:
             self.assertNotIn(bypass, native_job)
 
+    def test_mutation_workflow_edits_run_before_default_branch_merge(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/mutation-diagnostics.yml").read_text()
+        events = workflow.split("\non:\n", 1)[1].split("\npermissions:\n", 1)[0]
+        self.assertEqual(events.strip(), "\n".join([
+            "workflow_dispatch:",
+            "  push:",
+            "    branches: ['**']",
+            "    paths:",
+            "      - '.github/workflows/mutation-diagnostics.yml'",
+        ]))
+        jobs = workflow.split("\njobs:\n", 1)[1]
+        self.assertNotIn("github.event_name", jobs)
+        self.assertEqual(jobs.count("if: always()"), 2)
+        self.assertEqual(jobs.count("if-no-files-found: error"), 2)
+        self.assertNotIn("continue-on-error:", jobs)
+        self.assertNotIn("|| true", jobs)
+
     def test_client_resource_restart_runs_in_both_gates(self) -> None:
         command = (
             "dart test packages/connectanum_client/test/transport/native/"

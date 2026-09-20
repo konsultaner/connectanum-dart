@@ -5991,6 +5991,9 @@ fn has_bearer_header_bytes(headers: &[(Arc<[u8]>, Arc<[u8]>)]) -> bool {
 mod http2_security_tests;
 
 #[cfg(test)]
+mod http_transport_auth_tests;
+
+#[cfg(test)]
 mod http1_response_tests;
 #[cfg(test)]
 mod http_response_headers_tests;

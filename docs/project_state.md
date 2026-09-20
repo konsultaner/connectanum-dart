@@ -6,7 +6,7 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Work148/149 is locally verified on top of pushed c5aeb13d. Fast148-before exits0.
+Work148/149 is pushed as9494ee5f and PR93 is updated. Fast148-before exits0.
 The canonical collector now supports core-wamp alongside the unchanged default
 core-rawsocket, with complete inventories, matching baseline filters, isolated
 source/target directories and fail-closed unknown targets. Linux/macOS diagnostic
@@ -33,6 +33,43 @@ and2496 client WASM tests; the frozen149 input hashes still match. No whole-nati
 The original Session144 browser campaign remains live and must not be restarted.
 c5aeb13d package dry run, WAMP profile and Router Image checks pass; main CI
 remains incomplete, so the strict deployment chain is not green.
+Exact-head9494ee5f CI, package, image35501906117 and profile35501906948 remain
+queued. Strict audit exits1; it also reports the new manual Mutation Diagnostics
+workflow is not discoverable by GitHub. Do not claim hosted native diagnostics
+have run. Preserve the audit in coverage149-verification.
+
+Work150 integrates five pure transport-auth regression groups after Fast150-before
+passes. Canonical tests and the independent42-candidate audit pass; source/test
+hashes match the isolated probe. That42-candidate selection has40 assertions,
+two investigated length-boundary survivors and no waivers or errors/timeouts.
+Inventory review finds it omitted16 whole-function replacements: it is an
+operator-only probe, NOT complete helper coverage. The complete58-candidate
+helper campaign now has54/56 assertion kills (96.43%), two compile failures and
+the same two unwaived survivors, no errors/timeouts. Both five-test baselines
+pass. Independent canonical audit and full inventory comparison agree.
+Earlier probes retain their uncredited errors; no assertions are removed.
+Cargo150 and all ten FFI150 groups finish with matching source inventories.
+Their newline-safe union measures core8835/10064 (87.79%) and FFI4987/5798
+(86.01%) on macOS arm64; missing sources remain visible. Full Verify150 exits0,
+including3319 core and2496 client WASM cases; frozen canonical input hashes still
+match. The shared native reservation is released. Preserve Session144 JS.
+
+Work150 also fixes the manual-only Mutation Diagnostics workflow's pre-merge
+visibility gap: GitHub returns404 before it is on the default branch. Add a
+branch-push trigger restricted to changes to that workflow, leaving both job
+matrices, assertions, artifact retention and failure policy unchanged. The new
+wiring regression fails before the change; all three focused wiring tests pass
+afterward. Exact-head9494ee5f package and WAMP-profile checks now pass, image is
+running and main CI is queued. The strict deployment chain is still not green.
+
+The separate native151-registry-probe-b has nine passing isolated registry/body
+groups after a fresh-cache build. Cover missing identities, cross-protocol
+rejection, request FIFO/response ownership, close cleanup, active WAMP queue
+backpressure and streaming reads. Its71-candidate complete helper mutation probe
+is running; it is not integrated or a measured native coverage gain. Preserve
+the earlier25-operator probe (16 assertions, eight survivors, one error) and the
+rejected zero-test cache-reuse baseline. Use a distinct Cargo target per source
+snapshot. No unfinished campaign is restarted or credited to newer tests.
 
 Work147 is pushed as c5aeb13d. Fast147-before passes;
 six native regression groups plus two assertion-helper controls pass all35

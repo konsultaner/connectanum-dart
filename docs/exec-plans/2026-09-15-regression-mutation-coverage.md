@@ -67,6 +67,63 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work150 Native Transport Auth And Diagnostic Trigger (Locally Verified)
+
+- Five pure helper regression groups pass in the canonical and isolated copies. Cover
+  TLS/mTLS/bearer precedence, valid UTF-8 parity, malformed byte rejection,
+  bearer presence boundaries and preflight opt-in without bypassing TLS/mTLS.
+  Do not conflate presence screening with downstream credential validation.
+- Initial and second42-candidate probes give38 strict assertions, two mixed/error
+  outcomes and two survivors. Preserve those uncredited errors. The final order
+  checks a complete wrong scheme before a truncated prefix, preserving every
+  assertion while making false acceptance fail before a later indexing panic.
+  Final selected-mutations-c gives40/42 assertions (95.24%), two survivors,
+  no errors/timeouts/compile failures and no waivers. Both five-test baselines
+  pass; independent audit verifies source-scopes-c.json. Individual source-hash
+  proofs for the length-boundary equivalents are in the probe README, but neither
+  is waived. Inventory review subsequently finds16 whole-function replacements
+  omitted by the original `in <function>$` filter. Preserve42 as an operator-only
+  probe, not complete helper coverage. A fresh58-candidate complete helper run
+  includes all16 replacements:54/56 assertions (96.43%), two compile failures
+  and two unwaived survivors, no errors/timeouts. Original/restored five-test
+  baselines pass. Independent canonical audit verifies the exact snapshot and
+  every outcome; generated full helper inventory exactly matches the campaign.
+- Fast150-before exits0 before canonical integration. The shared native window
+  was released after Verify149, then reserved again after confirming the other
+  task is idle. Preserve the Session144 JS campaign; do not start a duplicate.
+- Cargo150 and all ten FFI150 groups finish; parsed source inventories match.
+  The newline-safe union measures core8835/10064 (87.79%) and FFI4987/5798
+  (86.01%), macOS arm64 only, with missing sources retained. Full Verify150 exits0,
+  including3319 core and2496 client WASM cases. The frozen source/test/config
+  manifest still matches. The shared native reservation is released.
+- GitHub returns404 for the new manual-only Mutation Diagnostics workflow before
+  merge. GitHub's [workflow-dispatch rule](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onworkflow_dispatch)
+  requires the file on the default branch; its [push/path filters](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpushbranchestagsbranches-ignoretags-ignore)
+  permit a branch-push trigger for changes to this workflow. Add that trigger,
+  preserving manual dispatch and byte-identical job definitions. One new wiring
+  assertion fails first, then all three focused wiring tests pass. Ruby YAML
+  parsing confirms sibling events; no actionlint result is claimed. A local
+  review's indentation objection is disproved by the actual YAML and parser.
+  Require an actual exact-head hosted push run after publishing this change;
+  configuration alone is not hosted evidence or a95% diagnostics gate.
+
+### Work151 Isolated Registry Follow-Up (Not Integrated)
+
+- The initial seven-test operator probe completes25 candidates:16 actual
+  assertions, eight survivors and one error-only outcome, not17 assertion kills
+  despite Cargo's17 catches. Original/restored seven-test baselines pass.
+- A separate probe-b adds active RawSocket/WebSocket send-queue/error/close
+  contracts and streaming-body delegation, and replaces one unchecked result
+  unwrap with an explicit expected-result assertion. All nine tests pass after a
+  fresh build. Reusing the earlier source root's Cargo cache initially gave exit0
+  with zero tests; preserve and reject that result. Use a distinct target per
+  isolated source root. No sockets or shared global native runtime are used.
+- The fresh71-candidate helper inventory includes46 whole-function replacements.
+  Its mutation campaign is running on a frozen isolated snapshot. This is not
+  canonical integration, a whole-native mutation score, or a line-coverage gain.
+  Preserve the original Session144 campaign. Local companion suggestions that
+  HTTP/3 cannot queue HTTP requests contradict the source; do not adopt them.
+
 ### Work148/149 Native Target Reproduction And Helper Contracts (Locally Verified)
 
 - Fast148-before exits0 before canonical edits. Add four collector regressions
@@ -110,6 +167,11 @@ caught and timed-out outcomes separately.
 - Work147 is pushed as c5aeb13d and PR93 is updated. Package dry run, WAMP
   profile35499859544 and image35499858505 pass; main CI remains incomplete.
   Preserve Session144's live isolated campaign; no newer test score is inferred.
+- Work148/149 is now pushed as9494ee5f and PR93 is updated. Exact-head CI/package
+  checks and image35501906117/profile35501906948 remain queued. Strict audit
+  exits1 and also reports Mutation Diagnostics is not discoverable by GitHub;
+  do not claim hosted native diagnostic execution. No merge/publication/version
+  change. Keep this post-push bookkeeping with the next implementation commit.
 
 ### Work147 Native Assertion Oracles And Completed MCP Evidence (In Progress)
 
