@@ -6,6 +6,55 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work170 passes the complete HTTP mutation gate: 56/58 assertion-backed detections
+(96.55%), 90 generated, two survivors, 32 compile errors, no timeouts, no
+error-only credit and no waivers. Original/restored baselines, independent audit
+and frozen input hashes pass. The fixture observes early startup outcomes and
+socket EOF rather than waiting for callbacks that cannot occur. All nine former
+timeout controls and the three original lifecycle controls fail assertions.
+Evidence: bench170-http-mutations under out/regression-coverage-2026-09-15.
+Fresh Fast169b passes before promotion. Thirty-seven independent scenario-copy
+tests cover all 25 fields, nullable clearing, unchanged fields/source, and false
+flags/zero payload; all 25 separate ignore-one-override controls fail assertions.
+Both new suites remain included in the complete mutation inventory. All 130
+focused tests, package analysis and 73 tooling contracts pass. These controls
+are not a new complete workload mutation score. Verify170 passes, including
+1306 benchmark, 3894 router, 3343 core WASM and 2568 client WASM tests. Its frozen
+source/test hashes match. Cell2171/session77450 is terminal and the native window
+is released. Logs are retained in coverage170-verification. Work169/170 add 46
+regressions without production behavior or version changes; the complete
+98%/95% goal is not achieved. Check exact-head hosted evidence after this push;
+no hosted-green or newly measured all-runtime coverage claim is made.
+
+Work169 integrates nine regression tests after Fast169 passes: active HTTP
+response shutdown/startup rollback, transport-error classification, and latency
+units/byte accounting across five workload modes. All 166 focused tests, package
+analysis and 73 tooling contracts pass; complete mutation inventories include
+both suites. The full HTTP campaign independently audits 47/58 assertion-backed
+detections (81.03%): 90 generated, two survivors, nine timeouts, 32 compile
+errors, no error-only detections and no waivers. Both baselines pass. The new
+shutdown/rollback/error controls catch three former survivors, but nine other
+mutants expose fixture waits for listeners or responses that never start. These
+timeouts are not credited as assertions. Preserve this complete evidence under
+bench169-http-mutations; do not report the anticipated 95% result as achieved.
+
+Verify169 and its post-verification hashes pass. Cells2078/2091/2141 and the
+Fast169b, HTTP169 and HTTP170 campaigns are terminal; do not restart them. The
+startup/EOF fixture correction is now canonical in Work170. Isolated follow-up
+coverage171-probes contains eight deterministic event-buffer tests using a
+microtask scheduler, without wall-clock deadlines, plus four passing replacements
+for the legacy buffer tests. Fifteen selected former timeout controls now yield
+13 assertion-backed and two error-only failures, with no timeouts; error-only
+cases receive no credit. It is not yet canonical: promote both suites with a
+direct fake_async dev dependency before the next complete workload campaign.
+The now-passing HTTP target also needs a required CI matrix/audit gate. The
+broader per-component/runtime gaps remain mandatory. Work168 is pushed as fed2cc82 and
+PR #93 is updated/attached. Exact-head CI35543464622, package35543464626,
+router-image35543523851, profile35543524908 and native-dry-run35543587393 remain
+queued. The strict audit fails on pending evidence and unprotected feature
+branch, not demonstrated hosted test failures. Do not change branch protection,
+merge, publish, or versions; the full 98%/95% goal remains incomplete.
+
 Work168 promotes 26 regression tests after Fast168 passed. Eight canonical
 pre-fix assertion failures reproduce unbounded file-receiver registration,
 cleanup skipping acquired sessions, and cleanup errors replacing the original
@@ -33,13 +82,8 @@ HTTP mutations/session25220 are terminal; the native window is released.
 Verification logs are retained in coverage168-verification. Keep PR #93 draft,
 the full milestone active, and make no merge, publication or version change.
 
-The next isolated follow-up at coverage169-probes has nine passing tests: three
-real-HTTP-parser lifecycle/error-classification tests using controlled memory
-sockets and six workload latency/byte-accounting tests. Selected controls give
-genuine assertion failures for force-close rollback/shutdown, transport errors
-misclassified as bad forms, and five individual latency-unit mutations. These
-are not canonical tests or full campaign scores. Promote after fresh test-fast,
-then rerun the complete affected mutation inventories and verification.
+The original nine coverage169-probes tests are promoted. Their selected timing
+controls remain diagnostic evidence, not a complete workload mutation score.
 
 Work167's full workload campaign is terminal and independently audited: 520
 generated, 339 viable, 154 assertion-backed detections (45.43%), 29 error-only

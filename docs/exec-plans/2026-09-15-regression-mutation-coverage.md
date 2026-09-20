@@ -67,6 +67,55 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work170 HTTP Assertion Gate And Scenario Copy Matrix
+
+- Fast169b passes before promoting the corrected startup/EOF fixture and 37
+  scenario-copy tests. The copy matrix independently checks all 25 fields,
+  nullable clearing, retention, source immutability and false/zero overrides;
+  all 25 separate ignored-override controls fail assertions. Complete mutation
+  wrapper/support inventories and their exact tooling contract include it.
+- All 130 focused tests, package analysis and 73 tooling contracts pass. The
+  complete HTTP campaign passes 95% at 56/58 (96.55%) assertion-backed detections:
+  90 generated, two survivors, 32 compile errors, zero timeouts, zero error-only
+  credit and no waivers. Both baselines and independent audit pass. The nine
+  prior fixture timeouts now fail explicit assertions; prior lifecycle controls
+  still detect the original bugs. Evidence: bench170-http-mutations.
+- Verify170 passes, including 1306 benchmark, 3894 router, 3343 core WASM and
+  2568 client WASM tests. Frozen source/test hashes match; cell2171/session77450
+  is terminal. Logs are retained in coverage170-verification. Isolated
+  coverage171-probes has eight passing microtask delivery/error tests and four
+  passing legacy replacements. Its 15 selected controls yield 13 assertion-backed
+  and two error-only failures, no timeouts. Error-only cases are uncredited.
+  Promote both suites with a direct fake_async dev dependency, preserving all
+  other tests, before remeasuring the complete workload target. Require the
+  now-passing HTTP gate in CI and its exact deployment-audit contract. Keep all
+  component/runtime gaps in scope; no final milestone completion is claimed.
+- The two remaining HTTP survivors concern numeric-host argument representation
+  and private configuration-list growability; neither is waived. The passing
+  HTTP target is not completion of the benchmark component or the wider goal.
+
+### Work169 HTTP Lifecycle And Workload Timing Assertions
+
+- Fast169 passes before promotion of nine tests: controlled HTTP shutdown and
+  rollback, transport-error classification, and independent millisecond/byte
+  accounting for authentication, RPC, publish-ack and subscription/registration
+  cycles. All 166 focused tests, clean package analysis and 73 tooling contracts
+  pass. Both suites are included in the complete mutation inventories.
+- The complete HTTP campaign and independent audit report 47/58 assertion-backed
+  detections (81.03%), two survivors, nine timeouts, 32 compile errors and no
+  waivers/error-only credit. Both baselines pass. Three previous survivors are
+  detected, but nine configuration/early-response mutants expose fixture waits
+  for callbacks that cannot occur. Preserve these outcomes instead of upgrading
+  timeouts to assertions. Evidence: bench169-http-mutations.
+- Verify169 passes, including browser WASM tests, and frozen inputs match.
+  Cells2078/2091 are terminal. The follow-up startup/EOF candidate and its
+  controls are promoted and remeasured in Work170; keep the original HTTP169
+  evidence rather than retroactively attributing its timeouts to assertions.
+- Work168 fed2cc82 is pushed and PR93 updated. CI35543464622, package35543464626,
+  image35543523851, profile35543524908 and native dry-run35543587393 are queued.
+  Strict hosted audit remains non-green with no demonstrated hosted test failure.
+  Keep the full scope and 98%/95% gates intact; no merge/release/version change.
+
 ### Work168 File Registration And Cleanup Ownership
 
 - Fast168 passed before promotion. Twenty-six tests cover file receiver deadlines,
