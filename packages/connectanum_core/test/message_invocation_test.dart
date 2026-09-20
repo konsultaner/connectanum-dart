@@ -407,9 +407,12 @@ void main() {
         },
       );
 
-      invocation.respondWith(
-        lazyPayload: packedPayload,
-        options: YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+      expect(
+        () => invocation.respondWith(
+          lazyPayload: packedPayload,
+          options: YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+        ),
+        returnsNormally,
       );
 
       expect(decodeCount, 0);
@@ -430,19 +433,26 @@ void main() {
       invocation.attachE2eeProvider(provider);
       invocation.onResponse(responses.add);
 
-      invocation.respondWith(
-        arguments: const ['wrapped-response'],
-        argumentsKeywords: const {'worker': 11},
-        options: YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+      expect(
+        () => invocation.respondWith(
+          arguments: const ['wrapped-response'],
+          argumentsKeywords: const {'worker': 11},
+          options: YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+        ),
+        returnsNormally,
       );
 
       expect(responses, hasLength(1));
       final response = responses.single as Yield;
       expect(response.options?.pptCipher, equals('xsalsa20poly1305'));
       expect(response.options?.pptKeyId, equals('test-key'));
-      final decoded = provider.unpackPayload(
-        response.arguments,
-        response.options!,
+      late E2EEPayloadView decoded;
+      expect(
+        () => decoded = provider.unpackPayload(
+          response.arguments,
+          response.options!,
+        ),
+        returnsNormally,
       );
       expect(decoded.arguments, equals(const ['wrapped-response']));
       expect(decoded.argumentsKeywords, equals(const {'worker': 11}));
@@ -461,16 +471,23 @@ void main() {
         e2eeProvider: provider,
       );
 
-      invocation.respondWith(
-        lazyPayload: payload,
-        options: YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+      expect(
+        () => invocation.respondWith(
+          lazyPayload: payload,
+          options: YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+        ),
+        returnsNormally,
       );
 
       expect(responses, hasLength(1));
       final response = responses.single as Yield;
-      final decoded = provider.unpackPayload(
-        response.arguments,
-        response.options!,
+      late E2EEPayloadView decoded;
+      expect(
+        () => decoded = provider.unpackPayload(
+          response.arguments,
+          response.options!,
+        ),
+        returnsNormally,
       );
       expect(decoded.arguments, equals(const ['wrapped-response']));
       expect(decoded.argumentsKeywords, equals(const {'worker': 12}));

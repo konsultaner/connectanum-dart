@@ -67,6 +67,38 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work155 Invocation Success Oracles And Finite Reentry
+
+- Pre-edit Fast155 exits0. Keep every prior value and rejection assertion while
+  asserting normal completion for valid lazy/PPT/E2EE dispatch, authenticated
+  unpacking, null/zero timeout validation and explicit non-progressive error
+  replies. Capture result values without repeating the operation under test.
+- Bound the rejecting callback's nested response attempt to its first dispatch,
+  and require exactly one dispatch. Preserve exception identity, stack, closed
+  state and later retry checks. The Work154 guard-removal VM mutant timed out
+  after entering this test; it now finishes with eight assertion failures.
+- Canonical invocation tests pass273 each on VM and WASM. Full VM inventory has
+  130 outcomes:102/108 assertion detection (94.44%),81 pure/21 mixed kills,
+  6 survivors,22 compile failures, no timeouts or error-only credit. Both original
+  and restored baselines pass. No production changes or equivalence waivers.
+  The complete JavaScript campaign has identical outcomes; independent log audit
+  and source/test/support hashes agree. Both targets still fail the unchanged95%
+  gate and the campaign exits1. Full Verify155 exits0, including core/client WASM;
+  frozen input hashes match. The shared native window is released. Exact-head
+  hosted CI/deployment evidence remains outstanding; PR93 stays draft/unmerged.
+- Preserve the live Work154 session campaign. Its first drain-delegation survivor
+  7243fe2c0f60c00646a5 has a concrete counterexample in session155-drain-probe:
+  controlled pending completion, identical transport failure with retry,
+  concurrent independent futures and no-op unsupported transports. The public
+  Client/Session API prototype passes all four tests on VM/JS and the mutant fails
+  four assertions on each; restored baselines pass. Initial prototype compile
+  errors are retained separately and earn no kill credit. These new tests are
+  outside the canonical campaign snapshot and cannot improve its score.
+- Next integrate the pacing prototype, pin it in VM/web session support
+  inventories, and verify VM/JS/WASM without duplicating the existing campaign.
+  Retain all six invocation survivors unwaived pending individual proofs or
+  meaningful counterexamples. Broader native/runtime/application gaps remain.
+
 ### Work154 Progressive Reply Abandonment And Lifecycle Oracles
 
 - Pre-edit Fast154 exits0. Add a45-case public session matrix across ordinary,
@@ -90,11 +122,21 @@ caught and timed-out outcomes separately.
   whole-session campaign or a new whole-package line coverage measurement.
 - Pin the core Invocation dependency in both session mutation support inventories;
   the wiring regression fails first then passes. All69 verification-script tests
-  pass. Full Verify154 exits0, including browser JS/WASM, with frozen inputs
+  pass. Full Verify154 exits0, including browser WASM, with frozen inputs
   matching; the shared native window is released. Broader refreshed mutation
   campaigns and exact-new-head hosted evidence remain required before claiming
   milestone completion. Current8a141e65 checks remain queued and the older MCP
   diagnostic jobs remain live; do not duplicate them.
+- Runtime evidence correction: local bin/verify selects WASM; hosted Linux
+  selects JavaScript. Work154's JavaScript evidence is the separate focused
+  session run and complete method probe, not a full local JS verification run.
+- Implementation02433aea is pushed; PR93 stays draft/unmerged. Fresh complete
+  core-invocation-vm, core-invocation-web and client-session-web campaigns run
+  serially in lifecycle154-full-mutations, unified session32167/PID9326. Do not
+  restart this live campaign or treat partial scores as finished evidence.
+  Exact-head CI35511282499, package35511282498, image35511337428 (dry-run) and
+  profile35511338422 are queued; strict audit exits1 on outstanding checks.
+  This runtime correction/delivery bookkeeping awaits the next code bundle.
 - Local Qwen reviews were checked against source and tests. Their claim that
   active failures always become abandoned contradicts the guarded call sites;
   the two states deliberately differ. Timer cancellation is observed through

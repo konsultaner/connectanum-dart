@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work155 strengthens invocation success and reentry assertions after pre-edit
+Fast155 exits0. Valid lazy/PPT/E2EE dispatch, authenticated unpacking, zero/null
+timeout validation and error replies now assert normal completion once while
+retaining their independent payload/provider/lifecycle value checks. Rejected
+terminal reentry is bounded within the test callback and asserts one dispatch;
+removing the production completion guard can no longer hang that test. Production
+code and equivalence waivers are unchanged. Focused tests pass273 each on VM and
+WASM. The complete130-candidate VM rerun improves assertion detection from91/108
+to102/108 (94.44%):81 pure assertion and21 mixed kills,6 survivors,22 compile
+failures, no timeouts or error-only kills. The full JavaScript rerun has identical
+outcomes; both original/restored baselines pass. Independent log audit and
+source/test/support hashes agree. The unchanged95% gate remains unmet and the
+campaign exits1 for that reason. Full Verify155 exits0, including core/client
+WASM suites; frozen canonical inputs match. The shared native window is released.
+The older Work154 session campaign remains live and isolated.
+An independent public-session pacing prototype proves survivor7243fe2c0f60c00646a5
+is non-equivalent: removing ProgressiveCall.drain delegation fails four assertions
+on both VM/JS, with passing four-case original/restored baselines. That prototype
+is not yet canonical and earns no whole-session score credit. Integrate it next,
+including mutation support hashes and runtime checks, rather than waiving it.
+Evidence: `out/regression-coverage-2026-09-15/invocation155-full-mutations`,
+`session155-drain-probe`, and `coverage155-verification`. PR93 remains draft;
+exact-head hosted CI/deployment evidence is outstanding. Whole-milestone98%/95%
+remains unmet. No merge, publication or version change.
+
 Work154 reproduces a real progressive-reply lifecycle defect after Fast154
 passes: ordinary and native-materialized dispatch ignored the send result,
 leaving a dropped progressive reply locally open after shutdown. The fail-first
@@ -25,13 +50,22 @@ baselines, source/test hashes and independent log audit agree. This is not a
 whole-session score; the fresh whole-source inventory has650 candidates.
 Session mutation inventories now hash their core Invocation dependency, with a
 fail-first wiring regression; all69 verification-script tests pass. Full
-Verify154 exits0, including browser JS/WASM, and frozen input hashes match.
-The shared native window is released. Exact8a141e65 CI remains queued;
-the older35503564490 MCP jobs are still active, so no duplicate runs were started.
+Verify154 exits0, including browser WASM, and frozen input hashes match.
+JavaScript is covered by the separate focused session run and mutation probe;
+local bin/verify selects WASM, while hosted Linux selects JavaScript.
+The shared native window is released. Implementation02433aea is pushed and PR93
+updated, draft/unmerged. Exact-head CI35511282499/35511279734, package
+35511282498/35511279743, image35511337428 (explicit dry-run) and profile35511338422
+are queued; the strict audit exits1 on pending checks/branch protection, not a
+proven code failure. The older35503564490 MCP jobs remain active.
 Evidence: `out/regression-coverage-2026-09-15/session154-lifecycle-probe` and
 `coverage154-verification`. Whole-milestone98%/95% completion remains unproven.
-Commit/push this implementation increment, then run fresh complete core invocation
-VM/JS and browser Session campaigns and inspect exact-head hosted evidence.
+Fresh complete core invocation VM/JS and browser Session campaigns are running
+serially from02433aea in `lifecycle154-full-mutations` (unified session32167,
+initial PID9326, log `/tmp/connectanum-coverage154-full-mutations.log`). Inspect
+that existing process/report before starting anything overlapping. Its partial
+scores are not completed evidence. Runtime wording and delivery bookkeeping in
+this paragraph remain uncommitted for the next implementation bundle.
 
 Work153 integrates the mixed-context Base64 regressions and adds malformed
 Latin-1/UTF-16 boundary and padding-bit matrices, retaining every prior assertion.

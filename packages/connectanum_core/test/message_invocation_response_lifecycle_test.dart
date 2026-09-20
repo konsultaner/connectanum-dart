@@ -107,12 +107,17 @@ void main() {
         final responses = <AbstractMessageWithPayload>[];
         final failure = StateError('synthetic adapter rejection');
         final failureStack = StackTrace.fromString('adapter rejection stack');
+        var dispatches = 0;
         invocation.onResponse((_) {
+          dispatches++;
           expect(invocation.responseClosed, isTrue);
-          expect(
-            () => invocation.respondWith(arguments: ['nested']),
-            throwsStateError,
-          );
+          // A broken completion guard must fail, not recursively hang the suite.
+          if (dispatches == 1) {
+            expect(
+              () => invocation.respondWith(arguments: ['nested']),
+              throwsStateError,
+            );
+          }
           dart_core.Error.throwWithStackTrace(failure, failureStack);
         });
         Object? caught;
@@ -129,6 +134,7 @@ void main() {
         }
         expect(caught, same(failure));
         expect(caughtStack.toString(), failureStack.toString());
+        expect(dispatches, 1);
         expect(invocation.responseClosed, isFalse);
         expect(responses, isEmpty);
         invocation.onResponse(responses.add);

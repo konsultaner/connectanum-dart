@@ -97,14 +97,17 @@ void main() {
             );
             final responses = <AbstractMessageWithPayload>[];
             invocation.onResponse(responses.add);
-            invocation.respondWith(
-              lazyPayload: lazy,
-              options: target == null
-                  ? null
-                  : YieldOptions(
-                      pptScheme: 'x_example',
-                      pptSerializer: target,
-                    ),
+            expect(
+              () => invocation.respondWith(
+                lazyPayload: lazy,
+                options: target == null
+                    ? null
+                    : YieldOptions(
+                        pptScheme: 'x_example',
+                        pptSerializer: target,
+                      ),
+              ),
+              returnsNormally,
             );
             final transcodes = target != null && target != source.name;
             expect(argumentDecodes, transcodes && argsEncoded ? 1 : 0);
@@ -348,7 +351,9 @@ void main() {
     test('timeout $timeout is valid and retained in both invocation views', () {
       final details = InvocationDetails(23, 'com.example.work', true)
         ..timeout = timeout;
-      expect(details.verify(), isTrue);
+      late bool verified;
+      expect(() => verified = details.verify(), returnsNormally);
+      expect(verified, isTrue);
       final invocation = Invocation(7, 11, details);
       expect(invocation.toPayload().timeout, timeout);
       expect(invocation.toLazyInvocationPayload().timeout, timeout);
@@ -378,12 +383,15 @@ void main() {
       final lazy = invocation.toLazyInvocationPayload();
       final responses = <AbstractMessageWithPayload>[];
       invocation.onResponse(responses.add);
-      lazy.respondWith(
-        isError: true,
-        errorUri: Error.notAuthorized,
-        arguments: ['denied'],
-        argumentsKeywords: {'retry': false},
-        options: YieldOptions(progress: false),
+      expect(
+        () => lazy.respondWith(
+          isError: true,
+          errorUri: Error.notAuthorized,
+          arguments: ['denied'],
+          argumentsKeywords: {'retry': false},
+          options: YieldOptions(progress: false),
+        ),
+        returnsNormally,
       );
       expect(invocation.responseClosed, isTrue);
       expect(direct.isResponseClosed(), isTrue);
