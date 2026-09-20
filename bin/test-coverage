@@ -93,6 +93,7 @@ printf 'Collecting Dart VM coverage for connectanum_bench.\n'
 (
   cd "$ROOT_DIR/packages/connectanum_bench"
   env -u CONNECTANUM_NATIVE_LIB CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+    CONNECTANUM_TEST_CHILD_COVERAGE_DIR="$coverage_root/raw/connectanum_bench_children" \
     dart test -p vm test --coverage="$coverage_root/raw/connectanum_bench"
 )
 

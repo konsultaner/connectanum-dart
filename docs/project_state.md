@@ -6,6 +6,39 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work166 closes the benchmark runner's child-process measurement gap without
+excluding production code. The opt-in authenticated loopback VM collector uses
+the workspace coverage package, preserves byte-exact build output and the 2s
+build deadline, validates original-source hit maps, reaps failed/timed-out
+collectors, and atomically refuses evidence replacement. Forty-one helper
+controls and the ten real-process build cases pass; 27 HTTP configuration and
+transport-ranking follow-ups are now canonical. Analysis and 73 tooling
+contracts pass. Fast166 and Verify166 pass, including 1191 benchmark, 3894
+router, 3343 core WASM and 2568 client WASM tests. Fresh parent/child benchmark
+VM coverage is 2272/2301 (98.74%); benchmark_runner.dart is 180/180 (100%).
+The complete 98% audit still fails: workload 1220/1247 (97.83%) and absent
+external scopes remain visible. This is not a whole-repository/runtime score.
+
+Full-source Work166 mutation campaigns and independent audits pass both
+baselines: transport targets now achieve 33/34 assertion-backed detections
+(97.06%, 42 generated, eight compile errors, one survivor, no waivers), passing
+95%. HTTP auth improves to 48/54 (88.89%, raw 50/54, two error-only detections,
+four survivors, 32 compile errors, no waivers), still failing 95%. Source/test
+and native hashes match. Evidence lives in bench166-final,
+bench166-boundary-mutations and coverage166-verification under the usual out
+directory. Hosted checks remain pending; keep PR #93 draft, with no merge,
+publication or version change. The full 98%/95% goal remains incomplete.
+
+Next priority after a fresh baseline: fix malformed HTTP auth benchmark request
+handling. Two isolated assertions reproduce uncaught UTF-8/form-decoding errors
+instead of HTTP 400. An ignored candidate returns inactive JSON without echoing
+input; all 55 copied HTTP tests pass, including recovery after malformed input.
+Thirteen separate workload probes cover progressive chunk/error handling,
+timeout validation, missing meta IDs and cleanup. Neither candidate nor these
+probes are canonical or credited to Work166 scores. Promotion instructions,
+logs and pinned inputs are in coverage166-probes/EVIDENCE.md. Do not restart
+completed Fast166/Verify166 or the completed mutation/coverage campaigns.
+
 Work165 integrates the three Work164 benchmark fixes after Fast165 passed:
 HTTP auth startup rollback, FIFO preservation after replay matcher failure, and
 joint ownership of pub/sub delivery and ACK failures. The promoted regressions

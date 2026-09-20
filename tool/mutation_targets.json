@@ -164,6 +164,7 @@
       "packages/connectanum_bench/test/wamp_event_buffer_regression_test.dart",
       "packages/connectanum_bench/test/wamp_pubsub_failure_regression_test.dart",
       "packages/connectanum_bench/test/wamp_transport_targets_boundaries_test.dart",
+      "packages/connectanum_bench/test/wamp_transport_targets_ranking_test.dart",
       "native/bench/bench_tls.crt",
       "native/bench/bench_tls.key"
     ],
@@ -180,7 +181,9 @@
     "supportFiles": [
       "packages/connectanum_bench/test/wamp_transport_integration_test.dart",
       "packages/connectanum_bench/test/support/native_reply_callee.dart",
-      "packages/connectanum_bench/test/support/benchmark_build_probe.dart"
+      "packages/connectanum_bench/test/support/benchmark_build_probe.dart",
+      "packages/connectanum_bench/test/support/benchmark_child_coverage.dart",
+      "packages/connectanum_bench/test/support/collect_benchmark_child_coverage.dart"
     ],
     "testRoot": "packages/connectanum_bench",
     "requiresNativeLibrary": true,
@@ -199,7 +202,8 @@
     "sources": ["packages/connectanum_bench/lib/src/http_auth_bench_harness.dart"],
     "tests": [
       "packages/connectanum_bench/test/http_auth_bench_harness_test.dart",
-      "packages/connectanum_bench/test/http_auth_bench_harness_boundaries_test.dart"
+      "packages/connectanum_bench/test/http_auth_bench_harness_boundaries_test.dart",
+      "packages/connectanum_bench/test/http_auth_bench_harness_configuration_test.dart"
     ],
     "testRoot": "packages/connectanum_bench"
   },
@@ -207,7 +211,8 @@
     "sources": ["packages/connectanum_bench/lib/src/wamp_transport_targets.dart"],
     "tests": [
       "packages/connectanum_bench/test/wamp_transport_targets_test.dart",
-      "packages/connectanum_bench/test/wamp_transport_targets_boundaries_test.dart"
+      "packages/connectanum_bench/test/wamp_transport_targets_boundaries_test.dart",
+      "packages/connectanum_bench/test/wamp_transport_targets_ranking_test.dart"
     ],
     "testRoot": "packages/connectanum_bench"
   },

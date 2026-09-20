@@ -67,6 +67,43 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work166 Child VM Coverage And Boundary Mutation Evidence
+
+- Fast166 passed before canonical changes. Added opt-in child VM instrumentation
+  to the existing real-process native-build matrix and wired raw child reports
+  into bin/test-coverage. Direct workspace collectors retain VM service auth,
+  loopback ephemeral binding, the original build deadline and exact output.
+  Report validation, atomic exclusive creation, process errors, malformed data,
+  timeout cleanup and a real process-reaping control pass 41 helper tests.
+- Promoted 18 HTTP configuration and nine transport-ranking tests with complete
+  mutation support inventories. Analysis and 73 tooling contracts pass.
+  Verify166 passes, including 1191 benchmark, 3894 router, 3343 core WASM and
+  2568 client WASM tests. Full parent/child benchmark VM coverage is 2272/2301
+  (98.74%), with runner 180/180 (100%) and workload still 1220/1247 (97.83%).
+  The complete coverage audit still fails; missing packages/runtimes and the
+  exports-only barrel are not claimed as covered.
+- Fresh complete campaigns and independent audits: transport 33/34 strict
+  assertion-backed kills (97.06%, 30 assertion-only/three mixed, one survivor,
+  eight compile errors); HTTP auth 48/54 (88.89%, raw 50/54, two error-only
+  detections, four survivors, 32 compile errors). Both baselines pass; no
+  waivers or timeouts. Only the transport target clears 95%. Native/source/test
+  hashes match. Evidence: bench166-final, bench166-boundary-mutations and
+  coverage166-verification in out/regression-coverage-2026-09-15.
+- Local Qwen reviews were independently checked. Atomic output ownership was
+  hardened with a competing-writer test; malformed diagnostic decoding does not
+  mask exit failures, and pipe failures still propagate. The separate GLM
+  endpoint is unavailable. Hosted evidence remains pending, not green.
+- Next, after a new baseline, promote the isolated malformed HTTP request fix:
+  two pre-fix assertion failures, 55 passing candidate tests including exact
+  HTTP 400 inactive JSON and successful subsequent authentication. The source
+  currently leaks FormatException/ArgumentError from its async request handler.
+  Also promote 13 passing workload failure probes, then recollect complete
+  campaigns rather than assigning old scores to new tests. See
+  coverage166-probes/EVIDENCE.md for pinned inputs and the unsuccessful
+  force-close fixture that must not receive regression/mutation credit.
+- Keep the full goal active and PR #93 draft. No merge, version change or
+  publication. All Work166 verification/coverage/mutation processes are terminal.
+
 ### Work165 Integrated Benchmark Failure Regressions
 
 - Fast165 passed before canonical edits. Runner163 completed, both baselines and

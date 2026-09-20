@@ -7,6 +7,8 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
+import 'support/benchmark_child_coverage.dart';
+
 void main() {
   group('native build process', () {
     for (final stdoutBytes in [0, 524288]) {
@@ -56,9 +58,29 @@ Future<void> _checkBuild({
     throw ProcessException('chmod', ['+x', executable.path], '${chmod.stderr}');
   }
   final pidFile = File('${fixture.path}/cargo.pid');
+  final coverageDirectory =
+      Platform.environment['CONNECTANUM_TEST_CHILD_COVERAGE_DIR'];
+  final serviceInfo = File('${fixture.path}/vm-service.json');
+  final coverageFile = coverageDirectory == null
+      ? null
+      : File(
+          '$coverageDirectory/build-$build-$stdoutBytes-$stderrBytes-$code.json',
+        ).absolute;
+  if (coverageFile != null && coverageFile.existsSync()) {
+    throw StateError(
+      'Child coverage output already exists: ${coverageFile.path}',
+    );
+  }
   final process = await Process.start(
     Platform.resolvedExecutable,
     [
+      if (coverageFile != null) ...[
+        '--enable-vm-service=0/127.0.0.1',
+        '--write-service-info=${serviceInfo.path}',
+        '--pause-isolates-on-exit',
+        '--no-serve-devtools',
+        '--no-warn-on-pause-with-no-debugger',
+      ],
       '--packages=${root.path}/.dart_tool/package_config.json',
       '${root.path}/packages/connectanum_bench/test/support/benchmark_build_probe.dart',
       build ? 'build' : 'skip',
@@ -78,9 +100,21 @@ Future<void> _checkBuild({
     return code;
   });
   final ready = Completer<void>();
+  final probeFinished = Completer<void>();
+  var resultTail = '';
   final prefix = StringBuffer();
   final output = process.stdout.map((bytes) {
     final text = String.fromCharCodes(bytes);
+    if (coverageFile != null && !probeFinished.isCompleted) {
+      final window = resultTail + text;
+      final marker = window.indexOf('BUILD_PROBE_RESULT:');
+      if (marker >= 0 && window.indexOf('\n', marker) >= 0) {
+        probeFinished.complete();
+      }
+      resultTail = window.length <= 4096
+          ? window
+          : window.substring(window.length - 4096);
+    }
     if (!ready.isCompleted) {
       prefix.write(text);
       if (prefix.toString().contains('PROBE_READY\n')) ready.complete();
@@ -112,6 +146,18 @@ Future<void> _checkBuild({
       throw TimeoutException('Fake cargo did not start');
     }
     await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  String serviceBanner = '';
+  if (coverageFile != null) {
+    // Keep the original build deadline separate from coverage collection.
+    await probeFinished.future.timeout(const Duration(seconds: 2));
+    final info = jsonDecode(await serviceInfo.readAsString()) as Map;
+    final uri = Uri.parse(info['uri'] as String);
+    if (uri.scheme != 'http' || uri.host != '127.0.0.1' || uri.port <= 0) {
+      throw StateError('Child VM service must use ephemeral loopback HTTP');
+    }
+    serviceBanner = 'The Dart VM service is listening on $uri\n';
+    await collectBenchmarkChildCoverage(uri, coverageFile, root);
   }
   final result = await exit.timeout(const Duration(seconds: 2));
   if (result != 0) {
@@ -157,6 +203,7 @@ Future<void> _checkBuild({
       : {'error_type': 'FileSystemException', 'path': 'never-read.yaml'};
   expect(metadata, expectedMetadata);
   final expectedOutput =
+      '$serviceBanner'
       'PROBE_READY\n'
       '${build ? String.fromCharCodes(List<int>.filled(stdoutBytes, 0)) : ''}'
       '${build ? 'FAKE_BUILD_DONE\n${String.fromCharCodes([255, 254, 253])}' : ''}'

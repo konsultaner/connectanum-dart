@@ -378,6 +378,7 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
             'wamp_sample_boundaries_test.dart', 'wamp_scenario_boundaries_test.dart',
             'wamp_event_buffer_regression_test.dart', 'wamp_pubsub_failure_regression_test.dart',
             'wamp_transport_targets_boundaries_test.dart',
+            'wamp_transport_targets_ranking_test.dart',
         ]}
         fixtures = {'native/bench/bench_tls.crt', 'native/bench/bench_tls.key'}
         self.assertEqual(set(target['supportFiles']), fixtures | {
@@ -407,6 +408,8 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
             'packages/connectanum_bench/test/wamp_transport_integration_test.dart',
             'packages/connectanum_bench/test/support/native_reply_callee.dart',
             'packages/connectanum_bench/test/support/benchmark_build_probe.dart',
+            'packages/connectanum_bench/test/support/benchmark_child_coverage.dart',
+            'packages/connectanum_bench/test/support/collect_benchmark_child_coverage.dart',
         })
         source = entrypoint.read_text()
         self.assertIn("import '../wamp_transport_integration_test.dart' as integration;", source)
@@ -644,6 +647,24 @@ fi
         for artifact in ('packaging-lcov.info', 'packaging-summary.json'):
             self.assertIn(artifact, coverage)
             self.assertIn('out/coverage/' + artifact, workflow)
+
+    def test_bench_coverage_includes_real_child_reports_without_weakening_build_test(self):
+        coverage = (REPO_ROOT / 'bin/test-coverage').read_text()
+        self.assertIn(
+            'CONNECTANUM_TEST_CHILD_COVERAGE_DIR="$coverage_root/raw/connectanum_bench_children"',
+            coverage)
+        self.assertIn('--in="$coverage_root/raw"', coverage)
+        test = (REPO_ROOT / 'packages/connectanum_bench/test/benchmark_runner_build_test.dart').read_text()
+        self.assertIn("Platform.environment['CONNECTANUM_TEST_CHILD_COVERAGE_DIR']", test)
+        self.assertIn("'--enable-vm-service=0/127.0.0.1'", test)
+        self.assertIn("'--pause-isolates-on-exit'", test)
+        self.assertIn('probeFinished.future.timeout(const Duration(seconds: 2))', test)
+        self.assertIn('exit.timeout(const Duration(seconds: 2))', test)
+        self.assertIn('text == expectedOutput', test)
+        helper = (REPO_ROOT / 'packages/connectanum_bench/test/support/benchmark_child_coverage.dart').read_text()
+        self.assertIn('collect_benchmark_child_coverage.dart', helper)
+        self.assertNotIn("'global'", helper)
+        self.assertIn('coverage: ^1.15.1', (REPO_ROOT / 'packages/connectanum_bench/pubspec.yaml').read_text())
 
     def test_hosted_regression_jobs_run_real_llvm_fixture(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
