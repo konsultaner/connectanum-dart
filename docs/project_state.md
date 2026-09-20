@@ -29,8 +29,12 @@ versus200/202 conventional kills (99.01%): two survivors, one error-only failure
 The error-only stale-generation invalidation mutant remains uncredited and needs
 a stronger behavioral oracle. The mcp144 campaign remains running on its isolated
 snapshot. Full Verify144 exits0, including2491 client WASM cases, with frozen
-source/test and native-library hashes unchanged. Fresh VM144 coverage is running
-as the only native consumer; fresh Session144 JS mutations use the new tests.
+source/test and native-library hashes unchanged. VM144 collection exits0 on
+those frozen inputs:38874/42673 measured library lines (91.10%),59 unmeasured
+sources, packaging765/787 (97.20%),12 unmeasured sources. The one-line router
+variation is unchanged-code timing evidence, not a new regression or test gain.
+Explicit98% VM, JS143 and packaging audits still fail. Session144 JS mutations
+use the new143/144 tests and remain running separately from MCP144.
 
 Native Cargo143 completes; native FFI144 completes all10 Dart-driven groups
 with input/library hashes intact. Their parsed source-scope inventories are
@@ -43,18 +47,40 @@ native-ffi144-current and native144-combined under the coverage evidence root.
 Session140 has finished on its older snapshot. Independent audit confirms
 170/454 assertion-backed kills (37.44%), versus192/454 conventional kills
 (42.29%),153 survivors,108 timeouts, one error and190 compile failures. No newer
-tests receive credit from this campaign. VM142 remains the latest complete VM
+tests receive credit from this campaign. VM144 is now the latest complete VM
 line evidence (91.10% measured library lines;59 unmeasured sources).
 
-Latest pushed head890ae621 has red PR/push CI: remote WAMP197/202 assertions
+Parent890ae621 has red PR/push CI: remote WAMP197/202 assertions
 (97.52%) still fails because of three timeouts; MCP is incomplete at974/1098
 when its job is cancelled. Package dry runs, image dry run and WAMP profiles
-pass. Preserve ci143-remote-pr and ci143-mcp-pr. No fresh green CI claim, merge,
-version change or publication. Push the verified implementation tests, then
-inspect fresh hosted checks while completing VM144 and the MCP/Session campaigns.
+pass. Preserve ci143-remote-pr and ci143-mcp-pr. Work143/144 is pushed asbfd7af64
+and PR93 is updated. Both new-head package dry runs, Router Image35494454118
+and WAMP Profile35494455136 pass. CI35494381468/35494380114 remains incomplete;
+strict deployment audit still exits1 on main CI. No green-chain claim, merge,
+version change or publication.
 Qwen test planning completed but several recommendations contradicted the
 inspected code; review/debug retries did not complete and GLM was unreachable.
 Manual source/diff and isolated baseline/mutant checks remain the evidence.
+
+Work145: Fast145-before exits0 before canonical edits. The integrated
+meta145-investigation test copy preserves all existing malformed-event assertions,
+adds snapshot identity and explicit uncaught-dispatch-error assertions, and adds
+five observer controls for synchronous/asynchronous error identity and dispatch
+capture. Full102-case baseline/restored-baseline probes pass VM/JS/WASM. Three
+previously error-only argument mutants now produce8/2/7 assertions on VM/JS,
+zero other errors. Four surviving candidates have individual control-flow or
+internal-list equivalence proofs recorded in its README and are now individually
+source-hash pinned in the VM/JS equivalence manifest. Complete meta145 VM
+campaign and independent audit agree:93/101 raw assertion kills (92.08%),
+93/97 adjusted (95.88%), four waived and four unwaived survivors,56 compile
+failures, no timeouts or error-only kills. Both baselines pass; its95% gate passes.
+Meta145 JS campaign and its independent audit agree with VM:93/101 raw,
+93/97 adjusted, with both baselines passing and no error-only kills or timeouts.
+Verify145 exits0, including2496 client WASM tests; the frozen source/test manifest
+still matches. Preserve the original MCP144/Session144 processes; do not restart
+them or attribute newer meta tests to their snapshots. The latest main hosted
+CI remains running. Work146 starts with serialized Fast146 before targeting native
+WAMP parser coverage and enabling the verified meta-cache CI gates.
 
 ## Previous Work
 

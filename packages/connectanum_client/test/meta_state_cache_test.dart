@@ -4,6 +4,42 @@ import 'package:connectanum_client/connectanum.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (final asynchronous in [false, true]) {
+    for (final error in [
+      StateError('action failure'),
+      TestFailure('assertion'),
+    ]) {
+      test(
+        'meta observer preserves ${error.runtimeType} async=$asynchronous',
+        () async {
+          final dispatchErrors = <Object>[];
+          await expectLater(
+            _observeMetaDispatch(
+              () {
+                if (asynchronous) return Future<void>.error(error);
+                throw error;
+              },
+              dispatchErrors,
+            ),
+            throwsA(same(error)),
+          );
+          expect(dispatchErrors, isEmpty);
+        },
+      );
+    }
+  }
+  test(
+    'meta observer records asynchronous dispatch errors without replacing them',
+    () async {
+      final error = StateError('dispatch failure');
+      final dispatchErrors = <Object>[];
+      await _observeMetaDispatch(() async {
+        scheduleMicrotask(() => throw error);
+        await _drainMetaCallbacks();
+      }, dispatchErrors);
+      expect(dispatchErrors, [same(error)]);
+    },
+  );
   for (final keywordMetadata in [false, true]) {
     test(
       'healthy startup retains event ownership keywords=$keywordMetadata',
@@ -468,6 +504,26 @@ Future<(_MetaTransport, WampMetaStateCache)> _cacheFixture([
 
 Future<void> _drainMetaCallbacks() => Future<void>.delayed(Duration.zero);
 
+// Keep action failures in the caller's error zone; observe independent stream
+// callback failures separately so malformed-event behavior can be asserted.
+Future<void> _observeMetaDispatch(
+  FutureOr<void> Function() action,
+  List<Object> dispatchErrors,
+) {
+  final completion = Completer<void>();
+  runZonedGuarded(() {
+    unawaited(
+      Future<void>.sync(action).then<void>(
+        (_) => completion.complete(),
+        onError: (Object error, StackTrace stack) {
+          completion.completeError(error, stack);
+        },
+      ),
+    );
+  }, (error, stack) => dispatchErrors.add(error));
+  return completion.future;
+}
+
 void _metaRegressionContracts() {
   for (final entry in {
     'wamp.session.get': Error.noSuchSession,
@@ -896,22 +952,32 @@ void _metaRegressionContracts() {
       test(
         'ignores malformed or unknown-target event $index: $topic',
         () async {
-          final (transport, cache) = await _cacheFixture();
-          final observed = <WampMetaStateSnapshot>[];
-          final listener = cache.changes.listen(observed.add);
-          addTearDown(listener.cancel);
-          transport.emitMeta(topic, arguments);
-          await _drainMetaCallbacks();
-          expect(observed, isEmpty);
-          expect(cache.snapshot.sessions.keys, [1]);
-          expect(cache.snapshot.registrations[10]!.callees, {1});
-          expect(cache.snapshot.subscriptions[20]!.subscribers, {1});
-          transport.emitMeta('wamp.session.on_join', [
-            {'id': 2, 'authid': 'new-user'},
-          ]);
-          await _drainMetaCallbacks();
-          expect(observed, hasLength(1));
-          expect(cache.snapshot.sessions[2]!.authId, 'new-user');
+          final dispatchErrors = <Object>[];
+          await _observeMetaDispatch(() async {
+            final (transport, cache) = await _cacheFixture();
+            final before = cache.snapshot;
+            final observed = <WampMetaStateSnapshot>[];
+            final listener = cache.changes.listen(observed.add);
+            addTearDown(listener.cancel);
+            transport.emitMeta(topic, arguments);
+            await _drainMetaCallbacks();
+            expect(observed, isEmpty);
+            expect(cache.snapshot, same(before));
+            expect(cache.snapshot.sessions.keys, [1]);
+            expect(cache.snapshot.registrations[10]!.callees, {1});
+            expect(cache.snapshot.subscriptions[20]!.subscribers, {1});
+            transport.emitMeta('wamp.session.on_join', [
+              {'id': 2, 'authid': 'new-user'},
+            ]);
+            await _drainMetaCallbacks();
+            expect(observed, hasLength(1));
+            expect(cache.snapshot.sessions[2]!.authId, 'new-user');
+          }, dispatchErrors);
+          expect(
+            dispatchErrors,
+            isEmpty,
+            reason: 'Malformed meta events must not escape their handler',
+          );
         },
       );
     }

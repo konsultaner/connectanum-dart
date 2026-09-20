@@ -1,4 +1,40 @@
 {
+  "client-meta-cache-vm": {
+    "b0eeeeb14fd9b59ee2f9": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "Changing the worker-count comparison from < to <= changes its selected branch only when ids.length equals _maxConcurrentQueries. Both branches then produce the identical integer worker count. The list is internally constructed, the concurrency field is final, and neither branch invokes callbacks or mutates state; scheduling, work assignment and returned results are unchanged."
+    },
+    "6104e7a23ab07204e969": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This flips only the default return after _applyEvent's switch. Its two callers receive _BufferedMetaEvent objects created only by _handleEvent, whose sole caller is a subscription closure capturing one of the ten constant _eventTopics. All ten topics return inside the switch. EventDetails.topic is not the dispatch key, the buffered-event type and callback are private, and the constant topic set cannot be changed through the public API. The mutated default return is unreachable at this source hash."
+    },
+    "6eb2ff94cacf238a535e": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This changes only the growability of the temporary registration-entry list used by _removeSessionMemberships. The list is immediately iterated, never escapes, and is never resized or exposed to caller code. The loop replaces existing map values without changing its keys. Entry contents, order, copyWith calls and resulting immutable snapshots are identical; no operation observes the list's growability."
+    },
+    "4d155ba0ceee9478d99e": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This changes only the growability of the temporary subscription-entry list used by _removeSessionMemberships. The list is consumed solely by the for loop and is neither stored, returned, passed to caller code nor resized. Replacing values in the original map preserves its keys and the captured entries. Iteration order, member removals, copyWith calls and published snapshots are unchanged."
+    }
+  },
+  "client-meta-cache-web": {
+    "b0eeeeb14fd9b59ee2f9": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "Changing the worker-count comparison from < to <= changes its selected branch only when ids.length equals _maxConcurrentQueries. Both branches then produce the identical integer worker count. The list is internally constructed, the concurrency field is final, and neither branch invokes callbacks or mutates state; scheduling, work assignment and returned results are unchanged."
+    },
+    "6104e7a23ab07204e969": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This flips only the default return after _applyEvent's switch. Its two callers receive _BufferedMetaEvent objects created only by _handleEvent, whose sole caller is a subscription closure capturing one of the ten constant _eventTopics. All ten topics return inside the switch. EventDetails.topic is not the dispatch key, the buffered-event type and callback are private, and the constant topic set cannot be changed through the public API. The mutated default return is unreachable at this source hash."
+    },
+    "6eb2ff94cacf238a535e": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This changes only the growability of the temporary registration-entry list used by _removeSessionMemberships. The list is immediately iterated, never escapes, and is never resized or exposed to caller code. The loop replaces existing map values without changing its keys. Entry contents, order, copyWith calls and resulting immutable snapshots are identical; no operation observes the list's growability."
+    },
+    "4d155ba0ceee9478d99e": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This changes only the growability of the temporary subscription-entry list used by _removeSessionMemberships. The list is consumed solely by the for loop and is neither stored, returned, passed to caller code nor resized. Replacing values in the original map preserves its keys and the captured entries. Iteration order, member removals, copyWith calls and published snapshots are unchanged."
+    }
+  },
   "router-http-auth-vm": {
     "a9ab9012b74d7be74457": {
       "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",

@@ -102,8 +102,10 @@ caught and timed-out outcomes separately.
   error and190 compile failures. This predates143/144; do not attribute it to
   their tests. Latest completed VM line report remains VM142 (91.10%).
 - Verify144 exits0, including2491 client WASM cases. Frozen code/test hashes
-  and the standard native artifact remain unchanged. Fresh VM144 collection
-  is now the only native consumer; keep its inputs frozen until completion.
+  and the standard native artifact remain unchanged. VM144 collection then
+  exits0:38874/42673 library lines (91.10%),59 unmeasured sources. The one-line
+  router variation is unchanged-code timing evidence. Packaging765/787 (97.20%)
+  retains12 unmeasured sources; all explicit98% VM/JS/packaging audits fail.
 - Remote144 completes all303 candidates and both baselines pass. Independent
   audit agrees199/202 assertion-backed kills (98.51%),200/202 conventional
   kills (99.01%), two survivors, one error-only failure,101 compile failures,
@@ -112,7 +114,9 @@ caught and timed-out outcomes separately.
   than19 StateErrors. Keep the two previously investigated survivors visible.
 - MCP144 remains running; start exactly one fresh Session144 JS campaign now
   that Session140 is complete. Do not attribute their partial results to a
-  completed score. Implementation push and fresh hosted checks remain pending.
+  completed score. Work143/144 is pushed asbfd7af64; PR93 is updated. Both
+  package dry runs, Router Image35494454118 and WAMP Profile35494455136 pass.
+  Main CI35494381468/35494380114 is incomplete and strict audit exits1.
   No merge, publication or version change.
 - Qwen planning completed; disregard its suggestions to call private session
   methods or expect a previously received HELLO to disappear. Debug/review
@@ -124,6 +128,37 @@ native-ffi144-current, native144-combined, browser143-current and live
 remote144-vm-mutations/mcp144-vm-mutations beneath
 out/regression-coverage-2026-09-15. Raw verification logs are
 /tmp/connectanum-coverage144-{fast-before,verify}.log. Thresholds remain98%/95%.
+
+### Work145 Meta Event Error Oracles
+
+- Fast145-before exits0 after VM144 completes and before canonical edits.
+- The integrated meta145-investigation test copy retains existing malformed-event
+  state/recovery assertions, adds snapshot identity and observes independent
+  asynchronous dispatch errors. Five controls preserve synchronous/asynchronous
+  StateError/TestFailure identity and verify real dispatch-error capture.
+- All102 cases pass original/restored baselines on VM/JS/WASM. Selected
+  argument mutants9cd52f2a0e836509a21c,bb7662936b00da3a3da4 and
+  4b04095d65f5bcae7ebe now yield8/2/7 assertions on VM/JS, zero test errors.
+  This is not a complete campaign score or WASM line coverage.
+- Source hashfab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96
+  matches139. The investigation README records individual proofs for one
+  equal-branch comparison, the unreachable fixed-topic dispatch default and two
+  internal-list growability mutants. The four proofs are now individually pinned
+  in both VM/JS equivalence manifests. Other survivors remain unwaived; never
+  treat unchanged test results alone as proof.
+- Complete157-candidate meta145 VM campaign and independent log audit agree:
+  93/101 raw assertion kills (92.08%),93/97 adjusted (95.88%), four waived and
+  four unwaived survivors,56 compile failures, no timeouts or error-only kills.
+  Initial/restored baselines pass; the95% gate passes without changing thresholds.
+- Full meta145 JS campaign and its independent audit agree with VM:93/101 raw,
+  93/97 adjusted, four equivalent waivers,56 compile failures and no timeouts or
+  error-only kills. Both baselines pass. Verify145 exits0, including2496 client
+  WASM tests, with frozen source/test hashes matching afterward. Keep MCP144
+  and Session144 campaigns alive on their existing snapshots. Local Qwen and
+  broad Gemma attempts did not finish; GLM is unavailable. A narrow Gemma helper
+  review completed with no concrete findings; its generic risks do not contradict
+  the inspected single-completion flow or error-identity controls. Enable the meta CI
+  gates next and target larger native WAMP parser gaps after serialized Fast146.
 
 ### Work142 Inbound E2EE Context And Native Error Contracts
 
