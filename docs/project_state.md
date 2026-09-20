@@ -6,6 +6,33 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work159 fixes active MCP SSE listener isolation after write failures. Throwing
+diagnostic observers previously interrupted healthy fanout, turned catalog
+refresh into HTTP 500 and skipped heartbeat cleanup. Active failures now report
+asynchronously with guaranteed close/ownership cleanup; observer exceptions
+remain visible after cleanup. Twenty-three new public HTTP/WAMP regressions
+cover retained and last owners, resource/catalog/heartbeat writes, queued stale
+heartbeats, independent notification opt-outs, and exact ACK/completion wire
+limits. The 41-case focused matrix and analysis pass. The frozen pre-fix replay
+has eight assertion failures. Fast159 passed before edits. The initial complete
+38-candidate selected-region probe has 14 assertion-backed kills/29 viable,
+9 timeouts, 6 survivors and 9 compile errors; it is preserved separately from the
+strengthened final test snapshot and is not a whole-router score. The final
+38-candidate probe completes with 22 assertion-backed kills/29 viable (75.86%),
+3 timeouts, 4 survivors and 9 compile errors. Three individually source-hash-pinned
+equivalences yield 22/26 (84.62%) adjusted; the mutable-options response-limit
+guard remains unwaived. Both baselines and the independent audit pass; input
+and native hashes match. Fresh JS159 passes its measured floors: core 96.01%,
+client 96.29%, with 162 unmeasured sources and a failing 98% target audit. Full
+Verify159 exits 0, including 3894 router, 3343 core WASM and 2568 client WASM
+tests. Frozen inputs match. Fresh VM159 library coverage is 38964/42685 (91.28%),
+including router 17222/19391 (88.81%); other package scores are unchanged. The
+98% audit fails and 59 unmeasured sources remain visible. Full VM159 exits 0.
+Packaging remains 765/787 (97.20%), with 12 unmeasured sources and a failing
+98% target audit. Final input hashes match; after-native artifact hashes match
+and the shared native window is released. The full 98%/95% goal is
+incomplete. No merge, publication or version change is authorized.
+
 Work158 reproduces router-hosted MCP subscription-admission leaks with throwing
 diagnostic observers. Sixteen public HTTP/WAMP regressions cover unsupported and
 native stream-open failures, acknowledgment write failures, secondary close
@@ -24,10 +51,20 @@ hashes match. Fresh JS158 exits0: core7388/7695 (96.01%) and client2651/2753
 match. Full Verify158 exits0, including3871 router,3343 core WASM and2568 client
 WASM tests. Final frozen inputs match. Fresh VM158 collection started after
 verification's native consumers, with no overlapping native users;
-the native-library hash still matches. The full98%/95% goal remains incomplete,
-and no newer full-VM score is claimed until collection finishes.
+the native-library hash still matches. Full VM158 exits0:38952/42681 (91.26%),
+including router17210/19387 (88.77%); other package scores are unchanged. The
+98% audit fails and59 unmeasured library sources remain visible. Packaging is
+765/787 (97.20%), with12 unmeasured sources and a failing98% audit. Final input
+hashes match. The full98%/95% goal remains incomplete.
 Evidence: mcp158-admission-probe and coverage158-verification under
 out/regression-coverage-2026-09-15. Existing Work154 mutation work stays isolated.
+Implementationb9378544 is pushed and PR93 updated, draft/unmerged. Exact-head
+CI35519470503/35519468734, package35519470645/35519468709, explicit image dry-run
+35519479078 and profile35519480115 are queued (74 PR checks). Strict audit exits1
+for pending/unstarted jobs and feature-branch protection, not a proven test
+failure. VM158's tests and LCOV formatting passed. Final input
+and native-library hashes match; the native window is released. This post-push delivery
+bookkeeping remains uncommitted until the next implementation bundle.
 
 Work157 reproduces HTTP stream cleanup leaks before changing production code:
 when stream finish and the diagnostic observer both throw, request ownership is

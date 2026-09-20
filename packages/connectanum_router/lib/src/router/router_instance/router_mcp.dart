@@ -4400,8 +4400,7 @@ class _RouterMcpEndpoint {
     try {
       subscription.stream.add(_mcpRequestScopedSseHeartbeatBytes());
     } catch (error, stackTrace) {
-      _reportModernSubscriptionWriteError(error, stackTrace);
-      unawaited(_closeModernSubscription(token));
+      unawaited(_closeFailedModernSubscription(token, error, stackTrace));
     }
   }
 
@@ -4427,25 +4426,52 @@ class _RouterMcpEndpoint {
         'method': method,
         'params': <String, Object?>{...params, '_meta': metadata},
       };
-      if (!_writeModernSubscriptionMessage(subscription, message)) {
-        unawaited(_closeModernSubscription(subscription.token));
-      }
+      _writeModernSubscriptionMessage(subscription, message);
     }
   }
 
-  bool _writeModernSubscriptionMessage(
+  void _writeModernSubscriptionMessage(
     _RouterMcpModernSubscription subscription,
     Object? message,
   ) {
     try {
-      return _writeModernSubscriptionBytes(
+      _addModernSubscriptionBytes(
         subscription,
         _mcpRequestScopedSseMessageBytes(message),
       );
     } catch (error, stackTrace) {
-      _reportModernSubscriptionWriteError(error, stackTrace);
-      return false;
+      unawaited(
+        _closeFailedModernSubscription(subscription.token, error, stackTrace),
+      );
     }
+  }
+
+  Future<void> _closeFailedModernSubscription(
+    int token,
+    Object error,
+    StackTrace stackTrace,
+  ) async {
+    // An observer must not interrupt fanout or prevent failed-peer cleanup.
+    // Its error remains observable through this asynchronous operation.
+    try {
+      _reportModernSubscriptionWriteError(error, stackTrace);
+    } finally {
+      await _closeModernSubscription(token);
+    }
+  }
+
+  void _addModernSubscriptionBytes(
+    _RouterMcpModernSubscription subscription,
+    Uint8List body,
+  ) {
+    final limit = _mcpMaxResponseBytesForRoute(route);
+    if (body.length > limit) {
+      throw _McpRequestScopedSseEventResponseLimitExceeded(
+        requiredBytes: body.length,
+        limit: limit,
+      );
+    }
+    subscription.stream.add(body);
   }
 
   bool _writeModernSubscriptionBytes(
@@ -4453,14 +4479,7 @@ class _RouterMcpEndpoint {
     Uint8List body,
   ) {
     try {
-      final limit = _mcpMaxResponseBytesForRoute(route);
-      if (body.length > limit) {
-        throw _McpRequestScopedSseEventResponseLimitExceeded(
-          requiredBytes: body.length,
-          limit: limit,
-        );
-      }
-      subscription.stream.add(body);
+      _addModernSubscriptionBytes(subscription, body);
       return true;
     } catch (error, stackTrace) {
       _reportModernSubscriptionWriteError(error, stackTrace);

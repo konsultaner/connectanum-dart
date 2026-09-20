@@ -67,6 +67,64 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work159 Active MCP Stream Failure Isolation
+
+- Fast159 passes before edits. Add 23 public-router cases for active resource,
+  catalog and heartbeat failures, throwing diagnostic observers, secondary close
+  failures, healthy retained owners, last-owner WAMP unsubscribe, bounded
+  replacement admission, canceled-but-queued heartbeats, notification opt-outs,
+  and exact ACK/completion frame limits (limit-1, limit, limit+1). The focused
+  41-case matrix and analyzer pass. A frozen pre-fix replay of b9378544 fails
+  eight assertions with no test errors.
+- Active write errors now initiate an asynchronous report-and-close operation
+  whose finally guarantees cleanup. Errors remain observable after cleanup,
+  without interrupting fanout or catalog refresh. Separate the low-level checked
+  stream write from the synchronous admission diagnostic wrapper to avoid
+  catching/reporting the observer's own exception twice.
+- The first complete 38-candidate probe records 14/29 assertion-backed kills,
+  9 timeouts, 6 survivors and 9 compile errors. Retain it unchanged. Strengthen
+  public metadata barriers, notification selection and exact ACK-boundary tests;
+  rerun the full selected inventory on the final test snapshot. No historical
+  outcome is attributed to the changed tests. Whole-source inventory 2308 remains
+  visible; this is not a whole-router mutation percentage.
+- Three candidate equivalences are individually documented and source-hash
+  pinned: two discarded private activation return values and one unmodified
+  loop-copy growable flag. Do not waive the response-limit guard: public route
+  options are a caller-provided Map, so a stable-limit assumption is insufficient.
+- Qwen planning and production/test reviews were completed; reject suggestions
+  to weaken exact error assertions or make the injected stream leak native
+  resources. GLM was checked independently and unavailable. Preserve review
+  triage with the evidence. The controlled clock is scoped to router startup
+  and intercepts only 15-second periodic timers; real HTTP/WAMP still proves
+  delivery and ownership.
+- Fresh JS159 exits 0: core 7388/7695 (96.01%), client 2651/2753 (96.29%). All 162
+  unmeasured sources remain visible and the 98% target audit fails. Full
+  Verify159 exits 0, including 3894 router, 3343 core WASM and 2568 client WASM
+  tests. Frozen inputs match. Fresh VM159 starts after verification's native
+  consumers; the native-library hash matches. Serialize native consumers;
+  preserve the isolated older Work154 campaign. The full 98%/95% milestone is active.
+
+VM159 library coverage completes at 38964/42685 (91.28%), including router
+17222/19391 (88.81%); other package scores are unchanged. The 98% target audit
+fails and 59 unmeasured sources remain visible. Full VM159 exits 0. Packaging
+remains 765/787 (97.20%), with 12 unmeasured sources and a failing 98% audit.
+All native tests passed; after-test source/native hashes match and the shared
+native window is released. Final measurement input hashes match.
+
+Final 38-candidate probe completes: 22 assertion-backed kills (8 pure, 14 mixed),
+3 timeouts, 4 survivors, 9 compile errors. Raw assertion score 22/29 (75.86%);
+three individually hash-pinned equivalences yield 22/26 (84.62%) adjusted. No
+error-only detections or timeout credit. The notification opt-out bypass and
+ACK exact-limit mutations now fail assertions. The response-limit guard remains
+unwaived because callers can supply mutable route options. The three remaining
+timeouts suppress ACK/notification delivery; they are not assertion kills.
+Both baselines, independent log audit and frozen source/test/native hashes match.
+The initial and final snapshots remain separately auditable; no 95% claim.
+
+Evidence: mcp159-live-probe (initial snapshot), mcp159-live-final-probe,
+js159-current and coverage159-verification under
+out/regression-coverage-2026-09-15.
+
 ### Work158 MCP Subscription Admission Ownership
 
 - Fast158 passes before edits. Sixteen public HTTP/WAMP cases cover unsupported
@@ -95,12 +153,23 @@ caught and timed-out outcomes separately.
   router,3343 core WASM and2568 client WASM tests. Final frozen inputs match.
   Fresh VM158 collection started after native verification;
   the native artifact hash matches and no native
-  users overlap. Wait for completion before claiming new VM percentages.
+  users overlap. Full VM158 exits0:38952/42681 (91.26%), including router
+  17210/19387 (88.77%); other package scores are unchanged. The98% audit fails
+  and59 unmeasured library sources remain visible. Packaging is765/787 (97.20%),
+  with12 unmeasured sources and a failing98% audit. Final input hashes match.
   Serialize all native consumers. Keep the older154 campaign on its immutable
   snapshot. Do not merge, publish, change versions or mark the milestone done.
 
 Evidence: mcp158-admission-probe and coverage158-verification under
 out/regression-coverage-2026-09-15.
+
+Implementationb9378544 is pushed and PR93 remains draft/unmerged. Exact-head
+CI35519470503/35519468734, package35519470645/35519468709, image35519479078
+(explicit dry-run) and profile35519480115 are queued. Strict audit exits1 on
+pending/unstarted jobs and feature-branch protection, not a demonstrated test
+failure. VM158 tests and LCOV formatting passed. Final input and
+native-library hashes match; the native window is released. Post-push docs wait for the next
+implementation bundle; do not create a docs-only commit.
 
 ### Work157 HTTP Cleanup And Browser Coverage Gates
 

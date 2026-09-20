@@ -29,10 +29,14 @@ import 'package:test/test.dart';
 import 'package:http2/transport.dart' as http2;
 
 class _FailingMcpStream implements NativeHttpResponseStream {
-  _FailingMcpStream(this.inner, {required this.failClose});
+  _FailingMcpStream(this.inner, {required this.failClose, this.failAddAt = 1});
 
   final NativeHttpResponseStream inner;
   final bool failClose;
+  final int? failAddAt;
+  final writeFailed = Completer<void>();
+  final accepted = <Uint8List>[];
+  Uint8List? finalBytes;
   final writeError = StateError('controlled MCP acknowledgment failure');
   final closeError = StateError('controlled MCP close failure');
   int addAttempts = 0;
@@ -44,15 +48,56 @@ class _FailingMcpStream implements NativeHttpResponseStream {
   @override
   void add(Uint8List bytes) {
     addAttempts++;
-    throw writeError;
+    if (addAttempts == failAddAt) {
+      writeFailed.complete();
+      throw writeError;
+    }
+    inner.add(bytes);
+    accepted.add(Uint8List.fromList(bytes));
   }
 
   @override
   void close([Uint8List? bytes]) {
     closeAttempts++;
+    finalBytes = bytes == null ? null : Uint8List.fromList(bytes);
     inner.close(bytes);
     if (failClose) throw closeError;
   }
+}
+
+class _McpHeartbeatClock {
+  final timers = <_McpHeartbeatTimer>[];
+
+  ZoneSpecification get specification => ZoneSpecification(
+    createPeriodicTimer: (self, parent, zone, duration, callback) {
+      if (duration != const Duration(seconds: 15)) {
+        return parent.createPeriodicTimer(zone, duration, callback);
+      }
+      final timer = _McpHeartbeatTimer(zone, callback);
+      timers.add(timer);
+      return timer;
+    },
+  );
+}
+
+class _McpHeartbeatTimer implements Timer {
+  _McpHeartbeatTimer(this.zone, this.callback);
+
+  final Zone zone;
+  final void Function(Timer) callback;
+  @override
+  bool isActive = true;
+  @override
+  int tick = 0;
+
+  void fire({bool queuedBeforeCancellation = false}) {
+    if (!isActive && !queuedBeforeCancellation) return;
+    tick++;
+    zone.runUnaryGuarded(callback, this);
+  }
+
+  @override
+  void cancel() => isActive = false;
 }
 
 class _HybridRuntime implements NativeRuntimeWithHandles {
@@ -504,6 +549,8 @@ class _RouterHarness {
     RouterSettings? settings,
     List<int>? connectionSequence,
     void Function(Map<String, Object?>)? onEvent,
+    void Function(Object, StackTrace)? onUncaughtError,
+    ZoneSpecification? zoneSpecification,
   }) async {
     final innerRuntime = NativeTransportRuntime(libraryPath: nativeLib);
     final runtime = _HybridRuntime(
@@ -518,17 +565,25 @@ class _RouterHarness {
     final events = StreamController<Map<String, Object?>>.broadcast();
     final routerConfig = config ?? _buildConfig();
     final routerSettings = settings ?? _buildSettings();
-    final binding = Router(routerConfig, settings: routerSettings).start(
-      runtime,
-      onEvent: (event) {
-        if (event is Map<String, Object?>) {
-          pendingEvents.add(event);
-          pendingSignals.add(null);
-          events.add(event);
-          onEvent?.call(event);
-        }
-      },
-    );
+    RouterBinding startBinding() =>
+        Router(routerConfig, settings: routerSettings).start(
+          runtime,
+          onEvent: (event) {
+            if (event is Map<String, Object?>) {
+              pendingEvents.add(event);
+              pendingSignals.add(null);
+              events.add(event);
+              onEvent?.call(event);
+            }
+          },
+        );
+    final binding = onUncaughtError == null && zoneSpecification == null
+        ? startBinding()
+        : runZonedGuarded(
+            startBinding,
+            onUncaughtError ?? Zone.current.handleUncaughtError,
+            zoneSpecification: zoneSpecification,
+          )!;
 
     final harness = _RouterHarness._(
       connectionId: connectionId,
@@ -6299,6 +6354,560 @@ void main() {
       skip: skipReason,
     );
 
+    for (final phase in ['resource', 'catalog', 'heartbeat']) {
+      for (final throwObserver in [false, true]) {
+        for (final failClose in [false, true]) {
+          test(
+            'MCP active stream isolation phase=$phase observer=$throwObserver close=$failClose',
+            () async {
+              const resource = 'app://mcp/live-context';
+              const topic = 'app.events.resource.context';
+              final clock = _McpHeartbeatClock();
+              final diagnostics = <Map<String, Object?>>[];
+              final uncaught = <Object>[];
+              final observerError = StateError(
+                'active stream observer failure',
+              );
+              final observerReported = Completer<void>();
+              var observeErrors = true;
+              late _FailingMcpStream failedStream;
+              late _FailingMcpStream healthyStream;
+              final cleanupAtReport = <bool>[];
+              final harness = await _RouterHarness.start(
+                connectionId: 9145,
+                nativeLib: nativeLib,
+                settings: _buildMcpSmokeSettings(
+                  maxRequestScopedListenerCount: 2,
+                  maxWampSubscriptionCount: 1,
+                ),
+                zoneSpecification: clock.specification,
+                onUncaughtError: (error, stack) {
+                  uncaught.add(error);
+                  cleanupAtReport.add(
+                    failedStream.isClosed && !clock.timers.first.isActive,
+                  );
+                  if (!observerReported.isCompleted) {
+                    observerReported.complete();
+                  }
+                },
+                onEvent: (event) {
+                  if (event['type'] == 'mcp_request_scoped_sse_write_error') {
+                    diagnostics.add(event);
+                    if (throwObserver && observeErrors) throw observerError;
+                  }
+                },
+              );
+              addTearDown(harness.dispose);
+              final endpoint = Uri.parse(
+                'http://127.0.0.1:${harness.binding.listeners.single.port}/mcp/public',
+              );
+              final client = McpStreamableHttpClient.stateless(
+                endpoint,
+                clientInfo: const {
+                  'name': 'live-isolation',
+                  'version': '1.0.0',
+                },
+              );
+              addTearDown(() => client.close(force: true));
+              final service = await harness.binding.createInternalSession(
+                realmUri: 'realm1',
+                authId: 'live-isolation-service',
+                authRole: 'internal',
+              );
+              addTearDown(service.close);
+              harness.runtime.nextStreamWrapper = (stream) => failedStream =
+                  _FailingMcpStream(stream, failClose: failClose, failAddAt: 2);
+              final failed = await client.listen(
+                id: 'failed-live',
+                toolsListChanged: true,
+                resourceSubscriptions: [resource],
+              );
+              addTearDown(failed.close);
+              harness.runtime.nextStreamWrapper = (stream) => healthyStream =
+                  _FailingMcpStream(stream, failClose: false, failAddAt: null);
+              final healthy = await client.listen(
+                id: 'healthy-live',
+                toolsListChanged: true,
+                resourceSubscriptions: [resource],
+              );
+              addTearDown(healthy.close);
+              final notifications = StreamIterator(healthy.notifications);
+              addTearDown(notifications.cancel);
+              addTearDown(() => observeErrors = false);
+              final lookup = await client.lookupWampSubscriptionDirect(topic);
+              final subscriptionId = (lookup.arguments.single as num).toInt();
+              expect(clock.timers, hasLength(2));
+              expect(failedStream.accepted, hasLength(1));
+              expect(healthyStream.accepted, hasLength(1));
+
+              if (phase == 'heartbeat') {
+                clock.timers.first.fire();
+                clock.timers[1].fire();
+              } else if (phase == 'catalog') {
+                await service.register(
+                  'app.safe.live_failure_probe',
+                );
+                final result = await client
+                    .listToolsDirect()
+                    .then<Object>((tools) => tools)
+                    .catchError((Object error) => error);
+                expect(result, isA<McpStreamableToolListPage>());
+              } else {
+                await service.publish(
+                  topic,
+                  options: core.PublishOptions(acknowledge: true),
+                );
+              }
+              // A metadata round trip through the shared router observes the
+              // publication even when a mutation suppresses notification writes.
+              await client.countWampSubscriptionSubscribersDirect(
+                subscriptionId,
+              );
+              // Assert the independent peer's accepted frame before waiting
+              // for network delivery, so broken fanout is an assertion failure.
+              expect(healthyStream.accepted, hasLength(2));
+              expect(failedStream.closeAttempts, 1);
+              expect(failedStream.isClosed, isTrue);
+              expect(clock.timers.first.isActive, isFalse);
+              expect(clock.timers[1].isActive, isTrue);
+              await failed.closed.timeout(const Duration(seconds: 5));
+              if (throwObserver) {
+                await observerReported.future.timeout(
+                  const Duration(seconds: 5),
+                );
+                expect(uncaught, [same(observerError)]);
+                expect(cleanupAtReport, [true]);
+              } else {
+                expect(uncaught, isEmpty);
+              }
+              observeErrors = false;
+              expect(diagnostics, hasLength(failClose ? 2 : 1));
+              expect(
+                diagnostics.first['error'],
+                failedStream.writeError.toString(),
+              );
+              if (failClose) {
+                expect(
+                  diagnostics.last['error'],
+                  failedStream.closeError.toString(),
+                );
+              }
+              if (phase == 'heartbeat') {
+                expect(
+                  utf8.decode(healthyStream.accepted.last),
+                  startsWith(':'),
+                );
+                await service.publish(
+                  topic,
+                  options: core.PublishOptions(acknowledge: true),
+                );
+              }
+              expect(
+                await notifications.moveNext().timeout(
+                  const Duration(seconds: 5),
+                ),
+                isTrue,
+              );
+              expect(
+                notifications.current['method'],
+                phase == 'catalog'
+                    ? 'notifications/tools/list_changed'
+                    : 'notifications/resources/updated',
+              );
+              expect(
+                (notifications.current['params'] as Map)['_meta'],
+                containsPair(
+                  'io.modelcontextprotocol/subscriptionId',
+                  'healthy-live',
+                ),
+              );
+              final retained = await client.lookupWampSubscriptionDirect(topic);
+              expect(retained.arguments, [subscriptionId]);
+              expect(
+                (await client.countWampSubscriptionSubscribersDirect(
+                  subscriptionId,
+                )).arguments,
+                [1],
+              );
+
+              final recovery = await client
+                  .listen(
+                    id: 'replacement-live',
+                    resourceSubscriptions: [resource],
+                  )
+                  .then<Object>((value) => value)
+                  .catchError((Object error) => error);
+              expect(recovery, isA<McpStreamableSubscription>());
+              final replacement = recovery as McpStreamableSubscription;
+              addTearDown(replacement.close);
+              final replacementNotifications = StreamIterator(
+                replacement.notifications,
+              );
+              addTearDown(replacementNotifications.cancel);
+              expect(clock.timers, hasLength(3));
+              // A heartbeat already queued when the listener failed must not
+              // write to the closed stream or a newly admitted listener.
+              clock.timers.first.fire(queuedBeforeCancellation: true);
+              expect(failedStream.addAttempts, 2);
+              expect(failedStream.closeAttempts, 1);
+              await service.publish(
+                topic,
+                options: core.PublishOptions(acknowledge: true),
+              );
+              for (final entry in [
+                (notifications, 'healthy-live'),
+                (replacementNotifications, 'replacement-live'),
+              ]) {
+                expect(
+                  await entry.$1.moveNext().timeout(const Duration(seconds: 5)),
+                  isTrue,
+                );
+                expect(
+                  entry.$1.current['method'],
+                  'notifications/resources/updated',
+                );
+                expect(
+                  entry.$1.current['params'],
+                  containsPair('uri', resource),
+                );
+                expect(
+                  (entry.$1.current['params'] as Map)['_meta'],
+                  containsPair(
+                    'io.modelcontextprotocol/subscriptionId',
+                    entry.$2,
+                  ),
+                );
+              }
+              await harness.dispose();
+              expect(clock.timers.every((timer) => !timer.isActive), isTrue);
+              expect(healthyStream.closeAttempts, 1);
+              expect(failedStream.closeAttempts, 1);
+            },
+            skip: skipReason,
+          );
+        }
+      }
+    }
+
+    for (final phase in ['resource', 'heartbeat']) {
+      for (final throwObserver in [false, true]) {
+        test(
+          'MCP active last owner cleanup phase=$phase observer=$throwObserver',
+          () async {
+            const resource = 'app://mcp/live-context';
+            const topic = 'app.events.resource.context';
+            final clock = _McpHeartbeatClock();
+            final uncaught = <Object>[];
+            final observerError = StateError('last owner observer failure');
+            var observeErrors = true;
+            final harness = await _RouterHarness.start(
+              connectionId: 9146,
+              nativeLib: nativeLib,
+              settings: _buildMcpSmokeSettings(
+                maxRequestScopedListenerCount: 1,
+                maxWampSubscriptionCount: 1,
+              ),
+              zoneSpecification: clock.specification,
+              onUncaughtError: (error, stack) => uncaught.add(error),
+              onEvent: (event) {
+                if (throwObserver &&
+                    observeErrors &&
+                    event['type'] == 'mcp_request_scoped_sse_write_error') {
+                  throw observerError;
+                }
+              },
+            );
+            addTearDown(harness.dispose);
+            final client = McpStreamableHttpClient.stateless(
+              Uri.parse(
+                'http://127.0.0.1:${harness.binding.listeners.single.port}/mcp/public',
+              ),
+              clientInfo: const {'name': 'last-owner', 'version': '1.0.0'},
+            );
+            addTearDown(() => client.close(force: true));
+            final service = await harness.binding.createInternalSession(
+              realmUri: 'realm1',
+              authId: 'last-owner-service',
+              authRole: 'internal',
+            );
+            addTearDown(service.close);
+            late _FailingMcpStream stream;
+            harness.runtime.nextStreamWrapper = (inner) => stream =
+                _FailingMcpStream(inner, failClose: true, failAddAt: 2);
+            final failed = await client.listen(
+              id: 'sole-owner',
+              resourceSubscriptions: [resource],
+            );
+            addTearDown(failed.close);
+            addTearDown(() => observeErrors = false);
+            expect(
+              (await client.lookupWampSubscriptionDirect(topic)).arguments,
+              hasLength(1),
+            );
+            if (phase == 'heartbeat') {
+              clock.timers.single.fire();
+            } else {
+              await service.publish(
+                topic,
+                options: core.PublishOptions(acknowledge: true),
+              );
+            }
+            final afterFailure = await client.lookupWampSubscriptionDirect(
+              topic,
+            );
+            expect(stream.closeAttempts, 1);
+            expect(stream.isClosed, isTrue);
+            expect(clock.timers.single.isActive, isFalse);
+            // The round trip observes the WAMP unsubscribe, including cleanup
+            // after both the write and close diagnostics have thrown.
+            expect(afterFailure.arguments, isEmpty);
+            expect(uncaught, throwObserver ? [same(observerError)] : isEmpty);
+            observeErrors = false;
+            final replacement = await client.listen(
+              id: 'new-owner',
+              resourceSubscriptions: [resource],
+            );
+            addTearDown(replacement.close);
+            final notifications = StreamIterator(replacement.notifications);
+            addTearDown(notifications.cancel);
+            await service.publish(
+              topic,
+              options: core.PublishOptions(acknowledge: true),
+            );
+            expect(
+              await notifications.moveNext().timeout(
+                const Duration(seconds: 5),
+              ),
+              isTrue,
+            );
+            expect(
+              notifications.current['params'],
+              containsPair('uri', resource),
+            );
+            expect(
+              (notifications.current['params'] as Map)['_meta'],
+              containsPair(
+                'io.modelcontextprotocol/subscriptionId',
+                'new-owner',
+              ),
+            );
+          },
+          skip: skipReason,
+        );
+      }
+    }
+
+    test(
+      'MCP active notification selection preserves independent opt-outs',
+      () async {
+        const resource = 'app://mcp/live-context';
+        final harness = await _RouterHarness.start(
+          connectionId: 9148,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(maxRequestScopedListenerCount: 3),
+        );
+        addTearDown(harness.dispose);
+        final client = McpStreamableHttpClient.stateless(
+          Uri.parse(
+            'http://127.0.0.1:${harness.binding.listeners.single.port}/mcp/public',
+          ),
+          clientInfo: const {
+            'name': 'notification-selection',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+        final service = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'selection-service',
+          authRole: 'internal',
+        );
+        addTearDown(service.close);
+        final streams = <_FailingMcpStream>[];
+        for (final id in ['resource-only', 'tools-only', 'no-notifications']) {
+          harness.runtime.nextStreamWrapper = (inner) {
+            final stream = _FailingMcpStream(
+              inner,
+              failClose: false,
+              failAddAt: null,
+            );
+            streams.add(stream);
+            return stream;
+          };
+          final listener = await client.listen(
+            id: id,
+            toolsListChanged: id == 'tools-only',
+            resourceSubscriptions: id == 'resource-only' ? [resource] : [],
+          );
+          addTearDown(listener.close);
+        }
+        expect(streams.map((stream) => stream.accepted.length), [1, 1, 1]);
+        await service.publish(
+          'app.events.resource.context',
+          options: core.PublishOptions(acknowledge: true),
+        );
+        await client.lookupWampSubscriptionDirect(
+          'app.events.resource.context',
+        );
+        expect(streams.map((stream) => stream.accepted.length), [2, 1, 1]);
+        expect(
+          utf8.decode(streams[0].accepted.last),
+          contains('notifications/resources/updated'),
+        );
+        await service.register('app.safe.selection_probe');
+        await client.listToolsDirect();
+        expect(streams.map((stream) => stream.accepted.length), [2, 2, 1]);
+        expect(
+          utf8.decode(streams[1].accepted.last),
+          contains('notifications/tools/list_changed'),
+        );
+        await harness.dispose();
+        expect(streams.map((stream) => stream.closeAttempts), [1, 1, 1]);
+      },
+      skip: skipReason,
+    );
+
+    for (final delta in [-1, 0, 1]) {
+      test(
+        'MCP acknowledgment exact wire boundary delta=$delta',
+        () async {
+          const limit = 4096;
+          Uint8List frame(String id) => Uint8List.fromList(
+            utf8.encode(
+              'data: ${jsonEncode({
+                'jsonrpc': '2.0',
+                'method': 'notifications/subscriptions/acknowledged',
+                'params': {
+                  '_meta': {'io.modelcontextprotocol/subscriptionId': id},
+                  'notifications': <String, Object?>{},
+                },
+              })}\n\n',
+            ),
+          );
+          final requestId = 'x' * (limit + delta - frame('').length);
+          final expectedFrame = frame(requestId);
+          expect(expectedFrame.length, limit + delta);
+          final harness = await _RouterHarness.start(
+            connectionId: 9149,
+            nativeLib: nativeLib,
+            settings: _buildMcpSmokeSettings(maxResponseBytes: limit),
+          );
+          addTearDown(harness.dispose);
+          final client = McpStreamableHttpClient.stateless(
+            Uri.parse(
+              'http://127.0.0.1:${harness.binding.listeners.single.port}/mcp/public',
+            ),
+            clientInfo: const {'name': 'ack-boundary', 'version': '1.0.0'},
+          );
+          addTearDown(() => client.close(force: true));
+          _FailingMcpStream? stream;
+          harness.runtime.nextStreamWrapper = (inner) => stream =
+              _FailingMcpStream(inner, failClose: false, failAddAt: null);
+          final result = await client
+              .listen(id: requestId)
+              .then<Object>((value) => value)
+              .catchError((Object error) => error);
+          if (delta > 0) {
+            expect(result, isA<McpStreamableHttpException>());
+            expect(
+              stream,
+              isNull,
+              reason: 'reject an oversized ACK before opening the stream',
+            );
+          } else {
+            expect(result, isA<McpStreamableSubscription>());
+            final subscription = result as McpStreamableSubscription;
+            addTearDown(subscription.close);
+            expect(subscription.id, requestId);
+            expect(stream!.accepted, hasLength(1));
+            expect(stream!.accepted.single, orderedEquals(expectedFrame));
+          }
+        },
+        skip: skipReason,
+      );
+    }
+
+    for (final delta in [-1, 0, 1]) {
+      test(
+        'MCP graceful completion exact wire boundary delta=$delta',
+        () async {
+          const limit = 4096;
+          const requestId = 'completion-boundary';
+          Uint8List frame(String description) => Uint8List.fromList(
+            utf8.encode(
+              'data: ${jsonEncode({
+                'jsonrpc': '2.0',
+                'id': requestId,
+                'result': {
+                  'resultType': 'complete',
+                  '_meta': {
+                    'io.modelcontextprotocol/serverInfo': {
+                      'name': 'connectanum-router',
+                      'version': '3.0.0-beta.6',
+                      'description': description,
+                    },
+                    'io.modelcontextprotocol/subscriptionId': requestId,
+                  },
+                },
+              })}\n\n',
+            ),
+          );
+          final description = 'x' * (limit + delta - frame('').length);
+          final expectedFrame = frame(description);
+          expect(expectedFrame.length, limit + delta);
+          final diagnostics = <Map<String, Object?>>[];
+          final harness = await _RouterHarness.start(
+            connectionId: 9147,
+            nativeLib: nativeLib,
+            settings: _buildMcpSmokeSettings(
+              maxResponseBytes: limit,
+              serverDescription: description,
+            ),
+            onEvent: (event) {
+              if (event['type'] == 'mcp_request_scoped_sse_write_error') {
+                diagnostics.add(event);
+              }
+            },
+          );
+          addTearDown(harness.dispose);
+          final client = McpStreamableHttpClient.stateless(
+            Uri.parse(
+              'http://127.0.0.1:${harness.binding.listeners.single.port}/mcp/public',
+            ),
+            clientInfo: const {
+              'name': 'completion-boundary',
+              'version': '1.0.0',
+            },
+          );
+          addTearDown(() => client.close(force: true));
+          late _FailingMcpStream stream;
+          harness.runtime.nextStreamWrapper = (inner) => stream =
+              _FailingMcpStream(inner, failClose: false, failAddAt: null);
+          final subscription = await client.listen(id: requestId);
+          await harness.dispose();
+          expect(stream.closeAttempts, 1);
+          expect(
+            stream.finalBytes,
+            delta > 0 ? isNull : orderedEquals(expectedFrame),
+          );
+          expect(
+            await subscription.closed.timeout(const Duration(seconds: 5)),
+            delta > 0
+                ? McpSubscriptionCloseReason.remote
+                : McpSubscriptionCloseReason.graceful,
+          );
+          expect(diagnostics, hasLength(delta > 0 ? 1 : 0));
+          if (delta > 0) {
+            expect(
+              diagnostics.single['error'],
+              contains('${expectedFrame.length} bytes'),
+            );
+          }
+        },
+        skip: skipReason,
+      );
+    }
+
     for (final fault in ['unsupported', 'native', 'ack', 'ack-close']) {
       for (final throwObserver in [false, true]) {
         for (final retainedOwner in [false, true]) {
@@ -6360,6 +6969,7 @@ void main() {
                     .toInt();
               }
               _FailingMcpStream? failedStream;
+              final streamReady = Completer<_FailingMcpStream>();
               final openError = fault == 'unsupported'
                   ? UnsupportedError('controlled MCP stream unavailable')
                   : NativeTransportException(
@@ -6369,8 +6979,15 @@ void main() {
               if (fault == 'unsupported' || fault == 'native') {
                 harness.runtime.nextStreamOpenError = openError;
               } else {
-                harness.runtime.nextStreamWrapper = (stream) => failedStream =
-                    _FailingMcpStream(stream, failClose: fault == 'ack-close');
+                harness.runtime.nextStreamWrapper = (stream) {
+                  final wrapped = _FailingMcpStream(
+                    stream,
+                    failClose: fault == 'ack-close',
+                  );
+                  failedStream = wrapped;
+                  streamReady.complete(wrapped);
+                  return wrapped;
+                };
               }
               final httpClient = HttpClient();
               addTearDown(() => httpClient.close(force: true));
@@ -6408,6 +7025,18 @@ void main() {
                     },
                   )
                   .catchError((Object error) => error);
+              if (fault == 'ack' || fault == 'ack-close') {
+                final stream = await streamReady.future.timeout(
+                  const Duration(seconds: 5),
+                );
+                await Future.any<void>([
+                  stream.writeFailed.future,
+                  response.then((_) {}),
+                ]).timeout(const Duration(seconds: 5));
+                expect(stream.addAttempts, 1);
+                expect(stream.closeAttempts, 1);
+                expect(stream.isClosed, isTrue);
+              }
               if (throwObserver) {
                 final error = await harness
                     .nextEvent('http_request_handler_error')
