@@ -1312,7 +1312,8 @@ fi
         )
 
     def test_vm_commands_include_complete_reply_and_progressive_file_suites(self):
-        for suite in ('session_lazy_reply_test.dart', 'session_progressive_file_test.dart'):
+        for suite in ('session_lazy_reply_test.dart', 'session_progressive_file_test.dart',
+                      'session_goodbye_test.dart'):
             command = f'dart test packages/connectanum_client/test/{suite}'
             for path, function in ((TEST_FAST, 'run_client_fast_tests'),
                                    (TEST_ALL, 'run_client_vm_tests')):
@@ -1330,6 +1331,7 @@ fi
             ('e2ee_profile', 'session_e2ee_profile_test.dart'),
             ('lazy_reply', 'session_lazy_reply_test.dart'),
             ('progressive_file', 'session_progressive_file_test.dart'),
+            ('goodbye', 'session_goodbye_test.dart'),
         ):
             with self.subTest(suite=suite):
                 command = (f'run_package_coverage connectanum_client '
@@ -1350,7 +1352,7 @@ fi
                 ])
                 for suite in ('client_test.dart', 'meta_state_cache_test.dart',
                               'session_e2ee_profile_test.dart', 'session_lazy_reply_test.dart',
-                              'session_progressive_file_test.dart'):
+                              'session_progressive_file_test.dart', 'session_goodbye_test.dart'):
                     self.assertIn(f'packages/connectanum_client/test/{suite}', target['tests'])
                 for helper in ('native_runtime_support.dart', 'native_runtime_support_io.dart',
                                'native_runtime_support_stub.dart'):
@@ -1420,6 +1422,7 @@ fi
             "test/session_e2ee_profile_test.dart",
             "test/session_lazy_reply_test.dart",
             "test/session_progressive_file_test.dart",
+            "test/session_goodbye_test.dart",
             "test/transport/native/message_binding_test.dart",
             "test/transport/local",
             "test/transport/websocket/websocket_transport_web_test.dart",
@@ -1440,6 +1443,7 @@ fi
                     "test/session_e2ee_profile_test.dart",
                     "test/session_lazy_reply_test.dart",
                     "test/session_progressive_file_test.dart",
+                    "test/session_goodbye_test.dart",
                     "test/transport/native/message_binding_test.dart",
                     "test/transport/local",
                     "test/transport/websocket/websocket_transport_web_test.dart",

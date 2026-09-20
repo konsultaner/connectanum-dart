@@ -67,6 +67,64 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work143/144 GOODBYE And CI Mutation Observation
+
+- Integrate the six-case GOODBYE probe, including observer error-identity
+  controls, into fast/full VM, JS/WASM, browser coverage and both Session
+  mutation targets. Command-selection tests fail before wiring and pass after;
+  all64 verification-script tests pass. All418 selected Session cases pass on
+  VM/JS/WASM. JS143 core96.01%/client95.86% still misses98% and retains162
+  unmeasured sources. Do not infer WASM line coverage from runtime passes.
+- Hosted head890ae621 PR/push CI fails remote-WAMP mutation completeness and
+  cancels MCP before its complete inventory finishes. Download raw artifacts
+  into ci143-remote-pr/ci143-mcp-pr. Remote independent audit agrees197/202
+  assertions, two survivors and three timeouts. MCP has974/1098 outcomes;
+  its partial score is not a completed campaign or release result.
+- Fast144-before passes before canonical edits. The credential fixture now
+  caps reads and asserts non-convergence without a production limit; registry
+  warmup and authenticator-factory fixtures share that same real-I/O config.
+  Assert current RPC ownership before waiting for retired socket closure.
+  All221 canonical remote tests pass. Final isolated full-target probes for
+  the three CI timeouts produce33/33/5 real assertions and no timeouts.
+- MCP pending subscribe tests race callback entry with request completion,
+  assert initialization success and forbid cleanup before subscription
+  completion. All25 canonical WAMP API tests pass. Across separately hashed
+  iterations, eight selected former timeout mutants terminate with assertions.
+  Preserve mixed errors and
+  earlier failed probe variants; no scoring, threshold or production changes.
+- Native Cargo143 and native FFI144 collections finish. FFI collection runs
+  all10 groups with frozen inputs and an isolated instrumented library. Parsed
+  source scopes match exactly, permitting raw LCOV union: ct_core8509/10052
+  (84.65%), ct_ffi5103/5966 (85.53%). Keep individual reports, missing-platform
+  sources, legacy-ABI limitations and native mutation gaps visible.
+- Independent Session140 audit finishes:170/454 assertion-backed kills (37.44%)
+  versus192/454 conventional kills (42.29%),153 survivors,108 timeouts, one
+  error and190 compile failures. This predates143/144; do not attribute it to
+  their tests. Latest completed VM line report remains VM142 (91.10%).
+- Verify144 exits0, including2491 client WASM cases. Frozen code/test hashes
+  and the standard native artifact remain unchanged. Fresh VM144 collection
+  is now the only native consumer; keep its inputs frozen until completion.
+- Remote144 completes all303 candidates and both baselines pass. Independent
+  audit agrees199/202 assertion-backed kills (98.51%),200/202 conventional
+  kills (99.01%), two survivors, one error-only failure,101 compile failures,
+  no timeouts and no waivers. Its95% gate passes. The uncredited generation
+  invalidation mutant5b5d72d1d64446c3ca1f needs a behavioral assertion rather
+  than19 StateErrors. Keep the two previously investigated survivors visible.
+- MCP144 remains running; start exactly one fresh Session144 JS campaign now
+  that Session140 is complete. Do not attribute their partial results to a
+  completed score. Implementation push and fresh hosted checks remain pending.
+  No merge, publication or version change.
+- Qwen planning completed; disregard its suggestions to call private session
+  methods or expect a previously received HELLO to disappear. Debug/review
+  attempts timed out or reached output limits; independent GLM endpoint is
+  unreachable. Manual review and original/restored baseline evidence remain.
+
+Evidence: remote144-investigation, mcp144-investigation, native143-current,
+native-ffi144-current, native144-combined, browser143-current and live
+remote144-vm-mutations/mcp144-vm-mutations beneath
+out/regression-coverage-2026-09-15. Raw verification logs are
+/tmp/connectanum-coverage144-{fast-before,verify}.log. Thresholds remain98%/95%.
+
 ### Work142 Inbound E2EE Context And Native Error Contracts
 
 - Fast142-before passes before canonical edits. Add 24 EVENT/INVOCATION cases

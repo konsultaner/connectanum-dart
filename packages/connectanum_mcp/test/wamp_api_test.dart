@@ -1454,7 +1454,8 @@ void main() {
             'arguments': {'topic': 'app.events.revoked'},
           },
         });
-        await subscribeStarted.future;
+        await Future.any<Object?>([subscribeStarted.future, responseFuture]);
+        expect(subscribeStarted.isCompleted, isTrue);
 
         final observed = _ObservedWampEvent();
         onEvent(observed);
@@ -1515,10 +1516,16 @@ void main() {
           final subscribing = _callPubSub(server, 'subscribe', {
             'topic': 'app.events',
           });
-          await subscribeStarted.future;
+          await Future.any<Object?>([subscribeStarted.future, subscribing]);
+          expect(subscribeStarted.isCompleted, isTrue);
           await state.reconcileSubscribedTopics(
             {},
             release: (subscription) {
+              expect(
+                subscriptionReady.isCompleted,
+                isTrue,
+                reason: 'Cleanup must wait for the actual subscription',
+              );
               released.add(subscription);
               releaseStarted.complete();
               return releaseReady.future;
@@ -1529,7 +1536,8 @@ void main() {
             subscriptionId: 73,
           );
           subscriptionReady.complete(subscription);
-          await releaseStarted.future;
+          await Future.any<Object?>([releaseStarted.future, subscribing]);
+          expect(releaseStarted.isCompleted, isTrue);
           final first = state.reconcileSubscribedTopics({});
           final second = state.reconcileSubscribedTopics({});
           final firstCheck = expectLater(
@@ -1670,7 +1678,8 @@ void main() {
             'arguments': {'topic': 'app.events.revoked'},
           },
         });
-        await subscribeStarted.future;
+        await Future.any<Object?>([subscribeStarted.future, responseFuture]);
+        expect(subscribeStarted.isCompleted, isTrue);
         await state.reconcileSubscribedTopics(
           const <String>{},
           release: (subscription) {
@@ -2128,16 +2137,20 @@ List<String> _catalogUris(Object? catalog) {
 }
 
 Future<void> _initializeAndStart(McpServer server) async {
-  await server.handleMessage({
+  final response = await server.handleMessage({
     'jsonrpc': '2.0',
     'id': 1,
     'method': 'initialize',
     'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
   });
-  await server.handleMessage({
+  expect(response, containsPair('id', 1));
+  expect(response, isNot(contains('error')));
+  expect(response, containsPair('result', isA<Map>()));
+  final notification = await server.handleMessage({
     'jsonrpc': '2.0',
     'method': 'notifications/initialized',
   });
+  expect(notification, isNull);
 }
 
 class _ObservedWampEvent extends McpWampEvent {

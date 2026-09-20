@@ -138,15 +138,15 @@ void main() {
             releaseOld!();
             releaseOld = null;
             await first;
-            await service.sockets.first.done.timeout(
-              const Duration(seconds: 3),
-            );
             expect(
               _helloSuccess(await delegate.onHello(_hello())).authId,
               'alice',
             );
             expect(service.callConnections, [1, 1]);
             expect(service.hellos, hasLength(2));
+            await service.sockets.first.done.timeout(
+              const Duration(seconds: 3),
+            );
           } finally {
             releaseOld?.call();
             await first;
@@ -417,17 +417,19 @@ void main() {
                   errorKeywords,
                 ];
         };
+        final rpc = <String, Object?>{
+          'transport': service.transportConfig,
+          'connect_timeout_ms': 1000,
+          'call_timeout_ms': 1000,
+          'hello_procedure': 'fixture.hello',
+          'authenticate_procedure': 'fixture.authenticate',
+        };
+        service.delegate(rpc: rpc);
         final authenticator = await const RemoteAuthenticatorFactory().create(
           _realm,
           {
             'fake_challenge_on_hello_failure': false,
-            'rpc': {
-              'transport': service.transportConfig,
-              'connect_timeout_ms': 1000,
-              'call_timeout_ms': 1000,
-              'hello_procedure': 'fixture.hello',
-              'authenticate_procedure': 'fixture.authenticate',
-            },
+            'rpc': rpc,
           },
         );
         final context = _context(details: {'authid': 'alice'});
@@ -613,6 +615,8 @@ void main() {
             ..addAuthMethod('ticket', options: {'authenticator': 'fixture'}),
         )
         .build();
+    // Use the same bounded credential source for warmup and subsequent calls.
+    service.delegate();
     await RemoteWampDelegateRegistry.warmUpForSettings(settings);
     expect(service.hellos, hasLength(1));
     expect(service.calls, isEmpty);
@@ -1202,13 +1206,30 @@ List<Object?> _result(List<dynamic> call, Map<String, Object?> payload) => [
 
 // Delay real credential I/O without mocking its fingerprint or authentication.
 class _FingerprintGate implements RemoteWampDelegateConfig {
-  _FingerprintGate(this.inner);
+  _FingerprintGate(this.inner) {
+    addTearDown(() {
+      expect(
+        fingerprintReads,
+        lessThanOrEqualTo(_readBudget),
+        reason:
+            'Session lookup must converge instead of rereading credentials '
+            'indefinitely without another rotation',
+      );
+    });
+  }
 
   final RemoteWampDelegateConfig inner;
   Future<void> Function()? holdNextFingerprint;
+  int fingerprintReads = 0;
+  // Fixture safety ceiling, not a production limit. Even the concurrent case
+  // performs fewer than 16 reads; bounded I/O lets its assertion finish.
+  static const _readBudget = 32;
 
   @override
   Future<String> connectionFingerprint() async {
+    if (++fingerprintReads > _readBudget) {
+      throw StateError('Credential fixture read budget exhausted');
+    }
     final hold = holdNextFingerprint;
     holdNextFingerprint = null;
     final fingerprint = await inner.connectionFingerprint();
@@ -1401,14 +1422,16 @@ class _Service {
     Map<String, Object?> rpc = const {},
   }) {
     return RemoteWampDelegateRegistry.forConfig(
-      RemoteWampDelegateConfig.parse({
-        'rpc': {
-          'connect_timeout_ms': 1000,
-          'call_timeout_ms': 1000,
-          'transport': transportConfig,
-          ...rpc,
-        },
-      }, _realm),
+      _FingerprintGate(
+        RemoteWampDelegateConfig.parse({
+          'rpc': {
+            'connect_timeout_ms': 1000,
+            'call_timeout_ms': 1000,
+            'transport': transportConfig,
+            ...rpc,
+          },
+        }, _realm),
+      ),
     );
   }
 

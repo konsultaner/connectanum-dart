@@ -1,10 +1,62 @@
 # Project State
 
-Last updated: 2026-09-19
+Last updated: 2026-09-20
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work143/144 integrates six portable Session GOODBYE regressions and their
+VM/browser/coverage/mutation command selection guards. All418 selected Session
+cases pass VM/JS/WASM. JS143 collection finishes: core7383/7690 (96.01%),
+client2617/2730 (95.86%);162 unmeasured sources remain. Work144 fixes test
+observation gaps behind the latest hosted failures, not production behavior:
+bounded real-credential fixture reads assert session-lookup convergence, and
+retired-handshake tests assert RPC ownership before waiting for socket closure.
+MCP tests assert initialization success, observe callback entry or request
+completion, and reject cleanup before the subscription is available.
+
+Fast144-before exits0 before canonical changes; all221 remote WAMP tests,
+all25 MCP WAMP API tests, formatting and focused analysis pass. Isolated
+full-target probes turn all three remote CI timeout mutants into33/33/5 actual
+assertions. Across separately hashed iterations, eight selected MCP timeout
+mutants have assertion evidence; retain earlier failed probes and all mixed
+non-assertion errors. These probes
+are not complete campaign scores. Full remote144 completes with both baselines
+passing. Independent log audit confirms199/202 assertion-backed kills (98.51%),
+versus200/202 conventional kills (99.01%): two survivors, one error-only failure,
+101 compile failures and no timeouts. No equivalence waivers; its95% gate passes.
+The error-only stale-generation invalidation mutant remains uncredited and needs
+a stronger behavioral oracle. The mcp144 campaign remains running on its isolated
+snapshot. Full Verify144 exits0, including2491 client WASM cases, with frozen
+source/test and native-library hashes unchanged. Fresh VM144 coverage is running
+as the only native consumer; fresh Session144 JS mutations use the new tests.
+
+Native Cargo143 completes; native FFI144 completes all10 Dart-driven groups
+with input/library hashes intact. Their parsed source-scope inventories are
+identical. The raw-LCOV union measures ct_core8509/10052 (84.65%) and
+ct_ffi5103/5966 (85.53%) on macOS arm64; raw Cargo and FFI-only evidence stays
+separate. Unsupported-platform sources remain visible; this does not establish
+other platforms, legacy ABI, or native mutation completion. See native143-current,
+native-ffi144-current and native144-combined under the coverage evidence root.
+
+Session140 has finished on its older snapshot. Independent audit confirms
+170/454 assertion-backed kills (37.44%), versus192/454 conventional kills
+(42.29%),153 survivors,108 timeouts, one error and190 compile failures. No newer
+tests receive credit from this campaign. VM142 remains the latest complete VM
+line evidence (91.10% measured library lines;59 unmeasured sources).
+
+Latest pushed head890ae621 has red PR/push CI: remote WAMP197/202 assertions
+(97.52%) still fails because of three timeouts; MCP is incomplete at974/1098
+when its job is cancelled. Package dry runs, image dry run and WAMP profiles
+pass. Preserve ci143-remote-pr and ci143-mcp-pr. No fresh green CI claim, merge,
+version change or publication. Push the verified implementation tests, then
+inspect fresh hosted checks while completing VM144 and the MCP/Session campaigns.
+Qwen test planning completed but several recommendations contradicted the
+inspected code; review/debug retries did not complete and GLM was unreachable.
+Manual source/diff and isolated baseline/mutant checks remain the evidence.
+
+## Previous Work
 
 Work142 integrates a 24-case inbound E2EE context matrix across materialized
 and native EVENT/INVOCATION dispatch, actual versus fallback URIs, peer identity
