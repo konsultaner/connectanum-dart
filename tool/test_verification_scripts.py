@@ -120,6 +120,23 @@ class VerificationScriptsTest(unittest.TestCase):
         for target in ('core-scram-request-vm', 'core-scram-request-web'):
             self.assertIn(f"'{target} Mutation Gate'", audit)
 
+    def test_meta_cache_mutation_gates_cover_vm_and_browser(self):
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
+        matrix = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
+        targets = {'client-meta-cache-vm', 'client-meta-cache-web'}
+        self.assertLessEqual(targets, {target.strip() for target in matrix})
+        chrome_setup = job.split('- id: chrome', 1)[1].split('- name:', 1)[0]
+        self.assertIn("matrix.target == 'client-meta-cache-web'", chrome_setup)
+        self.assertIn('browser-actions/setup-chrome@', chrome_setup)
+        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
+        self.assertNotIn('--threshold', job)
+        self.assertIn('if: always()', job)
+        self.assertIn('path: out/mutations', job)
+        audit = (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text()
+        for target in targets:
+            self.assertIn(f"'{target} Mutation Gate'", audit)
+
     @unittest.skipIf(os.name == 'nt', 'The diagnostic launcher requires Bash')
     def test_wamp_diagnostics_collect_all_results_without_masking_failures(self):
         names = [

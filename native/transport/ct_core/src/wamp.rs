@@ -670,6 +670,9 @@ fn parse_json_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError
     let mut deserializer = serde_json::Deserializer::from_slice(slice);
     let BorrowedFields(fields) = BorrowedFields::deserialize(&mut deserializer)
         .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+    deserializer
+        .end()
+        .map_err(|err| ParseError::Deserialize(err.to_string()))?;
 
     if fields.is_empty() {
         return Err(ParseError::MissingElement("message code"));
@@ -1001,6 +1004,11 @@ fn parse_msgpack_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseEr
     let mut ranges = Vec::with_capacity(len);
     for _ in 0..len {
         ranges.push(msgpack_read_value_range(&raw_payload, &mut offset)?);
+    }
+    if offset != raw_payload.len() {
+        return Err(ParseError::Deserialize(
+            "trailing data after MessagePack message array".into(),
+        ));
     }
 
     let code = msgpack_u64(
@@ -2046,7 +2054,11 @@ fn deserialize_value(serializer: Serializer, bytes: &RawFrame) -> Result<Value, 
                 let mut de = serde_cbor::Deserializer::from_reader(SegmentedFrameReader::new(
                     segments.clone(),
                 ));
-                Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
+                let value = Value::deserialize(&mut de)
+                    .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+                de.end()
+                    .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+                Ok(value)
             }
         },
         Serializer::Ubjson => Err(ParseError::UnsupportedSerializer(serializer)),
@@ -2510,6 +2522,10 @@ fn serialize_value(serializer: Serializer, value: &Value) -> Result<Bytes, Parse
         }
     }
 }
+
+#[cfg(test)]
+#[path = "wamp_regression_tests.rs"]
+mod regression_tests;
 
 #[cfg(test)]
 mod tests {

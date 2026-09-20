@@ -39,8 +39,11 @@ use the new143/144 tests and remain running separately from MCP144.
 Native Cargo143 completes; native FFI144 completes all10 Dart-driven groups
 with input/library hashes intact. Their parsed source-scope inventories are
 identical. The raw-LCOV union measures ct_core8509/10052 (84.65%) and
-ct_ffi5103/5966 (85.53%) on macOS arm64; raw Cargo and FFI-only evidence stays
-separate. Unsupported-platform sources remain visible; this does not establish
+ct_ffi5103/5966 (85.53%) on macOS arm64 was reported initially. Work146 discovers
+that the144 union omitted a newline between raw LCOV files, corrupting the
+record boundary; its union totals are invalid and superseded below. Raw Cargo
+and FFI-only evidence stays separate. Unsupported-platform sources remain visible;
+this does not establish
 other platforms, legacy ABI, or native mutation completion. See native143-current,
 native-ffi144-current and native144-combined under the coverage evidence root.
 
@@ -81,6 +84,40 @@ still matches. Preserve the original MCP144/Session144 processes; do not restart
 them or attribute newer meta tests to their snapshots. The latest main hosted
 CI remains running. Work146 starts with serialized Fast146 before targeting native
 WAMP parser coverage and enabling the verified meta-cache CI gates.
+
+Work146: Fast146-before exits0. Twelve native table-driven regressions exercise
+all25 known message variants plus unknown messages, every segment boundary,
+required-field failures, all nine payload-message shapes, optional metadata,
+MessagePack marker widths/truncation, CBOR header widths and buffer ownership.
+The first run exposes ignored suffix bytes in JSON, MessagePack and segmented
+CBOR; preserve its assertion failure. Parsers now require the complete transport
+message to be consumed, retaining valid JSON whitespace and lazy binary slices.
+All27 WAMP tests pass after the fix. A separate initial JSON wrong-string error
+expectation was corrected to preserve the existing decoder-error contract.
+Both meta-cache mutation targets are added to hosted CI and strict-audit job
+expectations, with a fail-first wiring regression. Cargo146 and FFI146 complete
+on frozen146 inputs with identical source inventories;
+the newline-safe union measures ct_core8758/10064 (87.02%), ct_ffi4987/5798
+(86.01%) and wamp.rs1718/1764 (97.39%). The changed FFI percentage is not a new
+coverage gain: the old144 union was malformed. A minimal LCOV-reader regression
+reproduces silent acceptance of the concatenated record marker. Verify146 exits0
+with frozen hashes unchanged, including2496 client WASM tests. Canonical LCOV
+regressions fail before the reader fix and all15 coverage-tool tests pass after,
+including the real LLVM fixture. The malformed144 report is now rejected; valid
+146 re-filtering is byte-identical. Follow-up Verify146b exits0 on the final
+tooling inputs, including2496 client WASM cases, with frozen hashes unchanged.
+Preserve the invalid old artifact as counterevidence. Work145
+is pushed as2155af06; package/image/profile checks
+pass and main CI is not yet complete. No merge/publication/version change.
+
+The complete native WAMP146 inventory now finishes:399 candidates, both27-test
+baselines pass, hashes intact. Strict independent audit credits12/330 viable
+assertion kills (3.64%), versus295/330 conventional catches (89.39%). Retain283
+error outcomes,32 survivors, three timeouts and69 compile failures, no waivers.
+Native mutation readiness is not established. Isolated follow-up147 has five
+additional behavioral groups passing all32 tests; seventeen selected probes
+produce13 assertions and four mixed errors. Those tests are not yet canonical
+and do not change the complete146 score. Preserve live MCP144/Session144.
 
 ## Previous Work
 

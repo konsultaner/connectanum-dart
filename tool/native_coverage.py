@@ -159,7 +159,9 @@ def read_lcov(repo: Path, raw: str, scope: dict) -> tuple[dict, list[str]]:
             if source in scope["sources"] and line > scope["sources"][source]["lineCount"]:
                 raise ValueError(f"LCOV line beyond source: {source}:{line}")
             records[source][line] = max(count, records[source].get(line, 0))
-        elif entry == "end_of_record":
+        elif entry.startswith("end_of_record"):
+            if entry != "end_of_record":
+                raise ValueError("Malformed LCOV record boundary")
             if source is None:
                 raise ValueError("LCOV end without source")
             source = None

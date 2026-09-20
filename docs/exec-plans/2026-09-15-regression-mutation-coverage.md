@@ -67,6 +67,72 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work146 Native Message Boundaries And Meta CI Gates (In Progress)
+
+- Fast146-before exits0 before canonical changes. Add twelve table-driven native
+  regressions for25 known variants and unknown messages, per-field missing/type
+  errors, payload absence/null/empty/populated values and invalid shapes, every
+  split boundary, MessagePack markers/widths/truncations, CBOR array headers,
+  optional metadata/counters, invalid codes and buffer ownership/reader behavior.
+- Initial run has a genuine boundary assertion failure: JSON and MessagePack
+  ignore trailing values/garbage in contiguous and segmented inputs; segmented
+  CBOR does too. A second failure is a test assumption: JSON non-string fields
+  already yield Deserialize rather than ExpectedString. Correct that oracle,
+  retaining exact rejection behavior rather than changing public errors.
+- Require end-of-input after JSON and segmented CBOR deserialization and exact
+  consumed length for MessagePack. All27 WAMP tests pass afterward, including
+  valid JSON whitespace and unchanged lazy binary payload bytes/ownership.
+- Protocol rationale: [WAMP Basic Profile](https://wamp-proto.org/wamp_bp_latest_ietf.html)
+  transmits one WAMP message per unbatched WebSocket message; [RawSocket framing](https://github.com/wamp-proto/wamp-proto/blob/master/_work/rawsocket-transport.md)
+  bounds one serialized WAMP message. [Batched WebSocket framing](https://wamp-proto.org/wamp_latest_ietf.html)
+  is a separately negotiated format, not permission to discard extra serialized
+  values. Therefore rejecting suffix bytes is a protocol-boundary correction,
+  not a new application feature or change to valid message serialization.
+- The meta-cache CI wiring test fails before adding both VM/JS targets to the
+  matrix, Chrome setup and strict-audit job inventory. Preserve default95%
+  assertion-backed threshold, complete inventories and always-uploaded evidence.
+- Cargo146 and all ten Dart-driven FFI146 groups pass on frozen inputs. Parsed
+  source-scope inventories match; the newline-safe raw LCOV union gives core
+  8758/10064 (87.02%), FFI4987/5798 (86.01%), wamp.rs1718/1764 (97.39%).
+  Investigation of the FFI denominator exposes malformed144 concatenation:
+  `end_of_recordSF:` assigned the next report's first source to the previous
+  source. Its union totals are invalid, not a baseline for claiming FFI gains.
+  Preserve it unchanged as counterevidence. Verify146 completes exit0 including
+  2496 client WASM tests, with frozen hashes unchanged. Two canonical LCOV tests
+  then reproduce five missing-rejection assertions before the reader fix. All15
+  native coverage tests pass afterward, including a real LLVM fixture. Valid LF,
+  CRLF and no-final-newline inputs retain per-file attribution; the malformed144
+  report is rejected, and re-filtered146 production LCOV is byte-identical.
+  Follow-up Verify146b includes the tooling fix and exits0, including2496 client
+  WASM cases; the final source/test/config manifest still matches. Hosted
+  main CI remains incomplete;2155af06 package/image/profile checks pass.
+  Preserve live MCP144 and
+  Session144 campaigns; new native tests do not upgrade their snapshot scores.
+- Narrow Gemma review completed. Its suggestions about missing full-consumption
+  checks are contradicted by the complete parser paths and boundary regressions;
+  no unsupported review finding is used as evidence.
+- The LCOV Qwen review hit its output limit. A narrower Gemma review completed;
+  its suggested CRLF defect is contradicted by `splitlines()` and the passing
+  CRLF regression. Do not strip malformed suffix whitespace as suggested. GLM
+  was independently unreachable. Native follow-up ideas likewise contained
+  incorrect CBOR widths; use independently checked wire fixtures instead.
+- Full native WAMP146 completes all399 generated candidates on the private
+  snapshot; original/restored27-test baselines pass and source hashes match.
+  Cargo marks295 caught, but the independent strict audit credits only12/330
+  viable candidates (3.64%):283 error outcomes,32 survivors, three timeouts and
+  69 compile failures. No waivers. The conventional295/330 (89.39%) is not an
+  assertion score. Preserve every raw log, inventory and diagnostic classification.
+  Many failures are test unwraps/custom panic diagnostics, with genuine mutated
+  production panics also present; none gets assertion credit by assumption.
+- Isolated follow-up147 adds five groups for all nine CBOR payload ownership/
+  byte-preservation paths, nonuniform big-endian lengths, MessagePack payload
+  array/map header widths and existing HEARTBEAT null-counter behavior. All32
+  tests pass; preserve the initial module-path error and incorrect assumption
+  that CBOR accepts null counters. Seventeen selected probes yield13 clean
+  assertion kills and four mixed errors; thirteen previously surviving cases now
+  assert. This is a selected probe, not a complete replacement mutation score,
+  and the follow-up tests are not yet integrated into canonical sources.
+
 ### Work143/144 GOODBYE And CI Mutation Observation
 
 - Integrate the six-case GOODBYE probe, including observer error-identity

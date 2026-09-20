@@ -150,6 +150,33 @@ class NativeCoverageTests(unittest.TestCase):
             with self.subTest(raw=raw), self.assertRaises(ValueError):
                 filter_lcov(self.repo, scope, raw)
 
+    def test_lcov_concatenation_requires_an_intact_record_boundary(self):
+        self.write("core/src/lib.rs", "mod child;\nfn first() {}\n")
+        self.write("core/src/child.rs", "fn second() {}\n")
+        scope = self.capture()
+        first = "SF:core/src/lib.rs\nDA:2,0\nend_of_record"
+        second = "SF:core/src/child.rs\nDA:1,1\nend_of_record"
+        with self.assertRaisesRegex(ValueError, "Malformed LCOV record boundary"):
+            filter_lcov(self.repo, scope, first + second)
+        for separator in ("\n", "\r\n"):
+            with self.subTest(separator=separator):
+                _, report = filter_lcov(self.repo, scope, first + separator + second)
+                component = report["components"]["core"]
+                self.assertEqual((component["hit"], component["found"]), (1, 2))
+                self.assertEqual(component["files"]["core/src/lib.rs"]["hit"], 0)
+                self.assertEqual(component["files"]["core/src/child.rs"]["hit"], 1)
+
+    def test_lcov_record_terminator_rejects_suffixes(self):
+        self.write("core/src/lib.rs", "fn production() {}\n")
+        scope = self.capture()
+        record = "SF:core/src/lib.rs\nDA:1,1\nend_of_record"
+        for suffix in ("SF:core/src/lib.rs", "DA:1,9", "end_of_record", " "):
+            with self.subTest(suffix=suffix), self.assertRaisesRegex(
+                    ValueError, "Malformed LCOV record boundary"):
+                filter_lcov(self.repo, scope, record + suffix + "\nend_of_record\n")
+        _, report = filter_lcov(self.repo, scope, record)
+        self.assertEqual(report["components"]["core"]["hit"], 1)
+
     @unittest.skipUnless(os.environ.get("CONNECTANUM_TEST_LLVM_COVERAGE") == "1",
                          "requires cargo-llvm-cov and llvm-tools-preview")
     def test_real_llvm_coverage_separates_inline_and_external_test_bodies(self):
