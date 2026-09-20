@@ -6,6 +6,37 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work152 strengthens Base64/MessagePack positive completion assertions while
+preserving all prior value and rejection checks. New regressions cover empty
+MessagePack scalars at view boundaries, nested wide keys/binary views, oversized
+lengths, and Base64 RFC4648 vectors/buffer ownership. Fast152 exits0; focused
+canonical VM codec tests pass104 cases. Complete Base64 VM152 has218/266
+assertion kills (81.95%),48 unwaived survivors and3 compile failures, with no
+errors/timeouts or error-only kills. Independent audit and source/test hashes
+agree; both baselines pass. The old67.67% assertion result is not relabeled.
+MessagePack JS152 completes234 candidates with198/225 assertion kills (88.00%),
+26 unwaived survivors,9 compile failures and1 infrastructure error from a
+lingering renderer. It receives no kill credit; the runner cleaned it up.
+Base64 JS152 independently completes269 candidates with the same218/266
+assertion result as VM,48 survivors and3 compile failures, no errors/timeouts.
+Both browser campaigns have passing original/restored baselines, matching
+source/test/support hashes and independent audits. No waivers were added; all
+three full campaigns exit1 because their95% assertion gates remain unmet.
+Initial Verify152 caught four broader serializer inventories missing the new
+helper. Their supportFiles lists are fixed and the existing regression passes.
+Final-b full bin/verify exits0, including JS/WASM tests; frozen inputs match.
+The shared native window is released. No98%/95% whole-milestone claim.
+An independent two-survivor Base64 probe proves mixed-alphabet quartet vectors
+detect real byte corruption hidden by the old all-A context. Both probe
+original/restored baselines pass, but its new assertions are not part of the
+frozen152 canonical suite and do not increase218/266. Integrate these proven
+oracles next rather than waiving the survivors. Evidence is under
+`out/regression-coverage-2026-09-15/coverage152-verification`,
+`base64-152-{vm,web}-mutations`, `msgpack152-web-mutations`, and
+`base64-152-survivor-probe`. Work151 commit0d6bec0b is pushed and PR93 updated;
+its strict hosted audit still fails on pending exact-head CI/package/image/profile
+checks. The PR remains draft/unmerged; no version or publication changes.
+
 Work151 integrates nine registry/body contract groups and repairs native mutation
 scope auditing. Exact AST-owned production FnValue bodies may include nested
 test/debug code, but test-only functions/operators remain rejected, including

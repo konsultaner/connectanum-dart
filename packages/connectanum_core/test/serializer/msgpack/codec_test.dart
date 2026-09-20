@@ -4,6 +4,8 @@ import 'package:connectanum_core/src/serializer/msgpack/codec.dart' as codec;
 import 'package:msgpack_dart/msgpack_dart.dart' as delegate;
 import 'package:test/test.dart';
 
+import 'codec_test_support.dart' as checked;
+
 const _wide = 0x100000000;
 const _wideWire = [0xcf, 0, 0, 0, 1, 0, 0, 0, 0];
 
@@ -53,15 +55,49 @@ void main() {
   ];
 
   group('MessagePack codec wire boundaries', () {
+    for (final (name, wire, value) in <(String, List<int>, Object?)>[
+      ('fixstr', [0xa0], ''),
+      ('str8', [0xd9, 0], ''),
+      ('str16', [0xda, 0, 0], ''),
+      ('str32', [0xdb, 0, 0, 0, 0], ''),
+      ('bin8', [0xc4, 0], Uint8List(0)),
+      ('bin16', [0xc5, 0, 0], Uint8List(0)),
+      ('bin32', [0xc6, 0, 0, 0, 0], Uint8List(0)),
+      ('ext8', [0xc7, 0, 42], null),
+      ('ext16', [0xc8, 0, 0, 42], null),
+      ('ext32', [0xc9, 0, 0, 0, 0, 42], null),
+    ]) {
+      test('decodes empty $name at the view boundary or before a sibling', () {
+        for (final trailing in <List<int>>[
+          [],
+          [0xc3],
+        ]) {
+          final frame = [
+            trailing.isEmpty ? 0x92 : 0x93,
+            ..._wideWire,
+            ...wire,
+            ...trailing,
+          ];
+          final padded = Uint8List.fromList([0xc1, ...frame, 0xc1]);
+          final view = Uint8List.sublistView(padded, 1, padded.length - 1);
+          expect(
+            checked.deserialize(view),
+            equals([_wide, value, if (trailing.isNotEmpty) true]),
+          );
+          expect(padded, orderedEquals([0xc1, ...frame, 0xc1]));
+        }
+      });
+    }
+
     // Leading uint64 enters the JavaScript fallback before the scalar. A final
     // boolean proves that each scalar consumes exactly its own wire bytes.
     for (final (name, wire, value) in scalars) {
       test('decodes $name after uint64 without consuming the next value', () {
         final frame = Uint8List.fromList([0x93, ..._wideWire, ...wire, 0xc3]);
-        expect(codec.deserialize(frame), equals([_wide, value, true]));
+        expect(checked.deserialize(frame), equals([_wide, value, true]));
         final padded = Uint8List.fromList([0x7e, ...frame, 0x7f]);
         expect(
-          codec.deserialize(
+          checked.deserialize(
             Uint8List.sublistView(padded, 1, padded.length - 1),
           ),
           equals([_wide, value, true]),
@@ -101,7 +137,7 @@ void main() {
           ...payload,
           0xc3,
         ]);
-        expect(codec.deserialize(frame), equals([_wide, expected, true]));
+        expect(checked.deserialize(frame), equals([_wide, expected, true]));
       });
       test('rejects truncated $name headers and bodies', () {
         final wire = [...header, ...payload];
@@ -156,10 +192,10 @@ void main() {
         (-_wide - 1, [0xd3, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff]),
         (-0x20000000000000, [0xd3, 0xff, 0xe0, 0, 0, 0, 0, 0, 0]),
       ]) {
-        expect(codec.serialize(value), orderedEquals(wire), reason: '$value');
-        expect(codec.deserialize(Uint8List.fromList(wire)), value);
+        expect(checked.serialize(value), orderedEquals(wire), reason: '$value');
+        expect(checked.deserialize(Uint8List.fromList(wire)), value);
         expect(
-          codec.deserialize(Uint8List.fromList([0x91, ...wire])),
+          checked.deserialize(Uint8List.fromList([0x91, ...wire])),
           equals([value]),
         );
       }
@@ -178,14 +214,14 @@ void main() {
         ]) {
           final bytes = Uint8List.fromList(wire);
           if (nativeIntegers) {
-            expect(codec.deserialize(bytes), int.parse(decimal));
+            expect(checked.deserialize(bytes), int.parse(decimal));
           } else {
             expect(() => codec.deserialize(bytes), throwsFormatException);
           }
         }
         for (final value in [0x20000000000002, -0x20000000000002]) {
           if (nativeIntegers) {
-            expect(codec.deserialize(codec.serialize(value)), value);
+            expect(checked.deserialize(checked.serialize(value)), value);
           } else {
             expect(() => codec.serialize(value), throwsFormatException);
           }
@@ -196,9 +232,9 @@ void main() {
     for (final length in [15, 16, 65535, 65536]) {
       test('encodes array/map header transitions at $length entries', () {
         final values = List<Object?>.filled(length, 7)..[0] = _wide;
-        final array = codec.serialize(values);
+        final array = checked.serialize(values);
         final map = {for (var i = 0; i < length; i++) i: i == 0 ? _wide : 7};
-        final dictionary = codec.serialize(map);
+        final dictionary = checked.serialize(map);
         final arrayHeader = length <= 15
             ? [0x90 | length]
             : length <= 65535
@@ -212,15 +248,71 @@ void main() {
               : 0xdf;
         expect(array.take(arrayHeader.length), orderedEquals(arrayHeader));
         expect(dictionary.take(mapHeader.length), orderedEquals(mapHeader));
-        expect(codec.deserialize(array), equals(values));
-        expect(codec.deserialize(dictionary), equals(map));
+        expect(checked.deserialize(array), equals(values));
+        expect(checked.deserialize(dictionary), equals(map));
       });
     }
 
     test('encodes a non-list iterable containing a wide integer', () {
       final values = [_wide, 7].map((value) => value);
-      expect(codec.serialize(values), orderedEquals([0x92, ..._wideWire, 7]));
-      expect(codec.deserialize(codec.serialize(values)), equals([_wide, 7]));
+      expect(checked.serialize(values), orderedEquals([0x92, ..._wideWire, 7]));
+      expect(
+        checked.deserialize(checked.serialize(values)),
+        equals([_wide, 7]),
+      );
+    });
+
+    test('preserves binary views and wide map keys in nested wire bytes', () {
+      final backing = Uint8List.fromList([0x7e, 0, 0xff, 0x7f]);
+      final binary = Uint8List.sublistView(backing, 1, 3);
+      final byteData = ByteData.sublistView(backing, 1, 3);
+      for (final value in [binary, byteData]) {
+        final message = {
+          _wide: [value, null, true, -33],
+          'k': {'n': -_wide},
+        };
+        final wire = [
+          0x82,
+          ..._wideWire,
+          0x94,
+          0xc4,
+          2,
+          0,
+          0xff,
+          0xc0,
+          0xc3,
+          0xd0,
+          0xdf,
+          0xa1,
+          0x6b,
+          0x81,
+          0xa1,
+          0x6e,
+          0xd3,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0,
+          0,
+          0,
+          0,
+        ];
+        expect(checked.serialize(message), orderedEquals(wire));
+        expect(
+          checked.deserialize(Uint8List.fromList(wire)),
+          equals({
+            _wide: [
+              Uint8List.fromList([0, 0xff]),
+              null,
+              true,
+              -33,
+            ],
+            'k': {'n': -_wide},
+          }),
+        );
+        expect(backing, orderedEquals([0x7e, 0, 0xff, 0x7f]));
+      }
     });
   });
 }

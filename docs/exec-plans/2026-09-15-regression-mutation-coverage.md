@@ -67,6 +67,45 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work152 Serializer Assertions And Wire Boundaries (Locally Verified)
+
+- Push verified151 as0d6bec0b and update PR93. Exact-head image35506393279 and
+  profile35506394230 were dispatched once; strict hosted audit exits1 while
+  required CI/package/image/profile checks are queued. No green-chain claim.
+- Start Fast152 before edits; it exits0. Preserve the stronger existing wire
+  comparisons and malformed-input matchers, adding single-execution
+  returnsNormally assertions for valid operations. Add empty MessagePack scalar
+  boundaries, nested wide-key/binary-view encoding and oversized-length cases,
+  plus Base64 RFC4648 section10 vectors and byte-buffer ownership/range checks.
+  Focused canonical VM codec tests pass104 cases. No production changes.
+- Base64 VM152 completes269 candidates with218 assertion kills,48 survivors,
+  3 compile failures, no errors/timeouts or error-only kills, no waivers:
+  raw/adjusted218/266=81.954887%. Both baselines pass, source/test hashes match,
+  and independent log audit agrees. This improves assertion quality, not the
+  conventional218 detections. Base64 JS independently completes with the same
+  counts and assertion score. MessagePack JS completes234 candidates with198/225
+  assertions (88.00%),26 survivors,9 compile failures and1 infrastructure error
+  from a lingering renderer. No kill credit for that error; cleanup completed.
+  Both browser original/restored baselines pass, source/test/support hashes
+  match and independent audits agree. All three full campaigns exit1:95% gates
+  remain unmet. No equivalent waivers or aggregate-completion claims.
+- Initial Verify152 fails the unchanged complete-inventory regression because
+  four broader serializer target support lists lack the new MessagePack helper.
+  Add the helper to all four, retaining the check and source scope. The focused
+  regression now passes. Frozen final-b full bin/verify exits0, including JS/WASM
+  tests, and input hashes match. Release the shared native window. Passing WASM
+  tests are not measured WASM line coverage.
+- Inspect survivors rather than treating SDK fallback as blanket equivalence.
+  An isolated two-candidate probe uses independently expected `00A0` and `00a0`
+  bytes to kill two previously surviving alphabet mutations. Both original and
+  restored two-test baselines pass. These assertions are not yet integrated in
+  the frozen canonical152 test set, so this is only a probe and does not change
+  its complete score. Integrate mixed-class contexts in the next test snapshot.
+- Qwen planning/review/triage is advisory; inspect matcher source to reject the
+  false suggestion that single-execution success assertions require idempotency.
+  The heavyweight GLM backend is unavailable. Preserve failed/truncated review
+  attempts separately rather than calling them completed reviews.
+
 ### Work151 Registry Contracts And Exact Mutation Scope (Locally Verified)
 
 - Integrate nine isolated registry/body regression groups after Fast151-before

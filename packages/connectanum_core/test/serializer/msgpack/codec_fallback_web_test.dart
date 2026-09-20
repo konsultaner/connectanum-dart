@@ -7,6 +7,8 @@ import 'package:connectanum_core/src/serializer/msgpack/codec.dart' as codec;
 import 'package:msgpack_dart/msgpack_dart.dart' as delegate;
 import 'package:test/test.dart';
 
+import 'codec_test_support.dart' as checked;
+
 const _wide = [0xcf, 0, 0, 0, 1, 0, 0, 0, 0];
 
 void main() {
@@ -21,7 +23,7 @@ void main() {
         (-0x1fffffffffffff, 0xd3, [255, 0xe0, 0, 0, 0, 0, 0, 1]),
       ]) {
         final wire = Uint8List.fromList([marker, ...octets]);
-        expect(codec.deserialize(wire), value);
+        expect(checked.deserialize(wire), value);
       }
     },
   );
@@ -34,6 +36,7 @@ void main() {
           [0, 0x20, 0, 0, 0, 0, 0, 1],
           [0, 0x20, 0, 1, 0, 0, 0, 0],
           [0x7f, 255, 255, 255, 255, 255, 255, 255],
+          [0x80, 0, 0, 0, 0, 0, 0, 0],
         ]) {
           expect(
             () => codec.deserialize(Uint8List.fromList([marker, ...octets])),
@@ -52,7 +55,7 @@ void main() {
       ([0x81, 1, 2], {1: 2}),
     ]) {
       expect(
-        codec.deserialize(Uint8List.fromList([0x92, ..._wide, ...wire])),
+        checked.deserialize(Uint8List.fromList([0x92, ..._wide, ...wire])),
         equals([0x100000000, expected]),
       );
     }
@@ -106,6 +109,34 @@ void main() {
     }
   });
 
+  test('rejects uint32-sized scalar lengths without reading beyond a view', () {
+    for (final marker in [0xdb, 0xc6, 0xc9]) {
+      final frame = [
+        0x92,
+        ..._wide,
+        marker,
+        0xff,
+        0xff,
+        0xff,
+        0xff,
+        if (marker == 0xc9) 42,
+      ];
+      final padded = Uint8List.fromList([0, ...frame, 0, 0]);
+      expect(
+        () => codec.deserialize(
+          Uint8List.sublistView(padded, 1, padded.length - 2),
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'Truncated MessagePack value',
+          ),
+        ),
+      );
+    }
+  });
+
   test('preserves delegated root errors when no uint64 fallback is needed', () {
     expect(() => codec.deserialize(Uint8List(0)), throwsRangeError);
     expect(
@@ -117,7 +148,7 @@ void main() {
   test('rejects trailing bytes after directly decoded 64-bit values', () {
     for (final marker in [0xcf, 0xd3]) {
       final wire = [..._wide]..[0] = marker;
-      expect(codec.deserialize(Uint8List.fromList(wire)), 0x100000000);
+      expect(checked.deserialize(Uint8List.fromList(wire)), 0x100000000);
       expect(
         () => codec.deserialize(Uint8List.fromList([...wire, 0xc0])),
         throwsA(
@@ -136,7 +167,7 @@ void main() {
     () {
       final wire = [0x91, ..._wide];
       expect(
-        codec.deserialize(Uint8List.fromList(wire)),
+        checked.deserialize(Uint8List.fromList(wire)),
         equals([0x100000000]),
       );
       expect(

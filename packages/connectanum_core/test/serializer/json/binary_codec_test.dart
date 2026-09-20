@@ -4,18 +4,32 @@ import 'dart:typed_data';
 import 'package:connectanum_core/src/serializer/json/binary_codec.dart';
 import 'package:test/test.dart';
 
+T _success<T>(T Function() operation) {
+  late T value;
+  expect(() => value = operation(), returnsNormally);
+  return value;
+}
+
+Uint8List _encode(Uint8List bytes) => _success(() => encodeBase64Bytes(bytes));
+
+Uint8List _decode(String text, int start) =>
+    _success(() => decodeBase64Bytes(text, start));
+
+Uint8List? _canonical(Uint8List bytes, int start, int end) =>
+    _success(() => tryDecodeCanonicalBase64Bytes(bytes, start, end));
+
 void main() {
   test('binary JSON base64 fast path matches the SDK across boundaries', () {
     for (var length = 0; length <= 1025; length++) {
       final bytes = Uint8List.fromList(
         List<int>.generate(length, (index) => (index * 31) & 0xff),
       );
-      final encoded = encodeBase64Bytes(bytes);
+      final encoded = _encode(bytes);
       expect(ascii.decode(encoded), base64.encode(bytes));
 
       final wrapped = 'prefix:${ascii.decode(encoded)}';
       expect(
-        decodeBase64Bytes(wrapped, 'prefix:'.length),
+        _decode(wrapped, 'prefix:'.length),
         orderedEquals(bytes),
       );
     }
@@ -25,7 +39,7 @@ void main() {
     final bytes = Uint8List.fromList(const [251, 255, 239]);
     final urlSafe = 'prefix:${base64Url.encode(bytes)}';
     expect(
-      decodeBase64Bytes(urlSafe, 'prefix:'.length),
+      _decode(urlSafe, 'prefix:'.length),
       orderedEquals(bytes),
     );
     expect(
@@ -43,7 +57,7 @@ void main() {
       final wrapped = Uint8List.fromList([1, 2, ...encoded, 3, 4]);
 
       expect(
-        tryDecodeCanonicalBase64Bytes(wrapped, 2, 2 + encoded.length),
+        _canonical(wrapped, 2, 2 + encoded.length),
         orderedEquals(bytes),
       );
     }
@@ -64,7 +78,7 @@ void main() {
     ]) {
       final input = bytes(value);
       expect(
-        tryDecodeCanonicalBase64Bytes(input, 0, input.length),
+        _canonical(input, 0, input.length),
         isNull,
         reason: value,
       );
@@ -91,7 +105,7 @@ void main() {
           final input = Uint8List.fromList(ascii.encode('AAAAAAAA'));
           input[position] = invalid;
           expect(
-            tryDecodeCanonicalBase64Bytes(input, 0, input.length),
+            _canonical(input, 0, input.length),
             isNull,
             reason: 'invalid $invalid at position $position',
           );
@@ -126,7 +140,7 @@ void main() {
         List.generate(length, (i) => (i * 31 + 251) & 255),
       );
       final encoded = base64Url.encode(bytes);
-      expect(decodeBase64Bytes(encoded, 0), orderedEquals(bytes));
+      expect(_decode(encoded, 0), orderedEquals(bytes));
     }
   });
 
@@ -144,9 +158,9 @@ void main() {
           );
           final expected = base64.decode(encoded);
           final input = Uint8List.fromList(ascii.encode(encoded));
-          expect(decodeBase64Bytes(encoded, 0), orderedEquals(expected));
+          expect(_decode(encoded, 0), orderedEquals(expected));
           expect(
-            tryDecodeCanonicalBase64Bytes(input, 0, input.length),
+            _canonical(input, 0, input.length),
             orderedEquals(expected),
             reason: '$character in position $position',
           );
@@ -180,7 +194,7 @@ void main() {
         );
         final encoded = '${'!' * start}${base64.encode(input)}';
         expect(
-          decodeBase64Bytes(encoded, start),
+          _decode(encoded, start),
           orderedEquals(input),
           reason: '$start / $length',
         );
@@ -230,11 +244,80 @@ void main() {
           continue;
         }
         expect(
-          decodeBase64Bytes(encoded, prefix.length),
+          _decode(encoded, prefix.length),
           orderedEquals(expected),
           reason: encoded,
         );
       }
     }
   });
+
+  test('RFC 4648 vectors preserve exact wire bytes in both decoders', () {
+    for (final (plain, encoded) in [
+      ('', ''),
+      ('f', 'Zg=='),
+      ('fo', 'Zm8='),
+      ('foo', 'Zm9v'),
+      ('foob', 'Zm9vYg=='),
+      ('fooba', 'Zm9vYmE='),
+      ('foobar', 'Zm9vYmFy'),
+    ]) {
+      final bytes = Uint8List.fromList(ascii.encode(plain));
+      final wire = Uint8List.fromList(ascii.encode(encoded));
+      expect(_encode(bytes), orderedEquals(wire));
+      expect(_decode(encoded, 0), orderedEquals(bytes));
+      expect(_canonical(wire, 0, wire.length), orderedEquals(bytes));
+    }
+  });
+
+  test('byte subranges neither read guard bytes nor alias decoded output', () {
+    for (final encoded in ['', 'Zg==', 'Zm8=', 'Zm9v', 'Zm9vYmFy']) {
+      final wire = ascii.encode(encoded);
+      final backing = Uint8List.fromList([0xff, ...wire, 0xff]);
+      final original = Uint8List.fromList(backing);
+      final decoded = _canonical(backing, 1, backing.length - 1);
+      expect(decoded, isNotNull);
+      final expected = ascii.encode(switch (encoded) {
+        '' => '',
+        'Zg==' => 'f',
+        'Zm8=' => 'fo',
+        'Zm9v' => 'foo',
+        _ => 'foobar',
+      });
+      expect(decoded, orderedEquals(expected));
+      expect(backing, orderedEquals(original));
+      backing.fillRange(0, backing.length, 0);
+      expect(decoded, orderedEquals(expected));
+      if (decoded!.isNotEmpty) {
+        decoded[0] = 255;
+        expect(backing, everyElement(0));
+      }
+    }
+  });
+
+  test('encoder accepts byte views without including or modifying guards', () {
+    final backing = Uint8List.fromList([0xff, 102, 111, 111, 0xff]);
+    final encoded = _encode(Uint8List.sublistView(backing, 1, 4));
+    expect(encoded, orderedEquals([90, 109, 57, 118]));
+    expect(backing, orderedEquals([0xff, 102, 111, 111, 0xff]));
+    backing.fillRange(0, backing.length, 0);
+    expect(encoded, orderedEquals([90, 109, 57, 118]));
+  });
+
+  test(
+    'canonical decoder rejects reversed ranges and accepts empty end view',
+    () {
+      final input = Uint8List.fromList([33, 33, 33]);
+      expect(
+        () => tryDecodeCanonicalBase64Bytes(input, 2, 1),
+        throwsRangeError,
+      );
+      expect(
+        () => tryDecodeCanonicalBase64Bytes(input, 4, 4),
+        throwsRangeError,
+      );
+      expect(_canonical(input, 3, 3), isEmpty);
+      expect(_canonical(input, 1, 1), isEmpty);
+    },
+  );
 }
