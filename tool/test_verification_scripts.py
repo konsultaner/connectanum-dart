@@ -405,6 +405,19 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         self.assertIn('integration.benchmarkRunnerRegressionTests()', source)
         self.assertNotIn('integration.main()', source)
 
+    def test_bench_worker_mutations_cover_complete_process_lifecycle(self):
+        targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['bench-worker-vm']
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_bench/lib/src/native_wamp_worker.dart'])
+        self.assertEqual(set(target['tests']), {
+            'packages/connectanum_bench/test/native_wamp_worker_test.dart',
+            'packages/connectanum_bench/test/native_wamp_worker_lifecycle_test.dart',
+        })
+        self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
+        self.assertEqual(target['testTimeoutSeconds'], 10)
+        self.assertFalse(target.get('requiresNativeLibrary', False))
+
     def test_serializer_mutation_wrappers_preserve_complete_runtime_inventory(self):
         targets = json.loads((REPO_ROOT / 'tool/mutation_targets.json').read_text())
         root = REPO_ROOT / 'packages/connectanum_core/test'

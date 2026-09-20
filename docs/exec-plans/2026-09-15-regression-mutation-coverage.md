@@ -67,6 +67,40 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work161 Worker Lifecycle Ownership
+
+- Preserve Work160's isolated native campaign and reserve its native test window.
+  The preceding fast test and final Verify160 passed before production edits.
+- Reproduce 11 failures in 21 new fake-process lifecycle cases before changing
+  production code. Startup races, close during Process.start, stale cleanup,
+  concurrent scenario ownership, EOF and UTF-8 decode failures are observable
+  through public operations, independent child PID/request markers and reaping.
+- Give each generation its own launch/readiness, response, subscriptions and
+  close completion. Serialize scenarios without reusing their native runtime.
+  Explicit close invalidates queued operations and pending starts. A separate
+  failing close-during-cleanup test drives the additional startup epoch guard.
+- Final focused matrix: 32 tests pass and 209/209 worker source lines are covered.
+  Keep VM/POSIX fixture scope explicit; this is not whole-package, Windows or
+  native Rust coverage. All 71 verification-tool contracts and analysis pass.
+- Controlled deadlines fire only the configured readiness/shutdown timer after
+  independent OS child barriers. This avoids startup timing flakiness; actual
+  process creation, pipe failures, signal delivery and reaping remain real.
+- Complete 85-candidate worker campaign: 28/69 (40.58%) strict kills, 13 survivors,
+  24 timeouts, four error-only detections, 16 compile errors. Both baselines and
+  independent audit pass. No waivers; 95% gate fails. Its fixtures do not load the
+  native library. Keep its frozen tests and raw evidence distinct from follow-ups.
+- Production and test reviews were attempted locally. Completed Qwen findings
+  are rejected after checking synchronous ordering, caller-visible errors,
+  awaited exit futures, existing timeout guards and Process.killPid behavior.
+  Earlier token-limited reviews remain incomplete, and GLM is unavailable.
+- Work160's native campaign and both independent audits completed; frozen hashes
+  match. Fast161 and Verify161 exit 0, including browser WASM tests. Supervisor
+  cell 1462 completed final benchmark collection: all 864 tests pass, covering
+  2189/2295 measured lines (95.38%). Frozen input and native hashes still match.
+  The benchmark-only audit fails 98%; other packages are absent, not measured.
+  Work161 is ready to commit. The complete per-component/runtime 98%/95%
+  milestone remains active and incomplete.
+
 ### Work160 Benchmark Factories And Runner Evidence
 
 - Fast160 passes before repository edits. Add independent wire peers for all
@@ -98,6 +132,25 @@ caught and timed-out outcomes separately.
 - Evidence root: out/regression-coverage-2026-09-15/coverage160-verification;
   bench160-current is initial coverage, bench160-final is reserved for the final
   snapshot, and bench160-final-mutations is the final campaign output.
+
+Work160 is pushed as 67092fc9. All 74 PR checks are queued, and strict hosted
+audit exits 1 for pending evidence/feature-branch protection. Exact-head CI
+35525099435/35525096784, package 35525099454/35525096726, image 35525141697 and
+profile 35525142318 are already dispatched; do not duplicate them. The complete
+runner target records 21/72 (29.17%) assertion-backed kills: 29 survivors,
+22 error-only detections, 17 compile errors, clean before/after baselines.
+The workload target also completed: 134/338 (39.64%) strict kills, 146 survivors,
+22 timeouts, 36 error-only detections, 181 compile errors. Both baselines and the
+independent audit pass; the native artifact is unchanged. These are not Work161
+snapshot results. All three benchmark targets still fail the 95% assertion gate.
+
+A separate public BenchmarkRunner.run repro with controlled fake cargo confirms
+a stdout/stderr pipe deadlock. Preserve coverage162-probes and its failed log;
+no real native artifact is loaded or built. After Work161's frozen verification,
+drain build streams concurrently and promote the six-case fake-build matrix:
+three controls pass and three stderr-backpressure cases fail. The fixture waits
+for PROBE_READY and the fake cargo PID before imposing operation deadlines;
+zero-byte streams do not call macOS head with an invalid zero count.
 
 ### Work159 Active MCP Stream Failure Isolation
 

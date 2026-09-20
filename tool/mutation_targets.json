@@ -176,6 +176,15 @@
     "requiresNativeLibrary": true,
     "testTimeoutSeconds": 10
   },
+  "bench-worker-vm": {
+    "sources": ["packages/connectanum_bench/lib/src/native_wamp_worker.dart"],
+    "tests": [
+      "packages/connectanum_bench/test/native_wamp_worker_test.dart",
+      "packages/connectanum_bench/test/native_wamp_worker_lifecycle_test.dart"
+    ],
+    "testRoot": "packages/connectanum_bench",
+    "testTimeoutSeconds": 10
+  },
   "bench-http-stream-vm": {
     "sources": ["packages/connectanum_bench/lib/src/http_stream_handler.dart"],
     "tests": ["packages/connectanum_bench/test/support/http_stream_mutation_suite.dart"],

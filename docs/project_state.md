@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work161 is locally verified: NativeWampWorker now owns startup, readiness, pending
+responses and cleanup per process generation. Concurrent starts share launch;
+explicit close cancels active/queued work and starts waiting for prior cleanup;
+scenarios are serialized and still recycle their native runtime. Stream decode
+failures and EOF fail the caller instead of leaving requests hanging. The initial
+21-case lifecycle suite reproduced 11 failures before production edits. A later
+close-during-cleanup repro failed separately before adding its epoch guard.
+All 32 focused tests now pass, with 209/209 measured worker lines (100%) and no
+analyzer issues. This is one VM/POSIX-tested source file, not whole-bench or
+Windows evidence. Seventy-one tooling contracts pass. The complete 85-candidate
+worker mutation campaign is independently audited: 28/69 (40.58%) strict kills,
+13 survivors, 24 timeouts, four error-only detections and 16 compile errors.
+Both baselines pass; no waivers and no 95% claim. Its fake child fixtures do not
+load the native artifact. Work160's native campaign also completed and was
+audited. Supervisor cell 1462 completed: bin/test-fast and bin/verify exit 0,
+including browser WASM tests. Final full benchmark coverage is 2189/2295
+(95.38%), up from Work160's 93.97%, with all 864 tests passing. Frozen input
+hashes and the native artifact hash match. The benchmark-only audit still fails
+98%; absent other packages are not measured by this report. Do not overlap
+native users when collecting follow-up evidence.
+Frozen inputs and negative controls are retained under
+coverage161-verification and worker161-* in out/regression-coverage-2026-09-15.
+Work161 is ready for its implementation commit. No publication, merge or version
+change has occurred; the full 98%/95% goal is incomplete.
+
 Work160 expands benchmark regression evidence, prioritizing previously unmeasured
 native factory paths and real runner accounting. A 66-case factory suite exercises
 Dart/native RawSocket/WebSocket JSON/MsgPack/CBOR, TLS, authentication rejection,
@@ -20,9 +45,29 @@ tooling contracts pass. Final bin/verify exits 0, including browser WASM tests;
 frozen source/test hashes match. Complete mutation targets
 cover all 89 runner and 519 workload AST candidates, not a sampled region. The
 pre-teardown campaign was intentionally interrupted and remains incomplete;
-final-snapshot campaigns are running in isolated workspaces (session 51979).
-The native test window remains reserved until they finish. No package versions or production behavior
+final-snapshot campaigns completed in isolated workspaces and passed independent
+audits. The native window remains reserved for Verify161. No package versions or production behavior
 have changed. The full 98%/95% goal remains incomplete.
+
+Work160 implementation 67092fc9 is pushed; PR #93 stays draft/unmerged. Its 74
+checks remain queued. CI runs 35525099435/35525096784, package dry-runs
+35525099454/35525096726, image dry-run 35525141697 and profile benchmarks
+35525142318 cover the pushed head. The strict audit exits 1 for queued evidence
+and feature-branch protection, not a demonstrated test failure. The runner target
+has completed its 89 candidates: 21/72 (29.17%) assertion-backed kills, 29
+survivors, 22 error-only detections and 17 compile errors, with clean baselines.
+The full 519-candidate workload campaign records 134/338 (39.64%) strict kills,
+146 survivors, 22 timeouts, 36 error-only detections and 181 compile errors.
+Both baselines pass and the native artifact hash is unchanged. Do not attribute
+Work160 outcomes to the newer Work161 source snapshot.
+
+A separate fake-cargo repro confirms BenchmarkRunner's sequential stdout/stderr
+draining deadlocks when stderr fills before stdout closes. No real build or FFI
+is used; coverage162-probes retains a ten-case isolated matrix with six passing
+controls and four stderr-backpressure failures. It verifies binary output,
+exact arguments, working directory and exit-code metadata. Startup barriers prevent fixture timing
+from being mistaken for a pipe failure, and owned child cleanup is verified.
+The build-drain fix is next after committing the verified Work161 snapshot.
 
 Work154's original frozen campaign is now complete and independently audited:
 Invocation VM 91/108 (84.26%), Invocation JS 92/108 (85.19%), Session JS 222/460
