@@ -5994,6 +5994,9 @@ mod http2_security_tests;
 mod http_transport_auth_tests;
 
 #[cfg(test)]
+mod connection_registry_tests;
+
+#[cfg(test)]
 mod http1_response_tests;
 #[cfg(test)]
 mod http_response_headers_tests;

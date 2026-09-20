@@ -67,6 +67,64 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work151 Registry Contracts And Exact Mutation Scope (Locally Verified)
+
+- Integrate nine isolated registry/body regression groups after Fast151-before
+  exits0. Cover connection identity/protocol boundaries, FIFO response ownership,
+  close cleanup, send-queue backpressure, inline ownership/overflow and streaming
+  completion/errors. Canonical baseline runs all nine and passes. No production
+  transport behavior changes.
+- Reproduce whole-production-body rejection with actual Cargo mutations and
+  same-line test-only admission with adversarial fixtures before fixing either.
+  Rust AST metadata identifies exact first-to-last statement spans of production
+  functions, impl methods and trait defaults. Require remaining production tokens;
+  no empty/test-only-body fallback. Only exact FnValue matches may overlap test
+  scopes. Half-open span intersections reject test operators on mixed lines.
+  All13 analyzer and32 native mutation tooling tests pass. A real analyzer/Cargo
+  integration fixture verifies column normalization and actual assertion evidence.
+- Re-audit the frozen registry-b71 inventory without rerunning it. All previous
+  source/test/build hashes, exclusions and classifications match; only analyzer
+  identity and production-body metadata change. Score49/52 (94.23%), two error
+  outcomes, one unwaived platform-guard survivor and19 compile failures. Preserve
+  old rejected evidence. Explicit presence/delivery assertions repair the two
+  unwrap observations without deleting value checks. The separate registry-c71
+  campaign completes51/52 assertion kills (98.08%), one unwaived platform-guard
+  survivor and19 compile failures, no errors/timeouts. Original/restored nine-test
+  baselines, complete inventory and independent audit agree; canonical/restored
+  probe source/test/build hashes match. The score is helper scope, not all native.
+  Preserve its initial missing-certificate fixture build failure; no campaign
+  ran on that failure, and the corrected baseline runs all nine tests.
+- Fresh Cargo151 and ten-group FFI151 collection have equal parsed source scopes.
+  Newline-safe union: core8865/10064 (88.09%), FFI4987/5798 (86.01%). Denominators
+  and missing-source inventory remain unchanged. Evidence is under
+  `out/regression-coverage-2026-09-15/native151-{current,combined}`,
+  `native-ffi151-current` and `native151-registry-probe-{b,c}`. Initial Verify151
+  passes, then the final-snapshot rerun including the later hosted launcher fix
+  also exits0. It runs3319 core and2496 client WASM cases and all68 verification
+  script tests; frozen final source/test/config hashes match. The shared native
+  window is released. No whole-native98%/95% or green-hosted-chain claim.
+- Individual f289d029 hosted diagnostic jobs expose missing transport Cargo.lock
+  in fresh Linux/macOS checkouts despite the queued run-level status. Preserve
+  artifacts under `hosted151-diagnostics`. Prepare a missing lock in the canonical
+  launcher before snapshotting, never relax --locked or rewrite existing locks.
+  Launcher fixtures fail before the fix and pass afterward for fresh/existing/
+  generation-failure cases; a real offline Cargo fixture accepts the generated
+  lock with --locked. MessagePack VM0.44% and Base64 VM67.67% assertion gates also
+  fail; their outcomes/runtime applicability need investigation, not exclusions.
+  MessagePack JS finishes140/225 (62.22%),57 error-only detections,28 survivors;
+  Base64 VM is180/266,38 error-only detections,48 survivors. Both baselines and
+  current source/test/support hashes match for these two hosted targets. Improve
+  explicit positive-result assertions and investigate survivors without giving
+  unhandled errors kill credit.
+- Session144 JS completes644 candidates with both baselines passing. Independent
+  audit agrees:205/454 assertion-backed kills (45.15%);137 pure assertions and68
+  mixed diagnostics,17 error-only detections excluded,122 survivors,110 timeouts,
+  190 compile failures, no waivers. Preserve its original snapshot: nine of ten
+  source/test/support hashes match current files, but the later145 meta-cache
+  test differs. This is not final-current Session evidence. Retain the independent
+  audit in `session144-web-mutations/independent-assertion-audit151.json` and its
+  explicit hash-mismatch check. No duplicate campaign is started.
+
 ### Work150 Native Transport Auth And Diagnostic Trigger (Locally Verified)
 
 - Five pure helper regression groups pass in the canonical and isolated copies. Cover
@@ -119,10 +177,30 @@ caught and timed-out outcomes separately.
   with zero tests; preserve and reject that result. Use a distinct target per
   isolated source root. No sockets or shared global native runtime are used.
 - The fresh71-candidate helper inventory includes46 whole-function replacements.
-  Its mutation campaign is running on a frozen isolated snapshot. This is not
-  canonical integration, a whole-native mutation score, or a line-coverage gain.
+  Cargo finishes51 caught,19 unviable and one survivor. Original/restored
+  nine-test baselines pass and the full inventory matches. Strict audit rejects
+  a production FnValue overlapping nested ffi-test debug blocks before scoring.
+  No strict score is established. A real cargo-mutants fixture reproduces this
+  failure in native151-audit-probe. Do not filter it away or count an unviable
+  candidate as a kill. Next fix needs production-function scope validation while
+  retaining test-only/operator rejection and strict assertion classification.
+  The sole cfg-to-true survivor is equal on macOS, not proven on unsupported
+  platforms, and remains unwaived. This is not canonical integration, a
+  whole-native mutation score, or a line-coverage gain.
   Preserve the original Session144 campaign. Local companion suggestions that
   HTTP/3 cannot queue HTTP requests contradict the source; do not adopt them.
+  Qwen review completed; GLM judgment was blocked by connection refused at its
+  separate local endpoint. Fast151-before exits0 before canonical changes;
+  release the shared native window while preparing the auditor fix. Canonical
+  Cargo151/FFI151/Verify151 have not started.
+
+- Work150 is pushed asf289d029; PR93 is updated. GitHub now lists Mutation
+  Diagnostics active and has exact-head push run35503564490 with all12 expected
+  jobs, including native RawSocket/WAMP on Linux/macOS. One Dart job starts.
+  Package35503565926, image35503609163 and profile35503610161 are queued.
+  Strict audit150 exits1 on incomplete CI and unprotected feature branch;
+  the earlier missing-workflow finding is resolved. Preserve its log in
+  coverage150-verification. No merge, release or version change.
 
 ### Work148/149 Native Target Reproduction And Helper Contracts (Locally Verified)
 

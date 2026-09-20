@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch
 
 import native_mutations as audit
+import native_coverage
 import run_native_mutations as collector
 
 
@@ -53,6 +54,16 @@ def assertion(line=50, message='assertion `left == right` failed'):
 
 
 class NativeMutationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        target = native_coverage.REPO / 'out/rust-coverage-scope-target'
+        subprocess.run([
+            'cargo', 'build', '--quiet', '--locked', '--manifest-path',
+            str(native_coverage.REPO / 'tool/rust_coverage_scope/Cargo.toml'),
+            '--target-dir', str(target),
+        ], check=True)
+        cls.analyzer = target / 'debug/connectanum-coverage-scope'
+
     def test_complete_success_and_explicit_test_assertion(self):
         self.assertEqual(audit.classify(outcome(), log(), SCOPE, None), 'survived')
         failed = log([('tests::expected', assertion())])
@@ -219,6 +230,125 @@ class NativeMutationTests(unittest.TestCase):
             (root / 'outside-link').symlink_to(root.parent)
             with self.assertRaises(ValueError):
                 audit.read_log(root, 'outside-link/file')
+
+    def test_whole_production_body_with_nested_test_lines_stays_in_inventory(self):
+        mutant = copy.deepcopy(MUTANT)
+        mutant.update(genre='FnValue', replacement='0',
+                      span={'start': {'line': 2, 'column': 5},
+                            'end': {'line': 4, 'column': 11}})
+        scope = copy.deepcopy(SCOPE)
+        source = scope['sources']['native/transport/' + mutant['file']]
+        source['excludedLines'].append(3)
+        source['productionFunctionBodies'] = [
+            {'name': 'actual', 'span': {'start': [2, 4], 'end': [4, 10]}}]
+        with tempfile.TemporaryDirectory() as temporary, patch(__name__ + '.MUTANT', mutant):
+            root = Path(temporary)
+            self.campaign(root, 'survived')
+            report = audit.audit(root, scope)
+            self.assertEqual(report['counts'], {'survived': 1})
+            self.assertEqual(report['rawCandidateScore'], 0)
+            self.assertEqual(report['generated'], 1)
+            self.assertEqual(report['equivalents'], [])
+
+    def test_nested_test_overlap_requires_exact_ast_production_body_and_fnvalue(self):
+        valid = copy.deepcopy(MUTANT)
+        valid.update(genre='FnValue', replacement='0',
+                     span={'start': {'line': 2, 'column': 5},
+                           'end': {'line': 4, 'column': 11}})
+        for variant in ['operator', 'missing', 'empty', 'line', 'column', 'test-only', 'unknown']:
+            with self.subTest(variant=variant), tempfile.TemporaryDirectory() as temporary:
+                mutant = copy.deepcopy(valid)
+                scope = copy.deepcopy(SCOPE)
+                source = scope['sources']['native/transport/' + mutant['file']]
+                source['excludedLines'].append(3)
+                source['productionFunctionBodies'] = [
+                    {'name': 'actual', 'span': {'start': [2, 4], 'end': [4, 10]}}]
+                if variant == 'operator':
+                    mutant['genre'] = 'BinaryOperator'
+                elif variant == 'missing':
+                    source.pop('productionFunctionBodies')
+                elif variant == 'empty':
+                    source['productionFunctionBodies'] = []
+                elif variant == 'line':
+                    mutant['span']['start']['line'] = 1
+                elif variant == 'column':
+                    mutant['span']['start']['column'] = 4
+                elif variant == 'test-only':
+                    source['classification'] = 'test-only'
+                else:
+                    source['productionFunctionBodies'][0]['span']['end'] = [40, 10]
+                with patch(__name__ + '.MUTANT', mutant):
+                    root = Path(temporary)
+                    self.campaign(root)
+                    with self.assertRaises(ValueError):
+                        audit.audit(root, scope)
+
+    def test_real_function_replacement_spanning_debug_code_uses_assertions_not_crashes(self):
+        source = '''pub fn identity(value: i32) -> i32 {
+    let output = value;
+    #[cfg(test)] { std::hint::black_box(value); }
+    output
+}
+#[cfg(test)] mod tests {
+    #[test] fn identity_is_not_a_constant() {
+        assert_eq!(super::identity(24), 24);
+    }
+}
+'''
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'src').mkdir()
+            (root / 'src/lib.rs').write_text(source)
+            (root / 'Cargo.toml').write_text(
+                '[package]\nname="mixed_scope_fixture"\nversion="0.0.0"\n'
+                'edition="2021"\n[workspace]\n')
+            result = subprocess.run(
+                ['cargo', 'mutants', '--no-config', '--jobs', '1', '--timeout', '10',
+                 '--build-timeout', '30', '--output', str(root / 'evidence'),
+                 '--', '--lib', '--', '--test-threads=1'], cwd=root,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
+            self.assertEqual(result.returncode, 0, result.stdout)
+            scope = native_coverage.snapshot(root, {'fixture': 'src/lib.rs'}, self.analyzer)
+            self.assertEqual(scope['sources']['src/lib.rs']['productionFunctionBodies'], [
+                {'name': 'identity', 'span': {'start': [2, 4], 'end': [4, 10]}}])
+            report = audit.audit(root / 'evidence/mutants.out', scope)
+            self.assertTrue(report['evidenceClean'])
+            self.assertGreater(report['generated'], 0)
+            self.assertIn('FnValue', report['operators'])
+            self.assertEqual(report['counts'], {'killed': report['generated']})
+            self.assertEqual(report['equivalents'], [])
+
+    def test_same_line_test_regions_do_not_admit_test_only_mutations(self):
+        for genre in ['FnValue', 'BinaryOperator']:
+            with self.subTest(genre=genre), tempfile.TemporaryDirectory() as temporary:
+                mutant = copy.deepcopy(MUTANT)
+                mutant.update(genre=genre, span={
+                    'start': {'line': 4, 'column': 7},
+                    'end': {'line': 4, 'column': 10}})
+                scope = copy.deepcopy(SCOPE)
+                source = scope['sources']['native/transport/' + mutant['file']]
+                source['exclusions'] = [{'reason': 'nested test', 'span': {
+                    'start': [4, 6], 'end': [4, 9]}}]
+                source['mixedLines'] = [4]
+                source['productionFunctionBodies'] = [{'name': 'outer', 'span': {
+                    'start': [4, 0], 'end': [4, 20]}}]
+                with patch(__name__ + '.MUTANT', mutant):
+                    root = Path(temporary)
+                    self.campaign(root)
+                    with self.assertRaisesRegex(ValueError, 'test/helper-only'):
+                        audit.audit(root, scope)
+
+    def test_production_mutation_adjacent_to_same_line_test_region_is_retained(self):
+        scope = copy.deepcopy(SCOPE)
+        source = scope['sources']['native/transport/' + MUTANT['file']]
+        source['mixedLines'] = [4]
+        source['exclusions'] = [{'reason': 'nested test', 'span': {
+            'start': [4, 2], 'end': [4, 9]}}]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.campaign(root, 'survived')
+            report = audit.audit(root, scope)
+            self.assertEqual(report['counts'], {'survived': 1})
 
     def test_real_rust_assertion_is_distinguished_from_production_panics(self):
         source = '''fn actual() -> i32 {

@@ -100,9 +100,27 @@ struct Scopes {
     test_only: bool,
     macro_definitions: Vec<String>,
     production_macro_calls: BTreeSet<String>,
+    function_bodies: Vec<(String, Range, TokenStream)>,
 }
 
 impl Scopes {
+    fn record_function_body(&mut self, name: &syn::Ident, block: &syn::Block) {
+        if self.test_only {
+            return;
+        }
+        if let (Some(first), Some(last)) = (block.stmts.first(), block.stmts.last()) {
+            let range = Range {
+                start: Range::of(first.span()).start,
+                end: Range::of(last.span()).end,
+            };
+            let mut tokens = TokenStream::new();
+            for stmt in &block.stmts {
+                stmt.to_tokens(&mut tokens);
+            }
+            self.function_bodies.push((name.to_string(), range, tokens));
+        }
+    }
+
     fn enter(&mut self, attrs: &[Attribute], span: Span) -> bool {
         let previous = self.test_only;
         for attr in attrs {
@@ -176,6 +194,23 @@ impl<'ast> Visit<'ast> for Scopes {
     scoped_visit!(visit_arm, syn::Arm);
     scoped_visit!(visit_field, syn::Field);
     scoped_visit!(visit_variant, syn::Variant);
+
+    fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
+        self.record_function_body(&node.sig.ident, &node.block);
+        syn::visit::visit_item_fn(self, node);
+    }
+
+    fn visit_impl_item_fn(&mut self, node: &'ast syn::ImplItemFn) {
+        self.record_function_body(&node.sig.ident, &node.block);
+        syn::visit::visit_impl_item_fn(self, node);
+    }
+
+    fn visit_trait_item_fn(&mut self, node: &'ast syn::TraitItemFn) {
+        if let Some(block) = &node.default {
+            self.record_function_body(&node.sig.ident, block);
+        }
+        syn::visit::visit_trait_item_fn(self, node);
+    }
 
     fn visit_item_macro(&mut self, node: &'ast syn::ItemMacro) {
         if !self.test_only && node.mac.path.is_ident("macro_rules") {
@@ -412,12 +447,24 @@ fn analyze(source: &str) -> Result<Value, syn::Error> {
         };
         excluded.extend(range.start.0..=last);
     }
+    // Cargo's FnValue span covers statements, not the outer braces. Require
+    // production tokens after nested test scopes are removed, not just blanks.
+    let production_bodies: Vec<_> = scopes
+        .function_bodies
+        .iter()
+        .filter_map(|(name, span, tokens)| {
+            let (mut production, mut test) = (BTreeSet::new(), BTreeSet::new());
+            token_lines(tokens.clone(), &scopes.excluded, &mut production, &mut test);
+            (!production.is_empty()).then(|| json!({"name":name,"span":span.json()}))
+        })
+        .collect();
     Ok(json!({
         "exclusions": scopes.excluded.iter().map(|(span, reason)| json!({"span":span.json(),"reason":reason})).collect::<Vec<_>>(),
         "excludedLines": excluded.difference(&included).copied().collect::<Vec<_>>(),
         "mixedLines": excluded.intersection(&included).copied().collect::<Vec<_>>(),
         "modules": scopes.modules, "problems": scopes.problems,
         "fileTestOnly": scopes.test_only,
+        "productionFunctionBodies": production_bodies,
     }))
 }
 
@@ -473,6 +520,33 @@ mod tests {
         let report = analyze("fn prod() {} #[cfg(test)] fn helper() {}").unwrap();
         assert_eq!(report["excludedLines"], json!([]));
         assert_eq!(report["mixedLines"], json!([1]));
+    }
+    #[test]
+    fn production_function_bodies_keep_nested_test_regions_without_admitting_helpers() {
+        let source = "fn prod(value: i32) -> i32 {\n    let result = value;\n    #[cfg(test)] { debug(); }\n    result\n}\n#[cfg(test)] fn helper() { debug(); }\n#[cfg(feature = \"ffi-test\")] fn ffi_helper() { debug(); }\nfn only_debug() { #[cfg(test)] debug(); }\n";
+        let report = analyze(source).unwrap();
+        assert_eq!(
+            report["productionFunctionBodies"],
+            json!([
+                {"name":"prod", "span":{"start":[2,4],"end":[4,10]}}
+            ])
+        );
+        assert!(report["excludedLines"]
+            .as_array()
+            .unwrap()
+            .contains(&json!(3)));
+        assert!(report["problems"].as_array().unwrap().is_empty());
+    }
+    #[test]
+    fn production_method_bodies_include_impls_and_trait_defaults_not_tests() {
+        let report = analyze("impl A {\nfn live() { work(); }\n#[test] fn check() { work(); }\n}\ntrait T {\nfn required();\nfn defaulted() { work(); }\n#[cfg(test)] fn test_default() { work(); }\n}\n#[cfg(test)] mod tests { fn nested() { work(); } }").unwrap();
+        let names: Vec<_> = report["productionFunctionBodies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|body| body["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, ["live", "defaulted"]);
     }
     #[test]
     fn local_expression_impl_and_external_module_scopes() {

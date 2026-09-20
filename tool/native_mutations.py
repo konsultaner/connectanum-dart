@@ -133,7 +133,19 @@ def audit(directory: Path, scope: dict) -> dict:
         start, end = mutant['span']['start']['line'], mutant['span']['end']['line']
         if not 0 < start <= end <= info['lineCount'] or info['classification'] != 'production-candidate':
             raise ValueError('Mutant outside production-candidate source')
-        if any(line in info['excludedLines'] for line in range(start, end + 1)):
+        # Whole-body replacements also remove nested debug/test blocks. Admit
+        # only an exact AST-owned production body, never Cargo's function label.
+        # cargo-mutants 27.1.0 columns are one-based; proc_macro2 is zero-based.
+        body_span = {edge: [mutant['span'][edge]['line'],
+                            mutant['span'][edge]['column'] - 1]
+                     for edge in ('start', 'end')}
+        production_body = mutant.get('genre') == 'FnValue' and any(
+            body['span'] == body_span for body in info.get('productionFunctionBodies', []))
+        overlaps_test = any(line in info['excludedLines'] for line in range(start, end + 1)) or any(
+            body_span['start'] < exclusion['span']['end'] and
+            exclusion['span']['start'] < body_span['end']
+            for exclusion in info.get('exclusions', []))
+        if overlaps_test and not production_body:
             raise ValueError('Mutant overlaps test/helper-only source')
     baselines = [item for item in run['outcomes'] if item['scenario'] == 'Baseline']
     if len(baselines) != 1:

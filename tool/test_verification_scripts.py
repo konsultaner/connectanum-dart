@@ -59,6 +59,77 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "The native collector launcher is a POSIX shell script")
+    @unittest.skipUnless(shutil.which('cargo'), "The lockfile fixture requires Cargo")
+    def test_native_mutation_launcher_pins_lock_before_snapshot(self):
+        for case in ('fresh-checkout', 'existing-lock', 'generation-fails'):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                scripts = root / 'bin'
+                scripts.mkdir()
+                transport = root / 'native/transport'
+                transport.mkdir(parents=True)
+                (transport / 'src').mkdir()
+                (transport / 'src/lib.rs').write_text('pub fn fixture() {}\n')
+                (transport / 'Cargo.toml').write_text(
+                    '[package]\nname="lock_fixture"\nversion="0.0.0"\n'
+                    'edition="2021"\n[workspace]\n')
+                lock = transport / 'Cargo.lock'
+                if case == 'existing-lock':
+                    lock.write_text('preserve exact lock contents\n')
+                shutil.copy2(REPO_ROOT / 'bin/collect-native-mutations', scripts)
+                (scripts / 'common.sh').write_text('''ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd_repo_root() { cd "$ROOT_DIR"; }
+ensure_rust_env() { :; }
+''')
+                commands = {
+                    'test-native-mutation-tools': '#!/usr/bin/env bash\nprintf "tools\\n" >> "$TRACE"\n',
+                    'cargo': '''#!/usr/bin/env bash
+set -eu
+printf '%s\\n' "$1" >> "$TRACE"
+if [[ "$1" == generate-lockfile ]]; then
+  [[ "$2" == --manifest-path && "$3" == native/transport/Cargo.toml ]]
+  [[ "$CASE" != generation-fails ]] || exit 7
+  "$REAL_CARGO" "$@" --offline
+fi
+''',
+                    'python3': '''#!/usr/bin/env bash
+set -eu
+printf 'snapshot\\n' >> "$TRACE"
+test -s native/transport/Cargo.lock
+[[ "$1" == tool/run_native_mutations.py ]]
+''',
+                }
+                for name, body in commands.items():
+                    command = scripts / name
+                    command.write_text(body)
+                    command.chmod(0o755)
+                trace = root / 'trace'
+                result = subprocess.run(
+                    ['bash', str(scripts / 'collect-native-mutations'), '--target', 'core-wamp'],
+                    cwd=root, env={**os.environ, 'PATH': f'{scripts}:{os.environ["PATH"]}',
+                                   'TRACE': str(trace), 'CASE': case,
+                                   'REAL_CARGO': shutil.which('cargo')},
+                    capture_output=True, text=True, timeout=10)
+                if case == 'generation-fails':
+                    self.assertEqual(result.returncode, 7, result.stdout + result.stderr)
+                    self.assertNotIn('snapshot', trace.read_text())
+                    self.assertFalse(lock.exists())
+                else:
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    events = trace.read_text().splitlines()
+                    self.assertEqual(events.count('generate-lockfile'), int(case == 'fresh-checkout'))
+                    self.assertEqual(events[-1], 'snapshot')
+                    if case == 'existing-lock':
+                        self.assertEqual(lock.read_text(), 'preserve exact lock contents\n')
+                    else:
+                        self.assertIn('name = "lock_fixture"', lock.read_text())
+                        metadata = subprocess.run(
+                            [shutil.which('cargo'), 'metadata', '--locked', '--offline',
+                             '--format-version', '1', '--no-deps', '--manifest-path',
+                             str(transport / 'Cargo.toml')], capture_output=True, text=True, timeout=10)
+                        self.assertEqual(metadata.returncode, 0, metadata.stderr)
+
     def test_mutation_job_budgets_allow_complete_campaigns(self):
         workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
         job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
