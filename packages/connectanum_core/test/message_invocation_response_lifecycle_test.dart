@@ -5,6 +5,60 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('abandonment closes existing payload views without dispatch', () {
+    final invocation = Invocation(7, 11, InvocationDetails(null, null, true));
+    final payload = invocation.toPayload();
+    final lazy = invocation.toLazyInvocationPayload();
+    final responses = <AbstractMessageWithPayload>[];
+    invocation.onResponse(responses.add);
+    expect(invocation.closeResponse, returnsNormally);
+    expect(invocation.closeResponse, returnsNormally);
+    expect(invocation.responseClosed, isTrue);
+    expect(payload.isResponseClosed(), isTrue);
+    expect(lazy.isResponseClosed(), isTrue);
+    expect(responses, isEmpty);
+    invocation.onResponse(responses.add);
+    expect(() => invocation.respondWith(), throwsStateError);
+    expect(() => payload.respondWith(), throwsStateError);
+    expect(() => lazy.respondWith(), throwsStateError);
+    expect(responses, isEmpty);
+  });
+
+  for (final progress in [false, true]) {
+    for (final throwsAfterClosing in [false, true]) {
+      test(
+        'adapter abandonment stays closed progress=$progress '
+        'throws=$throwsAfterClosing',
+        () {
+          final invocation = Invocation(
+            7,
+            11,
+            InvocationDetails(null, null, true),
+          );
+          final failure = StateError('closed during dispatch');
+          var attempts = 0;
+          invocation.onResponse((_) {
+            attempts++;
+            invocation.closeResponse();
+            expect(invocation.responseClosed, isTrue);
+            if (throwsAfterClosing) {
+              throw failure;
+            }
+          });
+          expect(
+            () => invocation.respondWith(
+              options: YieldOptions(progress: progress),
+            ),
+            throwsAfterClosing ? throwsA(same(failure)) : returnsNormally,
+          );
+          expect(invocation.responseClosed, isTrue);
+          expect(() => invocation.respondWith(), throwsStateError);
+          expect(attempts, 1);
+        },
+      );
+    }
+  }
+
   for (final isError in [false, true]) {
     test(
       'terminal response rejects synchronous nested delivery error=$isError',

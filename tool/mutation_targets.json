@@ -12,6 +12,7 @@
       "packages/connectanum_client/test/session_goodbye_test.dart"
     ],
     "supportFiles": [
+      "packages/connectanum_core/lib/src/message/invocation.dart",
       "packages/connectanum_client/test/test_support/native_runtime_support.dart",
       "packages/connectanum_client/test/test_support/native_runtime_support_io.dart",
       "packages/connectanum_client/test/test_support/native_runtime_support_stub.dart"
@@ -30,6 +31,7 @@
       "packages/connectanum_client/test/session_goodbye_test.dart"
     ],
     "supportFiles": [
+      "packages/connectanum_core/lib/src/message/invocation.dart",
       "packages/connectanum_client/test/test_support/native_runtime_support.dart",
       "packages/connectanum_client/test/test_support/native_runtime_support_io.dart",
       "packages/connectanum_client/test/test_support/native_runtime_support_stub.dart"

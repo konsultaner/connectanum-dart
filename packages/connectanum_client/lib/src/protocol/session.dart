@@ -1352,7 +1352,9 @@ class Session {
       final registered = registrations[message.registrationId];
       if (registered != null) {
         message.onResponse((response) {
-          _sendInvocationResponse(message.requestId, response);
+          if (!_sendInvocationResponse(message.requestId, response)) {
+            message.closeResponse();
+          }
         });
         final responder = _PendingInvocationResponder(
           isClosed: () => message.responseClosed,
@@ -1502,7 +1504,9 @@ class Session {
     if (registered.hasMaterializedInvocationConsumers) {
       final invocation = message.materialize() as Invocation;
       invocation.onResponse((response) {
-        _sendInvocationResponse(message.metadata.primaryId, response);
+        if (!_sendInvocationResponse(message.metadata.primaryId, response)) {
+          invocation.closeResponse();
+        }
       });
       final responder = _PendingInvocationResponder(
         isClosed: () => invocation.responseClosed,

@@ -67,6 +67,41 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work154 Progressive Reply Abandonment And Lifecycle Oracles
+
+- Pre-edit Fast154 exits0. Add a45-case public session matrix across ordinary,
+  native-lazy and native-materialized delivery, distinguishing goodbye while
+  the transport remains ready, closed input, lost readiness before/during send,
+  active send rejection/retry, forwarded timeout reset and terminal cleanup,
+  and nullable-mode native/materialized interrupts. Preserve existing assertions.
+- Before production edits,16 assertions fail across VM/WASM because materialized
+  callbacks ignore false dispatch results for progressive replies. Make both
+  callbacks close the local response handler in that case, matching native-lazy
+  behavior. Add idempotent Invocation.closeResponse; explicit abandonment releases
+  the callback and cannot be undone by a later callback failure or reattachment.
+  Ordinary throwing adapters retain retryability; callback API and wire format
+  remain compatible. Five core regressions cover payload views and reentry.
+- Focused session tests pass163 per VM/JS/WASM runtime; core lifecycle passes15
+  on VM. A complete method-only probe covers all19 AST mutations in
+  _sendInvocationResponse on VM and JS:18 assertion-backed kills (16 pure,
+  2 mixed),1 compile failure, zero survivors/errors/timeouts and no waivers.
+  Independent audit reclassifies preserved logs; original/restored baselines and
+  hashes match. Keep the scope boundary explicit: this is not a650-candidate
+  whole-session campaign or a new whole-package line coverage measurement.
+- Pin the core Invocation dependency in both session mutation support inventories;
+  the wiring regression fails first then passes. All69 verification-script tests
+  pass. Full Verify154 exits0, including browser JS/WASM, with frozen inputs
+  matching; the shared native window is released. Broader refreshed mutation
+  campaigns and exact-new-head hosted evidence remain required before claiming
+  milestone completion. Current8a141e65 checks remain queued and the older MCP
+  diagnostic jobs remain live; do not duplicate them.
+- Local Qwen reviews were checked against source and tests. Their claim that
+  active failures always become abandoned contradicts the guarded call sites;
+  the two states deliberately differ. Timer cancellation is observed through
+  the Zone-created timers as well as transport output, not inferred from elapsed
+  sleeps. Cross-isolate shared-object and network-ack claims do not apply to this
+  synchronous callback change. GLM independently remains unavailable.
+
 ### Work153 Base64 Contexts And Required Runtime Gates
 
 - Complete Fast153 before edits. Retain all previous tests and add independent

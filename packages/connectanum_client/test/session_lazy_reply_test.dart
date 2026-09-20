@@ -408,6 +408,263 @@ void main() {
       });
     });
   }
+
+  for (final mode in [
+    (native: false, materialized: false),
+    (native: true, materialized: false),
+    (native: true, materialized: true),
+  ]) {
+    group('reply lifecycle $mode', () {
+      for (final shutdown in ['not-ready', 'goodbye', 'incoming-done']) {
+        test('dropped progressive reply is terminal after $shutdown', () async {
+          final fixture = await _start(
+            mode.native,
+            materialized: mode.materialized,
+          );
+          switch (shutdown) {
+            case 'not-ready':
+              fixture.transport.ready = false;
+            case 'goodbye':
+              await fixture.session.close();
+              expect(fixture.transport.isReady, isTrue);
+            case 'incoming-done':
+              fixture.transport.deferClose = true;
+              await fixture.transport.inbound.close();
+              await Future<void>.delayed(Duration.zero);
+              expect(fixture.transport.isReady, isTrue);
+          }
+
+          expect(
+            () => fixture.invocation.respondWith(
+              arguments: ['discarded'],
+              options: YieldOptions(progress: true),
+            ),
+            returnsNormally,
+          );
+          expect(fixture.transport.responseAttempts, isEmpty);
+          expect(fixture.transport.yields, isEmpty);
+          expect(fixture.invocation.isResponseClosed(), isTrue);
+          expect(
+            () => fixture.invocation.respondWith(arguments: ['too late']),
+            throwsStateError,
+          );
+          expect(fixture.transport.responseAttempts, isEmpty);
+        });
+      }
+
+      for (final losesReadiness in [false, true]) {
+        for (final progress in [false, true]) {
+          test(
+            'send failure progress=$progress losesReadiness=$losesReadiness',
+            () async {
+              final fixture = await _start(
+                mode.native,
+                materialized: mode.materialized,
+              );
+              final failure = StateError('synthetic response rejection');
+              fixture.transport.beforeResponse = (_) {
+                if (losesReadiness) {
+                  fixture.transport.ready = false;
+                }
+                throw failure;
+              };
+              expect(
+                () => fixture.invocation.respondWith(
+                  arguments: ['rejected'],
+                  options: YieldOptions(progress: progress),
+                ),
+                losesReadiness ? returnsNormally : throwsA(same(failure)),
+              );
+              expect(fixture.transport.yields, isEmpty);
+              expect(fixture.transport.responseAttempts, hasLength(1));
+              expect(fixture.invocation.isResponseClosed(), losesReadiness);
+              fixture.transport.beforeResponse = null;
+              if (!losesReadiness) {
+                expect(
+                  () => fixture.invocation.respondWith(arguments: ['retry']),
+                  returnsNormally,
+                );
+                expect(fixture.transport.yields.single.arguments, ['retry']);
+                expect(
+                  fixture.transport.yields.single.invocationRequestId,
+                  401,
+                );
+                expect(fixture.invocation.isResponseClosed(), isTrue);
+              }
+              final attempts = fixture.transport.responseAttempts.length;
+              expect(
+                () => fixture.invocation.respondWith(arguments: ['duplicate']),
+                throwsStateError,
+              );
+              expect(fixture.transport.responseAttempts, hasLength(attempts));
+            },
+          );
+        }
+      }
+
+      for (final finish in ['final', 'error', 'timeout', 'disconnect']) {
+        test('progress refreshes timeout until $finish', () async {
+          await _withInvocationClock((timers) async {
+            final fixture = await _start(
+              mode.native,
+              materialized: mode.materialized,
+              timeout: 80,
+            );
+            expect(fixture.invocation.timeout, 80);
+            expect(timers, hasLength(1));
+            expect(timers.single.isActive, isTrue);
+            fixture.invocation.respondWith(
+              arguments: ['chunk'],
+              options: YieldOptions(progress: true),
+            );
+            expect(fixture.invocation.isResponseClosed(), isFalse);
+            expect(timers, hasLength(2));
+            expect(timers.first.isActive, isFalse);
+            expect(timers.last.isActive, isTrue);
+            timers.first.fire();
+            expect(fixture.transport.responses, hasLength(1));
+            expect(fixture.transport.yields.single.arguments, ['chunk']);
+
+            switch (finish) {
+              case 'final':
+                fixture.invocation.respondWith(arguments: ['final']);
+                expect(fixture.transport.yields.last.arguments, ['final']);
+              case 'error':
+                fixture.invocation.respondWith(
+                  isError: true,
+                  errorUri: Error.notAuthorized,
+                  arguments: ['denied'],
+                );
+                final error = fixture.transport.responses.last as Error;
+                expect(error.error, Error.notAuthorized);
+                expect(error.requestTypeId, MessageTypes.codeInvocation);
+                expect(error.requestId, 401);
+                expect(error.arguments, ['denied']);
+              case 'timeout':
+                timers.last.fire();
+                final error = fixture.transport.responses.last as Error;
+                expect(error.error, Error.timeout);
+                expect(error.requestTypeId, MessageTypes.codeInvocation);
+                expect(error.requestId, 401);
+                expect(error.arguments, ['Call timed out']);
+              case 'disconnect':
+                await fixture.transport.close();
+                await Future<void>.delayed(Duration.zero);
+            }
+            expect(timers, hasLength(2));
+            expect(timers.every((timer) => !timer.isActive), isTrue);
+            final count = finish == 'disconnect' ? 1 : 2;
+            expect(fixture.transport.responses, hasLength(count));
+            for (final timer in timers) {
+              timer.fire();
+            }
+            expect(fixture.transport.responses, hasLength(count));
+            if (finish != 'disconnect') {
+              expect(fixture.invocation.isResponseClosed(), isTrue);
+              expect(
+                () => fixture.invocation.respondWith(),
+                throwsStateError,
+              );
+            }
+          });
+        });
+      }
+
+      for (final directInterrupt in [false, true]) {
+        for (final cancelMode in <String?>[
+          null,
+          CancelOptions.modeKillNoWait,
+        ]) {
+          test('interrupt direct=$directInterrupt mode=$cancelMode', () async {
+            await _withInvocationClock((timers) async {
+              final fixture = await _start(
+                mode.native,
+                materialized: mode.materialized,
+                timeout: 80,
+              );
+              final interrupt = directInterrupt
+                  ? NativeSessionMessage(
+                      serializer: NativeMessageSerializer.json,
+                      metadata: NativeMessageMetadata(
+                        messageCode: MessageTypes.codeInterrupt,
+                        primaryId: 401,
+                        secondaryId: 0,
+                        detailNumberA: 0,
+                        detailNumberB: 0,
+                        flags:
+                            NativeMessageMetadata.flagDirectBind |
+                            NativeMessageMetadata.flagMetadataBind,
+                        stringA: cancelMode,
+                      ),
+                    )
+                  : Interrupt(
+                      401,
+                      options: cancelMode == null
+                          ? null
+                          : (InterruptOptions()..mode = cancelMode),
+                    );
+              fixture.transport.inbound.add(interrupt);
+              await Future<void>.delayed(Duration.zero);
+              expect(fixture.transport.responses, hasLength(1));
+              final error = fixture.transport.responses.single as Error;
+              expect(error.requestTypeId, MessageTypes.codeInvocation);
+              expect(error.requestId, 401);
+              expect(error.error, Error.errorInvocationCanceled);
+              expect(error.arguments, cancelMode == null ? null : [cancelMode]);
+              expect(fixture.invocation.isResponseClosed(), isTrue);
+              expect(timers.single.isActive, isFalse);
+              timers.single.fire();
+              fixture.transport.inbound.add(interrupt);
+              await Future<void>.delayed(Duration.zero);
+              expect(fixture.transport.responses, hasLength(1));
+              expect(
+                () => fixture.invocation.respondWith(),
+                throwsStateError,
+              );
+            });
+          });
+        }
+      }
+    });
+  }
+}
+
+Future<void> _withInvocationClock(
+  Future<void> Function(List<_InvocationTimer>) action,
+) {
+  final timers = <_InvocationTimer>[];
+  return runZoned(
+    () => action(timers),
+    zoneSpecification: ZoneSpecification(
+      createTimer: (self, parent, zone, duration, callback) {
+        if (duration != const Duration(milliseconds: 80)) {
+          return parent.createTimer(zone, duration, callback);
+        }
+        final timer = _InvocationTimer(callback);
+        timers.add(timer);
+        return timer;
+      },
+    ),
+  );
+}
+
+class _InvocationTimer implements Timer {
+  _InvocationTimer(this.callback);
+  final void Function() callback;
+  bool _active = true;
+  int _tick = 0;
+  @override
+  bool get isActive => _active;
+  @override
+  int get tick => _tick;
+  @override
+  void cancel() => _active = false;
+  void fire() {
+    if (!_active) return;
+    _active = false;
+    _tick++;
+    callback();
+  }
 }
 
 Iterable<Yield> _wireRoundTrips(Yield reply) sync* {
@@ -508,12 +765,24 @@ class _ResponsePayload {
   int decodeCalls = 0;
 }
 
-Future<({_ReplyTransport transport, LazyInvocationPayload invocation})> _start(
+Future<
+  ({
+    _ReplyTransport transport,
+    Session session,
+    LazyInvocationPayload invocation,
+  })
+>
+_start(
   bool native, {
   WampE2eeProvider? provider,
+  bool materialized = false,
+  int? timeout,
 }) async {
   final transport = _ReplyTransport();
-  addTearDown(transport.close);
+  addTearDown(() async {
+    transport.deferClose = false;
+    await transport.close();
+  });
   final session = await Client(
     realm: 'reply.realm',
     transport: transport,
@@ -521,10 +790,17 @@ Future<({_ReplyTransport transport, LazyInvocationPayload invocation})> _start(
   ).connect().first;
   expect(session.isConnected(), isTrue);
   LazyInvocationPayload? received;
-  final registration = await session.registerLazyPayloadHandler(
-    'reply.proc',
-    (invocation) => received = invocation,
-  );
+  final registration = materialized
+      ? await session.register('reply.proc')
+      : await session.registerLazyPayloadHandler(
+          'reply.proc',
+          (invocation) => received = invocation,
+        );
+  if (materialized) {
+    registration.onInvoke((invocation) {
+      received = invocation.toLazyInvocationPayload();
+    });
+  }
   if (native) {
     transport.inbound.add(
       NativeSessionMessage(
@@ -534,12 +810,15 @@ Future<({_ReplyTransport transport, LazyInvocationPayload invocation})> _start(
           primaryId: 401,
           secondaryId: registration.registrationId,
           detailNumberA: 9001,
-          detailNumberB: 0,
+          detailNumberB: timeout ?? 0,
           flags:
               NativeMessageMetadata.flagDirectBind |
               NativeMessageMetadata.flagMetadataBind |
               NativeMessageMetadata.flagDetailNumberAPresent |
-              NativeMessageMetadata.flagDetailBoolATrue,
+              NativeMessageMetadata.flagDetailBoolATrue |
+              (timeout == null
+                  ? 0
+                  : NativeMessageMetadata.flagDetailNumberBPresent),
           stringA: 'reply.proc',
         ),
         argsBytes: Uint8List.fromList(utf8.encode('["request"]')),
@@ -550,14 +829,14 @@ Future<({_ReplyTransport transport, LazyInvocationPayload invocation})> _start(
       Invocation(
         401,
         registration.registrationId,
-        InvocationDetails(9001, 'reply.proc', true),
+        InvocationDetails(9001, 'reply.proc', true)..timeout = timeout,
         arguments: ['request'],
       ),
     );
   }
   await Future<void>.delayed(Duration.zero);
   expect(received, isNotNull);
-  return (transport: transport, invocation: received!);
+  return (transport: transport, session: session, invocation: received!);
 }
 
 class _RecordingProvider implements WampE2eeProvider {
@@ -599,6 +878,11 @@ class _ReplyTransport extends AbstractTransport
     implements SessionOptimizedTransport {
   final inbound = StreamController<Object?>.broadcast(sync: true);
   final yields = <Yield>[];
+  final responses = <AbstractMessageWithPayload>[];
+  final responseAttempts = <AbstractMessageWithPayload>[];
+  void Function(AbstractMessageWithPayload)? beforeResponse;
+  bool ready = true;
+  bool deferClose = false;
   Completer<void>? _disconnect;
   Completer<void>? _lost;
   bool _open = false;
@@ -610,7 +894,7 @@ class _ReplyTransport extends AbstractTransport
   @override
   bool get isOpen => _open;
   @override
-  bool get isReady => _open;
+  bool get isReady => _open && ready;
   @override
   Future<void> get onReady => Future.value();
 
@@ -623,7 +907,7 @@ class _ReplyTransport extends AbstractTransport
 
   @override
   Future<void> close({dynamic error}) async {
-    if (!_open) {
+    if (!_open || deferClose) {
       return;
     }
     _open = false;
@@ -633,6 +917,12 @@ class _ReplyTransport extends AbstractTransport
 
   @override
   void send(AbstractMessage message) {
+    if (message is Yield || message is Error) {
+      final response = message as AbstractMessageWithPayload;
+      responseAttempts.add(response);
+      beforeResponse?.call(response);
+      responses.add(response);
+    }
     switch (message) {
       case Hello():
         inbound.add(Welcome(42, Details.forWelcome()));

@@ -1498,6 +1498,8 @@ fi
                                'native_runtime_support_stub.dart'):
                     self.assertIn(f'packages/connectanum_client/test/test_support/{helper}',
                                   target['supportFiles'])
+                self.assertIn('packages/connectanum_core/lib/src/message/invocation.dart',
+                              target['supportFiles'])
         self.assertTrue(targets['client-session-vm']['requiresNativeLibrary'])
         self.assertIn('packages/connectanum_client/test/client_on_transport_io_events_test.dart',
                       targets['client-session-vm']['tests'])

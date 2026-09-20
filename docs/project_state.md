@@ -6,6 +6,33 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work154 reproduces a real progressive-reply lifecycle defect after Fast154
+passes: ordinary and native-materialized dispatch ignored the send result,
+leaving a dropped progressive reply locally open after shutdown. The fail-first
+matrix records16 assertion failures across VM/WASM; native-lazy already behaved
+correctly. Both materialized adapters now abandon the response on a false send
+result. Invocation.closeResponse is idempotent, releases its callback and stays
+terminal even if the current adapter subsequently throws. Active transport send
+errors still propagate and permit retry; WAMP messages and callback signatures
+are unchanged. Existing tests are retained, with45 session lifecycle cases and
+five core abandonment regressions added. Controlled forwarded-timeout tests
+assert progressive reset, final/error/interrupt/disconnect cleanup and exact
+ERROR payloads. Focused session tests pass163 each on VM, JavaScript and WASM;
+core lifecycle tests pass15 on VM. A complete dispatch-method-only probe runs
+19 candidates on VM and JS:18 assertion-backed kills (16 pure,2 mixed),1 compile
+failure, no survivors/timeouts/error-only credit or waivers. Original/restored
+baselines, source/test hashes and independent log audit agree. This is not a
+whole-session score; the fresh whole-source inventory has650 candidates.
+Session mutation inventories now hash their core Invocation dependency, with a
+fail-first wiring regression; all69 verification-script tests pass. Full
+Verify154 exits0, including browser JS/WASM, and frozen input hashes match.
+The shared native window is released. Exact8a141e65 CI remains queued;
+the older35503564490 MCP jobs are still active, so no duplicate runs were started.
+Evidence: `out/regression-coverage-2026-09-15/session154-lifecycle-probe` and
+`coverage154-verification`. Whole-milestone98%/95% completion remains unproven.
+Commit/push this implementation increment, then run fresh complete core invocation
+VM/JS and browser Session campaigns and inspect exact-head hosted evidence.
+
 Work153 integrates the mixed-context Base64 regressions and adds malformed
 Latin-1/UTF-16 boundary and padding-bit matrices, retaining every prior assertion.
 Fast153 passes before edits; focused tests pass20 on VM and20 on JavaScript.

@@ -128,8 +128,20 @@ class Invocation extends AbstractMessageWithPayload {
   void Function(AbstractMessageWithPayload invocationResultMessage)?
   _onResponse;
   bool _responseClosed = false;
+  bool _responseAbandoned = false;
 
   bool get responseClosed => _responseClosed;
+
+  /// Closes this response handler without sending a WAMP message.
+  ///
+  /// Session adapters use this when the connection can no longer deliver a
+  /// reply. Closing is idempotent and cannot be undone by a failed dispatch or
+  /// by attaching another response callback.
+  void closeResponse() {
+    _responseAbandoned = true;
+    _responseClosed = true;
+    _onResponse = null;
+  }
 
   void respondWith({
     LazyMessagePayload? lazyPayload,
@@ -297,7 +309,7 @@ class Invocation extends AbstractMessageWithPayload {
     try {
       onResponse(response);
     } catch (_) {
-      _responseClosed = false;
+      _responseClosed = _responseAbandoned;
       rethrow;
     }
   }
