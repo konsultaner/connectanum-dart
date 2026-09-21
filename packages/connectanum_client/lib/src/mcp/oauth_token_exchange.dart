@@ -1016,14 +1016,23 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
     _remaining(deadline, endpoint, endpointLabel);
     final response = await withinDeadline(request.close());
     _remaining(deadline, endpoint, endpointLabel);
-    final body = await withinDeadline(
-      _readOAuthResponseBytes(
-        response,
-        maxResponseBytes: maxResponseBytes,
-        endpoint: endpoint,
-        endpointLabel: endpointLabel,
-      ),
-    );
+    final chunks = StreamIterator<List<int>>(response);
+    late final Uint8List body;
+    try {
+      body = await withinDeadline(
+        _readOAuthResponseBytes(
+          chunks,
+          maxResponseBytes: maxResponseBytes,
+          endpoint: endpoint,
+          endpointLabel: endpointLabel,
+          statusCode: response.statusCode,
+        ),
+      );
+    } finally {
+      // Abort cannot cancel a body once the response future has completed.
+      // Detach now; slow/error cleanup must not replace the operation outcome.
+      chunks.cancel().ignore();
+    }
     return _OAuthEndpointResponse(
       statusCode: response.statusCode,
       mimeType: response.headers.contentType?.mimeType,
@@ -1053,20 +1062,22 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
 }
 
 Future<Uint8List> _readOAuthResponseBytes(
-  HttpClientResponse response, {
+  StreamIterator<List<int>> chunks, {
   required int maxResponseBytes,
   required Uri endpoint,
   required String endpointLabel,
+  required int statusCode,
 }) async {
   final bytes = BytesBuilder(copy: false);
   var length = 0;
-  await for (final chunk in response) {
+  while (await chunks.moveNext()) {
+    final chunk = chunks.current;
     length += chunk.length;
     if (length > maxResponseBytes) {
       throw McpOAuthTokenException(
         '$endpointLabel response exceeds $maxResponseBytes bytes.',
         endpoint: endpoint,
-        statusCode: response.statusCode,
+        statusCode: statusCode,
       );
     }
     bytes.add(chunk);

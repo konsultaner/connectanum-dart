@@ -6,6 +6,32 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work195 completes Verify195 with exit0, including Chrome/WASM, and confirms
+the frozen source/test/config hashes. OAuth response bodies now have explicit
+StreamIterator ownership: timeout and oversize rejection detach the listener
+without waiting for slow cleanup or letting a cleanup error replace the result.
+The original whole-body deadline is retained. All36 added cases pass within the
+120-case focused fixture; four selected faults produce36/12/36/36 assertions,
+no runtime errors, with passing original/restored baselines and identical test
+inventories. Source/test hashes match oauth-body-controls195. Fast195 and the
+opt-in real Dart-to-native instrumentation fixture also passed. This increment
+is verified for commit; no new whole-workspace coverage percentage is claimed.
+
+OAuth192 is now complete and independently audited:317/326 (97.24%) assertion-
+backed detections,9 survivors,87 compile exclusions,0 timeouts and0 waivers.
+Its gate passes only for its frozen pre-Work194 inputs; it is not a score for
+the newer OAuth implementation. Discovery191 retains its two timeout blockers.
+Latest pushed8f02d6b5 hosted checks remain queued; older native/profile jobs are
+making progress. No green hosted-chain, merge, release or version claim.
+
+Fast196/session29852 is the sole native owner, supervised by cell3556. A separate
+discovery candidate passes32 focused cases and2458 visible MCP cases. The
+pre-fix source fails20 assertions; four individual deadline/observation controls
+fail8/4/4/4 assertions, with passing restored baseline. These fixes are NOT in
+Verify195. A further isolated body-cleanup fixture reproduces12 assertions;
+real late-open HTTP controls pass, so no late-open bug is claimed. Preserve
+the isolated candidates and their evidence until validation and promotion.
+
 Work194 pushes the verified metadata fix as b0a9a9e0; PR93 remains draft.
 Exact-head CI/package and native35590095042/router35590096360/profile35590098675
 dry-runs remain queued. The strict hosted audit exits1 for pending evidence;

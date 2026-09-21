@@ -67,6 +67,33 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work195 OAuth Body Ownership And Completed Mutation Audit
+
+- Fast195 and the opt-in real Dart-to-native instrumentation fixture pass.
+  Promote the independently tested body-ownership fix: retain the whole-body
+  deadline, consume an owned StreamIterator and cancel it without awaiting slow
+  cleanup; observe cleanup errors without replacing the operation outcome.
+  Thirty-six new tests cover timeout, chunk delivery and slow/error cleanup
+  after timeout or oversize rejection across all three operations/client owners.
+- The120-case focused fixture passes. Four selected controls fail36/12/36/36
+  assertions and0 runtime errors, with unchanged inventories and passing
+  original/restored baselines. The promoted source/test hashes match the saved
+  oauth-body-controls195 inputs. These controls are not a full mutation score.
+- Verify195 passes, including Chrome/WASM, and the frozen input manifest matches.
+  Supervisor3556 then starts Fast196/session29852 as the sole native owner.
+- OAuth192 independently audits317/326 (97.24%) assertion-backed detections,
+  nine survivors,87 compile exclusions, no timeouts or equivalence waivers.
+  Its gate passes for its pre-Work194 snapshot only; final-source evidence still
+  needs a complete rerun. Discovery191 remains failed on its two timeout results.
+- The isolated discovery candidate adds32 cases for real synchronous deadlines,
+  future-error observation, owned/shared clients and successful metadata. Its
+  full MCP suite passes2458 visible cases. Five selected controls, including the
+  old source, produce8/4/4/4/20 assertion failures, no errors, with passing
+  original/restored baselines. This candidate is not included in Verify195.
+  Real late-open HTTP controls pass; a different discovery body-cleanup fixture
+  produces12 assertions and remains an isolated follow-up. No new package-wide
+  coverage claim, publication, merge, version change or hosted-green claim.
+
 ### Work194 Synchronous OAuth Deadlines And Measured FFI Fixture
 
 - Push verified Work193 as b0a9a9e0. PR93 stays draft; exact-head CI/package,

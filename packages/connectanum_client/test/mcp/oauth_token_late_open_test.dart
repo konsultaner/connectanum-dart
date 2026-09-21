@@ -78,6 +78,9 @@ McpOAuthTokenGrant _grant() => McpOAuthTokenGrant.fromJson({
 }, now: DateTime.utc(2020));
 
 void main() {
+  _testResponseBodyCancellation();
+  _testWholeBodyDeadline();
+  _testSlowBodyCleanup();
   _testSynchronousDeadlineCleanup();
   _testSynchronousStageDeadlines();
   _testUnexpectedOwnerErrors();
@@ -207,6 +210,207 @@ void main() {
           },
         );
       }
+    }
+  }
+}
+
+void _testSlowBodyCleanup() {
+  for (final oversized in [false, true]) {
+    for (final kind in ['exchange', 'refresh', 'revoke']) {
+      for (final ownsClient in [false, true]) {
+        for (final cleanupFails in [false, true]) {
+          test(
+            'slow body cleanup $kind owned=$ownsClient failure=$cleanupFails oversized=$oversized '
+            'does not extend deadline or replace its error',
+            () {
+              final uncaught = <Object>[];
+              runZonedGuarded(() {
+                fakeAsync((async) {
+                  final cleanup = Completer<void>();
+                  var cancellations = 0;
+                  final body = StreamController<List<int>>(
+                    onCancel: () {
+                      cancellations++;
+                      return cleanup.future;
+                    },
+                  );
+                  final client = _DelayedClient();
+                  final request = _OpenedRequest();
+                  client.opened.complete(request);
+                  request.response.complete(_Response(body.stream));
+                  final errors = <Object>[];
+                  final successes = <Object?>[];
+                  unawaited(
+                    HttpOverrides.runZoned(
+                      () =>
+                          _operation(kind, ownsClient ? null : client, (_) {}),
+                      createHttpClient: (_) => client,
+                    ).then<void>(
+                      successes.add,
+                      onError: (Object error) => errors.add(error),
+                    ),
+                  );
+                  async.flushMicrotasks();
+                  if (oversized) {
+                    body.add(List<int>.filled(65537, 0x20));
+                  } else {
+                    async.elapse(const Duration(seconds: 1));
+                  }
+                  async.flushMicrotasks();
+                  try {
+                    expect(cleanup.isCompleted, isFalse);
+                    expect(cancellations, 1);
+                    expect(body.hasListener, isFalse);
+                    expect(errors, hasLength(1));
+                    final failure = errors.single;
+                    expect(
+                      failure,
+                      isA<McpOAuthTokenException>().having(
+                        (error) => error.message,
+                        'message',
+                        contains(oversized ? 'exceeds' : 'timed out'),
+                      ),
+                    );
+                    expect(successes, isEmpty);
+                    expect(client.closes, ownsClient ? [true] : isEmpty);
+                    if (cleanupFails) {
+                      cleanup.completeError(
+                        StateError('private-cleanup-error'),
+                      );
+                    } else {
+                      cleanup.complete();
+                    }
+                    async.flushMicrotasks();
+                    expect(errors, [same(failure)]);
+                    expect(request.aborts, hasLength(1));
+                    expect(uncaught, isEmpty);
+                    expect(async.pendingTimers, isEmpty);
+                  } finally {
+                    if (!cleanup.isCompleted) cleanup.complete();
+                    unawaited(body.close());
+                    async.flushMicrotasks();
+                  }
+                });
+              }, (error, _) => uncaught.add(error));
+              expect(uncaught, isEmpty);
+            },
+          );
+        }
+      }
+    }
+  }
+}
+
+void _testWholeBodyDeadline() {
+  for (final kind in ['exchange', 'refresh', 'revoke']) {
+    for (final ownsClient in [false, true]) {
+      test(
+        'whole body deadline $kind owned=$ownsClient is not reset by chunks',
+        () {
+          fakeAsync((async) {
+            var cancellations = 0;
+            final body = StreamController<List<int>>(
+              onCancel: () => cancellations++,
+            );
+            final client = _DelayedClient();
+            final request = _OpenedRequest();
+            client.opened.complete(request);
+            request.response.complete(_Response(body.stream));
+            final errors = <Object>[];
+            final successes = <Object?>[];
+            unawaited(
+              HttpOverrides.runZoned(
+                () => _operation(kind, ownsClient ? null : client, (_) {}),
+                createHttpClient: (_) => client,
+              ).then<void>(
+                successes.add,
+                onError: (Object error) => errors.add(error),
+              ),
+            );
+            async.flushMicrotasks();
+            async.elapse(const Duration(milliseconds: 600));
+            body.add([0x20]);
+            async.flushMicrotasks();
+            expect(errors, isEmpty);
+            async.elapse(const Duration(milliseconds: 400));
+            async.flushMicrotasks();
+            try {
+              expect(errors, hasLength(1));
+              expect(
+                errors.single,
+                isA<McpOAuthTokenException>().having(
+                  (error) => error.message,
+                  'message',
+                  contains('timed out'),
+                ),
+              );
+              expect(successes, isEmpty);
+              expect(cancellations, 1);
+              expect(body.hasListener, isFalse);
+            } finally {
+              unawaited(body.close());
+              async.flushMicrotasks();
+            }
+          });
+        },
+      );
+    }
+  }
+}
+
+void _testResponseBodyCancellation() {
+  for (final kind in ['exchange', 'refresh', 'revoke']) {
+    for (final ownsClient in [false, true]) {
+      test(
+        'response body deadline $kind owned=$ownsClient cancels subscription',
+        () {
+          fakeAsync((async) {
+            var cancellations = 0;
+            final body = StreamController<List<int>>(
+              onCancel: () => cancellations++,
+            );
+            final client = _DelayedClient();
+            final request = _OpenedRequest();
+            client.opened.complete(request);
+            request.response.complete(_Response(body.stream));
+            final errors = <Object>[];
+            final successes = <Object?>[];
+            unawaited(
+              HttpOverrides.runZoned(
+                () => _operation(kind, ownsClient ? null : client, (_) {}),
+                createHttpClient: (_) => client,
+              ).then<void>(
+                successes.add,
+                onError: (Object error) => errors.add(error),
+              ),
+            );
+            async.flushMicrotasks();
+            expect(body.hasListener, isTrue);
+            async.elapse(const Duration(seconds: 1));
+            async.flushMicrotasks();
+            try {
+              expect(errors, hasLength(1));
+              expect(
+                errors.single,
+                isA<McpOAuthTokenException>().having(
+                  (error) => error.message,
+                  'message',
+                  contains('timed out'),
+                ),
+              );
+              expect(successes, isEmpty);
+              expect(request.aborts, hasLength(1));
+              expect(client.closes, ownsClient ? [true] : isEmpty);
+              // SDK abort() is a no-op after the response future has completed.
+              expect(cancellations, 1);
+              expect(body.hasListener, isFalse);
+            } finally {
+              unawaited(body.close());
+              async.flushMicrotasks();
+            }
+          });
+        },
+      );
     }
   }
 }
