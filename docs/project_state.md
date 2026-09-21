@@ -6,6 +6,25 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work210 is locally verified after Fast210, fresh native LLVM collection and full
+bin/verify, including Chrome JavaScript/WASM. Frozen inputs match after both
+collection and verification. Native benchmark coverage rises from5641 to6195
+of7788 production lines (72.43% to79.55%), with no denominator change. The HTTP
+entrypoint is3426/4929; the other measured files are unchanged. Eleven phase
+summary regressions assert independent per-field values, complete report keys,
+sparse/zero observations, overflow, chunk boundaries and rounded-index p95.
+Integer expectations are exact; fractional values allow only rounding noise.
+The394-line child test module is AST-classified test-only.
+
+Seven selected faults fail explicit assertions with passing clean/restored
+11-test baselines and matching source scopes. This is not a full-component
+mutation score. Evidence: native210-bench-current and native210-evidence under
+out/regression-coverage-2026-09-15. Other component/runtime measurements remain
+separate; the whole98%/95% milestone is incomplete. Next investigate startup
+child cleanup with an uncooperative worker and the remaining OAuth survivors;
+isolated probes are prepared, not counted as completed regressions. Hosted
+deployment evidence remains pending. No merge, publication or version change.
+
 Work208 is locally verified after Fast208,14 real native CLI integration tests,
 32 native mutation-tool regressions, fresh LLVM collection and full bin/verify,
 including Chrome/WASM. Frozen input hashes match after collection and verify.

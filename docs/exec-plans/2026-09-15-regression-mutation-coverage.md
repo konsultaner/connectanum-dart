@@ -67,6 +67,29 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work210 HTTP Phase Summary Accounting
+
+- Add11 behavioral tests using distinct input scales and independent expected
+  values for the complete public summary schema. Cover missing/sparse/zero
+  observations, per-metric populations, overflow, exact chunk boundaries,
+  zero-size guards and rounded-index percentiles. Integer values compare
+  exactly; fractional values use a four-epsilon relative rounding allowance.
+- The394-line child module is AST-proven test-only. Fresh LLVM coverage gains
+  554 production lines:6195/7788 (79.55%), up from5641/7788 (72.43%), with the
+  same denominator. HTTP entrypoint3426/4929; other files unchanged. Preserve
+  the visible0/0 facade instead of calling it100%.
+- Seven selected faults cause5/7/1/7/4/6/6 assertion failures, with matching
+  source scopes and passing clean/restored11-test baselines. Retain the earlier
+  controls separately from the final stricter-oracle controls; neither is a
+  whole-component mutation campaign. Raw evidence is in native210-evidence and
+  native210-bench-current under out/regression-coverage-2026-09-15.
+- Fast210, focused tests, LLVM collection and full bin/verify pass, including
+  Chrome JavaScript/WASM. Frozen input hashes match after collection/verify.
+  Hosted checks still need completion. The whole98%/95% goal remains open.
+  Prepared isolated follow-ups investigate startup workers that ignore stdin
+  EOF and an OAuth response-buffer ownership survivor; no new bug-fix or
+  equivalence claim is made before executing those probes.
+
 ### Work208 Actual Native CLI And Frozen Inputs
 
 - Add8 artifact-tool and6 controlled HTTP/stdio integration tests invoking real

@@ -6267,6 +6267,10 @@ fn sort_socket_addrs_prefer_ipv4(addrs: &mut Vec<SocketAddr>) {
 }
 
 #[cfg(test)]
+#[path = "http_stream_tests/phase_timing.rs"]
+mod phase_timing_regressions;
+
+#[cfg(test)]
 mod tests {
     use std::fs;
     use std::net::UdpSocket;
