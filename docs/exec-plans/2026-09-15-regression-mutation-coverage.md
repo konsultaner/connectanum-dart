@@ -67,6 +67,55 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work203 Router HTTP Response Integrity
+
+- Fast203 passes. The corrected 53-case fixture fails seven explicit assertions
+  on unchanged production code: six repeated-cookie cases and an empty-host
+  proxy target. Preserve the earlier fixture-failure log separately; those
+  setup/runtime errors are not assertion evidence.
+- Preserve the first response header value in headers and remaining values in
+  additionalHeaders. Filter hop-by-hop and Connection-nominated names before
+  splitting; retain binary response bytes and status. This follows
+  [RFC6265 section3](https://www.rfc-editor.org/rfc/rfc6265#section-3): combining
+  Set-Cookie fields can change their meaning because commas also occur in cookie
+  attributes. Reject an empty host even when Uri.hasAuthority is true.
+- All 53 added tests and the complete 338-case runtime suite pass. Coverage
+  includes native HTTP/1 cookie round trips at 200/401/500, synthetic reply fields,
+  request path/query/body forwarding, route conditions and diagnostics, handler
+  failure recovery, publish authentication and invalid proxy/FastCGI settings.
+  Runtime fixtures release their handshake once and dispose the native singleton
+  after shutdown. Mutation target support hashes include the new part file.
+- Four selected faults cause 6/6/3/1 assertion failures, no test errors or
+  timeouts. Original/restored 65-test baselines pass with identical inventories
+  and matching input hashes. This is not a full component mutation score.
+- Canonical VM/packaging collection and bin/verify exit0, including Chrome/WASM;
+  manifest203 matches after both. VM coverage is 39616/42836 (92.48%), router
+  17411/19430 (89.61%), router binding 3243/3700 (87.65%), client 8814/9438
+  (93.39%). Packaging is 765/787 (97.20%). Strict98 checks exit1, retaining 59
+  library and 12 packaging unmeasured sources. Evidence is vm203-current,
+  router203-evidence and coverage184-probes/router-http-controls203 under
+  out/regression-coverage-2026-09-15. Changed-scope strict analysis passes; a
+  broader strict analysis still reports five preexisting info-level lints.
+- OAuth199 remains live and unchanged. A public fromJson input whose ListBase
+  changes between validation and copying disproves the preliminary equivalence
+  hypothesis for da0b9573b3719fae47b6, dae2ab256c93334f654e and
+  02ea68233498fb788f44. Source SHA256 is
+  3b5ce0682ec6fb4da8ba8b3a68b02377878abad2cc8fc734ea89f99cce8c0f47.
+  Original/restored probes reject the changed snapshot; each actual mutant
+  accepts it. Keep them as raw survivors, without waiver or adjusted-score
+  credit. Diagnostic evidence is coverage184-probes/oauth-scope-probe203.
+  The next permanent regression should permit safe copy-once behavior or a
+  redacted rejection, but never accept changed, unvalidated scopes.
+- Whole-scope follow-ups remain mandatory: implement the Flutter client mutation
+  runner and explicitly inventory non-Dart application production inputs. The
+  application LCOV inventory currently covers Dart lib/bin only, not platform
+  launchers, generated plugin registrants or the web service worker. Classify
+  declarations and executable code individually, without blanket exclusions.
+- Latest pushed 87029aef hosted checks remain queued. An older native run fails
+  on Cosign bootstrap HTTP downloads before compilation; both referenced assets
+  exist and now respond HTTP200, but the original HTTP failure cause is unknown.
+  No green hosted-chain, merge, publication or version-change claim.
+
 ### Work202 Voice Recording Ownership
 
 - Fast202 passes with unchanged canonical hashes. The final19-case widget

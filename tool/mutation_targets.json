@@ -112,6 +112,7 @@
     ],
     "supportFiles": [
       "packages/connectanum_router/test/support/native_lib.dart",
+      "packages/connectanum_router/test/support/http_edge_cases.dart",
       "packages/connectanum_router/test/certs/http3_cert.pem",
       "packages/connectanum_router/test/certs/http3_key.pem",
       "packages/connectanum_router/test/certs/http3_ca_cert.pem"
@@ -546,6 +547,9 @@
     "tests": [
       "packages/connectanum_router/test/router_runtime_test.dart",
       "packages/connectanum_router/test/router_metrics_service_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_router/test/support/http_edge_cases.dart"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": true,

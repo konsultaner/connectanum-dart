@@ -6,6 +6,39 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work203 is locally verified after Fast203, all 338 router runtime tests, fresh
+VM/packaging collection and root bin/verify pass, including Chrome/WASM. Frozen
+source/test/config hashes match after both collection and verification. Add 53
+HTTP edge regressions: seven assertions reproduce cookie folding and empty-host
+proxy target validation defects before the fix. Preserve repeated upstream
+response fields through additionalHeaders, retain hop-by-hop filtering, and
+reject empty hosts. Three cookie cases traverse the real native HTTP/1 socket.
+Four isolated selected faults fail 6/6/3/1 explicit assertions, with passing
+original/restored 65-test baselines and no runtime-error or timeout credit.
+These controls are not a complete mutation campaign. Both affected mutation
+targets now hash the added test part.
+
+Fresh VM coverage is 39616/42836 (92.48%): router 17411/19430 (89.61%), client
+8814/9438 (93.39%), core 94.34%, MCP 96.13%, bench 99.36%, auth 100%. Router
+binding measures 3243/3700 (87.65%). Packaging remains 765/787 (97.20%). The
+strict 98% checks fail; 59 library and 12 packaging sources remain unmeasured.
+Evidence: vm203-current, router203-evidence and
+coverage184-probes/router-http-controls203 under out/regression-coverage-2026-09-15.
+OAuth199 continues without restarting. An isolated public-input probe disproves
+equivalence for its three scope-comparison survivors: a changing caller-supplied
+list reaches the guard, the original rejects, and all three mutants accept it.
+No waiver or campaign score adjustment was made. Add a permanent regression next.
+The application collector only inventories Dart lib/bin sources; platform
+launchers, plugin registrants and the web service worker still need explicit
+scope accounting, alongside the missing Flutter mutation runner. No whole-goal
+completion claim is justified. Recovery: coverage184-probes/WORK203.md.
+
+Work202 is committed/pushed as 87029aef. Its latest hosted checks remain queued.
+Older Native Artifacts run35586669159 failed during Cosign bootstrap downloads
+on Linux arm64 and macOS Intel, before compilation. Both release assets exist
+and currently return HTTP200; the logs only establish curl exit22, not its
+original HTTP status or a native-source failure. Hosted verification is pending.
+
 Work201 is committed/pushed as f61797de after Fast201, the full application gate,
 Verify201c (including Chrome/WASM), and matching frozen hashes. Exact-head
 CI/package/native35614914511/router35614916504/profile35614918545 checks remain

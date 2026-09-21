@@ -194,6 +194,7 @@ Uri _httpReverseProxyTargetUri(HttpRouteAction action) {
   if (uri == null ||
       !uri.hasScheme ||
       !uri.hasAuthority ||
+      uri.host.isEmpty ||
       (uri.scheme != 'http' && uri.scheme != 'https')) {
     throw _HttpReverseProxyConfigException('invalid_target');
   }
@@ -290,7 +291,11 @@ Map<String, String> _httpReverseProxyRequestHeaders(RouterHttpRequest request) {
   return headers;
 }
 
-Map<String, String> _httpReverseProxyResponseHeaders(
+({
+  Map<String, String> headers,
+  List<MapEntry<String, String>> additionalHeaders,
+})
+_httpReverseProxyResponseHeaders(
   HttpHeaders upstreamHeaders,
 ) {
   final upstreamHeaderMap = <String, List<String>>{};
@@ -302,14 +307,21 @@ Map<String, String> _httpReverseProxyResponseHeaders(
   );
   blocked.addAll(const {'content-length'});
   final headers = <String, String>{};
+  final additionalHeaders = <MapEntry<String, String>>[];
   for (final entry in upstreamHeaderMap.entries) {
     final name = entry.key.trim();
     if (name.isEmpty || blocked.contains(name.toLowerCase())) {
       continue;
     }
-    headers[name] = entry.value.join(',');
+    for (final value in entry.value) {
+      if (headers.containsKey(name)) {
+        additionalHeaders.add(MapEntry(name, value));
+      } else {
+        headers[name] = value;
+      }
+    }
   }
-  return headers;
+  return (headers: headers, additionalHeaders: additionalHeaders);
 }
 
 Set<String> _httpHopByHopHeaderNames(Map<String, String> headers) {
@@ -2785,9 +2797,13 @@ class RouterBinding {
         upstreamResponse,
         maxBytes: maxResponseBytes,
       ).timeout(timeout);
+      final responseHeaders = _httpReverseProxyResponseHeaders(
+        upstreamResponse.headers,
+      );
       final response = NativeHttpResponse(
         status: upstreamResponse.statusCode,
-        headers: _httpReverseProxyResponseHeaders(upstreamResponse.headers),
+        headers: responseHeaders.headers,
+        additionalHeaders: responseHeaders.additionalHeaders,
         body: NativeHttpResponseBytes(responseBody),
       );
       await _sendImmediateHttpResponse(

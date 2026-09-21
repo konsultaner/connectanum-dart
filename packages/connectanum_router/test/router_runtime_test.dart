@@ -37,6 +37,8 @@ import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
+part 'support/http_edge_cases.dart';
+
 const _certificatePem =
     '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
 const _privateKeyPem =
@@ -3880,6 +3882,7 @@ void _fileResponseCleanupTests() {
 }
 
 void main() {
+  _httpEdgeCases();
   _fileResponseCleanupTests();
   _httpRoundAuthenticationTests();
   group('Router start', () {
