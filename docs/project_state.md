@@ -6,6 +6,39 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work186 completes VM185/session67136 with exit0 and matching frozen inputs:
+auth100%, bench99.36%, client93.32%, core94.34%, MCP96.13%, router89.09%,
+overall92.23%. There remain59 unmeasured library sources; packaging is765/787
+(97.20%) with12 unmeasured sources. Fast186/session47711 then passes and its
+input hashes match before promotion. Canonical now includes the OAuth late-open
+cleanup fix and45 regressions covering exchange/refresh/revocation, client
+ownership, positive completion, owner rejection, close/body deadlines, and retry
+isolation on a shared client. Original code reproduces9 assertions, no other
+errors; the isolated complete MCP suite passes2154 tests and clean analysis.
+Four explicit cleanup controls fail assertions only with passing original and
+restored baselines. The earlier42-case collection measures token exchange478/483
+(98.96%); it is module evidence, not a new full component/runtime score.
+
+Promote the stronger49-case revocation diagnostics and enforce98% floors for
+the benchmark package and OAuth token-exchange module. The policy contract fails
+before these changes and all20 coverage-policy tests pass afterward; a simulated
+one-line drop to97% is rejected. Full Verify186/session15492 passes, including
+Chrome/WASM, and the final frozen-input hash check passes. Canonical MCP2154
+tests and92 tooling tests (one conditional skip) also pass.
+The prior OAuth184 campaign is complete and independently audited:203/322
+(63.04%) assertion-backed raw/adjusted,85 survivors,2 timeouts,32 error-only
+outcomes,87 compile errors excluded, and passing baselines. It predates the49
+new revocation tests and the late-open fix. Testing117 prior survivor/error-only
+outcomes with stronger revocation assertions detects46 assertion-only and2 mixed;
+2 error-only outcomes remain uncredited and67 survive. These are diagnostics,
+not a new full score. Discovery184/session79866 completes:337/366 (92.08%)
+assertion-backed,26 survivors,2 timeouts,1 error-only outcome,87 compile errors
+excluded, and both baselines pass. The95% gate remains unmet.
+PR93 stays draft at pushed07f11c91; its exact-head CI/package/native/router/profile
+checks remain queued. Strict audit exits1 for incomplete hosted evidence and the
+unprotected feature branch, not a hosted test failure. No merge, version change,
+publication or branch-protection change. Recovery: coverage184-probes/WORK186.md.
+
 Work184 confirms Fast182/session66476 exited0 and the frozen input hashes
 matched before promotion. Canonical now includes the five-line HTTP fallback
 fix,64 HTTP regressions,114 independent OAuth persisted-state cases,118 discovery

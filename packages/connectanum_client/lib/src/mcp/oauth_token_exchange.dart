@@ -948,11 +948,23 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
   final ownsClient = httpClient == null;
   final deadline = DateTime.now().add(timeout);
   HttpClientRequest? request;
+  var operationCompleted = false;
 
   try {
-    request = await client
-        .postUrl(endpoint)
-        .timeout(_remaining(deadline, endpoint, endpointLabel));
+    final opening = client.postUrl(endpoint);
+    // Future.timeout does not cancel opening; dispose any late request.
+    unawaited(
+      opening.then<void>((openedRequest) {
+        if (operationCompleted) {
+          openedRequest.abort(
+            TimeoutException('$endpointLabel request timed out.'),
+          );
+        }
+      }, onError: (Object error, StackTrace stackTrace) {}),
+    );
+    request = await opening.timeout(
+      _remaining(deadline, endpoint, endpointLabel),
+    );
     try {
       onRequestOpened?.call(request);
     } catch (error) {
@@ -1011,6 +1023,7 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
       endpoint: endpoint,
     );
   } finally {
+    operationCompleted = true;
     if (ownsClient) {
       client.close(force: true);
     }

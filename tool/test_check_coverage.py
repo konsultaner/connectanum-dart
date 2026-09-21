@@ -9,6 +9,30 @@ from check_coverage import findings, read_lcov, report
 
 
 class CoverageTests(unittest.TestCase):
+    def test_vm_benchmark_and_oauth_token_floors_protect_98_percent(self):
+        policy = json.loads((Path(__file__).parent / 'coverage_policy.json').read_text())
+        token_source = 'packages/connectanum_client/lib/src/mcp/oauth_token_exchange.dart'
+        bench_source = 'packages/connectanum_bench/lib/src/benchmark_runner.dart'
+        self.assertGreaterEqual(policy['packages']['connectanum_bench'], 98)
+        self.assertGreaterEqual(policy['files'].get(token_source, 0), 98)
+        self.assertIn(token_source, policy['requiredSources'])
+        focused_policy = {
+            'target': policy['target'],
+            'packages': {'connectanum_bench': policy['packages']['connectanum_bench']},
+            'files': {token_source: policy['files'][token_source]},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            sources = {name: {line: int(line <= 98) for line in range(1, 101)}
+                       for name in (token_source, bench_source)}
+            self.assertEqual(findings(report(sources, Path(directory)), focused_policy), [])
+            for source in sources:
+                with self.subTest(source=source):
+                    sources[source][98] = 0
+                    result = findings(report(sources, Path(directory)), focused_policy)
+                    label = token_source if source == token_source else 'connectanum_bench'
+                    self.assertIn(f'{label}: 97.000% below 98%', result)
+                    sources[source][98] = 1
+
     def test_browser_policy_gates_both_measured_packages(self):
         policy = json.loads((Path(__file__).parent / 'browser_coverage_policy.json').read_text())
         self.assertEqual(policy['target'], 98)

@@ -210,6 +210,19 @@ void main() {
     'missing-refresh',
   ]) {
     test('request validation rejects $problem before network I/O', () async {
+      final expectedMessage = switch (problem) {
+        'client-id' => 'OAuth client ID must be non-empty printable text.',
+        'secret' =>
+          'OAuth client secret must be non-empty and contain no controls.',
+        'timeout' => 'OAuth token endpoint timeout must be positive.',
+        'limit' => 'OAuth token endpoint response byte limit must be positive.',
+        'header' => 'Header "x-custom" contains control characters.',
+        'empty-scopes' =>
+          'OAuth refresh scopes must not be empty when provided.',
+        'invalid-scope' => 'OAuth refresh scope contains an invalid token.',
+        _ => 'OAuth grant does not contain a usable refresh token.',
+      };
+      var opened = 0;
       await _withServer((request) => request.drain<void>(), (
         issuer,
         paths,
@@ -243,8 +256,31 @@ void main() {
                 : const Duration(seconds: 2),
             maxResponseBytes: problem == 'limit' ? 0 : 4096,
             headers: problem == 'header' ? {'x-custom': 'bad\r\nvalue'} : {},
+            onRequestOpened: (_) => opened++,
           ),
-          throwsA(isA<McpOAuthTokenException>()),
+          throwsA(
+            isA<McpOAuthTokenException>()
+                .having(
+                  (error) => error.message,
+                  'preflight rejection',
+                  expectedMessage,
+                )
+                .having(
+                  (error) => error.endpoint,
+                  'endpoint',
+                  issuer.resolve('/token'),
+                )
+                .having(
+                  (error) => error.statusCode,
+                  'no HTTP response',
+                  isNull,
+                ),
+          ),
+        );
+        expect(
+          opened,
+          0,
+          reason: 'Validation precedes the request owner callback.',
         );
         expect(paths, isEmpty);
       });
@@ -329,8 +365,11 @@ void main() {
     'refresh client_secret_post sends credentials and requested scopes exactly',
     () async {
       Map<String, String>? form;
+      String? clientHeader;
+      var opened = 0;
       await _withServer(
         (request) async {
+          clientHeader = request.headers.value('x-consumer');
           form = Uri.splitQueryString(await utf8.decoder.bind(request).join());
           request.response.headers.contentType = ContentType.json;
           request.response.write(
@@ -348,11 +387,15 @@ void main() {
                 'client_secret_post',
               ),
               scopes: ['read'],
+              headers: {'x-consumer': 'consumer agent'},
+              onRequestOpened: (_) => opened++,
             ).then((value) {
               updated = value;
             }),
           );
           expect(paths, ['/token']);
+          expect(opened, 1);
+          expect(clientHeader, 'consumer agent');
           expect(form, {
             'grant_type': 'refresh_token',
             'refresh_token': _refresh,

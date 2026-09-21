@@ -176,7 +176,7 @@
     "connectanum_client": 84.79,
     "connectanum_router": 82.18,
     "connectanum_auth_server": 98,
-    "connectanum_bench": 79.37
+    "connectanum_bench": 98
   },
   "componentPackages": ["connectanum_mcp"],
   "components": {
@@ -204,6 +204,7 @@
     }
   },
   "files": {
+    "packages/connectanum_client/lib/src/mcp/oauth_token_exchange.dart": 98,
     "packages/connectanum_router/lib/src/router/auth/http_auth_provider.dart": 98,
     "packages/connectanum_router/lib/src/router/auth/remote_authenticator.dart": 98,
     "packages/connectanum_router/lib/src/router/auth/remote_wamp_delegate.dart": 98,

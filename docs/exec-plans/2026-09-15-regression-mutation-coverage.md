@@ -67,6 +67,52 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work186 OAuth Late-Open Ownership And Measured Floors
+
+- VM185/session67136 completes with exit0 and matching source/test/config hashes.
+  Full VM coverage is auth100%, bench99.36%, client93.32%, core94.34%, MCP96.13%,
+  router89.09%, overall92.23%;59 library sources remain unmeasured. Packaging
+  remains765/787 (97.20%) with12 unmeasured sources. These are the pre-fix inputs.
+- Fast186/session47711 passes with unchanged pinned inputs. Promote a separate
+  opening observer in _postOAuthForm: Future.timeout does not cancel postUrl,
+  so late requests must be aborted without sending credentials or invoking
+  owner callbacks. Keep completion state local to each operation and close only
+  internally created clients.45 fakeAsync cases cover all three public OAuth
+  operations, owned/borrowed clients, late success/error, on-time success,
+  owner rejection, close/body deadlines and shared-client retry isolation.
+  Original code fails9 assertions only. Candidate full MCP suite2154 tests and
+  analysis pass. Four explicit cleanup fault controls fail assertions only,
+  with clean/restored baselines; they are not a complete mutation score.
+- Strengthen49 revocation regressions with exact preflight diagnostics, zero
+  network/owner-hook side effects, and positive internal-space header delivery.
+  Raise benchmark package and token-exchange module floors to98%. The new policy
+  contract fails first, then all20 policy tests pass and actual VM185 data passes
+  the raised floors. Earlier42-case candidate collection measures478/483 token
+  module lines (98.96%); do not treat this as package-wide or final runtime coverage.
+- OAuth184 completes and independently audits203/322 (63.04%) assertion-backed
+  detections,85 survivors,2 timeouts,32 error-only outcomes and87 compile errors.
+  Both baselines pass; the95% gate fails. Preserve its old snapshot.117 selected
+  survivor/error-only controls using the strengthened fixture finish with46
+  assertion-only,2 mixed,2 error-only and67 survivors; only48 have assertion
+  evidence. These controls do not replace a full campaign. Discovery184 completes
+  at337/366 (92.08%) assertion-backed,26 survivors,2 timeouts,1 error-only outcome
+  and87 compile errors excluded. Original/restored baselines pass;95% is not met.
+  Full Verify186/session15492 passes after promotion, including Chrome/WASM,
+  with matching frozen source/test/config hashes. Canonical MCP2154 tests and
+  tooling92 tests (one conditional skip) pass as well.
+- PR93 body now reflects pushed07f11c91. Exact-head native35570568032 and
+  router35570570370 explicitly use dry_run=true; WAMP profile35570572639 is also
+  requested once. CI/package/dry-run checks are queued. Read-only strict audit
+  exits1 for incomplete evidence and the unprotected feature branch, not test
+  failures. Do not merge, publish, change versions or change protections.
+- Retain failed setup attempts: the first isolated command omitted -p vm and
+  incorrectly selected Chrome for IO-only tests; explicit VM passes. An initial
+  fixture assumed access-token revocation instead of the API's refresh-token
+  default. Getter/setter overrides resolve two Dart test-double lints. Qwen's
+  review exceeded its output cap; completed Gemma suggestions were independently
+  checked against the existing all-exit finally and typed-error behavior.
+  Recovery and exact logs/hashes are in coverage184-probes/WORK186.md.
+
 ### Work185 Revocation Oracles And HTTP Decoder Verification
 
 - Fast185/session16041 completes with exit0 and matching pinned inputs. It
