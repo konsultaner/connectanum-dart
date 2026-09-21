@@ -6,6 +6,74 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work190 completes Verify189 with exit 0, including Chrome/WASM, and confirms
+matching frozen source/test/config hashes. The verified implementation includes
+the file-response ownership/disposal fixes,15 cleanup regressions and203 OAuth
+boundary/persistence tests. Supervisor3151 is terminal and starts full VM plus
+packaging coverage in vm189-current/session96503 as the sole native owner. Keep
+canonical inputs frozen against /tmp/connectanum-coverage189-inputs.sha256 until
+that measurement finishes. OAuth188/session69980 remains live; do not duplicate it.
+
+Separately,30 isolated discovery boundary tests pass with2387 full candidate MCP
+tests and clean analysis. They detect13 prior uncredited faults through assertions
+only in focused controls, with original/restored baselines passing;16 survive.
+This is diagnostic evidence, not a complete mutation score. The fixture is NOT
+canonical and must wait for VM189 before promotion. No equivalent mutants waived,
+no new global percentage or green hosted-chain claim. PR93 remains draft; no merge,
+version change or publication. Recovery: coverage184-probes/WORK190.md.
+
+Work189 completes Verify188 with exit 0, including Chrome/WASM, and verifies its
+frozen input hashes. A new controlled delayed-cancellation test then reproduces
+one assertion failure: binding disposal returns before the file reader finishes
+asynchronous cleanup. The isolated candidate now tracks active readers through
+cleanup and shares their cancellation futures with disposal; delayed/concurrent
+success/error regressions pass. Fast189/session29013 passes with matching frozen
+inputs. All 277 tests in the candidate router runtime test file pass, including
+15 file-response cleanup tests. Four explicit cancellation faults fail assertions
+only (4/4/4/2 failures), with original/restored baselines passing and source/test
+hashes retained; these are diagnostics, not a full mutation score.
+The follow-up is promoted and targeted analysis/formatting pass. Verify189/session1178
+is the sole native owner; keep canonical inputs frozen against
+/tmp/connectanum-coverage189-inputs.sha256 until verification and any follow-on
+measurement finish. Supervisor3151 starts full VM/packaging collection only after
+Verify189 passes and its input hashes match. OAuth188/session69980 continues from its original frozen
+snapshot. The combined implementation remains uncommitted pending verification;
+no new complete coverage percentages are claimed. Recovery remains
+coverage184-probes/WORK188.md.
+
+Work188 pushes the verified Work186 increment as8680a025; PR93 remains draft.
+Fast188/session5284 passes and its pre-promotion input hashes match. Promote203
+OAuth boundary/persistence regressions:176 public endpoint cases and27 persisted
+state oracles. The isolated complete MCP suite passes2357 tests and clean client
+analysis. Selected prior-outcome controls detect41 additional validator faults,
+10 persisted-state faults and6 response-boundary faults with assertions only;
+all original/restored baselines pass. These are diagnostics, not a full score.
+The complete413-mutant OAuth188 campaign/session69980 is now live with the new
+tests and late-open fix, from its own frozen snapshot. Do not duplicate it.
+
+The router's largest measured gap also exposed a file-response ownership race:
+WAMP onDone releases the HTTP handshake before asynchronous file I/O opens the
+response. Five assertions reproduce premature release; a separate earlier
+assertion reproduces stream leakage after a diagnostic callback throws. The
+promoted fix defers WAMP completion for active file responses, always finalizes
+their streams, explicitly disposes pending HTTP calls, cancels active file reads,
+and rejects continuations after disposal. Eleven regressions cover success,
+missing/read-error paths, observer exceptions, disposal at exists/read/EOF and
+multiple pending cleanup failures. The273-test router candidate suite passes;
+the final11-case fixture and original/restored control baselines pass. All six
+explicit fault controls have assertions (five assertion-only, one mixed); no
+timeout/error-only credit is claimed. An event-loop barrier prevents premature
+completion faults from merely turning into fixture wait timeouts.
+
+Promoted source/tests match the candidate, targeted analysis and formatting pass.
+Verify188/session68096 is the sole native owner; keep canonical inputs frozen
+against /tmp/connectanum-coverage188-inputs.sha256 until it finishes. The new
+implementation remains uncommitted pending full verification. Exact8680a025
+CI/package checks and native35573674944/router35573677301/profile35573679939
+dry-runs remain queued. Strict audit exits1 for incomplete evidence, not hosted
+test failure. No merge, publication, version or protection change. Recovery:
+out/regression-coverage-2026-09-15/coverage184-probes/WORK188.md.
+
 Work186 completes VM185/session67136 with exit0 and matching frozen inputs:
 auth100%, bench99.36%, client93.32%, core94.34%, MCP96.13%, router89.09%,
 overall92.23%. There remain59 unmeasured library sources; packaging is765/787

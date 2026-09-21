@@ -67,6 +67,95 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work190 Verified Cleanup And Discovery Boundary Oracles
+
+- Verify189 exits0 including Chrome/WASM and its frozen source/test/config hashes
+  match. Supervisor3151 is terminal and starts VM189/session96503, the sole native
+  owner. Keep canonical inputs frozen until collection and its hash check finish.
+- The verified bundle contains the router ownership/disposal fixes,15 file cleanup
+  regressions and203 OAuth boundary/persistence tests. OAuth188/session69980 stays
+  live on its original frozen snapshot; no duplicate full campaign is started.
+- A separate30-case discovery fixture targets explicit non-default resource-port
+  equality, exact array diagnostics, successful fallback without abort, trailing
+  separators, quoted escapes and malformed-field recovery. The2387-case full
+  candidate MCP suite and targeted analysis/format pass. Initial unused fake
+  constructor-parameter warning is corrected; preserve the original fixture.
+- Final29-outcome focused controls detect13 assertion-only failures, with16
+  survivors, original/restored baselines0 and input hashes retained. Prior full
+  timeouts remain uncredited; no new complete score or equivalence waiver.
+  This fixture remains isolated until VM189 releases canonical inputs.
+- DraftPR93 and strict hosted deployment evidence remain pending. No merge,
+  version change or publication. Recovery: coverage184-probes/WORK190.md.
+
+### Work189 Asynchronous File Cancellation Completion
+
+- Verify188 completes with exit 0 including Chrome/WASM; canonical source, test
+  and configuration hashes match the frozen manifest.
+- A controlled delayed onCancel reproduces early disposal as one assertion,
+  without timeout or error-only evidence. Preserve the pre-fix fixture and log.
+- Candidate follow-up retains active file readers through cancellation, shares
+  one cancellation future across sender/disposal, joins cleanup during disposal,
+  and propagates the first cancellation error after other resources are closed.
+  Four delayed/concurrent success/error cases pass. Fast189/session29013 and its
+  frozen-input check pass before promotion. All 277 tests in the candidate router
+  runtime test file pass, including the final 15 file-response cleanup cases.
+- Four explicit cancellation controls fail assertions only (4/4/4/2), without
+  test errors or timeouts; original/restored baselines pass and hashes match the
+  promoted files. No complete mutation score is inferred from these controls.
+- Canonical follow-up is promoted; targeted analysis/formatting pass. Verify189,
+  session1178, is the sole native owner. Keep canonical inputs frozen against
+  /tmp/connectanum-coverage189-inputs.sha256 until verification and any subsequent
+  measurement finish. Supervisor3151 starts VM/packaging collection in vm189-current
+  only after Verify189 exits0 and its input hashes match. OAuth188/session69980 remains live on its earlier frozen
+  target snapshot; do not duplicate or alter it. Implementation stays uncommitted
+  pending verification; no new global coverage result or green hosted claim.
+
+### Work188 OAuth Mutation Oracles And Router File Ownership
+
+- Work186 verification completes and8680a025 is pushed to the coverage branch.
+  Fast188/session5284 passes with matching pre-promotion input hashes.
+- Add176 OAuth endpoint validation/response cases and27 persisted-state cases.
+  Assert exact preflight/response errors, URI/ASCII boundaries, inclusive byte
+  limits, scope restriction, zero expiry, nested JSON ownership and diagnostic
+  identity. Full candidate MCP2357 tests and client analysis pass. Selected
+  controls detect41 validator,10 persistence and6 response faults through
+  assertions only, with passing original/restored baselines; no full score is
+  inferred. OAuth188/session69980 runs all413 generated mutants on the new frozen
+  target snapshot. An earlier attempt from a git-ignored candidate failed before
+  dependency resolution/inventory; preserve it but do not count it as a campaign.
+- Router file-response tests reproduce five premature-handshake-release assertions
+  and a separate observer-related stream leak. WAMP onDone must not complete the
+  pending HTTP call while the asynchronous file response still owns its handshake.
+  Add per-response ownership, unconditional finalization, cancellable file reading
+  and disposal guards. Dispose all pending HTTP calls before returning; continue
+  cleanup after observer exceptions and then rethrow the first captured error.
+- Eleven file/disposal regressions pass, including two pending streams with
+  throwing cleanup observers. Full router candidate273 tests pass before the
+  final additional cancellation-completion assertion/barrier; final focused and
+  fault-control baselines pass. Six explicit controls are assertion-backed:
+  five assertion-only, one mixed. The earlier premature-completion control
+  timed out in a fixture wait and remains uncredited; an explicit event-loop
+  barrier now tests the WAMP onDone ordering before waiting for the file reader.
+- Canonical source/tests match the candidate and targeted analysis/format pass.
+  Verify188/session68096 is live as sole native owner, with source/test/config
+  hashes in /tmp/connectanum-coverage188-inputs.sha256. Keep inputs frozen until
+  terminal; do not commit the new changes before full verification passes.
+- Discovery184 completes and independently audits337/366 (92.08%) assertion
+  detections with26 survivors,2 timeouts,1 error-only outcome and87 compile errors;
+  both baselines pass and95% remains unmet. Exact8680a025 hosted checks remain
+  queued. Native35573674944 and router35573677301 use dry_run=true; profile
+  35573679939 is requested once. Strict audit exits1 for incomplete evidence and
+  unprotected feature branch. PR93 stays draft; no releases/protection changes.
+- Preserve setup failures: response fixture MIME handling initially omitted UTF-8
+  encoding and two expectations used the wrong size-limit wording; final fixtures
+  encode bytes explicitly and use the verified diagnostics. A new router test
+  initially omitted the required response status, then compiles/passes after the
+  fixture correction. Local companion suggestions are advisory: retain the
+  existing scopes key for empty persisted scopes and inclusive byte-limit
+  semantics. GLM judge timed out without a response; Gemma lifetime/race claims
+  were checked against source and deterministic disposal controls rather than
+  accepted as facts. Full recovery is in coverage184-probes/WORK188.md.
+
 ### Work186 OAuth Late-Open Ownership And Measured Floors
 
 - VM185/session67136 completes with exit0 and matching source/test/config hashes.

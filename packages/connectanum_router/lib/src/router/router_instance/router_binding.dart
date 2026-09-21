@@ -1052,6 +1052,7 @@ class RouterBinding {
   final Map<String, Future<RouterSession>> _internalSessionCreationsByCacheKey =
       {};
   final Map<int, _PendingHttpCall> _pendingHttpCalls = {};
+  final Set<_PendingHttpCall> _activeHttpFileReads = {};
   final Map<
     HttpRouteSettings,
     Map<HttpRouteAction, Map<String, _HttpRouteRateLimitState>>
@@ -1765,6 +1766,26 @@ class RouterBinding {
     _httpAuthTokens.clear();
     _httpRefreshTokens.clear();
     _httpRefreshTokensInFlight.clear();
+    Object? pendingCleanupError;
+    StackTrace? pendingCleanupStack;
+    for (final id in _pendingHttpCalls.keys.toList()) {
+      try {
+        _completeHttpRequest(id);
+      } catch (error, stack) {
+        pendingCleanupError ??= error;
+        pendingCleanupStack ??= stack;
+      }
+    }
+    await Future.wait(
+      _activeHttpFileReads.toList().map((pending) async {
+        try {
+          await pending.cancelFileRead();
+        } catch (error, stack) {
+          pendingCleanupError ??= error;
+          pendingCleanupStack ??= stack;
+        }
+      }),
+    );
     try {
       await _closeListenersAndPendingConnections();
     } catch (_) {}
@@ -1794,6 +1815,10 @@ class RouterBinding {
     final boss = _boss;
     if (boss != null) {
       await boss.stop();
+    }
+    final cleanupError = pendingCleanupError;
+    if (cleanupError != null) {
+      Error.throwWithStackTrace(cleanupError, pendingCleanupStack!);
     }
   }
 
@@ -2627,7 +2652,9 @@ class RouterBinding {
           _completeHttpRequest(httpRequestId);
         },
         onDone: () {
-          _completeHttpRequest(httpRequestId);
+          if (_pendingHttpCalls[httpRequestId]?.fileResponseActive != true) {
+            _completeHttpRequest(httpRequestId);
+          }
         },
         cancelOnError: false,
       );
@@ -6975,7 +7002,13 @@ class RouterBinding {
     _PendingHttpCall pending,
     HttpResponsePayload payload,
   ) {
-    unawaited(_sendFileHttpResponseAsync(pending, payload));
+    // WAMP completion must not release the handshake while file I/O awaits.
+    pending.fileResponseActive = true;
+    unawaited(
+      _sendFileHttpResponseAsync(pending, payload).whenComplete(
+        () => _finishStreamingResponse(pending),
+      ),
+    );
   }
 
   Future<void> _sendFileHttpResponseAsync(
@@ -6992,7 +7025,11 @@ class RouterBinding {
     }
 
     final file = File(filePath);
-    if (!await file.exists()) {
+    final exists = await file.exists();
+    if (!identical(_pendingHttpCalls[pending.id], pending)) {
+      return;
+    }
+    if (!exists) {
       await _sendFileHttpResponseError(
         pending,
         'file-backed HTTP response path does not exist',
@@ -7007,11 +7044,30 @@ class RouterBinding {
     }
 
     try {
-      await for (final chunk in file.openRead()) {
-        if (chunk.isEmpty) {
-          continue;
+      final reader = StreamIterator<List<int>>(file.openRead());
+      pending.fileReader = reader;
+      _activeHttpFileReads.add(pending);
+      try {
+        while (await reader.moveNext()) {
+          if (!identical(_pendingHttpCalls[pending.id], pending)) {
+            return;
+          }
+          final chunk = reader.current;
+          if (chunk.isEmpty) {
+            continue;
+          }
+          stream.add(chunk is Uint8List ? chunk : Uint8List.fromList(chunk));
         }
-        stream.add(chunk is Uint8List ? chunk : Uint8List.fromList(chunk));
+      } finally {
+        try {
+          await pending.cancelFileRead();
+        } finally {
+          pending.fileReader = null;
+          _activeHttpFileReads.remove(pending);
+        }
+      }
+      if (!identical(_pendingHttpCalls[pending.id], pending)) {
+        return;
       }
       onEvent?.call({
         'source': 'binding',
@@ -7023,6 +7079,9 @@ class RouterBinding {
       });
       _finishStreamingResponse(pending);
     } catch (error, stackTrace) {
+      if (!identical(_pendingHttpCalls[pending.id], pending)) {
+        return;
+      }
       onEvent?.call({
         'source': 'binding',
         'type': 'http_response_file_stream_error',
@@ -7240,6 +7299,11 @@ class RouterBinding {
     final pending = _pendingHttpCalls.remove(httpRequestId);
     final stream = pending?.responseStream;
     try {
+      final reader = pending?.fileReader;
+      if (reader != null) {
+        // The sender and disposing owner await the same cancellation result.
+        pending!.cancelFileRead().ignore();
+      }
       if (stream != null && !stream.isClosed) {
         try {
           stream.close();
@@ -7444,6 +7508,12 @@ class _PendingHttpCall {
   NativeHttpResponseStream? responseStream;
   NativeHttpResponseStreamDescriptor? directResponseStream;
   bool directResponseStreamCompleted = false;
+  bool fileResponseActive = false;
+  StreamIterator<List<int>>? fileReader;
+  Future<void>? _fileReadCancellation;
+
+  Future<void> cancelFileRead() =>
+      _fileReadCancellation ??= fileReader?.cancel() ?? Future<void>.value();
 }
 
 class _MetricsService {

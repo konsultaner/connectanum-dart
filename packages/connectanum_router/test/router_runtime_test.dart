@@ -3282,7 +3282,451 @@ void _httpRoundAuthenticationTests() {
   });
 }
 
+class _FileResponseCleanupRuntime extends _HandleRuntime {
+  _FileResponseCleanupRuntime({required this.failAdd});
+  final bool failAdd;
+  final List<int> streamCloses = [];
+  final List<Uint8List> chunks = [];
+  late int Function() releases;
+  final List<int> releasesAtOpen = [];
+  final List<int> releasesAtSend = [];
+  final addError = StateError('controlled file stream add failure');
+
+  @override
+  NativeHttpResponseStream openHttpResponseStream({
+    required int handshakeHandle,
+    required int status,
+    required Map<String, String> headers,
+  }) {
+    releasesAtOpen.add(releases());
+    return _FakeHttpResponseStream(
+      handle: handshakeHandle,
+      onChunk: (chunk) {
+        if (failAdd) throw addError;
+        chunks.add(Uint8List.fromList(chunk));
+      },
+      onClose: () => streamCloses.add(handshakeHandle),
+    );
+  }
+
+  @override
+  void sendHttpResponse({
+    required int handshakeHandle,
+    int? connectionId,
+    required NativeHttpResponse response,
+  }) {
+    releasesAtSend.add(releases());
+    super.sendHttpResponse(
+      handshakeHandle: handshakeHandle,
+      connectionId: connectionId,
+      response: response,
+    );
+  }
+}
+
+class _DeferredResponseFile implements File {
+  _DeferredResponseFile({this.cancellation});
+
+  final Completer<void>? cancellation;
+  final checked = Completer<void>();
+  final existence = Completer<bool>();
+  final reading = Completer<void>();
+  final cancelled = Completer<void>();
+  late final body = StreamController<List<int>>(
+    onListen: () => reading.complete(),
+    onCancel: () {
+      cancelled.complete();
+      return cancellation?.future;
+    },
+  );
+  int reads = 0;
+
+  @override
+  Future<bool> exists() {
+    checked.complete();
+    return existence.future;
+  }
+
+  @override
+  Stream<List<int>> openRead([int? start, int? end]) {
+    reads++;
+    return body.stream;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+void _fileResponseCleanupTests() {
+  for (final throwObserver in [false, true]) {
+    test(
+      'file response cleanup disposal releases all calls observer=$throwObserver',
+      () async {
+        final runtime = _HttpCleanupRuntime(direct: false);
+        final handshakes = [
+          _TrackedHttpHandshake(9501),
+          _TrackedHttpHandshake(9502),
+        ];
+        final observerErrors = [
+          StateError('first cleanup observer'),
+          StateError('second cleanup observer'),
+        ];
+        final finishEvents = <Map<String, Object?>>[];
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithPendingProtocols(),
+        );
+        final binding = router.start(
+          runtime,
+          onEvent: (event) {
+            if (event is Map<String, Object?> &&
+                event['type'] == 'http_response_stream_finish_error') {
+              finishEvents.add(event);
+              if (throwObserver) throw observerErrors[finishEvents.length - 1];
+            }
+          },
+        );
+        addTearDown(binding.dispose);
+        final session = await binding.createInternalSession(realmUri: 'realm1');
+        final registration = await session.register('com.example.api.stream');
+        final contexts = <HttpInvocationContext>[];
+        registration.onInvoke((invocation) {
+          contexts.add(HttpInvocationContext.maybeFromInvocation(invocation)!);
+        });
+        for (var index = 0; index < handshakes.length; index++) {
+          runtime.setConnectionProtocol(
+            56 + index,
+            NativeConnectionProtocol.http,
+          );
+          runtime.enqueueHttpHandshake(
+            binding.listeners.single.listenerId,
+            56 + index,
+            handshakes[index],
+          );
+        }
+        await _waitUntil(() => contexts.length == 2);
+        for (final context in contexts) {
+          HttpResponseUtil.respond(
+            context.invocation,
+            HttpResponseUtil.bytes(
+              requestId: context.requestId,
+              status: 206,
+              body: Uint8List.fromList([1]),
+            ),
+            progress: true,
+          );
+        }
+        await _waitUntil(() => runtime.responseStreamChunks.length == 2);
+        expect(handshakes.map((handshake) => handshake.releases), [0, 0]);
+        if (throwObserver) {
+          await expectLater(
+            binding.dispose(),
+            throwsA(same(observerErrors.first)),
+          );
+        } else {
+          await binding.dispose();
+        }
+        expect(handshakes.map((handshake) => handshake.releases), [1, 1]);
+        expect(runtime.finishAttempts, [9501, 9502]);
+        expect(finishEvents, hasLength(2));
+        expect(runtime.closedListeners, isNotEmpty);
+        await binding.dispose();
+        expect(handshakes.map((handshake) => handshake.releases), [1, 1]);
+        expect(runtime.finishAttempts, [9501, 9502]);
+      },
+    );
+  }
+  for (final stage in [
+    'exists',
+    'chunk',
+    'eof',
+    'delayed-cancel',
+    'delayed-cancel-error',
+    'concurrent-cancel',
+    'concurrent-cancel-error',
+  ]) {
+    test(
+      'file response cleanup disposal during $stage cannot restart I/O',
+      () async {
+        final runtime = _FileResponseCleanupRuntime(failAdd: false);
+        final handshake = _TrackedHttpHandshake(9401);
+        runtime.releases = () => handshake.releases;
+        final cancellation = stage.contains('cancel')
+            ? Completer<void>()
+            : null;
+        final file = _DeferredResponseFile(cancellation: cancellation);
+        const path = '/controlled-connectanum-file-response';
+        final parentZone = Zone.current;
+        final events = <Map<String, Object?>>[];
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithPendingProtocols(),
+        );
+        final binding = IOOverrides.runZoned(
+          () => router.start(
+            runtime,
+            onEvent: (event) {
+              if (event is Map<String, Object?>) events.add(event);
+            },
+          ),
+          createFile: (name) =>
+              name == path ? file : parentZone.run(() => File(name)),
+        );
+        addTearDown(binding.dispose);
+        final session = await binding.createInternalSession(realmUri: 'realm1');
+        final registration = await session.register('com.example.api.stream');
+        registration.onInvoke((invocation) {
+          HttpInvocationContext.maybeFromInvocation(
+            invocation,
+          )!.sendFile(path: path);
+        });
+        runtime.setConnectionProtocol(56, NativeConnectionProtocol.http);
+        runtime.enqueueHttpHandshake(
+          binding.listeners.single.listenerId,
+          56,
+          handshake,
+        );
+        await file.checked.future.timeout(const Duration(seconds: 2));
+        // Let the final WAMP result's onDone run while file existence is pending.
+        await Future<void>.delayed(Duration.zero);
+        expect(handshake.releases, 0);
+        if (stage != 'exists') {
+          file.existence.complete(true);
+          await file.reading.future.timeout(const Duration(seconds: 2));
+          expect(runtime.releasesAtOpen, [0]);
+        }
+        if (cancellation != null) {
+          var finishedDisposals = 0;
+          final disposalErrors = <Object>[];
+          final cancelError = stage.endsWith('-error')
+              ? StateError('controlled asynchronous file cancellation')
+              : null;
+          Future<void> dispose() => binding.dispose().then(
+            (_) => finishedDisposals++,
+            onError: (Object error) {
+              disposalErrors.add(error);
+              finishedDisposals++;
+            },
+          );
+          final disposals = [
+            dispose(),
+            if (stage.startsWith('concurrent')) dispose(),
+          ];
+          try {
+            await file.cancelled.future.timeout(const Duration(seconds: 2));
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+            expect(
+              finishedDisposals,
+              0,
+              reason: 'Disposal must join asynchronous file-read cancellation.',
+            );
+          } finally {
+            if (cancelError != null) {
+              cancellation.completeError(cancelError);
+            } else {
+              cancellation.complete();
+            }
+            await Future.wait(disposals);
+          }
+          expect(finishedDisposals, disposals.length);
+          expect(
+            disposalErrors,
+            cancelError == null ? isEmpty : everyElement(same(cancelError)),
+          );
+          expect(
+            disposalErrors,
+            hasLength(cancelError == null ? 0 : disposals.length),
+          );
+        } else {
+          await binding.dispose();
+        }
+        expect(handshake.releases, 1);
+        if (stage == 'exists') {
+          file.existence.complete(true);
+          await Future<void>.delayed(Duration.zero);
+          expect(file.reads, 0);
+          expect(runtime.releasesAtOpen, isEmpty);
+          expect(runtime.streamCloses, isEmpty);
+        } else {
+          expect(
+            file.cancelled.isCompleted,
+            isTrue,
+            reason:
+                'Disposal must cancel the active file read before returning.',
+          );
+          await file.cancelled.future.timeout(const Duration(seconds: 2));
+          if (stage == 'chunk') file.body.add([1, 2, 3]);
+          await file.body.close().timeout(const Duration(seconds: 2));
+          await file.cancelled.future.timeout(const Duration(seconds: 2));
+          expect(runtime.streamCloses, [handshake.handle]);
+        }
+        expect(handshake.releases, 1);
+        expect(runtime.chunks, isEmpty);
+        expect(runtime.httpResponses, isEmpty);
+        expect(
+          events.where(
+            (event) =>
+                event['type'] == 'http_response_file_streamed' ||
+                event['type'] == 'http_response_file_stream_error',
+          ),
+          isEmpty,
+        );
+      },
+    );
+  }
+  for (final outcome in ['missing', 'stream-error', 'success']) {
+    for (final throwObserver in [false, true]) {
+      test(
+        'file response cleanup outcome=$outcome observer=$throwObserver',
+        () async {
+          final runtime = _FileResponseCleanupRuntime(
+            failAdd: outcome == 'stream-error',
+          );
+          final directory = await Directory.systemTemp.createTemp(
+            'connectanum-file-cleanup-',
+          );
+          addTearDown(() => directory.delete(recursive: true));
+          final file = File('${directory.path}/payload');
+          if (outcome != 'missing') {
+            await file.writeAsString('file-response-payload');
+          }
+          final handshake = _TrackedHttpHandshake(9301);
+          runtime.releases = () => handshake.releases;
+          final observerError = StateError('controlled file observer failure');
+          final errors = <Object>[];
+          final releaseCountsAtError = <int>[];
+          final events = <Map<String, Object?>>[];
+          final router = Router(
+            RouterConfig(
+              endpoints: [
+                Endpoint(
+                  host: '127.0.0.1',
+                  port: 0,
+                  tlsMode: TlsMode.native,
+                  maxRawSocketSizeExponent: 16,
+                  sniCertificates: [_cert('localhost')],
+                ),
+              ],
+            ),
+            settings: _buildRouterSettingsWithPendingProtocols(),
+          );
+          final binding = runZonedGuarded(
+            () => router.start(
+              runtime,
+              onEvent: (event) {
+                if (event is! Map<String, Object?>) return;
+                events.add(event);
+                final type = outcome == 'success'
+                    ? 'http_response_file_streamed'
+                    : 'http_response_file_stream_error';
+                if (throwObserver && event['type'] == type) throw observerError;
+              },
+            ),
+            (error, _) {
+              errors.add(error);
+              releaseCountsAtError.add(handshake.releases);
+            },
+          )!;
+          addTearDown(binding.dispose);
+          final session = await binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          final registration = await session.register('com.example.api.stream');
+          registration.onInvoke((invocation) {
+            final context = HttpInvocationContext.maybeFromInvocation(
+              invocation,
+            );
+            expect(context, isNotNull);
+            context!.sendFile(path: file.path, status: 206);
+          });
+          runtime.setConnectionProtocol(56, NativeConnectionProtocol.http);
+          runtime.enqueueHttpHandshake(
+            binding.listeners.single.listenerId,
+            56,
+            handshake,
+          );
+          await _waitUntil(() => handshake.releases != 0 || errors.isNotEmpty);
+          expect(
+            handshake.releases,
+            1,
+            reason: 'File response termination must release its handshake.',
+          );
+          expect(
+            releaseCountsAtError,
+            everyElement(1),
+            reason: 'Cleanup must run before observer exceptions escape.',
+          );
+          if (outcome == 'missing') {
+            expect(runtime.streamCloses, isEmpty);
+            if (!throwObserver) {
+              expect(
+                runtime.releasesAtSend,
+                [0],
+                reason:
+                    'The handshake must remain owned until the error is sent.',
+              );
+              final response = runtime.httpResponses[56]!.single;
+              expect(response.status, HttpStatus.internalServerError);
+              expect(
+                _jsonResponseBody(response)['error'],
+                'file_response_unavailable',
+              );
+            }
+          } else {
+            expect(
+              runtime.releasesAtOpen,
+              [0],
+              reason:
+                  'Opening the file stream must not use a released handshake.',
+            );
+            expect(runtime.streamCloses, [handshake.handle]);
+            if (outcome == 'success') {
+              expect(
+                utf8.decode(runtime.chunks.expand((chunk) => chunk).toList()),
+                'file-response-payload',
+              );
+            } else {
+              expect(runtime.chunks, isEmpty);
+            }
+          }
+          expect(
+            events.where(
+              (event) => event['type'] == 'http_response_file_stream_error',
+            ),
+            outcome == 'success' && !throwObserver ? isEmpty : isNotEmpty,
+          );
+          expect(
+            errors,
+            throwObserver && outcome != 'success' ? [observerError] : isEmpty,
+          );
+        },
+      );
+    }
+  }
+}
+
 void main() {
+  _fileResponseCleanupTests();
   _httpRoundAuthenticationTests();
   group('Router start', () {
     test('binds endpoints to runtime and applies config', () {
