@@ -6,6 +6,32 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work208 is locally verified after Fast208,14 real native CLI integration tests,
+32 native mutation-tool regressions, fresh LLVM collection and full bin/verify,
+including Chrome/WASM. Frozen input hashes match after collection and verify.
+Native benchmark coverage rises from4999 to5641 of7788 production lines
+(64.19% to72.43%), with no denominator change. Transformer CLI is8/8, artifact
+gate82/84, HTTP orchestrator2872/4929. Tests assert independent byte/latency/
+throughput accounting, report artifacts, failure exits and controlled HTTP/
+stdio worker lifecycle; they are not real-router performance measurements.
+
+Seven input-integrity tests reproduce17 assertions before fixing native coverage
+snapshots to hash external tests/fixtures/scenarios and root Cargo/toolchain
+configuration, reject input symlinks and preserve every hashed input in isolated
+mutation copies. These inputs do not enter the production-line denominator.
+Evidence is in native208-bench-current and native208-evidence under
+out/regression-coverage-2026-09-15. Other runtime/component measurements remain
+the separately scoped prior results; no new full mutation score is claimed.
+The next measured gap is HTTP phase-summary accounting; the prepared tests are
+not yet executed. Whole98%/95% milestone remains incomplete.
+
+Hosted CI has a backlog of duplicate push/PR runs. Cancel30 obsolete queued CI,
+package-dry-run and profile-benchmark workflows on this feature branch only;
+retain newest heads, all release/image/app workflows, and six candidates whose
+job-level status shows active work despite a queued workflow status. Preserve
+the audit and cancellation records. Current-head hosted checks still await
+completion; no green deployment-chain, merge, publication or version claim.
+
 Work207 is locally verified: Fast207, all37 socket tests, expanded native and
 VM collections, and full bin/verify pass, including Chrome/WASM. Frozen input
 hashes match after each collection and verification. Add24 deterministic

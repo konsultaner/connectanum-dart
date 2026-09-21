@@ -89,11 +89,29 @@ def tracked_inputs(repo: Path, inventory: dict, roots: dict) -> list[str]:
     paths = set(inventory)
     for root in roots.values():
         directory = (repo / root).parent
-        while directory != repo:
-            for name in ("Cargo.toml", "Cargo.lock", "build.rs"):
+        while True:
+            if (directory / ".cargo").is_symlink():
+                raise ValueError(f"Unsupported coverage input symlink: {directory / '.cargo'}")
+            for name in ("Cargo.toml", "Cargo.lock", "build.rs", "rust-toolchain",
+                         "rust-toolchain.toml", ".cargo/config", ".cargo/config.toml"):
                 path = directory / name
+                if path.is_symlink():
+                    raise ValueError(f"Unsupported coverage input symlink: {path}")
                 if path.is_file():
                     paths.add(path.relative_to(repo).as_posix())
+            if (directory / "Cargo.toml").is_file():
+                # These affect assertions and builds, not the production denominator.
+                for name in ("tests", "scenarios"):
+                    base = directory / name
+                    if base.is_symlink():
+                        raise ValueError(f"Unsupported coverage input symlink: {base}")
+                    for path in base.rglob("*"):
+                        if path.is_symlink():
+                            raise ValueError(f"Unsupported coverage input symlink: {path}")
+                        if path.is_file():
+                            paths.add(path.relative_to(repo).as_posix())
+            if directory == repo:
+                break
             directory = directory.parent
     return sorted(paths)
 

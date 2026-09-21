@@ -38,7 +38,7 @@ def copy_inputs(root, work, hashes):
     # Mutation writes must never follow a link back into the source checkout.
     shutil.copytree(root / 'native/transport', work / 'native/transport',
                     ignore=shutil.ignore_patterns('target', 'mutants.out*'), symlinks=False)
-    for relative in FIXTURES:
+    for relative in hashes:
         destination = work / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(root / relative, destination)

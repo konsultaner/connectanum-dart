@@ -67,6 +67,38 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work208 Actual Native CLI And Frozen Inputs
+
+- Add8 artifact-tool and6 controlled HTTP/stdio integration tests invoking real
+  Cargo executables. Independent oracles cover payload totals, latency and
+  throughput, JSON/Prometheus/Markdown output, policy bounds, malformed files,
+  filesystem failures, worker/thread matrices, metrics failure, stop fallback,
+  startup EOF/deadlines and failed workloads. Bound fixture traffic/processes
+  and clean temporary files even if construction fails. These tests do not
+  replace real-router smoke or benchmark evidence.
+- Seven snapshot/copy regressions fail17 explicit assertions before the fix and
+  pass afterward. Hash tests/support fixtures/scenarios and Cargo/toolchain/
+  config ancestors through repo root, fail closed on symlink inputs, and copy
+  all frozen inputs into native mutation sandboxes. Prove private config edits
+  cannot alter originals. Production denominators are unchanged.
+- Fast208, all14 CLI cases,32 mutation-tool tests, real LLVM fixtures, fresh
+  native benchmark collection and full bin/verify pass, including Chrome/WASM.
+  Frozen input hashes match. Native benchmark5641/7788 (72.43%) gains642 covered
+  production lines over207: transformer8/8, gate82/84, HTTP2872/4929,
+  artifacts2600/2685, report79/82. The0/0 lib facade remains visible. Raw reports,
+  manifests, before/after failures and verification logs are in
+  native208-bench-current and native208-evidence under
+  out/regression-coverage-2026-09-15. No full-component mutation score is claimed.
+- Strict hosted207 audit fails on pending evidence. Investigate queue backlog:
+  cancel30 superseded queued ancestor runs for CI/package-dry-run/profile only,
+  preserving newest heads and all active/release/image/app work. Six queued
+  candidates have active jobs and are deliberately retained. Record every
+  observed state and cancellation request. Current-head hosted proof is pending.
+- Next close the measured phase-summary accounting gap and investigate child
+  cleanup on early benchmark startup failures. External Rust integration-test
+  assertions also need verified mutation-source classification before earning
+  kill credit. Neither concern is declared fixed by208; full goal remains open.
+
 ### Work207 Deterministic Socket And Native Coverage
 
 - Add24 controlled-stream RawSocket cases across JSON, MsgPack and CBOR, small

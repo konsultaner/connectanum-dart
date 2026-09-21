@@ -649,6 +649,7 @@ fi
         self.assertIn('--target-dir "$ROOT_DIR/out/rust-coverage-scope-target"', tool_gate)
         self.assertNotIn('native/transport/Cargo.toml', tool_gate)
         self.assertIn('python3 tool/test_native_ffi_coverage.py', tool_gate)
+        self.assertIn('python3 tool/test_native_scope_inputs.py', tool_gate)
 
     def test_native_bench_coverage_keeps_its_workspace_and_counters_separate(self):
         path = REPO_ROOT / "bin/test-native-bench-coverage"
