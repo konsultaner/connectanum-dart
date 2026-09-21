@@ -15,6 +15,8 @@ import '../wamp_transport_targets_ranking_test.dart' as target_ranking;
 import '../wamp_workload_runner_test.dart' as workloads;
 import '../wamp_workload_failure_regression_test.dart' as workload_failures;
 import '../wamp_workload_timing_test.dart' as workload_timing;
+import '../wamp_workload_diagnostics_regression_test.dart'
+    as workload_diagnostics;
 import '../wamp_file_workload_integrity_test.dart' as file_integrity;
 import '../wamp_file_workload_scheduling_test.dart' as file_scheduling;
 import '../wamp_file_registration_deadline_test.dart' as file_deadlines;
@@ -24,6 +26,7 @@ void main() {
   group('workload behavior', workloads.main);
   group('workload failure regressions', workload_failures.main);
   group('workload latency and byte accounting', workload_timing.main);
+  group('workload timeout and late cleanup', workload_diagnostics.main);
   group('file payload integrity', file_integrity.main);
   group('file transfer scheduling', file_scheduling.main);
   group('file registration deadlines', file_deadlines.main);

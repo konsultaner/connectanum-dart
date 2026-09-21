@@ -1,4 +1,20 @@
 {
+  "client-websocket-web": {
+    "sources": [
+      "packages/connectanum_client/lib/src/transport/websocket/websocket_transport_web.dart"
+    ],
+    "tests": [
+      "packages/connectanum_client/test/transport/websocket/websocket_transport_web_test.dart",
+      "packages/connectanum_client/test/transport/websocket/websocket_browser_lifecycle_test.dart",
+      "packages/connectanum_client/test/transport/websocket/websocket_attempt_lifecycle_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_client/test/transport/websocket/websocket_test_observer.dart"
+    ],
+    "platform": "chrome",
+    "testRoot": "packages/connectanum_client",
+    "testTimeoutSeconds": 30
+  },
   "client-session-vm": {
     "sources": ["packages/connectanum_client/lib/src/protocol/session.dart"],
     "tests": [
@@ -86,7 +102,8 @@
       "packages/connectanum_router/test/http_context_regression_test.dart",
       "packages/connectanum_router/test/native_http_request_body_test.dart",
       "packages/connectanum_router/test/router_runtime_test.dart",
-      "packages/connectanum_router/test/router_integration_native_test.dart"
+      "packages/connectanum_router/test/router_integration_native_test.dart",
+      "packages/connectanum_router/test/http_snapshot_metadata_regression_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_router/test/support/native_lib.dart",
@@ -196,7 +213,8 @@
       "packages/connectanum_bench/test/wamp_transport_targets_boundaries_test.dart",
       "packages/connectanum_bench/test/wamp_transport_targets_ranking_test.dart",
       "native/bench/bench_tls.crt",
-      "native/bench/bench_tls.key"
+      "native/bench/bench_tls.key",
+      "packages/connectanum_bench/test/wamp_workload_diagnostics_regression_test.dart"
     ],
     "testRoot": "packages/connectanum_bench",
     "requiresNativeLibrary": true
@@ -335,6 +353,8 @@
       "packages/connectanum_core/test/serializer/serializer_option_container_security_test.dart",
       "packages/connectanum_core/test/serializer/serializer_optional_numeric_security_test.dart",
       "packages/connectanum_core/test/serializer/serializer_outbound_metadata_test.dart",
+      "packages/connectanum_core/test/serializer/serializer_inbound_metadata_test.dart",
+      "packages/connectanum_core/test/serializer/serializer_ppt_fragment_precedence_test.dart",
       "packages/connectanum_core/test/serializer/serializer_payload_container_matrix_test.dart",
       "packages/connectanum_core/test/serializer/serializer_ppt_null_values_test.dart",
       "packages/connectanum_core/test/serializer/serializer_security_limits_test.dart",
@@ -370,6 +390,8 @@
       "packages/connectanum_core/test/serializer/serializer_option_container_security_test.dart",
       "packages/connectanum_core/test/serializer/serializer_optional_numeric_security_test.dart",
       "packages/connectanum_core/test/serializer/serializer_outbound_metadata_test.dart",
+      "packages/connectanum_core/test/serializer/serializer_inbound_metadata_test.dart",
+      "packages/connectanum_core/test/serializer/serializer_ppt_fragment_precedence_test.dart",
       "packages/connectanum_core/test/serializer/serializer_payload_container_matrix_test.dart",
       "packages/connectanum_core/test/serializer/serializer_ppt_null_values_test.dart",
       "packages/connectanum_core/test/serializer/serializer_security_limits_test.dart",
@@ -405,6 +427,8 @@
       "packages/connectanum_core/test/serializer/serializer_option_container_security_test.dart",
       "packages/connectanum_core/test/serializer/serializer_optional_numeric_security_test.dart",
       "packages/connectanum_core/test/serializer/serializer_outbound_metadata_test.dart",
+      "packages/connectanum_core/test/serializer/serializer_inbound_metadata_test.dart",
+      "packages/connectanum_core/test/serializer/serializer_ppt_fragment_precedence_test.dart",
       "packages/connectanum_core/test/serializer/serializer_payload_container_matrix_test.dart",
       "packages/connectanum_core/test/serializer/serializer_ppt_null_values_test.dart",
       "packages/connectanum_core/test/serializer/serializer_security_limits_test.dart",
@@ -443,6 +467,8 @@
       "packages/connectanum_core/test/serializer/serializer_option_container_security_test.dart",
       "packages/connectanum_core/test/serializer/serializer_optional_numeric_security_test.dart",
       "packages/connectanum_core/test/serializer/serializer_outbound_metadata_test.dart",
+      "packages/connectanum_core/test/serializer/serializer_inbound_metadata_test.dart",
+      "packages/connectanum_core/test/serializer/serializer_ppt_fragment_precedence_test.dart",
       "packages/connectanum_core/test/serializer/serializer_payload_container_matrix_test.dart",
       "packages/connectanum_core/test/serializer/serializer_ppt_null_values_test.dart",
       "packages/connectanum_core/test/serializer/serializer_security_limits_test.dart",

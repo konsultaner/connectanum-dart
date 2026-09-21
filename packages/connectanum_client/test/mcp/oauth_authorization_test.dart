@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:connectanum_client/mcp.dart';
 import 'package:test/test.dart';
 
+import 'discovery_test_expectations.dart';
+
 const _rfc7636Verifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
 const _rfc7636Challenge = 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM';
 
@@ -15,6 +17,7 @@ void main() {
 
     setUpAll(() async {
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
       issuer = Uri.parse(
         'http://${server.address.address}:${server.port}/issuer',
       );
@@ -40,12 +43,12 @@ void main() {
         );
         await request.response.close();
       });
-      authorizationServer = (await discoverMcpAuthorizationServerMetadata(
-        issuer,
-      )).metadata;
     });
 
-    tearDownAll(() => server.close(force: true));
+    setUp(() async {
+      final discovery = discoverMcpAuthorizationServerMetadata(issuer);
+      authorizationServer = (await expectDiscoverySuccess(discovery)).metadata;
+    });
 
     test('derives the RFC 7636 S256 challenge from a verifier', () {
       final pkce = McpPkcePair.fromVerifier(_rfc7636Verifier);

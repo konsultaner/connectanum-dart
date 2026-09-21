@@ -4,20 +4,18 @@ import 'dart:io';
 import 'package:connectanum_client/mcp.dart';
 import 'package:test/test.dart';
 
+import 'discovery_test_expectations.dart';
+
 const _verifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
 
 void main() {
   group('MCP OAuth Client ID Metadata Document', () {
-    late HttpServer server;
     late McpAuthorizationServerMetadata authorizationServer;
 
-    setUpAll(() async {
+    setUp(() async {
       final fixture = await _authorizationServer(metadataDocument: true);
-      server = fixture.server;
       authorizationServer = fixture.metadata;
     });
-
-    tearDownAll(() => server.close(force: true));
 
     test('emits immutable public-client metadata without credentials', () {
       final clientId = Uri.parse(
@@ -122,12 +120,10 @@ void main() {
       'requires advertised public-client support and exact redirect',
       () async {
         final unsupported = await _authorizationServer(metadataDocument: false);
-        addTearDown(() => unsupported.server.close(force: true));
         final confidentialOnly = await _authorizationServer(
           metadataDocument: true,
           tokenEndpointAuthMethods: const <String>['client_secret_basic'],
         );
-        addTearDown(() => confidentialOnly.server.close(force: true));
         final document = McpOAuthClientMetadataDocument.publicClient(
           clientId: Uri.parse(
             'https://consumer.example/oauth/client-metadata.json',
@@ -224,6 +220,7 @@ _authorizationServer({
   List<String> tokenEndpointAuthMethods = const <String>['none'],
 }) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  addTearDown(() => server.close(force: true));
   final issuer = Uri.parse(
     'http://${server.address.address}:${server.port}/issuer',
   );
@@ -244,8 +241,7 @@ _authorizationServer({
     );
     await request.response.close();
   });
-  final metadata = (await discoverMcpAuthorizationServerMetadata(
-    issuer,
-  )).metadata;
+  final discovery = discoverMcpAuthorizationServerMetadata(issuer);
+  final metadata = (await expectDiscoverySuccess(discovery)).metadata;
   return (server: server, metadata: metadata);
 }

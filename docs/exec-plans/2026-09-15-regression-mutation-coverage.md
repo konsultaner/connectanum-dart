@@ -67,6 +67,228 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work182 Verified Browser Gate And HTTP Transition Reproducers
+
+- Verify181/session31694 completes with exit0, including Chrome/WASM. The
+  final-v2 source/test/config hashes match. Terminal supervisor2738 starts full
+  VM/packaging coverage/session54817; it is the sole native owner. Keep its
+  inputs frozen. Discovery178/session81842 continues from its separate snapshot.
+- WebSocket181 finishes50/54 raw assertion detections (92.59%) and50/50 adjusted
+  (100%) after the four existing individual source-pinned equivalences. Nine
+  compile errors are excluded;39 assertion-only and11 mixed detections have
+  explicit assertions, with zero error-only/timeout credit and no remaining
+  non-equivalent survivors. Original/restored baselines and independent audit
+  pass, and all production/test/support hashes match canonical. This target
+  passes95%; it does not establish client-wide/all-runtime completion.
+- An isolated public API fixture adds64 HTTP event metadata, explicit progress,
+  malformed text, zero/timing bounds, final-only fallback and late-chunk cases.
+  Four assertions reproduce duplicated first-write callbacks after fallback and
+  mutable-header capture in fallback responses. The five-line candidate fix
+  uses the parent stream's guarded notification methods and immutable headers.
+  All144 new/existing focused tests pass without loading a native library.
+  Its original attempt to call a library-private copyWith extension was a
+  fixture compile error, not a product failure; the final fixture uses respond.
+- Retain coverage182-probes source/tests/control reports and raw logs. HTTP
+  candidate changes are not yet canonical and are excluded from Verify181/VM181
+  attribution. Promote only after the current native measurement releases and
+  a fresh Fast gate. Full component/native/application coverage remains open.
+
+### Work181 Browser Buffering And Snapshot Ownership
+
+- Real WebSocket MessagePack/CBOR reproducers prove that a frame arriving during
+  an earlier Blob decode is lost by the direct DOM EventStream.asyncMap path.
+  Stream.multi buffers input before decoding, retains broadcast semantics and
+  cancels the DOM listener when the subscription is cancelled. All56 cases pass
+  on JS/WASM, including pause/relisten, pending-Blob cancellation, ordering and
+  per-attempt isolation. Removing the fix fails two real-network assertions on
+  each compiler. The initial WASM fixture raced a second native Blob read; the
+  final independent read-completion barrier fixes the fixture, not production.
+- Fresh complete selected-browser inventory reports client2703/2785 (97.06%) and
+  core7424/7695 (96.48%); core3988/client2622 tests pass. WebSocket105/105 mapped
+  lines does not replace package/runtime targets. All162 missing library sources
+  remain visible, and WASM has no line-coverage measurement. Frozen input hashes
+  pass. The full WebSocket181 run has63 mutants and four individual source-pinned
+  equivalents for unused browser certificate-flag defaults; IO/native TLS is
+  explicitly outside those proofs. No complete new mutation score is claimed.
+- Native HTTP172 finishes at77/175 assertion detections (44%):275 generated,
+  100 compile errors,62 survivors,23 timeouts,71 assertion-only/6 mixed/13
+  error-only detections. Original/restored baselines and independent audit pass;
+  the95% gate fails. New54 HTTP snapshot cases cover deep header immutability,
+  case-insensitive repeated overrides, body-view ownership, optional metadata
+  and malformed representations. All11 selected exact survivors fail assertions
+  only, with clean/restored baselines. This is not a new complete HTTP score.
+- Fast175 passes with frozen canonical hashes. The accumulated candidate is now
+  promoted with Work174's late benchmark-session cleanup fix and17 diagnostics.
+  All71 newly promoted HTTP/benchmark tests pass. Both complete mutation targets
+  register/hash their new tests; the old exact HTTP inventory expectation first
+  fails and is updated to retain the larger inventory. Browser integration
+  contracts are wired into both Fast and Verify. All71 runner contracts pass
+  (one conditional skip). A new import guard initially rejected Dart's valid
+  line wrapping; its whitespace-tolerant form preserves the required import
+  and registration. The first Verify was deliberately stopped before that edit
+  and is not passing evidence. Verify181/session9697 then passes Rust but fails
+  a second exact benchmark inventory guard missing the new suite. The expected
+  set is expanded, not weakened, before a fresh full run. Implementation
+  commit/push remain pending.
+- All74 verification-script contracts and all4 generator contracts subsequently
+  pass. Cell2738 now owns final Verify181/session31694 and queues full VM plus
+  packaging coverage only after its success and final-v2 input checks. Poll the
+  supervisor, not its child, and do not start another native user. Source/test
+  inputs stay frozen; docs bookkeeping may be bundled with the verified code.
+- Recovery: coverage181-probes contains candidate patch/archive/manifests, real
+  network controls, raw logs, HTTP diagnostics/audit and the promotion patch.
+  WebSocket181/session88283 and discovery178/session81842 are live in separate
+  frozen clones. Cell2450/cell2596 are terminal; no duplicate native campaign.
+  No version/publication/merge change or all-runtime completion is claimed.
+
+### Work179 Independent Serializer Wire And Fragment Assertions
+
+- A separate candidate retains all Work178 changes and adds558 inbound metadata
+  and78 PPT fragment tests. JSON/MessagePack/CBOR wire fixtures are encoded
+  independently; assertions cover six message types, optional metadata, malformed
+  field types, recovery, isolation, retained-byte precedence and guarded buffer
+  views. The first probe's nine failures were incorrect test assumptions about
+  nullable empty CALL/PUBLISH/YIELD options, not production bugs; explicit
+  regressions now preserve that existing contract.
+- Full core VM3942 and JavaScript3988 tests pass, as do636 focused WASM tests and
+  the2753-test serializer mutation wrapper. One fail-first integration assertion
+  detects absent suite registration; all70 runner checks pass after registration
+  and support-hash updates (one conditional skip). Analysis exits0 with one
+  independently confirmed pre-existing informational lint. No production core
+  behavior, exclusions or thresholds change.
+- Twenty-four selected VM controls finish with assertions and zero other errors:
+  eight generated AST fragment faults and sixteen explicitly labelled manual
+  metadata-drop faults. Both636-test baselines pass. This is not a complete
+  mutation score. Full inventory still generates1041 MessagePack and1166 CBOR
+  serializer mutants; additional full campaigns require integrated final inputs.
+- Core-only coverage is VM6755/7238 (93.33%), JS7357/7636 (96.35%), with12 core
+  sources unmeasured per runtime. It excludes client/router consumer tests, so
+  do not compare it directly with the whole-repository package scores or merge
+  stale evidence into the new snapshot. Raw/policy VM reports agree. The initial
+  formatter used the macOS /tmp alias and produced rejected relative source
+  paths; formatting against the resolved root corrects the report without
+  changing source scope. WASM success is not measured WASM coverage.
+- Frozen canonical, Work178 and new-candidate input checks pass. Cell2450 still
+  owns native HTTP and queued Fast175. Cell2596 audits completed WebSocket177
+  (35/53 assertion score66.04%, clean baselines), starts WebSocket178 and waits
+  discovery177 before its new full rerun. Do not duplicate live campaigns. The
+  coverage179-probes archive/manifest and EVIDENCE.md preserve the candidate and
+  exact commands; retain the Work174 pending benchmark cleanup fix. No canonical
+  promotion, fresh Verify, commit, push, merge or publication is claimed.
+- WebSocket178/session22654 subsequently completes and independently audits:
+  62 generated,53 viable,44 assertion detections (83.02%),46 conventional kills
+  (86.79%),seven survivors,nine compile errors,two error-only failures and zero
+  timeouts. Both baselines0 and final candidate hashes pass; the95% gate fails.
+  Allnine previous timeouts become assertion-backed detections. Preserve this
+  complete report separately from both prior scores and selected controls.
+
+### Work178 Event-Backed Completion And Discovery Setup
+
+- Canonical172 and candidate177 input checks still pass. Their three full
+  campaigns remain live; cell2450 owns native HTTP/session8963 and queued Fast175.
+  No canonical implementation change, commit, push, merge or publication.
+- Browser tests independently observe actual native WebSocket events, then
+  assert completion after event-loop turns without an elapsed-time budget. The
+  legacy fixture's concurrent initialization double-completion is reproduced in
+  the first baseline and corrected by serializing notification processing.
+  All36 cases pass on JS/WASM. Four selected opening timeouts become assertion-only
+  failures with no other errors; original/restored/JS-WASM baselines pass.
+  Four further readiness/loss controls also finish assertion-only (3/3/19/20
+  assertions), with zero other errors/timeouts and passing clean/restored JS and
+  WASM baselines. All eight remain selected controls, not a complete score.
+- Three shared OAuth setups previously prevented test execution and one leaked
+  its partially acquired server. Cleanup registration now follows acquisition;
+  discovery success runs in each test. Four controls over the full MCP inventory
+  now produce49-53 assertions plus35 other errors, no setup failures or deadlines,
+  with both baselines passing. Do not retroactively upgrade the older campaigns.
+- Eleven protected-resource bearer-method cases cover absent/null/empty/ordered
+  extension values, malformed fields and immutable result lists. The empty-list
+  survivor initially remained error-only because completion(...) forwards failed
+  futures. An explicit success helper now yields an assertion-only detection;
+  deadline exceptions remain unwrapped. Six helper regressions prove that boundary.
+- Final isolated candidate passes1805 MCP tests, clean client analysis and151
+  tooling tests (one conditional skip). A pre-change inventory assertion fails
+  until the browser observer is explicitly included in supportHashes. Fresh
+  inventory preserves all62 WebSocket mutants and all three transport suites.
+  No new full-client coverage or complete mutation score is inferred.
+- Recovery/evidence: coverage178-probes contains the final candidate input
+  manifest, patch, untracked-test archive and selected-control reports. The
+  isolated checkout is recorded in its EVIDENCE.md, not a new release branch.
+  Preserve the Work174 pending benchmark cleanup fix as well. Promote only
+  after Fast175 passes; then run canonical Verify and complete affected campaigns.
+  Cell2596 owns the two Work177 non-native campaign handles, audits them after
+  completion and starts full Work178 reruns from the frozen candidate. Preserve
+  that checkout and do not duplicate its child polls or mutation runs.
+
+### Work177 Isolated Attempt Ownership And Complete Evidence
+
+- Older discovery172/session79902 and WebSocket175/session19457 are terminal and
+  independently audited. Assertion-backed scores are221/360 (61.39%) and20/40
+  (50%); conventional scores66.11% and55%. Both original/restored baselines pass,
+  no waivers; gates fail. Discovery retains60 survivors,18 timeouts,87 compile
+  errors,44 error outcomes and17 error-only detections. WebSocket retains13
+  survivors,five timeouts,nine compile errors andtwo error-only detections.
+- Isolated Work176/177 browser tests reproduce11 canonical assertions, including
+  stale open/error callbacks, duplicate completion, late malformed Blob delivery,
+  and old/new sent/received Goodbye classification. Candidate lifetime ownership
+  guards and per-socket close state pass36 JS/WASM tests. Failed handshake behavior
+  remains unchanged. The initial CLOSED-to-OPEN mock transition was corrected;
+  it is not claimed as a production bug.
+- Package-shaped candidate integration adds143 discovery cases, retains every
+  existing MCP suite, repairsfive request-start barriers, and includes the complete
+  WebSocket source/test inventory in mutation and browser verification/coverage
+  selectors. All1788 MCP tests, clean package analysis and150 tooling checks pass
+  (one existing conditional skip). Three inventory assertions fail before wiring.
+  Five selected browser timeout controls andfour selected AS error controls now
+  finish with explicit assertions plus other errors; both baselines pass. Do not
+  retroactively credit them to completed full campaigns.
+- Stage-one candidate JS measurement passes at client2697/2779 (97.05%) and
+  core7391/7695 (96.05%), with162 unmeasured sources and WebSocket99/99 mapped
+  lines. It predates the lastfive browser assertions; no WASM line score is claimed.
+  Final browser session98279 is terminal, exit0:3352 core/2602 client JS tests,
+  client2697/2779 (97.05%), core7392/7695 (96.06%), unchanged frozen inputs.
+  New full62-mutant browser/session46295 and447-mutant discovery/session32022
+  runs use that separately frozen candidate checkout; both baselines pass.
+- Fresh MCP-only VM collection/session68399 passes1788 tests and measures
+  authorization_discovery.dart at444/444 lines without module ignore annotations.
+  Input hashes match. Evidence: discovery177-candidate-final/lcov-final.info;
+  this does not replace whole-client VM or complete mutation measurements.
+- Canonical code remains088323d6. Cell2450 alone owns native HTTP session8963 and
+  queues Fast175 after terminal passing baselines/input hashes. Do not start a
+  competing native user. After Fast175, promote the validated candidates and the
+  pending Work174 benchmark cleanup fix, run canonical Verify and fresh complete
+  affected measurements, then bundle these notes with implementation. Evidence,
+  candidate recovery artifacts and exact handles: coverage177-probes/EVIDENCE.md.
+  Keep PR93 draft, no merge/publication/version changes, full98%/95% goal active.
+
+### Work175 Browser Measurement And Isolated Oracles
+
+- Full Work172 VM/packaging collection is terminal with passing frozen inputs:
+  client92.73%, router89.05%, other package results unchanged; packaging97.20%.
+  Keep 59 library and 12 packaging sources unmeasured, not implicitly covered.
+  Fresh browser175-current passes existing floors at client96.29% and core96.01%,
+  with 162 unmeasured sources. WASM test success is not measured WASM coverage.
+- The ignored coverage175-probes contains 90 passing ownership/direct-metadata
+  tests and two readiness-fixture copies retaining all 19 existing tests. Requests
+  rejected before server barriers now fail explicit assertions rather than hang.
+  Fifteen exact former survivors fail assertions only; six selected former-timeout
+  controls finish with assertions (two pure, four mixed). Original/restored control
+  baselines pass. Preserve original and corrected control logs; do not upgrade the
+  still-running complete discovery campaign with later candidate tests.
+- Seventeen browser WebSocket lifecycle tests cover failed handshake, receive
+  before open, normal/abnormal close, sent/received Goodbye and malformed frames
+  with JSON/MessagePack/CBOR. JS and WASM pass after correcting the hybrid harness
+  to accept numeric ports on both runtimes. Final JS mapped-line coverage is79/79
+  for the implementation, not package coverage. A complete49-mutant isolated
+  WebSocket campaign/session19457 has a passing baseline; no final score yet.
+- Canonical production/tests remain frozen. Native HTTP session8963 belongs to
+  supervisor cell2450, which will inspect terminal baselines/input hashes before
+  starting Fast175. Discovery session79902 remains separate. After the relevant
+  owners finish, promote the late-session cleanup fix and prepared discovery/web
+  tests, update complete mutation inventories and browser selectors, run Verify,
+  and repeat complete affected measurements. Keep bookkeeping uncommitted until
+  bundled with implementation; no merge/publication/version change.
+
 ### Work172 HTTP Context And MCP Discovery Regression Matrices
 
 - Fast172 passes before canonical edits. Promote 26 HTTP-context tests and 181
@@ -85,9 +307,9 @@ caught and timed-out outcomes separately.
 - The discovery campaign/session79902 is live with passing baseline. Preserve
   its inputs; no final score is claimed. Verify172/session66326 passes, including
   native and Chrome/WASM suites; frozen-input checks pass. Supervisor cell2363
-  now collects vm172-current/session60878, then will launch
-  the native HTTP-context campaign only after coverage releases the native
-  window. Keep these processes, do not duplicate them. The full 98%/95% objective
+  completed vm172-current/session60878 and launched native HTTP-context/session8963
+  after releasing the coverage native window. Cell2363 is terminal; cell2450 now
+  supervises the native campaign. Keep live processes, do not duplicate them. The full 98%/95% objective
   remains incomplete, including unmeasured files and browser/native/app scopes.
 - Work171 workload evidence is now complete: 205/343 assertion-backed (59.77%),
   versus Work167's 154/339 (45.43%). There are 532 generated, 79 survivors, 30

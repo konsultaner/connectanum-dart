@@ -112,7 +112,7 @@ void main() {
           final pending = operation(client, const <String, String>{
             'x-test-block-response': '1',
           });
-          await blocked;
+          await _expectRequestStarted(blocked, pending);
 
           client.close();
           try {
@@ -159,7 +159,7 @@ void main() {
       final pending = client.discoverProtectedResourceMetadata(
         headers: const <String, String>{'x-test-block-response-body': '1'},
       );
-      await bodyStarted;
+      await _expectRequestStarted(bodyStarted, pending);
 
       client.close();
       try {
@@ -401,4 +401,23 @@ final class _OAuthLifecycleEndpoint {
       ..write(jsonEncode(body));
     await request.response.close();
   }
+}
+
+Future<void> _expectRequestStarted(
+  Future<void> started,
+  Future<Object?> pending,
+) async {
+  // A rejected operation cannot reach the server-side barrier.
+  final reached = await Future.any([
+    started.then((_) => true),
+    pending.then(
+      (_) => false,
+      onError: (Object error, StackTrace stackTrace) => false,
+    ),
+  ]);
+  expect(
+    reached,
+    isTrue,
+    reason: 'HTTP operation completed before reaching the stalled response.',
+  );
 }

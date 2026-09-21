@@ -460,12 +460,33 @@ class WampWorkloadRunner {
     if (peerIndex != null) {
       details.write(' peer=$peerIndex');
     }
-    return _runTimedOperation(
-      _sessionFactory(scenario),
-      timeout: _eventTimeout,
-      timeoutLabel: '${timeoutLabel}_open_timeout',
-      logLabel: '$logLabel session open',
-      details: details.toString(),
+    final opening = _sessionFactory(scenario);
+    var abandoned = false;
+    unawaited(
+      opening.then<void>((session) {
+        if (!abandoned) {
+          return;
+        }
+        unawaited(
+          _runCleanupOperation(
+            session.close,
+            logLabel: '$logLabel late session',
+            details: details.toString(),
+          ).catchError((Object error, StackTrace stackTrace) {
+            _logger.warning('$logLabel late session cleanup failed');
+          }),
+        );
+      }, onError: (Object error, StackTrace stackTrace) {}),
+    );
+    return opening.timeout(
+      _eventTimeout,
+      onTimeout: () {
+        abandoned = true;
+        _logger.severe(
+          '$logLabel session open timed out $details timeout=$_eventTimeout',
+        );
+        throw TimeoutException('${timeoutLabel}_open_timeout');
+      },
     );
   }
 

@@ -23,6 +23,10 @@ import '../serializer/serializer_option_container_security_test.dart'
 import '../serializer/serializer_optional_numeric_security_test.dart'
     as numeric;
 import '../serializer/serializer_outbound_metadata_test.dart' as metadata;
+import '../serializer/serializer_inbound_metadata_test.dart'
+    as inbound_metadata;
+import '../serializer/serializer_ppt_fragment_precedence_test.dart'
+    as ppt_fragments;
 import '../serializer/serializer_payload_container_matrix_test.dart' as payload;
 import '../serializer/serializer_ppt_null_values_test.dart' as ppt_nulls;
 import '../serializer/serializer_security_limits_test.dart' as limits;
@@ -46,6 +50,8 @@ void main() {
   group('option containers', options.main);
   group('numeric options', numeric.main);
   group('outbound metadata', metadata.main);
+  group('inbound metadata', inbound_metadata.main);
+  group('PPT fragment precedence', ppt_fragments.main);
   group('payload containers', payload.main);
   group('PPT null values', ppt_nulls.main);
   group('resource limits', limits.main);

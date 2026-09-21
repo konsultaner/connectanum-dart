@@ -388,6 +388,7 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
             'wamp_workload_runner_test.dart', 'wamp_session_wire_regression_test.dart',
             'wamp_workload_failure_regression_test.dart',
             'wamp_workload_timing_test.dart',
+            'wamp_workload_diagnostics_regression_test.dart',
             'wamp_scenario_copy_test.dart',
             'wamp_file_workload_integrity_test.dart',
             'wamp_file_workload_scheduling_test.dart',

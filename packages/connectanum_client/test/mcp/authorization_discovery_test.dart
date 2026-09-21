@@ -693,7 +693,7 @@ void main() {
       final discovery = client.discoverProtectedResourceMetadata(
         timeout: const Duration(milliseconds: 200),
       );
-      await responseStarted.future.timeout(const Duration(seconds: 3));
+      await _expectRequestStarted(responseStarted.future, discovery);
 
       await expectLater(
         discovery.timeout(const Duration(seconds: 3)),
@@ -736,7 +736,7 @@ void main() {
           endpoint,
           timeout: const Duration(milliseconds: 200),
         );
-        await requestReceived.future.timeout(const Duration(seconds: 3));
+        await _expectRequestStarted(requestReceived.future, discovery);
 
         await expectLater(
           discovery.timeout(const Duration(seconds: 3)),
@@ -789,7 +789,7 @@ void main() {
         issuer,
         timeout: const Duration(milliseconds: 500),
       );
-      await stalledResponseStarted.future.timeout(const Duration(seconds: 3));
+      await _expectRequestStarted(stalledResponseStarted.future, discovery);
 
       await expectLater(
         discovery.timeout(const Duration(seconds: 3)),
@@ -852,4 +852,23 @@ Future<void> _writeJson(
   response.headers.contentType = ContentType.json;
   response.write(jsonEncode(value));
   await response.close();
+}
+
+Future<void> _expectRequestStarted(
+  Future<void> started,
+  Future<Object?> pending,
+) async {
+  // A rejected operation cannot reach the server-side barrier.
+  final reached = await Future.any([
+    started.then((_) => true),
+    pending.then(
+      (_) => false,
+      onError: (Object error, StackTrace stackTrace) => false,
+    ),
+  ]);
+  expect(
+    reached,
+    isTrue,
+    reason: 'HTTP operation completed before reaching the stalled response.',
+  );
 }

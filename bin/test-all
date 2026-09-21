@@ -141,6 +141,8 @@ run_client_browser_websocket_test() {
         test/transport/native/message_binding_test.dart
         test/transport/local
         test/transport/websocket/websocket_transport_web_test.dart
+        test/transport/websocket/websocket_browser_lifecycle_test.dart
+        test/transport/websocket/websocket_attempt_lifecycle_test.dart
         test/mcp/form_elicitation_regression_test.dart
         -p chrome
         --compiler="$browser_compiler"
@@ -199,6 +201,7 @@ python3 tool/test_audit_github_deployment_chain.py
 python3 tool/test_router_image_mcp_smoke.py
 python3 tool/test_check_coverage.py
 python3 tool/test_run_dart_mutations.py
+python3 tool/test_websocket_integration.py
 python3 tool/test_dart_mutations.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test

@@ -37,6 +37,7 @@ class MutationRunnerTests(unittest.TestCase):
             'packages/connectanum_router/lib/src/router/http/http_context.dart'])
         self.assertEqual(set(target['tests']), {
             'packages/connectanum_router/test/http_context_regression_test.dart',
+            'packages/connectanum_router/test/http_snapshot_metadata_regression_test.dart',
             'packages/connectanum_router/test/native_http_request_body_test.dart',
             'packages/connectanum_router/test/router_runtime_test.dart',
             'packages/connectanum_router/test/router_integration_native_test.dart'})
@@ -50,6 +51,19 @@ class MutationRunnerTests(unittest.TestCase):
                           target['supportFiles'])
         self.assertNotIn('testName', target)
         self.assertNotIn('threshold', target)
+
+    def test_workload_diagnostics_are_registered_and_hashed(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['bench-wamp-workload-vm']
+        suite = runner.ROOT / target['tests'][0]
+        self.assertIn(
+            'packages/connectanum_bench/test/wamp_workload_diagnostics_regression_test.dart',
+            target['supportFiles'])
+        self.assertRegex(
+            suite.read_text(),
+            r"import '\.\./wamp_workload_diagnostics_regression_test\.dart'\s+as workload_diagnostics;",
+        )
+        self.assertIn('workload_diagnostics.main', suite.read_text())
 
     def test_mcp_discovery_target_includes_full_source_and_consumer_tests(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
@@ -367,6 +381,23 @@ class MutationRunnerTests(unittest.TestCase):
                               target['supportFiles'])
                 self.assertEqual(target.get('platform', 'vm'),
                                  'chrome' if runtime == 'web' else 'vm')
+
+    def test_serializer_targets_hash_and_execute_independent_ppt_regressions(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        prefix = 'packages/connectanum_core/test'
+        suites = {
+            'serializer_inbound_metadata_test.dart': 'inbound_metadata',
+            'serializer_ppt_fragment_precedence_test.dart': 'ppt_fragments',
+        }
+        wrapper = (runner.ROOT / prefix / 'support/serializer_mutation_suite.dart').read_text()
+        for filename, alias in suites.items():
+            self.assertIn(f"import '../serializer/{filename}'", wrapper)
+            self.assertRegex(wrapper, rf"group\('[^']+', {alias}\.main\);")
+            for name in ('core-msgpack-serializer-vm', 'core-cbor-serializer-vm',
+                         'core-cbor-serializer-web', 'core-msgpack-serializer-web'):
+                with self.subTest(target=name, suite=filename):
+                    self.assertIn(f'{prefix}/serializer/{filename}',
+                                  targets[name]['supportFiles'])
 
     def test_lazy_payload_targets_include_contract_suite_on_both_runtimes(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
