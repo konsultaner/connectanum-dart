@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show SynchronousFuture;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/l10n/generated/app_localizations.dart';
@@ -22,6 +23,8 @@ import 'package:wamp_app/src/ui/home_page.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'test_support.dart';
+
+part 'support/voice_lifecycle_cases.dart';
 
 class _LocalizedMaterialApp extends StatelessWidget {
   const _LocalizedMaterialApp({required this.home});
@@ -47,6 +50,8 @@ Future<void> _openAdvancedServerSettings(WidgetTester tester) async {
 
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
+
+  _voiceLifecycleCases();
 
   setUp(() {
     binding.platformDispatcher.localeTestValue = const Locale('en');

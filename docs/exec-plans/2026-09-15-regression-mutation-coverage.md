@@ -67,6 +67,31 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work202 Voice Recording Ownership
+
+- Fast202 passes with unchanged canonical hashes. The final19-case widget
+  fixture reproduces6 explicit assertions on original f61797de source, covering
+  reentrant actions and late recording ownership/cancellation after unmount.
+- Reject repeated recording actions while busy. Establish active session/timer
+  ownership before observing completion, including synchronous completion;
+  observe detached-session completion before cancellation. An isolated candidate
+  failed a new SynchronousFuture regression and was corrected before promotion.
+- All19 cases pass on VM, JavaScript and WASM. The complete widget fixture and
+  strict analysis also pass. Source/test hashes match the promoted files.
+- Six selected faults fail3/3/5/2/3/2 assertions. Baseline/restored suites pass,
+  inventories and unchanged inputs match, and known Flutter diagnostic wrappers
+  are tied to explicit TestFailure expected/actual records by test ID. These
+  controls do not replace complete mutation campaigns or measured web coverage.
+- Canonical389 app tests pass. Fresh combined VM coverage is client9243/10279
+  (89.92%), server3298/3531 (93.40%), shared1537/1540 (99.81%), with14 unmeasured
+  sources. Collection suites and input/dependency hashes pass; strict98 gate
+  fails. The full app gate and root bin/verify both pass with exit0, including
+  Chrome/WASM, with matching frozen manifest202. Raw logs and their evidence
+  hashes are preserved in application202-current; OAuth199 is incomplete.
+  Work201 is pushed as f61797de with locally passing full gates;
+  exact-head hosted checks remain queued and strict audit201 exits1 for pending
+  evidence. No merge, publication, version or branch-protection change.
+
 ### Work201 WebRTC Integration Regressions
 
 - Fast201 passes. Expanded native-channel baseline fails four assertions without

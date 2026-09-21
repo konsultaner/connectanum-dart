@@ -262,6 +262,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _toggleVoiceRecording() async {
+    if (!mounted || _voiceControlBusy) return;
     final l10n = AppLocalizations.of(context);
     final active = _voiceRecording;
     if (active != null) {
@@ -281,25 +282,27 @@ class _HomePageState extends State<HomePage> {
     setState(() => _voiceControlBusy = true);
     try {
       final session = await _recorder.start();
-      if (!mounted) {
-        await session.cancel();
-        return;
+      if (mounted) {
+        setState(() {
+          _voiceRecording = session;
+          _voiceRecordingStartedAt = DateTime.now();
+          _voiceRecordingElapsed = Duration.zero;
+          _voiceControlBusy = false;
+        });
+        _voiceRecordingTicker = Timer.periodic(
+          const Duration(milliseconds: 250),
+          (_) => _updateVoiceRecordingElapsed(session),
+        );
       }
-      setState(() {
-        _voiceRecording = session;
-        _voiceRecordingStartedAt = DateTime.now();
-        _voiceRecordingElapsed = Duration.zero;
-        _voiceControlBusy = false;
-      });
-      _voiceRecordingTicker = Timer.periodic(
-        const Duration(milliseconds: 250),
-        (_) => _updateVoiceRecordingElapsed(session),
-      );
+      // A late start still owns completion, including cancellation and audio.
       session.completed.then(
         (recording) => _completeVoiceRecording(session, recording),
         onError: (Object error, StackTrace _) =>
             _failVoiceRecording(session, error),
       );
+      if (!mounted) {
+        await session.cancel();
+      }
     } on VoiceNoteRecordingException catch (error) {
       if (!mounted) return;
       setState(() => _voiceControlBusy = false);

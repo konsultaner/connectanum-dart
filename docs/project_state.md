@@ -6,6 +6,33 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work201 is committed/pushed as f61797de after Fast201, the full application gate,
+Verify201c (including Chrome/WASM), and matching frozen hashes. Exact-head
+CI/package/native35614914511/router35614916504/profile35614918545 checks remain
+queued; strict hosted audit201 fails on pending evidence, not test failures.
+
+Work202 passes Fast202 and adds19 voice-recording lifecycle widget regressions.
+The final fixture reproduces6 explicit assertions on the immutable original
+source: duplicate startup/stop, stop during cancellation, late audio retention
+and unobserved cancellation after unmount. Guard reentry and observe completion
+before late cancellation, while establishing active ownership first so a
+SynchronousFuture cannot discard a valid recording. An intermediate isolated
+candidate exposed that ordering regression; it was corrected before promotion.
+All19 focused VM/JavaScript/WASM cases, the complete widget fixture, and strict
+analysis pass. Six selected faults fail3/3/5/2/3/2 assertions, with matching
+inventories/hashes and passing original/restored candidate baselines. Flutter
+diagnostic wrappers are retained and paired with explicit TestFailure records;
+these controls are not a full component mutation score. The source and fixture
+are now promoted with identical hashes. Fresh canonical389 app tests pass;
+combined VM coverage is client9243/10279 (89.92%), server3298/3531 (93.40%),
+shared1537/1540 (99.81%), with14 unmeasured sources. All collection suites and
+input/dependency hashes pass; the strict98% gate still fails. Supervisor3935
+completes the full application gate and root bin/verify with exit0, including
+Chrome/WASM, against frozen manifest202. Input hashes still match. Raw gate and
+verification logs are preserved with the application202 evidence. This increment
+is locally verified; the whole coverage/mutation milestone remains incomplete.
+Recovery: coverage184-probes/WORK202.md.
+
 Work199+200 is committed and pushed as756f5473. Exact-head CI/package checks and
 native35608530078/router35608533751/profile35608537047 dry-runs remain queued;
 the strict hosted audit fails for pending evidence, not a reported test failure.
