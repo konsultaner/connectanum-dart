@@ -109,6 +109,70 @@ void main() {
       expect(fixture.uncaught.isCompleted, isFalse);
     },
   );
+  for (final text in ['Gr\u00fc\u00dfe', '\u20ac', '\u{1f30d}']) {
+    for (final splitBytes in [false, true]) {
+      test(
+        'UTF-8 form field $text requires escaping (split=$splitBytes)',
+        () async {
+          final fixture = await _Fixture.start();
+          final result = await fixture.post(
+            utf8.encode(
+              'token=${HttpAuthBenchHarness.defaultOAuthAccessToken}&label=$text',
+            ),
+            splitBytes: splitBytes,
+          );
+          expect(result, (
+            status: 400,
+            body: '{"active":false}',
+            mime: 'application/json',
+          ));
+          final accepted = await fixture.post(
+            utf8.encode(
+              Uri(
+                queryParameters: {
+                  'token': HttpAuthBenchHarness.defaultOAuthAccessToken,
+                  'label': text,
+                },
+              ).query,
+            ),
+            splitBytes: splitBytes,
+          );
+          expect(accepted, isA<({int status, String body, String? mime})>());
+          final response =
+              accepted as ({int status, String body, String? mime});
+          expect(response.status, HttpStatus.ok);
+          expect(response.mime, 'application/json');
+          expect((jsonDecode(response.body) as Map)['active'], isTrue);
+          await fixture.expectRecovery();
+        },
+      );
+    }
+  }
+  test(
+    'malformed streamed bodies return complete JSON and keep recovering',
+    () async {
+      final fixture = await _Fixture.start(protected: true);
+      for (var attempt = 0; attempt < 500; attempt++) {
+        final response = await fixture.post(
+          [0xc0, 0xaf],
+          authorization: 'Bearer $_secret',
+          splitBytes: attempt.isEven,
+        );
+        expect(
+          response,
+          (
+            status: 400,
+            body: '{"active":false}',
+            mime: 'application/json',
+          ),
+          reason:
+              'Malformed streaming request $attempt must retain its response.',
+        );
+        await fixture.expectRecovery();
+      }
+      expect(fixture.logText, isNot(contains(_secret)));
+    },
+  );
 }
 
 class _Fixture {

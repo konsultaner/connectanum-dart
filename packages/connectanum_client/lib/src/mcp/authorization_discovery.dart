@@ -1222,6 +1222,12 @@ List<_ParsedChallenge> _parseAuthenticateHeader(String input) {
     var malformed = false;
 
     while (cursor < input.length) {
+      if (input.codeUnitAt(cursor) == 0x2c) {
+        cursor = _skipWhitespaceAndCommas(input, cursor);
+        if (!_looksLikeAuthParameter(input, cursor)) {
+          break;
+        }
+      }
       final parameterStart = cursor;
       final nameEnd = _skipToken(input, cursor);
       if (nameEnd == cursor) {
@@ -1251,7 +1257,7 @@ List<_ParsedChallenge> _parseAuthenticateHeader(String input) {
         break;
       }
 
-      final next = _skipWhitespace(input, cursor + 1);
+      final next = _skipWhitespaceAndCommas(input, cursor + 1);
       if (!_looksLikeAuthParameter(input, next)) {
         cursor = next;
         break;

@@ -38,6 +38,7 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(set(target['tests']), {
             'packages/connectanum_router/test/http_context_regression_test.dart',
             'packages/connectanum_router/test/http_snapshot_metadata_regression_test.dart',
+            'packages/connectanum_router/test/http_response_transition_regression_test.dart',
             'packages/connectanum_router/test/native_http_request_body_test.dart',
             'packages/connectanum_router/test/router_runtime_test.dart',
             'packages/connectanum_router/test/router_integration_native_test.dart'})
@@ -71,6 +72,16 @@ class MutationRunnerTests(unittest.TestCase):
         target = targets['client-mcp-discovery-vm']
         self.assertEqual(target['sources'], [
             'packages/connectanum_client/lib/src/mcp/authorization_discovery.dart'])
+        self.assertEqual(target['tests'], ['packages/connectanum_client/test/mcp'])
+        self.assertNotIn('testName', target)
+        self.assertNotIn('threshold', target)
+
+    def test_oauth_token_exchange_target_includes_full_source_and_consumer_tests(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        self.assertIn('client-oauth-token-exchange-vm', targets)
+        target = targets['client-oauth-token-exchange-vm']
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_client/lib/src/mcp/oauth_token_exchange.dart'])
         self.assertEqual(target['tests'], ['packages/connectanum_client/test/mcp'])
         self.assertNotIn('testName', target)
         self.assertNotIn('threshold', target)

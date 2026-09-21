@@ -67,6 +67,101 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work185 Revocation Oracles And HTTP Decoder Verification
+
+- Fast185/session16041 completes with exit0 and matching pinned inputs. It
+  includes the full benchmark suite with the pending streaming decoder fix.
+  Promote49 OAuth revocation/refresh/expiry/diagnostic regressions afterward.
+  An isolated control run reproduces all14 selected completed survivors from
+  the running OAuth campaign as assertion-only failures, with no other errors
+  and passing original/restored baselines. The first control version had12
+  assertion-only and2 mixed detections; synchronous diagnostic rendering now
+  has an explicit returnsNormally assertion, and the success helper does not
+  render an unexpected exception while deciding whether it was rejected.
+  Deadline/socket/unrelated errors still propagate and have direct helper tests.
+- Six additional form cases cover2/3/4-byte Unicode values with split/unsplit
+  input and valid recovery. The initial expectation that raw non-ASCII form
+  components were accepted was wrong; SDK Uri._uriDecode rejects them. Retain
+  those six assertion failures and test400 for raw fields and200 for the proper
+  percent-encoded equivalents, without changing production behavior.
+- Verify185/session80102 was deliberately terminated (exit143) before the
+  fixture correction. Supervisor2926 is terminal and never started coverage.
+  Final focused verification passes2146 tests with zero errors. Final-v2 input
+  hashes are pinned. Verify185-v2/session83352 completes with exit0, including
+  Chrome/WASM, and final-v2 input checks pass. Supervisor2933 is terminal and
+  starts VM185/session67136, the sole native owner. Preserve canonical inputs.
+  Fresh canonical MCP-only collection passes2109 tests and measures token
+  exchange471/477 (98.74%). No competing native run or mutation snapshot edits.
+  Full98%/95% scope remains open.
+- An isolated fakeAsync late-open probe reproduces four assertion failures
+  among eight refresh/revocation ownership/failure cases, with no other errors.
+  Unlike discovery, token exchange leaves a late-opened request unaborted after
+  its deadline. A separate request observer gated by operation completion fixes
+  all eight cases without closing borrowed clients, sending credentials or
+  invoking late owner callbacks. This candidate is not canonical; full-suite
+  validation and promotion must wait for the current measurement's frozen input
+  boundary. Evidence is retained in coverage184-probes and the late-open logs.
+- Completed Gemma reviews were checked against source and tests: the claim that
+  a typed-only catch swallows SocketException is false, and transport-interruption
+  tests protect the HTTP error path. Exact diagnostic field rendering is an
+  intentional observable contract. Qwen requests exceeded their output limits;
+  GLM independently refused connections. No incomplete review is claimed as done.
+
+### Work184 HTTP Fallback, OAuth Persistence And Challenge Lists
+
+- Fast182 finishes with exit0 and pinned inputs match. Promote the HTTP fallback
+  ownership fix after reproducing four canonical assertion failures. All144 HTTP
+  regressions pass, including64 new cases. The complete HTTP mutation inventory
+  retains native integration and adds the new suite with a fail-first guard.
+- Add114 independent versioned OAuth token-grant persistence tests, covering
+  malformed state, identity/resource binding, expiry, nested ownership, valid
+  JSON extensions and secret-redacted diagnostics. A nullable extension fixture
+  initially failed before production because Dart inferred a non-nullable map;
+  explicitly typing that map fixes the fixture. Full MCP tests then pass1919.
+  Focused token-exchange coverage is431/477 (90.36%), not package-wide coverage.
+  A new complete-source token-exchange mutation target retains the95% default.
+- Discovery178 finishes317/360 assertion detections (88.06% raw/adjusted), with
+  138 assertion-only and179 mixed detections,30 survivors,2 timeouts,11 error-only
+  detections and87 compile errors. Both baselines and independent audit pass;
+  the gate fails. The separate118-case boundary probe detects14 of43 selected
+  prior non-assertion outcomes with assertions only;27 survive and2 time out.
+  These diagnostics are not a complete score or equivalent-mutant waiver.
+- Challenge-list regression research uses
+  [RFC9110 section11.3](https://www.rfc-editor.org/rfc/rfc9110.html#section-11.3)
+  and [section11.6.1](https://www.rfc-editor.org/rfc/rfc9110.html#section-11.6.1).
+  The generic challenge syntax permits an auth scheme without parameters, and
+  the list syntax permits empty members. A bare unknown scheme must not prevent
+  discovery of a later Bearer challenge. Empty parameter-list entries must not
+  discard resource metadata. The23-case fixture reproduces17 assertion failures
+  before fixing cursor advancement and empty-member handling. All2060 MCP tests
+  pass in a package-shaped candidate with clean analysis; canonical MCP/HTTP
+  focused verification passes2204 tests after promotion. This does not claim
+  complete support for every authentication scheme's credential grammar.
+- Both full Verify184 attempts exit1 on an HTTP connection-close error; the
+  second reproduces it in the new500-cycle streaming/recovery regression.
+  Cell2865 is terminal and never started VM184. SDK inspection identifies
+  Stream.join cancelOnError cancelling the HTTP parser's incoming stream before
+  the malformed response completes. The pending fix uses a chunked UTF-8
+  decoder and deferred format error while draining the request, without a
+  second whole-body byte buffer. Its focused suites pass, including genuine
+  interrupted-body error propagation. Preserve both failed logs; no retry
+  suppression or broad exception swallowing is used. Fast185/session16041 is
+  the sole native owner before promotion and a fresh Verify/measurement.
+- The additional35-case isolated revocation/refresh probe passes2095 complete
+  MCP tests with zero errors. It asserts exact forms/client authentication,
+  response validation, secret redaction, preflight rejection and grant ownership.
+  Token-exchange module coverage is471/477 (98.74%), not a package-wide score.
+  Its helper preserves deadline/transport errors instead of claiming mutation
+  assertion credit for them. Neither running campaign contains this probe.
+- Discovery184/session79866 is a new complete campaign for the final snapshot.
+  OAuth184/session7112 has409 generated mutants on the earlier1919-test snapshot,
+  before the parser additions. Neither has a final score yet. Keep snapshots
+  separate and all source/tests frozen for native verification/measurement.
+  Local Qwen advice was checked against source; unsupported scope/expiry claims
+  were rejected. HTTP/parser review attempts exceeded their output limits and
+  are not completed reviews; the independent GLM backend refused connections.
+  No merge, release, version change, threshold reduction or new waiver occurred.
+
 ### Work182 Verified Browser Gate And HTTP Transition Reproducers
 
 - Verify181/session31694 completes with exit0, including Chrome/WASM. The
@@ -92,6 +187,19 @@ caught and timed-out outcomes separately.
   candidate changes are not yet canonical and are excluded from Verify181/VM181
   attribution. Promote only after the current native measurement releases and
   a fresh Fast gate. Full component/native/application coverage remains open.
+- The verified increment is committed/pushed as08a38c01 and PR93 is updated.
+  Supervisor2777 owns measurement54817 and queues Fast182 only after successful
+  coverage and pinned input checks. Final21 selected HTTP controls produce19
+  assertion-backed detections (18 assertion-only, one mixed), one uncredited
+  timeout and one unwaived exact-timestamp survivor; all144 candidate cases pass.
+  Exact-head hosted chains remain queued; strict audit exits1 for incomplete
+  hosted evidence and an unprotected feature branch. No protection changes.
+- VM181 library formatting completes: auth455/455, bench2318/2333,
+  client8736/9411, core6837/7247, MCP3775/3927 and router17266/19391. There
+  remain59 unmeasured library files. Packaging completes765/787 (97.20%) with12
+  unmeasured sources; coverage and final input checks pass. Terminal2777 starts
+  Fast182/session66476 as the sole native user. Router's one-line difference is
+  internal session line83, not a production edit; preserve the fresh measurement.
 
 ### Work181 Browser Buffering And Snapshot Ownership
 

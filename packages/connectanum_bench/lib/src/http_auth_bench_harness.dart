@@ -213,8 +213,26 @@ class _ProviderBinding {
 
     late Map<String, String> form;
     try {
-      final body = await utf8.decoder.bind(request).join();
-      form = Uri.splitQueryString(body, encoding: utf8);
+      // A decoder error must not cancel the HTTP request before sending 400.
+      final body = StringBuffer();
+      final decoder = utf8.decoder.startChunkedConversion(
+        StringConversionSink.fromStringSink(body),
+      );
+      var malformedUtf8 = false;
+      await for (final chunk in request) {
+        if (!malformedUtf8) {
+          try {
+            decoder.add(chunk);
+          } on FormatException {
+            malformedUtf8 = true;
+          }
+        }
+      }
+      if (malformedUtf8) {
+        throw const FormatException('Malformed introspection request UTF-8.');
+      }
+      decoder.close();
+      form = Uri.splitQueryString(body.toString(), encoding: utf8);
     } catch (error) {
       if (error is! FormatException && error is! ArgumentError) rethrow;
       request.response.statusCode = HttpStatus.badRequest;

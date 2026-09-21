@@ -96,6 +96,10 @@
     "sources": ["packages/connectanum_client/lib/src/mcp/authorization_discovery.dart"],
     "tests": ["packages/connectanum_client/test/mcp"]
   },
+  "client-oauth-token-exchange-vm": {
+    "sources": ["packages/connectanum_client/lib/src/mcp/oauth_token_exchange.dart"],
+    "tests": ["packages/connectanum_client/test/mcp"]
+  },
   "router-http-context-vm": {
     "sources": ["packages/connectanum_router/lib/src/router/http/http_context.dart"],
     "tests": [
@@ -103,7 +107,8 @@
       "packages/connectanum_router/test/native_http_request_body_test.dart",
       "packages/connectanum_router/test/router_runtime_test.dart",
       "packages/connectanum_router/test/router_integration_native_test.dart",
-      "packages/connectanum_router/test/http_snapshot_metadata_regression_test.dart"
+      "packages/connectanum_router/test/http_snapshot_metadata_regression_test.dart",
+      "packages/connectanum_router/test/http_response_transition_regression_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_router/test/support/native_lib.dart",

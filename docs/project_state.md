@@ -6,9 +6,74 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work184 confirms Fast182/session66476 exited0 and the frozen input hashes
+matched before promotion. Canonical now includes the five-line HTTP fallback
+fix,64 HTTP regressions,114 independent OAuth persisted-state cases,118 discovery
+boundary cases,23 authentication challenge-list cases, and a500-cycle benchmark
+malformed-request/recovery stress test. HTTP failures reproduce as four assertions
+before the fix. The discovery list bug reproduces as17 assertions: bare schemes
+and empty list members hide later Bearer metadata. The fix preserves challenge
+boundaries while skipping empty members, per RFC9110 sections11.3/11.6.1.
+All2204 focused MCP/HTTP tests pass; the isolated complete client candidate
+passes2060 MCP tests and clean analysis. Both mutation inventory guards fail
+before configuration updates and pass afterward; the new OAuth target covers
+the complete token-exchange source and MCP consumer suite, retaining the95% gate.
+
+Both Verify184/session14195 and Verify184-v2/session44805 exited1 with
+HttpException: connection closed while receiving data. The second attempt
+reproduced the failure in the new500-cycle malformed-request/recovery test.
+Supervisor2865 is terminal and did not start VM184 coverage. The Dart SDK's
+Stream.join cancels on decoder errors, which can cancel the incoming HTTP
+socket before its400 response completes. The pending streaming-decoder fix
+records malformed UTF-8, drains the remaining input, then sends400; it avoids
+an extra whole-body byte buffer and does not swallow transport failures.
+Its focused HTTP suites pass, but full verification is still required.
+Work185 Fast/session16041 exits0 and its source/test/config hashes match.
+Supervisor2921 is terminal. The promoted OAuth revocation/refresh suite now has49
+cases, including supplied-clock/expiry consistency and optional diagnostics.
+All14 selected completed survivors from the older running OAuth campaign now
+fail assertions only in an isolated control run; both baselines pass. These
+are diagnostics, not a new complete mutation score. The earlier35-case probe
+measured token exchange471/477 (98.74%), not client-wide coverage.
+
+Six UTF-8 form regressions assert rejection of raw non-ASCII fields and successful
+percent-encoded equivalents, split and unsplit, with subsequent recovery. Their
+initial200 expectation for raw fields was incorrect: SDK Uri decoding rejects
+non-ASCII query components. Retain the six initial assertion failures. Verify185
+was deliberately stopped with exit143 before correcting the fixture; supervisor
+2926 is terminal and started no coverage. All2146 final focused MCP/HTTP tests
+pass. Verify185-v2/session83352 exits0, including Chrome/WASM, and final-v2
+source/test/config hashes match. Supervisor2933 is terminal and starts full
+VM185 coverage/session67136 as the sole native owner. Preserve canonical inputs
+until that measurement finishes. Neither live mutation campaign contains the49
+new OAuth cases; preserve their snapshots. Fresh canonical MCP-only measurement
+passes2109 tests and confirms token exchange471/477 (98.74%) module lines.
+
+A separate deterministic OAuth late-open probe exposes a remaining cleanup bug:
+refresh/revocation do not abort requests returned after their deadline. Four
+assertions fail among eight cases, with no other errors. An isolated observer
+fix passes all eight, preserves borrowed-client ownership and never sends
+credentials or invokes owner callbacks after timeout. This fix is NOT canonical
+and needs full-suite validation before promotion after VM185 releases. Preserve
+the probe/candidate in coverage184-probes; do not change either running campaign.
+
+Discovery178 completes and independently audits317/360 assertion-backed detections
+(88.06% raw/adjusted), with30 survivors,2 timeouts,11 error-only detections and87
+compile errors excluded. Its gate still fails. Fourteen of43 selected prior
+non-assertion outcomes now fail with assertions in the boundary probe; that is
+diagnostic evidence, not a new full score. Full discovery184/session79866 runs
+from the final snapshot. Full OAuth184/session7112 has409 mutants but predates
+the later parser/test additions; do not attribute those additions to its results.
+Recovery, raw logs and frozen-input details are in coverage184-probes/EVIDENCE.md.
+PR93 remains draft. The verified implementation can be committed independently
+of the new isolated late-open follow-up. Full98%/95% coverage scope and incomplete
+exact-head hosted deployment evidence remain open.
+
 Work182 completes Verify181 with exit0, including Chrome/WASM, and the final-v2
-source/test/config hash check passes. Full VM plus packaging measurement is now
-session54817, the sole native owner; keep these inputs frozen. The full browser
+source/test/config hash check passes. The verified increment is pushed as08a38c01;
+PR93 remains draft. VM/packaging measurement54817 and its pinned input checks
+pass. Supervisor2777 is terminal and started Fast182/session66476, now the sole
+native user; keep canonical inputs frozen until it finishes. The full browser
 WebSocket181 campaign is complete:50/54 raw assertion-backed detections (92.59%),
 50/50 after four individually justified, source-pinned equivalents (100%). Nine
 compile errors are excluded. There are39 assertion-only and11 mixed detections,
@@ -28,6 +93,15 @@ compile; the final public respond API fixture reproduces the four real failures.
 These HTTP changes are not yet canonical or included in Verify181/VM181 scores.
 Retain their source, tests, controls and logs for promotion after the native owner
 releases. No timeout/error-only credit or component-wide mutation score is inferred.
+Final21 selected controls detect19 with assertions (18 assertion-only, one mixed),
+with one uncredited timeout and one unwaived timestamp-equality survivor. The
+final candidate passes144 focused tests. Exact-head CI/package/native/router/
+profile runs remain queued without assigned runners; the strict audit exits1
+for incomplete evidence and an unprotected feature branch, not a hosted test
+failure. No branch-protection change is made. Recovery is in coverage182-probes.
+The complete VM181 report is auth100%, bench99.36%, client92.83%, core94.34%,
+MCP96.13%, router89.04%, with59 unmeasured library sources. Packaging is765/787
+(97.20%) with12 unmeasured sources; the full command exits0 and input hashes pass.
 
 Work181 promotes the pending Work174/178/179 fixes and regressions after the
 serialized Fast175 passes and canonical input hashes match. Browser WebSocket
