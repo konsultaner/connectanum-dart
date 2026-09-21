@@ -6,6 +6,53 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work198 is pushed as3cd5e0f4 after Verify198 passes, including Chrome/WASM.
+The fresh application VM collection completes with all three suites passing and
+unchanged source/test/config and dependency hashes: client7385/10266 (71.94%),
+server3298/3531 (93.40%), shared1537/1540 (99.81%). Fourteen sources are unmeasured;
+the strict98% gate exits1, correctly. The app uses its declared published beta.5
+dependencies, not checkout overrides. Raw logs/LCOV, input hashes and evidence
+hash inventory are in application198-current. Client localization, home/call UI,
+WebRTC integration and controller/gateway behavior are the largest remaining gaps.
+
+Work199 passes Fast199 and promotes82 localization contract tests. Four failing
+assertions reproduce French/Portuguese zero counts displayed as1; explicit ARB
+zero branches fix them. Canonical client324 tests pass and measure8915/10266
+(86.84%), up1530 covered lines, with all generated localization files measured
+at100%. This client-only VM result does not replace the other application/runtime
+measurements. Four selected fault controls detect zero-count, label, interpolation
+and locale defects; two also emit Flutter framework diagnostics, so they are not
+all assertion-only outcomes or a full mutation score.
+
+OAuth198 is deliberately stopped after reproducing a guarded-zone fixture defect
+that stranded synchronous setup failures as test timeouts. The corrected fixture
+observes failures inside their error zone and retains all assertions. Four
+selected persisted-grant faults now each fail24 assertions without runtime errors;
+the2524-test MCP candidate suite passes. Preserve the incomplete198 report and
+STOPPED.md without retroactive credit. A new complete campaign is still required.
+Verify199 passes including Chrome/WASM with matching manifest199. The new complete
+OAuth199 campaign starts with419 generated mutations and a passing clean baseline;
+cell3730 supervises it independently. No new complete score yet.
+
+Work200 passes Fast200 and promotes the call-overlay fix with21 new widget
+regressions using the real final CallController and controlled signaling/media.
+Six failing-before tests reproduce light label contrast, dark decline-icon
+contrast, missing accessible names and2x-text layout overflow in de/fr/pt.
+Semantic colors, tooltips, wrapping actions and vertical scrolling fix these
+without clipping labels or changing the active dark surface. All26 focused
+controller/widget tests pass. Four selected faults fail1/1/2/1 explicit
+expectations, with Flutter diagnostic wrappers retained and passing original/
+restored baselines; this is not a full mutation score.
+
+Canonical345 app tests pass. Client VM coverage is9083/10277 (88.38%), with
+call_overlay180/180 (100% measured lines). This is168 more covered lines than
+Work199, with11 added executable lines. Unmeasured source/runtime gaps remain.
+Analysis and format checks pass; dependency hashes still match the declared
+published beta.5 application boundary. Verify200 passes including Chrome/WASM,
+with matching manifest200. This implementation increment is locally verified for
+commit. Recovery is coverage184-probes/WORK200.md. Hosted evidence is still
+pending; PR93 stays draft. No merge/publication/version change.
+
 Work198 resumes after Verify197 exits1: three new real-timer authorization-server
 body cases see an unexpected fallback reuse a consumed response stream. The
 application collector was not started. Canonical Work197 contains the50 discovery

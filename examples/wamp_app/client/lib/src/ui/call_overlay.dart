@@ -56,79 +56,90 @@ class _IncomingCallCard extends StatelessWidget {
     return ColoredBox(
       color: Colors.black.withValues(alpha: 0.58),
       child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: Card(
-            margin: const EdgeInsets.all(24),
-            elevation: 20,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(28, 30, 28, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.88, end: 1),
-                    duration: const Duration(milliseconds: 650),
-                    curve: Curves.easeOutBack,
-                    builder: (context, scale, child) =>
-                        Transform.scale(scale: scale, child: child),
-                    child: CircleAvatar(
-                      radius: 42,
-                      child: Icon(
-                        video ? Icons.videocam_rounded : Icons.call_rounded,
-                        size: 38,
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 430),
+            child: Card(
+              margin: const EdgeInsets.all(24),
+              elevation: 20,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(28, 30, 28, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.88, end: 1),
+                      duration: const Duration(milliseconds: 650),
+                      curve: Curves.easeOutBack,
+                      builder: (context, scale, child) =>
+                          Transform.scale(scale: scale, child: child),
+                      child: CircleAvatar(
+                        radius: 42,
+                        child: Icon(
+                          video ? Icons.videocam_rounded : Icons.call_rounded,
+                          size: 38,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    '@${controller.peerUsername ?? l10n.unknown}',
-                    style: Theme.of(context).textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    video
-                        ? l10n.incomingEncryptedVideoCall
-                        : l10n.incomingEncryptedVoiceCall,
-                    textAlign: TextAlign.center,
-                  ),
-                  if (controller.errorMessage case final error?) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 20),
                     Text(
-                      error,
-                      key: const Key('call-error'),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
+                      '@${controller.peerUsername ?? l10n.unknown}',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
-                  ],
-                  const SizedBox(height: 26),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _RoundCallAction(
-                        key: const Key('call-decline'),
-                        label: l10n.decline,
-                        icon: Icons.call_end_rounded,
-                        color: Theme.of(context).colorScheme.error,
-                        onPressed: controller.busy ? null : controller.endCall,
-                      ),
-                      _RoundCallAction(
-                        key: const Key('call-accept'),
-                        label: l10n.accept,
-                        icon: video
-                            ? Icons.videocam_rounded
-                            : Icons.call_rounded,
-                        color: const Color(0xFF16805B),
-                        onPressed: controller.busy
-                            ? null
-                            : controller.acceptIncoming,
+                    const SizedBox(height: 6),
+                    Text(
+                      video
+                          ? l10n.incomingEncryptedVideoCall
+                          : l10n.incomingEncryptedVoiceCall,
+                      textAlign: TextAlign.center,
+                    ),
+                    if (controller.errorMessage case final error?) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        error,
+                        key: const Key('call-error'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ],
-                  ),
-                ],
+                    const SizedBox(height: 26),
+                    Wrap(
+                      alignment: WrapAlignment.spaceEvenly,
+                      spacing: 24,
+                      runSpacing: 16,
+                      children: [
+                        _RoundCallAction(
+                          key: const Key('call-decline'),
+                          label: l10n.decline,
+                          labelColor: Theme.of(context).colorScheme.onSurface,
+                          foregroundColor: Theme.of(context)
+                              .colorScheme
+                              .onError,
+                          icon: Icons.call_end_rounded,
+                          color: Theme.of(context).colorScheme.error,
+                          onPressed: controller.busy
+                              ? null
+                              : controller.endCall,
+                        ),
+                        _RoundCallAction(
+                          key: const Key('call-accept'),
+                          label: l10n.accept,
+                          labelColor: Theme.of(context).colorScheme.onSurface,
+                          icon: video
+                              ? Icons.videocam_rounded
+                              : Icons.call_rounded,
+                          color: const Color(0xFF16805B),
+                          onPressed: controller.busy
+                              ? null
+                              : controller.acceptIncoming,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -383,12 +394,16 @@ class _RoundCallAction extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onPressed,
+    this.labelColor = Colors.white,
+    this.foregroundColor = Colors.white,
   });
 
   final String label;
   final IconData icon;
   final Color color;
   final VoidCallback? onPressed;
+  final Color labelColor;
+  final Color foregroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -397,16 +412,21 @@ class _RoundCallAction extends StatelessWidget {
       children: [
         IconButton.filled(
           onPressed: onPressed,
+          tooltip: label,
           style: IconButton.styleFrom(
             backgroundColor: color,
-            foregroundColor: Colors.white,
+            foregroundColor: foregroundColor,
             disabledBackgroundColor: color.withValues(alpha: 0.45),
             minimumSize: const Size.square(58),
           ),
           icon: Icon(icon, size: 27),
         ),
         const SizedBox(height: 6),
-        Text(label, style: const TextStyle(color: Colors.white)),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: labelColor),
+        ),
       ],
     );
   }

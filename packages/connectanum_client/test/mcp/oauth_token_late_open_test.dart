@@ -783,18 +783,28 @@ void _testSynchronousStageDeadlines() {
             final successes = <Object?>[];
             final errors = <Object>[];
             final uncaught = <Object>[];
-            await runZonedGuarded(() async {
-              await HttpOverrides.runZoned(
-                () => _operation(kind, ownsClient ? null : client, (_) {}),
-                createHttpClient: (_) => client,
-              ).then<void>(
-                successes.add,
-                onError: (Object error) {
-                  errors.add(error);
-                },
-              );
-              await Future<void>.delayed(Duration.zero);
-            }, (error, _) => uncaught.add(error));
+            await runZonedGuarded(
+              () =>
+                  (() async {
+                    await HttpOverrides.runZoned(
+                      () =>
+                          _operation(kind, ownsClient ? null : client, (_) {}),
+                      createHttpClient: (_) => client,
+                    ).then<void>(
+                      successes.add,
+                      onError: (Object error) {
+                        errors.add(error);
+                      },
+                    );
+                    await Future<void>.delayed(Duration.zero);
+                  })().then<void>(
+                    (_) {},
+                    // Observe failures inside their error zone before awaiting
+                    // outside it, so a synchronous setup fault cannot strand us.
+                    onError: (Object error) => uncaught.add(error),
+                  ),
+              (error, _) => uncaught.add(error),
+            );
             expect(successes, isEmpty);
             expect(errors, hasLength(1));
             expect(

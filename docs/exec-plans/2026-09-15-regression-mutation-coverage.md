@@ -67,6 +67,65 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work200 Call Overlay Regressions
+
+- Fast200 passes. Real-controller widget fixtures complete26 tests; the unchanged
+  source fails6 tests covering light label contrast, dark decline-icon contrast,
+  accessible names and2x-text de/fr/pt overflow. Fix fixture fake-async completion
+  and sanitized-error assumptions before attributing failures to production.
+- Promote semantic label/icon colors, localized tooltips, wrapping actions and
+  scrollable incoming content, preserving the active dark call surface. All26
+  focused tests pass, including accept/busy behavior, voice/video toggles, speaker
+  capability, decline/hangup, error recovery, sibling answers and dismissal.
+  Renderer mirror wiring uses real uninitialized RTCVideoView objects, NOT
+  device-level media transport evidence.
+- Four selected fault controls produce1/1/2/1 expectation diagnostics. Flutter
+  wrappers remain recorded as error events; no arbitrary crash/timeout credit.
+  Baseline/restored runs and source/test hash inventories match.
+- All345 canonical app tests pass; VM client9083/10277 (88.38%), overlay180/180.
+  Analysis/format and frozen-input checks pass. Verify200 passes including
+  Chrome/WASM with matching manifest200. Locally verified for commit.
+  Current OAuth199 full campaign remains live under cell3730; no completed
+  new mutation score or hosted-green claim.
+
+### Work199 Application Coverage Baseline
+
+- Push verified discovery fixes as3cd5e0f4. Exact-head deployment dry-runs remain
+  queued; strict audit exits1 for pending evidence. PR93 stays draft.
+- Application198 completes all client/shared/server VM suites with unchanged
+  source/test/config and dependency hashes. Client7385/10266 (71.94%), server
+  3298/3531 (93.40%), shared1537/1540 (99.81%). Fourteen source files remain
+  unmeasured;98% strict gate exits1. Keep the published beta.5 dependency boundary
+  explicit. Raw/normalized LCOV, test logs and evidence.sha256 are retained.
+- Fast199 passes. Promote82 localization contract tests and explicit French/
+  Portuguese ARB zero branches after reproducing four incorrect singular-count
+  assertions. All324 canonical client tests pass; measured VM lines rise from
+  7385 to8915 of10266 (86.84%). Authored ARBs are the independent string oracle;
+  exact key-set inventories, interpolation, plural boundaries, regional selection,
+  unsupported locales and mounted switching are covered. No scope exclusions.
+- Four selected localization controls fail assertions with passing original/
+  restored baselines and matching inventories. Label/locale faults also produce
+  Flutter diagnostic wrappers; preserve them, not an assertion-only claim.
+- OAuth198 is stopped for a confirmed guarded-zone test fixture defect, with
+  incomplete logs/report retained. Observe async-body failures inside the error
+  zone before awaiting outside it; all original failure assertions remain.
+  Four selected faults each produce24 assertions and no runtime errors, rather
+  than timeouts. Full isolated MCP suite passes2524; no new full mutation score.
+- Verify199 passes including Chrome/WASM, and manifest199 matches. Start a fresh
+ 419-mutant OAuth199 campaign; its clean baseline passes, under cell3730.
+  No completed current score. Formatting-only cleanup of the localization test
+  follows Verify199 and will be included in the next frozen verification.
+- Work200 call-overlay tests drive real CallController transitions and controlled
+  signaling/media boundaries. Correct fixture synchronization and sanitized-error
+  expectations before attribution:26 complete tests,20 pass and6 failures expose
+  light text contrast, dark decline-icon contrast, missing localized accessible
+  names and2x-text layout overflow in de/fr/pt. The candidate fix uses semantic
+  colors, tooltips and wrapping actions; analysis passes. Fast200 and subsequent
+  candidate Flutter tests are serialized under cell3741; not yet canonical.
+- Client home/call UI, platform WebRTC integration and controller/gateway paths
+  remain substantive gaps after localization. The Flutter client also has no
+  mutation target yet; do not treat existing package campaigns as app evidence.
+
 ### Work198 Terminal Discovery Timeouts
 
 - Fast196 passed; promote Work197's discovery body/deadline fixes and50 tests.
