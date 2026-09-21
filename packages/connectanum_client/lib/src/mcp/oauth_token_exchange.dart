@@ -1068,7 +1068,8 @@ Future<Uint8List> _readOAuthResponseBytes(
   required String endpointLabel,
   required int statusCode,
 }) async {
-  final bytes = BytesBuilder(copy: false);
+  // An injected HTTP response may reuse a chunk after its stream advances.
+  final bytes = BytesBuilder(copy: true);
   var length = 0;
   while (await chunks.moveNext()) {
     final chunk = chunks.current;

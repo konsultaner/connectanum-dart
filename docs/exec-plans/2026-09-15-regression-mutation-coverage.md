@@ -67,6 +67,36 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work213 Worker And OAuth Buffer Ownership
+
+- Reproduce three orphaned benchmark-child failures through real CLI entrypoints
+  with an uncooperative child-owned listener. Kill/reap owned children on early
+  errors, retaining normal HTTP/stdin STOP behavior. Reproduce an independent
+  idle-socket fixture failure, then handle bounded concurrent blocking sockets
+  and join every worker without suppressing malformed requests or panics.
+- Four OAuth assertions demonstrate corruption when injected response streams
+  reuse delivered buffers. Copy chunks after the existing size guard. All eight
+  unchanged/reused, single/split, exchange/refresh cases and the full128-test
+  fixture pass; all10 native CLI cases pass. Preserve original/restored evidence.
+- Native LLVM coverage is6205/7797 (79.58%), with9 real guard lines added. VM is
+  39656/42840 (92.57%); retain the two missed unchanged router cleanup lines.
+  Packaging is765/787 (97.20%). Both strict98 gates fail;59 library and12
+  packaging sources remain unmeasured. Other runtime evidence stays separate.
+- Fresh auth-server library campaign:294 generated,105 compile errors,
+  189 viable,182 assertion-detected,7 survived,0 waivers. Raw and adjusted
+  assertion scores are96.30%;160 assertion-only and22 mixed assertion/error
+  outcomes, with no error-only credit. Clean/restored baselines, source/test
+  hashes and separate kill-evidence audit pass. Investigate all survivors;
+  this target does not establish complete package/runtime mutation coverage.
+- Fast213 and full bin/verify pass, including Chrome JavaScript/WASM. Frozen
+  hashes match after native coverage, VM coverage and verify. VM LCOV formatting
+  overlapped verify, but native runtime test users did not overlap. Evidence:
+  lifecycle213-evidence, native213-bench-current, vm213-current and
+  auth213-current-mutations under out/regression-coverage-2026-09-15.
+  Hosted checks remain pending; no merge, publication or version changes.
+  Next exercise native HTTP authentication workers through real loopback
+  requests and investigate connection-reuse policy before changing behavior.
+
 ### Work210 HTTP Phase Summary Accounting
 
 - Add11 behavioral tests using distinct input scales and independent expected

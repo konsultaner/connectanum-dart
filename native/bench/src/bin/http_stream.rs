@@ -468,6 +468,18 @@ fn ensure_owner_executable(_path: &Path) -> Result<()> {
     Ok(())
 }
 
+struct OwnedBenchProcess(std::process::Child);
+
+impl Drop for OwnedBenchProcess {
+    fn drop(&mut self) {
+        // Child alone does not kill/reap on drop, including startup error returns.
+        if !matches!(self.0.try_wait(), Ok(Some(_))) {
+            let _ = self.0.kill();
+        }
+        let _ = self.0.wait();
+    }
+}
+
 fn run_bench_suite(
     args: &Args,
     wamp_worker_executable: Option<&Path>,
@@ -500,10 +512,12 @@ fn run_bench_suite(
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
     configure_bench_child_environment(&mut command, &args.native_lib, native_runtime_threads);
-    let mut child_process = command.spawn().context("failed to spawn bench_main")?;
+    let mut child_process =
+        OwnedBenchProcess(command.spawn().context("failed to spawn bench_main")?);
 
-    let mut child_stdin = child_process.stdin.take();
+    let mut child_stdin = child_process.0.stdin.take();
     let stdout = child_process
+        .0
         .stdout
         .take()
         .context("failed to capture bench_main stdout")?;
@@ -726,6 +740,7 @@ fn run_bench_suite(
 
     println!("Waiting for bench_main to exit…");
     let status = child_process
+        .0
         .wait()
         .context("failed to wait for bench_main")?;
     if !status.success() {

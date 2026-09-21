@@ -1,10 +1,39 @@
 # Project State
 
-Last updated: 2026-09-21
+Last updated: 2026-09-22
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work213 is locally verified after Fast213, fresh native/VM coverage and full
+bin/verify, including Chrome JavaScript/WASM. Frozen inputs match after each
+collection and verification. Three real CLI regressions reproduce orphaned
+benchmark workers on startup errors; an owning child guard kills/reaps them
+without changing normal STOP shutdown. A separate idle-socket regression
+reproduces and fixes the concurrent HTTP fixture. Four OAuth token assertions
+reproduce reused response-buffer corruption; copy bounded chunks on receipt.
+All10 native CLI and128 OAuth late-open tests pass on the final implementation.
+
+Fresh native benchmark coverage is6205/7797 (79.58%); the9 additional production
+lines are the child guard, not scope exclusions. VM coverage is39656/42840
+(92.57%): router89.74%, client93.49%, core94.34%, MCP96.13%, Dart bench99.36%,
+auth100%. Packaging remains765/787 (97.20%). Retain the two-line decrease in
+unchanged router cleanup paths instead of unioning a historical high. Both
+strict98 gates fail;59 library and12 packaging sources remain unmeasured.
+
+A fresh complete auth-server library mutation campaign matches current source
+and test hashes:182/189 viable mutants assertion-detected (96.30%),105 compile
+errors and7 unwaived survivors. Clean/restored baselines and kill-evidence audit
+pass;22 detections include both assertions and test errors, not error-only
+credit. Older112c tests no longer match and are not reused as current evidence.
+Survivors still require individual investigation; this is not a CLI, runtime or
+whole-project mutation score. Evidence: lifecycle213-evidence,
+native213-bench-current, vm213-current and auth213-current-mutations under
+out/regression-coverage-2026-09-15. Next close untested native HTTP authentication
+workers and investigate their connection-reuse behavior with wire-level tests.
+Hosted checks remain pending. No merge, publication or version change; the
+complete98%/95% milestone remains open.
 
 Work210 is locally verified after Fast210, fresh native LLVM collection and full
 bin/verify, including Chrome JavaScript/WASM. Frozen inputs match after both

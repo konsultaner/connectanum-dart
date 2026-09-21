@@ -1,6 +1,7 @@
 // A bounded stdio/lifecycle peer, not a router or a benchmark implementation.
 use std::{
     env, fs, io,
+    net::TcpListener,
     path::PathBuf,
     sync::mpsc,
     thread,
@@ -12,6 +13,13 @@ fn main() {
     let stop = root.join("stop");
     let _ = fs::remove_file(&stop);
     let mode = env::var("BENCH_CLI_TEST_MODE").unwrap();
+    let stubborn = mode.starts_with("stubborn");
+    let _owned_listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    fs::write(
+        root.join("child-address"),
+        _owned_listener.local_addr().unwrap().to_string(),
+    )
+    .unwrap();
     let mut record = format!(
         "library={}\nthreads={}\n",
         env::var("CONNECTANUM_NATIVE_LIB").unwrap(),
@@ -24,7 +32,7 @@ fn main() {
     if mode == "eof" {
         return;
     }
-    if mode != "timeout" {
+    if mode != "timeout" && mode != "stubborn-timeout" {
         println!("Running build hooks...READY");
     }
     let (send, receive) = mpsc::channel();
@@ -39,8 +47,14 @@ fn main() {
     });
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
+        // The test owns this directory; its removal must also release the fixture.
+        if !root.exists() {
+            return;
+        }
         let reason = if stop.exists() {
             Some("HTTP".to_string())
+        } else if stubborn {
+            None
         } else {
             receive.try_recv().ok()
         };

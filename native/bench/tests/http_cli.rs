@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
-    Arc, Mutex,
+    mpsc, Arc, Mutex,
 };
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -25,6 +25,7 @@ struct Peer {
     address: String,
     stop: Arc<AtomicBool>,
     requests: Arc<Mutex<Vec<(String, Vec<u8>)>>>,
+    accepted: mpsc::Receiver<()>,
     server: Option<thread::JoinHandle<()>>,
     worker: PathBuf,
     _directory: ScratchDirectory,
@@ -83,26 +84,52 @@ warmup_ms = 0
         let address = format!("http://{}/bench", listener.local_addr().unwrap());
         let stop = Arc::new(AtomicBool::new(false));
         let requests = Arc::new(Mutex::new(Vec::new()));
+        let (accepted_tx, accepted) = mpsc::channel();
         let stopping = stop.clone();
         let recorded = requests.clone();
         let stop_path = root.join("stop");
         let mode = mode.to_string();
         let server = thread::spawn(move || {
+            let mut workers = Vec::new();
+            let mut accept_error = None;
             while !stopping.load(Ordering::SeqCst) {
                 match listener.accept() {
-                    Ok((stream, _)) => serve(stream, &mode, &recorded, &stop_path),
+                    Ok((stream, _)) => {
+                        if workers.len() == 64 {
+                            accept_error = Some("unexpected fixture connection loop".to_string());
+                            break;
+                        }
+                        let _ = accepted_tx.send(());
+                        let mode = mode.clone();
+                        let recorded = recorded.clone();
+                        let stop_path = stop_path.clone();
+                        workers.push(thread::spawn(move || {
+                            serve(stream, &mode, &recorded, &stop_path);
+                        }));
+                    }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(2));
                     }
-                    Err(error) => panic!("accept failed: {error}"),
+                    Err(error) => {
+                        accept_error = Some(format!("accept failed: {error}"));
+                        break;
+                    }
                 }
             }
+            // Join every bounded connection before propagating a fixture failure.
+            let mut worker_failed = false;
+            for worker in workers {
+                worker_failed |= worker.join().is_err();
+            }
+            assert!(accept_error.is_none(), "{accept_error:?}");
+            assert!(!worker_failed, "HTTP fixture worker panicked");
         });
         Self {
             root,
             address,
             stop,
             requests,
+            accepted,
             server: Some(server),
             worker,
             _directory: directory,
@@ -192,14 +219,33 @@ warmup_ms = 0
 impl Drop for Peer {
     fn drop(&mut self) {
         let _ = fs::write(self.root.join("stop"), "stop fixture");
+        // Keep the stop file available until an uncooperative fixture has exited.
+        if let Some(address) = fs::read_to_string(self.root.join("child-address"))
+            .ok()
+            .and_then(|address| address.parse().ok())
+        {
+            let deadline = Instant::now() + Duration::from_secs(3);
+            while Instant::now() < deadline {
+                if matches!(TcpStream::connect_timeout(&address, Duration::from_millis(100)),
+                    Err(error) if error.kind() == std::io::ErrorKind::ConnectionRefused)
+                {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(5));
+            }
+        }
         self.stop.store(true, Ordering::SeqCst);
         if let Some(server) = self.server.take() {
-            let _ = server.join();
+            let result = server.join();
+            if !thread::panicking() {
+                assert!(result.is_ok(), "HTTP fixture server panicked");
+            }
         }
     }
 }
 
 fn serve(stream: TcpStream, mode: &str, recorded: &Mutex<Vec<(String, Vec<u8>)>>, stop: &Path) {
+    stream.set_nonblocking(false).unwrap();
     stream
         .set_read_timeout(Some(Duration::from_secs(5)))
         .unwrap();
@@ -208,7 +254,19 @@ fn serve(stream: TcpStream, mode: &str, recorded: &Mutex<Vec<(String, Vec<u8>)>>
         .unwrap();
     let mut reader = BufReader::new(stream);
     let mut first = String::new();
-    reader.read_line(&mut first).unwrap();
+    match reader.read_line(&mut first) {
+        Ok(0) => return,
+        Err(error)
+            if first.is_empty()
+                && matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+        {
+            return;
+        }
+        result => assert!(result.is_ok(), "invalid fixture request: {result:?}"),
+    }
     let path = first.split_whitespace().nth(1).unwrap().to_string();
     let mut length = 0;
     loop {
@@ -235,6 +293,7 @@ fn serve(stream: TcpStream, mode: &str, recorded: &Mutex<Vec<(String, Vec<u8>)>>
         requests.push((path.clone(), body));
     }
     let (status, response) = match path.as_str() {
+        "/bench/healthz" if mode == "health-error" => (500, b"health unavailable".to_vec()),
         "/bench/healthz" => (200, br#"{"status":"ok"}"#.to_vec()),
         "/bench/metrics" if mode == "metrics-error" => (500, b"metrics unavailable".to_vec()),
         "/bench/metrics" => (
@@ -397,10 +456,90 @@ fn worker_eof_and_readiness_timeout_do_not_start_workloads() {
         assert!(String::from_utf8_lossy(&output.stderr).contains(message));
         assert!(peer.requests.lock().unwrap().is_empty());
         assert!(peer.reports().is_empty());
-        if mode == "timeout" {
-            peer.stopped("EOF");
-        }
+        assert_worker_listener_closed(&peer);
     }
+}
+
+#[test]
+fn idle_connection_does_not_block_real_workload_requests() {
+    let peer = Peer::new("normal");
+    let authority = peer
+        .address
+        .strip_prefix("http://")
+        .unwrap()
+        .split('/')
+        .next()
+        .unwrap();
+    let mut idle = TcpStream::connect(authority).unwrap();
+    idle.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+    idle.set_write_timeout(Some(Duration::from_secs(3)))
+        .unwrap();
+    peer.accepted
+        .recv_timeout(Duration::from_secs(3))
+        .expect("fixture did not accept idle connection");
+    let output = peer.run(peer.command("normal"));
+    success(&output);
+    assert_eq!(peer.reports().len(), 1);
+    peer.stopped("HTTP");
+    // The accepted connection must still accept a delayed first request.
+    idle.write_all(b"GET /bench/healthz HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        .unwrap();
+    let mut response = String::new();
+    idle.read_to_string(&mut response).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 Fixture\r\n"));
+    assert!(response.ends_with(r#"{"status":"ok"}"#));
+}
+
+#[test]
+fn startup_failure_ready_timeout_reaps_worker_that_ignores_stdin_eof() {
+    let peer = Peer::new("normal");
+    let output = peer.run(peer.command("stubborn-timeout"));
+    assert_startup_worker_reaped(&peer, &output, "did not signal READY");
+    assert!(peer.requests.lock().unwrap().is_empty());
+}
+
+#[test]
+fn startup_failure_health_error_reaps_worker_that_ignores_stdin_eof() {
+    let peer = Peer::new("health-error");
+    let output = peer.run(peer.command("stubborn"));
+    assert_startup_worker_reaped(&peer, &output, "failed to read /bench/healthz");
+    assert_eq!(peer.requests.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn startup_failure_invalid_scenario_reaps_worker_that_ignores_stdin_eof() {
+    let peer = Peer::new("normal");
+    fs::write(peer.root.join("scenario.toml"), "[[invalid").unwrap();
+    let output = peer.run(peer.command("stubborn"));
+    assert_startup_worker_reaped(&peer, &output, "scenario");
+    assert!(peer.requests.lock().unwrap().is_empty());
+}
+
+fn assert_startup_worker_reaped(peer: &Peer, output: &Output, message: &str) {
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains(message),
+        "{output:?}"
+    );
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("Bench run completed successfully"));
+    assert!(peer.reports().is_empty());
+    assert_worker_listener_closed(peer);
+    assert!(
+        !peer.root.join("child-stopped").exists(),
+        "fixture watchdog or cooperative exit masked cleanup"
+    );
+}
+
+fn assert_worker_listener_closed(peer: &Peer) {
+    let address = fs::read_to_string(peer.root.join("child-address"))
+        .unwrap()
+        .parse()
+        .unwrap();
+    let connection = TcpStream::connect_timeout(&address, Duration::from_millis(500));
+    assert!(
+        matches!(connection, Err(ref error) if error.kind() == std::io::ErrorKind::ConnectionRefused),
+        "assertion failed: startup error left its child listener open: {connection:?}"
+    );
 }
 
 #[test]

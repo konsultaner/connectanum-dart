@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum_client/mcp.dart';
 import 'package:fake_async/fake_async.dart';
@@ -78,6 +79,7 @@ McpOAuthTokenGrant _grant() => McpOAuthTokenGrant.fromJson({
 }, now: DateTime.utc(2020));
 
 void main() {
+  _testBorrowedResponseBuffers();
   _testResponseBodyCancellation();
   _testWholeBodyDeadline();
   _testSlowBodyCleanup();
@@ -211,6 +213,40 @@ void main() {
         );
       }
     }
+  }
+}
+
+void _testBorrowedResponseBuffers() {
+  for (final kind in ['exchange', 'refresh']) {
+    for (final split in [false, true]) {
+      for (final reuse in [false, true]) {
+        test(
+          'delivered token bytes $kind split=$split reused=$reuse',
+          () async {
+            final client = _DelayedClient();
+            final request = _OpenedRequest();
+            client.opened.complete(request);
+            request.response.complete(_Response(_borrowedBody(split, reuse)));
+            final result = await _operation(kind, client, (_) {});
+            expect(result, isA<McpOAuthTokenGrant>());
+            expect((result! as McpOAuthTokenGrant).accessToken, 'fresh-access');
+          },
+        );
+      }
+    }
+  }
+}
+
+Stream<List<int>> _borrowedBody(bool split, bool reuse) async* {
+  final buffer = Uint8List.fromList(_validBody());
+  final boundary = split ? buffer.length - 1 : buffer.length;
+  yield Uint8List.sublistView(buffer, 0, boundary);
+  if (reuse) {
+    final offset = utf8.decode(buffer).indexOf('fresh-access');
+    buffer.setRange(offset, offset + 12, utf8.encode('wrong-access'));
+  }
+  if (split) {
+    yield Uint8List.sublistView(buffer, boundary);
   }
 }
 
