@@ -78,6 +78,10 @@ McpOAuthTokenGrant _grant() => McpOAuthTokenGrant.fromJson({
 }, now: DateTime.utc(2020));
 
 void main() {
+  _testSynchronousDeadlineCleanup();
+  _testSynchronousStageDeadlines();
+  _testUnexpectedOwnerErrors();
+  _testSetupDeadline();
   _testOpenedRequests();
   _testRetryIsolation();
   for (final kind in ['exchange', 'refresh', 'revoke']) {
@@ -204,6 +208,94 @@ void main() {
         );
       }
     }
+  }
+}
+
+void _testUnexpectedOwnerErrors() {
+  for (final kind in ['exchange', 'refresh', 'revoke']) {
+    for (final ownsClient in [false, true]) {
+      test(
+        'unexpected owner error $kind owned=$ownsClient aborts once',
+        () async {
+          final client = _DelayedClient();
+          final request = _OpenedRequest();
+          final failure = StateError('fixture-private-owner-error');
+          client.opened.complete(request);
+          final hooks = <HttpClientRequest>[];
+          await expectLater(
+            HttpOverrides.runZoned(
+              () => _operation(kind, ownsClient ? null : client, (opened) {
+                hooks.add(opened);
+                throw failure;
+              }),
+              createHttpClient: (_) => client,
+            ),
+            throwsA(
+              isA<McpOAuthTokenException>()
+                  .having(
+                    (error) => error.message,
+                    'sanitized message',
+                    'OAuth ${kind == 'revoke' ? 'revocation' : 'token'} endpoint request failed.',
+                  )
+                  .having(
+                    (error) => error.endpoint,
+                    'endpoint',
+                    client.requested.single,
+                  ),
+            ),
+          );
+          expect(hooks, [same(request)]);
+          expect(request.aborts, [same(failure)]);
+          expect(request.closeCalls, 0);
+          expect(request.headerReads, 0);
+          expect(request.bytes, isEmpty);
+          expect(client.closes, ownsClient ? [true] : isEmpty);
+        },
+      );
+    }
+  }
+}
+
+void _testSynchronousDeadlineCleanup() {
+  for (final kind in ['exchange', 'refresh', 'revoke']) {
+    test('synchronous deadline expiration aborts opened $kind request', () async {
+      final client = _DelayedClient();
+      final request = _OpenedRequest();
+      client.opened.complete(request);
+      var observedOpen = false;
+      await expectLater(
+        _operation(kind, client, (_) {
+          observedOpen = true;
+          // Expire the real DateTime deadline, not only FakeAsync's timer queue.
+          sleep(const Duration(milliseconds: 1100));
+        }),
+        throwsA(
+          isA<McpOAuthTokenException>().having(
+            (error) => error.message,
+            'message',
+            contains('timed out'),
+          ),
+        ),
+      );
+      expect(observedOpen, isTrue);
+      expect(
+        client.closes,
+        isEmpty,
+        reason: 'The shared client remains owned by its caller',
+      );
+      expect(
+        request.aborts,
+        hasLength(1),
+        reason: 'An expired opened request must be released',
+      );
+      expect(
+        request.closeCalls,
+        0,
+        reason: 'Expired setup must not send a request',
+      );
+      expect(request.headerReads, 0);
+      expect(request.bytes, isEmpty);
+    });
   }
 }
 
@@ -375,6 +467,151 @@ class _OpenedRequest extends _LateRequest {
   Future<HttpClientResponse> close() {
     closeCalls++;
     return response.future;
+  }
+}
+
+class _SlowSetupRequest extends _OpenedRequest {
+  @override
+  void add(List<int> data) {
+    super.add(data);
+    sleep(const Duration(milliseconds: 1100));
+  }
+}
+
+void _testSetupDeadline() {
+  for (final kind in ['exchange', 'refresh', 'revoke']) {
+    for (final ownsClient in [false, true]) {
+      test(
+        'synchronous setup deadline $kind owned=$ownsClient prevents close',
+        () async {
+          final client = _DelayedClient();
+          final request = _SlowSetupRequest();
+          client.opened.complete(request);
+          await expectLater(
+            HttpOverrides.runZoned(
+              () => _operation(kind, ownsClient ? null : client, (_) {}),
+              createHttpClient: (_) => client,
+            ),
+            throwsA(
+              isA<McpOAuthTokenException>().having(
+                (error) => error.message,
+                'message',
+                contains('timed out'),
+              ),
+            ),
+          );
+          expect(request.bytes, isNotEmpty);
+          expect(request.closeCalls, 0);
+          expect(request.aborts, hasLength(1));
+          expect(client.closes, ownsClient ? [true] : isEmpty);
+        },
+      );
+    }
+  }
+}
+
+class _SlowCloseRequest extends _OpenedRequest {
+  _SlowCloseRequest(this.fail);
+
+  final bool fail;
+
+  @override
+  Future<HttpClientResponse> close() {
+    closeCalls++;
+    sleep(const Duration(milliseconds: 1100));
+    return fail
+        ? Future<HttpClientResponse>.error(StateError('late close fixture'))
+        : Future<HttpClientResponse>.value(
+            _Response(Stream.value(_validBody())),
+          );
+  }
+}
+
+class _SlowListenResponse extends _Response {
+  _SlowListenResponse(bool fail)
+    : super(
+        fail
+            ? Stream<List<int>>.error(StateError('late body fixture'))
+            : Stream<List<int>>.value(_validBody()),
+      );
+
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int>)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    sleep(const Duration(milliseconds: 1100));
+    return super.listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
+}
+
+List<int> _validBody() => utf8.encode(
+  jsonEncode({
+    'access_token': 'fresh-access',
+    'token_type': 'Bearer',
+    'refresh_token': 'fresh-refresh',
+    'scope': 'read',
+  }),
+);
+
+void _testSynchronousStageDeadlines() {
+  for (final kind in ['exchange', 'refresh', 'revoke']) {
+    for (final stage in ['close', 'body']) {
+      for (final ownsClient in [false, true]) {
+        for (final failPending in [false, true]) {
+          test('synchronous stage deadline $kind $stage owned=$ownsClient '
+              'lateFailure=$failPending is observed and cleaned up', () async {
+            final client = _DelayedClient();
+            final request = stage == 'close'
+                ? _SlowCloseRequest(failPending)
+                : _OpenedRequest();
+            client.opened.complete(request);
+            if (stage == 'body') {
+              request.response.complete(_SlowListenResponse(failPending));
+            }
+            final successes = <Object?>[];
+            final errors = <Object>[];
+            final uncaught = <Object>[];
+            await runZonedGuarded(() async {
+              await HttpOverrides.runZoned(
+                () => _operation(kind, ownsClient ? null : client, (_) {}),
+                createHttpClient: (_) => client,
+              ).then<void>(
+                successes.add,
+                onError: (Object error) {
+                  errors.add(error);
+                },
+              );
+              await Future<void>.delayed(Duration.zero);
+            }, (error, _) => uncaught.add(error));
+            expect(successes, isEmpty);
+            expect(errors, hasLength(1));
+            expect(
+              errors.single,
+              isA<McpOAuthTokenException>().having(
+                (error) => error.message,
+                'message',
+                contains('timed out'),
+              ),
+            );
+            expect(request.aborts, hasLength(1));
+            expect(client.closes, ownsClient ? [true] : isEmpty);
+            expect(
+              uncaught,
+              isEmpty,
+              reason: 'An expired stage must still observe its pending future',
+            );
+          });
+        }
+      }
+    }
   }
 }
 

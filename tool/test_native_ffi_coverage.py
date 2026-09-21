@@ -8,10 +8,18 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from native_ffi_coverage import collect, coverage_environment, input_hashes, run_step, verify_inputs
+from native_ffi_coverage import collect, coverage_environment, input_hashes, run_step, suites, verify_inputs
 
 
 class NativeFfiCoverageTests(unittest.TestCase):
+    def test_metadata_projection_runs_once_with_the_instrumented_router(self):
+        selected = [suite for suite in suites()
+                    if suite[1] == "packages/connectanum_router"
+                    and "test/native/metadata_projection_test.dart" in suite[2]]
+        self.assertEqual(selected, [
+            ("router-metadata_projection", "packages/connectanum_router",
+             ["test/native/metadata_projection_test.dart"], {})])
+
     def test_environment_is_parsed_without_shell_evaluation(self):
         env = coverage_environment(
             "LLVM_PROFILE_FILE='/tmp/a b/%p-%m.profraw'\n"

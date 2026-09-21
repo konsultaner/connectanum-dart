@@ -6,6 +6,41 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work194 pushes the verified metadata fix as b0a9a9e0; PR93 remains draft.
+Exact-head CI/package and native35590095042/router35590096360/profile35590098675
+dry-runs remain queued. The strict hosted audit exits1 for pending evidence;
+GitHub jobs have ubuntu-latest labels but no assigned runners. No green hosted
+chain, merge, publication or version change is claimed.
+
+Fast194 passes with matching pre-edit inputs. Promote the OAuth abort-once and
+synchronous deadline fix with39 additional regressions: expired callback/setup,
+late close/body success/error, generic callback errors and client ownership.
+Original production fails39 assertions against the final84-case focused fixture.
+Six selected fault variants also fail assertions only (33/12/12/3/6/33), with
+passing original/restored baselines and unchanged test inventories. The final
+isolated MCP suite passes2430 tests; these controls are not a new full score.
+The native FFI collector now includes metadata_projection exactly once, with a
+failing-before/passing-after selection regression. Targeted analysis/format pass.
+Verify194 passes including Chrome/WASM. Supervisor3485 completes native194 FFI
+collection with metadata_projection included; all stages retain matching inputs.
+The native193 unit scope and native194 FFI scope are identical, including pinned
+Rust inputs. Their combined report measures ct_core8864/10064 (88.08%) and
+ct_ffi5204/5798 (89.76%); unmeasured sources remain listed. This increment is
+verified for commit. Fast195/session86647 is the next sole native owner before
+any further promotion.
+
+Discovery191 completes and independently audits348/366 (95.08%) assertion-backed
+detections,16 survivors,2 timeouts,87 compile errors excluded, no equivalents
+waived. The strict gate still fails on timeouts. OAuth192/session53855 remains
+live and unchanged. A separate isolated investigation reproduces6 OAuth body
+subscription leaks after timeout: SDK request.abort is a no-op after response
+completion. Its isolated cancellation candidate passes120 focused and2466 MCP
+tests, including whole-body deadline and slow/error cleanup checks. Four selected
+controls produce36/12/36/36 assertions,0 errors, with passing original/restored
+baselines. This is NOT canonical or in Verify194. A separate discovery candidate
+reproduces4 late unobserved close/body future assertions without changing its
+production source. Recovery: coverage184-probes/WORK195.md.
+
 Work193 pushes the verified Work192 increment as c40129e8. Verify192 and fresh
 native192 Dart-to-FFI collection both finish with exit0 and matching frozen
 inputs. Combining the matching native unit/FFI scopes measures ct_core8866/10064

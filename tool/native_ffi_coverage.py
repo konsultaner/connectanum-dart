@@ -110,7 +110,7 @@ def suites():
     for name in ("external_byte_buffer", "e2ee_provider", "resource_restart",
                  "native_transports", "runtime_file_segment"):
         result.append((f"client-{name}", client, [f"test/transport/native/{name}_test.dart"], {}))
-    for name in ("native_runtime", "message_lifetime"):
+    for name in ("native_runtime", "message_lifetime", "metadata_projection"):
         result.append((f"router-{name}", router, [f"test/native/{name}_test.dart"], {}))
     result.append(("router-integration", router, ["test/router_integration_native_test.dart",
                   "test/router_worker_session_test.dart", "--exclude-tags", "zero_copy_publish"], {}))

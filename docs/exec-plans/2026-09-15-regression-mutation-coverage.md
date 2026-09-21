@@ -67,6 +67,43 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work194 Synchronous OAuth Deadlines And Measured FFI Fixture
+
+- Push verified Work193 as b0a9a9e0. PR93 stays draft; exact-head CI/package,
+  native35590095042, router35590096360 and profile35590098675 dry-runs remain
+  queued. Strict hosted audit exits1 for pending evidence. No release or merge.
+- Fast194 passes with unchanged inputs before promotion. Add39 regressions for
+  real synchronous deadline expiry in callback/setup/close/body, late future
+  errors, generic callback exceptions and client ownership. The old source
+  fails39 assertions. Preserve sanitized generic errors and specific OAuth
+  exception identity, abort at most once and observe futures when deadline
+  calculation throws before timeout attaches. The84-case focused baseline and
+  restored baseline pass; six selected controls fail33/12/12/3/6/33 assertions
+  with0 runtime errors. Full isolated MCP suite passes2430 tests. No full
+  mutation-score claim follows from these selected diagnostics.
+- Include metadata_projection in native FFI coverage collection exactly once.
+  The selection test fails before and passes after; the tooling suite passes
+  with its opt-in real-instrumentation fixture skipped. Analysis/formatting and
+  Verify194 pass, including Chrome/WASM. Supervisor3485 completes real native194
+  FFI collection including the metadata fixture with matching input hashes.
+  Identical native193-unit/native194-FFI source scopes allow a combined report:
+  ct_core8864/10064 (88.08%), ct_ffi5204/5798 (89.76%). Unmeasured sources stay
+  explicit. Fast195/session86647 is the next sole native owner before promotion.
+- Discovery191 finishes453 mutants; independent audit retains348/366=95.08%
+  assertion-backed detections,16 survivors,2 timeouts,87 compile exclusions,
+  no equivalence waivers. Strict gate remains failed on timeouts. OAuth192 is
+  still live from its original snapshot. Do not duplicate its campaign.
+- SDK inspection disproves companion suggestions about callback-before-await,
+  Future.ignore error handling and shared retry state; source and regression
+  oracles cover those contracts. Separately, SDK abort after response completion
+  is a no-op. Six new isolated body-subscription cancellation assertions expose
+  this further leak. Its isolated candidate passes120 focused and2466 MCP tests,
+  including slow/error cleanup, oversized responses and whole-body deadlines.
+  Four selected controls yield36/12/36/36 assertions,0 errors, with passing
+  original/restored baselines. It is not promoted or included in Verify194.
+  A second isolated discovery fixture reproduces4 unobserved late close/body
+  future assertions against unchanged production; no discovery fix is claimed.
+
 ### Work193 Lossless Nullable Native Metadata
 
 - Push verified Work192 as c40129e8. Verify192, native192 FFI collection and all

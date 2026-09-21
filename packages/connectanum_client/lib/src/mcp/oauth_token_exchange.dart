@@ -949,6 +949,26 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
   final deadline = DateTime.now().add(timeout);
   HttpClientRequest? request;
   var operationCompleted = false;
+  var requestAborted = false;
+
+  void abortRequest([Object? error]) {
+    final opened = request;
+    if (opened == null || requestAborted) {
+      return;
+    }
+    requestAborted = true;
+    opened.abort(error);
+  }
+
+  Future<T> withinDeadline<T>(Future<T> pending) {
+    try {
+      return pending.timeout(_remaining(deadline, endpoint, endpointLabel));
+    } catch (_) {
+      // Expiry may throw before timeout attaches a handler to this future.
+      pending.ignore();
+      rethrow;
+    }
+  }
 
   try {
     final opening = client.postUrl(endpoint);
@@ -962,15 +982,14 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
         }
       }, onError: (Object error, StackTrace stackTrace) {}),
     );
-    request = await opening.timeout(
-      _remaining(deadline, endpoint, endpointLabel),
-    );
+    request = await withinDeadline<HttpClientRequest>(opening);
     try {
       onRequestOpened?.call(request);
     } catch (error) {
-      request.abort(error);
+      abortRequest(error);
       rethrow;
     }
+    _remaining(deadline, endpoint, endpointLabel);
     request.followRedirects = false;
     request.headers.contentType = ContentType(
       'application',
@@ -994,30 +1013,33 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
     request.contentLength = encodedForm.length;
     request.add(encodedForm);
 
-    final response = await request.close().timeout(
-      _remaining(deadline, endpoint, endpointLabel),
+    _remaining(deadline, endpoint, endpointLabel);
+    final response = await withinDeadline(request.close());
+    _remaining(deadline, endpoint, endpointLabel);
+    final body = await withinDeadline(
+      _readOAuthResponseBytes(
+        response,
+        maxResponseBytes: maxResponseBytes,
+        endpoint: endpoint,
+        endpointLabel: endpointLabel,
+      ),
     );
-    final body = await _readOAuthResponseBytes(
-      response,
-      maxResponseBytes: maxResponseBytes,
-      endpoint: endpoint,
-      endpointLabel: endpointLabel,
-    ).timeout(_remaining(deadline, endpoint, endpointLabel));
     return _OAuthEndpointResponse(
       statusCode: response.statusCode,
       mimeType: response.headers.contentType?.mimeType,
       body: body,
     );
   } on McpOAuthTokenException {
+    abortRequest();
     rethrow;
   } on TimeoutException {
-    request?.abort();
+    abortRequest();
     throw McpOAuthTokenException(
       '$endpointLabel request timed out.',
       endpoint: endpoint,
     );
   } on Object {
-    request?.abort();
+    abortRequest();
     throw McpOAuthTokenException(
       '$endpointLabel request failed.',
       endpoint: endpoint,
