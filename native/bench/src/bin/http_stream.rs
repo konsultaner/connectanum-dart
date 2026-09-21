@@ -3902,6 +3902,21 @@ async fn run_h2_multiplexed_worker(
             let request_body_clone = request_body.clone();
             let iteration = next_iteration;
             join_set.spawn(async move {
+                if workload_clone.auth_flow == Some(HttpAuthFlow::Protected) {
+                    let bearer = workload_clone.auth_bearer_token.as_deref().ok_or_else(|| {
+                        anyhow!("missing bearer token for protected auth workload")
+                    })?;
+                    return send_h2_protected_request(
+                        sender_clone,
+                        &endpoint_clone,
+                        &workload_clone,
+                        request_body_clone,
+                        bearer,
+                        worker_id,
+                        iteration,
+                    )
+                    .await;
+                }
                 send_h2_request(
                     sender_clone,
                     &endpoint_clone,
@@ -4063,6 +4078,21 @@ async fn run_h3_multiplexed_worker(
             let request_chunk_clone = request_chunk.clone();
             let iteration = next_iteration;
             join_set.spawn(async move {
+                if workload_clone.auth_flow == Some(HttpAuthFlow::Protected) {
+                    let bearer = workload_clone.auth_bearer_token.as_deref().ok_or_else(|| {
+                        anyhow!("missing bearer token for protected auth workload")
+                    })?;
+                    return send_h3_protected_request(
+                        sender_clone,
+                        &endpoint_clone,
+                        &workload_clone,
+                        request_chunk_clone,
+                        bearer,
+                        worker_id,
+                        iteration,
+                    )
+                    .await;
+                }
                 send_h3_request(
                     sender_clone,
                     &endpoint_clone,
@@ -4194,6 +4224,25 @@ async fn run_h2_auth_worker(
         HttpAuthFlow::Login => None,
     };
 
+    // Authenticate once before admitting independent protected streams. Refresh
+    // operations below stay ordered because each consumes the preceding token.
+    if flow == HttpAuthFlow::Protected
+        && workload.reuse_connections
+        && workload.streams_per_connection > 1
+    {
+        let mut workload = workload;
+        workload.auth_bearer_token = auth_session.take().map(|session| session.access_token);
+        return run_h2_multiplexed_worker(
+            sender,
+            endpoint,
+            workload,
+            request_body,
+            worker_id,
+            connections_opened,
+        )
+        .await;
+    }
+
     for iteration in 0..workload.iterations {
         if iteration > 0 && !workload.reuse_connections {
             sender = connect_h2_sender(&endpoint).await?;
@@ -4271,6 +4320,24 @@ async fn run_h3_auth_worker(
         }
         HttpAuthFlow::Login => None,
     };
+
+    if flow == HttpAuthFlow::Protected
+        && workload.reuse_connections
+        && workload.streams_per_connection > 1
+    {
+        let mut workload = workload;
+        workload.auth_bearer_token = auth_session.take().map(|session| session.access_token);
+        return run_h3_multiplexed_worker(
+            quinn_endpoint,
+            send_request,
+            endpoint,
+            workload,
+            request_chunk,
+            worker_id,
+            connections_opened,
+        )
+        .await;
+    }
 
     for iteration in 0..workload.iterations {
         if iteration > 0 && !workload.reuse_connections {

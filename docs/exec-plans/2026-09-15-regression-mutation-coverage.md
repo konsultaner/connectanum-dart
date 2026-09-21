@@ -67,6 +67,30 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work215 Protected HTTP Stream Concurrency
+
+- Reproduce protected HTTP/2 and HTTP/3 serialization with explicit concurrency
+  assertions, retaining serial controls. Authenticate once before delegating
+  independent protected requests to the existing bounded multiplex workers.
+  Keep fresh connections and dependent login/refresh exchanges ordered; no retry.
+- All 40 wire-level authentication tests pass, including derived/supplied bearer
+  tokens, concurrent owners, exact rejection admission windows, actual/bounded
+  concurrency, connection identity and independent sample/byte accounting.
+  Fast215 and full bin/verify pass, including Chrome JavaScript/WASM; frozen
+  inputs match. Fresh native benchmark coverage is 7013/7874 (89.07%).
+- Eight selected faults fail explicit assertions with passing clean/restored
+  baselines and matching scopes. Final controls-v3 use an isolated Cargo target,
+  require fresh compilation and pin source/executable hashes. Preserve earlier
+  shared-cache stale-binary and provisional runs without counting them as kills.
+  These controls do not establish full-component mutation coverage. Evidence:
+  native215-evidence and native215-bench-current in the dated coverage directory.
+- Re-audit 33 completed hosted mutation targets from run35650335790: all have
+  passing assertion gates and matching recorded target inputs. Preserve separate
+  reclassified reports under hosted215-run35650335790/input-audits. Input matches
+  do not cover unrecorded workspace files or missing runtimes. Latest-head hosted
+  checks remain pending. Next land the proven auth selection survivor regression
+  and run a fresh complete auth campaign; whole-goal acceptance remains unmet.
+
 ### Work214 HTTP Authentication Connection Policy
 
 - Add34 wire-level regressions covering HTTP/1, HTTP/2 and HTTP/3 login,

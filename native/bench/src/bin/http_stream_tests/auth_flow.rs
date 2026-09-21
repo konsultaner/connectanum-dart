@@ -21,6 +21,8 @@ struct Step {
     request: Observed,
     status: u16,
     body: Vec<u8>,
+    delay: Duration,
+    barrier: Option<Arc<tokio::sync::Barrier>>,
 }
 
 impl Step {
@@ -35,6 +37,8 @@ impl Step {
             },
             status,
             body: serde_json::to_vec(&response).unwrap(),
+            delay: Duration::ZERO,
+            barrier: None,
         }
     }
 }
@@ -45,6 +49,25 @@ struct Peer {
     connections: Arc<AtomicUsize>,
     stop: Option<oneshot::Sender<()>>,
     server: Option<tokio::task::JoinHandle<()>>,
+    responses: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    current: Arc<AtomicUsize>,
+    maximum: Arc<AtomicUsize>,
+}
+
+struct ActiveResponse(Arc<AtomicUsize>);
+
+impl ActiveResponse {
+    fn new(current: Arc<AtomicUsize>, maximum: &AtomicUsize) -> Self {
+        let count = current.fetch_add(1, Ordering::SeqCst) + 1;
+        maximum.fetch_max(count, Ordering::SeqCst);
+        Self(current)
+    }
+}
+
+impl Drop for ActiveResponse {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
 }
 
 impl Peer {
@@ -62,6 +85,12 @@ impl Peer {
         let accepted = Arc::clone(&connections);
         let steps = Arc::new(steps);
         let (stop, mut stopping) = oneshot::channel();
+        let responses = Arc::new(Mutex::new(Vec::new()));
+        let response_tasks = responses.clone();
+        let current = Arc::new(AtomicUsize::new(0));
+        let active = current.clone();
+        let maximum = Arc::new(AtomicUsize::new(0));
+        let max_active = maximum.clone();
         let server = tokio::spawn(async move {
             let mut workers = JoinSet::new();
             loop {
@@ -76,11 +105,20 @@ impl Peer {
                         assert!(connection_id < 16);
                         let recorded = recorded.clone();
                         let steps = steps.clone();
+                        let responses = response_tasks.clone();
+                        let current = active.clone();
+                        let maximum = max_active.clone();
                         workers.spawn(async move {
                             if h2 {
                                 let mut connection = h2::server::handshake(socket).await.unwrap();
                                 while let Some(request) = connection.accept().await {
                                     let (request, mut response) = request.unwrap();
+                                    let recorded = recorded.clone();
+                                    let steps = steps.clone();
+                                    let current = current.clone();
+                                    let maximum = maximum.clone();
+                                    responses.lock().unwrap().push(tokio::spawn(async move {
+                                    let _active = ActiveResponse::new(current, &maximum);
                                     let (parts, mut body) = request.into_parts();
                                     let mut bytes = Vec::new();
                                     while let Some(chunk) = body.data().await {
@@ -102,6 +140,10 @@ impl Peer {
                                         recorded.push(observed);
                                         steps.get(index).cloned().expect("unexpected extra request")
                                     };
+                                    if let Some(barrier) = step.barrier {
+                                        barrier.wait().await;
+                                    }
+                                    tokio::time::sleep(step.delay).await;
                                     let mut stream = response.send_response(
                                         http3::Response::builder().status(step.status).body(()).unwrap(),
                                         step.body.is_empty(),
@@ -109,6 +151,7 @@ impl Peer {
                                     if !step.body.is_empty() {
                                         stream.send_data(Bytes::from(step.body), true).unwrap();
                                     }
+                                    }));
                                 }
                                 return;
                             }
@@ -157,6 +200,9 @@ impl Peer {
             connections,
             stop: Some(stop),
             server: Some(server),
+            responses,
+            current,
+            maximum,
         }
     }
 
@@ -167,6 +213,16 @@ impl Peer {
             .expect("fixture shutdown timeout")
             .expect("fixture server failed");
         self.server.take();
+        let responses = std::mem::take(&mut *self.responses.lock().unwrap());
+        for response in &responses {
+            response.abort();
+        }
+        for response in responses {
+            if let Err(error) = response.await {
+                assert!(error.is_cancelled(), "fixture response failed: {error}");
+            }
+        }
+        assert_eq!(self.current.load(Ordering::SeqCst), 0);
         let requests = self.requests.lock().unwrap().clone();
         (self.connections.load(Ordering::SeqCst), requests)
     }
@@ -176,6 +232,9 @@ impl Drop for Peer {
     fn drop(&mut self) {
         if let Some(server) = &self.server {
             server.abort();
+        }
+        for response in self.responses.lock().unwrap().iter() {
+            response.abort();
         }
     }
 }
@@ -240,6 +299,8 @@ fn script(flow: &str) -> (Vec<Step>, Vec<(u64, u64)>) {
                     },
                     status: 200,
                     body: b"payload".to_vec(),
+                    delay: Duration::ZERO,
+                    barrier: None,
                 });
                 sizes.push((5, 7));
             }
@@ -312,9 +373,14 @@ async fn run_worker(
 }
 
 async fn exercise(flow: &str, protocol: &str, reuse: bool) {
+    exercise_with_limit(flow, protocol, reuse, 1).await;
+}
+
+async fn exercise_with_limit(flow: &str, protocol: &str, reuse: bool, limit: u32) {
     let (mut steps, sizes) = script(flow);
     assign_connections(&mut steps, flow, reuse);
-    let workload = workload(flow, protocol, reuse);
+    let mut workload = workload(flow, protocol, reuse);
+    workload.streams_per_connection = limit;
     let peer = if protocol == "h3" {
         h3_peer::spawn(steps.clone()).await
     } else {
@@ -354,6 +420,168 @@ macro_rules! auth_case {
             exercise($flow, $protocol, $reuse).await;
         }
     };
+}
+
+async fn protected_streams(protocol: &str, flow: &str, token: &str, reject: bool) {
+    for reuse in [true, false] {
+        for limit in [1, 3] {
+            // Public configuration rejects fresh connections with multiplexing.
+            if !reuse && limit > 1 {
+                continue;
+            }
+            for iterations in [1, 5] {
+                let (mut steps, _) = script(flow);
+                let mut protected = steps.pop().unwrap();
+                protected.request.bearer = Some(format!("Bearer {token}"));
+                protected.request.path = format!("/protected/{token}");
+                protected.delay = Duration::from_millis(50);
+                let auth_requests = if flow == "protected" { 2 } else { 0 };
+                steps.truncate(auth_requests);
+                if auth_requests != 0 {
+                    steps[1].body = serde_json::to_vec(&json!({
+                        "access_token": token, "refresh_token": "fixture-refresh"
+                    }))
+                    .unwrap();
+                }
+                let bound = if reuse {
+                    limit.min(iterations as u32)
+                } else {
+                    1
+                };
+                let barrier = Arc::new(tokio::sync::Barrier::new(bound as usize));
+                for iteration in 0..iterations + usize::from(reject) {
+                    let mut step = protected.clone();
+                    step.request.connection = if reuse { 0 } else { iteration };
+                    if reject {
+                        step.status = 403;
+                        // Let one rejection finish while other admitted streams
+                        // remain pending, so cancellation cannot hide retries.
+                        step.barrier = (iteration < bound as usize).then(|| barrier.clone());
+                        step.delay = if iteration > 0 && iteration < bound as usize {
+                            Duration::from_secs(10)
+                        } else {
+                            Duration::ZERO
+                        };
+                    }
+                    steps.push(step);
+                }
+                let mut workload = workload(flow, protocol, reuse);
+                workload.path = protected.request.path.clone();
+                workload.iterations = iterations as u32;
+                workload.streams_per_connection = limit;
+                if flow == "preset" {
+                    workload.auth_bearer_token = Some(token.into());
+                }
+                let peer = if protocol == "h3" {
+                    h3_peer::spawn(steps.clone()).await
+                } else {
+                    Peer::new(true, steps.clone()).await
+                };
+                let maximum = peer.maximum.clone();
+                let result = run_worker(protocol, peer.endpoint.clone(), workload).await;
+                let (connections, requests) = peer.finish().await;
+                if reject {
+                    let error = result.err().expect("rejection must fail workload");
+                    assert!(format!("{error:#}").contains("403"), "{error:#}");
+                    assert_eq!(connections, 1, "no reconnect after rejection");
+                    let admitted = requests.len() - auth_requests;
+                    let bound = if reuse {
+                        limit.min(iterations as u32)
+                    } else {
+                        1
+                    };
+                    assert_eq!(admitted, bound as usize, "unexpected replay");
+                    assert_eq!(
+                        requests,
+                        steps
+                            .iter()
+                            .take(requests.len())
+                            .map(|step| step.request.clone())
+                            .collect::<Vec<_>>()
+                    );
+                    continue;
+                }
+                let mut result = result.unwrap();
+                assert_eq!(
+                    requests,
+                    steps
+                        .into_iter()
+                        .map(|step| step.request)
+                        .collect::<Vec<_>>()
+                );
+                assert_eq!(connections, if reuse { 1 } else { iterations });
+                assert_eq!(result.connections_opened, connections as u32);
+                result.samples.sort_by_key(|sample| sample.iteration);
+                assert_eq!(result.samples.len(), iterations);
+                for (iteration, sample) in result.samples.iter().enumerate() {
+                    assert_eq!((sample.worker, sample.iteration), (17, iteration as u32));
+                    assert_eq!((sample.request_bytes, sample.response_bytes), (5, 7));
+                    assert!(sample.latency_ms.is_finite() && sample.latency_ms >= 0.0);
+                }
+                let maximum = maximum.load(Ordering::SeqCst);
+                let bound = if reuse {
+                    limit.min(iterations as u32)
+                } else {
+                    1
+                };
+                assert_eq!(
+                    maximum <= bound as usize,
+                    true,
+                    "exceeded stream limit: {maximum}/{bound}"
+                );
+                if bound == 1 {
+                    assert_eq!(maximum, 1);
+                } else {
+                    assert_eq!(
+                        maximum > 1,
+                        true,
+                        "protected workload serialized {protocol} streams"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn h2_protected_stream_matrix() {
+    protected_streams("h2", "protected", "login-h2", false).await;
+}
+
+#[tokio::test]
+async fn multiplex_setting_preserves_ordered_auth_exchanges() {
+    for protocol in ["h2", "h3"] {
+        for flow in ["login", "refresh"] {
+            exercise_with_limit(flow, protocol, true, 3).await;
+        }
+    }
+}
+
+#[tokio::test]
+async fn h3_protected_stream_matrix() {
+    protected_streams("h3", "protected", "login-h3", false).await;
+}
+
+#[tokio::test]
+async fn concurrent_protected_bearers_do_not_mix() {
+    tokio::join!(
+        protected_streams("h2", "preset", "h2-first", false),
+        protected_streams("h2", "preset", "h2-second", false),
+        protected_streams("h3", "preset", "h3-first", false),
+        protected_streams("h3", "preset", "h3-second", false),
+    );
+}
+
+#[tokio::test]
+async fn h2_protected_stream_rejection_has_no_replay() {
+    protected_streams("h2", "protected", "h2-reject", true).await;
+    protected_streams("h2", "preset", "h2-preset-reject", true).await;
+}
+
+#[tokio::test]
+async fn h3_protected_stream_rejection_has_no_replay() {
+    protected_streams("h3", "protected", "h3-reject", true).await;
+    protected_streams("h3", "preset", "h3-preset-reject", true).await;
 }
 
 auth_case!(h1_login_reuse, "login", "h1", true);

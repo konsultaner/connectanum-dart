@@ -28,6 +28,12 @@ pub(super) async fn spawn(steps: Vec<Step>) -> Peer {
     let accepted = Arc::clone(&connections);
     let steps = Arc::new(steps);
     let (stop, mut stopping) = oneshot::channel();
+    let responses = Arc::new(Mutex::new(Vec::new()));
+    let response_tasks = responses.clone();
+    let current = Arc::new(AtomicUsize::new(0));
+    let active = current.clone();
+    let maximum = Arc::new(AtomicUsize::new(0));
+    let max_active = maximum.clone();
     let server = tokio::spawn(async move {
         let mut workers = JoinSet::new();
         loop {
@@ -42,6 +48,9 @@ pub(super) async fn spawn(steps: Vec<Step>) -> Peer {
                     assert!(id < 16);
                     let recorded = recorded.clone();
                     let steps = steps.clone();
+                    let responses = response_tasks.clone();
+                    let current = active.clone();
+                    let maximum = max_active.clone();
                     workers.spawn(async move {
                         let connection = incoming.await.unwrap();
                         let mut server = h3::server::builder()
@@ -59,7 +68,13 @@ pub(super) async fn spawn(steps: Vec<Step>) -> Peer {
                                     break;
                                 }
                             };
+                            let recorded = recorded.clone();
+                            let steps = steps.clone();
+                            let current = current.clone();
+                            let maximum = maximum.clone();
+                            responses.lock().unwrap().push(tokio::spawn(async move {
                             let (request, mut stream) = resolver.resolve_request().await.unwrap();
+                            let _active = ActiveResponse::new(current, &maximum);
                             let mut bytes = Vec::new();
                             while let Some(mut chunk) = stream.recv_data().await.unwrap() {
                                 bytes.extend_from_slice(&chunk.copy_to_bytes(chunk.remaining()));
@@ -78,12 +93,17 @@ pub(super) async fn spawn(steps: Vec<Step>) -> Peer {
                                 recorded.push(observed);
                                 steps.get(index).cloned().expect("unexpected extra request")
                             };
+                            if let Some(barrier) = step.barrier {
+                                barrier.wait().await;
+                            }
+                            tokio::time::sleep(step.delay).await;
                             stream.send_response(http3::Response::builder()
                                 .status(step.status).body(()).unwrap()).await.unwrap();
                             if !step.body.is_empty() {
                                 stream.send_data(Bytes::from(step.body)).await.unwrap();
                             }
                             stream.finish().await.unwrap();
+                            }));
                         }
                     });
                 }
@@ -103,5 +123,8 @@ pub(super) async fn spawn(steps: Vec<Step>) -> Peer {
         connections,
         stop: Some(stop),
         server: Some(server),
+        responses,
+        current,
+        maximum,
     }
 }

@@ -6,6 +6,32 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work215 is locally verified after Fast215, all 40 HTTP authentication regressions,
+fresh native LLVM coverage and full bin/verify, including Chrome JavaScript/WASM.
+Frozen source/test/config hashes match after collection and verification.
+Reproduce unintended serialization of protected HTTP/2 and HTTP/3 requests,
+then authenticate once and use the existing bounded multiplex workers. Preserve
+serial/fresh-connection behavior, ordered login/refresh and rejection without
+replay. Wire tests verify bearer isolation, exact admission windows, actual
+concurrency, connection counts, sample identities and byte accounting.
+
+Eight selected faults fail explicit assertions with passing clean/restored
+baselines and matched source scopes. These are not a full mutation campaign.
+Retain earlier shared-Cargo-cache and provisional control runs as invalid or
+incomplete evidence; final controls use an isolated target and require fresh
+compilation with source/executable hashes. Native benchmark coverage is now
+7013/7874 (89.07%), with no new scope exclusions. Evidence: native215-evidence
+and native215-bench-current under out/regression-coverage-2026-09-15.
+
+Independently audit 33 completed hosted mutation targets from run35650335790:
+all pass their assertion-backed gates and all recorded target inputs match.
+This is scoped evidence, not full-workspace or whole-component mutation proof;
+missing inventories/runtimes remain open. Retain reports under
+hosted215-run35650335790/input-audits. Current-head hosted checks remain pending.
+Next promote the isolated regression detecting an auth method-selection survivor
+and complete a fresh campaign, then continue the larger router/native gaps.
+The complete 98%/95% milestone remains open. No merge/publication/version change.
+
 Work214 is locally verified after Fast214, all34 HTTP authentication regressions,
 fresh native LLVM coverage and full bin/verify, including Chrome JavaScript/WASM.
 Frozen source/test/config hashes match after collection and verification.
