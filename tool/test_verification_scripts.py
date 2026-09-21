@@ -59,6 +59,14 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_consumer_boundary_regressions_run_in_both_gates(self):
+        command = 'python3 tool/test_mcp_consumer_package_boundary.py'
+        for path in (TEST_FAST, TEST_ALL):
+            with self.subTest(script=path.name):
+                script = path.read_text()
+                self.assertEqual(script.splitlines().count(command), 1)
+                self.assertLess(script.index(command), script.index('\nrun_mcp_client_package_smoke'))
+
     @unittest.skipIf(os.name == "nt", "The native collector launcher is a POSIX shell script")
     @unittest.skipUnless(shutil.which('cargo'), "The lockfile fixture requires Cargo")
     def test_native_mutation_launcher_pins_lock_before_snapshot(self):

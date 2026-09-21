@@ -38,6 +38,9 @@ import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
 part 'support/http_edge_cases.dart';
+part 'support/http_initial_auth_cases.dart';
+part 'support/http_auth_abort_cases.dart';
+part 'support/http_auth_provider_failure_cases.dart';
 
 const _certificatePem =
     '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
@@ -3027,10 +3030,34 @@ void _httpRoundAuthenticationTests() {
       final auth = _RoundAuthenticator()..authenticate = () => result.future;
       final fixture = await _HttpRoundFixture.start([auth]);
       final first = _expectRoundChallenge(await fixture.hello(), 1);
+      final requests = <Future<NativeHttpResponse>>[];
+      void observe(Future<NativeHttpResponse> request) {
+        requests.add(request);
+        unawaited(
+          request.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+        );
+      }
+
+      addTearDown(() async {
+        if (!result.isCompleted) result.complete(_RoundAuthenticator.success());
+        await Future.wait(requests);
+      });
       final pending = fixture.reply(first);
+      observe(pending);
       await _waitUntil(() => auth.messages.length == 1);
-      _expectRoundError(await fixture.reply(first), 'invalid_state');
+      final replayConnection = fixture.nextConnection;
+      final replay = fixture.reply(first);
+      observe(replay);
+      // A second provider invocation is already a replay violation; do not
+      // deadlock awaiting its deliberately held authentication result.
+      await _waitUntil(
+        () =>
+            auth.messages.length > 1 ||
+            (fixture.runtime.httpResponses[replayConnection]?.isNotEmpty ??
+                false),
+      );
       expect(auth.messages, hasLength(1));
+      _expectRoundError(await replay, 'invalid_state');
       result.complete(_RoundAuthenticator.challenge(2));
       final second = _expectRoundChallenge(await pending, 2);
       expect(second, isNot(first));
@@ -3885,6 +3912,9 @@ void main() {
   _httpEdgeCases();
   _fileResponseCleanupTests();
   _httpRoundAuthenticationTests();
+  _httpInitialAuthenticationTests();
+  _httpAuthAbortTests();
+  _httpAuthProviderFailureTests();
   group('Router start', () {
     test('binds endpoints to runtime and applies config', () {
       final runtime = _FakeRuntime();

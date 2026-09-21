@@ -67,6 +67,40 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work205+206 HTTP Authentication And Consumer Smoke
+
+- Add41 initial/continuation HTTP-auth regressions covering provider exceptions,
+  rejection cleanup, state replay, route/profile mismatches, expiry, lockout and
+  asynchronous capacity races. Original provider exception tests fail eight
+  explicit missing-response assertions. Abort failures previously suppressed
+  responses/accounting or escaped background expiry cleanup. Contain cleanup
+  errors, preserve at-most-once abort, and map provider exceptions to a generic
+  unauthorized failure without retaining their details in public diagnostics.
+- All379 router runtime tests and strict changed-scope analysis pass. Eleven
+  selected fault controls fail assertions only, with matching input hashes and
+  passing clean/restored67-test baselines. This is not a whole-component mutation
+  score. Preserve the first incomplete control run: a malformed injected const
+  expression fails compilation and is not credited as a kill.
+- Verify205 fails on the real consumer smoke's uninitialized callback status.
+  Authorization intentionally need not wait for the external launcher. Await
+  separate HTTP-response completion and close the browser client in all paths.
+  Seven controlled scenarios cover response ordering, early/late failures,
+  response draining, wrong status and pre-launch failure. All24 boundary tests
+  pass. Two gate-wiring regressions fail before adding this suite to fast/all.
+- Fast206, fresh VM/packaging collection and full bin/verify206 pass, including
+  Chrome/WASM and real standalone consumer smoke. Frozen inputs match after
+  collection and verification. VM206 measures39639/42840 (92.53%), including
+  router17434/19434 (89.71%) and binding3276/3704 (88.44%). Packaging remains
+  765/787 (97.20%). Strict98 checks fail;59 library and12 packaging sources remain
+  unmeasured. Do not hide14 lost hit lines in unchanged socket/worker sources by
+  selecting205's higher sample; add deterministic path regressions next.
+- Raw logs, controls, manifests and summaries are in router206-evidence,
+  vm206-current and coverage184-probes/router-auth-controls206b under
+  out/regression-coverage-2026-09-15. OAuth199 is still live and uses its original
+  frozen tests. Hosted checks are queued, not verified green. Broader native
+  collection and deterministic chunk-boundary tests are the next work; the full
+  coverage/mutation milestone remains open.
+
 ### Work204 Flutter Mutation Evidence And Scope Survivors
 
 - Two permanent computed-list OAuth regressions detect the three investigated

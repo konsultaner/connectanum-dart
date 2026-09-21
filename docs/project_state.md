@@ -6,6 +6,34 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work205+206 is locally verified: Fast206, all379 router runtime tests and full
+bin/verify pass, including Chrome/WASM and standalone consumer smoke tests.
+Frozen inputs match after collection and verification. Add41 HTTP-authentication
+regressions and contain provider/abort exceptions so rejection responses,
+lockout accounting and once-only cleanup survive failures without disclosing
+provider errors. Eleven selected faults fail explicit assertions, with clean
+and restored67-test baselines; these are not a full mutation score.
+Verify205 exposed a consumer-smoke race: authorization can return before the
+external browser callback finishes. Await its separate response completion and
+always close the HTTP client. Seven deterministic scenarios and the complete24
+boundary tests pass; wire that suite into both canonical test gates.
+
+Fresh VM206 coverage is39639/42840 (92.53%): auth100%, bench99.36%, MCP96.13%,
+core94.34%, client93.39%, router89.71%. Packaging remains765/787 (97.20%). Both
+strict98 checks fail, with59 library and12 packaging sources unmeasured.
+Unchanged socket/worker sources lose14 covered lines relative to205 because
+their path coverage depends on chunk/startup timing; retain the latest lower
+measurement, not the historical maximum. Evidence: vm206-current,
+router206-evidence and coverage184-probes/router-auth-controls206b under
+out/regression-coverage-2026-09-15. Preserve failed205 verification and the
+incomplete first206 fault run (an invalid injected const expression earns no
+kill credit). OAuth199 remains live; no final score is attributed to later tests.
+Next instrument omitted live Rust/FFI integration suites and make fragmented
+socket coverage deterministic. Current pushed-head hosted checks remain queued;
+this is local verification, not a green deployment-chain or milestone claim.
+Recovery: coverage184-probes/WORK206.md and WORK207.md. No merge, publication,
+version or branch-protection change.
+
 Work204 is locally verified after Fast204, the complete application gate and
 root bin/verify, including Chrome/WASM, with matching frozen input hashes.
 Two new persisted

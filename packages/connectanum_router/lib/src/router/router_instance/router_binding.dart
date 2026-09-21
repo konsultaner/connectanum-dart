@@ -1771,7 +1771,7 @@ class RouterBinding {
       ..._pendingHttpAuthTransactions.values,
       ..._activeHttpAuthTransactions,
     }) {
-      unawaited(_abortHttpAuthForDisposal(pending));
+      unawaited(_abortHttpAuthTransaction(pending, reason: 'binding_dispose'));
     }
     _pendingHttpAuthTransactions.clear();
     _activeHttpAuthTransactions.clear();
@@ -4315,7 +4315,7 @@ class RouterBinding {
       action: () => authenticator.onHello(context),
     );
     if (result == null || _disposed) {
-      await _abortHttpAuthForDisposal(transaction);
+      await _abortHttpAuthTransaction(transaction, reason: 'binding_dispose');
       await _sendDisposedHttpResponse(request, handshake);
       return;
     }
@@ -4326,8 +4326,8 @@ class RouterBinding {
         now: DateTime.now().toUtc(),
       );
       if (grantCapacityDecision != null) {
-        await authenticator.onAbort(
-          context,
+        await _abortHttpAuthTransaction(
+          transaction,
           reason: 'http_auth_grant_capacity_exhausted',
         );
         await _sendHttpAuthGrantCapacityResponse(
@@ -4349,8 +4349,8 @@ class RouterBinding {
           now: now,
         );
         if (capacityDecision != null) {
-          await authenticator.onAbort(
-            context,
+          await _abortHttpAuthTransaction(
+            transaction,
             reason: 'http_auth_capacity_exhausted',
           );
           await _sendHttpAuthCapacityResponse(
@@ -4418,7 +4418,10 @@ class RouterBinding {
           ),
         );
       case AuthStatus.failure:
-        await authenticator.onAbort(context, reason: result.failure!.reason);
+        await _abortHttpAuthTransaction(
+          transaction,
+          reason: result.failure!.reason,
+        );
         _recordHttpAuthFailure(
           realmUri: realmUri,
           authMethod: authMethod,
@@ -4724,18 +4727,21 @@ class RouterBinding {
     ),
   );
 
-  Future<void> _abortHttpAuthForDisposal(
-    _PendingHttpAuthTransaction transaction,
-  ) async {
+  Future<void> _abortHttpAuthTransaction(
+    _PendingHttpAuthTransaction transaction, {
+    required String reason,
+  }) async {
     try {
-      await transaction.abort(reason: 'binding_dispose');
+      await transaction.abort(reason: reason);
     } catch (_) {
-      // Cleanup is best effort; plugin errors must not escape shutdown or leak
-      // authenticator-provided details into diagnostics.
+      // Cleanup must not suppress rejection responses or lockout accounting.
+      // Neither plugin errors nor provider-supplied reasons belong in logs.
       onEvent?.call({
         'source': 'binding',
         'type': 'http_auth_abort_failed',
-        'reason': 'binding_dispose',
+        'reason': reason == 'binding_dispose'
+            ? 'binding_dispose'
+            : 'authentication_abort',
       });
     }
   }
@@ -4750,7 +4756,14 @@ class RouterBinding {
       try {
         result = await action();
       } catch (_) {
-        if (!_disposed) rethrow;
+        if (!_disposed) {
+          result = AuthResult.failure(
+            const AuthFailure(
+              reason: wamp_core.Error.notAuthorized,
+              message: 'Authentication provider failed',
+            ),
+          );
+        }
       } finally {
         _activeHttpAuthTransactions.remove(transaction);
       }
@@ -4804,7 +4817,7 @@ class RouterBinding {
       return;
     }
     if (pending.expiresAt.isBefore(DateTime.now().toUtc())) {
-      await pending.abort(reason: 'http_auth_timeout');
+      await _abortHttpAuthTransaction(pending, reason: 'http_auth_timeout');
       _recordHttpAuthFailure(
         realmUri: pending.realmUri,
         authMethod: pending.authMethod,
@@ -4828,7 +4841,7 @@ class RouterBinding {
       return;
     }
     if (pending.sessionProfileName != sessionProfile?.name) {
-      await pending.abort(reason: 'wrong_session_profile');
+      await _abortHttpAuthTransaction(pending, reason: 'wrong_session_profile');
       await _sendWrongHttpSessionProfileResponse(
         request: request,
         handshake: handshake,
@@ -4839,7 +4852,7 @@ class RouterBinding {
       listenerId: request.listenerId,
       route: route,
     )) {
-      await pending.abort(reason: 'wrong_auth_route');
+      await _abortHttpAuthTransaction(pending, reason: 'wrong_auth_route');
       await _sendWrongHttpAuthRouteResponse(
         request: request,
         handshake: handshake,
@@ -4855,7 +4868,10 @@ class RouterBinding {
         pending.context.realm.limits,
       );
       if (remaining != null) {
-        await pending.abort(reason: 'http_auth_locked_out');
+        await _abortHttpAuthTransaction(
+          pending,
+          reason: 'http_auth_locked_out',
+        );
         AuthAuditLogger.failure(
           realmUri: pending.realmUri,
           method: pending.authMethod,
@@ -4874,7 +4890,7 @@ class RouterBinding {
     }
 
     if (signature == null || signature.isEmpty) {
-      await pending.abort(reason: 'missing_signature');
+      await _abortHttpAuthTransaction(pending, reason: 'missing_signature');
       await _sendImmediateHttpResponse(
         request: request,
         handshake: handshake,
@@ -4904,7 +4920,7 @@ class RouterBinding {
           pending.authenticator.onAuthenticate(pending.context, message),
     );
     if (result == null || _disposed) {
-      await _abortHttpAuthForDisposal(pending);
+      await _abortHttpAuthTransaction(pending, reason: 'binding_dispose');
       await _sendDisposedHttpResponse(request, handshake);
       return;
     }
@@ -4918,7 +4934,10 @@ class RouterBinding {
           now: now,
         );
         if (capacityDecision != null) {
-          await pending.abort(reason: 'http_auth_capacity_exhausted');
+          await _abortHttpAuthTransaction(
+            pending,
+            reason: 'http_auth_capacity_exhausted',
+          );
           await _sendHttpAuthCapacityResponse(
             request: request,
             handshake: handshake,
@@ -4974,7 +4993,10 @@ class RouterBinding {
           now: DateTime.now().toUtc(),
         );
         if (grantCapacityDecision != null) {
-          await pending.abort(reason: 'http_auth_grant_capacity_exhausted');
+          await _abortHttpAuthTransaction(
+            pending,
+            reason: 'http_auth_grant_capacity_exhausted',
+          );
           await _sendHttpAuthGrantCapacityResponse(
             request: request,
             handshake: handshake,
@@ -5013,7 +5035,7 @@ class RouterBinding {
           ),
         );
       case AuthStatus.failure:
-        await pending.abort(reason: 'authenticate_failed');
+        await _abortHttpAuthTransaction(pending, reason: 'authenticate_failed');
         _recordHttpAuthFailure(
           realmUri: pending.realmUri,
           authMethod: pending.authMethod,
@@ -6474,7 +6496,9 @@ class RouterBinding {
           limits: pending.context.realm.limits,
           message: 'challenge timeout',
         );
-        unawaited(pending.abort(reason: 'http_auth_timeout'));
+        unawaited(
+          _abortHttpAuthTransaction(pending, reason: 'http_auth_timeout'),
+        );
       }
     }
     final expiredTokens = _httpAuthTokens.entries
