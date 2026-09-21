@@ -67,6 +67,54 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work193 Lossless Nullable Native Metadata
+
+- Push verified Work192 as c40129e8. Verify192, native192 FFI collection and all
+  frozen input checks pass. Matching source scopes (only trailing JSON newline
+  differs) and newline-safe LCOV union yield ct_core8866/10064 (88.10%) and
+  ct_ffi5078/5798 (87.58%),91 additional FFI lines over Native151 combined.
+  Unmeasured sources remain listed. Exact-head hosted chains stay queued and
+  the strict audit exits1 for pending evidence; no green hosted claim.
+- Fast193 passes with unchanged inputs. Real FFI tests produce42 assertion
+  failures:39 explicit false values become null across13 nullable fields and
+  three serializers, plus3 incorrect direct-binding flags.87 controls pass.
+  Preserve the earlier wrong-library run as129 infrastructure errors, not
+  assertion evidence. Native parser/projection tests produce2 assertions before
+  the fix. All before/after logs and input/library hashes are retained.
+- Fix the13 nullable Some(false) branches to reject direct projection, keeping
+  the existing lossless details fallback and payload slices. No ABI layout or
+  flag change. True/absent remain fast; nonnullable YIELD progress stays false.
+  All129 real-FFI tests and10 native matrix tests pass afterward, no skips.
+  Tests assert tri-state values, lazy payload after release, original metadata,
+  numeric/string type boundaries, routing filters, unknown/nonstring keys and
+  mixed flags. Targeted analysis and formatting pass.
+- Thirteen independent false-branch fault controls produce assertion failures,
+  with passing original/restored baselines and the same ten-test inventory.
+  These are diagnostic controls, not a complete native mutation score.
+  Local companion concerns were checked against the actual fixtures, unchanged
+  ABI declaration, nullable Dart fields and successful real-FFI matrix; no
+  substantiated remaining finding. A bounded GLM review supports the fallback
+  approach; its earlier token-limited attempt is not review evidence.
+- Verify193 passes including Chrome/WASM. Supervisor3405 completes serial unit
+  and FFI coverage with matching input hashes after every stage. Matching-scope
+  native193 combined coverage measures ct_core8864/10064 (88.08%) and
+  ct_ffi5203/5798 (89.74%),125 additional FFI lines over Native192 combined.
+  Unmeasured sources remain listed. The instrumented FFI collector has not yet
+  selected the new metadata fixture; its129 cases pass in full verification.
+  Metadata changes are verified for commit. Discovery191 and OAuth192 continue
+  from their own unchanged snapshots; do not duplicate them.
+- While canonical inputs remain frozen, investigate the previous OAuth deadline
+  survivor in an isolated candidate with the same production source hash. Three
+  public exchange/refresh/revocation cases synchronously consume the deadline in
+  onRequestOpened and reproduce missing aborts through assertions, no other
+  errors. A candidate local abort-once helper handles McpOAuthTokenException
+  cleanup while preserving callback exception identity. Expanded stage-boundary
+  cases reproduce12 unobserved-future assertions and3 post-deadline dispatch
+  assertions. The candidate guards dispatch and observes futures when synchronous
+  deadline checks throw;72 focused tests and analysis pass. This is NOT canonical
+  or in Verify193. Callback errors, full MCP tests and fault controls remain.
+  No equivalence waiver or new full mutation score is claimed.
+
 ### Work192 Native Forwarding And OAuth Timeout Oracles
 
 - Push the verified Work191 increment as178ca8f3; draftPR93 remains unmerged.

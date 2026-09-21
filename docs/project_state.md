@@ -6,6 +6,48 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work193 pushes the verified Work192 increment as c40129e8. Verify192 and fresh
+native192 Dart-to-FFI collection both finish with exit0 and matching frozen
+inputs. Combining the matching native unit/FFI scopes measures ct_core8866/10064
+(88.10%) and ct_ffi5078/5798 (87.58%), up91 covered FFI lines over Native151's
+combined report. Unmeasured sources remain explicit; neither native component
+meets98%. Exact-head CI/package/native35586669159/router35586697741/profile35586699578
+checks remain queued; strict audit exits1 for pending evidence. PR93 stays draft.
+
+Fast193 passes with unchanged inputs. New real-FFI tests reproduce39 nullable
+boolean false-to-null failures plus3 incorrect direct-binding flags;87 controls
+pass. The initial run selected a non-ffi-test library and is retained separately
+as129 infrastructure errors, not bug evidence. Ten native matrix tests reproduce
+two assertion failures before the fix. Thirteen explicit-false branches now use
+the existing lossless metadata fallback without changing ABI layout/bits. Absent
+and true remain direct; nonnullable YIELD progress keeps its false default.
+All129 FFI cases and10 native cases pass afterward, with no skips. Cases include
+three serializers, malformed types, integer widths, UTF-8, routing lists,
+nonstring keys, mixed flags and payload access after handle release. All13
+individual false-branch fault controls fail assertions; original/restored
+baselines pass with unchanged ten-test inventories. These controls are not a
+complete native mutation score or a new coverage percentage.
+
+Verify193 passes, including Chrome/WASM. Supervisor3405 completes fresh native193
+unit and FFI coverage serially with matching frozen inputs after every stage.
+The matching-scope combined report measures ct_core8864/10064 (88.08%) and
+ct_ffi5203/5798 (89.74%),125 additional FFI lines over Native192 combined.
+Unmeasured sources remain explicit. The FFI collector does not yet include the
+new metadata Dart fixture; its129 cases pass in full verification, not this
+instrumented collection. Discovery191/session66371 and OAuth192/session53855
+remain live from unchanged snapshots. The metadata fix is verified for commit.
+Recovery: coverage184-probes/WORK193.md. No merge, publication or version change.
+
+An isolated follow-up also reproduces three OAuth cleanup assertions against
+the unchanged canonical token-exchange source: synchronous request setup can
+exhaust the real deadline, then the McpOAuthTokenException path leaves the
+already-opened request un-aborted. Expanded stage-boundary tests reproduce12
+unobserved-future assertions and3 post-deadline dispatch assertions. A candidate
+abort-once/deadline correction passes72 focused tests and analysis, but is NOT
+canonical or included in Verify193. Before promotion, run callback-error
+regressions, the full MCP candidate suite and fault controls. Preserve both
+existing mutation campaigns. Recovery: coverage184-probes/WORK194.md.
+
 Work192 pushes the fully verified Work191 increment as178ca8f3. PR93 remains
 draft. Exact-head CI/package checks and native35583887132/router35583890470/
 profile35583893247 dry-runs are queued; strict audit exits1 for incomplete hosted

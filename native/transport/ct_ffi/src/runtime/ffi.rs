@@ -3539,6 +3539,8 @@ impl_zeroed_ffi_default!(CtMessageInfo);
 const CT_MESSAGE_FLAG_DIRECT_BIND: u32 = 1 << 0;
 const CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT: u32 = 1 << 1;
 const CT_MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT: u32 = 1 << 2;
+// True-only flags cannot distinguish nullable false from absence. Projectors
+// must use the lossless details fallback for explicit false on nullable fields.
 const CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE: u32 = 1 << 3;
 const CT_MESSAGE_FLAG_METADATA_BIND: u32 = 1 << 4;
 const CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE: u32 = 1 << 5;
@@ -3701,7 +3703,7 @@ fn populate_result_details_info(
         match serde_key_str(key) {
             Some("progress") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("ppt_scheme") => match serde_value_str(value) {
@@ -3746,12 +3748,12 @@ fn populate_invocation_details_info(
             },
             Some("receive_progress") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("progress") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("timeout") => match serde_value_u64(value) {
@@ -3871,22 +3873,22 @@ fn populate_publish_options_info(
         match serde_key_str(key) {
             Some("acknowledge") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("exclude_me") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("disclose_me") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("retain") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_D_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("ppt_scheme") => match serde_value_str(value) {
@@ -3934,7 +3936,7 @@ fn populate_subscribe_options_info(
             },
             Some("get_retained") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some(_) => {}
@@ -3952,12 +3954,12 @@ fn populate_call_options_info(
         match serde_key_str(key) {
             Some("receive_progress") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("progress") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("timeout") => match serde_value_u64(value) {
@@ -3969,7 +3971,7 @@ fn populate_call_options_info(
             },
             Some("disclose_me") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("ppt_scheme") => match serde_value_str(value) {
@@ -4019,12 +4021,12 @@ fn populate_register_options_info(
         match serde_key_str(key) {
             Some("disclose_caller") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("forward_timeout") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("match") => match serde_value_str(value) {
@@ -7230,6 +7232,10 @@ pub extern "C" fn ct_set_on_connection(callback: extern "C" fn(c_int, c_int)) {
 #[cfg(test)]
 #[path = "segmented_forwarding_tests.rs"]
 mod segmented_forwarding_tests;
+
+#[cfg(test)]
+#[path = "metadata_projection_tests.rs"]
+mod metadata_projection_tests;
 
 #[cfg(test)]
 mod tests {
