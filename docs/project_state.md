@@ -6,6 +6,26 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work214 is locally verified after Fast214, all34 HTTP authentication regressions,
+fresh native LLVM coverage and full bin/verify, including Chrome JavaScript/WASM.
+Frozen source/test/config hashes match after collection and verification.
+Original HTTP/1, HTTP/2 and HTTP/3 authentication workers fail14 explicit physical
+connection assertions;20 controls pass. Honor reuse_connections=false between
+iterations while preserving challenge/proof affinity, bearer state, rotating
+refresh tokens and failure propagation without replay. Wire transcripts assert
+method/path/body/token values, connection IDs and independent sample byte counts.
+
+Native benchmark coverage rises to6954/7813 (89.01%), gaining749 covered lines
+with16 new production lines and no scope exclusions. HTTP entrypoint coverage
+is4185/4954. The new fixture modules are test-only; exports-only lib.rs remains
+unmeasured. Other component/runtime scores remain separately scoped prior
+measurements; no full native mutation score is claimed. Evidence is under
+native214-bench-current and native214-evidence in
+out/regression-coverage-2026-09-15. Next reproduce the suspected protected HTTP/2
+and HTTP/3 stream-limit bypass with isolated concurrency tests. Hosted checks
+remain pending; the complete98%/95% milestone is still open. No merge,
+publication, version or branch-protection change.
+
 Work213 is locally verified after Fast213, fresh native/VM coverage and full
 bin/verify, including Chrome JavaScript/WASM. Frozen inputs match after each
 collection and verification. Three real CLI regressions reproduce orphaned

@@ -67,6 +67,30 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work214 HTTP Authentication Connection Policy
+
+- Add34 wire-level regressions covering HTTP/1, HTTP/2 and HTTP/3 login,
+  protected requests, supplied bearer tokens, rotating refresh tokens and
+  malformed/rejected responses. Assert exact transcripts, physical connection
+  identities, sample identities/byte counts and no authentication request replay.
+  Bounded fixture workers are joined; initial compiler/provider fixture failures
+  are retained separately and never counted as mutation kills.
+- Original production passes20 controls and fails14 connection assertions.
+  Reconnect between iterations only when reuse_connections=false, retaining
+  challenge/proof affinity and session state; close the previous QUIC endpoint.
+  The final34 tests, Fast214, native LLVM collection and full bin/verify pass,
+  including Chrome JavaScript/WASM. Frozen inputs match after both collections
+  and final verification. Local companion findings were independently checked.
+- Fresh native benchmark coverage is6954/7813 (89.01%), up749 hit lines and16
+  production lines without scope exclusions; HTTP entrypoint4185/4954. New child
+  modules are AST-classified test-only and exports-only lib.rs remains visible.
+  Evidence: native214-bench-current and native214-evidence under
+  out/regression-coverage-2026-09-15. This is not a full mutation campaign or
+  whole-goal completion. Hosted verification remains pending.
+- Next investigate the protected-auth stream-limit bypass in shipped multiplexed
+  scenarios. Keep login/refresh dependencies ordered and do not add automatic
+  replay. Prepared isolated probes are not yet completed regression evidence.
+
 ### Work213 Worker And OAuth Buffer Ownership
 
 - Reproduce three orphaned benchmark-child failures through real CLI entrypoints

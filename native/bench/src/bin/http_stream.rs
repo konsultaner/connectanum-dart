@@ -4096,6 +4096,7 @@ async fn run_h1_auth_worker(
     worker_id: u32,
 ) -> Result<HttpWorkerExecution> {
     let mut sender = connect_h1_sender(&endpoint).await?;
+    let mut connections_opened = 1;
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let request_body = build_payload(
         workload.request_bytes,
@@ -4116,6 +4117,10 @@ async fn run_h1_auth_worker(
     };
 
     for iteration in 0..workload.iterations {
+        if iteration > 0 && !workload.reuse_connections {
+            sender = connect_h1_sender(&endpoint).await?;
+            connections_opened += 1;
+        }
         let sample = match flow {
             HttpAuthFlow::Login => {
                 h1_login_iteration(&mut sender, &endpoint, &workload, worker_id, iteration).await?
@@ -4159,7 +4164,7 @@ async fn run_h1_auth_worker(
 
     Ok(HttpWorkerExecution {
         samples,
-        connections_opened: 1,
+        connections_opened,
     })
 }
 
@@ -4168,7 +4173,8 @@ async fn run_h2_auth_worker(
     workload: PreparedWorkload,
     worker_id: u32,
 ) -> Result<HttpWorkerExecution> {
-    let sender = connect_h2_sender(&endpoint).await?;
+    let mut sender = connect_h2_sender(&endpoint).await?;
+    let mut connections_opened = 1;
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let request_body = build_payload(
         workload.request_bytes,
@@ -4189,6 +4195,10 @@ async fn run_h2_auth_worker(
     };
 
     for iteration in 0..workload.iterations {
+        if iteration > 0 && !workload.reuse_connections {
+            sender = connect_h2_sender(&endpoint).await?;
+            connections_opened += 1;
+        }
         let sample = match flow {
             HttpAuthFlow::Login => {
                 h2_login_iteration(sender.clone(), &endpoint, &workload, worker_id, iteration)
@@ -4234,7 +4244,7 @@ async fn run_h2_auth_worker(
 
     Ok(HttpWorkerExecution {
         samples,
-        connections_opened: 1,
+        connections_opened,
     })
 }
 
@@ -4243,7 +4253,8 @@ async fn run_h3_auth_worker(
     workload: PreparedWorkload,
     worker_id: u32,
 ) -> Result<HttpWorkerExecution> {
-    let (quinn_endpoint, send_request) = connect_h3_sender(&endpoint).await?;
+    let (mut quinn_endpoint, mut send_request) = connect_h3_sender(&endpoint).await?;
+    let mut connections_opened = 1;
     let mut samples = Vec::with_capacity(workload.iterations as usize);
     let request_chunk =
         build_pattern_chunk(std::cmp::max(1, workload.request_chunk_bytes as usize));
@@ -4262,6 +4273,11 @@ async fn run_h3_auth_worker(
     };
 
     for iteration in 0..workload.iterations {
+        if iteration > 0 && !workload.reuse_connections {
+            quinn_endpoint.close(0u32.into(), b"iteration complete");
+            (quinn_endpoint, send_request) = connect_h3_sender(&endpoint).await?;
+            connections_opened += 1;
+        }
         let sample = match flow {
             HttpAuthFlow::Login => {
                 h3_login_iteration(
@@ -4318,7 +4334,7 @@ async fn run_h3_auth_worker(
     quinn_endpoint.close(0u32.into(), b"done");
     Ok(HttpWorkerExecution {
         samples,
-        connections_opened: 1,
+        connections_opened,
     })
 }
 
@@ -6284,6 +6300,10 @@ fn sort_socket_addrs_prefer_ipv4(addrs: &mut Vec<SocketAddr>) {
 #[cfg(test)]
 #[path = "http_stream_tests/phase_timing.rs"]
 mod phase_timing_regressions;
+
+#[cfg(test)]
+#[path = "http_stream_tests/auth_flow.rs"]
+mod auth_flow_regressions;
 
 #[cfg(test)]
 mod tests {
