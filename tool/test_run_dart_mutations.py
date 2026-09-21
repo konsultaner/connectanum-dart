@@ -359,6 +359,18 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(target['tests'], ['examples/wamp_app/shared/test'])
         self.assertEqual(target['testRoot'], 'examples/wamp_app/shared')
 
+    def test_flutter_target_inventories_all_client_dart_sources_including_generated(self):
+        target = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())['app-client-vm']
+        root = 'examples/wamp_app/client'
+        actual = {str(path.relative_to(runner.ROOT))
+                  for path in (runner.ROOT / root / 'lib').rglob('*.dart')}
+        self.assertEqual(set(target['sources']), actual)
+        self.assertEqual(len(target['sources']), len(actual))
+        self.assertEqual(target['tests'], [f'{root}/test'])
+        self.assertEqual(target['testRoot'], root)
+        self.assertEqual(target['testRunner'], 'flutter')
+        self.assertEqual(runner.execution_configuration(target), ('flutter', 'vm', 'vm'))
+
     def test_mcp_library_target_keeps_complete_component_and_package_scope(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         policy = json.loads((runner.ROOT / 'tool/coverage_policy.json').read_text())
@@ -619,6 +631,19 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(classify(code, output), 'error')
         self.assertIn('Could not inspect remaining test processes', output)
         self.assertIn('ps unavailable', output)
+
+    def test_short_lived_teardown_child_must_exit_before_result_is_accepted(self):
+        passed = events({'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+                        {'type': 'testDone', 'testID': 1, 'result': 'success'},
+                        {'type': 'done', 'success': True})
+        program = (
+            'import subprocess, sys\n'
+            'subprocess.Popen([sys.executable, "-c", "import time; time.sleep(0.1)"], '
+            'stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n'
+            f'print({passed!r})\n')
+        code, output = run([sys.executable, '-c', program], runner.ROOT, 5)
+        self.assertEqual(classify(code, output), 'survived', output)
+        self.assertNotIn('connectanumInfrastructureError', output)
 
     @unittest.skipUnless(sys.platform == 'linux', 'Linux child subreaper contract')
     def test_zombie_descendants_do_not_invalidate_completed_results(self):
@@ -1010,6 +1035,9 @@ class MutationRunnerTests(unittest.TestCase):
     def test_list_records_inventory_without_claiming_a_gate_pass(self):
         self.exercise_main('killed', 0, listing=True)
 
+    def test_baseline_only_keeps_full_inventory_without_claiming_mutation_coverage(self):
+        self.exercise_main('killed', 0, application=True, flutter=True, baseline_only=True)
+
     def test_assertion_gate_threshold_and_outcome_boundaries(self):
         assertion = {'status': 'killed', 'killEvidence': {'cause': 'assertion'}}
         mixed = {'status': 'killed', 'killEvidence': {'cause': 'mixed'}}
@@ -1043,6 +1071,80 @@ class MutationRunnerTests(unittest.TestCase):
 
     def test_standalone_resolution_failure_leaves_incomplete_evidence(self):
         self.exercise_main('resolutionFailure', None, application=True)
+
+    def test_flutter_campaign_resolves_and_executes_with_flutter(self):
+        for browser, wasm in ((False, False), (True, False), (True, True)):
+            with self.subTest(browser=browser, wasm=wasm):
+                self.exercise_main('killed', 0, application=True, flutter=True,
+                                   browser=browser, wasm=wasm)
+
+    def test_flutter_failures_never_produce_a_passing_gate(self):
+        for status, expected in (('resolutionFailure', None), ('baselineFailure', None),
+                                 ('restoredFailure', None), ('inputChanged', None),
+                                 ('testError', 1), ('timeout', 1), ('signal', 1),
+                                 ('mutationOverwritten', 1)):
+            with self.subTest(status=status):
+                self.exercise_main(status, expected, application=True, flutter=True)
+
+    def test_flutter_crash_without_an_error_event_is_not_a_kill(self):
+        output = events(
+            {'type': 'testStart', 'test': {'id': 3, 'name': 'contract'}},
+            {'type': 'testDone', 'testID': 3, 'result': 'error'},
+            {'type': 'done', 'success': False})
+        self.assertEqual(runner.classify(1, output), 'error')
+        self.assertIsNone(runner.kill_evidence('error', output))
+
+    def test_flutter_reporter_does_not_replace_existing_test_configuration(self):
+        for relative in ('test/flutter_test_config.dart', 'test/nested/flutter_test_config.dart',
+                         'flutter_test_config.dart'):
+            with self.subTest(relative=relative), tempfile.TemporaryDirectory() as directory:
+                work = Path(directory)
+                app = Path('app')
+                config = work / app / relative
+                config.parent.mkdir(parents=True)
+                config.write_text('original configuration')
+                with self.assertRaisesRegex(RuntimeError, 'existing Flutter test configuration'):
+                    runner.install_flutter_reporter(work, app)
+                self.assertEqual(config.read_text(), 'original configuration')
+
+    def test_flutter_diagnostics_require_a_paired_framework_error(self):
+        header = '\u2550\u2550\u2561 EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK \u255e\u2550\u2550\n'
+        body = ('The following TestFailure was thrown running a test:\nExpected: true\n'
+                '  Actual: false\n\nWhen the exception was thrown, this was the stack:\n'
+                'frame\nThis was caught by the test expectation on the following line:\n'
+                'fixture.dart:3\n')
+        diagnostic = {'type': 'print', 'testID': 1, 'message': header + body}
+        wrapper = {'type': 'error', 'testID': 1, 'isFailure': False,
+                   'error': 'Test failed. See exception logs above.\nThe test description was: contract'}
+        for printed, error, expected in (
+                (diagnostic, wrapper, 'mixed'),
+                ({**diagnostic, 'testID': 2}, wrapper, 'testError'),
+                (diagnostic, {**wrapper, 'error': 'StateError: failed'}, 'testError'),
+                ({**diagnostic, 'message': body}, wrapper, 'testError'),
+                ({**diagnostic, 'message': (header + body).replace('TestFailure', 'StateError')},
+                 wrapper, 'testError'),
+                ({**diagnostic, 'message': header + 'The following StateError was thrown running a test:\n' + body},
+                 wrapper, 'testError')):
+            with self.subTest(printed=printed, error=error):
+                output = events({'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+                                printed, error,
+                                {'type': 'testDone', 'testID': 1, 'result': 'error'},
+                                {'type': 'done', 'success': False})
+                self.assertEqual(runner.kill_evidence('killed', output)['cause'], expected)
+        timeout = events(diagnostic | {'message': (header + body).replace(
+            'TestFailure', 'TimeoutException')}, wrapper,
+            {'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
+            {'type': 'testDone', 'testID': 1, 'result': 'error'},
+            {'type': 'done', 'success': False})
+        self.assertEqual(runner.classify(1, timeout), 'timeout')
+
+    def test_execution_configuration_rejects_mislabeled_runtimes(self):
+        for target in ({'testRunner': 'unknown'}, {'platform': 'firefox'},
+                       {'compiler': 'dart2wasm'}, {'testRunner': 'flutter', 'compiler': 'dartdevc'},
+                       {'testRunner': 'flutter', 'platform': 'chrome', 'compiler': 'dart2js'},
+                       {'platform': 'chrome', 'compiler': 'dartdevc'}):
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                runner.execution_configuration(target)
 
     def test_failed_baselines_never_produce_complete_evidence(self):
         self.exercise_main('baselineFailure', None)
@@ -1124,7 +1226,8 @@ class MutationRunnerTests(unittest.TestCase):
         json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text(), object_pairs_hook=unique)
 
     def exercise_main(self, status, expected_code, directory_tests=False, native=False,
-                      browser=False, application=False, listing=False):
+                      browser=False, application=False, listing=False, flutter=False, wasm=False,
+                      baseline_only=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config = root / 'config.json'
@@ -1137,6 +1240,10 @@ class MutationRunnerTests(unittest.TestCase):
             target = {'sources': [source_path], 'tests': selected}
             if browser:
                 target['platform'] = 'chrome'
+            if flutter:
+                target['testRunner'] = 'flutter'
+            if wasm:
+                target['compiler'] = 'dart2wasm'
             if application:
                 target['testRoot'] = package_root
             library = root / 'native.bin'
@@ -1159,6 +1266,8 @@ class MutationRunnerTests(unittest.TestCase):
                 if application:
                     files.extend([(f'{package_root}/pubspec.yaml', 'name: fixture'),
                                   (f'{package_root}/pubspec.lock', 'pinned dependencies')])
+                if flutter:
+                    files.append((f'{package_root}/assets/fixture.txt', 'asset fixture'))
                 if native:
                     files.append(('packages/core/example/server.dart', 'example fixture'))
                 if directory_tests:
@@ -1171,10 +1280,16 @@ class MutationRunnerTests(unittest.TestCase):
                     path.write_text(data)
             def fake_run(command, work, timeout):
                 self.assertNotEqual(work, runner.ROOT)
+                if command == ['flutter', '--version', '--machine']:
+                    return 0, json.dumps({'frameworkVersion': '3.fixture',
+                                          'dartSdkVersion': '3.fixture',
+                                          'frameworkRevision': 'pinned-framework',
+                                          'engineRevision': 'pinned-engine'})
                 if command[1:3] == ['pub', 'get']:
                     self.assertIn('--offline', command)
                     dependency_cwds.append(work)
                     if application and work.parts[-3:] == ('examples', 'wamp_app', 'shared'):
+                        self.assertEqual(command[0], 'flutter' if flutter else 'dart')
                         if status == 'resolutionFailure':
                             return 65, 'standalone dependency resolution failed'
                     return 0, ''
@@ -1194,8 +1309,17 @@ class MutationRunnerTests(unittest.TestCase):
                 else:
                     current = (work / source_path).read_text()
                 seen.append(current)
+                self.assertEqual(command[0], 'flutter' if flutter else 'dart')
                 self.assertNotIn('--fail-fast', command)
-                if browser:
+                if flutter:
+                    self.assertIn('--no-pub', command)
+                    self.assertFalse(any(arg.startswith('--compiler') for arg in command))
+                    self.assertEqual('--wasm' in command, wasm)
+                    self.assertEqual(command[command.index('--platform') + 1],
+                                     'chrome' if browser else 'tester')
+                    if status == 'inputChanged' and len(seen) == 3:
+                        (work / 'assets/fixture.txt').write_text('changed asset')
+                elif browser:
                     self.assertIn('--compiler=dart2js', command)
                     self.assertEqual(command[command.index('--platform') + 1], 'chrome')
                 if native:
@@ -1206,6 +1330,9 @@ class MutationRunnerTests(unittest.TestCase):
                         status == 'restoredFailure' and len(seen) == 3):
                     return -9, ''
                 if current == source or status == 'survived':
+                    return 0, passed
+                if status == 'mutationOverwritten':
+                    (work / 'lib/a.dart').write_text(source)
                     return 0, passed
                 if status == 'timeout':
                     return None, ''
@@ -1222,6 +1349,8 @@ class MutationRunnerTests(unittest.TestCase):
                     '--output', str(root / 'result')]
             if listing:
                 args.append('--list')
+            if baseline_only:
+                args.append('--baseline-only')
             with patch.object(sys, 'argv', args), patch.object(runner, 'snapshot', fake_snapshot), \
                  patch.object(runner, 'run', fake_run), patch.object(runner.subprocess, 'check_output', return_value='commit'), \
                  patch.dict(runner.os.environ, {'CONNECTANUM_NATIVE_LIB': str(library)}):
@@ -1237,12 +1366,14 @@ class MutationRunnerTests(unittest.TestCase):
                 expected_seen = [source, source, 'bool f() => false;', source, source]
             if listing:
                 expected_seen = []
+            if baseline_only:
+                expected_seen = [source, source]
             self.assertEqual(seen, expected_seen)
             if application:
                 self.assertEqual(len(dependency_cwds), 2)
                 self.assertEqual(dependency_cwds[1], dependency_cwds[0] / package_root)
             report = json.loads((root / 'result/mutation-report.json').read_text())
-            complete = expected_code is not None and not listing
+            complete = expected_code is not None and not listing and not baseline_only
             self.assertEqual(report['complete'], complete)
             self.assertEqual(report['gate'], {
                 'metric': 'adjustedAssertionScoreLowerBound', 'threshold': 95,
@@ -1253,12 +1384,25 @@ class MutationRunnerTests(unittest.TestCase):
             else:
                 for result in report['targets'].values():
                     self.assertNotIn('gatePassed', result)
-            if listing:
+            if listing or baseline_only:
                 self.assertEqual(report['targets']['fixture']['inventory'], [mutation])
+                self.assertEqual(report['targets']['fixture']['outcomes'], [])
+            if baseline_only:
+                self.assertTrue(report['baselineOnly'])
+                self.assertEqual(report['targets']['fixture']['baseline'], 'survived')
+                self.assertEqual(report['targets']['fixture']['restoredBaseline'], 'survived')
             if status == 'artifactChanged':
                 self.assertFalse(report['targets']['fixture']['nativeArtifactUnchanged'])
             if complete:
                 target = report['targets']['fixture']
+                if flutter:
+                    self.assertEqual(target['testRunner'], 'flutter')
+                    self.assertEqual(target['compiler'],
+                                     'dart2wasm' if wasm else 'dartdevc' if browser else 'vm')
+                    self.assertEqual(target['toolchain']['frameworkRevision'], 'pinned-framework')
+                    self.assertEqual(target['applicationInputHashes'][f'{package_root}/assets/fixture.txt'],
+                                     runner.hashlib.sha256(b'asset fixture').hexdigest())
+                    self.assertTrue(target['applicationInputsUnchanged'])
                 if application:
                     self.assertEqual(target['dependencyHashes'], {
                         f'{package_root}/pubspec.yaml': runner.hashlib.sha256(b'name: fixture').hexdigest(),
@@ -1286,6 +1430,10 @@ class MutationRunnerTests(unittest.TestCase):
                     self.assertEqual(target['counts'], {'error': 1})
                     self.assertEqual(target['score'], 0)
                     self.assertEqual(target['outcomes'][0]['exitCode'], -9)
+                if status == 'mutationOverwritten':
+                    self.assertEqual(target['counts'], {'error': 1})
+                    self.assertEqual(target['assertionScoreLowerBound'], 0)
+                    self.assertFalse(target['outcomes'][0]['mutationInputUnchanged'])
                 if target['outcomes'][0]['status'] == 'killed':
                     cause = status if status in ('unknown', 'testError') else 'assertion'
                     self.assertEqual(report['killEvidenceVersion'], 1)

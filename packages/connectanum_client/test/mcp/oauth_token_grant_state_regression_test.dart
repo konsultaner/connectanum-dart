@@ -1,6 +1,7 @@
 @TestOn('vm')
 library;
 
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:connectanum_client/mcp.dart';
@@ -60,6 +61,29 @@ void _reject(Map<String, Object?> state) {
       ),
     ),
   );
+}
+
+// A public fromJson caller may supply a computed List, not just decoded JSON.
+final class _ChangingScopes extends ListBase<String> {
+  _ChangingScopes(this.initial, this.changed);
+
+  final List<String> initial;
+  final List<String> changed;
+  int _reads = 0;
+
+  @override
+  int get length => initial.length;
+
+  @override
+  set length(int value) => throw UnsupportedError('Read-only fixture');
+
+  @override
+  String operator [](int index) =>
+      (_reads++ < initial.length ? initial : changed)[index];
+
+  @override
+  void operator []=(int index, String value) =>
+      throw UnsupportedError('Read-only fixture');
 }
 
 void main() {
@@ -221,6 +245,29 @@ void main() {
     expect(grant.toJson()['scopes'], isEmpty);
     expect(grant.toJson()['tokens'] as Map, isNot(contains('scope')));
   });
+
+  for (final changed in [
+    ['admin admin', 'other'],
+    ['tools:read', 'admin admin'],
+  ]) {
+    test('changing scopes cannot restore different privileges: $changed', () {
+      const original = ['tools:read', 'prompts:read'];
+      final state = _state()..['scopes'] = _ChangingScopes(original, changed);
+      try {
+        final grant = _restore(state);
+        // Copying once before validation is also safe; do not mandate rejection
+        // or a particular number of traversals of the caller's collection.
+        expect(grant.scopes, original);
+        expect(grant.toJson()['scopes'], original);
+        expect(grant.accessToken, _secret);
+        expect(grant.expiresAt, DateTime.utc(2020, 1, 1, 0, 1));
+      } on McpOAuthTokenGrantStateException catch (error) {
+        expect(error.toString(), isNot(contains(_secret)));
+        expect(error.toString(), isNot(contains('fixture-refresh')));
+        expect(error.toString(), isNot(contains('admin')));
+      }
+    });
+  }
 
   for (final resource in [
     'http://resource.example/mcp?tenant=one',

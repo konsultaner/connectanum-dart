@@ -1819,13 +1819,53 @@ void main() {
 
       expect(gateway.operations, ['put:0', 'send']);
       expect(gateway.attempts.single.attachmentIds, hasLength(1));
+      final wire = gateway.attempts.single.toJson();
+      // Ciphertext and random IDs can contain "jpg" by chance. Check the actual
+      // public envelope schema instead: no attachment descriptor may escape it.
       expect(
-        gateway.attempts.single.toJson().toString(),
-        isNot(contains('jpg')),
+        wire.keys,
+        unorderedEquals([
+          'version',
+          'algorithm',
+          'message_id',
+          'conversation_id',
+          'conversation_type',
+          'sender_username',
+          'sender_device_id',
+          'recipient_username',
+          'created_at',
+          'one_time',
+          'encrypted_payload',
+          'attachment_ids',
+          'wrapped_keys',
+        ]),
+      );
+      for (final wrapped in wire['wrapped_keys'] as List) {
+        expect(
+          (wrapped as Map).keys,
+          unorderedEquals([
+            'version',
+            'algorithm',
+            'conversation_id',
+            'sender_username',
+            'sender_device_id',
+            'recipient_username',
+            'recipient_device_id',
+            'sealed_key',
+            'signature',
+            'created_at',
+          ]),
+        );
+      }
+      expect(
+        base64Url.decode(wire['encrypted_payload'] as String),
+        gateway.attempts.single.encryptedPayload,
       );
       final local = controller.messages.single;
       expect(local.text, isEmpty);
       expect(local.attachments.single.name, 'private-photo.jpg');
+      expect(local.attachments.single.contentType, 'image/jpeg');
+      expect(local.attachments.single.kind, ChatAttachmentKind.image);
       expect(
         await controller.loadAttachment(
           messageId: local.messageId,

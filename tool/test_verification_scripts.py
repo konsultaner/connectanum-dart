@@ -1227,7 +1227,8 @@ fi
         self.assertNotIn("--concurrency=1", script)
 
     def test_wamp_app_runs_call_media_in_both_browser_compilers(self) -> None:
-        cases = ('success', 'js-fails', 'wasm-fails', 'wasm-timeout')
+        cases = ('success', 'js-fails', 'wasm-fails', 'wasm-timeout',
+                 'mutation-vm-fails', 'mutation-js-fails', 'mutation-wasm-fails')
         for case in cases:
             with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
@@ -1239,6 +1240,7 @@ fi
                 (scripts / 'common.sh').write_text('''
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd_repo_root() { cd "$ROOT_DIR"; }
+dart_workspace_bootstrap() { printf 'bootstrap\\n' >> "$TRACE"; }
 ensure_chrome_env() { return 0; }
 run_command_with_timeout() {
   printf 'bound:%s:%s\\n' "$1" "$2" >> "$TRACE"
@@ -1247,6 +1249,14 @@ run_command_with_timeout() {
 }
 ''')
                 (scripts / 'dart').write_text('#!/usr/bin/env bash\nexit 0\n')
+                (scripts / 'python3').write_text('''#!/usr/bin/env bash
+set -eu
+[[ "$CONNECTANUM_RUN_FLUTTER_MUTATION_TESTS" == 1 ]]
+printf 'mutation:%s:%s\\n' "${CONNECTANUM_FLUTTER_MUTATION_TEST_PLATFORM:-vm}" "${CONNECTANUM_FLUTTER_MUTATION_TEST_COMPILER:-default}" >> "$TRACE"
+[[ "$CASE" != mutation-vm-fails || "$CONNECTANUM_FLUTTER_MUTATION_TEST_PLATFORM" != vm ]] || exit 9
+[[ "$CASE" != mutation-js-fails || "$CONNECTANUM_FLUTTER_MUTATION_TEST_COMPILER" != dartdevc ]] || exit 9
+[[ "$CASE" != mutation-wasm-fails || "$CONNECTANUM_FLUTTER_MUTATION_TEST_COMPILER" != dart2wasm ]] || exit 9
+''')
                 flutter = scripts / 'flutter'
                 flutter.write_text('''#!/usr/bin/env bash
 set -eu
@@ -1263,7 +1273,7 @@ if [[ "$*" == *test/flutter_webrtc_browser_test.dart* ]]; then
   fi
 fi
 ''')
-                for command in ('dart', 'flutter'):
+                for command in ('dart', 'flutter', 'python3'):
                     (scripts / command).chmod(0o755)
                 trace = root / 'trace'
                 result = subprocess.run(
@@ -1276,14 +1286,25 @@ fi
                     capture_output=True, text=True, timeout=15, check=False,
                 )
                 self.assertEqual(result.returncode,
-                                 {'js-fails': 8, 'wasm-fails': 7}.get(case, 0),
+                                 {'js-fails': 8, 'wasm-fails': 7,
+                                  'mutation-vm-fails': 9, 'mutation-js-fails': 9,
+                                  'mutation-wasm-fails': 9}.get(case, 0),
                                  result.stdout + result.stderr)
                 calls = trace.read_text().splitlines()
+                self.assertEqual(calls.count('bootstrap'), 1)
+                mutation_calls = [line for line in calls if line.startswith('mutation:')]
+                self.assertEqual(mutation_calls,
+                                 ['mutation:vm:vm', 'mutation:chrome:dartdevc', 'mutation:chrome:dart2wasm']
+                                 if case in ('success', 'wasm-timeout', 'mutation-wasm-fails')
+                                 else ['mutation:vm:vm', 'mutation:chrome:dartdevc']
+                                 if case == 'mutation-js-fails' else ['mutation:vm:vm'])
                 media = [line for line in calls
                          if line.startswith('test --platform chrome')
                          and 'test/flutter_webrtc_browser_test.dart' in line]
-                self.assertEqual(len(media), {'js-fails': 1, 'wasm-timeout': 3}.get(case, 2))
-                self.assertNotIn('--wasm', media[0])
+                self.assertEqual(len(media), {'js-fails': 1, 'wasm-timeout': 3,
+                                             'mutation-vm-fails': 0}.get(case, 2))
+                if media:
+                    self.assertNotIn('--wasm', media[0])
                 for call in media[1:]:
                     self.assertIn('--wasm', call)
                 self.assertEqual('build web --release' in calls,

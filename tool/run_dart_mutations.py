@@ -37,6 +37,7 @@ def live_process_group_members(group):
 
 
 def run(command, cwd, timeout):
+    deadline = time.monotonic() + timeout
     with subprocess.Popen(
         command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, start_new_session=True,
@@ -59,6 +60,13 @@ def run(command, cwd, timeout):
         members = []
         try:
             members = live_process_group_members(process.pid)
+            # Flutter's web compiler can finish a few milliseconds after the
+            # driver exits. Wait for natural teardown within the same deadline;
+            # persistent children are still killed and invalidate the result.
+            cleanup_deadline = min(deadline, time.monotonic() + 0.5)
+            while members and time.monotonic() < cleanup_deadline:
+                time.sleep(min(0.02, max(0, cleanup_deadline - time.monotonic())))
+                members = live_process_group_members(process.pid)
         except (OSError, subprocess.SubprocessError, ValueError) as error:
             inspection_error = str(error)
         try:
@@ -109,6 +117,35 @@ def is_deadline_error(event):
             and '_WorkerFixture.waitFor' in event.get('stackTrace', ''))
 
 
+def flutter_failure_diagnostics(events):
+    """Keep raw framework errors, but recover their explicit assertion/deadline."""
+    typed_assertions = {event.get('testID') for event in events
+                        if event.get('type') == 'error' and event.get('isFailure') is True}
+    wrappers = {event.get('testID') for event in events
+                if event.get('type') == 'error' and event.get('isFailure') is False
+                and event.get('testID') not in typed_assertions
+                and isinstance(event.get('error'), str)
+                and event['error'].startswith('Test failed. See exception logs above.\nThe test description was: ')}
+    for event in events:
+        if event.get('type') != 'print' or event.get('testID') not in wrappers:
+            continue
+        message = event.get('message', '')
+        if not isinstance(message, str) or not message.startswith(
+                '\u2550\u2550\u2561 EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK \u255e'):
+            continue
+        match = re.match(
+            r'[^\n]*\nThe following (TestFailure|TimeoutException) was thrown running a test:\n'
+            r'(.*?)\n\nWhen the exception was thrown, this was the stack:\n', message, re.DOTALL)
+        if match is None:
+            continue
+        kind, body = match.groups()
+        if kind == 'TestFailure' and 'This was caught by the test expectation on the following line:' not in message:
+            continue
+        yield {'type': 'error', 'testID': event['testID'], 'isFailure': kind == 'TestFailure',
+               'error': body if kind == 'TestFailure' else 'TimeoutException: ' + body,
+               'stackTrace': message}
+
+
 def classify(returncode, output):
     if returncode is None:
         return 'timeout'
@@ -140,8 +177,14 @@ def classify(returncode, output):
         return 'survived'
     if returncode != 0 and done[-1].get('success') is False:
         # An elapsed deadline is not assertion evidence, even inside a matcher.
-        if any(is_deadline_error(e) for e in events):
+        if any(is_deadline_error(e) for e in [*events, *flutter_failure_diagnostics(events)]):
             return 'timeout'
+        # Flutter can report a crashed tester as a completed error without an
+        # error event. There is no observed test failure to credit in that case.
+        if any(e.get('result') == 'error' and not any(
+                item.get('type') == 'error' and item.get('testID') == e.get('testID')
+                for item in events) for e in real):
+            return 'error'
         if any(e.get('result') in ('error', 'failure') for e in real):
             return 'killed'
     return 'error'
@@ -168,9 +211,11 @@ def kill_evidence(status, output):
               and not re.search(r'\((?:setUpAll|tearDownAll)\)$',
                                 tests[event['testID']]['name'])}
     assertions = errors = unknown = 0
+    diagnostics = list(flutter_failure_diagnostics(events))
     for identifier in failed:
         failures = [event for event in events
                     if event.get('type') == 'error' and event.get('testID') == identifier]
+        failures.extend(event for event in diagnostics if event['testID'] == identifier)
         if not failures:
             unknown += 1
         for event in failures:
@@ -348,6 +393,58 @@ def unique_json_object(pairs):
     return result
 
 
+def execution_configuration(target):
+    engine = target.get('testRunner', 'dart')
+    platform = target.get('platform', 'vm')
+    if engine not in ('dart', 'flutter') or platform not in ('vm', 'chrome'):
+        raise ValueError(f'Unsupported test runner/platform: {engine}/{platform}')
+    default = 'vm' if platform == 'vm' else 'dartdevc' if engine == 'flutter' else 'dart2js'
+    compiler = target.get('compiler', default)
+    allowed = ('vm',) if platform == 'vm' else (default, 'dart2wasm')
+    if compiler not in allowed:
+        raise ValueError(f'Unsupported test compiler for {engine}/{platform}: {compiler}')
+    return engine, platform, compiler
+
+
+def test_command(target, resolved_tests, test_timeout):
+    engine, platform, compiler = execution_configuration(target)
+    command = [engine, 'test']
+    if engine == 'flutter':
+        command.append('--no-pub')
+    command.extend(['--reporter=json', '--concurrency=1',
+                    f'--timeout={test_timeout}s', *resolved_tests,
+                    '--platform', 'tester' if engine == 'flutter' and platform == 'vm' else platform])
+    if platform == 'chrome':
+        if engine == 'dart':
+            command.append(f'--compiler={compiler}')
+        elif compiler == 'dart2wasm':
+            command.append('--wasm')
+    return command
+
+
+def input_hashes(work, paths):
+    return {str(path.relative_to(work)): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted(set(paths)) if path.is_file()}
+
+
+def inputs_match(work, hashes):
+    return all((work / path).is_file()
+               and hashlib.sha256((work / path).read_bytes()).hexdigest() == expected
+               for path, expected in hashes.items())
+
+
+def install_flutter_reporter(work, test_root):
+    template = Path(__file__).with_name('flutter_mutation_test_config.dart.txt').read_bytes()
+    root = work / test_root
+    config = root / 'test/flutter_test_config.dart'
+    for existing in root.rglob('flutter_test_config.dart'):
+        if existing != config or existing.read_bytes() != template:
+            raise RuntimeError('Cannot replace or shadow an existing Flutter test configuration')
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_bytes(template)
+    return input_hashes(work, [config])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, default=ROOT / 'tool/mutation_targets.json')
@@ -357,7 +454,10 @@ def main():
     parser.add_argument('--timeout', type=float, default=45)
     parser.add_argument('--threshold', type=float, default=95,
                         help='minimum adjusted assertion-based mutation score (default: 95)')
-    parser.add_argument('--list', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--list', action='store_true')
+    mode.add_argument('--baseline-only', action='store_true',
+                      help='inventory all mutations and verify clean/restored tests without scoring')
     args = parser.parse_args()
     if not 0 <= args.threshold <= 100 or args.timeout <= 0:
         parser.error('threshold must be 0..100 and timeout must be positive')
@@ -378,11 +478,14 @@ def main():
         parser.error('output already exists; use a fresh directory')
     args.output.mkdir(parents=True)
     report = {'schemaVersion': 1, 'scope': selected, 'targets': {}, 'complete': False,
+              'baselineOnly': args.baseline_only,
               'killEvidenceVersion': 1,
               'scoreDefinition': 'Completed test detection, including caught test errors',
               'gate': {'metric': 'adjustedAssertionScoreLowerBound',
                        'threshold': args.threshold, 'passed': None},
               'runnerSha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+              'configSha256': hashlib.sha256(args.config.read_bytes()).hexdigest(),
+              'equivalentsSha256': hashlib.sha256(args.equivalents.read_bytes()).hexdigest(),
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'operatorScope': ['binary', 'nullFallback', 'boolean', 'negation', 'condition']}
     report_path = args.output / 'mutation-report.json'
@@ -396,27 +499,50 @@ def main():
     with tempfile.TemporaryDirectory(prefix='connectanum-mutations-') as temporary:
         work = Path(temporary)
         snapshot(work, [path for name in selected for path in config[name].get('supportFiles', [])])
+        snapshot_inputs = [path for path in work.rglob('*') if path.is_file()]
         code, output = run(['dart', 'pub', 'get', '--offline'], work, 120)
         if code != 0:
             raise RuntimeError('Isolated dependency resolution failed: ' + output[-2000:])
         for name in selected:
             target = config[name]
+            engine, platform, compiler = execution_configuration(target)
             sources = target['sources']
             validate_sources(sources)
             test_root = Path(target.get('testRoot', '.'))
             if test_root.is_absolute() or '..' in test_root.parts:
                 raise ValueError(f'Invalid test root: {test_root}')
             dependency_hashes = {}
-            if test_root.as_posix() in APPLICATION_ROOTS:
-                code, output = run(['dart', 'pub', 'get', '--offline'], work / test_root, 120)
+            application_hashes = {}
+            toolchain = None
+            if engine == 'flutter':
+                if test_root == Path('.'):
+                    raise ValueError('Flutter targets require an explicit standalone testRoot')
+                application_hashes = input_hashes(work, (
+                    path for path in snapshot_inputs
+                    if any(path.is_relative_to(work / root)
+                           for root in {*APPLICATION_ROOTS, test_root.as_posix()})))
+                code, output = run(['flutter', '--version', '--machine'], work / test_root, 60)
+                (args.output / f'{name}-toolchain.log').write_text(output)
+                if code != 0:
+                    raise RuntimeError(f'{name}: Flutter toolchain identification failed')
+                toolchain = json.loads(output)
+                if not isinstance(toolchain, dict) or any(
+                        not isinstance(toolchain.get(key), str) or not toolchain[key]
+                        for key in ('frameworkVersion', 'frameworkRevision', 'engineRevision', 'dartSdkVersion')):
+                    raise ValueError('Flutter toolchain identity is incomplete')
+            if test_root.as_posix() in APPLICATION_ROOTS or engine == 'flutter':
+                code, output = run([engine, 'pub', 'get', '--offline'], work / test_root, 120)
                 (args.output / f'{name}-dependencies.log').write_text(output)
                 if code != 0:
                     raise RuntimeError(f'{name}: isolated application dependency resolution failed: '
                                        + output[-2000:])
+                if not inputs_match(work, application_hashes):
+                    raise RuntimeError(f'{name}: dependency resolution changed application inputs')
                 dependency_hashes = {
                     str(path.relative_to(work)): hashlib.sha256(path.read_bytes()).hexdigest()
-                    for root in (Path('.'), *(Path(path) for path in APPLICATION_ROOTS))
-                    for file in ('pubspec.yaml', 'pubspec.lock')
+                    for root in sorted({Path('.'), test_root, *(Path(path) for path in APPLICATION_ROOTS)})
+                    for file in (('pubspec.yaml', 'pubspec.lock', '.dart_tool/package_config.json')
+                                 if engine == 'flutter' else ('pubspec.yaml', 'pubspec.lock'))
                     if (path := work / root / file).is_file()
                 }
             code, output = run(['dart', 'tool/dart_mutations.dart', *sources], work, 120)
@@ -426,11 +552,15 @@ def main():
             if not mutations:
                 raise ValueError(f'No mutations generated for {name}')
             result = {'sources': sources, 'tests': target['tests'], 'generated': len(mutations),
-                      'platform': target.get('platform', 'vm'),
+                      'platform': platform, 'testRunner': engine, 'compiler': compiler,
                       'sourceHashes': {source: hashlib.sha256((work / source).read_bytes()).hexdigest() for source in sources},
                       'baseline': 'notRun', 'outcomes': []}
             if dependency_hashes:
                 result['dependencyHashes'] = dependency_hashes
+            if toolchain is not None:
+                result['toolchain'] = toolchain
+                result['applicationInputHashes'] = application_hashes
+                result['flutterReporterHashes'] = install_flutter_reporter(work, test_root)
             justified = validate_equivalents(equivalents.get(name, {}), mutations, result['sourceHashes'])
             test_files = set()
             runnable_tests = set()
@@ -456,8 +586,9 @@ def main():
             result['supportHashes'] = {path: hashlib.sha256((work / path).read_bytes()).hexdigest()
                                        for path in support_files}
             report['targets'][name] = result
-            if args.list:
+            if args.list or args.baseline_only:
                 result['inventory'] = mutations
+            if args.list:
                 save()
                 continue
             artifact = native_artifact() if target.get('requiresNativeLibrary') else None
@@ -468,14 +599,7 @@ def main():
                 raise ValueError('testTimeoutSeconds must be finite and positive')
             # An early test error must not hide later assertions or terminal
             # failures. Finish the suite and cleanup within the existing deadline.
-            command = ['dart', 'test', '--reporter=json', '--concurrency=1',
-                       f'--timeout={test_timeout}s', *resolved_tests]
-            platform = target.get('platform', 'vm')
-            if platform not in ('vm', 'chrome'):
-                raise ValueError(f'Unsupported test platform: {platform}')
-            command.extend(['--platform', platform])
-            if platform == 'chrome':
-                command.append('--compiler=dart2js')
+            command = test_command(target, resolved_tests, test_timeout)
             if test_root != Path('.'):
                 command = [os.path.relpath(work / arg, work / test_root) if arg in resolved_tests else arg
                            for arg in command]
@@ -500,20 +624,31 @@ def main():
                 save()
                 raise RuntimeError(f'{name}: unmutated baseline did not pass ({result["baseline"]})')
             save()
-            for index, mutation in enumerate(mutations):
+            for index, mutation in enumerate([] if args.baseline_only else mutations):
                 path = work / mutation['file']
                 source = path.read_text()
                 identifier = mutation_id(mutation)
                 started = time.monotonic()
+                mutated = apply_mutation(source, mutation)
                 try:
-                    path.write_text(apply_mutation(source, mutation))
+                    path.write_text(mutated)
                     code, output, status = run_test_commands(commands, test_cwd, args.timeout)
+                    mutation_unchanged = path.is_file() and path.read_text() == mutated
+                    if not mutation_unchanged:
+                        status = 'error'
+                        output += '\n' + json.dumps({
+                            'type': 'connectanumInfrastructureError',
+                            'reason': 'Test/build command altered the applied mutation',
+                            'file': mutation['file'],
+                        }) + '\n'
                 finally:
                     path.write_text(source)
                 # The same mutation ID can run under several platforms/test targets.
                 log_name = f'{hashlib.sha256(name.encode()).hexdigest()}-{identifier}.log'
                 outcome = {**mutation, 'id': identifier, 'status': status, 'log': log_name,
                            'exitCode': code,
+                           'mutationInputUnchanged': mutation_unchanged,
+                           'mutatedSourceSha256': hashlib.sha256(mutated.encode()).hexdigest(),
                            'seconds': round(time.monotonic() - started, 3)}
                 evidence = kill_evidence(status, output)
                 if evidence is not None:
@@ -532,6 +667,12 @@ def main():
             result['restoredBaseline'] = status
             result['restoredBaselineExitCode'] = code
             (args.output / f'{name}-restored-baseline.log').write_text(output)
+            if engine == 'flutter':
+                result['applicationInputsUnchanged'] = inputs_match(
+                    work, {**application_hashes, **dependency_hashes, **result['flutterReporterHashes']})
+                save()
+                if not result['applicationInputsUnchanged']:
+                    raise RuntimeError('Application inputs changed during mutation execution; evidence is invalid')
             if artifact:
                 result['nativeArtifactUnchanged'] = native_artifact() == artifact
                 save()
@@ -540,8 +681,8 @@ def main():
             if result['restoredBaseline'] != 'survived':
                 save()
                 raise RuntimeError(f'{name}: restored baseline failed')
-    report['complete'] = not args.list
-    if not args.list:
+    report['complete'] = not (args.list or args.baseline_only)
+    if report['complete']:
         for name, target in report['targets'].items():
             target['gatePassed'] = passes_assertion_gate(target, args.threshold)
             print(f'{name}: assertion gate {"passed" if target["gatePassed"] else "failed"}; '
@@ -549,7 +690,7 @@ def main():
                   f'conventional score={target["adjustedScore"]}, threshold={args.threshold}', flush=True)
         report['gate']['passed'] = all(target['gatePassed'] for target in report['targets'].values())
     save()
-    if args.list:
+    if args.list or args.baseline_only:
         return 0
     return 0 if report['gate']['passed'] else 1
 

@@ -67,6 +67,38 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work204 Flutter Mutation Evidence And Scope Survivors
+
+- Two permanent computed-list OAuth regressions detect the three investigated
+  scope-comparison survivors with two explicit assertions each; original and
+  restored baselines pass. The oracle also permits safe copy-before-validation.
+  No production OAuth change, equivalence waiver or199 campaign score adjustment.
+- Add explicit Flutter execution with offline standalone resolution, --no-pub,
+  SDK identity, application/assets/dependency hashes and exact VM/dartdevc/
+  dart2wasm labels. Preserve the typed widget exception through Flutter's public
+  reportTestException hook in an isolated, hashed test config; do not replace
+  existing custom configs. Raw framework errors remain visible. Crashes and
+  deadlines cannot earn assertion credit; overwritten mutations invalidate results.
+- Real controls expose a crashed tester without an error event and a short-lived
+  compiler teardown child. Fix classification and bounded natural cleanup;
+  persistent children still invalidate results. VM, JavaScript and WASM controls
+  pass, including widget deadlines; VM tester crashes also fail closed.
+  The application gate now includes VM/JS/WASM controls with failure-propagation
+  shell regressions. It bootstraps workspace analyzer inputs on clean checkouts.
+- Inventory all66 client Dart sources, including generated localization:5534
+  mutations. Baseline-only mode never claims a mutation score. Its first complete
+  clean baseline passes, but the restored run catches a stochastic privacy test:
+  ciphertext contains jpg by chance. Replace substring guessing with strict
+  public envelope/key schemas and retain binary/attachment checks. The focused
+  correction passes. Selected filename/MIME leakage controls each fail one
+  explicit assertion with clean/restored baselines. The complete corrected client
+  baseline-only run passes both baselines with unchanged application inputs.
+- Fast204, full bin/test-wamp-app and bin/verify pass, including Chrome/WASM, with
+  unchanged frozen source/test/config hashes. Raw logs and manifest are retained
+  under flutter204-evidence, app204b-vm-baseline and app204b-gate-controls in
+  out/regression-coverage-2026-09-15. Preserve the failed earlier baseline.
+  No whole-runtime coverage or completed app mutation campaign is claimed.
+
 ### Work203 Router HTTP Response Integrity
 
 - Fast203 passes. The corrected 53-case fixture fails seven explicit assertions

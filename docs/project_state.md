@@ -6,6 +6,34 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work204 is locally verified after Fast204, the complete application gate and
+root bin/verify, including Chrome/WASM, with matching frozen input hashes.
+Two new persisted
+OAuth scope regressions detect all three investigated199 scope-guard survivors
+with two assertions each and clean/restored baselines; no waiver or older
+campaign score change. Add isolated Flutter mutation execution, precise SDK and
+VM/dartdevc/dart2wasm evidence, typed widget-failure instrumentation, immutable
+application/dependency inputs and per-mutant overwrite detection. The complete
+client inventory includes66 Dart files and5534 mutations, including generated
+localization. This is an inventory, not a completed mutation score.
+Real VM, JavaScript and WASM controls distinguish assertions, runtime errors
+and timeouts; the VM also verifies tester crashes. All clean/restored control
+baselines pass, and deliberate errors/deadlines earn no assertion credit.
+The first complete client clean baseline passes, but its restored baseline
+exposes a flaky test: random ciphertext happens to contain the substring jpg.
+Replace that stochastic privacy oracle with strict public envelope/key schemas
+and retained binary/attachment assertions. The corrected full client clean and
+restored baselines pass with unchanged inputs; selected filename/MIME leakage
+controls each fail one assertion and the restored control baseline passes.
+Preserve the failed baseline under app204-vm-baseline, corrected inventory under
+app204b-vm-baseline, runtime controls under app204b-gate-controls and final logs
+under flutter204-evidence in out/regression-coverage-2026-09-15. These are not
+a completed application mutation score. Next close initial HTTP-auth result
+and cleanup gaps; the existing multi-round tests do not cover those branches.
+Recovery and live-owner
+details: coverage184-probes/WORK204.md under out/regression-coverage-2026-09-15.
+No complete coverage/mutation milestone, merge, publication or version claim.
+
 Work203 is locally verified after Fast203, all 338 router runtime tests, fresh
 VM/packaging collection and root bin/verify pass, including Chrome/WASM. Frozen
 source/test/config hashes match after both collection and verification. Add 53

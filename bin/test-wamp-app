@@ -6,6 +6,9 @@ source "$(dirname "$0")/common.sh"
 
 cd_repo_root
 
+# The isolated mutation driver uses the workspace's pinned analyzer inputs.
+dart_workspace_bootstrap
+
 if ! command -v flutter >/dev/null 2>&1; then
   printf 'Flutter is required to verify examples/wamp_app.\n' >&2
   exit 1
@@ -114,8 +117,20 @@ run_wamp_app_browser_tests() {
   flutter test test/widget_test.dart \
     --plain-name 'registers and opens the authenticated shell' \
     --dart-define=WAMP_APP_SERVER_ADDRESS=ws://localhost:18080/ws
+  CONNECTANUM_RUN_FLUTTER_MUTATION_TESTS=1 \
+    CONNECTANUM_FLUTTER_MUTATION_TEST_PLATFORM=vm \
+    CONNECTANUM_FLUTTER_MUTATION_TEST_COMPILER=vm \
+    python3 "$ROOT_DIR/tool/test_flutter_mutations.py"
   if ensure_chrome_env; then
     run_wamp_app_browser_tests
+    CONNECTANUM_RUN_FLUTTER_MUTATION_TESTS=1 \
+      CONNECTANUM_FLUTTER_MUTATION_TEST_PLATFORM=chrome \
+      CONNECTANUM_FLUTTER_MUTATION_TEST_COMPILER=dartdevc \
+      python3 "$ROOT_DIR/tool/test_flutter_mutations.py"
+    CONNECTANUM_RUN_FLUTTER_MUTATION_TESTS=1 \
+      CONNECTANUM_FLUTTER_MUTATION_TEST_PLATFORM=chrome \
+      CONNECTANUM_FLUTTER_MUTATION_TEST_COMPILER=dart2wasm \
+      python3 "$ROOT_DIR/tool/test_flutter_mutations.py"
   else
     printf 'Chrome unavailable; skipping WampApp browser worker tests.\n' >&2
   fi
