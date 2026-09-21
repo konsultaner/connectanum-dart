@@ -6,6 +6,42 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work199+200 is committed and pushed as756f5473. Exact-head CI/package checks and
+native35608530078/router35608533751/profile35608537047 dry-runs remain queued;
+the strict hosted audit fails for pending evidence, not a reported test failure.
+PR93 stays draft, with no merge, publication or version change.
+
+Work201 passes Fast201. Native plugin-channel regressions reproduce four
+assertions: voice/video previews mute capture despite an unmuted session flag,
+and failed peer close skips disposal. Restrict preview muting to web and attempt
+peer disposal independently of close failure. All25 native channel tests pass;
+the adapter measures145/146 VM lines, with the web-only mute line unhit.
+Two synthetic-media browser peer tests pass in both JavaScript and WASM,
+including SDP/ICE connection, track state and disposal. These are real browser
+peer connections, not physical-device/media-quality or browser coverage claims.
+Four selected faults produce2/12/2/1 assertion failures, with no runtime errors,
+passing original/restored baselines and matching inventories/hashes. They are
+not a complete mutation score. Add both browser compiler runs to the bounded
+application gate; shell fixtures reproduce four pre-fix gate failures and pass
+afterward, including propagation of failures and timeout-only retry behavior.
+Canonical370 app tests pass and fresh combined VM coverage measures client
+9226/10277 (89.77%), server3298/3531 (93.40%), shared1537/1540 (99.81%), with14
+unmeasured sources. The strict98% gate still fails. Full application verification
+catches a Work200 fixture regression: browser RTCVideoView exposes its renderer
+on State, unlike the native widget. Preserve both binding assertions through the
+appropriate public getter and drain web renderer polling during cleanup. All26
+browser call-controller tests pass after correction; no platform skip is added.
+The first application gate fails before root verification starts; preserve that
+log. Strict analysis and formatting pass after the correction. Refreshed
+application201c collection passes all suites and preserves the coverage values
+above. The full bin/test-wamp-app gate now passes, with matching manifest201c;
+its raw evidence and hashes are retained in application201c-current.
+Root bin/verify also passes, including Chrome/WASM, against that same frozen
+snapshot. Manifest201c matches after verification. This implementation increment
+is locally verified for commit; the full coverage/mutation goal remains open.
+OAuth199 remains live under3730; no new full mutation score is claimed.
+Recovery: coverage184-probes/WORK201.md.
+
 Work198 is pushed as3cd5e0f4 after Verify198 passes, including Chrome/WASM.
 The fresh application VM collection completes with all three suites passing and
 unchanged source/test/config and dependency hashes: client7385/10266 (71.94%),

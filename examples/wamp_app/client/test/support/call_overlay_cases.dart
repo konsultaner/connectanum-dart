@@ -346,28 +346,44 @@ void _callOverlayTests() {
       f.media.localVideo = FlutterWebRtcVideoRendererHandle(local);
       f.media.remoteVideo = FlutterWebRtcVideoRendererHandle(remote);
       await f.controller.acceptIncoming();
-      await _mountCall(tester, f.controller);
-      final views = tester
-          .widgetList<RTCVideoView>(find.byType(RTCVideoView))
-          .toList();
-      expect(views, hasLength(2));
-      expect(
-        views.singleWhere((v) => identical(v.videoRenderer, local)).mirror,
-        isTrue,
-      );
-      expect(
-        views.singleWhere((v) => identical(v.videoRenderer, remote)).mirror,
-        isFalse,
-      );
-      expect(
-        views.every(
-          (v) =>
-              v.objectFit == RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-        ),
-        isTrue,
-      );
-      expect(find.byKey(const Key('call-local-video')), findsOneWidget);
-      expect(tester.takeException(), isNull);
+      try {
+        await _mountCall(tester, f.controller);
+        final views = tester
+            .widgetList<RTCVideoView>(find.byType(RTCVideoView))
+            .toList();
+        expect(views, hasLength(2));
+        RTCVideoRenderer rendererOf(RTCVideoView view) {
+          // The plugin exposes this getter on the native widget, but web state.
+          final dynamic owner = kIsWeb
+              ? tester.state(find.byWidget(view))
+              : view;
+          return owner.videoRenderer as RTCVideoRenderer;
+        }
+
+        expect(
+          views.singleWhere((v) => identical(rendererOf(v), local)).mirror,
+          isTrue,
+        );
+        expect(
+          views.singleWhere((v) => identical(rendererOf(v), remote)).mirror,
+          isFalse,
+        );
+        expect(
+          views.every(
+            (v) =>
+                v.objectFit == RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+          ),
+          isTrue,
+        );
+        expect(find.byKey(const Key('call-local-video')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        // Web views poll for a video element until unmounted. Drain that callback.
+        await tester.pump(const Duration(milliseconds: 100));
+        await local.dispose();
+        await remote.dispose();
+      }
     });
 
     for (final accepted in [false, true]) {

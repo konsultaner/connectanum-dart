@@ -1226,6 +1226,74 @@ fi
         self.assertIn('for test_file in "${browser_tests[@]}"', script)
         self.assertNotIn("--concurrency=1", script)
 
+    def test_wamp_app_runs_call_media_in_both_browser_compilers(self) -> None:
+        cases = ('success', 'js-fails', 'wasm-fails', 'wasm-timeout')
+        for case in cases:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                scripts = root / 'bin'
+                scripts.mkdir()
+                for package in ('client', 'server', 'shared'):
+                    (root / 'examples/wamp_app' / package).mkdir(parents=True)
+                shutil.copy2(TEST_WAMP_APP, scripts / 'test-wamp-app')
+                (scripts / 'common.sh').write_text('''
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd_repo_root() { cd "$ROOT_DIR"; }
+ensure_chrome_env() { return 0; }
+run_command_with_timeout() {
+  printf 'bound:%s:%s\\n' "$1" "$2" >> "$TRACE"
+  shift 2
+  "$@"
+}
+''')
+                (scripts / 'dart').write_text('#!/usr/bin/env bash\nexit 0\n')
+                flutter = scripts / 'flutter'
+                flutter.write_text('''#!/usr/bin/env bash
+set -eu
+printf '%s\\n' "$*" >> "$TRACE"
+if [[ "$*" == *test/flutter_webrtc_browser_test.dart* ]]; then
+  if [[ "$*" == *--wasm* ]]; then
+    [[ "$CASE" != wasm-fails ]] || exit 7
+    if [[ "$CASE" == wasm-timeout && ! -f "$ONCE" ]]; then
+      touch "$ONCE"
+      exit 124
+    fi
+  else
+    [[ "$CASE" != js-fails ]] || exit 8
+  fi
+fi
+''')
+                for command in ('dart', 'flutter'):
+                    (scripts / command).chmod(0o755)
+                trace = root / 'trace'
+                result = subprocess.run(
+                    ['bash', str(scripts / 'test-wamp-app')], cwd=root,
+                    env={**os.environ, 'PATH': f'{scripts}:/usr/bin:/bin',
+                         'TRACE': str(trace), 'CASE': case,
+                         'ONCE': str(root / 'once'),
+                         'CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPTS': '2',
+                         'CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS': '30'},
+                    capture_output=True, text=True, timeout=15, check=False,
+                )
+                self.assertEqual(result.returncode,
+                                 {'js-fails': 8, 'wasm-fails': 7}.get(case, 0),
+                                 result.stdout + result.stderr)
+                calls = trace.read_text().splitlines()
+                media = [line for line in calls
+                         if line.startswith('test --platform chrome')
+                         and 'test/flutter_webrtc_browser_test.dart' in line]
+                self.assertEqual(len(media), {'js-fails': 1, 'wasm-timeout': 3}.get(case, 2))
+                self.assertNotIn('--wasm', media[0])
+                for call in media[1:]:
+                    self.assertIn('--wasm', call)
+                self.assertEqual('build web --release' in calls,
+                                 case in ('success', 'wasm-timeout'))
+                bounds = [line for line in calls
+                          if line.startswith('bound:')
+                          and 'test/flutter_webrtc_browser_test.dart' in line]
+                self.assertEqual(len(bounds), len(media))
+                self.assertTrue(all(line.endswith(':30') for line in bounds))
+
     def test_connectanum_router_wrapper_delegates_help_without_native_build(
         self,
     ) -> None:

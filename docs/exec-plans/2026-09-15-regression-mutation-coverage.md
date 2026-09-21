@@ -67,6 +67,43 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work201 WebRTC Integration Regressions
+
+- Fast201 passes. Expanded native-channel baseline fails four assertions without
+  runtime errors: enabled microphone state for voice/video and peer disposal
+  after a close failure. Fix web-only preview muting and independent peer disposal.
+- All25 channel tests pass, including SDP/ICE fields, capture constraints, track
+  toggles, speaker failure recovery, malformed candidate stream recovery, remote
+  track selection, closed-session rejection and resource cleanup failures.
+  Adapter VM coverage is145/146; the remaining line is web-only preview muting.
+- Real browser peer connections with synthetic WebAudio/canvas sources pass
+  voice/video negotiation, enabled capture with muted preview, remote track
+  delivery and disposal in JavaScript and WASM. Device acquisition alone is
+  replaced; do not claim actual device quality or measured browser line coverage.
+- Four selected native faults fail2/12/2/1 assertions, with no runtime errors,
+  passing original/restored baselines and unchanged test/hash inventories.
+  These are controls, not a complete Flutter mutation campaign.
+- Application gate now runs the browser regression in both compilers. Four
+  failing-before shell fixtures prove absent execution/failure propagation;
+  success, JS failure, WASM failure and timeout-only retry now pass.
+- Canonical370 app tests pass; combined VM coverage is client9226/10277 (89.77%),
+  server3298/3531 (93.40%), shared1537/1540 (99.81%), with14 unmeasured sources.
+  Strict98 gate fails. The full application gate exposes Work200's native-only
+  RTCVideoView getter assumption. Use the public widget/native or State/web
+  renderer getter, retain binding/mirror assertions, and unmount/drain the web
+  polling callback before disposing test renderers, including assertion failures.
+  Corrected26-test browser suite passes. Do not skip browser coverage or count
+  the failed first app gate as successful verification.
+- Strict analysis/format pass. Refreshed application201c collection and the full
+  application gate pass, with manifest201c matched between stages. Coverage
+  values above are unchanged; raw evidence and its hash inventory are retained.
+  Verify201c also passes, including Chrome/WASM, and final manifest201c matches.
+  This implementation increment is locally verified for commit. The first
+  Verify201 never started after the earlier application-gate failure.
+- Work199+200 is pushed as756f5473; exact-head hosted chain remains queued.
+  Strict audit200 records pending evidence, not green deployment. PR93 is draft;
+  no merge, publication, version change or whole-goal completion claim.
+
 ### Work200 Call Overlay Regressions
 
 - Fast200 passes. Real-controller widget fixtures complete26 tests; the unchanged
