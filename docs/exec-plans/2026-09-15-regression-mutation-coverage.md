@@ -67,6 +67,34 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work171 Deterministic Buffer Assertions And Required HTTP Gate
+
+- Fast171 passes before promotion. Eight dedicated event-buffer tests and four
+  legacy cases use explicit microtask completion assertions, preserving the 11
+  previous cases and adding live nonmatching-event FIFO/replay coverage. The
+  direct fake_async dev dependency avoids transitive test dependencies. No real
+  or fake deadline is used as an assertion substitute.
+- Combined negative controls complete for 15 former timeout mutations: 11
+  assertion-only, two mixed and two error-only, with zero timeouts. Error-only
+  results remain uncredited. All 111 focused tests and final analysis pass.
+- Two canonical pre-change contract failures prove that HTTP mutations were
+  absent from CI and missing evidence could pass its audit. The complete HTTP
+  target now runs with the unchanged default 95% gate and always-uploaded
+  artifacts. The deployment audit requires it and rejects missing, queued,
+  in-progress, failed, cancelled and skipped evidence. All 102 tooling tests pass.
+- The fresh complete HTTP campaign passes at 56/58 assertion-backed detections
+  (96.55%), 90 generated, two survivors, 32 compile errors, no timeouts, no
+  error-only credit and no waivers. Original/restored baselines and independent
+  audit pass. Its recorded target inputs match the final code. Evidence is in
+  bench171-http-mutations under out/regression-coverage-2026-09-15.
+- Verify171 passes, including 1307 benchmark, 3894 router, 3343 core WASM and
+  2568 client WASM tests. Its final frozen-input checks pass. Session72541 and
+  cell2234 are terminal; the complete 532-mutation workload campaign runs as
+  session95122 and now owns the native window. Preserve its frozen inputs and
+  do not duplicate it. Its result is pending, not a score inferred from selected
+  controls. Logs are retained in coverage171-verification. Check exact-head
+  hosted evidence after pushing; keep the full goal active and PR #93 draft.
+
 ### Work170 HTTP Assertion Gate And Scenario Copy Matrix
 
 - Fast169b passes before promoting the corrected startup/EOF fixture and 37

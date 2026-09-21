@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/connectanum.dart' as wamp_client;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
+import 'package:fake_async/fake_async.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
@@ -984,37 +985,38 @@ void main() {
       },
     );
 
-    test('supports multiple concurrent event waiters', () async {
-      final buffer = WampEventBuffer();
-      final waiterOne = buffer.nextWhere(
-        (event) => event.argumentsKeywords?['worker'] == 1,
-      );
-      final waiterTwo = buffer.nextWhere(
-        (event) => event.argumentsKeywords?['worker'] == 2,
-      );
-
-      buffer.add(
-        wamp_core.Event(
-          1,
-          2,
-          wamp_core.EventDetails(),
-          argumentsKeywords: const {'worker': 2},
-        ).toLazyEventPayload(),
-      );
-      buffer.add(
-        wamp_core.Event(
-          1,
-          1,
-          wamp_core.EventDetails(),
-          argumentsKeywords: const {'worker': 1},
-        ).toLazyEventPayload(),
-      );
-
-      final eventOne = await waiterOne;
-      final eventTwo = await waiterTwo;
-
-      expect(eventOne.argumentsKeywords?['worker'], 1);
-      expect(eventTwo.argumentsKeywords?['worker'], 2);
+    test('supports multiple concurrent event waiters', () {
+      fakeAsync((async) {
+        final buffer = WampEventBuffer();
+        final first = _EventObservation(
+          buffer.nextWhere(
+            (event) => event.argumentsKeywords?['worker'] == 1,
+          ),
+        );
+        final second = _EventObservation(
+          buffer.nextWhere(
+            (event) => event.argumentsKeywords?['worker'] == 2,
+          ),
+        );
+        final eventOne = _bufferEvent(1);
+        final eventTwo = _bufferEvent(2);
+        buffer.add(eventTwo);
+        async.flushMicrotasks();
+        expect(first.values, isEmpty);
+        expect(second.values, [eventTwo]);
+        expect(first.errors, isEmpty);
+        expect(second.errors, isEmpty);
+        buffer.add(eventOne);
+        async.flushMicrotasks();
+        expect(first.values, [eventOne]);
+        expect(second.values, [eventTwo]);
+        expect(first.values.single.argumentsKeywords?['worker'], 1);
+        expect(second.values.single.argumentsKeywords?['worker'], 2);
+        buffer.close();
+        async.flushMicrotasks();
+        expect(first.errors, isEmpty);
+        expect(second.errors, isEmpty);
+      });
     });
 
     test('RPC scenario times out when call never yields', () async {
@@ -1543,76 +1545,99 @@ void main() {
   });
 
   group('WampEventBuffer', () {
-    test('replays buffered matching events to later waiters', () async {
-      final buffer = WampEventBuffer();
-      buffer.add(
-        wamp_core.Event(
-          1,
-          2,
-          wamp_core.EventDetails(),
-          argumentsKeywords: const {'worker': 1, 'iteration': 2},
-        ).toLazyEventPayload(),
-      );
-
-      final event = await buffer.nextWhere(
-        (event) =>
-            event.argumentsKeywords?['worker'] == 1 &&
-            event.argumentsKeywords?['iteration'] == 2,
-      );
-
-      expect(event.argumentsKeywords?['worker'], 1);
-      expect(event.argumentsKeywords?['iteration'], 2);
+    test('replays buffered matching events to later waiters', () {
+      fakeAsync((async) {
+        final buffer = WampEventBuffer();
+        final event = _bufferEvent(1, iteration: 2);
+        buffer.add(event);
+        final replay = _EventObservation(
+          buffer.nextWhere(
+            (event) =>
+                event.argumentsKeywords?['worker'] == 1 &&
+                event.argumentsKeywords?['iteration'] == 2,
+          ),
+        );
+        async.flushMicrotasks();
+        expect(replay.values, [event]);
+        expect(replay.errors, isEmpty);
+        expect(replay.values.single.argumentsKeywords?['worker'], 1);
+        expect(replay.values.single.argumentsKeywords?['iteration'], 2);
+        buffer.close();
+      });
     });
 
-    test(
-      'completes pending waiter when matching event arrives later',
-      () async {
+    test('completes pending waiter when matching event arrives later', () {
+      fakeAsync((async) {
         final buffer = WampEventBuffer();
-        final future = buffer.nextWhere(
-          (event) => event.argumentsKeywords?['worker'] == 7,
+        final wanted = _EventObservation(
+          buffer.nextWhere(
+            (event) => event.argumentsKeywords?['worker'] == 7,
+          ),
         );
+        final other = _bufferEvent(3);
+        final event = _bufferEvent(7);
+        buffer.add(other);
+        async.flushMicrotasks();
+        expect(wanted.values, isEmpty);
+        expect(wanted.errors, isEmpty);
+        buffer.add(event);
+        async.flushMicrotasks();
+        expect(wanted.values, [event]);
+        expect(wanted.values.single.argumentsKeywords?['worker'], 7);
+        expect(wanted.errors, isEmpty);
+        final replay = _EventObservation(buffer.nextWhere((_) => true));
+        async.flushMicrotasks();
+        expect(replay.values, [other]);
+        expect(replay.errors, isEmpty);
+        buffer.close();
+      });
+    });
 
-        buffer.add(
-          wamp_core.Event(
-            1,
-            3,
-            wamp_core.EventDetails(),
-            argumentsKeywords: const {'worker': 3},
-          ).toLazyEventPayload(),
-        );
-        buffer.add(
-          wamp_core.Event(
-            1,
-            7,
-            wamp_core.EventDetails(),
-            argumentsKeywords: const {'worker': 7},
-          ).toLazyEventPayload(),
-        );
-
-        final event = await future;
-        expect(event.argumentsKeywords?['worker'], 7);
-      },
-    );
-
-    test('propagates matcher failures without dropping the event', () async {
-      final buffer = WampEventBuffer();
-      final failed = buffer.nextWhere(
-        (_) => throw StateError('payload decode failed'),
-      );
-      final event = wamp_core.Event(
-        1,
-        9,
-        wamp_core.EventDetails(),
-        argumentsKeywords: const {'worker': 9},
-      ).toLazyEventPayload();
-
-      buffer.add(event);
-
-      await expectLater(failed, throwsStateError);
-      expect(await buffer.nextWhere((_) => true), same(event));
+    test('propagates matcher failures without dropping the event', () {
+      fakeAsync((async) {
+        final buffer = WampEventBuffer();
+        final error = StateError('payload decode failed');
+        final failed = _EventObservation(buffer.nextWhere((_) => throw error));
+        final event = _bufferEvent(9);
+        buffer.add(event);
+        async.flushMicrotasks();
+        expect(failed.values, isEmpty);
+        expect(failed.errors, hasLength(1));
+        expect(failed.errors.single, same(error));
+        final replay = _EventObservation(buffer.nextWhere((_) => true));
+        async.flushMicrotasks();
+        expect(replay.values, [event]);
+        expect(replay.errors, isEmpty);
+        buffer.close();
+      });
     });
   });
 }
+
+class _EventObservation {
+  _EventObservation(Future<wamp_core.LazyEventPayload> future) {
+    future.then<void>(
+      values.add,
+      onError: (Object error) {
+        errors.add(error);
+      },
+    );
+  }
+
+  final values = <wamp_core.LazyEventPayload>[];
+  final errors = <Object>[];
+}
+
+wamp_core.LazyEventPayload _bufferEvent(int worker, {int? iteration}) =>
+    wamp_core.Event(
+      1,
+      worker,
+      wamp_core.EventDetails(),
+      argumentsKeywords: {
+        'worker': worker,
+        'iteration': ?iteration,
+      },
+    ).toLazyEventPayload();
 
 class _FakeWampBroker {
   _FakeWampBroker({

@@ -6,6 +6,30 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work171 integrates deterministic event-buffer completion assertions after
+Fast171 passes. All 11 existing dedicated/legacy cases retain their behavior
+checks, and a new case verifies nonmatching live events replay exactly once in
+FIFO order. A direct fake_async dev dependency supports microtask observation;
+no elapsed deadline is converted into assertion credit. Combined controls for
+15 former timeout mutations produce 13 assertion-backed and two uncredited
+error-only failures, with zero timeouts. All 111 focused tests and clean package
+analysis pass. Two pre-change CI contract failures reproduce a missing HTTP
+mutation job and acceptance of missing evidence. The target is now required by
+the workflow matrix and exact deployment audit; all 102 tooling tests pass.
+The complete HTTP campaign independently passes at 56/58 (96.55%), with two
+survivors, 32 compile errors, no timeouts, no error-only credit and no waivers.
+Its source/test hashes still match after the unrelated workload-helper lint fix.
+Evidence: bench171-http-mutations under out/regression-coverage-2026-09-15.
+Verify171 passes, including 1307 benchmark, 3894 router, 3343 core WASM and 2568
+client WASM tests; final frozen-input checks pass. Session72541 and cell2234 are
+terminal. The complete 532-mutation workload campaign now runs as session95122
+and owns the native window. Preserve its frozen source/test/native inputs; do
+not start another native user or duplicate campaign. Its result is pending,
+not a new score. Verification logs are retained in coverage171-verification;
+exact-head hosted evidence must follow the implementation push.
+The full per-component/runtime 98%/95% milestone remains incomplete. No merge,
+publication or version change is authorized.
+
 Work170 passes the complete HTTP mutation gate: 56/58 assertion-backed detections
 (96.55%), 90 generated, two survivors, 32 compile errors, no timeouts, no
 error-only credit and no waivers. Original/restored baselines, independent audit

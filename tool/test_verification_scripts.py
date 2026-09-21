@@ -210,6 +210,19 @@ test -s native/transport/Cargo.lock
         for target in targets:
             self.assertIn(f"'{target} Mutation Gate'", audit)
 
+    def test_http_mutation_gate_is_required_with_complete_artifacts(self):
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
+        targets = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
+        self.assertIn('bench-http-auth-vm', {target.strip() for target in targets})
+        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
+        self.assertNotIn('--threshold', job)
+        self.assertIn('if: always()', job)
+        self.assertIn('path: out/mutations', job)
+        self.assertIn('if-no-files-found: error', job)
+        audit = (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text()
+        self.assertIn("'bench-http-auth-vm Mutation Gate'", audit)
+
     def test_meta_cache_mutation_gates_cover_vm_and_browser(self):
         workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
         job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]

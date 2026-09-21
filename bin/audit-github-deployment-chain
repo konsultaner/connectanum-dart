@@ -142,6 +142,7 @@ expected_ci_jobs=(
   'router-installer Mutation Gate'
   'core-e2ee-vm Mutation Gate'
   'bench-config Mutation Gate'
+  'bench-http-auth-vm Mutation Gate'
   'core-lazy-vm Mutation Gate'
   'core-lazy-web Mutation Gate'
   'core-pem-pkcs8-vm Mutation Gate'
