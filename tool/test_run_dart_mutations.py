@@ -29,6 +29,38 @@ def write_reporter_fixture_dependencies(work):
 
 
 class MutationRunnerTests(unittest.TestCase):
+    def test_http_context_target_covers_complete_source_and_native_integration(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        self.assertIn('router-http-context-vm', targets)
+        target = targets['router-http-context-vm']
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_router/lib/src/router/http/http_context.dart'])
+        self.assertEqual(set(target['tests']), {
+            'packages/connectanum_router/test/http_context_regression_test.dart',
+            'packages/connectanum_router/test/native_http_request_body_test.dart',
+            'packages/connectanum_router/test/router_runtime_test.dart',
+            'packages/connectanum_router/test/router_integration_native_test.dart'})
+        self.assertTrue(target['requiresNativeLibrary'])
+        self.assertTrue(target['isolateTestFiles'])
+        self.assertEqual(target['testRoot'], 'packages/connectanum_router')
+        self.assertIn('packages/connectanum_router/test/support/native_lib.dart',
+                      target['supportFiles'])
+        for name in ('http3_cert.pem', 'http3_key.pem', 'http3_ca_cert.pem'):
+            self.assertIn(f'packages/connectanum_router/test/certs/{name}',
+                          target['supportFiles'])
+        self.assertNotIn('testName', target)
+        self.assertNotIn('threshold', target)
+
+    def test_mcp_discovery_target_includes_full_source_and_consumer_tests(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        self.assertIn('client-mcp-discovery-vm', targets)
+        target = targets['client-mcp-discovery-vm']
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_client/lib/src/mcp/authorization_discovery.dart'])
+        self.assertEqual(target['tests'], ['packages/connectanum_client/test/mcp'])
+        self.assertNotIn('testName', target)
+        self.assertNotIn('threshold', target)
+
     def test_reporter_fixture_reuses_workspace_lock_not_a_local_test_version(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

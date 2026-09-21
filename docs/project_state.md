@@ -6,6 +6,38 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work172 promotes 26 HTTP-context and 181 MCP discovery regressions after Fast172
+passes. The tests cover response byte ownership/encoding, progressive/final
+chunks, descriptor failure recovery and concurrent reply correlation; metadata
+validation, UTF-8 byte limits, challenge parsing and exact discovery fallback
+requests. All 207 focused tests and clean analysis pass. Two pre-change inventory
+contract failures reproduce missing complete mutation targets; both targets now
+include full production sources and existing consumer/integration suites, without
+operator exclusions or threshold changes. All 143 tooling tests pass (one existing
+conditional skip). Fresh discovery-only VM measurement is 439/444 lines (98.87%),
+not a package-wide/all-runtime score. Evidence: discovery172-final and
+http172-inventory under out/regression-coverage-2026-09-15. The complete 447-mutant
+discovery campaign is running as session79902; its baseline passes, but its final
+score is pending. Preserve its source/test snapshot. Verify172/session66326 passes,
+including native and Chrome/WASM suites; its frozen-input check passes. Supervisor
+cell2363 now owns fresh full VM/packaging coverage as session60878, and will only
+then start serialized native HTTP-context mutations. Do not duplicate these native
+users or restart on observation timeout. Logs: coverage172-verification.
+
+The complete Work171 workload campaign is terminal and independently audited:
+205/343 (59.77%) assertion-backed detections, 532 generated, 79 survivors, 30
+timeouts, 189 compile errors and 29 error-only detections, with no waivers. Both
+baselines and frozen source/native checks pass. It improves on 154/339 (45.43%)
+but still fails the 95% assertion gate; audit success is not gate success.
+Evidence: bench171-workload-mutations. Isolated coverage174-probes additionally
+contains four passing late-discovery-request tests with two assertion-only
+negative controls, and a newly reproduced late benchmark-session cleanup leak.
+Two assertions fail against canonical workload code; an isolated fix passes 13
+tests including cleanup failures/timeouts and exact diagnostics. It is not yet
+promoted, reviewed completely, or credited to canonical mutation/coverage scores.
+Keep the full milestone active and PR #93 draft; no merge/publication/version
+change. Exact-head hosted checks remain queued at the latest observation.
+
 Work171 integrates deterministic event-buffer completion assertions after
 Fast171 passes. All 11 existing dedicated/legacy cases retain their behavior
 checks, and a new case verifies nonmatching live events replay exactly once in
@@ -22,10 +54,9 @@ Its source/test hashes still match after the unrelated workload-helper lint fix.
 Evidence: bench171-http-mutations under out/regression-coverage-2026-09-15.
 Verify171 passes, including 1307 benchmark, 3894 router, 3343 core WASM and 2568
 client WASM tests; final frozen-input checks pass. Session72541 and cell2234 are
-terminal. The complete 532-mutation workload campaign now runs as session95122
-and owns the native window. Preserve its frozen source/test/native inputs; do
-not start another native user or duplicate campaign. Its result is pending,
-not a new score. Verification logs are retained in coverage171-verification;
+terminal. The complete 532-mutation workload campaign/session95122 is now
+terminal; its audited 59.77% assertion score and remaining gaps are recorded
+above. Verification logs are retained in coverage171-verification;
 exact-head hosted evidence must follow the implementation push.
 The full per-component/runtime 98%/95% milestone remains incomplete. No merge,
 publication or version change is authorized.

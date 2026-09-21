@@ -76,6 +76,29 @@
     "sources": ["packages/connectanum_client/lib/src/mcp/streamable_http_client.dart"],
     "tests": ["packages/connectanum_client/test/mcp"]
   },
+  "client-mcp-discovery-vm": {
+    "sources": ["packages/connectanum_client/lib/src/mcp/authorization_discovery.dart"],
+    "tests": ["packages/connectanum_client/test/mcp"]
+  },
+  "router-http-context-vm": {
+    "sources": ["packages/connectanum_router/lib/src/router/http/http_context.dart"],
+    "tests": [
+      "packages/connectanum_router/test/http_context_regression_test.dart",
+      "packages/connectanum_router/test/native_http_request_body_test.dart",
+      "packages/connectanum_router/test/router_runtime_test.dart",
+      "packages/connectanum_router/test/router_integration_native_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_router/test/support/native_lib.dart",
+      "packages/connectanum_router/test/certs/http3_cert.pem",
+      "packages/connectanum_router/test/certs/http3_key.pem",
+      "packages/connectanum_router/test/certs/http3_ca_cert.pem"
+    ],
+    "requiresNativeLibrary": true,
+    "isolateTestFiles": true,
+    "testRoot": "packages/connectanum_router",
+    "testTimeoutSeconds": 30
+  },
   "router-http-auth-vm": {
     "sources": ["packages/connectanum_router/lib/src/router/auth/http_auth_provider.dart"],
     "tests": [

@@ -67,6 +67,46 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work172 HTTP Context And MCP Discovery Regression Matrices
+
+- Fast172 passes before canonical edits. Promote 26 HTTP-context tests and 181
+  discovery tests. All 207 focused tests and analysis pass. Cases assert exact
+  bytes, copying, final/progressive wire state, callback order, completion,
+  malformed descriptor recovery and concurrent response isolation; metadata and
+  challenge boundaries, byte limits with multibyte text, and exact fallback URLs.
+- Two failing inventory contracts reproduce missing complete targets. The new
+  client-mcp-discovery-vm target includes all MCP consumer tests and all 447 AST
+  mutations. Router-http-context-vm includes all 275 AST mutations plus existing
+  request-body, runtime and native integration suites, with native artifact
+  requirements and per-file isolation. No operator exclusions, score waivers or
+  threshold reductions. Tooling passes 143 tests with one existing conditional
+  skip. Pure discovery measurement is 439/444 (98.87%) lines; this does not replace
+  full package/runtime coverage.
+- The discovery campaign/session79902 is live with passing baseline. Preserve
+  its inputs; no final score is claimed. Verify172/session66326 passes, including
+  native and Chrome/WASM suites; frozen-input checks pass. Supervisor cell2363
+  now collects vm172-current/session60878, then will launch
+  the native HTTP-context campaign only after coverage releases the native
+  window. Keep these processes, do not duplicate them. The full 98%/95% objective
+  remains incomplete, including unmeasured files and browser/native/app scopes.
+- Work171 workload evidence is now complete: 205/343 assertion-backed (59.77%),
+  versus Work167's 154/339 (45.43%). There are 532 generated, 79 survivors, 30
+  timeouts, 189 compile errors and 29 uncredited error-only detections, no waivers.
+  Both baselines, independent classification audit and source/native hashes pass.
+  The 95% assertion gate still fails; retain bench171-workload-mutations.
+- Follow-up probes remain ignored, not canonical. Four late-discovery tests pass;
+  dropping late abort or owned-client close causes two assertions each, with no
+  timeout/error credit. Six workload diagnostic tests pass and two new assertions
+  reproduce sessions leaked when opening succeeds after the workload deadline.
+  An isolated late-session cleanup fix passes 13 tests, including bounded cleanup,
+  error containment and no double-close. Promote only after review and a fresh
+  baseline; current complete campaign scores do not include this candidate.
+- Routine local reviews were checked against source and executions. Suggested
+  changes based on missing exports, missing FFI setup in deliberately pre-FFI
+  tests, or path-order races were not substantiated. The GLM judge endpoint was
+  independently unreachable for the isolated cleanup candidate; its review and
+  final canonical verification remain pending.
+
 ### Work171 Deterministic Buffer Assertions And Required HTTP Gate
 
 - Fast171 passes before promotion. Eight dedicated event-buffer tests and four
@@ -89,10 +129,9 @@ caught and timed-out outcomes separately.
   bench171-http-mutations under out/regression-coverage-2026-09-15.
 - Verify171 passes, including 1307 benchmark, 3894 router, 3343 core WASM and
   2568 client WASM tests. Its final frozen-input checks pass. Session72541 and
-  cell2234 are terminal; the complete 532-mutation workload campaign runs as
-  session95122 and now owns the native window. Preserve its frozen inputs and
-  do not duplicate it. Its result is pending, not a score inferred from selected
-  controls. Logs are retained in coverage171-verification. Check exact-head
+  cell2234 are terminal; the complete 532-mutation workload campaign/session95122
+  is now terminal. Its audited 59.77% assertion score and remaining failures are
+  recorded above. Logs are retained in coverage171-verification. Check exact-head
   hosted evidence after pushing; keep the full goal active and PR #93 draft.
 
 ### Work170 HTTP Assertion Gate And Scenario Copy Matrix
