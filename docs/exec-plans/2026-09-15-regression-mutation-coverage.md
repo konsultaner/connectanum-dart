@@ -67,6 +67,38 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work191 Shutdown Admission And Completed OAuth Measurement
+
+- VM189 exits0 and frozen hashes match: overall92.30%, client93.35%, router89.22%,
+  other package percentages unchanged. Keep59 unmeasured library files and12
+  unmeasured packaging files visible; packaging765/787 (97.20%). OAuth token
+  exchange480/483 (99.38%) is module-only evidence. Fast190 exits0 and hashes match.
+- Four assertions reproduce HTTP application work admitted during delayed file
+  cleanup after disposal starts. Promote a binding-wide disposed latch and early
+  HTTP503 rejection with finally-based handshake release. Eight new tests cover
+  existing/new connections, cancellation errors and rejection-send failures.
+  The first post-fix fixture incorrectly indexed fake responses by handshake
+  instead of connection ID; preserve that failure log, then correct the fixture.
+  All23 focused cleanup/admission cases and285 complete router runtime cases pass.
+- Four explicit fault controls detect8/8/8/4 assertions, no other errors, with
+  passing original/restored baselines and frozen source/test hashes. No full
+  mutation score inferred. Promote30 discovery tests with matching candidate hash
+  and a passing canonical run; full453-mutant Discovery191/session66371 is live.
+- OAuth188 finishes315/326 assertion-backed (96.63% raw/adjusted),9 survivors,
+  2 timeouts,87 compile errors and passing baselines. Independent audit exits0.
+  The strict gate fails for timeouts despite meeting the numerical threshold.
+  Both timeouts expose a null dereference in a test HTTP handler when Basic
+  authorization is omitted. Isolated nullable capture plus post-response assertion
+  retains the credential checks. Full-MCP selected controls/session26478 finish
+  with24 assertion-only failures and173 assertions/14 runtime errors respectively,
+  no timeouts, and passing original/restored baselines. The correction remains
+  isolated; historical timeouts stay uncredited and no equivalent waiver is made.
+- Targeted analysis/formatting pass. Verify191/session69945 completes with exit0,
+  including Chrome/WASM, and the final frozen input hashes match.
+  Pending OAuth fixture correction is not canonical or in the live campaigns.
+  Implementation is ready for a verified feature-branch commit; PR93 stays draft
+  at f44fdabd and hosted jobs remain queued. No release, merge or version change.
+
 ### Work190 Verified Cleanup And Discovery Boundary Oracles
 
 - Verify189 exits0 including Chrome/WASM and its frozen source/test/config hashes

@@ -3290,6 +3290,8 @@ class _FileResponseCleanupRuntime extends _HandleRuntime {
   late int Function() releases;
   final List<int> releasesAtOpen = [];
   final List<int> releasesAtSend = [];
+  final List<int> responseAttempts = [];
+  Object? sendError;
   final addError = StateError('controlled file stream add failure');
 
   @override
@@ -3315,7 +3317,10 @@ class _FileResponseCleanupRuntime extends _HandleRuntime {
     int? connectionId,
     required NativeHttpResponse response,
   }) {
+    responseAttempts.add(handshakeHandle);
     releasesAtSend.add(releases());
+    final error = sendError;
+    if (error != null) throw error;
     super.sendHttpResponse(
       handshakeHandle: handshakeHandle,
       connectionId: connectionId,
@@ -3358,6 +3363,155 @@ class _DeferredResponseFile implements File {
 }
 
 void _fileResponseCleanupTests() {
+  for (final sameConnection in [false, true]) {
+    for (final failCancellation in [false, true]) {
+      for (final failRejection in [false, true]) {
+        test(
+          'file disposal admission sameConnection=$sameConnection '
+          'failCancellation=$failCancellation failRejection=$failRejection',
+          () async {
+            final runtime = _FileResponseCleanupRuntime(failAdd: false);
+            final original = _TrackedHttpHandshake(9601);
+            final late = _TrackedHttpHandshake(9602);
+            runtime.releases = () => original.releases;
+            final cancellation = Completer<void>();
+            final file = _DeferredResponseFile(cancellation: cancellation);
+            const path = '/controlled-connectanum-disposal-admission';
+            final parentZone = Zone.current;
+            final lateConnection = sameConnection ? 56 : 57;
+            final sendError = StateError('controlled rejected send');
+            final handlerErrors = <Map<String, Object?>>[];
+            final router = Router(
+              RouterConfig(
+                endpoints: [
+                  Endpoint(
+                    host: '127.0.0.1',
+                    port: 0,
+                    tlsMode: TlsMode.native,
+                    maxRawSocketSizeExponent: 16,
+                    sniCertificates: [_cert('localhost')],
+                  ),
+                ],
+              ),
+              settings: _buildRouterSettingsWithPendingProtocols(),
+            );
+            final binding = IOOverrides.runZoned(
+              () => router.start(
+                runtime,
+                onEvent: (event) {
+                  if (event is Map<String, Object?> &&
+                      event['type'] == 'http_request_handler_error') {
+                    handlerErrors.add(event);
+                  }
+                },
+              ),
+              createFile: (name) =>
+                  name == path ? file : parentZone.run(() => File(name)),
+            );
+            addTearDown(binding.dispose);
+            final session = await binding.createInternalSession(
+              realmUri: 'realm1',
+            );
+            final registration = await session.register(
+              'com.example.api.stream',
+            );
+            var invocations = 0;
+            registration.onInvoke((invocation) {
+              invocations++;
+              if (invocations == 1) {
+                HttpInvocationContext.maybeFromInvocation(
+                  invocation,
+                )!.sendFile(path: path);
+              } else {
+                invocation.respondWith(
+                  arguments: const ['unexpected admission'],
+                );
+              }
+            });
+            runtime.setConnectionProtocol(56, NativeConnectionProtocol.http);
+            runtime.enqueueHttpHandshake(
+              binding.listeners.single.listenerId,
+              56,
+              original,
+            );
+            await file.checked.future.timeout(const Duration(seconds: 2));
+            file.existence.complete(true);
+            await file.reading.future.timeout(const Duration(seconds: 2));
+            final errors = <Object>[];
+            final disposal = binding.dispose().then<void>(
+              (_) {},
+              onError: (Object error) => errors.add(error),
+            );
+            final cancellationError = StateError(
+              'admission cancellation failure',
+            );
+            try {
+              await file.cancelled.future.timeout(const Duration(seconds: 2));
+              if (failRejection) runtime.sendError = sendError;
+              if (sameConnection) {
+                runtime.queueHttpRequestForConnection(56, late);
+              } else {
+                runtime.setConnectionProtocol(
+                  57,
+                  NativeConnectionProtocol.http,
+                );
+                runtime.enqueueHttpHandshake(
+                  binding.listeners.single.listenerId,
+                  57,
+                  late,
+                );
+              }
+              await _waitUntil(
+                () =>
+                    invocations > 1 ||
+                    late.releases > 0 ||
+                    runtime.responseAttempts.contains(late.handle),
+              );
+              expect(
+                invocations,
+                1,
+                reason: 'Disposal must not admit new application work.',
+              );
+              expect(
+                late.releases,
+                1,
+                reason: 'A rejected request must release its handshake.',
+              );
+              expect(runtime.responseAttempts, [late.handle]);
+              if (failRejection) {
+                expect(runtime.httpResponses, isEmpty);
+                expect(handlerErrors, hasLength(1));
+                expect(handlerErrors.single['connectionId'], lateConnection);
+                expect(handlerErrors.single['error'], sendError.toString());
+              } else {
+                expect(runtime.httpResponses[lateConnection], hasLength(1));
+                final response = runtime.httpResponses[lateConnection]!.single;
+                expect(response.status, 503);
+                expect(handlerErrors, isEmpty);
+              }
+            } finally {
+              if (failCancellation) {
+                cancellation.completeError(cancellationError);
+              } else {
+                cancellation.complete();
+              }
+              await disposal;
+            }
+            expect(
+              errors,
+              failCancellation ? [same(cancellationError)] : isEmpty,
+            );
+            expect(original.releases, 1);
+            expect(late.releases, 1);
+            expect(runtime.streamCloses, [original.handle]);
+            expect(file.reads, 1);
+            expect(invocations, 1);
+            await file.body.close();
+          },
+        );
+      }
+    }
+  }
   for (final throwObserver in [false, true]) {
     test(
       'file response cleanup disposal releases all calls observer=$throwObserver',

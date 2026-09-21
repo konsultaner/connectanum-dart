@@ -6,6 +6,42 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work191 completes VM189 with exit0 and matching frozen inputs: auth100%,
+bench99.36%, client93.35%, core94.34%, MCP96.13%, router89.22%, overall92.30%.
+There are59 unmeasured library sources. Packaging remains765/787 (97.20%) with12
+unmeasured sources. OAuth token exchange is480/483 (99.38%) measured module lines.
+Fast190/session65221 also passes with matching inputs before promotion.
+
+Four direct assertions reproduce new application invocations after disposal
+starts while file cancellation is pending. The promoted binding-wide disposal
+guard rejects later HTTP requests with503 and releases their handshake in finally,
+including failed response writes. Eight new regressions cover existing/new
+connections, cancellation failure and rejection-send failure; all285 router
+runtime cases pass, as do targeted analysis/format checks. Four explicit fault
+controls fail assertions only (8/8/8/4), with original/restored baselines passing.
+These are diagnostic controls, not a complete router mutation score.
+Promote the30 previously verified discovery tests; their canonical run passes.
+Verify191/session69945 completes with exit0, including Chrome/WASM, and its
+final /tmp/connectanum-coverage191-inputs.sha256 check passes. No native test
+owner remains from this verification run.
+
+OAuth188 completes and independently audits315/326 assertion-backed detections
+(96.63% raw/adjusted),9 survivors,2 timeouts,87 compile errors excluded, and both
+baselines passing. Its gate still fails because timeouts are prohibited; no
+equivalence waived. Both timeout variants remove Basic authentication and expose
+a null assertion inside the test server before it closes the HTTP response.
+An isolated fixture correction captures the nullable header and asserts after
+the response completes. Full-MCP replay controls complete:24 assertion-only
+failures for one variant,173 assertions plus14 runtime errors for the other;
+original/restored baselines pass and neither variant times out. These selected
+diagnostics do not replace the historical campaign score or gate result.
+This correction is NOT canonical or included in Verify191 or Discovery191.
+Discovery191/session66371 runs all453 mutants from the promoted snapshot; preserve
+it and do not duplicate. No new full discovery score. PR93 remains draft at
+f44fdabd, exact-head hosted checks queued; the current implementation is locally
+verified and ready for a feature-branch commit. This is not a new coverage score.
+No merge, publication, version or protection change. Recovery: coverage184-probes/WORK191.md.
+
 Work190 completes Verify189 with exit 0, including Chrome/WASM, and confirms
 matching frozen source/test/config hashes. The verified implementation includes
 the file-response ownership/disposal fixes,15 cleanup regressions and203 OAuth

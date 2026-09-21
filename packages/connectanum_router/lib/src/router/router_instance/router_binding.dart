@@ -1066,7 +1066,7 @@ class RouterBinding {
   final Map<String, _PendingHttpAuthTransaction> _pendingHttpAuthTransactions =
       {};
   final Set<_PendingHttpAuthTransaction> _activeHttpAuthTransactions = {};
-  bool _httpAuthDisposed = false;
+  bool _disposed = false;
   final Map<String, _HttpAuthTokenRecord> _httpAuthTokens = {};
   final Map<String, _HttpRefreshTokenRecord> _httpRefreshTokens = {};
   final Set<String> _httpRefreshTokensInFlight = {};
@@ -1754,7 +1754,7 @@ class RouterBinding {
 
   /// Stops the background boss isolate (if running) and releases resources.
   Future<void> dispose() async {
-    _httpAuthDisposed = true;
+    _disposed = true;
     for (final pending in {
       ..._pendingHttpAuthTransactions.values,
       ..._activeHttpAuthTransactions,
@@ -1904,6 +1904,14 @@ class RouterBinding {
     RouterHttpRequest request,
     NativeHttpHandshake? handshake,
   ) async {
+    if (_disposed) {
+      try {
+        await _sendDisposedHttpResponse(request, handshake);
+      } finally {
+        handshake?.release();
+      }
+      return;
+    }
     NativeHttpHandshake? retainedHandshake = handshake;
     _cleanupExpiredHttpAuthState();
     final listenerSettings = _listenerConfigById[request.listenerId];
@@ -4290,9 +4298,9 @@ class RouterBinding {
       transaction: transaction,
       action: () => authenticator.onHello(context),
     );
-    if (result == null || _httpAuthDisposed) {
+    if (result == null || _disposed) {
       await _abortHttpAuthForDisposal(transaction);
-      await _sendDisposedHttpAuthResponse(request, handshake);
+      await _sendDisposedHttpResponse(request, handshake);
       return;
     }
     if (result.status != AuthStatus.failure) {
@@ -4721,12 +4729,12 @@ class RouterBinding {
     required Future<AuthResult> Function() action,
   }) async {
     AuthResult? result;
-    if (!_httpAuthDisposed) {
+    if (!_disposed) {
       _activeHttpAuthTransactions.add(transaction);
       try {
         result = await action();
       } catch (_) {
-        if (!_httpAuthDisposed) rethrow;
+        if (!_disposed) rethrow;
       } finally {
         _activeHttpAuthTransactions.remove(transaction);
       }
@@ -4736,7 +4744,7 @@ class RouterBinding {
     return result;
   }
 
-  Future<void> _sendDisposedHttpAuthResponse(
+  Future<void> _sendDisposedHttpResponse(
     RouterHttpRequest request,
     NativeHttpHandshake? handshake,
   ) => _sendImmediateHttpResponse(
@@ -4747,7 +4755,7 @@ class RouterBinding {
       body: NativeHttpResponseJson(const <String, Object?>{
         'status': 'error',
         'reason': 'binding_disposed',
-        'message': 'Router authentication is shut down',
+        'message': 'Router is shut down',
       }),
     ),
   );
@@ -4879,9 +4887,9 @@ class RouterBinding {
       action: () =>
           pending.authenticator.onAuthenticate(pending.context, message),
     );
-    if (result == null || _httpAuthDisposed) {
+    if (result == null || _disposed) {
       await _abortHttpAuthForDisposal(pending);
-      await _sendDisposedHttpAuthResponse(request, handshake);
+      await _sendDisposedHttpResponse(request, handshake);
       return;
     }
     switch (result.status) {
