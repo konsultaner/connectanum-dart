@@ -7228,6 +7228,10 @@ pub extern "C" fn ct_set_on_connection(callback: extern "C" fn(c_int, c_int)) {
 }
 
 #[cfg(test)]
+#[path = "segmented_forwarding_tests.rs"]
+mod segmented_forwarding_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::tests::test_guard;

@@ -67,6 +67,36 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work192 Native Forwarding And OAuth Timeout Oracles
+
+- Push the verified Work191 increment as178ca8f3; draftPR93 remains unmerged.
+  Exact-head CI/package/native/router/profile checks are queued; strict audit
+  exits1 for incomplete hosted evidence. Fast192/session81134 passes and its
+  frozen source/test/config hashes match before promotion.
+- Add eight native tests spanning three encodings, four payload shapes,
+  disclosure metadata, independent progress flags, results/errors, malformed
+  PPT fields, unsupported encodings and external-buffer range/null boundaries.
+  Assert success and complete independently decoded WAMP frames, exact payload
+  pointer/length reuse, and output ownership after dropping source messages.
+  Six diagnostic fault injections detect1/1/1/1/2/1 assertion failures, no other
+  failures; original/restored baselines pass. No complete mutation score inferred.
+- Native192/session64804 exits0 with matching canonical inputs. The new test
+  module is AST-classified test-only; production denominator remains5798 lines.
+  ct_ffi unit-only coverage rises4658->4749 lines (80.34%->81.91%); ct_core is
+  8800/10064 (87.44%), with two previously hit listener-loop branches unhit.
+  A fresh Dart-FFI measurement is required before a new combined native score.
+- Promote the previously validated OAuth nullable-header fixture correction.
+  Complete OAuth192/session53855 is live with413 generated mutants; its first
+  invocation rejected an incorrect target name before starting any campaign,
+  and that CLI error log is retained separately. Discovery191/session66371 is
+  still live from its own unchanged snapshot. Do not duplicate either campaign.
+- Formatting and the targeted native suite pass. Verify192/session2955 completes
+  with exit0, including Chrome/WASM, and its frozen input hashes match.
+  Supervisor3330 is terminal and starts native192-ffi-current/session7464 as the
+  sole native owner. Preserve /tmp/connectanum-coverage192-inputs.sha256 until
+  collection finishes. No new combined coverage, mutation gate, or hosted-green
+  claim yet; the implementation increment is locally verified.
+
 ### Work191 Shutdown Admission And Completed OAuth Measurement
 
 - VM189 exits0 and frozen hashes match: overall92.30%, client93.35%, router89.22%,

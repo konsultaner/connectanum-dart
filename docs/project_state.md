@@ -6,6 +6,37 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work192 pushes the fully verified Work191 increment as178ca8f3. PR93 remains
+draft. Exact-head CI/package checks and native35583887132/router35583890470/
+profile35583893247 dry-runs are queued; strict audit exits1 for incomplete hosted
+evidence, not a hosted test failure. No release, merge or version change.
+Fast192/session81134 passes with matching frozen inputs before promotion.
+
+Eight new native FFI tests assert complete forwarded EVENT/INVOCATION/RESULT/
+ERROR frames, kwargs-only placeholders, both progressive flags, disclosure/PPT
+metadata, unsupported encodings and external buffer boundaries. They retain and
+check exact guarded payload allocations after dropping source messages. Six
+explicit faults are detected through assertions only (1/1/1/1/2/1), with original
+and restored baselines passing; these controls are not a full mutation score.
+Native192/session64804 finishes with exit0 and matching canonical inputs. Its
+unit-test-only LLVM report measures ct_ffi4749/5798 (81.91%), up91 lines from
+Native151's unit-only4658/5798 (80.34%); the production denominator is unchanged.
+ct_core is8800/10064 (87.44%); two previously hit listener-loop branches are
+unhit in this run. Do not compare this unit-only report with the older
+combined native/Dart-FFI percentages or claim a new combined score.
+
+The OAuth fixture correction is now canonical: capture the nullable Basic header,
+close the response, then assert credentials in the test body. Complete413-mutant
+OAuth192/session53855 starts from this corrected snapshot; historical timeouts
+remain uncredited until a complete rerun/audit. Discovery191/session66371 remains
+live and unchanged. Verify192/session2955 completes with exit0, including Chrome
+and WASM, and all frozen source/test/config hashes match. Supervisor3330 is
+terminal and starts fresh native192-ffi-current coverage/session7464 as the sole
+native owner. Preserve /tmp/connectanum-coverage192-inputs.sha256 until that
+collection finishes. This implementation increment is locally verified; new
+combined native coverage and complete mutation scores remain pending.
+Recovery: coverage184-probes/WORK192.md.
+
 Work191 completes VM189 with exit0 and matching frozen inputs: auth100%,
 bench99.36%, client93.35%, core94.34%, MCP96.13%, router89.22%, overall92.30%.
 There are59 unmeasured library sources. Packaging remains765/787 (97.20%) with12
