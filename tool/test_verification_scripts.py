@@ -650,6 +650,25 @@ fi
         self.assertNotIn('native/transport/Cargo.toml', tool_gate)
         self.assertIn('python3 tool/test_native_ffi_coverage.py', tool_gate)
 
+    def test_native_bench_coverage_keeps_its_workspace_and_counters_separate(self):
+        path = REPO_ROOT / "bin/test-native-bench-coverage"
+        self.assertTrue(os.access(path, os.X_OK))
+        script = path.read_text()
+        self.assertIn('CONNECTANUM_TEST_LLVM_COVERAGE=1', script)
+        self.assertIn('if [[ -e "$coverage_root" ]]', script)
+        self.assertIn('CARGO_TARGET_DIR="$coverage_root/target"', script)
+        self.assertIn('CARGO_LLVM_COV_TARGET_DIR="$coverage_root/target"', script)
+        self.assertIn('--manifest-path native/bench/Cargo.toml --workspace --locked', script)
+        self.assertLess(script.index('native_coverage.py snapshot --workspace bench'),
+                        script.index('cargo llvm-cov'))
+        self.assertLess(script.index('cargo llvm-cov'),
+                        script.index('native_coverage.py filter --workspace bench'))
+        self.assertIn('--output-path "$coverage_root/lcov.info"', script)
+        self.assertIn('--output "$coverage_root/production.info"', script)
+        gate = (REPO_ROOT / 'bin/test-native-coverage-tools').read_text()
+        self.assertIn('python3 tool/test_native_entrypoints.py', gate)
+        self.assertIn('python3 tool/test_native_ffi_suite_inventory.py', gate)
+
     def test_native_ffi_coverage_uses_real_dart_instrumentation_fixture(self):
         script = (REPO_ROOT / "bin/test-native-ffi-coverage").read_text()
         self.assertIn('CONNECTANUM_TEST_LLVM_COVERAGE=1', script)

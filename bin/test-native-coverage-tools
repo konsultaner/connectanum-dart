@@ -8,4 +8,6 @@ cargo fmt --manifest-path "$scope_manifest" -- --check
 cargo test --manifest-path "$scope_manifest" --locked \
   --target-dir "$ROOT_DIR/out/rust-coverage-scope-target"
 python3 tool/test_native_coverage.py
+python3 tool/test_native_entrypoints.py
 python3 tool/test_native_ffi_coverage.py
+python3 tool/test_native_ffi_suite_inventory.py

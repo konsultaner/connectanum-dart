@@ -67,6 +67,36 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work207 Deterministic Socket And Native Coverage
+
+- Add24 controlled-stream RawSocket cases across JSON, MsgPack and CBOR, small
+  and large binary payloads, and header/body split boundaries. Assert exact
+  payloads, ordered delivery, no premature messages and once-only destruction;
+  retain real TCP tests. All37 socket tests and strict analysis pass. The343
+  socket mutations are inventoried only, not a completed campaign.
+- Expand native FFI instrumentation by nine suites covering actual client and
+  router native calls. Add real Rust-AST multi-entrypoint scope tests and a
+  separate fresh-output benchmark-crate LLVM collector. Missing-source and
+  unreachable-source guards remain intact; no denominator exclusions added.
+- Fast207, tooling/collection gates and full bin/verify pass, including browser
+  JavaScript/WASM and consumer smoke tests. Frozen worktree hashes match after
+  collection and verification. VM39658/42840 (92.57%), packaging765/787 (97.20%);
+  strict98 gates fail and59/12 sources remain unmeasured. Combined native
+  unit193+FFI207 measures ct_core8866/10064 (88.10%), ct_ffi5205/5798 (89.77%).
+  Source scopes and external integration-test hashes match before combining.
+- Separate Rust benchmark coverage is4999/7788 (64.19%). Utility CLI mains have
+  no hits and HTTP orchestration remains sparse. Next add actual executable
+  integration and strengthen reusable snapshot input hashes for tests/fixtures/
+  configuration. The full frozen worktree manifest protects current evidence.
+- OAuth199 completes with419 generated,91 compile errors,328 viable,320
+  assertion-detected and8 surviving mutations:97.56% raw/adjusted lower bound,
+  no waivers. Clean/restored baselines pass. Later204 regressions detect three
+  scope survivors but cannot retroactively change199's frozen score. Remaining
+  survivors and whole-component mutation scope remain unfinished.
+- Preserve raw logs and manifests under native207-evidence, vm207-current,
+  native207-combined, native207-bench-current and client199-oauth-token-mutations
+  in out/regression-coverage-2026-09-15. Hosted checks remain queued, not green.
+
 ### Work205+206 HTTP Authentication And Consumer Smoke
 
 - Add41 initial/continuation HTTP-auth regressions covering provider exceptions,

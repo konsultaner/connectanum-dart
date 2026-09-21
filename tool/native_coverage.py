@@ -15,6 +15,14 @@ ROOTS = {
     "ct_core": "native/transport/ct_core/src/lib.rs",
     "ct_ffi": "native/transport/ct_ffi/src/lib.rs",
 }
+WORKSPACES = {
+    "transport": (ROOTS, ()),
+    "bench": ({"connectanum_bench_orchestrator": "native/bench/src/lib.rs"}, (
+        "native/bench/src/bin/check_artifact_gate.rs",
+        "native/bench/src/bin/http_stream.rs",
+        "native/bench/src/bin/transform_results.rs",
+    )),
+}
 POLICY = {"test": False, 'feature="ffi-test"': False, "otherPredicates": "unknown"}
 
 
@@ -52,9 +60,9 @@ def resolve_module(repo: Path, source: str, module: dict, path_override: bool) -
     return candidates[0].relative_to(repo).as_posix()
 
 
-def classify(repo: Path, roots: dict[str, str], scopes: dict) -> dict[str, str]:
+def classify(repo: Path, roots: dict[str, str], scopes: dict, *, entrypoints=()) -> dict[str, str]:
     reachable: dict[str, set[tuple[bool, bool]]] = {}
-    pending = [(root, False, True) for root in roots.values()]
+    pending = [(root, False, True) for root in (*roots.values(), *entrypoints)]
     while pending:
         source, parent_test, path_override = pending.pop()
         if source not in scopes:
@@ -90,11 +98,22 @@ def tracked_inputs(repo: Path, inventory: dict, roots: dict) -> list[str]:
     return sorted(paths)
 
 
-def snapshot(repo: Path, roots: dict[str, str], analyzer: Path) -> dict:
+def checked_entrypoints(roots: dict[str, str], inventory: dict, entrypoints) -> list[str]:
+    if not isinstance(entrypoints, (list, tuple)) or any(not isinstance(path, str) for path in entrypoints):
+        raise ValueError("Invalid coverage entrypoints")
+    if (len(set(entrypoints)) != len(entrypoints)
+            or set(entrypoints) & set(roots.values())
+            or not set(entrypoints) <= set(inventory)):
+        raise ValueError("Duplicate or uninventoried coverage entrypoint")
+    return list(entrypoints)
+
+
+def snapshot(repo: Path, roots: dict[str, str], analyzer: Path, *, entrypoints=()) -> dict:
     repo = repo.resolve()
     inventory = source_inventory(repo, roots)
     if not inventory:
         raise ValueError("No Rust sources")
+    entries = checked_entrypoints(roots, inventory, entrypoints)
     inputs = tracked_inputs(repo, inventory, roots)
     before = {source: digest(repo / source) for source in inputs}
     raw = json.loads(subprocess.check_output(
@@ -102,7 +121,7 @@ def snapshot(repo: Path, roots: dict[str, str], analyzer: Path) -> dict:
     ))
     if set(raw) != set(inventory):
         raise ValueError("Analyzer source inventory mismatch")
-    kinds = classify(repo, roots, raw)
+    kinds = classify(repo, roots, raw, entrypoints=entries)
     for source, scope in raw.items():
         scope.update(component=inventory[source], classification=kinds[source],
                      lineCount=len((repo / source).read_text().splitlines()))
@@ -112,6 +131,8 @@ def snapshot(repo: Path, roots: dict[str, str], analyzer: Path) -> dict:
         "analyzerSha256": digest(analyzer), "inputHashes": before, "sources": raw,
         "metric": "executable production-candidate lines; no function/branch percentage",
     }
+    if entries:
+        result["entrypoints"] = entries
     validate_snapshot(repo, result)
     return result
 
@@ -120,6 +141,7 @@ def validate_snapshot(repo: Path, scope: dict) -> None:
     if scope["schemaVersion"] != 1 or scope["policy"] != POLICY:
         raise ValueError("Unsupported coverage scope policy")
     inventory = source_inventory(repo, scope["roots"])
+    checked_entrypoints(scope["roots"], inventory, scope.get("entrypoints", ()))
     if set(inventory) != set(scope["sources"]):
         raise ValueError("Source inventory changed since snapshot")
     if tracked_inputs(repo, inventory, scope["roots"]) != sorted(scope["inputHashes"]):
@@ -213,15 +235,17 @@ def filter_lcov(repo: Path, scope: dict, raw: str) -> tuple[str, dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["snapshot", "filter"])
+    parser.add_argument("--workspace", choices=WORKSPACES, default="transport")
     parser.add_argument("--scope", type=Path, required=True)
     parser.add_argument("--analyzer", type=Path)
     parser.add_argument("--lcov", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    roots, entrypoints = WORKSPACES[args.workspace]
     if args.command == "snapshot":
         if not args.analyzer:
             parser.error("snapshot requires --analyzer")
-        result = snapshot(REPO, ROOTS, args.analyzer)
+        result = snapshot(REPO, roots, args.analyzer, entrypoints=entrypoints)
         with args.scope.open("x") as output:
             json.dump(result, output, indent=2)
     else:
@@ -230,7 +254,7 @@ def main() -> None:
         scope = json.loads(args.scope.read_text())
         if digest(args.analyzer) != scope["analyzerSha256"]:
             raise ValueError("Coverage analyzer changed since snapshot")
-        if snapshot(REPO, ROOTS, args.analyzer) != scope:
+        if snapshot(REPO, roots, args.analyzer, entrypoints=entrypoints) != scope:
             raise ValueError("Coverage source scopes changed since snapshot")
         filtered, summary = filter_lcov(REPO, scope, args.lcov.read_text())
         summary["scopeSha256"] = digest(args.scope)

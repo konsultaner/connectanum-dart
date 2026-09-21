@@ -110,8 +110,17 @@ def suites():
     for name in ("external_byte_buffer", "e2ee_provider", "resource_restart",
                  "native_transports", "runtime_file_segment"):
         result.append((f"client-{name}", client, [f"test/transport/native/{name}_test.dart"], {}))
+    for name, path in (
+        ("socket", "socket/socket_transport_test.dart"),
+        ("websocket", "websocket/websocket_transport_io_test.dart"),
+    ):
+        result.append((f"client-{name}", client, [f"test/transport/{path}"], {}))
     for name in ("native_runtime", "message_lifetime", "metadata_projection"):
         result.append((f"router-{name}", router, [f"test/native/{name}_test.dart"], {}))
+    for name in ("router_runtime", "authorization_integration", "meta_discovery_authorization",
+                 "publish_ack", "router_integration_cancel", "router_integration_websocket"):
+        result.append((f"router-{name}", router, [f"test/{name}_test.dart"], {}))
+    result.append(("router-ffi-test-mode", router, ["test/native/ffi_test_mode_test.dart"], {}))
     result.append(("router-integration", router, ["test/router_integration_native_test.dart",
                   "test/router_worker_session_test.dart", "--exclude-tags", "zero_copy_publish"], {}))
     result.append(("router-zero-copy", router, ["test/router_integration_native_test.dart",

@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work207 is locally verified: Fast207, all37 socket tests, expanded native and
+VM collections, and full bin/verify pass, including Chrome/WASM. Frozen input
+hashes match after each collection and verification. Add24 deterministic
+RawSocket chunk-boundary regressions and nine previously omitted live FFI
+suites. Fresh VM coverage is39658/42840 (92.57%): client93.49%, router89.76%,
+with the other package values unchanged from206. Packaging remains97.20%; both
+strict98 gates still fail, with59 library and12 packaging sources unmeasured.
+Combined native unit193 plus FFI207 covers ct_core8866/10064 (88.10%) and
+ct_ffi5205/5798 (89.77%); matching source scopes and external test hashes were
+checked before union. Separate new Rust benchmark instrumentation measures
+4999/7788 (64.19%), not the Dart benchmark package's99.36%. Its actual CLI
+entrypoints are a major untested gap. Evidence is under vm207-current,
+native207-combined, native207-bench-current and native207-evidence in
+out/regression-coverage-2026-09-15.
+
+OAuth199 is now complete:320/328 viable mutants are assertion-detected (97.56%),
+with8 survivors,91 compile errors and no waivers. Clean/restored baselines pass.
+This is the frozen OAuth target's score, not the whole client or later tests.
+The three non-equivalent scope survivors already have204 regressions; remaining
+survivors still require individual investigation. Full milestone remains open.
+Next add real native benchmark CLI integration tests and hash external tests,
+fixtures and Cargo configuration in reusable coverage snapshots. Current runs
+were protected by the full frozen worktree manifest. Hosted checks on the last
+pushed head remain queued. No merge, publication or version change.
+
 Work205+206 is locally verified: Fast206, all379 router runtime tests and full
 bin/verify pass, including Chrome/WASM and standalone consumer smoke tests.
 Frozen inputs match after collection and verification. Add41 HTTP-authentication

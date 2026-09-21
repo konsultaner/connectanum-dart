@@ -1,4 +1,18 @@
 {
+  "client-socket-vm": {
+    "sources": [
+      "packages/connectanum_client/lib/src/transport/socket/socket_transport.dart",
+      "packages/connectanum_client/lib/src/transport/socket/socket_helper.dart"
+    ],
+    "tests": [
+      "packages/connectanum_client/test/transport/socket/socket_transport_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_client/test/transport/socket/socket_chunk_boundaries.dart"
+    ],
+    "requiresNativeLibrary": true,
+    "testTimeoutSeconds": 30
+  },
   "client-websocket-web": {
     "sources": [
       "packages/connectanum_client/lib/src/transport/websocket/websocket_transport_web.dart"
