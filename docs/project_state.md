@@ -6,6 +6,26 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work198 resumes after Verify197 exits1: three new real-timer authorization-server
+body cases see an unexpected fallback reuse a consumed response stream. The
+application collector was not started. Canonical Work197 contains the50 discovery
+regressions and deadline/body fix, still uncommitted; manifest197 matches.
+The follow-up isolates a real terminal-timeout bug: Timer truncates to milliseconds
+while discovery checks a higher-resolution Stopwatch before deciding to retry.
+Twelve deterministic cases reproduce successful fallback after a timeout, with
+assertion failures only. A private timeout subtype preserves the public
+exception/API while preventing those retries. Fast198 reproduces one of the
+same pre-fix body failures; its input manifest matches. The isolated MCP suite
+passes2524 cases, analysis passes, and three selected controls produce12/12/4
+assertion failures only, with passing original/restored baselines. Promote the
+fix and12 tests. Verify198 passes with exit0, including Chrome/WASM, and
+manifest198 matches. Supervisor3631 starts application198/session66687 as the
+sole native owner; preserve the frozen inputs until collection finishes.
+The isolated full OAuth198 campaign runs under cell3646, with419 generated
+mutations and a passing baseline; no new score yet. This discovery increment
+is locally verified for commit. Recovery: coverage184-probes/WORK198.md. No new
+full coverage score, merge or publication is claimed.
+
 Work195 completes Verify195 with exit0, including Chrome/WASM, and confirms
 the frozen source/test/config hashes. OAuth response bodies now have explicit
 StreamIterator ownership: timeout and oversize rejection detach the listener

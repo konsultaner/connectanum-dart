@@ -67,6 +67,30 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work198 Terminal Discovery Timeouts
+
+- Fast196 passed; promote Work197's discovery body/deadline fixes and50 tests.
+  The isolated full MCP suite passed2512 cases, but Verify197 exits1 on three
+  real-timer AS body tests. The planned application measurement did not start.
+- A fake response reused after retry exposed a production edge: a millisecond
+  Timer can fire before the high-resolution Stopwatch reports budget exhaustion.
+  Twelve isolated cases reproduce successful AS fallback after the timeout
+  outcome at open/headers/body stages, across ownership and late success/error.
+  These are assertion failures, not timed-out test runners.
+- A private terminal timeout subtype keeps the public discovery exception and
+  prevents further fallback; ordinary metadata-failure fallback remains tested.
+  The isolated full MCP suite passes2524 tests and analysis passes. Three selected
+  controls produce12/12/4 assertion failures only, with matching test inventories
+  and passing original/restored baselines; these are not a full mutation score.
+- Fast198 reproduces one pre-fix body test failure with unchanged inputs. Promote
+  the tested terminal-timeout correction and12 new tests. Verify198 passes,
+  including Chrome/WASM, and manifest198 matches. Supervisor3631 starts
+  application198/session66687 as the sole native owner. Preserve its frozen
+  inputs until collection finishes. The complete OAuth198 campaign has419
+  generated mutations and a passing baseline, supervised separately by cell3646.
+  Preserve old campaign outcomes without retroactive credit or classification
+  changes; no new mutation/coverage score is claimed. Locally verified for commit.
+
 ### Work195 OAuth Body Ownership And Completed Mutation Audit
 
 - Fast195 and the opt-in real Dart-to-native instrumentation fixture pass.

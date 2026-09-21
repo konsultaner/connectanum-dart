@@ -419,7 +419,8 @@ Future<McpAuthorizationServerDiscovery> discoverMcpAuthorizationServerMetadata(
           metadata: metadata,
         );
       } on McpAuthorizationDiscoveryException catch (error) {
-        if (stopwatch.elapsed >= timeout) {
+        if (error is _DiscoveryTimeoutException ||
+            stopwatch.elapsed >= timeout) {
           rethrow;
         }
         lastFailure = error;
@@ -1072,6 +1073,7 @@ Future<_DiscoveryResponse> _getDiscoveryDocument(
       openedRequest.abort(error);
       rethrow;
     }
+    _remainingDiscoveryTime(stopwatch, timeout);
     for (final entry in headers.entries) {
       openedRequest.headers.set(entry.key, entry.value);
     }
@@ -1079,6 +1081,7 @@ Future<_DiscoveryResponse> _getDiscoveryDocument(
       HttpHeaders.acceptHeader,
       ContentType.json.mimeType,
     );
+    _remainingDiscoveryTime(stopwatch, timeout);
     final response = await _withinDiscoveryDeadline(
       openedRequest.close(),
       stopwatch,
@@ -1088,16 +1091,26 @@ Future<_DiscoveryResponse> _getDiscoveryDocument(
     response.headers.forEach((name, values) {
       responseHeaders[name.toLowerCase()] = List<String>.unmodifiable(values);
     });
-    final body = await _withinDiscoveryDeadline(
-      _readBoundedBody(
-        response,
-        uri,
-        maxMetadataBytes,
-        documentLabel: documentLabel,
-      ),
-      stopwatch,
-      timeout,
-    );
+    _remainingDiscoveryTime(stopwatch, timeout);
+    final chunks = StreamIterator<List<int>>(response);
+    late final String body;
+    try {
+      body = await _withinDiscoveryDeadline(
+        _readBoundedBody(
+          chunks,
+          uri,
+          maxMetadataBytes,
+          documentLabel: documentLabel,
+          statusCode: response.statusCode,
+        ),
+        stopwatch,
+        timeout,
+      );
+    } finally {
+      // Detach even after headers arrive, when request.abort is a no-op.
+      // Slow cleanup must not extend the deadline or replace its outcome.
+      chunks.cancel().ignore();
+    }
     return _DiscoveryResponse(
       uri: uri,
       statusCode: response.statusCode,
@@ -1108,7 +1121,7 @@ Future<_DiscoveryResponse> _getDiscoveryDocument(
     final error = TimeoutException('$documentLabel discovery timed out.');
     requestTimedOut = true;
     request?.abort(error, stackTrace);
-    throw McpAuthorizationDiscoveryException(
+    throw _DiscoveryTimeoutException(
       '$documentLabel discovery timed out.',
       uri: uri,
     );
@@ -1120,10 +1133,16 @@ Future<T> _withinDiscoveryDeadline<T>(
   Stopwatch stopwatch,
   Duration timeout,
 ) {
-  return operation.timeout(
-    _remainingDiscoveryTime(stopwatch, timeout),
-    onTimeout: () => throw const _DiscoveryDeadlineExceeded(),
-  );
+  try {
+    return operation.timeout(
+      _remainingDiscoveryTime(stopwatch, timeout),
+      onTimeout: () => throw const _DiscoveryDeadlineExceeded(),
+    );
+  } catch (_) {
+    // A synchronous deadline failure must still observe the started operation.
+    operation.ignore();
+    rethrow;
+  }
 }
 
 Duration _remainingDiscoveryTime(Stopwatch stopwatch, Duration timeout) {
@@ -1135,20 +1154,22 @@ Duration _remainingDiscoveryTime(Stopwatch stopwatch, Duration timeout) {
 }
 
 Future<String> _readBoundedBody(
-  HttpClientResponse response,
+  StreamIterator<List<int>> chunks,
   Uri uri,
   int maxMetadataBytes, {
   required String documentLabel,
+  required int statusCode,
 }) async {
   final bytes = BytesBuilder(copy: false);
   var length = 0;
-  await for (final chunk in response) {
+  while (await chunks.moveNext()) {
+    final chunk = chunks.current;
     length += chunk.length;
     if (length > maxMetadataBytes) {
       throw McpAuthorizationDiscoveryException(
         '$documentLabel exceeds $maxMetadataBytes bytes.',
         uri: uri,
-        statusCode: response.statusCode,
+        statusCode: statusCode,
       );
     }
     bytes.add(chunk);
@@ -1159,7 +1180,7 @@ Future<String> _readBoundedBody(
     throw McpAuthorizationDiscoveryException(
       '$documentLabel is not valid UTF-8.',
       uri: uri,
-      statusCode: response.statusCode,
+      statusCode: statusCode,
     );
   }
 }
@@ -1192,6 +1213,13 @@ final class _DiscoveryResponse {
 
 final class _DiscoveryDeadlineExceeded implements Exception {
   const _DiscoveryDeadlineExceeded();
+}
+
+// Timer precision can leave a fractional budget after a timeout has fired.
+// Preserve that terminal outcome instead of trying another metadata endpoint.
+final class _DiscoveryTimeoutException
+    extends McpAuthorizationDiscoveryException {
+  const _DiscoveryTimeoutException(super.message, {required super.uri});
 }
 
 final class _ParsedChallenge {
