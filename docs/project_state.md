@@ -6,6 +6,32 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work218 is locally verified after Fast218, full bin/verify (including Chrome
+WASM), fresh VM/JavaScript collection and matching frozen input hashes. All102
+canonical auth tests pass. Reproduce and fix clock/timer
+reentry across HELLO admission, capacity/duplicate-ID checks, cancellation and
+AUTHENTICATE challenge consumption. Timer construction and deadline-read errors
+release capacity without exposing callback errors or replacing earlier failure.
+Full fresh auth-library mutations assertion-detect189/195 viable mutants
+(96.92%), with108 compile errors,6 survivors,0 waivers and passing clean/restored
+baselines. Independent audit confirms149 assertion-only and40 mixed detections,
+no error-only credit. All recorded inputs match; the34-target catalog now uses
+218 instead of historical216b auth evidence. Unwaived survivors stay visible.
+
+Fresh JavaScript coverage measures client97.06% and core96.48%, with162 sources
+unmeasured in that runtime report; strict98 still fails. This is not WASM
+coverage. VM coverage is39684/42850 (92.61%): auth100%, bench99.36%,
+client93.49%, core94.34%, MCP96.13%, router89.84%. Packaging remains765/787
+(97.20%). Both strict98 checks fail;59 library and12 packaging sources remain
+unmeasured. The one-line router difference is timing-dependent, not attributed
+to the auth changes. Evidence and recovery: auth218-current-mutations,
+browser218-current, vm218-current, auth218-evidence and coverage184-probes/WORK218.md
+under out/regression-coverage-2026-09-15. An isolated MCP follow-up reproduces
+duplicate cleanup from synchronous revocation callbacks and passes853 tests;
+five selected faults fail explicit assertions with clean/restored baselines.
+Next promote that fix after Fast219 and obtain fresh complete mutation evidence.
+Hosted checks remain queued, not green. Complete98%/95% milestone remains open.
+
 Work216+217 is locally verified after Fast216, all54 targeted native/body tests,
 fresh VM coverage and full bin/verify, including Chrome WASM. Frozen production,
 test and configuration hashes match. Reproduce cancellation retaining subsequent

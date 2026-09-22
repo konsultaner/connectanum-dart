@@ -60,6 +60,296 @@ void main() {
     ),
   );
 
+  test('clock shutdown prevents authentication admission', () async {
+    final settings = server.settings;
+    await server.close();
+    var intercepted = false;
+    server = AuthServer(
+      settings: settings,
+      clock: () {
+        if (!intercepted) {
+          intercepted = true;
+          unawaited(server.close());
+        }
+        return now;
+      },
+    );
+    final response = await server.onHello(hello('clock-close'));
+    expect(response.status, RemoteHelloStatus.failure);
+    expect(response.failure?.message, 'Remote authentication service closed');
+    expect(factory.calls, 0);
+    expect(factory.authenticator.helloCalls, 0);
+    expect(server.pendingAuthenticationCounts, isEmpty);
+  });
+
+  for (final failRead in [2, 3, 4]) {
+    test(
+      'clock failure during HELLO read $failRead releases admission',
+      () async {
+        final settings = server.settings;
+        await server.close();
+        var reads = 0;
+        server = AuthServer(
+          settings: settings,
+          clock: () {
+            if (++reads >= failRead) throw StateError('private clock detail');
+            return now;
+          },
+        );
+        final observed = await server
+            .onHello(hello('clock-failure'))
+            .then<Object>(
+              (response) => response,
+              onError: (Object error) => error,
+            );
+        expect(observed, isA<RemoteHelloResponse>());
+        final response = observed as RemoteHelloResponse;
+        expect(response.status, RemoteHelloStatus.failure);
+        expect(response.failure?.message, 'Remote authentication rejected');
+        await _drain();
+        expect(server.pendingAuthenticationCounts, isEmpty);
+        expect(factory.calls, failRead == 2 ? 0 : 1);
+        expect(factory.authenticator.abortCalls, failRead == 2 ? 0 : 1);
+      },
+    );
+  }
+
+  test('clock failure before AUTHENTICATE releases the challenge', () async {
+    final settings = server.settings;
+    await server.close();
+    var failClock = false;
+    server = AuthServer(
+      settings: settings,
+      clock: () {
+        if (failClock) throw StateError('private clock detail');
+        return now;
+      },
+    );
+    expect(
+      (await server.onHello(hello('clock-authenticate'))).status,
+      RemoteHelloStatus.challenge,
+    );
+    failClock = true;
+    final observed = await server
+        .onAuthenticate(authenticate('clock-authenticate'))
+        .then<Object>((response) => response, onError: (Object error) => error);
+    expect(observed, isA<RemoteAuthenticateResponse>());
+    final response = observed as RemoteAuthenticateResponse;
+    expect(response.status, RemoteAuthenticateStatus.failure);
+    expect(response.failure?.message, 'Remote authentication rejected');
+    await _drain();
+    expect(server.pendingAuthenticationCounts, isEmpty);
+    expect(factory.authenticator.authenticateCalls, 0);
+    expect(factory.authenticator.abortCalls, 1);
+  });
+
+  test('clock reentry cannot authenticate the same challenge twice', () async {
+    final settings = server.settings;
+    await server.close();
+    var reenter = false;
+    Future<RemoteAuthenticateResponse>? nested;
+    final provider = Completer<AuthResult>();
+    addTearDown(() {
+      if (!provider.isCompleted) provider.complete(_success());
+    });
+    factory.authenticator.authenticate = provider.future;
+    server = AuthServer(
+      settings: settings,
+      clock: () {
+        if (reenter) {
+          reenter = false;
+          nested = server.onAuthenticate(authenticate('clock-consume'));
+        }
+        return now;
+      },
+    );
+    expect(
+      (await server.onHello(hello('clock-consume'))).status,
+      RemoteHelloStatus.challenge,
+    );
+    reenter = true;
+    final outer = server.onAuthenticate(authenticate('clock-consume'));
+    await _drain();
+    provider.complete(_success());
+    expect((await nested!).status, RemoteAuthenticateStatus.success);
+    final response = await outer;
+    expect(response.status, RemoteAuthenticateStatus.failure);
+    expect(
+      response.failure?.message,
+      'Remote authentication transaction is not in the expected state',
+    );
+    expect(factory.authenticator.authenticateCalls, 1);
+    await _drain();
+    expect(server.pendingAuthenticationCounts, isEmpty);
+  });
+
+  for (final sameId in [false, true]) {
+    test('clock reentry preserves admission limits: same ID $sameId', () async {
+      final settings = server.settings;
+      await server.close();
+      Future<RemoteHelloResponse>? nested;
+      var intercepted = false;
+      final timers = <Timer>[];
+      addTearDown(() {
+        for (final timer in timers) {
+          timer.cancel();
+        }
+      });
+      server = AuthServer(
+        settings: settings,
+        clock: () {
+          if (!intercepted) {
+            intercepted = true;
+            nested = server.onHello(hello(sameId ? 'outer' : 'inner'));
+          }
+          return now;
+        },
+      );
+      final outer = await runZoned(
+        () => server.onHello(hello('outer')),
+        zoneSpecification: ZoneSpecification(
+          createTimer: (self, parent, zone, duration, callback) {
+            final timer = parent.createTimer(zone, duration, callback);
+            timers.add(timer);
+            return timer;
+          },
+        ),
+      );
+      expect((await nested!).status, RemoteHelloStatus.challenge);
+      expect(outer.status, RemoteHelloStatus.failure);
+      expect(
+        outer.failure?.message,
+        sameId
+            ? 'Remote authentication transaction is not in the expected state'
+            : 'Remote authentication capacity exhausted',
+      );
+      expect(factory.calls, 1);
+      expect(factory.authenticator.helloCalls, 1);
+      expect(server.pendingAuthenticationCounts, {'realm1': 1});
+      await abort(sameId ? 'outer' : 'inner');
+      await _drain();
+      expect(factory.authenticator.abortCalls, 1);
+      expect(server.pendingAuthenticationCounts, isEmpty);
+      expect(timers.every((timer) => !timer.isActive), isTrue);
+    });
+  }
+
+  for (final cancellation in ['none', 'abort', 'close']) {
+    test(
+      'deadline construction failure preserves $cancellation and releases capacity',
+      () async {
+        final observed =
+            await runZoned(
+              () => server.onHello(hello('timer-failure')),
+              zoneSpecification: ZoneSpecification(
+                createTimer: (self, parent, zone, duration, callback) {
+                  if (cancellation == 'abort') {
+                    server.abort('timer-failure');
+                  } else if (cancellation == 'close') {
+                    unawaited(server.close());
+                  }
+                  throw StateError('private timer setup detail');
+                },
+              ),
+            ).then<Object>(
+              (response) => response,
+              onError: (Object error) => error,
+            );
+        expect(observed, isA<RemoteHelloResponse>());
+        final response = observed as RemoteHelloResponse;
+        expect(response.status, RemoteHelloStatus.failure);
+        expect(response.failure?.message, switch (cancellation) {
+          'abort' => 'Remote authentication aborted',
+          'close' => 'Remote authentication service closed',
+          _ => 'Remote authentication rejected',
+        });
+        await _drain();
+        expect(factory.calls, 0);
+        expect(server.pendingAuthenticationCounts, isEmpty);
+        if (cancellation != 'close') {
+          expect(
+            (await server.onHello(hello('timer-failure'))).status,
+            RemoteHelloStatus.challenge,
+          );
+          expect(factory.calls, 1);
+        } else {
+          expect(
+            (await server.onHello(hello('timer-failure'))).status,
+            RemoteHelloStatus.failure,
+          );
+          expect(factory.calls, 0);
+        }
+      },
+    );
+  }
+
+  for (final extra in [Duration.zero, const Duration(microseconds: 1)]) {
+    test(
+      'deadline elapsed during timer setup prevents provider entry: $extra',
+      () async {
+        final response = await runZoned(
+          () => server.onHello(hello('setup-expired')),
+          zoneSpecification: ZoneSpecification(
+            createTimer: (self, parent, zone, duration, callback) {
+              now = now.add(duration + extra);
+              return parent.createTimer(zone, duration, callback);
+            },
+          ),
+        );
+        expect(response.status, RemoteHelloStatus.failure);
+        expect(
+          response.failure?.message,
+          'Remote authentication challenge expired',
+        );
+        await _drain();
+        expect(factory.calls, 0);
+        expect(factory.authenticator.helloCalls, 0);
+        expect(server.pendingAuthenticationCounts, isEmpty);
+      },
+    );
+  }
+
+  for (final closeServer in [false, true]) {
+    test(
+      'cancellation during deadline setup prevents provider entry: $closeServer',
+      () async {
+        var intercepted = false;
+        final timers = <Timer>[];
+        addTearDown(() {
+          for (final timer in timers) {
+            timer.cancel();
+          }
+        });
+        final response = runZoned(
+          () => server.onHello(hello('deadline-setup')),
+          zoneSpecification: ZoneSpecification(
+            createTimer: (self, parent, zone, duration, callback) {
+              final timer = parent.createTimer(zone, duration, callback);
+              timers.add(timer);
+              if (!intercepted) {
+                intercepted = true;
+                if (closeServer) {
+                  unawaited(server.close());
+                } else {
+                  server.abort('deadline-setup');
+                }
+              }
+              return timer;
+            },
+          ),
+        );
+        expect((await response).status, RemoteHelloStatus.failure);
+        expect(intercepted, isTrue);
+        await _drain();
+        expect(factory.calls, 0);
+        expect(factory.authenticator.helloCalls, 0);
+        expect(server.pendingAuthenticationCounts, isEmpty);
+        expect(timers, isNotEmpty);
+        expect(timers.every((timer) => !timer.isActive), isTrue);
+      },
+    );
+  }
+
   test(
     'abort during factory creation rejects late HELLO and cleans up',
     () async {

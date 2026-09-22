@@ -67,6 +67,32 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work218 Auth Admission And Callback Reentry
+
+- After Fast218 passes, promote public clock/timer callback regressions and
+  fixes for closed/cancelled admission, duplicate IDs/capacity, setup failures,
+  deadline expiry and duplicate AUTHENTICATE consumption. Preserve each failing
+  original and intermediate candidate; all102 canonical auth tests now pass.
+- Fresh complete auth-library campaign:189/195 viable assertion-detected
+  (96.92%),108 compile errors,6 unwaived survivors,0 waivers. Independent audit
+  confirms149 assertion-only and40 mixed detections with no error-only credit.
+  Clean/restored baselines and recorded input hashes match. Replace216b only in
+  the new current-input catalog; preserve historical reports unchanged.
+- Fresh JavaScript coverage: client2703/2785 (97.06%), core7424/7695 (96.48%),
+  162 unmeasured sources; strict98 fails. WASM measurement is still separate
+  missing evidence, regardless of passing runtime tests.
+- Fresh VM collection and full bin/verify pass, including Chrome WASM; frozen
+  input hashes match. VM39684/42850 (92.61%), router89.84%; the single router
+  line difference is timing-dependent, not an auth gain. Packaging765/787
+  (97.20%). Both strict98 gates fail, with59 library and12 packaging sources
+  unmeasured. Evidence under auth218-evidence, auth218-current-mutations,
+  browser218-current and vm218-current; recovery in coverage184-probes/WORK218.md.
+- Isolated219 MCP callback regressions reproduce double unsubscribe on pending
+  revocation; publishing the shared cleanup future before callback invocation
+  passes853 tests. Five selected faults fail explicit assertions with passing
+  clean/restored baselines. Next promote after Fast219 and run a fresh complete
+  MCP campaign. No green deployment-chain or completed milestone claim.
+
 ### Work216+217 Auth Selection And Native Body Cleanup
 
 - Reproduce abandoned streaming readers with unit assertions and an independent
