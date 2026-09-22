@@ -507,6 +507,28 @@
       "reason": "This mutation flips init(false) to init(true) only on CTRBlockCipher(32, CTRStreamCipher(AESEngine())). In locked PointyCastle 4.0.0, StreamCipherAsBlockCipher forwards the flag, CTRStreamCipher inherits SICStreamCipher.init, and that method ignores forEncryption and always initializes AES with true. IV/reset and XOR keystream operations are identical. This proof does not cover the adjacent CBC branch, whose direction mutation is killed by the independent CBC fixture."
     }
   },
+  "router-binding-drain-vm": {
+    "c7759a0067cf49fb6b8b": {
+      "sourceHash": "0bc5552a3757f16770ad1656615c3ac2aa6fca5042c3a573d91dc0b961e72b20",
+      "reason": "The bounded drain target selects only tests using the plain _FakeRuntime, which never creates a worker-isolate boss. In that source-matched scope boss is always null, so boss?.stop(...) is not evaluated and the null fallback Future<void>.value() is returned in both the original and replacement expressions. This justification does not waive worker-boss drain behavior outside the bounded target."
+    },
+    "a2e3da8eba076ed1ab32": {
+      "sourceHash": "0bc5552a3757f16770ad1656615c3ac2aa6fca5042c3a573d91dc0b961e72b20",
+      "reason": "_drainFuture is assigned to this exact future immediately before whenComplete is registered. While it is pending, every subsequent drain call returns the existing future and cannot replace the field. Therefore the identity comparison is always true when this completion callback runs in the reachable implementation, and forcing the condition true preserves cleanup."
+    },
+    "ed63cdbac1741ca9d59d": {
+      "sourceHash": "0bc5552a3757f16770ad1656615c3ac2aa6fca5042c3a573d91dc0b961e72b20",
+      "reason": "When the original early-return condition is true, the following snapshot filter produces an empty list and the unchanged snapshot.isEmpty guard returns without events or counters. When it is false, forcing it false is unchanged. Thus replacing this whole condition with false has no observable effect; listener closure and pending-connection behavior are covered by the later branches."
+    },
+    "bc2b35a39c7ec1bc26ea": {
+      "sourceHash": "0bc5552a3757f16770ad1656615c3ac2aa6fca5042c3a573d91dc0b961e72b20",
+      "reason": "Changing the empty-list/fully-closed guard from OR to AND only skips its optimization. For empty listeners or fully closed listeners, the subsequent snapshot is empty and the unchanged snapshot.isEmpty return produces the same state and events; for active listeners both predicates are false. No externally observable behavior differs."
+    },
+    "25336e150dd9b4987e44": {
+      "sourceHash": "0bc5552a3757f16770ad1656615c3ac2aa6fca5042c3a573d91dc0b961e72b20",
+      "reason": "The snapshot is a private intermediate list that is only queried for emptiness and iterated immediately. It is never resized, returned, stored, or passed to user code. Changing toList(growable: false) to growable: true therefore preserves all elements, iteration order, exceptions, and observable listener cleanup behavior."
+    }
+  },
   "router-settings-vm": {
     "d7d482fea0b1496deb85": {
       "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",

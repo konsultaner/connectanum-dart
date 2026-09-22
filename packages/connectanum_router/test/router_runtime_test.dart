@@ -209,6 +209,8 @@ class _FakeRuntime implements NativeRuntime {
   final Map<int, int> _http3Ports = {};
   int _nextId = 1;
   final Map<int, Queue<int>> _pendingConnections = {};
+  final Map<int, Queue<Object>> _pollConnectionActions = {};
+  bool throwOnEmptyPoll = false;
   final Map<int, Queue<NativeIncomingMessage>> _pendingMessages = {};
   final Map<int, List<Uint8List>> sentMessages = {};
   final Map<int, NativeConnectionProtocol> _protocols = {};
@@ -260,8 +262,19 @@ class _FakeRuntime implements NativeRuntime {
 
   @override
   int pollConnection(int listenerId) {
+    final actions = _pollConnectionActions[listenerId];
+    if (actions != null && actions.isNotEmpty) {
+      final action = actions.removeFirst();
+      if (action is int) {
+        return action;
+      }
+      throw action;
+    }
     final queue = _pendingConnections[listenerId];
     if (queue == null || queue.isEmpty) {
+      if (throwOnEmptyPoll) {
+        throw StateError('controlled empty poll');
+      }
       return 0;
     }
     return queue.removeFirst();
@@ -498,6 +511,10 @@ class _FakeRuntime implements NativeRuntime {
 
   void enqueueConnection(int listenerId, int connectionId) {
     _pendingConnections.putIfAbsent(listenerId, Queue.new).add(connectionId);
+  }
+
+  void setPollConnectionActions(int listenerId, Iterable<Object> actions) {
+    _pollConnectionActions[listenerId] = Queue<Object>.from(actions);
   }
 
   @override
@@ -3984,6 +4001,9 @@ void main() {
       'drain closes listeners and pending connections without boss',
       () async {
         final runtime = _FakeRuntime();
+        runtime.throwOnEmptyPoll = true;
+        late RouterBinding binding;
+        final drainStates = <bool>[];
         final router = Router(
           RouterConfig(
             endpoints: [
@@ -3997,7 +4017,15 @@ void main() {
           ),
         );
 
-        final binding = router.start(runtime);
+        binding = router.start(
+          runtime,
+          onEvent: (event) {
+            if (event is Map<String, Object?> &&
+                event['type'] == 'drain_started') {
+              drainStates.add(binding.isDraining);
+            }
+          },
+        );
         addTearDown(binding.dispose);
         final listener = binding.listeners.single;
         runtime.enqueueConnection(listener.listenerId, 7001);
@@ -4006,6 +4034,8 @@ void main() {
 
         expect(runtime.closedListeners, contains(listener.listenerId));
         expect(runtime.closedConnections, contains(7001));
+        expect(drainStates, [true]);
+        expect(binding.isDraining, isFalse);
       },
     );
 
@@ -4013,6 +4043,8 @@ void main() {
       'drain closes generated OpenMetrics listener after application listeners',
       () async {
         final runtime = _FakeRuntime();
+        runtime.throwOnEmptyPoll = true;
+        final events = <Map<String, Object?>>[];
         final settings = RouterSettings(
           realms: const [],
           listeners: const [
@@ -4034,7 +4066,15 @@ void main() {
           settings: settings,
         );
 
-        final binding = router.start(runtime);
+        final binding = router.start(
+          runtime,
+          onEvent: (event) {
+            if (event is Map<String, Object?> &&
+                event['type'] == 'listeners_closed') {
+              events.add(event);
+            }
+          },
+        );
         addTearDown(binding.dispose);
         expect(binding.listeners, hasLength(2));
 
@@ -4047,8 +4087,136 @@ void main() {
             binding.listeners[1].listenerId,
           ]),
         );
+        expect(
+          events.map((event) => event['listeners_closed']),
+          equals([1, 1]),
+        );
       },
     );
+
+    test('drain reports timeout metrics and can be started again', () async {
+      final runtime = _FakeRuntime();
+      runtime.throwOnEmptyPoll = true;
+      final binding = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+      ).start(runtime);
+      addTearDown(binding.dispose);
+
+      await binding.drain(drainTimeout: Duration.zero);
+      await binding.drain();
+
+      expect(binding.shutdownMetrics.drainTotal, 2);
+      expect(binding.shutdownMetrics.drainTimeouts, 1);
+      expect(binding.shutdownMetrics.lastDrainDurationMs, isNotNull);
+    });
+
+    test('drain keeps an empty first metrics-only snapshot silent', () async {
+      final runtime = _FakeRuntime();
+      runtime.throwOnEmptyPoll = true;
+      final events = <Map<String, Object?>>[];
+      final settings = RouterSettings(
+        realms: const [],
+        listeners: const [],
+        metrics: const MetricsSettings(
+          openMetrics: OpenMetricsSettings(
+            enabled: true,
+            listen: '127.0.0.1:9001',
+          ),
+        ),
+      ).withOpenMetricsHttpRoutes();
+      final binding =
+          Router(
+            RouterConfig(
+              endpoints: settings.listeners
+                  .map(Endpoint.fromListenerSettings)
+                  .toList(growable: false),
+            ),
+            settings: settings,
+          ).start(
+            runtime,
+            onEvent: (event) {
+              if (event is Map<String, Object?> &&
+                  event['type'] == 'listeners_closed') {
+                events.add(event);
+              }
+            },
+          );
+      addTearDown(binding.dispose);
+
+      await binding.drain();
+
+      expect(binding.listeners, hasLength(1));
+      expect(runtime.closedListeners, [binding.listeners.single.listenerId]);
+      expect(events.map((event) => event['listeners_closed']), equals([1]));
+    });
+
+    test('drain is a no-op before listeners activate', () async {
+      final runtime = _FakeRuntime();
+      runtime.throwOnEmptyPoll = true;
+      final events = <Object>[];
+      final binding =
+          Router(
+            RouterConfig(
+              endpoints: [
+                Endpoint(
+                  host: '127.0.0.1',
+                  port: 0,
+                  tlsMode: TlsMode.disabled,
+                  maxRawSocketSizeExponent: 16,
+                ),
+              ],
+            ),
+          ).start(
+            runtime,
+            activateListeners: false,
+            onEvent: events.add,
+          );
+      addTearDown(binding.dispose);
+
+      await binding.drain();
+
+      expect(binding.isReady, isFalse);
+      expect(binding.isDraining, isFalse);
+      expect(runtime.listenCalls, isEmpty);
+      expect(runtime.closedListeners, isEmpty);
+      expect(runtime.closedConnections, isEmpty);
+      expect(events, isEmpty);
+    });
+
+    test('drain treats zero pending connection ids as a sentinel', () async {
+      final runtime = _FakeRuntime();
+      final binding = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+      ).start(runtime);
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+      runtime.setPollConnectionActions(listener.listenerId, [
+        0,
+        StateError('controlled poll failure after the sentinel'),
+      ]);
+
+      await binding.drain();
+
+      expect(runtime.closedConnections, isEmpty);
+    });
 
     test('encodes reserved realm and namespace HTTP routes', () {
       final builder = RouterSettingsBuilder()

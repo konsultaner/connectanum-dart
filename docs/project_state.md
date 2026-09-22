@@ -6,6 +6,24 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work244 current evidence: the source-matched router drain slice now passes its
+adjusted mutation gate. It selects35 of2,426 generated router-binding mutants,
+with32 viable outcomes,27 assertion-backed kills,3 compile errors, no timeouts
+or runner errors, and5 individually source-hash-pinned equivalent mutations.
+The adjusted assertion score is100% (27/(32-5)); the conventional score is
+84.375%, so the equivalence-adjusted result is not presented as a raw kill
+rate. The slice is restricted to `^Router start drain` and retains the full
+source inventory/hash plus native artifact identity at
+`out/regression-coverage-2026-09-15/router-binding-drain-final-1790104081`.
+The six focused drain tests pass: listener staging, metrics-only snapshots,
+repeated drains, timeout counters, pre-activation no-op behavior and the zero
+connection sentinel. `RouterBinding.shutdownMetrics` exposes local shutdown
+counters without requiring a worker metrics session. The nullable boss wait was
+simplified to always await either the boss stop future or an explicit completed
+future. The source-matched slice gate passes at the current snapshot; it is not
+a whole-router mutation score. The post-edit controlled `bin/verify` completed
+with explicit `VERIFY_EXIT=0`.
+
 Work242/243 current evidence: Fast242, fresh whole-package VM coverage, and
 fresh Chrome/Dart2JS coverage all pass. The exact VM snapshot is retained at
 `out/regression-coverage-2026-09-15/vm242-current` (ignored generated evidence):
@@ -29,9 +47,10 @@ live native router process holding the shared `connectanum_native_runtime.lock`;
 it was not a verification child and was not terminated. The later final-snapshot
 `bin/test-fast` and the controlled full `bin/verify` rerun completed with exit0
 while the native runtime was free. The
-whole98%/95% milestone remains open: next work is a source-matched router
-mutation campaign and additional behavior oracles for its survivors. No merge
-or publication claim is made from this state.
+whole98%/95% milestone remains open: next work is complete Rust/native scope,
+standalone application evidence, WASM coverage, and broader router mutation
+coverage beyond the drain slice. No merge or publication claim is made from
+this state.
 The router-binding baseline-only inventory passes and records2,431 generated
 mutants. A full serial campaign was intentionally stopped after12 mutants
 because the native-backed suite takes roughly10 seconds per mutant; its partial

@@ -30,6 +30,39 @@ def write_reporter_fixture_dependencies(work):
 
 
 class MutationRunnerTests(unittest.TestCase):
+    def test_mutation_line_ranges_select_a_source_matched_slice(self):
+        mutations = [
+            {'file': 'lib/source.dart', 'line': 10},
+            {'file': 'lib/source.dart', 'line': 20},
+            {'file': 'lib/source.dart', 'line': 30},
+        ]
+        selected, ranges = runner.select_mutations(
+            mutations, {'mutationLineRanges': [[11, 29], [30, 30]]})
+        self.assertEqual([item['line'] for item in selected], [20, 30])
+        self.assertEqual(ranges, [(11, 29), (30, 30)])
+        selected, ranges = runner.select_mutations(mutations, {})
+        self.assertIs(selected, mutations)
+        self.assertIsNone(ranges)
+
+    def test_mutation_line_ranges_reject_invalid_or_empty_slices(self):
+        mutations = [{'file': 'lib/source.dart', 'line': 10}]
+        for value in (None, [], [[0, 2]], [[2, 1]], [[True, 2]], [['1', 2]], [[1]]):
+            with self.subTest(value=value):
+                target = {} if value is None else {'mutationLineRanges': value}
+                if value is None:
+                    continue
+                with self.assertRaises(ValueError):
+                    runner.select_mutations(mutations, target)
+        with self.assertRaisesRegex(ValueError, 'selected no generated'):
+            runner.select_mutations(mutations, {'mutationLineRanges': [[11, 20]]})
+
+    def test_test_name_filter_is_explicit_in_the_mutation_command(self):
+        command = runner.test_command(
+            {'platform': 'vm', 'testName': r'Router start .*'},
+            ['test/router_runtime_test.dart'], 30)
+        self.assertLess(command.index('--name'), command.index('test/router_runtime_test.dart'))
+        self.assertEqual(command[command.index('--name') + 1], r'Router start .*')
+
     def test_http_context_target_covers_complete_source_and_native_integration(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         self.assertIn('router-http-context-vm', targets)
@@ -53,6 +86,17 @@ class MutationRunnerTests(unittest.TestCase):
                           target['supportFiles'])
         self.assertNotIn('testName', target)
         self.assertNotIn('threshold', target)
+
+    def test_router_drain_slice_is_source_matched_and_behavior_filtered(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['router-binding-drain-vm']
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_router/lib/src/router/router_instance/router_binding.dart'])
+        self.assertEqual(target['tests'], ['packages/connectanum_router/test/router_runtime_test.dart'])
+        self.assertEqual(target['testName'], '^Router start drain')
+        self.assertEqual(target['mutationLineRanges'], [[1100, 1257]])
+        self.assertTrue(target['requiresNativeLibrary'])
+        self.assertFalse(target['isolateTestFiles'])
 
     def test_workload_diagnostics_are_registered_and_hashed(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())

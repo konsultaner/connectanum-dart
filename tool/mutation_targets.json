@@ -597,6 +597,27 @@
     "isolateTestFiles": true,
     "testTimeoutSeconds": 30
   },
+  "router-binding-drain-vm": {
+    "sources": ["packages/connectanum_router/lib/src/router/router_instance/router_binding.dart"],
+    "tests": ["packages/connectanum_router/test/router_runtime_test.dart"],
+    "testName": "^Router start drain",
+    "mutationLineRanges": [[1100, 1257]],
+    "supportFiles": [
+      "packages/connectanum_router/test/support/http_edge_cases.dart",
+      "packages/connectanum_router/test/support/http_initial_auth_cases.dart",
+      "packages/connectanum_router/test/support/http_auth_abort_cases.dart",
+      "packages/connectanum_router/test/support/http_auth_provider_failure_cases.dart",
+      "packages/connectanum_router/test/support/native_message_watch_cases.dart",
+      "packages/connectanum_router/test/support/http_early_cleanup_cases.dart",
+      "packages/connectanum_router/test/support/http_boss_ownership_cases.dart",
+      "packages/connectanum_router/test/support/internal_close_cases.dart",
+      "packages/connectanum_router/test/support/internal_call_lifecycle_cases.dart",
+      "packages/connectanum_router/test/support/http_adapter_option_cases.dart"
+    ],
+    "requiresNativeLibrary": true,
+    "isolateTestFiles": false,
+    "testTimeoutSeconds": 30
+  },
   "core-invocation-vm": {
     "sources": ["packages/connectanum_core/lib/src/message/invocation.dart"],
     "tests": ["packages/connectanum_core/test/support/invocation_mutation_suite.dart"],

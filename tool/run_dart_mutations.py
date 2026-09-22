@@ -406,14 +406,52 @@ def execution_configuration(target):
     return engine, platform, compiler
 
 
+def mutation_line_ranges(target):
+    """Validate optional source-line slices used for bounded campaigns."""
+    raw = target.get('mutationLineRanges')
+    if raw is None:
+        return None
+    if not isinstance(raw, list) or not raw:
+        raise ValueError('mutationLineRanges must be a nonempty list')
+    ranges = []
+    for item in raw:
+        if (not isinstance(item, list) or len(item) != 2
+                or any(isinstance(value, bool) or not isinstance(value, int)
+                       for value in item)):
+            raise ValueError('mutationLineRanges entries must be [start, end] integers')
+        start, end = item
+        if start < 1 or end < start:
+            raise ValueError('mutationLineRanges entries must have positive start <= end')
+        ranges.append((start, end))
+    return ranges
+
+
+def select_mutations(mutations, target):
+    """Return the complete inventory or a transparent line-bounded slice."""
+    ranges = mutation_line_ranges(target)
+    if ranges is None:
+        return mutations, None
+    selected = [mutation for mutation in mutations
+                if any(start <= mutation['line'] <= end for start, end in ranges)]
+    if not selected:
+        raise ValueError('mutationLineRanges selected no generated mutations')
+    return selected, ranges
+
+
 def test_command(target, resolved_tests, test_timeout):
     engine, platform, compiler = execution_configuration(target)
     command = [engine, 'test']
     if engine == 'flutter':
         command.append('--no-pub')
     command.extend(['--reporter=json', '--concurrency=1',
-                    f'--timeout={test_timeout}s', *resolved_tests,
-                    '--platform', 'tester' if engine == 'flutter' and platform == 'vm' else platform])
+                    f'--timeout={test_timeout}s'])
+    test_name = target.get('testName')
+    if test_name is not None:
+        if not isinstance(test_name, str) or not test_name.strip():
+            raise ValueError('testName must be a nonempty string')
+        command.extend(['--name', test_name])
+    command.extend([*resolved_tests, '--platform',
+                    'tester' if engine == 'flutter' and platform == 'vm' else platform])
     if platform == 'chrome':
         if engine == 'dart':
             command.append(f'--compiler={compiler}')
@@ -548,13 +586,19 @@ def main():
             code, output = run(['dart', 'tool/dart_mutations.dart', *sources], work, 120)
             if code != 0:
                 raise RuntimeError('Mutation generation failed: ' + output[-2000:])
-            mutations = json.loads(output)
-            if not mutations:
+            all_mutations = json.loads(output)
+            if not all_mutations:
                 raise ValueError(f'No mutations generated for {name}')
-            result = {'sources': sources, 'tests': target['tests'], 'generated': len(mutations),
+            mutations, selected_ranges = select_mutations(all_mutations, target)
+            result = {'sources': sources, 'tests': target['tests'],
+                      'generated': len(all_mutations), 'selected': len(mutations),
                       'platform': platform, 'testRunner': engine, 'compiler': compiler,
                       'sourceHashes': {source: hashlib.sha256((work / source).read_bytes()).hexdigest() for source in sources},
                       'baseline': 'notRun', 'outcomes': []}
+            if selected_ranges is not None:
+                result['mutationLineRanges'] = [list(item) for item in selected_ranges]
+            if 'testName' in target:
+                result['testName'] = target['testName']
             if dependency_hashes:
                 result['dependencyHashes'] = dependency_hashes
             if toolchain is not None:

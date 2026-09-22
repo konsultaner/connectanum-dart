@@ -136,10 +136,11 @@ caught and timed-out outcomes separately.
   91 tests. Router option-alias support adds four focused behavior tests for
   handler, reverse-proxy, file-directory and publish-topic aliases; these pass
   and are source-matched in the router mutation inventory.
-- The next production-readiness slice is router-binding mutation evidence. The
-  router remains the largest measured Dart gap at90.404%, and no whole98%/95%
-  milestone, merge, publication or version claim is made until router survivors,
-  Rust/native scope, standalone applications, and WASM evidence are addressed.
+- The next production-readiness slice was the router-binding drain campaign
+  recorded below. The router remains the largest measured Dart gap at90.404%,
+  and no whole98%/95% milestone, merge, publication or version claim is made
+  until broader router survivors, Rust/native scope, standalone applications,
+  and WASM evidence are addressed.
 - The router-binding baseline-only inventory passes with2,431 generated
   mutations and is retained at
   `out/regression-coverage-2026-09-15/router-binding243-baseline`. A full
@@ -153,6 +154,32 @@ caught and timed-out outcomes separately.
   Dart VM tests, browser JS/WASM tests, consumer-package smoke tests, and the
   verification-tool tests; it does not change the failed quantitative coverage
   or mutation gates above.
+
+### Work244 Source-Matched Router Drain Mutation Slice
+
+- Add a transparent `mutationLineRanges` selector and explicit `testName`
+  filtering to the Dart mutation runner. The runner still generates and hashes
+  the complete source inventory, records the selected slice and test filter in
+  the report, and rejects invalid or empty ranges. Runner tests pass88 tests.
+- Add the `router-binding-drain-vm` target for the router binding drain region
+  with the six focused `Router start drain` tests. The behavior suite passes six
+  tests and asserts listener-stage events, metrics-only snapshots, repeat-drain
+  cleanup, timeout counters, pre-activation no-op behavior, and zero-connection
+  sentinels. The binding now exposes local `shutdownMetrics`, and the drain path
+  awaits a concrete boss-stop future in both worker and non-worker modes.
+- Final source-matched evidence is retained at
+  `out/regression-coverage-2026-09-15/router-binding-drain-final-1790104081`:
+  2,426 generated,35 selected,32 viable,27 assertion kills,3 compile errors,
+  no timeouts or runner errors, and five individually justified equivalent
+  mutations. The conventional score is84.375%; the equivalence-adjusted
+  assertion score is100% and passes the95% slice gate. Native artifact identity
+  and restored baseline exit0 are recorded; no compile error, timeout or
+  conventional survivor is credited as an assertion kill.
+- This is a production lifecycle slice, not whole-router evidence. The complete
+  98%/95% milestone remains open pending broader router mutations, Rust/native
+  mutation/coverage, standalone consumer applications and usable WASM coverage.
+  The post-edit controlled `bin/verify` completed with explicit
+  `VERIFY_EXIT=0`.
 
 ### Isolated Work236/237 Metadata And Admission
 

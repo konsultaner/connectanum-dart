@@ -1114,6 +1114,10 @@ class RouterBinding {
 
   bool get isDraining => _draining;
 
+  /// Returns shutdown counters collected by this binding without requiring a
+  /// worker-isolate metrics session.
+  RouterShutdownMetrics get shutdownMetrics => _buildShutdownMetrics();
+
   /// Stops accepting new external connections and drains worker sessions.
   ///
   /// The native listener sockets are closed first so no additional connections
@@ -1139,17 +1143,13 @@ class RouterBinding {
         'timeout_ms': drainTimeout.inMilliseconds,
       });
       try {
-        Future<void>? bossStop;
         final boss = _boss;
-        if (boss != null) {
-          bossStop = boss.stop(drainTimeout: drainTimeout);
-        }
+        final bossStop =
+            boss?.stop(drainTimeout: drainTimeout) ?? Future<void>.value();
         await _closeListenersAndPendingConnections(
           includeOpenMetricsListeners: false,
         );
-        if (bossStop != null) {
-          await bossStop;
-        }
+        await bossStop;
         await _closeListenersAndPendingConnections();
 
         final finishedAt = DateTime.now().toUtc();
