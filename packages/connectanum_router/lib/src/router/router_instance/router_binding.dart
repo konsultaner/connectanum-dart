@@ -1056,6 +1056,7 @@ class RouterBinding {
   final List<RouterListener> _listeners = [];
   final Map<int, RouterListener> _listenerById = {};
   final Map<int, _ConnectionState> _connections = {};
+  final Set<void Function()> _nativeMessageWatchStops = {};
   final Set<RouterSession> _internalSessions = {};
   final Map<String, RouterSession> _internalSessionsByRealm = {};
   final Map<String, RouterSession> _internalSessionsByCacheKey = {};
@@ -1359,9 +1360,12 @@ class RouterBinding {
         break;
       }
     }
+    if (realmSettings == null) {
+      throw StateError('Realm $resolvedRealmUri is not configured');
+    }
     final resolvedAuthRole =
         requestedAuthRole ??
-        (realmSettings?.roles.any((role) => role.name == 'anonymous') == true
+        (realmSettings.roles.any((role) => role.name == 'anonymous')
             ? 'anonymous'
             : null);
     final statePort = boss.stateCommandPort;
@@ -1482,40 +1486,51 @@ class RouterBinding {
         libraryPath: handlesRuntime.libraryPathHint,
       );
     }
-    for (final entry in _connections.entries) {
-      final connectionId = entry.key;
-      final state = entry.value;
-      while (result.length < maxMessages) {
-        if (handlesRuntime != null && _boss == null) {
-          var handle = handlesRuntime.pollMessageHandle(connectionId);
-          if (handle == 0) {
-            handle = handlesRuntime.pollWebSocketMessageHandle(connectionId);
-          }
-          if (handle == 0) {
-            break;
-          }
-          final decoder = _handleDecoder!;
-          try {
-            final message = decoder.materialize(handle);
+    try {
+      for (final entry in _connections.entries) {
+        final connectionId = entry.key;
+        final state = entry.value;
+        while (result.length < maxMessages) {
+          if (handlesRuntime != null && _boss == null) {
+            var handle = handlesRuntime.pollMessageHandle(connectionId);
+            if (handle == 0) {
+              handle = handlesRuntime.pollWebSocketMessageHandle(connectionId);
+            }
+            if (handle == 0) {
+              break;
+            }
+            final decoder = _handleDecoder!;
+            try {
+              final message = decoder.materialize(handle);
+              result.add(RouterMessage(state.listener, connectionId, message));
+            } catch (_) {
+              decoder.release(handle);
+              rethrow;
+            }
+            continue;
+          } else {
+            final message = runtime.pollMessage(connectionId);
+            if (message == null) {
+              break;
+            }
             result.add(RouterMessage(state.listener, connectionId, message));
-          } catch (_) {
-            decoder.release(handle);
-            rethrow;
           }
-          continue;
-        } else {
-          final message = runtime.pollMessage(connectionId);
-          if (message == null) {
-            break;
-          }
-          result.add(RouterMessage(state.listener, connectionId, message));
+        }
+        if (result.length >= maxMessages) {
+          break;
         }
       }
-      if (result.length >= maxMessages) {
-        break;
+      return result;
+    } catch (_) {
+      for (final message in result) {
+        try {
+          message.message.dispose();
+        } catch (_) {
+          // Preserve the polling error while releasing the entire batch.
+        }
       }
+      rethrow;
     }
-    return result;
   }
 
   Future<void> ensureInternalServicesReady() async {
@@ -1664,109 +1679,108 @@ class RouterBinding {
     }
     final controller = StreamController<RouterMessage>();
 
-    if (supportsNativeIsolates) {
-      bool paused = false;
-      bool cancelled = false;
-      Future<void>? loopFuture;
+    final queued = <RouterMessage>{};
+    Timer? timer;
+    bool paused = false;
+    bool stopped = false;
 
-      Future<void> loop() async {
-        while (!controller.isClosed && !paused && !cancelled) {
-          final messages = pollNativeMessages(maxMessages: maxMessagesPerTick);
-          for (final message in messages) {
-            if (controller.isClosed || paused || cancelled) {
-              message.message.dispose();
-              break;
-            }
-            controller.add(message);
-          }
-          if (controller.isClosed || paused || cancelled) {
-            break;
-          }
-          await Future<void>.delayed(pollInterval);
-        }
-        loopFuture = null;
-      }
-
-      void ensureLoop() {
-        if (loopFuture != null || controller.isClosed || paused || cancelled) {
-          return;
-        }
-        loopFuture = loop();
-      }
-
-      controller
-        ..onListen = () {
-          paused = false;
-          cancelled = false;
-          ensureLoop();
-        }
-        ..onResume = () {
-          paused = false;
-          ensureLoop();
-        }
-        ..onPause = () {
-          paused = true;
-        }
-        ..onCancel = () {
-          cancelled = true;
-        };
-    } else {
-      Timer? timer;
-
-      late void Function() scheduleTick;
-
-      void tick() {
-        timer = null;
-        if (controller.isClosed) {
-          return;
-        }
-        final messages = pollNativeMessages(maxMessages: maxMessagesPerTick);
-        for (final message in messages) {
-          if (controller.isClosed) {
-            message.message.dispose();
-            break;
-          }
-          controller.add(message);
-        }
-        scheduleTick();
-      }
-
-      controller
-        ..onListen = () {
-          final messages = pollNativeMessages(maxMessages: maxMessagesPerTick);
-          for (final message in messages) {
-            controller.add(message);
-          }
-          if (!controller.isClosed) {
-            scheduleTick();
-          }
-        }
-        ..onPause = () {
-          timer?.cancel();
-          timer = null;
-        }
-        ..onResume = () {
-          if (!controller.isClosed) {
-            scheduleTick();
-          }
-        }
-        ..onCancel = () {
-          timer?.cancel();
-          timer = null;
-        };
-
-      scheduleTick = () {
-        timer?.cancel();
-        timer = Timer(pollInterval, tick);
-      };
+    void stop() {
+      stopped = true;
+      timer?.cancel();
+      timer = null;
+      _nativeMessageWatchStops.remove(stop);
+      if (!controller.isClosed) unawaited(controller.close());
     }
 
-    return controller.stream;
+    late void Function() tick;
+    void scheduleTick() {
+      if (stopped || paused || controller.isClosed) return;
+      timer?.cancel();
+      try {
+        timer = Timer(pollInterval, tick);
+      } catch (error, stack) {
+        if (!controller.isClosed) controller.addError(error, stack);
+        stop();
+      }
+    }
+
+    tick = () {
+      timer = null;
+      if (stopped || _disposed) {
+        stop();
+        return;
+      }
+      if (paused) return;
+      try {
+        final messages = pollNativeMessages(maxMessages: maxMessagesPerTick);
+        Object? releaseFailure;
+        StackTrace? releaseStack;
+        for (final message in messages) {
+          if (stopped || _disposed) {
+            try {
+              message.message.dispose();
+            } catch (error, stack) {
+              releaseFailure ??= error;
+              releaseStack ??= stack;
+            }
+          } else {
+            queued.add(message);
+            controller.add(message);
+          }
+        }
+        if (releaseFailure != null) {
+          Error.throwWithStackTrace(releaseFailure, releaseStack!);
+        }
+        scheduleTick();
+      } catch (error, stack) {
+        if (!controller.isClosed) controller.addError(error, stack);
+        stop();
+      }
+    };
+
+    controller
+      ..onListen = () {
+        _nativeMessageWatchStops.add(stop);
+        tick();
+      }
+      ..onPause = () {
+        paused = true;
+        timer?.cancel();
+        timer = null;
+      }
+      ..onResume = () {
+        paused = false;
+        scheduleTick();
+      }
+      ..onCancel = () {
+        stop();
+        Object? failure;
+        StackTrace? failureStack;
+        for (final message in queued) {
+          try {
+            message.message.dispose();
+          } catch (error, stack) {
+            failure ??= error;
+            failureStack ??= stack;
+          }
+        }
+        queued.clear();
+        if (failure != null) Error.throwWithStackTrace(failure, failureStack!);
+      };
+
+    return controller.stream.map((message) {
+      // Ownership transfers only when a listener actually receives the message.
+      queued.remove(message);
+      return message;
+    });
   }
 
   /// Stops the background boss isolate (if running) and releases resources.
   Future<void> dispose() async {
     _disposed = true;
+    for (final stop in _nativeMessageWatchStops.toList()) {
+      stop();
+    }
     for (final pending in {
       ..._pendingHttpAuthTransactions.values,
       ..._activeHttpAuthTransactions,
@@ -1925,789 +1939,815 @@ class RouterBinding {
       return;
     }
     NativeHttpHandshake? retainedHandshake = handshake;
-    _cleanupExpiredHttpAuthState();
-    final listenerSettings = _listenerConfigById[request.listenerId];
-    final routeMatch = _matchHttpRoute(listenerSettings?.http, request);
-    final corsRequestMethodMultiplicityError =
-        _mcpCorsRequestMethodHeaderMultiplicityError(
-          request,
-          routeMatch.route ?? routeMatch.errorRoute,
-        );
-    if (corsRequestMethodMultiplicityError != null) {
-      await _sendImmediateHttpResponse(
-        request: request,
-        handshake: retainedHandshake,
-        response: corsRequestMethodMultiplicityError,
-      );
-      retainedHandshake?.release();
-      return;
-    }
-    final httpMethod = request.method.trim().toUpperCase();
-    final corsPreflightMethod = _isCorsPreflight(request)
-        ? _headerValue(
-            request.headers,
-            'access-control-request-method',
-          )?.trim().toUpperCase()
-        : null;
-    final matchedRoute = _withEffectiveHttpRouteAction(
-      routeMatch.route,
-      httpMethod,
-      preflightMethod: corsPreflightMethod,
-    );
-    final responseRoute =
-        matchedRoute ??
-        _withEffectiveHttpRouteAction(
-          routeMatch.errorRoute,
-          httpMethod,
-          preflightMethod: corsPreflightMethod,
-        );
-    final sessionProfile = _resolveHttpSessionProfile(
-      listenerSettings: listenerSettings,
-      route: responseRoute,
-    );
-    final mcpRoute = responseRoute?.action.type == HttpRouteActionType.mcp
-        ? responseRoute
-        : null;
-    final hostHeaderMultiplicityError = _mcpHostHeaderMultiplicityError(
-      request,
-      mcpRoute,
-    );
-    if (hostHeaderMultiplicityError != null) {
-      await _sendImmediateHttpResponse(
-        request: request,
-        handshake: retainedHandshake,
-        response: hostHeaderMultiplicityError,
-      );
-      retainedHandshake?.release();
-      return;
-    }
-    final mcpRouteMismatch =
-        mcpRoute != null &&
-        (routeMatch.isMethodNotAllowed || routeMatch.isProtocolNotAllowed);
-    if (routeMatch.isMethodNotAllowed) {
-      if (mcpRoute == null) {
-        final extraHeaders = <String, String>{
-          HttpHeaders.allowHeader: routeMatch.allowedMethods.join(', '),
-        };
-        await _sendImmediateHttpResponse(
-          request: request,
-          handshake: retainedHandshake,
-          response: NativeHttpResponse(
-            status: HttpStatus.methodNotAllowed,
-            headers: extraHeaders,
-            body: NativeHttpResponseJson(const <String, Object?>{
-              'status': 'error',
-              'reason': 'method_not_allowed',
-              'message': 'HTTP method is not allowed for this route',
-            }),
-          ),
-        );
-        retainedHandshake?.release();
-        return;
-      }
-    }
-    if (routeMatch.isProtocolNotAllowed) {
-      if (mcpRoute == null) {
-        final extraHeaders = <String, String>{
-          HttpHeaders.upgradeHeader: routeMatch.allowedProtocols.join(', '),
-        };
-        await _sendImmediateHttpResponse(
-          request: request,
-          handshake: retainedHandshake,
-          response: NativeHttpResponse(
-            status: HttpStatus.upgradeRequired,
-            headers: extraHeaders,
-            body: NativeHttpResponseJson(const <String, Object?>{
-              'status': 'error',
-              'reason': 'protocol_not_allowed',
-              'message': 'HTTP protocol is not allowed for this route',
-            }),
-          ),
-        );
-        retainedHandshake?.release();
-        return;
-      }
-    }
-    if (routeMatch.isNotFound && listenerSettings?.http != null) {
-      await _sendImmediateHttpResponse(
-        request: request,
-        handshake: retainedHandshake,
-        response: NativeHttpResponse(
-          status: HttpStatus.notFound,
-          body: NativeHttpResponseJson(const <String, Object?>{
-            'status': 'error',
-            'reason': 'route_not_found',
-            'message': 'HTTP route not found',
-          }),
-        ),
-      );
-      retainedHandshake?.release();
-      return;
-    }
-    if (mcpRoute != null && !_mcpOriginAllowed(this, request, mcpRoute)) {
-      try {
-        await _handleMcpHttpRequestForBinding(
-          this,
-          request: request,
-          handshake: retainedHandshake,
-          listenerSettings: listenerSettings,
-          route: mcpRoute,
-          sessionProfile: sessionProfile,
-          routeAllowedMethods: routeMatch.isMethodNotAllowed
-              ? routeMatch.allowedMethods
-              : null,
-          routeAllowedProtocols: routeMatch.isProtocolNotAllowed
-              ? routeMatch.allowedProtocols
-              : null,
-        );
-      } finally {
-        retainedHandshake?.release();
-      }
-      return;
-    }
-    final authorizationHeaderMultiplicityError = mcpRoute != null
-        ? _mcpAuthorizationHeaderMultiplicityError(this, request, mcpRoute)
-        : null;
-    if (authorizationHeaderMultiplicityError != null) {
-      await _sendImmediateHttpResponse(
-        request: request,
-        handshake: retainedHandshake,
-        response: authorizationHeaderMultiplicityError,
-      );
-      retainedHandshake?.release();
-      return;
-    }
-    final rateLimitDecision = mcpRoute != null && httpMethod == 'DELETE'
-        ? null
-        : _evaluateHttpRouteRateLimit(
-            request: request,
-            route: matchedRoute,
-            routeIdentity: routeMatch.route,
-          );
-    if (rateLimitDecision != null) {
-      final rateLimitHeaders = rateLimitDecision.headers;
-      final responseHeaders = mcpRoute == null
-          ? rateLimitHeaders
-          : _mcpHttpResponseHeaders(
-              // Rate limiting runs before MCP authentication and session
-              // resolution, so a request header is not yet a trusted session.
-              sessionId: null,
-              protocolVersion: _mcpResponseProtocolVersionForRequest(
-                this,
-                request,
-              ),
-              extra: <String, String>{
-                ...rateLimitHeaders,
-                ..._mcpCorsResponseHeaders(
-                  this,
-                  request,
-                  mcpRoute,
-                  preflight: _isCorsPreflight(request),
-                ),
-              },
-            );
-      onEvent?.call({
-        'source': 'binding',
-        'type': 'http_route_rate_limited',
-        'listenerId': request.listenerId,
-        'connectionId': request.connectionId,
-        'endpoint': request.endpoint,
-        'rateLimitKey': rateLimitDecision.key,
-        'limit': rateLimitDecision.limit,
-        'windowMs': rateLimitDecision.windowMs,
-        'retryAfterMs': rateLimitDecision.retryAfterMs,
-        'bucketCapacityExhausted': rateLimitDecision.bucketCapacityExhausted,
-        'maxBuckets': rateLimitDecision.maxBuckets,
-      });
-      await _sendImmediateHttpResponse(
-        request: request,
-        handshake: retainedHandshake,
-        response: NativeHttpResponse(
-          status: 429,
-          headers: responseHeaders,
-          body: NativeHttpResponseJson(<String, Object?>{
-            'status': 'error',
-            'reason': 'rate_limited',
-            'message': 'HTTP route rate limit exceeded',
-            'retry_after_ms': rateLimitDecision.retryAfterMs,
-          }),
-        ),
-      );
-      retainedHandshake?.release();
-      return;
-    }
-    final protectedResourceMetadataRequest =
-        mcpRoute != null &&
-        _mcpProtectedResourceMetadataRequest(this, request, mcpRoute);
-    final transportAuthFailure = _evaluateHttpRouteTransportAuth(
-      request: request,
-      route: mcpRouteMismatch ? mcpRoute : matchedRoute,
-      sessionProfile: sessionProfile,
-      listenerSettings: listenerSettings,
-      allowMissingBearer: protectedResourceMetadataRequest || mcpRouteMismatch,
-    );
-    if (transportAuthFailure != null) {
-      final resolvedRealm = sessionProfile?.realm?.trim();
-      final authRealm = resolvedRealm != null && resolvedRealm.isNotEmpty
-          ? resolvedRealm
-          : (request.realm ?? 'router.http');
-      final authHeaders = transportAuthFailure.bearerChallenge
-          ? mcpRoute == null
-                ? _httpUnauthorizedHeaders(
-                    realm: authRealm,
-                    authPath: _httpAuthPathFor(
-                      listenerSettings?.http,
-                      sessionProfile: sessionProfile,
-                      realm: authRealm,
-                    ),
-                  )
-                : _mcpUnauthorizedHeaders(
-                    this,
-                    route: mcpRoute,
-                    realm: authRealm,
-                    authPath: _httpAuthPathFor(
-                      listenerSettings?.http,
-                      sessionProfile: sessionProfile,
-                      realm: authRealm,
-                    ),
-                  )
-          : const <String, String>{};
-      final responseHeaders = mcpRoute == null
-          ? authHeaders
-          : _mcpHttpResponseHeaders(
-              sessionId: null,
-              protocolVersion: _mcpResponseProtocolVersionForRequest(
-                this,
-                request,
-              ),
-              extra: <String, String>{
-                ...authHeaders,
-                ..._mcpCorsResponseHeaders(this, request, mcpRoute),
-              },
-            );
-      await _sendImmediateHttpResponse(
-        request: request,
-        handshake: retainedHandshake,
-        response: NativeHttpResponse(
-          status: transportAuthFailure.status,
-          headers: responseHeaders,
-          body: NativeHttpResponseJson(<String, Object?>{
-            'status': 'error',
-            'reason': transportAuthFailure.reason,
-            'message': transportAuthFailure.message,
-          }),
-        ),
-      );
-      retainedHandshake?.release();
-      return;
-    }
-    if (mcpRouteMismatch) {
-      try {
-        await _handleMcpHttpRequestForBinding(
-          this,
-          request: request,
-          handshake: retainedHandshake,
-          listenerSettings: listenerSettings,
-          route: mcpRoute,
-          sessionProfile: sessionProfile,
-          routeAllowedMethods: routeMatch.isMethodNotAllowed
-              ? routeMatch.allowedMethods
-              : null,
-          routeAllowedProtocols: routeMatch.isProtocolNotAllowed
-              ? routeMatch.allowedProtocols
-              : null,
-        );
-      } finally {
-        retainedHandshake?.release();
-      }
-      return;
-    }
-    if (matchedRoute?.action.type == HttpRouteActionType.file) {
-      try {
-        await _handleConfiguredFileRouteRequest(
-          request: request,
-          handshake: retainedHandshake,
-          route: matchedRoute!,
-        );
-      } finally {
-        retainedHandshake?.release();
-      }
-      return;
-    }
-    if (matchedRoute?.action.type == HttpRouteActionType.auth) {
-      try {
-        await _handleHttpAuthRequest(
-          request: request,
-          handshake: retainedHandshake,
-          listenerSettings: listenerSettings,
-          route: matchedRoute!,
-          sessionProfile: sessionProfile,
-        );
-      } finally {
-        retainedHandshake?.release();
-      }
-      return;
-    }
-    if (matchedRoute?.action.type == HttpRouteActionType.mcp) {
-      try {
-        await _handleMcpHttpRequestForBinding(
-          this,
-          request: request,
-          handshake: retainedHandshake,
-          listenerSettings: listenerSettings,
-          route: matchedRoute!,
-          sessionProfile: sessionProfile,
-        );
-      } finally {
-        retainedHandshake?.release();
-      }
-      return;
-    }
-    if (matchedRoute?.action.type == HttpRouteActionType.handler) {
-      final handlerId = _httpRouteHandlerId(matchedRoute!.action);
-      final handler = handlerId == null ? null : _httpRouteHandlers[handlerId];
-      if (handler == null) {
-        final event = <String, Object?>{
-          'source': 'binding',
-          'type': 'http_handler_missing',
-          'listenerId': request.listenerId,
-          'connectionId': request.connectionId,
-          'endpoint': request.endpoint,
-        };
-        if (handlerId != null) {
-          event['handlerId'] = handlerId;
-        }
-        onEvent?.call(event);
-        try {
-          final body = <String, Object?>{
-            'status': 'error',
-            'reason': 'handler_not_registered',
-            'message': 'HTTP route handler is not registered',
-          };
-          if (handlerId != null) {
-            body['handler'] = handlerId;
-          }
-          await _sendImmediateHttpResponse(
-            request: request,
-            handshake: retainedHandshake,
-            response: NativeHttpResponse(
-              status: HttpStatus.notImplemented,
-              body: NativeHttpResponseJson(body),
-            ),
-          );
-        } finally {
-          retainedHandshake?.release();
-        }
-        return;
-      }
-      try {
-        onEvent?.call({
-          'source': 'binding',
-          'type': 'http_handler_request',
-          'listenerId': request.listenerId,
-          'connectionId': request.connectionId,
-          'endpoint': request.endpoint,
-          'handlerId': handlerId,
-        });
-        final response = await handler(request);
-        await _sendImmediateHttpResponse(
-          request: request,
-          handshake: retainedHandshake,
-          response: response,
-        );
-        onEvent?.call({
-          'source': 'binding',
-          'type': 'http_handler_response_sent',
-          'listenerId': request.listenerId,
-          'connectionId': request.connectionId,
-          'endpoint': request.endpoint,
-          'handlerId': handlerId,
-          'status': response.status,
-        });
-      } catch (error, stackTrace) {
-        onEvent?.call({
-          'source': 'binding',
-          'type': 'http_handler_error',
-          'listenerId': request.listenerId,
-          'connectionId': request.connectionId,
-          'endpoint': request.endpoint,
-          'handlerId': handlerId,
-          'error': error.toString(),
-          'stackTrace': stackTrace.toString(),
-        });
-        await _sendImmediateHttpResponse(
-          request: request,
-          handshake: retainedHandshake,
-          response: NativeHttpResponse(
-            status: HttpStatus.internalServerError,
-            body: NativeHttpResponseJson(const <String, Object?>{
-              'status': 'error',
-              'reason': 'handler_failed',
-              'message': 'HTTP route handler failed',
-            }),
-          ),
-        );
-      } finally {
-        retainedHandshake?.release();
-      }
-      return;
-    }
-    if (matchedRoute?.action.type == HttpRouteActionType.reverseProxy) {
-      try {
-        await _handleReverseProxyRouteRequest(
-          request: request,
-          handshake: retainedHandshake,
-          route: matchedRoute!,
-        );
-      } finally {
-        retainedHandshake?.release();
-      }
-      return;
-    }
-    if (matchedRoute?.action.type == HttpRouteActionType.fastCgi) {
-      try {
-        await _handleFastCgiRouteRequest(
-          request: request,
-          handshake: retainedHandshake,
-          route: matchedRoute!,
-        );
-      } finally {
-        retainedHandshake?.release();
-      }
-      return;
-    }
-    if (matchedRoute?.action.type == HttpRouteActionType.publish) {
-      try {
-        await _handleHttpPublishRequest(
-          request: request,
-          handshake: retainedHandshake,
-          listenerSettings: listenerSettings,
-          route: matchedRoute!,
-          sessionProfile: sessionProfile,
-        );
-      } finally {
-        retainedHandshake?.release();
-      }
-      return;
+    void releaseHandshake() {
+      final owned = retainedHandshake;
+      // Clear ownership before callbacks can throw or reenter cleanup.
+      retainedHandshake = null;
+      owned?.release();
     }
 
-    final realmUri = request.realm;
-    final procedure = request.procedure;
-    if (realmUri == null || realmUri.isEmpty) {
-      onEvent?.call({
-        'source': 'binding',
-        'type': 'http_request_unmapped_realm',
-        'listenerId': request.listenerId,
-        'connectionId': request.connectionId,
-        'endpoint': request.endpoint,
-      });
-      retainedHandshake?.release();
-      return;
-    }
-    if (procedure == null || procedure.isEmpty) {
-      onEvent?.call({
-        'source': 'binding',
-        'type': 'http_request_unmapped_procedure',
-        'listenerId': request.listenerId,
-        'connectionId': request.connectionId,
-        'endpoint': request.endpoint,
-        'realm': realmUri,
-      });
-      retainedHandshake?.release();
-      return;
-    }
-
-    final httpRequestId = _nextHttpRequestId++;
-    final snapshot = request.toSnapshot(httpRequestId);
-    final nativeLibraryPath = runtime is NativeRuntimeWithHandles
-        ? (runtime as NativeRuntimeWithHandles).libraryPathHint
-        : null;
-    final requestPayload = snapshot.toInvocationPayload(
-      nativeLibraryPath: nativeLibraryPath,
-    );
-    final profileRealm = sessionProfile?.realm?.trim();
-    final resolvedRealmUri = (profileRealm != null && profileRealm.isNotEmpty)
-        ? profileRealm
-        : realmUri;
-    RouterSession session;
+    var requestFailed = false;
     try {
-      final bearer = _extractBearerToken(request.headers);
-      if (bearer != null) {
-        session = await _authenticatedHttpSessionForToken(
-          token: bearer,
+      _cleanupExpiredHttpAuthState();
+      final listenerSettings = _listenerConfigById[request.listenerId];
+      final routeMatch = _matchHttpRoute(listenerSettings?.http, request);
+      final corsRequestMethodMultiplicityError =
+          _mcpCorsRequestMethodHeaderMultiplicityError(
+            request,
+            routeMatch.route ?? routeMatch.errorRoute,
+          );
+      if (corsRequestMethodMultiplicityError != null) {
+        await _sendImmediateHttpResponse(
           request: request,
-          realmUri: resolvedRealmUri,
-          sessionProfile: sessionProfile,
+          handshake: retainedHandshake,
+          response: corsRequestMethodMultiplicityError,
         );
-      } else {
-        final allowsAnonymous = httpSessionProfileAllowsAnonymous(
-          sessionProfile,
+        releaseHandshake();
+        return;
+      }
+      final httpMethod = request.method.trim().toUpperCase();
+      final corsPreflightMethod = _isCorsPreflight(request)
+          ? _headerValue(
+              request.headers,
+              'access-control-request-method',
+            )?.trim().toUpperCase()
+          : null;
+      final matchedRoute = _withEffectiveHttpRouteAction(
+        routeMatch.route,
+        httpMethod,
+        preflightMethod: corsPreflightMethod,
+      );
+      final responseRoute =
+          matchedRoute ??
+          _withEffectiveHttpRouteAction(
+            routeMatch.errorRoute,
+            httpMethod,
+            preflightMethod: corsPreflightMethod,
+          );
+      final sessionProfile = _resolveHttpSessionProfile(
+        listenerSettings: listenerSettings,
+        route: responseRoute,
+      );
+      final mcpRoute = responseRoute?.action.type == HttpRouteActionType.mcp
+          ? responseRoute
+          : null;
+      final hostHeaderMultiplicityError = _mcpHostHeaderMultiplicityError(
+        request,
+        mcpRoute,
+      );
+      if (hostHeaderMultiplicityError != null) {
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: retainedHandshake,
+          response: hostHeaderMultiplicityError,
         );
-        final requiresBridgeAuth =
-            sessionProfile != null &&
-            sessionProfile.auth.methods.isNotEmpty &&
-            !allowsAnonymous;
-        if (requiresBridgeAuth) {
+        releaseHandshake();
+        return;
+      }
+      final mcpRouteMismatch =
+          mcpRoute != null &&
+          (routeMatch.isMethodNotAllowed || routeMatch.isProtocolNotAllowed);
+      if (routeMatch.isMethodNotAllowed) {
+        if (mcpRoute == null) {
+          final extraHeaders = <String, String>{
+            HttpHeaders.allowHeader: routeMatch.allowedMethods.join(', '),
+          };
           await _sendImmediateHttpResponse(
             request: request,
             handshake: retainedHandshake,
             response: NativeHttpResponse(
-              status: HttpStatus.unauthorized,
-              headers: _httpUnauthorizedHeaders(
-                realm: resolvedRealmUri,
-                authPath: _httpAuthPathFor(
-                  listenerSettings?.http,
-                  sessionProfile: sessionProfile,
-                  realm: resolvedRealmUri,
-                ),
-              ),
-              body: NativeHttpResponseJson(<String, Object?>{
+              status: HttpStatus.methodNotAllowed,
+              headers: extraHeaders,
+              body: NativeHttpResponseJson(const <String, Object?>{
                 'status': 'error',
-                'reason': 'unauthorized',
-                'message': 'Bearer token required',
+                'reason': 'method_not_allowed',
+                'message': 'HTTP method is not allowed for this route',
               }),
             ),
           );
-          retainedHandshake?.release();
+          releaseHandshake();
           return;
         }
-        session = await _ensureInternalSession(
-          realmUri: resolvedRealmUri,
-          sessionProfile: sessionProfile?.name,
-        );
       }
-    } on _HttpUnauthorized catch (error) {
-      await _sendImmediateHttpResponse(
-        request: request,
-        handshake: retainedHandshake,
-        response: NativeHttpResponse(
-          status: HttpStatus.unauthorized,
-          headers: _httpUnauthorizedHeaders(
-            realm: resolvedRealmUri,
-            authPath: _httpAuthPathFor(
-              listenerSettings?.http,
-              sessionProfile: sessionProfile,
-              realm: resolvedRealmUri,
+      if (routeMatch.isProtocolNotAllowed) {
+        if (mcpRoute == null) {
+          final extraHeaders = <String, String>{
+            HttpHeaders.upgradeHeader: routeMatch.allowedProtocols.join(', '),
+          };
+          await _sendImmediateHttpResponse(
+            request: request,
+            handshake: retainedHandshake,
+            response: NativeHttpResponse(
+              status: HttpStatus.upgradeRequired,
+              headers: extraHeaders,
+              body: NativeHttpResponseJson(const <String, Object?>{
+                'status': 'error',
+                'reason': 'protocol_not_allowed',
+                'message': 'HTTP protocol is not allowed for this route',
+              }),
             ),
+          );
+          releaseHandshake();
+          return;
+        }
+      }
+      if (routeMatch.isNotFound && listenerSettings?.http != null) {
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: retainedHandshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.notFound,
+            body: NativeHttpResponseJson(const <String, Object?>{
+              'status': 'error',
+              'reason': 'route_not_found',
+              'message': 'HTTP route not found',
+            }),
           ),
-          body: NativeHttpResponseJson(<String, Object?>{
-            'status': 'error',
-            'reason': error.reason,
-            if (error.message != null) 'message': error.message,
-          }),
-        ),
+        );
+        releaseHandshake();
+        return;
+      }
+      if (mcpRoute != null && !_mcpOriginAllowed(this, request, mcpRoute)) {
+        try {
+          await _handleMcpHttpRequestForBinding(
+            this,
+            request: request,
+            handshake: retainedHandshake,
+            listenerSettings: listenerSettings,
+            route: mcpRoute,
+            sessionProfile: sessionProfile,
+            routeAllowedMethods: routeMatch.isMethodNotAllowed
+                ? routeMatch.allowedMethods
+                : null,
+            routeAllowedProtocols: routeMatch.isProtocolNotAllowed
+                ? routeMatch.allowedProtocols
+                : null,
+          );
+        } finally {
+          releaseHandshake();
+        }
+        return;
+      }
+      final authorizationHeaderMultiplicityError = mcpRoute != null
+          ? _mcpAuthorizationHeaderMultiplicityError(this, request, mcpRoute)
+          : null;
+      if (authorizationHeaderMultiplicityError != null) {
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: retainedHandshake,
+          response: authorizationHeaderMultiplicityError,
+        );
+        releaseHandshake();
+        return;
+      }
+      final rateLimitDecision = mcpRoute != null && httpMethod == 'DELETE'
+          ? null
+          : _evaluateHttpRouteRateLimit(
+              request: request,
+              route: matchedRoute,
+              routeIdentity: routeMatch.route,
+            );
+      if (rateLimitDecision != null) {
+        final rateLimitHeaders = rateLimitDecision.headers;
+        final responseHeaders = mcpRoute == null
+            ? rateLimitHeaders
+            : _mcpHttpResponseHeaders(
+                // Rate limiting runs before MCP authentication and session
+                // resolution, so a request header is not yet a trusted session.
+                sessionId: null,
+                protocolVersion: _mcpResponseProtocolVersionForRequest(
+                  this,
+                  request,
+                ),
+                extra: <String, String>{
+                  ...rateLimitHeaders,
+                  ..._mcpCorsResponseHeaders(
+                    this,
+                    request,
+                    mcpRoute,
+                    preflight: _isCorsPreflight(request),
+                  ),
+                },
+              );
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_route_rate_limited',
+          'listenerId': request.listenerId,
+          'connectionId': request.connectionId,
+          'endpoint': request.endpoint,
+          'rateLimitKey': rateLimitDecision.key,
+          'limit': rateLimitDecision.limit,
+          'windowMs': rateLimitDecision.windowMs,
+          'retryAfterMs': rateLimitDecision.retryAfterMs,
+          'bucketCapacityExhausted': rateLimitDecision.bucketCapacityExhausted,
+          'maxBuckets': rateLimitDecision.maxBuckets,
+        });
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: retainedHandshake,
+          response: NativeHttpResponse(
+            status: 429,
+            headers: responseHeaders,
+            body: NativeHttpResponseJson(<String, Object?>{
+              'status': 'error',
+              'reason': 'rate_limited',
+              'message': 'HTTP route rate limit exceeded',
+              'retry_after_ms': rateLimitDecision.retryAfterMs,
+            }),
+          ),
+        );
+        releaseHandshake();
+        return;
+      }
+      final protectedResourceMetadataRequest =
+          mcpRoute != null &&
+          _mcpProtectedResourceMetadataRequest(this, request, mcpRoute);
+      final transportAuthFailure = _evaluateHttpRouteTransportAuth(
+        request: request,
+        route: mcpRouteMismatch ? mcpRoute : matchedRoute,
+        sessionProfile: sessionProfile,
+        listenerSettings: listenerSettings,
+        allowMissingBearer:
+            protectedResourceMetadataRequest || mcpRouteMismatch,
       );
-      retainedHandshake?.release();
-      return;
-    } catch (error, stackTrace) {
-      onEvent?.call({
-        'source': 'binding',
-        'type': 'http_request_session_error',
+      if (transportAuthFailure != null) {
+        final resolvedRealm = sessionProfile?.realm?.trim();
+        final authRealm = resolvedRealm != null && resolvedRealm.isNotEmpty
+            ? resolvedRealm
+            : (request.realm ?? 'router.http');
+        final authHeaders = transportAuthFailure.bearerChallenge
+            ? mcpRoute == null
+                  ? _httpUnauthorizedHeaders(
+                      realm: authRealm,
+                      authPath: _httpAuthPathFor(
+                        listenerSettings?.http,
+                        sessionProfile: sessionProfile,
+                        realm: authRealm,
+                      ),
+                    )
+                  : _mcpUnauthorizedHeaders(
+                      this,
+                      route: mcpRoute,
+                      realm: authRealm,
+                      authPath: _httpAuthPathFor(
+                        listenerSettings?.http,
+                        sessionProfile: sessionProfile,
+                        realm: authRealm,
+                      ),
+                    )
+            : const <String, String>{};
+        final responseHeaders = mcpRoute == null
+            ? authHeaders
+            : _mcpHttpResponseHeaders(
+                sessionId: null,
+                protocolVersion: _mcpResponseProtocolVersionForRequest(
+                  this,
+                  request,
+                ),
+                extra: <String, String>{
+                  ...authHeaders,
+                  ..._mcpCorsResponseHeaders(this, request, mcpRoute),
+                },
+              );
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: retainedHandshake,
+          response: NativeHttpResponse(
+            status: transportAuthFailure.status,
+            headers: responseHeaders,
+            body: NativeHttpResponseJson(<String, Object?>{
+              'status': 'error',
+              'reason': transportAuthFailure.reason,
+              'message': transportAuthFailure.message,
+            }),
+          ),
+        );
+        releaseHandshake();
+        return;
+      }
+      if (mcpRouteMismatch) {
+        try {
+          await _handleMcpHttpRequestForBinding(
+            this,
+            request: request,
+            handshake: retainedHandshake,
+            listenerSettings: listenerSettings,
+            route: mcpRoute,
+            sessionProfile: sessionProfile,
+            routeAllowedMethods: routeMatch.isMethodNotAllowed
+                ? routeMatch.allowedMethods
+                : null,
+            routeAllowedProtocols: routeMatch.isProtocolNotAllowed
+                ? routeMatch.allowedProtocols
+                : null,
+          );
+        } finally {
+          releaseHandshake();
+        }
+        return;
+      }
+      if (matchedRoute?.action.type == HttpRouteActionType.file) {
+        try {
+          await _handleConfiguredFileRouteRequest(
+            request: request,
+            handshake: retainedHandshake,
+            route: matchedRoute!,
+          );
+        } finally {
+          releaseHandshake();
+        }
+        return;
+      }
+      if (matchedRoute?.action.type == HttpRouteActionType.auth) {
+        try {
+          await _handleHttpAuthRequest(
+            request: request,
+            handshake: retainedHandshake,
+            listenerSettings: listenerSettings,
+            route: matchedRoute!,
+            sessionProfile: sessionProfile,
+          );
+        } finally {
+          releaseHandshake();
+        }
+        return;
+      }
+      if (matchedRoute?.action.type == HttpRouteActionType.mcp) {
+        try {
+          await _handleMcpHttpRequestForBinding(
+            this,
+            request: request,
+            handshake: retainedHandshake,
+            listenerSettings: listenerSettings,
+            route: matchedRoute!,
+            sessionProfile: sessionProfile,
+          );
+        } finally {
+          releaseHandshake();
+        }
+        return;
+      }
+      if (matchedRoute?.action.type == HttpRouteActionType.handler) {
+        final handlerId = _httpRouteHandlerId(matchedRoute!.action);
+        final handler = handlerId == null
+            ? null
+            : _httpRouteHandlers[handlerId];
+        if (handler == null) {
+          final event = <String, Object?>{
+            'source': 'binding',
+            'type': 'http_handler_missing',
+            'listenerId': request.listenerId,
+            'connectionId': request.connectionId,
+            'endpoint': request.endpoint,
+          };
+          if (handlerId != null) {
+            event['handlerId'] = handlerId;
+          }
+          onEvent?.call(event);
+          try {
+            final body = <String, Object?>{
+              'status': 'error',
+              'reason': 'handler_not_registered',
+              'message': 'HTTP route handler is not registered',
+            };
+            if (handlerId != null) {
+              body['handler'] = handlerId;
+            }
+            await _sendImmediateHttpResponse(
+              request: request,
+              handshake: retainedHandshake,
+              response: NativeHttpResponse(
+                status: HttpStatus.notImplemented,
+                body: NativeHttpResponseJson(body),
+              ),
+            );
+          } finally {
+            releaseHandshake();
+          }
+          return;
+        }
+        try {
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'http_handler_request',
+            'listenerId': request.listenerId,
+            'connectionId': request.connectionId,
+            'endpoint': request.endpoint,
+            'handlerId': handlerId,
+          });
+          final response = await handler(request);
+          await _sendImmediateHttpResponse(
+            request: request,
+            handshake: retainedHandshake,
+            response: response,
+          );
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'http_handler_response_sent',
+            'listenerId': request.listenerId,
+            'connectionId': request.connectionId,
+            'endpoint': request.endpoint,
+            'handlerId': handlerId,
+            'status': response.status,
+          });
+        } catch (error, stackTrace) {
+          onEvent?.call({
+            'source': 'binding',
+            'type': 'http_handler_error',
+            'listenerId': request.listenerId,
+            'connectionId': request.connectionId,
+            'endpoint': request.endpoint,
+            'handlerId': handlerId,
+            'error': error.toString(),
+            'stackTrace': stackTrace.toString(),
+          });
+          await _sendImmediateHttpResponse(
+            request: request,
+            handshake: retainedHandshake,
+            response: NativeHttpResponse(
+              status: HttpStatus.internalServerError,
+              body: NativeHttpResponseJson(const <String, Object?>{
+                'status': 'error',
+                'reason': 'handler_failed',
+                'message': 'HTTP route handler failed',
+              }),
+            ),
+          );
+        } finally {
+          releaseHandshake();
+        }
+        return;
+      }
+      if (matchedRoute?.action.type == HttpRouteActionType.reverseProxy) {
+        try {
+          await _handleReverseProxyRouteRequest(
+            request: request,
+            handshake: retainedHandshake,
+            route: matchedRoute!,
+          );
+        } finally {
+          releaseHandshake();
+        }
+        return;
+      }
+      if (matchedRoute?.action.type == HttpRouteActionType.fastCgi) {
+        try {
+          await _handleFastCgiRouteRequest(
+            request: request,
+            handshake: retainedHandshake,
+            route: matchedRoute!,
+          );
+        } finally {
+          releaseHandshake();
+        }
+        return;
+      }
+      if (matchedRoute?.action.type == HttpRouteActionType.publish) {
+        try {
+          await _handleHttpPublishRequest(
+            request: request,
+            handshake: retainedHandshake,
+            listenerSettings: listenerSettings,
+            route: matchedRoute!,
+            sessionProfile: sessionProfile,
+          );
+        } finally {
+          releaseHandshake();
+        }
+        return;
+      }
+
+      final realmUri = request.realm;
+      final procedure = request.procedure;
+      if (realmUri == null || realmUri.isEmpty) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_request_unmapped_realm',
+          'listenerId': request.listenerId,
+          'connectionId': request.connectionId,
+          'endpoint': request.endpoint,
+        });
+        releaseHandshake();
+        return;
+      }
+      if (procedure == null || procedure.isEmpty) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_request_unmapped_procedure',
+          'listenerId': request.listenerId,
+          'connectionId': request.connectionId,
+          'endpoint': request.endpoint,
+          'realm': realmUri,
+        });
+        releaseHandshake();
+        return;
+      }
+
+      final httpRequestId = _nextHttpRequestId++;
+      final snapshot = request.toSnapshot(httpRequestId);
+      final nativeLibraryPath = runtime is NativeRuntimeWithHandles
+          ? (runtime as NativeRuntimeWithHandles).libraryPathHint
+          : null;
+      final requestPayload = snapshot.toInvocationPayload(
+        nativeLibraryPath: nativeLibraryPath,
+      );
+      final profileRealm = sessionProfile?.realm?.trim();
+      final resolvedRealmUri = (profileRealm != null && profileRealm.isNotEmpty)
+          ? profileRealm
+          : realmUri;
+      RouterSession session;
+      try {
+        final bearer = _extractBearerToken(request.headers);
+        if (bearer != null) {
+          session = await _authenticatedHttpSessionForToken(
+            token: bearer,
+            request: request,
+            realmUri: resolvedRealmUri,
+            sessionProfile: sessionProfile,
+          );
+        } else {
+          final allowsAnonymous = httpSessionProfileAllowsAnonymous(
+            sessionProfile,
+          );
+          final requiresBridgeAuth =
+              sessionProfile != null &&
+              sessionProfile.auth.methods.isNotEmpty &&
+              !allowsAnonymous;
+          if (requiresBridgeAuth) {
+            await _sendImmediateHttpResponse(
+              request: request,
+              handshake: retainedHandshake,
+              response: NativeHttpResponse(
+                status: HttpStatus.unauthorized,
+                headers: _httpUnauthorizedHeaders(
+                  realm: resolvedRealmUri,
+                  authPath: _httpAuthPathFor(
+                    listenerSettings?.http,
+                    sessionProfile: sessionProfile,
+                    realm: resolvedRealmUri,
+                  ),
+                ),
+                body: NativeHttpResponseJson(<String, Object?>{
+                  'status': 'error',
+                  'reason': 'unauthorized',
+                  'message': 'Bearer token required',
+                }),
+              ),
+            );
+            releaseHandshake();
+            return;
+          }
+          session = await _ensureInternalSession(
+            realmUri: resolvedRealmUri,
+            sessionProfile: sessionProfile?.name,
+          );
+        }
+      } on _HttpUnauthorized catch (error) {
+        await _sendImmediateHttpResponse(
+          request: request,
+          handshake: retainedHandshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.unauthorized,
+            headers: _httpUnauthorizedHeaders(
+              realm: resolvedRealmUri,
+              authPath: _httpAuthPathFor(
+                listenerSettings?.http,
+                sessionProfile: sessionProfile,
+                realm: resolvedRealmUri,
+              ),
+            ),
+            body: NativeHttpResponseJson(<String, Object?>{
+              'status': 'error',
+              'reason': error.reason,
+              if (error.message != null) 'message': error.message,
+            }),
+          ),
+        );
+        releaseHandshake();
+        return;
+      } catch (error, stackTrace) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_request_session_error',
+          'listenerId': request.listenerId,
+          'connectionId': request.connectionId,
+          'endpoint': request.endpoint,
+          'realm': resolvedRealmUri,
+          'procedure': procedure,
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        });
+        releaseHandshake();
+        return;
+      }
+
+      final httpDetails = <String, Object?>{...requestPayload};
+      final connectionDetails = <String, Object?>{
         'listenerId': request.listenerId,
         'connectionId': request.connectionId,
         'endpoint': request.endpoint,
-        'realm': resolvedRealmUri,
-        'procedure': procedure,
-        'error': error.toString(),
-        'stackTrace': stackTrace.toString(),
-      });
-      retainedHandshake?.release();
-      return;
-    }
+      };
+      final keywords = <String, Object?>{
+        '_http': httpDetails,
+        '_connection': connectionDetails,
+      };
 
-    final httpDetails = <String, Object?>{...requestPayload};
-    final connectionDetails = <String, Object?>{
-      'listenerId': request.listenerId,
-      'connectionId': request.connectionId,
-      'endpoint': request.endpoint,
-    };
-    final keywords = <String, Object?>{
-      '_http': httpDetails,
-      '_connection': connectionDetails,
-    };
-
-    final pending = _PendingHttpCall(
-      id: httpRequestId,
-      request: request,
-      snapshot: snapshot,
-      session: session,
-      handshake: retainedHandshake,
-    );
-    _pendingHttpCalls[httpRequestId] = pending;
-
-    StreamSubscription<result_msg.Result>? subscription;
-    try {
-      final options = call_msg.CallOptions(
-        custom: <String, dynamic>{
-          HttpInvocationKeys.requestId: httpRequestId,
-          HttpInvocationKeys.request: requestPayload,
-          HttpInvocationKeys.responseStreamControlPort:
-              session._controlPort.sendPort,
-        },
+      final pending = _PendingHttpCall(
+        id: httpRequestId,
+        request: request,
+        snapshot: snapshot,
+        session: session,
+        handshake: retainedHandshake,
       );
-      final stream = session.call(
-        procedure,
-        argumentsKeywords: Map<String, dynamic>.from(keywords),
-        options: options,
-      );
-      subscription = stream.listen(
-        (result) {
-          final progress = result.details.progress ?? false;
-          onEvent?.call({
-            'source': 'binding',
-            'type': 'http_request_result',
-            'httpRequestId': httpRequestId,
-            'listenerId': request.listenerId,
-            'connectionId': request.connectionId,
-            'progress': progress,
-            'arguments': result.arguments,
-            'argumentsKeywords': result.argumentsKeywords,
-          });
-          final responsePayload = HttpResponsePayload.fromKeywordArguments(
-            result.argumentsKeywords?.cast<String, Object?>(),
-          );
-          if (responsePayload != null) {
-            final pending = _pendingHttpCalls[responsePayload.requestId];
-            if (pending == null) {
-              onEvent?.call({
-                'source': 'binding',
-                'type': 'http_response_missing_request',
-                'httpRequestId': responsePayload.requestId,
-                'listenerId': request.listenerId,
-                'connectionId': request.connectionId,
-              });
-              return;
-            }
+      _pendingHttpCalls[httpRequestId] = pending;
+
+      StreamSubscription<result_msg.Result>? subscription;
+      try {
+        final options = call_msg.CallOptions(
+          custom: <String, dynamic>{
+            HttpInvocationKeys.requestId: httpRequestId,
+            HttpInvocationKeys.request: requestPayload,
+            HttpInvocationKeys.responseStreamControlPort:
+                session._controlPort.sendPort,
+          },
+        );
+        final stream = session.call(
+          procedure,
+          argumentsKeywords: Map<String, dynamic>.from(keywords),
+          options: options,
+        );
+        subscription = stream.listen(
+          (result) {
+            final progress = result.details.progress ?? false;
             onEvent?.call({
               'source': 'binding',
-              'type': 'http_response_ready',
-              'httpRequestId': responsePayload.requestId,
+              'type': 'http_request_result',
+              'httpRequestId': httpRequestId,
               'listenerId': request.listenerId,
               'connectionId': request.connectionId,
-              'response': responsePayload.toEventPayload(),
+              'progress': progress,
+              'arguments': result.arguments,
+              'argumentsKeywords': result.argumentsKeywords,
             });
-            if (responsePayload.bodyKind == HttpResponseBodyKind.file) {
-              _sendFileHttpResponse(pending, responsePayload);
-              return;
-            }
-            if (responsePayload.progress || pending.responseStream != null) {
-              final sent = _forwardStreamingResponseChunk(
-                pending,
-                responsePayload,
-              );
-              if (!sent) {
-                _completeHttpRequest(responsePayload.requestId);
-                return;
-              }
-              if (!responsePayload.progress) {
-                _finishStreamingResponse(pending);
-              }
-              return;
-            }
-            try {
-              final handshakeHandle = pending.handshake?.handle ?? -1;
-              if (handshakeHandle > 0) {
-                runtime.sendHttpResponse(
-                  handshakeHandle: handshakeHandle,
-                  connectionId: request.connectionId,
-                  response: _toNativeHttpResponse(responsePayload),
-                );
+            final responsePayload = HttpResponsePayload.fromKeywordArguments(
+              result.argumentsKeywords?.cast<String, Object?>(),
+            );
+            if (responsePayload != null) {
+              final pending = _pendingHttpCalls[responsePayload.requestId];
+              if (pending == null) {
                 onEvent?.call({
                   'source': 'binding',
-                  'type': 'http_response_sent',
+                  'type': 'http_response_missing_request',
                   'httpRequestId': responsePayload.requestId,
                   'listenerId': request.listenerId,
                   'connectionId': request.connectionId,
                 });
-              } else {
+                return;
+              }
+              onEvent?.call({
+                'source': 'binding',
+                'type': 'http_response_ready',
+                'httpRequestId': responsePayload.requestId,
+                'listenerId': request.listenerId,
+                'connectionId': request.connectionId,
+                'response': responsePayload.toEventPayload(),
+              });
+              if (responsePayload.bodyKind == HttpResponseBodyKind.file) {
+                _sendFileHttpResponse(pending, responsePayload);
+                return;
+              }
+              if (responsePayload.progress || pending.responseStream != null) {
+                final sent = _forwardStreamingResponseChunk(
+                  pending,
+                  responsePayload,
+                );
+                if (!sent) {
+                  _completeHttpRequest(responsePayload.requestId);
+                  return;
+                }
+                if (!responsePayload.progress) {
+                  _finishStreamingResponse(pending);
+                }
+                return;
+              }
+              try {
+                final handshakeHandle = pending.handshake?.handle ?? -1;
+                if (handshakeHandle > 0) {
+                  runtime.sendHttpResponse(
+                    handshakeHandle: handshakeHandle,
+                    connectionId: request.connectionId,
+                    response: _toNativeHttpResponse(responsePayload),
+                  );
+                  onEvent?.call({
+                    'source': 'binding',
+                    'type': 'http_response_sent',
+                    'httpRequestId': responsePayload.requestId,
+                    'listenerId': request.listenerId,
+                    'connectionId': request.connectionId,
+                  });
+                } else {
+                  onEvent?.call({
+                    'source': 'binding',
+                    'type': 'http_response_send_unsupported',
+                    'httpRequestId': responsePayload.requestId,
+                    'listenerId': request.listenerId,
+                    'connectionId': request.connectionId,
+                    'error': 'missing native handshake handle',
+                  });
+                }
+              } on UnsupportedError catch (error) {
                 onEvent?.call({
                   'source': 'binding',
                   'type': 'http_response_send_unsupported',
                   'httpRequestId': responsePayload.requestId,
                   'listenerId': request.listenerId,
                   'connectionId': request.connectionId,
-                  'error': 'missing native handshake handle',
+                  'error': error.toString(),
                 });
+              } catch (error, stackTrace) {
+                onEvent?.call({
+                  'source': 'binding',
+                  'type': 'http_response_send_error',
+                  'httpRequestId': responsePayload.requestId,
+                  'listenerId': request.listenerId,
+                  'connectionId': request.connectionId,
+                  'error': error.toString(),
+                  'stackTrace': stackTrace.toString(),
+                });
+              } finally {
+                _completeHttpRequest(responsePayload.requestId);
               }
-            } on UnsupportedError catch (error) {
-              onEvent?.call({
-                'source': 'binding',
-                'type': 'http_response_send_unsupported',
-                'httpRequestId': responsePayload.requestId,
-                'listenerId': request.listenerId,
-                'connectionId': request.connectionId,
-                'error': error.toString(),
-              });
-            } catch (error, stackTrace) {
-              onEvent?.call({
-                'source': 'binding',
-                'type': 'http_response_send_error',
-                'httpRequestId': responsePayload.requestId,
-                'listenerId': request.listenerId,
-                'connectionId': request.connectionId,
-                'error': error.toString(),
-                'stackTrace': stackTrace.toString(),
-              });
-            } finally {
-              _completeHttpRequest(responsePayload.requestId);
+            } else if (!progress) {
+              final pending = _pendingHttpCalls[httpRequestId];
+              if (pending?.directResponseStream != null) {
+                pending!.directResponseStreamCompleted = true;
+              }
+              _completeHttpRequest(httpRequestId);
             }
-          } else if (!progress) {
-            final pending = _pendingHttpCalls[httpRequestId];
-            if (pending?.directResponseStream != null) {
-              pending!.directResponseStreamCompleted = true;
+          },
+          onError: (error, stack) {
+            onEvent?.call({
+              'source': 'binding',
+              'type': 'http_request_error',
+              'httpRequestId': httpRequestId,
+              'listenerId': request.listenerId,
+              'connectionId': request.connectionId,
+              'error': error.toString(),
+              if (stack is StackTrace) 'stackTrace': stack.toString(),
+            });
+            _completeHttpRequest(httpRequestId);
+          },
+          onDone: () {
+            if (_pendingHttpCalls[httpRequestId]?.fileResponseActive != true) {
+              _completeHttpRequest(httpRequestId);
             }
-            _completeHttpRequest(httpRequestId);
-          }
-        },
-        onError: (error, stack) {
-          onEvent?.call({
-            'source': 'binding',
-            'type': 'http_request_error',
-            'httpRequestId': httpRequestId,
-            'listenerId': request.listenerId,
-            'connectionId': request.connectionId,
-            'error': error.toString(),
-            if (stack is StackTrace) 'stackTrace': stack.toString(),
-          });
-          _completeHttpRequest(httpRequestId);
-        },
-        onDone: () {
-          if (_pendingHttpCalls[httpRequestId]?.fileResponseActive != true) {
-            _completeHttpRequest(httpRequestId);
-          }
-        },
-        cancelOnError: false,
-      );
-      pending.subscription = subscription;
-    } catch (error, stackTrace) {
-      _pendingHttpCalls.remove(httpRequestId);
-      subscription?.cancel();
+          },
+          cancelOnError: false,
+        );
+        pending.subscription = subscription;
+      } catch (error, stackTrace) {
+        _pendingHttpCalls.remove(httpRequestId);
+        subscription?.cancel();
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'http_request_dispatch_error',
+          'listenerId': request.listenerId,
+          'connectionId': request.connectionId,
+          'endpoint': request.endpoint,
+          'realm': realmUri,
+          'procedure': procedure,
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        });
+        releaseHandshake();
+        return;
+      }
+      retainedHandshake = null;
       onEvent?.call({
         'source': 'binding',
-        'type': 'http_request_dispatch_error',
+        'type': 'http_request_dispatched',
+        'httpRequestId': httpRequestId,
         'listenerId': request.listenerId,
         'connectionId': request.connectionId,
-        'endpoint': request.endpoint,
-        'realm': realmUri,
+        'realm': resolvedRealmUri,
         'procedure': procedure,
-        'error': error.toString(),
-        'stackTrace': stackTrace.toString(),
       });
-      retainedHandshake?.release();
-      return;
-    }
-    retainedHandshake = null;
-    onEvent?.call({
-      'source': 'binding',
-      'type': 'http_request_dispatched',
-      'httpRequestId': httpRequestId,
-      'listenerId': request.listenerId,
-      'connectionId': request.connectionId,
-      'realm': resolvedRealmUri,
-      'procedure': procedure,
-    });
 
-    retainedHandshake?.release();
+      releaseHandshake();
+    } catch (_) {
+      requestFailed = true;
+      rethrow;
+    } finally {
+      if (requestFailed) {
+        try {
+          releaseHandshake();
+        } catch (_) {
+          // Preserve the request failure when cleanup also fails.
+        }
+      } else {
+        releaseHandshake();
+      }
+    }
   }
 
   Future<void> _handleReverseProxyRouteRequest({

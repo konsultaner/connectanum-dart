@@ -1634,7 +1634,17 @@ void main() {
             return releaseReady.future;
           }
 
-          await state.reconcileSubscribedTopics({}, release: release);
+          final revoking = state.reconcileSubscribedTopics(
+            {},
+            release: release,
+          );
+          await Future.any<void>([revoking, releasing.future]);
+          expect(
+            releasing.isCompleted,
+            isFalse,
+            reason: 'Cleanup must wait for the actual subscription',
+          );
+          await revoking;
           const subscription = McpWampSubscription(
             topic: 'app.events',
             subscriptionId: 91,
@@ -1671,6 +1681,102 @@ void main() {
           api.toTools(pubSubState: state);
           await expectValidAsync(() => state.reconcileSubscribedTopics({}));
           expect(released, hasLength(failRelease ? 2 : 1));
+        },
+      );
+    }
+
+    for (final synchronous in [false, true]) {
+      test(
+        'failed cleanup waiters preserve a pending retry sync=$synchronous',
+        () async {
+          final started = Completer<void>();
+          final ready = Completer<McpWampSubscription>();
+          final releasing = Completer<void>();
+          final failedRelease = synchronous
+              ? Completer<void>.sync()
+              : Completer<void>();
+          final retryRelease = Completer<void>();
+          final released = <McpWampSubscription>[];
+          final failure = StateError('temporary cleanup failure');
+          final state = McpWampPubSubState();
+          final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);
+          final server = _server(
+            api.toTools(
+              pubSubState: state,
+              subscribe: (_, _) {
+                started.complete();
+                return ready.future;
+              },
+              unsubscribe: (_) => fail('ordinary unsubscribe must not be used'),
+            ),
+          );
+          addTearDown(server.shutdown);
+          addTearDown(() {
+            if (!failedRelease.isCompleted) failedRelease.complete();
+            if (!retryRelease.isCompleted) retryRelease.complete();
+          });
+          await _initializeAndStart(server);
+          final subscribing = _callPubSub(server, 'subscribe', {
+            'topic': 'app.events',
+          });
+          await Future.any<Object?>([started.future, subscribing]);
+          expect(started.isCompleted, isTrue);
+          Future<void> release(McpWampSubscription subscription) {
+            released.add(subscription);
+            if (released.length == 1) {
+              releasing.complete();
+              return failedRelease.future;
+            }
+            return retryRelease.future;
+          }
+
+          await state.reconcileSubscribedTopics({}, release: release);
+          const subscription = McpWampSubscription(
+            topic: 'app.events',
+            subscriptionId: 119,
+          );
+          ready.complete(subscription);
+          await Future.any<Object?>([releasing.future, subscribing]);
+          expect(releasing.isCompleted, isTrue);
+          Future<void>? retry;
+          final first = state
+              .reconcileSubscribedTopics({}, release: release)
+              .then<void>(
+                (_) => fail('initial cleanup should fail'),
+                onError: (Object error, StackTrace _) {
+                  expect(error, same(failure));
+                  retry = state.reconcileSubscribedTopics({}, release: release);
+                },
+              );
+          final second = expectLater(
+            state.reconcileSubscribedTopics({}, release: release),
+            throwsA(same(failure)),
+          );
+          expect(released, [same(subscription)]);
+          failedRelease.completeError(failure);
+          await first;
+          await second;
+          expect(retry, isNotNull);
+          final result = await subscribing;
+          expect(result['isError'], isTrue);
+          expect(result.containsKey('structuredContent'), isFalse);
+          expect(jsonEncode(result), isNot(contains('wamp-sub-')));
+          expect(released, [same(subscription), same(subscription)]);
+          final joiningRetry = state.reconcileSubscribedTopics(
+            {},
+            release: release,
+          );
+          expect(
+            released,
+            hasLength(2),
+            reason: 'An old failure must not erase the in-flight retry',
+          );
+          retryRelease.complete();
+          await retry;
+          await joiningRetry;
+          api.toTools(pubSubState: state);
+          await expectValidAsync(() => state.reconcileSubscribedTopics({}));
+          expect(released, hasLength(2));
         },
       );
     }

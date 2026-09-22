@@ -67,6 +67,32 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work225 Router Ownership And MCP Race Oracles
+
+- Fast225 passes before promotion. Router220/221/223 fixes address native
+  watcher cancellation/poll failures, partial-batch ownership, HTTP early exits,
+  pre-handoff cleanup and shutdown error precedence. Final223 original replay
+  fails24 assertions; intermediate222 fails one primary-error assertion. Ten
+  final223 selected faults are assertion-only; all451 router runtime tests pass.
+- Promote MCP224/226 tests with unchanged MCP production. Four original219
+  timeout faults become explicit assertions; two new public retry-interleaving
+  tests kill the formerly surviving cleanup-future identity guard by observing
+  three unsubscribe calls instead of two. Full MCP855 and targeted analyzers
+  pass. Selected controls are not whole-component mutation evidence.
+- Fresh canonical VM225 collection and formatting finish:39760/42871 (92.74%),
+  router90.13%; packaging765/787 (97.20%). Both strict98 gates fail, with59
+  library and12 packaging sources unmeasured. Full bin/verify passes, including
+  Chrome JavaScript/WASM, without overlapping native owners. Frozen input
+  hashes match after verification. No measured WASM coverage is claimed.
+  Full MCP225 mutations finish:811/839 viable mutants assertion-detected
+  (96.66%),587 assertion-only and224 mixed,262 compile errors,23 unwaived
+  survivors and5 timeouts. Independent raw-log audit and all recorded input
+  hashes match, with passing clean/restored baselines. The gate remains RED
+  because timeouts are not kills. Isolated retry-oracle improvements must earn
+  fresh full-campaign evidence; do not attribute225 scores to newer tests.
+- Work219 pushed d8aa4f35 with PR93 update and deployment dryrun dispatches.
+  Strict hosted audit remains red/queued. Full98%/95% goal remains open.
+
 ### Work219 MCP Pending Revocation Verified, Mutation Gate Red
 
 - After Fast219 passes, promote two public synchronous-revocation regressions

@@ -41,6 +41,9 @@ part 'support/http_edge_cases.dart';
 part 'support/http_initial_auth_cases.dart';
 part 'support/http_auth_abort_cases.dart';
 part 'support/http_auth_provider_failure_cases.dart';
+part 'support/native_message_watch_cases.dart';
+part 'support/http_early_cleanup_cases.dart';
+part 'support/http_boss_ownership_cases.dart';
 
 const _certificatePem =
     '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
@@ -3909,6 +3912,8 @@ void _fileResponseCleanupTests() {
 }
 
 void main() {
+  _httpBossOwnershipCases();
+  _httpEarlyCleanupCases();
   _httpEdgeCases();
   _fileResponseCleanupTests();
   _httpRoundAuthenticationTests();
@@ -4300,6 +4305,8 @@ void main() {
       expect(routerMessage.message.message, same(publish));
       routerMessage.message.dispose();
     });
+
+    _nativeMessageWatchCases();
 
     test('watchNativeMessages streams messages', () async {
       final runtime = _FakeRuntime();

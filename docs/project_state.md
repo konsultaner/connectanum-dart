@@ -6,6 +6,30 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work225 promotes verified router220/221/223 ownership fixes and MCP224/226 test
+oracles after Fast225 passes. Router polling
+and HTTP handshake failures release owned resources exactly once; shutdown
+continues cleanup without replacing primary loop errors. All451 isolated router
+runtime tests pass. MCP tests reject premature cleanup immediately and prove
+stale failures cannot erase a newer unsubscribe retry: the former identity-guard
+survivor now fails two exact duplicate-cleanup assertions. Full MCP855 passes.
+Fresh canonical VM coverage225 finishes:39760/42871 (92.74%), router90.13%;
+packaging765/787 (97.20%). Both strict98 gates fail, with59 library and12
+packaging sources unmeasured. Full bin/verify passes, including Chrome
+JavaScript/WASM tests, with native-runtime users serialized and frozen input
+hashes matching after verification. These are VM coverage measurements, not
+WASM coverage. Complete MCP-library mutations225 finish and independently audit:
+811/839 viable mutants assertion-detected (96.66%),587 assertion-only and224
+mixed,262 compile errors,23 unwaived survivors and5 timeouts. Its gate remains
+RED; timeouts receive no kill credit. Clean/restored baselines and all recorded
+source/test/config hashes match. Fast229 and a later full bin/verify228 pass
+without changing the frozen225 inputs. An isolated test follow-up addresses the
+retry fixtures that hang under these faults; do not reuse225 scores for newer
+tests. Latest-head hosted checks
+remain queued, not green. Evidence/recovery: router220/221/223-evidence,
+mcp224/226-evidence and coverage184-probes/WORK225.md under the dated coverage
+directory. Whole98%/95% goal remains incomplete; no merge/publication/version bump.
+
 Work218 committed/pushed as88f38227. Work219 is promoted after Fast219 passes:
 publish a pending MCP unsubscribe future before invoking a reentrant release
 callback, preventing duplicate cleanup while retaining error propagation and
