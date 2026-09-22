@@ -67,6 +67,33 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work219 MCP Pending Revocation Verified, Mutation Gate Red
+
+- After Fast219 passes, promote two public synchronous-revocation regressions
+  and publish the shared cleanup future before calling external unsubscribe.
+  Preserve revoked-handle/event confidentiality, error propagation and retry.
+  Full isolated MCP suite853 passes. Five selected faults fail explicit
+  assertions with clean/restored baselines and matching inputs, no test errors.
+- Full MCP-library campaign completes:811/839 viable assertion detections
+  (96.66%),262 compile errors,24 unwaived survivors,4 timeouts. Independent
+  audit confirms587 assertion-only and224 mixed detections, no error-only
+  credit, and all recorded source/test hashes match. The gate remains RED:
+  timeouts are not kills. Isolated224 oracle changes convert all4 timeout
+  cases to assertion failures with clean/restored baselines and853 tests
+  passing. Promote these next, then run a fresh complete campaign.
+- Full bin/verify passes, including Chrome WASM. VM collection and
+  formatting pass:39690/42853 (92.62%), router89.85%; packaging765/787 (97.20%).
+  Both strict98 gates fail;59 library and12 packaging sources remain unmeasured.
+  Passing WASM tests are not measured WASM coverage. Postcollection hashes match.
+  The campaign is terminal; canonical inputs can now advance. Do not reuse
+  historical217 MCP scores on changed
+  source/tests. Router220/221/223 follow-ups have isolated failing originals,
+  selected assertion controls and451 passing runtime tests; promote next.
+  Evidence: mcp219-evidence, mcp219-current-mutations, vm219-current and
+  coverage184-probes/WORK219.md under the dated coverage directory.
+- Work218 is committed/pushed88f38227; strict hosted deployment audit remains
+  pending/queued. Full98%/95% goal remains open; no merge/publication/version change.
+
 ### Work218 Auth Admission And Callback Reentry
 
 - After Fast218 passes, promote public clock/timer callback regressions and

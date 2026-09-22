@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work218 committed/pushed as88f38227. Work219 is promoted after Fast219 passes:
+publish a pending MCP unsubscribe future before invoking a reentrant release
+callback, preventing duplicate cleanup while retaining error propagation and
+retry. The isolated full MCP suite passes853 tests; five selected faults fail
+explicit assertions with clean/restored baselines and no error-only credit.
+The complete MCP-library campaign detects811/839 viable mutants by assertions
+(96.66%):587 assertion-only and224 mixed detections,262 compile errors,
+24 unwaived survivors and4 timeouts. Independent log audit and all recorded
+source/test hashes match. Its gate remains RED because timeouts are not kills.
+The isolated224 test-oracle follow-up converts all4 timeouts to explicit
+assertions with clean/restored baselines; all853 MCP tests pass. Promote it next
+and collect a fresh full campaign, never reuse219 scores for changed tests.
+Full bin/verify passes,
+including Chrome WASM tests. VM coverage collection and formatting pass:
+39690/42853 (92.62%), router89.85%; packaging765/787 (97.20%). Both strict98
+gates still fail, with59 library and12 packaging sources unmeasured. These are
+VM measurements, not WASM coverage. Frozen input hashes match after collection.
+The219 mutation campaign is terminal; canonical inputs can now advance.
+Historical217 MCP evidence is
+not evidence for these changed inputs. Evidence: mcp219-evidence,
+mcp219-current-mutations, vm219-current and coverage184-probes/WORK219.md in
+out/regression-coverage-2026-09-15. Router watcher follow-up remains isolated.
+Latest-head hosted deployment audit is pending/queued, not green. No merge,
+publication or version change; the full98%/95% milestone remains incomplete.
+
 Work218 is locally verified after Fast218, full bin/verify (including Chrome
 WASM), fresh VM/JavaScript collection and matching frozen input hashes. All102
 canonical auth tests pass. Reproduce and fix clock/timer

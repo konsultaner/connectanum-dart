@@ -1586,6 +1586,95 @@ void main() {
       );
     }
 
+    for (final failRelease in [false, true]) {
+      test(
+        'synchronous pending revocation shares cleanup, fail=$failRelease',
+        () async {
+          final started = Completer<void>();
+          final ready = Completer<McpWampSubscription>();
+          final releasing = Completer<void>();
+          final releaseReady = Completer<void>();
+          final released = <McpWampSubscription>[];
+          late void Function(McpWampEvent) onEvent;
+          final observed = _ObservedWampEvent();
+          Future<void>? reentrant;
+          final state = McpWampPubSubState();
+          final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);
+          final server = _server(
+            api.toTools(
+              pubSubState: state,
+              subscribe: (_, handler) {
+                onEvent = handler;
+                started.complete();
+                return ready.future;
+              },
+              unsubscribe: (_) => fail('ordinary unsubscribe must not be used'),
+            ),
+          );
+          addTearDown(server.shutdown);
+          addTearDown(() {
+            if (!releaseReady.isCompleted) releaseReady.complete();
+          });
+          await _initializeAndStart(server);
+          final subscribing = _callPubSub(server, 'subscribe', {
+            'topic': 'app.events',
+          });
+          await Future.any<Object?>([started.future, subscribing]);
+          expect(started.isCompleted, isTrue);
+          onEvent(observed);
+          expect(observed.serializations, greaterThan(0));
+          observed.serializations = 0;
+          Future<void> release(McpWampSubscription subscription) {
+            released.add(subscription);
+            onEvent(observed);
+            if (released.length == 1) {
+              reentrant = state.reconcileSubscribedTopics({}, release: release);
+              releasing.complete();
+            }
+            return releaseReady.future;
+          }
+
+          await state.reconcileSubscribedTopics({}, release: release);
+          const subscription = McpWampSubscription(
+            topic: 'app.events',
+            subscriptionId: 91,
+          );
+          ready.complete(subscription);
+          await Future.any<Object?>([releasing.future, subscribing]);
+          expect(releasing.isCompleted, isTrue);
+          final reentrantCheck = expectLater(
+            reentrant!,
+            failRelease ? throwsStateError : completes,
+          );
+          if (failRelease) {
+            releaseReady.completeError(StateError('temporary release failure'));
+          } else {
+            releaseReady.complete();
+          }
+          await reentrantCheck;
+          final result = await subscribing;
+          expect(result['isError'], isTrue);
+          expect(result.containsKey('structuredContent'), isFalse);
+          expect(jsonEncode(result), isNot(contains('wamp-sub-')));
+          expect(
+            observed.serializations,
+            0,
+            reason: 'Reentrant cleanup cannot expose revoked events',
+          );
+          expect(released, [same(subscription)]);
+          if (failRelease) {
+            await expectValidAsync(
+              () => state.reconcileSubscribedTopics({}, release: released.add),
+            );
+            expect(released, [same(subscription), same(subscription)]);
+          }
+          api.toTools(pubSubState: state);
+          await expectValidAsync(() => state.reconcileSubscribedTopics({}));
+          expect(released, hasLength(failRelease ? 2 : 1));
+        },
+      );
+    }
+
     test('failed subscribe leaves no pending cleanup and can retry', () async {
       final state = McpWampPubSubState();
       final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);
