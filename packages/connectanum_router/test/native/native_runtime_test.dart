@@ -548,6 +548,53 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }, skip: skipReason);
 
+    test('cancelled HTTP body reader discards subsequent native chunks', () async {
+      final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
+      addTearDown(runtime.dispose);
+      runtime.start();
+      addTearDown(runtime.shutdown);
+      const configJson =
+          '{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/","match_kind":"prefix","methods":{"POST":{"type":"reserved_realm","append_method_suffix":true}}}]}]}';
+      runtime.applyRouterConfig(Uint8List.fromList(utf8.encode(configJson)));
+      final listenerId = runtime.listen('127.0.0.1', 0);
+      final port = runtime.getLocalPort(listenerId);
+      final socket = await Socket.connect('127.0.0.1', port);
+      addTearDown(socket.destroy);
+      const length = 70 * 1024;
+      socket
+        ..add(
+          utf8.encode(
+            'POST /cancel HTTP/1.1\r\nHost: 127.0.0.1:$port\r\n'
+            'Content-Length: $length\r\nConnection: close\r\n\r\n',
+          ),
+        )
+        ..add([11, 12, 13, 14]);
+      await socket.flush();
+      final connection = await _pollConnectionUntil(runtime, listenerId);
+      final handshake = await _takeHttpHandshakeUntil(runtime, connection);
+      addTearDown(handshake.release);
+      expect(handshake.body.isStreaming, isTrue);
+      expect(handshake.body.length, length);
+      final reader = StreamIterator(handshake.body.openRead(chunkSize: 4));
+      expect(await reader.moveNext(), isTrue);
+      expect(reader.current, [11, 12, 13, 14]);
+      await reader.cancel();
+
+      // No response or handshake release may implicitly finish the body first.
+      socket.add(Uint8List.fromList(List<int>.filled(length - 4, 37)));
+      await socket.flush();
+      expect(await _readBody(handshake.body, chunkSize: 16 * 1024), isEmpty);
+      runtime.sendHttpResponse(
+        handshakeHandle: handshake.handle,
+        response: NativeHttpResponse(
+          status: 204,
+          body: NativeHttpResponseBytes(Uint8List(0)),
+        ),
+      );
+      handshake.release();
+      expect(await _readHttpResponse(socket), contains('204 No Content'));
+    }, skip: skipReason);
+
     test('http request bodies surface inline and streaming handles', () async {
       final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
       addTearDown(runtime.dispose);
@@ -627,6 +674,32 @@ void main() {
       expect(inlineHandshake.body.view, inlineBody);
       expect(await _readBody(inlineHandshake.body, chunkSize: 4), inlineBody);
 
+      final borrowed = NativeHttpRequestBody.borrowed(
+        handle: inlineHandshake.body.nativeHandle!,
+        length: inlineBody.length,
+        streaming: false,
+        libraryPath: libraryPath,
+      );
+      for (final declaredLength in [inlineBody.length, inlineBody.length + 3]) {
+        for (final useView in [false, true]) {
+          final descriptor = NativeHttpRequestBody.borrowed(
+            handle: inlineHandshake.body.nativeHandle!,
+            length: declaredLength,
+            streaming: false,
+            libraryPath: libraryPath,
+          );
+          final copied = useView
+              ? descriptor.view
+              : descriptor.materializeOwnedBytes();
+          expect(copied, inlineBody);
+          copied[0] = 0;
+          expect(inlineHandshake.body.view, inlineBody);
+        }
+      }
+      expect(await _readBody(borrowed, chunkSize: 4), inlineBody);
+      expect(borrowed.copy(), inlineBody);
+      expect(borrowed.hasNativeHandle, isTrue);
+
       runtime.sendHttpResponse(
         handshakeHandle: inlineHandshake.handle,
         response: NativeHttpResponse(
@@ -643,6 +716,16 @@ void main() {
         ),
       );
       inlineHandshake.release();
+      expect(
+        borrowed.materializeOwnedBytes,
+        throwsA(
+          isA<NativeTransportException>().having(
+            (error) => error.code,
+            'released body handle',
+            NativeTransportErrorCode.handshakeConsumed,
+          ),
+        ),
+      );
       final inlineResponse = await _readHttpResponse(inlineSocket);
       expect(inlineResponse, contains('204 No Content'));
       expect(

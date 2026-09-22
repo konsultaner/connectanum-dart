@@ -12,6 +12,41 @@ void main() {
     AuthSecurityTracker.reset();
   });
 
+  test(
+    'initially empty realm order cannot be admitted by a later lookup',
+    () async {
+      final base =
+          (RouterSettingsBuilder()
+                ..addRealmFromBuilder(RealmSettingsBuilder('realm')))
+              .build()
+              .realms
+              .single;
+      final auth = _RealmAuthChangingOnLookup();
+      final settings = RouterSettings(
+        realms: [
+          RealmSettings(
+            name: base.name,
+            auth: auth,
+            roles: base.roles,
+            limits: base.limits,
+          ),
+        ],
+        listeners: const [],
+      );
+      final server = AuthServer(settings: settings);
+      addTearDown(server.close);
+      AuthenticatorRegistry.registerFactory(_Factory('first'));
+      AuthenticatorRegistry.registerFactory(_Factory('anonymous'));
+      final first = await server.onHello(_hello(settings, ['unknown']));
+      expect(first.status, RemoteHelloStatus.success);
+      expect(first.success?.authId, 'anonymous');
+      expect(auth.methods, ['first']);
+      final next = await server.onHello(_hello(settings, ['unknown']));
+      expect(next.status, RemoteHelloStatus.success);
+      expect(next.success?.authId, 'first');
+    },
+  );
+
   for (final entry in [
     (['second', 'first'], ['first'], 'second'),
     (['unknown', 'second'], ['first'], 'second'),
@@ -134,6 +169,18 @@ RemoteHelloRequest _hello(RouterSettings settings, List<String> methods) =>
       options: const {},
       transactionId: 'transaction',
     );
+
+class _RealmAuthChangingOnLookup extends RealmAuthSettings {
+  _RealmAuthChangingOnLookup() : super(methods: []);
+
+  @override
+  Map<String, Object?>? optionsFor(String method) {
+    if (method == 'unknown' && methods.isEmpty) {
+      methods.add('first');
+    }
+    return null;
+  }
+}
 
 class _Factory extends AuthenticatorFactory {
   _Factory(this.method);

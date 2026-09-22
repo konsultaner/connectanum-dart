@@ -6,6 +6,36 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work216+217 is locally verified after Fast216, all54 targeted native/body tests,
+fresh VM coverage and full bin/verify, including Chrome WASM. Frozen production,
+test and configuration hashes match. Reproduce cancellation retaining subsequent
+HTTP body bytes with a real socket, then finish streaming readers on cancellation
+and read failures without replacing primary errors. Normal completion/EOF finish
+errors remain visible and retryable. Borrowed-buffer ownership remains unchanged.
+Eight selected faults fail explicit assertions with clean/restored baselines;
+three also produce test errors, which receive no standalone kill credit.
+
+VM coverage is39673/42840 (92.61%): router89.83%, client93.49%, core94.34%,
+MCP96.13%, Dart bench99.36%, auth100%. Packaging remains765/787 (97.20%). Both
+strict98 checks still fail;59 library and12 packaging sources are unmeasured.
+No new JavaScript or WASM coverage measurement is claimed from passing tests.
+
+The complete fresh auth-library campaign assertion-detects183/189 viable mutants
+(96.83%), with105 compile errors,6 survivors and no waivers. Independently audit
+the completed hosted MCP-library job:812/836 viable mutants assertion-detected
+(97.13%),262 compile errors,24 survivors and no waivers. The parent hosted run
+was cancelled, not green. All34 currently audited scoped targets match their
+recorded source/test inputs; this is not whole-component/runtime mutation proof.
+Evidence is under auth216b-current-mutations, hosted217-mcp-library, vm217-current
+and router217-evidence in out/regression-coverage-2026-09-15.
+
+Next promote the isolated auth admission regressions: clock/timer reentry can
+bypass capacity or duplicate-ID checks, start cancelled provider work, or leak
+capacity on setup errors. Failing originals and a passing candidate are retained
+under coverage184-probes/auth218-candidate and auth218-evidence. Current-head
+hosted checks remain pending. The complete98%/95% milestone remains open; no
+merge, publication or version change.
+
 Work215 is locally verified after Fast215, all 40 HTTP authentication regressions,
 fresh native LLVM coverage and full bin/verify, including Chrome JavaScript/WASM.
 Frozen source/test/config hashes match after collection and verification.

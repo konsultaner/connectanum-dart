@@ -67,6 +67,34 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work216+217 Auth Selection And Native Body Cleanup
+
+- Reproduce abandoned streaming readers with unit assertions and an independent
+  real HTTP/1 socket. Finish on cancellation/read failure; retain original
+  consumer/read errors, normal finish-error visibility and explicit retry.
+  Preserve zero-copy buffer ownership. All54 targeted native/body tests pass.
+- Eight selected faults fail explicit assertions with clean/restored baselines.
+  Three have mixed assertion/test-error outcomes, not error-only kill credit.
+  Retain earlier fixture errors and incomplete controls without counting them.
+- Fast216, fresh VM collection and full bin/verify pass, including Chrome WASM;
+  frozen source/test/configuration hashes match. VM39673/42840 (92.61%),
+  router89.83%; packaging765/787 (97.20%). Both strict98 checks still fail,
+  with59 library and12 packaging sources unmeasured. Passing browser tests are
+  not a new browser coverage measurement.
+- A public optionsFor override mutating a retained initially-empty realm-method
+  list now distinguishes the auth selection survivor. Full fresh auth-library
+  campaign:183/189 assertion-detected (96.83%),105 compile errors,6 survivors,
+  zero waivers. Clean/restored baselines and independent assertion audit pass.
+- Audit the successful MCP-library job from cancelled run35650335790:
+  812/836 assertion-detected (97.13%),262 compile errors,24 survivors,0 waivers.
+  All34 audited scoped targets match current recorded inputs, replacing stale
+  auth evidence with216b. Neither those targets nor the cancelled parent run
+  prove whole-component/runtime mutation completion or a green CI chain.
+- Evidence: auth216b-current-mutations, hosted217-mcp-library, vm217-current
+  and router217-evidence under out/regression-coverage-2026-09-15. Next promote
+  isolated218 auth admission reproductions and run a fresh complete campaign.
+  Hosted current-head checks remain pending; full milestone is incomplete.
+
 ### Work215 Protected HTTP Stream Concurrency
 
 - Reproduce protected HTTP/2 and HTTP/3 serialization with explicit concurrency

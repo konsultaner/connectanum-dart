@@ -1137,7 +1137,8 @@ class NativeHttpRequestBody {
     _finishStreaming(ignoreErrors: false);
   }
 
-  /// Convenience helper to expose the body as a single-chunk stream.
+  /// Streams the body, finishing the native reader when done or cancelled.
+  /// Cancellation cleanup is best effort so consumer errors remain primary.
   Stream<List<int>> openRead({int chunkSize = _defaultChunkSize}) async* {
     if (_view.isNotEmpty && (!_streaming || _streamFinished)) {
       yield _view;
@@ -1162,20 +1163,26 @@ class NativeHttpRequestBody {
     }
     var offset = 0;
     final effectiveChunk = math.max(1, chunkSize);
-    while (offset < _length) {
-      final remaining = _length - offset;
-      final toRead = math.min(remaining, effectiveChunk);
-      final chunk = _streaming
-          ? _readStreamingChunk(toRead)
-          : _readSlice(offset, toRead);
-      if (chunk.isEmpty) {
-        break;
+    var readCompleted = false;
+    try {
+      while (offset < _length) {
+        final remaining = _length - offset;
+        final toRead = math.min(remaining, effectiveChunk);
+        final chunk = _streaming
+            ? _readStreamingChunk(toRead)
+            : _readSlice(offset, toRead);
+        if (chunk.isEmpty) {
+          break;
+        }
+        yield chunk;
+        offset += chunk.length;
       }
-      yield chunk;
-      offset += chunk.length;
-    }
-    if (_streaming) {
-      _finishStreaming(ignoreErrors: false);
+      readCompleted = true;
+    } finally {
+      if (_streaming) {
+        // Cancellation cleanup must not replace a consumer or read failure.
+        _finishStreaming(ignoreErrors: !readCompleted);
+      }
     }
   }
 
@@ -1280,20 +1287,25 @@ class NativeHttpRequestBody {
     }
     final buffer = Uint8List(_length);
     var offset = 0;
-    while (offset < _length) {
-      final remaining = _length - offset;
-      final toRead = math.min(remaining, _defaultChunkSize);
-      final chunk = _streaming
-          ? _readStreamingChunk(toRead)
-          : _readSlice(offset, toRead);
-      if (chunk.isEmpty) {
-        break;
+    var readCompleted = false;
+    try {
+      while (offset < _length) {
+        final remaining = _length - offset;
+        final toRead = math.min(remaining, _defaultChunkSize);
+        final chunk = _streaming
+            ? _readStreamingChunk(toRead)
+            : _readSlice(offset, toRead);
+        if (chunk.isEmpty) {
+          break;
+        }
+        buffer.setRange(offset, offset + chunk.length, chunk);
+        offset += chunk.length;
       }
-      buffer.setRange(offset, offset + chunk.length, chunk);
-      offset += chunk.length;
-    }
-    if (_streaming) {
-      _finishStreaming(ignoreErrors: false);
+      readCompleted = true;
+    } finally {
+      if (_streaming) {
+        _finishStreaming(ignoreErrors: !readCompleted);
+      }
     }
     if (offset == _length) {
       return buffer;
@@ -1307,7 +1319,11 @@ class NativeHttpRequestBody {
     }
     final override = _streamFinishOverride;
     if (override != null) {
-      override();
+      try {
+        override();
+      } catch (_) {
+        if (!ignoreErrors) rethrow;
+      }
       _streamFinished = true;
       return;
     }
