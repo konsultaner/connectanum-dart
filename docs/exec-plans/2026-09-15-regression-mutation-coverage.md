@@ -181,6 +181,27 @@ caught and timed-out outcomes separately.
   The post-edit controlled `bin/verify` completed with explicit
   `VERIFY_EXIT=0`.
 
+### Work245 Core Message Mutation Gate Recovery
+
+- Hosted `core-registered-vm` and `core-subscribed-vm` failures were reproduced
+  locally. The failure was in mutation-test teardown: when a mutant prevented
+  the external single-subscription stream from being listened to, cleanup could
+  wait forever on `StreamController.close()`. The regression test now tracks
+  whether the synthetic source was listened to, attaches and cancels an
+  unlistened source during teardown, and preserves the expected cancellation
+  failure assertion.
+- The focused stream-owner suite passes 13 tests. Complete local inventories
+  now pass without timeouts: registered has 50 generated, 28 assertion kills and
+  22 compile errors; subscribed has 26 generated, 19 assertion kills and 7
+  compile errors. Both adjusted assertion and conventional viable scores are
+  100%, above the 95% gate. Reports are retained at
+  `out/regression-coverage-2026-09-15/core-message-final-work245`.
+- `bin/test-fast` completed with explicit `TEST_FAST_EXIT=0` and final-snapshot
+  `bin/verify` completed with explicit `VERIFY_EXIT=0`. This recovers two
+  component mutation gates; the whole milestone remains open for broader Dart
+  line coverage, Rust/native mutation and coverage, usable WASM coverage and
+  standalone consumer application evidence.
+
 ### Isolated Work236/237 Metadata And Admission
 
 - Preserve full230/MCP and235/file campaigns. Canonical frozen230 hashes still

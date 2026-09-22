@@ -6,6 +6,24 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work245 current evidence: the hosted `core-registered-vm` and
+`core-subscribed-vm` mutation failures were reproduced locally and fixed in the
+stream-owner regression cleanup. When a mutation prevents an external
+single-subscription stream from being listened to, the test now attaches and
+cancels that synthetic source before teardown; intentionally failing cancellation
+callbacks remain asserted as failures rather than leaving `StreamController.close`
+pending. The focused stream-owner suite passes 13 tests. Full local target runs
+pass both mutation gates with no timeouts: registered has 28 assertion kills and
+22 compile errors out of 50 generated (100% adjusted and conventional viable
+score), and subscribed has 19 assertion kills and 7 compile errors out of 26
+generated (100% adjusted and conventional viable score). Reports are retained
+at `out/regression-coverage-2026-09-15/core-message-final-work245`. The
+canonical `bin/test-fast` completed with explicit `TEST_FAST_EXIT=0`, followed
+by final-snapshot `bin/verify` with explicit `VERIFY_EXIT=0`. These are
+component mutation-gate results; the whole 98%/95% milestone remains open for
+the remaining line-coverage, Rust/native, WASM and standalone consumer
+application scopes. No merge or publication claim is made from this state.
+
 Work244 current evidence: the source-matched router drain slice now passes its
 adjusted mutation gate. It selects35 of2,426 generated router-binding mutants,
 with32 viable outcomes,27 assertion-backed kills,3 compile errors, no timeouts

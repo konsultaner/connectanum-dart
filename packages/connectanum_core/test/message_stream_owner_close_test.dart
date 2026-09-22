@@ -78,24 +78,38 @@ void main() {
             (_) {},
             onDone: () => done = true,
           );
+          var sourceListened = false;
           final source = StreamController<Invocation>(
+            onListen: () => sourceListened = true,
             onCancel: () => throw failure,
           );
           registered.invocationStream = source.stream;
           registered.onInvoke((_) {});
           close = registered.closeInvocationStream;
-          closeSource = source.close;
+          closeSource = () => _closeSource(
+            source,
+            wasListened: sourceListened,
+            expectedCancellationError: failure,
+          );
         } else {
           final subscribed = Subscribed(1, 2);
           listener = subscribed.eventStream!.listen(
             (_) {},
             onDone: () => done = true,
           );
-          final source = StreamController<Event>(onCancel: () => throw failure);
+          var sourceListened = false;
+          final source = StreamController<Event>(
+            onListen: () => sourceListened = true,
+            onCancel: () => throw failure,
+          );
           subscribed.eventStream = source.stream;
           subscribed.onEvent((_) {});
           close = subscribed.closeEventStream;
-          closeSource = source.close;
+          closeSource = () => _closeSource(
+            source,
+            wasListened: sourceListened,
+            expectedCancellationError: failure,
+          );
         }
         addTearDown(listener.cancel);
         addTearDown(closeSource);
@@ -132,26 +146,40 @@ void main() {
                 (_) => fail('No invocation was issued'),
                 onDone: done.complete,
               );
-              final source = StreamController<Invocation>(onCancel: cancel);
+              var sourceListened = false;
+              final source = StreamController<Invocation>(
+                onListen: () => sourceListened = true,
+                onCancel: cancel,
+              );
               registered.invocationStream = source.stream;
               registered.onInvoke((_) {});
               close = waitForListeners
                   ? registered.closeInvocationStream
                   : () => closeInvocationStreamForOwner(registered);
-              closeSource = source.close;
+              closeSource = () => _closeSource(
+                source,
+                wasListened: sourceListened,
+              );
             } else {
               final subscribed = Subscribed(1, 2);
               listener = subscribed.eventStream!.listen(
                 (_) => fail('No event was published'),
                 onDone: done.complete,
               );
-              final source = StreamController<Event>(onCancel: cancel);
+              var sourceListened = false;
+              final source = StreamController<Event>(
+                onListen: () => sourceListened = true,
+                onCancel: cancel,
+              );
               subscribed.eventStream = source.stream;
               subscribed.onEvent((_) {});
               close = waitForListeners
                   ? subscribed.closeEventStream
                   : () => closeEventStreamForOwner(subscribed);
-              closeSource = source.close;
+              closeSource = () => _closeSource(
+                source,
+                wasListened: sourceListened,
+              );
             }
             listener.pause();
             var closed = false;
@@ -201,6 +229,24 @@ void main() {
       }
     }
   }
+}
+
+Future<void> _closeSource<T>(
+  StreamController<T> source, {
+  required bool wasListened,
+  Object? expectedCancellationError,
+}) async {
+  if (!wasListened) {
+    try {
+      await source.stream.listen((_) {}).cancel();
+    } catch (error) {
+      if (expectedCancellationError == null ||
+          !identical(error, expectedCancellationError)) {
+        rethrow;
+      }
+    }
+  }
+  await source.close();
 }
 
 Future<void> _assertStreamCloseCompletes(Future<void> future) async {
