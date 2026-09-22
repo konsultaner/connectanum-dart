@@ -67,6 +67,158 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work240 Integration And Reentrant Shutdown
+
+- Fast239 passes. Promote audited worker/file regressions; select portable file
+  metadata/digest tests in VM/JS/WASM verification and coverage scripts, and pin
+  supporting Dart parts in affected mutation configurations.
+- Full MCP230 passes97.38% assertion-backed (817/839),22 survivors,zero timeouts,
+  no waivers. Independent raw-event/input/source audits pass. File235 fails17.90%
+  on older tests; newer selected results must not overwrite that complete report.
+- Four failing cancellation callbacks reproduce self-awaiting session shutdown.
+  A per-session cleanup zone permits reentrant close without releasing external
+  waiters or bypassing another session. Eleven lifecycle regressions pass; three
+  isolated faults are assertion-detected with no errors/deadlines.
+- Fresh full verification and source-matched coverage/mutations are pending after
+  integration. Keep the complete milestone open and do not merge or publish.
+
+### Work241 Fresh VM Coverage And File Mutation Baseline
+
+- Fast239 and the complete post-integration VM coverage run pass. The retained
+  snapshot is `out/regression-coverage-2026-09-15/vm241-current` (ignored
+  generated evidence). It measures39939/42923 lines overall (93.048%): auth
+  server100%, bench99.359%, client94.334%, core94.351%, MCP96.158%, and
+  router90.389%. Packaging measures765/787 (97.205%). The run still lists58
+  unmeasured library sources and12 unmeasured packaging sources. Browser and
+  WASM results remain separate runtime evidence; browser tests do not turn the
+  VM report into a complete cross-runtime measurement.
+- The complete file-transfer campaign is terminal and independently audited:
+  389 generated, 324 viable, 248 killed,50 survived,65 compile errors,26
+  timeouts, zero runner errors, and239 assertion-detected viable faults. Its
+  assertion-backed lower bound is73.765%, so the file gate is RED. The changed
+  233/234/236/237/238/239 inputs and current VM coverage must not reuse the old
+  file235 or MCP230 scores.
+- Preserve the current evidence and continue with targeted router/file lifecycle
+  oracles, then rerun source-matched mutations. The whole98%/95% milestone is
+  still open; do not merge or publish from this state.
+- A subsequent `bin/verify` attempt was not a clean verification result: a
+  pre-existing live native router process held the shared
+  `connectanum_native_runtime.lock`, causing the serialized WAMP integration
+  stage and dependent benchmark cases to fail or time out. The process was not
+  owned by this task and was left running. Rerun `bin/verify` only after native
+  runtime ownership is exclusive; do not classify this environment contention as
+  a product regression.
+
+### Work242/243 Fresh Runtime Evidence And File Mutation Edge Cases
+
+- Fast242 completed with exit0 after the final file-transfer test additions. The
+  fresh VM snapshot is `out/regression-coverage-2026-09-15/vm242-current`:
+  39,942/42,923 executable library lines (93.055%). Package results are
+  auth-server465/465, bench2324/2339, client8908/9443, core6848/7258,
+  MCP3779/3930 and router17618/19488; packaging is765/787. The VM report has
+  58 unmeasured library sources and12 unmeasured packaging sources.
+- The source-matched Chrome/Dart2JS snapshot at
+  `/tmp/connectanum-browser-coverage-20260922-final3` passes with10,212/10,565
+  executable lines (96.659%): client2777/2859 and core7435/7706. This is
+  separate browser evidence, not VM or WASM coverage; WASM still has no usable
+  coverage entries.
+- File edge3 is the complete source-matched six-source transfer campaign. It
+  generated389 mutants, of which324 were viable;249 were conventionally killed,
+  48 survived,65 failed compilation and27 timed out. The auditor records178
+  assertion-only and62 mixed kills, with9 test-error classifications, so the
+  assertion-backed lower bound is74.074%; the conventional score is76.852%.
+  The report and audited report are retained under
+  `out/regression-coverage-2026-09-15/file242-edge3-mutations`. The gate
+  remains RED and no timeout, compile error or survivor is credited as a kill.
+- New behavior tests cover empty native sources without opening a native
+  segment, a receiver invocation racing with close, idempotent sink abort, and
+  bounded native-segment test completion. The focused file-transfer suite passes
+  91 tests. Router option-alias support adds four focused behavior tests for
+  handler, reverse-proxy, file-directory and publish-topic aliases; these pass
+  and are source-matched in the router mutation inventory.
+- The next production-readiness slice is router-binding mutation evidence. The
+  router remains the largest measured Dart gap at90.404%, and no whole98%/95%
+  milestone, merge, publication or version claim is made until router survivors,
+  Rust/native scope, standalone applications, and WASM evidence are addressed.
+- The router-binding baseline-only inventory passes with2,431 generated
+  mutations and is retained at
+  `out/regression-coverage-2026-09-15/router-binding243-baseline`. A full
+  serial campaign was started but stopped after12 mutants because each
+  native-backed suite execution is expensive; the partial run is not evidence
+  and must not be scored. Future router mutation work should use source or
+  behavior slices that preserve complete input hashes rather than presenting a
+  partial inventory as a gate.
+- The controlled full `bin/verify` rerun completed with exit0 after the fresh
+  coverage and test additions. This validates formatting, Rust/native tests,
+  Dart VM tests, browser JS/WASM tests, consumer-package smoke tests, and the
+  verification-tool tests; it does not change the failed quantitative coverage
+  or mutation gates above.
+
+### Isolated Work236/237 Metadata And Admission
+
+- Preserve full230/MCP and235/file campaigns. Canonical frozen230 hashes still
+  match verified inputs; no native test overlap or production changes.
+- Metadata236 passes140 selected VM tests and52 each on JS/WASM;38/38 viable
+  selected faults produce assertions, four compile failures remain excluded.
+  Retain26 assertion-only and12 mixed outcomes, zero selected survivors/timeouts.
+  Original15 survivors/19 timeouts and initial incomplete replay remain visible.
+- Admission237 adds23 regressions for limits, malformed headers, allocation,
+  concurrency and same-session recovery;163 selected VM tests pass.38 selected
+  faults are assertion-only, two are compile errors; no selected survivors/timeouts.
+  Preserve the initial two error-only failures and rerun after explicit success
+  assertions. Independent source/input/raw-log audits pass for both candidates.
+- Scoped file_transfer.dart VM measurement318/346 adds six lines over236; no new
+  whole-package score. WASM tests pass but coverage entries remain empty. Latest
+  Publish Dry Run passes;75 hosted checks remain queued. Candidates stay isolated
+  pending final campaign evidence/promotion. Whole98%/95% goal remains open.
+
+### Work230 Session Ownership And Fail-Fast MCP Oracles
+
+- Fast229 passes before promoting isolated227/228 fixes: shared close completion,
+  teardown through cancellation errors without waiting for paused application
+  listeners, closed/unsendable call admission, and stale/failed cancellation.
+  Original failures reproduce before changes;227 has13 assertion-only selected
+  controls and228 has12. Full isolated router suite4404 passes; focused core102
+  passes separately on VM, JavaScript and WASM. Those are tests, not WASM coverage.
+- Seven public missing-meta-parameter cases detect an old survivor. Refine retry
+  error observation without pending expectLater matchers: all five225 timeout
+  controls now produce independent assertions and no timeout, retaining the
+  stale-failure identity-guard detection. Full isolated MCP862, analysis and
+  formatting pass. No timeout relabeling, threshold change or equivalent waiver.
+- Fresh canonical VM230 coverage is39823/42914 (92.80%), router90.24%, core94.35%,
+  MCP96.16%; packaging765/787 (97.20%). Both strict98 gates fail with59 library
+  and12 packaging files unmeasured. Inputs match after collection and full
+  verify230 passes, including Chrome JS/WASM tests; full pure MCP230 mutations are
+  pending. Do not attribute225 mutation results to230 inputs.
+- Work225 is pushed asf242e661 and PR93 updated. Native/router-image dry runs
+  and WAMP profile benchmarks are dispatched;76 hosted checks remain queued and
+  the strict audit fails. No merge, publication or version changes.
+
+### Isolated Work231/233 Failure And Ownership Regressions
+
+- Work231:94 worker tests pass. Nine new cases cover routing errors/recovery,
+  internal/external opaque PPT forwarding, disclosure and failed ACK diagnostics.
+  Seven selected faults fail explicit assertions with no test errors/timeouts;
+  independent source/log/input audit passes. Covers27 prior worker VM misses.
+- Work233:79 native file/portable tests pass and seven portable cases pass on
+  both browser compilers. Six selected faults are independently assertion-audited.
+  Portable digest is19/19 VM and23/23 JS; IO digest49/57, with eight misses retained.
+  Tests cover34 prior VM misses. WASM emits no coverage entries, not100%.
+- Both candidates remain isolated while canonical MCP230 mutations run. No
+  package score or whole-component mutation claim is inferred. Initial fixture
+  compile/decoder failures are retained as invalid test evidence, not bugs.
+  Evidence: router231-evidence, client233-evidence. Fast234 passes on frozen230.
+- Work234 adds16 receiver failure/recovery cases. Full40-test file suite passes
+  separately with portable fallback and native hashing. Six selected faults are
+  direct assertion detections with no errors/timeouts, independently audited.
+  Covers eight prior file-transfer and three digest fallback VM misses. Evidence:
+  client234-evidence. No new production defect is inferred from prototype errors.
+- Full file235 campaign starts in a combined233/234 isolated snapshot: all six
+  file-transfer sources,389 generated faults, unchanged95% threshold and no new
+  waivers. Native use is reserved for that campaign; pure MCP230 remains active.
+  Initial survivors/timeouts are not kills; no final score is claimed. Recovery:
+  coverage184-probes/WORK235.md. Whole-component/runtime scope remains incomplete.
+
 ### Work225 Router Ownership And MCP Race Oracles
 
 - Fast225 passes before promotion. Router220/221/223 fixes address native

@@ -886,6 +886,114 @@ void main() {
       expect(capturedCalls, hasLength(3));
     });
 
+    for (final (procedure, parameter, validValue, errorText)
+        in <(String, String, Object, String)>[
+          ('wamp.session.get', 'sessionId', 41, 'must be a positive integer'),
+          (
+            'wamp.registration.get',
+            'registrationId',
+            42,
+            'must be a positive integer',
+          ),
+          (
+            'wamp.subscription.get',
+            'subscriptionId',
+            43,
+            'must be a positive integer',
+          ),
+          (
+            'wamp.registration.lookup',
+            'procedure',
+            'app.echo',
+            'must be a non-empty string',
+          ),
+          (
+            'wamp.subscription.lookup',
+            'topic',
+            'app.events',
+            'must be a non-empty string',
+          ),
+        ]) {
+      for (final withMatch in [
+        false,
+        if (parameter == 'procedure' || parameter == 'topic') true,
+      ]) {
+        test(
+          'missing standard meta parameter $parameter match=$withMatch',
+          () async {
+            final calls = <McpWampToolCall>[];
+            final server = _server(
+              McpWampApi(includeStandardMetaApi: true).toTools(
+                call: (call) {
+                  calls.add(call);
+                  return (
+                    callRequestId: 7,
+                    progress: false,
+                    pptScheme: null,
+                    pptSerializer: null,
+                    pptCipher: null,
+                    pptKeyId: null,
+                    customDetails: null,
+                    arguments: const <Object?>['accepted'],
+                    argumentsKeywords: null,
+                  );
+                },
+                includePubSubTools: false,
+              ),
+            );
+            await _initializeAndStart(server);
+            final arguments = <String, Object?>{
+              if (withMatch) 'match': 'exact',
+            };
+            final response = await server.handleMessage({
+              'jsonrpc': '2.0',
+              'id': 'missing',
+              'method': 'tools/call',
+              'params': {'name': procedure, 'arguments': arguments},
+            });
+            expect(response?['id'], 'missing');
+            expect(response, isNot(contains('error')));
+            final result = response?['result'] as Map<String, Object?>;
+            expect(result['isError'], isTrue);
+            expect(
+              result['content'],
+              contains(
+                containsPair(
+                  'text',
+                  contains('arguments.$parameter $errorText'),
+                ),
+              ),
+              reason: 'Validation must identify the missing named parameter',
+            );
+            expect(calls, isEmpty);
+
+            final accepted = await server.handleMessage({
+              'jsonrpc': '2.0',
+              'id': 'valid',
+              'method': 'tools/call',
+              'params': {
+                'name': procedure,
+                'arguments': {...arguments, parameter: validValue},
+              },
+            });
+            expect(accepted?['id'], 'valid');
+            expect(accepted, isNot(contains('error')));
+            expect(
+              (accepted?['result'] as Map<String, Object?>)['isError'],
+              isNot(isTrue),
+            );
+            expect(calls, hasLength(1));
+            expect(calls.single.procedure, procedure);
+            expect(calls.single.payload.arguments, [validValue]);
+            expect(
+              calls.single.payload.argumentsKeywords,
+              withMatch ? {'match': 'exact'} : isNull,
+            );
+          },
+        );
+      }
+    }
+
     test('publishes and polls declared WAMP topics through MCP', () async {
       late McpWampPublishRequest published;
       var publishCalls = 0;
@@ -1722,6 +1830,11 @@ void main() {
           await Future.any<Object?>([started.future, subscribing]);
           expect(started.isCompleted, isTrue);
           Future<void> release(McpWampSubscription subscription) {
+            expect(
+              ready.isCompleted,
+              isTrue,
+              reason: 'Cleanup must wait for the actual subscription',
+            );
             released.add(subscription);
             if (released.length == 1) {
               releasing.complete();
@@ -1738,24 +1851,32 @@ void main() {
           ready.complete(subscription);
           await Future.any<Object?>([releasing.future, subscribing]);
           expect(releasing.isCompleted, isTrue);
-          Future<void>? retry;
+          Future<Object?> observe(Future<void> operation) =>
+              operation.then<Object?>(
+                (_) => null,
+                onError: (Object error, StackTrace _) => error,
+              );
+          Future<Object?>? retry;
           final first = state
               .reconcileSubscribedTopics({}, release: release)
-              .then<void>(
-                (_) => fail('initial cleanup should fail'),
+              .then<Object?>(
+                (_) => null,
                 onError: (Object error, StackTrace _) {
-                  expect(error, same(failure));
-                  retry = state.reconcileSubscribedTopics({}, release: release);
+                  retry = observe(
+                    state.reconcileSubscribedTopics({}, release: release),
+                  );
+                  return error;
                 },
               );
-          final second = expectLater(
+          // Observe errors without registering an unfinished matcher: an earlier
+          // assertion must not wait for cleanup that only teardown can release.
+          final second = observe(
             state.reconcileSubscribedTopics({}, release: release),
-            throwsA(same(failure)),
           );
           expect(released, [same(subscription)]);
           failedRelease.completeError(failure);
-          await first;
-          await second;
+          expect(await first, same(failure));
+          expect(await second, same(failure));
           expect(retry, isNotNull);
           final result = await subscribing;
           expect(result['isError'], isTrue);
@@ -1772,7 +1893,7 @@ void main() {
             reason: 'An old failure must not erase the in-flight retry',
           );
           retryRelease.complete();
-          await retry;
+          expect(await retry, isNull);
           await joiningRetry;
           api.toTools(pubSubState: state);
           await expectValidAsync(() => state.reconcileSubscribedTopics({}));

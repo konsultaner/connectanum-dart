@@ -29,6 +29,8 @@ mkdir -p "$coverage_root"
     test/session_e2ee_profile_test.dart \
     test/session_lazy_reply_test.dart \
     test/session_progressive_file_test.dart \
+    test/file_transfer_metadata_test.dart \
+    test/file_transfer_digest_test.dart \
     test/session_progressive_call_test.dart \
     test/session_goodbye_test.dart \
     test/transport/native/message_binding_test.dart \

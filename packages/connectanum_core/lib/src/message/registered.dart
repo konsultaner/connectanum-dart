@@ -97,13 +97,25 @@ class Registered extends AbstractMessage {
     }
   }
 
-  Future<void> closeInvocationStream() async {
-    await _streamInvocationSubscription?.cancel();
+  Future<void> closeInvocationStream() =>
+      _closeInvocationStream(waitForListeners: true);
+
+  Future<void> _closeInvocationStream({required bool waitForListeners}) async {
+    final subscription = _streamInvocationSubscription;
     _streamInvocationSubscription = null;
     final controller = _invocationController;
     _invocationController = null;
-    if (controller != null && !controller.isClosed) {
-      await controller.close();
+    try {
+      await subscription?.cancel();
+    } finally {
+      if (controller != null && !controller.isClosed) {
+        final closed = controller.close();
+        if (waitForListeners) {
+          await closed;
+        } else {
+          unawaited(closed);
+        }
+      }
     }
   }
 
@@ -186,3 +198,11 @@ class Registered extends AbstractMessage {
     return StreamController<Invocation>.broadcast(sync: true);
   }
 }
+
+/// Closes a registration's built-in delivery resources during owner shutdown.
+///
+/// Awaits override-stream cancellation and propagates its failure, but does not
+/// wait for paused application listeners to receive buffered invocations or done.
+/// This does not dispatch to a subclass override of [Registered.closeInvocationStream].
+Future<void> closeInvocationStreamForOwner(Registered registered) =>
+    registered._closeInvocationStream(waitForListeners: false);

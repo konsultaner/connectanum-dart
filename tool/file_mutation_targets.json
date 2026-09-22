@@ -1,0 +1,31 @@
+{
+  "client-file-transfer-vm": {
+    "sources": [
+      "packages/connectanum_client/lib/src/file/file_transfer.dart",
+      "packages/connectanum_client/lib/src/file/file_transfer_io.dart",
+      "packages/connectanum_client/lib/src/file/file_transfer_stub.dart",
+      "packages/connectanum_client/lib/src/file/file_transfer_digest.dart",
+      "packages/connectanum_client/lib/src/file/file_transfer_digest_io.dart",
+      "packages/connectanum_client/lib/src/file/file_transfer_digest_stub.dart"
+    ],
+    "tests": [
+      "packages/connectanum_client/test/file_transfer_metadata_test.dart",
+      "packages/connectanum_client/test/file_transfer_test.dart",
+      "packages/connectanum_client/test/file_transfer_digest_test.dart",
+      "packages/connectanum_client/test/session_progressive_file_test.dart",
+      "packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_client/test/support/file_receiver_chunk_cases.dart",
+      "packages/connectanum_client/test/support/file_receiver_admission_cases.dart",
+      "packages/connectanum_client/test/support/file_receiver_failure_cases.dart",
+      "packages/connectanum_client/test/support/file_transfer_edge_cases.dart",
+      "packages/connectanum_client/test/transport/native/support/file_digest_cases.dart",
+      "packages/connectanum_client/test/test_support/native_runtime_support.dart",
+      "packages/connectanum_client/test/test_support/native_runtime_support_io.dart",
+      "packages/connectanum_client/test/test_support/native_runtime_support_stub.dart"
+    ],
+    "requiresNativeLibrary": true,
+    "testTimeoutSeconds": 5
+  }
+}

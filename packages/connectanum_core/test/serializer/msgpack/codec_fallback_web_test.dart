@@ -13,6 +13,26 @@ const _wide = [0xcf, 0, 0, 0, 1, 0, 0, 0, 0];
 
 void main() {
   test(
+    'preserves delegated scalar and binary values on the fallback boundary',
+    () {
+      final byteData = ByteData(2)..setUint16(0, 0x1234);
+
+      expect(
+        checked.serialize(7),
+        orderedEquals(delegate.serialize(7)),
+      );
+      expect(
+        checked.serialize(byteData),
+        orderedEquals(delegate.serialize(byteData)),
+      );
+      expect(
+        checked.serialize('plain'),
+        orderedEquals(delegate.serialize('plain')),
+      );
+    },
+  );
+
+  test(
     'decodes small and boundary values in legal nonminimal integer encodings',
     () {
       for (final (value, marker, octets) in <(int, int, List<int>)>[

@@ -59,6 +59,15 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_portable_file_suites_run_in_vm_and_browser_gates(self):
+        for name in ('metadata', 'digest'):
+            filename = f'file_transfer_{name}_test.dart'
+            for path in (TEST_FAST, TEST_ALL):
+                self.assertIn(f'dart test packages/connectanum_client/test/{filename}', path.read_text())
+            for path in (TEST_ALL, REPO_ROOT / 'bin/test-browser-coverage',
+                         REPO_ROOT / 'bin/test-coverage'):
+                self.assertIn(f'test/{filename}', path.read_text())
+
     def test_consumer_boundary_regressions_run_in_both_gates(self):
         command = 'python3 tool/test_mcp_consumer_package_boundary.py'
         for path in (TEST_FAST, TEST_ALL):

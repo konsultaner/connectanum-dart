@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 import signal
 import socket
@@ -554,9 +555,47 @@ class MutationRunnerTests(unittest.TestCase):
         })
         self.assertEqual(target['supportFiles'], [
             f'{prefix}/test/test_support/native_runtime_support.dart',
+            f'{prefix}/test/test_support/native_runtime_support_io.dart',
+            f'{prefix}/test/test_support/native_runtime_support_stub.dart',
+            f'{prefix}/test/transport/native/support/file_digest_cases.dart',
         ])
         self.assertTrue(target['requiresNativeLibrary'])
         self.assertTrue(target['isolateTestFiles'])
+
+    def test_lifecycle_targets_include_owner_close_on_both_runtimes(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        for owner in ('registered', 'subscribed'):
+            for runtime in ('vm', 'web'):
+                self.assertIn(
+                    'packages/connectanum_core/test/message_stream_owner_close_test.dart',
+                    targets[f'core-{owner}-{runtime}']['tests'])
+
+    def test_split_native_and_router_suites_pin_all_parts(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        for name in ('client-native-runtime-vm', 'client-native-transports-vm',
+                     'router-binding-vm', 'router-http-context-vm'):
+            target = targets[name]
+            for path in target['tests']:
+                source = runner.ROOT / path
+                for part in re.findall(r"^part '([^']+)';", source.read_text(), re.MULTILINE):
+                    relative = str((source.parent / part).relative_to(runner.ROOT))
+                    self.assertIn(relative, target['supportFiles'], (name, relative))
+
+    def test_file_target_preserves_complete_source_and_regression_scope(self):
+        config = json.loads((runner.ROOT / 'tool/file_mutation_targets.json').read_text())
+        target = config['client-file-transfer-vm']
+        prefix = 'packages/connectanum_client'
+        self.assertEqual(set(target['sources']), {
+            str(path.relative_to(runner.ROOT))
+            for path in (runner.ROOT / prefix / 'lib/src/file').glob('*.dart')
+        })
+        for name in ('metadata', 'digest'):
+            self.assertIn(f'{prefix}/test/file_transfer_{name}_test.dart', target['tests'])
+        for name in ('admission', 'chunk', 'failure'):
+            self.assertIn(f'{prefix}/test/support/file_receiver_{name}_cases.dart', target['supportFiles'])
+        self.assertTrue(target['requiresNativeLibrary'])
+        self.assertNotIn('maxMutants', target)
+        self.assertNotIn('testName', target)
 
     def test_meta_cache_targets_preserve_full_source_and_portable_regressions(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())

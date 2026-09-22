@@ -6,6 +6,93 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work242/243 current evidence: Fast242, fresh whole-package VM coverage, and
+fresh Chrome/Dart2JS coverage all pass. The exact VM snapshot is retained at
+`out/regression-coverage-2026-09-15/vm242-current` (ignored generated evidence):
+overall39942/42923 (93.055%), auth server465/465 (100%), bench2324/2339
+(99.359%), client8908/9443 (94.334%), core6848/7258 (94.351%), MCP3779/3930
+(96.158%), and router17618/19488 (90.404%). Packaging is765/787 (97.205%).
+The VM report still has58 unmeasured library sources and12 unmeasured packaging
+sources. The source-matched browser snapshot is retained at
+`/tmp/connectanum-browser-coverage-20260922-final3`: overall10212/10565
+(96.659%), client2777/2859 (97.132%), and core7435/7706 (96.483%); it does not
+cover VM-only code and no WASM coverage percentage is claimed. The complete
+file-transfer mutation campaign is audited cleanly but remains RED:389
+generated,324 viable,249 killed,48 survived,65 compile errors,27 timeouts,178
+assertion-detected and62 mixed detections, for a 74.074% assertion-backed lower
+bound (76.852% conventional). Do not credit compile errors, timeouts, or
+equivalent-looking survivors as kills. The targeted router HTTP option-alias
+behavior now has four passing focused tests and is included in the router
+mutation inventory, but router coverage remains the largest Dart gap at90.404%.
+The earlier post-coverage `bin/verify` attempt was blocked by a pre-existing
+live native router process holding the shared `connectanum_native_runtime.lock`;
+it was not a verification child and was not terminated. The later final-snapshot
+`bin/test-fast` and the controlled full `bin/verify` rerun completed with exit0
+while the native runtime was free. The
+whole98%/95% milestone remains open: next work is a source-matched router
+mutation campaign and additional behavior oracles for its survivors. No merge
+or publication claim is made from this state.
+The router-binding baseline-only inventory passes and records2,431 generated
+mutants. A full serial campaign was intentionally stopped after12 mutants
+because the native-backed suite takes roughly10 seconds per mutant; its partial
+run is not evidence and no partial score is reported.
+
+Work225 committed/pushed asf242e661. Work230 promotes independently verified
+227/228 session close/call ownership fixes and229/230 MCP regression oracles
+after Fast229 passes. Close shares completion, preserves queued delivery for
+paused listeners, continues cleanup after cancellation errors, and rejects
+closed or unsendable call admission without leaking controllers. Late cancel
+completion cannot revive finished calls; active cancellation errors retain
+identity/stack. Original failures and selected assertion controls are retained.
+All five225 timeout faults now fail independent assertions without timeouts in
+the isolated full862-test MCP suite; stale-retry and missing-meta-parameter
+controls remain effective. These controls are not a full mutation score.
+
+Fresh canonical VM230 coverage is39823/42914 (92.80%): router90.24%, core94.35%,
+MCP96.16%; packaging765/787 (97.20%). Both strict98 gates fail, with59 library
+and12 packaging sources unmeasured. Full bin/verify230 passes, including Chrome
+JavaScript/WASM tests, with native users serialized and frozen inputs matching.
+MCP230 complete mutations run separately
+with native build/library disabled; canonical inputs remain frozen. Do not reuse
+225 scores for these changed tests. Evidence/recovery: router227/228/230-evidence,
+mcp229/230-evidence, vm230-current and coverage184-probes/WORK230.md under the
+dated coverage directory. Latest-head hosted checks remain queued and the strict
+audit fails, not green. Whole98%/95% goal remains open; no merge/publication or
+version change.
+
+Isolated231 publish worker regressions pass94 tests and seven assertion-only
+selected faults; opaque PPT propagation, routing failure recovery and ACK send
+diagnostics cover27 previously missed worker lines. Isolated233 file digest
+regressions pass79 VM tests and seven tests each on JS/WASM; six selected faults
+are assertion-detected with no test errors/timeouts. Scoped portable digest is
+100% measured on VM/JS, native digest49/57 (85.96%);34 prior VM misses are covered.
+Independent input/log/fault audits pass. These candidates are not yet promoted,
+and neither is full-component mutation evidence or a new package coverage score.
+WASM still emits no coverage entries. Evidence: router231-evidence and
+client233-evidence. Fast234 passes on frozen230 inputs. Isolated234 adds16
+receiver failure/recovery cases;40 tests pass with fallback and40 with native
+hashing, and six selected faults fail direct assertions. Independent audits pass;
+eight prior file-transfer misses and three digest fallback misses are covered.
+No new production bug is claimed from these tests. Evidence: client234-evidence.
+Full file235 mutations now run over all six file-transfer sources using combined
+233/234 tests in isolation;389 faults are generated. Initial survivors/timeouts
+remain visible and no final score is claimed. This job owns native execution
+until terminal; pure MCP230 continues separately. Recovery: coverage184-probes/
+WORK235.md. Candidates remain unpromoted pending complete campaign evidence.
+
+Isolated236/237 extend file-transfer regressions without production changes.
+236 passes140 selected VM tests and52 each on JS/WASM;38 viable metadata faults
+are assertion-detected (26 assertion-only,12 mixed), four compile errors excluded,
+zero selected survivors/timeouts.237 adds23 admission cases, passes163 selected
+VM tests, and detects38 viable selected admission faults by assertions; two
+compile errors remain excluded. Independent source/input/raw-event audits pass;
+original timeout/error-only attempts are retained. Scoped VM file-transfer
+coverage318/346 is not a fresh package score. WASM measurement remains missing.
+Evidence: client236/237-evidence and coverage184-probes/WORK237.md. Canonical
+inputs remain frozen for MCP230; file235 still owns native execution. Latest-head
+Publish Dry Run passes, with75 hosted checks queued. Whole98%/95% goal stays open;
+no merge/publication/version change.
+
 Work225 promotes verified router220/221/223 ownership fixes and MCP224/226 test
 oracles after Fast225 passes. Router polling
 and HTTP handshake failures release owned resources exactly once; shutdown

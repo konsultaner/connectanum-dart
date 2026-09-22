@@ -25,6 +25,9 @@ import 'package:connectanum_core/connectanum_core.dart'
         PublishOptions,
         RegisterOptions;
 import 'package:connectanum_core/connectanum_core.dart' show YieldOptions;
+import 'package:connectanum_core/connectanum_core.dart'
+    as core
+    show CancelOptions, Error, Invocation, Result;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/config/auth_registry.dart';
 import 'package:connectanum_router/src/router/config/authenticator.dart';
@@ -44,6 +47,9 @@ part 'support/http_auth_provider_failure_cases.dart';
 part 'support/native_message_watch_cases.dart';
 part 'support/http_early_cleanup_cases.dart';
 part 'support/http_boss_ownership_cases.dart';
+part 'support/internal_close_cases.dart';
+part 'support/internal_call_lifecycle_cases.dart';
+part 'support/http_adapter_option_cases.dart';
 
 const _certificatePem =
     '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
@@ -1132,6 +1138,7 @@ class _ConfiguredFileFixture {
 
 Future<_ConfiguredFileFixture> _configuredFileFixture({
   HttpRouteAction? action,
+  HttpRouteAction Function(String directory)? actionBuilder,
 }) async {
   final directory = await Directory.systemTemp.createTemp('router-file-test-');
   addTearDown(() => directory.delete(recursive: true));
@@ -1151,6 +1158,7 @@ Future<_ConfiguredFileFixture> _configuredFileFixture({
                 match: const HttpRouteMatch(prefix: '/assets'),
                 action:
                     action ??
+                    actionBuilder?.call(directory.path) ??
                     HttpRouteAction(
                       type: HttpRouteActionType.file,
                       directory: directory.path,
@@ -3912,6 +3920,9 @@ void _fileResponseCleanupTests() {
 }
 
 void main() {
+  registerHttpAdapterOptionCases();
+  _internalCallLifecycleCases();
+  _internalCloseCases();
   _httpBossOwnershipCases();
   _httpEarlyCleanupCases();
   _httpEdgeCases();

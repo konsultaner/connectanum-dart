@@ -9,6 +9,8 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor_codec;
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/src/file/file_transfer_digest_io.dart'
+    as file_digest;
 import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart';
 import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
@@ -20,6 +22,8 @@ import 'package:connectanum_core/msgpack_serializer.dart' as msgpack;
 import 'package:test/test.dart';
 
 import '../../test_support/native_runtime_support.dart';
+
+part 'support/file_digest_cases.dart';
 
 final _wireCases = <(NativeMessageSerializer, AbstractSerializer)>[
   (NativeMessageSerializer.json, json.Serializer()),
@@ -45,6 +49,8 @@ void main() {
       runtime = NativeClientRuntime.instance();
       addTearDown(NativeClientRuntime.shutdownShared);
     });
+
+    _fileDigestCases(() => runtime);
 
     for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
       for (final keyId in [
