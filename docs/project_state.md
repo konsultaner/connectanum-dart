@@ -6,6 +6,27 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work248 pending: one hosted WampApp rerun for Work247 passed, but job
+106958247848 still exhausted the 20-minute budget after its JavaScript controls
+passed in 436 seconds. The workflow now allows 45 minutes without dropping
+runtimes, coverage steps, or assertion requirements. Its budget/preservation
+regression was reproduced failing and now passes. The native configuration
+campaign has completed and Fast248 passed. All 24 focused native configuration
+tests pass, including new endpoint/protocol/auth-policy and route default,
+equal-priority, and path-boundary regressions. Full verification passed with
+exit 0 at `/tmp/connectanum-verify248.log`, including browser WASM tests.
+Hosted verification and a source-matched mutation rerun remain pending.
+No newer mutation-score improvement is claimed.
+
+The complete 128-mutant configuration audit records 32 assertion kills,
+58 errors, 19 survivors, two timeouts and 17 compile errors: 28.829% of 111
+viable candidates, with no equivalent waivers and `evidenceClean: false`.
+Raw Cargo reports 90 caught mutants, which must not be presented as 90 assertion
+kills. Retained evidence: `out/regression-coverage-2026-09-15/native247-config-mutations`.
+Next regressions must cover endpoint identity, transport-auth policy conversion,
+protocol enabling/aliases, route defaults/precedence and prefix boundaries, and
+replace setup panics with explicit behavioral assertions where appropriate.
+
 Work247 evidence: five native endpoint regressions pass for positive limits,
 heartbeat equality, unusable TLS modes, RawSocket exponent bounds and outbound
 queue bounds. The isolated native mutation collector now offers `core-config`

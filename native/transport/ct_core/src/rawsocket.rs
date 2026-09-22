@@ -496,7 +496,9 @@ mod tests {
                 options: HashMap::<String, JsonValue>::new(),
             }),
         };
-        EndpointRuntimeConfig::try_from_endpoint(&endpoint).expect("config valid")
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(&endpoint);
+        assert!(runtime.is_ok());
+        runtime.unwrap()
     }
 
     async fn send_handshake_with_serializer(stream: &mut TcpStream, exponent: u32, serializer: u8) {

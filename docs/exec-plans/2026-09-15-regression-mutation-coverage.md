@@ -67,6 +67,28 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work248 Pending CI Budget Follow-Up
+
+- Work247's WampApp reruns split: one passed, while job 106958247848 exhausted
+  20 minutes despite passing JavaScript controls in 436 seconds. Preserve all
+  checks and allow 45 minutes for cold builds plus VM/JS/WASM and coverage.
+- The workflow preservation/budget regression fails against 20 minutes and
+  passes with 45. Full local verification passed; hosted evidence is pending.
+- The complete configuration campaign at
+  `out/regression-coverage-2026-09-15/native247-config-mutations` restores its
+  baseline but audits to 32 assertion kills, 58 errors, 19 survivors, two timeouts
+  and 17 compile errors. Score: 28.829% of 111 viable candidates, no waivers,
+  `evidenceClean: false`. Do not count the raw 90 caught outcomes as assertion kills.
+- Fast248 passed. Added explicit setup/result assertions plus endpoint identity,
+  auth-policy conversion, protocol enabling/aliases, route precedence/defaults
+  and prefix-boundary regressions. All 24 focused configuration tests pass;
+  full verification passed with exit 0 at `/tmp/connectanum-verify248.log`,
+  including browser WASM tests.
+- A fresh mutation campaign is still required for these tests. The sanitizer's
+  three predicate survivors have identical underscore-producing branches;
+  retain them without waivers until individually source-hash-pinned equivalence
+  evidence is recorded. Do not relabel old errors or survivors as new kills.
+
 ### Work247 Native Boundaries And CI Control Deadlines
 
 - Five new endpoint boundary regressions pass; the `core-config` mutation target

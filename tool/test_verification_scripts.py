@@ -147,6 +147,17 @@ test -s native/transport/Cargo.lock
                              str(transport / 'Cargo.toml')], capture_output=True, text=True, timeout=10)
                         self.assertEqual(metadata.returncode, 0, metadata.stderr)
 
+    def test_wamp_app_budget_preserves_all_runtime_and_coverage_checks(self):
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  wamp-app:', 1)[1].split('\n  verify:', 1)[0]
+        # Cold hosted runs exceed 20 minutes even with bounded control fixtures.
+        budget = int(re.search(r'timeout-minutes: (\d+)', job).group(1))
+        self.assertGreaterEqual(budget, 45)
+        self.assertIn('run: bin/test-wamp-app', job)
+        self.assertEqual(job.count('run: bin/test-app-shared-coverage'), 2)
+        self.assertIn('CONNECTANUM_APP_SHARED_COVERAGE_RUNTIME: chrome', job)
+        self.assertNotIn('continue-on-error: true', job)
+
     def test_mutation_job_budgets_allow_complete_campaigns(self):
         workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
         job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]

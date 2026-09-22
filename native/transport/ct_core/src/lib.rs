@@ -8943,6 +8943,41 @@ mod tests {
     }
 
     #[test]
+    fn endpoint_lookup_requires_both_host_and_port_and_preserves_valid_config() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let applied = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[
+            {"host":"EXAMPLE.COM","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":9},
+            {"host":"EXAMPLE.COM","port":8081,"tls_mode":"disabled","max_rawsocket_size_exponent":10},
+            {"host":"other.example","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":11}
+        ]}"#);
+        assert!(applied.is_ok());
+        for (host, port, exponent) in [
+            ("example.com", 8080, 9),
+            ("example.com", 8081, 10),
+            ("OTHER.EXAMPLE", 8080, 11),
+        ] {
+            let endpoint = crate::config::find_endpoint(host, port);
+            assert!(endpoint.is_some());
+            assert_eq!(
+                endpoint.unwrap().max_rawsocket_size_exponent,
+                Some(exponent)
+            );
+        }
+        for (host, port) in [
+            ("example.com", 9000),
+            ("missing.example", 8080),
+            ("other.example", 8081),
+        ] {
+            assert!(crate::config::find_endpoint(host, port).is_none());
+        }
+        assert!(super::apply_router_config(b"invalid json").is_err());
+        let preserved = crate::config::find_endpoint("example.com", 8081);
+        assert!(preserved.is_some());
+        assert_eq!(preserved.unwrap().max_rawsocket_size_exponent, Some(10));
+    }
+
+    #[test]
     fn apply_router_config_rejects_invalid_rawsocket_exponent() {
         let _guard = test_guard();
         shutdown().ok();
