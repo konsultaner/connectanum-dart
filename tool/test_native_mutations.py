@@ -505,7 +505,8 @@ class NativeMutationTests(unittest.TestCase):
         work = Path('/private/test work')
         for target, source, test_filter in [
                 ('core-rawsocket', 'ct_core/src/rawsocket.rs', 'rawsocket::tests'),
-                ('core-wamp', 'ct_core/src/wamp.rs', 'wamp::')]:
+                ('core-wamp', 'ct_core/src/wamp.rs', 'wamp::'),
+                ('core-config', 'ct_core/src/config.rs', '')]:
             with self.subTest(target=target):
                 campaign, restored = collector.commands(work, Path('/evidence'), target)
                 self.assertEqual(campaign[campaign.index('--file') + 1], source)
@@ -540,7 +541,7 @@ class NativeMutationTests(unittest.TestCase):
                     self.assertFalse(output.exists())
 
     def test_cli_passes_default_and_explicit_targets_without_reinterpreting_paths(self):
-        for target in [None, 'core-rawsocket', 'core-wamp']:
+        for target in [None, 'core-rawsocket', 'core-wamp', 'core-config']:
             with self.subTest(target=target):
                 argv = ['collector', '--output', 'evidence with spaces', '--analyzer', 'analyzer with spaces']
                 if target:

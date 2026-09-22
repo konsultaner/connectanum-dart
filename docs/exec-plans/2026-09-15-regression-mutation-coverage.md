@@ -67,6 +67,26 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work247 Native Boundaries And CI Control Deadlines
+
+- Five new endpoint boundary regressions pass; the `core-config` mutation target
+  retains the whole configuration-file inventory and runs all core library tests.
+  Collector regressions pass 32 tests, but a real configuration campaign is pending.
+- Fast247 and final-snapshot Verify247 pass. Fresh Rust-test-only coverage at
+  `out/regression-coverage-2026-09-15/native247-current` measures core
+  8836/10064 (87.798%) and FFI 4882/5798 (84.201%). Configuration improves from
+  529/604 to 565/604 lines. Missing platform sources remain visible. A fresh
+  Dart-FFI collection is still needed before combining native evidence.
+- Hosted WampApp Consumer job 106939861738 hit its 20-minute deadline in the
+  intentional Flutter mutation controls. Explicit two-second fixture timeouts
+  avoid the five-minute widget default without changing production timeouts.
+  Real VM/JavaScript/WASM control runs pass in 58/233/160 seconds and preserve
+  zero assertion credit for errors/timeouts. Raw reports and fixture snapshots:
+  `out/regression-coverage-2026-09-15/flutter247-{vm,js,wasm}`.
+- Pending: combined native coverage, configuration mutation results,
+  hosted CI confirmation. Whole-component and
+  runtime acceptance gates remain open.
+
 ### Work240 Integration And Reentrant Shutdown
 
 - Fast239 passes. Promote audited worker/file regressions; select portable file

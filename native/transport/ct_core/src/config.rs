@@ -735,6 +735,166 @@ mod tests {
     }
 
     #[test]
+    fn endpoint_positive_limits_reject_zero_and_preserve_one() {
+        for field in [
+            "idle_timeout_ms",
+            "heartbeat_interval_ms",
+            "heartbeat_timeout_ms",
+            "handshake_timeout_ms",
+            "max_http_content_length",
+        ] {
+            for value in [0, 1] {
+                let mut input = json!({"host": "localhost", "port": 8080, "tls_mode": "disabled"});
+                input[field] = json!(value);
+                let cfg: EndpointConfig = serde_json::from_value(input).unwrap();
+                let result = EndpointRuntimeConfig::try_from_endpoint(&cfg);
+                if value == 0 {
+                    let err = result.unwrap_err();
+                    assert!(matches!(err, Error::RouterConfigInvalid(_)));
+                    assert!(
+                        err.to_string()
+                            .contains(&format!("{field} must be positive")),
+                        "{err}"
+                    );
+                    assert!(err.to_string().contains("localhost:8080"), "{err}");
+                } else {
+                    let runtime = result.unwrap();
+                    let millisecond = Some(Duration::from_millis(1));
+                    match field {
+                        "idle_timeout_ms" => assert_eq!(runtime.idle_timeout, millisecond),
+                        "heartbeat_interval_ms" => {
+                            assert_eq!(runtime.heartbeat_interval, millisecond)
+                        }
+                        "heartbeat_timeout_ms" => {
+                            assert_eq!(runtime.heartbeat_timeout, millisecond)
+                        }
+                        "handshake_timeout_ms" => {
+                            assert_eq!(runtime.handshake_timeout, millisecond.unwrap())
+                        }
+                        "max_http_content_length" => {
+                            assert_eq!(runtime.max_http_content_length, Some(1))
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn endpoint_heartbeat_timeout_accepts_equality_but_not_shorter() {
+        for timeout in [9, 10, 11] {
+            let cfg: EndpointConfig = serde_json::from_value(json!({
+                "host": "localhost", "port": 8080,
+                "tls_mode": "disabled",
+                "heartbeat_interval_ms": 10, "heartbeat_timeout_ms": timeout
+            }))
+            .unwrap();
+            let result = EndpointRuntimeConfig::try_from_endpoint(&cfg);
+            if timeout < 10 {
+                let err = result.unwrap_err();
+                assert!(matches!(err, Error::RouterConfigInvalid(_)));
+                assert!(err
+                    .to_string()
+                    .contains("heartbeat_timeout_ms must be >= heartbeat_interval_ms"));
+            } else {
+                let runtime = result.unwrap();
+                assert_eq!(runtime.heartbeat_interval, Some(Duration::from_millis(10)));
+                assert_eq!(
+                    runtime.heartbeat_timeout,
+                    Some(Duration::from_millis(timeout))
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn endpoint_tls_rejects_unusable_modes() {
+        for (mode, protocols, message) in [
+            (
+                "disabled",
+                vec!["http3"],
+                "enables http3 but tls_mode is disabled",
+            ),
+            (
+                "native",
+                vec!["rawsocket"],
+                "requires at least one sni_certificates entry",
+            ),
+            (
+                "dart",
+                vec!["rawsocket"],
+                "tls_mode dart is not supported yet",
+            ),
+        ] {
+            let cfg: EndpointConfig = serde_json::from_value(json!({
+                "host": "localhost", "port": 8080,
+                "tls_mode": mode, "protocols": protocols
+            }))
+            .unwrap();
+            let err = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap_err();
+            assert!(matches!(err, Error::RouterConfigInvalid(_)));
+            assert!(err.to_string().contains(message), "{err}");
+        }
+    }
+
+    #[test]
+    fn endpoint_rawsocket_exponent_boundaries_preserve_byte_limits() {
+        for (exponent, bytes) in [
+            (8, None),
+            (9, Some(512)),
+            (30, Some(1_073_741_824)),
+            (31, None),
+        ] {
+            let cfg: EndpointConfig = serde_json::from_value(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "disabled",
+                "max_rawsocket_size_exponent": exponent
+            }))
+            .unwrap();
+            let result = EndpointRuntimeConfig::try_from_endpoint(&cfg);
+            if let Some(bytes) = bytes {
+                let runtime = result.unwrap();
+                assert_eq!(runtime.max_rawsocket_size, bytes);
+                assert_eq!(runtime.max_rawsocket_size_exponent, exponent);
+                assert_eq!(runtime.max_upgrade_exponent, Some(exponent));
+            } else {
+                let err = result.unwrap_err();
+                assert!(matches!(err, Error::RouterConfigInvalid(_)));
+                assert!(
+                    err.to_string().contains(&format!(
+                        "max_rawsocket_size_exponent {exponent} outside supported range 9..30"
+                    )),
+                    "{err}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn endpoint_queue_capacity_accepts_exact_bounds_only() {
+        for capacity in [0, 1, 65_535, 65_536] {
+            let cfg: EndpointConfig = serde_json::from_value(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "disabled",
+                "outbound_send_queue_capacity": capacity
+            }))
+            .unwrap();
+            let result = EndpointRuntimeConfig::try_from_endpoint(&cfg);
+            if capacity == 1 || capacity == 65_535 {
+                assert_eq!(result.unwrap().outbound_send_queue_capacity, capacity);
+            } else {
+                let err = result.unwrap_err();
+                assert!(matches!(err, Error::RouterConfigInvalid(_)));
+                assert!(
+                    err.to_string().contains(&format!(
+                        "outbound_send_queue_capacity {capacity} outside supported range 1..65535"
+                    )),
+                    "{err}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn duplicate_protocols_are_deduplicated() {
         let cfg: EndpointConfig = serde_json::from_value(json!({
             "host": "127.0.0.1",

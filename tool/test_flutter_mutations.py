@@ -56,10 +56,13 @@ class FlutterMutationTests(unittest.TestCase):
             for name, (kind, body) in cases.items():
                 imports = "import 'dart:io';\n" if name == 'crash' else ''
                 callback = '(tester)' if kind == 'testWidgets' else '()'
+                # testWidgets supplies its own timeout instead of inheriting the
+                # runner flag. Bound intentional deadline controls explicitly.
                 (tests / f'{name}_test.dart').write_text(
                     imports + "import 'dart:async';\nimport 'package:flutter_test/flutter_test.dart';\n"
                     "import 'package:mutation_flutter_fixture/flag.dart';\n"
-                    f"void main() {{ {kind}('contract', {callback} async {{ {body} }}); }}\n")
+                    f"void main() {{ {kind}('contract', {callback} async {{ {body} }}, "
+                    "timeout: const Timeout(Duration(seconds: 2))); }\n")
             # Materialize the fixture's own lock before the runner freezes it.
             code, output = runner.run(['flutter', 'pub', 'get', '--offline'], work / app, 120)
             self.assertEqual(code, 0, output)

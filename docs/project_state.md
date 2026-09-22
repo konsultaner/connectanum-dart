@@ -1,10 +1,31 @@
 # Project State
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work247 evidence: five native endpoint regressions pass for positive limits,
+heartbeat equality, unusable TLS modes, RawSocket exponent bounds and outbound
+queue bounds. The isolated native mutation collector now offers `core-config`
+for the entire configuration file with all 252 core library tests; its 32 tool
+regressions pass, but the configuration mutation campaign has not run yet.
+`bin/test-fast` and final-snapshot `bin/verify` passed. Fresh Rust-test coverage
+at `out/regression-coverage-2026-09-15/native247-current` measures core
+8836/10064 (87.798%) and FFI 4882/5798 (84.201%). Configuration coverage rises
+from 529/604 to 565/604 lines. These are Rust-test-only results, not a combined
+Rust/Dart-FFI measurement; missing platform files remain listed in the report.
+
+Hosted WampApp Consumer job 106939861738 exhausted its 20-minute budget during
+intentional mutation timeout controls. Generated controls now set an explicit
+two-second test timeout rather than allowing the widget default to consume five
+minutes. Real VM, JavaScript and WASM controls pass in 58, 233 and 160 seconds
+respectively, retaining zero assertion credit for runtime errors and timeouts.
+Evidence is retained under `out/regression-coverage-2026-09-15/flutter247-{vm,js,wasm}`.
+No production timeout, coverage threshold or runtime selection was weakened.
+The hosted repair still needs a pushed rerun. The full coverage milestone remains
+incomplete, including a real configuration mutation campaign.
 
 Work245 current evidence: the hosted `core-registered-vm` and
 `core-subscribed-vm` mutation failures were reproduced locally and fixed in the

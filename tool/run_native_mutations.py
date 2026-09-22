@@ -19,6 +19,8 @@ TOOL_INPUTS = ('run_native_mutations.py', 'native_mutations.py',
 TARGETS = {
     'core-rawsocket': ('ct_core/src/rawsocket.rs', 'rawsocket::tests'),
     'core-wamp': ('ct_core/src/wamp.rs', 'wamp::'),
+    # Configuration influences every transport; use all core library tests.
+    'core-config': ('ct_core/src/config.rs', ''),
 }
 
 
