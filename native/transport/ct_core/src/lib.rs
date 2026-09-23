@@ -9455,7 +9455,7 @@ mod tests {
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let client_connection_id = connect_rawsocket(
+        let connected = connect_rawsocket(
             "127.0.0.1",
             addr.port(),
             false,
@@ -9464,8 +9464,9 @@ mod tests {
             30,
             None,
             None,
-        )
-        .unwrap();
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let client_connection_id = connected.unwrap();
         let server_connection_id = assert_accepted_connection(&mut receiver).await;
 
         assert_eq!(
@@ -9513,7 +9514,7 @@ mod tests {
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let client_connection_id = connect_rawsocket(
+        let connected = connect_rawsocket(
             "127.0.0.1",
             addr.port(),
             false,
@@ -9522,8 +9523,9 @@ mod tests {
             30,
             None,
             None,
-        )
-        .unwrap();
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let client_connection_id = connected.unwrap();
         let server_connection_id = assert_accepted_connection(&mut receiver).await;
 
         let file_bytes = (0..BASE64_FILE_SEGMENT_INPUT_SIZE + 7)
@@ -9590,7 +9592,7 @@ mod tests {
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let client_connection_id = connect_rawsocket(
+        let connected = connect_rawsocket(
             "127.0.0.1",
             addr.port(),
             false,
@@ -9599,8 +9601,9 @@ mod tests {
             24,
             None,
             None,
-        )
-        .unwrap();
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let client_connection_id = connected.unwrap();
         send_wamp_message(
             client_connection_id,
             Bytes::from_static(&[0x83, 0x01, 0x65, b'r', b'e', b'a', b'l', b'm', 0xa0]),
@@ -9652,7 +9655,7 @@ mod tests {
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let client_connection_id = connect_rawsocket(
+        let connected = connect_rawsocket(
             "localhost",
             addr.port(),
             true,
@@ -9661,8 +9664,9 @@ mod tests {
             24,
             None,
             None,
-        )
-        .unwrap();
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let client_connection_id = connected.unwrap();
         let server_connection_id = assert_accepted_connection(&mut receiver).await;
 
         assert!(connection_supports_file_segments(client_connection_id).unwrap());
@@ -9731,7 +9735,7 @@ mod tests {
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let first_client = connect_rawsocket(
+        let connected = connect_rawsocket(
             "localhost",
             addr.port(),
             true,
@@ -9740,10 +9744,11 @@ mod tests {
             24,
             None,
             None,
-        )
-        .unwrap();
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let first_client = connected.unwrap();
         let first_server = assert_accepted_connection(&mut receiver).await;
-        let second_client = connect_rawsocket(
+        let connected = connect_rawsocket(
             "localhost",
             addr.port(),
             true,
@@ -9752,8 +9757,9 @@ mod tests {
             24,
             None,
             None,
-        )
-        .unwrap();
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let second_client = connected.unwrap();
         let second_server = assert_accepted_connection(&mut receiver).await;
 
         const FRAME_COUNT: usize = 8;
@@ -10238,10 +10244,8 @@ mod tests {
             .await
             .expect("handshake write");
         let mut response = [0u8; 4];
-        stream
-            .read_exact(&mut response)
-            .await
-            .expect("handshake response");
+        let read = stream.read_exact(&mut response).await;
+        assert_eq!(read.is_ok(), true, "{read:?}");
         assert_eq!(response[0], 0x7F);
         if let Some(upgrade_exponent) = upgrade {
             let nibble = (upgrade_exponent.saturating_sub(25)).min(15) as u8;
@@ -10250,10 +10254,8 @@ mod tests {
                 .await
                 .expect("upgrade request");
             let mut upgrade_response = [0u8; 2];
-            stream
-                .read_exact(&mut upgrade_response)
-                .await
-                .expect("upgrade response");
+            let read = stream.read_exact(&mut upgrade_response).await;
+            assert_eq!(read.is_ok(), true, "{read:?}");
             assert_eq!(upgrade_response[0], 0x3F);
         }
     }

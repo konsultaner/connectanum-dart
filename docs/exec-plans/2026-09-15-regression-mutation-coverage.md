@@ -67,6 +67,20 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work252 Native Failure Diagnostics
+
+- Preserve configuration error diagnostics with expected/actual assertions;
+  explicitly assert successful RawSocket connections and handshake/upgrade reads
+  before consuming results. No production or auditor changes.
+- Fast252 and all 263 native core tests pass. Full verification passed with exit 0
+  at `/tmp/connectanum-verify252.log`, including browser WASM tests.
+  Local review's diagnostic concern was addressed
+  without reverting to unwrap panics. The latest full mutation score remains
+  72.973% for the older Work250 snapshot, not these newer tests.
+- Hosted run 35804663746 at `3fdd5bd8` confirms both repaired timeout jobs:
+  WampApp Consumer 107002649387 and client-meta-cache-web 107002650155 passed.
+  Other jobs remain in progress; no complete green-chain claim.
+
 ### Work251 HTTP Fixture Failure Isolation
 
 - Validate framing-test configuration before creating the spawned server so a

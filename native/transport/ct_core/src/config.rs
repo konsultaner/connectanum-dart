@@ -892,12 +892,13 @@ mod tests {
                     assert!(result.is_err());
                     let err = result.unwrap_err();
                     assert!(matches!(err, Error::RouterConfigInvalid(_)));
-                    assert!(
+                    assert_eq!(
                         err.to_string()
                             .contains(&format!("{field} must be positive")),
+                        true,
                         "{err}"
                     );
-                    assert!(err.to_string().contains("localhost:8080"), "{err}");
+                    assert_eq!(err.to_string().contains("localhost:8080"), true, "{err}");
                 } else {
                     assert!(result.is_ok());
                     let runtime = result.unwrap();
@@ -978,7 +979,7 @@ mod tests {
             .unwrap();
             let err = assert_invalid_endpoint(&cfg);
             assert!(matches!(err, Error::RouterConfigInvalid(_)));
-            assert!(err.to_string().contains(message), "{err}");
+            assert_eq!(err.to_string().contains(message), true, "{err}");
         }
     }
 
@@ -1006,10 +1007,11 @@ mod tests {
                 assert!(result.is_err());
                 let err = result.unwrap_err();
                 assert!(matches!(err, Error::RouterConfigInvalid(_)));
-                assert!(
+                assert_eq!(
                     err.to_string().contains(&format!(
                         "max_rawsocket_size_exponent {exponent} outside supported range 9..30"
                     )),
+                    true,
                     "{err}"
                 );
             }
@@ -1032,10 +1034,11 @@ mod tests {
                 assert!(result.is_err());
                 let err = result.unwrap_err();
                 assert!(matches!(err, Error::RouterConfigInvalid(_)));
-                assert!(
+                assert_eq!(
                     err.to_string().contains(&format!(
                         "outbound_send_queue_capacity {capacity} outside supported range 1..65535"
                     )),
+                    true,
                     "{err}"
                 );
             }
@@ -1079,8 +1082,9 @@ mod tests {
         }))
         .unwrap();
         let err = assert_invalid_endpoint(&cfg);
-        assert!(
+        assert_eq!(
             format!("{err}").contains("defines http routes but HTTP protocol disabled"),
+            true,
             "{err}"
         );
     }
@@ -1453,8 +1457,9 @@ mod tests {
         }))
         .unwrap();
         let err = assert_invalid_endpoint(&cfg);
-        assert!(
+        assert_eq!(
             format!("{err}").contains("client_auth requires tls_mode native"),
+            true,
             "{err}"
         );
     }
@@ -1474,8 +1479,9 @@ mod tests {
         }))
         .unwrap();
         let err = assert_invalid_endpoint(&cfg);
-        assert!(
+        assert_eq!(
             format!("{err}").contains("client_auth requires ca_certificates_pem"),
+            true,
             "{err}"
         );
     }
@@ -1512,8 +1518,9 @@ mod tests {
         }))
         .unwrap();
         let err = assert_invalid_endpoint(&cfg);
-        assert!(
+        assert_eq!(
             format!("{err}").contains("outbound_send_queue_capacity"),
+            true,
             "{err}"
         );
     }

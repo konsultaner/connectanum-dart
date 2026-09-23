@@ -6,6 +6,17 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work252 pending: configuration error-message checks retain their diagnostics
+through expected/actual assertions. Six RawSocket connection fixtures and the
+handshake/upgrade response reads now assert successful outcomes before using
+the results, retaining failure diagnostics. Production behavior and the mutation
+auditor are unchanged. Fast252 and all 263 native core tests pass. Full verification
+passed with exit 0 at `/tmp/connectanum-verify252.log`, including browser WASM
+tests. No fresh mutation score is claimed.
+Hosted run 35804663746 (commit `3fdd5bd8`) now confirms successful WampApp
+Consumer job 107002649387 and browser meta-cache mutation job 107002650155.
+Other jobs remain in progress; this is not a clean whole-chain result.
+
 Work251 pending: HTTP framing fixture configuration is validated in the parent
 before spawning its server task, avoiding setup-panic cascades into socket reset
 and join errors. Native handshake reads, negotiation results and HTTP settings
