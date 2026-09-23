@@ -87,6 +87,58 @@ async fn socket_pair() -> (IoStream, TcpStream) {
 }
 
 #[tokio::test]
+async fn http2_negotiation_selects_exact_alpn_and_preserves_preface() {
+    for (tokens, expected) in [
+        (vec![], None),
+        (vec!["http/1.1"], None),
+        (vec!["H2", "h2c"], None),
+        (vec!["h2"], Some("h2")),
+        (vec!["http/1.1", "h2", "h3"], Some("h2")),
+        (vec!["h2", "http/1.1"], Some("h2")),
+    ] {
+        let mut endpoint = tests::runtime_config(Some(Duration::from_secs(2)), 16);
+        endpoint.protocols.push(TransportProtocol::Http2);
+        endpoint.http.as_mut().unwrap().alpn = tokens.iter().map(|s| s.to_string()).collect();
+        let (stream, mut peer) = socket_pair().await;
+        assert!(peer.write_all(HTTP2_PREFACE).await.is_ok());
+        let negotiated = negotiate_connection(stream, &endpoint).await;
+        assert!(matches!(&negotiated, Ok(NegotiatedConnection::Http2(_))));
+        if let Ok(NegotiatedConnection::Http2(handshake)) = negotiated {
+            let (mut stream, metadata) = handshake.split();
+            assert_eq!(metadata.protocol(), "http/2");
+            assert_eq!(metadata.alpn(), expected, "tokens: {tokens:?}");
+            assert_eq!(
+                metadata.listener_protocols(),
+                ["rawsocket", "http", "websocket", "http2"]
+            );
+            let mut bytes = [0; 24];
+            let read = time::timeout(Duration::from_secs(2), stream.read_exact(&mut bytes)).await;
+            assert!(matches!(read, Ok(Ok(_))));
+            assert_eq!(&bytes, HTTP2_PREFACE);
+        }
+    }
+}
+
+#[tokio::test]
+async fn incomplete_protocol_prefix_is_a_protocol_error_not_an_io_error() {
+    for prefix_len in 0..4 {
+        let endpoint = tests::runtime_config(Some(Duration::from_secs(2)), 16);
+        let (stream, mut peer) = socket_pair().await;
+        assert!(peer.write_all(&HTTP2_PREFACE[..prefix_len]).await.is_ok());
+        assert!(peer.shutdown().await.is_ok());
+        let result = negotiate_connection(stream, &endpoint).await;
+        assert!(
+            matches!(
+                &result,
+                Err(NegotiationError::Protocol(message))
+                    if message == "connection closed before protocol negotiation"
+            ),
+            "prefix length {prefix_len}: {result:?}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn body_lengths_and_upgrade_decisions_preserve_all_body_phases() {
     for (body, expected_len) in [
         (HttpBodyPhase::Finished, 0),

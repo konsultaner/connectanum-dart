@@ -6,7 +6,17 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Pending batch verified: Work262/263/266/267 passed full `bin/verify` with exit 0,
+Work268 local native regressions: real TCP pairs assert exact HTTP/2 configured
+ALPN fallback (including case-sensitive nonmatches and mixed lists), retained
+protocol metadata and the complete prefetched preface. Early closure after 0-3
+prefix bytes must produce the explicit protocol-error variant/message rather
+than an I/O error. Fast268 and all seven native metadata tests pass; local review
+found no confirmed defect after checking the actual implementation. Full
+verification passed with exit 0, including browser WASM suites, at
+`/tmp/connectanum-verify268.log`. These tests postdate
+native261; no updated mutation score is claimed.
+
+Previous batch verified: Work262/263/266/267 passed full `bin/verify` with exit 0,
 including browser WASM suites (`/tmp/connectanum-verify262.log`). Fast260 passed
 before the implementation batch; all 54 focused state tests and targeted
 analysis pass. Native261 and state267 audits are complete below. The last pushed

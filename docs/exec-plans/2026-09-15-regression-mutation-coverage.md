@@ -67,6 +67,21 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work268 Native Handshake Assertions
+
+- Add real TCP matrices for configured HTTP/2 ALPN fallback and 0-3 byte prefix
+  EOF classification. Assert exact metadata, retained preface and explicit
+  protocol-error message using assertion-backed checks; timeouts are hang guards.
+- Fast268 passes. All seven `protocol::protocol_metadata_tests` pass, including
+  both new tests (`/tmp/connectanum-native268-tests.log`). An initial incorrect
+  filter selected zero tests and was corrected; that run is not test evidence.
+- Local review's hypothesized EOF/ALPN mismatches were rejected after confirming
+  the implementation explicitly maps UnexpectedEof and matches the exact `h2`
+  token. No production behavior changed. Full verification passed with exit 0,
+  including browser WASM suites, at `/tmp/connectanum-verify268.log`;
+  native261 predates these tests and is not
+  attributed to the new snapshot.
+
 ### Work262-267 Batch Verification
 
 - Full `bin/verify` exited 0 (`/tmp/connectanum-verify262.log`), including native,
