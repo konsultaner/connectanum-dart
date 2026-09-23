@@ -733,6 +733,55 @@ void main() {
     },
   );
 
+  test('touch refreshes a router-owned invocation deadline', () async {
+    const procedure = 'com.example.touch.deadline';
+    await context.registerProcedure(
+      sessionId: 2001,
+      procedure: procedure,
+      details: const {},
+    );
+    final expired = {
+      for (final request in [600, 601, 602])
+        request: Completer<InvocationTimeoutEvent>(),
+    };
+    final order = <int>[];
+    final subscription = store.invocationTimeoutEvents.listen((event) {
+      order.add(event.callerRequestId);
+      final completion = expired[event.callerRequestId];
+      if (completion != null && !completion.isCompleted) {
+        completion.complete(event);
+      }
+    });
+    addTearDown(subscription.cancel);
+    Future<InvocationDispatchResult> start(int request, int timeout) =>
+        context.dispatchInvocation(
+          callerSessionId: 1001,
+          requestId: request,
+          procedure: procedure,
+          options: {'timeout': timeout},
+        );
+    final target = await start(600, 1000);
+    await start(601, 400);
+    await expired[601]!.future.timeout(const Duration(seconds: 3));
+    expect(await context.touchInvocation(target.invocationId), isTrue);
+    await start(602, 800);
+    await expired[602]!.future.timeout(const Duration(seconds: 3));
+    expect(order, [601, 602]);
+    final retained = await context.getInvocation(target.invocationId);
+    expect(retained, isNotNull);
+    expect(retained!.timeout, 1000);
+    expect(retained.timeoutForwarded, isFalse);
+    final event = await expired[600]!.future.timeout(
+      const Duration(seconds: 3),
+    );
+    expect(event.invocationId, target.invocationId);
+    expect(event.callerSessionId, 1001);
+    expect(order, [601, 602, 600]);
+    expect(await context.getInvocation(target.invocationId), isNull);
+    expect(await context.touchInvocation(target.invocationId), isFalse);
+    expect((await _metrics(store)).pendingInvocationCount, 0);
+  });
+
   test(
     'closing one caller preserves another caller pending debounce',
     () async {

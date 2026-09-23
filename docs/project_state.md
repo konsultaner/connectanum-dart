@@ -6,6 +6,34 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Full `bin/verify` passed for Work285/286 (exit 0,
+`/tmp/connectanum-verify285.log`). After verification and confirming no Rust
+build remained active, removed only disposable `target/debug/incremental`
+cache; about 15 GiB is now available. All campaign evidence is preserved.
+
+Native284 failed with `OSError: [Errno 28] No space left on device` while
+writing `campaign.log`. Only 159 outcomes are retained, with no completed
+cargo-mutants timestamp and an incomplete run manifest. No native284 score is
+valid. Native processes are no longer running; full verify285 has started.
+Resolve disk capacity before another native campaign. Preserve partial evidence.
+
+State286 completed against the Work285 tests: all 363 candidates, 236 viable,
+160 assertion-backed kills (114 assertion-only, 46 mixed), 14 test-error-only
+outcomes, 45 survivors, 17 timeouts and 127 compile errors. Raw/adjusted strict
+assertion score is 67.797%, with no equivalent waivers; the 95% gate still fails.
+Both baseline runs pass. Evidence is retained under
+`out/regression-coverage-2026-09-15/state286-mutations`. Native284 remains running;
+full verification of this snapshot is queued behind that native campaign.
+
+Work285 timeout refresh regression observes control invocation expirations to
+cross the original deadline after touch, asserts the target remains pending,
+then observes its eventual refreshed timeout and cleanup. All 104 state tests,
+five focused repeats and targeted analysis pass. Local review found no concrete
+defect; scheduler latency remains a timing-test risk. Fast279 preceded this
+test-only sequence; full verify283 passed before the new case. Full verification
+is queued after native284, which remains active with unchanged inputs. No new
+mutation score is claimed.
+
 State283 completed: full 363-candidate store inventory, 236 viable, 157
 assertion-backed kills (111 assertion-only, 46 mixed), 14 test-error-only
 outcomes, 48 survivors, 17 timeouts, 127 compile errors. Raw/adjusted assertion

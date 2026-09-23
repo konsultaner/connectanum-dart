@@ -67,6 +67,46 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Native284 Disk Capacity Failure
+
+- Follow-up: full `bin/verify` passed with exit 0 at
+  `/tmp/connectanum-verify285.log`. After Rust processes exited, removed only
+  the disposable native debug incremental cache, leaving approximately 15 GiB
+  available. No source or campaign evidence was removed.
+- The campaign ended with ENOSPC while writing `campaign.log`; its manifest
+  remains incomplete and cargo-mutants retained 159 outcomes without an end
+  timestamp. Do not calculate or publish a score from this partial inventory.
+- Native processes have exited. Full verify285 started afterward; its result
+  is still pending. Resolve disk capacity before rerunning native mutations.
+- Retain the partial directory and `/tmp/connectanum-native284-mutations.log`
+  as failure evidence. Earlier notes that native284 is active are historical.
+
+### Work286 Complete State Remeasurement
+
+- Complete inventory: 363 candidates, 236 viable, 160 assertion-backed kills
+  (114 assertion-only and 46 mixed), 14 test-error-only failures, 45 survivors,
+  17 timeouts and 127 compile errors. No equivalent waivers.
+- Raw/adjusted strict assertion score: 67.797%, up from 66.525%. The 95% gate
+  fails; runner exit 1 is the unmet threshold, not a baseline failure.
+- Initial and restored baselines pass. Evidence:
+  `out/regression-coverage-2026-09-15/state286-mutations/mutation-report.json`.
+- Reproduce with `CONNECTANUM_SKIP_NATIVE_TESTS=1 python3
+  tool/run_dart_mutations.py --target router-state-store-vm --output <fresh-dir>`.
+- Work285's deadline-refresh assertions account for three additional kills;
+  final full verification remains queued behind the live native284 campaign.
+
+### Work285 Router-Owned Deadline Refresh
+
+- Assert actual timeout refresh, not only touch's boolean return: subscribe
+  before dispatch, await an earlier control timeout, touch the target, await a
+  second control beyond the original deadline, assert target retention, then
+  observe eventual target expiration and cleanup. No arbitrary sleeps.
+- All 104 state tests pass (`/tmp/connectanum-state285-tests.log`), five focused
+  repeats pass and analysis is clean. Local review found no concrete defect;
+  scheduler latency remains a risk in this real-timer regression.
+- Fast279 preceded this test-only sequence and verify283 passed before this new
+  case. Full verification is queued after active native284; no updated score.
+
 ### Work283 Interrupted Campaign Recovery
 
 - Replacement state283 completed: 363 generated / 236 viable, 111 assertion-only
