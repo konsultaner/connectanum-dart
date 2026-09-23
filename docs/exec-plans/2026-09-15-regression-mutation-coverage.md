@@ -67,6 +67,16 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work250 Native Setup Assertions
+
+- Valid configuration application, stored endpoint presence, invalid exponent
+  rejection, and expected HTTP route variants now have explicit assertions.
+  Existing value assertions remain unchanged; production code and mutation
+  classification are unchanged.
+- Fast250 and all 263 native core library tests pass. Full verification passed
+  with exit 0 at `/tmp/connectanum-verify250.log`, including browser WASM tests. A new complete campaign is still
+  required before assigning an updated mutation score.
+
 ### Work249 Browser Meta-Cache Budget
 
 - GitHub check 106958248680 explicitly reports exceeding 20 minutes. The

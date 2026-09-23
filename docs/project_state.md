@@ -6,6 +6,14 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work250 pending: remaining native configuration setup and route-variant checks
+now explicitly assert the expected success/error or enum variant before using
+the value. Existing endpoint/procedure/path assertions remain intact; neither
+production routing nor the mutation auditor changes. Fast250 and all 263 native
+core library tests pass. Full verification passed with exit 0 at
+`/tmp/connectanum-verify250.log`, including browser WASM tests. No mutation score is attributed to this newer
+test snapshot until a complete campaign is rerun.
+
 Work249 pending: hosted meta-cache browser job 106958248680 explicitly exceeded
 its 20-minute maximum despite finishing all 157 mutations and passing its gate.
 The retained artifact at

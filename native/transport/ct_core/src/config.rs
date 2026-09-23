@@ -1115,7 +1115,12 @@ mod tests {
         let h1_match = runtime.match_http_route("/api/h1", None, "GET", "http/1.1");
         assert!(matches!(h1_match, HttpRouteMatch::Resolved(_)));
 
-        match runtime.match_http_route("/api/h2-only", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/api/h2-only", None, "GET", "http/1.1");
+        assert!(matches!(
+            &matched,
+            HttpRouteMatch::ProtocolNotAllowed { .. }
+        ));
+        match matched {
             HttpRouteMatch::ProtocolNotAllowed { allowed_protocols } => {
                 assert_eq!(allowed_protocols, vec!["http2".to_string()]);
             }
@@ -1144,7 +1149,9 @@ mod tests {
         .unwrap();
         let runtime = assert_valid_endpoint(&cfg);
 
-        match runtime.match_http_route("/api/items", None, "DELETE", "http/1.1") {
+        let matched = runtime.match_http_route("/api/items", None, "DELETE", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::MethodNotAllowed { .. }));
+        match matched {
             HttpRouteMatch::MethodNotAllowed { allowed_methods } => {
                 assert_eq!(allowed_methods, vec!["GET".to_string(), "POST".to_string()]);
             }
@@ -1279,14 +1286,18 @@ mod tests {
         .unwrap();
         let runtime = assert_valid_endpoint(&cfg);
 
-        match runtime.match_http_route("/other/path", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/other/path", None, "GET", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.procedure, "com.example.catch_all");
             }
             other => panic!("expected catch-all resolution, got {other:?}"),
         }
 
-        match runtime.match_http_route("/api/items", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/api/items", None, "GET", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.procedure, "com.example.api");
             }
@@ -1317,7 +1328,9 @@ mod tests {
         .unwrap();
         let runtime = assert_valid_endpoint(&cfg);
 
-        match runtime.match_http_route("/api/items/42", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/api/items/42", None, "GET", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.realm, "realm1");
                 assert_eq!(resolution.procedure, "api.items.42.get");
@@ -1326,7 +1339,9 @@ mod tests {
             other => panic!("expected namespace prefix resolution, got {other:?}"),
         }
 
-        match runtime.match_http_route("/api", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/api", None, "GET", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.procedure, "api.index.get");
                 assert_eq!(resolution.path, "/api");
@@ -1368,7 +1383,9 @@ mod tests {
         .unwrap();
         let runtime = assert_valid_endpoint(&cfg);
 
-        match runtime.match_http_route("/healthz", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/healthz", None, "GET", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.realm, RESERVED_HTTP_REALM);
                 assert_eq!(resolution.procedure, "healthz.get");
@@ -1377,7 +1394,9 @@ mod tests {
             other => panic!("expected exact shorthand resolution, got {other:?}"),
         }
 
-        match runtime.match_http_route("/ops/restart", None, "POST", "http/1.1") {
+        let matched = runtime.match_http_route("/ops/restart", None, "POST", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.realm, RESERVED_HTTP_REALM);
                 assert_eq!(resolution.procedure, "ops.ops.restart.post");

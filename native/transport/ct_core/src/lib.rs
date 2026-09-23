@@ -8969,11 +8969,15 @@ mod tests {
     fn apply_router_config_stores_config() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled"}]}"#)
-            .expect("config applies");
-        let cfg = crate::config::current_config().expect("config stored");
+        let applied = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled"}]}"#);
+        assert!(applied.is_ok());
+        let cfg = crate::config::current_config();
+        assert!(cfg.is_some());
+        let cfg = cfg.unwrap();
         assert_eq!(cfg.endpoints.len(), 1);
-        let endpoint = crate::config::find_endpoint("127.0.0.1", 8080).expect("endpoint");
+        let endpoint = crate::config::find_endpoint("127.0.0.1", 8080);
+        assert!(endpoint.is_some());
+        let endpoint = endpoint.unwrap();
         assert_eq!(endpoint.host, "127.0.0.1");
     }
 
@@ -9016,13 +9020,11 @@ mod tests {
     fn apply_router_config_rejects_invalid_rawsocket_exponent() {
         let _guard = test_guard();
         shutdown().ok();
-        let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":8}]}"#)
-            .expect_err("exponent below minimum rejected");
-        assert!(matches!(err, Error::RouterConfigInvalid(_)));
+        let result = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":8}]}"#);
+        assert!(matches!(result, Err(Error::RouterConfigInvalid(_))));
 
-        let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":31}]}"#)
-            .expect_err("exponent above maximum rejected");
-        assert!(matches!(err, Error::RouterConfigInvalid(_)));
+        let result = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":31}]}"#);
+        assert!(matches!(result, Err(Error::RouterConfigInvalid(_))));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -9039,10 +9041,10 @@ mod tests {
     async fn listen_accept_and_shutdown() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -9086,7 +9088,8 @@ mod tests {
                 }]
             }]
         });
-        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        let applied = super::apply_router_config(&serde_json::to_vec(&config).unwrap());
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -9147,10 +9150,10 @@ mod tests {
     async fn listener_close_removes_entry() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
 
         let listener = listen("127.0.0.1", 0, 128);
@@ -9189,7 +9192,8 @@ mod tests {
             }]
         });
         let bytes = serde_json::to_vec(&config).unwrap();
-        super::apply_router_config(&bytes).unwrap();
+        let applied = super::apply_router_config(&bytes);
+        assert!(applied.is_ok());
 
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
@@ -9299,7 +9303,8 @@ mod tests {
             }]
         });
         let bytes = serde_json::to_vec(&optional_cfg).unwrap();
-        super::apply_router_config(&bytes).unwrap();
+        let applied = super::apply_router_config(&bytes);
+        assert!(applied.is_ok());
 
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
@@ -9348,7 +9353,8 @@ mod tests {
             }]
         });
         let bytes = serde_json::to_vec(&required_cfg).unwrap();
-        super::apply_router_config(&bytes).unwrap();
+        let applied = super::apply_router_config(&bytes);
+        assert!(applied.is_ok());
         reload_tls().unwrap();
 
         let tcp = tokio::net::TcpStream::connect(addr).await.unwrap();
@@ -9397,10 +9403,10 @@ mod tests {
     async fn connection_runtime_config_exposes_rawsocket_settings() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -9435,10 +9441,10 @@ mod tests {
     async fn connect_rawsocket_registers_outbound_client_connection() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -9493,10 +9499,10 @@ mod tests {
     async fn rawsocket_base64_file_segment_preserves_json_wire_bytes() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -9570,10 +9576,10 @@ mod tests {
     async fn connect_rawsocket_standard_cbor_peer_uses_extended_router_endpoint() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -9634,7 +9640,8 @@ mod tests {
                 }]
             }]
         });
-        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        let applied = super::apply_router_config(&serde_json::to_vec(&config).unwrap());
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -9712,7 +9719,8 @@ mod tests {
                 }]
             }]
         });
-        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        let applied = super::apply_router_config(&serde_json::to_vec(&config).unwrap());
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -9832,10 +9840,10 @@ mod tests {
     async fn websocket_file_backed_frame_round_trips_from_masked_client() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"]}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -9923,10 +9931,10 @@ mod tests {
     async fn websocket_base64_file_segment_round_trips_from_masked_client() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"]}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -9998,10 +10006,10 @@ mod tests {
     async fn connect_websocket_registers_outbound_client_connection() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"]}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -10139,10 +10147,10 @@ mod tests {
     async fn connection_messages_can_be_polled() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":16}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -10182,10 +10190,10 @@ mod tests {
     async fn handshake_timeout_rejects_idle_clients() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","handshake_timeout_ms":100,"max_rawsocket_size_exponent":16}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -10761,10 +10769,10 @@ mod tests {
     async fn accept_channel_only_once() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let listener = listen("127.0.0.1", 0, 128);
         assert!(listener.is_ok());
@@ -10790,10 +10798,10 @@ mod tests {
     fn invalid_backlog_is_rejected() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let err = listen("127.0.0.1", 0, 0).expect_err("invalid backlog");
         assert!(matches!(err, Error::InvalidBacklog));
