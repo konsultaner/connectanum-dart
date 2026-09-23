@@ -67,6 +67,34 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work249 Browser Meta-Cache Budget
+
+- GitHub check 106958248680 explicitly reports exceeding 20 minutes. The
+  complete retained 157-mutant artifact passes initial/restored baselines and
+  its assertion gate: 93 detections, eight survivors, 56 compile errors, four
+  recorded equivalents, 92.079% raw and 95.876% adjusted assertion score.
+- Retain evidence under `out/regression-coverage-2026-09-15/hosted247-meta-cache-web`.
+  The targeted 45-minute matrix override preserves per-mutant limits, full
+  inventory and thresholds. Its regression failed before the fix and both
+  budget regressions pass afterwards. Full verification passed;
+  Fast249 passed after the native campaign completed.
+- Bounded accepted-connection assertions and explicit listener creation
+  assertions now pass all 263 native core tests. Helper controls cover identity,
+  closed channels and live-but-idle channels. Both previous timeout mutants
+  terminate and are caught under the unchanged 30-second limit in the isolated
+  `native249-timeout-diagnostic-complete` diagnostic; this is not a full campaign
+  score. The initial diagnostic lacked sibling TLS fixtures and failed its
+  baseline build; corrected snapshot evidence retains both fixtures.
+  Full `bin/verify` passed with exit 0 at `/tmp/connectanum-verify249.log`,
+  including browser WASM tests. Hosted validation remains pending.
+- Work248's complete 128-mutant rerun retains 58 assertion kills, 47 errors,
+  four survivors, two timeouts and 17 compile errors: 52.252% of 111 viable,
+  with no equivalence waivers and `evidenceClean: false`. Evidence is retained
+  at `out/regression-coverage-2026-09-15/native248-config-mutations`.
+  The accepted-connection wait and listener creation assertions are now improved.
+  Next: assert the remaining integration setup results explicitly. All four survivors
+  involve identical output branches and still require individual pinned review.
+
 ### Work248 Pending CI Budget Follow-Up
 
 - Work247's WampApp reruns split: one passed, while job 106958247848 exhausted

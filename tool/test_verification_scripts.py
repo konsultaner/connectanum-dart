@@ -184,6 +184,7 @@ test -s native/transport/Cargo.lock
             'core-metadata-web': 90,
             'core-pem-pkcs8-web': 90,
             'core-base64-web': 45,
+            'client-meta-cache-web': 45,
             'client-message-binding-vm': 90,
             'router-message-binding-vm': 90,
         })

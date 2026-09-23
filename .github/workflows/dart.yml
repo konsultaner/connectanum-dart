@@ -233,6 +233,8 @@ jobs:
             timeout_minutes: 90
           - target: core-base64-web
             timeout_minutes: 45
+          - target: client-meta-cache-web
+            timeout_minutes: 45
           - target: client-message-binding-vm
             timeout_minutes: 90
           - target: router-message-binding-vm

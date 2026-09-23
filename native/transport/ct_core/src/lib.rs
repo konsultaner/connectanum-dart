@@ -8328,6 +8328,41 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
+    async fn assert_accepted_connection(
+        receiver: &mut mpsc::Receiver<ConnectionId>,
+    ) -> ConnectionId {
+        let received = tokio::time::timeout(Duration::from_secs(2), receiver.recv()).await;
+        assert!(received.is_ok());
+        let connection = received.unwrap();
+        assert!(connection.is_some());
+        connection.unwrap()
+    }
+
+    #[tokio::test]
+    async fn accepted_connection_assertion_preserves_connection_identity() {
+        let (sender, mut receiver) = mpsc::channel(1);
+        assert!(sender.send(ConnectionId(42)).await.is_ok());
+        assert_eq!(
+            assert_accepted_connection(&mut receiver).await,
+            ConnectionId(42)
+        );
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "assertion failed: connection.is_some()")]
+    async fn accepted_connection_assertion_rejects_closed_channel() {
+        let (sender, mut receiver) = mpsc::channel(1);
+        drop(sender);
+        assert_accepted_connection(&mut receiver).await;
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "assertion failed: received.is_ok()")]
+    async fn accepted_connection_assertion_bounds_idle_channel() {
+        let (_sender, mut receiver) = mpsc::channel(1);
+        assert_accepted_connection(&mut receiver).await;
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn deferred_segment_resolves_off_runtime_with_exact_length() {
         let runtime_thread = std::thread::current().id();
@@ -9009,7 +9044,9 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         assert!(addr.port() > 0);
 
@@ -9018,7 +9055,7 @@ mod tests {
         perform_handshake(&mut stream, 16, None).await;
         drop(stream);
 
-        let connection_id = receiver.recv().await.expect("receive connection");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
         assert!(connection_id.0 > 0);
         assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
 
@@ -9051,7 +9088,9 @@ mod tests {
         });
         super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9114,7 +9153,9 @@ mod tests {
         .unwrap();
         start_runtime().unwrap();
 
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         assert!(local_addr(listener_id).is_ok());
         close_listener(listener_id).unwrap();
         let err = local_addr(listener_id).expect_err("listener removed");
@@ -9151,7 +9192,9 @@ mod tests {
         super::apply_router_config(&bytes).unwrap();
 
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9225,7 +9268,7 @@ mod tests {
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);
 
-        let connection_id = receiver.recv().await.expect("connection delivered");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
         assert!(connection_id.0 > 0);
         shutdown().unwrap();
     }
@@ -9259,7 +9302,9 @@ mod tests {
         super::apply_router_config(&bytes).unwrap();
 
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9280,7 +9325,7 @@ mod tests {
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);
 
-        let connection_id = receiver.recv().await.expect("connection delivered");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
         assert!(connection_id.0 > 0);
 
         let required_cfg = json!({
@@ -9343,7 +9388,7 @@ mod tests {
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);
 
-        let connection_id = receiver.recv().await.expect("connection delivered");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
         assert!(connection_id.0 > 0);
         shutdown().unwrap();
     }
@@ -9357,14 +9402,16 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
         let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
         perform_handshake(&mut stream, 24, Some(30)).await;
 
-        let connection_id = receiver.recv().await.expect("connection delivered");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
         let config = connection_runtime_config(connection_id).expect("config available");
         assert_eq!(config.max_rawsocket_size_exponent, 30);
         assert_eq!(config.max_rawsocket_size, 1u64 << 30);
@@ -9393,7 +9440,9 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9408,7 +9457,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
 
         assert_eq!(
             connection_rawsocket_max_exponent(client_connection_id).unwrap(),
@@ -9449,7 +9498,9 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9464,7 +9515,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
 
         let file_bytes = (0..BASE64_FILE_SEGMENT_INPUT_SIZE + 7)
             .map(|index| (index % 251) as u8)
@@ -9524,7 +9575,9 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9545,7 +9598,7 @@ mod tests {
         )
         .unwrap();
 
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
         assert_eq!(
             connection_rawsocket_max_exponent(client_connection_id).unwrap(),
             24
@@ -9583,7 +9636,9 @@ mod tests {
         });
         super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9598,7 +9653,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
 
         assert!(connection_supports_file_segments(client_connection_id).unwrap());
         assert!(connection_supports_file_segments(server_connection_id).unwrap());
@@ -9659,7 +9714,9 @@ mod tests {
         });
         super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9674,7 +9731,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let first_server = receiver.recv().await.expect("first server connection");
+        let first_server = assert_accepted_connection(&mut receiver).await;
         let second_client = connect_rawsocket(
             "localhost",
             addr.port(),
@@ -9686,7 +9743,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let second_server = receiver.recv().await.expect("second server connection");
+        let second_server = assert_accepted_connection(&mut receiver).await;
 
         const FRAME_COUNT: usize = 8;
         const FRAME_BYTES: usize = 8 * 1024 * 1024;
@@ -9780,7 +9837,9 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9798,7 +9857,7 @@ mod tests {
             )
         });
 
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
         let handshake = connection_take_websocket_handshake(server_connection_id).unwrap();
         connection_accept_websocket(
             server_connection_id,
@@ -9869,7 +9928,9 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9886,7 +9947,7 @@ mod tests {
                 None,
             )
         });
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
         let handshake = connection_take_websocket_handshake(server_connection_id).unwrap();
         connection_accept_websocket(
             server_connection_id,
@@ -9942,7 +10003,9 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9960,7 +10023,7 @@ mod tests {
             )
         });
 
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
         let handshake = connection_take_websocket_handshake(server_connection_id).unwrap();
         assert_eq!(handshake.http.request.header("X-Test"), Some("1"));
         assert!(handshake
@@ -10081,7 +10144,9 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -10091,7 +10156,7 @@ mod tests {
         let payload = serde_json::to_vec(&hello).unwrap();
         send_json_frame(&mut client, &payload).await;
 
-        let connection_id = receiver.recv().await.expect("connection delivered");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
 
         let mut attempts = 0;
         let parsed = loop {
@@ -10122,7 +10187,9 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -10699,7 +10766,9 @@ mod tests {
         )
         .unwrap();
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let _receiver = accept_channel(listener_id).unwrap();
         let err = accept_channel(listener_id).expect_err("second take fails");
         assert!(matches!(

@@ -6,6 +6,38 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work249 pending: hosted meta-cache browser job 106958248680 explicitly exceeded
+its 20-minute maximum despite finishing all 157 mutations and passing its gate.
+The retained artifact at
+`out/regression-coverage-2026-09-15/hosted247-meta-cache-web` records 93 detections,
+eight survivors, 56 compile errors, four equivalents, successful initial/restored
+baselines, 92.079% raw assertion score and 95.876% adjusted score. This is prior
+hosted evidence, not a fresh current-tree measurement. A targeted 45-minute job
+override was reproduced missing with a failing workflow regression; both budget
+regressions now pass. Full verification passed; hosted validation remains pending.
+Fast249 passed after the Work248 native campaign released the native runtime.
+Native integration tests now bound accepted-connection waits and explicitly
+assert listener creation. All 263 core library tests pass, including successful,
+closed-channel and idle-channel controls for the helper. The two prior timeout
+mutants both finish as caught within the unchanged 30-second limit in an isolated
+diagnostic at `out/regression-coverage-2026-09-15/native249-timeout-diagnostic-complete`.
+This is not a full campaign or audited score improvement. The first diagnostic
+failed to build because Cargo's default scratch copy omitted sibling TLS fixtures;
+the corrected snapshot includes them. Full verification passed with exit 0 at
+`/tmp/connectanum-verify249.log`, including browser WASM tests. A complete mutation
+rerun is still required after the remaining setup-assertion gaps are addressed.
+
+Work248 full configuration rerun completed at
+`out/regression-coverage-2026-09-15/native248-config-mutations`: all 128 mutants,
+58 assertion kills, 47 errors, four survivors, two timeouts and 17 compile errors.
+The raw/adjusted assertion score is 52.252% of 111 viable candidates, with no
+equivalent waivers and `evidenceClean: false`. This improves the prior 28.829%
+score but is not a passing gate. Remaining survivors are four identical-branch
+predicate mutations, still unwaived. Timeout logs identify an unbounded accepted
+WebSocket connection wait when protocol support is disabled; setup unwraps also
+remain in integration tests. Preserve this snapshot's audit while fixing those
+test-lifecycle and assertion gaps.
+
 Work248 pending: one hosted WampApp rerun for Work247 passed, but job
 106958247848 still exhausted the 20-minute budget after its JavaScript controls
 passed in 436 seconds. The workflow now allows 45 minutes without dropping
