@@ -949,6 +949,10 @@ fn header_contains_token(request: &HttpRequest, name: &str, token: &str) -> bool
 mod http1_framing_tests;
 
 #[cfg(test)]
+#[path = "protocol_metadata_tests.rs"]
+mod protocol_metadata_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{

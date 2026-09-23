@@ -67,6 +67,21 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work258 Protocol Metadata Regressions
+
+- Complete Work257 protocol evidence retains all 187 candidates: 47 assertion
+  kills, 73 survivors, 43 errors, seven timeouts, 17 compile errors. Raw/adjusted
+  score 27.647% of 170 viable candidates, no waivers, evidence not clean;
+  restored baseline passed. Evidence lives at
+  `out/regression-coverage-2026-09-15/native257-protocol-mutations`.
+- Three new Rust matrices cover HTTP body lengths and WebSocket upgrade/body
+  boundaries, HTTP/2 metadata with live socket ownership after split, and
+  HTTP/3 ALPN selection/absent settings. Socket operations are bounded; exact
+  expected metadata and non-degenerate body lengths detect constant/arithmetic
+  mutations. Fast checks, focused Rust tests and full verification pass,
+  including browser WASM tests (`/tmp/connectanum-verify258.log`).
+- The 27.647% score belongs to the earlier snapshot, not these new tests.
+
 ### Work257 Native Protocol Mutation Collection
 
 - Added `core-protocol` to the private-snapshot collector, with complete

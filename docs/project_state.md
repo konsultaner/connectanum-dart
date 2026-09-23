@@ -6,6 +6,20 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work258 implemented: native protocol regressions cover body lengths across buffered,
+finished and streaming phases; WebSocket body rejection and retained metadata;
+HTTP/2 metadata/socket ownership after split; and HTTP/3 first-match ALPN
+selection with absent settings. Fast checks and all three focused Rust tests
+pass. Full verification passed, including browser WASM tests
+(`/tmp/connectanum-verify258.log`); no new mutation score is claimed.
+
+Work257 complete protocol audit at
+`out/regression-coverage-2026-09-15/native257-protocol-mutations`: 187 generated,
+47 assertion kills, 73 survivors, 43 errors, seven timeouts, 17 compile errors.
+Raw/adjusted score 27.647% of 170 viable candidates, no equivalent waivers,
+`evidenceClean: false`. Restored baseline passed. This newly measured scope is
+not interchangeable with the 96.396% configuration-only audit.
+
 Work257 implemented: the isolated native mutation collector now supports
 `core-protocol`, targeting all candidates in `ct_core/src/protocol.rs` and
 running the full core library suite, including integration tests. Target/CLI
