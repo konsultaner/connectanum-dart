@@ -67,6 +67,23 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work255 Command Recovery And Refreshed VM Evidence
+
+- Fresh pre-edit full VM collection completed at
+  `out/regression-coverage-2026-09-15/vm255-current`: 93.118% library aggregate,
+  90.538% router, 97.205% packaging. Missing runtime scopes remain explicit.
+- Six command-port tests assert error replies and recovery, bare/null-reply
+  failure isolation, unknown invocation completion/touch no-op replies, and
+  snapshot known-version behavior before/after caching. Focused tests and
+  analysis pass. Fast255 and full verification passed, including browser WASM
+  tests (`/tmp/connectanum-verify255.log`).
+- The completed Work254 configuration audit contains 107 assertion kills,
+  four survivors, 17 compile errors, zero errors/timeouts: 96.396% raw/adjusted,
+  no waivers, clean evidence and passing restored baseline. Collector exit 1
+  retains survivor visibility. This is a configuration-only numerical target
+  result, not completion of whole-native mutation scope. Post-campaign
+  `bin/verify` passed before the Work255 edits.
+
 ### Work254 HTTP/3 Async Caller Regression
 
 - Both current-thread and multithreaded Tokio callers reproduce the nested

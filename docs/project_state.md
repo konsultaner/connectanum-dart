@@ -6,7 +6,26 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Work254 pending: valid HTTP/3 listener startup from both current-thread and
+Work255 implemented: six state-store command-port regressions cover enveloped and
+bare command failures, subsequent valid requests, unknown invocation no-op
+contracts, and known-version snapshots before/after caching. Focused tests and
+analysis pass. Fast255 and full verification passed, including browser WASM
+tests; the full log is `/tmp/connectanum-verify255.log`.
+The fresh pre-edit VM report at
+`out/regression-coverage-2026-09-15/vm255-current` completed successfully:
+39,970/42,924 library lines (93.118%), router 17,645/19,489 (90.538%),
+and packaging 765/787 (97.205%). These scores precede the six new tests.
+
+Work254 complete native configuration audit at
+`out/regression-coverage-2026-09-15/native254-config-mutations`: 128 generated,
+107 assertion kills, four survivors, 17 compile errors, zero errors/timeouts.
+Raw/adjusted score 96.396% of 111 viable candidates, no equivalent waivers,
+`evidenceClean: true`, restored baseline passed. This exceeds the numerical
+95% configuration target, not the whole native component target. The collector
+still exits 1 because four survivors remain. Post-campaign full verification
+passed at `/tmp/connectanum-verify254-postcampaign.log`.
+
+Work254 implemented: valid HTTP/3 listener startup from both current-thread and
 multithreaded Tokio callers reproduced a nested-runtime panic before the fix.
 The synchronous Quinn constructor now runs under a scoped native runtime handle
 instead of `block_on`, preserving the synchronous API and caller context.
