@@ -1336,7 +1336,9 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
                 options: HashMap::new(),
             }),
         };
-        let config = EndpointRuntimeConfig::try_from_endpoint(&endpoint).unwrap();
+        let config = EndpointRuntimeConfig::try_from_endpoint(&endpoint);
+        assert_eq!(config.is_ok(), true, "{config:?}");
+        let config = config.unwrap();
         let (tx, rx) = oneshot::channel();
 
         tokio::spawn(async move {

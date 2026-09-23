@@ -6,7 +6,18 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Work253 pending: four pure-Dart state-store regressions cover disposal of a
+Work254 pending: valid HTTP/3 listener startup from both current-thread and
+multithreaded Tokio callers reproduced a nested-runtime panic before the fix.
+The synchronous Quinn constructor now runs under a scoped native runtime handle
+instead of `block_on`, preserving the synchronous API and caller context.
+Both regressions pass and complete a real QUIC handshake after dropping the
+caller runtime. Fast254 passed. Full verification passed with exit 0, including
+all 265 native core tests and browser WASM suites.
+HTTP/2 setup and HTTP 405 response fixtures now retain diagnostics through
+explicit outcome assertions. Full verification is retained at
+`/tmp/connectanum-verify254.log`; the 88.288% mutation audit predates these changes.
+
+Work253 implemented: four pure-Dart state-store regressions cover disposal of a
 pending debounce, final-registration removal without late dispatch, and throttle
 cleanup followed by re-registration with the same transaction hash. Error
 expectations are attached before cancellation; metrics provide processing

@@ -2812,9 +2812,11 @@ fn start_http3_listener(
 ) -> Result<(QuinnEndpoint, JoinHandle<()>, SocketAddr), Error> {
     let runtime_config = config_state.endpoint_config();
     let server_config = build_http3_server_config(&runtime_config)?;
-    let endpoint = handle
-        .block_on(async move { QuinnEndpoint::server(server_config, addr) })
-        .map_err(Error::Io)?;
+    let endpoint = {
+        // Quinn's synchronous constructor needs our reactor, not nested blocking.
+        let _runtime = handle.enter();
+        QuinnEndpoint::server(server_config, addr).map_err(Error::Io)?
+    };
     let local_addr = endpoint.local_addr().map_err(Error::Io)?;
 
     let registry_for_task = Arc::clone(&registry);
@@ -9108,10 +9110,11 @@ mod tests {
         let mut response_bytes = Vec::new();
         let mut buf = [0u8; 256];
         loop {
-            let read = tokio::time::timeout(Duration::from_secs(2), stream.read(&mut buf))
-                .await
-                .expect("405 response should arrive")
-                .expect("response read succeeds");
+            let read = tokio::time::timeout(Duration::from_secs(2), stream.read(&mut buf)).await;
+            assert_eq!(read.is_ok(), true, "405 response should arrive: {read:?}");
+            let read = read.unwrap();
+            assert_eq!(read.is_ok(), true, "response read succeeds: {read:?}");
+            let read = read.unwrap();
             assert_ne!(read, 0, "response closed before body was read");
             response_bytes.extend_from_slice(&buf[..read]);
             if response_bytes
@@ -9120,18 +9123,24 @@ mod tests {
             {
                 break;
             }
-            assert!(
+            assert_eq!(
                 response_bytes.len() < 1024,
+                true,
                 "unexpectedly large 405 response"
             );
         }
         let response = std::str::from_utf8(&response_bytes).expect("response is utf8");
-        assert!(
+        assert_eq!(
             response.starts_with("HTTP/1.1 405 Method Not Allowed"),
+            true,
             "{response}"
         );
-        assert!(response.contains("\r\nAllow: GET, POST\r\n"), "{response}");
-        assert!(response.ends_with("method not allowed"), "{response}");
+        assert_eq!(
+            response.contains("\r\nAllow: GET, POST\r\n"),
+            true,
+            "{response}"
+        );
+        assert_eq!(response.ends_with("method not allowed"), true, "{response}");
         let connection_id = receiver
             .try_recv()
             .expect("http connection should be tracked");
@@ -9167,6 +9176,108 @@ mod tests {
         assert!(matches!(err, Error::ListenerNotFound(_)));
 
         shutdown().unwrap();
+    }
+
+    #[test]
+    fn http3_listener_starts_from_current_thread_runtime() {
+        assert_http3_listener_starts_from_runtime(
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
+        );
+    }
+
+    #[test]
+    fn http3_listener_starts_from_multi_thread_runtime() {
+        assert_http3_listener_starts_from_runtime(
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_all()
+                .build()
+                .unwrap(),
+        );
+    }
+
+    fn assert_http3_listener_starts_from_runtime(caller: tokio::runtime::Runtime) {
+        let _guard = test_guard();
+        shutdown().unwrap();
+        let certified = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+        let config = json!({
+            "schema": "connectanum.router",
+            "version": 1,
+            "endpoints": [{
+                "host": "127.0.0.1",
+                "port": 0,
+                "tls_mode": "native",
+                "protocols": ["http3"],
+                "http": {"http3": {"enabled": true, "port": 0}},
+                "sni_certificates": [{
+                    "hostname": "localhost",
+                    "certificate_chain_pem": certified.cert.pem(),
+                    "private_key_pem": certified.key_pair.serialize_pem()
+                }]
+            }]
+        });
+        let applied = apply_router_config(&serde_json::to_vec(&config).unwrap());
+        assert_eq!(applied.is_ok(), true, "{applied:?}");
+        start_runtime().unwrap();
+        // Clean up even when the regression triggers a nested-runtime panic.
+        let started = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            caller.block_on(async {
+                let before = tokio::runtime::Handle::current().runtime_flavor();
+                let listener = listen("127.0.0.1", 0, 128);
+                assert_eq!(tokio::runtime::Handle::current().runtime_flavor(), before);
+                listener
+            })
+        }));
+        drop(caller);
+        let port = started
+            .as_ref()
+            .ok()
+            .and_then(|result| result.as_ref().ok())
+            .map(|listener| listener_http3_port(*listener));
+        let handshake = if let Some(Ok(Some(port))) = port {
+            let mut roots = rustls::RootCertStore::empty();
+            roots.add(certified.cert.der().clone()).unwrap();
+            let mut crypto = RustlsClientConfig::builder_with_provider(Arc::new(
+                rustls::crypto::ring::default_provider(),
+            ))
+            .with_protocol_versions(&[&rustls::version::TLS13])
+            .unwrap()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+            crypto.alpn_protocols = vec![b"h3".to_vec()];
+            let crypto = quinn::crypto::rustls::QuicClientConfig::try_from(crypto).unwrap();
+            let client_config = quinn::ClientConfig::new(Arc::new(crypto));
+            let probe = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            Some(probe.block_on(async move {
+                let mut endpoint = QuinnEndpoint::client("127.0.0.1:0".parse().unwrap())
+                    .map_err(|error| error.to_string())?;
+                endpoint.set_default_client_config(client_config);
+                let connecting = endpoint
+                    .connect(SocketAddr::from(([127, 0, 0, 1], port)), "localhost")
+                    .map_err(|error| error.to_string())?;
+                let connection = tokio::time::timeout(Duration::from_secs(2), connecting)
+                    .await
+                    .map_err(|error| error.to_string())?
+                    .map_err(|error| error.to_string())?;
+                connection.close(0u32.into(), b"test complete");
+                endpoint.close(0u32.into(), b"test complete");
+                Ok::<(), String>(())
+            }))
+        } else {
+            None
+        };
+        shutdown().unwrap();
+        assert!(started.is_ok());
+        let listener = started.unwrap();
+        assert_eq!(listener.is_ok(), true, "{listener:?}");
+        assert!(matches!(port, Some(Ok(Some(port))) if port > 0));
+        assert_eq!(handshake, Some(Ok(())));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

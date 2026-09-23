@@ -67,6 +67,21 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work254 HTTP/3 Async Caller Regression
+
+- Both current-thread and multithreaded Tokio callers reproduce the nested
+  `block_on` panic with valid HTTP/3 configuration before the production fix
+  (`/tmp/connectanum-http3-254-red.log`). Scoped `Handle::enter` around Quinn's
+  synchronous constructor preserves the API and native reactor association.
+- Both regressions now pass, preserve caller runtime context, and complete a
+  real QUIC handshake after the caller runtime is dropped. Evidence:
+  `/tmp/connectanum-http3-254-handshake.log`. Fast254 and full verification
+  passed, including all 265 core tests and browser WASM suites.
+- Remaining HTTP/2 setup and HTTP 405 custom-message assertions now assert
+  expected outcomes without weakening audit classification. Full verification
+  exit 0 is retained at `/tmp/connectanum-verify254.log`. The 88.288% audit belongs to
+  the earlier native snapshot, not this change.
+
 ### Work253 State-Store Lifecycle Regressions
 
 - Assert pending debounce rejection on disposal and final-registration removal,
