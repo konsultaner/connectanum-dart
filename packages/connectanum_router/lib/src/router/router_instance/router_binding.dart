@@ -7260,7 +7260,7 @@ class RouterBinding {
         'error': error.toString(),
         'stackTrace': stackTrace.toString(),
       });
-      pending.responseStream = null;
+      // Keep ownership until _completeHttpRequest closes the failed stream.
       return false;
     }
   }

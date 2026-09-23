@@ -41,6 +41,7 @@ import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
 part 'support/http_edge_cases.dart';
+part 'support/http_progressive_failure_cases.dart';
 part 'support/http_initial_auth_cases.dart';
 part 'support/http_auth_abort_cases.dart';
 part 'support/http_auth_provider_failure_cases.dart';
@@ -3943,6 +3944,7 @@ void main() {
   _httpBossOwnershipCases();
   _httpEarlyCleanupCases();
   _httpEdgeCases();
+  _httpProgressiveFailureCases();
   _fileResponseCleanupTests();
   _httpRoundAuthenticationTests();
   _httpInitialAuthenticationTests();

@@ -6,6 +6,17 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work256 implemented: progressive HTTP chunk-write failure reproduced a response
+stream leak: the failed stream was detached before request cleanup could close
+it. Retaining ownership until cleanup fixes the leak. Two fault-injection
+regressions assert open/write failure diagnostics, single handshake release,
+stream closure, and subsequent request success through the same registration.
+Both regressions and all 490 router runtime tests pass; targeted analysis passes.
+Mutation support inventories now include the new test part. Fast checks caught
+that missing inventory entry; its focused regression passes after correction.
+Fast checks and full verification passed after correction, including browser
+WASM tests (`/tmp/connectanum-verify256.log`). No new coverage percentage is claimed.
+
 Work255 implemented: six state-store command-port regressions cover enveloped and
 bare command failures, subsequent valid requests, unknown invocation no-op
 contracts, and known-version snapshots before/after caching. Focused tests and

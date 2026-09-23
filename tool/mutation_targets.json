@@ -127,6 +127,7 @@
     "supportFiles": [
       "packages/connectanum_router/test/support/native_lib.dart",
       "packages/connectanum_router/test/support/http_edge_cases.dart",
+      "packages/connectanum_router/test/support/http_progressive_failure_cases.dart",
       "packages/connectanum_router/test/support/http_initial_auth_cases.dart",
       "packages/connectanum_router/test/support/http_auth_abort_cases.dart",
       "packages/connectanum_router/test/support/http_auth_provider_failure_cases.dart",
@@ -583,6 +584,7 @@
     ],
     "supportFiles": [
       "packages/connectanum_router/test/support/http_edge_cases.dart",
+      "packages/connectanum_router/test/support/http_progressive_failure_cases.dart",
       "packages/connectanum_router/test/support/http_initial_auth_cases.dart",
       "packages/connectanum_router/test/support/http_auth_abort_cases.dart",
       "packages/connectanum_router/test/support/http_auth_provider_failure_cases.dart",
@@ -604,6 +606,7 @@
     "mutationLineRanges": [[1100, 1257]],
     "supportFiles": [
       "packages/connectanum_router/test/support/http_edge_cases.dart",
+      "packages/connectanum_router/test/support/http_progressive_failure_cases.dart",
       "packages/connectanum_router/test/support/http_initial_auth_cases.dart",
       "packages/connectanum_router/test/support/http_auth_abort_cases.dart",
       "packages/connectanum_router/test/support/http_auth_provider_failure_cases.dart",

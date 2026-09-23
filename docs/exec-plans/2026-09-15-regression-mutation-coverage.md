@@ -67,6 +67,19 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work256 Progressive HTTP Stream Ownership
+
+- New open/write fault regressions reproduce a stream leak on chunk-write
+  failure before the fix (`/tmp/connectanum-progressive256-red.log`). The write
+  catch detached the stream before `_completeHttpRequest` could close it.
+- Retain the stream until existing cleanup. Both regressions pass, asserting
+  diagnostics, request identity, handshake release, closure and a second request
+  through the same registration. All 490 router runtime tests and analysis pass.
+- Added the new part file to all relevant mutation support inventories after
+  fast checks detected the omission. The inventory regression, final fast
+  checks and full verification pass, including browser WASM tests
+  (`/tmp/connectanum-verify256.log`). Prior coverage scores predate this change.
+
 ### Work255 Command Recovery And Refreshed VM Evidence
 
 - Fresh pre-edit full VM collection completed at
