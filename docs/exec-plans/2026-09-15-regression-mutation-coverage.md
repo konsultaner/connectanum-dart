@@ -67,6 +67,18 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work276 Callee Close And Invocation Touch
+
+- Add callee-close isolation assertions for records and active retry leases,
+  preserving another callee's invocation. Add live no-timeout/forwarded touch
+  success and post-completion/removal failure assertions using command replies
+  as ordering barriers, not timer sleeps.
+- Fast276, all 97 state tests (`/tmp/connectanum-state276-tests.log`), targeted
+  analysis and diff checks pass. Full `bin/verify` passed with exit 0 at
+  `/tmp/connectanum-verify276.log`. Local review's ordering concern was checked
+  against same-port FIFO and awaited responses; no extra sleep is needed.
+  No production changes or new mutation score.
+
 ### Work275 Native Header And Error Classification Assertions
 
 - Add positive/negative header predicate cases for missing, incorrect, partial,

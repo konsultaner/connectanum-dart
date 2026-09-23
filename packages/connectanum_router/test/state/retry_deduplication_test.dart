@@ -490,6 +490,77 @@ void main() {
     );
   }
 
+  test(
+    'closing a callee releases only its invocations and retry leases',
+    () async {
+      final calls = <InvocationDispatchResult>[];
+      for (final callee in [2001, 2002]) {
+        final procedure = 'com.example.callee.$callee';
+        await context.registerProcedure(
+          sessionId: callee,
+          procedure: procedure,
+          details: const {'auto_deduplication': 0},
+        );
+        calls.add(
+          await context.dispatchInvocation(
+            callerSessionId: 1001,
+            requestId: callee,
+            procedure: procedure,
+            options: const {'transaction_hash': 'same-hash'},
+          ),
+        );
+      }
+      expect((await _metrics(store)).pendingInvocationCount, 2);
+      expect((await _metrics(store)).retryDeduplicationActiveCount, 2);
+      store.commandPort.send(
+        SessionCloseCommand(realmUri: realm, sessionId: 2001),
+      );
+      expect(await context.getInvocation(calls.first.invocationId), isNull);
+      final remaining = await context.getInvocation(calls.last.invocationId);
+      expect(remaining, isNotNull);
+      expect(remaining!.calleeSessionId, 2002);
+      expect(remaining.callerSessionId, 1001);
+      expect((await _metrics(store)).pendingInvocationCount, 1);
+      expect((await _metrics(store)).retryDeduplicationActiveCount, 1);
+      expect(await context.touchInvocation(calls.first.invocationId), isFalse);
+      expect(await context.touchInvocation(calls.last.invocationId), isTrue);
+      await context.completeInvocation(calls.last.invocationId);
+      expect((await _metrics(store)).pendingInvocationCount, 0);
+      expect((await _metrics(store)).retryDeduplicationActiveCount, 0);
+    },
+  );
+
+  for (final forwarded in [false, true]) {
+    test(
+      'touch preserves an existing invocation with forwarding $forwarded',
+      () async {
+        const procedure = 'com.example.touch';
+        await context.registerProcedure(
+          sessionId: 2001,
+          procedure: procedure,
+          details: {'forward_timeout': forwarded},
+        );
+        final call = await context.dispatchInvocation(
+          callerSessionId: 1001,
+          requestId: 98,
+          procedure: procedure,
+          options: forwarded ? const {'timeout': 50000} : const {},
+        );
+        expect(await context.touchInvocation(call.invocationId), isTrue);
+        final record = await context.getInvocation(call.invocationId);
+        expect(record, isNotNull);
+        expect(record!.timeout, forwarded ? 50000 : isNull);
+        expect(record.timeoutForwarded, forwarded);
+        expect(record.callerSessionId, 1001);
+        expect(record.calleeSessionId, 2001);
+        await context.completeInvocation(call.invocationId);
+        expect(await context.touchInvocation(call.invocationId), isFalse);
+        expect(await context.getInvocation(call.invocationId), isNull);
+        expect((await _metrics(store)).pendingInvocationCount, 0);
+      },
+    );
+  }
+
   for (final (forwarding, expected) in <(Object?, bool)>[
     (null, false),
     (false, false),

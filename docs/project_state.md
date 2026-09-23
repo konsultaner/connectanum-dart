@@ -6,6 +6,15 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work276 local state lifecycle regressions assert that closing one callee removes
+only its invocation and retry lease while an independent callee's work remains.
+Touch tests assert success and preserved records for live no-timeout/forwarded
+invocations and false after completion/removal. Fast276, all 97 state tests and
+targeted analysis pass. Full `bin/verify` passed with exit 0 at
+`/tmp/connectanum-verify276.log`. Local review's ordering concern is addressed
+by the existing same-port FIFO and awaited command responses; no sleep is needed.
+No production behavior changed or new mutation score is claimed.
+
 Work275 local native protocol assertions cover missing/incorrect/partial upgrade
 headers, mixed-case complete comma-delimited tokens and every supported malformed
 HTTP error classification. Fast275 and all 12 focused protocol tests pass; full
