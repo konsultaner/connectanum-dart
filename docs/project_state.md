@@ -6,6 +6,14 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work257 implemented: the isolated native mutation collector now supports
+`core-protocol`, targeting all candidates in `ct_core/src/protocol.rs` and
+running the full core library suite, including integration tests. Target/CLI
+regressions failed before the addition and pass afterward. All 32 collector
+tests, final fast checks and full verification pass, including browser WASM
+tests (`/tmp/connectanum-verify257.log`). A complete protocol campaign is next;
+no protocol mutation score is claimed yet. Audit classification is unchanged.
+
 Work256 implemented: progressive HTTP chunk-write failure reproduced a response
 stream leak: the failed stream was detached before request cleanup could close
 it. Retaining ownership until cleanup fixes the leak. Two fault-injection

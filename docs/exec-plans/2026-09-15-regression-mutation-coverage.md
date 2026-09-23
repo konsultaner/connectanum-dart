@@ -67,6 +67,18 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work257 Native Protocol Mutation Collection
+
+- Added `core-protocol` to the private-snapshot collector, with complete
+  `ct_core/src/protocol.rs` candidate selection and all core library tests.
+  Command/CLI regressions reject the absent target before the implementation
+  and pass afterward. No sampling, exclusion or assertion-auditor changes.
+- All 32 collector tests, final fast checks and full verification pass,
+  including browser WASM tests (`/tmp/connectanum-verify257.log`).
+- Next measurement: `bin/collect-native-mutations --target core-protocol` with
+  a fresh output directory. This expands measured scope beyond the three
+  previously supported targets; no protocol mutation result exists yet.
+
 ### Work256 Progressive HTTP Stream Ownership
 
 - New open/write fault regressions reproduce a stream leak on chunk-write

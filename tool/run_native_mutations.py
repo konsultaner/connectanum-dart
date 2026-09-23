@@ -21,6 +21,8 @@ TARGETS = {
     'core-wamp': ('ct_core/src/wamp.rs', 'wamp::'),
     # Configuration influences every transport; use all core library tests.
     'core-config': ('ct_core/src/config.rs', ''),
+    # Negotiation is exercised by transport integration tests as well as units.
+    'core-protocol': ('ct_core/src/protocol.rs', ''),
 }
 
 
