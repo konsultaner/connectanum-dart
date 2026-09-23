@@ -511,6 +511,9 @@ class NativeMutationTests(unittest.TestCase):
             with self.subTest(target=target):
                 campaign, restored = collector.commands(work, Path('/evidence'), target)
                 self.assertEqual(campaign[campaign.index('--file') + 1], source)
+                self.assertEqual(campaign[campaign.index('--timeout') + 1],
+                                 '90' if target == 'core-protocol' else '30')
+                self.assertEqual(campaign[campaign.index('--build-timeout') + 1], '180')
                 self.assertIn('--in-place', campaign)
                 self.assertIn('--no-config', campaign)
                 self.assertIn('--cargo-arg=--locked', campaign)

@@ -67,6 +67,36 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work260 Protocol Campaign Time Budget
+
+- Work259 timing evidence at
+  `out/regression-coverage-2026-09-15/native259-timeout-diagnostic/mutants.out`
+  replays seven previous timeouts and two controls. All nine complete; the
+  seven former timeouts take 31-43s, exceeding the previous 30s limit, while
+  the unmutated baseline takes 21s. This selected diagnostic is not a complete
+  campaign or an assertion-backed mutation score.
+- Allow 90s for protocol test runs so cumulative bounded network failures can
+  finish with headroom; retain 30s for other targets and 180s build limits.
+  Candidate/test scope and strict auditing are unchanged. The command contract
+  regression fails before the change and all 32 collector tests pass afterward.
+- Fast checks and full verification passed (`/tmp/connectanum-verify260.log`,
+  including browser WASM tests). A fresh complete campaign is still required;
+  prior timeout outcomes must not be retroactively credited as kills.
+
+### Work261 HTTP Writer And Query Regressions
+
+- Add bounded loopback assertions for exact owned-response status/header bytes
+  and EOF across all current reason phrases, unknown-status fallback and both
+  HTTP/1.0 and HTTP/1.1. This pins the existing low-level writer contract; it
+  does not establish general HTTP conformance or high-level response policy.
+- Add empty path/query, one-character query, multiple separators and encoded
+  separator cases. Expected values are independent of implementation helpers.
+- Deleting the explicit 200 reason arm appears equivalent to its fallback;
+  no waiver is applied. All 270 native core tests pass, including both new
+  matrices. Full verification passed, including browser WASM tests, at
+  `/tmp/connectanum-verify260.log`. A fresh mutation audit remains required
+  before attributing any score improvement to these tests.
+
 ### Work258 Protocol Metadata Regressions
 
 - Complete Work257 protocol evidence retains all 187 candidates: 47 assertion

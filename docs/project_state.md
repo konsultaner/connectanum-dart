@@ -6,6 +6,23 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work261 verified: two additional native regression matrices assert exact
+owned HTTP response bytes and EOF for all current reason phrases across HTTP/1.0
+and HTTP/1.1, plus empty/single-character/encoded query boundaries. These pin
+the existing low-level writer contract, not general HTTP conformance. No new
+mutation score is claimed. All 270 native core tests pass, including both new
+matrices. Full verification passed with Work260, including browser WASM tests
+(`/tmp/connectanum-verify260.log`).
+
+Work260 verified: the native protocol mutation test budget is now 90s,
+with other targets unchanged at 30s. Work259's isolated timing diagnostic
+replayed all seven former timeouts plus two controls: all nine finished, with
+the former timeouts taking 31-43s against a 21s baseline. This is diagnostic
+evidence, not an audited mutation score. The timeout contract regression failed
+before the change and all 32 collector tests pass afterward. Fast checks passed;
+full verification passed. Candidate scope and strict assertion-kill
+classification are unchanged.
+
 Work258 implemented: native protocol regressions cover body lengths across buffered,
 finished and streaming phases; WebSocket body rejection and retained metadata;
 HTTP/2 metadata/socket ownership after split; and HTTP/3 first-match ALPN

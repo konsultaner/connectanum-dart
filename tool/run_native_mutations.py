@@ -52,12 +52,15 @@ def copy_inputs(root, work, hashes):
 
 def commands(work, output, target='core-rawsocket'):
     source, test_filter = target_options(target)
+    # Protocol faults trigger multiple bounded network failures in the serial
+    # suite (31-43 seconds observed); allow completion before auditing failures.
+    test_timeout = '90' if target == 'core-protocol' else '30'
     prefix = ['env', f'CARGO_TARGET_DIR={work / "target"}']
     manifest = str(work / 'native/transport/Cargo.toml')
     campaign = [*prefix, 'cargo', 'mutants', '--no-config', '--in-place',
                 '--manifest-path', manifest, '--package', 'ct_core',
                 '--file', source, '--features', 'ffi-test',
-                '--test-workspace', 'false', '--timeout', '30', '--build-timeout', '180',
+                '--test-workspace', 'false', '--timeout', test_timeout, '--build-timeout', '180',
                 '--cargo-arg=--locked', '--output', str(output),
                 '--', '--lib', '--', test_filter, '--test-threads=1']
     restored = [*prefix, 'cargo', 'test', '--manifest-path', manifest,
