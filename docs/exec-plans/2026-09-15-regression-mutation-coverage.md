@@ -67,6 +67,109 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work262-267 Batch Verification
+
+- Full `bin/verify` exited 0 (`/tmp/connectanum-verify262.log`), including native,
+  tooling, Dart, consumer smoke and browser WASM suites. All 54 focused state
+  tests pass and targeted analysis is clean. Pre-edit fast260 passed.
+- State267 and native261 completed audits are retained below; neither establishes
+  whole-component target completion. The last pushed HEAD's package publish dry
+  run succeeded; its CI was queued at the last check. Check the new commit's
+  hosted chain separately after push.
+
+### Work261 Complete Protocol Remeasurement
+
+- All 187 candidates processed; 170 viable, 96 assertion kills, 23 survivors,
+  51 errors, 17 compile errors and no timeouts. Raw/adjusted score 56.471%, up
+  from 27.647%, with no equivalent waivers. Restored baseline passes; evidence
+  remains unclean because runtime errors are not assertion kills.
+- Retained evidence:
+  `out/regression-coverage-2026-09-15/native261-protocol-mutations`.
+  Inputs match the tested native snapshot. The campaign is terminal; queued
+  full verification of the pending batch passed at
+  `/tmp/connectanum-verify262.log`. Do not infer whole-native coverage from this
+  protocol-only score.
+
+### Work267 Progressive Rejection State Regressions
+
+- Complete remeasurement: unchanged 363 candidates, 105 survivors, 16 timeouts,
+  127 compile errors, 115 failing-test outcomes (57 assertion-only, 40 mixed
+  including assertions, 18 test-error-only). Raw/adjusted assertion score is
+  97/236 (41.102%), up from 73/236 (30.932%), with no waivers. Clean/restored
+  baselines pass; the 95% gate remains red. All 11 disclosure-condition/identity
+  mutations and the two targeted progressive rejection guards have assertion-only
+  kill evidence. This measures the focused state-store scope, not the router.
+- Assert exact changed-procedure and closed-input rejection through the state
+  API. Check preservation of the original procedure, options, registration,
+  callee and open-input state after rejection; verify final-chunk acceptance,
+  closed state, completion and a later independent call with no pending leak.
+- All 54 state tests pass (`/tmp/connectanum-state267-all.log`), targeted
+  analysis is clean and local companion review found no confirmed defect.
+  Complete state-store mutation measurement is retained at
+  `out/regression-coverage-2026-09-15/state267-mutations`, with unchanged full
+  source scope, suites and 95% threshold. Source/test hashes match this batch.
+- Native261 retains exclusive native-runtime use; full verification is already
+  queued behind it. No native campaign inputs changed. Existing fast260 passed
+  before this pending implementation batch; no duplicate native test run starts.
+
+### Work266 Caller Disclosure State Regressions
+
+- Add nine cases for caller/registration disclosure truth values, absent values,
+  and string/integer values that must not enable disclosure. Assert all three
+  identity fields in dispatch and stored invocation, frozen initiating options
+  across progressive chunks, callee/registration pinning and completion cleanup.
+- These tests postdate state263: no improved mutation score is claimed. All 53
+  state tests and targeted analysis pass (`/tmp/connectanum-state266-final.log`).
+  Local companion review found no confirmed defect; its suggested dispatch
+  property does not exist and retry deduplication is not enabled in these cases.
+  Whole-repository verification remains queued behind native261. Native campaign
+  inputs are unchanged. Pre-edit fast260 and the focused pre-edit baseline pass.
+
+### Work263 Complete State Store Audit
+
+- Complete inventory: 363 candidates, 121 survivors, 16 timeouts, 127 compile
+  errors; 99 failing-test outcomes comprise 41 assertion-only, 32 mixed with
+  assertion evidence and 26 test-error-only outcomes. Assertion-backed raw and
+  adjusted scores are 73/236 (30.932%), with no equivalent waivers. Clean and
+  restored baselines pass; the 95% gate fails honestly.
+- Evidence: `out/regression-coverage-2026-09-15/state263-mutations`. This measures
+  the full store source against the focused state suites, not the entire router.
+  Existing worker tests cover progressive-call rejection, but are outside this
+  focused target; those survivors are not proof that the broader suite lacks
+  such tests. Caller-disclosure survivors are prioritized for direct assertions.
+
+### Work263 State Store Mutation Inventory
+
+- Add `router-state-store-vm` for the complete `state/store.dart` candidate
+  inventory, running all three pure-Dart state test files. An exact inventory
+  contract rejects filtering/config drift and missing or duplicated suites;
+  it failed before the target existed and passes afterward.
+- All 89 runner tests pass with one skip. Isolated clean/restored baselines
+  pass with 363 candidates at
+  `out/regression-coverage-2026-09-15/state263-baseline`. Baseline-only evidence
+  is not a score. The complete pure-Dart campaign finished at
+  `out/regression-coverage-2026-09-15/state263-mutations`, with native builds
+  disabled. This target is a state-store scope, not whole-router coverage.
+- Native261 retains exclusive native-runtime use. Full verification remains
+  queued after it; no new score or whole-milestone completion is claimed.
+
+### Work262 State Rejection And Recovery
+
+- Eleven pure-Dart cases verify exact malformed CALL timeout errors with and
+  without retry deduplication, no pending invocation or retry lease after
+  rejection, valid zero-timeout recovery using the same hash, and cleanup after
+  completion. Registration cases cover unknown sessions, duplicate single
+  registrations and conflicting shared invocation policies while preserving
+  the original callee and successful subsequent dispatch.
+- All 44 state tests pass (`/tmp/connectanum-state262-final.log`); targeted
+  analysis is clean. These tests use no native runtime and do not alter the
+  active native261 campaign's source/test snapshot. Full verification is
+  pending until that campaign finishes. No package-wide score is claimed.
+- Focused VM coverage at `out/regression-coverage-2026-09-15/state262-final`
+  includes raw data, LCOV and tracked Dart source/test hashes. It exercises 15
+  store lines listed as missed in VM255: 537-538, 562-564, 566, 726-732, 1042
+  and 1045. This comparison is not a new whole-package coverage percentage.
+
 ### Work260 Protocol Campaign Time Budget
 
 - Work259 timing evidence at

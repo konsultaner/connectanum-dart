@@ -529,6 +529,14 @@
     "sources": ["packages/connectanum_router/lib/src/router/models/router_metrics.dart"],
     "tests": ["packages/connectanum_router/test/router_metrics_model_test.dart"]
   },
+  "router-state-store-vm": {
+    "sources": ["packages/connectanum_router/lib/src/router/state/store.dart"],
+    "tests": [
+      "packages/connectanum_router/test/state/pattern_matching_test.dart",
+      "packages/connectanum_router/test/state/retry_deduplication_test.dart",
+      "packages/connectanum_router/test/state/store_command_recovery_test.dart"
+    ]
+  },
   "client-message-binding-vm": {
     "sources": ["packages/connectanum_client/lib/src/transport/native/message_binding.dart"],
     "tests": ["packages/connectanum_client/test/transport/native/message_binding_test.dart"],

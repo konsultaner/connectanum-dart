@@ -614,6 +614,18 @@ class MutationRunnerTests(unittest.TestCase):
                     'packages/connectanum_core/test/message_stream_owner_close_test.dart',
                     targets[f'core-{owner}-{runtime}']['tests'])
 
+    def test_router_state_store_target_keeps_full_source_and_all_state_tests(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['router-state-store-vm']
+        self.assertEqual(set(target), {'sources', 'tests'})
+        self.assertEqual(target['sources'], [
+            'packages/connectanum_router/lib/src/router/state/store.dart'])
+        self.assertEqual(set(target['tests']), {
+            str(path.relative_to(runner.ROOT))
+            for path in (runner.ROOT / 'packages/connectanum_router/test/state').glob('*_test.dart')
+        })
+        self.assertEqual(len(target['tests']), len(set(target['tests'])))
+
     def test_split_native_and_router_suites_pin_all_parts(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         for name in ('client-native-runtime-vm', 'client-native-transports-vm',

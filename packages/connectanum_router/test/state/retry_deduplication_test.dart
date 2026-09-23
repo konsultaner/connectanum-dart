@@ -56,6 +56,185 @@ void main() {
     if (!disposed) store.dispose();
   });
 
+  for (final (callerOption, calleeOption, disclosed)
+      in <(Object?, Object?, bool)>[
+        (false, false, false),
+        (true, false, true),
+        (false, true, true),
+        (true, true, true),
+        (null, null, false),
+        ('true', null, false),
+        (null, 'true', false),
+        (1, null, false),
+        (null, 1, false),
+      ]) {
+    test(
+      'caller disclosure $callerOption/$calleeOption stays frozen across chunks',
+      () async {
+        const procedure = 'com.example.disclosure';
+        final registration = await context.registerProcedure(
+          sessionId: 2001,
+          procedure: procedure,
+          details: {'disclose_caller': ?calleeOption},
+        );
+        final options = <String, Object?>{
+          'disclose_me': ?callerOption,
+          'receive_progress': true,
+          'trace_id': 'initial',
+        };
+        final first = await context.dispatchInvocation(
+          callerSessionId: 1001,
+          requestId: 80,
+          procedure: procedure,
+          options: {...options, 'progress': true},
+        );
+        final expectedIdentity = <Object?>[
+          disclosed ? 1001 : null,
+          disclosed ? 'caller-a' : null,
+          disclosed ? 'member' : null,
+        ];
+        expect(first.registrationId, registration);
+        expect(first.calleeSessionId, 2001);
+        expect([
+          first.disclosedCallerSessionId,
+          first.disclosedCallerAuthId,
+          first.disclosedCallerAuthRole,
+        ], expectedIdentity);
+        expect(first.initiatingOptions, options);
+        expect(first.progressiveInvocation, isTrue);
+        expect(first.progress, isTrue);
+
+        final last = await context.dispatchInvocation(
+          callerSessionId: 1001,
+          requestId: 80,
+          procedure: procedure,
+          options: {
+            'progress': false,
+            'disclose_me': !disclosed,
+            'receive_progress': false,
+            'trace_id': 'changed',
+          },
+        );
+        expect(last.invocationId, first.invocationId);
+        expect(last.registrationId, registration);
+        expect(last.calleeSessionId, 2001);
+        expect([
+          last.disclosedCallerSessionId,
+          last.disclosedCallerAuthId,
+          last.disclosedCallerAuthRole,
+        ], expectedIdentity);
+        expect(last.initiatingOptions, options);
+        expect(last.progressiveInvocation, isTrue);
+        expect(last.progress, isFalse);
+        final record = await context.getInvocation(first.invocationId);
+        expect(record, isNotNull);
+        expect([
+          record!.disclosedCallerSessionId,
+          record.disclosedCallerAuthId,
+          record.disclosedCallerAuthRole,
+        ], expectedIdentity);
+        expect(record.initiatingOptions, options);
+        expect(record.allowProgress, isTrue);
+        expect(record.progressiveInvocationOpen, isFalse);
+        expect((await _metrics(store)).totalInvocationsDispatched, 1);
+        await context.completeInvocation(first.invocationId);
+        expect(await context.getInvocation(first.invocationId), isNull);
+      },
+    );
+  }
+
+  test('progressive rejection preserves the original invocation', () async {
+    const procedure = 'com.example.progressive.recovery';
+    const otherProcedure = 'com.example.progressive.other';
+    final registration = await context.registerProcedure(
+      sessionId: 2001,
+      procedure: procedure,
+      details: const {},
+    );
+    await context.registerProcedure(
+      sessionId: 2002,
+      procedure: otherProcedure,
+      details: const {},
+    );
+    final first = await context.dispatchInvocation(
+      callerSessionId: 1001,
+      requestId: 81,
+      procedure: procedure,
+      options: const {'progress': true, 'trace_id': 'initial'},
+    );
+    await expectLater(
+      context.dispatchInvocation(
+        callerSessionId: 1001,
+        requestId: 81,
+        procedure: otherProcedure,
+        options: const {'progress': false, 'trace_id': 'rejected'},
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'Bad state: Invalid progressive invocation: procedure changed from '
+              '$procedure to $otherProcedure',
+        ),
+      ),
+    );
+    var record = await context.getInvocation(first.invocationId);
+    expect(record, isNotNull);
+    expect(record!.procedure, procedure);
+    expect(record.progressiveInvocationOpen, isTrue);
+    expect(record.initiatingOptions, {'trace_id': 'initial'});
+    expect(record.registrationId, registration);
+    expect(record.calleeSessionId, 2001);
+    expect((await _metrics(store)).pendingInvocationCount, 1);
+
+    final last = await context.dispatchInvocation(
+      callerSessionId: 1001,
+      requestId: 81,
+      procedure: procedure,
+      options: const {'progress': false},
+    );
+    expect(last.invocationId, first.invocationId);
+    expect(last.registrationId, registration);
+    expect(last.calleeSessionId, 2001);
+    expect(last.progressiveInvocation, isTrue);
+    expect(last.progress, isFalse);
+    await expectLater(
+      context.dispatchInvocation(
+        callerSessionId: 1001,
+        requestId: 81,
+        procedure: procedure,
+        options: const {'progress': true},
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'Bad state: Invalid progressive invocation: invocation '
+              '${first.invocationId} is not accepting more chunks',
+        ),
+      ),
+    );
+    record = await context.getInvocation(first.invocationId);
+    expect(record, isNotNull);
+    expect(record!.progressiveInvocationOpen, isFalse);
+    expect(record.initiatingOptions, {'trace_id': 'initial'});
+    expect((await _metrics(store)).totalInvocationsDispatched, 1);
+    await context.completeInvocation(first.invocationId);
+    final next = await context.dispatchInvocation(
+      callerSessionId: 1001,
+      requestId: 82,
+      procedure: procedure,
+      options: const {},
+    );
+    expect(next.invocationId, isNot(first.invocationId));
+    expect(next.registrationId, registration);
+    expect(next.calleeSessionId, 2001);
+    expect(next.progressiveInvocation, isFalse);
+    expect((await _metrics(store)).totalInvocationsDispatched, 2);
+    await context.completeInvocation(next.invocationId);
+    expect((await _metrics(store)).pendingInvocationCount, 0);
+  });
+
   test('throttle shares hashes and releases on completion', () async {
     const procedure = 'com.example.checkout';
     final details = {
@@ -324,6 +503,120 @@ void main() {
     expect(metrics.retryDeduplicationActiveCount, 0);
     expect(metrics.totalInvocationsDispatched, 0);
   });
+
+  for (final policy in <String?>[null, 'single', 'roundrobin']) {
+    test('registration failure preserves state for policy=$policy', () async {
+      const procedure = 'com.example.registration.recovery';
+      int? registration;
+      if (policy != null) {
+        registration = await context.registerProcedure(
+          sessionId: 2001,
+          procedure: procedure,
+          details: {'invoke': policy},
+        );
+      }
+      final expectedError = switch (policy) {
+        null => 'Bad state: Session 9999 not found in realm realm1',
+        'single' => 'Bad state: Procedure $procedure already registered',
+        _ =>
+          'Bad state: Procedure $procedure already registered with policy roundRobin',
+      };
+      await expectLater(
+        context.registerProcedure(
+          sessionId: policy == null ? 9999 : 2002,
+          procedure: procedure,
+          details: {if (policy == 'roundrobin') 'invoke': 'first'},
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            expectedError,
+          ),
+        ),
+      );
+      final rejected = await _metrics(store);
+      expect(rejected.registrationCount, policy == null ? 0 : 1);
+      expect(rejected.pendingInvocationCount, 0);
+      expect(rejected.totalInvocationsDispatched, 0);
+      registration ??= await context.registerProcedure(
+        sessionId: 2001,
+        procedure: procedure,
+      );
+      final dispatched = await context.dispatchInvocation(
+        callerSessionId: 1001,
+        requestId: 69,
+        procedure: procedure,
+        options: const {},
+      );
+      expect(dispatched.registrationId, registration);
+      expect(dispatched.calleeSessionId, 2001);
+      expect((await _metrics(store)).registrationCount, 1);
+      await context.completeInvocation(dispatched.invocationId);
+      expect((await _metrics(store)).pendingInvocationCount, 0);
+    });
+  }
+
+  for (final throttled in [false, true]) {
+    for (final timeout in <Object>['1', 1.5, true, -1]) {
+      test(
+        'invalid timeout $timeout recovers with throttle=$throttled',
+        () async {
+          const procedure = 'com.example.timeout.recovery';
+          final registration = await context.registerProcedure(
+            sessionId: 2001,
+            procedure: procedure,
+            details: {if (throttled) 'auto_deduplication': 0},
+          );
+          await expectLater(
+            context.dispatchInvocation(
+              callerSessionId: 1001,
+              requestId: 70,
+              procedure: procedure,
+              options: {'transaction_hash': 'same-call', 'timeout': timeout},
+            ),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'message',
+                timeout is int
+                    ? 'Bad state: CALL timeout must be >= 0'
+                    : 'Bad state: CALL timeout must be an integer',
+              ),
+            ),
+          );
+          final rejected = await _metrics(store);
+          expect(rejected.totalInvocationsDispatched, 0);
+          expect(rejected.pendingInvocationCount, 0);
+          expect(rejected.retryDeduplicationActiveCount, 0);
+          expect(rejected.registrationCount, 1);
+
+          final dispatched = await context.dispatchInvocation(
+            callerSessionId: 1001,
+            requestId: 71,
+            procedure: procedure,
+            options: const {'transaction_hash': 'same-call', 'timeout': 0},
+          );
+          expect(dispatched.registrationId, registration);
+          expect(dispatched.calleeSessionId, 2001);
+          final pending = await context.getInvocation(dispatched.invocationId);
+          expect(pending, isNotNull);
+          expect(pending?.callerRequestId, 71);
+          expect(pending?.callerSessionId, 1001);
+          expect(pending?.timeout, isNull);
+          final accepted = await _metrics(store);
+          expect(accepted.totalInvocationsDispatched, 1);
+          expect(accepted.pendingInvocationCount, 1);
+          expect(accepted.retryDeduplicationActiveCount, throttled ? 1 : 0);
+          await context.completeInvocation(dispatched.invocationId);
+          expect(await context.getInvocation(dispatched.invocationId), isNull);
+          final completed = await _metrics(store);
+          expect(completed.pendingInvocationCount, 0);
+          expect(completed.retryDeduplicationActiveCount, 0);
+        },
+      );
+    }
+  }
 
   for (final invalid in [
     (field: 'invoke', value: 42, message: 'must be a String'),
