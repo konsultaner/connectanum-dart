@@ -534,7 +534,8 @@
     "tests": [
       "packages/connectanum_router/test/state/pattern_matching_test.dart",
       "packages/connectanum_router/test/state/retry_deduplication_test.dart",
-      "packages/connectanum_router/test/state/store_command_recovery_test.dart"
+      "packages/connectanum_router/test/state/store_command_recovery_test.dart",
+      "packages/connectanum_router/test/state/subscription_lifecycle_test.dart"
     ]
   },
   "client-message-binding-vm": {

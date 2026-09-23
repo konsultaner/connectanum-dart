@@ -67,6 +67,91 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work271/272/274 Full Verification
+
+- Full `bin/verify` passed with exit 0 at `/tmp/connectanum-verify271.log`,
+  including browser WASM suites. All 94 focused state tests and targeted
+  analysis pass; Fast269 passed before the accumulated regression batch.
+- This supersedes running/queued verification notes below. Passing WASM tests
+  are not measured WASM coverage. State274 and native270 mutation gates remain
+  below target; the overall milestone is incomplete.
+
+### Work270 Completed Native Audit
+
+- Complete protocol inventory from `21a3d20a` finished at
+  `out/regression-coverage-2026-09-15/native270-protocol-mutations`:
+  187 generated / 170 viable, 97 assertion kills, 21 survivors, 52 errors,
+  17 compile errors, no equivalent waivers. Raw/adjusted score is 57.059%,
+  versus 56.471% previously; evidenceClean remains false.
+- The native runtime is released. Full verification of the accumulated Dart
+  changes is running at `/tmp/connectanum-verify271.log`. Earlier notes saying
+  queued refer to the campaign phase; do not start duplicate verification.
+
+### Work274 Recipient Decoder Boundaries
+
+- Six additional routing cases cover numeric-string IDs, duplicates, mixed
+  invalid/null/double ID elements and null/empty identity elements. Expected
+  recipient sets are independent of private decoder calls. In particular,
+  double 2.0 is not parsed as integer 2.
+- All 94 state tests pass (`/tmp/connectanum-state274-all.log`), targeted
+  analysis and diff checks pass. Local review's speculative alias/precedence
+  concerns were checked against the existing singular-key fallback and
+  intersecting filters; no new protocol behavior is asserted.
+- Full 363-candidate remeasurement completed at
+  `out/regression-coverage-2026-09-15/state274-mutations`: 236 viable candidates,
+  107 assertion-only / 43 mixed assertion-backed kills, 17 test-error-only
+  outcomes, 52 survivors, 17 timeouts and 127 compile errors. Both baselines
+  pass and no equivalents are waived. Strict raw/adjusted score remains
+  63.559%; exit 1 correctly reports the failed 95% gate. The additional failure
+  is a test error and does not improve the assertion score.
+  Native270 is unchanged and still
+  owns native-runtime verification; full verification is queued after it.
+
+### Work272 Subscription Lifecycle And Routing
+
+- Add 25 direct state cases for shared subscription metadata, ownership-safe
+  unsubscribe, invalid-session recovery, resubscription recipient deduplication,
+  detached routing details and recipient filter intersections/aliases, including
+  absent identities and empty eligibility lists. This tests state behavior, not
+  worker authorization or a new wire-protocol claim.
+- All 88 state tests pass (`/tmp/connectanum-state272-all.log`) and targeted
+  analysis is clean; local review found no concrete defect. Add the new suite
+  to the complete store mutation target. The inventory contract fails before
+  that config update and passes afterward; an earlier import-error invocation
+  was corrected and is not regression evidence.
+- Full source scope and strict scoring are unchanged. Complete remeasurement
+  at `out/regression-coverage-2026-09-15/state272-mutations` with all four state
+  suites yields 363 generated / 236 viable candidates: 107 assertion-only and
+  43 mixed assertion-backed kills, 16 test-error-only outcomes, 53 survivors,
+  17 timeouts and 127 compile errors. Raw/adjusted assertion score is 63.559%
+  (previously 41.102%); no equivalent waivers. Both baselines pass. Exit 1 is
+  the expected failed 95% assertion gate, not an incomplete campaign.
+  Native270 inputs remain unchanged; full verification remains queued behind
+  its exclusive native-runtime use.
+
+### Work271 State Cancellation And Timeout Ownership
+
+- Add nine cases: cancellation with/without acknowledgement retains/releases
+  the throttle lease and permits retry after completion; forwarding requires
+  exact true in metadata and stored state; a forwarded timeout remains pending
+  when a later locally owned timer expires; closing one caller cancels only its
+  pending debounce while another caller dispatches successfully.
+- Metrics replies provide command-order barriers rather than arbitrary sleeps.
+  Listeners are attached before dispatch and all asynchronous waits are bounded;
+  a timeout remains a timeout, not an assertion kill. Review prompted removing
+  unnecessary completion after killnowait. No production change.
+- All 63 state tests pass (`/tmp/connectanum-state271-final.log`), with targeted
+  analysis clean. Fast269 passed before this batch. Full verification is queued
+  behind native270's exclusive native use; state267 predates these tests and no
+  new mutation score is claimed.
+
+### Work270 Protocol Remeasurement In Progress
+
+- Complete native protocol audit from `21a3d20a` is running at
+  `out/regression-coverage-2026-09-15/native270-protocol-mutations`. Retain its
+  unchanged full source/test snapshot and strict classification; no duplicate
+  native runtime user should start until the collector is terminal.
+
 ### Work269 Parser Result Assertions
 
 - Native261 logs include expected-valid parser tests aborting through `expect`

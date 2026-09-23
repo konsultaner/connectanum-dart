@@ -6,6 +6,59 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work271/272/274 verification complete: full `bin/verify` passed with exit 0 at
+`/tmp/connectanum-verify271.log`, including browser WASM suites. All 94 focused
+state tests pass. Earlier running/queued notes below are historical. These
+passing tests do not establish measured WASM coverage or the overall coverage
+and mutation targets. Fast269 passed before this accumulated regression batch.
+
+Work274 local recipient-decoder regressions add six routing cases for numeric
+string IDs, duplicates, malformed elements and null/empty identity elements.
+All 94 state tests and targeted analysis pass. Full store remeasurement at
+`out/regression-coverage-2026-09-15/state274-mutations` is complete: 363 generated,
+236 viable, 150 assertion-backed kills (107 assertion-only, 43 mixed), 17
+test-error-only outcomes, 52 survivors, 17 timeouts and 127 compile errors.
+Both baselines pass; no equivalent waivers. Strict raw/adjusted score remains
+63.559% and the 95% gate fails. The extra failure is not an assertion kill.
+Local review raised
+hypothetical alias/precedence concerns; source inspection confirms the tests
+exercise the existing singular-key fallback and intersecting filter semantics,
+not new wire-validation claims. Full verification remains queued after native270.
+
+Work272 local subscription regressions: a dedicated 25-case state suite covers
+shared subscription lifecycle metadata, ownership-safe unsubscribe, invalid-session
+recovery, recipient deduplication, detached routing details and explicit recipient
+filter intersections/aliases with missing identities. All 88 state tests and
+targeted analysis pass; local review found no concrete defect. The full store
+mutation target now includes all four state suites; its exact inventory test
+failed for the omitted new suite before the config update and passes afterward.
+Complete remeasurement at
+`out/regression-coverage-2026-09-15/state272-mutations` retains full source
+scope and strict scoring: 363 generated, 236 viable, 150 assertion-backed kills
+(107 assertion-only, 43 mixed), 16 test-error-only outcomes, 53 survivors,
+17 timeouts and 127 compile errors. Raw/adjusted assertion score is 63.559%,
+up from 41.102%; no equivalent waivers. Clean and restored baselines pass.
+The 95% gate correctly fails. Full verification remains queued after native270.
+Worker authorization is a separate scope, not claimed here.
+
+Work271 local state regressions: nine cases assert cancellation acknowledgement
+lease retention/release and retry recovery, exact-Boolean timeout forwarding,
+callee-owned timeout survival while a local timeout expires, and caller-close
+isolation between pending debounces. All 63 state tests pass; targeted analysis
+is clean. Local review prompted removal of unnecessary completion after
+killnowait. Fast269 passed before this batch; native270 currently owns the native
+runtime, so full verification is queued after it. These tests postdate state267;
+no new mutation score is claimed.
+
+Work270 complete protocol remeasurement finished at
+`out/regression-coverage-2026-09-15/native270-protocol-mutations` from commit
+`21a3d20a`, retaining full candidate scope and strict classification: 187
+generated, 170 viable, 97 assertion kills, 21 survivors, 52 errors and 17 compile
+errors. Raw/adjusted score is 57.059% (previously 56.471%); no equivalents.
+Evidence is not clean and errors are not kills. Full `bin/verify` now runs for
+the accumulated Dart changes at `/tmp/connectanum-verify271.log`; earlier
+queued-verification notes describe the preceding campaign phase.
+
 Work269 native parser regression assertions: timeout, large streaming-body,
 pipelined inline-body, prefetched handshake and opaque compressed-body cases
 now assert expected result shapes before unwrapping. Parser tasks return raw

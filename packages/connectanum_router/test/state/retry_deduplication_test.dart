@@ -422,6 +422,200 @@ void main() {
     },
   );
 
+  for (final waitForAck in [false, true]) {
+    test(
+      'cancel retains a throttle lease only while awaiting ack=$waitForAck',
+      () async {
+        const procedure = 'com.example.cancel.ack';
+        await context.registerProcedure(
+          sessionId: 2001,
+          procedure: procedure,
+          details: const {'auto_deduplication': 0},
+        );
+        final first = await context.dispatchInvocation(
+          callerSessionId: 1001,
+          requestId: 90,
+          procedure: procedure,
+          options: const {'transaction_hash': 'cancel-ack'},
+        );
+        final mode = waitForAck ? 'kill' : 'killnowait';
+        expect(
+          await context.cancelInvocation(
+            invocationId: first.invocationId,
+            mode: mode,
+            waitForAck: waitForAck,
+          ),
+          isTrue,
+        );
+        final record = await context.getInvocation(first.invocationId);
+        if (waitForAck) {
+          expect(record, isNotNull);
+          expect(record!.cancelRequested, isTrue);
+          expect(record.cancelMode, 'kill');
+          expect(record.waitForCancelAck, isTrue);
+          await expectLater(
+            context.dispatchInvocation(
+              callerSessionId: 1002,
+              requestId: 91,
+              procedure: procedure,
+              options: const {'transaction_hash': 'cancel-ack'},
+            ),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'message',
+                contains(wamp.Error.autoDeduplication),
+              ),
+            ),
+          );
+        } else {
+          expect(record, isNull);
+        }
+        final metrics = await _metrics(store);
+        expect(metrics.pendingInvocationCount, waitForAck ? 1 : 0);
+        expect(metrics.retryDeduplicationActiveCount, waitForAck ? 1 : 0);
+        if (waitForAck) {
+          await context.completeInvocation(first.invocationId);
+        }
+        final recovered = await context.dispatchInvocation(
+          callerSessionId: 1002,
+          requestId: 92,
+          procedure: procedure,
+          options: const {'transaction_hash': 'cancel-ack'},
+        );
+        expect(recovered.invocationId, isNot(first.invocationId));
+        await context.completeInvocation(recovered.invocationId);
+        expect((await _metrics(store)).retryDeduplicationActiveCount, 0);
+      },
+    );
+  }
+
+  for (final (forwarding, expected) in <(Object?, bool)>[
+    (null, false),
+    (false, false),
+    (true, true),
+    ('true', false),
+    (1, false),
+  ]) {
+    test('timeout forwarding requires exact true: $forwarding', () async {
+      const procedure = 'com.example.timeout.forward';
+      await context.registerProcedure(
+        sessionId: 2001,
+        procedure: procedure,
+        details: {'forward_timeout': ?forwarding},
+      );
+      final dispatched = await context.dispatchInvocation(
+        callerSessionId: 1001,
+        requestId: 93,
+        procedure: procedure,
+        options: const {'timeout': 50000},
+      );
+      expect(dispatched.timeoutForwarded, expected);
+      final record = await context.getInvocation(dispatched.invocationId);
+      expect(record, isNotNull);
+      expect(record!.timeoutForwarded, expected);
+      expect(record.timeout, 50000);
+      expect(record.cancelRequested, isFalse);
+      expect(record.waitForCancelAck, isFalse);
+      await context.completeInvocation(dispatched.invocationId);
+      expect(await context.getInvocation(dispatched.invocationId), isNull);
+    });
+  }
+
+  test(
+    'forwarded timeout stays callee-owned while a local timer expires',
+    () async {
+      for (final procedure in ['com.example.forwarded', 'com.example.local']) {
+        await context.registerProcedure(
+          sessionId: 2001,
+          procedure: procedure,
+          details: {'forward_timeout': procedure == 'com.example.forwarded'},
+        );
+      }
+      final events = <InvocationTimeoutEvent>[];
+      final localExpired = Completer<InvocationTimeoutEvent>();
+      final subscription = store.invocationTimeoutEvents.listen((event) {
+        events.add(event);
+        if (event.callerRequestId == 97 && !localExpired.isCompleted) {
+          localExpired.complete(event);
+        }
+      });
+      addTearDown(subscription.cancel);
+      final forwarded = await context.dispatchInvocation(
+        callerSessionId: 1001,
+        requestId: 96,
+        procedure: 'com.example.forwarded',
+        options: const {'timeout': 10},
+      );
+      final local = await context.dispatchInvocation(
+        callerSessionId: 1002,
+        requestId: 97,
+        procedure: 'com.example.local',
+        options: const {'timeout': 50},
+      );
+      final expired = await localExpired.future.timeout(
+        const Duration(seconds: 2),
+      );
+      expect(expired.invocationId, local.invocationId);
+      expect(expired.callerSessionId, 1002);
+      expect(events.map((event) => event.invocationId), [local.invocationId]);
+      expect(await context.getInvocation(local.invocationId), isNull);
+      final retained = await context.getInvocation(forwarded.invocationId);
+      expect(retained, isNotNull);
+      expect(retained!.timeoutForwarded, isTrue);
+      expect(retained.timeout, 10);
+      await context.completeInvocation(forwarded.invocationId);
+      expect((await _metrics(store)).pendingInvocationCount, 0);
+    },
+  );
+
+  test(
+    'closing one caller preserves another caller pending debounce',
+    () async {
+      const procedure = 'com.example.debounce.isolation';
+      await context.registerProcedure(
+        sessionId: 2001,
+        procedure: procedure,
+        details: const {
+          'auto_deduplication': 500,
+          'auto_deduplication_expiry': 2000,
+        },
+      );
+      Future<Object> start(int caller, int request, String hash) => context
+          .dispatchInvocation(
+            callerSessionId: caller,
+            requestId: request,
+            procedure: procedure,
+            options: {'transaction_hash': hash},
+          )
+          .then<Object>((value) => value, onError: (Object error) => error);
+      final first = start(1001, 94, 'caller-a');
+      final second = start(1002, 95, 'caller-b');
+      expect((await _metrics(store)).retryDeduplicationActiveCount, 2);
+      store.commandPort.send(
+        SessionCloseCommand(realmUri: realm, sessionId: 1001),
+      );
+      expect(
+        await first.timeout(const Duration(seconds: 2)),
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'Bad state: Caller session 1001 closed',
+        ),
+      );
+      final surviving = await second.timeout(const Duration(seconds: 2));
+      expect(surviving, isA<InvocationDispatchResult>());
+      final dispatch = surviving as InvocationDispatchResult;
+      final record = await context.getInvocation(dispatch.invocationId);
+      expect(record, isNotNull);
+      expect(record!.callerSessionId, 1002);
+      expect(record.callerRequestId, 95);
+      expect((await _metrics(store)).totalInvocationsDispatched, 1);
+      await context.completeInvocation(dispatch.invocationId);
+      expect((await _metrics(store)).pendingInvocationCount, 0);
+    },
+  );
+
   test('cancel and timeout release throttle leases', () async {
     const procedure = 'com.example.lifecycle';
     await context.registerProcedure(
