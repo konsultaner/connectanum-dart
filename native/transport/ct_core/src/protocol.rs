@@ -1345,6 +1345,52 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn http_rejection_helpers_emit_exact_wire_responses() {
+        for (allowed, expected) in [
+            (
+                None,
+                "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            ),
+            (
+                Some(Vec::<String>::new()),
+                "HTTP/1.1 405 Method Not Allowed\r\nAllow: \r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            ),
+            (
+                Some(vec!["GET".to_string(), "POST".to_string()]),
+                "HTTP/1.1 405 Method Not Allowed\r\nAllow: GET, POST\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            ),
+        ] {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+            let mut client = TcpStream::connect(listener.local_addr().unwrap())
+                .await
+                .unwrap();
+            let (server, _) = listener.accept().await.unwrap();
+            let handshake = HttpHandshake {
+                stream: IoStream::plain(server),
+                request: HttpRequest {
+                    method: "GET".into(),
+                    target: "/missing".into(),
+                    version: 1,
+                    headers: vec![],
+                },
+                body: HttpBodyPhase::Finished,
+                prefetched: Bytes::new(),
+            };
+            let result = match allowed {
+                Some(methods) => respond_http_method_not_allowed(handshake, &methods).await,
+                None => respond_http_not_found(handshake).await,
+            };
+            assert_eq!(result.is_ok(), true, "response write failed: {result:?}");
+            let mut actual = Vec::new();
+            time::timeout(Duration::from_secs(2), client.read_to_end(&mut actual))
+                .await
+                .expect("response stream did not close")
+                .expect("response read failed");
+            assert_eq!(actual, expected.as_bytes());
+        }
+    }
+
+    #[tokio::test]
     async fn negotiate_detects_websocket() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let addr = listener.local_addr().unwrap();

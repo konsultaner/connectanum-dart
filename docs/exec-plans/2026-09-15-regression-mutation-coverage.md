@@ -67,6 +67,41 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work290 Native Rejection Wire Oracles
+
+- Added exact independent 404 and 405 wire assertions, covering empty and
+  multiple allowed methods and EOF. A no-op responder closes with empty bytes
+  and fails a direct equality assertion; timeout/read failures remain errors.
+- Focused test, Rust formatting, Fast290 and full verify290 pass. Evidence:
+  `/tmp/connectanum-native290-tests.log`, `/tmp/connectanum-fast290.log`,
+  `/tmp/connectanum-verify290.log`. Local companion advice was checked against
+  actual fixture ownership and assertion diagnostics.
+- No production or scoring changes. Native289's 69.412% is evidence for the
+  prior snapshot; remeasurement is needed to attribute a score to this test.
+
+### Work289 Complete Native Protocol Remeasurement
+
+- Complete run manifest and strict audit: 187 generated, 170 viable, 118
+  assertion kills, 16 survivors, 36 errors and 17 compile errors. No equivalent
+  waivers; raw/adjusted score 69.412%, evidenceClean false. Errors are not kills.
+- Evidence: `out/regression-coverage-2026-09-15/native289-protocol-mutations`.
+  Both baseline log hashes and the complete individual outcomes are retained.
+- This is the valid replacement for the incomplete disk-exhausted native284
+  campaign. Source/test inputs were unchanged after verify287. Overall native
+  coverage and the 95% mutation objective remain unfulfilled.
+
+### Work288 Complete Registration Regression Remeasurement
+
+- Complete state inventory at `ffa9ec2a`: 363 generated, 236 viable, 162
+  assertion-backed kills (116 assertion-only, 46 mixed), 15 test-error-only
+  failures, 42 survivors, 17 timeouts and 127 compile errors.
+- Strict raw/adjusted score 68.644%; no equivalent waivers; both baselines
+  pass. The 95% gate still fails. Evidence is retained in
+  `out/regression-coverage-2026-09-15/state288-mutations/mutation-report.json`.
+- Full verify287 already passed for this source/test snapshot. Native289 is
+  running after safe debug-build cleanup restored about 49 GiB headroom;
+  native284 remains incomplete and is not reused as a score.
+
 ### Work287 Shared Registration Meta Lifecycle
 
 - Added an exact lifecycle oracle to the existing state suite: first callee

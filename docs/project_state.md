@@ -1,10 +1,37 @@
 # Project State
 
-Last updated: 2026-09-23
+Last updated: 2026-09-24
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work290 adds independent exact wire-response assertions for the native 404
+responder and 405 responder with empty/multiple allowed methods. The focused
+test, formatting, Fast290 and full verify290 pass; logs are
+`/tmp/connectanum-native290-tests.log`, `/tmp/connectanum-fast290.log` and
+`/tmp/connectanum-verify290.log`. Local review was checked against the bounded
+EOF read, explicit response bytes, and error-context assertions. Production
+behavior is unchanged. Native289 predates this new test; no new score claimed.
+
+Native289 completed with a complete manifest and audited/restored-baseline
+evidence: 187 generated, 170 viable, 118 assertion kills, 16 survivors,
+36 errors and 17 compile errors. Strict raw/adjusted score is 69.412%, no
+equivalent waivers; evidenceClean remains false. This replaces native277's
+60.000% as the latest complete protocol evidence, not a whole-native score.
+Evidence: `out/regression-coverage-2026-09-15/native289-protocol-mutations`.
+The disk-space retry completed without modifying source/test inputs; full
+verify287 remains the latest passing verification of this snapshot.
+
+State288 completed against `ffa9ec2a`: all 363 candidates, 236 viable, 162
+assertion-backed kills (116 assertion-only, 46 mixed), 15 test-error-only
+outcomes, 42 survivors, 17 timeouts and 127 compile errors. Raw/adjusted strict
+score is 68.644%, no equivalent waivers; both baselines pass and the 95% gate
+fails. Evidence: `out/regression-coverage-2026-09-15/state288-mutations`.
+Native289 is the fresh full replacement for incomplete native284, after
+reclaiming rebuildable debug artifacts with `cargo clean --profile dev`;
+approximately 49 GiB was available at startup. It remains active, without a
+new native score. Source/test inputs remain unchanged since full verify287.
 
 Work287 adds exact shared-registration meta-event lifecycle assertions: one
 creation, per-callee registration/removal, stable entry metadata, routing to the
