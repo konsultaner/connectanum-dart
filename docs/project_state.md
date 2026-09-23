@@ -6,6 +6,14 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work287 adds exact shared-registration meta-event lifecycle assertions: one
+creation, per-callee registration/removal, stable entry metadata, routing to the
+remaining callee, final deletion and fresh re-registration. All 105 state tests,
+targeted analysis, `bin/test-fast` and full `bin/verify` pass (logs
+`/tmp/connectanum-fast287.log`, `/tmp/connectanum-verify287.log`). Local review
+concerns were checked against exact event counts/order and registered teardown.
+No new mutation score is claimed; state286 predates this test.
+
 Full `bin/verify` passed for Work285/286 (exit 0,
 `/tmp/connectanum-verify285.log`). After verification and confirming no Rust
 build remained active, removed only disposable `target/debug/incremental`

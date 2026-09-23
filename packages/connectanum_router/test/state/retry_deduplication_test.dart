@@ -56,6 +56,61 @@ void main() {
     if (!disposed) store.dispose();
   });
 
+  test('shared registration emits one complete meta lifecycle', () async {
+    const procedure = 'com.example.registration.lifecycle';
+    final events = <RegistrationMetaEvent>[];
+    final listener = store.registrationMetaEvents.listen(events.add);
+    addTearDown(listener.cancel);
+    Future<int> register(int session) => context.registerProcedure(
+      sessionId: session,
+      procedure: procedure,
+      details: {'invoke': 'roundrobin', 'owner': session},
+    );
+    final first = await register(2001);
+    final second = await register(2002);
+    expect(second, isNot(first));
+    expect(events.map((event) => (event.type, event.sessionId)), [
+      (RegistrationMetaEventType.created, 2001),
+      (RegistrationMetaEventType.registered, 2001),
+      (RegistrationMetaEventType.registered, 2002),
+    ]);
+    await context.unregisterProcedure(sessionId: 2001, registrationId: first);
+    expect(events, hasLength(4));
+    expect(events.last.type, RegistrationMetaEventType.unregistered);
+    expect(events.last.sessionId, 2001);
+    final invocation = await context.dispatchInvocation(
+      callerSessionId: 1001,
+      requestId: 901,
+      procedure: procedure,
+      options: const {},
+    );
+    expect(invocation.calleeSessionId, 2002);
+    await context.completeInvocation(invocation.invocationId);
+    await context.unregisterProcedure(sessionId: 2001, registrationId: first);
+    expect(events, hasLength(4));
+    await context.unregisterProcedure(sessionId: 2002, registrationId: second);
+    expect(events.skip(4).map((event) => (event.type, event.sessionId)), [
+      (RegistrationMetaEventType.unregistered, 2002),
+      (RegistrationMetaEventType.deleted, 2002),
+    ]);
+    for (final event in events) {
+      expect(event.realmUri, realm);
+      expect(event.registrationId, first);
+      expect(event.procedure, procedure);
+      expect(event.policy.name, 'roundRobin');
+      expect(event.matchPolicy.name, 'exact');
+      expect(event.created, events.first.created);
+      expect(event.details, {'invoke': 'roundrobin', 'owner': event.sessionId});
+    }
+    final replacement = await register(2001);
+    expect(replacement, isNot(anyOf(first, second)));
+    expect(events.skip(6).map((event) => event.type), [
+      RegistrationMetaEventType.created,
+      RegistrationMetaEventType.registered,
+    ]);
+    expect(events.last.registrationId, replacement);
+  });
+
   for (final (callerOption, calleeOption, disclosed)
       in <(Object?, Object?, bool)>[
         (false, false, false),

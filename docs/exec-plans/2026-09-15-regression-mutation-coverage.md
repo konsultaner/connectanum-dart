@@ -67,6 +67,19 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work287 Shared Registration Meta Lifecycle
+
+- Added an exact lifecycle oracle to the existing state suite: first callee
+  emits created/registered, second only registered, removal keeps the remaining
+  callee routable, final removal emits unregistered/deleted, and re-registration
+  receives a new entry ID. Assert stable metadata and owner-specific details.
+- All 105 state tests and targeted analysis pass. Fast287 and full verify287
+  pass; logs are `/tmp/connectanum-fast287.log` and
+  `/tmp/connectanum-verify287.log`. Local test/review advice was checked against
+  source semantics and the test's exact event assertions and teardown.
+- Complete mutation remeasurement is still required; do not attribute the
+  earlier state286 score to this test snapshot.
+
 ### Native284 Disk Capacity Failure
 
 - Follow-up: full `bin/verify` passed with exit 0 at
