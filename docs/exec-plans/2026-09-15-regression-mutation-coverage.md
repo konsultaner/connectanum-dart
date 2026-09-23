@@ -67,6 +67,20 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work275 Native Header And Error Classification Assertions
+
+- Add positive/negative header predicate cases for missing, incorrect, partial,
+  empty and mixed-case values and comma-delimited complete tokens. Expand HTTP
+  error classification assertions to all eight recognized 400 details and
+  near-miss strings. No production behavior or scoring changes.
+- `bin/test-fast` passes (`/tmp/connectanum-fast275.log`); 12 focused native
+  protocol tests pass (`/tmp/connectanum-native275-tests.log`). Formatting uses
+  workspace `cargo fmt --all`; the initial invocation without `--all` reported
+  no targets and was corrected. Full `bin/verify` passed with exit 0 at
+  `/tmp/connectanum-verify275.log`. Local review's substring-matching assumption
+  was rejected after checking the exact-match implementation; empty headers
+  are already tested. No updated mutation score is claimed.
+
 ### Work271/272/274 Full Verification
 
 - Full `bin/verify` passed with exit 0 at `/tmp/connectanum-verify271.log`,

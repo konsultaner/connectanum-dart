@@ -6,6 +6,15 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work275 local native protocol assertions cover missing/incorrect/partial upgrade
+headers, mixed-case complete comma-delimited tokens and every supported malformed
+HTTP error classification. Fast275 and all 12 focused protocol tests pass; full
+`bin/verify` passed with exit 0 at `/tmp/connectanum-verify275.log`. Local review's
+substring-matching concern was checked against the actual exact-match classifier;
+the empty-header case is also covered. No production behavior or
+mutation scoring changed. Native270 remains evidence for the earlier snapshot,
+not these new tests.
+
 Work271/272/274 verification complete: full `bin/verify` passed with exit 0 at
 `/tmp/connectanum-verify271.log`, including browser WASM suites. All 94 focused
 state tests pass. Earlier running/queued notes below are historical. These

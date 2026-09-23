@@ -1203,6 +1203,38 @@ mod tests {
     }
 
     #[test]
+    fn websocket_header_matching_requires_exact_values_and_complete_tokens() {
+        for (upgrade, connection, equals, contains) in [
+            (None, None, false, false),
+            (Some("websocket"), Some("upgrade"), true, true),
+            (Some("WebSocket"), Some("keep-alive, UpGrAdE"), true, true),
+            (Some("h2c"), Some("keep-alive"), false, false),
+            (Some("websockets"), Some("upgrades"), false, false),
+            (Some("websocket, h2c"), Some("preupgrade"), false, false),
+            (Some(""), Some(""), false, false),
+            (Some("websocket"), Some(" ,\tUPGRADE\t, close"), true, true),
+        ] {
+            let mut request = HttpRequest {
+                method: "GET".into(),
+                target: "/wamp".into(),
+                version: 1,
+                headers: Vec::new(),
+            };
+            if let Some(value) = upgrade {
+                request.headers.push(("uPgRaDe".into(), value.into()));
+            }
+            if let Some(value) = connection {
+                request.headers.push(("cOnNeCtIoN".into(), value.into()));
+            }
+            assert_eq!(header_equals(&request, "Upgrade", "websocket"), equals);
+            assert_eq!(
+                header_contains_token(&request, "Connection", "upgrade"),
+                contains
+            );
+        }
+    }
+
+    #[test]
     fn classify_http_error_status_maps_native_rejections() {
         assert_eq!(
             classify_http_error_status("http body length 123 exceeds configured limit 64"),
@@ -1212,10 +1244,19 @@ mod tests {
             classify_http_error_status("chunked transfer encoding is not supported"),
             Some(501)
         );
-        assert_eq!(
-            classify_http_error_status("invalid Content-Length value"),
-            Some(400)
-        );
+        for detail in [
+            "invalid Content-Length value",
+            "conflicting Content-Length headers",
+            "invalid Transfer-Encoding framing",
+            "invalid HTTP request",
+            "missing HTTP method",
+            "missing request target",
+            "incomplete HTTP headers",
+            "HTTP headers exceed supported limit",
+        ] {
+            assert_eq!(classify_http_error_status(detail), Some(400), "{detail}");
+            assert_eq!(classify_http_error_status(&format!("{detail} extra")), None);
+        }
         assert_eq!(
             classify_http_error_status("some unrelated protocol error"),
             None
