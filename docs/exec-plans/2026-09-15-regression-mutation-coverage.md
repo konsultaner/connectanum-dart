@@ -67,8 +67,24 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work251 HTTP Fixture Failure Isolation
+
+- Validate framing-test configuration before creating the spawned server so a
+  failed setup assertion cannot cascade into client reset and JoinError panics.
+  Explicit assertions now cover HTTP settings, handshake reads and negotiation
+  results; the HTTP response closure diagnostic remains intact.
+- Fast251 and all 263 native core tests pass. Full verification passed with
+  exit 0 at `/tmp/connectanum-verify251.log`, including browser WASM tests.
+  The 72.973% full audit remains the last
+  completed campaign, not a score for these newer tests.
+
 ### Work250 Native Setup Assertions
 
+- Completed full campaign at `out/regression-coverage-2026-09-15/native250-config-mutations`:
+  128 generated, 81 assertion kills, 26 errors, four survivors, zero timeouts,
+  17 compile errors. Raw/adjusted score 72.973% of 111 viable, no waivers,
+  `evidenceClean: false`. Preserve the prior audit separately. Fast251 is running
+  before the next error-path assertion improvements.
 - Valid configuration application, stored endpoint presence, invalid exponent
   rejection, and expected HTTP route variants now have explicit assertions.
   Existing value assertions remain unchanged; production code and mutation

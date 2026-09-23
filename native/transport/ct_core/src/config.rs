@@ -1426,9 +1426,13 @@ mod tests {
         }))
         .unwrap();
         let runtime = assert_valid_endpoint(&cfg);
-        let http = runtime.http_settings().expect("http runtime");
+        let http = runtime.http_settings();
+        assert!(http.is_some());
+        let http = http.unwrap();
         assert_eq!(http.alpn, vec!["h2", "http/1.1"]);
-        let http3 = http.http3.as_ref().expect("http3 enabled");
+        let http3 = http.http3.as_ref();
+        assert!(http3.is_some());
+        let http3 = http3.unwrap();
         assert!(http3.enabled);
         assert_eq!(http3.port, Some(9443));
         assert_eq!(

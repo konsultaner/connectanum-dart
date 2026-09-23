@@ -213,6 +213,19 @@ fn smuggling_request() -> Vec<u8> {
 }
 
 async fn exercise_live(bytes: Vec<u8>, tls: bool) -> (String, Vec<String>) {
+    let mut config = super::tests::runtime_config(Some(Duration::from_secs(1)), 16);
+    config.http_routes.push(HttpRouteRuntime {
+        path: "/".into(),
+        match_kind: HttpRouteMatchKind::Prefix,
+        protocols: vec![],
+        transport_auth: Default::default(),
+        methods: Default::default(),
+        default: Some(HttpRouteTarget::Translation {
+            realm: "test".into(),
+            procedure: "test.echo".into(),
+        }),
+    });
+    let config = Arc::new(config);
     time::timeout(Duration::from_secs(5), async move {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
@@ -230,13 +243,6 @@ async fn exercise_live(bytes: Vec<u8>, tls: bool) -> (String, Vec<String>) {
             let stream = if tls {
                 IoStream::tls(TlsAcceptor::from(Arc::new(server_config)).accept(stream).await.unwrap())
             } else { IoStream::plain(stream) };
-            let mut config = super::tests::runtime_config(Some(Duration::from_secs(1)), 16);
-            config.http_routes.push(HttpRouteRuntime {
-                path: "/".into(), match_kind: HttpRouteMatchKind::Prefix, protocols: vec![],
-                transport_auth: Default::default(), methods: Default::default(),
-                default: Some(HttpRouteTarget::Translation { realm: "test".into(), procedure: "test.echo".into() }),
-            });
-            let config = Arc::new(config);
             let registry = Arc::new(ListenerRegistry::default());
             registry.register_http_connection(ListenerId(1), ConnectionId(1), config.clone(), peer);
             let serving = async {

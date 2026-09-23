@@ -1213,10 +1213,15 @@ mod tests {
         let mut client = TcpStream::connect(addr).await.unwrap();
         send_rawsocket_handshake(&mut client, 16).await;
         let mut response = [0u8; 4];
-        client.read_exact(&mut response).await.unwrap();
+        let read = client.read_exact(&mut response).await;
+        assert!(read.is_ok());
         assert_eq!(response[0], RAWSOCKET_MAGIC);
 
-        match rx.await.unwrap().expect("negotiation succeeds") {
+        let received = rx.await;
+        assert!(received.is_ok());
+        let negotiated = received.unwrap();
+        assert!(negotiated.is_ok());
+        match negotiated.unwrap() {
             NegotiatedConnection::RawSocket(session) => {
                 assert_eq!(session.max_message_size_exponent, 16);
             }
@@ -1243,7 +1248,11 @@ mod tests {
             .await
             .unwrap();
 
-        match rx.await.unwrap().expect("negotiation succeeds") {
+        let received = rx.await;
+        assert!(received.is_ok());
+        let negotiated = received.unwrap();
+        assert!(negotiated.is_ok());
+        match negotiated.unwrap() {
             NegotiatedConnection::Http(handshake) => {
                 assert_eq!(handshake.request.method, "GET");
                 assert_eq!(handshake.request.target, "/healthz");
@@ -1282,7 +1291,11 @@ Sec-WebSocket-Version: 13\r\n\
 Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
         client.write_all(request).await.unwrap();
 
-        match rx.await.unwrap().expect("negotiation succeeds") {
+        let received = rx.await;
+        assert!(received.is_ok());
+        let negotiated = received.unwrap();
+        assert!(negotiated.is_ok());
+        match negotiated.unwrap() {
             NegotiatedConnection::WebSocket(handshake) => {
                 assert_eq!(handshake.sec_websocket_key, "SGVsbG9OZWdvdGlhdGlvbg==");
                 assert_eq!(handshake.sec_websocket_protocols.len(), 2);
@@ -1335,7 +1348,11 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
         let mut client = TcpStream::connect(addr).await.unwrap();
         send_http2_preface(&mut client).await;
 
-        match rx.await.unwrap().expect("negotiation succeeds") {
+        let received = rx.await;
+        assert!(received.is_ok());
+        let negotiated = received.unwrap();
+        assert!(negotiated.is_ok());
+        match negotiated.unwrap() {
             NegotiatedConnection::Http2(handshake) => {
                 if let Some(mut stream) = handshake.into_stream() {
                     let _ = stream.shutdown().await;

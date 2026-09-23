@@ -9112,7 +9112,7 @@ mod tests {
                 .await
                 .expect("405 response should arrive")
                 .expect("response read succeeds");
-            assert!(read > 0, "response closed before body was read");
+            assert_ne!(read, 0, "response closed before body was read");
             response_bytes.extend_from_slice(&buf[..read]);
             if response_bytes
                 .windows(b"method not allowed".len())
@@ -9268,7 +9268,8 @@ mod tests {
             .await
             .unwrap();
         let mut response = [0u8; 4];
-        tls_stream.read_exact(&mut response).await.unwrap();
+        let read = tls_stream.read_exact(&mut response).await;
+        assert!(read.is_ok());
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);
 
@@ -9326,7 +9327,8 @@ mod tests {
             .await
             .unwrap();
         let mut response = [0u8; 4];
-        tls_stream.read_exact(&mut response).await.unwrap();
+        let read = tls_stream.read_exact(&mut response).await;
+        assert!(read.is_ok());
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);
 
@@ -9390,7 +9392,8 @@ mod tests {
             .write_all(&[0x7F, handshake_byte, 0x00, 0x00])
             .await
             .unwrap();
-        tls_stream.read_exact(&mut response).await.unwrap();
+        let read = tls_stream.read_exact(&mut response).await;
+        assert!(read.is_ok());
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);
 

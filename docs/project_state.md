@@ -6,6 +6,23 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work251 pending: HTTP framing fixture configuration is validated in the parent
+before spawning its server task, avoiding setup-panic cascades into socket reset
+and join errors. Native handshake reads, negotiation results and HTTP settings
+now have explicit expected-outcome assertions. The response-closure assertion
+retains its diagnostic via a value comparison. Fast251 and all 263 core tests
+pass. Full verification passed with exit 0 at `/tmp/connectanum-verify251.log`,
+including browser WASM tests. No newer mutation score is claimed for these tests.
+
+Work250 full native configuration campaign completed at
+`out/regression-coverage-2026-09-15/native250-config-mutations`: all 128 mutants,
+81 assertion kills, 26 errors, four survivors, zero timeouts and 17 compile
+errors. Raw/adjusted score is 72.973% of 111 viable candidates, no equivalent
+waivers, `evidenceClean: false`. The prior 52.252% result is retained separately.
+This proves timeout elimination for this campaign, not completion of the 95%
+gate or the whole native component. Fast251 is running before the next edits;
+the remaining error logs and identical-branch survivors require further review.
+
 Work250 pending: remaining native configuration setup and route-variant checks
 now explicitly assert the expected success/error or enum variant before using
 the value. Existing endpoint/procedure/path assertions remain intact; neither
