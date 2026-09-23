@@ -6,6 +6,16 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work269 native parser regression assertions: timeout, large streaming-body,
+pipelined inline-body, prefetched handshake and opaque compressed-body cases
+now assert expected result shapes before unwrapping. Parser tasks return raw
+results rather than failing through `expect` before reporting back. Existing
+method/target/body/prefetch checks remain, with an added streaming target check.
+No production parser or mutation classifier changed. Fast269 and all 47 protocol
+tests pass; local review found no actionable defect. Full verification passed
+with exit 0, including browser WASM suites, at `/tmp/connectanum-verify269.log`.
+No new mutation score is claimed; full protocol remeasurement is next.
+
 Work268 local native regressions: real TCP pairs assert exact HTTP/2 configured
 ALPN fallback (including case-sensitive nonmatches and mixed lists), retained
 protocol metadata and the complete prefetched preface. Early closure after 0-3

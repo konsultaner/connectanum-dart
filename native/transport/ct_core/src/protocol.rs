@@ -1026,10 +1026,11 @@ mod tests {
         });
 
         let _client = TcpStream::connect(addr).await.unwrap();
-        match rx.await.unwrap() {
-            Err(NegotiationError::Timeout) => {}
-            other => panic!("expected timeout, got {:?}", other),
-        }
+        let result = rx.await;
+        assert!(
+            matches!(&result, Ok(Err(NegotiationError::Timeout))),
+            "expected header timeout, got {result:?}"
+        );
     }
 
     #[tokio::test]
@@ -1055,10 +1056,11 @@ mod tests {
             .await
             .unwrap();
 
-        match rx.await.unwrap() {
-            Err(NegotiationError::Timeout) => {}
-            other => panic!("expected timeout, got {:?}", other),
-        }
+        let result = rx.await;
+        assert!(
+            matches!(&result, Ok(Err(NegotiationError::Timeout))),
+            "expected body timeout, got {result:?}"
+        );
     }
 
     #[tokio::test]
@@ -1083,19 +1085,26 @@ mod tests {
             .await
             .unwrap();
 
-        match rx.await.unwrap().expect("request parsed") {
-            Some((
-                request,
-                HttpBodyPhase::NeedsStreaming {
-                    prefix,
-                    remaining_len,
-                },
-            )) => {
-                assert_eq!(request.method, "POST");
-                assert_eq!(prefix, bytes::Bytes::from_static(b"body"));
-                assert_eq!(remaining_len, 70000 - 4);
-            }
-            other => panic!("expected streaming phase, got {:?}", other),
+        let result = rx.await;
+        assert!(
+            matches!(
+                &result,
+                Ok(Ok(Some((_, HttpBodyPhase::NeedsStreaming { .. }))))
+            ),
+            "expected parsed streaming request, got {result:?}"
+        );
+        if let Ok(Ok(Some((
+            request,
+            HttpBodyPhase::NeedsStreaming {
+                prefix,
+                remaining_len,
+            },
+        )))) = result
+        {
+            assert_eq!(request.method, "POST");
+            assert_eq!(request.target, "/ingest");
+            assert_eq!(prefix, bytes::Bytes::from_static(b"body"));
+            assert_eq!(remaining_len, 70000 - 4);
         }
     }
 
@@ -1109,14 +1118,8 @@ mod tests {
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
             let mut reader = BufReader::new(stream);
-            let first = read_http_request(&mut reader, &config)
-                .await
-                .expect("first request parsed")
-                .expect("first request present");
-            let second = read_http_request(&mut reader, &config)
-                .await
-                .expect("second request parsed")
-                .expect("second request present");
+            let first = read_http_request(&mut reader, &config).await;
+            let second = read_http_request(&mut reader, &config).await;
             tx.send((first, second)).ok();
         });
 
@@ -1128,21 +1131,34 @@ mod tests {
             .await
             .unwrap();
 
-        let ((first_request, first_body), (second_request, second_body)) = rx.await.unwrap();
+        let received = rx.await;
+        assert!(
+            received.is_ok(),
+            "parser task returns its results: {received:?}"
+        );
+        let (first, second) = received.unwrap();
+        assert!(
+            matches!(&first, Ok(Some(_))),
+            "first request parsed: {first:?}"
+        );
+        assert!(
+            matches!(&second, Ok(Some(_))),
+            "second request parsed: {second:?}"
+        );
+        let (first_request, first_body) = first.unwrap().unwrap();
+        let (second_request, second_body) = second.unwrap().unwrap();
         assert_eq!(first_request.method, "POST");
         assert_eq!(first_request.target, "/first");
-        match first_body {
-            HttpBodyPhase::Buffered(bytes) => {
-                assert_eq!(bytes, Bytes::from_static(b"body"));
-            }
-            other => panic!("expected buffered inline body, got {:?}", other),
-        }
+        assert!(
+            matches!(&first_body, HttpBodyPhase::Buffered(bytes) if bytes.as_ref() == b"body"),
+            "expected buffered inline body, got {first_body:?}"
+        );
         assert_eq!(second_request.method, "GET");
         assert_eq!(second_request.target, "/second");
-        match second_body {
-            HttpBodyPhase::Buffered(bytes) => assert!(bytes.is_empty()),
-            other => panic!("expected empty buffered body, got {:?}", other),
-        }
+        assert!(
+            matches!(&second_body, HttpBodyPhase::Buffered(bytes) if bytes.is_empty()),
+            "expected empty buffered body, got {second_body:?}"
+        );
     }
 
     #[tokio::test]
@@ -1154,10 +1170,8 @@ mod tests {
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let handshake = parse_http_handshake(IoStream::plain(stream), &config)
-                .await
-                .expect("handshake parsed");
-            tx.send(handshake.into_parts()).ok();
+            let handshake = parse_http_handshake(IoStream::plain(stream), &config).await;
+            tx.send(handshake.map(HttpHandshake::into_parts)).ok();
         });
 
         let mut client = TcpStream::connect(addr).await.unwrap();
@@ -1168,13 +1182,20 @@ mod tests {
             .await
             .unwrap();
 
-        let (_stream, request, body, prefetched) = rx.await.unwrap();
+        let received = rx.await;
+        assert!(
+            received.is_ok(),
+            "handshake task returns its result: {received:?}"
+        );
+        let handshake = received.unwrap();
+        assert!(handshake.is_ok(), "handshake parsed: {handshake:?}");
+        let (_stream, request, body, prefetched) = handshake.unwrap();
         assert_eq!(request.method, "GET");
         assert_eq!(request.target, "/first");
-        match body {
-            HttpBodyPhase::Buffered(bytes) => assert!(bytes.is_empty()),
-            other => panic!("expected empty buffered body, got {:?}", other),
-        }
+        assert!(
+            matches!(&body, HttpBodyPhase::Buffered(bytes) if bytes.is_empty()),
+            "expected empty buffered body, got {body:?}"
+        );
         assert_eq!(
             prefetched,
             Bytes::from_static(b"GET /second HTTP/1.1\r\nHost: localhost\r\n\r\n")

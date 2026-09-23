@@ -184,17 +184,21 @@ async fn content_encoding_preserves_opaque_body_and_next_request() {
     bytes.extend_from_slice(b"GET /next HTTP/1.1\r\n\r\n");
 
     let mut reader = BufReader::new(bytes.as_slice());
-    let (request, body) = read_http_request(&mut reader, &config)
-        .await
-        .unwrap()
-        .unwrap();
+    let parsed = read_http_request(&mut reader, &config).await;
+    assert!(
+        matches!(&parsed, Ok(Some(_))),
+        "compressed request parses successfully: {parsed:?}"
+    );
+    let (request, body) = parsed.unwrap().unwrap();
     assert_eq!(request.target, "/compressed");
     assert!(matches!(body, HttpBodyPhase::Buffered(b) if b.as_ref() == GZIP_BODY));
 
-    let (request, body) = read_http_request(&mut reader, &config)
-        .await
-        .unwrap()
-        .unwrap();
+    let parsed = read_http_request(&mut reader, &config).await;
+    assert!(
+        matches!(&parsed, Ok(Some(_))),
+        "following request parses successfully: {parsed:?}"
+    );
+    let (request, body) = parsed.unwrap().unwrap();
     assert_eq!(request.target, "/next");
     assert!(matches!(body, HttpBodyPhase::Buffered(b) if b.is_empty()));
 }

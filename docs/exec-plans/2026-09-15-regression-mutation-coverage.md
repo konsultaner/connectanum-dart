@@ -67,6 +67,21 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work269 Parser Result Assertions
+
+- Native261 logs include expected-valid parser tests aborting through `expect`
+  and secondary channel unwraps when a mutant rejects valid input. Return raw
+  parser results from tasks and assert result/phase expectations in the test
+  body, preserving method, target, body and pipelining checks. Timeout and opaque
+  compressed-body tests likewise assert their exact expected outcomes before
+  unwrapping; add the streaming request target assertion.
+- This changes test assertions only, not production behavior or scoring rules.
+  Fast269 and all 47 protocol tests pass (`/tmp/connectanum-native269-all.log`).
+  Local debug/review advice was checked against source; no actionable defect.
+  Full verification passed with exit 0, including browser WASM suites, at
+  `/tmp/connectanum-verify269.log`. Native261 predates
+  these tests, so no improved score is claimed until remeasurement completes.
+
 ### Work268 Native Handshake Assertions
 
 - Add real TCP matrices for configured HTTP/2 ALPN fallback and 0-3 byte prefix
