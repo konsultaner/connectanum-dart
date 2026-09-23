@@ -6,6 +6,47 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+State283 completed: full 363-candidate store inventory, 236 viable, 157
+assertion-backed kills (111 assertion-only, 46 mixed), 14 test-error-only
+outcomes, 48 survivors, 17 timeouts, 127 compile errors. Raw/adjusted assertion
+score is 66.525%; both baselines pass, no equivalent waivers. The 95% gate
+still fails. Evidence: `out/regression-coverage-2026-09-15/state283-mutations`.
+Full `bin/verify` of this test snapshot passed with exit 0 at
+`/tmp/connectanum-verify283.log`. All 103 focused state tests and targeted
+analysis pass; Fast279 preceded the batch. Local review's speculative FIFO
+concerns were checked against the same command port and awaited metrics barrier.
+
+Interruption recovery: the state282 runner stopped at 43/363; retained evidence
+is incomplete, not a score. The runner has no resume mode, so state283 is a new
+complete campaign at `out/regression-coverage-2026-09-15/state283-mutations`.
+Native280's wrapper stopped, but its cargo-mutants child remained live. Preserve
+that run: a separate recovery waits for child exit, requires complete inventory
+correspondence and unchanged source/tool hashes, then reruns the restored
+baseline. Its report is `recovered-audited-results.json`; the original incomplete
+manifest and unknown wrapper exit status remain intact. Recovery failed closed:
+the orphan exited without a completed cargo-mutants record. Native280 remains
+incomplete and has no score. After confirming no native process remained, full
+verification started at `/tmp/connectanum-verify283.log`. A fresh complete native
+campaign is required after verification; do not reuse partial native280 scores.
+
+Work282 capacity assertion ordering: state281 completed at 64.407% strict
+raw/adjusted assertion score (152/236 viable), 48 survivors, 22 timeouts and
+127 compile errors; both baselines pass, no waivers. Incorrect debounce admission
+could wait for rejection before checking counters. Assert the rejection counter
+and active-entry bound after an awaited metrics barrier first, then assert the
+returned error. This preserves real timeout classification and adds direct
+state assertions. All 103 state tests and targeted analysis pass. Complete
+remeasurement runs at `out/regression-coverage-2026-09-15/state282-mutations`.
+Full verification remains queued after native280; no updated score yet.
+
+Work281 local capacity regressions cover exact capacities 1/2/3 for throttle
+leases and pending debounces, registration isolation, rejection counters/reasons,
+and slot recovery after caller close without timer sleeps. All 103 state tests
+and targeted analysis pass; Fast279 passed before this batch. Complete state
+remeasurement runs at `out/regression-coverage-2026-09-15/state281-mutations`.
+Native280 remains active with unchanged inputs; full verification is queued
+behind it. No new mutation score is claimed.
+
 Work277 state remeasurement completed at
 `out/regression-coverage-2026-09-15/state277-mutations` from `8579446e`:
 363 generated, 236 viable, 154 assertion-backed kills (109 assertion-only,

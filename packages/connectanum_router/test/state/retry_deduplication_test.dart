@@ -422,6 +422,99 @@ void main() {
     },
   );
 
+  for (final capacity in [1, 2, 3]) {
+    for (final debounce in [false, true]) {
+      test(
+        'capacity $capacity is registration-local with debounce=$debounce',
+        () async {
+          for (final procedure in [
+            'com.example.capacity.a',
+            'com.example.capacity.b',
+          ]) {
+            await context.registerProcedure(
+              sessionId: 2001,
+              procedure: procedure,
+              details: {
+                'auto_deduplication': debounce ? 50000 : 0,
+                'auto_deduplication_capacity': capacity,
+                'auto_deduplication_expiry': 60000,
+              },
+            );
+          }
+          final pending = <Future<Object>>[];
+          Future<void> admit(String procedure, int caller, int request) async {
+            final result = context
+                .dispatchInvocation(
+                  callerSessionId: caller,
+                  requestId: request,
+                  procedure: procedure,
+                  options: {'transaction_hash': 'capacity:$request'},
+                )
+                .then<Object>(
+                  (value) => value,
+                  onError: (Object error) => error,
+                );
+            if (debounce) {
+              pending.add(result);
+            } else {
+              expect(await result, isA<InvocationDispatchResult>());
+            }
+          }
+
+          for (var index = 0; index < capacity; index++) {
+            await admit('com.example.capacity.a', 1001, 300 + index);
+            expect(
+              (await _metrics(store)).retryDeduplicationActiveCount,
+              index + 1,
+            );
+          }
+          final rejected = context
+              .dispatchInvocation(
+                callerSessionId: 1001,
+                requestId: 400,
+                procedure: 'com.example.capacity.a',
+                options: const {'transaction_hash': 'over-capacity'},
+              )
+              .then<Object>((value) => value, onError: (Object error) => error);
+          final boundary = await _metrics(store);
+          expect(boundary.totalRetryDeduplicationCapacityRejects, 1);
+          expect(boundary.retryDeduplicationActiveCount, capacity);
+          expect(
+            await rejected.timeout(const Duration(seconds: 2)),
+            isA<StateError>().having(
+              (error) => error.message,
+              'capacity reason',
+              contains('${wamp.Error.autoDeduplication}: capacity exceeded'),
+            ),
+          );
+          await admit('com.example.capacity.b', 1002, 500);
+          final full = await _metrics(store);
+          expect(full.retryDeduplicationActiveCount, capacity + 1);
+          expect(full.totalRetryDeduplicationCapacityRejects, 1);
+          expect(full.pendingInvocationCount, debounce ? 0 : capacity + 1);
+          store.commandPort.send(
+            SessionCloseCommand(realmUri: realm, sessionId: 1001),
+          );
+          expect((await _metrics(store)).retryDeduplicationActiveCount, 1);
+          await admit('com.example.capacity.a', 1002, 501);
+          expect((await _metrics(store)).retryDeduplicationActiveCount, 2);
+          store.commandPort.send(
+            SessionCloseCommand(realmUri: realm, sessionId: 1002),
+          );
+          final cleared = await _metrics(store);
+          expect(cleared.retryDeduplicationActiveCount, 0);
+          expect(cleared.pendingInvocationCount, 0);
+          for (final result in pending) {
+            expect(
+              await result.timeout(const Duration(seconds: 2)),
+              isA<StateError>(),
+            );
+          }
+        },
+      );
+    }
+  }
+
   for (final waitForAck in [false, true]) {
     test(
       'cancel retains a throttle lease only while awaiting ack=$waitForAck',

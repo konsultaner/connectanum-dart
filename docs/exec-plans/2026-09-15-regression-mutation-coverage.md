@@ -67,6 +67,60 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work283 Interrupted Campaign Recovery
+
+- Replacement state283 completed: 363 generated / 236 viable, 111 assertion-only
+  and 46 mixed assertion-backed kills, 14 test-error-only outcomes, 48 survivors,
+  17 timeouts, 127 compile errors. Raw/adjusted assertion score 66.525%, both
+  baselines pass, no equivalent waivers. The 95% gate remains unmet. Full
+  `bin/verify` of the matching test snapshot passed with exit 0 at
+  `/tmp/connectanum-verify283.log`; all 103 state tests and targeted analysis
+  pass. Local review's speculative FIFO concerns were checked against the
+  same command port and awaited metrics barrier. No timeout is counted as a kill.
+
+- State282 lost its runner at 43/363 after interruption. Preserve incomplete
+  evidence; no score. Start state283 in a fresh output directory because the
+  runner has no resume support. No concurrent Dart campaign remained alive.
+- Native280 lost its wrapper while cargo-mutants remained live under PID 76761
+  with PPID 1. Do not duplicate or terminate it. Retained recovery script
+  `out/regression-coverage-2026-09-15/recover_native280.py` waits for child exit,
+  validates complete outcome inventory and original source/tool hashes, reruns
+  the original restored-baseline command and validates exact test inventory.
+  It writes a separate recovered audit, preserving the incomplete original
+  manifest and unknown wrapper exit status. No result is claimed yet.
+- Recovery failed closed: the orphan exited without a completed cargo-mutants
+  record, so the strict audit refused it. Native280 remains incomplete with no
+  score. After confirming no native process remained, full verification started
+  at `/tmp/connectanum-verify283.log`; verify281 never started. A fresh complete
+  native campaign is needed after verification.
+
+### Work282 Capacity Assertion Ordering
+
+- State281 completed: 363 generated / 236 viable, 106 assertion-only and
+  46 mixed assertion-backed kills, 14 test-error-only outcomes, 48 survivors,
+  22 timeouts, 127 compile errors. Raw/adjusted score 64.407%; both baselines
+  pass, no waivers. The 95% gate remains unmet.
+- Wrongly admitted debounces wait instead of returning rejection. Assert the
+  rejection counter and active bound after a same-port metrics barrier before
+  awaiting the already error-handled result. Preserve error-message assertions
+  and genuine timeout classification; no runner change.
+- All 103 state tests and targeted analysis pass. Full remeasurement runs at
+  `out/regression-coverage-2026-09-15/state282-mutations`. Full verification
+  remains queued behind native280; no new score is claimed.
+
+### Work281 Retry Capacity Boundaries
+
+- Six cases exercise capacities 1/2/3 in throttle and pending-debounce modes.
+  Assert exact admission count, capacity error reason/counter, independent
+  registration admission and caller-close slot recovery. Awaited metrics are
+  command-order barriers; no debounce timer sleeps. Global capacity is not
+  claimed by these cases.
+- Fast279 preceded the batch; all 103 state tests pass at
+  `/tmp/connectanum-state281-tests.log`, with clean targeted analysis. Complete
+  remeasurement runs at `out/regression-coverage-2026-09-15/state281-mutations`.
+  Native280 is active with unchanged inputs; full verification is queued after
+  it. No updated mutation score is claimed.
+
 ### Work277 Native Audit And Work279 Diagnostics
 
 - Native277 completed: 187 generated / 170 viable, 102 assertion kills,
