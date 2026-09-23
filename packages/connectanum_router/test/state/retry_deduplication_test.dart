@@ -15,8 +15,10 @@ void main() {
   late RouterStateStore store;
   late RealmContextCache realmContexts;
   late RealmContext context;
+  var disposed = false;
 
   setUp(() async {
+    disposed = false;
     final settings = RouterSettingsBuilder()
       ..addRealmFromBuilder(
         RealmSettingsBuilder(realm)
@@ -51,7 +53,7 @@ void main() {
 
   tearDown(() {
     realmContexts.dispose();
-    store.dispose();
+    if (!disposed) store.dispose();
   });
 
   test('throttle shares hashes and releases on completion', () async {
@@ -323,6 +325,224 @@ void main() {
     expect(metrics.totalInvocationsDispatched, 0);
   });
 
+  for (final invalid in [
+    (field: 'invoke', value: 42, message: 'must be a String'),
+    (
+      field: 'invoke',
+      value: 'invalid',
+      message: 'Unsupported invocation policy',
+    ),
+    (field: 'match', value: false, message: 'must be a String'),
+    (field: 'match', value: 'regex', message: 'unsupported match policy'),
+  ]) {
+    test(
+      'rejects ${invalid.field}=${invalid.value} without poisoning registration',
+      () async {
+        const procedure = 'com.example.policy.recovery';
+        await expectLater(
+          context.registerProcedure(
+            sessionId: 2001,
+            procedure: procedure,
+            details: {invalid.field: invalid.value},
+          ),
+          throwsA(
+            isA<ArgumentError>()
+                .having((error) => error.name, 'name', invalid.field)
+                .having((error) => error.invalidValue, 'value', invalid.value)
+                .having((error) => error.message, 'message', invalid.message),
+          ),
+        );
+        final registration = await context.registerProcedure(
+          sessionId: 2002,
+          procedure: procedure,
+        );
+        final dispatched = await context.dispatchInvocation(
+          callerSessionId: 1001,
+          requestId: 49,
+          procedure: procedure,
+          options: const {},
+        );
+        expect(dispatched.registrationId, registration);
+        expect(dispatched.calleeSessionId, 2002);
+        expect((await _metrics(store)).totalInvocationsDispatched, 1);
+      },
+    );
+  }
+
+  test('store disposal rejects a pending debounce promptly', () async {
+    await context.registerProcedure(
+      sessionId: 2001,
+      procedure: 'com.example.dispose',
+      details: const {'auto_deduplication': 1000},
+    );
+    final pending = context.dispatchInvocation(
+      callerSessionId: 1001,
+      requestId: 51,
+      procedure: 'com.example.dispose',
+      options: const {'transaction_hash': 'dispose:1'},
+    );
+    final rejected = expectLater(
+      pending.timeout(const Duration(seconds: 2)),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('Router state store disposed'),
+        ),
+      ),
+    );
+    final metrics = await _metrics(store);
+    expect(metrics.retryDeduplicationActiveCount, 1);
+    expect(metrics.totalInvocationsDispatched, 0);
+    store.dispose();
+    disposed = true;
+    await rejected;
+  });
+
+  test('unregister cancels pending debounce without a late dispatch', () async {
+    const procedure = 'com.example.unregister.pending';
+    final registration = await context.registerProcedure(
+      sessionId: 2001,
+      procedure: procedure,
+      details: const {'auto_deduplication': 1000},
+    );
+    final pending = context.dispatchInvocation(
+      callerSessionId: 1001,
+      requestId: 52,
+      procedure: procedure,
+      options: const {'transaction_hash': 'unregister:pending'},
+    );
+    final rejected = expectLater(
+      pending.timeout(const Duration(seconds: 2)),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('Registration $registration removed'),
+        ),
+      ),
+    );
+    expect((await _metrics(store)).retryDeduplicationActiveCount, 1);
+    await context.unregisterProcedure(
+      sessionId: 2001,
+      registrationId: registration,
+    );
+    await rejected;
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    final metrics = await _metrics(store);
+    expect(metrics.retryDeduplicationActiveCount, 0);
+    expect(metrics.totalInvocationsDispatched, 0);
+  });
+
+  test('unregister releases throttle state before re-registration', () async {
+    const procedure = 'com.example.unregister.active';
+    const otherProcedure = 'com.example.unregister.unrelated';
+    const details = {'auto_deduplication': 0};
+    final registration = await context.registerProcedure(
+      sessionId: 2001,
+      procedure: procedure,
+      details: details,
+    );
+    await context.dispatchInvocation(
+      callerSessionId: 1001,
+      requestId: 53,
+      procedure: procedure,
+      options: const {'transaction_hash': 'unregister:active'},
+    );
+    await context.registerProcedure(
+      sessionId: 2002,
+      procedure: otherProcedure,
+      details: details,
+    );
+    await context.dispatchInvocation(
+      callerSessionId: 1001,
+      requestId: 530,
+      procedure: otherProcedure,
+      options: const {'transaction_hash': 'unregister:active'},
+    );
+    expect((await _metrics(store)).retryDeduplicationActiveCount, 2);
+    await context.unregisterProcedure(
+      sessionId: 2001,
+      registrationId: registration,
+    );
+    expect((await _metrics(store)).retryDeduplicationActiveCount, 1);
+    await expectLater(
+      context.dispatchInvocation(
+        callerSessionId: 1002,
+        requestId: 531,
+        procedure: otherProcedure,
+        options: const {'transaction_hash': 'unregister:active'},
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains(wamp.Error.autoDeduplication),
+        ),
+      ),
+    );
+    final replacement = await context.registerProcedure(
+      sessionId: 2002,
+      procedure: procedure,
+      details: details,
+    );
+    final dispatched = await context.dispatchInvocation(
+      callerSessionId: 1002,
+      requestId: 54,
+      procedure: procedure,
+      options: const {'transaction_hash': 'unregister:active'},
+    );
+    expect(dispatched.registrationId, replacement);
+    expect(dispatched.calleeSessionId, 2002);
+    expect((await _metrics(store)).retryDeduplicationActiveCount, 2);
+  });
+
+  test('removing one shared callee preserves a pending debounce', () async {
+    const procedure = 'com.example.unregister.shared';
+    const details = {
+      'invoke': 'roundrobin',
+      'auto_deduplication': 1000,
+    };
+    final registration = await context.registerProcedure(
+      sessionId: 2001,
+      procedure: procedure,
+      details: details,
+    );
+    final remainingRegistration = await context.registerProcedure(
+      sessionId: 2002,
+      procedure: procedure,
+      details: details,
+    );
+    final pending = context.dispatchInvocation(
+      callerSessionId: 1001,
+      requestId: 532,
+      procedure: procedure,
+      options: const {'transaction_hash': 'shared:pending'},
+    );
+    final dispatched = expectLater(
+      pending.timeout(const Duration(seconds: 3)),
+      completion(
+        isA<InvocationDispatchResult>()
+            .having(
+              (value) => value.registrationId,
+              'registration',
+              remainingRegistration,
+            )
+            .having((value) => value.calleeSessionId, 'callee', 2002),
+      ),
+    );
+    expect((await _metrics(store)).retryDeduplicationActiveCount, 1);
+    await context.unregisterProcedure(
+      sessionId: 2001,
+      registrationId: registration,
+    );
+    expect((await _metrics(store)).retryDeduplicationActiveCount, 1);
+    await dispatched;
+    final metrics = await _metrics(store);
+    expect(metrics.retryDeduplicationActiveCount, 0);
+    expect(metrics.totalInvocationsDispatched, 1);
+  });
+
   test('session close releases active throttle leases', () async {
     const procedure = 'com.example.disconnect.active';
     await context.registerProcedure(
@@ -397,10 +617,13 @@ void main() {
 
 Future<RouterStateMetrics> _metrics(RouterStateStore store) async {
   final reply = ReceivePort();
-  store.commandPort.send(MetricsSnapshotCommand(replyPort: reply.sendPort));
-  final metrics = await reply.first as RouterStateMetrics;
-  reply.close();
-  return metrics;
+  try {
+    store.commandPort.send(MetricsSnapshotCommand(replyPort: reply.sendPort));
+    return await reply.first.timeout(const Duration(seconds: 2))
+        as RouterStateMetrics;
+  } finally {
+    reply.close();
+  }
 }
 
 SessionRecord _session(int id, int connectionId, String authId) =>

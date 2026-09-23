@@ -67,16 +67,49 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work253 State-Store Lifecycle Regressions
+
+- Assert pending debounce rejection on disposal and final-registration removal,
+  no late dispatch after removal, and active throttle cleanup before accepting
+  the same transaction hash through a replacement registration.
+- Check unrelated throttle state survives removal and a pending shared call
+  still reaches the remaining callee. Four malformed invocation/match-policy
+  cases assert exact ArgumentError details and subsequent valid dispatch.
+  All 27 pure-Dart state tests and targeted analysis pass.
+  Focused raw coverage and hashes at
+  `out/regression-coverage-2026-09-15/state253-final-v2` exercise 23 lines listed
+  uncovered in the earlier full report; no whole-package score is inferred.
+  Metrics reply ports
+  now close on bounded timeout as well as success. Full verification passed
+  with exit 0 at `/tmp/connectanum-verify253.log`, including browser WASM tests,
+  after Work252 completed; no updated
+  package-wide coverage score is claimed.
+- Diagnostic inspection of completed Work252 outcomes (not a final audit) finds
+  remaining non-assertion failures in HTTP/2 negotiation configuration setup,
+  HTTP response reads, and nested Tokio `block_on` in HTTP/3 listener creation.
+  Reproduce HTTP/3 listener creation from an async caller with valid configuration
+  before deciding whether a production change is warranted; preserve the live
+  native source snapshot until the campaign and queued verification finish.
+  Installed Quinn source confirms `Endpoint::server` is synchronous and obtains
+  its runtime through `default_runtime()`. Do not follow the advisory suggestion
+  to await it; investigate a scoped `Handle::enter` with a failing regression.
+
 ### Work252 Native Failure Diagnostics
 
+- Complete configuration campaign at
+  `out/regression-coverage-2026-09-15/native252-config-mutations`: 128 generated,
+  98 assertion kills, nine errors, four survivors, zero timeouts, 17 compile
+  errors. Raw/adjusted score 88.288% of 111 viable candidates, no equivalents,
+  `evidenceClean: false`; restored baseline exit 0. This is a file-target result,
+  not whole-component completion. Preserve the older 72.973% audit separately.
 - Preserve configuration error diagnostics with expected/actual assertions;
   explicitly assert successful RawSocket connections and handshake/upgrade reads
   before consuming results. No production or auditor changes.
 - Fast252 and all 263 native core tests pass. Full verification passed with exit 0
   at `/tmp/connectanum-verify252.log`, including browser WASM tests.
   Local review's diagnostic concern was addressed
-  without reverting to unwrap panics. The latest full mutation score remains
-  72.973% for the older Work250 snapshot, not these newer tests.
+  without reverting to unwrap panics. The complete Work252 audit above measures
+  this native source/test snapshot.
 - Hosted run 35804663746 at `3fdd5bd8` confirms both repaired timeout jobs:
   WampApp Consumer 107002649387 and client-meta-cache-web 107002650155 passed.
   Other jobs remain in progress; no complete green-chain claim.

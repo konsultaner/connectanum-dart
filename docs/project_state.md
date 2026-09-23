@@ -6,13 +6,38 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Work252 pending: configuration error-message checks retain their diagnostics
+Work253 pending: four pure-Dart state-store regressions cover disposal of a
+pending debounce, final-registration removal without late dispatch, and throttle
+cleanup followed by re-registration with the same transaction hash. Error
+expectations are attached before cancellation; metrics provide processing
+barriers with bounded reply-port cleanup. Unrelated throttle state is preserved,
+and removing one shared callee leaves a pending call routable to the other.
+Four malformed invocation/match-policy cases also assert exact ArgumentError
+details and successful registration/dispatch afterward. All 27 state tests and
+targeted analysis pass. Focused coverage at
+`out/regression-coverage-2026-09-15/state253-final-v2` retains raw data and hashes;
+23 lines listed uncovered in the earlier full report are exercised, not a new
+package-wide percentage. Full verification passed with exit 0 at
+`/tmp/connectanum-verify253.log` after the Work252 campaign finished, including
+browser WASM tests.
+No new package-wide coverage percentage is claimed.
+
+Work252 full native configuration audit completed at
+`out/regression-coverage-2026-09-15/native252-config-mutations`: 128 generated,
+98 assertion kills, nine errors, four survivors, zero timeouts and 17 compile
+errors. Raw/adjusted score is 88.288% of 111 viable candidates, with no equivalent
+waivers and `evidenceClean: false`. The restored baseline passed. This replaces
+72.973% as the latest complete configuration-file audit, not a whole-component
+score or a passing 95% gate. Remaining errors concern HTTP/2 setup, HTTP response
+reads and HTTP/3 nested runtime use; preserve the full evidence for reproduction.
+
+Work252 implemented: configuration error-message checks retain their diagnostics
 through expected/actual assertions. Six RawSocket connection fixtures and the
 handshake/upgrade response reads now assert successful outcomes before using
 the results, retaining failure diagnostics. Production behavior and the mutation
 auditor are unchanged. Fast252 and all 263 native core tests pass. Full verification
 passed with exit 0 at `/tmp/connectanum-verify252.log`, including browser WASM
-tests. No fresh mutation score is claimed.
+tests. The completed configuration mutation audit is recorded above.
 Hosted run 35804663746 (commit `3fdd5bd8`) now confirms successful WampApp
 Consumer job 107002649387 and browser meta-cache mutation job 107002650155.
 Other jobs remain in progress; this is not a clean whole-chain result.
