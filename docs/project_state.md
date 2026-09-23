@@ -6,6 +6,17 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work291 adds deterministic slice-reader HTTP header limits at 65535/65536/65537
+bytes, terminated and unterminated boundary cases, split/full-buffer reads,
+and configured body limits at 7/8/9 bytes with exact payload and next-request
+preservation. Three focused HTTP tests, Rust formatting, Fast291 and full
+verify291 pass (`/tmp/connectanum-native291-tests.log`,
+`/tmp/connectanum-fast291.log`, `/tmp/connectanum-verify291.log`). The initial
+test incorrectly expected Finished for an absent body; it now asserts the
+existing empty Buffered representation. No production behavior changed.
+Local review concerns were checked against the explicit size guards and
+slice-reader EOF behavior. Native289 predates these tests; remeasurement pending.
+
 Work290 adds independent exact wire-response assertions for the native 404
 responder and 405 responder with empty/multiple allowed methods. The focused
 test, formatting, Fast290 and full verify290 pass; logs are

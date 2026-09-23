@@ -1391,6 +1391,93 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn http_header_limit_accepts_equality_and_rejects_overflow() {
+        let config = runtime_config(Some(Duration::from_secs(1)), 16);
+        for capacity in [1024, 65540] {
+            for length in [65535, 65536, 65537] {
+                let mut wire = b"GET /boundary HTTP/1.1\r\nX-Padding: ".to_vec();
+                wire.resize(length - 4, b'a');
+                wire.extend_from_slice(b"\r\n\r\n");
+                let mut reader = BufReader::with_capacity(capacity, wire.as_slice());
+                let result = read_http_request(&mut reader, &config).await;
+                if length <= 65536 {
+                    assert_eq!(result.is_ok(), true, "length={length} capacity={capacity}");
+                    let parsed = result.unwrap();
+                    assert_eq!(parsed.is_some(), true);
+                    let (request, body) = parsed.unwrap();
+                    assert_eq!(request.target, "/boundary");
+                    assert_eq!(
+                        matches!(body, HttpBodyPhase::Buffered(ref bytes) if bytes.is_empty()),
+                        true
+                    );
+                } else {
+                    assert_eq!(
+                        matches!(result, Err(NegotiationError::Protocol(ref detail))
+                            if detail == "HTTP headers exceed supported limit"),
+                        true,
+                        "length={length} capacity={capacity}"
+                    );
+                }
+            }
+            for length in [65536, 65537] {
+                let wire = vec![b'a'; length];
+                let mut reader = BufReader::with_capacity(capacity, wire.as_slice());
+                let result = read_http_request(&mut reader, &config).await;
+                let expected = if length == 65536 {
+                    "connection closed before HTTP headers completed"
+                } else {
+                    "HTTP headers exceed supported limit"
+                };
+                assert_eq!(
+                    matches!(result, Err(NegotiationError::Protocol(ref detail))
+                        if detail == expected),
+                    true,
+                    "unterminated length={length} capacity={capacity}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn http_body_limit_preserves_exact_bytes_and_rejects_overflow() {
+        let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
+        config.max_http_content_length = Some(8);
+        for capacity in [3, 1024] {
+            for length in [7, 8, 9] {
+                let mut wire =
+                    format!("POST /body HTTP/1.1\r\nContent-Length: {length}\r\n\r\n").into_bytes();
+                wire.extend_from_slice(&b"123456789"[..length]);
+                wire.extend_from_slice(b"GET /next HTTP/1.1\r\n\r\n");
+                let mut reader = BufReader::with_capacity(capacity, wire.as_slice());
+                let result = read_http_request(&mut reader, &config).await;
+                if length <= 8 {
+                    assert_eq!(result.is_ok(), true);
+                    let parsed = result.unwrap();
+                    assert_eq!(parsed.is_some(), true);
+                    let (request, body) = parsed.unwrap();
+                    assert_eq!(request.target, "/body");
+                    assert_eq!(
+                        matches!(body, HttpBodyPhase::Buffered(ref bytes)
+                            if bytes.as_ref() == &b"123456789"[..length]),
+                        true
+                    );
+                    let next = read_http_request(&mut reader, &config).await;
+                    assert_eq!(next.is_ok(), true);
+                    let next = next.unwrap();
+                    assert_eq!(next.is_some(), true);
+                    assert_eq!(next.unwrap().0.target, "/next");
+                } else {
+                    assert_eq!(
+                        matches!(result, Err(NegotiationError::Protocol(ref detail))
+                            if detail == "http body length 9 exceeds configured limit 8"),
+                        true
+                    );
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn negotiate_detects_websocket() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let addr = listener.local_addr().unwrap();

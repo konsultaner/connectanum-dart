@@ -67,6 +67,19 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work291 HTTP Size Boundary Oracles
+
+- Deterministic slice-backed readers cover headers below/at/above 64 KiB,
+  both delimiter-present and incomplete-at-EOF, using split and single reads.
+  Body limits cover 7/8/9 bytes around an 8-byte setting and preserve exact
+  bytes plus the following pipelined request.
+- Three focused HTTP tests, formatting, Fast291 and full verify291 pass; logs
+  `/tmp/connectanum-native291-tests.log`, `/tmp/connectanum-fast291.log`, and
+  `/tmp/connectanum-verify291.log`. Corrected the test-only absent-body phase
+  expectation to empty Buffered after inspecting the existing return path.
+- Local companion concerns checked against source. No production/scoring
+  changes. Native289's earlier score must not be attributed to this snapshot.
+
 ### Work290 Native Rejection Wire Oracles
 
 - Added exact independent 404 and 405 wire assertions, covering empty and
