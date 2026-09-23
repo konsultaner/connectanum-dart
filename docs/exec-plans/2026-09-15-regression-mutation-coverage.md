@@ -67,6 +67,33 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work277 Native Audit And Work279 Diagnostics
+
+- Native277 completed: 187 generated / 170 viable, 102 assertion kills,
+  16 survivors, 52 errors, 17 compile errors. Raw/adjusted score 60.000%,
+  no equivalent waivers, evidenceClean false. Full scope is unchanged.
+- Work279 replaces custom-message boolean assertions with equality assertions
+  of the identical predicates, preserving contextual messages and standard
+  Rust assertion diagnostics. Add an explicit WebSocket variant assertion
+  before destructuring. No production or classifier modifications.
+- Fast279 and all 48 native protocol tests pass
+  (`/tmp/connectanum-native279-tests.log`); full `bin/verify` passed with exit 0
+  at `/tmp/connectanum-verify279.log`. Local review found no concrete semantic
+  regression. No score gain is inferred from these tests.
+
+### Work277 State Audit
+
+- Complete full-scope state audit from `8579446e` at
+  `out/regression-coverage-2026-09-15/state277-mutations`: 363 generated / 236
+  viable, 109 assertion-only plus 45 mixed assertion-backed kills, 15
+  test-error-only outcomes, 50 survivors, 17 timeouts and 127 compile errors.
+  Both baselines pass; no equivalent waivers. Raw/adjusted assertion score
+  improves from 63.559% to 65.254%, still below the unchanged 95% gate.
+- Native277 ran against the same commit; its completed audit is recorded above.
+  Retained triage `native-error-triage278.md`
+  identifies custom panic and custom-message assert diagnostics to improve
+  in a subsequent test batch without weakening mutation classification.
+
 ### Work276 Callee Close And Invocation Touch
 
 - Add callee-close isolation assertions for records and active retry leases,

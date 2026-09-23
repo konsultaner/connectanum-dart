@@ -1027,8 +1027,9 @@ mod tests {
 
         let _client = TcpStream::connect(addr).await.unwrap();
         let result = rx.await;
-        assert!(
+        assert_eq!(
             matches!(&result, Ok(Err(NegotiationError::Timeout))),
+            true,
             "expected header timeout, got {result:?}"
         );
     }
@@ -1057,8 +1058,9 @@ mod tests {
             .unwrap();
 
         let result = rx.await;
-        assert!(
+        assert_eq!(
             matches!(&result, Ok(Err(NegotiationError::Timeout))),
+            true,
             "expected body timeout, got {result:?}"
         );
     }
@@ -1086,11 +1088,12 @@ mod tests {
             .unwrap();
 
         let result = rx.await;
-        assert!(
+        assert_eq!(
             matches!(
                 &result,
                 Ok(Ok(Some((_, HttpBodyPhase::NeedsStreaming { .. }))))
             ),
+            true,
             "expected parsed streaming request, got {result:?}"
         );
         if let Ok(Ok(Some((
@@ -1132,31 +1135,36 @@ mod tests {
             .unwrap();
 
         let received = rx.await;
-        assert!(
+        assert_eq!(
             received.is_ok(),
+            true,
             "parser task returns its results: {received:?}"
         );
         let (first, second) = received.unwrap();
-        assert!(
+        assert_eq!(
             matches!(&first, Ok(Some(_))),
+            true,
             "first request parsed: {first:?}"
         );
-        assert!(
+        assert_eq!(
             matches!(&second, Ok(Some(_))),
+            true,
             "second request parsed: {second:?}"
         );
         let (first_request, first_body) = first.unwrap().unwrap();
         let (second_request, second_body) = second.unwrap().unwrap();
         assert_eq!(first_request.method, "POST");
         assert_eq!(first_request.target, "/first");
-        assert!(
+        assert_eq!(
             matches!(&first_body, HttpBodyPhase::Buffered(bytes) if bytes.as_ref() == b"body"),
+            true,
             "expected buffered inline body, got {first_body:?}"
         );
         assert_eq!(second_request.method, "GET");
         assert_eq!(second_request.target, "/second");
-        assert!(
+        assert_eq!(
             matches!(&second_body, HttpBodyPhase::Buffered(bytes) if bytes.is_empty()),
+            true,
             "expected empty buffered body, got {second_body:?}"
         );
     }
@@ -1183,17 +1191,19 @@ mod tests {
             .unwrap();
 
         let received = rx.await;
-        assert!(
+        assert_eq!(
             received.is_ok(),
+            true,
             "handshake task returns its result: {received:?}"
         );
         let handshake = received.unwrap();
-        assert!(handshake.is_ok(), "handshake parsed: {handshake:?}");
+        assert_eq!(handshake.is_ok(), true, "handshake parsed: {handshake:?}");
         let (_stream, request, body, prefetched) = handshake.unwrap();
         assert_eq!(request.method, "GET");
         assert_eq!(request.target, "/first");
-        assert!(
+        assert_eq!(
             matches!(&body, HttpBodyPhase::Buffered(bytes) if bytes.is_empty()),
+            true,
             "expected empty buffered body, got {body:?}"
         );
         assert_eq!(
@@ -1361,7 +1371,13 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
         assert!(received.is_ok());
         let negotiated = received.unwrap();
         assert!(negotiated.is_ok());
-        match negotiated.unwrap() {
+        let negotiated = negotiated.unwrap();
+        assert_eq!(
+            matches!(&negotiated, NegotiatedConnection::WebSocket(_)),
+            true,
+            "expected WebSocket negotiation, got {negotiated:?}"
+        );
+        match negotiated {
             NegotiatedConnection::WebSocket(handshake) => {
                 assert_eq!(handshake.sec_websocket_key, "SGVsbG9OZWdvdGlhdGlvbg==");
                 assert_eq!(handshake.sec_websocket_protocols.len(), 2);

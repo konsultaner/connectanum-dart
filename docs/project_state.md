@@ -6,6 +6,27 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work277 state remeasurement completed at
+`out/regression-coverage-2026-09-15/state277-mutations` from `8579446e`:
+363 generated, 236 viable, 154 assertion-backed kills (109 assertion-only,
+45 mixed), 15 test-error-only outcomes, 50 survivors, 17 timeouts and 127 compile
+errors. Raw/adjusted assertion score is 65.254% (previously 63.559%); both
+baselines pass and no equivalents are waived. The 95% gate fails as expected.
+Native277 full protocol remeasurement completed at
+`out/regression-coverage-2026-09-15/native277-protocol-mutations`: 187 generated,
+170 viable, 102 assertion kills, 16 survivors, 52 errors and 17 compile errors.
+Raw/adjusted score is 60.000%, no equivalents, evidenceClean false.
+Follow-up diagnostic triage is retained in
+`out/regression-coverage-2026-09-15/native-error-triage278.md`.
+
+Work279 preserves parser test predicates while using standard equality assertion
+diagnostics with custom context; the WebSocket negotiation test now explicitly
+asserts the expected variant before destructuring. This addresses ambiguous
+custom-panic diagnostics, not production behavior or mutation scoring rules.
+Fast279 and all 48 native protocol tests pass. Full `bin/verify` passed with
+exit 0 at `/tmp/connectanum-verify279.log`; local review found no concrete
+semantic regression. No new mutation score is claimed.
+
 Work276 local state lifecycle regressions assert that closing one callee removes
 only its invocation and retry lease while an independent callee's work remains.
 Touch tests assert success and preserved records for live no-timeout/forwarded
