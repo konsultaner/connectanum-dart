@@ -325,12 +325,11 @@ impl AsyncWrite for FlushCounter {
 
 #[tokio::test]
 async fn http1_buffered_response_propagates_flush_failure() {
+    let result = send_response(&mut FlushFailure, false, vec![1]).await;
     assert_eq!(
-        send_response(&mut FlushFailure, false, vec![1])
-            .await
-            .unwrap_err()
-            .kind(),
-        io::ErrorKind::BrokenPipe
+        matches!(&result, Err(error) if error.kind() == io::ErrorKind::BrokenPipe),
+        true,
+        "buffered response must propagate flush failure: {result:?}"
     );
 }
 

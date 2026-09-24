@@ -6,6 +6,22 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work293 strengthens native malformed-framing Protocol rejection and buffered
+flush BrokenPipe assertions before extracting errors. All 276 native core tests,
+Fast293, formatting and full verify293 pass (`/tmp/connectanum-native293-tests.log`,
+`/tmp/connectanum-fast293.log`, `/tmp/connectanum-verify293.log`). Local debug and
+review advice was checked against mutation logs; production crashes and TLS
+timeouts remain errors, with no relaxed deadlines or scoring changes. Native292
+is prior-snapshot evidence, not a remeasurement of these new assertions.
+
+Native292 completed against `b61fb3e4`: 187 generated, 170 viable, 130
+assertion kills, 4 survivors, 36 errors and 17 compile errors. Strict
+raw/adjusted score is 76.471%, no equivalent waivers; evidenceClean false.
+Complete manifest and baseline/restored evidence are retained under
+`out/regression-coverage-2026-09-15/native292-protocol-mutations`. This is the
+latest complete protocol score, not a whole-native score. Verify291 passed
+for this source/test snapshot. Remaining errors still require investigation.
+
 Work291 adds deterministic slice-reader HTTP header limits at 65535/65536/65537
 bytes, terminated and unterminated boundary cases, split/full-buffer reads,
 and configured body limits at 7/8/9 bytes with exact payload and next-request

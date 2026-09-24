@@ -67,6 +67,30 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work293 Native Error-Path Assertions
+
+- Framing macro now explicitly asserts a Protocol rejection before extracting
+  it; buffered flush failure directly asserts BrokenPipe instead of panicking
+  on unexpected success. Existing detailed status expectations are retained.
+- Native292 logs distinguish these assertion opportunities from real mutated
+  production panics and TLS timeouts. Those remain errors; no scoring changes,
+  increased deadlines, or blanket waivers were introduced.
+- All 276 native core tests, formatting, Fast293 and full verify293 pass:
+  `/tmp/connectanum-native293-tests.log`, `/tmp/connectanum-fast293.log`,
+  `/tmp/connectanum-verify293.log`. Local review found no substantive defect.
+- Native292's 76.471% predates this test-only change; no new score claimed.
+
+### Work292 Complete HTTP Boundary Remeasurement
+
+- Complete native protocol campaign at `b61fb3e4`: 187 generated, 170 viable,
+  130 assertion kills, 4 survivors, 36 errors and 17 compile errors.
+- Strict raw/adjusted score is 76.471%, up from 69.412%. No equivalent
+  waivers; evidenceClean remains false. Errors are not assertion kills and
+  the 95% objective remains unmet.
+- Complete manifest and audited outcomes with baseline/restored hashes:
+  `out/regression-coverage-2026-09-15/native292-protocol-mutations`.
+  Full verify291 passed for these unchanged source/test inputs.
+
 ### Work291 HTTP Size Boundary Oracles
 
 - Deterministic slice-backed readers cover headers below/at/above 64 KiB,

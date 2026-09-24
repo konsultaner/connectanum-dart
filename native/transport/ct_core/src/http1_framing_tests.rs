@@ -23,7 +23,13 @@ macro_rules! rejects_framing {
                 $version, $headers
             );
             let mut reader = BufReader::new(bytes.as_bytes());
-            let err = read_http_request(&mut reader, &config).await.unwrap_err();
+            let result = read_http_request(&mut reader, &config).await;
+            assert_eq!(
+                matches!(&result, Err(NegotiationError::Protocol(_))),
+                true,
+                "framing must be rejected before waiting for a body: {result:?}"
+            );
+            let err = result.unwrap_err();
             let NegotiationError::Protocol(detail) = err else {
                 panic!("framing must be rejected before waiting for a body: {err:?}");
             };
