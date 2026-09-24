@@ -2,6 +2,102 @@ part of '../router_runtime_test.dart';
 
 void _httpEarlyCleanupCases() {
   group('HTTP early ownership', () {
+    for (final progress in [false, true]) {
+      test(
+        'response cannot take ownership of another pending HTTP request progress=$progress',
+        () async {
+          final runtime = _HandleRuntime();
+          final mismatches = <Map<String, Object?>>[];
+          final binding = _earlyCleanupRouter().start(
+            runtime,
+            onEvent: (event) {
+              if (event is Map<String, Object?> &&
+                  event['type'] == 'http_response_request_mismatch') {
+                mismatches.add(event);
+              }
+            },
+          );
+          addTearDown(binding.dispose);
+          final session = await binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          final registration = await session.register('api.echo');
+          final contexts = <HttpInvocationContext>[];
+          registration.onInvoke((invocation) {
+            contexts.add(
+              HttpInvocationContext.maybeFromInvocation(invocation)!,
+            );
+          });
+          final handshakes = <_HttpEdgeHandshake>[];
+          for (var index = 0; index < 2; index++) {
+            final id = 32300 + index;
+            final handshake = _HttpEdgeHandshake(
+              NativeHttpHandshake.synthetic(
+                handle: id,
+                method: 'GET',
+                target: '/api/echo',
+                path: '/api/echo',
+                protocol: 'http/1.1',
+                headers: const {},
+                body: Uint8List(0),
+                realm: 'realm1',
+                procedure: 'api.echo',
+              ),
+            );
+            handshakes.add(handshake);
+            runtime.setConnectionProtocol(id, NativeConnectionProtocol.http);
+            runtime.enqueueHttpHandshake(
+              binding.listeners.single.listenerId,
+              id,
+              handshake,
+            );
+            await _waitUntil(() => contexts.length == index + 1);
+          }
+          expect(contexts.first.requestId, isNot(contexts.last.requestId));
+          HttpResponseUtil.respond(
+            contexts.first.invocation,
+            HttpResponseUtil.bytes(
+              requestId: contexts.last.requestId,
+              status: 201,
+              body: Uint8List.fromList([99]),
+            ),
+            progress: progress,
+          );
+          await _waitUntil(() => mismatches.isNotEmpty);
+          expect(mismatches, hasLength(1));
+          expect(mismatches.single['httpRequestId'], contexts.first.requestId);
+          expect(mismatches.single['connectionId'], 32300);
+          if (!progress) {
+            await _waitUntil(() => handshakes.first.releases > 0);
+          }
+          expect(handshakes.first.releases, progress ? 0 : 1);
+          expect(
+            handshakes.last.releases,
+            0,
+            reason: 'A callee response must not release another call owner.',
+          );
+          expect(
+            runtime.httpResponses,
+            isEmpty,
+            reason: 'A mismatched response must never reach either socket.',
+          );
+          contexts.last.sendText(body: 'legitimate reply', status: 202);
+          await _waitUntil(() => handshakes.last.releases > 0);
+          expect(runtime.httpResponses.keys, [32301]);
+          expect(runtime.httpResponses[32301]!.single.status, 202);
+          if (progress) {
+            contexts.first.sendText(
+              body: 'first legitimate reply',
+              status: 203,
+            );
+            await _waitUntil(() => handshakes.first.releases > 0);
+            expect(runtime.httpResponses[32300]!.single.status, 203);
+          }
+          await binding.dispose();
+          expect(handshakes.map((handshake) => handshake.releases), [1, 1]);
+        },
+      );
+    }
     for (final unsupported in [false, true]) {
       test(
         'buffered send failure unsupported=$unsupported cleans up and recovers',

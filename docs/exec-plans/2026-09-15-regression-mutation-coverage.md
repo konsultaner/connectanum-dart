@@ -35,6 +35,21 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work309: reproduced and fixed cross-request HTTP RPC response ownership. Reject
+payload request IDs differing from the callback's owning request before lookup
+or response dispatch. Final/progressive concurrent regressions assert no target
+release/send, legitimate recovery and exact cleanup. Red-before-fix evidence:
+`/tmp/connectanum-owner309-red.log`; Fast309, 34 focused ownership tests and
+full verify309 passed. VM308 and Native306 are older snapshots; no score gain
+is claimed for this production fix without remeasurement.
+
+VM308 at `45a78de2`: collection exit 0, 40,058/42,923 measured library lines
+(93.325%), router 17,733/19,488 (90.994%). Packaging unchanged at 765/787;
+58 library and 12 packaging entries remain unmeasured. Evidence:
+`out/regression-coverage-2026-09-15/vm308-current`, log
+`/tmp/connectanum-coverage308.log`; full verify307 passed for these inputs.
+Next largest measured gaps: binding 328, native runtime 249, router MCP 239.
+
 Work307: exact header-only rejection assertions replace an unwrap-before-check
 in the open-body framing test and extend its transfer-coding/version matrix.
 Fast307, 29 framing tests and full verify307 pass; logs are

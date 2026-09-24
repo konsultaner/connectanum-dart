@@ -6,6 +6,27 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work309 fixes HTTP RPC response ownership: a response payload could select and
+release another pending request by supplying its ID. The concurrent-request
+regression failed before the fix (target handshake released unexpectedly).
+Binding now rejects mismatched IDs before pending lookup for every response kind.
+Final/progressive regressions verify untouched target ownership, no stray send,
+legitimate completion and exactly-once disposal. Fast309, all 34 HTTP ownership
+tests and full verify309 pass (`/tmp/connectanum-fast309.log`,
+`/tmp/connectanum-owner309-red.log`, `/tmp/connectanum-owner309.log`,
+`/tmp/connectanum-verify309.log`). Local review was checked against non-null
+binding-generated IDs and the common pre-dispatch guard. Prior coverage and
+mutation scores do not measure this production change.
+
+VM308 completed at `45a78de2`: libraries 40,058/42,923 (93.325%); router
+17,733/19,488 (90.994%). Other package scores remain auth 100%, bench 99.359%,
+client 94.345%, core 94.351% and MCP 96.158%. Packaging remains 765/787 (97.205%).
+Collection exit 0; full verify307 passed on the same source/test snapshot.
+Evidence: `out/regression-coverage-2026-09-15/vm308-current`, log
+`/tmp/connectanum-coverage308.log`. The 58 unmeasured library and 12 packaging
+entries remain visible. Largest measured gaps: binding 328, native runtime 249,
+router MCP 239 lines. VM is not JS/WASM/native coverage evidence.
+
 Work307 strengthens open-body HTTP framing rejection: exact Protocol details
 are asserted before extraction, across conflicting length header orders,
 unsupported chunking, invalid coding order and HTTP/1.0. The producer remains

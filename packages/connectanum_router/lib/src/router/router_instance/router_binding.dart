@@ -2593,6 +2593,16 @@ class RouterBinding {
               result.argumentsKeywords?.cast<String, Object?>(),
             );
             if (responsePayload != null) {
+              if (responsePayload.requestId != httpRequestId) {
+                onEvent?.call({
+                  'source': 'binding',
+                  'type': 'http_response_request_mismatch',
+                  'httpRequestId': httpRequestId,
+                  'listenerId': request.listenerId,
+                  'connectionId': request.connectionId,
+                });
+                return;
+              }
               final pending = _pendingHttpCalls[responsePayload.requestId];
               if (pending == null) {
                 onEvent?.call({
