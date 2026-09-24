@@ -6,6 +6,21 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work303 covers missing metrics service and missing internal metrics realm during
+bootstrap. Repeated public readiness calls preserve the same StateError and
+original stack; realm/binding diagnostics occur once and retain error context.
+Fast303, all seven metrics-service tests and full verify303 pass (logs
+`/tmp/connectanum-fast303.log`, `/tmp/connectanum-metrics303.log`,
+`/tmp/connectanum-verify303.log`). Local review found no concrete bug.
+Production unchanged; VM302 predates these new tests.
+
+VM302 completed at `44634f0b`: libraries 40,029/42,923 (93.258%); router
+17,704/19,488 (90.846%). Auth 100%, bench 99.359%, client 94.345%, core 94.351%,
+MCP 96.158%. Packaging remains 765/787 (97.205%); 58 library and 12 packaging
+source entries remain unmeasured. Evidence:
+`out/regression-coverage-2026-09-15/vm302-current`. Collection exit 0; full
+verify301 passed for that snapshot. This is VM evidence, not JS/WASM/native.
+
 Work301 adds a real RawSocket regression across all five native forwarding
 operations: exact WAMP frames, metadata and payloads, repeat forwarding after
 original-handle release, expired/invalid-handle rejection, and continued socket

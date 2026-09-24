@@ -264,6 +264,80 @@ class _SequencedMetricsRuntime extends _NoopHandleRuntime {
 }
 
 void main() {
+  for (final includeRealm in [true, false]) {
+    test('metrics bootstrap preserves failure when '
+        '${includeRealm ? 'service' : 'internal realm'} is missing', () async {
+      final events = <Object>[];
+      final binding = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: _buildSettings(
+          includeInternalMetricsRealm: includeRealm,
+          metricsServices: const {},
+        ),
+      ).start(_NoopHandleRuntime(), onEvent: events.add);
+      addTearDown(binding.dispose);
+      final expectedMessage = includeRealm
+          ? 'Internal realm "connectanum.metrics" must declare the "metrics" '
+                'service when the OpenMetrics exporter is enabled.'
+          : 'Metrics exporter enabled for realm "connectanum.metrics" but no '
+                'matching internal realm was bootstrapped.';
+      Object? firstError;
+      String? firstStack;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          await binding.ensureInternalServicesReady().timeout(
+            const Duration(seconds: 5),
+          );
+          fail('misconfigured metrics must not report service readiness');
+        } catch (error, stack) {
+          expect(
+            error,
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              expectedMessage,
+            ),
+          );
+          if (attempt == 0) {
+            firstError = error;
+            firstStack = stack.toString();
+            expect(firstStack, contains('_bootstrapInternalRealmsAndServices'));
+          } else {
+            expect(error, same(firstError));
+            expect(stack.toString(), firstStack);
+          }
+        }
+      }
+      final failures = events
+          .whereType<Map>()
+          .where(
+            (event) =>
+                event['type'] == 'internal_realm_bootstrap_error' ||
+                event['type'] == 'internal_bootstrap_error',
+          )
+          .toList();
+      expect(failures.map((event) => event['type']), [
+        'internal_realm_bootstrap_error',
+        'internal_bootstrap_error',
+      ]);
+      expect(failures.first['realm'], 'connectanum.metrics');
+      for (final event in failures) {
+        expect(event['source'], 'binding');
+        expect(event['error'], firstError.toString());
+      }
+      expect(failures.last['stackTrace'], firstStack);
+    });
+  }
+
   test('metrics exporter collects snapshot and OpenMetrics payload', () async {
     final events = <Object>[];
     final metricsBurst = _buildMetricsBreakdown(
@@ -857,7 +931,11 @@ NativeRouterMetrics _buildMetricsBreakdown({
   ],
 );
 
-RouterSettings _buildSettings({String? openMetricsAuthToken}) {
+RouterSettings _buildSettings({
+  String? openMetricsAuthToken,
+  bool includeInternalMetricsRealm = true,
+  Set<String> metricsServices = const {'metrics'},
+}) {
   final realmBuilder = RealmSettingsBuilder('realm1')
     ..addAuthMethod('anonymous')
     ..addRoleFromBuilder(
@@ -898,13 +976,13 @@ RouterSettings _buildSettings({String? openMetricsAuthToken}) {
     name: 'connectanum.metrics',
     authId: 'metrics-daemon',
     authRole: 'metrics',
-    services: {'metrics'},
+    services: metricsServices,
   );
 
   return RouterSettings(
     realms: [realmBuilder.build(), metricsRealmBuilder.build()],
     listeners: [listenerBuilder.build()],
-    internalRealms: [internalMetricsRealm],
+    internalRealms: [if (includeInternalMetricsRealm) internalMetricsRealm],
     metrics: MetricsSettings(
       openMetrics: OpenMetricsSettings(
         enabled: true,

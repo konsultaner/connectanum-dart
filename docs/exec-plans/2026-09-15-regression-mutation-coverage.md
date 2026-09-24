@@ -67,6 +67,21 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work302 VM Refresh And Work303 Bootstrap Regressions
+
+- VM302 at `44634f0b` completed successfully: libraries 40,029/42,923 (93.258%),
+  router 17,704/19,488 (90.846%), packaging 765/787 (97.205%). Other package
+  percentages unchanged from VM294. Retain 58 unmeasured library and 12
+  packaging entries. Evidence `out/regression-coverage-2026-09-15/vm302-current`,
+  log `/tmp/connectanum-coverage302.log`; verify301 passed for that snapshot.
+- Work303 targets binding bootstrap failure branches: missing metrics service
+  and missing internal metrics realm. Public readiness calls must repeatedly
+  fail with the same error and original stack; diagnostics must occur once.
+- Fast303, all seven metrics-service tests and full verify303 passed. Logs:
+  `/tmp/connectanum-fast303.log`, `/tmp/connectanum-metrics303.log`,
+  `/tmp/connectanum-verify303.log`. Local review found no concrete bug.
+  Existing helper defaults preserved; no production change or new score claim.
+
 ### Work301 Native Forwarding Ownership And Failure Recovery
 
 - Real RawSocket frames exercise PUBLISH/EVENT, CALL/INVOCATION, CALL/RESULT,
