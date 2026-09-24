@@ -1673,10 +1673,13 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
         });
 
         let _client = TcpStream::connect(addr).await.unwrap();
-        let err = rx.await.unwrap().expect_err("negotiation fails");
-        match err {
-            NegotiationError::Timeout => {}
-            other => panic!("unexpected error: {:?}", other),
-        }
+        let received = rx.await;
+        assert_eq!(received.is_ok(), true, "negotiation task must report back");
+        let result = received.unwrap();
+        assert_eq!(
+            matches!(&result, Err(NegotiationError::Timeout)),
+            true,
+            "an idle peer must time out, not complete or fail protocol parsing: {result:?}"
+        );
     }
 }

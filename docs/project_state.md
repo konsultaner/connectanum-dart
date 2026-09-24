@@ -6,6 +6,15 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work305 makes incomplete-prefix and idle-peer negotiation failure assertions
+explicit, preserving the exact Protocol EOF message and Timeout variant. Native299
+logs identified test-owned custom assertion/panic diagnostics for handshake
+mutants; real production crashes and runtime timeouts remain errors. Fast305,
+all 53 focused protocol tests and full verify305 pass (logs
+`/tmp/connectanum-fast305.log`, `/tmp/connectanum-native305.log`,
+`/tmp/connectanum-verify305.log`). Review was checked against the existing 0-3
+byte prefix loop. No mutation score improvement is claimed before remeasurement.
+
 Work304 adds buffered HTTP send UnsupportedError/StateError recovery regressions:
 request-specific diagnostics, no false success, exactly-once handshake release
 before the next request, successful retry and no duplicate release on disposal.

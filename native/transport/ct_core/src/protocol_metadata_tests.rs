@@ -127,12 +127,13 @@ async fn incomplete_protocol_prefix_is_a_protocol_error_not_an_io_error() {
         assert!(peer.write_all(&HTTP2_PREFACE[..prefix_len]).await.is_ok());
         assert!(peer.shutdown().await.is_ok());
         let result = negotiate_connection(stream, &endpoint).await;
-        assert!(
+        assert_eq!(
             matches!(
                 &result,
                 Err(NegotiationError::Protocol(message))
                     if message == "connection closed before protocol negotiation"
             ),
+            true,
             "prefix length {prefix_len}: {result:?}"
         );
     }

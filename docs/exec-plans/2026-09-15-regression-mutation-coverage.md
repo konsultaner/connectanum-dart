@@ -35,6 +35,13 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work305: preserve exact incomplete-prefix Protocol error and idle-peer Timeout
+expectations using explicit assertion diagnostics, based on Native299 handshake
+error logs. Fast305, 53 protocol tests and full verify305 pass; logs are
+`/tmp/connectanum-{fast,native,verify}305.log`. Production crashes/timeouts are
+still errors. Fresh complete native protocol measurement is the next evidence
+step; the existing score must not be attributed to these assertions.
+
 Work304: buffered HTTP send failures now have UnsupportedError/StateError
 regressions for diagnostic identity, no false success, exactly-once cleanup and
 subsequent request recovery. Fast304, two focused tests and full verify304 pass;
