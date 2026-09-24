@@ -6,6 +6,25 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work307 strengthens open-body HTTP framing rejection: exact Protocol details
+are asserted before extraction, across conflicting length header orders,
+unsupported chunking, invalid coding order and HTTP/1.0. The producer remains
+open without body bytes; the 250ms deadline is unchanged. Fast307, all 29 framing
+tests and full verify307 pass (`/tmp/connectanum-fast307.log`,
+`/tmp/connectanum-framing307.log`, `/tmp/connectanum-verify307.log`). Local review
+was checked against existing malformed-header tests and bounded duplex writes.
+Native306 predates this change; no new score is claimed.
+
+Native306 completed against `8471d8a4`: 187 generated, 169 viable, 147 assertion
+kills, 21 errors, one survivor and 18 compile errors. Raw/adjusted protocol score
+is 86.982%, with no equivalent waivers; evidenceClean remains false. Complete
+manifest and restored baseline exit 0 are retained in
+`out/regression-coverage-2026-09-15/native306-protocol-mutations` (collector exit 1
+because the strict audit is not clean). All three handshake mutants now have
+assertion-backed outcomes. The remaining 200 reason-phrase survivor is unchanged;
+runtime errors remain visible. Full verify305 covers this snapshot. This is
+protocol-only evidence, not a whole-native score.
+
 Work305 makes incomplete-prefix and idle-peer negotiation failure assertions
 explicit, preserving the exact Protocol EOF message and Timeout variant. Native299
 logs identified test-owned custom assertion/panic diagnostics for handshake

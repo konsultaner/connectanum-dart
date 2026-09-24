@@ -140,17 +140,50 @@ rejects_framing!(
 
 #[tokio::test]
 async fn transfer_rejected_before_waiting_for_a_declared_body() {
-    time::timeout(Duration::from_millis(250), async {
-        let config = super::tests::runtime_config(Some(Duration::from_secs(2)), 16);
-        let (mut client, server) = tokio::io::duplex(256);
-        client.write_all(b"POST / HTTP/1.1\r\nTransfer-Encoding: gzip, chunked\r\nContent-Length: 1000\r\n\r\n").await.unwrap();
-        let mut reader = BufReader::new(server);
-        let err = read_http_request(&mut reader, &config).await.unwrap_err();
-        assert!(matches!(err, NegotiationError::Protocol(_)));
-        drop(client);
-    })
-    .await
-    .expect("header rejection must not wait for an attacker-controlled body");
+    for (version, headers, expected) in [
+        (
+            "1.1",
+            "Transfer-Encoding: gzip, chunked\r\nContent-Length: 1000\r\n",
+            "invalid Transfer-Encoding framing",
+        ),
+        (
+            "1.1",
+            "Content-Length: 1000\r\nTransfer-Encoding: chunked\r\n",
+            "invalid Transfer-Encoding framing",
+        ),
+        (
+            "1.1",
+            "Transfer-Encoding: chunked\r\n",
+            "chunked transfer encoding is not supported",
+        ),
+        (
+            "1.1",
+            "Transfer-Encoding: chunked, gzip\r\n",
+            "invalid Transfer-Encoding framing",
+        ),
+        (
+            "1.0",
+            "Transfer-Encoding: chunked\r\n",
+            "invalid Transfer-Encoding framing",
+        ),
+    ] {
+        time::timeout(Duration::from_millis(250), async {
+            let config = super::tests::runtime_config(Some(Duration::from_secs(2)), 16);
+            let (mut client, server) = tokio::io::duplex(256);
+            let request = format!("POST / HTTP/{version}\r\n{headers}\r\n");
+            client.write_all(request.as_bytes()).await.unwrap();
+            let mut reader = BufReader::new(server);
+            let result = read_http_request(&mut reader, &config).await;
+            assert_eq!(
+                matches!(&result, Err(NegotiationError::Protocol(detail)) if detail == expected),
+                true,
+                "open-body request must be rejected from headers alone: {request:?}: {result:?}"
+            );
+            drop(client);
+        })
+        .await
+        .expect("header rejection must not wait for an attacker-controlled body");
+    }
 }
 
 #[tokio::test]

@@ -35,6 +35,19 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work307: exact header-only rejection assertions replace an unwrap-before-check
+in the open-body framing test and extend its transfer-coding/version matrix.
+Fast307, 29 framing tests and full verify307 pass; logs are
+`/tmp/connectanum-{fast,framing,verify}307.log`. Deadline and production behavior
+unchanged. Native306 is prior-snapshot evidence, not a score for this increment.
+
+Native306 completed at `8471d8a4`: 147/169 assertion kills (86.982% raw/adjusted),
+21 errors, one survivor and 18 compile errors from 187 generated candidates.
+No waivers; complete manifest and restored baseline exit 0. Strict evidence is
+still unclean. Evidence: `out/regression-coverage-2026-09-15/native306-protocol-mutations`.
+The three targeted handshake errors are now assertion kills; remaining native
+errors and broader component/runtime targets still require work.
+
 Work305: preserve exact incomplete-prefix Protocol error and idle-peer Timeout
 expectations using explicit assertion diagnostics, based on Native299 handshake
 error logs. Fast305, 53 protocol tests and full verify305 pass; logs are
