@@ -2,6 +2,91 @@ part of '../router_runtime_test.dart';
 
 void _httpEarlyCleanupCases() {
   group('HTTP early ownership', () {
+    for (final unsupported in [false, true]) {
+      test(
+        'buffered send failure unsupported=$unsupported cleans up and recovers',
+        () async {
+          final failure = unsupported
+              ? UnsupportedError('controlled buffered send failure')
+              : StateError('controlled buffered send failure');
+          final runtime = _BufferedResponseFailureRuntime(failure);
+          final events = <Map<String, Object?>>[];
+          final binding = _earlyCleanupRouter().start(
+            runtime,
+            onEvent: (event) {
+              if (event is Map<String, Object?>) events.add(event);
+            },
+          );
+          addTearDown(binding.dispose);
+          final session = await binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          final registration = await session.register('api.echo');
+          final contexts = <HttpInvocationContext>[];
+          registration.onInvoke((invocation) {
+            contexts.add(
+              HttpInvocationContext.maybeFromInvocation(invocation)!,
+            );
+          });
+          final handshakes = <_HttpEdgeHandshake>[];
+          for (var index = 0; index < 2; index++) {
+            final id = 32200 + index;
+            final handshake = _HttpEdgeHandshake(
+              NativeHttpHandshake.synthetic(
+                handle: id,
+                method: 'GET',
+                target: '/api/echo',
+                path: '/api/echo',
+                protocol: 'http/1.1',
+                headers: const {},
+                body: Uint8List(0),
+                realm: 'realm1',
+                procedure: 'api.echo',
+              ),
+            );
+            handshakes.add(handshake);
+            runtime.setConnectionProtocol(id, NativeConnectionProtocol.http);
+            runtime.enqueueHttpHandshake(
+              binding.listeners.single.listenerId,
+              id,
+              handshake,
+            );
+            await _waitUntil(() => contexts.length == index + 1);
+            expect(handshake.releases, 0);
+            contexts[index].sendText(body: 'reply-$index', status: 202);
+            await _waitUntil(() => handshake.releases > 0);
+            expect(handshake.releases, 1);
+          }
+          final failures = events.where(
+            (event) =>
+                event['type'] ==
+                (unsupported
+                    ? 'http_response_send_unsupported'
+                    : 'http_response_send_error'),
+          );
+          expect(failures, hasLength(1));
+          expect(failures.single['error'], failure.toString());
+          expect(failures.single['connectionId'], 32200);
+          expect(failures.single['httpRequestId'], contexts.first.requestId);
+          if (!unsupported) {
+            expect(
+              failures.single['stackTrace'],
+              contains('_BufferedResponseFailureRuntime.sendHttpResponse'),
+            );
+          }
+          expect(runtime.attempts, [32200, 32201]);
+          expect(runtime.httpResponses[32200], isNull);
+          expect(runtime.httpResponses[32201]!.single.status, 202);
+          final sent = events.where(
+            (event) => event['type'] == 'http_response_sent',
+          );
+          expect(sent, hasLength(1));
+          expect(sent.single['httpRequestId'], contexts.last.requestId);
+          await binding.dispose();
+          expect(handshakes.map((handshake) => handshake.releases), [1, 1]);
+        },
+      );
+    }
     test(
       'valid session profile overrides an unconfigured requested realm',
       () async {
@@ -441,6 +526,27 @@ void _httpEarlyCleanupCases() {
       },
     );
   });
+}
+
+class _BufferedResponseFailureRuntime extends _HandleRuntime {
+  _BufferedResponseFailureRuntime(this.failure);
+  final Object failure;
+  final attempts = <int>[];
+
+  @override
+  void sendHttpResponse({
+    required int handshakeHandle,
+    int? connectionId,
+    required NativeHttpResponse response,
+  }) {
+    attempts.add(handshakeHandle);
+    if (attempts.length == 1) throw failure;
+    super.sendHttpResponse(
+      handshakeHandle: handshakeHandle,
+      connectionId: connectionId,
+      response: response,
+    );
+  }
 }
 
 class _ThrowingEarlyHandshake extends _HttpEdgeHandshake {

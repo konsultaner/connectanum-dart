@@ -6,6 +6,15 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work304 adds buffered HTTP send UnsupportedError/StateError recovery regressions:
+request-specific diagnostics, no false success, exactly-once handshake release
+before the next request, successful retry and no duplicate release on disposal.
+Fast304, both focused tests and full verify304 pass (logs
+`/tmp/connectanum-fast304.log`, `/tmp/connectanum-http304.log`,
+`/tmp/connectanum-verify304.log`). Companion review was checked against the
+explicit per-request cleanup wait. Production unchanged; VM302 predates these
+tests and no new coverage or mutation percentage is claimed.
+
 Work303 covers missing metrics service and missing internal metrics realm during
 bootstrap. Repeated public readiness calls preserve the same StateError and
 original stack; realm/binding diagnostics occur once and retain error context.

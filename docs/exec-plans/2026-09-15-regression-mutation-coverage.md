@@ -35,6 +35,12 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work304: buffered HTTP send failures now have UnsupportedError/StateError
+regressions for diagnostic identity, no false success, exactly-once cleanup and
+subsequent request recovery. Fast304, two focused tests and full verify304 pass;
+logs are `/tmp/connectanum-{fast,http,verify}304.log`. Existing VM302/mutation
+scores predate this test increment; whole-scope gates remain unmet.
+
 - [x] Establish reproducible per-file/package reports, explicit missing-source
   inventory, and regression floors. Keep the 98% target distinct from floors.
 - [ ] Measure Rust with LLVM coverage and run cargo-mutants on native protocol,
