@@ -6,6 +6,15 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work301 adds a real RawSocket regression across all five native forwarding
+operations: exact WAMP frames, metadata and payloads, repeat forwarding after
+original-handle release, expired/invalid-handle rejection, and continued socket
+delivery. Fast301, all 31 native-runtime tests and full verify301 pass (logs
+`/tmp/connectanum-fast301.log`, `/tmp/connectanum-runtime301.log`,
+`/tmp/connectanum-verify301.log`). Local review was checked against the poll
+contract (zero means empty; negative errors throw) and retained-handle cleanup.
+Production is unchanged; prior line/mutation scores are not new measurements.
+
 Work300 fixes classification of rustc's unnumbered cast/comparison syntax error:
 only a failed build with the diagnostic on the mutated source span qualifies as
 compileError; unknown locations, runtime phases, crashes and timeouts fail closed.

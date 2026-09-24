@@ -270,6 +270,162 @@ void main() {
         },
       );
 
+      test(
+        'forwarding retains payload ownership and rejects expired handles',
+        () async {
+          final socket = await Socket.connect(
+            '127.0.0.1',
+            runtime.getLocalPort(listener),
+          );
+          addTearDown(() async {
+            await _socketQueues.remove(socket)?.cancel(immediate: true);
+            _socketLeftovers.remove(socket);
+            socket.destroy();
+          });
+          await _performHandshake(socket);
+          final connection = await _pollConnectionUntil(runtime, listener);
+          const args = ['payload', 7];
+          const kwargs = {'flag': true};
+          final cases = <(List<Object?>, void Function(int), List<Object?>)>[
+            (
+              [16, 1, {}, 'source.topic', args, kwargs],
+              (handle) => runtime.forwardPublishEvent(
+                handle: handle,
+                connectionId: connection,
+                subscriptionId: 91,
+                publicationId: 92,
+                publisherSessionId: 93,
+                topic: 'source.topic',
+              ),
+              [
+                36,
+                91,
+                92,
+                {'publisher': 93, 'topic': 'source.topic'},
+                args,
+                kwargs,
+              ],
+            ),
+            (
+              [48, 7, {}, 'source.echo', args, kwargs],
+              (handle) => runtime.forwardCallInvocation(
+                handle: handle,
+                connectionId: connection,
+                invocationId: 81,
+                registrationId: 82,
+                callerSessionId: 83,
+                callerAuthId: 'user-\u00e4',
+                callerAuthRole: 'member',
+                procedure: 'source.echo',
+                receiveProgress: true,
+                progress: false,
+              ),
+              [
+                68,
+                81,
+                82,
+                {
+                  'caller': 83,
+                  'caller_authid': 'user-\u00e4',
+                  'caller_authrole': 'member',
+                  'procedure': 'source.echo',
+                  'receive_progress': true,
+                  'progress': false,
+                },
+                args,
+                kwargs,
+              ],
+            ),
+            (
+              [48, 7, {}, 'source.echo', args, kwargs],
+              (handle) => runtime.forwardResultFromCall(
+                handle: handle,
+                connectionId: connection,
+                requestId: 84,
+              ),
+              [50, 84, {}, args, kwargs],
+            ),
+            (
+              [70, 81, {}, args, kwargs],
+              (handle) => runtime.forwardResultFromYield(
+                handle: handle,
+                connectionId: connection,
+                requestId: 85,
+                progress: true,
+              ),
+              [
+                50,
+                85,
+                {'progress': true},
+                args,
+                kwargs,
+              ],
+            ),
+            (
+              [8, 68, 81, {}, 'wamp.error.runtime_error', args, kwargs],
+              (handle) => runtime.forwardInvocationError(
+                handle: handle,
+                connectionId: connection,
+                requestType: 48,
+                requestId: 86,
+              ),
+              [8, 48, 86, {}, 'wamp.error.runtime_error', args, kwargs],
+            ),
+          ];
+          final invalidHandle = throwsA(
+            isA<NativeTransportException>().having(
+              (error) => error.code,
+              'native code',
+              NativeTransportErrorCode.invalidArgument,
+            ),
+          );
+          for (final (source, forward, expected) in cases) {
+            for (final handle in [0, -1]) {
+              expect(() => forward(handle), invalidHandle);
+            }
+            final payload = utf8.encode(jsonEncode(source));
+            socket.add([..._encodeFrameHeader(payload.length), ...payload]);
+            await socket.flush();
+            final deadline = Stopwatch()..start();
+            var handle = 0;
+            while (handle == 0 &&
+                deadline.elapsed < const Duration(seconds: 2)) {
+              handle = runtime.pollMessageHandle(connection);
+              if (handle == 0) {
+                await Future<void>.delayed(const Duration(milliseconds: 1));
+              }
+            }
+            expect(handle, greaterThan(0));
+            final retained = runtime.retainMessageHandle(handle);
+            expect(retained, greaterThan(0));
+            runtime.releaseMessageHandle(handle);
+            try {
+              for (var repeat = 0; repeat < 2; repeat++) {
+                forward(retained);
+                final received = await _readFrame(
+                  socket,
+                ).timeout(const Duration(seconds: 2));
+                expect(jsonDecode(utf8.decode(received)), expected);
+              }
+            } finally {
+              runtime.releaseMessageHandle(retained);
+            }
+            expect(() => forward(retained), invalidHandle);
+            expect(() => runtime.retainMessageHandle(retained), invalidHandle);
+            expect(
+              runtime.connectionProtocol(connection),
+              NativeConnectionProtocol.rawsocket,
+            );
+          }
+          final sentinel = Uint8List.fromList(utf8.encode('[2,999,{}]'));
+          runtime.sendMessage(connection, sentinel);
+          expect(
+            await _readFrame(socket).timeout(const Duration(seconds: 2)),
+            sentinel,
+          );
+        },
+      );
+
       test('releasing empty handshakes is idempotent', () {
         for (final handle in [0, -1]) {
           for (var repeat = 0; repeat < 2; repeat++) {

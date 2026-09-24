@@ -67,6 +67,20 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work301 Native Forwarding Ownership And Failure Recovery
+
+- Real RawSocket frames exercise PUBLISH/EVENT, CALL/INVOCATION, CALL/RESULT,
+  YIELD/RESULT and invocation ERROR forwarding. Exact decoded wire values include
+  request/subscription/publication IDs, identity, progress, arguments and kwargs.
+- Retain each source handle, release original ownership, forward twice, release
+  retained ownership and assert subsequent forwarding/retain rejection. Invalid
+  nonpositive handles fail with invalidArgument; a final frame proves continued
+  delivery and detects unexpected queued responses.
+- Fast301, all 31 native-runtime tests and full verify301 pass. Logs:
+  `/tmp/connectanum-fast301.log`, `/tmp/connectanum-runtime301.log`,
+  `/tmp/connectanum-verify301.log`. Local review checked against polling/error
+  contract and cleanup. Production unchanged; coverage refresh is still required.
+
 ### Work300 Unnumbered Rust Parser Diagnostic Classification
 
 - Native299's `<` after cast mutant produced a rustc parser error without an
