@@ -6,6 +6,24 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work295 adds native HTTP response exact-byte socket regressions for binary,
+UTF-8, Latin-1, unknown-encoding fallback, JSON/null, file and empty bodies.
+Invalid JSON, missing files and unencodable text must fail before sending;
+the same handshake subsequently sends a valid response without leaked headers.
+All 30 native-runtime tests, Fast295 and full verify295 pass (logs
+`/tmp/connectanum-runtime295.log`, `/tmp/connectanum-fast295.log`,
+`/tmp/connectanum-verify295.log`). Local review advice was checked against
+sequential test teardown and explicit successful retry assertions. VM294 and
+the mutation scores below predate this test; no score improvement is claimed.
+
+VM294 completed at `d7a2fd1e`: 40,012/42,923 measured library lines (93.218%).
+Package percentages: auth 100%, bench 99.359%, client 94.345%, core 94.351%,
+MCP 96.158%, router 90.758%. Packaging remains 765/787 (97.205%). All collection
+commands passed; the 98% goal is not achieved and 58 unmeasured source entries
+remain visible. Evidence: `out/regression-coverage-2026-09-15/vm294-current`.
+Largest measured gaps: router_binding 359 lines, native runtime 264,
+router_mcp 239. VM data is not browser JS/WASM or native coverage evidence.
+
 Work293 strengthens native malformed-framing Protocol rejection and buffered
 flush BrokenPipe assertions before extracting errors. All 276 native core tests,
 Fast293, formatting and full verify293 pass (`/tmp/connectanum-native293-tests.log`,

@@ -67,6 +67,35 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work295 Native HTTP Response Body Recovery
+
+- Added exact-byte real-socket tests for binary, UTF-8, Latin-1, unknown encoding
+  fallback, JSON/null, file and empty response bodies, with Content-Length and
+  success-header assertions.
+- Before each successful response, reject unsupported JSON objects, missing
+  files and ASCII-unencodable text on the same handshake. Assert exception types
+  and that failed-attempt headers do not appear in the successful wire response.
+- Fast295, all 30 native-runtime tests and full verify295 passed; logs are
+  `/tmp/connectanum-fast295.log`, `/tmp/connectanum-runtime295.log` and
+  `/tmp/connectanum-verify295.log`. Production behavior and scoring unchanged.
+- Local test/review advice was verified against implementation and test teardown;
+  handshake retention is intentional and successful retry proves its usability.
+  VM294 and existing mutation evidence remain prior-snapshot measurements.
+
+### Work294 Current VM Coverage Measurement
+
+- Ran `CONNECTANUM_COVERAGE_DIR=out/regression-coverage-2026-09-15/vm294-current
+  bin/test-coverage` at `d7a2fd1e`; exit 0, log
+  `/tmp/connectanum-coverage294.log`. Full verify293 passed for this snapshot.
+- Measured libraries: 40,012/42,923 (93.218%); auth 100%, bench 99.359%,
+  client 94.345%, core 94.351%, MCP 96.158%, router 90.758%.
+- Separate packaging denominator: 765/787 (97.205%). The report retains
+  58 unmeasured source entries; not all are executable or VM-applicable,
+  and none are silently credited. Browser/WASM/native scopes remain separate.
+- Largest measured gaps are router binding (359), router native runtime (264),
+  and router MCP (239). Use this current report rather than VM255 to select
+  subsequent production-line regressions. The overall 98% goal remains unmet.
+
 ### Work293 Native Error-Path Assertions
 
 - Framing macro now explicitly asserts a Protocol rejection before extracting

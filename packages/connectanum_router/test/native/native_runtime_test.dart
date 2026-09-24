@@ -595,6 +595,103 @@ void main() {
       expect(await _readHttpResponse(socket), contains('204 No Content'));
     }, skip: skipReason);
 
+    test('http response bodies preserve bytes and recover before send', () async {
+      final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
+      addTearDown(runtime.dispose);
+      runtime.start();
+      addTearDown(runtime.shutdown);
+      final directory = Directory.systemTemp.createTempSync('http-response-');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final file = File('${directory.path}/payload.bin')
+        ..writeAsBytesSync([0, 128, 255, 13, 10]);
+      const configJson =
+          '{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["http"],"http":{"alpn":["http/1.1"]},"http_routes":[{"path":"/","match_kind":"prefix","methods":{"POST":{"type":"reserved_realm","append_method_suffix":true}}}]}]}';
+      runtime.applyRouterConfig(Uint8List.fromList(utf8.encode(configJson)));
+      final listener = runtime.listen('127.0.0.1', 0);
+      final port = runtime.getLocalPort(listener);
+      final cases = <(NativeHttpResponseBody, List<int>)>[
+        (
+          NativeHttpResponseBytes(Uint8List.fromList([0, 255, 128])),
+          [0, 255, 128],
+        ),
+        (NativeHttpResponseText('\u00e4'), [195, 164]),
+        (NativeHttpResponseText('\u00e4', encoding: 'latin1'), [228]),
+        (NativeHttpResponseText('\u00e4', encoding: 'unknown'), [195, 164]),
+        (
+          NativeHttpResponseJson({
+            'x': [1, true],
+          }),
+          [123, 34, 120, 34, 58, 91, 49, 44, 116, 114, 117, 101, 93, 125],
+        ),
+        (NativeHttpResponseJson(null), [110, 117, 108, 108]),
+        (NativeHttpResponseFile(file.path), [0, 128, 255, 13, 10]),
+        (NativeHttpResponseText(''), []),
+      ];
+      for (final (body, expected) in cases) {
+        final socket = await Socket.connect('127.0.0.1', port);
+        addTearDown(socket.destroy);
+        await _sendHttpRequest(
+          socket,
+          method: 'POST',
+          path: '/response',
+          host: '127.0.0.1:$port',
+          body: Uint8List(0),
+        );
+        final connection = await _pollConnectionUntil(runtime, listener);
+        final handshake = await _takeHttpHandshakeUntil(runtime, connection);
+        addTearDown(handshake.release);
+        for (final (invalid, matcher) in <(NativeHttpResponseBody, Matcher)>[
+          (NativeHttpResponseJson(Object()), isA<JsonUnsupportedObjectError>()),
+          (
+            NativeHttpResponseFile('${directory.path}/missing'),
+            isA<FileSystemException>(),
+          ),
+          (
+            NativeHttpResponseText('\u20ac', encoding: 'ascii'),
+            isA<ArgumentError>(),
+          ),
+        ]) {
+          expect(
+            () => runtime.sendHttpResponse(
+              handshakeHandle: handshake.handle,
+              response: NativeHttpResponse(
+                status: 200,
+                headers: {'X-Failed': 'must-not-be-sent'},
+                body: invalid,
+              ),
+            ),
+            throwsA(matcher),
+          );
+        }
+        runtime.sendHttpResponse(
+          handshakeHandle: handshake.handle,
+          response: NativeHttpResponse(
+            status: 200,
+            headers: {'X-Result': 'success'},
+            body: body,
+          ),
+        );
+        handshake.release();
+        final headers = await _readHttpResponse(
+          socket,
+        ).timeout(const Duration(seconds: 2));
+        expect(headers, startsWith('HTTP/1.1 200 OK\r\n'));
+        expect(
+          headers.toLowerCase(),
+          contains('content-length: ${expected.length}\r\n'),
+        );
+        expect(headers.toLowerCase(), contains('x-result: success\r\n'));
+        expect(headers.toLowerCase(), isNot(contains('x-failed')));
+        expect(
+          await _readExact(
+            socket,
+            expected.length,
+          ).timeout(const Duration(seconds: 2)),
+          expected,
+        );
+      }
+    }, skip: skipReason);
+
     test('http request bodies surface inline and streaming handles', () async {
       final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
       addTearDown(runtime.dispose);
