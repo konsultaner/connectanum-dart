@@ -35,6 +35,18 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work310: ownership tests await pre-guard result delivery, not the diagnostic
+whose presence they assert. Fast310, focused tests and full verify310 pass.
+Guard-only probe `owner310-guard` yields three assertion kills, no survivors;
+original/restored tests pass. Not a binding/component-wide score. Reproduce by
+copying `router-binding-vm` config into `router-http-owner-probe-vm`, setting
+`testName` to `response cannot take ownership`, `mutationLineRanges` to
+`[[2596,2596]]` for this source snapshot and `isolateTestFiles` false, then running
+`tool/run_dart_mutations.py` with that config and `CONNECTANUM_NATIVE_LIB` set.
+Report retains source/test hashes; re-resolve the guard line after source edits.
+The erroneous first selection (`owner310-probe`) retains three compile errors
+without credit. Broad target inventory is unchanged.
+
 Work309: reproduced and fixed cross-request HTTP RPC response ownership. Reject
 payload request IDs differing from the callback's owning request before lookup
 or response dispatch. Final/progressive concurrent regressions assert no target

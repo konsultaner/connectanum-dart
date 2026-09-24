@@ -8,9 +8,15 @@ void _httpEarlyCleanupCases() {
         () async {
           final runtime = _HandleRuntime();
           final mismatches = <Map<String, Object?>>[];
+          final resultDelivered = Completer<void>();
           final binding = _earlyCleanupRouter().start(
             runtime,
             onEvent: (event) {
+              if (event is Map<String, Object?> &&
+                  event['type'] == 'http_request_result' &&
+                  !resultDelivered.isCompleted) {
+                resultDelivered.complete();
+              }
               if (event is Map<String, Object?> &&
                   event['type'] == 'http_response_request_mismatch') {
                 mismatches.add(event);
@@ -63,7 +69,9 @@ void _httpEarlyCleanupCases() {
             ),
             progress: progress,
           );
-          await _waitUntil(() => mismatches.isNotEmpty);
+          // Delivery precedes the guard; its absence must fail an assertion,
+          // rather than timing out while waiting for the guard's own event.
+          await resultDelivered.future.timeout(const Duration(seconds: 3));
           expect(mismatches, hasLength(1));
           expect(mismatches.single['httpRequestId'], contexts.first.requestId);
           expect(mismatches.single['connectionId'], 32300);

@@ -6,6 +6,18 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work310 makes ownership regression progress independent of the mismatch guard's
+own diagnostic: await the asynchronously delivered pre-guard result event, then
+assert mismatch and resource ownership. Fast310, both focused tests and full
+verify310 pass (`/tmp/connectanum-fast310.log`, `/tmp/connectanum-owner310.log`,
+`/tmp/connectanum-verify310.log`). A guard-only probe kills all three generated
+condition/binary mutants through assertions with clean original/restored tests:
+`out/regression-coverage-2026-09-15/owner310-guard`. This is not a component score.
+An earlier probe selected adjacent null-check lines and produced only compile
+errors; preserved at `owner310-probe`, with no kill credit. Full binding scope
+and thresholds remain unchanged. Companion review checked async Completer and
+the one-completion guard against synchronous callback execution.
+
 Work309 fixes HTTP RPC response ownership: a response payload could select and
 release another pending request by supplying its ID. The concurrent-request
 regression failed before the fix (target handshake released unexpectedly).
