@@ -132,6 +132,30 @@ class NativeMutationTests(unittest.TestCase):
         failed['phase_results'][0]['process_status'] = 'Timeout'
         self.assertEqual(audit.classify(failed, '', SCOPE, MUTANT), 'timeout')
 
+    def test_cast_comparison_syntax_error_requires_mutated_source_location(self):
+        failed = outcome()
+        failed['phase_results'] = [{'phase': 'Build', 'process_status': {'Failure': 101}}]
+        diagnostic = (
+            'error: `<` is interpreted as a start of generic arguments for `u64`, not a comparison\n'
+            '   --> core/src/lib.rs:4:8\n'
+            '    |\n4 | if bytes.len() as u64 < max_body {\n'
+        )
+        self.assertEqual(audit.classify(failed, diagnostic, SCOPE, MUTANT), 'compileError')
+        for text in [
+                diagnostic.replace('core/src/lib.rs', 'dependency/src/lib.rs'),
+                diagnostic.replace(':4:8', ':5:8'),
+                diagnostic.replace('   --> core/src/lib.rs:4:8\n', ''),
+                diagnostic.replace('error: `<`', 'warning: `<`'),
+                diagnostic + 'failed to run custom build',
+                diagnostic + 'No space left on device',
+                diagnostic + 'signal: 9, SIGKILL']:
+            with self.subTest(text=text):
+                self.assertEqual(audit.classify(failed, text, SCOPE, MUTANT), 'error')
+        self.assertEqual(audit.classify(failed, diagnostic, SCOPE, None), 'error')
+        self.assertEqual(audit.classify(outcome({'Failure': 101}), diagnostic, SCOPE, MUTANT), 'error')
+        failed['phase_results'][0]['process_status'] = 'Timeout'
+        self.assertEqual(audit.classify(failed, diagnostic, SCOPE, MUTANT), 'timeout')
+
     def test_multiline_mutation_maps_test_locations_but_not_replacement_panics(self):
         mutant = copy.deepcopy(MUTANT)
         scope = copy.deepcopy(SCOPE)

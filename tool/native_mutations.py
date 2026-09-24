@@ -25,6 +25,9 @@ CRASH = re.compile(
     r'signal: \d+|SIG(?:ABRT|SEGV|ILL|BUS|KILL)|stack overflow|fatal runtime error|'
     r'failed to run custom build|could not execute process|No space left on device')
 TEST = re.compile(r'^test (.+) \.\.\. (ok|FAILED|ignored)$', re.M)
+CAST_COMPARISON_ERROR = re.compile(
+    r'^error: `<` is interpreted as a start of generic arguments for `[^`\n]+`, not a comparison\n'
+    r'\s+--> ([^\n]+):(\d+):(\d+)\n', re.M)
 
 
 def source_for(path: str, scope: dict) -> str | None:
@@ -70,7 +73,18 @@ def classify(outcome: dict, log: str, scope: dict, mutant: dict | None) -> str:
         return 'error'
     names = [phase.get('phase') for phase in phases]
     if names == ['Build'] and statuses == [{'Failure': 101}]:
-        return 'compileError' if re.search(r'^error\[E\d+\]:', log, re.M) else 'error'
+        if re.search(r'^error\[E\d+\]:', log, re.M):
+            return 'compileError'
+        # rustc emits this parser diagnostic without an E-number when a mutated
+        # comparison follows a cast. Require its location to identify the mutant.
+        for diagnostic in CAST_COMPARISON_ERROR.finditer(log):
+            source = source_for(diagnostic[1], scope)
+            if (mutant and source is not None
+                    and source == source_for(mutant['file'], scope)
+                    and mutant['span']['start']['line'] <= int(diagnostic[2])
+                    <= mutant['span']['end']['line']):
+                return 'compileError'
+        return 'error'
     if names != ['Build', 'Test'] or statuses[0] != 'Success':
         return 'error'
     summaries = list(SUMMARY.finditer(log))

@@ -6,6 +6,27 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work300 fixes classification of rustc's unnumbered cast/comparison syntax error:
+only a failed build with the diagnostic on the mutated source span qualifies as
+compileError; unknown locations, runtime phases, crashes and timeouts fail closed.
+The new regression failed before the fix; all 33 audit tests, Fast300 and full
+verify300 pass (`/tmp/connectanum-classifier300-red.log`,
+`/tmp/connectanum-classifier300.log`, `/tmp/connectanum-fast300.log`,
+`/tmp/connectanum-verify300.log`). Re-auditing unchanged Native299 inputs creates
+`native299-protocol-mutations/audited-results-work300.json` alongside the original:
+144 kills, 1 survivor, 24 errors, 18 compile errors; 169 viable, raw/adjusted
+85.207%. This is a classification correction, not new kills; evidence stays unclean.
+
+Native299 completed at `49ac8824`: 187 generated, 170 viable, 144 assertion
+kills, 1 survivor, 25 errors and 17 compile errors. Raw/adjusted protocol score
+is 84.706%, without equivalent waivers; evidenceClean remains false. The full
+manifest is complete and restored baseline passed. Evidence:
+`out/regression-coverage-2026-09-15/native299-protocol-mutations`. Full verify298
+passed for these inputs. All three targeted body-limit survivors are gone.
+The remaining survivor deletes the explicit 200 reason-phrase arm, which returns
+the same string as the fallback; this is an equivalence candidate, not yet waived.
+Runtime errors still require separate investigation; no whole-native score claim.
+
 Work298 adds default 4 MiB streaming-admission boundary tests using independent
 literal lengths and TCP handshake tests below, at and above configured body
 limits, including zero. Accepted buffered bodies retain exact bytes; excess

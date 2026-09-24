@@ -67,6 +67,37 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work300 Unnumbered Rust Parser Diagnostic Classification
+
+- Native299's `<` after cast mutant produced a rustc parser error without an
+  E-number and was incorrectly classified as an error rather than compileError.
+  Added a failing regression, then narrowly recognized the observed diagnostic
+  only in build-only Failure(101) with a location in the mutated source span.
+- Negative fixtures retain unknown source/line, missing location, warning,
+  infrastructure/crash, missing mutant, test-phase and timeout fail-closed rules.
+  No error is converted into an assertion kill.
+- All 33 audit tests, Fast300 and full verify300 pass. Logs:
+  `/tmp/connectanum-classifier300-red.log`, `/tmp/connectanum-classifier300.log`,
+  `/tmp/connectanum-fast300.log`, `/tmp/connectanum-verify300.log`.
+- Re-audit uses the unchanged Native299 source/test snapshot and preserved raw
+  logs. Separate `native299-protocol-mutations/audited-results-work300.json`:
+  144 kills / 169 viable = 85.207% raw/adjusted; 1 survivor, 24 errors,
+  18 compile errors. Original report remains intact. This changes classification,
+  not test effectiveness, and clean evidence / 95% completion remain unmet.
+
+### Work299 Complete Native Protocol Remeasurement
+
+- Full inventory at `49ac8824`: 187 generated, 170 viable, 144 assertion kills,
+  1 survivor, 25 errors and 17 compile errors. Strict raw/adjusted 84.706%; no
+  equivalent waivers. The 95% target and clean-evidence requirement remain unmet.
+- Complete manifest, per-mutant outcomes/hashes and passing restored baseline:
+  `out/regression-coverage-2026-09-15/native299-protocol-mutations`.
+  Full verify298 passed for these inputs; runner exit 1 reflects unclean evidence.
+- Default-body-limit and buffered equality survivors from Native296 are killed.
+  The sole survivor removes the explicit 200 arm in `http_reason_phrase`; its
+  fallback also returns `OK`. Keep visible until an individually hash-pinned
+  equivalence justification is recorded. Production errors are not assertion kills.
+
 ### Work298 Default And Handshake HTTP Body Limits
 
 - Exercise default streaming admission at literal lengths 4194303/4194304/4194305
