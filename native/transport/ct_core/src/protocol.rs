@@ -1439,6 +1439,86 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn http_default_body_limit_controls_streaming_admission() {
+        let config = runtime_config(Some(Duration::from_secs(1)), 16);
+        assert_eq!(config.max_http_content_length, None);
+        // Literal wire lengths keep the oracle independent of the production constant.
+        for length in [4_194_303, 4_194_304, 4_194_305] {
+            let wire = format!("POST /upload HTTP/1.1\r\nContent-Length: {length}\r\n\r\n");
+            let mut reader = BufReader::new(wire.as_bytes());
+            let result = read_http_request(&mut reader, &config).await;
+            if length <= 4_194_304 {
+                assert_eq!(
+                    matches!(&result, Ok(Some((_, HttpBodyPhase::NeedsStreaming { .. })))),
+                    true,
+                    "declared length {length} must be admitted without reading the body: {result:?}"
+                );
+                let (request, body) = result.unwrap().unwrap();
+                assert_eq!(request.method, "POST");
+                assert_eq!(request.target, "/upload");
+                if let HttpBodyPhase::NeedsStreaming {
+                    prefix,
+                    remaining_len,
+                } = body
+                {
+                    assert_eq!(prefix.as_ref(), b"");
+                    assert_eq!(remaining_len, length);
+                }
+            } else {
+                assert_eq!(
+                    matches!(&result, Err(NegotiationError::Protocol(detail))
+                        if detail == "http body length 4194305 exceeds configured limit 4194304"),
+                    true,
+                    "over-limit headers must be rejected before reading a body: {result:?}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn http_handshake_accepts_exact_buffered_limit_and_rejects_overflow() {
+        for (limit, length) in [(0, 0), (0, 1), (8, 7), (8, 8), (8, 9)] {
+            let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
+            config.max_http_content_length = Some(limit);
+            let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+            let mut client = TcpStream::connect(listener.local_addr().unwrap())
+                .await
+                .unwrap();
+            let (server, _) = listener.accept().await.unwrap();
+            let mut wire =
+                format!("POST /limit HTTP/1.1\r\nContent-Length: {length}\r\n\r\n").into_bytes();
+            wire.extend_from_slice(&b"123456789"[..length]);
+            client.write_all(&wire).await.unwrap();
+            let result = parse_http_handshake(IoStream::plain(server), &config).await;
+            if length as u64 <= limit {
+                assert_eq!(
+                    result.is_ok(),
+                    true,
+                    "limit={limit} length={length}: {result:?}"
+                );
+                let handshake = result.unwrap();
+                assert_eq!(handshake.request.target, "/limit");
+                assert_eq!(handshake.request.method, "POST");
+                assert_eq!(
+                    matches!(&handshake.body, HttpBodyPhase::Buffered(bytes)
+                        if bytes.as_ref() == &b"123456789"[..length]),
+                    true,
+                    "accepted body must retain exact bytes: {:?}",
+                    handshake.body
+                );
+            } else {
+                assert_eq!(
+                    matches!(&result, Err(HttpHandshakeError::Reject(reject))
+                        if reject.status == 413 && reject.version == 1
+                        && reject.detail == format!("http body length {length} exceeds configured limit {limit}")),
+                    true,
+                    "limit={limit} length={length}: {result:?}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn http_body_limit_preserves_exact_bytes_and_rejects_overflow() {
         let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
         config.max_http_content_length = Some(8);

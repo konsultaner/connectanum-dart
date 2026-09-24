@@ -6,6 +6,15 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work298 adds default 4 MiB streaming-admission boundary tests using independent
+literal lengths and TCP handshake tests below, at and above configured body
+limits, including zero. Accepted buffered bodies retain exact bytes; excess
+bodies produce HTTP 413 rejection details. Fast298, five focused HTTP tests,
+formatting and full verify298 pass (`/tmp/connectanum-fast298.log`,
+`/tmp/connectanum-limits298.log`, `/tmp/connectanum-verify298.log`). Local review
+was checked against bounded inputs and Rust socket ownership. Production and
+scoring are unchanged; Native296 predates these tests, so no gain is claimed.
+
 Work297 explicitly asserts successful parsing before extracting valid
 Content-Length and follow-up requests. Existing target and body checks remain;
 production behavior and mutation classification are unchanged. Fast297,

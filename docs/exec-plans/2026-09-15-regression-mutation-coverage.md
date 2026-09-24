@@ -67,6 +67,19 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work298 Default And Handshake HTTP Body Limits
+
+- Exercise default streaming admission at literal lengths 4194303/4194304/4194305
+  without deriving expected limits from the production constant. Assert request
+  identity, empty prefix, remaining length and precise oversized-body rejection.
+- TCP handshake cases cover configured limits zero/eight, equality, below and
+  above; assert exact accepted body bytes and HTTP 413/version/detail on rejection.
+  These target the default-limit and buffered equality survivors from Native296.
+- Fast298, five focused HTTP tests, formatting and full verify298 passed; logs
+  `/tmp/connectanum-fast298.log`, `/tmp/connectanum-limits298.log`,
+  `/tmp/connectanum-verify298.log`. Local review was checked against bounded
+  integer inputs and Rust RAII. No production changes or new score claimed.
+
 ### Work297 Valid Framing Assertion Diagnostics
 
 - Assert `Ok(Some(_))` before extracting both requests in the valid
