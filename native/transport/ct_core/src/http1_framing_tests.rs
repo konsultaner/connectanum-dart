@@ -163,16 +163,22 @@ async fn valid_lengths_preserve_body_and_next_request() {
         let config = super::tests::runtime_config(Some(Duration::from_secs(1)), 16);
         let bytes = format!("POST /outer HTTP/1.1\r\n{headers}\r\nbodyGET /next HTTP/1.1\r\n\r\n");
         let mut reader = BufReader::new(bytes.as_bytes());
-        let (request, body) = read_http_request(&mut reader, &config)
-            .await
-            .unwrap()
-            .unwrap();
+        let result = read_http_request(&mut reader, &config).await;
+        assert_eq!(
+            matches!(&result, Ok(Some(_))),
+            true,
+            "valid Content-Length must parse a request: {headers:?}: {result:?}"
+        );
+        let (request, body) = result.unwrap().unwrap();
         assert_eq!(request.target, "/outer");
         assert!(matches!(body, HttpBodyPhase::Buffered(b) if b.as_ref() == b"body"));
-        let (request, body) = read_http_request(&mut reader, &config)
-            .await
-            .unwrap()
-            .unwrap();
+        let result = read_http_request(&mut reader, &config).await;
+        assert_eq!(
+            matches!(&result, Ok(Some(_))),
+            true,
+            "following request must remain parseable: {headers:?}: {result:?}"
+        );
+        let (request, body) = result.unwrap().unwrap();
         assert_eq!(request.target, "/next");
         assert!(matches!(body, HttpBodyPhase::Buffered(b) if b.is_empty()));
     }

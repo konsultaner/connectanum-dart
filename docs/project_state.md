@@ -6,6 +6,23 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work297 explicitly asserts successful parsing before extracting valid
+Content-Length and follow-up requests. Existing target and body checks remain;
+production behavior and mutation classification are unchanged. Fast297,
+29 focused framing tests, Rust formatting and full verify297 passed (logs
+`/tmp/connectanum-fast297.log`, `/tmp/connectanum-framing297.log`,
+`/tmp/connectanum-verify297.log`). Local companion suggestions were checked
+against deliberate mutation inputs and assertion control flow. Native296
+predates these assertions; remeasurement is required before claiming a gain.
+
+Native296 completed at `9c4ca5d7`: 187 generated, 170 viable, 131 assertion
+kills, 4 survivors, 35 errors and 17 compile errors. Raw/adjusted protocol
+score is 77.059%, without equivalent waivers; evidenceClean remains false.
+The manifest is complete and the restored baseline passed. Evidence is in
+`out/regression-coverage-2026-09-15/native296-protocol-mutations`; this is not
+a whole-native score. Full verify295 passed for these inputs. Remaining errors
+include a valid Content-Length test that unwraps before asserting parse success.
+
 Work295 adds native HTTP response exact-byte socket regressions for binary,
 UTF-8, Latin-1, unknown-encoding fallback, JSON/null, file and empty bodies.
 Invalid JSON, missing files and unencodable text must fail before sending;

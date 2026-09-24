@@ -67,6 +67,31 @@ caught and timed-out outcomes separately.
 
 ## Verification Notes
 
+### Work297 Valid Framing Assertion Diagnostics
+
+- Assert `Ok(Some(_))` before extracting both requests in the valid
+  Content-Length pipeline regression, keeping all target and body assertions.
+  Mutation logs previously showed unchecked extraction obscuring test intent.
+- Fast297, 29 focused framing tests, Rust formatting and full verify297 pass;
+  logs `/tmp/connectanum-fast297.log`, `/tmp/connectanum-framing297.log` and
+  `/tmp/connectanum-verify297.log`. No production or scoring-rule changes.
+- Verified local debug/review advice against deliberately mutated inputs and
+  assertion-before-extraction ordering. No newer mutation score is claimed.
+
+### Work296 Complete Native Protocol Remeasurement
+
+- Complete 187-mutant inventory at `9c4ca5d7`: 170 viable, 131 assertion kills,
+  4 survivors, 35 errors, 17 compile errors. Raw/adjusted 77.059%, no equivalent
+  waivers. Evidence remains unclean and below the 95% target.
+- Complete manifest, individual logs/hashes and passing restored baseline in
+  `out/regression-coverage-2026-09-15/native296-protocol-mutations`.
+  Full verify295 passed for the unchanged inputs. Runner exit 1 reflects
+  unclean evidence, not an interrupted campaign.
+- Inspect remaining test-side unchecked extraction separately from genuine
+  production panics and timeouts; neither is counted as an assertion kill.
+  Content-Length validation mutation logs identify unchecked extraction in
+  `valid_lengths_preserve_body_and_next_request` as a next regression target.
+
 ### Work295 Native HTTP Response Body Recovery
 
 - Added exact-byte real-socket tests for binary, UTF-8, Latin-1, unknown encoding
