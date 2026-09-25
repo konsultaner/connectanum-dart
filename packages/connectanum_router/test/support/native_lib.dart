@@ -57,8 +57,10 @@ String? resolveOrBuildNativeLib({bool useFfiTest = true}) {
     return existing;
   }
 
-  _buildNativeLib(root, useFfiTest: useFfiTest);
-  return _freshestExisting(root, candidates);
+  if (!_buildNativeLib(root, useFfiTest: useFfiTest)) {
+    return null;
+  }
+  return _freshestExisting(root, candidates, checkSourceFreshness: false);
 }
 
 /// Build the current native library without advertising the wide message-handle
@@ -87,11 +89,19 @@ String? resolveOrBuildLegacyMessageHandleNativeLib() {
   if (!built) {
     return null;
   }
-  return _freshestExisting(root, candidates);
+  return _freshestExisting(root, candidates, checkSourceFreshness: false);
 }
 
-String? _freshestExisting(Directory root, List<String> candidates) {
-  final latestSourceChange = _latestSourceChange(root);
+String? _freshestExisting(
+  Directory root,
+  List<String> candidates, {
+  bool checkSourceFreshness = true,
+}) {
+  // After a successful build, Cargo's dependency fingerprints are authoritative:
+  // test-only source changes need not relink the release library.
+  final latestSourceChange = checkSourceFreshness
+      ? _latestSourceChange(root)
+      : null;
   File? freshest;
   for (final path in candidates) {
     final file = File(path);
@@ -146,8 +156,8 @@ DateTime? _latestSourceChange(Directory root) {
   return timestamps.last;
 }
 
-void _buildNativeLib(Directory root, {required bool useFfiTest}) {
-  _buildNativeLibWithFeatures(
+bool _buildNativeLib(Directory root, {required bool useFfiTest}) {
+  return _buildNativeLibWithFeatures(
     root,
     features: useFfiTest ? const ['ffi-test'] : const [],
     targetDir: useFfiTest

@@ -2,11 +2,78 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:connectanum_client/connectanum.dart' hide Session;
+import 'package:connectanum_core/connectanum_core.dart' as wamp;
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
 void main() {
   group('McpWampToolDelegate', () {
+    for (final asynchronous in [false, true]) {
+      for (final uri in [wamp.Error.notAuthorized, 'app.error.denied', null]) {
+        test(
+          'maps WAMP error URI only: async=$asynchronous uri=$uri',
+          () async {
+            final error = wamp.Error(
+              wamp.MessageTypes.codeCall,
+              1,
+              {'trace': 'private diagnostics'},
+              uri,
+              arguments: ['private arguments'],
+              argumentsKeywords: {'password': 'private password'},
+            );
+            var mappedResult = false;
+            final delegate = McpWampToolDelegate(
+              procedure: 'app.echo',
+              call: (_) {
+                if (asynchronous) return Future<ResultPayload>.error(error);
+                throw error;
+              },
+              resultMapper: (_, _) {
+                mappedResult = true;
+                return McpToolResult.text('unexpected success');
+              },
+            );
+            final result = await delegate.handle(
+              McpToolRequest(name: 'echo', arguments: {}),
+            );
+            expect(mappedResult, isFalse);
+            expect(result.toJson(), {
+              'content': [
+                {'type': 'text', 'text': uri ?? wamp.Error.unknown},
+              ],
+              'isError': true,
+            });
+          },
+        );
+      }
+    }
+
+    test('preserves non-WAMP invocation failures', () async {
+      final error = StateError('local failure');
+      final delegate = McpWampToolDelegate(
+        procedure: 'app.echo',
+        call: (_) => Future<ResultPayload>.error(error),
+      );
+      await expectLater(
+        delegate.handle(McpToolRequest(name: 'echo', arguments: {})),
+        throwsA(same(error)),
+      );
+    });
+
+    test('preserves configured invocation deadlines', () async {
+      final pending = Completer<ResultPayload>();
+      final delegate = McpWampToolDelegate(
+        procedure: 'app.echo',
+        call: (_) => pending.future,
+        timeout: const Duration(milliseconds: 1),
+      );
+      await expectLater(
+        delegate.handle(McpToolRequest(name: 'echo', arguments: {})),
+        throwsA(isA<TimeoutException>()),
+      );
+      pending.completeError(StateError('late reply after deadline'));
+    });
+
     test('forwards MCP tool arguments as WAMP kwargs by default', () async {
       late McpWampToolCall capturedCall;
       final delegate = McpWampToolDelegate(

@@ -63,7 +63,8 @@ final class FlutterWebRtcCallMediaFactory implements CallMediaFactory {
             : false,
       });
       localRenderer.srcObject = localStream;
-      localRenderer.muted = true;
+      // Web mutes preview playback; native renderers mute the capture track.
+      if (kIsWeb) localRenderer.muted = true;
       for (final track in localStream.getTracks()) {
         await peer.addTrack(track, localStream);
       }
@@ -343,6 +344,10 @@ Future<void> _disposePartial({
   }
   try {
     await peer?.close();
+  } catch (_) {
+    // A failed close must not skip releasing the peer's native resources.
+  }
+  try {
     await peer?.dispose();
   } catch (_) {
     // Renderer disposal still needs to run.

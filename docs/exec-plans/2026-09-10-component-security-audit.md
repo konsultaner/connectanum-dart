@@ -1,6 +1,6 @@
 # Component Security Audit
 
-Status: active
+Status: paused for the operator-prioritized regression/mutation coverage plan
 Started: 2026-09-10
 Baseline: `733c6d91`
 

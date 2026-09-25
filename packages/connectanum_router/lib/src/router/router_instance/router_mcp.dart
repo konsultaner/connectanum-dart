@@ -2989,31 +2989,36 @@ Future<void> _handleMcpHttpRequestForBinding(
         );
         return;
       }
-      final stream = _mcpOpenSseResponse(
-        binding,
-        request: request,
-        handshake: handshake,
-        protocolVersion: effectiveResponseMcpProtocolVersion,
-        extraHeaders: corsHeaders,
-      );
-      if (stream == null) {
-        await endpoint.releaseModernSubscriptionPreparation(preparation);
-        await binding._sendImmediateHttpResponse(
+      try {
+        final stream = _mcpOpenSseResponse(
+          binding,
           request: request,
           handshake: handshake,
-          response: _mcpJsonRpcHttpError(
-            status: HttpStatus.internalServerError,
-            code: mcp.McpErrorCodes.internalError,
-            message: 'MCP subscription stream could not be opened',
-            id: _recoverDirectJsonRequestId(rawMessage),
-            protocolVersion: effectiveResponseMcpProtocolVersion,
-            extraHeaders: corsHeaders,
-          ),
+          protocolVersion: effectiveResponseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
         );
+        if (stream == null) {
+          await endpoint.releaseModernSubscriptionPreparation(preparation);
+          await binding._sendImmediateHttpResponse(
+            request: request,
+            handshake: handshake,
+            response: _mcpJsonRpcHttpError(
+              status: HttpStatus.internalServerError,
+              code: mcp.McpErrorCodes.internalError,
+              message: 'MCP subscription stream could not be opened',
+              id: _recoverDirectJsonRequestId(rawMessage),
+              protocolVersion: effectiveResponseMcpProtocolVersion,
+              extraHeaders: corsHeaders,
+            ),
+          );
+          return;
+        }
+        await endpoint.activateModernSubscription(preparation, stream);
         return;
+      } finally {
+        // Opening a stream can also fail through a diagnostic observer.
+        await endpoint.releaseModernSubscriptionPreparation(preparation);
       }
-      await endpoint.activateModernSubscription(preparation, stream);
-      return;
     }
 
     final rawResponse = await endpoint._handleMessageAfterRefresh(
@@ -4338,19 +4343,26 @@ class _RouterMcpEndpoint {
       stream: stream,
     );
     _modernSubscriptions[token] = subscription;
-    await _releaseModernSubscriptionPreparation(preparation);
-    if (!_writeModernSubscriptionBytes(
-      subscription,
-      preparation.acknowledgmentBytes,
-    )) {
-      await _closeModernSubscription(token);
-      return false;
+    var activated = false;
+    try {
+      await _releaseModernSubscriptionPreparation(preparation);
+      if (!_writeModernSubscriptionBytes(
+        subscription,
+        preparation.acknowledgmentBytes,
+      )) {
+        return false;
+      }
+      subscription.heartbeat = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => _sendModernHeartbeat(token),
+      );
+      activated = true;
+      return true;
+    } finally {
+      if (!activated) {
+        await _closeModernSubscription(token);
+      }
     }
-    subscription.heartbeat = Timer.periodic(
-      const Duration(seconds: 15),
-      (_) => _sendModernHeartbeat(token),
-    );
-    return true;
   }
 
   void _releaseModernSubscriptionCapacity() {
@@ -4388,8 +4400,7 @@ class _RouterMcpEndpoint {
     try {
       subscription.stream.add(_mcpRequestScopedSseHeartbeatBytes());
     } catch (error, stackTrace) {
-      _reportModernSubscriptionWriteError(error, stackTrace);
-      unawaited(_closeModernSubscription(token));
+      unawaited(_closeFailedModernSubscription(token, error, stackTrace));
     }
   }
 
@@ -4415,25 +4426,52 @@ class _RouterMcpEndpoint {
         'method': method,
         'params': <String, Object?>{...params, '_meta': metadata},
       };
-      if (!_writeModernSubscriptionMessage(subscription, message)) {
-        unawaited(_closeModernSubscription(subscription.token));
-      }
+      _writeModernSubscriptionMessage(subscription, message);
     }
   }
 
-  bool _writeModernSubscriptionMessage(
+  void _writeModernSubscriptionMessage(
     _RouterMcpModernSubscription subscription,
     Object? message,
   ) {
     try {
-      return _writeModernSubscriptionBytes(
+      _addModernSubscriptionBytes(
         subscription,
         _mcpRequestScopedSseMessageBytes(message),
       );
     } catch (error, stackTrace) {
-      _reportModernSubscriptionWriteError(error, stackTrace);
-      return false;
+      unawaited(
+        _closeFailedModernSubscription(subscription.token, error, stackTrace),
+      );
     }
+  }
+
+  Future<void> _closeFailedModernSubscription(
+    int token,
+    Object error,
+    StackTrace stackTrace,
+  ) async {
+    // An observer must not interrupt fanout or prevent failed-peer cleanup.
+    // Its error remains observable through this asynchronous operation.
+    try {
+      _reportModernSubscriptionWriteError(error, stackTrace);
+    } finally {
+      await _closeModernSubscription(token);
+    }
+  }
+
+  void _addModernSubscriptionBytes(
+    _RouterMcpModernSubscription subscription,
+    Uint8List body,
+  ) {
+    final limit = _mcpMaxResponseBytesForRoute(route);
+    if (body.length > limit) {
+      throw _McpRequestScopedSseEventResponseLimitExceeded(
+        requiredBytes: body.length,
+        limit: limit,
+      );
+    }
+    subscription.stream.add(body);
   }
 
   bool _writeModernSubscriptionBytes(
@@ -4441,14 +4479,7 @@ class _RouterMcpEndpoint {
     Uint8List body,
   ) {
     try {
-      final limit = _mcpMaxResponseBytesForRoute(route);
-      if (body.length > limit) {
-        throw _McpRequestScopedSseEventResponseLimitExceeded(
-          requiredBytes: body.length,
-          limit: limit,
-        );
-      }
-      subscription.stream.add(body);
+      _addModernSubscriptionBytes(subscription, body);
       return true;
     } catch (error, stackTrace) {
       _reportModernSubscriptionWriteError(error, stackTrace);
@@ -4508,8 +4539,9 @@ class _RouterMcpEndpoint {
       }
     } catch (error, stackTrace) {
       _reportModernSubscriptionWriteError(error, stackTrace);
+    } finally {
+      await _cleanupUnusedResourceSubscriptions();
     }
-    await _cleanupUnusedResourceSubscriptions();
   }
 
   Future<void> _reconcileResourceSubscriptionAuthorization(

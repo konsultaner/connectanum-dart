@@ -199,13 +199,18 @@ abstract class _NativeTransportBase extends AbstractTransport
   Future<void> drain() => Future<void>.delayed(Duration.zero);
 
   Future<void> _pumpMessages(int connectionId) async {
+    final controller = _messageController!;
+    final connectionLost = _onConnectionLostCompleter!;
+    final disconnect = _onDisconnectCompleter!;
     _NativeReceiveWorker? worker;
     try {
       worker = await _NativeReceiveWorker.start(
         connectionId: connectionId,
         libraryPath: _runtime.libraryPath,
       );
-      _receiveWorker = worker;
+      if (_connectionId == connectionId) {
+        _receiveWorker = worker;
+      }
       await for (final batch in worker.handleBatches) {
         for (var index = 0; index < batch.length; index += 1) {
           final handle = batch[index];
@@ -219,8 +224,7 @@ abstract class _NativeTransportBase extends AbstractTransport
           if (_isGoodbyeMessage(message)) {
             _goodbyeReceived = true;
           }
-          final controller = _messageController;
-          if (controller == null || controller.isClosed) {
+          if (controller.isClosed) {
             for (
               var remaining = index + 1;
               remaining < batch.length;
@@ -241,19 +245,28 @@ abstract class _NativeTransportBase extends AbstractTransport
           'Native transport receive worker exited unexpectedly.',
         );
       }
-    } catch (error, stackTrace) {
-      final controller = _messageController;
-      if (controller != null && !controller.isClosed) {
-        controller.addError(error, stackTrace);
-        await controller.close();
+      if (_connectionId == connectionId) {
+        _connectionId = null;
+        unawaited(controller.close());
+        complete(disconnect, null);
       }
-      _connectionId = null;
-      if (_closeRequested || _goodbyeSent || _goodbyeReceived) {
-        complete(_onDisconnectCompleter, error);
-      } else if (!(_onConnectionLostCompleter?.isCompleted ?? true)) {
-        _onConnectionLostCompleter!.complete(error);
-      } else {
-        logger.fine('Native transport receive loop ended: $error');
+    } catch (error, stackTrace) {
+      if (_connectionId == connectionId) {
+        _connectionId = null;
+        final graceful = _closeRequested || _goodbyeSent || _goodbyeReceived;
+        if (!controller.isClosed) {
+          if (!graceful) {
+            controller.addError(error, stackTrace);
+          }
+          unawaited(controller.close());
+        }
+        if (graceful) {
+          complete(disconnect, null);
+        } else if (!connectionLost.isCompleted) {
+          connectionLost.complete(error);
+        } else {
+          logger.fine('Native transport receive loop ended: $error');
+        }
       }
     } finally {
       if (worker != null && identical(_receiveWorker, worker)) {
@@ -976,7 +989,7 @@ class _NativeReceiveWorker {
   _NativeReceiveWorker._(
     this._isolate,
     this._eventsPort,
-    this._exitPort,
+    this._exited,
     this.handleBatches,
     this._controlPort,
   );
@@ -985,7 +998,7 @@ class _NativeReceiveWorker {
 
   final Isolate _isolate;
   final ReceivePort _eventsPort;
-  final ReceivePort _exitPort;
+  final Future<void> _exited;
   final Stream<List<int>> handleBatches;
   final SendPort _controlPort;
   Future<void>? _closeFuture;
@@ -995,35 +1008,59 @@ class _NativeReceiveWorker {
     required String libraryPath,
   }) async {
     final eventsPort = ReceivePort();
-    final exitPort = ReceivePort();
-    final events = eventsPort.asBroadcastStream();
-    final controlPortFuture = events
-        .firstWhere((event) => event is SendPort)
-        .then((event) => event as SendPort);
-    final isolate = await Isolate.spawn(
-      _nativeReceiveWorkerMain,
-      <String, Object?>{
-        'connectionId': connectionId,
-        'libraryPath': libraryPath,
-        'sendPort': eventsPort.sendPort,
-        'timeoutMs': _waitTimeout.inMilliseconds,
-      },
-      onExit: exitPort.sendPort,
-    );
-    final controlPort = await controlPortFuture;
+    final exited = Completer<void>();
+    final controlPort = Completer<SendPort>();
+    // Buffer handles until the pump attaches, and order exit after its messages.
+    final batches = StreamController<List<int>>();
+    eventsPort.listen((dynamic event) {
+      if (event is SendPort) {
+        controlPort.complete(event);
+      } else if (event == null) {
+        exited.complete();
+        eventsPort.close();
+        unawaited(batches.close());
+        if (!controlPort.isCompleted) {
+          controlPort.completeError(
+            StateError('Native receive worker failed to start.'),
+          );
+        }
+      } else if (event is int) {
+        batches.add(<int>[event]);
+      } else if (event is List && event.length == 2 && event.first is String) {
+        final error = RemoteError(
+          event[0] as String,
+          event[1] as String? ?? '',
+        );
+        batches.addError(error, error.stackTrace);
+      } else {
+        batches.add((event as List<dynamic>).cast<int>());
+      }
+    });
+    late Isolate isolate;
+    try {
+      isolate = await Isolate.spawn(
+        _nativeReceiveWorkerMain,
+        <String, Object?>{
+          'connectionId': connectionId,
+          'libraryPath': libraryPath,
+          'sendPort': eventsPort.sendPort,
+          'timeoutMs': _waitTimeout.inMilliseconds,
+        },
+        onExit: eventsPort.sendPort,
+        onError: eventsPort.sendPort,
+        errorsAreFatal: true,
+      );
+    } catch (_) {
+      eventsPort.close();
+      unawaited(batches.close());
+      rethrow;
+    }
     return _NativeReceiveWorker._(
       isolate,
       eventsPort,
-      exitPort,
-      events.where((event) => event is int || event is List).map<List<int>>((
-        event,
-      ) {
-        if (event is int) {
-          return <int>[event];
-        }
-        return (event as List<dynamic>).cast<int>();
-      }),
-      controlPort,
+      exited.future,
+      batches.stream,
+      await controlPort.future,
     );
   }
 
@@ -1034,12 +1071,12 @@ class _NativeReceiveWorker {
   Future<void> _closeImpl() async {
     _controlPort.send(null);
     try {
-      await _exitPort.first.timeout(const Duration(milliseconds: 200));
+      await _exited.timeout(const Duration(milliseconds: 200));
     } on TimeoutException {
       _isolate.kill(priority: Isolate.immediate);
+      await _exited.timeout(const Duration(seconds: 1));
     } finally {
       _eventsPort.close();
-      _exitPort.close();
     }
   }
 }
@@ -1068,6 +1105,8 @@ Future<void> _nativeReceiveWorkerMain(Map<String, Object?> config) async {
         );
         sendPort.send(batch.length == 1 ? handle : batch);
       }
+      // The FFI wait is synchronous; yield so stop messages can be processed.
+      await Future<void>.delayed(Duration.zero);
     }
   } on NativeTransportException catch (error) {
     if (!stopped && error.code != NativeTransportErrorCode.connectionNotFound) {

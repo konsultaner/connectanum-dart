@@ -949,6 +949,10 @@ fn header_contains_token(request: &HttpRequest, name: &str, token: &str) -> bool
 mod http1_framing_tests;
 
 #[cfg(test)]
+#[path = "protocol_metadata_tests.rs"]
+mod protocol_metadata_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{
@@ -989,7 +993,9 @@ mod tests {
                 options: HashMap::<String, JsonValue>::new(),
             }),
         };
-        EndpointRuntimeConfig::try_from_endpoint(&endpoint).expect("config valid")
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(&endpoint);
+        assert!(runtime.is_ok());
+        runtime.unwrap()
     }
 
     async fn send_rawsocket_handshake(stream: &mut TcpStream, exponent: u32) {
@@ -1020,10 +1026,12 @@ mod tests {
         });
 
         let _client = TcpStream::connect(addr).await.unwrap();
-        match rx.await.unwrap() {
-            Err(NegotiationError::Timeout) => {}
-            other => panic!("expected timeout, got {:?}", other),
-        }
+        let result = rx.await;
+        assert_eq!(
+            matches!(&result, Ok(Err(NegotiationError::Timeout))),
+            true,
+            "expected header timeout, got {result:?}"
+        );
     }
 
     #[tokio::test]
@@ -1049,10 +1057,12 @@ mod tests {
             .await
             .unwrap();
 
-        match rx.await.unwrap() {
-            Err(NegotiationError::Timeout) => {}
-            other => panic!("expected timeout, got {:?}", other),
-        }
+        let result = rx.await;
+        assert_eq!(
+            matches!(&result, Ok(Err(NegotiationError::Timeout))),
+            true,
+            "expected body timeout, got {result:?}"
+        );
     }
 
     #[tokio::test]
@@ -1077,19 +1087,27 @@ mod tests {
             .await
             .unwrap();
 
-        match rx.await.unwrap().expect("request parsed") {
-            Some((
-                request,
-                HttpBodyPhase::NeedsStreaming {
-                    prefix,
-                    remaining_len,
-                },
-            )) => {
-                assert_eq!(request.method, "POST");
-                assert_eq!(prefix, bytes::Bytes::from_static(b"body"));
-                assert_eq!(remaining_len, 70000 - 4);
-            }
-            other => panic!("expected streaming phase, got {:?}", other),
+        let result = rx.await;
+        assert_eq!(
+            matches!(
+                &result,
+                Ok(Ok(Some((_, HttpBodyPhase::NeedsStreaming { .. }))))
+            ),
+            true,
+            "expected parsed streaming request, got {result:?}"
+        );
+        if let Ok(Ok(Some((
+            request,
+            HttpBodyPhase::NeedsStreaming {
+                prefix,
+                remaining_len,
+            },
+        )))) = result
+        {
+            assert_eq!(request.method, "POST");
+            assert_eq!(request.target, "/ingest");
+            assert_eq!(prefix, bytes::Bytes::from_static(b"body"));
+            assert_eq!(remaining_len, 70000 - 4);
         }
     }
 
@@ -1103,14 +1121,8 @@ mod tests {
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
             let mut reader = BufReader::new(stream);
-            let first = read_http_request(&mut reader, &config)
-                .await
-                .expect("first request parsed")
-                .expect("first request present");
-            let second = read_http_request(&mut reader, &config)
-                .await
-                .expect("second request parsed")
-                .expect("second request present");
+            let first = read_http_request(&mut reader, &config).await;
+            let second = read_http_request(&mut reader, &config).await;
             tx.send((first, second)).ok();
         });
 
@@ -1122,21 +1134,39 @@ mod tests {
             .await
             .unwrap();
 
-        let ((first_request, first_body), (second_request, second_body)) = rx.await.unwrap();
+        let received = rx.await;
+        assert_eq!(
+            received.is_ok(),
+            true,
+            "parser task returns its results: {received:?}"
+        );
+        let (first, second) = received.unwrap();
+        assert_eq!(
+            matches!(&first, Ok(Some(_))),
+            true,
+            "first request parsed: {first:?}"
+        );
+        assert_eq!(
+            matches!(&second, Ok(Some(_))),
+            true,
+            "second request parsed: {second:?}"
+        );
+        let (first_request, first_body) = first.unwrap().unwrap();
+        let (second_request, second_body) = second.unwrap().unwrap();
         assert_eq!(first_request.method, "POST");
         assert_eq!(first_request.target, "/first");
-        match first_body {
-            HttpBodyPhase::Buffered(bytes) => {
-                assert_eq!(bytes, Bytes::from_static(b"body"));
-            }
-            other => panic!("expected buffered inline body, got {:?}", other),
-        }
+        assert_eq!(
+            matches!(&first_body, HttpBodyPhase::Buffered(bytes) if bytes.as_ref() == b"body"),
+            true,
+            "expected buffered inline body, got {first_body:?}"
+        );
         assert_eq!(second_request.method, "GET");
         assert_eq!(second_request.target, "/second");
-        match second_body {
-            HttpBodyPhase::Buffered(bytes) => assert!(bytes.is_empty()),
-            other => panic!("expected empty buffered body, got {:?}", other),
-        }
+        assert_eq!(
+            matches!(&second_body, HttpBodyPhase::Buffered(bytes) if bytes.is_empty()),
+            true,
+            "expected empty buffered body, got {second_body:?}"
+        );
     }
 
     #[tokio::test]
@@ -1148,10 +1178,8 @@ mod tests {
 
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            let handshake = parse_http_handshake(IoStream::plain(stream), &config)
-                .await
-                .expect("handshake parsed");
-            tx.send(handshake.into_parts()).ok();
+            let handshake = parse_http_handshake(IoStream::plain(stream), &config).await;
+            tx.send(handshake.map(HttpHandshake::into_parts)).ok();
         });
 
         let mut client = TcpStream::connect(addr).await.unwrap();
@@ -1162,17 +1190,58 @@ mod tests {
             .await
             .unwrap();
 
-        let (_stream, request, body, prefetched) = rx.await.unwrap();
+        let received = rx.await;
+        assert_eq!(
+            received.is_ok(),
+            true,
+            "handshake task returns its result: {received:?}"
+        );
+        let handshake = received.unwrap();
+        assert_eq!(handshake.is_ok(), true, "handshake parsed: {handshake:?}");
+        let (_stream, request, body, prefetched) = handshake.unwrap();
         assert_eq!(request.method, "GET");
         assert_eq!(request.target, "/first");
-        match body {
-            HttpBodyPhase::Buffered(bytes) => assert!(bytes.is_empty()),
-            other => panic!("expected empty buffered body, got {:?}", other),
-        }
+        assert_eq!(
+            matches!(&body, HttpBodyPhase::Buffered(bytes) if bytes.is_empty()),
+            true,
+            "expected empty buffered body, got {body:?}"
+        );
         assert_eq!(
             prefetched,
             Bytes::from_static(b"GET /second HTTP/1.1\r\nHost: localhost\r\n\r\n")
         );
+    }
+
+    #[test]
+    fn websocket_header_matching_requires_exact_values_and_complete_tokens() {
+        for (upgrade, connection, equals, contains) in [
+            (None, None, false, false),
+            (Some("websocket"), Some("upgrade"), true, true),
+            (Some("WebSocket"), Some("keep-alive, UpGrAdE"), true, true),
+            (Some("h2c"), Some("keep-alive"), false, false),
+            (Some("websockets"), Some("upgrades"), false, false),
+            (Some("websocket, h2c"), Some("preupgrade"), false, false),
+            (Some(""), Some(""), false, false),
+            (Some("websocket"), Some(" ,\tUPGRADE\t, close"), true, true),
+        ] {
+            let mut request = HttpRequest {
+                method: "GET".into(),
+                target: "/wamp".into(),
+                version: 1,
+                headers: Vec::new(),
+            };
+            if let Some(value) = upgrade {
+                request.headers.push(("uPgRaDe".into(), value.into()));
+            }
+            if let Some(value) = connection {
+                request.headers.push(("cOnNeCtIoN".into(), value.into()));
+            }
+            assert_eq!(header_equals(&request, "Upgrade", "websocket"), equals);
+            assert_eq!(
+                header_contains_token(&request, "Connection", "upgrade"),
+                contains
+            );
+        }
     }
 
     #[test]
@@ -1185,10 +1254,19 @@ mod tests {
             classify_http_error_status("chunked transfer encoding is not supported"),
             Some(501)
         );
-        assert_eq!(
-            classify_http_error_status("invalid Content-Length value"),
-            Some(400)
-        );
+        for detail in [
+            "invalid Content-Length value",
+            "conflicting Content-Length headers",
+            "invalid Transfer-Encoding framing",
+            "invalid HTTP request",
+            "missing HTTP method",
+            "missing request target",
+            "incomplete HTTP headers",
+            "HTTP headers exceed supported limit",
+        ] {
+            assert_eq!(classify_http_error_status(detail), Some(400), "{detail}");
+            assert_eq!(classify_http_error_status(&format!("{detail} extra")), None);
+        }
         assert_eq!(
             classify_http_error_status("some unrelated protocol error"),
             None
@@ -1211,10 +1289,15 @@ mod tests {
         let mut client = TcpStream::connect(addr).await.unwrap();
         send_rawsocket_handshake(&mut client, 16).await;
         let mut response = [0u8; 4];
-        client.read_exact(&mut response).await.unwrap();
+        let read = client.read_exact(&mut response).await;
+        assert!(read.is_ok());
         assert_eq!(response[0], RAWSOCKET_MAGIC);
 
-        match rx.await.unwrap().expect("negotiation succeeds") {
+        let received = rx.await;
+        assert!(received.is_ok());
+        let negotiated = received.unwrap();
+        assert!(negotiated.is_ok());
+        match negotiated.unwrap() {
             NegotiatedConnection::RawSocket(session) => {
                 assert_eq!(session.max_message_size_exponent, 16);
             }
@@ -1241,7 +1324,11 @@ mod tests {
             .await
             .unwrap();
 
-        match rx.await.unwrap().expect("negotiation succeeds") {
+        let received = rx.await;
+        assert!(received.is_ok());
+        let negotiated = received.unwrap();
+        assert!(negotiated.is_ok());
+        match negotiated.unwrap() {
             NegotiatedConnection::Http(handshake) => {
                 assert_eq!(handshake.request.method, "GET");
                 assert_eq!(handshake.request.target, "/healthz");
@@ -1255,6 +1342,219 @@ mod tests {
         client.read_to_end(&mut buf).await.unwrap();
         let response = std::str::from_utf8(&buf).unwrap();
         assert!(response.starts_with("HTTP/1.1 501"));
+    }
+
+    #[tokio::test]
+    async fn http_rejection_helpers_emit_exact_wire_responses() {
+        for (allowed, expected) in [
+            (
+                None,
+                "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            ),
+            (
+                Some(Vec::<String>::new()),
+                "HTTP/1.1 405 Method Not Allowed\r\nAllow: \r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            ),
+            (
+                Some(vec!["GET".to_string(), "POST".to_string()]),
+                "HTTP/1.1 405 Method Not Allowed\r\nAllow: GET, POST\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            ),
+        ] {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+            let mut client = TcpStream::connect(listener.local_addr().unwrap())
+                .await
+                .unwrap();
+            let (server, _) = listener.accept().await.unwrap();
+            let handshake = HttpHandshake {
+                stream: IoStream::plain(server),
+                request: HttpRequest {
+                    method: "GET".into(),
+                    target: "/missing".into(),
+                    version: 1,
+                    headers: vec![],
+                },
+                body: HttpBodyPhase::Finished,
+                prefetched: Bytes::new(),
+            };
+            let result = match allowed {
+                Some(methods) => respond_http_method_not_allowed(handshake, &methods).await,
+                None => respond_http_not_found(handshake).await,
+            };
+            assert_eq!(result.is_ok(), true, "response write failed: {result:?}");
+            let mut actual = Vec::new();
+            time::timeout(Duration::from_secs(2), client.read_to_end(&mut actual))
+                .await
+                .expect("response stream did not close")
+                .expect("response read failed");
+            assert_eq!(actual, expected.as_bytes());
+        }
+    }
+
+    #[tokio::test]
+    async fn http_header_limit_accepts_equality_and_rejects_overflow() {
+        let config = runtime_config(Some(Duration::from_secs(1)), 16);
+        for capacity in [1024, 65540] {
+            for length in [65535, 65536, 65537] {
+                let mut wire = b"GET /boundary HTTP/1.1\r\nX-Padding: ".to_vec();
+                wire.resize(length - 4, b'a');
+                wire.extend_from_slice(b"\r\n\r\n");
+                let mut reader = BufReader::with_capacity(capacity, wire.as_slice());
+                let result = read_http_request(&mut reader, &config).await;
+                if length <= 65536 {
+                    assert_eq!(result.is_ok(), true, "length={length} capacity={capacity}");
+                    let parsed = result.unwrap();
+                    assert_eq!(parsed.is_some(), true);
+                    let (request, body) = parsed.unwrap();
+                    assert_eq!(request.target, "/boundary");
+                    assert_eq!(
+                        matches!(body, HttpBodyPhase::Buffered(ref bytes) if bytes.is_empty()),
+                        true
+                    );
+                } else {
+                    assert_eq!(
+                        matches!(result, Err(NegotiationError::Protocol(ref detail))
+                            if detail == "HTTP headers exceed supported limit"),
+                        true,
+                        "length={length} capacity={capacity}"
+                    );
+                }
+            }
+            for length in [65536, 65537] {
+                let wire = vec![b'a'; length];
+                let mut reader = BufReader::with_capacity(capacity, wire.as_slice());
+                let result = read_http_request(&mut reader, &config).await;
+                let expected = if length == 65536 {
+                    "connection closed before HTTP headers completed"
+                } else {
+                    "HTTP headers exceed supported limit"
+                };
+                assert_eq!(
+                    matches!(result, Err(NegotiationError::Protocol(ref detail))
+                        if detail == expected),
+                    true,
+                    "unterminated length={length} capacity={capacity}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn http_default_body_limit_controls_streaming_admission() {
+        let config = runtime_config(Some(Duration::from_secs(1)), 16);
+        assert_eq!(config.max_http_content_length, None);
+        // Literal wire lengths keep the oracle independent of the production constant.
+        for length in [4_194_303, 4_194_304, 4_194_305] {
+            let wire = format!("POST /upload HTTP/1.1\r\nContent-Length: {length}\r\n\r\n");
+            let mut reader = BufReader::new(wire.as_bytes());
+            let result = read_http_request(&mut reader, &config).await;
+            if length <= 4_194_304 {
+                assert_eq!(
+                    matches!(&result, Ok(Some((_, HttpBodyPhase::NeedsStreaming { .. })))),
+                    true,
+                    "declared length {length} must be admitted without reading the body: {result:?}"
+                );
+                let (request, body) = result.unwrap().unwrap();
+                assert_eq!(request.method, "POST");
+                assert_eq!(request.target, "/upload");
+                if let HttpBodyPhase::NeedsStreaming {
+                    prefix,
+                    remaining_len,
+                } = body
+                {
+                    assert_eq!(prefix.as_ref(), b"");
+                    assert_eq!(remaining_len, length);
+                }
+            } else {
+                assert_eq!(
+                    matches!(&result, Err(NegotiationError::Protocol(detail))
+                        if detail == "http body length 4194305 exceeds configured limit 4194304"),
+                    true,
+                    "over-limit headers must be rejected before reading a body: {result:?}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn http_handshake_accepts_exact_buffered_limit_and_rejects_overflow() {
+        for (limit, length) in [(0, 0), (0, 1), (8, 7), (8, 8), (8, 9)] {
+            let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
+            config.max_http_content_length = Some(limit);
+            let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+            let mut client = TcpStream::connect(listener.local_addr().unwrap())
+                .await
+                .unwrap();
+            let (server, _) = listener.accept().await.unwrap();
+            let mut wire =
+                format!("POST /limit HTTP/1.1\r\nContent-Length: {length}\r\n\r\n").into_bytes();
+            wire.extend_from_slice(&b"123456789"[..length]);
+            client.write_all(&wire).await.unwrap();
+            let result = parse_http_handshake(IoStream::plain(server), &config).await;
+            if length as u64 <= limit {
+                assert_eq!(
+                    result.is_ok(),
+                    true,
+                    "limit={limit} length={length}: {result:?}"
+                );
+                let handshake = result.unwrap();
+                assert_eq!(handshake.request.target, "/limit");
+                assert_eq!(handshake.request.method, "POST");
+                assert_eq!(
+                    matches!(&handshake.body, HttpBodyPhase::Buffered(bytes)
+                        if bytes.as_ref() == &b"123456789"[..length]),
+                    true,
+                    "accepted body must retain exact bytes: {:?}",
+                    handshake.body
+                );
+            } else {
+                assert_eq!(
+                    matches!(&result, Err(HttpHandshakeError::Reject(reject))
+                        if reject.status == 413 && reject.version == 1
+                        && reject.detail == format!("http body length {length} exceeds configured limit {limit}")),
+                    true,
+                    "limit={limit} length={length}: {result:?}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn http_body_limit_preserves_exact_bytes_and_rejects_overflow() {
+        let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
+        config.max_http_content_length = Some(8);
+        for capacity in [3, 1024] {
+            for length in [7, 8, 9] {
+                let mut wire =
+                    format!("POST /body HTTP/1.1\r\nContent-Length: {length}\r\n\r\n").into_bytes();
+                wire.extend_from_slice(&b"123456789"[..length]);
+                wire.extend_from_slice(b"GET /next HTTP/1.1\r\n\r\n");
+                let mut reader = BufReader::with_capacity(capacity, wire.as_slice());
+                let result = read_http_request(&mut reader, &config).await;
+                if length <= 8 {
+                    assert_eq!(result.is_ok(), true);
+                    let parsed = result.unwrap();
+                    assert_eq!(parsed.is_some(), true);
+                    let (request, body) = parsed.unwrap();
+                    assert_eq!(request.target, "/body");
+                    assert_eq!(
+                        matches!(body, HttpBodyPhase::Buffered(ref bytes)
+                            if bytes.as_ref() == &b"123456789"[..length]),
+                        true
+                    );
+                    let next = read_http_request(&mut reader, &config).await;
+                    assert_eq!(next.is_ok(), true);
+                    let next = next.unwrap();
+                    assert_eq!(next.is_some(), true);
+                    assert_eq!(next.unwrap().0.target, "/next");
+                } else {
+                    assert_eq!(
+                        matches!(result, Err(NegotiationError::Protocol(ref detail))
+                            if detail == "http body length 9 exceeds configured limit 8"),
+                        true
+                    );
+                }
+            }
+        }
     }
 
     #[tokio::test]
@@ -1280,7 +1580,17 @@ Sec-WebSocket-Version: 13\r\n\
 Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
         client.write_all(request).await.unwrap();
 
-        match rx.await.unwrap().expect("negotiation succeeds") {
+        let received = rx.await;
+        assert!(received.is_ok());
+        let negotiated = received.unwrap();
+        assert!(negotiated.is_ok());
+        let negotiated = negotiated.unwrap();
+        assert_eq!(
+            matches!(&negotiated, NegotiatedConnection::WebSocket(_)),
+            true,
+            "expected WebSocket negotiation, got {negotiated:?}"
+        );
+        match negotiated {
             NegotiatedConnection::WebSocket(handshake) => {
                 assert_eq!(handshake.sec_websocket_key, "SGVsbG9OZWdvdGlhdGlvbg==");
                 assert_eq!(handshake.sec_websocket_protocols.len(), 2);
@@ -1321,7 +1631,9 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
                 options: HashMap::new(),
             }),
         };
-        let config = EndpointRuntimeConfig::try_from_endpoint(&endpoint).unwrap();
+        let config = EndpointRuntimeConfig::try_from_endpoint(&endpoint);
+        assert_eq!(config.is_ok(), true, "{config:?}");
+        let config = config.unwrap();
         let (tx, rx) = oneshot::channel();
 
         tokio::spawn(async move {
@@ -1333,7 +1645,11 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
         let mut client = TcpStream::connect(addr).await.unwrap();
         send_http2_preface(&mut client).await;
 
-        match rx.await.unwrap().expect("negotiation succeeds") {
+        let received = rx.await;
+        assert!(received.is_ok());
+        let negotiated = received.unwrap();
+        assert!(negotiated.is_ok());
+        match negotiated.unwrap() {
             NegotiatedConnection::Http2(handshake) => {
                 if let Some(mut stream) = handshake.into_stream() {
                     let _ = stream.shutdown().await;
@@ -1357,10 +1673,13 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
         });
 
         let _client = TcpStream::connect(addr).await.unwrap();
-        let err = rx.await.unwrap().expect_err("negotiation fails");
-        match err {
-            NegotiationError::Timeout => {}
-            other => panic!("unexpected error: {:?}", other),
-        }
+        let received = rx.await;
+        assert_eq!(received.is_ok(), true, "negotiation task must report back");
+        let result = received.unwrap();
+        assert_eq!(
+            matches!(&result, Err(NegotiationError::Timeout)),
+            true,
+            "an idle peer must time out, not complete or fail protocol parsing: {result:?}"
+        );
     }
 }

@@ -1,0 +1,644 @@
+{
+  "client-websocket-web": {
+    "c46b6a35586b5d938a60": {
+      "sourceHash": "99a075298a49c32604e9af06f9644e2e4cb98cd9819ec8bf1387c28b2e145c29",
+      "reason": "Changes only the generic browser constructor's allowInsecureCertificates default from false to true. That optional parameter is never read, stored, captured, or passed to the browser WebSocket API in this implementation. TLS validation remains browser-owned for either value; URL, serializer, messages, and lifecycle behavior are unchanged. This proof is browser-only and does not apply to the native/IO constructor."
+    },
+    "ccd7bcd6d6660126ecca": {
+      "sourceHash": "99a075298a49c32604e9af06f9644e2e4cb98cd9819ec8bf1387c28b2e145c29",
+      "reason": "Changes only withJsonSerializer's omitted allowInsecureCertificates argument. The factory passes that value directly to the generic browser constructor's unused parameter; neither the JSON serializer nor browser WebSocket creation receives it. Explicit argument calls are unchanged and omitted-argument calls retain the same browser TLS validation and observable transport behavior."
+    },
+    "9d1dfaf1563fcc907d12": {
+      "sourceHash": "99a075298a49c32604e9af06f9644e2e4cb98cd9819ec8bf1387c28b2e145c29",
+      "reason": "Changes only withMsgpackSerializer's omitted allowInsecureCertificates argument. Its sole use forwards the value to the generic browser constructor, which does not read, store, capture, or forward it. The MessagePack serializer and browser-owned TLS checks are unaffected, as are explicit-argument calls and all send/receive/lifecycle effects. This is not a waiver for IO certificate validation."
+    },
+    "a700a04264fa4280f221": {
+      "sourceHash": "99a075298a49c32604e9af06f9644e2e4cb98cd9819ec8bf1387c28b2e145c29",
+      "reason": "Changes only withCborSerializer's omitted allowInsecureCertificates argument. The value flows solely into the unused generic browser constructor parameter, never into CBOR encoding or the browser WebSocket API. Browser certificate enforcement, explicit-argument behavior, and all transport effects are identical. The corresponding native/IO option is outside this equivalence proof."
+    }
+  },
+  "core-base64-vm": {
+    "fa25245fcdab0889bd72": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the non-multiple-of-four guard true delegates every nonempty valid range to base64.decoder.convert(input, start). Empty and invalid ranges have already returned/thrown. The original fast path returns only canonical Base64 with zero padding bits; all other inputs delegate to that same SDK decoder. For canonical inputs both compute the same octets in a fresh mutable Uint8List. There is no callback or shared output state."
+    },
+    "c5bc166196419af8b644": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing length & 3 by length | 3 makes this guard true for every remaining positive length, so it delegates to the identical SDK call. The preceding range check and empty case are unchanged. Original successful fast-path inputs are canonical quartets with valid padding bits, which the SDK decodes to the same fresh mutable octets; noncanonical input already delegates."
+    },
+    "60d4bcb707f398dd1d85": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final-equals guard true changes only strings not ending in '='. It gives these strings padding one or two. The padding-one branch rejects the non-'=' final character; the padding-two branch also checks it. Both delegate to the unchanged SDK before returning the mis-sized local buffer. Strings ending in '=' and earlier range/length failures are unchanged."
+    },
+    "5960021fe63fe0599864": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final-equals guard false changes only strings ending in '='. Padding becomes zero; the final '=' maps to -1 in c or d and delegates to the SDK before a buffer can return. Inputs without final '=' are unchanged. Original canonical padded octets and malformed-padding exceptions are identical to the SDK result."
+    },
+    "a45afcae2e8ea8188d06": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Inverting the final-equals comparison assigns zero padding to strings ending in '=' and nonzero padding to others. The former reach the invalid c/d sentinel, the latter fail the explicit final-'=' check in the selected padding branch. Both delegate to the unchanged SDK; the original fast path and SDK agree on canonical octets, and malformed inputs retain SDK errors."
+    },
+    "6025d9230d45fd63ec45": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the second-last-equals guard true acts only after the last character was '='. A single-padding string is treated as double padding, but then its non-'=' c character fails the double-padding validation and delegates before any output return. Actual double padding is unchanged; malformed data keeps SDK rejection."
+    },
+    "a080222501655d7e3741": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the second-last-equals guard false changes double padding to single padding. Its c character is still '=' and maps to -1, so the unchanged c<0 check delegates before writing or returning output. Other inputs are unchanged; the SDK preserves canonical padded octets and rejects invalid padding."
+    },
+    "4f98c61c36b30a8db022": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Inverting the second-last-equals comparison changes double padding to single (c is '=' and triggers SDK fallback), and single padding to double (c is not '=' and triggers the double-padding validation fallback). Both routes delegate before returning the mis-sized local buffer. Unpadded and early-failure paths are unchanged."
+    },
+    "727e2fb99281c9b87019": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the non-final quartet sentinel guard true delegates on the first non-final quartet. Single-quartet inputs never reach this site. The call decodes the original input and start, not a partially consumed slice. Valid canonical bytes match the original bit assembly; any invalid alphabet or later padding already leads to the same SDK rejection/decode."
+    },
+    "f6e9c9743cfb77fb8300": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing the sentinel &0x80 by |0x80 makes the non-final quartet guard nonzero for sextets 0..63 and sentinel -1 on VM and JS. Thus this is unconditional SDK delegation at the first loop iteration, before output escapes. Single-quartet paths are unchanged; the SDK receives the full original slice."
+    },
+    "9f0aa6093d70ac8b821b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final a/b sentinel guard true delegates the whole original slice after processing any earlier quartets. The local buffer has not escaped. Canonical octets are identical in SDK and bit assembly; malformed or noncanonical input follows the same SDK acceptance/rejection. Input String is immutable and no callback can observe the discarded buffer."
+    },
+    "b2e3e0a1ff3b343be6af": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing final (a|b)&0x80 by (a|b)|0x80 makes the guard nonzero for every possible helper result, 0..63 or -1. It therefore delegates the original immutable String slice to the SDK before any return of the local output. Earlier invalid-input delegation is unchanged; canonical output bytes and ownership match."
+    },
+    "5eaacdca9db8a2bd4161": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==2 true leaves double-padding inputs unchanged. Every other input must have c or d different from '=', since padding was counted from the immutable final two characters. The double-padding validation then delegates before output writes. The SDK gives the same canonical bytes or malformed-input error as the original path."
+    },
+    "7432240d0ece7d9dabb8": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==2 false changes only actual double-padding input. Its c is '=' by the padding-count invariant, maps to -1 and hits the unchanged c<0 fallback before writes. Other paths are unchanged. Delegation uses the original input/start and preserves padded bytes and invalid-padding rejection."
+    },
+    "7f5a4d9fc40ec4e1e360": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing padding==2 by padding!=2 sends padding zero/one to the double-padding guard, which rejects their non-'=' c or d and delegates. Actual double padding bypasses that branch but its c='=' triggers c<0 fallback. No changed path returns partial output; the same SDK preserves bytes or rejects malformed input."
+    },
+    "4791f38beed84cdbecb2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing double-padding validation true replaces successful one-byte final-quartet decoding with SDK delegation. Invalid double padding already delegates. Preceding guards and non-double-padding paths are unchanged. Canonical padding-two bytes are mathematically (a<<2)|(b>>4) with b's low four bits zero, identical to the SDK."
+    },
+    "d15222322caf228445b0": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "This changes only the first || between the two character checks, not the || before the padding-bit check. Reaching padding==2 proves c and d were both '=' in this immutable String. Both character inequalities are false, so their disjunction and conjunction are false. The remaining b&0x0f validation and every output/exception path are unchanged."
+    },
+    "693df19b5d62357f16ef": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c!='=' to c=='=' inside padding==2 makes that validation true, because counting two paddings already proved c='='. The branch consequently delegates to the SDK. Non-double-padding inputs do not evaluate this site; valid one-byte tails and malformed padding retain their original decoded bytes or SDK rejection."
+    },
+    "aa8ee428b16b1946318d": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d!='=' to d=='=' inside padding==2 makes validation true because the outer padding scan already proved d='='. This selects SDK delegation, never a partial output return. All non-double-padding paths are unchanged; double-padding canonical bytes and invalid-padding errors match the original."
+    },
+    "0e80d4844155ed8243b5": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing b&0x0f to b|0x0f makes the double-padding bit check nonzero for every admitted sextet b (0..63); invalid b already delegated. Thus this branch always delegates to the SDK. All other branches are unchanged; SDK produces the same canonical one-byte tail or rejects nonzero padding bits."
+    },
+    "fe8d6541219ed4f7a015": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing c<0 true delegates at the final c after the double-padding return has been handled. Earlier quartets remain private in an unreturned buffer. The SDK consumes the full original slice, giving identical canonical two/three-byte tails and unchanged malformed-input rejection. The preceding a/b and range guards remain intact."
+    },
+    "2ce9120a6ed7f97cf437": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c<0 to c<=0 adds delegation only for c==0 ('A'); negative sentinel cases already delegate and positive sextets are unchanged. With c==0, the original final byte assembly and padding-bit validation are exactly the SDK's canonical result; d/other invalid input is rejected by that same SDK. Output does not escape before delegation."
+    },
+    "14f987a4c9644b8f2cca": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==1 true affects only padding zero, since padding two has already returned/delegated. A padding-zero final character cannot be '=' under the unchanged scan, so the padding-one validation delegates before returning. Actual padding-one inputs are unchanged. Any locally written bytes are discarded; SDK uses the original slice."
+    },
+    "09c80bdcd6d4917b6595": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==1 false affects only padding-one inputs after c was validated. Their d is '=' by the immutable padding scan and decodes to -1, causing SDK delegation at d<0 before the third write. Canonical two-byte tails and nonzero-padding-bit errors match the SDK. Other paths are unchanged."
+    },
+    "0f43e9f05d0c5d381d70": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing padding==1 by padding!=1 exchanges the final routes: padding zero enters validation and fails d!='=', while padding one bypasses validation and fails the d=-1 sentinel check. Both delegate before output escapes; padding two already returned. SDK preserves canonical bytes and malformed-input rejection."
+    },
+    "937e044a868e2cfbe45d": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding-one validation true replaces its successful return with SDK delegation and leaves invalid cases delegated. Padding-zero/two paths are unchanged. The original valid case requires c&3==0 and d='=', precisely the SDK two-byte-tail rule; output bytes, mutability and ownership agree."
+    },
+    "91ea577fa9f2f6c6fbfb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d!='=' to d=='=' inside padding==1 makes validation true because d='=' was established by the scan. This delegates to the same SDK; malformed padding is still rejected and valid two-byte final quartets decode identically. All other padding paths are unaffected."
+    },
+    "1fb3dfc958c5f90583b7": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c&3 to c|3 makes the padding-one bit check nonzero for every admitted nonnegative sextet c; invalid c already delegated. Thus every padding-one input delegates. The SDK agrees with the original on canonical two-byte tails and rejects nonzero low padding bits. Other paths are unchanged."
+    },
+    "e712c6945b6462eb67bb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing d<0 true delegates only the final unpadded quartet path; padded inputs have already returned/delegated. No local output escapes. The full original slice is decoded by the SDK, matching all valid sextet assemblies and the existing invalid-alphabet rejection."
+    },
+    "141ab2b6a0cb00b7a5e4": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d<0 to d<=0 adds SDK delegation only for final d==0 ('A'); invalid -1 already delegated and all positive d values are unchanged. For d==0 the original final assembly (c<<6)|0 matches the SDK exactly. Earlier private buffer writes are not observable and no alias is returned."
+    },
+    "b49b540a019c2bbdef44": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the uppercase-range condition false maps only A..Z from their sextets to -1; later lower/digit/symbol ranges are disjoint. Any affected quartet now triggers the sentinel or c/d-negative SDK fallback before an output return. Unaffected inputs decode as before; SDK canonical uppercase decoding preserves the original octets."
+    },
+    "30974b4fe045ccb0c92b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase lower bound >= to > excludes only 'A'. It cannot match a later helper range, so it returns -1 rather than zero. Any affected quartet delegates at its existing sentinel/negative check. All other helper mappings are unchanged; SDK decoding of 'A' supplies the original zero sextet and exact bytes."
+    },
+    "860a29761595c9ba9f9a": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase lower bound >=0x41 to <0x41 maps 0..64 to codeUnit-65, values -65..-1, all caught by the 0x80 sentinel or negative guards on VM/JS. Uppercase A..Z now maps to -1 via disjoint later branches. Other letters/digits/symbols either keep their mapping or delegate. No invalid nonnegative sextet is introduced; SDK preserves all original acceptance/results."
+    },
+    "c00d27ea2c7fd4063aa9": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase upper bound <= to < excludes only 'Z', which falls through disjoint later ranges to -1. The existing quartet sentinel/negative checks then delegate; all other mappings are unchanged. SDK decodes 'Z' with the original sextet 25 and returns identical octets or the same invalid-padding error."
+    },
+    "2eda92d5e60d450417ea": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the lowercase-range condition false changes only a..z to sentinel -1, since later digit/symbol ranges are disjoint. Affected quartets delegate before output returns, while others are unchanged. SDK lowercase sextets exactly match the original +26 mapping and preserve malformed-input rejection."
+    },
+    "e148ad7fd29a1ecff3f4": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase lower bound >= to > excludes only 'a'. It falls through later disjoint ranges to -1 and triggers the existing SDK fallback wherever it occurs. Other mappings are unchanged; SDK supplies the original sextet 26 and preserves exact decoded bytes and padding rejection."
+    },
+    "b997b07e2f84d37f97c3": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase upper bound <= to < excludes only 'z', mapping it to -1 instead of 51. Affected quartets delegate through existing sentinel/negative guards, not partial returns. All other mappings are unchanged, and SDK decoding restores the same octets and invalid-padding behavior."
+    },
+    "787821a43aecdb687ddb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase +26 to -26 yields -26..-1 for a..z. Every such negative value has the 0x80 sentinel bit set on VM and JS and also satisfies the final c/d<0 checks. Thus affected inputs delegate, not truncate; unaffected mappings are identical. SDK uses the original lowercase sextets and preserves exact results."
+    },
+    "6aa1da496c87aab348d0": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the digit-range condition false maps only 0..9 to -1 because the remaining symbol ranges are disjoint. Affected inputs hit the existing sentinel/negative fallback before returning output. Other mappings and all range checks are unchanged; SDK digits supply the original sextets 52..61."
+    },
+    "9bfd9885c37ee83b6654": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit lower bound >= to > excludes only '0', which now maps to -1 and delegates through existing sentinel/negative guards. Other characters are unchanged. SDK decodes '0' as the original sextet 52, preserving octets and malformed-padding rejection."
+    },
+    "f5ecc2953e1c7c603ba2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit upper bound <= to < excludes only '9'. It falls through the symbol cases to -1; affected quartets delegate before output escapes. All other helper mappings are unchanged. SDK restores the original sextet 61 and identical success/error behavior."
+    },
+    "b8062c8af56e947bfee2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit +52 to -52 yields -52..-43 for 0..9. These values all carry sentinel bit 0x80 on VM/JS and satisfy final c/d<0, so every affected quartet delegates. There is no newly accepted invalid sextet; the SDK preserves the original digit mapping, bytes and padding rejection."
+    },
+    "bd28df39fcfc0786db1b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the plus-symbol guard false maps only '+' from sextet 62 to -1; the slash case cannot match it. Existing quartet sentinel/negative guards delegate any affected input, while all other mappings stay identical. SDK accepts '+' with the original sextet and preserves decoded bytes/rejections."
+    },
+    "36176ca3e10c5f119f3e": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the slash-symbol guard false maps only '/' from sextet 63 to -1. Every occurrence is caught by an existing quartet sentinel or c/d-negative check and delegates before output escapes. All other mappings are unchanged; SDK slash decoding preserves the original octets and errors."
+    }
+  },
+  "core-base64-web": {
+    "fa25245fcdab0889bd72": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the non-multiple-of-four guard true delegates every nonempty valid range to base64.decoder.convert(input, start). Empty and invalid ranges have already returned/thrown. The original fast path returns only canonical Base64 with zero padding bits; all other inputs delegate to that same SDK decoder. For canonical inputs both compute the same octets in a fresh mutable Uint8List. There is no callback or shared output state."
+    },
+    "c5bc166196419af8b644": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing length & 3 by length | 3 makes this guard true for every remaining positive length, so it delegates to the identical SDK call. The preceding range check and empty case are unchanged. Original successful fast-path inputs are canonical quartets with valid padding bits, which the SDK decodes to the same fresh mutable octets; noncanonical input already delegates."
+    },
+    "60d4bcb707f398dd1d85": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final-equals guard true changes only strings not ending in '='. It gives these strings padding one or two. The padding-one branch rejects the non-'=' final character; the padding-two branch also checks it. Both delegate to the unchanged SDK before returning the mis-sized local buffer. Strings ending in '=' and earlier range/length failures are unchanged."
+    },
+    "5960021fe63fe0599864": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final-equals guard false changes only strings ending in '='. Padding becomes zero; the final '=' maps to -1 in c or d and delegates to the SDK before a buffer can return. Inputs without final '=' are unchanged. Original canonical padded octets and malformed-padding exceptions are identical to the SDK result."
+    },
+    "a45afcae2e8ea8188d06": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Inverting the final-equals comparison assigns zero padding to strings ending in '=' and nonzero padding to others. The former reach the invalid c/d sentinel, the latter fail the explicit final-'=' check in the selected padding branch. Both delegate to the unchanged SDK; the original fast path and SDK agree on canonical octets, and malformed inputs retain SDK errors."
+    },
+    "6025d9230d45fd63ec45": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the second-last-equals guard true acts only after the last character was '='. A single-padding string is treated as double padding, but then its non-'=' c character fails the double-padding validation and delegates before any output return. Actual double padding is unchanged; malformed data keeps SDK rejection."
+    },
+    "a080222501655d7e3741": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the second-last-equals guard false changes double padding to single padding. Its c character is still '=' and maps to -1, so the unchanged c<0 check delegates before writing or returning output. Other inputs are unchanged; the SDK preserves canonical padded octets and rejects invalid padding."
+    },
+    "4f98c61c36b30a8db022": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Inverting the second-last-equals comparison changes double padding to single (c is '=' and triggers SDK fallback), and single padding to double (c is not '=' and triggers the double-padding validation fallback). Both routes delegate before returning the mis-sized local buffer. Unpadded and early-failure paths are unchanged."
+    },
+    "727e2fb99281c9b87019": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the non-final quartet sentinel guard true delegates on the first non-final quartet. Single-quartet inputs never reach this site. The call decodes the original input and start, not a partially consumed slice. Valid canonical bytes match the original bit assembly; any invalid alphabet or later padding already leads to the same SDK rejection/decode."
+    },
+    "f6e9c9743cfb77fb8300": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing the sentinel &0x80 by |0x80 makes the non-final quartet guard nonzero for sextets 0..63 and sentinel -1 on VM and JS. Thus this is unconditional SDK delegation at the first loop iteration, before output escapes. Single-quartet paths are unchanged; the SDK receives the full original slice."
+    },
+    "9f0aa6093d70ac8b821b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the final a/b sentinel guard true delegates the whole original slice after processing any earlier quartets. The local buffer has not escaped. Canonical octets are identical in SDK and bit assembly; malformed or noncanonical input follows the same SDK acceptance/rejection. Input String is immutable and no callback can observe the discarded buffer."
+    },
+    "b2e3e0a1ff3b343be6af": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing final (a|b)&0x80 by (a|b)|0x80 makes the guard nonzero for every possible helper result, 0..63 or -1. It therefore delegates the original immutable String slice to the SDK before any return of the local output. Earlier invalid-input delegation is unchanged; canonical output bytes and ownership match."
+    },
+    "5eaacdca9db8a2bd4161": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==2 true leaves double-padding inputs unchanged. Every other input must have c or d different from '=', since padding was counted from the immutable final two characters. The double-padding validation then delegates before output writes. The SDK gives the same canonical bytes or malformed-input error as the original path."
+    },
+    "7432240d0ece7d9dabb8": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==2 false changes only actual double-padding input. Its c is '=' by the padding-count invariant, maps to -1 and hits the unchanged c<0 fallback before writes. Other paths are unchanged. Delegation uses the original input/start and preserves padded bytes and invalid-padding rejection."
+    },
+    "7f5a4d9fc40ec4e1e360": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing padding==2 by padding!=2 sends padding zero/one to the double-padding guard, which rejects their non-'=' c or d and delegates. Actual double padding bypasses that branch but its c='=' triggers c<0 fallback. No changed path returns partial output; the same SDK preserves bytes or rejects malformed input."
+    },
+    "4791f38beed84cdbecb2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing double-padding validation true replaces successful one-byte final-quartet decoding with SDK delegation. Invalid double padding already delegates. Preceding guards and non-double-padding paths are unchanged. Canonical padding-two bytes are mathematically (a<<2)|(b>>4) with b's low four bits zero, identical to the SDK."
+    },
+    "d15222322caf228445b0": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "This changes only the first || between the two character checks, not the || before the padding-bit check. Reaching padding==2 proves c and d were both '=' in this immutable String. Both character inequalities are false, so their disjunction and conjunction are false. The remaining b&0x0f validation and every output/exception path are unchanged."
+    },
+    "693df19b5d62357f16ef": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c!='=' to c=='=' inside padding==2 makes that validation true, because counting two paddings already proved c='='. The branch consequently delegates to the SDK. Non-double-padding inputs do not evaluate this site; valid one-byte tails and malformed padding retain their original decoded bytes or SDK rejection."
+    },
+    "aa8ee428b16b1946318d": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d!='=' to d=='=' inside padding==2 makes validation true because the outer padding scan already proved d='='. This selects SDK delegation, never a partial output return. All non-double-padding paths are unchanged; double-padding canonical bytes and invalid-padding errors match the original."
+    },
+    "0e80d4844155ed8243b5": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing b&0x0f to b|0x0f makes the double-padding bit check nonzero for every admitted sextet b (0..63); invalid b already delegated. Thus this branch always delegates to the SDK. All other branches are unchanged; SDK produces the same canonical one-byte tail or rejects nonzero padding bits."
+    },
+    "fe8d6541219ed4f7a015": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing c<0 true delegates at the final c after the double-padding return has been handled. Earlier quartets remain private in an unreturned buffer. The SDK consumes the full original slice, giving identical canonical two/three-byte tails and unchanged malformed-input rejection. The preceding a/b and range guards remain intact."
+    },
+    "2ce9120a6ed7f97cf437": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c<0 to c<=0 adds delegation only for c==0 ('A'); negative sentinel cases already delegate and positive sextets are unchanged. With c==0, the original final byte assembly and padding-bit validation are exactly the SDK's canonical result; d/other invalid input is rejected by that same SDK. Output does not escape before delegation."
+    },
+    "14f987a4c9644b8f2cca": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==1 true affects only padding zero, since padding two has already returned/delegated. A padding-zero final character cannot be '=' under the unchanged scan, so the padding-one validation delegates before returning. Actual padding-one inputs are unchanged. Any locally written bytes are discarded; SDK uses the original slice."
+    },
+    "09c80bdcd6d4917b6595": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding==1 false affects only padding-one inputs after c was validated. Their d is '=' by the immutable padding scan and decodes to -1, causing SDK delegation at d<0 before the third write. Canonical two-byte tails and nonzero-padding-bit errors match the SDK. Other paths are unchanged."
+    },
+    "0f43e9f05d0c5d381d70": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Replacing padding==1 by padding!=1 exchanges the final routes: padding zero enters validation and fails d!='=', while padding one bypasses validation and fails the d=-1 sentinel check. Both delegate before output escapes; padding two already returned. SDK preserves canonical bytes and malformed-input rejection."
+    },
+    "937e044a868e2cfbe45d": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing padding-one validation true replaces its successful return with SDK delegation and leaves invalid cases delegated. Padding-zero/two paths are unchanged. The original valid case requires c&3==0 and d='=', precisely the SDK two-byte-tail rule; output bytes, mutability and ownership agree."
+    },
+    "91ea577fa9f2f6c6fbfb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d!='=' to d=='=' inside padding==1 makes validation true because d='=' was established by the scan. This delegates to the same SDK; malformed padding is still rejected and valid two-byte final quartets decode identically. All other padding paths are unaffected."
+    },
+    "1fb3dfc958c5f90583b7": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing c&3 to c|3 makes the padding-one bit check nonzero for every admitted nonnegative sextet c; invalid c already delegated. Thus every padding-one input delegates. The SDK agrees with the original on canonical two-byte tails and rejects nonzero low padding bits. Other paths are unchanged."
+    },
+    "e712c6945b6462eb67bb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing d<0 true delegates only the final unpadded quartet path; padded inputs have already returned/delegated. No local output escapes. The full original slice is decoded by the SDK, matching all valid sextet assemblies and the existing invalid-alphabet rejection."
+    },
+    "141ab2b6a0cb00b7a5e4": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing d<0 to d<=0 adds SDK delegation only for final d==0 ('A'); invalid -1 already delegated and all positive d values are unchanged. For d==0 the original final assembly (c<<6)|0 matches the SDK exactly. Earlier private buffer writes are not observable and no alias is returned."
+    },
+    "b49b540a019c2bbdef44": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the uppercase-range condition false maps only A..Z from their sextets to -1; later lower/digit/symbol ranges are disjoint. Any affected quartet now triggers the sentinel or c/d-negative SDK fallback before an output return. Unaffected inputs decode as before; SDK canonical uppercase decoding preserves the original octets."
+    },
+    "30974b4fe045ccb0c92b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase lower bound >= to > excludes only 'A'. It cannot match a later helper range, so it returns -1 rather than zero. Any affected quartet delegates at its existing sentinel/negative check. All other helper mappings are unchanged; SDK decoding of 'A' supplies the original zero sextet and exact bytes."
+    },
+    "860a29761595c9ba9f9a": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase lower bound >=0x41 to <0x41 maps 0..64 to codeUnit-65, values -65..-1, all caught by the 0x80 sentinel or negative guards on VM/JS. Uppercase A..Z now maps to -1 via disjoint later branches. Other letters/digits/symbols either keep their mapping or delegate. No invalid nonnegative sextet is introduced; SDK preserves all original acceptance/results."
+    },
+    "c00d27ea2c7fd4063aa9": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the uppercase upper bound <= to < excludes only 'Z', which falls through disjoint later ranges to -1. The existing quartet sentinel/negative checks then delegate; all other mappings are unchanged. SDK decodes 'Z' with the original sextet 25 and returns identical octets or the same invalid-padding error."
+    },
+    "2eda92d5e60d450417ea": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the lowercase-range condition false changes only a..z to sentinel -1, since later digit/symbol ranges are disjoint. Affected quartets delegate before output returns, while others are unchanged. SDK lowercase sextets exactly match the original +26 mapping and preserve malformed-input rejection."
+    },
+    "e148ad7fd29a1ecff3f4": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase lower bound >= to > excludes only 'a'. It falls through later disjoint ranges to -1 and triggers the existing SDK fallback wherever it occurs. Other mappings are unchanged; SDK supplies the original sextet 26 and preserves exact decoded bytes and padding rejection."
+    },
+    "b997b07e2f84d37f97c3": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase upper bound <= to < excludes only 'z', mapping it to -1 instead of 51. Affected quartets delegate through existing sentinel/negative guards, not partial returns. All other mappings are unchanged, and SDK decoding restores the same octets and invalid-padding behavior."
+    },
+    "787821a43aecdb687ddb": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the lowercase +26 to -26 yields -26..-1 for a..z. Every such negative value has the 0x80 sentinel bit set on VM and JS and also satisfies the final c/d<0 checks. Thus affected inputs delegate, not truncate; unaffected mappings are identical. SDK uses the original lowercase sextets and preserves exact results."
+    },
+    "6aa1da496c87aab348d0": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the digit-range condition false maps only 0..9 to -1 because the remaining symbol ranges are disjoint. Affected inputs hit the existing sentinel/negative fallback before returning output. Other mappings and all range checks are unchanged; SDK digits supply the original sextets 52..61."
+    },
+    "9bfd9885c37ee83b6654": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit lower bound >= to > excludes only '0', which now maps to -1 and delegates through existing sentinel/negative guards. Other characters are unchanged. SDK decodes '0' as the original sextet 52, preserving octets and malformed-padding rejection."
+    },
+    "f5ecc2953e1c7c603ba2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit upper bound <= to < excludes only '9'. It falls through the symbol cases to -1; affected quartets delegate before output escapes. All other helper mappings are unchanged. SDK restores the original sextet 61 and identical success/error behavior."
+    },
+    "b8062c8af56e947bfee2": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Changing the digit +52 to -52 yields -52..-43 for 0..9. These values all carry sentinel bit 0x80 on VM/JS and satisfy final c/d<0, so every affected quartet delegates. There is no newly accepted invalid sextet; the SDK preserves the original digit mapping, bytes and padding rejection."
+    },
+    "bd28df39fcfc0786db1b": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the plus-symbol guard false maps only '+' from sextet 62 to -1; the slash case cannot match it. Existing quartet sentinel/negative guards delegate any affected input, while all other mappings stay identical. SDK accepts '+' with the original sextet and preserves decoded bytes/rejections."
+    },
+    "36176ca3e10c5f119f3e": {
+      "sourceHash": "4fd495def55fdd760f6deb7d3aee714ae47e0eae4087e09f6fe11a7565d59d02",
+      "reason": "Forcing the slash-symbol guard false maps only '/' from sextet 63 to -1. Every occurrence is caught by an existing quartet sentinel or c/d-negative check and delegates before output escapes. All other mappings are unchanged; SDK slash decoding preserves the original octets and errors."
+    }
+  },
+  "client-meta-cache-vm": {
+    "b0eeeeb14fd9b59ee2f9": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "Changing the worker-count comparison from < to <= changes its selected branch only when ids.length equals _maxConcurrentQueries. Both branches then produce the identical integer worker count. The list is internally constructed, the concurrency field is final, and neither branch invokes callbacks or mutates state; scheduling, work assignment and returned results are unchanged."
+    },
+    "6104e7a23ab07204e969": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This flips only the default return after _applyEvent's switch. Its two callers receive _BufferedMetaEvent objects created only by _handleEvent, whose sole caller is a subscription closure capturing one of the ten constant _eventTopics. All ten topics return inside the switch. EventDetails.topic is not the dispatch key, the buffered-event type and callback are private, and the constant topic set cannot be changed through the public API. The mutated default return is unreachable at this source hash."
+    },
+    "6eb2ff94cacf238a535e": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This changes only the growability of the temporary registration-entry list used by _removeSessionMemberships. The list is immediately iterated, never escapes, and is never resized or exposed to caller code. The loop replaces existing map values without changing its keys. Entry contents, order, copyWith calls and resulting immutable snapshots are identical; no operation observes the list's growability."
+    },
+    "4d155ba0ceee9478d99e": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This changes only the growability of the temporary subscription-entry list used by _removeSessionMemberships. The list is consumed solely by the for loop and is neither stored, returned, passed to caller code nor resized. Replacing values in the original map preserves its keys and the captured entries. Iteration order, member removals, copyWith calls and published snapshots are unchanged."
+    }
+  },
+  "client-meta-cache-web": {
+    "b0eeeeb14fd9b59ee2f9": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "Changing the worker-count comparison from < to <= changes its selected branch only when ids.length equals _maxConcurrentQueries. Both branches then produce the identical integer worker count. The list is internally constructed, the concurrency field is final, and neither branch invokes callbacks or mutates state; scheduling, work assignment and returned results are unchanged."
+    },
+    "6104e7a23ab07204e969": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This flips only the default return after _applyEvent's switch. Its two callers receive _BufferedMetaEvent objects created only by _handleEvent, whose sole caller is a subscription closure capturing one of the ten constant _eventTopics. All ten topics return inside the switch. EventDetails.topic is not the dispatch key, the buffered-event type and callback are private, and the constant topic set cannot be changed through the public API. The mutated default return is unreachable at this source hash."
+    },
+    "6eb2ff94cacf238a535e": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This changes only the growability of the temporary registration-entry list used by _removeSessionMemberships. The list is immediately iterated, never escapes, and is never resized or exposed to caller code. The loop replaces existing map values without changing its keys. Entry contents, order, copyWith calls and resulting immutable snapshots are identical; no operation observes the list's growability."
+    },
+    "4d155ba0ceee9478d99e": {
+      "sourceHash": "fab21ee1da2b2796ad911327e88f621623422d716790295b01f19aba83b08f96",
+      "reason": "This changes only the growability of the temporary subscription-entry list used by _removeSessionMemberships. The list is consumed solely by the for loop and is neither stored, returned, passed to caller code nor resized. Replacing values in the original map preserves its keys and the captured entries. Iteration order, member removals, copyWith calls and published snapshots are unchanged."
+    }
+  },
+  "router-http-auth-vm": {
+    "a9ab9012b74d7be74457": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Changing the leeway normalization comparison from < to <= changes its branch only for integer zero. Both branches then pass exactly zero seconds to Duration. Negative and positive integers take the same branches as before; no other expression, callback or date comparison changes."
+    },
+    "f0c3cf2dd5510baf0860": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing the optional roles-claim guard true adds work only when rolesClaim is null: _stringOption has already normalized empty strings to null. Both callers supply a newly copied Map<String, Object?> from decoded JSON, so claims[null] is null, _stringListOption(null) is empty, and the role insertion loop performs zero iterations. The later primary-role insertion and all returned claims/roles are unchanged. This is not a waiver for changing role names or membership checks."
+    },
+    "f3fe51ded7c253cacbd4": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing _intOption's null guard false only changes evaluation for null. Null is neither int nor num. Dart core Null.toString() returns the literal string 'null' (it does not throw); trimming and int.tryParse therefore return null, identical to the original early return. Non-null inputs retain exactly their previous control flow."
+    },
+    "bbea84775495ad9d695a": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing _boolOption's null guard false only changes evaluation for null. Null is not bool and its Dart core toString() is 'null'; trim/lowercase leave it unchanged, neither boolean string comparison matches, and the final return is null. No configuration value or TLS decision changes."
+    },
+    "e9ebffd00775605dd1bf": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "This forces only the second string condition raw == 'false' to true, not its return value. Booleans and the earlier raw == 'true' branch are unchanged. For other strings the helper now returns false rather than sometimes null. Its sole caller enables insecure TLS only for a result == true, so both false and null keep certificate verification enabled. All string conversion occurs before the changed condition in both versions."
+    },
+    "ccdb754c34febffc5a18": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing only raw == 'false' false changes the helper's result for the normalized string 'false' from false to null. The preceding bool and 'true' branches are unchanged. The only call site compares the result with true before installing a badCertificateCallback, and false == true and null == true are both false. Certificate validation remains enabled for this input."
+    },
+    "c5804e0589823c862195": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Changing the second raw == 'false' comparison to != exchanges false/null results for strings that reach it. The earlier raw == 'true' branch has already returned true, and real bool inputs have already returned their original value. The sole consumer checks == true for TLS opt-in; neither false nor null enables it. This proof does not cover mutating the preceding 'true' condition or either return literal."
+    },
+    "97f2132c09f808ef2c02": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Forcing _stringListOption's null guard false only affects null. It is not Iterable; the unchanged _stringOption(null) returns null, and the subsequent single == null guard returns the same empty growable String list as the original early return. Non-null evaluation, list contents and externally observable state are unchanged."
+    },
+    "03144da3383564e82041": {
+      "sourceHash": "951041a02466add48dc6a0a46b5631071e82bae900438a0eb5afa2e652d3654e",
+      "reason": "Changing this private helper's Iterable.toList growable flag preserves conversion order, elements and iteration errors. All four call sites only read the returned list: two use audience isEmpty/contains, one iterates roles into a new map, and one addAll-copies scopes into a different list. The returned list never escapes or changes length, so its growability is not observable. This does not waive the separate response BytesBuilder copy mutation."
+    }
+  },
+  "core-pem-pkcs8-vm": {
+    "03e7cb535020ebe724ef": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "fromEd25519Seed accepts exactly 32 seed bytes. Its fixed version/OID/nested OCTET STRING encodes 46 content bytes plus the two-byte outer SEQUENCE header: 48 DER bytes and exactly 64 base64 characters. The loop runs only at i=0. Forcing its substring condition true selects i+64=64, identical to the original false branch's base64Text.length=64."
+    },
+    "755837de2fcc0c9f37a8": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer's 32-byte seed guard and fixed ASN.1 envelope produce exactly 48 DER bytes, hence 64 base64 characters. Only i=0 reaches the substring condition, where 0+64<64 is false. Forcing that condition false therefore preserves the selected bound and all output."
+    },
+    "a76f9526176f467f61dc": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer always emits exactly 64 base64 characters from its fixed 48-byte DER envelope and iterates only at i=0. Changing < to <= selects the other substring branch at equality, but both branches supply the same end index 64. No callback, mutation or distinct exception occurs in either scalar bound expression."
+    },
+    "cbd93bcb29a9f0a1084c": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For every admitted 32-byte seed the DER envelope is 48 bytes and the base64 string is 64 characters. At the only iteration i=0, both 0+64<64 and 0+64>64 are false, preserving the substring bound, newline and footer."
+    },
+    "aa84cab9ebb7581c989b": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For the fixed 64-character base64 output and sole i=0 iteration, replacing + with - only in the condition makes -64<64 true. The unmutated true branch still supplies i+64=64, equal to the original false branch's string length. The single mutant does not also alter the branch's arithmetic."
+    },
+    "21708c630192b37e0270": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The admitted 32-byte seed produces a fixed 48-byte DER envelope and exactly 64 base64 characters. The sole substring condition is 0+64<64, always false. This single mutation changes only arithmetic in the unselected true branch, which is never evaluated; it cannot affect output or throw a negative-bound error."
+    },
+    "e16f0ec1d91b3fb31ca6": {
+      "sourceHash": "bedf8eeb2232a5fd71ebd75faa229c5ba0d20f3470f25cce2c9b2c45c48013cf",
+      "reason": "This mutation flips init(false) to init(true) only on CTRBlockCipher(32, CTRStreamCipher(AESEngine())). In locked PointyCastle 4.0.0, StreamCipherAsBlockCipher forwards the flag, CTRStreamCipher inherits SICStreamCipher.init, and that method ignores forEncryption and always initializes AES with true. IV/reset and XOR keystream operations are identical. This proof does not cover the adjacent CBC branch, whose direction mutation is killed by the independent CBC fixture."
+    }
+  },
+  "core-pem-pkcs8-web": {
+    "03e7cb535020ebe724ef": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "fromEd25519Seed accepts exactly 32 seed bytes. Its fixed version/OID/nested OCTET STRING encodes 46 content bytes plus the two-byte outer SEQUENCE header: 48 DER bytes and exactly 64 base64 characters. The loop runs only at i=0. Forcing its substring condition true selects i+64=64, identical to the original false branch's base64Text.length=64."
+    },
+    "755837de2fcc0c9f37a8": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer's 32-byte seed guard and fixed ASN.1 envelope produce exactly 48 DER bytes, hence 64 base64 characters. Only i=0 reaches the substring condition, where 0+64<64 is false. Forcing that condition false therefore preserves the selected bound and all output."
+    },
+    "a76f9526176f467f61dc": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The writer always emits exactly 64 base64 characters from its fixed 48-byte DER envelope and iterates only at i=0. Changing < to <= selects the other substring branch at equality, but both branches supply the same end index 64. No callback, mutation or distinct exception occurs in either scalar bound expression."
+    },
+    "cbd93bcb29a9f0a1084c": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For every admitted 32-byte seed the DER envelope is 48 bytes and the base64 string is 64 characters. At the only iteration i=0, both 0+64<64 and 0+64>64 are false, preserving the substring bound, newline and footer."
+    },
+    "aa84cab9ebb7581c989b": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "For the fixed 64-character base64 output and sole i=0 iteration, replacing + with - only in the condition makes -64<64 true. The unmutated true branch still supplies i+64=64, equal to the original false branch's string length. The single mutant does not also alter the branch's arithmetic."
+    },
+    "21708c630192b37e0270": {
+      "sourceHash": "b6e4af02f6b9397dfe9c65ed40cca765320cb3859093435a26b3975b6a7871b3",
+      "reason": "The admitted 32-byte seed produces a fixed 48-byte DER envelope and exactly 64 base64 characters. The sole substring condition is 0+64<64, always false. This single mutation changes only arithmetic in the unselected true branch, which is never evaluated; it cannot affect output or throw a negative-bound error."
+    },
+    "e16f0ec1d91b3fb31ca6": {
+      "sourceHash": "bedf8eeb2232a5fd71ebd75faa229c5ba0d20f3470f25cce2c9b2c45c48013cf",
+      "reason": "This mutation flips init(false) to init(true) only on CTRBlockCipher(32, CTRStreamCipher(AESEngine())). In locked PointyCastle 4.0.0, StreamCipherAsBlockCipher forwards the flag, CTRStreamCipher inherits SICStreamCipher.init, and that method ignores forEncryption and always initializes AES with true. IV/reset and XOR keystream operations are identical. This proof does not cover the adjacent CBC branch, whose direction mutation is killed by the independent CBC fixture."
+    }
+  },
+  "router-binding-drain-vm": {
+    "c7759a0067cf49fb6b8b": {
+      "sourceHash": "0bc5552a3757f16770ad1656615c3ac2aa6fca5042c3a573d91dc0b961e72b20",
+      "reason": "The bounded drain target selects only tests using the plain _FakeRuntime, which never creates a worker-isolate boss. In that source-matched scope boss is always null, so boss?.stop(...) is not evaluated and the null fallback Future<void>.value() is returned in both the original and replacement expressions. This justification does not waive worker-boss drain behavior outside the bounded target."
+    },
+    "a2e3da8eba076ed1ab32": {
+      "sourceHash": "0bc5552a3757f16770ad1656615c3ac2aa6fca5042c3a573d91dc0b961e72b20",
+      "reason": "_drainFuture is assigned to this exact future immediately before whenComplete is registered. While it is pending, every subsequent drain call returns the existing future and cannot replace the field. Therefore the identity comparison is always true when this completion callback runs in the reachable implementation, and forcing the condition true preserves cleanup."
+    },
+    "ed63cdbac1741ca9d59d": {
+      "sourceHash": "0bc5552a3757f16770ad1656615c3ac2aa6fca5042c3a573d91dc0b961e72b20",
+      "reason": "When the original early-return condition is true, the following snapshot filter produces an empty list and the unchanged snapshot.isEmpty guard returns without events or counters. When it is false, forcing it false is unchanged. Thus replacing this whole condition with false has no observable effect; listener closure and pending-connection behavior are covered by the later branches."
+    },
+    "bc2b35a39c7ec1bc26ea": {
+      "sourceHash": "0bc5552a3757f16770ad1656615c3ac2aa6fca5042c3a573d91dc0b961e72b20",
+      "reason": "Changing the empty-list/fully-closed guard from OR to AND only skips its optimization. For empty listeners or fully closed listeners, the subsequent snapshot is empty and the unchanged snapshot.isEmpty return produces the same state and events; for active listeners both predicates are false. No externally observable behavior differs."
+    },
+    "25336e150dd9b4987e44": {
+      "sourceHash": "0bc5552a3757f16770ad1656615c3ac2aa6fca5042c3a573d91dc0b961e72b20",
+      "reason": "The snapshot is a private intermediate list that is only queried for emptiness and iterated immediately. It is never resized, returned, stored, or passed to user code. Changing toList(growable: false) to growable: true therefore preserves all elements, iteration order, exceptions, and observable listener cleanup behavior."
+    }
+  },
+  "router-settings-vm": {
+    "d7d482fea0b1496deb85": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "The private _withOpenMetricsRoutes missingRoutes list is only queried for isEmpty and spread into a separate routes list. It is never returned, passed to caller code, or resized. Changing its toList growable flag therefore cannot change any observable list or operation."
+    },
+    "6cf1a443fb0f1ee4cb39": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Unconditionally appending ListenerProtocol.http in _protocolsWithHttp changes only duplicate occurrences after the existing first occurrence. The private ordinary list is immediately converted through LinkedHashSet, preserving that first occurrence and removing the added duplicate before the result escapes."
+    },
+    "c150580dc415a3733a95": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Unconditionally appending ListenerProtocol.http2 in _protocolsWithHttp adds either the same required element or a duplicate after its first occurrence. LinkedHashSet removes that duplicate while preserving insertion order before returning a new list; the intermediate list never escapes."
+    },
+    "c1bea084860dc6e1c111": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "The private _hasExactPathRoute is called only for freshly constructed _openMetricsHttpRoutes entries. Their paths are /healthz, /health, or _normalizeOpenMetricsHttpPath output, which is always nonempty and nonnull. Forcing the null-or-empty guard false preserves every reachable branch; existing user routes are searched but never supply this path argument."
+    },
+    "7076669aea71b8481556": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Changing the return value inside _hasExactPathRoute's null-or-empty path branch has no reachable effect. Its sole caller supplies paths from owned health/metrics routes, with literals or normalized nonempty output, not paths from user-provided routes. The branch cannot execute through the public enrichment API."
+    },
+    "0d19223c8a58749ad427": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Forcing _normalizeOpenMetricsHttpPath's empty-or-slash guard false still returns / for both affected strings: an empty trimmed string takes the slash-prefix fallback, while / takes the already-prefixed branch. All other strings already follow that same final expression."
+    },
+    "cd7b5c41830b31e80121": {
+      "sourceHash": "2e9661f379ae78c06a70f83c225c431eda518d79e5bced4e81de448ec13a20ad",
+      "reason": "Replacing the normalization guard's OR with AND makes that guard unsatisfiable because a string cannot be both empty and /. The following expression independently maps the empty string to / and preserves /, exactly matching the removed special cases; all other inputs are unchanged."
+    }
+  },
+  "core-lazy-vm": {
+    "e680c448f1398ef0edd3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Forcing the cached-value guard false cannot invoke a completed decoder: the preceding packed-bytes/decoder guard returns once successful decoding clears _packedPayloadDecoder. The packed factory initializes both materialized fields to null; no public setter can populate them, and metadata/owned copies preserve this state. Failed decoding changes none of these fields."
+    },
+    "1b141e9ba244443a7bc3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Changing the cached-value disjunction to conjunction differs only when exactly one materialized field is non-null. Such packed state is created only by successful record assignment followed synchronously by clearing _packedPayloadDecoder, so the preceding guard already returns. Record field reads cannot call user code; the packed factory accepts no materialized fields."
+    },
+    "8a07369c7dd0f33dcad3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The positional _encodedArguments/_argumentsDecoder pair belongs to AbstractMessageWithPayload, not the independently configurable LazyMessagePayload. Its fields start null, its setter clears both, and setLazyPayload assigns both only when both inputs are non-null, with no user callback between writes. All restoration/copy paths use that setter. Thus replacing this pair's && with || preserves the toLazyPayload branch condition."
+    },
+    "1d436cf460d66e17c548": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The keyword _encodedArgumentsKeywords/_argumentsKeywordsDecoder fields are always both null or both non-null: initialized null, cleared together by argumentsKeywords, assigned together by setLazyPayload only with two non-null inputs. Restoration/copy paths call that method; public overrides cannot assign these private fields. The changed keyword &&/|| condition therefore has the same truth value."
+    },
+    "ac2fa2a4d90e30b2b634": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsBytes the private positional bytes/decoder nullness remains paired across every write: initialization, arguments setter, and guarded setLazyPayload. Public restoration and copying delegate through these operations. The early-return OR and AND are therefore identical, and neither tests a virtual getter."
+    },
+    "9e59ad4d0fdf491408ab": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsKeywordsBytes the private keyword bytes/decoder fields are initialized, cleared and assigned in pairs with no intervening callback. setLazyPayload rejects incomplete input pairs without assigning either field. Replacing the missing-pair OR with AND has identical outcomes for every reachable internal state."
+    },
+    "acdfedef187181350d40": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private positional bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing arguments setter. This mutation changes only && to || for that pair, not the whole branch. Both predicates choose the same branch and preserve every overridable target method call."
+    },
+    "3e23f71ba73329058378": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private keyword bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing argumentsKeywords setter. This mutation changes only && to || for that pair. Both predicates select the same branch, including calls into overridable target methods; forced-whole-branch mutations are not covered by this justification."
+    }
+  },
+  "core-lazy-web": {
+    "e680c448f1398ef0edd3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Forcing the cached-value guard false cannot invoke a completed decoder: the preceding packed-bytes/decoder guard returns once successful decoding clears _packedPayloadDecoder. The packed factory initializes both materialized fields to null; no public setter can populate them, and metadata/owned copies preserve this state. Failed decoding changes none of these fields."
+    },
+    "1b141e9ba244443a7bc3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "Changing the cached-value disjunction to conjunction differs only when exactly one materialized field is non-null. Such packed state is created only by successful record assignment followed synchronously by clearing _packedPayloadDecoder, so the preceding guard already returns. Record field reads cannot call user code; the packed factory accepts no materialized fields."
+    },
+    "8a07369c7dd0f33dcad3": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The positional _encodedArguments/_argumentsDecoder pair belongs to AbstractMessageWithPayload, not the independently configurable LazyMessagePayload. Its fields start null, its setter clears both, and setLazyPayload assigns both only when both inputs are non-null, with no user callback between writes. All restoration/copy paths use that setter. Thus replacing this pair's && with || preserves the toLazyPayload branch condition."
+    },
+    "1d436cf460d66e17c548": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "The keyword _encodedArgumentsKeywords/_argumentsKeywordsDecoder fields are always both null or both non-null: initialized null, cleared together by argumentsKeywords, assigned together by setLazyPayload only with two non-null inputs. Restoration/copy paths call that method; public overrides cannot assign these private fields. The changed keyword &&/|| condition therefore has the same truth value."
+    },
+    "ac2fa2a4d90e30b2b634": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsBytes the private positional bytes/decoder nullness remains paired across every write: initialization, arguments setter, and guarded setLazyPayload. Public restoration and copying delegate through these operations. The early-return OR and AND are therefore identical, and neither tests a virtual getter."
+    },
+    "9e59ad4d0fdf491408ab": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In _decodeArgumentsKeywordsBytes the private keyword bytes/decoder fields are initialized, cleared and assigned in pairs with no intervening callback. setLazyPayload rejects incomplete input pairs without assigning either field. Replacing the missing-pair OR with AND has identical outcomes for every reachable internal state."
+    },
+    "acdfedef187181350d40": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private positional bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing arguments setter. This mutation changes only && to || for that pair, not the whole branch. Both predicates choose the same branch and preserve every overridable target method call."
+    },
+    "3e23f71ba73329058378": {
+      "sourceHash": "4e5e64db3b3384a87d0595c6dbe5e3337b559267a3cfbfbf501132f60b7d800e",
+      "reason": "In copyPayloadTo the source's private keyword bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing argumentsKeywords setter. This mutation changes only && to || for that pair. Both predicates select the same branch, including calls into overridable target methods; forced-whole-branch mutations are not covered by this justification."
+    }
+  },
+  "router-authorization": {
+    "43a0c1db3504d23fd1eb": {
+      "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
+      "reason": "Both branches return the same non-null providerDecision. Inverting the guard still evaluates allowed exactly once, preserving even an overridden getter's effects and exceptions."
+    },
+    "4f4f902eae3525814996": {
+      "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
+      "reason": "For an empty matches list the following sort and for loop perform no work and the method returns null, exactly as the early return does."
+    },
+    "1050175e1d77a0a226dd": {
+      "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
+      "reason": "The preceding startsWith guard excludes shorter candidates and the preceding length-equality branch already returned; only strictly longer candidates reach this comparison."
+    }
+  }
+}

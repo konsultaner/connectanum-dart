@@ -216,6 +216,24 @@ class _RouterBoss {
     }
     _stopping = true;
 
+    ({Object error, StackTrace stackTrace})? failure;
+    ({Object error, StackTrace stackTrace})? cleanupFailure;
+    void recordFailure(Object error, StackTrace stackTrace) {
+      failure ??= (error: error, stackTrace: stackTrace);
+    }
+
+    void recordCleanupFailure(Object error, StackTrace stackTrace) {
+      cleanupFailure ??= (error: error, stackTrace: stackTrace);
+    }
+
+    void cleanup(void Function() action) {
+      try {
+        action();
+      } catch (error, stackTrace) {
+        recordCleanupFailure(error, stackTrace);
+      }
+    }
+
     final drainFutures = <Future<void>>[];
     for (final worker in _workers) {
       worker.drainCompleter ??= Completer<void>();
@@ -235,41 +253,64 @@ class _RouterBoss {
       } on TimeoutException {
         // Kill any workers that failed to drain in time.
         for (final worker in _workers.toList()) {
-          _shutdownWorker(worker, terminateIsolate: true);
+          cleanup(() => _shutdownWorker(worker));
+          cleanup(() => worker.isolate.kill(priority: Isolate.immediate));
         }
         _workers.clear();
-        onEvent?.call({
-          'source': 'boss',
-          'type': 'worker_drain_timeout',
-          'timeout_ms': drainTimeout.inMilliseconds,
-        });
+        cleanup(
+          () => onEvent?.call({
+            'source': 'boss',
+            'type': 'worker_drain_timeout',
+            'timeout_ms': drainTimeout.inMilliseconds,
+          }),
+        );
+      } catch (error, stackTrace) {
+        recordFailure(error, stackTrace);
       }
     }
     if (loop != null) {
-      await loop;
+      try {
+        await loop;
+      } catch (error, stackTrace) {
+        recordFailure(error, stackTrace);
+      }
     }
-    await _eventSubscription.cancel();
-    await _metaEventPublishTail;
-    _eventPort.close();
-    _commandPort.close();
-    _stateStore.dispose();
+    try {
+      await _eventSubscription.cancel();
+    } catch (error, stackTrace) {
+      recordCleanupFailure(error, stackTrace);
+    }
+    try {
+      await _metaEventPublishTail;
+    } catch (error, stackTrace) {
+      recordCleanupFailure(error, stackTrace);
+    }
+    cleanup(_eventPort.close);
+    cleanup(_commandPort.close);
+    cleanup(_stateStore.dispose);
+    // Detach ownership before worker teardown or native release callbacks.
+    final connections = _http3Connections.values.toList(growable: false);
+    _http3Connections.clear();
+    _http3ConnectionListeners.clear();
     for (final worker in _workers.toList()) {
-      _shutdownWorker(worker, terminateIsolate: true);
+      cleanup(() => _shutdownWorker(worker));
+      cleanup(() => worker.isolate.kill(priority: Isolate.immediate));
     }
     for (final isolate in _pendingIsolates.values) {
-      isolate.kill(priority: Isolate.immediate);
+      cleanup(() => isolate.kill(priority: Isolate.immediate));
     }
     _workers.clear();
     _pendingIsolates.clear();
     _connectionOwners.clear();
     _httpConnectionListeners.clear();
     _http2ConnectionListeners.clear();
-    if (_http3Connections.isNotEmpty) {
-      final connections = _http3Connections.values.toList(growable: false);
-      _http3Connections.clear();
-      for (final connection in connections) {
-        connection.release();
-      }
+    for (final connection in connections) {
+      cleanup(connection.release);
+    }
+    // Cleanup can run before a failed loop is awaited (for example on timeout).
+    final firstFailure = failure ?? cleanupFailure;
+    if (firstFailure != null) {
+      Error.throwWithStackTrace(firstFailure.error, firstFailure.stackTrace);
     }
   }
 
@@ -1542,69 +1583,84 @@ class _RouterBoss {
     NativeConnectionProtocol protocol,
     NativeHttpHandshake handshake,
   ) {
-    final request = RouterHttpRequest(
-      listener: listener,
-      connectionId: connectionId,
-      method: handshake.method,
-      target: handshake.target,
-      path: handshake.path,
-      query: handshake.query,
-      protocol: handshake.protocol,
-      version: handshake.version,
-      headers: handshake.headers,
-      headerValues: handshake.headerValues,
-      duplicateHeaderNames: handshake.duplicateHeaderNames,
-      body: handshake.body,
-      handshakeHandle: handshake.handle,
-      realm: handshake.realm,
-      procedure: handshake.procedure,
-    );
-    final event = <String, Object?>{
-      'source': 'boss',
-      'type': 'listener_http_request',
-      'listenerId': listener.listenerId,
-      'connectionId': connectionId,
-      'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
-      'method': request.method,
-      'target': request.target,
-      'path': request.path,
-      'query': request.query,
-      'protocol': request.protocol,
-      'version': request.version,
-      'realm': request.realm,
-      'procedure': request.procedure,
-      'headers': _httpEventHeaders(request.headers),
-      'bodyLength': request.nativeBody.length,
-    };
-    onEvent?.call(event);
-    final handler = onHttpRequest;
-    if (handler != null) {
-      unawaited(() async {
-        try {
-          await handler(request, handshake);
-        } catch (error, stackTrace) {
-          onEvent?.call({
-            'source': 'boss',
-            'type': 'http_request_handler_error',
-            'listenerId': listener.listenerId,
-            'connectionId': connectionId,
-            'error': error.toString(),
-            'stackTrace': stackTrace.toString(),
-          });
-        }
-      }());
-    } else {
-      handshake.release();
-    }
-    if (protocol == NativeConnectionProtocol.http) {
-      onEvent?.call({
-        'source': 'binding',
-        'type': 'listener_protocol_pending',
+    var ownsHandshake = true;
+    try {
+      final request = RouterHttpRequest(
+        listener: listener,
+        connectionId: connectionId,
+        method: handshake.method,
+        target: handshake.target,
+        path: handshake.path,
+        query: handshake.query,
+        protocol: handshake.protocol,
+        version: handshake.version,
+        headers: handshake.headers,
+        headerValues: handshake.headerValues,
+        duplicateHeaderNames: handshake.duplicateHeaderNames,
+        body: handshake.body,
+        handshakeHandle: handshake.handle,
+        realm: handshake.realm,
+        procedure: handshake.procedure,
+      );
+      final event = <String, Object?>{
+        'source': 'boss',
+        'type': 'listener_http_request',
         'listenerId': listener.listenerId,
-        'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
         'connectionId': connectionId,
-        'protocol': _protocolName(protocol),
-      });
+        'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
+        'method': request.method,
+        'target': request.target,
+        'path': request.path,
+        'query': request.query,
+        'protocol': request.protocol,
+        'version': request.version,
+        'realm': request.realm,
+        'procedure': request.procedure,
+        'headers': _httpEventHeaders(request.headers),
+        'bodyLength': request.nativeBody.length,
+      };
+      onEvent?.call(event);
+      final handler = onHttpRequest;
+      if (handler != null) {
+        ownsHandshake = false;
+        unawaited(() async {
+          try {
+            await handler(request, handshake);
+          } catch (error, stackTrace) {
+            onEvent?.call({
+              'source': 'boss',
+              'type': 'http_request_handler_error',
+              'listenerId': listener.listenerId,
+              'connectionId': connectionId,
+              'error': error.toString(),
+              'stackTrace': stackTrace.toString(),
+            });
+          }
+        }());
+      } else {
+        ownsHandshake = false;
+        handshake.release();
+      }
+      if (protocol == NativeConnectionProtocol.http) {
+        onEvent?.call({
+          'source': 'binding',
+          'type': 'listener_protocol_pending',
+          'listenerId': listener.listenerId,
+          'endpoint': '${listener.endpoint.host}:${listener.endpoint.port}',
+          'connectionId': connectionId,
+          'protocol': _protocolName(protocol),
+        });
+      }
+    } catch (_) {
+      if (ownsHandshake) {
+        ownsHandshake = false;
+        try {
+          handshake.release();
+        } catch (_) {
+          // Preserve the construction or observer failure during cleanup.
+        }
+      }
+      rethrow;
     }
   }
 

@@ -11,7 +11,7 @@ void main() {
       final subscribed = Subscribed(1, 2);
       final received = <Event>[];
 
-      subscribed.onEvent(received.add);
+      expect(() => subscribed.onEvent(received.add), returnsNormally);
       subscribed.addEvent(Event(2, 3, EventDetails(), arguments: const ['ok']));
 
       expect(received, hasLength(1));

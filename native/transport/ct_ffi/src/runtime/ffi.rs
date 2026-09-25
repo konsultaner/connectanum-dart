@@ -13,7 +13,7 @@ use bytes::Bytes;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::{ptr, slice, str};
 
-#[cfg(feature = "ffi-test")]
+#[cfg(any(feature = "ffi-test", test))]
 use std::net::SocketAddr;
 
 use dashmap::DashMap;
@@ -2560,7 +2560,10 @@ pub extern "C" fn ct_client_connect_rawsocket(
     heartbeat_interval_ms: c_uint,
     heartbeat_timeout_ms: c_uint,
 ) -> c_int {
-    if host_ptr.is_null() || port <= 0 || max_message_size_exponent <= 0 {
+    if host_ptr.is_null()
+        || !(1..=u16::MAX as c_int).contains(&port)
+        || max_message_size_exponent <= 0
+    {
         return ERR_INVALID_ARGUMENT;
     }
     let host = match unsafe { CStr::from_ptr(host_ptr) }.to_str() {
@@ -2601,7 +2604,7 @@ pub extern "C" fn ct_client_connect_websocket(
     heartbeat_interval_ms: c_uint,
     heartbeat_timeout_ms: c_uint,
 ) -> c_int {
-    if host_ptr.is_null() || target_ptr.is_null() || port <= 0 {
+    if host_ptr.is_null() || target_ptr.is_null() || !(1..=u16::MAX as c_int).contains(&port) {
         return ERR_INVALID_ARGUMENT;
     }
     let host = match unsafe { CStr::from_ptr(host_ptr) }.to_str() {
@@ -2619,30 +2622,9 @@ pub extern "C" fn ct_client_connect_websocket(
         Ok(_) => return ERR_UNSUPPORTED_SERIALIZER,
         Err(code) => return code,
     };
-    let headers = if headers_len == 0 || headers_ptr.is_null() {
-        Vec::new()
-    } else {
-        let mut list = Vec::with_capacity(headers_len);
-        for index in 0..headers_len {
-            let Some(header) = (unsafe { headers_ptr.add(index).as_ref() }) else {
-                return ERR_INVALID_ARGUMENT;
-            };
-            if header.name_ptr.is_null() || header.value_ptr.is_null() {
-                return ERR_INVALID_ARGUMENT;
-            }
-            let name = unsafe { slice::from_raw_parts(header.name_ptr, header.name_len) };
-            let value = unsafe { slice::from_raw_parts(header.value_ptr, header.value_len) };
-            let name = match str::from_utf8(name) {
-                Ok(value) => value.to_string(),
-                Err(_) => return ERR_INVALID_ARGUMENT,
-            };
-            let value = match str::from_utf8(value) {
-                Ok(value) => value.to_string(),
-                Err(_) => return ERR_INVALID_ARGUMENT,
-            };
-            list.push((name, value));
-        }
-        list
+    let headers = match unsafe { read_http_headers(headers_ptr, headers_len) } {
+        Ok(headers) => headers,
+        Err(err) => return err,
     };
     let heartbeat_interval = duration_from_millis(heartbeat_interval_ms);
     let heartbeat_timeout = duration_from_millis(heartbeat_timeout_ms);
@@ -3225,6 +3207,50 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
     SUCCESS
 }
 
+/// Checks slice metadata before reading an FFI allocation.
+///
+/// # Safety
+/// A nonempty accepted range must still be a live, initialized allocation,
+/// readable and unmodified for the returned borrow. Metadata checks cannot
+/// establish allocation validity for an arbitrary foreign pointer.
+unsafe fn checked_ffi_slice<'a, T>(data: *const T, len: usize) -> Result<&'a [T], c_int> {
+    if len == 0 {
+        return Ok(&[]);
+    }
+    let bytes = len
+        .checked_mul(std::mem::size_of::<T>())
+        .ok_or(ERR_INVALID_ARGUMENT)?;
+    if data.is_null()
+        || (data as usize) % std::mem::align_of::<T>() != 0
+        || bytes > isize::MAX as usize
+        || (data as usize).checked_add(bytes).is_none()
+    {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    Ok(unsafe { slice::from_raw_parts(data, len) })
+}
+
+unsafe fn read_http_headers(
+    headers: *const CtHttpHeader,
+    len: usize,
+) -> Result<Vec<(String, String)>, c_int> {
+    let headers = unsafe { checked_ffi_slice(headers, len)? };
+    let mut result = Vec::with_capacity(headers.len());
+    for header in headers {
+        let name = unsafe { checked_ffi_slice(header.name_ptr, header.name_len)? };
+        let value = unsafe { checked_ffi_slice(header.value_ptr, header.value_len)? };
+        result.push((
+            str::from_utf8(name)
+                .map_err(|_| ERR_INVALID_ARGUMENT)?
+                .to_owned(),
+            str::from_utf8(value)
+                .map_err(|_| ERR_INVALID_ARGUMENT)?
+                .to_owned(),
+        ));
+    }
+    Ok(result)
+}
+
 #[no_mangle]
 pub extern "C" fn ct_http_response_send(
     handshake_handle: c_int,
@@ -3240,31 +3266,13 @@ pub extern "C" fn ct_http_response_send(
     if status < 100 || status > 599 {
         return ERR_INVALID_ARGUMENT;
     }
-    if headers.is_null() && headers_len > 0 {
-        return ERR_INVALID_ARGUMENT;
-    }
-    let mut header_vec: Vec<(String, String)> = Vec::with_capacity(headers_len);
-    for index in 0..headers_len {
-        let header = unsafe { headers.add(index).as_ref() };
-        let Some(header) = header else {
-            return ERR_INVALID_ARGUMENT;
-        };
-        let name_slice = unsafe { std::slice::from_raw_parts(header.name_ptr, header.name_len) };
-        let value_slice = unsafe { std::slice::from_raw_parts(header.value_ptr, header.value_len) };
-        let name = match std::str::from_utf8(name_slice) {
-            Ok(value) => value.to_string(),
-            Err(_) => return ERR_INVALID_ARGUMENT,
-        };
-        let value = match std::str::from_utf8(value_slice) {
-            Ok(value) => value.to_string(),
-            Err(_) => return ERR_INVALID_ARGUMENT,
-        };
-        header_vec.push((name, value));
-    }
-    let body_vec = if body_ptr.is_null() || body_len == 0 {
-        Vec::new()
-    } else {
-        unsafe { std::slice::from_raw_parts(body_ptr, body_len) }.to_vec()
+    let header_vec = match unsafe { read_http_headers(headers, headers_len) } {
+        Ok(headers) => headers,
+        Err(err) => return err,
+    };
+    let body_vec = match unsafe { checked_ffi_slice(body_ptr, body_len) } {
+        Ok(body) => body.to_vec(),
+        Err(err) => return err,
     };
 
     let Some(stored) = remove_http_handshake(handshake_handle as u32) else {
@@ -3298,27 +3306,10 @@ pub extern "C" fn ct_http_response_stream_open(
     if status < 100 || status > 599 {
         return ERR_INVALID_ARGUMENT;
     }
-    if headers.is_null() && headers_len > 0 {
-        return ERR_INVALID_ARGUMENT;
-    }
-    let mut header_vec: Vec<(String, String)> = Vec::with_capacity(headers_len);
-    for index in 0..headers_len {
-        let header = unsafe { headers.add(index).as_ref() };
-        let Some(header) = header else {
-            return ERR_INVALID_ARGUMENT;
-        };
-        let name_slice = unsafe { std::slice::from_raw_parts(header.name_ptr, header.name_len) };
-        let value_slice = unsafe { std::slice::from_raw_parts(header.value_ptr, header.value_len) };
-        let name = match std::str::from_utf8(name_slice) {
-            Ok(value) => value.to_string(),
-            Err(_) => return ERR_INVALID_ARGUMENT,
-        };
-        let value = match std::str::from_utf8(value_slice) {
-            Ok(value) => value.to_string(),
-            Err(_) => return ERR_INVALID_ARGUMENT,
-        };
-        header_vec.push((name, value));
-    }
+    let header_vec = match unsafe { read_http_headers(headers, headers_len) } {
+        Ok(headers) => headers,
+        Err(err) => return err,
+    };
     let Some(stored) = remove_http_handshake(handshake_handle as u32) else {
         return ERR_HANDSHAKE_CONSUMED;
     };
@@ -3374,15 +3365,15 @@ pub extern "C" fn ct_http_response_stream_write(
     if stream_handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
-    if chunk_len > 0 && chunk_ptr.is_null() {
-        return ERR_INVALID_ARGUMENT;
-    }
+    let chunk = match unsafe { checked_ffi_slice(chunk_ptr, chunk_len) } {
+        Ok(chunk) => chunk,
+        Err(err) => return err,
+    };
     if chunk_len == 0 {
         return SUCCESS;
     }
     match with_http_response_stream(stream_handle as u32, |stream| {
-        let slice = unsafe { slice::from_raw_parts(chunk_ptr, chunk_len) };
-        stream.write_chunk(Bytes::copy_from_slice(slice))
+        stream.write_chunk(Bytes::copy_from_slice(chunk))
     }) {
         Some(Ok(())) => SUCCESS,
         Some(Err(_)) => ERR_STREAM_CLOSED,
@@ -3424,7 +3415,7 @@ pub extern "C" fn ct_connection_accept_websocket(
     protocol_ptr: *const c_char,
     protocol_len: c_int,
 ) -> c_int {
-    if connection_id <= 0 || handshake_handle <= 0 {
+    if connection_id <= 0 || handshake_handle <= 0 || protocol_len < 0 {
         return ERR_INVALID_ARGUMENT;
     }
     let serializer = match serializer_from_id(serializer_id) {
@@ -3432,11 +3423,11 @@ pub extern "C" fn ct_connection_accept_websocket(
         Err(err) => return err,
     };
     let protocol = if protocol_len > 0 {
-        if protocol_ptr.is_null() {
-            return ERR_INVALID_ARGUMENT;
-        }
         let bytes =
-            unsafe { std::slice::from_raw_parts(protocol_ptr as *const u8, protocol_len as usize) };
+            match unsafe { checked_ffi_slice(protocol_ptr.cast::<u8>(), protocol_len as usize) } {
+                Ok(bytes) => bytes,
+                Err(err) => return err,
+            };
         match std::str::from_utf8(bytes) {
             Ok(value) => Some(value.to_string()),
             Err(_) => return ERR_INVALID_ARGUMENT,
@@ -3470,7 +3461,11 @@ pub extern "C" fn ct_connection_reject_websocket(
     reason_ptr: *const c_char,
     reason_len: c_int,
 ) -> c_int {
-    if connection_id <= 0 || handshake_handle <= 0 {
+    if connection_id <= 0
+        || handshake_handle <= 0
+        || reason_len < 0
+        || !(100..=599).contains(&status)
+    {
         return ERR_INVALID_ARGUMENT;
     }
     let status_code = match StatusCode::from_u16(status as u16) {
@@ -3478,11 +3473,11 @@ pub extern "C" fn ct_connection_reject_websocket(
         Err(_) => return ERR_INVALID_ARGUMENT,
     };
     let reason = if reason_len > 0 {
-        if reason_ptr.is_null() {
-            return ERR_INVALID_ARGUMENT;
-        }
-        let bytes =
-            unsafe { std::slice::from_raw_parts(reason_ptr as *const u8, reason_len as usize) };
+        let bytes = match unsafe { checked_ffi_slice(reason_ptr.cast::<u8>(), reason_len as usize) }
+        {
+            Ok(bytes) => bytes,
+            Err(err) => return err,
+        };
         match std::str::from_utf8(bytes) {
             Ok(value) => Some(value.to_string()),
             Err(_) => return ERR_INVALID_ARGUMENT,
@@ -3544,6 +3539,8 @@ impl_zeroed_ffi_default!(CtMessageInfo);
 const CT_MESSAGE_FLAG_DIRECT_BIND: u32 = 1 << 0;
 const CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT: u32 = 1 << 1;
 const CT_MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT: u32 = 1 << 2;
+// True-only flags cannot distinguish nullable false from absence. Projectors
+// must use the lossless details fallback for explicit false on nullable fields.
 const CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE: u32 = 1 << 3;
 const CT_MESSAGE_FLAG_METADATA_BIND: u32 = 1 << 4;
 const CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE: u32 = 1 << 5;
@@ -3706,7 +3703,7 @@ fn populate_result_details_info(
         match serde_key_str(key) {
             Some("progress") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("ppt_scheme") => match serde_value_str(value) {
@@ -3751,12 +3748,12 @@ fn populate_invocation_details_info(
             },
             Some("receive_progress") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("progress") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("timeout") => match serde_value_u64(value) {
@@ -3876,22 +3873,22 @@ fn populate_publish_options_info(
         match serde_key_str(key) {
             Some("acknowledge") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("exclude_me") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("disclose_me") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("retain") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_D_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("ppt_scheme") => match serde_value_str(value) {
@@ -3939,7 +3936,7 @@ fn populate_subscribe_options_info(
             },
             Some("get_retained") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some(_) => {}
@@ -3957,12 +3954,12 @@ fn populate_call_options_info(
         match serde_key_str(key) {
             Some("receive_progress") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("progress") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("timeout") => match serde_value_u64(value) {
@@ -3974,7 +3971,7 @@ fn populate_call_options_info(
             },
             Some("disclose_me") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("ppt_scheme") => match serde_value_str(value) {
@@ -4024,12 +4021,12 @@ fn populate_register_options_info(
         match serde_key_str(key) {
             Some("disclose_caller") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("forward_timeout") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
-                Some(false) => {}
+                Some(false) => return false,
                 None => return false,
             },
             Some("match") => match serde_value_str(value) {
@@ -4852,6 +4849,17 @@ fn build_http3_client_config_from_pem(pem: &str) -> Result<QuinnClientConfig, c_
     build_http3_client_config_from_roots(Arc::new(roots))
 }
 
+#[cfg(any(feature = "ffi-test", test))]
+pub(crate) fn http3_test_client_bind_addr(server_addr: SocketAddr) -> SocketAddr {
+    // A dual-stack ephemeral bind can collide with an existing IPv4 UDP socket
+    // on macOS, silently delivering the peer's replies to the other owner.
+    let ip = match server_addr {
+        SocketAddr::V4(_) => std::net::Ipv4Addr::UNSPECIFIED.into(),
+        SocketAddr::V6(_) => std::net::Ipv6Addr::UNSPECIFIED.into(),
+    };
+    SocketAddr::new(ip, 0)
+}
+
 #[cfg(feature = "ffi-test")]
 #[no_mangle]
 pub extern "C" fn ct_test_http3_stream_request(
@@ -4932,85 +4940,123 @@ pub extern "C" fn ct_test_http3_stream_request(
     let result = runtime.block_on(async {
         let addr = format!("{host}:{port}");
         let server_addr = addr.parse().map_err(|_| ERR_INVALID_ARGUMENT)?;
-        let mut endpoint =
-            QuinnEndpoint::client("[::]:0".parse().map_err(|_| ERR_INVALID_ARGUMENT)?)
-                .map_err(|_| ERR_INTERNAL)?;
+        let mut endpoint = QuinnEndpoint::client(http3_test_client_bind_addr(server_addr))
+            .map_err(|_| ERR_INTERNAL)?;
         endpoint.set_default_client_config(client_config);
-        let connecting = endpoint.connect(server_addr, &host).map_err(|err| {
-            eprintln!("ffi-test http3 connect failed: {err}");
-            ERR_INTERNAL
-        })?;
-        let connection = connecting.await.map_err(|err| {
-            eprintln!("ffi-test http3 handshake failed: {err}");
-            ERR_INTERNAL
-        })?;
-        let (mut driver, mut send_request) = h3_client::builder()
-            .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
-            .await
-            .map_err(|err| {
-                eprintln!("ffi-test http3 builder failed: {err}");
-                ERR_INTERNAL
-            })?;
-        tokio::spawn(async move {
-            future::poll_fn(|cx| driver.poll_close(cx)).await;
-        });
-        let uri = format!("https://{host}:{port}{path}");
-        let http_method = method
-            .parse::<http::Method>()
-            .map_err(|_| ERR_INVALID_ARGUMENT)?;
-        let mut builder = http::Request::builder().method(http_method).uri(uri);
-        for (name, value) in &headers {
-            builder = builder.header(name.as_str(), value.as_str());
+        let local_addr = endpoint.local_addr().map_err(|_| ERR_INTERNAL)?;
+        let handshake_started = std::time::Instant::now();
+        let debug = std::env::var_os("CONNECTANUM_FFI_TEST_DEBUG").is_some();
+        if debug {
+            eprintln!("ffi-test http3 connecting from {local_addr} to {server_addr}");
         }
-        let request = builder.body(()).map_err(|_| ERR_INVALID_ARGUMENT)?;
-        let mut stream = send_request.send_request(request).await.map_err(|err| {
-            eprintln!("ffi-test http3 send_request failed: {err}");
-            ERR_INTERNAL
-        })?;
-        if body.is_empty() {
-            stream.finish().await.map_err(|err| {
-                eprintln!("ffi-test http3 finish failed: {err}");
+        let result = async {
+            let connecting = endpoint.connect(server_addr, &host).map_err(|err| {
+                eprintln!("ffi-test http3 connect failed: {err}");
                 ERR_INTERNAL
             })?;
-        } else {
-            let mut offset = 0usize;
-            while offset < body.len() {
-                let end = usize::min(offset + 16 * 1024, body.len());
-                let chunk = Bytes::copy_from_slice(&body[offset..end]);
-                stream.send_data(chunk).await.map_err(|err| {
-                    eprintln!("ffi-test http3 send_data failed: {err}");
+            // Return while the Dart test still owns its listener and isolate. Quinn's
+            // default idle timeout otherwise races the outer 30-second test timeout.
+            let connection = tokio::time::timeout(std::time::Duration::from_secs(5), connecting)
+                .await
+                .map_err(|_| {
+                    eprintln!(
+                        "ffi-test http3 handshake exceeded 5s from {local_addr} to {server_addr}"
+                    );
+                    ERR_INTERNAL
+                })?
+                .map_err(|err| {
+                    eprintln!("ffi-test http3 handshake failed: {err}");
                     ERR_INTERNAL
                 })?;
-                offset = end;
+            if debug {
+                eprintln!(
+                    "ffi-test http3 connected from {local_addr} to {server_addr} in {:?}",
+                    handshake_started.elapsed()
+                );
             }
-            stream.finish().await.map_err(|err| {
-                eprintln!("ffi-test http3 finish failed: {err}");
+            let (mut driver, mut send_request) = h3_client::builder()
+                .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
+                .await
+                .map_err(|err| {
+                    eprintln!("ffi-test http3 builder failed: {err}");
+                    ERR_INTERNAL
+                })?;
+            tokio::spawn(async move {
+                future::poll_fn(|cx| driver.poll_close(cx)).await;
+            });
+            let uri = format!("https://{host}:{port}{path}");
+            let http_method = method
+                .parse::<http::Method>()
+                .map_err(|_| ERR_INVALID_ARGUMENT)?;
+            let mut builder = http::Request::builder().method(http_method).uri(uri);
+            for (name, value) in &headers {
+                builder = builder.header(name.as_str(), value.as_str());
+            }
+            let request = builder.body(()).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            let mut stream = send_request.send_request(request).await.map_err(|err| {
+                eprintln!("ffi-test http3 send_request failed: {err}");
                 ERR_INTERNAL
             })?;
+            if body.is_empty() {
+                stream.finish().await.map_err(|err| {
+                    eprintln!("ffi-test http3 finish failed: {err}");
+                    ERR_INTERNAL
+                })?;
+            } else {
+                let mut offset = 0usize;
+                while offset < body.len() {
+                    let end = usize::min(offset + 16 * 1024, body.len());
+                    let chunk = Bytes::copy_from_slice(&body[offset..end]);
+                    stream.send_data(chunk).await.map_err(|err| {
+                        eprintln!("ffi-test http3 send_data failed: {err}");
+                        ERR_INTERNAL
+                    })?;
+                    offset = end;
+                }
+                stream.finish().await.map_err(|err| {
+                    eprintln!("ffi-test http3 finish failed: {err}");
+                    ERR_INTERNAL
+                })?;
+            }
+            let response = stream.recv_response().await.map_err(|err| {
+                eprintln!("ffi-test http3 recv_response failed: {err}");
+                ERR_INTERNAL
+            })?;
+            let mut response_headers = Vec::new();
+            for (name, value) in response.headers() {
+                response_headers.extend_from_slice(name.as_str().as_bytes());
+                response_headers.extend_from_slice(b": ");
+                response_headers.extend_from_slice(value.as_bytes());
+                response_headers.push(b'\n');
+            }
+            let mut response_body = Vec::new();
+            while let Some(chunk) = stream.recv_data().await.map_err(|err| {
+                eprintln!("ffi-test http3 recv_data failed: {err}");
+                ERR_INTERNAL
+            })? {
+                response_body.extend_from_slice(chunk.chunk());
+            }
+            Ok::<(c_int, Vec<u8>, Vec<u8>), c_int>((
+                response.status().as_u16() as c_int,
+                response_headers,
+                response_body,
+            ))
         }
-        let response = stream.recv_response().await.map_err(|err| {
-            eprintln!("ffi-test http3 recv_response failed: {err}");
-            ERR_INTERNAL
-        })?;
-        let mut response_headers = Vec::new();
-        for (name, value) in response.headers() {
-            response_headers.extend_from_slice(name.as_str().as_bytes());
-            response_headers.extend_from_slice(b": ");
-            response_headers.extend_from_slice(value.as_bytes());
-            response_headers.push(b'\n');
+        .await;
+        // Keep the reactor alive long enough to send CONNECTION_CLOSE. Dropping
+        // the per-request runtime immediately leaves the server waiting for its
+        // idle timeout, accumulating peers across unrelated integration checks.
+        endpoint.close(
+            quinn::VarInt::from_u32(h3::error::Code::H3_NO_ERROR.value() as u32),
+            b"test request complete",
+        );
+        let drained =
+            tokio::time::timeout(std::time::Duration::from_secs(2), endpoint.wait_idle()).await;
+        if result.is_ok() && drained.is_err() {
+            eprintln!("ffi-test http3 client cleanup exceeded 2s for {host}:{port}");
+            return Err(ERR_INTERNAL);
         }
-        let mut response_body = Vec::new();
-        while let Some(chunk) = stream.recv_data().await.map_err(|err| {
-            eprintln!("ffi-test http3 recv_data failed: {err}");
-            ERR_INTERNAL
-        })? {
-            response_body.extend_from_slice(chunk.chunk());
-        }
-        Ok::<(c_int, Vec<u8>, Vec<u8>), c_int>((
-            response.status().as_u16() as c_int,
-            response_headers,
-            response_body,
-        ))
+        result
     });
     let (status, response_headers, response_body) = match result {
         Ok(value) => value,
@@ -7184,6 +7230,14 @@ pub extern "C" fn ct_set_on_connection(callback: extern "C" fn(c_int, c_int)) {
 }
 
 #[cfg(test)]
+#[path = "segmented_forwarding_tests.rs"]
+mod segmented_forwarding_tests;
+
+#[cfg(test)]
+#[path = "metadata_projection_tests.rs"]
+mod metadata_projection_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::tests::test_guard;
@@ -7589,6 +7643,7 @@ mod tests {
 
     #[test]
     fn message_json_binary_argument_decode_returns_owned_external_bytes() {
+        let _guard = test_guard();
         for bytes in [
             Vec::new(),
             (0..4097).map(|index| (index % 251) as u8).collect(),
@@ -8353,6 +8408,7 @@ mod tests {
         };
         let info = build_message_info(&message, false);
         assert_eq!(info.binary_arg_len, 3);
+        assert!(!info.binary_arg_ptr.is_null());
         assert_eq!(
             unsafe { slice::from_raw_parts(info.binary_arg_ptr, info.binary_arg_len) },
             b"abc"
@@ -9849,6 +9905,7 @@ mod tests {
         };
         let publish_custom_info = build_message_info(&publish_with_custom, false);
         assert_eq!(publish_custom_info.primary_id, 17);
+        assert!(!publish_custom_info.details_ptr.is_null());
         assert_eq!(
             publish_custom_info.flags & CT_MESSAGE_FLAG_DIRECT_BIND,
             CT_MESSAGE_FLAG_DIRECT_BIND
@@ -10281,6 +10338,7 @@ mod tests {
             kwargs: None,
         };
         let heartbeat_info = build_message_info(&heartbeat, false);
+        assert!(!heartbeat_info.details_ptr.is_null());
         assert_eq!(
             heartbeat_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
             CT_MESSAGE_FLAG_METADATA_BIND
@@ -10316,6 +10374,7 @@ mod tests {
             kwargs: None,
         };
         let unknown_info = build_message_info(&unknown, false);
+        assert!(!unknown_info.details_ptr.is_null());
         assert_eq!(
             unknown_info.flags & CT_MESSAGE_FLAG_METADATA_BIND,
             CT_MESSAGE_FLAG_METADATA_BIND

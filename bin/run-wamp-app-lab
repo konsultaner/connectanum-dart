@@ -195,12 +195,14 @@ wait_for_flutter_test_body() {
       return 0
     fi
     if ! owned_process_is_live "$test_pid"; then
-      return 1
+      break
     fi
     sleep 1
   done
 
-  return 1
+  # The child can write its final marker between the log read and exit check.
+  grep -Fq 'verifies peer identities and exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls' \
+    "$log_file" 2>/dev/null
 }
 
 android_app_is_running() {

@@ -329,6 +329,7 @@ class AppLocalizationsFr extends AppLocalizations {
       locale: localeName,
       other: '$count contacts locaux',
       one: '1 contact local',
+      zero: '0 contacts locaux',
     );
     return '$_temp0';
   }
@@ -666,6 +667,7 @@ class AppLocalizationsFr extends AppLocalizations {
       locale: localeName,
       other: 'Recherche locale · $count résultats',
       one: 'Recherche locale · 1 résultat',
+      zero: 'Recherche locale · 0 résultats',
     );
     return '$_temp0';
   }

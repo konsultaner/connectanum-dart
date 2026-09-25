@@ -6,6 +6,475 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 void main() {
   test(
+    'legacy direct receipts preserve all timestamps without a state map',
+    () {
+      final message = _message(oneTime: true);
+      final accepted = message.createdAt;
+      final delivered = accepted.add(const Duration(seconds: 1));
+      final consumed = accepted.add(const Duration(seconds: 2));
+      final device = _token(32, 9);
+      final legacy = <String, dynamic>{
+        'cursor': 1,
+        'message': message.toWampKeywords(),
+        'accepted_at': accepted.toIso8601String(),
+        'delivered_at': delivered.toIso8601String(),
+        'read_at': consumed.toIso8601String(),
+        'consumed_at': consumed.toIso8601String(),
+        'consumed_by_device_id': device,
+      };
+      for (final record in [
+        MailboxMessage.fromWampKeywords(legacy),
+        MailboxMessage.fromJson({...legacy, 'message': message.toJson()}),
+      ]) {
+        expect(record.deliveredAt, delivered);
+        expect(record.readAt, consumed);
+        expect(record.consumedAt, consumed);
+        expect(record.consumedByDeviceId, device);
+        expect(record.recipientStates.keys, ['bob']);
+        expect(record.recipientStateFor(' Bob ')?.consumedAt, consumed);
+        expect(record.deliveredAtFor('alice'), delivered);
+        expect(record.readAtFor('bob'), consumed);
+      }
+    },
+  );
+
+  test(
+    'mailbox cursors and receipt recipients are validated at construction',
+    () {
+      final message = _message();
+      for (final cursor in [-1, 0]) {
+        expect(
+          () => MailboxMessage(
+            cursor: cursor,
+            message: message,
+            acceptedAt: message.createdAt,
+          ),
+          throwsFormatException,
+        );
+      }
+      for (final username in ['alice', 'charlie']) {
+        expect(
+          () => MailboxMessage(
+            cursor: 1,
+            message: message,
+            acceptedAt: message.createdAt,
+            recipientStates: {username: MailboxRecipientState()},
+          ),
+          throwsFormatException,
+        );
+      }
+    },
+  );
+
+  test(
+    'sender receipt aggregation chooses the latest, not the last recipient',
+    () {
+      final message = _groupMessage();
+      final early = message.createdAt.add(const Duration(seconds: 1));
+      final late = message.createdAt.add(const Duration(seconds: 2));
+      for (final bobIsLater in [true, false]) {
+        final stored = MailboxMessage(
+          cursor: 1,
+          message: message,
+          acceptedAt: message.createdAt,
+          recipientStates: {
+            'bob': MailboxRecipientState(
+              deliveredAt: bobIsLater ? late : early,
+              readAt: bobIsLater ? late : early,
+            ),
+            'carol': MailboxRecipientState(
+              deliveredAt: bobIsLater ? early : late,
+              readAt: bobIsLater ? early : late,
+            ),
+          },
+        );
+        expect(stored.deliveredAtFor(' Alice '), late);
+        expect(stored.readAtFor('alice'), late);
+        expect(stored.readAtFor('bob'), bobIsLater ? late : early);
+        expect(stored.readAtFor('outsider'), isNull);
+        expect(stored.deliveredAt, isNull);
+        expect(stored.readAt, isNull);
+        expect(stored.consumedAt, isNull);
+        expect(stored.consumedByDeviceId, isNull);
+      }
+    },
+  );
+
+  test(
+    'mailbox accepts empty cursor zero and exactly 500 ordered messages',
+    () {
+      final empty = MailboxBatch.fromWampKeywords({
+        'next_cursor': 0,
+        'messages': <Map<String, dynamic>>[],
+      });
+      expect(empty.nextCursor, 0);
+      expect(empty.messages, isEmpty);
+      final message = _message();
+      final records = List.generate(
+        500,
+        (index) => MailboxMessage(
+          cursor: index + 1,
+          message: message,
+          acceptedAt: message.createdAt,
+        ),
+      );
+      final batch = MailboxBatch(nextCursor: 500, messages: records);
+      records.clear();
+      final decoded = MailboxBatch.fromWampKeywords(batch.toWampKeywords());
+      expect(decoded.messages, hasLength(500));
+      expect(decoded.messages.first.cursor, 1);
+      expect(decoded.messages.last.cursor, 500);
+      expect(() => decoded.messages.clear(), throwsUnsupportedError);
+      expect(
+        () => MailboxBatch(
+          nextCursor: 1,
+          messages: [batch.messages.first, batch.messages.first],
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
+  test(
+    'direct messages default to persistent delivery and preserve payload limits',
+    () {
+      final source = _message();
+      for (final bytes in [40, 1048640]) {
+        final payload = Uint8List(bytes)..[bytes - 1] = 255;
+        final message = EncryptedChatMessage(
+          messageId: source.messageId,
+          conversationId: source.conversationId,
+          senderUsername: source.senderUsername,
+          senderDeviceId: source.senderDeviceId,
+          recipientUsername: 'bob',
+          createdAt: source.createdAt,
+          encryptedPayload: payload,
+          wrappedKeys: source.wrappedKeys,
+        );
+        payload[bytes - 1] = 0;
+        expect(message.oneTime, isFalse);
+        expect(message.encryptedPayload, hasLength(bytes));
+        expect(message.encryptedPayload.last, 255);
+        expect(
+          EncryptedChatMessage.fromJson(message.toJson()).oneTime,
+          isFalse,
+        );
+        final implicit = message.toWampKeywords()..remove('one_time');
+        expect(
+          () => EncryptedChatMessage.fromWampKeywords(implicit),
+          throwsFormatException,
+        );
+      }
+    },
+  );
+
+  test(
+    'maximum wrapped-device and attachment inventories round-trip intact',
+    () {
+      final source = _message();
+      final keys = [
+        for (var index = 0; index < 128; index++)
+          WrappedConversationKey(
+            conversationId: source.conversationId,
+            senderUsername: source.senderUsername,
+            senderDeviceId: source.senderDeviceId,
+            recipientUsername: 'bob',
+            recipientDeviceId: _token(32, index + 1),
+            sealedKey: _token(80, 5),
+            signature: _token(64, 6),
+            createdAt: source.createdAt,
+          ),
+      ];
+      final attachments = List.generate(8, (index) => _token(16, index + 1))
+        ..sort();
+      final message = EncryptedChatMessage(
+        messageId: source.messageId,
+        conversationId: source.conversationId,
+        senderUsername: source.senderUsername,
+        senderDeviceId: source.senderDeviceId,
+        recipientUsername: 'bob',
+        createdAt: source.createdAt,
+        encryptedPayload: source.encryptedPayload,
+        wrappedKeys: keys,
+        attachmentIds: attachments,
+      );
+      keys.clear();
+      attachments.clear();
+      final decoded = EncryptedChatMessage.fromWampKeywords(
+        message.toWampKeywords(),
+      );
+      expect(decoded.wrappedKeys, hasLength(128));
+      expect(
+        decoded.wrappedKeys.map((key) => key.recipientDeviceId).toSet(),
+        hasLength(128),
+      );
+      expect(decoded.attachmentIds, hasLength(8));
+      expect(() => decoded.wrappedKeys.clear(), throwsUnsupportedError);
+      expect(() => decoded.attachmentIds.clear(), throwsUnsupportedError);
+    },
+  );
+
+  test('group capacity and sender membership are independently enforced', () {
+    final source = _message();
+    EncryptedChatMessage group(List<String> participants) =>
+        EncryptedChatMessage.group(
+          messageId: source.messageId,
+          conversationId: source.conversationId,
+          senderUsername: 'alice',
+          senderDeviceId: source.senderDeviceId,
+          participantUsernames: participants,
+          createdAt: source.createdAt,
+          encryptedPayload: source.encryptedPayload,
+          wrappedKeys: [
+            for (final participant in participants)
+              WrappedConversationKey(
+                conversationId: source.conversationId,
+                senderUsername: 'alice',
+                senderDeviceId: source.senderDeviceId,
+                recipientUsername: participant,
+                recipientDeviceId: _token(32, 2),
+                sealedKey: _token(80, 3),
+                signature: _token(64, 4),
+                createdAt: source.createdAt,
+              ),
+          ],
+        );
+    final participants = [
+      'alice',
+      ...List.generate(31, (index) => 'member$index'),
+    ];
+    final maximum = group(participants);
+    expect(maximum.participantUsernames, hasLength(32));
+    expect(maximum.wrappedKeys, hasLength(32));
+    expect(maximum.recipientUsernames, hasLength(31));
+    expect(maximum.recipientUsernames, isNot(contains('alice')));
+    expect(() => group([...participants, 'extra']), throwsFormatException);
+    expect(() => group(['alice']), throwsFormatException);
+    expect(() => group(['bob', 'carol']), throwsFormatException);
+  });
+
+  test('wrapped keys must match every sender identity field independently', () {
+    final source = _message();
+    final key = source.wrappedKeys.single.toWampKeywords();
+    for (final mismatch in <String, dynamic>{
+      'conversation_id': _token(32, 11),
+      'sender_username': 'charlie',
+      'sender_device_id': _token(32, 12),
+      'recipient_username': 'charlie',
+    }.entries) {
+      expect(
+        () => EncryptedChatMessage.fromWampKeywords({
+          ...source.toWampKeywords(),
+          'wrapped_keys': [
+            {...key, mismatch.key: mismatch.value},
+          ],
+        }),
+        throwsFormatException,
+        reason: mismatch.key,
+      );
+    }
+  });
+
+  test(
+    'recipient-state maps reject every legacy receipt field independently',
+    () {
+      final message = _message(oneTime: true);
+      final accepted = message.createdAt;
+      final states = {'bob': MailboxRecipientState()};
+      for (final create in <MailboxMessage Function()>[
+        () => MailboxMessage(
+          cursor: 1,
+          message: message,
+          acceptedAt: accepted,
+          recipientStates: states,
+          deliveredAt: accepted,
+        ),
+        () => MailboxMessage(
+          cursor: 1,
+          message: message,
+          acceptedAt: accepted,
+          recipientStates: states,
+          readAt: accepted,
+        ),
+        () => MailboxMessage(
+          cursor: 1,
+          message: message,
+          acceptedAt: accepted,
+          recipientStates: states,
+          consumedAt: accepted,
+        ),
+        () => MailboxMessage(
+          cursor: 1,
+          message: message,
+          acceptedAt: accepted,
+          recipientStates: states,
+          consumedByDeviceId: _token(32, 2),
+        ),
+      ]) {
+        expect(create, throwsFormatException);
+      }
+    },
+  );
+
+  test(
+    'encrypted envelopes reject malformed structure and resource bounds',
+    () {
+      final wire = _message().toWampKeywords();
+      final key = (wire['wrapped_keys'] as List).single as Map;
+      expect(
+        () => EncryptedChatMessage.fromWampKeywords(null),
+        throwsFormatException,
+      );
+      for (final invalid in <Map<String, dynamic>>[
+        {'algorithm': 'unsupported'},
+        {'sender_username': ''},
+        {'wrapped_keys': 'not a list'},
+        {
+          'wrapped_keys': [false],
+        },
+        {'wrapped_keys': []},
+        {
+          'wrapped_keys': List.filled(
+            EncryptedChatMessage.maxWrappedKeys + 1,
+            key,
+          ),
+        },
+        {'encrypted_payload': Uint8List(39)},
+        {
+          'encrypted_payload': Uint8List(
+            EncryptedChatMessage.maxEncryptedPayloadBytes + 1,
+          ),
+        },
+        {'expires_at': '2026-08-24T11:58:59.000Z'},
+        {'conversation_type': 'group'},
+        {
+          'attachment_ids': [
+            for (
+              var i = 0;
+              i <= WampAppAttachmentLimits.maxAttachmentsPerMessage;
+              i++
+            )
+              _token(16, i),
+          ],
+        },
+        {
+          'wrapped_keys': [
+            {...key, 'conversation_id': _token(32, 99)},
+          ],
+        },
+      ]) {
+        expect(
+          () => EncryptedChatMessage.fromWampKeywords({...wire, ...invalid}),
+          throwsFormatException,
+          reason: invalid.keys.join(','),
+        );
+      }
+      final group = _groupMessage().toWampKeywords();
+      for (final invalid in <Map<String, dynamic>>[
+        {'participant_usernames': []},
+        {'participant_usernames': 'not a list'},
+        {
+          'participant_usernames': ['alice', 42],
+        },
+        {
+          'participant_usernames': ['bob', 'carol'],
+        },
+        {'one_time': true},
+      ]) {
+        expect(
+          () => EncryptedChatMessage.fromWampKeywords({...group, ...invalid}),
+          throwsFormatException,
+          reason: invalid.keys.join(','),
+        );
+      }
+    },
+  );
+
+  test(
+    'mailbox parsing rejects malformed nested records and receipt aliases',
+    () {
+      final accepted = DateTime.utc(2026, 8, 24, 12);
+      final wire = MailboxMessage(
+        cursor: 1,
+        message: _message(),
+        acceptedAt: accepted,
+      ).toWampKeywords();
+      expect(
+        () => MailboxMessage.fromWampKeywords(null),
+        throwsFormatException,
+      );
+      for (final invalid in <Map<String, dynamic>>[
+        {'message': 1},
+        {'recipient_receipts': []},
+        {
+          'recipient_receipts': {'bob': null},
+        },
+        {
+          'recipient_receipts': {42: {}},
+        },
+        {
+          'recipient_receipts': {'': {}},
+        },
+        {
+          'recipient_receipts': {'Bob': {}, ' bob ': {}},
+        },
+      ]) {
+        expect(
+          () => MailboxMessage.fromWampKeywords({...wire, ...invalid}),
+          throwsFormatException,
+        );
+      }
+      for (final malformed in <Map<String, dynamic>?>[
+        null,
+        {},
+        {'next_cursor': 1, 'messages': 'not a list'},
+        {
+          'next_cursor': 1,
+          'messages': [false],
+        },
+      ]) {
+        expect(
+          () => MailboxBatch.fromWampKeywords(malformed),
+          throwsFormatException,
+        );
+      }
+      expect(
+        () => MailboxMessage(
+          cursor: 1,
+          message: _message(),
+          acceptedAt: accepted,
+          deliveredAt: accepted,
+          recipientStates: {'bob': MailboxRecipientState()},
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => MailboxMessage(
+          cursor: 1,
+          message: _groupMessage(),
+          acceptedAt: accepted,
+          deliveredAt: accepted,
+        ),
+        throwsFormatException,
+      );
+      for (final state in [
+        MailboxRecipientState(
+          deliveredAt: accepted.subtract(const Duration(seconds: 1)),
+        ),
+        MailboxRecipientState(
+          deliveredAt: accepted.add(const Duration(seconds: 1)),
+          readAt: accepted,
+        ),
+      ]) {
+        expect(
+          () => state.validate(acceptedAt: accepted, oneTime: false),
+          throwsFormatException,
+        );
+      }
+    },
+  );
+
+  test(
     'encrypted messages use binary WAMP fields and JSON storage encoding',
     () {
       final message = _message();
@@ -228,6 +697,144 @@ void main() {
       );
     }
   });
+
+  test(
+    'send receipts preserve exact wire fields and reject malformed input',
+    () {
+      final wire = <String, dynamic>{
+        'message_id': _token(16, 8),
+        'cursor': 43,
+        'accepted_at': '2026-08-24T12:00:00.000Z',
+        'duplicate': false,
+      };
+      for (final duplicate in [false, true]) {
+        final receipt = MessageSendReceipt.fromWampKeywords({
+          ...wire,
+          'duplicate': duplicate,
+        });
+        expect(receipt.messageId, _token(16, 8));
+        expect(receipt.cursor, 43);
+        expect(receipt.acceptedAt, DateTime.utc(2026, 8, 24, 12));
+        expect(receipt.duplicate, duplicate);
+        expect(receipt.toWampKeywords(), {...wire, 'duplicate': duplicate});
+      }
+      expect(
+        () => MessageSendReceipt.fromWampKeywords(null),
+        throwsFormatException,
+      );
+      for (final invalid in <Map<String, dynamic>>[
+        {'message_id': ''},
+        {'message_id': 'x' * 129},
+        {'message_id': ' id '},
+        {'message_id': 42},
+        {'cursor': 0},
+        {'cursor': '43'},
+        {'accepted_at': 42},
+        {'accepted_at': 'invalid'},
+        {'accepted_at': '2026-08-24T12:00:00'},
+        {'duplicate': 0},
+      ]) {
+        expect(
+          () => MessageSendReceipt.fromWampKeywords({...wire, ...invalid}),
+          throwsFormatException,
+        );
+      }
+      expect(
+        () => MessageSendReceipt(
+          messageId: 'id',
+          cursor: 0,
+          acceptedAt: DateTime.utc(2026),
+          duplicate: false,
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => MessageReceipt.fromWampKeywords(null),
+        throwsFormatException,
+      );
+      expect(
+        () => MessageReceipt(messageId: 'id', cursor: 0),
+        throwsFormatException,
+      );
+      expect(
+        () =>
+            MessageReceipt(messageId: 'id', cursor: 1, recipientUsername: ' '),
+        throwsFormatException,
+      );
+      final receipt = MessageReceipt(
+        messageId: 'id',
+        cursor: 1,
+        recipientUsername: ' Bob ',
+      );
+      expect(receipt.toWampKeywords()['recipient_username'], 'bob');
+    },
+  );
+
+  test(
+    'expiry uses an inclusive deadline and binary payloads remain isolated',
+    () {
+      final wire = _message().toWampKeywords();
+      final deadline = DateTime.utc(2026, 8, 24, 13);
+      final expiring = EncryptedChatMessage.fromWampKeywords({
+        ...wire,
+        'expires_at': deadline.toIso8601String(),
+      });
+      expect(
+        expiring.isExpiredAt(
+          deadline.subtract(const Duration(microseconds: 1)),
+        ),
+        isFalse,
+      );
+      expect(expiring.isExpiredAt(deadline), isTrue);
+      expect(
+        expiring.isExpiredAt(deadline.add(const Duration(microseconds: 1))),
+        isTrue,
+      );
+      expect(_message().isExpiredAt(deadline), isFalse);
+      final bytes = List<int>.of(wire['encrypted_payload'] as Uint8List);
+      final restored = EncryptedChatMessage.fromWampKeywords({
+        ...wire,
+        'encrypted_payload': bytes,
+      });
+      bytes[0] = 0;
+      expect(restored.encryptedPayload, everyElement(4));
+      expect(
+        () => EncryptedChatMessage.fromWampKeywords({
+          ...wire,
+          'attachment_ids': {},
+        }),
+        throwsFormatException,
+      );
+      expect(
+        () => OneTimeMessageConsumption(
+          messageId: 'id',
+          deviceId: '!',
+          signature: _token(64, 1),
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => OneTimeMessageConsumption(
+          messageId: 'id',
+          deviceId: _token(31, 1),
+          signature: _token(64, 1),
+        ),
+        throwsFormatException,
+      );
+      final stored = MailboxMessage(
+        cursor: 1,
+        message: _message(),
+        acceptedAt: DateTime.utc(2026, 8, 24, 12),
+        deliveredAt: DateTime.utc(2026, 8, 24, 12, 1),
+      );
+      expect(stored.recipientStateFor(' BOB '), isNotNull);
+      expect(
+        stored.recipientStateFor(' BOB ')!.deliveredAt,
+        DateTime.utc(2026, 8, 24, 12, 1),
+      );
+      expect(stored.recipientStateFor('carol'), isNull);
+    },
+  );
 
   test('one-time consumption proofs bind account, message, and device', () {
     final proof = OneTimeMessageConsumption(

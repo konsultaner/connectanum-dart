@@ -31,15 +31,20 @@ class HttpAuthBenchHarness {
     }
     final targetLogger = logger ?? Logger('HttpAuthBenchHarness');
     final servers = <HttpServer>[];
-    for (final serverConfig in config.servers) {
-      targetLogger.info(
-        'Starting HTTP auth bench harness on ${serverConfig.host}:${serverConfig.port}',
-      );
-      final bindHost =
-          InternetAddress.tryParse(serverConfig.host) ?? serverConfig.host;
-      final server = await HttpServer.bind(bindHost, serverConfig.port);
-      server.listen((request) => serverConfig.handle(request, targetLogger));
-      servers.add(server);
+    try {
+      for (final serverConfig in config.servers) {
+        targetLogger.info(
+          'Starting HTTP auth bench harness on ${serverConfig.host}:${serverConfig.port}',
+        );
+        final bindHost =
+            InternetAddress.tryParse(serverConfig.host) ?? serverConfig.host;
+        final server = await HttpServer.bind(bindHost, serverConfig.port);
+        servers.add(server);
+        server.listen((request) => serverConfig.handle(request, targetLogger));
+      }
+    } catch (_) {
+      await Future.wait(servers.map((server) => server.close(force: true)));
+      rethrow;
     }
     return HttpAuthBenchHarness._(logger: targetLogger, servers: servers);
   }
@@ -206,8 +211,38 @@ class _ProviderBinding {
       return;
     }
 
-    final body = await utf8.decoder.bind(request).join();
-    final form = Uri.splitQueryString(body, encoding: utf8);
+    late Map<String, String> form;
+    try {
+      // A decoder error must not cancel the HTTP request before sending 400.
+      final body = StringBuffer();
+      final decoder = utf8.decoder.startChunkedConversion(
+        StringConversionSink.fromStringSink(body),
+      );
+      var malformedUtf8 = false;
+      await for (final chunk in request) {
+        if (!malformedUtf8) {
+          try {
+            decoder.add(chunk);
+          } on FormatException {
+            malformedUtf8 = true;
+          }
+        }
+      }
+      if (malformedUtf8) {
+        throw const FormatException('Malformed introspection request UTF-8.');
+      }
+      decoder.close();
+      form = Uri.splitQueryString(body.toString(), encoding: utf8);
+    } catch (error) {
+      if (error is! FormatException && error is! ArgumentError) rethrow;
+      request.response.statusCode = HttpStatus.badRequest;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode(const <String, Object?>{'active': false}),
+      );
+      await request.response.close();
+      return;
+    }
     final token = form['token'];
     final active = token == HttpAuthBenchHarness.defaultOAuthAccessToken;
     request.response.headers.contentType = ContentType.json;

@@ -38,6 +38,8 @@ import 'package:connectanum_router/src/router/state/store.dart';
 import 'package:connectanum_router/src/router/state/subscription.dart';
 import 'package:test/test.dart';
 
+part 'support/worker_publish_failure_cases.dart';
+
 final bool _forwardNativePublishEventsEnabled = forwardNativePublishEvents;
 final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     ? null
@@ -56,6 +58,8 @@ void main() {
   tearDown(() {
     stateStore.dispose();
   });
+
+  _workerPublishFailureCases(() => routerSettings, () => stateStore);
 
   group('Router worker session handling', () {
     test('connection removal closes session and cleans state', () async {

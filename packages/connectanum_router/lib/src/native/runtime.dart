@@ -444,11 +444,18 @@ class NativeHttpResponse {
   NativeHttpResponse({
     required this.status,
     Map<String, String>? headers,
+    List<MapEntry<String, String>>? additionalHeaders,
     required this.body,
-  }) : headers = Map.unmodifiable(headers ?? const {});
+  }) : headers = Map.unmodifiable(headers ?? const {}),
+       additionalHeaders = List.unmodifiable(additionalHeaders ?? const []);
 
   final int status;
   final Map<String, String> headers;
+
+  /// Header fields appended after [headers], without comma folding.
+  /// Use this for repeated fields such as Set-Cookie. Callers must not repeat
+  /// fields whose HTTP semantics require a single value.
+  final List<MapEntry<String, String>> additionalHeaders;
   final NativeHttpResponseBody body;
 }
 
@@ -1130,7 +1137,8 @@ class NativeHttpRequestBody {
     _finishStreaming(ignoreErrors: false);
   }
 
-  /// Convenience helper to expose the body as a single-chunk stream.
+  /// Streams the body, finishing the native reader when done or cancelled.
+  /// Cancellation cleanup is best effort so consumer errors remain primary.
   Stream<List<int>> openRead({int chunkSize = _defaultChunkSize}) async* {
     if (_view.isNotEmpty && (!_streaming || _streamFinished)) {
       yield _view;
@@ -1155,20 +1163,26 @@ class NativeHttpRequestBody {
     }
     var offset = 0;
     final effectiveChunk = math.max(1, chunkSize);
-    while (offset < _length) {
-      final remaining = _length - offset;
-      final toRead = math.min(remaining, effectiveChunk);
-      final chunk = _streaming
-          ? _readStreamingChunk(toRead)
-          : _readSlice(offset, toRead);
-      if (chunk.isEmpty) {
-        break;
+    var readCompleted = false;
+    try {
+      while (offset < _length) {
+        final remaining = _length - offset;
+        final toRead = math.min(remaining, effectiveChunk);
+        final chunk = _streaming
+            ? _readStreamingChunk(toRead)
+            : _readSlice(offset, toRead);
+        if (chunk.isEmpty) {
+          break;
+        }
+        yield chunk;
+        offset += chunk.length;
       }
-      yield chunk;
-      offset += chunk.length;
-    }
-    if (_streaming) {
-      _finishStreaming(ignoreErrors: false);
+      readCompleted = true;
+    } finally {
+      if (_streaming) {
+        // Cancellation cleanup must not replace a consumer or read failure.
+        _finishStreaming(ignoreErrors: !readCompleted);
+      }
     }
   }
 
@@ -1273,20 +1287,25 @@ class NativeHttpRequestBody {
     }
     final buffer = Uint8List(_length);
     var offset = 0;
-    while (offset < _length) {
-      final remaining = _length - offset;
-      final toRead = math.min(remaining, _defaultChunkSize);
-      final chunk = _streaming
-          ? _readStreamingChunk(toRead)
-          : _readSlice(offset, toRead);
-      if (chunk.isEmpty) {
-        break;
+    var readCompleted = false;
+    try {
+      while (offset < _length) {
+        final remaining = _length - offset;
+        final toRead = math.min(remaining, _defaultChunkSize);
+        final chunk = _streaming
+            ? _readStreamingChunk(toRead)
+            : _readSlice(offset, toRead);
+        if (chunk.isEmpty) {
+          break;
+        }
+        buffer.setRange(offset, offset + chunk.length, chunk);
+        offset += chunk.length;
       }
-      buffer.setRange(offset, offset + chunk.length, chunk);
-      offset += chunk.length;
-    }
-    if (_streaming) {
-      _finishStreaming(ignoreErrors: false);
+      readCompleted = true;
+    } finally {
+      if (_streaming) {
+        _finishStreaming(ignoreErrors: !readCompleted);
+      }
     }
     if (offset == _length) {
       return buffer;
@@ -1300,7 +1319,11 @@ class NativeHttpRequestBody {
     }
     final override = _streamFinishOverride;
     if (override != null) {
-      override();
+      try {
+        override();
+      } catch (_) {
+        if (!ignoreErrors) rethrow;
+      }
       _streamFinished = true;
       return;
     }
@@ -2918,7 +2941,11 @@ class NativeTransportRuntime
         'HTTP responses require a native handshake handle.',
       );
     }
-    final headersList = _nativeHttpResponseHeaderEntries(response.headers);
+    final headersList = [
+      ..._nativeHttpResponseHeaderEntries(response.headers),
+      for (final entry in response.additionalHeaders)
+        MapEntry(entry.key.toLowerCase(), entry.value),
+    ];
     final headerCount = headersList.length;
     final headerPtr = headerCount == 0
         ? ffi.Pointer<CtHttpHeader>.fromAddress(0)

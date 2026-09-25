@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart' as client_pkg;
 import 'package:connectanum_client/socket.dart' as client_socket;
@@ -9,6 +10,7 @@ import 'package:connectanum_core/cbor_serializer.dart' as cbor_serializer;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_core/json_serializer.dart' as json_serializer;
 import 'package:connectanum_core/msgpack_serializer.dart' as msgpack_serializer;
+import 'package:crypto/crypto.dart' show sha256;
 
 import '../config/authenticator.dart';
 import '../config/router_settings.dart';
@@ -632,14 +634,17 @@ class _RemoteStringSource {
   }
 }
 
+typedef _RemoteWampSession = ({client_pkg.Session session, int generation});
+
 class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
   WampRemoteAuthenticatorDelegate(this._config);
 
   final RemoteWampDelegateConfig _config;
   client_pkg.Client? _client;
-  client_pkg.Session? _session;
-  Future<client_pkg.Session>? _connecting;
+  _RemoteWampSession? _session;
+  Future<_RemoteWampSession>? _connecting;
   String? _connectionFingerprint;
+  int _generation = 0;
 
   Future<void> warmUpSession() async {
     try {
@@ -651,25 +656,29 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
 
   @override
   Future<RemoteHelloResponse> onHello(RemoteHelloRequest request) async {
+    var generation = _generation;
     try {
-      final session = await _ensureSession();
+      final connection = await _ensureSession();
+      generation = connection.generation;
       final payload = await _buildHelloRequestPayload(request);
-      final result = await session
+      _requireCurrentGeneration(generation);
+      final result = await connection.session
           .callSinglePayload(_config.helloProcedure, argumentsKeywords: payload)
           .timeout(_config.callTimeout);
+      _requireCurrentGeneration(generation);
       return _decodeHelloResponse(result.argumentsKeywords, result.arguments);
     } on wamp_core.Error catch (error) {
       return RemoteHelloResponse.failure(_failureFromCallError(error));
     } on TimeoutException {
-      _invalidateSession();
+      _invalidateSession(generation: generation);
       throw RemoteDelegateUnavailableException(
         'Remote authenticator hello call timed out',
       );
     } on client_pkg.Abort catch (error) {
-      _invalidateSession();
+      _invalidateSession(generation: generation);
       throw RemoteDelegateUnavailableException(error.toString());
     } on StateError catch (error) {
-      _invalidateSession();
+      _invalidateSession(generation: generation);
       throw RemoteDelegateUnavailableException(error.toString());
     }
   }
@@ -678,15 +687,19 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
   Future<RemoteAuthenticateResponse> onAuthenticate(
     RemoteAuthenticateRequest request,
   ) async {
+    var generation = _generation;
     try {
-      final session = await _ensureSession();
+      final connection = await _ensureSession();
+      generation = connection.generation;
       final payload = await _buildAuthenticateRequestPayload(request);
-      final result = await session
+      _requireCurrentGeneration(generation);
+      final result = await connection.session
           .callSinglePayload(
             _config.authenticateProcedure,
             argumentsKeywords: payload,
           )
           .timeout(_config.callTimeout);
+      _requireCurrentGeneration(generation);
       return _decodeAuthenticateResponse(
         result.argumentsKeywords,
         result.arguments,
@@ -694,46 +707,53 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     } on wamp_core.Error catch (error) {
       return RemoteAuthenticateResponse.failure(_failureFromCallError(error));
     } on TimeoutException {
-      _invalidateSession();
+      _invalidateSession(generation: generation);
       throw RemoteDelegateUnavailableException(
         'Remote authenticator authenticate call timed out',
       );
     } on client_pkg.Abort catch (error) {
-      _invalidateSession();
+      _invalidateSession(generation: generation);
       throw RemoteDelegateUnavailableException(error.toString());
     } on StateError catch (error) {
-      _invalidateSession();
+      _invalidateSession(generation: generation);
       throw RemoteDelegateUnavailableException(error.toString());
     }
   }
 
   @override
   Future<void> onAbort(RemoteAbortRequest request) async {
+    var generation = _generation;
     try {
-      final session = await _ensureSession();
+      final connection = await _ensureSession();
+      generation = connection.generation;
       final payload = await _buildAbortRequestPayload(request);
-      await session
+      _requireCurrentGeneration(generation);
+      await connection.session
           .callSinglePayload(_config.abortProcedure, argumentsKeywords: payload)
           .timeout(_config.callTimeout);
     } catch (_) {
-      _invalidateSession();
+      _invalidateSession(generation: generation);
     }
   }
 
-  Future<client_pkg.Session> _ensureSession() async {
+  Future<_RemoteWampSession> _ensureSession() async {
     final existing = _session;
     if (existing != null) {
       final currentFingerprint = await _config.connectionFingerprint();
+      // Fingerprint I/O may outlive a session replaced by another caller.
+      if (existing.generation != _generation) {
+        return _ensureSession();
+      }
       if (_connectionFingerprint == currentFingerprint) {
         return existing;
       }
-      _invalidateSession();
+      _invalidateSession(generation: existing.generation);
     }
     final connecting = _connecting;
     if (connecting != null) {
       return connecting;
     }
-    final future = _connect();
+    final future = _connect(_generation);
     _connecting = future;
     return future.whenComplete(() {
       if (identical(_connecting, future)) {
@@ -742,9 +762,11 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     });
   }
 
-  Future<client_pkg.Session> _connect() async {
+  Future<_RemoteWampSession> _connect(int generation) async {
     final connectionFingerprint = await _config.connectionFingerprint();
+    _requireCurrentGeneration(generation);
     final authenticationMethods = await _config.buildAuthenticationMethods();
+    _requireCurrentGeneration(generation);
     final client = client_pkg.Client(
       realm: _config.realm,
       transport: await _buildTransport(_config.transport),
@@ -754,27 +776,44 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
       authenticationMethods: authenticationMethods,
     );
     try {
+      _requireCurrentGeneration(generation);
       final session = await client
           .connect(options: client_pkg.ClientConnectOptions(reconnectCount: 0))
           .first
           .timeout(_config.connectTimeout);
+      _requireCurrentGeneration(generation);
+      final connection = (session: session, generation: generation);
       _client = client;
-      _session = session;
+      _session = connection;
       _connectionFingerprint = connectionFingerprint;
       unawaited(
         Future.any<dynamic>([
           session.onDisconnect,
           session.onConnectionLost,
-        ]).whenComplete(_invalidateSession),
+        ]).then<void>(
+          (_) => _invalidateSession(generation: generation),
+          onError: (Object _, StackTrace _) =>
+              _invalidateSession(generation: generation),
+        ),
       );
-      return session;
+      return connection;
     } catch (_) {
       await client.disconnect();
       rethrow;
     }
   }
 
-  void _invalidateSession() {
+  void _requireCurrentGeneration(int generation) {
+    if (generation != _generation) {
+      throw StateError('The remote WAMP session is no longer current');
+    }
+  }
+
+  void _invalidateSession({int? generation}) {
+    if (generation != null && generation != _generation) {
+      return;
+    }
+    _generation++;
     final client = _client;
     _client = null;
     _session = null;
@@ -886,7 +925,8 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     if (status == 'failure') {
       return RemoteHelloResponse.failure(_failureFromResultMap(map));
     }
-    if (map.containsKey('challenge')) {
+    // Legacy responses omit status; an explicit invalid status must fail closed.
+    if (!map.containsKey('status') && map.containsKey('challenge')) {
       return RemoteHelloResponse.challenge(
         RemoteChallenge(
           authId:
@@ -899,7 +939,8 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
         ),
       );
     }
-    if (map.containsKey('authRole') || map.containsKey('auth_role')) {
+    if (!map.containsKey('status') &&
+        (map.containsKey('authRole') || map.containsKey('auth_role'))) {
       return RemoteHelloResponse.success(
         AuthSuccess(
           authId:
@@ -942,7 +983,8 @@ class WampRemoteAuthenticatorDelegate implements RemoteAuthenticatorDelegate {
     if (status == 'failure') {
       return RemoteAuthenticateResponse.failure(_failureFromResultMap(map));
     }
-    if (map.containsKey('authRole') || map.containsKey('auth_role')) {
+    if (!map.containsKey('status') &&
+        (map.containsKey('authRole') || map.containsKey('auth_role'))) {
       return RemoteAuthenticateResponse.success(
         AuthSuccess(
           authId:
@@ -1222,10 +1264,17 @@ const int _rawSocketSerializerMsgpack = 2;
 const int _rawSocketSerializerCbor = 3;
 
 String _stableFingerprint(String value) {
-  var hash = 0x811c9dc5;
-  for (final codeUnit in value.codeUnits) {
-    hash ^= codeUnit;
-    hash = (hash * 0x01000193) & 0xffffffff;
+  // Credential identities need collision resistance. Encode exact UTF-16 code
+  // units so malformed surrogate sequences cannot alias through UTF-8 repair.
+  final bytes = Uint8List(value.length * 2);
+  for (var index = 0; index < value.length; index++) {
+    final codeUnit = value.codeUnitAt(index);
+    bytes[index * 2] = codeUnit >> 8;
+    bytes[index * 2 + 1] = codeUnit & 0xff;
   }
-  return hash.toRadixString(16).padLeft(8, '0');
+  try {
+    return sha256.convert(bytes).toString();
+  } finally {
+    bytes.fillRange(0, bytes.length, 0);
+  }
 }

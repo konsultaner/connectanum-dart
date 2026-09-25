@@ -77,10 +77,15 @@ extension _Transactions on AuthServer {
       pending.context.transport.isEncrypted == context.transport.isEncrypted;
 
   AuthFailure? _stopped(_PendingSession pending) {
-    if (pending.phase != _AuthPhase.finished &&
-        pending.deadline != null &&
-        !_clock().isBefore(pending.deadline!)) {
-      _finish(pending, _expiredFailure);
+    try {
+      if (pending.phase != _AuthPhase.finished &&
+          pending.deadline != null &&
+          !_clock().isBefore(pending.deadline!)) {
+        _finish(pending, _expiredFailure);
+      }
+    } catch (_) {
+      // A failed deadline check must not keep an admitted transaction alive.
+      _finish(pending, _rejectedFailure);
     }
     return pending.terminalFailure;
   }

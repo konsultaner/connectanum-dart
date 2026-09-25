@@ -378,25 +378,30 @@ class WampWorkloadRunner {
             }),
     ];
     final start = DateTime.now();
-    await _runTimedOperation(
-      publisher.publishLazyPayload(
-        scenario.uri,
-        payload: payloadFactory(metadata),
-        options: _buildPublishOptions(scenario),
-      ),
-      timeout: _eventTimeout,
-      timeoutLabel: 'pubsub_publish_timeout',
-      logLabel: 'PUBSUB publish',
-      details: _operationDetails(
-        scenario,
-        workerId: workerId,
-        iteration: iteration,
-      ),
-    );
-    _logger.fine(
-      'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
-    );
-    await Future.wait(eventFutures);
+    // Observe deliveries and ACK together, including synchronous publish errors.
+    await Future.wait<void>([
+      ...eventFutures,
+      Future<void>.sync(() async {
+        await _runTimedOperation(
+          publisher.publishLazyPayload(
+            scenario.uri,
+            payload: payloadFactory(metadata),
+            options: _buildPublishOptions(scenario),
+          ),
+          timeout: _eventTimeout,
+          timeoutLabel: 'pubsub_publish_timeout',
+          logLabel: 'PUBSUB publish',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            iteration: iteration,
+          ),
+        );
+        _logger.fine(
+          'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
+        );
+      }),
+    ], eagerError: true);
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     _logger.fine(
       'PUBSUB publish done worker=$workerId iteration=$iteration uri=${scenario.uri} '
@@ -455,12 +460,33 @@ class WampWorkloadRunner {
     if (peerIndex != null) {
       details.write(' peer=$peerIndex');
     }
-    return _runTimedOperation(
-      _sessionFactory(scenario),
-      timeout: _eventTimeout,
-      timeoutLabel: '${timeoutLabel}_open_timeout',
-      logLabel: '$logLabel session open',
-      details: details.toString(),
+    final opening = _sessionFactory(scenario);
+    var abandoned = false;
+    unawaited(
+      opening.then<void>((session) {
+        if (!abandoned) {
+          return;
+        }
+        unawaited(
+          _runCleanupOperation(
+            session.close,
+            logLabel: '$logLabel late session',
+            details: details.toString(),
+          ).catchError((Object error, StackTrace stackTrace) {
+            _logger.warning('$logLabel late session cleanup failed');
+          }),
+        );
+      }, onError: (Object error, StackTrace stackTrace) {}),
+    );
+    return opening.timeout(
+      _eventTimeout,
+      onTimeout: () {
+        abandoned = true;
+        _logger.severe(
+          '$logLabel session open timed out $details timeout=$_eventTimeout',
+        );
+        throw TimeoutException('${timeoutLabel}_open_timeout');
+      },
     );
   }
 
@@ -992,7 +1018,27 @@ class WampWorkloadRunner {
     WampSession? sender;
     WampSession? receiver;
     WampRegistration? registration;
+    Future<WampRegistration>? pendingRegistration;
     final procedure = _externalProcedureUri(scenario.uri, workerId);
+    var operationFailed = false;
+    (Object, StackTrace)? cleanupFailure;
+    Future<void> cleanup(
+      Future<void> Function() operation, {
+      required String logLabel,
+      required String details,
+    }) async {
+      try {
+        await _runCleanupOperation(
+          operation,
+          logLabel: logLabel,
+          details: details,
+        );
+      } catch (error, stackTrace) {
+        cleanupFailure ??= (error, stackTrace);
+        _logger.warning('$logLabel cleanup failed $details');
+      }
+    }
+
     try {
       sender = await _openSession(
         scenario,
@@ -1007,11 +1053,22 @@ class WampWorkloadRunner {
         timeoutLabel: 'file_receiver',
         logLabel: 'file receiver',
       );
-      registration = await (receiver as WampFileSession).registerFileReceiver(
+      pendingRegistration = (receiver as WampFileSession).registerFileReceiver(
         procedure,
         maxConcurrentTransfers: scenario.inFlightPerSession,
         maxChunkSize: scenario.fileChunkBytes,
         idleTimeout: _eventTimeout,
+      );
+      registration = await _runTimedOperation(
+        pendingRegistration,
+        timeout: _eventTimeout,
+        timeoutLabel: 'file_receiver_registration',
+        logLabel: 'file receiver registration',
+        details: _operationDetails(
+          scenario,
+          workerId: workerId,
+          targetUri: procedure,
+        ),
       );
       return await _runWithInFlightLimit(
         iterations: scenario.iterations,
@@ -1025,9 +1082,38 @@ class WampWorkloadRunner {
           sender!,
         ),
       );
+    } catch (_) {
+      operationFailed = true;
+      rethrow;
     } finally {
+      if (registration == null && pendingRegistration != null) {
+        // A timed-out registration may still arrive after its session is closed.
+        unawaited(
+          pendingRegistration.then<void>(
+            (lateRegistration) async {
+              try {
+                await _runCleanupOperation(
+                  lateRegistration.cancel,
+                  logLabel: 'late file receiver registration',
+                  details: _operationDetails(
+                    scenario,
+                    workerId: workerId,
+                    targetUri: procedure,
+                  ),
+                );
+              } catch (_) {
+                _logger.warning(
+                  'late file receiver registration cleanup failed',
+                );
+              }
+            },
+            // The original failure has already reached the caller.
+            onError: (Object _, StackTrace _) {},
+          ),
+        );
+      }
       if (registration != null) {
-        await _runCleanupOperation(
+        await cleanup(
           registration.cancel,
           logLabel: 'file receiver registration',
           details: _operationDetails(
@@ -1038,7 +1124,7 @@ class WampWorkloadRunner {
         );
       }
       if (receiver != null) {
-        await _runCleanupOperation(
+        await cleanup(
           receiver.close,
           logLabel: 'file receiver session',
           details: _operationDetails(
@@ -1049,7 +1135,7 @@ class WampWorkloadRunner {
         );
       }
       if (sender != null) {
-        await _runCleanupOperation(
+        await cleanup(
           sender.close,
           logLabel: 'file sender session',
           details: _operationDetails(
@@ -1058,6 +1144,10 @@ class WampWorkloadRunner {
             targetUri: procedure,
           ),
         );
+      }
+      final failure = cleanupFailure;
+      if (!operationFailed && failure != null) {
+        Error.throwWithStackTrace(failure.$1, failure.$2);
       }
     }
   }
@@ -2027,9 +2117,18 @@ class WampEventBuffer {
     wamp_core.LazyEventPayload? matchedEvent;
     while (_buffer.isNotEmpty) {
       final event = _buffer.removeFirst();
-      if (matchedEvent == null && matcher(event)) {
-        matchedEvent = event;
-        continue;
+      try {
+        if (matchedEvent == null && matcher(event)) {
+          matchedEvent = event;
+          continue;
+        }
+      } catch (_) {
+        // Restore the throwing event and its scanned prefix before propagating.
+        _buffer.addFirst(event);
+        while (replayBuffer.isNotEmpty) {
+          _buffer.addFirst(replayBuffer.removeLast());
+        }
+        rethrow;
       }
       replayBuffer.addLast(event);
     }
@@ -2732,7 +2831,13 @@ class _ClientBackedWampSession implements WampSession, WampFileSession {
       },
       onError: (Object error, StackTrace stackTrace) {
         if (!completion.isCompleted) {
-          completion.complete();
+          if (error is wamp_core.Error &&
+              (error.error == 'wamp.error.canceled' ||
+                  error.error == wamp_core.Error.errorInvocationCanceled)) {
+            completion.complete();
+          } else {
+            completion.completeError(error, stackTrace);
+          }
         }
       },
       onDone: () {

@@ -670,6 +670,9 @@ fn parse_json_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError
     let mut deserializer = serde_json::Deserializer::from_slice(slice);
     let BorrowedFields(fields) = BorrowedFields::deserialize(&mut deserializer)
         .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+    deserializer
+        .end()
+        .map_err(|err| ParseError::Deserialize(err.to_string()))?;
 
     if fields.is_empty() {
         return Err(ParseError::MissingElement("message code"));
@@ -1001,6 +1004,11 @@ fn parse_msgpack_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseEr
     let mut ranges = Vec::with_capacity(len);
     for _ in 0..len {
         ranges.push(msgpack_read_value_range(&raw_payload, &mut offset)?);
+    }
+    if offset != raw_payload.len() {
+        return Err(ParseError::Deserialize(
+            "trailing data after MessagePack message array".into(),
+        ));
     }
 
     let code = msgpack_u64(
@@ -2046,7 +2054,11 @@ fn deserialize_value(serializer: Serializer, bytes: &RawFrame) -> Result<Value, 
                 let mut de = serde_cbor::Deserializer::from_reader(SegmentedFrameReader::new(
                     segments.clone(),
                 ));
-                Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
+                let value = Value::deserialize(&mut de)
+                    .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+                de.end()
+                    .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+                Ok(value)
             }
         },
         Serializer::Ubjson => Err(ParseError::UnsupportedSerializer(serializer)),
@@ -2512,19 +2524,28 @@ fn serialize_value(serializer: Serializer, value: &Value) -> Result<Bytes, Parse
 }
 
 #[cfg(test)]
+#[path = "wamp_regression_tests.rs"]
+mod regression_tests;
+
+#[cfg(test)]
+#[path = "wamp_test_support.rs"]
+mod test_support;
+
+#[cfg(test)]
 mod tests {
+    use super::test_support::{assert_condition, unexpected_message, AssertError, AssertSuccess};
     use super::*;
     use serde_json::json;
 
     fn to_bytes_json(value: serde_json::Value) -> Bytes {
-        Bytes::from(serde_json::to_vec(&value).unwrap())
+        Bytes::from(serde_json::to_vec(&value).assert_success())
     }
 
     fn decode_value(serializer: Serializer, bytes: &Bytes) -> serde_json::Value {
         match serializer {
-            Serializer::Json => serde_json::from_slice(bytes).unwrap(),
-            Serializer::MessagePack => rmp_serde::from_slice(bytes).unwrap(),
-            Serializer::Cbor => serde_cbor::from_slice(bytes).unwrap(),
+            Serializer::Json => serde_json::from_slice(bytes).assert_success(),
+            Serializer::MessagePack => rmp_serde::from_slice(bytes).assert_success(),
+            Serializer::Cbor => serde_cbor::from_slice(bytes).assert_success(),
             _ => panic!("unsupported serializer for decoding"),
         }
     }
@@ -2534,7 +2555,7 @@ mod tests {
     }
 
     fn assert_slice_points_into(raw: &RawFrame, slice: &Bytes) {
-        assert!(
+        assert_condition!(
             raw.contains_slice(slice),
             "payload slice must point into raw frame storage"
         );
@@ -2551,17 +2572,17 @@ mod tests {
             {"beta": true}
         ]);
         let frame = to_bytes_json(payload);
-        let parsed = parse_message(Serializer::Json, frame.clone()).unwrap();
+        let parsed = parse_message(Serializer::Json, frame.clone()).assert_success();
         let raw = parsed
             .raw
             .as_contiguous()
-            .expect("json raw frame contiguous");
+            .assert_expected("json raw frame contiguous");
         assert_eq!(raw.as_ptr(), frame.as_ptr());
         assert_eq!(raw.len(), frame.len());
         match parsed.message {
             WampMessage::Publish { payload, .. } => {
-                let args = payload.args.expect("payload args missing");
-                let kwargs = payload.kwargs.expect("payload kwargs missing");
+                let args = payload.args.assert_expected("payload args missing");
+                let kwargs = payload.kwargs.assert_expected("payload kwargs missing");
                 assert_slice_points_into(&parsed.raw, &args);
                 assert_slice_points_into(&parsed.raw, &kwargs);
                 assert_eq!(
@@ -2573,11 +2594,11 @@ mod tests {
                     Some(json!({"beta": true}))
                 );
                 let args_offset = args.as_ptr() as usize - raw.as_ptr() as usize;
-                assert!(args_offset < raw.len());
+                assert_condition!(args_offset < raw.len());
                 let kwargs_offset = kwargs.as_ptr() as usize - raw.as_ptr() as usize;
-                assert!(kwargs_offset < raw.len());
+                assert_condition!(kwargs_offset < raw.len());
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
@@ -2593,18 +2614,18 @@ mod tests {
             [1, 2],
             {"flag": false}
         ]);
-        let bytes = Bytes::from(to_vec(&value).unwrap());
-        let parsed = parse_message(Serializer::MessagePack, bytes.clone()).unwrap();
+        let bytes = Bytes::from(to_vec(&value).assert_success());
+        let parsed = parse_message(Serializer::MessagePack, bytes.clone()).assert_success();
         let raw = parsed
             .raw
             .as_contiguous()
-            .expect("contiguous msgpack input should stay contiguous");
+            .assert_expected("contiguous msgpack input should stay contiguous");
         assert_eq!(raw.as_ptr(), bytes.as_ptr());
         assert_eq!(raw.len(), bytes.len());
         match parsed.message {
             WampMessage::Publish { payload, .. } => {
-                let args = payload.args.expect("payload args missing");
-                let kwargs = payload.kwargs.expect("payload kwargs missing");
+                let args = payload.args.assert_expected("payload args missing");
+                let kwargs = payload.kwargs.assert_expected("payload kwargs missing");
                 assert_slice_points_into(&parsed.raw, &args);
                 assert_slice_points_into(&parsed.raw, &kwargs);
                 assert_eq!(
@@ -2616,11 +2637,11 @@ mod tests {
                     Some(json!({"flag": false}))
                 );
                 let args_offset = args.as_ptr() as usize - raw.as_ptr() as usize;
-                assert!(args_offset < raw.len());
+                assert_condition!(args_offset < raw.len());
                 let kwargs_offset = kwargs.as_ptr() as usize - raw.as_ptr() as usize;
-                assert!(kwargs_offset < raw.len());
+                assert_condition!(kwargs_offset < raw.len());
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
@@ -2640,41 +2661,42 @@ mod tests {
                 CborValue::Bool(false),
             )])),
         ]);
-        let bytes = Bytes::from(serde_cbor::to_vec(&value).unwrap());
-        let parsed = parse_message(Serializer::Cbor, bytes.clone()).unwrap();
+        let bytes = Bytes::from(serde_cbor::to_vec(&value).assert_success());
+        let parsed = parse_message(Serializer::Cbor, bytes.clone()).assert_success();
         let raw = parsed
             .raw
             .as_contiguous()
-            .expect("contiguous CBOR input should stay contiguous");
+            .assert_expected("contiguous CBOR input should stay contiguous");
         assert_eq!(raw.as_ptr(), bytes.as_ptr());
         assert_eq!(raw.len(), bytes.len());
 
         match parsed.message {
             WampMessage::Publish { payload, .. } => {
-                let args = payload.args.expect("payload args missing");
-                let kwargs = payload.kwargs.expect("payload kwargs missing");
+                let args = payload.args.assert_expected("payload args missing");
+                let kwargs = payload.kwargs.assert_expected("payload kwargs missing");
                 assert_slice_points_into(&parsed.raw, &args);
                 assert_slice_points_into(&parsed.raw, &kwargs);
                 assert_eq!(
-                    serde_cbor::from_slice::<CborValue>(&args).unwrap(),
+                    serde_cbor::from_slice::<CborValue>(&args).assert_success(),
                     CborValue::Array(vec![CborValue::Bytes(binary)])
                 );
                 assert_eq!(
-                    serde_cbor::from_slice::<CborValue>(&kwargs).unwrap(),
+                    serde_cbor::from_slice::<CborValue>(&kwargs).assert_success(),
                     CborValue::Map(BTreeMap::from([(
                         CborValue::Text("flag".into()),
                         CborValue::Bool(false),
                     )]))
                 );
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
     #[test]
     fn cbor_payload_preserves_missing_null_and_empty_semantics() {
         let missing = Bytes::from(
-            serde_cbor::to_vec(&serde_json::json!([16, 1, {}, "com.example.topic"])).unwrap(),
+            serde_cbor::to_vec(&serde_json::json!([16, 1, {}, "com.example.topic"]))
+                .assert_success(),
         );
         let null = Bytes::from(
             serde_cbor::to_vec(&serde_json::json!([
@@ -2685,23 +2707,29 @@ mod tests {
                 null,
                 null
             ]))
-            .unwrap(),
+            .assert_success(),
         );
         let empty = Bytes::from(
             serde_cbor::to_vec(&serde_json::json!([16, 1, {}, "com.example.topic", [], {}]))
-                .unwrap(),
+                .assert_success(),
         );
 
         for bytes in [missing, null] {
-            match parse_message(Serializer::Cbor, bytes).unwrap().message {
+            match parse_message(Serializer::Cbor, bytes)
+                .assert_success()
+                .message
+            {
                 WampMessage::Publish { payload, .. } => {
-                    assert!(payload.args.is_none());
-                    assert!(payload.kwargs.is_none());
+                    assert_condition!(payload.args.is_none());
+                    assert_condition!(payload.kwargs.is_none());
                 }
-                other => panic!("unexpected message: {:?}", other),
+                other => unexpected_message(other),
             }
         }
-        match parse_message(Serializer::Cbor, empty).unwrap().message {
+        match parse_message(Serializer::Cbor, empty)
+            .assert_success()
+            .message
+        {
             WampMessage::Publish { payload, .. } => {
                 assert_eq!(
                     decode_option(Serializer::Cbor, &payload.args),
@@ -2712,7 +2740,7 @@ mod tests {
                     Some(json!({}))
                 );
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
@@ -2726,18 +2754,18 @@ mod tests {
                 "com.example.topic",
                 "not-a-list"
             ]))
-            .unwrap(),
+            .assert_success(),
         );
-        assert!(matches!(
+        assert_condition!(matches!(
             parse_message(Serializer::Cbor, wrong_args),
             Err(ParseError::ExpectedList("publish.arguments"))
         ));
 
         let wrong_kwargs = Bytes::from(
             serde_cbor::to_vec(&serde_json::json!([16, 1, {}, "com.example.topic", [], []]))
-                .unwrap(),
+                .assert_success(),
         );
-        assert!(matches!(
+        assert_condition!(matches!(
             parse_message(Serializer::Cbor, wrong_kwargs),
             Err(ParseError::ExpectedMap("publish.argumentsKw"))
         ));
@@ -2752,9 +2780,9 @@ mod tests {
             "com.example.procedure",
             ["payload"]
         ]))
-        .unwrap();
+        .assert_success();
         bytes.pop();
-        assert!(matches!(
+        assert_condition!(matches!(
             parse_message(Serializer::Cbor, Bytes::from(bytes)),
             Err(ParseError::Deserialize(_))
         ));
@@ -2763,9 +2791,10 @@ mod tests {
     #[test]
     fn cbor_range_parser_rejects_trailing_data_after_array() {
         let mut definite =
-            serde_cbor::to_vec(&serde_json::json!([48, 1, {}, "com.example.procedure"])).unwrap();
+            serde_cbor::to_vec(&serde_json::json!([48, 1, {}, "com.example.procedure"]))
+                .assert_success();
         definite.push(0x00);
-        assert!(matches!(
+        assert_condition!(matches!(
             parse_message(Serializer::Cbor, Bytes::from(definite)),
             Err(ParseError::Deserialize(_))
         ));
@@ -2775,7 +2804,7 @@ mod tests {
             b'p', b'l', b'e', b'.', b'p', b'r', b'o', b'c', b'e', b'd', b'u', b'r', b'e', 0xff,
             0x00,
         ]);
-        assert!(matches!(
+        assert_condition!(matches!(
             parse_message(Serializer::Cbor, indefinite),
             Err(ParseError::Deserialize(_))
         ));
@@ -2793,34 +2822,34 @@ mod tests {
             [1, 2],
             {"flag": false}
         ]);
-        let bytes = Bytes::from(to_vec(&value).unwrap());
-        let contiguous = parse_message(Serializer::MessagePack, bytes.clone()).unwrap();
+        let bytes = Bytes::from(to_vec(&value).assert_success());
+        let contiguous = parse_message(Serializer::MessagePack, bytes.clone()).assert_success();
         let (args_offset, kwargs_offset) = match contiguous.message {
             WampMessage::Publish { payload, .. } => {
                 let raw = contiguous
                     .raw
                     .as_contiguous()
-                    .expect("contiguous msgpack frame expected");
-                let args = payload.args.expect("payload args missing");
-                let kwargs = payload.kwargs.expect("payload kwargs missing");
+                    .assert_expected("contiguous msgpack frame expected");
+                let args = payload.args.assert_expected("payload args missing");
+                let kwargs = payload.kwargs.assert_expected("payload kwargs missing");
                 (
                     args.as_ptr() as usize - raw.as_ptr() as usize,
                     kwargs.as_ptr() as usize - raw.as_ptr() as usize,
                 )
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         };
         let segments = vec![
             bytes.slice(0..args_offset),
             bytes.slice(args_offset..kwargs_offset),
             bytes.slice(kwargs_offset..bytes.len()),
         ];
-        let parsed = parse_message_segments(Serializer::MessagePack, segments).unwrap();
-        assert!(matches!(parsed.raw, RawFrame::Segmented { .. }));
+        let parsed = parse_message_segments(Serializer::MessagePack, segments).assert_success();
+        assert_condition!(matches!(parsed.raw, RawFrame::Segmented { .. }));
         match parsed.message {
             WampMessage::Publish { payload, .. } => {
-                let args = payload.args.expect("payload args missing");
-                let kwargs = payload.kwargs.expect("payload kwargs missing");
+                let args = payload.args.assert_expected("payload args missing");
+                let kwargs = payload.kwargs.assert_expected("payload kwargs missing");
                 assert_slice_points_into(&parsed.raw, &args);
                 assert_slice_points_into(&parsed.raw, &kwargs);
                 assert_eq!(
@@ -2832,21 +2861,21 @@ mod tests {
                     Some(json!({"flag": false}))
                 );
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
     #[test]
     fn cbor_segmented_message_parses_without_flattening_full_frame() {
         let value = serde_json::json!([17, 999, 12345]);
-        let bytes = Bytes::from(serde_cbor::to_vec(&value).unwrap());
+        let bytes = Bytes::from(serde_cbor::to_vec(&value).assert_success());
         let split = bytes.len() / 2;
         let parsed = parse_message_segments(
             Serializer::Cbor,
             vec![bytes.slice(0..split), bytes.slice(split..bytes.len())],
         )
-        .unwrap();
-        assert!(matches!(parsed.raw, RawFrame::Segmented { .. }));
+        .assert_success();
+        assert_condition!(matches!(parsed.raw, RawFrame::Segmented { .. }));
         match parsed.message {
             WampMessage::Published {
                 request_id,
@@ -2855,7 +2884,7 @@ mod tests {
                 assert_eq!(request_id, 999);
                 assert_eq!(publication_id, 12345);
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
@@ -2869,7 +2898,7 @@ mod tests {
             ["arg"],
             {"kw": 1}
         ]);
-        let parsed = parse_message(Serializer::Json, to_bytes_json(payload)).unwrap();
+        let parsed = parse_message(Serializer::Json, to_bytes_json(payload)).assert_success();
         match parsed.message {
             WampMessage::Call {
                 request_id,
@@ -2888,7 +2917,7 @@ mod tests {
                     Some(json!({"kw": 1}))
                 );
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
@@ -2896,7 +2925,7 @@ mod tests {
     fn parse_abort_with_reason() {
         let payload =
             json!([3, {"message": "not authorized"}, "wamp.error.not_authorized", ["why"]]);
-        let parsed = parse_message(Serializer::Json, to_bytes_json(payload)).unwrap();
+        let parsed = parse_message(Serializer::Json, to_bytes_json(payload)).assert_success();
         match parsed.message {
             WampMessage::Abort {
                 reason, payload, ..
@@ -2907,31 +2936,32 @@ mod tests {
                     Some(json!(["why"]))
                 );
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
     #[test]
     fn parse_challenge_and_authenticate() {
         let challenge_payload = json!([4, "wampcra", {"challenge": "nonce", "salt": "pepper"}]);
-        let challenge = parse_message(Serializer::Json, to_bytes_json(challenge_payload)).unwrap();
+        let challenge =
+            parse_message(Serializer::Json, to_bytes_json(challenge_payload)).assert_success();
         match challenge.message {
             WampMessage::Challenge { auth_method, extra } => {
                 assert_eq!(auth_method, "wampcra");
-                assert!(extra.contains_key(&Value::String("challenge".into())));
+                assert_condition!(extra.contains_key(&Value::String("challenge".into())));
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
 
         let authenticate_payload = json!([5, "signature", {"foo": "bar"}]);
         let authenticate =
-            parse_message(Serializer::Json, to_bytes_json(authenticate_payload)).unwrap();
+            parse_message(Serializer::Json, to_bytes_json(authenticate_payload)).assert_success();
         match authenticate.message {
             WampMessage::Authenticate { signature, extra } => {
                 assert_eq!(signature, "signature");
-                assert!(extra.contains_key(&Value::String("foo".into())));
+                assert_condition!(extra.contains_key(&Value::String("foo".into())));
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
@@ -2945,7 +2975,7 @@ mod tests {
             ["payload"],
             {"kw": true}
         ]);
-        let parsed = parse_message(Serializer::Json, to_bytes_json(payload)).unwrap();
+        let parsed = parse_message(Serializer::Json, to_bytes_json(payload)).assert_success();
         match parsed.message {
             WampMessage::Event {
                 subscription_id,
@@ -2964,7 +2994,7 @@ mod tests {
                     Some(json!({"kw": true}))
                 );
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
@@ -2978,7 +3008,7 @@ mod tests {
             [1, 2, 3],
             {"alpha": "beta"}
         ]);
-        let parsed = parse_message(Serializer::Json, to_bytes_json(payload)).unwrap();
+        let parsed = parse_message(Serializer::Json, to_bytes_json(payload)).assert_success();
         match parsed.message {
             WampMessage::Invocation {
                 request_id,
@@ -2997,14 +3027,14 @@ mod tests {
                     Some(json!({"alpha": "beta"}))
                 );
             }
-            other => panic!("unexpected message: {:?}", other),
+            other => unexpected_message(other),
         }
     }
 
     #[test]
     fn unsupported_serializer() {
         let payload = Bytes::from_static(b"");
-        let err = parse_message(Serializer::Flatbuffers, payload).unwrap_err();
-        matches!(err, ParseError::UnsupportedSerializer(_));
+        let err = parse_message(Serializer::Flatbuffers, payload).assert_error();
+        assert_condition!(matches!(err, ParseError::UnsupportedSerializer(_)));
     }
 }

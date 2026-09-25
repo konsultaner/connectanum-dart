@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Replace short remote-authentication credential fingerprints with
+  collision-resistant identities so distinct credentials do not share a
+  delegate and file-backed credential rotation reconnects reliably.
+
 ## 3.0.0-beta.6
 
 - Reject ambiguous HTTP/1 request framing, flush completed and paused streamed

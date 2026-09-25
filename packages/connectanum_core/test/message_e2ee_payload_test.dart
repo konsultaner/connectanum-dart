@@ -1,20 +1,59 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:test/test.dart';
 
+import 'support/e2ee_assertions.dart';
+
 void main() {
+  test('E2EE success assertion evaluates once and preserves identity', () {
+    final value = Object();
+    var calls = 0;
+    expect(
+      expectE2eeSuccess(() {
+        calls++;
+        return value;
+      }),
+      same(value),
+    );
+    expect(calls, 1);
+    expect(expectE2eeSuccess<Object?>(() => null), isNull);
+  });
+  test('E2EE success assertion preserves timeouts', () {
+    final failure = TimeoutException('fixture timeout');
+    expect(
+      () => expectE2eeSuccess(() => throw failure),
+      throwsA(same(failure)),
+    );
+  });
+  test('E2EE success assertion rejects unexpected errors', () {
+    expect(
+      () => expectE2eeSuccess(() => throw StateError('fixture failure')),
+      throwsA(
+        isA<TestFailure>().having(
+          (failure) => failure.message,
+          'diagnostic',
+          contains('fixture failure'),
+        ),
+      ),
+    );
+  });
   group('WampCborXsalsa20Poly1305Provider', () {
     test('round-trips payloads and populates outbound ppt metadata', () {
       final provider = _testProvider();
       final options = PublishOptions(pptScheme: 'wamp');
 
-      final packed = provider.packPayload(
-        const ['wrapped'],
-        const {'worker': 7},
-        options,
+      final packed = expectE2eeSuccess(
+        () => provider.packPayload(
+          const ['wrapped'],
+          const {'worker': 7},
+          options,
+        ),
       );
-      final unpacked = provider.unpackPayload(packed, options);
+      final unpacked = expectE2eeSuccess(
+        () => provider.unpackPayload(packed, options),
+      );
 
       expect(options.pptSerializer, equals('cbor'));
       expect(
@@ -29,12 +68,14 @@ void main() {
     });
 
     test('selects a key id from runtime context when options omit it', () {
-      final provider = WampCborXsalsa20Poly1305Provider(
-        keys: {'kid-alpha': _testKey(), 'kid-beta': _testKey(seed: 32)},
-        keySelectionPolicy: (runtimeContext, _) =>
-            runtimeContext.uri == 'policy.topic.beta'
-            ? 'kid-beta'
-            : 'kid-alpha',
+      final provider = expectE2eeSuccess(
+        () => WampCborXsalsa20Poly1305Provider(
+          keys: {'kid-alpha': _testKey(), 'kid-beta': _testKey(seed: 32)},
+          keySelectionPolicy: (runtimeContext, _) =>
+              runtimeContext.uri == 'policy.topic.beta'
+              ? 'kid-beta'
+              : 'kid-alpha',
+        ),
       );
       final runtimeContext = const WampE2eeRuntimeContext(
         direction: WampE2eeDirection.outbound,
@@ -46,11 +87,13 @@ void main() {
         pptSerializer: 'cbor',
       );
 
-      final packed = provider.packPayload(
-        const ['wrapped'],
-        const {'worker': 7},
-        packOptions,
-        runtimeContext: runtimeContext,
+      final packed = expectE2eeSuccess(
+        () => provider.packPayload(
+          const ['wrapped'],
+          const {'worker': 7},
+          packOptions,
+          runtimeContext: runtimeContext,
+        ),
       );
 
       expect(packOptions.pptKeyId, equals('kid-beta'));
@@ -59,11 +102,13 @@ void main() {
         pptScheme: 'wamp',
         pptSerializer: 'cbor',
       );
-      final unpacked = provider.unpackPayload(
-        packed,
-        unpackOptions,
-        runtimeContext: runtimeContext.copyWith(
-          direction: WampE2eeDirection.inbound,
+      final unpacked = expectE2eeSuccess(
+        () => provider.unpackPayload(
+          packed,
+          unpackOptions,
+          runtimeContext: runtimeContext.copyWith(
+            direction: WampE2eeDirection.inbound,
+          ),
         ),
       );
 
@@ -73,8 +118,10 @@ void main() {
     });
 
     test('throws explicit key errors when no default key id is available', () {
-      final provider = WampCborXsalsa20Poly1305Provider(
-        keys: {'first': _testKey(), 'second': _testKey(seed: 32)},
+      final provider = expectE2eeSuccess(
+        () => WampCborXsalsa20Poly1305Provider(
+          keys: {'first': _testKey(), 'second': _testKey(seed: 32)},
+        ),
       );
 
       expect(
@@ -107,10 +154,12 @@ void main() {
     test('throws explicit decryption errors for tampered ciphertext', () {
       final provider = _testProvider();
       final options = PublishOptions(pptScheme: 'wamp');
-      final packed = provider.packPayload(
-        const ['wrapped'],
-        const {'worker': 7},
-        options,
+      final packed = expectE2eeSuccess(
+        () => provider.packPayload(
+          const ['wrapped'],
+          const {'worker': 7},
+          options,
+        ),
       );
       final tampered = Uint8List.fromList((packed.single as Uint8List));
       tampered[tampered.length - 1] ^= 1;
@@ -128,18 +177,24 @@ void main() {
 
   group('WampCborAes256GcmProvider', () {
     test('round-trips payloads and populates outbound ppt metadata', () {
-      final provider = WampCborAes256GcmProvider.single(
-        keyId: 'kid-current',
-        key: _testKey(),
+      final provider = expectE2eeSuccess(
+        () => WampCborAes256GcmProvider.single(
+          keyId: 'kid-current',
+          key: _testKey(),
+        ),
       );
       final options = PublishOptions(pptScheme: 'wamp');
 
-      final packed = provider.packPayload(
-        const ['wrapped'],
-        const {'worker': 7},
-        options,
+      final packed = expectE2eeSuccess(
+        () => provider.packPayload(
+          const ['wrapped'],
+          const {'worker': 7},
+          options,
+        ),
       );
-      final unpacked = provider.unpackPayload(packed, options);
+      final unpacked = expectE2eeSuccess(
+        () => provider.unpackPayload(packed, options),
+      );
 
       expect(options.pptSerializer, equals('cbor'));
       expect(
@@ -153,19 +208,23 @@ void main() {
     });
 
     test('uses the selected rotation key and rejects tampering', () {
-      final provider = WampCborAes256GcmProvider(
-        keys: {'kid-old': _testKey(), 'kid-current': _testKey(seed: 32)},
-        keySelectionPolicy: (_, _) => 'kid-current',
+      final provider = expectE2eeSuccess(
+        () => WampCborAes256GcmProvider(
+          keys: {'kid-old': _testKey(), 'kid-current': _testKey(seed: 32)},
+          keySelectionPolicy: (_, _) => 'kid-current',
+        ),
       );
       final options = PublishOptions(pptScheme: 'wamp');
 
-      final packed = provider.packPayload(
-        const ['rotated'],
-        null,
-        options,
-        runtimeContext: const WampE2eeRuntimeContext(
-          direction: WampE2eeDirection.outbound,
-          messageType: WampE2eeMessageType.publish,
+      final packed = expectE2eeSuccess(
+        () => provider.packPayload(
+          const ['rotated'],
+          null,
+          options,
+          runtimeContext: const WampE2eeRuntimeContext(
+            direction: WampE2eeDirection.outbound,
+            messageType: WampE2eeMessageType.publish,
+          ),
         ),
       );
       expect(options.pptKeyId, equals('kid-current'));
@@ -246,10 +305,12 @@ void main() {
       expect(policy(baseContext, options), equals('kid-trusted-peer'));
       expect(
         policy(
-          baseContext.copyWith(
-            peer: const WampE2eePartyContext(
-              authProvider: 'remote-auth',
-              trustLevel: 10,
+          expectE2eeSuccess(
+            () => baseContext.copyWith(
+              peer: const WampE2eePartyContext(
+                authProvider: 'remote-auth',
+                trustLevel: 10,
+              ),
             ),
           ),
           options,
@@ -261,9 +322,11 @@ void main() {
 }
 
 WampCborXsalsa20Poly1305Provider _testProvider() {
-  return WampCborXsalsa20Poly1305Provider.single(
-    keyId: 'test-key',
-    key: _testKey(),
+  return expectE2eeSuccess(
+    () => WampCborXsalsa20Poly1305Provider.single(
+      keyId: 'test-key',
+      key: _testKey(),
+    ),
   );
 }
 

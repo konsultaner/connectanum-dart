@@ -1,0 +1,10 @@
+{
+  "target": 98,
+  "sourceScope": "packaging",
+  "files": {
+    "packages/connectanum_client/hook/build.dart": 95.9,
+    "packages/connectanum_client/tool/install_native.dart": 98,
+    "packages/connectanum_router/hook/build.dart": 95.7,
+    "packages/connectanum_router/tool/install_native.dart": 98
+  }
+}

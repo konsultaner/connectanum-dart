@@ -384,6 +384,13 @@ class MailboxStore {
 
   Future<_MailboxDocument> _readDocument() async {
     if (!await file.exists()) {
+      if (await FileSystemEntity.type(file.path, followLinks: false) !=
+          FileSystemEntityType.notFound) {
+        throw FileSystemException(
+          'Mailbox store is not a regular file.',
+          file.path,
+        );
+      }
       return const _MailboxDocument(nextCursor: 1);
     }
     final decoded = jsonDecode(await file.readAsString());

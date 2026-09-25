@@ -75,7 +75,9 @@ Uint8List decodeBase64Bytes(String input, int start) {
     final b = _decodeBase64CodeUnit(input.codeUnitAt(inputIndex + 1));
     final c = _decodeBase64CodeUnit(input.codeUnitAt(inputIndex + 2));
     final d = _decodeBase64CodeUnit(input.codeUnitAt(inputIndex + 3));
-    if ((a | b | c | d) < 0) {
+    // Decode entries are 0..63 or -1. Test the sentinel bit rather than
+    // signedness: Dart's JavaScript bitwise operations produce unsigned ints.
+    if (((a | b | c | d) & 0x80) != 0) {
       return base64.decoder.convert(input, start);
     }
     final bits = (a << 18) | (b << 12) | (c << 6) | d;
@@ -88,7 +90,7 @@ Uint8List decodeBase64Bytes(String input, int start) {
 
   final a = _decodeBase64CodeUnit(input.codeUnitAt(inputIndex));
   final b = _decodeBase64CodeUnit(input.codeUnitAt(inputIndex + 1));
-  if ((a | b) < 0) {
+  if (((a | b) & 0x80) != 0) {
     return base64.decoder.convert(input, start);
   }
   if (padding == 2) {
@@ -156,7 +158,8 @@ Uint8List? tryDecodeCanonicalBase64Bytes(
     final b = _base64DecodeTable[input[inputIndex + 1]];
     final c = _base64DecodeTable[input[inputIndex + 2]];
     final d = _base64DecodeTable[input[inputIndex + 3]];
-    if ((a | b | c | d) < 0) {
+    // Preserve the invalid sentinel on both Dart VM and JavaScript runtimes.
+    if (((a | b | c | d) & 0x80) != 0) {
       return null;
     }
     final bits = (a << 18) | (b << 12) | (c << 6) | d;
@@ -169,7 +172,7 @@ Uint8List? tryDecodeCanonicalBase64Bytes(
 
   final a = _base64DecodeTable[input[inputIndex]];
   final b = _base64DecodeTable[input[inputIndex + 1]];
-  if ((a | b) < 0) {
+  if (((a | b) & 0x80) != 0) {
     return null;
   }
   if (padding == 2) {

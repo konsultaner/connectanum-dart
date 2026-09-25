@@ -96,11 +96,7 @@ class ProgressiveCall {
   }
 
   void finishLazy(LazyMessagePayload payload) {
-    if (_finished) {
-      throw StateError('The progressive call is already finished');
-    }
-    _send(payload, false);
-    _finished = true;
+    _finish(() => _send(payload, false));
   }
 
   void sendFileSegment(
@@ -123,15 +119,29 @@ class ProgressiveCall {
     required int offset,
     required int length,
   }) {
+    _finish(() {
+      final send = _sendFileSegment;
+      if (send == null) {
+        throw UnsupportedError(
+          'This progressive call cannot send file segments',
+        );
+      }
+      send(source, offset, length, false);
+    });
+  }
+
+  void _finish(void Function() send) {
     if (_finished) {
       throw StateError('The progressive call is already finished');
     }
-    final send = _sendFileSegment;
-    if (send == null) {
-      throw UnsupportedError('This progressive call cannot send file segments');
-    }
-    send(source, offset, length, false);
+    // Reserve the final chunk before a transport/provider can reenter this call.
     _finished = true;
+    try {
+      send();
+    } catch (_) {
+      _finished = false;
+      rethrow;
+    }
   }
 }
 
@@ -863,6 +873,9 @@ class Session {
           : (source, offset, length, progress) {
               if (nativeE2eeFileTransport != null &&
                   nativeE2eeProvider != null) {
+                if (!_pendingCalls.containsKey(call.requestId)) {
+                  throw StateError('The progressive call is no longer active');
+                }
                 final options = CallOptions(
                   progress: progress,
                   pptScheme: initiatingOptions.pptScheme,
@@ -1349,7 +1362,9 @@ class Session {
       final registered = registrations[message.registrationId];
       if (registered != null) {
         message.onResponse((response) {
-          _sendInvocationResponse(message.requestId, response);
+          if (!_sendInvocationResponse(message.requestId, response)) {
+            message.closeResponse();
+          }
         });
         final responder = _PendingInvocationResponder(
           isClosed: () => message.responseClosed,
@@ -1499,7 +1514,9 @@ class Session {
     if (registered.hasMaterializedInvocationConsumers) {
       final invocation = message.materialize() as Invocation;
       invocation.onResponse((response) {
-        _sendInvocationResponse(message.metadata.primaryId, response);
+        if (!_sendInvocationResponse(message.metadata.primaryId, response)) {
+          invocation.closeResponse();
+        }
       });
       final responder = _PendingInvocationResponder(
         isClosed: () => invocation.responseClosed,
@@ -1722,47 +1739,22 @@ class Session {
         arguments: arguments,
         argumentsKeywords: argumentsKeywords,
       );
-      if (lazyPayload != null) {
-        final matchesPackedEncoding = switch ((
-          lazyPayload.encoding,
-          options?.pptSerializer,
-        )) {
-          (LazyPayloadEncoding.json, 'json') => true,
-          (LazyPayloadEncoding.messagePack, 'msgpack') => true,
-          (LazyPayloadEncoding.cbor, 'cbor') => true,
-          _ => false,
-        };
-        if (options?.pptScheme != null &&
-            lazyPayload.packedPayloadBytes != null &&
-            matchesPackedEncoding) {
-          yieldMessage.arguments = [lazyPayload.packedPayloadBytes!];
-          yieldMessage.argumentsKeywords = null;
-        } else if (options?.pptScheme == null) {
-          yieldMessage.setLazyPayload(
-            argumentsBytes: lazyPayload.argumentsBytes,
-            argumentsDecoder: lazyPayload.argumentsBytes == null
-                ? null
-                : (_) => lazyPayload.arguments ?? const <dynamic>[],
-            argumentsKeywordsBytes: lazyPayload.argumentsKeywordsBytes,
-            argumentsKeywordsDecoder: lazyPayload.argumentsKeywordsBytes == null
-                ? null
-                : (_) =>
-                      lazyPayload.argumentsKeywords ??
-                      const <String, dynamic>{},
-            encoding: lazyPayload.encoding,
-          );
-          if (!lazyPayload.hasEncodedArguments) {
-            yieldMessage.arguments = lazyPayload.arguments;
-          }
-          if (!lazyPayload.hasEncodedArgumentsKeywords) {
-            yieldMessage.argumentsKeywords = lazyPayload.argumentsKeywords;
-          }
-        }
-      }
-      yieldMessage.attachE2eeProvider(
-        _resolveRuntimeE2eeProvider(lazyPayload?.e2eeProvider),
-      );
       yieldMessage.attachE2eeRuntimeContext(yieldRuntimeContext);
+      if (lazyPayload != null || options?.pptScheme != null) {
+        _applyOutboundLazyPayload(
+          yieldMessage,
+          lazyPayload ??
+              LazyMessagePayload.materialized(
+                arguments: arguments,
+                argumentsKeywords: argumentsKeywords,
+              ),
+          options,
+          fallbackArguments: arguments,
+          fallbackArgumentsKeywords: argumentsKeywords,
+        );
+      } else {
+        yieldMessage.attachE2eeProvider(_resolveRuntimeE2eeProvider());
+      }
       final sent = _sendInvocationResponse(
         message.metadata.primaryId,
         yieldMessage,
@@ -2060,8 +2052,10 @@ class Session {
   void _applyOutboundLazyPayload(
     AbstractMessageWithPayload message,
     LazyMessagePayload payload,
-    PPTOptions? options,
-  ) {
+    PPTOptions? options, {
+    List<dynamic>? fallbackArguments,
+    Map<String, dynamic>? fallbackArgumentsKeywords,
+  }) {
     final runtimeE2eeProvider = _resolveRuntimeE2eeProvider(
       payload.e2eeProvider,
     );
@@ -2079,8 +2073,8 @@ class Session {
     if (options?.pptScheme == 'wamp') {
       message.arguments = packedPayload == null
           ? E2EEPayload.packE2EEPayload(
-              payload.arguments,
-              payload.argumentsKeywords,
+              payload.arguments ?? fallbackArguments,
+              payload.argumentsKeywords ?? fallbackArgumentsKeywords,
               options!,
               provider: runtimeE2eeProvider ?? message.e2eeProvider,
               runtimeContext: message.e2eeRuntimeContext,
@@ -2092,8 +2086,8 @@ class Session {
     if (options?.pptScheme != null) {
       message.arguments = packedPayload == null
           ? PPTPayload.packPPTPayload(
-              payload.arguments,
-              payload.argumentsKeywords,
+              payload.arguments ?? fallbackArguments,
+              payload.argumentsKeywords ?? fallbackArgumentsKeywords,
               options!,
             )
           : [packedPayload];

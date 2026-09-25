@@ -1,0 +1,17 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+
+Future<void> testExecutable(FutureOr<void> Function() testMain) async {
+  final original = reportTestException;
+  reportTestException = (details, description) {
+    // Preserve Flutter's normal failure, then retain its typed cause for the
+    // machine reporter. Browser runners otherwise lose the diagnostic print.
+    original(details, description);
+    Zone.current.handleUncaughtError(
+      details.exception,
+      details.stack ?? StackTrace.empty,
+    );
+  };
+  await testMain();
+}

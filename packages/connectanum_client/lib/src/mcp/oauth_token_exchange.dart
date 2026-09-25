@@ -948,17 +948,48 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
   final ownsClient = httpClient == null;
   final deadline = DateTime.now().add(timeout);
   HttpClientRequest? request;
+  var operationCompleted = false;
+  var requestAborted = false;
+
+  void abortRequest([Object? error]) {
+    final opened = request;
+    if (opened == null || requestAborted) {
+      return;
+    }
+    requestAborted = true;
+    opened.abort(error);
+  }
+
+  Future<T> withinDeadline<T>(Future<T> pending) {
+    try {
+      return pending.timeout(_remaining(deadline, endpoint, endpointLabel));
+    } catch (_) {
+      // Expiry may throw before timeout attaches a handler to this future.
+      pending.ignore();
+      rethrow;
+    }
+  }
 
   try {
-    request = await client
-        .postUrl(endpoint)
-        .timeout(_remaining(deadline, endpoint, endpointLabel));
+    final opening = client.postUrl(endpoint);
+    // Future.timeout does not cancel opening; dispose any late request.
+    unawaited(
+      opening.then<void>((openedRequest) {
+        if (operationCompleted) {
+          openedRequest.abort(
+            TimeoutException('$endpointLabel request timed out.'),
+          );
+        }
+      }, onError: (Object error, StackTrace stackTrace) {}),
+    );
+    request = await withinDeadline<HttpClientRequest>(opening);
     try {
       onRequestOpened?.call(request);
     } catch (error) {
-      request.abort(error);
+      abortRequest(error);
       rethrow;
     }
+    _remaining(deadline, endpoint, endpointLabel);
     request.followRedirects = false;
     request.headers.contentType = ContentType(
       'application',
@@ -982,35 +1013,48 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
     request.contentLength = encodedForm.length;
     request.add(encodedForm);
 
-    final response = await request.close().timeout(
-      _remaining(deadline, endpoint, endpointLabel),
-    );
-    final body = await _readOAuthResponseBytes(
-      response,
-      maxResponseBytes: maxResponseBytes,
-      endpoint: endpoint,
-      endpointLabel: endpointLabel,
-    ).timeout(_remaining(deadline, endpoint, endpointLabel));
+    _remaining(deadline, endpoint, endpointLabel);
+    final response = await withinDeadline(request.close());
+    _remaining(deadline, endpoint, endpointLabel);
+    final chunks = StreamIterator<List<int>>(response);
+    late final Uint8List body;
+    try {
+      body = await withinDeadline(
+        _readOAuthResponseBytes(
+          chunks,
+          maxResponseBytes: maxResponseBytes,
+          endpoint: endpoint,
+          endpointLabel: endpointLabel,
+          statusCode: response.statusCode,
+        ),
+      );
+    } finally {
+      // Abort cannot cancel a body once the response future has completed.
+      // Detach now; slow/error cleanup must not replace the operation outcome.
+      chunks.cancel().ignore();
+    }
     return _OAuthEndpointResponse(
       statusCode: response.statusCode,
       mimeType: response.headers.contentType?.mimeType,
       body: body,
     );
   } on McpOAuthTokenException {
+    abortRequest();
     rethrow;
   } on TimeoutException {
-    request?.abort();
+    abortRequest();
     throw McpOAuthTokenException(
       '$endpointLabel request timed out.',
       endpoint: endpoint,
     );
   } on Object {
-    request?.abort();
+    abortRequest();
     throw McpOAuthTokenException(
       '$endpointLabel request failed.',
       endpoint: endpoint,
     );
   } finally {
+    operationCompleted = true;
     if (ownsClient) {
       client.close(force: true);
     }
@@ -1018,20 +1062,23 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
 }
 
 Future<Uint8List> _readOAuthResponseBytes(
-  HttpClientResponse response, {
+  StreamIterator<List<int>> chunks, {
   required int maxResponseBytes,
   required Uri endpoint,
   required String endpointLabel,
+  required int statusCode,
 }) async {
-  final bytes = BytesBuilder(copy: false);
+  // An injected HTTP response may reuse a chunk after its stream advances.
+  final bytes = BytesBuilder(copy: true);
   var length = 0;
-  await for (final chunk in response) {
+  while (await chunks.moveNext()) {
+    final chunk = chunks.current;
     length += chunk.length;
     if (length > maxResponseBytes) {
       throw McpOAuthTokenException(
         '$endpointLabel response exceeds $maxResponseBytes bytes.',
         endpoint: endpoint,
-        statusCode: response.statusCode,
+        statusCode: statusCode,
       );
     }
     bytes.add(chunk);

@@ -16,6 +16,7 @@ import 'dart:io'
         FileSystemException,
         HttpClient,
         HttpDate,
+        HttpException,
         HttpHeaders,
         HttpStatus,
         InternetAddress,

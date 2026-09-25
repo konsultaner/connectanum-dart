@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+ensure_rust_env
+
+# Native test fixtures cross the two Cargo workspace roots. Preserve that
+# layout in a disposable copy; cargo-mutants' default workspace copy omits it.
+mutation_root="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-native-mutations.XXXXXX")"
+trap 'rm -rf "$mutation_root"' EXIT
+mkdir -p "$mutation_root/native"
+rsync -a --exclude target --exclude artifacts native/ "$mutation_root/native/"
+cargo mutants --dir "$mutation_root/native/transport" --in-place "$@"

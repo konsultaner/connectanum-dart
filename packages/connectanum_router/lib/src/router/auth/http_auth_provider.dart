@@ -140,34 +140,47 @@ void registerDefaultHttpAuthProviders() {
 }
 
 class JwtHttpAuthProviderFactory extends HttpAuthProviderFactory {
-  const JwtHttpAuthProviderFactory();
+  /// Uses [clock] for token validity checks, defaulting to [DateTime.now].
+  const JwtHttpAuthProviderFactory({DateTime Function()? clock})
+    : _clock = clock;
+
+  final DateTime Function()? _clock;
 
   @override
   String get type => 'jwt';
 
   @override
   Future<HttpAuthProvider> create(Map<String, Object?> options) async {
-    return _JwtHttpAuthProvider(options, method: type);
+    return _JwtHttpAuthProvider(options, method: type, clock: _clock);
   }
 }
 
 class OidcHttpAuthProviderFactory extends HttpAuthProviderFactory {
-  const OidcHttpAuthProviderFactory();
+  /// Uses [clock] for token validity checks, defaulting to [DateTime.now].
+  const OidcHttpAuthProviderFactory({DateTime Function()? clock})
+    : _clock = clock;
+
+  final DateTime Function()? _clock;
 
   @override
   String get type => 'oidc';
 
   @override
   Future<HttpAuthProvider> create(Map<String, Object?> options) async {
-    return _JwtHttpAuthProvider(options, method: type);
+    return _JwtHttpAuthProvider(options, method: type, clock: _clock);
   }
 }
 
 class _JwtHttpAuthProvider extends HttpAuthProvider {
-  _JwtHttpAuthProvider(this._options, {required this.method});
+  _JwtHttpAuthProvider(
+    this._options, {
+    required this.method,
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
 
   final Map<String, Object?> _options;
   final String method;
+  final DateTime Function() _clock;
 
   @override
   Future<HttpAuthResult> authenticate(HttpAuthBearerRequest request) async {
@@ -207,12 +220,17 @@ class _JwtHttpAuthProvider extends HttpAuthProvider {
 
     Map<String, Object?> header;
     Map<String, Object?> claims;
+    List<int> actualSignature;
     try {
       header = _decodeJwtJson(segments[0]);
       claims = _decodeJwtJson(segments[1]);
-    } on FormatException catch (error) {
+      actualSignature = _decodeBase64UrlBytes(segments[2]);
+    } on FormatException {
       return HttpAuthResult.failure(
-        HttpAuthFailure(reason: 'invalid_token', message: error.message),
+        const HttpAuthFailure(
+          reason: 'invalid_token',
+          message: 'JWT contains invalid encoded data',
+        ),
       );
     }
 
@@ -232,7 +250,6 @@ class _JwtHttpAuthProvider extends HttpAuthProvider {
       32,
       signingInput,
     );
-    final actualSignature = _decodeBase64UrlBytes(segments[2]);
     if (!_constantTimeEquals(expectedSignature, actualSignature)) {
       return HttpAuthResult.failure(
         const HttpAuthFailure(
@@ -242,17 +259,25 @@ class _JwtHttpAuthProvider extends HttpAuthProvider {
       );
     }
 
-    final now = DateTime.now().toUtc();
+    final now = _clock().toUtc();
     final leewaySeconds = _intOption(_options['leeway_seconds']) ?? 0;
     final leeway = Duration(seconds: leewaySeconds < 0 ? 0 : leewaySeconds);
-    final expiresAt = _dateTimeFromEpochSeconds(claims['exp']);
-    if (expiresAt != null && now.isAfter(expiresAt.add(leeway))) {
+    DateTime? expiresAt;
+    DateTime? notBefore;
+    try {
+      expiresAt = _dateTimeFromEpochSeconds(claims, 'exp');
+      notBefore = _dateTimeFromEpochSeconds(claims, 'nbf');
+    } on FormatException catch (error) {
+      return HttpAuthResult.failure(
+        HttpAuthFailure(reason: 'invalid_token', message: error.message),
+      );
+    }
+    if (expiresAt != null && now.difference(expiresAt) >= leeway) {
       return HttpAuthResult.failure(
         const HttpAuthFailure(reason: 'expired_token', message: 'JWT expired'),
       );
     }
-    final notBefore = _dateTimeFromEpochSeconds(claims['nbf']);
-    if (notBefore != null && now.isBefore(notBefore.subtract(leeway))) {
+    if (notBefore != null && notBefore.difference(now) > leeway) {
       return HttpAuthResult.failure(
         const HttpAuthFailure(
           reason: 'inactive_token',
@@ -263,8 +288,8 @@ class _JwtHttpAuthProvider extends HttpAuthProvider {
 
     final expectedIssuer = _stringOption(_options['issuer']);
     if (expectedIssuer != null && expectedIssuer.isNotEmpty) {
-      final actualIssuer = _stringOption(claims['iss']);
-      if (actualIssuer != expectedIssuer) {
+      final actualIssuer = claims['iss'];
+      if (actualIssuer is! String || actualIssuer != expectedIssuer) {
         return HttpAuthResult.failure(
           const HttpAuthFailure(
             reason: 'invalid_token',
@@ -306,21 +331,29 @@ class _JwtHttpAuthProvider extends HttpAuthProvider {
 
 class OAuthIntrospectionHttpAuthProviderFactory
     extends HttpAuthProviderFactory {
-  const OAuthIntrospectionHttpAuthProviderFactory();
+  /// Uses [clock] for token validity checks, not for network timeout budgets.
+  const OAuthIntrospectionHttpAuthProviderFactory({DateTime Function()? clock})
+    : _clock = clock;
+
+  final DateTime Function()? _clock;
 
   @override
   String get type => 'oauth';
 
   @override
   Future<HttpAuthProvider> create(Map<String, Object?> options) async {
-    return _OAuthIntrospectionHttpAuthProvider(options);
+    return _OAuthIntrospectionHttpAuthProvider(options, clock: _clock);
   }
 }
 
 class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
-  _OAuthIntrospectionHttpAuthProvider(this._options);
+  _OAuthIntrospectionHttpAuthProvider(
+    this._options, {
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
 
   final Map<String, Object?> _options;
+  final DateTime Function() _clock;
 
   @override
   Future<HttpAuthResult> authenticate(HttpAuthBearerRequest request) async {
@@ -362,9 +395,11 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
       client.badCertificateCallback = (_, _, _) => true;
     }
     try {
-      final httpRequest = await client
-          .postUrl(uri)
-          .timeout(_remainingOAuthIntrospectionTime(stopwatch, timeout));
+      final httpRequest = await _awaitOAuthIntrospection(
+        client.postUrl(uri),
+        stopwatch,
+        timeout,
+      );
       httpRequest.headers.contentType = ContentType(
         'application',
         'x-www-form-urlencoded',
@@ -403,13 +438,19 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
         body['audience'] = audience;
       }
       httpRequest.write(Uri(queryParameters: body).query);
-      final response = await httpRequest.close().timeout(
-        _remainingOAuthIntrospectionTime(stopwatch, timeout),
+      final response = await _awaitOAuthIntrospection(
+        httpRequest.close(),
+        stopwatch,
+        timeout,
       );
-      final responseBody = await _readOAuthIntrospectionResponseBody(
-        response,
-        maxResponseBytes: maxResponseBytes,
-      ).timeout(_remainingOAuthIntrospectionTime(stopwatch, timeout));
+      final responseBody = await _awaitOAuthIntrospection(
+        _readOAuthIntrospectionResponseBody(
+          response,
+          maxResponseBytes: maxResponseBytes,
+        ),
+        stopwatch,
+        timeout,
+      );
       if (response.statusCode != HttpStatus.ok) {
         return HttpAuthResult.failure(
           HttpAuthFailure(
@@ -438,9 +479,18 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
           ),
         );
       }
-      final expiresAt = _dateTimeFromEpochSeconds(claims['exp']);
-      final now = DateTime.now().toUtc();
-      if (expiresAt != null && now.isAfter(expiresAt)) {
+      final expiresAt = _dateTimeFromEpochSeconds(
+        claims,
+        'exp',
+        integerOnly: true,
+      );
+      final notBefore = _dateTimeFromEpochSeconds(
+        claims,
+        'nbf',
+        integerOnly: true,
+      );
+      final now = _clock().toUtc();
+      if (expiresAt != null && !now.isBefore(expiresAt)) {
         return HttpAuthResult.failure(
           const HttpAuthFailure(
             reason: 'expired_token',
@@ -448,10 +498,18 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
           ),
         );
       }
+      if (notBefore != null && now.isBefore(notBefore)) {
+        return HttpAuthResult.failure(
+          const HttpAuthFailure(
+            reason: 'inactive_token',
+            message: 'OAuth token is not active yet',
+          ),
+        );
+      }
       final expectedIssuer = _stringOption(_options['issuer']);
       if (expectedIssuer != null && expectedIssuer.isNotEmpty) {
-        final actualIssuer = _stringOption(claims['iss']);
-        if (actualIssuer != expectedIssuer) {
+        final actualIssuer = claims['iss'];
+        if (actualIssuer is! String || actualIssuer != expectedIssuer) {
           return HttpAuthResult.failure(
             const HttpAuthFailure(
               reason: 'invalid_token',
@@ -506,7 +564,7 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
       return HttpAuthResult.failure(
         const HttpAuthFailure(
           reason: 'invalid_token_response',
-          message: 'OAuth introspection returned an invalid JSON response',
+          message: 'OAuth introspection returned invalid JSON or token claims',
         ),
       );
     } on IOException {
@@ -527,6 +585,19 @@ const int _defaultOAuthIntrospectionMaxResponseBytes = 64 * 1024;
 
 final class _OAuthIntrospectionResponseTooLarge implements Exception {
   const _OAuthIntrospectionResponseTooLarge();
+}
+
+Future<T> _awaitOAuthIntrospection<T>(
+  Future<T> operation,
+  Stopwatch stopwatch,
+  Duration timeout,
+) {
+  // Synchronous setup may exhaust the deadline after starting this operation.
+  // Observe late failures even if calculating the remaining budget throws.
+  operation.ignore();
+  return operation.timeout(
+    _remainingOAuthIntrospectionTime(stopwatch, timeout),
+  );
 }
 
 Duration _remainingOAuthIntrospectionTime(
@@ -643,32 +714,48 @@ bool _constantTimeEquals(List<int> left, List<int> right) {
   return diff == 0;
 }
 
-DateTime? _dateTimeFromEpochSeconds(Object? value) {
-  final seconds = _intOption(value);
-  if (seconds == null) {
+DateTime? _dateTimeFromEpochSeconds(
+  Map<String, Object?> claims,
+  String claim, {
+  bool integerOnly = false,
+}) {
+  if (!claims.containsKey(claim)) {
     return null;
   }
-  return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+  final seconds = claims[claim];
+  // JWT NumericDate permits fractions; OAuth introspection requires integers.
+  // Validate before scaling to avoid integer overflow or an unbounded DateTime.
+  if (seconds is! num ||
+      !seconds.isFinite ||
+      seconds < -8640000000000 ||
+      seconds > 8640000000000 ||
+      (integerOnly && seconds != seconds.truncateToDouble())) {
+    throw FormatException('Invalid $claim time claim');
+  }
+  return DateTime.fromMicrosecondsSinceEpoch(
+    (seconds * Duration.microsecondsPerSecond).round(),
+    isUtc: true,
+  );
 }
 
 bool _audienceMatches(Object? value, List<String> expectedAudiences) {
-  if (value == null) {
+  if (value is String) {
+    return expectedAudiences.contains(value);
+  }
+  if (value is! List) {
     return false;
   }
-  final actual = _stringListOption(value);
-  if (actual.isEmpty) {
-    final single = _stringOption(value);
-    if (single == null || single.isEmpty) {
+  var matches = false;
+  for (final item in value) {
+    // Validate every entry, including entries after a matching audience.
+    if (item is! String) {
       return false;
     }
-    return expectedAudiences.contains(single);
-  }
-  for (final item in actual) {
     if (expectedAudiences.contains(item)) {
-      return true;
+      matches = true;
     }
   }
-  return false;
+  return matches;
 }
 
 String? _mapScopeToRole(Object? scopeValue, Object? scopeRoleMapValue) {

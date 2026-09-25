@@ -180,6 +180,126 @@ void main() {
       }
     });
 
+    test('preserves exact binary headers at unsigned length boundaries', () {
+      const msgpackHeaders = <int, List<int>>{
+        0: [0xc4, 0],
+        255: [0xc4, 0xff],
+        256: [0xc5, 1, 0],
+        65535: [0xc5, 0xff, 0xff],
+        65536: [0xc6, 0, 1, 0, 0],
+        0xffffffff: [0xc6, 0xff, 0xff, 0xff, 0xff],
+      };
+      const cborHeaders = <int, List<int>>{
+        0: [0x40],
+        23: [0x57],
+        24: [0x58, 24],
+        255: [0x58, 0xff],
+        256: [0x59, 1, 0],
+        65535: [0x59, 0xff, 0xff],
+        65536: [0x5a, 0, 1, 0, 0],
+        0xffffffff: [0x5a, 0xff, 0xff, 0xff, 0xff],
+        0x100000000: [0x5b, 0, 0, 0, 1, 0, 0, 0, 0],
+        0x7fffffffffffffff: [
+          0x5b,
+          0x7f,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+        ],
+      };
+      for (final config in _serializers.where((item) => item.name != 'json')) {
+        final call = Call(42, 'files.set')..arguments = <dynamic>[Uint8List(0)];
+        final encoded = _encodePayload(config.serializer, call);
+        final original = Uint8List.fromList(encoded);
+        final isMsgpack = config.name == 'msgpack';
+        final headers = isMsgpack ? msgpackHeaders : cborHeaders;
+        final metadata = encoded.sublist(
+          0,
+          encoded.length - (isMsgpack ? 2 : 1),
+        );
+        for (final entry in headers.entries) {
+          expect(
+            buildNativeFileSegmentPrefix(
+              encoded,
+              serializerType: config.rawsocketType,
+              fileLength: entry.key,
+            ),
+            orderedEquals([...metadata, ...entry.value]),
+            reason: '${config.name} length ${entry.key}',
+          );
+          expect(
+            encoded,
+            original,
+            reason: 'the message template stays reusable',
+          );
+        }
+        if (isMsgpack) {
+          expect(
+            () => buildNativeFileSegmentPrefix(
+              encoded,
+              serializerType: config.rawsocketType,
+              fileLength: 0x100000000,
+            ),
+            throwsArgumentError,
+          );
+        }
+      }
+    });
+
+    for (final config in _serializers) {
+      test(
+        '${config.name} rejects every damaged binary placeholder suffix',
+        () {
+          final call = Call(42, 'files.set')
+            ..arguments = <dynamic>[Uint8List(0)];
+          final encoded = _encodePayload(config.serializer, call);
+          final tailLength = switch (config.name) {
+            'json' => 9,
+            'msgpack' => 3,
+            _ => 2,
+          };
+          for (
+            var index = encoded.length - tailLength;
+            index < encoded.length;
+            index++
+          ) {
+            final damaged = Uint8List.fromList(encoded)..[index] ^= 1;
+            expect(
+              () => buildNativeFileSegmentPrefix(
+                damaged,
+                serializerType: config.rawsocketType,
+                fileLength: 1,
+              ),
+              throwsStateError,
+              reason: 'suffix byte $index must be validated',
+            );
+          }
+          for (var length = 0; length < tailLength; length++) {
+            expect(
+              () => buildNativeFileSegmentPrefix(
+                Uint8List.sublistView(encoded, encoded.length - length),
+                serializerType: config.rawsocketType,
+                fileLength: 1,
+              ),
+              throwsStateError,
+            );
+          }
+          expect(
+            () => buildNativeFileSegmentPrefix(
+              encoded,
+              serializerType: config.rawsocketType,
+              fileLength: -1,
+            ),
+            throwsArgumentError,
+          );
+        },
+      );
+    }
+
     test('rejects unknown serializers and non-binary placeholder payloads', () {
       expect(
         () => buildNativeFileSegmentPrefix(
@@ -201,6 +321,34 @@ void main() {
   });
 
   group('collectNativeReceiveBatch', () {
+    test('does not poll past an empty or failed native queue', () {
+      for (final sentinel in [0, -1, -0x7fffffff]) {
+        var polls = 0;
+        final batch = collectNativeReceiveBatch(42, () {
+          expect(++polls, 1, reason: 'stop at the first nonpositive handle');
+          return sentinel;
+        });
+        expect(batch, [42]);
+        expect(polls, 1);
+      }
+    });
+
+    test('includes the initial handle in default and single-item limits', () {
+      var polls = 0;
+      expect(
+        collectNativeReceiveBatch(42, () {
+          fail('a one-item batch must not poll');
+        }, maxBatchSize: 1),
+        [42],
+      );
+      final batch = collectNativeReceiveBatch(1, () {
+        expect(++polls, lessThan(32), reason: 'the default batch is bounded');
+        return polls + 1;
+      });
+      expect(batch, List.generate(32, (index) => index + 1));
+      expect(polls, 31);
+    });
+
     test('drains ready handles in order', () {
       final readyHandles = Queue<int>.from([2, 3, 0]);
 
@@ -224,6 +372,313 @@ void main() {
       expect(batch, [1, 2, 3]);
       expect(readyHandles, Queue<int>.from([4, 5, 0]));
     });
+  });
+
+  group('native connection failure recovery', () {
+    test(
+      'peer EOF notifies loss while the message listener is paused',
+      () async {
+        final server = await _spawnNativeTestServer(
+          kind: 'rawsocket',
+          serializerName: 'json',
+          rawsocketType: SocketHelper.serializationJson,
+        );
+        addTearDown(server.dispose);
+        final transport = NativeRawSocketTransport.withJsonSerializer(
+          '127.0.0.1',
+          server.port,
+        );
+        addTearDown(transport.close);
+        await transport.open();
+        final welcome = Completer<void>();
+        final done = Completer<void>();
+        final errors = <Object>[];
+        late StreamSubscription<AbstractMessage?> subscription;
+        subscription = transport.receive()!.listen(
+          (message) {
+            expect(message, isA<Welcome>());
+            subscription.pause();
+            welcome.complete();
+          },
+          onError: (Object error) => errors.add(error),
+          onDone: done.complete,
+        );
+        addTearDown(subscription.cancel);
+        transport.send(Hello('test.realm', Details.forHello()));
+        await welcome.future;
+        final notified = await transport.onConnectionLost!.future
+            .then((_) => true)
+            .timeout(const Duration(seconds: 2), onTimeout: () => false);
+        expect(
+          notified,
+          isTrue,
+          reason: 'a paused listener must not stall reconnect',
+        );
+        expect(errors, isEmpty);
+        expect(done.isCompleted, isFalse);
+        subscription.resume();
+        await done.future;
+        expect(errors, hasLength(1));
+        expect(await transport.onConnectionLost!.future, same(errors.single));
+      },
+    );
+
+    for (final websocket in [false, true]) {
+      for (final config in _serializers) {
+        test('websocket=$websocket ${config.name} reports peer EOF', () async {
+          final server = await _spawnNativeTestServer(
+            kind: websocket ? 'websocket' : 'rawsocket',
+            serializerName: config.name,
+            rawsocketType: config.rawsocketType,
+            websocketProtocol: config.websocketProtocol,
+          );
+          addTearDown(server.dispose);
+          final AbstractTransport transport = websocket
+              ? config.websocketFactory(
+                  'ws://127.0.0.1:${server.port}/wamp',
+                  null,
+                )
+              : config.rawsocketFactory('127.0.0.1', server.port);
+          addTearDown(transport.close);
+          await transport.open();
+          await transport.onReady;
+          final messages = <AbstractMessage?>[];
+          final errors = <Object>[];
+          final done = Completer<void>();
+          final subscription = transport.receive()!.listen(
+            messages.add,
+            onError: (Object error) => errors.add(error),
+            onDone: done.complete,
+          );
+          addTearDown(subscription.cancel);
+          transport.send(Hello('test.realm', Details.forHello()));
+          expect((await server.helloFuture)['realm'], 'test.realm');
+          final lost = transport.onConnectionLost!;
+          final notified = await lost.future
+              .then((_) => true)
+              .timeout(
+                const Duration(seconds: 2),
+                onTimeout: () => false,
+              );
+          expect(
+            notified,
+            isTrue,
+            reason: 'peer EOF must notify connection loss',
+          );
+          await done.future.timeout(const Duration(seconds: 2));
+          expect(messages, [isA<Welcome>()]);
+          expect(errors, hasLength(1));
+          expect(await lost.future, same(errors.single));
+          expect(transport.isOpen, isFalse);
+          expect(transport.isReady, isFalse);
+          expect(transport.onDisconnect!.isCompleted, isFalse);
+          await transport.close();
+          expect(transport.onDisconnect!.isCompleted, isTrue);
+          // Listener closure, not forced isolate exit, makes the port reusable.
+          await server.listenerClosed.timeout(const Duration(seconds: 2));
+          await server.dispose();
+          final nextServer = await _spawnNativeTestServer(
+            kind: websocket ? 'websocket' : 'rawsocket',
+            serializerName: config.name,
+            rawsocketType: config.rawsocketType,
+            websocketProtocol: config.websocketProtocol,
+            bindPort: server.port,
+            closeDelayMs: 1000,
+          );
+          addTearDown(nextServer.dispose);
+          await transport.open();
+          await transport.onReady;
+          final nextWelcome = transport.receive()!.first;
+          transport.send(Hello('test.realm', Details.forHello()));
+          expect(await nextWelcome, isA<Welcome>());
+          expect(transport.onConnectionLost, isNot(same(lost)));
+          expect(transport.onConnectionLost!.isCompleted, isFalse);
+          expect(transport.isReady, isTrue);
+          await transport.close();
+        });
+
+        test(
+          'websocket=$websocket ${config.name} completes after GOODBYE',
+          () async {
+            final server = await _spawnNativeTestServer(
+              kind: websocket ? 'websocket' : 'rawsocket',
+              serializerName: config.name,
+              rawsocketType: config.rawsocketType,
+              websocketProtocol: config.websocketProtocol,
+              sendBurstAfterHello: true,
+            );
+            addTearDown(server.dispose);
+            final AbstractTransport transport = websocket
+                ? config.websocketFactory(
+                    'ws://127.0.0.1:${server.port}/wamp',
+                    null,
+                  )
+                : config.rawsocketFactory('127.0.0.1', server.port);
+            addTearDown(transport.close);
+            await transport.open();
+            final messages = <AbstractMessage?>[];
+            final errors = <Object>[];
+            final done = Completer<void>();
+            final subscription = transport.receive()!.listen(
+              messages.add,
+              onError: (Object error) => errors.add(error),
+              onDone: done.complete,
+            );
+            addTearDown(subscription.cancel);
+            transport.send(Hello('test.realm', Details.forHello()));
+            final finished = await done.future
+                .then((_) => true)
+                .timeout(
+                  const Duration(seconds: 2),
+                  onTimeout: () => false,
+                );
+            expect(
+              finished,
+              isTrue,
+              reason: 'GOODBYE and EOF must close the stream',
+            );
+            expect(messages, [isA<Welcome>(), isA<Goodbye>()]);
+            expect(errors, isEmpty);
+            expect(transport.onDisconnect!.isCompleted, isTrue);
+            expect(await transport.onDisconnect!.future, isNull);
+            expect(transport.onConnectionLost!.isCompleted, isFalse);
+            expect(transport.isReady, isFalse);
+            await transport.close();
+          },
+        );
+
+        test(
+          'websocket=$websocket ${config.name} closes during worker startup',
+          () async {
+            final server = await _spawnNativeTestServer(
+              kind: websocket ? 'websocket' : 'rawsocket',
+              serializerName: config.name,
+              rawsocketType: config.rawsocketType,
+              websocketProtocol: config.websocketProtocol,
+              closeDelayMs: 2000,
+            );
+            addTearDown(server.dispose);
+            final AbstractTransport transport = websocket
+                ? config.websocketFactory(
+                    'ws://127.0.0.1:${server.port}/wamp',
+                    null,
+                  )
+                : config.rawsocketFactory('127.0.0.1', server.port);
+            addTearDown(transport.close);
+            await transport.open();
+            final oldErrors = <Object>[];
+            final oldDone = Completer<void>();
+            final subscription = transport.receive()!.listen(
+              (_) => fail('no Hello was sent on the old connection'),
+              onError: (Object error) => oldErrors.add(error),
+              onDone: oldDone.complete,
+            );
+            addTearDown(subscription.cancel);
+            final oldLost = transport.onConnectionLost!;
+            await transport.close();
+            await oldDone.future;
+            // The HTTP peer remains listening after the first upgraded socket
+            // closes without a Hello; RawSocket's single-accept peer exits.
+            if (!websocket) {
+              await server.dispose();
+              final nextServer = await _spawnNativeTestServer(
+                kind: 'rawsocket',
+                serializerName: config.name,
+                rawsocketType: config.rawsocketType,
+                bindPort: server.port,
+                closeDelayMs: 2000,
+              );
+              addTearDown(nextServer.dispose);
+            }
+            await transport.open();
+            final nextWelcome = transport.receive()!.first;
+            transport.send(Hello('test.realm', Details.forHello()));
+            expect(await nextWelcome, isA<Welcome>());
+            await Future<void>.delayed(const Duration(milliseconds: 300));
+            expect(oldErrors, isEmpty);
+            expect(oldLost.isCompleted, isFalse);
+            expect(transport.onConnectionLost!.isCompleted, isFalse);
+            expect(transport.onDisconnect!.isCompleted, isFalse);
+            expect(transport.isReady, isTrue);
+            await transport.close();
+          },
+        );
+
+        test(
+          'websocket=$websocket ${config.name} can reopen after refusal',
+          () async {
+            final reservation = await ServerSocket.bind('127.0.0.1', 0);
+            final port = reservation.port;
+            await reservation.close();
+            final AbstractTransport transport = websocket
+                ? config.websocketFactory('ws://127.0.0.1:$port/wamp', null)
+                : config.rawsocketFactory('127.0.0.1', port);
+            addTearDown(transport.close);
+            expect(transport.isOpen, isFalse);
+            expect(transport.isReady, isFalse);
+            expect(transport.onConnectionLost, isNull);
+            expect(transport.onDisconnect, isNull);
+            expect(
+              () => transport.send(Hello('test.realm', Details.forHello())),
+              throwsStateError,
+            );
+
+            final opening = transport.open();
+            final failedReady = transport.onReady;
+            final failure = await failedReady.then<Object?>(
+              (_) => fail('an unbound endpoint must not become ready'),
+              onError: (Object error) => error,
+            );
+            await opening;
+            expect(failure, isA<NativeTransportException>());
+            final failedConnection = transport.onConnectionLost!;
+            expect(await failedConnection.future, same(failure));
+            expect(transport.isOpen, isFalse);
+            expect(transport.isReady, isFalse);
+            await transport.close();
+            expect(transport.onDisconnect!.isCompleted, isTrue);
+
+            final server = await _spawnNativeTestServer(
+              kind: websocket ? 'websocket' : 'rawsocket',
+              serializerName: config.name,
+              rawsocketType: config.rawsocketType,
+              websocketProtocol: config.websocketProtocol,
+              bindPort: port,
+            );
+            addTearDown(server.dispose);
+            await transport.open();
+            await transport.onReady;
+            expect(transport.onReady, isNot(same(failedReady)));
+            expect(transport.onConnectionLost, isNot(same(failedConnection)));
+            expect(transport.onConnectionLost!.isCompleted, isFalse);
+            expect(transport.onDisconnect!.isCompleted, isFalse);
+            expect(transport.isOpen, isTrue);
+            expect(transport.isReady, isTrue);
+            final ready = transport.onReady;
+            final connected = transport.onConnectionLost;
+            await transport.open();
+            expect(transport.onReady, same(ready));
+            expect(transport.onConnectionLost, same(connected));
+            final welcome = transport.receive()!.first;
+            transport.send(Hello('test.realm', Details.forHello()));
+            expect(
+              await welcome.timeout(const Duration(seconds: 2)),
+              isA<Welcome>(),
+            );
+            expect((await server.helloFuture)['realm'], 'test.realm');
+            await transport.close();
+            await transport.close();
+            expect(transport.onDisconnect!.isCompleted, isTrue);
+            expect(transport.isOpen, isFalse);
+            expect(transport.isReady, isFalse);
+            expect(
+              () => transport.send(Hello('test.realm', Details.forHello())),
+              throwsStateError,
+            );
+          },
+        );
+      }
+    }
   });
 
   group('NativeRawSocketTransport', () {
@@ -488,6 +943,8 @@ class _NativeTestServer {
     required StreamSubscription<dynamic> subscription,
     required this.port,
     required this.helloFuture,
+    required this.exited,
+    required this.listenerClosed,
   }) : _receivePort = receivePort,
        _subscription = subscription;
 
@@ -496,9 +953,12 @@ class _NativeTestServer {
   final StreamSubscription<dynamic> _subscription;
   final int port;
   final Future<Map<String, Object?>> helloFuture;
+  final Future<void> exited;
+  final Future<void> listenerClosed;
 
   Future<void> dispose() async {
     isolate.kill(priority: Isolate.immediate);
+    await exited.timeout(const Duration(seconds: 2));
     await _subscription.cancel();
     _receivePort.close();
   }
@@ -511,10 +971,15 @@ Future<_NativeTestServer> _spawnNativeTestServer({
   String? websocketProtocol,
   bool sendBurstAfterHello = false,
   bool sendEventAfterHello = false,
+  int bindPort = 0,
+  int closeDelayMs = 50,
 }) async {
   final receivePort = ReceivePort();
+  final exitPort = ReceivePort();
+  final exited = exitPort.first.then<void>((_) => exitPort.close());
   final readyCompleter = Completer<int>();
   final helloCompleter = Completer<Map<String, Object?>>();
+  final listenerClosed = Completer<void>();
   late final StreamSubscription<dynamic> subscription;
   subscription = receivePort.listen((dynamic event) {
     final message = Map<String, Object?>.from(event as Map);
@@ -527,6 +992,11 @@ Future<_NativeTestServer> _spawnNativeTestServer({
       case 'hello':
         if (!helloCompleter.isCompleted) {
           helloCompleter.complete(message);
+        }
+        break;
+      case 'closed':
+        if (!listenerClosed.isCompleted) {
+          listenerClosed.complete();
         }
         break;
       case 'error':
@@ -548,7 +1018,9 @@ Future<_NativeTestServer> _spawnNativeTestServer({
     'websocketProtocol': websocketProtocol,
     'sendBurstAfterHello': sendBurstAfterHello,
     'sendEventAfterHello': sendEventAfterHello,
-  });
+    'bindPort': bindPort,
+    'closeDelayMs': closeDelayMs,
+  }, onExit: exitPort.sendPort);
   final port = await readyCompleter.future;
   return _NativeTestServer(
     isolate: isolate,
@@ -556,6 +1028,8 @@ Future<_NativeTestServer> _spawnNativeTestServer({
     subscription: subscription,
     port: port,
     helloFuture: helloCompleter.future,
+    exited: exited,
+    listenerClosed: listenerClosed.future,
   );
 }
 
@@ -570,6 +1044,8 @@ Future<void> _nativeTestServerMain(Map<String, Object?> config) async {
           serializerName: config['serializerName']! as String,
           rawsocketType: config['rawsocketType']! as int,
           sendBurstAfterHello: config['sendBurstAfterHello'] as bool? ?? false,
+          bindPort: config['bindPort']! as int,
+          closeDelayMs: config['closeDelayMs']! as int,
         );
         return;
       case 'websocket':
@@ -578,6 +1054,9 @@ Future<void> _nativeTestServerMain(Map<String, Object?> config) async {
           serializerName: config['serializerName']! as String,
           websocketProtocol: config['websocketProtocol']! as String,
           sendEventAfterHello: config['sendEventAfterHello'] as bool? ?? false,
+          sendBurstAfterHello: config['sendBurstAfterHello'] as bool? ?? false,
+          bindPort: config['bindPort']! as int,
+          closeDelayMs: config['closeDelayMs']! as int,
         );
         return;
       default:
@@ -595,9 +1074,11 @@ Future<void> _runRawSocketServer(
   required String serializerName,
   required int rawsocketType,
   bool sendBurstAfterHello = false,
+  int bindPort = 0,
+  int closeDelayMs = 50,
 }) async {
   final serializer = _serializerForName(serializerName);
-  final server = await ServerSocket.bind('127.0.0.1', 0);
+  final server = await ServerSocket.bind('127.0.0.1', bindPort);
   sendPort.send({'type': 'ready', 'port': server.port});
   try {
     final socket = await server.first;
@@ -683,12 +1164,13 @@ Future<void> _runRawSocketServer(
         socket.add(welcomeFrame);
       }
       await socket.flush();
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await Future<void>.delayed(Duration(milliseconds: closeDelayMs));
       await socket.close();
       return;
     }
   } finally {
     await server.close();
+    sendPort.send({'type': 'closed'});
   }
 }
 
@@ -697,9 +1179,12 @@ Future<void> _runWebSocketServer(
   required String serializerName,
   required String websocketProtocol,
   bool sendEventAfterHello = false,
+  bool sendBurstAfterHello = false,
+  int bindPort = 0,
+  int closeDelayMs = 50,
 }) async {
   final serializer = _serializerForName(serializerName);
-  final server = await HttpServer.bind('127.0.0.1', 0);
+  final server = await HttpServer.bind('127.0.0.1', bindPort);
   sendPort.send({'type': 'ready', 'port': server.port});
   try {
     await for (final request in server) {
@@ -751,13 +1236,26 @@ Future<void> _runWebSocketServer(
             ),
           );
         }
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        if (sendBurstAfterHello) {
+          socket.add(
+            _encodeWebSocketPayload(
+              serializer,
+              websocketProtocol,
+              Goodbye(
+                GoodbyeMessage('server closing'),
+                Goodbye.reasonGoodbyeAndOut,
+              ),
+            ),
+          );
+        }
+        await Future<void>.delayed(Duration(milliseconds: closeDelayMs));
         await socket.close();
         return;
       }
     }
   } finally {
     await server.close(force: true);
+    sendPort.send({'type': 'closed'});
   }
 }
 

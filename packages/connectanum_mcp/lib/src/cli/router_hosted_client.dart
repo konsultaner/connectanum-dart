@@ -333,6 +333,9 @@ Future<McpJsonMap> _runStatelessResourceSubscriptionExample(
     final notificationFuture = listener.notifications.first.timeout(
       const Duration(seconds: 10),
     );
+    // Publication can fail before this future is awaited. Closing the listener
+    // must not leak its pending read error; awaiting it still propagates errors.
+    notificationFuture.ignore();
     publication = await client.publishWampEventDirect(
       updateTopic,
       id: 'stateless-resource-update-publish',
@@ -2570,6 +2573,11 @@ Map<String, Object?> _expectWampSessionMetaBatchDiscovery(
     _batchResult(responses, countId, label: '$label session count'),
     label: '$label session count',
   );
+  _expectWampMetaBatchProcedure(
+    count,
+    'wamp.session.count',
+    label: '$label session count',
+  );
   final countValue = _integerMetaId(
     _wampMetaBatchArgumentsKeywords(
       count,
@@ -2584,6 +2592,11 @@ Map<String, Object?> _expectWampSessionMetaBatchDiscovery(
 
   final list = _structuredContentFromWampMetaBatchResult(
     _batchResult(responses, listId, label: '$label session list'),
+    label: '$label session list',
+  );
+  _expectWampMetaBatchProcedure(
+    list,
+    'wamp.session.list',
     label: '$label session list',
   );
   final sessionIds = _integerMetaIds(
@@ -2618,6 +2631,11 @@ Map<String, Object?> _expectWampSessionMetaBatchDetails(
 }) {
   final session = _structuredContentFromWampMetaBatchResult(
     _batchResult(responses, getId, label: '$label session get'),
+    label: '$label session get',
+  );
+  _expectWampMetaBatchProcedure(
+    session,
+    'wamp.session.get',
     label: '$label session get',
   );
   final details = _wampMetaBatchArgumentsKeywords(
@@ -4399,14 +4417,13 @@ Future<void> _runDirectPubSubExample(
     id: 'direct-pubsub-subscribe',
     queueLimit: queueLimit,
   );
-  _expectWampSubscription(
-    subscription,
-    topic: topic,
-    queueLimit: queueLimit,
-    label: 'Direct JSON pub/sub',
-  );
-
   try {
+    _expectWampSubscription(
+      subscription,
+      topic: topic,
+      queueLimit: queueLimit,
+      label: 'Direct JSON pub/sub',
+    );
     final subscriptionMeta = await client.matchWampSubscriptionDirect(
       topic,
       id: 'direct-wamp-subscription-match',
@@ -4662,14 +4679,13 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
     id: 'streamable-active-direct-pubsub-subscribe',
     queueLimit: queueLimit,
   );
-  _expectWampSubscription(
-    subscription,
-    topic: topic,
-    queueLimit: queueLimit,
-    label: 'Streamable active direct JSON pub/sub',
-  );
-
   try {
+    _expectWampSubscription(
+      subscription,
+      topic: topic,
+      queueLimit: queueLimit,
+      label: 'Streamable active direct JSON pub/sub',
+    );
     final publishEvent = <String, Object?>{
       'activeDirectPublishEvent': options.pubsubEvent,
     };
@@ -5791,14 +5807,13 @@ Future<void> _runStreamableSessionExample(
       id: 'streamable-pubsub-subscribe',
       queueLimit: queueLimit,
     );
-    _expectWampSubscription(
-      subscription,
-      topic: pubsubTopic,
-      queueLimit: queueLimit,
-      label: 'Streamable pub/sub',
-    );
-
     try {
+      _expectWampSubscription(
+        subscription,
+        topic: pubsubTopic,
+        queueLimit: queueLimit,
+        label: 'Streamable pub/sub',
+      );
       final subscriptionMeta = await client.matchWampSubscription(
         pubsubTopic,
         id: 'streamable-wamp-subscription-match',
@@ -6379,11 +6394,23 @@ Map<String, String> _parseOptions(List<String> args) {
     '--pubsub-event',
   };
   const flagOptions = {'--dry-run', '--auth-lifecycle-smoke'};
+  const credentialOptions = {
+    '--bearer-token',
+    '--ticket',
+    '--wampcra-secret',
+    '--scram-secret',
+  };
 
   final values = <String, String>{};
   for (var index = 0; index < args.length; index += 1) {
-    final option = args[index];
+    final argument = args[index];
+    final equals = argument.indexOf('=');
+    final option = equals < 0 ? argument : argument.substring(0, equals);
+    final inlineValue = equals < 0 ? null : argument.substring(equals + 1);
     if (flagOptions.contains(option)) {
+      if (inlineValue != null) {
+        throw FormatException('Option $option does not accept a value.');
+      }
       if (values.containsKey(option)) {
         throw FormatException('Duplicate option: $option.');
       }
@@ -6393,14 +6420,28 @@ Map<String, String> _parseOptions(List<String> args) {
     if (!valueOptions.contains(option)) {
       throw FormatException('Unknown option: $option');
     }
-    if (index + 1 >= args.length || args[index + 1].startsWith('--')) {
-      throw FormatException('Missing value for $option.');
+    if (inlineValue == null) {
+      if (index + 1 >= args.length) {
+        throw FormatException('Missing value for $option.');
+      }
+      final next = args[index + 1];
+      final nextEquals = next.indexOf('=');
+      final nextOption = nextEquals < 0 ? next : next.substring(0, nextEquals);
+      // Opaque credentials (including generated base64url tokens) may start
+      // with "--". Actual option names still require an explicit assignment.
+      final opaqueCredential =
+          credentialOptions.contains(option) &&
+          !valueOptions.contains(nextOption) &&
+          !flagOptions.contains(nextOption) &&
+          nextOption != '--help';
+      if (next.startsWith('--') && !opaqueCredential) {
+        throw FormatException('Missing value for $option.');
+      }
     }
     if (values.containsKey(option)) {
       throw FormatException('Duplicate option: $option.');
     }
-    values[option] = args[index + 1];
-    index += 1;
+    values[option] = inlineValue ?? args[++index];
   }
   return values;
 }
@@ -6525,5 +6566,8 @@ Options:
   --pubsub-topic TOPIC              Exercise direct JSON and Streamable pub/sub helpers.
   --pubsub-event JSON_OBJECT        Event kwargs for --pubsub-topic.
   --dry-run                         Validate options without HTTP requests.
+
+Value options also accept --option=value. Use this form when a credential
+equals an option name, for example --bearer-token=--help.
 ''');
 }

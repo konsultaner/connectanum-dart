@@ -138,16 +138,14 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.codeAuthenticate) {
         validateKnownWampMessageMinimumFieldCount(message.length, 3);
+        final extra = message[2];
+        if (extra is! Map || extra.keys.any((key) => key is! String)) {
+          throw const FormatException(
+            'AUTHENTICATE.Extra must be a dictionary with string keys',
+          );
+        }
         return Authenticate(signature: message[1] as String?)
-          ..extra = message[2] is Map
-              ? Map<String, Object?>.from(
-                  _normalizeDynamicMap(
-                    Map<dynamic, dynamic>.from(
-                      message[2] as Map<dynamic, dynamic>,
-                    ),
-                  ),
-                )
-              : <String, Object?>{};
+          ..extra = Map<String, Object?>.from(extra);
       }
       if (messageId == MessageTypes.codeWelcome) {
         validateKnownWampMessageMinimumFieldCount(message.length, 3);
@@ -1898,8 +1896,14 @@ class Serializer extends AbstractSerializer {
       }
 
       if (decodedObject['kwargs'] != null && decodedObject['kwargs'] is Map) {
-        argumentsKeywords = Map.castFrom<dynamic, dynamic, String, Object>(
-          decodedObject['kwargs'] as Map<dynamic, dynamic>,
+        final keywords = decodedObject['kwargs'] as Map<dynamic, dynamic>;
+        if (keywords.keys.any((key) => key is! String)) {
+          throw const FormatException(
+            'MessagePack PPT keyword arguments must use string keys',
+          );
+        }
+        argumentsKeywords = Map.castFrom<dynamic, dynamic, String, dynamic>(
+          keywords,
         );
       }
 
@@ -2000,7 +2004,7 @@ List<_ByteRange>? _parseMsgPackTopLevelRanges(Uint8List bytes) {
       final start = offset;
       final next = _skipMsgPackValue(bytes, offset);
       if (next == null) {
-        return null;
+        throw const FormatException('Invalid MessagePack WAMP message');
       }
       ranges.add(_ByteRange(start, next));
       offset = next;
@@ -2010,7 +2014,7 @@ List<_ByteRange>? _parseMsgPackTopLevelRanges(Uint8List bytes) {
       final start = offset;
       final next = _skipDepthLimitedMsgPackValue(bytes, offset, 0);
       if (next == null) {
-        return null;
+        throw const FormatException('Invalid MessagePack WAMP message');
       }
       ranges.add(_ByteRange(start, next));
       offset = next;

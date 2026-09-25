@@ -14,6 +14,7 @@ struct TestServer {
     addr: SocketAddr,
     accepted: mpsc::Receiver<ConnectionId>,
     client_config: quinn::ClientConfig,
+    endpoint_config: Arc<config::EndpointRuntimeConfig>,
 }
 
 impl TestServer {
@@ -62,10 +63,11 @@ impl TestServer {
         };
         let registry = Arc::new(ListenerRegistry::default());
         let (sender, accepted) = mpsc::channel(16);
+        let endpoint_config = Arc::new(config);
         let (endpoint, listener, addr) = start_http3_listener(
             ListenerId(1),
             "127.0.0.1:0".parse().unwrap(),
-            Arc::new(ListenerConfigState::new(Arc::new(config), None)),
+            Arc::new(ListenerConfigState::new(Arc::clone(&endpoint_config), None)),
             Arc::clone(&registry),
             sender,
             runtime.handle().clone(),
@@ -79,6 +81,7 @@ impl TestServer {
             addr,
             accepted,
             client_config,
+            endpoint_config,
         }
     }
 
@@ -191,6 +194,86 @@ fn http3_admission_ordinary_client_positive_control() {
     let runtime = Runtime::new().unwrap();
     let mut server = TestServer::new(&runtime, Duration::from_secs(30));
     runtime.block_on(server.ordinary_request());
+}
+
+fn assert_http3_setup_close(code: h3::error::Code, expected: HttpConnectionCloseReason) {
+    let runtime = Runtime::new().unwrap();
+    let mut server = TestServer::new(&runtime, Duration::from_secs(30));
+    runtime.block_on(async {
+        // Accept manually so the peer is observably closed before HTTP/3 setup,
+        // rather than relying on which task wins a close-versus-build race.
+        server.listener.abort();
+        assert!((&mut server.listener).await.unwrap_err().is_cancelled());
+        let endpoint = server.client();
+        let (client, connection) = time::timeout(TEST_DEADLINE, async {
+            tokio::join!(endpoint.connect(server.addr, "localhost").unwrap(), async {
+                server.endpoint.accept().await.unwrap().await
+            })
+        })
+        .await
+        .expect("QUIC pair must connect");
+        let client = client.unwrap();
+        let connection = Arc::new(connection.unwrap());
+        client.close(VarInt::from_u64(code.value()).unwrap(), b"setup close test");
+        assert!(matches!(
+            time::timeout(TEST_DEADLINE, connection.closed())
+                .await
+                .unwrap(),
+            quinn::ConnectionError::ApplicationClosed(_)
+        ));
+        let id = server.registry.next_connection_id();
+        let streams = server.registry.register_http3_connection(
+            ListenerId(1),
+            id,
+            Arc::clone(&server.endpoint_config),
+            Http3Handshake::from_endpoint(&server.endpoint_config),
+            Some(Arc::clone(&connection)),
+            connection.remote_address(),
+        );
+        time::timeout(
+            TEST_DEADLINE,
+            serve_http3_requests(
+                ListenerId(1),
+                id,
+                Arc::clone(&server.endpoint_config),
+                Arc::clone(&server.registry),
+                connection,
+                streams,
+            ),
+        )
+        .await
+        .expect("closed peer must not stall HTTP/3 setup");
+        let event = server.registry.poll_http_connection_event().unwrap();
+        assert_eq!(event.connection_id, id);
+        assert_eq!(event.protocol, ConnectionProtocol::Http3);
+        assert_eq!(event.reason, expected);
+        assert_eq!(event.request_count, 0);
+        assert_eq!(event.idle_timeouts, 0);
+        assert_eq!(event.body_timeouts, 0);
+        assert_eq!(
+            event.detail.is_none(),
+            expected == HttpConnectionCloseReason::Graceful
+        );
+        assert!(server.registry.connections.lock().unwrap().is_empty());
+        assert!(server.registry.poll_http_connection_event().is_none());
+        endpoint.close(VarInt::from_u32(0), b"test cleanup");
+    });
+}
+
+#[test]
+fn http3_setup_peer_no_error_is_graceful() {
+    assert_http3_setup_close(
+        h3::error::Code::H3_NO_ERROR,
+        HttpConnectionCloseReason::Graceful,
+    );
+}
+
+#[test]
+fn http3_setup_peer_error_is_not_masked_as_graceful() {
+    assert_http3_setup_close(
+        h3::error::Code::H3_INTERNAL_ERROR,
+        HttpConnectionCloseReason::ProtocolError,
+    );
 }
 
 #[test]

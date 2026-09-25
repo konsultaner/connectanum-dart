@@ -23,7 +23,13 @@ macro_rules! rejects_framing {
                 $version, $headers
             );
             let mut reader = BufReader::new(bytes.as_bytes());
-            let err = read_http_request(&mut reader, &config).await.unwrap_err();
+            let result = read_http_request(&mut reader, &config).await;
+            assert_eq!(
+                matches!(&result, Err(NegotiationError::Protocol(_))),
+                true,
+                "framing must be rejected before waiting for a body: {result:?}"
+            );
+            let err = result.unwrap_err();
             let NegotiationError::Protocol(detail) = err else {
                 panic!("framing must be rejected before waiting for a body: {err:?}");
             };
@@ -134,17 +140,50 @@ rejects_framing!(
 
 #[tokio::test]
 async fn transfer_rejected_before_waiting_for_a_declared_body() {
-    time::timeout(Duration::from_millis(250), async {
-        let config = super::tests::runtime_config(Some(Duration::from_secs(2)), 16);
-        let (mut client, server) = tokio::io::duplex(256);
-        client.write_all(b"POST / HTTP/1.1\r\nTransfer-Encoding: gzip, chunked\r\nContent-Length: 1000\r\n\r\n").await.unwrap();
-        let mut reader = BufReader::new(server);
-        let err = read_http_request(&mut reader, &config).await.unwrap_err();
-        assert!(matches!(err, NegotiationError::Protocol(_)));
-        drop(client);
-    })
-    .await
-    .expect("header rejection must not wait for an attacker-controlled body");
+    for (version, headers, expected) in [
+        (
+            "1.1",
+            "Transfer-Encoding: gzip, chunked\r\nContent-Length: 1000\r\n",
+            "invalid Transfer-Encoding framing",
+        ),
+        (
+            "1.1",
+            "Content-Length: 1000\r\nTransfer-Encoding: chunked\r\n",
+            "invalid Transfer-Encoding framing",
+        ),
+        (
+            "1.1",
+            "Transfer-Encoding: chunked\r\n",
+            "chunked transfer encoding is not supported",
+        ),
+        (
+            "1.1",
+            "Transfer-Encoding: chunked, gzip\r\n",
+            "invalid Transfer-Encoding framing",
+        ),
+        (
+            "1.0",
+            "Transfer-Encoding: chunked\r\n",
+            "invalid Transfer-Encoding framing",
+        ),
+    ] {
+        time::timeout(Duration::from_millis(250), async {
+            let config = super::tests::runtime_config(Some(Duration::from_secs(2)), 16);
+            let (mut client, server) = tokio::io::duplex(256);
+            let request = format!("POST / HTTP/{version}\r\n{headers}\r\n");
+            client.write_all(request.as_bytes()).await.unwrap();
+            let mut reader = BufReader::new(server);
+            let result = read_http_request(&mut reader, &config).await;
+            assert_eq!(
+                matches!(&result, Err(NegotiationError::Protocol(detail)) if detail == expected),
+                true,
+                "open-body request must be rejected from headers alone: {request:?}: {result:?}"
+            );
+            drop(client);
+        })
+        .await
+        .expect("header rejection must not wait for an attacker-controlled body");
+    }
 }
 
 #[tokio::test]
@@ -157,16 +196,22 @@ async fn valid_lengths_preserve_body_and_next_request() {
         let config = super::tests::runtime_config(Some(Duration::from_secs(1)), 16);
         let bytes = format!("POST /outer HTTP/1.1\r\n{headers}\r\nbodyGET /next HTTP/1.1\r\n\r\n");
         let mut reader = BufReader::new(bytes.as_bytes());
-        let (request, body) = read_http_request(&mut reader, &config)
-            .await
-            .unwrap()
-            .unwrap();
+        let result = read_http_request(&mut reader, &config).await;
+        assert_eq!(
+            matches!(&result, Ok(Some(_))),
+            true,
+            "valid Content-Length must parse a request: {headers:?}: {result:?}"
+        );
+        let (request, body) = result.unwrap().unwrap();
         assert_eq!(request.target, "/outer");
         assert!(matches!(body, HttpBodyPhase::Buffered(b) if b.as_ref() == b"body"));
-        let (request, body) = read_http_request(&mut reader, &config)
-            .await
-            .unwrap()
-            .unwrap();
+        let result = read_http_request(&mut reader, &config).await;
+        assert_eq!(
+            matches!(&result, Ok(Some(_))),
+            true,
+            "following request must remain parseable: {headers:?}: {result:?}"
+        );
+        let (request, body) = result.unwrap().unwrap();
         assert_eq!(request.target, "/next");
         assert!(matches!(body, HttpBodyPhase::Buffered(b) if b.is_empty()));
     }
@@ -184,17 +229,23 @@ async fn content_encoding_preserves_opaque_body_and_next_request() {
     bytes.extend_from_slice(b"GET /next HTTP/1.1\r\n\r\n");
 
     let mut reader = BufReader::new(bytes.as_slice());
-    let (request, body) = read_http_request(&mut reader, &config)
-        .await
-        .unwrap()
-        .unwrap();
+    let parsed = read_http_request(&mut reader, &config).await;
+    assert_eq!(
+        matches!(&parsed, Ok(Some(_))),
+        true,
+        "compressed request parses successfully: {parsed:?}"
+    );
+    let (request, body) = parsed.unwrap().unwrap();
     assert_eq!(request.target, "/compressed");
     assert!(matches!(body, HttpBodyPhase::Buffered(b) if b.as_ref() == GZIP_BODY));
 
-    let (request, body) = read_http_request(&mut reader, &config)
-        .await
-        .unwrap()
-        .unwrap();
+    let parsed = read_http_request(&mut reader, &config).await;
+    assert_eq!(
+        matches!(&parsed, Ok(Some(_))),
+        true,
+        "following request parses successfully: {parsed:?}"
+    );
+    let (request, body) = parsed.unwrap().unwrap();
     assert_eq!(request.target, "/next");
     assert!(matches!(body, HttpBodyPhase::Buffered(b) if b.is_empty()));
 }
@@ -213,6 +264,19 @@ fn smuggling_request() -> Vec<u8> {
 }
 
 async fn exercise_live(bytes: Vec<u8>, tls: bool) -> (String, Vec<String>) {
+    let mut config = super::tests::runtime_config(Some(Duration::from_secs(1)), 16);
+    config.http_routes.push(HttpRouteRuntime {
+        path: "/".into(),
+        match_kind: HttpRouteMatchKind::Prefix,
+        protocols: vec![],
+        transport_auth: Default::default(),
+        methods: Default::default(),
+        default: Some(HttpRouteTarget::Translation {
+            realm: "test".into(),
+            procedure: "test.echo".into(),
+        }),
+    });
+    let config = Arc::new(config);
     time::timeout(Duration::from_secs(5), async move {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
@@ -230,13 +294,6 @@ async fn exercise_live(bytes: Vec<u8>, tls: bool) -> (String, Vec<String>) {
             let stream = if tls {
                 IoStream::tls(TlsAcceptor::from(Arc::new(server_config)).accept(stream).await.unwrap())
             } else { IoStream::plain(stream) };
-            let mut config = super::tests::runtime_config(Some(Duration::from_secs(1)), 16);
-            config.http_routes.push(HttpRouteRuntime {
-                path: "/".into(), match_kind: HttpRouteMatchKind::Prefix, protocols: vec![],
-                transport_auth: Default::default(), methods: Default::default(),
-                default: Some(HttpRouteTarget::Translation { realm: "test".into(), procedure: "test.echo".into() }),
-            });
-            let config = Arc::new(config);
             let registry = Arc::new(ListenerRegistry::default());
             registry.register_http_connection(ListenerId(1), ConnectionId(1), config.clone(), peer);
             let serving = async {

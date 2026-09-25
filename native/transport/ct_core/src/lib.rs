@@ -2812,9 +2812,11 @@ fn start_http3_listener(
 ) -> Result<(QuinnEndpoint, JoinHandle<()>, SocketAddr), Error> {
     let runtime_config = config_state.endpoint_config();
     let server_config = build_http3_server_config(&runtime_config)?;
-    let endpoint = handle
-        .block_on(async move { QuinnEndpoint::server(server_config, addr) })
-        .map_err(Error::Io)?;
+    let endpoint = {
+        // Quinn's synchronous constructor needs our reactor, not nested blocking.
+        let _runtime = handle.enter();
+        QuinnEndpoint::server(server_config, addr).map_err(Error::Io)?
+    };
     let local_addr = endpoint.local_addr().map_err(Error::Io)?;
 
     let registry_for_task = Arc::clone(&registry);
@@ -2832,6 +2834,14 @@ fn start_http3_listener(
                 Some(_) = handshakes.join_next(), if !handshakes.is_empty() => {},
                 incoming = endpoint_for_task.accept() => {
                     let Some(incoming) = incoming else { break };
+                    #[cfg(feature = "ffi-test")]
+                    if ffi_test_debug_logs_enabled() {
+                        eprintln!(
+                            "http3 incoming on {:?} at {} from {}, pending handshakes {} of {}",
+                            listener_id, local_addr, incoming.remote_address(),
+                            handshakes.len(), max_pending_handshakes
+                        );
+                    }
                     if handshakes.len() >= max_pending_handshakes {
                         incoming.refuse();
                         continue;
@@ -5983,7 +5993,15 @@ fn has_bearer_header_bytes(headers: &[(Arc<[u8]>, Arc<[u8]>)]) -> bool {
 mod http2_security_tests;
 
 #[cfg(test)]
+mod http_transport_auth_tests;
+
+#[cfg(test)]
+mod connection_registry_tests;
+
+#[cfg(test)]
 mod http1_response_tests;
+#[cfg(test)]
+mod http_response_headers_tests;
 
 #[cfg(test)]
 mod stats_tests {
@@ -6922,15 +6940,23 @@ async fn serve_http3_requests(
     {
         Ok(conn) => conn,
         Err(err) => {
-            eprintln!(
-                "http3 handshake failed for listener {:?}: {}",
-                listener_id, err
-            );
-            registry.finish_http_connection(
-                connection_id,
-                HttpConnectionCloseReason::ProtocolError,
-                Some(err.to_string()),
-            );
+            if err.is_h3_no_error() {
+                registry.finish_http_connection(
+                    connection_id,
+                    HttpConnectionCloseReason::Graceful,
+                    None,
+                );
+            } else {
+                eprintln!(
+                    "http3 handshake failed for listener {:?}: {}",
+                    listener_id, err
+                );
+                registry.finish_http_connection(
+                    connection_id,
+                    HttpConnectionCloseReason::ProtocolError,
+                    Some(err.to_string()),
+                );
+            }
             return;
         }
     };
@@ -7513,16 +7539,16 @@ async fn send_http2_plain_response(
     let mut builder = Http2Response::builder().status(http2_status);
     {
         let header_map = builder.headers_mut().expect("headers available");
-        if let Ok(value) = Http2HeaderValue::from_str(&body.len().to_string()) {
-            header_map.insert(Http2HeaderName::from_static("content-length"), value);
-        }
         for (name, value) in extra_headers {
             if let (Ok(name), Ok(val)) = (
                 Http2HeaderName::from_bytes(name.as_bytes()),
                 Http2HeaderValue::from_str(value),
             ) {
-                header_map.insert(name, val);
+                header_map.append(name, val);
             }
+        }
+        if let Ok(value) = Http2HeaderValue::from_str(&body.len().to_string()) {
+            header_map.insert(Http2HeaderName::from_static("content-length"), value);
         }
     }
     let response = builder.body(()).map_err(|err| err.to_string())?;
@@ -7562,7 +7588,7 @@ async fn send_http2_response_from_dispatch(
                         Http2HeaderName::from_bytes(name.as_bytes()),
                         Http2HeaderValue::from_str(value),
                     ) {
-                        header_map.insert(name, value);
+                        header_map.append(name, value);
                     }
                 }
                 if let Ok(len_value) = Http2HeaderValue::from_str(&body_bytes.len().to_string()) {
@@ -7591,7 +7617,7 @@ async fn send_http2_response_from_dispatch(
                         Http2HeaderName::from_bytes(name.as_bytes()),
                         Http2HeaderValue::from_str(value),
                     ) {
-                        header_map.insert(name, value);
+                        header_map.append(name, value);
                     }
                 }
             }
@@ -8107,7 +8133,7 @@ async fn send_http3_plain_response(
                 HeaderName::from_bytes(name.as_bytes()),
                 HeaderValue::from_str(value),
             ) {
-                header_map.insert(name, value);
+                header_map.append(name, value);
             }
         }
         if let Ok(len_value) = HeaderValue::from_str(&body.len().to_string()) {
@@ -8150,7 +8176,7 @@ async fn send_http3_response_from_dispatch(
                         HeaderName::from_bytes(name.as_bytes()),
                         HeaderValue::from_str(value),
                     ) {
-                        header_map.insert(name, value);
+                        header_map.append(name, value);
                     }
                 }
                 if let Ok(len_value) = HeaderValue::from_str(&body_bytes.len().to_string()) {
@@ -8181,7 +8207,7 @@ async fn send_http3_response_from_dispatch(
                         HeaderName::from_bytes(name.as_bytes()),
                         HeaderValue::from_str(value),
                     ) {
-                        header_map.insert(name, value);
+                        header_map.append(name, value);
                     }
                 }
             }
@@ -8302,6 +8328,41 @@ mod tests {
             .get_or_init(|| Mutex::new(()))
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    async fn assert_accepted_connection(
+        receiver: &mut mpsc::Receiver<ConnectionId>,
+    ) -> ConnectionId {
+        let received = tokio::time::timeout(Duration::from_secs(2), receiver.recv()).await;
+        assert!(received.is_ok());
+        let connection = received.unwrap();
+        assert!(connection.is_some());
+        connection.unwrap()
+    }
+
+    #[tokio::test]
+    async fn accepted_connection_assertion_preserves_connection_identity() {
+        let (sender, mut receiver) = mpsc::channel(1);
+        assert!(sender.send(ConnectionId(42)).await.is_ok());
+        assert_eq!(
+            assert_accepted_connection(&mut receiver).await,
+            ConnectionId(42)
+        );
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "assertion failed: connection.is_some()")]
+    async fn accepted_connection_assertion_rejects_closed_channel() {
+        let (sender, mut receiver) = mpsc::channel(1);
+        drop(sender);
+        assert_accepted_connection(&mut receiver).await;
+    }
+
+    #[tokio::test]
+    #[should_panic(expected = "assertion failed: received.is_ok()")]
+    async fn accepted_connection_assertion_bounds_idle_channel() {
+        let (_sender, mut receiver) = mpsc::channel(1);
+        assert_accepted_connection(&mut receiver).await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -8910,25 +8971,62 @@ mod tests {
     fn apply_router_config_stores_config() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled"}]}"#)
-            .expect("config applies");
-        let cfg = crate::config::current_config().expect("config stored");
+        let applied = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled"}]}"#);
+        assert!(applied.is_ok());
+        let cfg = crate::config::current_config();
+        assert!(cfg.is_some());
+        let cfg = cfg.unwrap();
         assert_eq!(cfg.endpoints.len(), 1);
-        let endpoint = crate::config::find_endpoint("127.0.0.1", 8080).expect("endpoint");
+        let endpoint = crate::config::find_endpoint("127.0.0.1", 8080);
+        assert!(endpoint.is_some());
+        let endpoint = endpoint.unwrap();
         assert_eq!(endpoint.host, "127.0.0.1");
+    }
+
+    #[test]
+    fn endpoint_lookup_requires_both_host_and_port_and_preserves_valid_config() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let applied = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[
+            {"host":"EXAMPLE.COM","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":9},
+            {"host":"EXAMPLE.COM","port":8081,"tls_mode":"disabled","max_rawsocket_size_exponent":10},
+            {"host":"other.example","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":11}
+        ]}"#);
+        assert!(applied.is_ok());
+        for (host, port, exponent) in [
+            ("example.com", 8080, 9),
+            ("example.com", 8081, 10),
+            ("OTHER.EXAMPLE", 8080, 11),
+        ] {
+            let endpoint = crate::config::find_endpoint(host, port);
+            assert!(endpoint.is_some());
+            assert_eq!(
+                endpoint.unwrap().max_rawsocket_size_exponent,
+                Some(exponent)
+            );
+        }
+        for (host, port) in [
+            ("example.com", 9000),
+            ("missing.example", 8080),
+            ("other.example", 8081),
+        ] {
+            assert!(crate::config::find_endpoint(host, port).is_none());
+        }
+        assert!(super::apply_router_config(b"invalid json").is_err());
+        let preserved = crate::config::find_endpoint("example.com", 8081);
+        assert!(preserved.is_some());
+        assert_eq!(preserved.unwrap().max_rawsocket_size_exponent, Some(10));
     }
 
     #[test]
     fn apply_router_config_rejects_invalid_rawsocket_exponent() {
         let _guard = test_guard();
         shutdown().ok();
-        let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":8}]}"#)
-            .expect_err("exponent below minimum rejected");
-        assert!(matches!(err, Error::RouterConfigInvalid(_)));
+        let result = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":8}]}"#);
+        assert!(matches!(result, Err(Error::RouterConfigInvalid(_))));
 
-        let err = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":31}]}"#)
-            .expect_err("exponent above maximum rejected");
-        assert!(matches!(err, Error::RouterConfigInvalid(_)));
+        let result = super::apply_router_config(br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":8080,"tls_mode":"disabled","max_rawsocket_size_exponent":31}]}"#);
+        assert!(matches!(result, Err(Error::RouterConfigInvalid(_))));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -8945,12 +9043,14 @@ mod tests {
     async fn listen_accept_and_shutdown() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         assert!(addr.port() > 0);
 
@@ -8959,7 +9059,7 @@ mod tests {
         perform_handshake(&mut stream, 16, None).await;
         drop(stream);
 
-        let connection_id = receiver.recv().await.expect("receive connection");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
         assert!(connection_id.0 > 0);
         assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
 
@@ -8990,9 +9090,12 @@ mod tests {
                 }]
             }]
         });
-        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        let applied = super::apply_router_config(&serde_json::to_vec(&config).unwrap());
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9007,11 +9110,12 @@ mod tests {
         let mut response_bytes = Vec::new();
         let mut buf = [0u8; 256];
         loop {
-            let read = tokio::time::timeout(Duration::from_secs(2), stream.read(&mut buf))
-                .await
-                .expect("405 response should arrive")
-                .expect("response read succeeds");
-            assert!(read > 0, "response closed before body was read");
+            let read = tokio::time::timeout(Duration::from_secs(2), stream.read(&mut buf)).await;
+            assert_eq!(read.is_ok(), true, "405 response should arrive: {read:?}");
+            let read = read.unwrap();
+            assert_eq!(read.is_ok(), true, "response read succeeds: {read:?}");
+            let read = read.unwrap();
+            assert_ne!(read, 0, "response closed before body was read");
             response_bytes.extend_from_slice(&buf[..read]);
             if response_bytes
                 .windows(b"method not allowed".len())
@@ -9019,18 +9123,24 @@ mod tests {
             {
                 break;
             }
-            assert!(
+            assert_eq!(
                 response_bytes.len() < 1024,
+                true,
                 "unexpectedly large 405 response"
             );
         }
         let response = std::str::from_utf8(&response_bytes).expect("response is utf8");
-        assert!(
+        assert_eq!(
             response.starts_with("HTTP/1.1 405 Method Not Allowed"),
+            true,
             "{response}"
         );
-        assert!(response.contains("\r\nAllow: GET, POST\r\n"), "{response}");
-        assert!(response.ends_with("method not allowed"), "{response}");
+        assert_eq!(
+            response.contains("\r\nAllow: GET, POST\r\n"),
+            true,
+            "{response}"
+        );
+        assert_eq!(response.ends_with("method not allowed"), true, "{response}");
         let connection_id = receiver
             .try_recv()
             .expect("http connection should be tracked");
@@ -9049,13 +9159,15 @@ mod tests {
     async fn listener_close_removes_entry() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
 
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         assert!(local_addr(listener_id).is_ok());
         close_listener(listener_id).unwrap();
         let err = local_addr(listener_id).expect_err("listener removed");
@@ -9064,6 +9176,108 @@ mod tests {
         assert!(matches!(err, Error::ListenerNotFound(_)));
 
         shutdown().unwrap();
+    }
+
+    #[test]
+    fn http3_listener_starts_from_current_thread_runtime() {
+        assert_http3_listener_starts_from_runtime(
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
+        );
+    }
+
+    #[test]
+    fn http3_listener_starts_from_multi_thread_runtime() {
+        assert_http3_listener_starts_from_runtime(
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_all()
+                .build()
+                .unwrap(),
+        );
+    }
+
+    fn assert_http3_listener_starts_from_runtime(caller: tokio::runtime::Runtime) {
+        let _guard = test_guard();
+        shutdown().unwrap();
+        let certified = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+        let config = json!({
+            "schema": "connectanum.router",
+            "version": 1,
+            "endpoints": [{
+                "host": "127.0.0.1",
+                "port": 0,
+                "tls_mode": "native",
+                "protocols": ["http3"],
+                "http": {"http3": {"enabled": true, "port": 0}},
+                "sni_certificates": [{
+                    "hostname": "localhost",
+                    "certificate_chain_pem": certified.cert.pem(),
+                    "private_key_pem": certified.key_pair.serialize_pem()
+                }]
+            }]
+        });
+        let applied = apply_router_config(&serde_json::to_vec(&config).unwrap());
+        assert_eq!(applied.is_ok(), true, "{applied:?}");
+        start_runtime().unwrap();
+        // Clean up even when the regression triggers a nested-runtime panic.
+        let started = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            caller.block_on(async {
+                let before = tokio::runtime::Handle::current().runtime_flavor();
+                let listener = listen("127.0.0.1", 0, 128);
+                assert_eq!(tokio::runtime::Handle::current().runtime_flavor(), before);
+                listener
+            })
+        }));
+        drop(caller);
+        let port = started
+            .as_ref()
+            .ok()
+            .and_then(|result| result.as_ref().ok())
+            .map(|listener| listener_http3_port(*listener));
+        let handshake = if let Some(Ok(Some(port))) = port {
+            let mut roots = rustls::RootCertStore::empty();
+            roots.add(certified.cert.der().clone()).unwrap();
+            let mut crypto = RustlsClientConfig::builder_with_provider(Arc::new(
+                rustls::crypto::ring::default_provider(),
+            ))
+            .with_protocol_versions(&[&rustls::version::TLS13])
+            .unwrap()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+            crypto.alpn_protocols = vec![b"h3".to_vec()];
+            let crypto = quinn::crypto::rustls::QuicClientConfig::try_from(crypto).unwrap();
+            let client_config = quinn::ClientConfig::new(Arc::new(crypto));
+            let probe = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            Some(probe.block_on(async move {
+                let mut endpoint = QuinnEndpoint::client("127.0.0.1:0".parse().unwrap())
+                    .map_err(|error| error.to_string())?;
+                endpoint.set_default_client_config(client_config);
+                let connecting = endpoint
+                    .connect(SocketAddr::from(([127, 0, 0, 1], port)), "localhost")
+                    .map_err(|error| error.to_string())?;
+                let connection = tokio::time::timeout(Duration::from_secs(2), connecting)
+                    .await
+                    .map_err(|error| error.to_string())?
+                    .map_err(|error| error.to_string())?;
+                connection.close(0u32.into(), b"test complete");
+                endpoint.close(0u32.into(), b"test complete");
+                Ok::<(), String>(())
+            }))
+        } else {
+            None
+        };
+        shutdown().unwrap();
+        assert!(started.is_ok());
+        let listener = started.unwrap();
+        assert_eq!(listener.is_ok(), true, "{listener:?}");
+        assert!(matches!(port, Some(Ok(Some(port))) if port > 0));
+        assert_eq!(handshake, Some(Ok(())));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -9089,10 +9303,13 @@ mod tests {
             }]
         });
         let bytes = serde_json::to_vec(&config).unwrap();
-        super::apply_router_config(&bytes).unwrap();
+        let applied = super::apply_router_config(&bytes);
+        assert!(applied.is_ok());
 
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9162,11 +9379,12 @@ mod tests {
             .await
             .unwrap();
         let mut response = [0u8; 4];
-        tls_stream.read_exact(&mut response).await.unwrap();
+        let read = tls_stream.read_exact(&mut response).await;
+        assert!(read.is_ok());
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);
 
-        let connection_id = receiver.recv().await.expect("connection delivered");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
         assert!(connection_id.0 > 0);
         shutdown().unwrap();
     }
@@ -9197,10 +9415,13 @@ mod tests {
             }]
         });
         let bytes = serde_json::to_vec(&optional_cfg).unwrap();
-        super::apply_router_config(&bytes).unwrap();
+        let applied = super::apply_router_config(&bytes);
+        assert!(applied.is_ok());
 
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9217,11 +9438,12 @@ mod tests {
             .await
             .unwrap();
         let mut response = [0u8; 4];
-        tls_stream.read_exact(&mut response).await.unwrap();
+        let read = tls_stream.read_exact(&mut response).await;
+        assert!(read.is_ok());
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);
 
-        let connection_id = receiver.recv().await.expect("connection delivered");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
         assert!(connection_id.0 > 0);
 
         let required_cfg = json!({
@@ -9244,7 +9466,8 @@ mod tests {
             }]
         });
         let bytes = serde_json::to_vec(&required_cfg).unwrap();
-        super::apply_router_config(&bytes).unwrap();
+        let applied = super::apply_router_config(&bytes);
+        assert!(applied.is_ok());
         reload_tls().unwrap();
 
         let tcp = tokio::net::TcpStream::connect(addr).await.unwrap();
@@ -9280,11 +9503,12 @@ mod tests {
             .write_all(&[0x7F, handshake_byte, 0x00, 0x00])
             .await
             .unwrap();
-        tls_stream.read_exact(&mut response).await.unwrap();
+        let read = tls_stream.read_exact(&mut response).await;
+        assert!(read.is_ok());
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);
 
-        let connection_id = receiver.recv().await.expect("connection delivered");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
         assert!(connection_id.0 > 0);
         shutdown().unwrap();
     }
@@ -9293,19 +9517,21 @@ mod tests {
     async fn connection_runtime_config_exposes_rawsocket_settings() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
         let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
         perform_handshake(&mut stream, 24, Some(30)).await;
 
-        let connection_id = receiver.recv().await.expect("connection delivered");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
         let config = connection_runtime_config(connection_id).expect("config available");
         assert_eq!(config.max_rawsocket_size_exponent, 30);
         assert_eq!(config.max_rawsocket_size, 1u64 << 30);
@@ -9329,16 +9555,18 @@ mod tests {
     async fn connect_rawsocket_registers_outbound_client_connection() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let client_connection_id = connect_rawsocket(
+        let connected = connect_rawsocket(
             "127.0.0.1",
             addr.port(),
             false,
@@ -9347,9 +9575,10 @@ mod tests {
             30,
             None,
             None,
-        )
-        .unwrap();
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let client_connection_id = connected.unwrap();
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
 
         assert_eq!(
             connection_rawsocket_max_exponent(client_connection_id).unwrap(),
@@ -9385,16 +9614,18 @@ mod tests {
     async fn rawsocket_base64_file_segment_preserves_json_wire_bytes() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let client_connection_id = connect_rawsocket(
+        let connected = connect_rawsocket(
             "127.0.0.1",
             addr.port(),
             false,
@@ -9403,9 +9634,10 @@ mod tests {
             30,
             None,
             None,
-        )
-        .unwrap();
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let client_connection_id = connected.unwrap();
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
 
         let file_bytes = (0..BASE64_FILE_SEGMENT_INPUT_SIZE + 7)
             .map(|index| (index % 251) as u8)
@@ -9460,16 +9692,18 @@ mod tests {
     async fn connect_rawsocket_standard_cbor_peer_uses_extended_router_endpoint() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let client_connection_id = connect_rawsocket(
+        let connected = connect_rawsocket(
             "127.0.0.1",
             addr.port(),
             false,
@@ -9478,15 +9712,16 @@ mod tests {
             24,
             None,
             None,
-        )
-        .unwrap();
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let client_connection_id = connected.unwrap();
         send_wamp_message(
             client_connection_id,
             Bytes::from_static(&[0x83, 0x01, 0x65, b'r', b'e', b'a', b'l', b'm', 0xa0]),
         )
         .unwrap();
 
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
         assert_eq!(
             connection_rawsocket_max_exponent(client_connection_id).unwrap(),
             24
@@ -9522,13 +9757,16 @@ mod tests {
                 }]
             }]
         });
-        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        let applied = super::apply_router_config(&serde_json::to_vec(&config).unwrap());
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let client_connection_id = connect_rawsocket(
+        let connected = connect_rawsocket(
             "localhost",
             addr.port(),
             true,
@@ -9537,9 +9775,10 @@ mod tests {
             24,
             None,
             None,
-        )
-        .unwrap();
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let client_connection_id = connected.unwrap();
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
 
         assert!(connection_supports_file_segments(client_connection_id).unwrap());
         assert!(connection_supports_file_segments(server_connection_id).unwrap());
@@ -9598,13 +9837,16 @@ mod tests {
                 }]
             }]
         });
-        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        let applied = super::apply_router_config(&serde_json::to_vec(&config).unwrap());
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
-        let first_client = connect_rawsocket(
+        let connected = connect_rawsocket(
             "localhost",
             addr.port(),
             true,
@@ -9613,10 +9855,11 @@ mod tests {
             24,
             None,
             None,
-        )
-        .unwrap();
-        let first_server = receiver.recv().await.expect("first server connection");
-        let second_client = connect_rawsocket(
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let first_client = connected.unwrap();
+        let first_server = assert_accepted_connection(&mut receiver).await;
+        let connected = connect_rawsocket(
             "localhost",
             addr.port(),
             true,
@@ -9625,9 +9868,10 @@ mod tests {
             24,
             None,
             None,
-        )
-        .unwrap();
-        let second_server = receiver.recv().await.expect("second server connection");
+        );
+        assert_eq!(connected.is_ok(), true, "{connected:?}");
+        let second_client = connected.unwrap();
+        let second_server = assert_accepted_connection(&mut receiver).await;
 
         const FRAME_COUNT: usize = 8;
         const FRAME_BYTES: usize = 8 * 1024 * 1024;
@@ -9716,12 +9960,14 @@ mod tests {
     async fn websocket_file_backed_frame_round_trips_from_masked_client() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"]}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9739,7 +9985,7 @@ mod tests {
             )
         });
 
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
         let handshake = connection_take_websocket_handshake(server_connection_id).unwrap();
         connection_accept_websocket(
             server_connection_id,
@@ -9805,12 +10051,14 @@ mod tests {
     async fn websocket_base64_file_segment_round_trips_from_masked_client() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"]}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9827,7 +10075,7 @@ mod tests {
                 None,
             )
         });
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
         let handshake = connection_take_websocket_handshake(server_connection_id).unwrap();
         connection_accept_websocket(
             server_connection_id,
@@ -9878,12 +10126,14 @@ mod tests {
     async fn connect_websocket_registers_outbound_client_connection() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"]}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -9901,7 +10151,7 @@ mod tests {
             )
         });
 
-        let server_connection_id = receiver.recv().await.expect("server connection");
+        let server_connection_id = assert_accepted_connection(&mut receiver).await;
         let handshake = connection_take_websocket_handshake(server_connection_id).unwrap();
         assert_eq!(handshake.http.request.header("X-Test"), Some("1"));
         assert!(handshake
@@ -10017,12 +10267,14 @@ mod tests {
     async fn connection_messages_can_be_polled() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":16}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -10032,7 +10284,7 @@ mod tests {
         let payload = serde_json::to_vec(&hello).unwrap();
         send_json_frame(&mut client, &payload).await;
 
-        let connection_id = receiver.recv().await.expect("connection delivered");
+        let connection_id = assert_accepted_connection(&mut receiver).await;
 
         let mut attempts = 0;
         let parsed = loop {
@@ -10058,12 +10310,14 @@ mod tests {
     async fn handshake_timeout_rejects_idle_clients() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","handshake_timeout_ms":100,"max_rawsocket_size_exponent":16}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let addr = local_addr(listener_id).unwrap();
         let mut receiver = accept_channel(listener_id).unwrap();
 
@@ -10101,10 +10355,8 @@ mod tests {
             .await
             .expect("handshake write");
         let mut response = [0u8; 4];
-        stream
-            .read_exact(&mut response)
-            .await
-            .expect("handshake response");
+        let read = stream.read_exact(&mut response).await;
+        assert_eq!(read.is_ok(), true, "{read:?}");
         assert_eq!(response[0], 0x7F);
         if let Some(upgrade_exponent) = upgrade {
             let nibble = (upgrade_exponent.saturating_sub(25)).min(15) as u8;
@@ -10113,10 +10365,8 @@ mod tests {
                 .await
                 .expect("upgrade request");
             let mut upgrade_response = [0u8; 2];
-            stream
-                .read_exact(&mut upgrade_response)
-                .await
-                .expect("upgrade response");
+            let read = stream.read_exact(&mut upgrade_response).await;
+            assert_eq!(read.is_ok(), true, "{read:?}");
             assert_eq!(upgrade_response[0], 0x3F);
         }
     }
@@ -10635,12 +10885,14 @@ mod tests {
     async fn accept_channel_only_once() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
-        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let listener = listen("127.0.0.1", 0, 128);
+        assert!(listener.is_ok());
+        let listener_id = listener.unwrap();
         let _receiver = accept_channel(listener_id).unwrap();
         let err = accept_channel(listener_id).expect_err("second take fails");
         assert!(matches!(
@@ -10662,10 +10914,10 @@ mod tests {
     fn invalid_backlog_is_rejected() {
         let _guard = test_guard();
         shutdown().ok();
-        super::apply_router_config(
+        let applied = super::apply_router_config(
             br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled"}]}"#,
-        )
-        .unwrap();
+        );
+        assert!(applied.is_ok());
         start_runtime().unwrap();
         let err = listen("127.0.0.1", 0, 0).expect_err("invalid backlog");
         assert!(matches!(err, Error::InvalidBacklog));

@@ -89,13 +89,24 @@ class Subscribed extends AbstractMessage {
     _eventController?.add(event);
   }
 
-  Future<void> closeEventStream() async {
-    await _streamEventSubscription?.cancel();
+  Future<void> closeEventStream() => _closeEventStream(waitForListeners: true);
+
+  Future<void> _closeEventStream({required bool waitForListeners}) async {
+    final subscription = _streamEventSubscription;
     _streamEventSubscription = null;
     final controller = _eventController;
     _eventController = null;
-    if (controller != null && !controller.isClosed) {
-      await controller.close();
+    try {
+      await subscription?.cancel();
+    } finally {
+      if (controller != null && !controller.isClosed) {
+        final closed = controller.close();
+        if (waitForListeners) {
+          await closed;
+        } else {
+          unawaited(closed);
+        }
+      }
     }
   }
 
@@ -105,10 +116,20 @@ class Subscribed extends AbstractMessage {
         _streamEventSubscription != null) {
       return;
     }
-    _streamEventSubscription = _eventStreamOverride!.listen(_onEvent!);
+    _streamEventSubscription = _eventStreamOverride!.listen(
+      (event) => _onEvent!(event),
+    );
   }
 
   StreamController<Event> _newEventController() {
     return StreamController<Event>.broadcast(sync: true);
   }
 }
+
+/// Closes a subscription's built-in delivery resources during owner shutdown.
+///
+/// Awaits override-stream cancellation and propagates its failure, but does not
+/// wait for paused application listeners to receive buffered events or done.
+/// This does not dispatch to a subclass override of [Subscribed.closeEventStream].
+Future<void> closeEventStreamForOwner(Subscribed subscribed) =>
+    subscribed._closeEventStream(waitForListeners: false);

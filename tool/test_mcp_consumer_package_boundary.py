@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -61,6 +64,132 @@ def _section_package_names(section: str) -> set[str]:
 
 
 class McpConsumerPackageBoundaryTest(unittest.TestCase):
+    def test_oauth_smoke_awaits_its_browser_response(self) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_mcp_client_package_smoke")
+        start = body.index("  final browserClient = HttpClient();")
+        end = body.index("  final issuedOAuthGrant =", start)
+        snippet = body[start:end]
+        dart = shutil.which("dart")
+        self.assertIsNotNone(dart, "Dart is required for the callback race regression")
+        harness = r"""
+import 'dart:async';
+
+late String scenario;
+bool closed = false;
+bool drained = false;
+final responseReady = Completer<void>();
+final launcherFinished = Completer<void>();
+final restoredAuthorizationRequest = AuthorizationRequest();
+final callback = Uri.parse('http://127.0.0.1/callback');
+final callbackListener = CallbackListener();
+
+class AuthorizationRequest {
+  final uri = Uri.parse('https://issuer.example/authorize');
+  final pkce = Pkce();
+}
+class Pkce {
+  final verifier = 'v' * 43;
+}
+class AuthorizationCode {
+  final code = 'consumer-authorization-code';
+  final request = restoredAuthorizationRequest;
+}
+typedef McpAuthorizationCode = AuthorizationCode;
+class HttpStatus {
+  static const ok = 200;
+}
+class HttpClient {
+  Future<BrowserRequest> getUrl(Uri uri) async => BrowserRequest();
+  void close({required bool force}) { closed = true; }
+}
+class BrowserRequest {
+  Future<BrowserResponse> close() async {
+    await responseReady.future;
+    if (scenario.endsWith('response-error')) throw StateError('response failed');
+    return BrowserResponse();
+  }
+}
+class BrowserResponse {
+  int get statusCode => scenario == 'bad-status' ? 403 : 200;
+  Future<void> drain<T>() async {
+    await Future<void>.delayed(Duration.zero);
+    if (scenario == 'drain-error') throw StateError('drain failed');
+    drained = true;
+  }
+}
+class CallbackListener {
+  Future<AuthorizationCode> authorizeWithExternalUserAgent({
+    required AuthorizationRequest request,
+    required Future<void> Function(Uri) launchExternalUserAgent,
+  }) async {
+    if (scenario == 'authorize-error') {
+      launcherFinished.complete();
+      throw StateError('authorization failed');
+    }
+    final launch = Future<void>.sync(() => launchExternalUserAgent(request.uri));
+    unawaited(launch.then<void>(
+      (_) => launcherFinished.complete(),
+      onError: (Object _, StackTrace _) => launcherFinished.complete(),
+    ));
+    if (scenario.startsWith('early')) {
+      responseReady.complete();
+      await launch;
+    } else {
+      // A real callback may finish before the browser receives its HTTP reply.
+      Timer.run(responseReady.complete);
+    }
+    return AuthorizationCode();
+  }
+}
+void _expect(bool condition, String message) {
+  if (!condition) throw StateError(message);
+}
+Future<void> smoke() async {
+__SNIPPET__
+  _expect(drained && closed, 'smoke returned before browser cleanup');
+}
+Future<void> main(List<String> args) async {
+  scenario = args.single;
+  Object? failure;
+  try {
+    await smoke();
+  } catch (error) {
+    failure = error;
+  }
+  await launcherFinished.future.timeout(const Duration(seconds: 5));
+  _expect(closed, 'browser client leaked');
+  final expected = switch (scenario) {
+    'response-error' || 'early-response-error' => 'response failed',
+    'drain-error' => 'drain failed',
+    'authorize-error' => 'authorization failed',
+    'bad-status' => 'external user-agent callback did not preserve code and PKCE state',
+    _ => null,
+  };
+  if (expected == null) {
+    _expect(failure == null, 'unexpected smoke failure: $failure');
+  } else {
+    _expect(failure is StateError && failure.message == expected,
+        'wrong failure: $failure; expected $expected');
+  }
+}
+""".replace("__SNIPPET__", snippet)
+        with tempfile.TemporaryDirectory(prefix="mcp-callback-order-") as directory:
+            source = Path(directory) / "main.dart"
+            source.write_text(harness, encoding="utf-8")
+            for scenario in (
+                "early", "late", "response-error", "early-response-error",
+                "drain-error", "bad-status", "authorize-error"
+            ):
+                with self.subTest(scenario=scenario):
+                    result = subprocess.run(
+                        [dart, str(source), scenario],
+                        capture_output=True,
+                        text=True,
+                        timeout=20,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_mcp_package_exposes_router_hosted_client_executable(self) -> None:
         pubspec = MCP_PUBSPEC.read_text(encoding="utf-8")
         executable = MCP_ROUTER_HOSTED_CLIENT_BIN.read_text(encoding="utf-8")
