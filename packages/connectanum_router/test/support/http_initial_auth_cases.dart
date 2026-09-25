@@ -46,6 +46,79 @@ void _httpInitialAuthenticationTests() {
     setUp(AuthSecurityTracker.reset);
     tearDown(AuthSecurityTracker.reset);
 
+    for (final selector in ['authmethod', 'authid']) {
+      for (final empty in [false, true]) {
+        test(
+          'absent selector $selector empty=$empty has a terminal response',
+          () async {
+            var creates = 0;
+            final auth = _RoundAuthenticator()
+              ..hello = () async => _RoundAuthenticator.success();
+            final fixture = await _HttpRoundFixture.start(
+              [auth],
+              beforeCreate: () async {
+                creates++;
+              },
+            );
+            final body = Map<String, Object?>.from(_initialAuthHello)
+              ..remove(selector);
+            if (empty) body[selector] = '';
+            final response = await _terminalAuthResponse(fixture, body);
+            final payload = _jsonResponseBody(response);
+            if (empty || selector == 'authmethod') {
+              expect(response.status, HttpStatus.badRequest);
+              expect(
+                payload['reason'],
+                empty ? 'invalid_auth_parameter' : 'missing_authmethod',
+              );
+              expect(payload, isNot(contains('access_token')));
+              expect(creates, 0);
+              expect(auth.helloContext, isNull);
+            } else {
+              expect(response.status, HttpStatus.ok);
+              expect(payload['status'], 'ok');
+              expect(payload['authid'], 'user-1');
+              expect(payload['authmethod'], 'ticket');
+              expect(payload['access_token'], isNotEmpty);
+              expect(creates, 1);
+              expect(
+                auth.helloContext!.helloDetails,
+                isNot(contains('authid')),
+              );
+              expect(auth.helloContext!.helloDetails['authmethods'], [
+                'ticket',
+              ]);
+            }
+            expect(
+              fixture.events.where(
+                (event) => event['type'] == 'http_request_handler_error',
+              ),
+              isEmpty,
+            );
+            expect(auth.messages, isEmpty);
+            expect(auth.abortReasons, isEmpty);
+          },
+        );
+      }
+    }
+
+    test('absent selector controls preserve supplied identity', () async {
+      final auth = _RoundAuthenticator()
+        ..hello = () async => _RoundAuthenticator.success();
+      final fixture = await _HttpRoundFixture.start([auth]);
+      final response = await _terminalAuthResponse(fixture, {
+        ..._initialAuthHello,
+        'authid': 'claimed-user',
+      });
+      expect(response.status, HttpStatus.ok);
+      expect(auth.helloContext!.helloDetails['authid'], 'claimed-user');
+      expect(auth.helloContext!.helloDetails['authmethods'], ['ticket']);
+      final grant = _jsonResponseBody(response);
+      expect(grant['authid'], 'user-1');
+      expect(grant['authrole'], 'member');
+      expect(grant['access_token'], isNotEmpty);
+    });
+
     test(
       'immediate success issues a refreshable provider-bound grant',
       () async {

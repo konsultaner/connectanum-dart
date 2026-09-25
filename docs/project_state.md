@@ -6,6 +6,28 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work317 covers omitted versus empty HTTP auth selectors and preservation of a
+supplied identity. Missing method returns `missing_authmethod` before factory
+creation; explicit empty values return `invalid_auth_parameter`. Omitted identity
+is resolved by the authenticator; supplied identity reaches it unchanged while
+the grant uses the verified identity. Fast317 and full verify317 pass. Final
+`selectors317-complete-probe` kills all four selected condition mutations through
+assertions, with clean original/restored baselines. Earlier `selectors317-probe`
+retains its 3/4 result; the surviving identity-discard mutation drove the positive
+control. Logs are `/tmp/connectanum-fast317.log`, `/tmp/connectanum-verify317.log`
+and `/tmp/connectanum-mutation317-complete.log`. Local review correctly questioned
+empty-value assumptions, now tested as rejection; fixture creation is per test.
+No production change or whole-component mutation uplift is claimed.
+
+VM316 completed at `c32debab` with collector exit 0 and full verify315 on the
+same code/test snapshot. Router is 17,738/19,492 (91.001%); other package
+percentages and packaging counts are unchanged from VM308. The 58 unmeasured
+library and 12 packaging entries remain visible. Evidence:
+`out/regression-coverage-2026-09-15/vm316-current`, log
+`/tmp/connectanum-coverage316.log`. This supersedes VM308 for VM line coverage,
+not mutation or other-runtime evidence. Work315 is pushed to both remotes and
+PR #93 updated; strict chain315 exits 1 because latest CI remains queued.
+
 Work315 covers external JWT provider admission against the route authentication
 method allowlist: ticket-only rejects with `wrong_authmethod`, no dispatch or
 invocation; JWT admission returns the callee body. Both paths release their

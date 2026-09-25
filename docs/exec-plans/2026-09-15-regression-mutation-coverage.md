@@ -35,6 +35,23 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work317 tests absent/empty auth selectors and positive identity preservation.
+Missing method and explicit empty values fail with distinct structured client
+errors before factory creation; omitted identity can be resolved by the provider.
+Requested identity reaches the provider, but only verified identity enters the
+grant. Fast317 and full verify317 pass. Reproduce final probe from router-binding-vm
+with mutationLineRanges 4137-4140, testName `absent selector`, isolateTestFiles
+false and native library set: `selectors317-complete-probe` has four assertion
+kills, clean baselines. Earlier 3/4 evidence remains at `selectors317-probe`.
+This is targeted evidence, not a new full binding score.
+
+VM316 refreshes VM line coverage at `c32debab`: router 17,738/19,492 (91.001%),
+other package and packaging scores unchanged. Collector exit 0; full verify315
+covers the same code/test snapshot. Evidence `vm316-current` under the shared
+coverage evidence directory; 58 library and 12 packaging entries still
+unmeasured. Chain315 strict audit exits 1 with latest CI queued. Work315 pushed
+to both remotes with PR #93 comment. No broad mutation uplift is inferred.
+
 Work315 exercises the external JWT provider's route auth-method allowlist with
 rejecting ticket and accepting JWT profiles, exact response/dispatch assertions
 and exactly-once handshake ownership. Fast315, focused tests and full verify315
