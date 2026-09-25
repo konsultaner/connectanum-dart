@@ -1,6 +1,84 @@
 part of router_runtime_test;
 
 void registerHttpAdapterOptionCases() {
+  test('reverse proxy numeric aliases preserve minimum and recovery', () async {
+    final upstream = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    var requests = 0;
+    var bodyLength = 1;
+    final subscription = upstream.listen((request) async {
+      requests++;
+      request.response
+        ..statusCode = HttpStatus.ok
+        ..add(List<int>.filled(bodyLength, 65));
+      await request.response.close();
+    });
+    addTearDown(() async {
+      await subscription.cancel();
+      await upstream.close(force: true);
+    });
+    final optionsCases = <Map<String, Object?>>[
+      for (final value in [1, 1.9, ' 1 '])
+        {'max_response_bytes': value, 'maxResponseBytes': 2},
+      for (final value in [null, 'unknown', true, <String>[]])
+        {'max_response_bytes': value, 'maxResponseBytes': 1},
+      {'maxResponseBytes': 1},
+    ];
+    for (final options in optionsCases) {
+      final fixture = await _ProxyResponseFixture.start({
+        'target': 'http://${upstream.address.host}:${upstream.port}/',
+        ...options,
+      });
+      final initialRequests = requests;
+      for (final length in [1, 2, 1]) {
+        bodyLength = length;
+        final response = await fixture.request();
+        if (length == 1) {
+          expect(response.status, HttpStatus.ok, reason: '$options');
+          expect((response.body as NativeHttpResponseBytes).bytes, [65]);
+        } else {
+          expect(response.status, HttpStatus.badGateway, reason: '$options');
+          expect(
+            _jsonResponseBody(response)['reason'],
+            'reverse_proxy_response_too_large',
+          );
+        }
+      }
+      expect(requests, initialRequests + 3, reason: '$options');
+      expect(
+        fixture.events.where(
+          (event) => event['type'] == 'http_reverse_proxy_response_sent',
+        ),
+        hasLength(2),
+      );
+      expect(
+        fixture.events.where(
+          (event) => event['type'] == 'http_reverse_proxy_error',
+        ),
+        hasLength(1),
+      );
+      await fixture.binding.dispose();
+    }
+    for (final value in [0, -1, 0.9, ' 0 ']) {
+      final fixture = await _ProxyResponseFixture.start({
+        'target': 'http://${upstream.address.host}:${upstream.port}/',
+        'max_response_bytes': value,
+        'maxResponseBytes': 1,
+      });
+      final previousRequests = requests;
+      final response = await fixture.request();
+      expect(response.status, HttpStatus.badGateway);
+      expect(
+        _jsonResponseBody(response)['reason'],
+        'reverse_proxy_invalid_option',
+      );
+      expect(
+        requests,
+        previousRequests,
+        reason: 'Invalid first alias must not fall back or connect.',
+      );
+      await fixture.binding.dispose();
+    }
+  });
   test(
     'reverse proxy boolean aliases preserve precedence and fallback',
     () async {

@@ -35,6 +35,13 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work314 covers numeric proxy-option minimum equality, precedence, malformed
+fallback, invalid-value admission and exact/oversize/recovered upstream bodies.
+Fast314, focused test and full verify314 pass. `int314-probe` selects lines
+136-160 with `testName: reverse proxy numeric aliases` from router-binding-vm
+(isolateTestFiles false): four assertion kills, nine compile errors, clean
+baselines. No whole-binding score uplift is claimed; production is unchanged.
+
 Work313 addresses the boolean-parser survivor cluster with real reverse-proxy
 path/body/count assertions for 20 alias/value cases. Fast313, focused test and
 full verify313 pass. `bool313-probe` selects lines 105-134 of the unchanged

@@ -6,6 +6,16 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work314 verifies the proxy's minimum one-byte response limit with integer,
+fractional and string options, alias precedence/fallthrough, exact acceptance,
+oversize rejection and subsequent recovery. Invalid first aliases cannot fall
+back to valid later aliases or contact upstream. Fast314, focused regression
+and full verify314 pass (`/tmp/connectanum-fast314.log`,
+`/tmp/connectanum-options314.log`, `/tmp/connectanum-verify314.log`). Parser-only
+`int314-probe` selects 13 mutations: four assertion-only kills, nine compile
+errors, no survivors/timeouts; both baselines exit 0. This is not a whole-binding
+score. Review was checked against fixture deadlines and sequential requests.
+
 Work313 adds 20 real-upstream reverse-proxy boolean option cases: conflicting
 aliases prove recognized true/false precedence, casing/whitespace normalization,
 unknown/null/numeric/collection fallthrough and default behavior. Exact forwarded
