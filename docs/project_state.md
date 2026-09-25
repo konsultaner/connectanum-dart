@@ -1,10 +1,35 @@
 # Project State
 
-Last updated: 2026-09-24
+Last updated: 2026-09-25
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work313 adds 20 real-upstream reverse-proxy boolean option cases: conflicting
+aliases prove recognized true/false precedence, casing/whitespace normalization,
+unknown/null/numeric/collection fallthrough and default behavior. Exact forwarded
+URI, response body and one-request count are asserted. Fast313, focused test and
+full verify313 pass (`/tmp/connectanum-fast313.log`, `/tmp/connectanum-options313.log`,
+`/tmp/connectanum-verify313.log`). Parser-only `bool313-probe` selects 24 from the
+unchanged full inventory: 20 assertion-only kills, four compile errors, no
+survivors/timeouts, both baselines exit 0. Not a component-wide score. Local
+review checked serialized requests and first-recognized-key semantics. Binding312
+remains the prior full score, not a remeasurement of these tests.
+
+Binding312 completes the full `router-binding-vm` campaign at `54f716a6`:
+2,429 generated/selected, 1,822 viable, 607 compile errors, 657 survivors,
+416 timeouts, 749 conventional kills. Assertion evidence consists of 640
+assertion-only and 85 mixed outcomes (725 assertion-backed); 23 test-error-only
+and one unknown outcome receive no assertion credit. Raw/adjusted assertion
+score is 39.791%; conventional score 41.109% is not the acceptance metric.
+Both baseline exits are 0; native artifact unchanged; checked source and test
+hashes match the worktree. Complete report:
+`out/regression-coverage-2026-09-15/binding312-mutations/mutation-report.json`.
+Collector exit 1 correctly fails the 95% gate. Inventory311 had confirmed the
+same full scope and baselines before the campaign. This is binding-only evidence,
+not whole-router mutation coverage; targeted guard success does not supersede it.
+Prior full verify310 remains the verification for this unchanged snapshot.
 
 Work310 makes ownership regression progress independent of the mismatch guard's
 own diagnostic: await the asynchronously delivered pre-guard result event, then

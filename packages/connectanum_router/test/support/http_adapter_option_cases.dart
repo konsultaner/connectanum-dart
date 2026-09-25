@@ -2,6 +2,58 @@ part of router_runtime_test;
 
 void registerHttpAdapterOptionCases() {
   test(
+    'reverse proxy boolean aliases preserve precedence and fallback',
+    () async {
+      final upstream = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final requests = <String>[];
+      final subscription = upstream.listen((request) async {
+        requests.add(request.uri.toString());
+        request.response
+          ..statusCode = HttpStatus.ok
+          ..write(request.uri.path);
+        await request.response.close();
+      });
+      addTearDown(() async {
+        await subscription.cancel();
+        await upstream.close(force: true);
+      });
+      final cases = <(Map<String, Object?>, String)>[
+        for (final value in [false, 'false', '0', 'no', 'off', '  FaLsE  '])
+          (
+            {'strip_prefix': value, 'stripPrefix': true},
+            '/backend/api/resource',
+          ),
+        for (final value in [true, 'true', '1', 'yes', 'on', '  YeS  '])
+          ({'strip_prefix': value, 'stripPrefix': false}, '/backend/resource'),
+        for (final value in [null, '', 'unknown', 0, 1, <String>[]])
+          ({'strip_prefix': value, 'stripPrefix': true}, '/backend/resource'),
+        ({}, '/backend/api/resource'),
+        (
+          {'strip_prefix': 'unknown', 'stripPrefix': 'unknown'},
+          '/backend/api/resource',
+        ),
+      ];
+      for (final (options, expectedPath) in cases) {
+        final fixture = await _ProxyResponseFixture.start({
+          'target': 'http://${upstream.address.host}:${upstream.port}/backend',
+          ...options,
+        });
+        final previousCount = requests.length;
+        final response = await fixture.request();
+        expect(response.status, HttpStatus.ok, reason: '$options');
+        expect(requests.length, previousCount + 1, reason: '$options');
+        expect(requests.last, expectedPath, reason: '$options');
+        expect(
+          utf8.decode((response.body as NativeHttpResponseBytes).bytes),
+          expectedPath,
+          reason: '$options',
+        );
+        await fixture.binding.dispose();
+      }
+      expect(requests, hasLength(cases.length));
+    },
+  );
+  test(
     'handler route option aliases preserve configured callback identity',
     () async {
       const aliases = [

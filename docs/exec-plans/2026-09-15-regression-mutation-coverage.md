@@ -35,6 +35,25 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work313 addresses the boolean-parser survivor cluster with real reverse-proxy
+path/body/count assertions for 20 alias/value cases. Fast313, focused test and
+full verify313 pass. `bool313-probe` selects lines 105-134 of the unchanged
+binding source with `testName: reverse proxy boolean aliases`: 20 assertion-only
+kills, four compile errors, both baselines pass. Reproduce from router-binding-vm
+config with this line range/name and isolateTestFiles false, native library set.
+The full inventory is retained; this parser-only probe is not a replacement
+component score. Binding312 remains prior-snapshot evidence.
+
+Binding312 full campaign at `54f716a6` completed: 2,429 selected/generated,
+1,822 viable, 657 survivors, 416 timeouts, 607 compile errors. Of 749 conventional
+kills, 640 assertion-only plus 85 mixed are assertion-backed; 23 test-error-only
+and one unknown are not credited. Raw/adjusted assertion score 39.791%, no waiver,
+95% gate fails. Baseline/restored exits 0; native artifact unchanged; source/test
+hashes verified. Full evidence is `binding312-mutations/mutation-report.json`
+under `out/regression-coverage-2026-09-15`. This replaces reliance on narrow
+probes for planning binding work. Security-critical survivors and timeout causes
+need investigation; full verify310 passed for these unchanged inputs.
+
 Work310: ownership tests await pre-guard result delivery, not the diagnostic
 whose presence they assert. Fast310, focused tests and full verify310 pass.
 Guard-only probe `owner310-guard` yields three assertion kills, no survivors;
