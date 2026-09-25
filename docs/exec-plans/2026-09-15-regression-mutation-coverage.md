@@ -35,6 +35,15 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work320 covers direct JSON meta registration/subscription lifecycle through a
+live native router, across four isolated exact/prefix/wildcard patterns. Tests
+assert policy lookup, metadata, successful and rejected matches, missing URI
+validation and removal. Fast320, four focused tests and full verify320 pass.
+`pattern320-probe` uses router_mcp.dart lines 7655-7700, native integration tests
+with testName `MCP direct meta pattern`, isolateTestFiles false and native library
+set: 30 selected/viable, 30 assertion-only kills, clean baselines. Full generated
+inventory is 2,308; targeted 100% must not replace the missing whole-MCP score.
+
 Work319 strengthens TLS wire assertions: check status line before waiting for
 the fixed expected remainder. Open-producer regression requires the precise
 status assertion, not timeout/EOF. Fast319, all 13 response tests and full

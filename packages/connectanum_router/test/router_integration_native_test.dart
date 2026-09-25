@@ -998,6 +998,138 @@ void main() {
       skip: skipReason ?? _nativePublishSkipReason,
     );
 
+    for (final (policy, pattern, candidates) in [
+      ('exact', 'app.exact', [('app.exact', true), ('app.exact.child', false)]),
+      (
+        'prefix',
+        'app.branch',
+        [
+          ('app.branch', true),
+          ('app.branch.child', true),
+          ('other.branch.child', false),
+        ],
+      ),
+      (
+        'prefix',
+        'app.tree.',
+        [
+          ('app.tree.child', true),
+          ('app.tree.child.leaf', true),
+          ('app.tree', false),
+        ],
+      ),
+      (
+        'wildcard',
+        'app..leaf',
+        [
+          ('app.one.leaf', true),
+          ('app.two.leaf', true),
+          ('app.one.other', false),
+          ('other.one.leaf', false),
+          ('app.one.two.leaf', false),
+          ('app.leaf', false),
+        ],
+      ),
+    ]) {
+      test('MCP direct meta pattern $policy $pattern lifecycle', () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9110,
+          nativeLib: nativeLib,
+          settings: _buildRouterSettings(enableHttp3: false, enableMcp: true),
+        );
+        addTearDown(harness.dispose);
+        final service = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'pattern-service',
+          authRole: 'internal',
+        );
+        addTearDown(service.close);
+        final registration = await service.register(
+          pattern,
+          options: core.RegisterOptions(match: policy),
+        );
+        final subscription = await service.subscribe(
+          pattern,
+          options: core.SubscribeOptions(match: policy),
+        );
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+        Future<Map<String, Object?>> meta(
+          String method,
+          Map<String, Object?> params,
+        ) async {
+          final result = await _callRouterJsonMethod(
+            client,
+            harness.binding.listeners.single.port,
+            '/mcp',
+            method,
+            params,
+          );
+          expect(result['isError'], isFalse);
+          return (result['structuredContent'] as Map).cast<String, Object?>();
+        }
+
+        for (final (kind, id) in [
+          ('registration', registration.registrationId),
+          ('subscription', subscription.subscriptionId),
+        ]) {
+          final lookup = await meta('wamp.$kind.lookup', {
+            'uri': pattern,
+            'match': policy,
+          });
+          expect(lookup['arguments'], [id]);
+          final wrongPolicy = await meta('wamp.$kind.lookup', {
+            'uri': pattern,
+            'match': policy == 'exact' ? 'prefix' : 'exact',
+          });
+          expect(wrongPolicy['arguments'], isEmpty);
+          final details = await meta('wamp.$kind.get', {kind: id});
+          expect(details['argumentsKeywords'], containsPair('uri', pattern));
+          expect(details['argumentsKeywords'], containsPair('match', policy));
+          for (final (candidate, matches) in candidates) {
+            final result = await meta('wamp.$kind.match', {'uri': candidate});
+            expect(
+              result['arguments'],
+              matches ? [id] : isEmpty,
+              reason: '$kind $policy $pattern against $candidate',
+            );
+          }
+          final omitted = await _callRouterJsonMethod(
+            client,
+            harness.binding.listeners.single.port,
+            '/mcp',
+            'wamp.$kind.match',
+            {},
+          );
+          expect(omitted['isError'], isTrue);
+          expect(
+            jsonEncode(omitted['content']),
+            contains('must be a non-empty string'),
+          );
+        }
+        await service.unregister(registration.registrationId);
+        await service.unsubscribe(subscription.subscriptionId);
+        for (final (kind, id) in [
+          ('registration', registration.registrationId),
+          ('subscription', subscription.subscriptionId),
+        ]) {
+          final lookup = await meta('wamp.$kind.lookup', {
+            'uri': pattern,
+            'match': policy,
+          });
+          expect(lookup['arguments'], isEmpty);
+          final matched = await meta('wamp.$kind.match', {
+            'uri': candidates.first.$1,
+          });
+          expect(matched['arguments'], isEmpty);
+          final removed = await meta('wamp.$kind.get', {kind: id});
+          expect(removed['arguments'], [
+            'wamp.error.no_such_${kind == 'registration' ? 'procedure' : 'subscription'}',
+          ]);
+        }
+      });
+    }
+
     test('hosts MCP over HTTP using the router internal session', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9111,

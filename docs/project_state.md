@@ -6,6 +6,19 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work320 adds live direct-JSON MCP meta lifecycle tests for exact, prefix,
+trailing-dot prefix and wildcard registrations/subscriptions. They assert
+lookup policy filtering, exact IDs and metadata, positive and negative matches
+(including wrong wildcard arity/literals), validation of missing URI and removal
+without stale lookup/match/get results. Fast320, all four focused tests and full
+verify320 pass (`/tmp/connectanum-fast320.log`, `/tmp/connectanum-pattern320.log`,
+`/tmp/connectanum-verify320.log`). `pattern320-probe` selects 30 matching-helper
+mutations from 2,308 generated MCP mutations: all 30 viable and assertion-only
+killed, original/restored baselines 0. This is not a whole-MCP mutation score.
+Companion review suggestions about wildcard spelling and missing-resource errors
+were checked against the implementation and existing tests, not adopted blindly.
+Production behavior is unchanged; VM316 predates these new tests.
+
 Work319 validates HTTP/1 TLS response status bytes before reading the expected
 remainder. Previously, a shortened malformed status line could cause the test
 to wait for nonexistent bytes on keepalive rather than assert the wire mismatch.
