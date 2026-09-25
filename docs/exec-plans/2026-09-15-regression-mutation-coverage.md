@@ -35,6 +35,16 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work321 covers configured static resource/prompt HTTP wire values and alias
+precedence, including decoded binary bytes and argument/role/substitution output.
+Fast321, focused integration and full verify321 pass. Prompt probe uses
+router_mcp.dart lines 7258-7374 with native integration testName
+`MCP configured static content`, isolateTestFiles false and native library set.
+Final `static321-asserted-probe`: 25 selected, 21 viable, 16 assertion kills,
+five survivors, four compile errors, clean baselines, 76.190% (gate fails).
+Original probe is retained with test-error outcomes uncredited. Investigate
+remaining validation/description survivors; do not infer whole-MCP coverage.
+
 Work320 covers direct JSON meta registration/subscription lifecycle through a
 live native router, across four isolated exact/prefix/wildcard patterns. Tests
 assert policy lookup, metadata, successful and rejected matches, missing URI

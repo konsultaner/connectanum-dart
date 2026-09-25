@@ -1787,6 +1787,187 @@ void main() {
       expect(exact, isNotEmpty);
     }, skip: skipReason);
 
+    test(
+      'MCP configured static content preserves wire values and aliases',
+      () async {
+        final settings = _buildRouterSettings(
+          enableHttp3: false,
+          enableMcp: true,
+          mcpOptions: const {
+            'resources': [
+              {
+                'uri': 'app://binary',
+                'title': 'Binary sample',
+                'description': 'Three bytes',
+                'mimeType': 'application/octet-stream',
+                'size': 3,
+                'blob': 'AAH/',
+              },
+              {
+                'uri': 'app://text',
+                'content': 'content fallback',
+                'mime_type': 'text/plain',
+                'mimeType': 'ignored/type',
+              },
+            ],
+            'prompts': [
+              {
+                'name': 'content-only',
+                'content': 'Hello {{subject}} / {{subject}}',
+                'description': 'Catalog description',
+                'resultDescription': 'Result alias',
+                'arguments': [
+                  {
+                    'name': 'subject',
+                    'title': 'Subject',
+                    'description': 'Who to greet',
+                    'required': true,
+                  },
+                ],
+              },
+              {
+                'name': 'text-first',
+                'text': 'Primary',
+                'content': 'Ignored fallback',
+                'description': 'Default result',
+              },
+              {
+                'name': 'messages-first',
+                'text': 'Ignored text',
+                'result_description': 'Primary result',
+                'resultDescription': 'Ignored alias',
+                'arguments': [
+                  {'name': 'subject'},
+                ],
+                'messages': [
+                  {'content': 'Question {{subject}}'},
+                  {
+                    'role': 'assistant',
+                    'text': 'Answer {{subject}}',
+                    'content': 'Ignored content',
+                  },
+                ],
+              },
+            ],
+          },
+        );
+        expect(
+          Router(_buildConfig(), settings: settings).buildNativeConfigJson,
+          returnsNormally,
+        );
+        final harness = await _RouterHarness.start(
+          connectionId: 9114,
+          nativeLib: nativeLib,
+          settings: settings,
+        );
+        addTearDown(harness.dispose);
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+        Future<Map<String, Object?>> rpc(
+          String method,
+          Map<String, Object?> params,
+        ) async {
+          final response = await _postJson(
+            client,
+            harness.binding.listeners.single.port,
+            '/mcp',
+            {
+              'jsonrpc': '2.0',
+              'id': method,
+              'method': method,
+              'params': params,
+            },
+          );
+          expect(response.statusCode, HttpStatus.ok);
+          expect(response.json, isNot(contains('error')));
+          return (response.json!['result'] as Map).cast<String, Object?>();
+        }
+
+        final resources =
+            (await rpc('resources/list', {}))['resources'] as List;
+        final binary = resources.cast<Map>().singleWhere(
+          (r) => r['uri'] == 'app://binary',
+        );
+        expect(binary['name'], 'Binary sample');
+        expect(binary['title'], 'Binary sample');
+        expect(binary['description'], 'Three bytes');
+        expect(binary['mimeType'], 'application/octet-stream');
+        expect(binary['size'], 3);
+        final text = resources.cast<Map>().singleWhere(
+          (r) => r['uri'] == 'app://text',
+        );
+        expect(text['name'], 'app://text');
+        expect(text['mimeType'], 'text/plain');
+        final binaryRead = await rpc('resources/read', {'uri': 'app://binary'});
+        expect(binaryRead['contents'], [
+          {
+            'uri': 'app://binary',
+            'mimeType': 'application/octet-stream',
+            'blob': 'AAH/',
+          },
+        ]);
+        expect(
+          base64Decode(
+            ((binaryRead['contents'] as List).single as Map)['blob'] as String,
+          ),
+          [0, 1, 255],
+        );
+        expect(
+          (await rpc('resources/read', {'uri': 'app://text'}))['contents'],
+          [
+            {
+              'uri': 'app://text',
+              'mimeType': 'text/plain',
+              'text': 'content fallback',
+            },
+          ],
+        );
+        final prompts = (await rpc('prompts/list', {}))['prompts'] as List;
+        expect(prompts, hasLength(3));
+        final messagePrompt = prompts.cast<Map>().singleWhere(
+          (p) => p['name'] == 'messages-first',
+        );
+        expect(
+          ((messagePrompt['arguments'] as List).single as Map)['required'],
+          isNot(true),
+        );
+        final contentPrompt = prompts.cast<Map>().singleWhere(
+          (p) => p['name'] == 'content-only',
+        );
+        expect(contentPrompt['arguments'], [
+          {
+            'name': 'subject',
+            'title': 'Subject',
+            'description': 'Who to greet',
+            'required': true,
+          },
+        ]);
+        for (final (name, description, messages) in [
+          ('content-only', 'Result alias', [('user', 'Hello World / World')]),
+          ('text-first', 'Default result', [('user', 'Primary')]),
+          (
+            'messages-first',
+            'Primary result',
+            [('user', 'Question World'), ('assistant', 'Answer World')],
+          ),
+        ]) {
+          final result = await rpc('prompts/get', {
+            'name': name,
+            if (name != 'text-first') 'arguments': {'subject': 'World'},
+          });
+          expect(result['description'], description);
+          expect(result['messages'], [
+            for (final (role, text) in messages)
+              {
+                'role': role,
+                'content': {'type': 'text', 'text': text},
+              },
+          ]);
+        }
+      },
+      skip: skipReason,
+    );
+
     test('honors MCP route aliases and server identity metadata', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9113,

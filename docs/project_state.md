@@ -6,6 +6,20 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work321 adds live HTTP MCP static-resource and prompt configuration regressions:
+exact binary bytes/base64, size/MIME/title/name metadata, content fallback,
+snake/camel alias precedence, message roles, optional/required argument metadata
+and repeated substitution. Valid configuration is asserted before native startup.
+Fast321, focused integration and full verify321 pass (logs
+`/tmp/connectanum-fast321.log`, `/tmp/connectanum-static321.log`,
+`/tmp/connectanum-verify321.log`). `static321-asserted-probe` selects 25 prompt
+mutations: 21 viable, 16 assertion kills, five survivors, four compile errors,
+clean baselines; 76.190% targeted score fails the gate. Earlier `static321-probe`
+retains its eight assertion/seven test-error kills and six survivors. No test
+errors are credited. Remaining survivors concern missing-content rejection,
+completion validation, list growability and text-only result-description priority.
+No whole-component score or new line-coverage percentage is claimed.
+
 Work320 adds live direct-JSON MCP meta lifecycle tests for exact, prefix,
 trailing-dot prefix and wildcard registrations/subscriptions. They assert
 lookup policy filtering, exact IDs and metadata, positive and negative matches
