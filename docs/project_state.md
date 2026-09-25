@@ -6,6 +6,22 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work324 adds a real-socket native WebSocket rejection regression: invalid status
+leaves the handshake usable; default and multibyte UTF-8 bodies have exact wire
+bytes and Content-Length; consumed handles fail closed; a subsequent connection
+upgrades successfully on the same listener. Fast324, the focused regression and
+full verify324 pass (`/tmp/connectanum-fast324.log`,
+`/tmp/connectanum-native324.log`, `/tmp/connectanum-verify324.log`). Production
+unchanged; no new line or mutation percentage is claimed for this snapshot.
+
+VM323 completed at `43cd2b52`: libraries 40,095/42,927 (93.403%), router
+17,770/19,492 (91.166%), 32 additional covered lines since VM316. Other package
+and packaging scores are unchanged. Collector exit 0; full verify322 covers the
+same code/test snapshot. Evidence: `out/regression-coverage-2026-09-15/vm323-current`,
+log `/tmp/connectanum-coverage323.log`. Largest measured router gaps are binding
+324, native runtime 249 and MCP 213 lines. The 58 unmeasured library and 12
+packaging entries remain visible; no browser/native mutation evidence is implied.
+
 Work322 adds prompt contract validation for missing names/content, missing
 argument names, invalid message roles/text and undeclared completion arguments.
 A valid completion control still builds, and live HTTP completion asserts exact

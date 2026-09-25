@@ -35,6 +35,18 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work324 tests native WebSocket rejection over real sockets, exact default/UTF-8
+body bytes, invalid-status retry, consumed-handle rejection and subsequent
+listener upgrade recovery. Fast324, focused regression and full verify324 pass.
+No production change or new coverage/mutation percentage is inferred.
+
+VM323 refresh at `43cd2b52` completed successfully: 40,095/42,927 library lines
+(93.403%), router 17,770/19,492 (91.166%), other packages/packaging unchanged.
+Evidence is `vm323-current` under the shared evidence directory; verify322 is
+the full verification for the same code/test snapshot. Binding 324, native
+runtime 249 and MCP 213 remain the largest measured router gaps. Keep the 58
+library and 12 packaging unmeasured entries in scope. No cross-runtime credit.
+
 Work322 extends static prompt coverage with seven invalid config cases, a valid
 completion config, live matching/nonmatching completions and text-only result
 description precedence. Fast322, focused tests and full verify322 pass.

@@ -593,6 +593,122 @@ void main() {
       await socket.close();
     }, skip: skipReason);
 
+    test(
+      'websocket rejection preserves wire bytes and listener recovery',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
+        addTearDown(runtime.dispose);
+        try {
+          runtime.shutdown();
+        } catch (_) {}
+        runtime.start();
+        addTearDown(runtime.shutdown);
+        const configJson =
+            '{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"],"websocket_path":"/ws"}]}';
+        runtime.applyRouterConfig(Uint8List.fromList(utf8.encode(configJson)));
+        final listenerId = runtime.listen('127.0.0.1', 0);
+        final port = runtime.getLocalPort(listenerId);
+
+        for (final reason in ['', 'caf\u00e9 denied']) {
+          final socket = await Socket.connect('127.0.0.1', port);
+          addTearDown(socket.destroy);
+          final response = socket
+              .fold<List<int>>(
+                <int>[],
+                (bytes, chunk) => bytes..addAll(chunk),
+              )
+              .timeout(const Duration(seconds: 5));
+          await _sendWebSocketHandshakeRequest(
+            socket,
+            path: '/ws',
+            host: '127.0.0.1:$port',
+            protocols: const ['wamp.2.json'],
+          );
+          final connectionId = await _pollConnectionUntil(runtime, listenerId);
+          final handshake = await _takeWebSocketHandshakeUntil(
+            runtime,
+            connectionId,
+          );
+          addTearDown(handshake.release);
+          expect(
+            () => runtime.rejectWebSocket(
+              connectionId: connectionId,
+              handshakeHandle: handshake.handle,
+              status: 600,
+              reason: reason,
+            ),
+            throwsA(
+              isA<NativeTransportException>().having(
+                (error) => error.code,
+                'invalid status',
+                NativeTransportErrorCode.invalidArgument,
+              ),
+            ),
+          );
+          final handle = handshake.handle;
+          runtime.rejectWebSocket(
+            connectionId: connectionId,
+            handshakeHandle: handle,
+            status: 403,
+            reason: reason,
+          );
+          handshake.consume();
+          final body = reason.isEmpty ? 'websocket upgrade rejected' : reason;
+          expect(
+            await response,
+            utf8.encode(
+              'HTTP/1.1 403 Forbidden\r\nConnection: close\r\n'
+              'Content-Length: ${utf8.encode(body).length}\r\n\r\n$body',
+            ),
+          );
+          expect(
+            () => runtime.rejectWebSocket(
+              connectionId: connectionId,
+              handshakeHandle: handle,
+            ),
+            throwsA(
+              isA<NativeTransportException>().having(
+                (error) => error.code,
+                'consumed handshake',
+                NativeTransportErrorCode.handshakeConsumed,
+              ),
+            ),
+          );
+        }
+
+        final socket = await Socket.connect('127.0.0.1', port);
+        addTearDown(socket.destroy);
+        await _sendWebSocketHandshakeRequest(
+          socket,
+          path: '/ws',
+          host: '127.0.0.1:$port',
+          protocols: const ['wamp.2.json'],
+        );
+        final connectionId = await _pollConnectionUntil(runtime, listenerId);
+        final handshake = await _takeWebSocketHandshakeUntil(
+          runtime,
+          connectionId,
+        );
+        addTearDown(handshake.release);
+        runtime.acceptWebSocket(
+          connectionId: connectionId,
+          handshakeHandle: handshake.handle,
+          serializer: NativeMessageSerializer.json,
+          protocol: 'wamp.2.json',
+        );
+        handshake.consume();
+        expect(
+          await _readHttpResponse(socket),
+          contains('101 Switching Protocols'),
+        );
+        expect(
+          runtime.connectionWebSocketProtocol(connectionId),
+          'wamp.2.json',
+        );
+      },
+      skip: skipReason,
+    );
+
     test('websocket messages expose zero-copy payload slices', () async {
       final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
       final decoder = NativeMessageHandleDecoder(libraryPath: libraryPath);
