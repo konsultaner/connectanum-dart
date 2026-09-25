@@ -6,6 +6,27 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work319 validates HTTP/1 TLS response status bytes before reading the expected
+remainder. Previously, a shortened malformed status line could cause the test
+to wait for nonexistent bytes on keepalive rather than assert the wire mismatch.
+A dedicated open-producer regression requires the status assertion, not the
+timeout panic. Existing five-second TLS bounds and mutation classification are
+unchanged. Fast319, all 13 response tests and full verify319 pass (logs
+`/tmp/connectanum-fast319.log`, `/tmp/connectanum-response319.log`,
+`/tmp/connectanum-verify319.log`). Companion review was checked against the
+specific should-panic message, completed fixture write and Rust drop semantics.
+Native318 predates this test change; no new score is claimed.
+
+Native318 completed at `73a42462`: 187 generated, 169 viable, 149 assertion kills,
+19 errors, one survivor, 18 compile errors; raw/adjusted score 88.166%, no waivers.
+Both the full manifest and restored baseline (exit 0) are retained at
+`out/regression-coverage-2026-09-15/native318-protocol-mutations`. Collector exit 1
+correctly preserves evidenceClean=false. This supersedes native306 for protocol
+only, not whole-native evidence; full verify317 covers its source/test snapshot.
+The two additional kills follow the framing regressions. Remaining errors include
+real arithmetic panics and response/read failures, not automatic kill credit.
+Temporary campaign build storage was released normally; retained evidence remains.
+
 Work317 covers omitted versus empty HTTP auth selectors and preservation of a
 supplied identity. Missing method returns `missing_authmethod` before factory
 creation; explicit empty values return `invalid_auth_parameter`. Omitted identity

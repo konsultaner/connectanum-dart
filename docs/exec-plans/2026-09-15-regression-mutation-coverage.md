@@ -35,6 +35,19 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work319 strengthens TLS wire assertions: check status line before waiting for
+the fixed expected remainder. Open-producer regression requires the precise
+status assertion, not timeout/EOF. Fast319, all 13 response tests and full
+verify319 pass. Existing TLS deadlines and mutation classification are retained.
+No native mutation remeasurement of this test edit yet.
+
+Native318 full core-protocol campaign at `73a42462` completed with 187 generated,
+169 viable, 149 assertion kills, 19 errors, one survivor and 18 compile errors:
+raw/adjusted 88.166%, no waivers. Manifest complete, restored baseline exit 0,
+collector exit 1/evidenceClean false. Evidence directory
+`out/regression-coverage-2026-09-15/native318-protocol-mutations`; full verify317
+matches its snapshot. Keep the remaining errors visible; this is protocol-only.
+
 Work317 tests absent/empty auth selectors and positive identity preservation.
 Missing method and explicit empty values fail with distinct structured client
 errors before factory creation; omitted identity can be resolved by the provider.
