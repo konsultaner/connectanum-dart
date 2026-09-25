@@ -2186,7 +2186,9 @@ RouterSettings _buildRouterSettingsWithHttpAuthRealmPolicyBinding() {
   );
 }
 
-RouterSettings _buildRouterSettingsWithHttpJwtProvider() {
+RouterSettings _buildRouterSettingsWithHttpJwtProvider({
+  List<String> authMethods = const ['jwt'],
+}) {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
       RealmSettingsBuilder('realm1')
@@ -2210,7 +2212,7 @@ RouterSettings _buildRouterSettingsWithHttpJwtProvider() {
     ..addSessionProfileFromBuilder(
       SessionProfileSettingsBuilder('http-jwt')
         ..setRealm('realm1')
-        ..setAuthMethods(const ['jwt'])
+        ..setAuthMethods(authMethods)
         ..setHttpProvider('edge-jwt'),
     )
     ..addHttpAuthProvider(

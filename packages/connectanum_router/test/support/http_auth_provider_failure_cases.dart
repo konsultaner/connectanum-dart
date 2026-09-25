@@ -36,6 +36,101 @@ class _ThrowingHttpAuthenticator extends _RoundAuthenticator {
 }
 
 void _httpAuthProviderFailureTests() {
+  for (final allowedMethod in ['ticket', 'jwt']) {
+    test('external JWT provider obeys route method $allowedMethod', () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final binding =
+          Router(
+            RouterConfig(
+              endpoints: [
+                Endpoint(
+                  host: '127.0.0.1',
+                  port: 0,
+                  tlsMode: TlsMode.native,
+                  maxRawSocketSizeExponent: 16,
+                  sniCertificates: [_cert('localhost')],
+                ),
+              ],
+            ),
+            settings: _buildRouterSettingsWithHttpJwtProvider(
+              authMethods: [allowedMethod],
+            ),
+          ).start(
+            runtime,
+            onEvent: (event) {
+              if (event is Map<String, Object?>) events.add(event);
+            },
+          );
+      addTearDown(binding.dispose);
+      final callee = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'service',
+        authRole: 'internal',
+        roles: const {'callee': <String, Object?>{}},
+      );
+      final registration = await callee.register('com.example.api.jwt');
+      var invocations = 0;
+      registration.onInvoke((invocation) {
+        invocations++;
+        HttpInvocationContext.maybeFromInvocation(
+          invocation,
+        )!.sendText(body: 'authorized');
+      });
+      final jwt = _encodeHs256Jwt(
+        secret: 'jwt-secret',
+        claims: {
+          'sub': 'method-user',
+          'role': 'member',
+          'iss': 'https://issuer.example',
+          'aud': ['connectanum-http'],
+          'exp':
+              DateTime.now()
+                  .add(const Duration(minutes: 5))
+                  .millisecondsSinceEpoch ~/
+              1000,
+        },
+      );
+      final handshake = _HttpEdgeHandshake(
+        NativeHttpHandshake.synthetic(
+          handle: 32400,
+          method: 'GET',
+          target: '/api/jwt',
+          path: '/api/jwt',
+          protocol: 'http/1.1',
+          headers: {'authorization': 'Bearer $jwt'},
+          body: Uint8List(0),
+          realm: 'realm1',
+          procedure: 'com.example.api.jwt',
+        ),
+      );
+      runtime.setConnectionProtocol(32400, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        binding.listeners.single.listenerId,
+        32400,
+        handshake,
+      );
+      await _waitUntil(() => runtime.httpResponses[32400]?.isNotEmpty ?? false);
+      final response = runtime.httpResponses[32400]!.single;
+      if (allowedMethod == 'ticket') {
+        expect(response.status, HttpStatus.unauthorized);
+        expect(_jsonResponseBody(response)['reason'], 'wrong_authmethod');
+        expect(invocations, 0);
+        expect(
+          events.where((event) => event['type'] == 'http_request_dispatched'),
+          isEmpty,
+        );
+      } else {
+        expect(response.status, HttpStatus.ok);
+        expect((response.body as NativeHttpResponseText).text, 'authorized');
+        expect(invocations, 1);
+      }
+      await _waitUntil(() => handshake.releases > 0);
+      expect(handshake.releases, 1);
+      await binding.dispose();
+      expect(handshake.releases, 1);
+    });
+  }
   group('HTTP auth provider exceptions', () {
     setUp(AuthSecurityTracker.reset);
     tearDown(AuthSecurityTracker.reset);

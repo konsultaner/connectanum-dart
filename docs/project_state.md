@@ -6,6 +6,19 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work315 covers external JWT provider admission against the route authentication
+method allowlist: ticket-only rejects with `wrong_authmethod`, no dispatch or
+invocation; JWT admission returns the callee body. Both paths release their
+handshake exactly once, including disposal. Fast315, both focused tests and full
+verify315 pass (`/tmp/connectanum-fast315.log`, `/tmp/connectanum-auth315.log`,
+`/tmp/connectanum-verify315.log`). `method315-probe` selects eight mutations from
+the unchanged full binding inventory: four assertion-only kills, four compile
+errors, no survivors/timeouts, clean original/restored baselines. This addresses
+the security-critical allowlist survivor without changing production behavior;
+it is not a new whole-component score. Local review was checked against the
+fake runtime, per-test disposal and shared local JWT clock. Hosted CI for the
+previous pushed head remains queued, not confirmed green.
+
 Work314 verifies the proxy's minimum one-byte response limit with integer,
 fractional and string options, alias precedence/fallthrough, exact acceptance,
 oversize rejection and subsequent recovery. Invalid first aliases cannot fall

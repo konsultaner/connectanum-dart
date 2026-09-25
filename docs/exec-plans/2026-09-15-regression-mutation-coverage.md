@@ -35,6 +35,15 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work315 exercises the external JWT provider's route auth-method allowlist with
+rejecting ticket and accepting JWT profiles, exact response/dispatch assertions
+and exactly-once handshake ownership. Fast315, focused tests and full verify315
+pass. Reproduce `method315-probe` from router-binding-vm with mutationLineRanges
+5648-5651, testName `external JWT provider obeys`, isolateTestFiles false and the
+native library set: eight selected, four assertion-only kills, four compile
+errors, original/restored baselines exit 0. Full inventory and thresholds remain
+unchanged; Binding312 remains the prior full result. No production change.
+
 Work314 covers numeric proxy-option minimum equality, precedence, malformed
 fallback, invalid-value admission and exact/oversize/recovered upstream bodies.
 Fast314, focused test and full verify314 pass. `int314-probe` selects lines
