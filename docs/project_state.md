@@ -6,6 +6,19 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work322 adds prompt contract validation for missing names/content, missing
+argument names, invalid message roles/text and undeclared completion arguments.
+A valid completion control still builds, and live HTTP completion asserts exact
+prefix/no-match values, total and hasMore. Text-only prompts now assert result
+description alias priority. Fast322, both focused tests and full verify322 pass
+(`/tmp/connectanum-fast322.log`, `/tmp/connectanum-static322.log`,
+`/tmp/connectanum-verify322.log`). `static322-probe` retains the same 25 selected
+mutations: 21 viable, 20 assertion-only kills, one survivor, four compile errors,
+both baselines 0; raw/adjusted targeted score 95.238%, no waivers. The survivor
+changes growability of a local completion-name list; it remains visible and
+unwaived. This is not whole-MCP evidence. Review was checked against the live
+precedence assertion and configured completion ordering; production unchanged.
+
 Work321 adds live HTTP MCP static-resource and prompt configuration regressions:
 exact binary bytes/base64, size/MIME/title/name metadata, content fallback,
 snake/camel alias precedence, message roles, optional/required argument metadata

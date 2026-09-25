@@ -1816,6 +1816,9 @@ void main() {
                 'content': 'Hello {{subject}} / {{subject}}',
                 'description': 'Catalog description',
                 'resultDescription': 'Result alias',
+                'completions': {
+                  'subject': ['World', 'Worker', 'Else'],
+                },
                 'arguments': [
                   {
                     'name': 'subject',
@@ -1830,6 +1833,8 @@ void main() {
                 'text': 'Primary',
                 'content': 'Ignored fallback',
                 'description': 'Default result',
+                'result_description': 'Text result',
+                'resultDescription': 'Ignored text alias',
               },
               {
                 'name': 'messages-first',
@@ -1924,6 +1929,19 @@ void main() {
         );
         final prompts = (await rpc('prompts/list', {}))['prompts'] as List;
         expect(prompts, hasLength(3));
+        for (final (prefix, values) in [
+          ('Wo', ['World', 'Worker']),
+          ('Z', <String>[]),
+        ]) {
+          final completion = await rpc('completion/complete', {
+            'ref': {'type': 'ref/prompt', 'name': 'content-only'},
+            'argument': {'name': 'subject', 'value': prefix},
+          });
+          final result = completion['completion'] as Map;
+          expect(result['values'], values);
+          expect(result['total'], values.length);
+          expect(result['hasMore'], isFalse);
+        }
         final messagePrompt = prompts.cast<Map>().singleWhere(
           (p) => p['name'] == 'messages-first',
         );
@@ -1944,7 +1962,7 @@ void main() {
         ]);
         for (final (name, description, messages) in [
           ('content-only', 'Result alias', [('user', 'Hello World / World')]),
-          ('text-first', 'Default result', [('user', 'Primary')]),
+          ('text-first', 'Text result', [('user', 'Primary')]),
           (
             'messages-first',
             'Primary result',

@@ -35,6 +35,15 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work322 extends static prompt coverage with seven invalid config cases, a valid
+completion config, live matching/nonmatching completions and text-only result
+description precedence. Fast322, focused tests and full verify322 pass.
+`static322-probe` keeps lines 7258-7374 and the static-content test filter, adding
+router_json_test.dart to the native integration test input: 25 selected, 21
+viable, 20 assertion-only kills, one survivor, four compile errors, clean
+baselines. Raw/adjusted targeted score 95.238%. Local-list growability survivor
+is not waived. No whole-component score or line-coverage uplift is inferred.
+
 Work321 covers configured static resource/prompt HTTP wire values and alias
 precedence, including decoded binary bytes and argument/role/substitution output.
 Fast321, focused integration and full verify321 pass. Prompt probe uses

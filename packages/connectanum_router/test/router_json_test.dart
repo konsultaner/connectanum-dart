@@ -776,6 +776,80 @@ void main() {
       );
     });
 
+    test(
+      'MCP configured static content rejects incomplete prompt contracts',
+      () {
+        for (final (prompt, message) in <(Map<String, Object?>, String)>[
+          ({'text': 'hello'}, 'MCP prompt config requires name'),
+          ({'name': 'missing'}, 'requires messages, text, or content'),
+          (
+            {'name': 'empty', 'messages': [], 'text': ''},
+            'requires messages, text, or content',
+          ),
+          (
+            {
+              'name': 'bad-argument',
+              'text': 'hello',
+              'arguments': [{}],
+            },
+            'MCP prompt argument config requires name',
+          ),
+          (
+            {
+              'name': 'bad-role',
+              'messages': [
+                {'role': 'system', 'text': 'hello'},
+              ],
+            },
+            'MCP prompt message role must be user or assistant',
+          ),
+          (
+            {
+              'name': 'bad-message',
+              'messages': [
+                {'role': 'user'},
+              ],
+            },
+            'MCP prompt message config requires text',
+          ),
+          (
+            {
+              'name': 'undeclared',
+              'text': 'hello',
+              'arguments': [
+                {'name': 'known'},
+              ],
+              'completions': {
+                'unknown': ['value'],
+              },
+            },
+            'completions for undeclared arguments: unknown',
+          ),
+        ]) {
+          _expectInvalidMcpOptions({
+            'prompts': [prompt],
+          }, message);
+        }
+        expect(
+          _routerWithMcpOptions({
+            'prompts': [
+              {
+                'name': 'valid',
+                'content': 'hello',
+                'arguments': [
+                  {'name': 'known'},
+                ],
+                'completions': {
+                  'known': ['value'],
+                },
+              },
+            ],
+          }).buildNativeConfigJson,
+          returnsNormally,
+        );
+      },
+    );
+
     test('validates MCP prompt options while building native config', () {
       final router = _routerWithMcpOptions({
         'prompts': [
