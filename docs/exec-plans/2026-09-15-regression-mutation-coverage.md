@@ -35,6 +35,22 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work330 adds 18 synthetic HTTP auth success/refresh metadata cases covering
+provider selection, details, verified identity, token rotation/expiry and disabled
+refresh. Fast330 and verify330 pass. Final `provider330-expiry-probe` retains 13
+selected/11 viable outcomes: five assertion kills, two timeouts, four survivors,
+two compile failures, clean baselines, 45.455% raw/adjusted assertion score. The
+disabled controls expose uncredited optional-field null-dereference timeouts;
+earlier `provider330-probe` is retained but not substituted for final evidence.
+Cleanup-guard survivors remain in the probe scope. No whole-binding score claimed.
+
+VM329 refresh at `e126cc2d` completed with collector exit 0: 40,120/42,927
+(93.461%) overall and 17,795/19,492 (91.294%) router; 25 additional measured
+covered lines versus VM323, 22 in native runtime. Other packages/packaging
+unchanged. Evidence: `vm329-current`; full verify328 covers the same snapshot.
+Binding 324, native runtime 227 and MCP 212 remain largest router gaps; 58
+unmeasured library files and 12 packaging entries remain in scope.
+
 Work328 covers native hook artifact selection/recovery, timestamp precedence,
 search depth and link exclusion with isolated filesystem fixtures. Windows link
 creation is explicitly unverified. Fast328, focused tests and verify328 pass.

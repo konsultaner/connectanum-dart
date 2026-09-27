@@ -6,6 +6,30 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work330 adds 18 HTTP authentication metadata regressions across immediate and
+challenged success: provider aliases/precedence, blank and non-string values,
+empty/nested details, verified identity, token expiry fields, refresh rotation
+and refresh-disabled field omission. Fast330, focused cases and full verify330
+pass (`/tmp/connectanum-fast330.log`, `/tmp/connectanum-provider330.log`,
+`/tmp/connectanum-verify330.log`). The focused initial log covers 16 cases; full
+verification and mutation baselines also cover the two added disabled cases.
+`provider330-expiry-probe` has 13 selected, 11 viable: five assertion kills,
+two uncredited timeouts, four cleanup-guard survivors, two compile failures;
+clean baselines, raw/adjusted assertion score 45.455%, gate fails. Disabled-refresh
+controls expose null-dereference/timeouts in inverted optional-field mutants;
+do not discard those outcomes in favor of the earlier 54.545% probe. Both reports
+are retained. Synthetic HTTP handler evidence only; production unchanged.
+
+VM329 completed at `e126cc2d`: 40,120/42,927 library lines (93.461%), router
+17,795/19,492 (91.294%). Compared with VM323, this run measures 25 additional
+covered lines, including 22 in native runtime; no cross-runtime credit. Other
+package totals and packaging percentages are unchanged. Collector exit 0;
+verify328 covers the same code/test snapshot. Evidence:
+`out/regression-coverage-2026-09-15/vm329-current`, log
+`/tmp/connectanum-coverage329.log`. Largest measured router gaps: binding 324,
+native runtime 227, MCP 212. Keep 58 unmeasured library files and 12 packaging
+entries visible; the >=98% per-component milestone remains unmet.
+
 Work328 adds native loader regressions for newest complete hook artifacts,
 stray/incomplete build entries, ancestor fallback, nearest-workspace precedence,
 deletion recovery, bounded search depth and linked-directory exclusion. The link

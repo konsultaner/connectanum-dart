@@ -2894,6 +2894,161 @@ void _httpRoundAuthenticationTests() {
     setUp(AuthSecurityTracker.reset);
     tearDown(AuthSecurityTracker.reset);
 
+    final providerCases = <String, (Map<String, Object?>, String?)>{
+      'empty details': ({}, null),
+      'primary wins': (
+        {
+          'authprovider': ' primary ',
+          'provider': 'second',
+          'auth_provider': 'third',
+        },
+        'primary',
+      ),
+      'provider fallback': (
+        {'authprovider': null, 'provider': ' second '},
+        'second',
+      ),
+      'snake fallback': (
+        {'provider': null, 'auth_provider': ' third '},
+        'third',
+      ),
+      'blank primary blocks fallback': (
+        {'authprovider': '  ', 'provider': 'second'},
+        null,
+      ),
+      'nonstring primary blocks fallback': (
+        {'authprovider': 7, 'provider': 'second'},
+        null,
+      ),
+      'blank secondary blocks fallback': (
+        {'provider': '', 'auth_provider': 'third'},
+        null,
+      ),
+      'unrelated details': (
+        {
+          'verified': true,
+          'nested': {'value': 3},
+        },
+        null,
+      ),
+    };
+    for (final challenged in [false, true]) {
+      test(
+        'provider metadata omits disabled refresh challenged=$challenged',
+        () async {
+          Future<AuthResult> success() async => AuthResult.success(
+            const AuthSuccess(authId: 'verified-user', authRole: 'member'),
+          );
+          final auth = _RoundAuthenticator()..authenticate = success;
+          if (!challenged) auth.hello = success;
+          final fixture = await _HttpRoundFixture.start(
+            [auth],
+            settings: _buildRouterSettingsWithHttpAuthBridge(
+              refreshTokenTtlMs: 0,
+            ),
+          );
+          final initial = await fixture.hello();
+          final response = challenged
+              ? await fixture.reply(_expectRoundChallenge(initial, 1))
+              : initial;
+          expect(response.status, HttpStatus.ok);
+          final body = _jsonResponseBody(response);
+          expect(body['authid'], 'verified-user');
+          expect(body['authrole'], 'member');
+          expect(body['authmethod'], 'ticket');
+          expect(
+            body['access_token'],
+            isA<String>().having((value) => value.isNotEmpty, 'nonempty', true),
+          );
+          expect(
+            body['expires_in'],
+            allOf(isA<int>(), greaterThan(0), lessThanOrEqualTo(60)),
+          );
+          for (final field in [
+            'refresh_token',
+            'refresh_token_expires_in',
+            'authprovider',
+            'details',
+            'state',
+          ]) {
+            expect(body, isNot(contains(field)));
+          }
+          expect(auth.messages, hasLength(challenged ? 1 : 0));
+        },
+      );
+      for (final entry in providerCases.entries) {
+        test(
+          'provider metadata ${entry.key} challenged=$challenged survives refresh',
+          () async {
+            final (details, provider) = entry.value;
+            Future<AuthResult> success() async => AuthResult.success(
+              AuthSuccess(
+                authId: 'verified-user',
+                authRole: 'member',
+                details: details,
+              ),
+            );
+            final auth = _RoundAuthenticator()..authenticate = success;
+            if (!challenged) auth.hello = success;
+            final fixture = await _HttpRoundFixture.start([auth]);
+            final initial = await fixture.hello();
+            final response = challenged
+                ? await fixture.reply(_expectRoundChallenge(initial, 1))
+                : initial;
+            Map<String, Object?> assertSuccess(NativeHttpResponse response) {
+              expect(response.status, HttpStatus.ok);
+              final body = _jsonResponseBody(response);
+              expect(body['status'], 'ok');
+              expect(body['authid'], 'verified-user');
+              expect(body['authrole'], 'member');
+              expect(body['authmethod'], 'ticket');
+              expect(body['realm'], 'realm1');
+              expect(body['token_type'], 'Bearer');
+              expect(
+                body['expires_in'],
+                allOf(isA<int>(), greaterThan(0), lessThanOrEqualTo(60)),
+              );
+              expect(
+                body['refresh_token_expires_in'],
+                allOf(isA<int>(), greaterThan(0), lessThanOrEqualTo(300)),
+              );
+              expect(
+                body['access_token'],
+                isA<String>().having((v) => v.isNotEmpty, 'nonempty', true),
+              );
+              expect(
+                body['refresh_token'],
+                isA<String>().having((v) => v.isNotEmpty, 'nonempty', true),
+              );
+              expect(body, isNot(contains('state')));
+              if (provider == null) {
+                expect(body, isNot(contains('authprovider')));
+              } else {
+                expect(body['authprovider'], provider);
+              }
+              if (details.isEmpty) {
+                expect(body, isNot(contains('details')));
+              } else {
+                expect(body['details'], details);
+              }
+              return body;
+            }
+
+            final issued = assertSuccess(response);
+            final refreshed = assertSuccess(
+              await fixture.post({
+                'grant_type': 'refresh_token',
+                'refresh_token': issued['refresh_token'],
+              }),
+            );
+            expect(refreshed['access_token'], isNot(issued['access_token']));
+            expect(refreshed['refresh_token'], isNot(issued['refresh_token']));
+            expect(auth.messages, hasLength(challenged ? 1 : 0));
+          },
+        );
+      }
+    }
+
     test(
       'poll deadline is an uncredited timeout, not an assertion failure',
       () async {
