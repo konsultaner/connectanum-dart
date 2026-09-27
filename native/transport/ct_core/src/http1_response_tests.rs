@@ -109,12 +109,22 @@ async fn assert_response_bytes(reader: &mut (impl AsyncRead + Unpin), expected: 
         }
     }
     assert_eq!(status, expected[..status_end], "HTTP/1 status line");
-    let mut remaining = vec![0; expected.len() - status_end];
+    let header_end = expected
+        .windows(4)
+        .position(|bytes| bytes == b"\r\n\r\n")
+        .expect("expected response has a complete header")
+        + 4;
+    let mut header = status;
+    while header.len() < header_end && !header.ends_with(b"\r\n\r\n") {
+        header.push(reader.read_u8().await.expect("HTTP/1 header byte"));
+    }
+    assert_eq!(header, expected[..header_end], "HTTP/1 header block");
+    let mut remaining = vec![0; expected.len() - header_end];
     reader
         .read_exact(&mut remaining)
         .await
         .expect("HTTP/1 response remainder");
-    assert_eq!(remaining, expected[status_end..]);
+    assert_eq!(remaining, expected[header_end..]);
 }
 
 #[tokio::test]
@@ -128,6 +138,23 @@ async fn http1_short_status_is_asserted_before_waiting_for_body() {
     )
     .await
     .expect("status validation must not wait for body or EOF");
+    drop(producer);
+}
+
+#[tokio::test]
+#[should_panic(expected = "HTTP/1 header block")]
+async fn http1_short_header_is_asserted_before_waiting_for_body() {
+    let (mut producer, mut reader) = tokio::io::duplex(128);
+    producer
+        .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n")
+        .await
+        .unwrap();
+    timeout(
+        Duration::from_secs(1),
+        assert_response_bytes(&mut reader, &expected_response(false, b"body")),
+    )
+    .await
+    .expect("header validation must not wait for body or EOF");
     drop(producer);
 }
 

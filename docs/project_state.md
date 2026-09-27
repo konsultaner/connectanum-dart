@@ -6,6 +6,25 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work327 validates the full HTTP/1 header block before waiting for response body
+bytes in the native TLS test oracle. A complete but shortened header on an open
+producer must trigger the specific header assertion, not timeout or EOF. Status,
+body and five-second completion checks remain intact. Fast327, all 14 focused
+response tests and full verify327 pass (`/tmp/connectanum-fast327.log`,
+`/tmp/connectanum-response327.log`, `/tmp/connectanum-verify327.log`). No production
+or mutation-classification change; native326 predates this test strengthening.
+Local review confirmed the shorter complete header is detected before body reads.
+
+Native326 completed at `41ecf894`: 187 generated, 169 viable, 150 assertion
+kills, 18 errors, one survivor and 18 compile failures. Raw/adjusted score is
+88.757%, no waivers; restored baseline exit 0, complete manifest, audit exit 1
+with evidenceClean=false. Evidence: `out/regression-coverage-2026-09-15/native326-protocol-mutations`,
+log `/tmp/connectanum-native326.log`. This adds one assertion kill over native318
+after the TLS status-line oracle change; full verify325 covers this snapshot.
+Remaining uncredited errors involve HTTP response writes, error classification,
+request/header parsing and arithmetic panics. The 200 reason-phrase arm survivor
+remains unwaived. This is protocol-only evidence, not whole-native completion.
+
 Work325 explicitly asserts successful return from valid WebSocket rejection.
 The initial `rejection325-probe` detected two assertion kills and one test error
 among three selected mutations (66.667% assertion score); no error credit is

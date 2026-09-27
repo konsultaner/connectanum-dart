@@ -35,6 +35,20 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work327 checks complete HTTP/1 headers before body reads in the TLS oracle and
+adds an open-producer short-header regression requiring the exact assertion.
+Fast327, 14 focused response tests and full verify327 pass. No production changes,
+timeout credit, relaxed deadline or mutation-classification changes. Native326
+is retained as older evidence; no new mutation percentage is inferred.
+
+Native326 full protocol refresh at `41ecf894` completed: 187 generated, 169 viable,
+150 assertion kills, 18 errors, one survivor, 18 compile failures; 88.757%
+raw/adjusted score, no waivers. Complete manifest and restored baseline exit 0;
+audit correctly fails evidence cleanliness/95% gate. Evidence is retained in
+`native326-protocol-mutations`; verify325 covers the same snapshot. Follow up
+remaining HTTP write/read/classification error outcomes without granting crash
+credit or weakening tests. The reason-phrase 200 arm survivor remains visible.
+
 Work325 strengthens the valid WebSocket rejection success oracle. The initial
 three-mutant probe has two assertion kills and one uncredited test error; the
 asserted probe has three assertion kills, clean baselines, no waivers and 100%
