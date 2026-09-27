@@ -35,6 +35,12 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work331 verifies refresh expiry with a still-live access token, capacity recovery,
+old-credential rejection and successful replacement access. Fast331, focused
+regression and verify331 pass. Targeted `expiry331-probe` has four viable mutants,
+two assertion kills and two survivors (50% raw/adjusted); no whole-component
+score or runtime coverage increase is inferred. The acceptance gates remain open.
+
 Work330 adds 18 synthetic HTTP auth success/refresh metadata cases covering
 provider selection, details, verified identity, token rotation/expiry and disabled
 refresh. Fast330 and verify330 pass. Final `provider330-expiry-probe` retains 13

@@ -26,6 +26,98 @@ void _httpAuthAbortTests() {
     setUp(AuthSecurityTracker.reset);
     tearDown(AuthSecurityTracker.reset);
 
+    test(
+      'expired refresh revokes live access and reclaims grant capacity',
+      () async {
+        final first = _RoundAuthenticator()
+          ..hello = () async => _RoundAuthenticator.success();
+        final replacement = _RoundAuthenticator()
+          ..hello = () async => _RoundAuthenticator.success();
+        final fixture = await _HttpRoundFixture.start(
+          [first, replacement],
+          settings: _buildRouterSettingsWithHttpAuthBridge(
+            tokenTtlMs: 60000,
+            refreshTokenTtlMs: 500,
+            maxHttpAuthGrants: 1,
+          ),
+        );
+        final service = await fixture.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'service',
+          authRole: 'internal',
+        );
+        addTearDown(service.close);
+        var calls = 0;
+        final registration = await service.register('com.example.api.secure');
+        registration.onInvoke((invocation) {
+          calls++;
+          HttpInvocationContext.maybeFromInvocation(
+            invocation,
+          )!.sendText(body: 'authorized', status: HttpStatus.ok);
+        });
+        Future<NativeHttpResponse> call(String token) async {
+          final connection = fixture.nextConnection++;
+          _enqueueSyntheticHttpRequest(
+            runtime: fixture.runtime,
+            listenerId: fixture.binding.listeners.single.listenerId,
+            connectionId: connection,
+            handle: connection,
+            method: 'POST',
+            target: '/api/secure',
+            headers: {'authorization': 'Bearer $token'},
+            body: null,
+            realm: 'realm1',
+            procedure: 'com.example.api.secure',
+          );
+          await _waitUntil(
+            () =>
+                fixture.runtime.httpResponses[connection]?.isNotEmpty ?? false,
+          );
+          return fixture.runtime.httpResponses[connection]!.single;
+        }
+
+        final issuedResponse = await fixture.hello();
+        expect(issuedResponse.status, HttpStatus.ok);
+        final issued = _jsonResponseBody(issuedResponse);
+        final access = issued['access_token'] as String;
+        final refresh = issued['refresh_token'] as String;
+        expect((await call(access)).status, HttpStatus.ok);
+        expect(calls, 1);
+        _expectRoundError(
+          await fixture.hello(),
+          'auth_grant_capacity_exhausted',
+          status: HttpStatus.serviceUnavailable,
+        );
+        expect(replacement.helloContext, isNull);
+        await Future<void>.delayed(const Duration(milliseconds: 650));
+
+        final renewedResponse = await fixture.hello();
+        expect(renewedResponse.status, HttpStatus.ok);
+        final renewed = _jsonResponseBody(renewedResponse);
+        expect(renewed['access_token'], isNot(access));
+        expect(renewed['refresh_token'], isNot(refresh));
+        expect(replacement.helloContext, isNotNull);
+        final denied = await call(access);
+        expect(denied.status, HttpStatus.unauthorized);
+        expect(_jsonResponseBody(denied)['reason'], 'invalid_token');
+        expect(calls, 1);
+        _expectRoundError(
+          await fixture.post({
+            'grant_type': 'refresh_token',
+            'refresh_token': refresh,
+          }),
+          'invalid_refresh_token',
+        );
+        expect(
+          (await call(renewed['access_token'] as String)).status,
+          HttpStatus.ok,
+        );
+        expect(calls, 2);
+        expect(first.messages, isEmpty);
+        expect(replacement.messages, isEmpty);
+      },
+    );
+
     for (final failAbort in [false, true]) {
       for (final profile in [false, true]) {
         for (final rotated in [false, true]) {

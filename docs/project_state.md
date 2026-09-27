@@ -6,6 +6,15 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work331 adds an HTTP refresh-expiry regression: a shorter-lived refresh grant
+revokes its still-live access token, releases grant capacity, rejects old refresh
+credentials and permits a fresh authenticated call. Fast331, the focused case
+and full verify331 pass. `expiry331-probe` retains four selected/viable cleanup
+guard mutants: two assertion kills and two survivors, 50% raw/adjusted score;
+the 95% gate remains unmet. Evidence: `/tmp/connectanum-verify331.log` and
+`out/regression-coverage-2026-09-15/expiry331-probe`. This is synthetic HTTP
+handler evidence, not a refreshed whole-binding or coverage percentage.
+
 Work330 adds 18 HTTP authentication metadata regressions across immediate and
 challenged success: provider aliases/precedence, blank and non-string values,
 empty/nested details, verified identity, token expiry fields, refresh rotation
