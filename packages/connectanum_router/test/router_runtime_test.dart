@@ -50,6 +50,7 @@ part 'support/http_early_cleanup_cases.dart';
 part 'support/http_boss_ownership_cases.dart';
 part 'support/internal_close_cases.dart';
 part 'support/internal_call_lifecycle_cases.dart';
+part 'support/internal_publish_filter_cases.dart';
 part 'support/http_adapter_option_cases.dart';
 
 const _certificatePem =
@@ -4095,6 +4096,7 @@ void _fileResponseCleanupTests() {
 }
 
 void main() {
+  _internalPublishFilterCases();
   registerHttpAdapterOptionCases();
   _internalCallLifecycleCases();
   _internalCloseCases();

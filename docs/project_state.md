@@ -6,6 +6,27 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work337 adds 11 internal-publication recipient-filter regressions covering
+session/auth-id/role eligibility and exclusion, empty lists, self-delivery and
+combined selectors. A subsequent unfiltered publication is an ordering barrier
+for exact delivery assertions; named roles have explicit permissions. New test
+parts are pinned in all affected mutation targets. Fast337, focused tests and
+final verify337 pass (`/tmp/connectanum-verify337-final.log`); initial verify
+attempts caught formatting and the missing support-file inventory, both fixed.
+Final `filter337-final-probe`: 24 viable, 14 assertion kills, ten survivors,
+58.333% raw/adjusted, clean baselines, no waivers/error credit. Initial probe is
+retained separately. No updated whole-component coverage or mutation claim.
+
+VM336 at `311155a6` completed with collector exit 0: 40,166/42,927 library
+lines (93.568%); router 17,840/19,492 (91.525%), core 6,849/7,258 (94.365%).
+Compared with VM329, net coverage increases 46 lines: internal session +45,
+binding +3, JSON serializer +1, boss -2 and MCP -1. Do not attribute every small
+run-to-run change to the new tests. Other package totals and packaging remain
+unchanged; 58 library files and 12 packaging entries are still unmeasured.
+Evidence: `out/regression-coverage-2026-09-15/vm336-current`, log
+`/tmp/connectanum-coverage336.log`; verify335 matches the source/test snapshot.
+The per-component/runtime 98% gate remains unmet.
+
 Work335 adds real WebSocket internal-publisher/external-subscriber regressions
 for JSON and MessagePack. Two consecutive events assert publication/subscription
 identity, disclosed publisher, topic, trust level, custom nested metadata and

@@ -35,6 +35,20 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work337 adds 11 recipient-filter cases with explicit role permissions and
+publication barriers; all new test parts are pinned in mutation support files.
+Fast337, focused cases and final verify337 pass after correcting formatting and
+inventory failures. `filter337-final-probe` retains 24 viable outcomes: 14
+assertion kills, ten survivors, 58.333% raw/adjusted, clean baselines/no waivers.
+The earlier probe remains retained; no whole-component score is inferred.
+
+VM336 at `311155a6` completes successfully: 40,166/42,927 (93.568%) overall,
+router 17,840/19,492 (91.525%), core 6,849/7,258 (94.365%). Internal-session
+coverage increases 45 lines; net project gain is 46 versus VM329, including
+small positive/negative changes elsewhere. Packaging unchanged; 58 library and
+12 packaging sources remain unmeasured. Evidence: `vm336-current`; verify335
+matches. Whole-project acceptance remains incomplete.
+
 Work335 exercises internal-to-external publication over real JSON/MessagePack
 WebSockets, asserting nested binary payloads, metadata, identities, consecutive
 delivery and unsubscribe completion. Fast335, two focused tests and verify335
