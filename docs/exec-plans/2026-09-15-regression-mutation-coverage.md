@@ -35,6 +35,18 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work340 adds 22 binary PPT empty-fragment precedence cases and a valid-wire
+assertion. Fast340, focused VM/JS and verify340 pass. Final MessagePack and CBOR
+probes each score 6/7 assertion kills (85.714% raw/adjusted), with clean baselines
+and one unwaived buffer-copy survivor. Initial error-only outcomes remain in
+separate evidence directories; no errors are credited. No new component-wide
+coverage or mutation score is inferred.
+
+Browser339 at `2f680e1b` passes: JS client 97.132%, core 96.483%, combined
+96.659%; unchanged scores, 159 unmeasured library files retained. MessagePack
+serializer (95 lines) and client session (54) are largest measured gaps. Evidence:
+`browser339-current`; verify338 matches. No WASM measurement credit.
+
 Work338 covers lazy null/type-shape decoding and subsequent valid call recovery
 for JSON, MessagePack and CBOR in nine regressions. Fast338, focused tests and
 verify338 pass. `decode338-probe`: ten selected/six viable, six assertion kills,

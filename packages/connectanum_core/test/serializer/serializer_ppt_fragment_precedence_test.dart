@@ -38,6 +38,7 @@ void main() {
   for (final harness in harnesses) {
     final argumentCases = <(String, Uint8List?, Object?)>[
       ('materialized', null, materializedArgs),
+      if (harness.name != 'json') ('zero-length fragment', Uint8List(0), null),
       ('null', harness.encode(null), null),
       ('empty list', harness.encode(<Object?>[]), <Object?>[]),
       (
@@ -61,6 +62,7 @@ void main() {
     ];
     final keywordCases = <(String, Uint8List?, Object?)>[
       ('materialized', null, materializedKwargs),
+      if (harness.name != 'json') ('zero-length fragment', Uint8List(0), null),
       ('null', harness.encode(null), null),
       ('empty map', harness.encode(<String, Object?>{}), <String, Object?>{}),
       (
@@ -97,7 +99,13 @@ void main() {
               ),
               returnsNormally,
             );
-            expect(harness.decode(direct!), expected);
+            Object? decodedWire;
+            expect(
+              () => decodedWire = harness.decode(direct!),
+              returnsNormally,
+              reason: 'Serialized fragments must produce a valid wire payload',
+            );
+            expect(decodedWire, expected);
             final public = PPTPayload.packSerializedPayload(
               harness.name,
               argumentsBytes: guardedArgs?.view,

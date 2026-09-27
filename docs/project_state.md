@@ -6,6 +6,25 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work340 adds 22 MessagePack/CBOR zero-length PPT fragment combinations to the
+independent precedence matrix, including mixed materialized/encoded values and
+guarded input views. Valid wire decoding is asserted before exact payload values.
+Fast340, the 100-case focused VM/JS suite and verify340 pass
+(`/tmp/connectanum-verify340.log`). Final `ppt340-msgpack-final-probe` and
+`ppt340-cbor-final-probe` each retain seven viable mutants, six assertion kills
+and one unwaived buffer-copy survivor: 85.714% raw/adjusted, clean baselines,
+no error credit. Initial probes retained two error-only kills each; final tests
+explicitly assert valid output instead. Evidence is under
+`out/regression-coverage-2026-09-15/`; no whole-component score update is claimed.
+
+Browser339 refresh at `2f680e1b` completes with exit 0: JavaScript client
+2,777/2,859 (97.132%), core 7,435/7,706 (96.483%), combined 10,212/10,565
+(96.659%), unchanged from earlier browser evidence. Largest measured gaps:
+MessagePack serializer 95 lines, client session 54, JSON serializer 42, CBOR
+serializer 31. The report retains 159 unmeasured library files; this is not
+WASM coverage. Evidence: `out/regression-coverage-2026-09-15/browser339-current`,
+log `/tmp/connectanum-browser339.log`; verify338 matches the source/test snapshot.
+
 Work338 adds nine internal lazy-decoding regressions across JSON, MessagePack
 and CBOR: encoded null yields empty containers, wrong argument/keyword shapes
 produce the expected ArgumentError diagnostic, and a subsequent valid call
