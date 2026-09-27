@@ -28,6 +28,7 @@ import 'package:connectanum_core/connectanum_core.dart'
     show
         CallOptions,
         ConnectanumE2eeProfile,
+        Invocation,
         LazyPayloadEncoding,
         MessageTypes,
         PublishOptions,
@@ -52,6 +53,100 @@ void main() {
       : null;
 
   group('WebSocket WAMP integration', () {
+    for (final json in [false, true]) {
+      test(
+        'internal caller isolates progressive ${json ? 'JSON' : 'MessagePack'} results',
+        () async {
+          final runtime = NativeTransportRuntime(libraryPath: nativeLib)
+            ..start();
+          addTearDown(() {
+            runtime.shutdown();
+            runtime.dispose();
+          });
+          final binding = Router(
+            _buildWebSocketConfig(),
+            settings: _buildWebSocketSettings(),
+          ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+          addTearDown(binding.dispose);
+          final caller = await binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          addTearDown(caller.close);
+          final url = 'ws://127.0.0.1:${binding.listeners.single.port}/ws';
+          final client = client_pkg.Client(
+            realm: 'realm1',
+            transport: json
+                ? ws_transport.WebSocketTransport.withJsonSerializer(url)
+                : ws_transport.WebSocketTransport.withMsgpackSerializer(url),
+          );
+          final callee = await client.connect().first.timeout(
+            const Duration(seconds: 10),
+          );
+          addTearDown(callee.close);
+          final registration = await callee.register('com.example.progress');
+          final invocations = <String, Invocation>{};
+          final ready = Completer<void>();
+          registration.onInvoke((invocation) {
+            expect(invocation.details.receiveProgress, isTrue);
+            invocations[invocation.arguments!.single as String] = invocation;
+            if (invocations.length == 2) ready.complete();
+          });
+          final results = <String, StreamQueue<Result>>{};
+          for (final label in ['a', 'b']) {
+            final queue = StreamQueue(
+              caller.call(
+                'com.example.progress',
+                arguments: [label],
+                options: CallOptions(receiveProgress: true),
+              ),
+            );
+            results[label] = queue;
+            addTearDown(() => queue.cancel());
+          }
+          await ready.future.timeout(const Duration(seconds: 5));
+          expect(
+            invocations.values.map((value) => value.requestId).toSet(),
+            hasLength(2),
+          );
+          final requestIds = <String, int>{};
+          for (final sequence in [0, 1, 2]) {
+            for (final label in ['b', 'a']) {
+              final bytes = Uint8List.fromList([0, 128, 255, sequence]);
+              invocations[label]!.respondWith(
+                arguments: [label, sequence, bytes],
+                argumentsKeywords: {
+                  'nested': [label, bytes],
+                },
+                options: YieldOptions(
+                  progress: sequence < 2,
+                  custom: {'trace': '$label-$sequence'},
+                ),
+              );
+              final result = await results[label]!.next.timeout(
+                const Duration(seconds: 5),
+              );
+              requestIds.putIfAbsent(label, () => result.callRequestId);
+              expect(result.callRequestId, requestIds[label]);
+              expect(result.isProgressive(), sequence < 2);
+              expect(result.arguments, [label, sequence, bytes]);
+              expect(result.argumentsKeywords, {
+                'nested': [label, bytes],
+              });
+              expect(result.details.custom['trace'], '$label-$sequence');
+            }
+          }
+          expect(requestIds.values.toSet(), hasLength(2));
+          for (final queue in results.values) {
+            expect(
+              await queue.hasNext.timeout(const Duration(seconds: 5)),
+              isFalse,
+            );
+          }
+        },
+        skip: skipReason,
+      );
+    }
+
     for (final json in [false, true]) {
       test(
         'internal publisher forwards external events with ${json ? 'JSON' : 'MessagePack'}',

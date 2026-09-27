@@ -6,6 +6,18 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work341 adds real JSON/MessagePack WebSocket callee-to-internal-caller progressive
+result regressions. Two simultaneously active calls receive interleaved results;
+tests assert distinct invocation/call IDs, stable result IDs, progress/final
+flags, nested binary payloads, custom metadata and stream closure. Fast341,
+focused integration cases and verify341 pass (`/tmp/connectanum-verify341.log`).
+`progress341-probe` retains nine selected/six viable mutants: four assertion
+kills, two unwaived survivors and three compile failures, clean baselines,
+66.667% raw/adjusted and no error credit. Survivors force the final-result
+control tag (which also carries a progress field) or unconditional custom-map
+forwarding. Evidence: `out/regression-coverage-2026-09-15/progress341-probe`.
+No updated whole-component line or mutation score is claimed.
+
 Work340 adds 22 MessagePack/CBOR zero-length PPT fragment combinations to the
 independent precedence matrix, including mixed materialized/encoded values and
 guarded input views. Valid wire decoding is asserted before exact payload values.

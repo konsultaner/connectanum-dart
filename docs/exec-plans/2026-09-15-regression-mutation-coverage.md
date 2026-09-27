@@ -35,6 +35,13 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work341 tests progressive external WebSocket results to internal callers across
+JSON/MessagePack, with two active calls and exact identity, ordering, binary,
+metadata and terminal-closure assertions. Fast341, focused cases and verify341
+pass. `progress341-probe`: nine selected, six viable, four assertion kills,
+two unwaived survivors, three compile failures, clean baselines and 66.667%
+raw/adjusted. No whole-component completion or coverage refresh is inferred.
+
 Work340 adds 22 binary PPT empty-fragment precedence cases and a valid-wire
 assertion. Fast340, focused VM/JS and verify340 pass. Final MessagePack and CBOR
 probes each score 6/7 assertion kills (85.714% raw/adjusted), with clean baselines
