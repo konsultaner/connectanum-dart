@@ -35,6 +35,14 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work344 covers nine malformed MCP listener filters over HTTP plus valid
+resource-subscription recovery with capacity one. Fast344, focused cases and
+verify344 pass. `filter344-complete-probe`: 18 selected/14 viable, 13
+assertion-backed detections (seven assertion-only/six mixed), one error-only,
+four compile failures and clean baselines; 92.857% raw/adjusted assertion score,
+not conventional 100%. Omitted notification-flag default still needs a direct
+assertion oracle. Initial failed baseline and earlier probes remain retained.
+
 Work343 covers supported manual-poll batching, disabled limits and caller-owned
 messages after binding disposal. Fast343, focused tests and verify343 pass.
 `batch343-final-probe`: 8/10 assertion kills, two unwaived survivors, three

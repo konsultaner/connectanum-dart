@@ -802,6 +802,138 @@ void main() {
       : null;
 
   group('Router + FFI test mode', () {
+    for (final (label, notifications, diagnostic)
+        in <(String, Object?, String)>[
+          ('container', [], 'notifications must be an object'),
+          ('null container', null, 'notifications must be an object'),
+          (
+            'tools flag',
+            {'toolsListChanged': 1},
+            'toolsListChanged must be a boolean',
+          ),
+          (
+            'resources flag',
+            {'resourcesListChanged': 'true'},
+            'resourcesListChanged must be a boolean',
+          ),
+          (
+            'resource container',
+            {'resourceSubscriptions': 'app://mcp/live-context'},
+            'resourceSubscriptions must be a list',
+          ),
+          (
+            'resource item',
+            {
+              'resourceSubscriptions': ['app://mcp/live-context', 1],
+            },
+            'resourceSubscriptions must contain strings',
+          ),
+          (
+            'duplicate',
+            {
+              'resourceSubscriptions': [
+                'app://mcp/live-context',
+                'app://mcp/live-context',
+              ],
+            },
+            'resourceSubscriptions must not contain duplicates',
+          ),
+          (
+            'relative URI',
+            {
+              'resourceSubscriptions': ['relative/path'],
+            },
+            'must be an absolute URI with a scheme',
+          ),
+          (
+            'whitespace URI',
+            {
+              'resourceSubscriptions': ['app://mcp/live context'],
+            },
+            'must not contain whitespace or control characters',
+          ),
+        ]) {
+      test('MCP listener rejects $label without consuming capacity', () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9148,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(
+            maxRequestScopedListenerCount: 1,
+            maxWampSubscriptionCount: 1,
+          ),
+        );
+        addTearDown(harness.dispose);
+        final port = harness.binding.listeners.single.port;
+        final http = HttpClient();
+        addTearDown(() => http.close(force: true));
+        final request = await http.postUrl(
+          Uri.parse('http://127.0.0.1:$port/mcp/public'),
+        );
+        request.headers
+          ..contentType = ContentType.json
+          ..set('Accept', 'application/json, text/event-stream')
+          ..set('MCP-Protocol-Version', '2026-07-28')
+          ..set('Mcp-Method', 'subscriptions/listen');
+        final requestBody = utf8.encode(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 'invalid-filter',
+            'method': 'subscriptions/listen',
+            'params': {
+              '_meta': {
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+              'notifications': notifications,
+            },
+          }),
+        );
+        request.contentLength = requestBody.length;
+        request.add(requestBody);
+        final response = await request.close().timeout(
+          const Duration(seconds: 5),
+        );
+        expect(response.statusCode, HttpStatus.badRequest);
+        final body =
+            jsonDecode(
+                  await utf8.decoder
+                      .bind(response)
+                      .join()
+                      .timeout(const Duration(seconds: 5)),
+                )
+                as Map;
+        expect(body['id'], 'invalid-filter');
+        final error = body['error'] as Map;
+        expect(error['code'], McpErrorCodes.invalidParams);
+        expect(error['message'], contains(diagnostic));
+        expect(response.headers.value('mcp-session-id'), isNull);
+        final client = McpStreamableHttpClient.stateless(
+          Uri.parse('http://127.0.0.1:$port/mcp/public'),
+          clientInfo: const {'name': 'filter-recovery', 'version': '1.0.0'},
+        );
+        addTearDown(() => client.close(force: true));
+        McpStreamableSubscription? admitted;
+        await expectLater(
+          client
+              .listen(
+                id: 'recovered-filter',
+                resourceSubscriptions: ['app://mcp/live-context'],
+              )
+              .timeout(const Duration(seconds: 5))
+              .then((value) => admitted = value),
+          completes,
+          reason: 'A rejected filter must not prevent a valid subscription',
+        );
+        final subscription = admitted!;
+        addTearDown(subscription.close);
+        expect(subscription.acknowledgedNotifications.resourceSubscriptions, [
+          'app://mcp/live-context',
+        ]);
+        await subscription.close();
+      }, skip: skipReason);
+    }
+
     test('forwards progressive and final results', () async {
       const stepTimeout = Duration(seconds: 10);
       final harness = await _RouterHarness.start(

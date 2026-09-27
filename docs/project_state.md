@@ -6,6 +6,20 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work344 adds nine raw-HTTP MCP listener filter regressions: invalid/null
+containers, non-boolean flags, invalid resource list/items, duplicate URIs and
+relative/whitespace URIs. Rejections assert HTTP/JSON-RPC status, identity and
+diagnostic before a valid resource subscription proves recovery with listener
+and WAMP subscription caps of one. Fast344, focused tests and verify344 pass
+(`/tmp/connectanum-verify344.log`). `filter344-complete-probe`: 18 selected,
+14 viable, seven assertion-only and six mixed assertion-backed detections,
+one error-only detection, four compile failures, clean baselines. Raw/adjusted
+assertion score 92.857%; conventional 100% is not acceptance. No waivers.
+Earlier failed-baseline/probe evidence is retained. The error-only mutant flips
+the omitted notification flag default; client acknowledgment validation rejects
+it, but no assertion credit is claimed. Evidence lives under
+`out/regression-coverage-2026-09-15/`; whole-component scores are unchanged.
+
 Work343 adds manual-polling batching regressions for limits 1/2/4 over two
 connections, exact queue order and caller ownership after binding disposal.
 Zero/negative limits assert no connection or message polling. Fast343, focused
