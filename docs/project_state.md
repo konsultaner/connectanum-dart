@@ -6,6 +6,25 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work333 strengthens the native TLS response oracle with accepted plaintext-byte
+accounting before keepalive and for the second response. Writer/reader futures
+are joined directly so a writer assertion is not hidden behind a spawned-task
+failure and blocked reader. Exact wire, TLS flush state, backpressure and the
+five-second deadline remain intact. Fast333, all 14 focused HTTP response tests
+and verify333 pass (`/tmp/connectanum-fast333.log`,
+`/tmp/connectanum-response333.log`, `/tmp/connectanum-verify333.log`). Production
+and mutation classification are unchanged; no newer mutation score is claimed.
+
+Native332 full protocol refresh at `a6e04bc5` completed: 187 generated, 169
+viable, 153 assertion kills, 15 errors, one survivor and 18 compile failures.
+Raw/adjusted score is 90.533%, no waivers; restored baseline exit 0, campaign
+exit 2 and strict collector exit 1 (`evidenceClean=false`). Three HTTP header
+mutants now have assertion evidence versus native326. Remaining errors and the
+200 reason-phrase survivor receive no credit. Evidence:
+`out/regression-coverage-2026-09-15/native332-protocol-mutations`, log
+`/tmp/connectanum-native332.log`; verify331 covers the same code/test snapshot.
+The 95% protocol gate and whole-native scope remain incomplete.
+
 Work331 adds an HTTP refresh-expiry regression: a shorter-lived refresh grant
 revokes its still-live access token, releases grant capacity, rejects old refresh
 credentials and permits a fresh authenticated call. Fast331, the focused case

@@ -35,6 +35,18 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work333 adds accepted-byte assertions to both TLS responses and directly joins
+the writer/reader futures, retaining exact-wire, flush and deadline checks.
+Fast333, 14 focused response tests and verify333 pass. Production unchanged;
+native332 remains older evidence until a fresh full campaign completes.
+
+Native332 refresh at `a6e04bc5`: 187 generated, 169 viable, 153 assertion kills,
+15 errors, one survivor, 18 compile failures; 90.533% raw/adjusted, no waivers.
+Restored baseline passes; strict evidence audit fails as intended. Three header
+mutants improve over native326; remaining HTTP writes, parsing, classification
+and arithmetic error outcomes require follow-up without crash/timeout credit.
+Evidence: `native332-protocol-mutations`; verify331 matches this snapshot.
+
 Work331 verifies refresh expiry with a still-live access token, capacity recovery,
 old-credential rejection and successful replacement access. Fast331, focused
 regression and verify331 pass. Targeted `expiry331-probe` has four viable mutants,

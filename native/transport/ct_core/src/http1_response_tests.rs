@@ -158,13 +158,58 @@ async fn http1_short_header_is_asserted_before_waiting_for_body() {
     drop(producer);
 }
 
+struct CountedWriter<'a, W> {
+    inner: &'a mut W,
+    written: usize,
+}
+
+impl<W: AsyncWrite + Unpin> AsyncWrite for CountedWriter<'_, W> {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bytes: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let result = Pin::new(&mut *self.inner).poll_write(cx, bytes);
+        if let Poll::Ready(Ok(count)) = &result {
+            self.written += count;
+        }
+        result
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut *self.inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut *self.inner).poll_shutdown(cx)
+    }
+}
+
+async fn send_counted_response<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    chunked: bool,
+    body: Vec<u8>,
+) {
+    let expected_len = expected_response(chunked, &body).len();
+    let mut writer = CountedWriter {
+        inner: writer,
+        written: 0,
+    };
+    send_response(&mut writer, chunked, body).await.unwrap();
+    // Successful return must account for the entire response before keepalive.
+    assert_eq!(
+        writer.written, expected_len,
+        "HTTP/1 accepted response bytes"
+    );
+}
+
 async fn assert_tls_response_completion(chunked: bool, len: usize) {
     timeout(Duration::from_secs(5), async {
         let (mut server, mut client) = tls_pair().await;
         let body = vec![0x5a; len];
         let expected = expected_response(chunked, &body);
-        let server = tokio::spawn(async move {
-            send_response(&mut server, chunked, body).await.unwrap();
+        let send = async {
+            send_counted_response(&mut server, chunked, body).await;
             assert!(
                 !server.get_ref().1.wants_write(),
                 "HTTP/1 response returned with unflushed TLS ciphertext"
@@ -173,17 +218,17 @@ async fn assert_tls_response_completion(chunked: bool, len: usize) {
             let mut next = [0; 4];
             server.read_exact(&mut next).await.unwrap();
             assert_eq!(&next, b"next");
-            send_response(&mut server, false, b"second".to_vec())
-                .await
-                .unwrap();
+            send_counted_response(&mut server, false, b"second".to_vec()).await;
             assert!(!server.get_ref().1.wants_write());
-        });
-        assert_response_bytes(&mut client, &expected).await;
-        client.write_all(b"next").await.unwrap();
-        client.flush().await.unwrap();
-        let expected = expected_response(false, b"second");
-        assert_response_bytes(&mut client, &expected).await;
-        server.await.unwrap();
+        };
+        let receive = async {
+            assert_response_bytes(&mut client, &expected).await;
+            client.write_all(b"next").await.unwrap();
+            client.flush().await.unwrap();
+            let expected = expected_response(false, b"second");
+            assert_response_bytes(&mut client, &expected).await;
+        };
+        tokio::join!(send, receive);
     })
     .await
     .expect("bounded HTTP/1 TLS completion test");
