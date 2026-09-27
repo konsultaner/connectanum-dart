@@ -6,6 +6,26 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work335 adds real WebSocket internal-publisher/external-subscriber regressions
+for JSON and MessagePack. Two consecutive events assert publication/subscription
+identity, disclosed publisher, topic, trust level, custom nested metadata and
+nested binary arguments/kwargs; unsubscribe closes the event stream. Fast335,
+both focused cases and verify335 pass (`/tmp/connectanum-forward335.log`,
+`/tmp/connectanum-verify335.log`). No production change or new line percentage
+is claimed before the next coverage collection. Companion review was checked
+against registered queue/session/binding/runtime teardown and retained deadlines.
+
+Native334 full protocol refresh at `5eb434ac` completed: 187 generated, 169
+viable, 156 assertion kills, 12 errors, one survivor and 18 compile failures.
+Raw/adjusted score is 92.308%, no waivers; restored baseline exit 0, campaign
+exit 2, collector exit 1 and evidenceClean=false. The three remaining response
+write mutants from native332 now produce assertion kills. Remaining errors are
+request parsing, header termination, error classification and body arithmetic;
+the reason-phrase survivor remains unwaived. Evidence:
+`out/regression-coverage-2026-09-15/native334-protocol-mutations`, log
+`/tmp/connectanum-native334.log`; verify333 matches the source/test snapshot.
+The 95% gate remains unmet; this is protocol-only, not whole-native evidence.
+
 Work333 strengthens the native TLS response oracle with accepted plaintext-byte
 accounting before keepalive and for the second response. Writer/reader futures
 are joined directly so a writer assertion is not hidden behind a spawned-task

@@ -35,6 +35,18 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work335 exercises internal-to-external publication over real JSON/MessagePack
+WebSockets, asserting nested binary payloads, metadata, identities, consecutive
+delivery and unsubscribe completion. Fast335, two focused tests and verify335
+pass. Refresh measured VM coverage next; no inferred percentage or mutation
+score improvement is claimed for these tests.
+
+Native334 at `5eb434ac`: 156/169 viable assertion kills (92.308% raw/adjusted),
+12 errors, one survivor, 18 compile failures; no waivers. Restored baseline
+passes; strict audit correctly fails. Three response-write outcomes improve
+versus native332. Evidence: `native334-protocol-mutations`; verify333 matches.
+Follow up parsing/classification/arithmetic errors without granting crash credit.
+
 Work333 adds accepted-byte assertions to both TLS responses and directly joins
 the writer/reader futures, retaining exact-wire, flush and deadline checks.
 Fast333, 14 focused response tests and verify333 pass. Production unchanged;
