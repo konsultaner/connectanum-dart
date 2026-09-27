@@ -1,10 +1,21 @@
 # Project State
 
-Last updated: 2026-09-25
+Last updated: 2026-09-27
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work325 explicitly asserts successful return from valid WebSocket rejection.
+The initial `rejection325-probe` detected two assertion kills and one test error
+among three selected mutations (66.667% assertion score); no error credit is
+taken. `rejection325-asserted-probe` kills all three through assertions, with
+clean original/restored baselines and no waivers (100% raw/adjusted targeted
+assertion score). Both reports remain under the shared coverage evidence root.
+This is method-level evidence, not whole-runtime mutation coverage. Fast325's
+log ends with all tests passing; full verify325 was interrupted and the resumed
+run completed with exit 0 (`/tmp/connectanum-verify325-resume.log`). Local review
+was checked against synchronous native writes and retained wire assertions.
 
 Work324 adds a real-socket native WebSocket rejection regression: invalid status
 leaves the handshake usable; default and multibyte UTF-8 bodies have exact wire

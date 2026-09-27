@@ -646,11 +646,15 @@ void main() {
             ),
           );
           final handle = handshake.handle;
-          runtime.rejectWebSocket(
-            connectionId: connectionId,
-            handshakeHandle: handle,
-            status: 403,
-            reason: reason,
+          expect(
+            () => runtime.rejectWebSocket(
+              connectionId: connectionId,
+              handshakeHandle: handle,
+              status: 403,
+              reason: reason,
+            ),
+            returnsNormally,
+            reason: 'a valid rejection must report successful delivery',
           );
           handshake.consume();
           final body = reason.isEmpty ? 'websocket upgrade rejected' : reason;

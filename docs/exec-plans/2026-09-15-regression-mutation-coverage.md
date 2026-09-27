@@ -35,6 +35,13 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work325 strengthens the valid WebSocket rejection success oracle. The initial
+three-mutant probe has two assertion kills and one uncredited test error; the
+asserted probe has three assertion kills, clean baselines, no waivers and 100%
+raw/adjusted targeted assertion score. Both inventories/outcomes are retained in
+`rejection325-probe` and `rejection325-asserted-probe`. Resumed full verify325
+passes; this does not establish a whole-runtime mutation score.
+
 Work324 tests native WebSocket rejection over real sockets, exact default/UTF-8
 body bytes, invalid-status retry, consumed-handle rejection and subsequent
 listener upgrade recovery. Fast324, focused regression and full verify324 pass.
