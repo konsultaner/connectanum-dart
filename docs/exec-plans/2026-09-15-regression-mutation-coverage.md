@@ -35,6 +35,20 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work343 covers supported manual-poll batching, disabled limits and caller-owned
+messages after binding disposal. Fast343, focused tests and verify343 pass.
+`batch343-final-probe`: 8/10 assertion kills, two unwaived survivors, three
+compile failures, clean baselines, 80% raw/adjusted. Direct native-handle polling
+cannot be reached through normal VM startup because the boss starts first;
+retain that gap rather than introducing a test-only bypass or exclusion.
+
+VM342 at `3b229f6c` completes: 40,194/42,927 (93.633%), router 91.663%,
+core 94.379%. Versus VM336, internal session gains 25 lines, worker session two,
+MessagePack serializer one. Packaging unchanged; 58 library and 12 packaging
+files remain unmeasured. Evidence: `vm342-current`; verify341 matches this
+source/test snapshot. Continue largest genuine binding/native/MCP gaps; no
+whole-milestone completion claim.
+
 Work341 tests progressive external WebSocket results to internal callers across
 JSON/MessagePack, with two active calls and exact identity, ordering, binary,
 metadata and terminal-closure assertions. Fast341, focused cases and verify341

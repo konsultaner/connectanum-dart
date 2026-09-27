@@ -30,7 +30,14 @@ class _WatchRuntime extends _FakeRuntime {
   Object? failure;
   int? failAt;
   int polls = 0;
+  int connectionPolls = 0;
   void Function()? onPoll;
+
+  @override
+  int pollConnection(int listenerId) {
+    connectionPolls++;
+    return super.pollConnection(listenerId);
+  }
 
   @override
   NativeIncomingMessage? pollMessage(int connectionId) {
@@ -92,6 +99,57 @@ RouterBinding _watchBinding(_FakeRuntime runtime) {
 }
 
 void _nativeMessageWatchCases() {
+  for (final limit in [1, 2, 4]) {
+    test('manual polling preserves bounded batches limit=$limit', () async {
+      final runtime = _WatchRuntime();
+      final binding = _watchBinding(runtime);
+      addTearDown(binding.dispose);
+      final listener = binding.listeners.single;
+      final messages = List.generate(5, (_) => _WatchMessage());
+      for (var index = 0; index < messages.length; index++) {
+        runtime.enqueueMessage(
+          listener.listenerId,
+          index < 3 ? 84 : 85,
+          messages[index],
+        );
+      }
+      for (final disabledLimit in [0, -1]) {
+        expect(binding.pollNativeMessages(maxMessages: disabledLimit), isEmpty);
+        expect(runtime.polls, 0);
+        expect(runtime.connectionPolls, 0);
+        expect(messages.map((message) => message.releases), everyElement(0));
+      }
+      var offset = 0;
+      while (offset < messages.length) {
+        final end = offset + limit < messages.length
+            ? offset + limit
+            : messages.length;
+        final batch = binding.pollNativeMessages(maxMessages: limit);
+        expect(
+          batch.map((message) => message.message),
+          messages.sublist(offset, end),
+        );
+        expect(batch.map((message) => message.connectionId), [
+          for (var index = offset; index < end; index++) index < 3 ? 84 : 85,
+        ]);
+        expect(
+          batch.every((message) => identical(message.listener, listener)),
+          isTrue,
+        );
+        expect(messages.map((message) => message.releases), everyElement(0));
+        offset = end;
+      }
+      expect(binding.pollNativeMessages(maxMessages: limit), isEmpty);
+      await binding.dispose();
+      // Successfully returned batches remain owned by the caller, not the binding.
+      expect(messages.map((message) => message.releases), everyElement(0));
+      for (final message in messages) {
+        message.dispose();
+      }
+      expect(messages.map((message) => message.releases), everyElement(1));
+    });
+  }
+
   test(
     'native watch disposal during timer creation cancels the returned timer',
     () async {

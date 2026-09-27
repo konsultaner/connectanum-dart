@@ -1,10 +1,33 @@
 # Project State
 
-Last updated: 2026-09-27
+Last updated: 2026-09-28
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work343 adds manual-polling batching regressions for limits 1/2/4 over two
+connections, exact queue order and caller ownership after binding disposal.
+Zero/negative limits assert no connection or message polling. Fast343, focused
+tests and verify343 pass (`/tmp/connectanum-verify343.log`). Final
+`batch343-final-probe`: 13 selected, ten viable, eight assertion kills, two
+unwaived outer-loop break survivors, three compile failures, clean baselines,
+80% raw/adjusted and no error credit. Initial probe remains separately retained.
+Investigation also found the direct handle-decoder polling branch unreachable
+through normal VM startup: handle runtimes start the boss, and manual polling
+returns early. The invalid fixture was removed; no production bypass, exclusion
+or line-coverage gain is claimed. Evidence: `out/regression-coverage-2026-09-15/`.
+
+VM342 at `3b229f6c` completes with collector exit 0: 40,194/42,927 library
+lines (93.633%), router 17,867/19,492 (91.663%), core 6,850/7,258 (94.379%).
+Compared with VM336, coverage increases 28 lines: internal session +25, worker
+session +2, MessagePack serializer +1. Other package scores and packaging are
+unchanged; 58 library and 12 packaging files remain unmeasured. Evidence:
+`out/regression-coverage-2026-09-15/vm342-current`, log
+`/tmp/connectanum-coverage342.log`; verify341 matches the source/test snapshot.
+The largest measured VM gaps remain router binding (321 lines), router native
+runtime (227), router MCP (213), and worker session (163); browser and native
+runtime scores must still be reported separately. The 98% gate remains unmet.
 
 Work341 adds real JSON/MessagePack WebSocket callee-to-internal-caller progressive
 result regressions. Two simultaneously active calls receive interleaved results;
