@@ -6,6 +6,15 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work338 adds nine internal lazy-decoding regressions across JSON, MessagePack
+and CBOR: encoded null yields empty containers, wrong argument/keyword shapes
+produce the expected ArgumentError diagnostic, and a subsequent valid call
+recovers on the same sessions. Fast338, focused cases and verify338 pass
+(`/tmp/connectanum-decode338.log`, `/tmp/connectanum-verify338.log`). Targeted
+`decode338-probe`: ten selected, six viable, six assertion kills, four compile
+failures, clean baselines; raw/adjusted 100%, no waivers or error credit. This
+is decoder-level evidence only, not whole-component completion.
+
 Work337 adds 11 internal-publication recipient-filter regressions covering
 session/auth-id/role eligibility and exclusion, empty lists, self-delivery and
 combined selectors. A subsequent unfiltered publication is an ordering barrier

@@ -2,6 +2,83 @@ part of '../router_runtime_test.dart';
 
 void _internalCallLifecycleCases() {
   group('internal call lifecycle', () {
+    for (final encoding in LazyPayloadEncoding.values) {
+      for (final shape in ['null', 'invalid-arguments', 'invalid-keywords']) {
+        test('lazy decoding ${encoding.name} $shape recovers', () async {
+          final fixture = _internalCloseFixture();
+          final caller = await fixture.binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          final callee = await fixture.binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          addTearDown(caller.close);
+          addTearDown(callee.close);
+          Uint8List encode(Object? value) => Uint8List.fromList(
+            switch (encoding) {
+              LazyPayloadEncoding.json => utf8.encode(jsonEncode(value)),
+              LazyPayloadEncoding.messagePack => msgpack_dart.serialize(value),
+              LazyPayloadEncoding.cbor => cbor.cborEncode(
+                cbor.CborValue(value),
+              ),
+            },
+          );
+
+          final failures = <String>[];
+          var invocations = 0;
+          final registration = await callee.register('app.decode');
+          registration.onInvoke((invocation) {
+            invocations++;
+            try {
+              final arguments = invocation.arguments;
+              final keywords = invocation.argumentsKeywords;
+              invocation.respondWith(
+                arguments: arguments,
+                argumentsKeywords: keywords,
+              );
+            } on ArgumentError catch (error) {
+              failures.add(error.message.toString());
+              invocation.respondWith(arguments: ['rejected']);
+            }
+          });
+          Future<core.Result> call(Object? arguments, Object? keywords) =>
+              caller
+                  .callLazyPayload(
+                    'app.decode',
+                    payload: LazyMessagePayload.encoded(
+                      encoding: encoding,
+                      argumentsBytes: encode(arguments),
+                      argumentsKeywordsBytes: encode(keywords),
+                    ),
+                  )
+                  .first
+                  .timeout(const Duration(seconds: 5));
+
+          final first = await call(
+            shape == 'invalid-arguments' ? {'bad': 1} : null,
+            shape == 'invalid-keywords' ? [1] : null,
+          );
+          if (shape == 'null') {
+            expect(first.arguments, isEmpty);
+            expect(first.argumentsKeywords, isEmpty);
+            expect(failures, isEmpty);
+          } else {
+            expect(first.arguments, ['rejected']);
+            expect(failures, [
+              shape == 'invalid-arguments'
+                  ? 'Expected lazy payload arguments list but got {bad: 1}'
+                  : 'Expected lazy payload keyword arguments map but got [1]',
+            ]);
+          }
+          final recovered = await call(['recovered'], {'count': 2});
+          expect(recovered.arguments, ['recovered']);
+          expect(recovered.argumentsKeywords, {'count': 2});
+          expect(invocations, 2);
+          expect(failures, hasLength(shape == 'null' ? 0 : 1));
+        });
+      }
+    }
+
     test(
       'transfer callback cannot admit a call after starting close',
       () async {

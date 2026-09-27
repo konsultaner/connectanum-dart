@@ -35,6 +35,12 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work338 covers lazy null/type-shape decoding and subsequent valid call recovery
+for JSON, MessagePack and CBOR in nine regressions. Fast338, focused tests and
+verify338 pass. `decode338-probe`: ten selected/six viable, six assertion kills,
+four compile failures, clean baselines, 100% raw/adjusted targeted score. No
+whole-component or updated line coverage claim is made.
+
 Work337 adds 11 recipient-filter cases with explicit role permissions and
 publication barriers; all new test parts are pinned in mutation support files.
 Fast337, focused cases and final verify337 pass after correcting formatting and

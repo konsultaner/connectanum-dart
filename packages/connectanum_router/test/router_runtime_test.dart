@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/authentication.dart'
     show CraAuthentication, ScramAuthentication, TicketAuthentication;
 import 'package:connectanum_core/connectanum_core.dart'
