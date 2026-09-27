@@ -35,6 +35,14 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work328 covers native hook artifact selection/recovery, timestamp precedence,
+search depth and link exclusion with isolated filesystem fixtures. Windows link
+creation is explicitly unverified. Fast328, focused tests and verify328 pass.
+Final `loader328-boundary-probe`: 20 selected, 18 viable, 17 assertion kills,
+one unwaived root-stop survivor, two compile failures; clean baselines, no waivers,
+94.444% raw/adjusted targeted score, gate fails. Preserve earlier narrow/expanded
+probe outcomes; no whole-component or updated line percentage is claimed.
+
 Work327 checks complete HTTP/1 headers before body reads in the TLS oracle and
 adds an open-producer short-header regression requiring the exact assertion.
 Fast327, 14 focused response tests and full verify327 pass. No production changes,

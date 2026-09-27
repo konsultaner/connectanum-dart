@@ -6,6 +6,19 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work328 adds native loader regressions for newest complete hook artifacts,
+stray/incomplete build entries, ancestor fallback, nearest-workspace precedence,
+deletion recovery, bounded search depth and linked-directory exclusion. The link
+case explicitly skips Windows because symlink creation can require privileges;
+no Windows link evidence is claimed. Fast328, focused loader tests and full
+verify328 pass (`/tmp/connectanum-fast328.log`, `/tmp/connectanum-loader328.log`,
+`/tmp/connectanum-verify328.log`). `loader328-boundary-probe` retains 20 selected
+mutants: 18 viable, 17 assertion kills, one unwaived root-stop survivor, two
+compile failures; clean baselines, raw/adjusted 94.444%, gate fails. Earlier
+`loader328-probe` and `loader328-expanded-probe` remain retained. This is targeted
+loader evidence, not whole-runtime coverage. Local review suggestions were
+checked against fixed multi-year timestamp differences and recursive cleanup.
+
 Work327 validates the full HTTP/1 header block before waiting for response body
 bytes in the native TLS test oracle. A complete but shortened header on an open
 producer must trigger the specific header assertion, not timeout or EOF. Status,
