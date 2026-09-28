@@ -106,11 +106,14 @@ void _httpEarlyCleanupCases() {
         },
       );
     }
-    for (final unsupported in [false, true]) {
+    for (final unsupported in <bool?>[false, true, null]) {
       test(
         'buffered send failure unsupported=$unsupported cleans up and recovers',
         () async {
-          final failure = unsupported
+          final missingHandle = unsupported == null;
+          final failure = missingHandle
+              ? null
+              : unsupported
               ? UnsupportedError('controlled buffered send failure')
               : StateError('controlled buffered send failure');
           final runtime = _BufferedResponseFailureRuntime(failure);
@@ -137,7 +140,7 @@ void _httpEarlyCleanupCases() {
             final id = 32200 + index;
             final handshake = _HttpEdgeHandshake(
               NativeHttpHandshake.synthetic(
-                handle: id,
+                handle: missingHandle && index == 0 ? 0 : id,
                 method: 'GET',
                 target: '/api/echo',
                 path: '/api/echo',
@@ -164,21 +167,26 @@ void _httpEarlyCleanupCases() {
           final failures = events.where(
             (event) =>
                 event['type'] ==
-                (unsupported
+                (unsupported != false
                     ? 'http_response_send_unsupported'
                     : 'http_response_send_error'),
           );
           expect(failures, hasLength(1));
-          expect(failures.single['error'], failure.toString());
+          expect(
+            failures.single['error'],
+            missingHandle
+                ? 'missing native handshake handle'
+                : failure.toString(),
+          );
           expect(failures.single['connectionId'], 32200);
           expect(failures.single['httpRequestId'], contexts.first.requestId);
-          if (!unsupported) {
+          if (unsupported == false) {
             expect(
               failures.single['stackTrace'],
               contains('_BufferedResponseFailureRuntime.sendHttpResponse'),
             );
           }
-          expect(runtime.attempts, [32200, 32201]);
+          expect(runtime.attempts, missingHandle ? [32201] : [32200, 32201]);
           expect(runtime.httpResponses[32200], isNull);
           expect(runtime.httpResponses[32201]!.single.status, 202);
           final sent = events.where(
@@ -634,7 +642,7 @@ void _httpEarlyCleanupCases() {
 
 class _BufferedResponseFailureRuntime extends _HandleRuntime {
   _BufferedResponseFailureRuntime(this.failure);
-  final Object failure;
+  final Object? failure;
   final attempts = <int>[];
 
   @override
@@ -644,7 +652,7 @@ class _BufferedResponseFailureRuntime extends _HandleRuntime {
     required NativeHttpResponse response,
   }) {
     attempts.add(handshakeHandle);
-    if (attempts.length == 1) throw failure;
+    if (attempts.length == 1 && failure != null) throw failure!;
     super.sendHttpResponse(
       handshakeHandle: handshakeHandle,
       connectionId: connectionId,

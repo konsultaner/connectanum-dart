@@ -35,6 +35,24 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work357: Fast357 and 38 focused ownership/progressive cases pass. Added
+missing-handle no-send/recovery assertions and independent HTTP/WAMP completion
+boundaries. Final selected `cleanup357-complete-probe`: 11/11 detections,
+eight assertion-only and three mixed assertion/error outcomes, clean baseline
+and restored baseline, matching source/test/support hashes, no equivalence
+waivers. Earlier broad 6/11 with three timeouts and focused 7/11, 8/11 probes
+are retained separately. Full verify357 passes (`/tmp/connectanum-verify357.log`,
+exit 0, including browser runtimes); hosted evidence remains outstanding. Do not
+claim whole-router mutation completion from this selected source range.
+
+VM357 at `055d9dda`: collector exit 0 and final input manifest matches.
+Libraries 40,286/42,927 (93.848%), router 17,956/19,492 (92.120%),
+packaging 765/787 (97.205%). Retain 58 library and 12 packaging unmeasured
+sources, and the missing WASM instrumentation. Evidence is `vm357-current`.
+Use runtime applicability when prioritizing codec fallback gaps; do not waive
+them solely because VM takes the delegated path. Hosted audit356 remains
+non-green because CI and package publish dry-run are queued.
+
 Work356 locally verified: Fast356 passed. Shipped HTTP/3 wrapper UTF-8 lengths fixed
 after failing repro5. Large unknown-length body truncation reproduced both over
 HTTP/3 and in six deterministic tests; streaming reads now drain to EOF rather

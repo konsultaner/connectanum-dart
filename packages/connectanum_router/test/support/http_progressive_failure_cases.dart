@@ -32,6 +32,89 @@ class _ProgressiveFailureRuntime extends _HandleRuntime {
 }
 
 void _httpProgressiveFailureCases() {
+  test(
+    'progressive HTTP terminal payload closes before WAMP completion',
+    () async {
+      final runtime = _ProgressiveFailureRuntime('none');
+      final results = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?> &&
+              event['type'] == 'http_request_result') {
+            results.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+      final session = await binding.createInternalSession(realmUri: 'realm1');
+      final registration = await session.register('com.example.api.stream');
+      final received = Completer<HttpInvocationContext>();
+      registration.onInvoke((invocation) {
+        received.complete(
+          HttpInvocationContext.maybeFromInvocation(invocation)!,
+        );
+      });
+      final handshake = _TrackedHttpHandshake(9603);
+      runtime.setConnectionProtocol(73, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        binding.listeners.single.listenerId,
+        73,
+        handshake,
+      );
+      final context = await received.future.timeout(const Duration(seconds: 3));
+      context.invocation.respondWith(
+        arguments: const ['pending'],
+        options: YieldOptions(progress: true),
+      );
+      await _waitUntil(() => results.length == 1);
+      expect(handshake.releases, 0);
+      expect(runtime.opens, isEmpty);
+      expect(runtime.closes, isEmpty);
+      HttpResponseUtil.respond(
+        context.invocation,
+        HttpResponseUtil.bytes(
+          requestId: context.requestId,
+          status: 200,
+          body: Uint8List.fromList([1]),
+        ),
+        progress: true,
+      );
+      await _waitUntil(() => results.length == 2);
+      expect(runtime.chunks[9603], [1]);
+      expect(runtime.closes, isEmpty);
+      expect(handshake.releases, 0);
+      context.invocation.respondWith(
+        argumentsKeywords: HttpResponseUtil.bytes(
+          requestId: context.requestId,
+          status: 200,
+          body: Uint8List.fromList([2]),
+        ).toKeywordArguments(),
+        options: YieldOptions(progress: true),
+      );
+      await _waitUntil(() => results.length == 3);
+      expect(runtime.chunks[9603], [1, 2]);
+      expect(runtime.closes, [9603]);
+      expect(handshake.releases, 1);
+      await binding.dispose();
+      expect(runtime.closes, [9603]);
+      expect(handshake.releases, 1);
+    },
+  );
   for (final stage in ['open', 'write']) {
     test('progressive HTTP $stage failure cleans up and recovers', () async {
       final runtime = _ProgressiveFailureRuntime(stage);

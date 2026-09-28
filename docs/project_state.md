@@ -6,6 +6,28 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+VM357 collection at `055d9dda` completed with an unchanged source/test/config
+manifest: 40,286/42,927 measured library lines (93.848%), router
+17,956/19,492 (92.120%), and packaging 765/787 (97.205%). Evidence:
+`out/regression-coverage-2026-09-15/vm357-current`. The 58 unmeasured library
+files, 12 unmeasured packaging files and missing WASM line instrumentation
+remain visible. Largest measured VM gaps are router binding (296 lines),
+router MCP (207), and native runtime (170); the codec's 189-line VM gap
+includes platform-dependent fallback code and must be assessed with JS evidence.
+Hosted strict audit356 exited 1 with CI and package dry-run queued, not green.
+
+Work357 locally verified: Fast357 passed. Buffered-response tests now cover a missing
+native handshake handle with no native send, exact diagnostics, once-only release
+and subsequent recovery. A progressive HTTP regression separates payload-final
+from WAMP-final signaling and requires no-payload progress to retain ownership.
+All 38 focused cases pass. `cleanup357-complete-probe` detects all 11 selected
+mutations (eight assertion-only, three mixed with assertions), clean baselines,
+matching source/test/support hashes, no waivers or timeout credit. Preserve the
+broader initial probe (6 detections, 2 survivors, 3 timeouts) and successive
+focused probes (7/11, then 8/11); none represents whole-router mutation coverage.
+Full verification passes in `/tmp/connectanum-verify357.log` (exit 0, including
+browser runtimes). Hosted verification remains outstanding.
+
 Work356 passes full local verification. Fast356 passed. A separate
 process HTTP/3 echo fixture reproduces the shipped client wrapper rejecting a
 valid UTF-8 header value (repro5); FFI lengths now use UTF-8 bytes. The larger
