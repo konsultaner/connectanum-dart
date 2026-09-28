@@ -115,6 +115,25 @@ def classify(outcome: dict, log: str, scope: dict, mutant: dict | None) -> str:
     return 'killed' if all(test_assertion(block[2], scope, mutant) for block in blocks) else 'error'
 
 
+def failure_evidence(log: str, scope: dict, mutant: dict | None) -> dict:
+    """Retain diagnostic blocks without changing conservative kill eligibility."""
+    blocks = list(FAILURE.finditer(log))
+    block_counts = Counter(block[1] for block in blocks)
+    tests = TEST.findall(log)
+    test_counts = Counter(name for name, _ in tests)
+    failed_counts = Counter(name for name, status in tests if status == 'FAILED')
+    failures = []
+    for block in blocks:
+        name = block[1]
+        if block_counts[name] != 1 or test_counts[name] != 1 or failed_counts[name] != 1:
+            kind = 'unmatched'
+        else:
+            kind = 'testAssertion' if test_assertion(block[2], scope, mutant) else 'nonAssertion'
+        failures.append({'test': name, 'kind': kind})
+    return {'diagnosticOnly': True, 'crashDetected': bool(CRASH.search(log)),
+            'failures': failures}
+
+
 def identity(mutant: dict) -> str:
     return json.dumps({key: value for key, value in mutant.items() if key != 'diff'},
                       sort_keys=True, separators=(',', ':'))
@@ -192,7 +211,8 @@ def audit(directory: Path, scope: dict) -> dict:
             status = 'error'
         results.append({'mutant': mutant, 'status': status,
                         'cargoSummary': item['summary'], 'log': item['log_path'],
-                        'logSha256': log_hash})
+                        'logSha256': log_hash,
+                        'failureEvidence': failure_evidence(log, scope, mutant)})
     if seen != set(expected) or run.get('total_mutants') != len(expected):
         raise ValueError('Incomplete inventory/outcome correspondence')
     counts = Counter(result['status'] for result in results)

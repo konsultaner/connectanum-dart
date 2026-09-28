@@ -35,6 +35,15 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work350 adds diagnostic-only native mutation failure details, preserving strict
+kill eligibility and scores, with 35 passing auditor tests. Historical Native334
+replay distinguishes nine mixed errors from three with no assertion evidence.
+Added larger/equal prefetched-body cases catch all four body-length mutants with
+assertions in focused `body350-probe`; clean baseline/restored baseline, 100%
+raw/adjusted. Full protocol results are not updated. Fast350 and verify350 pass
+(exit 0, `/tmp/connectanum-verify350.log`), including browser runtime tests.
+Evidence is under `out/regression-coverage-2026-09-15/`.
+
 Work349 adds public-session metrics ownership/policy regressions: exact, prefix,
 wildcard; five supported invocation policies; shared counts and disconnect
 cleanup; meta-entry exclusion; exact JSON/OpenMetrics agreement. Fast349 and

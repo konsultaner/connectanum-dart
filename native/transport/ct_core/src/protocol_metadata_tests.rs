@@ -147,6 +147,20 @@ async fn body_lengths_and_upgrade_decisions_preserve_all_body_phases() {
         (HttpBodyPhase::Buffered(Bytes::from_static(b"abc")), 3),
         (
             HttpBodyPhase::NeedsStreaming {
+                prefix: Bytes::from_static(b"abcde"),
+                remaining_len: 2,
+            },
+            7,
+        ),
+        (
+            HttpBodyPhase::NeedsStreaming {
+                prefix: Bytes::from_static(b"ab"),
+                remaining_len: 2,
+            },
+            4,
+        ),
+        (
+            HttpBodyPhase::NeedsStreaming {
                 prefix: Bytes::from_static(b"ab"),
                 remaining_len: 5,
             },

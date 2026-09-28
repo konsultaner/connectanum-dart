@@ -199,6 +199,51 @@ class NativeMutationTests(unittest.TestCase):
                 self.assertEqual(report['operators'], {'BinaryOperator': {status: 1}})
                 self.assertEqual(len(report['results'][0]['logSha256']), 64)
 
+    def test_mixed_failure_diagnostics_do_not_increase_mutation_scores(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.campaign(root)
+            names = ['tests::expected', 'tests::runtime']
+            (root / 'logs/baseline.log').write_text(log(names=names))
+            (root / 'logs/mutant.log').write_text(log([
+                ('tests::expected', assertion()),
+                ('tests::runtime', assertion(10, 'attempt to subtract with overflow')),
+            ], names))
+            report = audit.audit(root, SCOPE)
+            self.assertEqual(report['counts'], {'error': 1})
+            self.assertEqual(report['rawCandidateScore'], 0)
+            self.assertEqual(report['adjustedCandidateScore'], 0)
+            self.assertFalse(report['evidenceClean'])
+            self.assertEqual(report['results'][0]['failureEvidence'], {
+                'diagnosticOnly': True,
+                'crashDetected': False,
+                'failures': [
+                    {'test': 'tests::expected', 'kind': 'testAssertion'},
+                    {'test': 'tests::runtime', 'kind': 'nonAssertion'},
+                ],
+            })
+
+    def test_failure_diagnostics_require_unique_reported_test_and_test_source(self):
+        for failed, expected in [
+            (log([('tests::expected', assertion())]), ['testAssertion']),
+            (log([('tests::expected', assertion(10))]), ['nonAssertion']),
+            (log([('tests::expected', assertion(message='boom'))]), ['nonAssertion']),
+            (log([('tests::expected', assertion())]).replace(
+                '---- tests::expected stdout ----', '---- injected stdout ----'), ['unmatched']),
+            (log([('tests::expected', assertion())]).replace(
+                'test tests::expected ... FAILED', 'test tests::expected ... ok'), ['unmatched']),
+            (log([('tests::expected', assertion() +
+                  '\n---- tests::expected stdout ----\n' + assertion())]),
+             ['unmatched', 'unmatched']),
+        ]:
+            with self.subTest(log=failed):
+                evidence = audit.failure_evidence(failed, SCOPE, MUTANT)
+                self.assertTrue(evidence['diagnosticOnly'])
+                self.assertEqual([item['kind'] for item in evidence['failures']], expected)
+        crashed = log([('tests::expected', assertion())]) + '\nSIGSEGV\n'
+        self.assertTrue(audit.failure_evidence(crashed, SCOPE, MUTANT)['crashDetected'])
+        self.assertEqual(audit.classify(outcome({'Failure': 101}), crashed, SCOPE, MUTANT), 'error')
+
     def test_corrupt_incomplete_duplicate_and_unbaselined_inventories_are_rejected(self):
         for change in [
                 lambda run: run.update(end_time=None),

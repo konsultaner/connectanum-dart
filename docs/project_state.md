@@ -6,6 +6,20 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work350 completes verification. Native mutation reports now retain diagnostic-only
+per-test assertion/non-assertion/unmatched failure evidence without changing
+classification, raw/adjusted scores or fail-closed gates. The mixed-error regression
+failed before implementation; all 35 auditor tests now pass. Replaying the preserved
+Native334 logs before changing Rust tests identified nine mixed errors and three
+errors without assertion evidence; `native350-protocol-diagnostics.json` retains
+that historical replay, not a new campaign. Streaming-body tests now include
+prefix lengths greater than and equal to the remainder, retaining prior cases.
+Focused `body350-probe` has four viable mutants, four strict assertion kills,
+clean baseline/restored baseline and 100% raw/adjusted; this is not whole-protocol
+coverage. Production mutation edits were restored. Fast350 and full verify350
+pass (`/tmp/connectanum-verify350.log`, exit 0), including browser runtime tests.
+Whole-component mutation and line-coverage results are not updated by this probe.
+
 Work349 completes verification: metrics service regression covers all three
 matching modes across five publicly supported invocation policies, three topics
 with two subscribers, grouped shared-callee counts, exact snapshot/OpenMetrics
