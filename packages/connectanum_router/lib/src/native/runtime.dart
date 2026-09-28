@@ -1076,6 +1076,7 @@ class NativeHttpRequestBody {
 
   static const int _defaultChunkSize = 64 * 1024;
 
+  /// Initial body length; streaming bodies may grow beyond this snapshot.
   int get length => _length;
   int? get nativeHandle => _handle;
   bool get isStreaming => _streaming;
@@ -1084,7 +1085,11 @@ class NativeHttpRequestBody {
 
   /// View backed by the native buffer (callers must not mutate).
   Uint8List get view {
-    if (_view.isEmpty && _handle != null && !_released && _length > 0) {
+    if (_view.isEmpty &&
+        _handle != null &&
+        !_released &&
+        (_streaming || _length > 0) &&
+        !_streamFinished) {
       _view = _readAll();
     }
     return _view;
@@ -1093,14 +1098,12 @@ class NativeHttpRequestBody {
   /// Materializes an isolate-safe Dart-owned buffer without routing through
   /// the borrowed [view] path when the native handle is still active.
   Uint8List materializeOwnedBytes() {
-    if (_length == 0) {
-      if (_streaming) {
-        _finishStreaming(ignoreErrors: false);
-      }
+    if (_length == 0 && !_streaming) {
       return Uint8List(0);
     }
     if (_streaming) {
       if (_view.isEmpty &&
+          !_streamFinished &&
           ((_handle != null && !_released) || _streamReadOverride != null)) {
         _view = _readAll();
       }
@@ -1140,6 +1143,7 @@ class NativeHttpRequestBody {
   /// Streams the body, finishing the native reader when done or cancelled.
   /// Cancellation cleanup is best effort so consumer errors remain primary.
   Stream<List<int>> openRead({int chunkSize = _defaultChunkSize}) async* {
+    if (_streaming && _streamFinished && _view.isEmpty) return;
     if (_view.isNotEmpty && (!_streaming || _streamFinished)) {
       yield _view;
       return;
@@ -1165,9 +1169,11 @@ class NativeHttpRequestBody {
     final effectiveChunk = math.max(1, chunkSize);
     var readCompleted = false;
     try {
-      while (offset < _length) {
+      while (_streaming || offset < _length) {
         final remaining = _length - offset;
-        final toRead = math.min(remaining, effectiveChunk);
+        final toRead = _streaming
+            ? effectiveChunk
+            : math.min(remaining, effectiveChunk);
         final chunk = _streaming
             ? _readStreamingChunk(toRead)
             : _readSlice(offset, toRead);
@@ -1279,33 +1285,37 @@ class NativeHttpRequestBody {
   }
 
   Uint8List _readAll() {
-    if (_length == 0) {
-      if (_streaming) {
-        _finishStreaming(ignoreErrors: false);
+    if (_streaming) {
+      // For unknown-length HTTP/3 requests the descriptor length is only a
+      // snapshot of received bytes. EOF, not that snapshot, completes the body.
+      final bytes = BytesBuilder(copy: false);
+      var readCompleted = false;
+      try {
+        while (true) {
+          final chunk = _readStreamingChunk(_defaultChunkSize);
+          if (chunk.isEmpty) break;
+          bytes.add(chunk);
+        }
+        readCompleted = true;
+      } finally {
+        _finishStreaming(ignoreErrors: !readCompleted);
       }
+      return bytes.takeBytes();
+    }
+    if (_length == 0) {
       return Uint8List(0);
     }
     final buffer = Uint8List(_length);
     var offset = 0;
-    var readCompleted = false;
-    try {
-      while (offset < _length) {
-        final remaining = _length - offset;
-        final toRead = math.min(remaining, _defaultChunkSize);
-        final chunk = _streaming
-            ? _readStreamingChunk(toRead)
-            : _readSlice(offset, toRead);
-        if (chunk.isEmpty) {
-          break;
-        }
-        buffer.setRange(offset, offset + chunk.length, chunk);
-        offset += chunk.length;
+    while (offset < _length) {
+      final remaining = _length - offset;
+      final toRead = math.min(remaining, _defaultChunkSize);
+      final chunk = _readSlice(offset, toRead);
+      if (chunk.isEmpty) {
+        break;
       }
-      readCompleted = true;
-    } finally {
-      if (_streaming) {
-        _finishStreaming(ignoreErrors: !readCompleted);
-      }
+      buffer.setRange(offset, offset + chunk.length, chunk);
+      offset += chunk.length;
     }
     if (offset == _length) {
       return buffer;
@@ -2320,9 +2330,9 @@ class NativeTransportRuntime
         final valuePtr = value.toNativeUtf8(allocator: arena);
         headerArray[index]
           ..namePtr = namePtr.cast()
-          ..nameLen = name.length
+          ..nameLen = utf8.encode(name).length
           ..valuePtr = valuePtr.cast()
-          ..valueLen = value.length;
+          ..valueLen = utf8.encode(value).length;
         index += 1;
       });
 

@@ -5,6 +5,111 @@ import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('materialized streaming body replays without native rereads', () async {
+    var reads = 0;
+    var finishes = 0;
+    final body = NativeHttpRequestBody.testStreaming(
+      length: 0,
+      onRead: (_) => ++reads == 1 ? Uint8List.fromList([7, 8]) : Uint8List(0),
+      onFinish: () => finishes++,
+    );
+    final first = body.materializeOwnedBytes();
+    expect(first, [7, 8]);
+    first[0] = 99;
+    expect(body.copy(), [7, 8]);
+    for (var replay = 0; replay < 2; replay++) {
+      expect(await body.openRead().toList(), [
+        [7, 8],
+      ]);
+    }
+    expect(reads, 2);
+    expect(finishes, 1);
+  });
+
+  for (final materialize in [false, true]) {
+    test(
+      'read error after initial length is not hidden: $materialize',
+      () async {
+        final failure = StateError('late body error');
+        var reads = 0;
+        var finishes = 0;
+        final body = NativeHttpRequestBody.testStreaming(
+          length: 2,
+          onRead: (_) {
+            if (++reads == 1) return Uint8List.fromList([1, 2]);
+            throw failure;
+          },
+          onFinish: () => finishes++,
+        );
+        if (materialize) {
+          expect(body.materializeOwnedBytes, throwsA(same(failure)));
+        } else {
+          final received = <List<int>>[];
+          await expectLater(
+            body.openRead().forEach(received.add),
+            throwsA(same(failure)),
+          );
+          expect(received, [
+            [1, 2],
+          ]);
+        }
+        expect(reads, 2);
+        expect(finishes, 1);
+      },
+    );
+  }
+  for (final finishFirst in [false, true]) {
+    test(
+      'empty streaming body is not read after finish: $finishFirst',
+      () async {
+        var reads = 0;
+        var finishes = 0;
+        final body = NativeHttpRequestBody.testStreaming(
+          length: 0,
+          onRead: (_) {
+            reads++;
+            return Uint8List(0);
+          },
+          onFinish: () => finishes++,
+        );
+        if (finishFirst) body.finish();
+        expect(body.materializeOwnedBytes(), isEmpty);
+        expect(body.copy(), isEmpty);
+        expect(await body.openRead().toList(), isEmpty);
+        expect(reads, finishFirst ? 0 : 1);
+        expect(finishes, 1);
+      },
+    );
+  }
+  for (final initialLength in [0, 2, 4]) {
+    for (final materialize in [false, true]) {
+      test(
+        'stream drains beyond initial length $initialLength: $materialize',
+        () async {
+          var reads = 0;
+          var finishes = 0;
+          final chunks = [
+            Uint8List.fromList([1, 2]),
+            Uint8List.fromList([3, 4, 5]),
+            Uint8List(0),
+          ];
+          final body = NativeHttpRequestBody.testStreaming(
+            length: initialLength,
+            onRead: (_) => chunks[reads++],
+            onFinish: () => finishes++,
+          );
+          final actual = materialize
+              ? body.materializeOwnedBytes()
+              : (await body.openRead().toList()).expand((chunk) => chunk);
+          expect(actual, [1, 2, 3, 4, 5]);
+          expect(reads, 3);
+          expect(finishes, 1);
+          body.finish();
+          expect(finishes, 1);
+        },
+      );
+    }
+  }
   test('cancelling after a chunk finishes without reading the rest', () async {
     var reads = 0;
     var finishes = 0;
@@ -139,7 +244,6 @@ void main() {
         final body = NativeHttpRequestBody.testStreaming(
           length: length,
           onRead: (_) {
-            expect(length, 6);
             return Uint8List(0);
           },
           onFinish: () {
@@ -191,7 +295,8 @@ void main() {
         length: 3,
         onRead: (size) {
           expect(size, 1);
-          return Uint8List.fromList([++reads]);
+          reads++;
+          return reads <= 3 ? Uint8List.fromList([reads]) : Uint8List(0);
         },
         onFinish: () => finishes++,
       );
@@ -200,7 +305,7 @@ void main() {
         [2],
         [3],
       ]);
-      expect(reads, 3);
+      expect(reads, 4);
       expect(finishes, 1);
     });
   }

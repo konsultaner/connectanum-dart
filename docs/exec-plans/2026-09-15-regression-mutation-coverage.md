@@ -35,6 +35,23 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work356 locally verified: Fast356 passed. Shipped HTTP/3 wrapper UTF-8 lengths fixed
+after failing repro5. Large unknown-length body truncation reproduced both over
+HTTP/3 and in six deterministic tests; streaming reads now drain to EOF rather
+than stopping at the initial descriptor length. All 36 body lifecycle cases and
+the latest HTTP/3 smoke pass. Retain the separate handshake timeout repeat and
+initial truncated mutation baseline; neither is assertion-kill evidence.
+Intermediate wrapper probe: 15/21 assertion detections, three errors, three
+survivors, five compile failures; superseded source after EOF fix. Completed
+`body356-replay-probe`: 45/80 assertion-backed detections (56.25% raw/adjusted),
+33 survivors, two uncredited timeouts, clean baselines and matching hashes;
+no waivers. Verify356 was stopped with exit 143 after failed truncation repetition.
+The next full run failed on the benchmark drain test's obsolete two-read count.
+It now requires the third EOF read and asserts finish before response emission;
+four focused benchmark tests pass. Full verification passes in
+`/tmp/connectanum-verify356-eof.log` (exit 0, including browser runtimes).
+Hosted verification remains outstanding. No new whole-component scores claimed.
+
 Work355: 11 HTTP auth JSON endpoint regressions pass, including empty/escaped
 strings, all four JSON whitespace characters, mixed arrays, root/nested duplicate
 selectors, no provider invocation on rejection and valid grant recovery.

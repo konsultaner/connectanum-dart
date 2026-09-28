@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work356 passes full local verification. Fast356 passed. A separate
+process HTTP/3 echo fixture reproduces the shipped client wrapper rejecting a
+valid UTF-8 header value (repro5); FFI lengths now use UTF-8 bytes. The larger
+payload regression also exposed truncation of bodies without Content-Length.
+Six deterministic body tests failed before the EOF-based reader fix; all 36
+body lifecycle tests now pass. Completed/explicitly finished empty streams are
+not reread, cancellation/error cleanup is retained, buffered reads stay bounded.
+The native descriptor length is only an initial snapshot for streaming bodies.
+Latest HTTP/3 smoke passes, but one repeat hit a QUIC handshake timeout before
+invalid-header validation; that remains distinct from the fixed truncation.
+Initial wrapper mutation baseline failed on truncation. The intermediate
+body-first probe had 15/21 assertion detections, three survivors, three errors,
+five compile failures and clean baselines; it predates the EOF fix and is not
+final evidence. `body356-replay-probe` completed with 45/80 assertion-backed
+detections (56.25% raw/adjusted), 33 survivors and two uncredited timeouts;
+source/test hashes match and baseline/restored baseline pass. No waivers.
+Verify356 was explicitly stopped (exit 143) after a truncation repeat failed.
+The subsequent full run (`/tmp/connectanum-verify356-final.log`) failed on the
+benchmark drain test expecting two reads instead of two chunks plus EOF.
+That test now also asserts EOF and finish before response emission; all four
+focused benchmark tests pass (`/tmp/connectanum-bench356-eof.log`). Full
+verification passes in `/tmp/connectanum-verify356-eof.log` (exit 0, including
+browser runtimes). Hosted verification remains outstanding; no refreshed
+whole-component coverage or mutation score is claimed.
+
 Work355 adds 11 passing HTTP auth JSON endpoint regressions covering whitespace,
 empty/escaped strings, mixed arrays, nested and root duplicate selectors, provider
 non-invocation on rejection, and subsequent valid grant recovery. Fast355 passes.
