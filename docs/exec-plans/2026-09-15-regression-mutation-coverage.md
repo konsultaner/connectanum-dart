@@ -35,6 +35,23 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work360: Fast360 and six empty/missing-file error-send/recovery regressions pass.
+The selected `file360-runtime-probe` has 11/17 assertion-only detections,
+two survivors, four uncredited timeouts and nine compile failures. Both
+baselines pass, source/test/support hashes match and native artifact is
+unchanged; no waivers. Retain the initial `file360-probe` baseline configuration
+failure separately. Full verify360 passes (exit 0, including browser runtimes);
+hosted verification remains outstanding. Investigate
+the pending-identity guard and empty-chunk survivors without inventing private
+states or converting timeouts into assertion credit.
+
+VM360 at `3f5654cf` precedes these new tests: 40,302/42,927 library lines
+(93.885%), router 17,970/19,492, core 6,855/7,258, packaging 765/787.
+Collection and final input-manifest verification pass. Retain 58 unmeasured
+library files, 12 unmeasured packaging files and missing WASM instrumentation.
+Evidence: `out/regression-coverage-2026-09-15/vm360-current`. Hosted checks
+for this commit remain queued; no whole-component mutation completion claim.
+
 Work359: Fast359 and four focused native MCP metadata integration cases pass.
 All four aliases cover danger normalization, malformed optional hints, explicit
 annotation/schema/description precedence, published events, permission isolation

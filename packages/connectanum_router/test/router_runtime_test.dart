@@ -3967,6 +3967,132 @@ void _fileResponseCleanupTests() {
       },
     );
   }
+  for (final emptyPath in [false, true]) {
+    for (final failureKind in ['none', 'native', 'state']) {
+      test(
+        'file error response empty=$emptyPath send=$failureKind recovers',
+        () async {
+          final directory = await Directory.systemTemp.createTemp(
+            'connectanum-file-error-recovery-',
+          );
+          addTearDown(() => directory.delete(recursive: true));
+          final file = File('${directory.path}/valid');
+          await file.writeAsString('recovered-file');
+          final runtime = _FileResponseCleanupRuntime(failAdd: false);
+          final Object? sendFailure = switch (failureKind) {
+            'native' => NativeTransportException(-9, 'controlled error send'),
+            'state' => StateError('controlled error send'),
+            _ => null,
+          };
+          runtime.sendError = sendFailure;
+          final first = _TrackedHttpHandshake(9351);
+          final second = _TrackedHttpHandshake(9352);
+          var active = first;
+          runtime.releases = () => active.releases;
+          final events = <Map<String, Object?>>[];
+          final router = Router(
+            RouterConfig(
+              endpoints: [
+                Endpoint(
+                  host: '127.0.0.1',
+                  port: 0,
+                  tlsMode: TlsMode.native,
+                  maxRawSocketSizeExponent: 16,
+                  sniCertificates: [_cert('localhost')],
+                ),
+              ],
+            ),
+            settings: _buildRouterSettingsWithPendingProtocols(),
+          );
+          final binding = router.start(
+            runtime,
+            onEvent: (event) {
+              if (event is Map<String, Object?>) events.add(event);
+            },
+          );
+          addTearDown(binding.dispose);
+          final session = await binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          final registration = await session.register('com.example.api.stream');
+          final requestIds = <int>[];
+          registration.onInvoke((invocation) {
+            final context = HttpInvocationContext.maybeFromInvocation(
+              invocation,
+            )!;
+            requestIds.add(context.requestId);
+            context.sendFile(
+              path: requestIds.length == 1
+                  ? (emptyPath ? '' : '${directory.path}/missing')
+                  : file.path,
+            );
+          });
+          for (final (index, handshake) in [first, second].indexed) {
+            active = handshake;
+            if (index == 1) runtime.sendError = null;
+            runtime.setConnectionProtocol(
+              58 + index,
+              NativeConnectionProtocol.http,
+            );
+            runtime.enqueueHttpHandshake(
+              binding.listeners.single.listenerId,
+              58 + index,
+              handshake,
+            );
+            await _waitUntil(() => handshake.releases != 0);
+            expect(handshake.releases, 1);
+          }
+
+          final expectedMessage = emptyPath
+              ? 'missing file path for file-backed HTTP response'
+              : 'file-backed HTTP response path does not exist';
+          final fileErrors = events.where(
+            (event) => event['type'] == 'http_response_file_stream_error',
+          );
+          expect(fileErrors, hasLength(1));
+          expect(fileErrors.single['error'], expectedMessage);
+          expect(fileErrors.single['httpRequestId'], requestIds.first);
+          expect(fileErrors.single['connectionId'], 58);
+          final sendErrors = events.where(
+            (event) => event['type'] == 'http_response_send_error',
+          );
+          expect(sendErrors, hasLength(sendFailure == null ? 0 : 1));
+          if (sendFailure == null) {
+            final response = runtime.httpResponses[58]!.single;
+            expect(response.status, HttpStatus.internalServerError);
+            expect(_jsonResponseBody(response), {
+              'error': 'file_response_unavailable',
+              'message': expectedMessage,
+            });
+          } else {
+            expect(runtime.httpResponses[58], isNull);
+            expect(sendErrors.single['error'], sendFailure.toString());
+            expect(sendErrors.single['httpRequestId'], requestIds.first);
+            expect(sendErrors.single['connectionId'], 58);
+          }
+          expect(runtime.responseAttempts, [first.handle]);
+          expect(runtime.releasesAtSend, [0]);
+          expect(runtime.releasesAtOpen, [0]);
+          expect(
+            utf8.decode(runtime.chunks.expand((chunk) => chunk).toList()),
+            'recovered-file',
+          );
+          expect(runtime.streamCloses, [second.handle]);
+          final streamed = events.where(
+            (event) => event['type'] == 'http_response_file_streamed',
+          );
+          expect(streamed, hasLength(1));
+          expect(streamed.single['httpRequestId'], requestIds.last);
+          expect(streamed.single['connectionId'], 59);
+          await binding.dispose();
+          expect([first.releases, second.releases], [1, 1]);
+          expect(runtime.responseAttempts, [first.handle]);
+          expect(runtime.streamCloses, [second.handle]);
+        },
+      );
+    }
+  }
+
   for (final outcome in ['missing', 'stream-error', 'success']) {
     for (final throwObserver in [false, true]) {
       test(

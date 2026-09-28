@@ -6,6 +6,29 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work360 locally verified: Fast360 and six file-response recovery tests pass.
+Empty and nonexistent paths each cover successful error delivery, native send
+failure and generic send failure, followed by successful file delivery on the
+same binding. Assertions check sanitized responses, request/connection identity,
+ownership during I/O, exact bytes and once-only cleanup. `file360-probe` stopped
+at baseline because an inherited metrics test file had no matching test names;
+retain this configuration failure separately. Corrected `file360-runtime-probe`
+records 11/17 assertion-only detections (64.706% raw/adjusted), two survivors,
+four uncredited timeouts and nine excluded compile failures. Baseline and
+restored baseline pass; source/test/support hashes match and native artifact is
+unchanged. No equivalence waivers. Full verification passes in
+`/tmp/connectanum-verify360.log` (exit 0, including browser runtimes).
+Hosted verification remains outstanding.
+
+VM360 at `3f5654cf`, before Work360 tests, completes with its input manifest
+unchanged: 40,302/42,927 measured library lines (93.885%). Auth server
+465/465, bench 2,324/2,339, client 8,909/9,443, core 6,855/7,258,
+MCP 3,779/3,930 and router 17,970/19,492. Packaging remains 765/787.
+Evidence is `out/regression-coverage-2026-09-15/vm360-current`; retain 58
+unmeasured library files, 12 unmeasured packaging files and missing WASM line
+instrumentation. This supersedes VM357 measurements, not browser/native data.
+Latest checked CI and package dry-run for `3f5654cf` remain queued, not green.
+
 Work359 locally verified: Fast359 passes. Four native-router integration cases
 cover all metadata aliases, 56 danger-value combinations, malformed optional
 hints, explicit annotation/schema/description precedence, published-event
