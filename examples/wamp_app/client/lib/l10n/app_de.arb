@@ -141,6 +141,7 @@
   "stickerLabel": "Sticker {label}",
   "noMatchingExpressions": "Keine passenden Inhalte",
   "saveCopy": "Kopie speichern",
+  "attachmentSaveFailed": "Die Datei konnte nicht gespeichert werden. Bitte versuche es erneut.",
   "viewOnceMessage": "Einmalansicht-Nachricht",
   "viewOnceOpenFailed": "Dieser Einmalansicht-Anhang konnte nicht geöffnet werden.",
   "profileUpdated": "Profil aktualisiert.",

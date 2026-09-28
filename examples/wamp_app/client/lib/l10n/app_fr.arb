@@ -141,6 +141,7 @@
   "stickerLabel": "Sticker {label}",
   "noMatchingExpressions": "Aucun résultat",
   "saveCopy": "Enregistrer une copie",
+  "attachmentSaveFailed": "Impossible d'enregistrer le fichier. Réessayez.",
   "viewOnceMessage": "Message à vue unique",
   "viewOnceOpenFailed": "Impossible d'ouvrir cette pièce jointe à vue unique.",
   "profileUpdated": "Profil mis à jour.",

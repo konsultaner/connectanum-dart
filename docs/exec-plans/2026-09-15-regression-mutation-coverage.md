@@ -35,6 +35,22 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work353: attachment-preview export lifecycle regressions and fixes pass full
+verify353 (exit 0, including browser runtime tests). Preserve failing reproductions in
+`/tmp/connectanum-preview353-{repro2,write-error-repro,transition-repro}.log`.
+The final client VM suite passes 410 tests; final browser JS/WASM runs each pass
+five shared tests with seven native-only skips in
+`/tmp/connectanum-preview353-complete-{js,wasm}.log`. Analyzer and fast353 pass.
+Fresh `client353-final-current` retains raw/normalized LCOV, policy, summary and
+verified source/test/config hashes: client 9,354/10,294 (90.868%), HomePage
+1,355/1,578 (85.868%). Ten client files remain unmeasured; server/shared and WASM
+coverage are not refreshed. Strict 98% gate fails. `preview353-probe` retains
+the exact selected line-range config, individual outcomes and clean baselines:
+10/10 viable assertion-backed detections, four compile failures excluded, no
+survivors or error-only/timeout credit. No whole-component mutation claim.
+Full repository verification is retained in `/tmp/connectanum-verify353.log`.
+Hosted CI evidence remains outstanding; the previous pushed runs are queued.
+
 Work352: fixed a reproduced HomePage attachment-capacity race. Two asynchronous
 selections could stage nine files; capacity is now rechecked immediately before
 the synchronous state update, rejecting the conflicting batch atomically. Nine

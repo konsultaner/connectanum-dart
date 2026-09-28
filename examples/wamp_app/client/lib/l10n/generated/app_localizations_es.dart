@@ -462,6 +462,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get saveCopy => 'Guardar copia';
 
   @override
+  String get attachmentSaveFailed =>
+      'No se pudo guardar el archivo. Inténtalo de nuevo.';
+
+  @override
   String get viewOnceMessage => 'Mensaje de una sola vista';
 
   @override

@@ -952,6 +952,12 @@ abstract class AppLocalizations {
   /// **'Save copy'**
   String get saveCopy;
 
+  /// No description provided for @attachmentSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The file could not be saved. Please try again.'**
+  String get attachmentSaveFailed;
+
   /// No description provided for @viewOnceMessage.
   ///
   /// In en, this message translates to:

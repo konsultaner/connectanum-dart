@@ -6,6 +6,23 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work353 completes full verification (`/tmp/connectanum-verify353.log`, exit 0,
+including browser runtime tests). Public
+attachment-preview regressions reproduce late exports after dismissal, zeroed
+in-flight exports and uncaught save failures. The fix tracks dialog completion
+independently of mounted state, gives each in-flight export its own cleared
+buffer, and reports sanitized save failures in all six locales. Full client VM
+tests pass 410 cases; focused JS and WASM runs each pass five shared cases with
+seven native-only skips. Flutter analysis passes. Fast353 passed before edits.
+Fresh `client353-final-current` measures 9,354/10,294 client VM lines (90.868%);
+HomePage is 1,355/1,578 (85.868%). The source/test/config manifest still matches.
+Ten client files remain unmeasured, server/shared were not refreshed, and the
+98% gate fails. WASM runtime passes are not measured WASM coverage.
+`preview353-probe` detects 10/10 viable mutations with assertion-backed Flutter
+evidence, excluding four compile failures; both baselines pass. This selected
+save-lifecycle probe is not whole-application mutation evidence. Hosted CI for
+pushed Work352 remains queued; no hosted-green claim is made for this increment.
+
 Work352 completes full verification (`/tmp/connectanum-verify352.log`, exit 0,
 including browser runtime tests). New
 public widget regressions reproduce overlapping file selections exceeding the

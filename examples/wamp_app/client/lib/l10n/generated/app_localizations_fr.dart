@@ -463,6 +463,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get saveCopy => 'Enregistrer une copie';
 
   @override
+  String get attachmentSaveFailed =>
+      'Impossible d\'enregistrer le fichier. Réessayez.';
+
+  @override
   String get viewOnceMessage => 'Message à vue unique';
 
   @override

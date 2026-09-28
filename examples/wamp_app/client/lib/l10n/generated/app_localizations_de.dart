@@ -468,6 +468,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get saveCopy => 'Kopie speichern';
 
   @override
+  String get attachmentSaveFailed =>
+      'Die Datei konnte nicht gespeichert werden. Bitte versuche es erneut.';
+
+  @override
   String get viewOnceMessage => 'Einmalansicht-Nachricht';
 
   @override

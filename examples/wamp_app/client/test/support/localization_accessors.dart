@@ -141,6 +141,7 @@ final plainLocalizationAccessors = <String, String Function(AppLocalizations)>{
   'stickers': (l) => l.stickers,
   'noMatchingExpressions': (l) => l.noMatchingExpressions,
   'saveCopy': (l) => l.saveCopy,
+  'attachmentSaveFailed': (l) => l.attachmentSaveFailed,
   'viewOnceMessage': (l) => l.viewOnceMessage,
   'viewOnceOpenFailed': (l) => l.viewOnceOpenFailed,
   'profileUpdated': (l) => l.profileUpdated,

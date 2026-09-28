@@ -424,6 +424,7 @@ class _HomePageState extends State<HomePage> {
     final l10n = AppLocalizations.of(context);
     MemoryImage? preview;
     VoiceNotePlaybackController? voicePlayer;
+    var previewOpen = true;
     try {
       if (attachment.kind == ChatAttachmentKind.image ||
           attachment.kind == ChatAttachmentKind.gif ||
@@ -464,15 +465,33 @@ class _HomePageState extends State<HomePage> {
             if (allowSaveCopy)
               TextButton.icon(
                 onPressed: () async {
-                  final location = await getSaveLocation(
-                    suggestedName: attachment.name,
-                  );
-                  if (location == null) return;
-                  await XFile.fromData(
-                    bytes,
-                    name: attachment.name,
-                    mimeType: attachment.contentType,
-                  ).saveTo(location.path);
+                  Uint8List? exportBytes;
+                  try {
+                    final location = await getSaveLocation(
+                      suggestedName: attachment.name,
+                    );
+                    if (location == null ||
+                        !previewOpen ||
+                        !mounted ||
+                        !dialogContext.mounted) {
+                      return;
+                    }
+                    // The preview clears its own buffer independently of I/O.
+                    exportBytes = Uint8List.fromList(bytes);
+                    await XFile.fromData(
+                      exportBytes,
+                      name: attachment.name,
+                      mimeType: attachment.contentType,
+                    ).saveTo(location.path);
+                  } catch (_) {
+                    if (previewOpen && mounted && dialogContext.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(l10n.attachmentSaveFailed)),
+                      );
+                    }
+                  } finally {
+                    exportBytes?.fillRange(0, exportBytes.length, 0);
+                  }
                 },
                 icon: const Icon(Icons.download_outlined),
                 label: Text(l10n.saveCopy),
@@ -485,6 +504,7 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     } finally {
+      previewOpen = false;
       try {
         await voicePlayer?.disposeAsync();
       } finally {
