@@ -6,6 +6,41 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work364 locally verified: Fast364 passes. Seven native HTTP/3 identity rejection
+cases cover absent identity, empty chain/key, malformed PEM, invalid DER and
+mismatched certificate/key, each followed by successful valid-identity recovery.
+The focused Rust test passes; production behavior is unchanged. Local companion
+review suggestions to weaken diagnostic/chain assertions were rejected after
+checking the fixture and loader. Full `bin/verify` passes with normal settings
+in `/tmp/connectanum-verify364.log` (exit 0, including browser runtimes). The
+HTTP/3 wrapper passes in this run; the earlier intermittent timeout is not
+claimed fixed. Coverage below remains pinned to the pre-Work364 snapshot.
+Unfiltered native transport candidate inventory `native364-inventory` records
+3,356 candidates (core 1,945, FFI 1,411), with source scopes and a verified
+unchanged source/test/config manifest. Candidates are not viable-mutant counts
+or scores. Largest inventories are FFI ffi.rs (1,134) and core lib.rs (929).
+The current collector only exposes four core-module targets; expand full
+transport/FFI campaign support next. Hosted verification remains outstanding.
+
+VM363 at `a2e23f4d` completes with a verified unchanged input manifest:
+40,312/42,929 measured library lines (93.904%), router 17,980/19,494
+(92.234%), packaging 765/787 (97.205%). Other package totals are unchanged
+from VM360. Retain 58 unmeasured library sources, 12 unmeasured packaging
+sources and missing WASM line instrumentation. Evidence is
+`out/regression-coverage-2026-09-15/vm363-current`, including the input manifest.
+Separate `native363-current` Rust-test coverage completes with matching input
+hashes: ct_core 8,913/10,064 (88.563%) and ct_ffi 4,882/5,798 (84.201%).
+The report retains one core and three FFI unmeasured source files. Separate
+Dart-to-native collection `nativeffi363-current` also passes: core 6,956/10,064
+and FFI 4,275/5,798. Canonical scope JSON and source/test/config manifests
+match between collections. The existing production filter validates the
+concatenated raw LCOV against current sources and merges line hits into
+`native363-combined`: core 8,972/10,064 (89.149%), FFI 5,219/5,798 (90.014%).
+The combined input manifest passes verification; preserve both original raw
+collections and their separate results. Unmeasured source inventories remain
+unchanged. Largest combined gaps are core lib.rs (825 lines) and FFI ffi.rs
+(516 lines); these measurements do not establish mutation coverage.
+
 Work362 locally verified with an intermittent failure retained: Fast362 passes.
 Five public file-stream cases cover
 empty and mixed List/Uint8List chunks, read errors after a delivered prefix,

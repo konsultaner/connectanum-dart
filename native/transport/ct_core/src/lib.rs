@@ -8884,6 +8884,85 @@ mod tests {
     }
 
     #[test]
+    fn http3_identity_rejections_preserve_valid_configuration_recovery() {
+        let tls = generate_tls_material();
+        let other_tls = generate_tls_material();
+        let valid_identity = config::SniCertificate {
+            hostname: "localhost".to_string(),
+            certificate_chain_pem: tls.server_chain_pem.clone(),
+            private_key_pem: tls.server_key_pem.clone(),
+        };
+        let cases = [
+            (None, None, "requires SNI certificate for http3"),
+            (
+                Some(""),
+                Some(tls.server_key_pem.as_str()),
+                "http3 certificate chain empty",
+            ),
+            (
+                Some("-----BEGIN CERTIFICATE-----\n!invalid!\n-----END CERTIFICATE-----\n"),
+                Some(tls.server_key_pem.as_str()),
+                "failed to parse http3 certificate:",
+            ),
+            (
+                Some(tls.server_chain_pem.as_str()),
+                Some(""),
+                "http3 private key missing",
+            ),
+            (
+                Some(tls.server_chain_pem.as_str()),
+                Some("-----BEGIN PRIVATE KEY-----\n!invalid!\n-----END PRIVATE KEY-----\n"),
+                "failed to parse pkcs8 key for http3:",
+            ),
+            (
+                Some("-----BEGIN CERTIFICATE-----\nAA==\n-----END CERTIFICATE-----\n"),
+                Some(tls.server_key_pem.as_str()),
+                "http3 certificate invalid:",
+            ),
+            (
+                Some(tls.server_chain_pem.as_str()),
+                Some(other_tls.server_key_pem.as_str()),
+                "http3 certificate invalid:",
+            ),
+        ];
+        let mut endpoint = build_client_endpoint_config(
+            "localhost",
+            8443,
+            true,
+            TransportProtocol::Http,
+            config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+            None,
+            None,
+        );
+        for (certificate, key, reason) in cases {
+            endpoint.sni_certificates = certificate
+                .map(|certificate| config::SniCertificate {
+                    hostname: "localhost".to_string(),
+                    certificate_chain_pem: certificate.to_string(),
+                    private_key_pem: key.expect("test key fixture").to_string(),
+                })
+                .into_iter()
+                .collect();
+            match build_http3_server_config(&endpoint) {
+                Err(Error::RouterConfigInvalid(message)) => assert!(
+                    message.starts_with(&format!("endpoint localhost:8443 {reason}")),
+                    "incorrect rejection category for {reason}: {message}",
+                ),
+                Err(error) => panic!("incorrect error type for {reason}: {error:?}"),
+                Ok(_) => panic!("accepted invalid HTTP/3 identity: {reason}"),
+            }
+            endpoint.sni_certificates = vec![valid_identity.clone()];
+            let (certificates, key) = load_http3_identity(&endpoint).expect("restored identity");
+            assert_eq!(certificates.len(), 2, "preserve leaf and CA certificates");
+            assert!(!key.secret_der().is_empty());
+            assert!(
+                build_http3_server_config(&endpoint).is_ok(),
+                "recovery after {reason}"
+            );
+        }
+    }
+
+    #[test]
     fn http3_server_config_applies_transport_tuning() {
         let tls = generate_tls_material();
         let endpoint = config::EndpointRuntimeConfig {

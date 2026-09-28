@@ -35,6 +35,34 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work364 locally verified: Fast364 passes. New HTTP/3 identity regression
+executes seven rejection/recovery cases and passes in
+`/tmp/connectanum-native364-focus.log`. Local review is complete; retain exact
+error categories and the generated leaf-plus-CA chain assertions. Full verify
+passes in `/tmp/connectanum-verify364.log` (exit 0, including browser runtimes,
+normal settings). No refreshed coverage or mutation gain is attributed to
+these tests; the earlier intermittent HTTP/3 timeout remains unresolved.
+Unfiltered cargo-mutants inventory `native364-inventory` contains 3,356
+candidates: core 1,945 and FFI 1,411, with scope snapshot and verified input
+manifest. These are candidates, not viability/detection measurements. Existing
+collector targets cover only four core modules; next expand complete native
+transport/FFI inventory execution without weakening assertion classification,
+source pinning or restored-baseline validation. Hosted evidence is outstanding.
+
+VM363 at `a2e23f4d` passes collection and final manifest verification:
+40,312/42,929 measured library lines, router 17,980/19,494, packaging
+765/787. Retain 58 library and 12 packaging unmeasured sources plus missing
+WASM instrumentation. Evidence is `vm363-current`. Native Rust-only collection
+`native363-current` passes with unchanged inputs: ct_core 8,913/10,064 and
+ct_ffi 4,882/5,798, retaining one and three unmeasured source files respectively.
+Separate Dart-to-native collection `nativeffi363-current` passes with matching
+input manifests and canonically identical scope JSON. Filtered union evidence
+`native363-combined` validates against current source scopes and records core
+8,972/10,064 (89.149%) and FFI 5,219/5,798 (90.014%). The combined manifest
+passes; originals remain separate. Largest combined gaps are core lib.rs
+(825 lines) and FFI ffi.rs (516 lines). Unmeasured sources remain visible.
+Keep this bookkeeping uncommitted until bundled with implementation work.
+
 Work362: Fast362 and five stream-boundary tests pass. Cover empty/mixed chunks,
 read/openRead/native-open errors, prefix preservation, metadata, diagnostics,
 cancellation and once-only resource cleanup. `file362-probe` remains 14/20
