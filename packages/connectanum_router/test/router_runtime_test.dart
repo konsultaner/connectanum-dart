@@ -3548,6 +3548,36 @@ class _FileResponseCleanupRuntime extends _HandleRuntime {
   }
 }
 
+class _ExistenceFailureFile implements File {
+  _ExistenceFailureFile({required this.synchronous, this.gate});
+
+  final bool synchronous;
+  final Completer<void>? gate;
+  final checked = Completer<void>();
+  final error = const FileSystemException(
+    'controlled private filesystem detail',
+    '/private/controlled-file',
+  );
+  int reads = 0;
+
+  @override
+  Future<bool> exists() {
+    checked.complete();
+    if (synchronous) throw error;
+    if (gate != null) return gate!.future.then((_) => throw error);
+    return Future<bool>.error(error);
+  }
+
+  @override
+  Stream<List<int>> openRead([int? start, int? end]) {
+    reads++;
+    return const Stream<List<int>>.empty();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _DeferredResponseFile implements File {
   _DeferredResponseFile({this.cancellation});
 
@@ -3966,6 +3996,149 @@ void _fileResponseCleanupTests() {
         );
       },
     );
+  }
+  for (final mode in ['async', 'sync', 'constructor', 'cancelled']) {
+    test('file existence failure mode=$mode is contained', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'connectanum-file-existence-recovery-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final validFile = File('${directory.path}/valid');
+      await validFile.writeAsString('recovered-after-existence-error');
+      final gate = mode == 'cancelled' ? Completer<void>() : null;
+      final failingFile = _ExistenceFailureFile(
+        synchronous: mode == 'sync',
+        gate: gate,
+      );
+      const failingPath = '/controlled-existence-failure';
+      final parentZone = Zone.current;
+      final runtime = _FileResponseCleanupRuntime(failAdd: false);
+      final handshakes = [
+        _TrackedHttpHandshake(9451),
+        _TrackedHttpHandshake(9452),
+      ];
+      var active = handshakes.first;
+      runtime.releases = () => active.releases;
+      final errors = <Object>[];
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+      final binding = runZonedGuarded(
+        () => IOOverrides.runZoned(
+          () => router.start(
+            runtime,
+            onEvent: (event) {
+              if (event is Map<String, Object?>) events.add(event);
+            },
+          ),
+          createFile: (name) {
+            if (name != failingPath) return parentZone.run(() => File(name));
+            if (mode == 'constructor') throw failingFile.error;
+            return failingFile;
+          },
+        ),
+        (error, _) => errors.add(error),
+      )!;
+      addTearDown(binding.dispose);
+      final session = await binding.createInternalSession(realmUri: 'realm1');
+      final registration = await session.register('com.example.api.stream');
+      final requestIds = <int>[];
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation)!;
+        requestIds.add(context.requestId);
+        context.sendFile(
+          path: requestIds.length == 1 ? failingPath : validFile.path,
+        );
+      });
+      for (final (index, handshake) in handshakes.indexed) {
+        active = handshake;
+        runtime.setConnectionProtocol(
+          68 + index,
+          NativeConnectionProtocol.http,
+        );
+        runtime.enqueueHttpHandshake(
+          binding.listeners.single.listenerId,
+          68 + index,
+          handshake,
+        );
+        if (gate != null) {
+          await failingFile.checked.future.timeout(const Duration(seconds: 2));
+          await binding.dispose();
+          expect(handshake.releases, 1);
+          gate.complete();
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          expect(errors, isEmpty);
+          expect(failingFile.reads, 0);
+          expect(runtime.responseAttempts, isEmpty);
+          expect(runtime.releasesAtOpen, isEmpty);
+          expect(runtime.chunks, isEmpty);
+          expect(runtime.streamCloses, isEmpty);
+          expect(
+            events.where(
+              (event) =>
+                  event['type'] == 'http_response_file_stream_error' ||
+                  event['type'] == 'http_response_file_streamed',
+            ),
+            isEmpty,
+          );
+          expect(handshake.releases, 1);
+          return;
+        }
+        await _waitUntil(() => handshake.releases != 0 || errors.isNotEmpty);
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          errors,
+          isEmpty,
+          reason: 'File I/O errors must remain contained.',
+        );
+        expect(handshake.releases, 1);
+      }
+      expect(failingFile.reads, 0);
+      expect(runtime.httpResponses[68], hasLength(1));
+      final response = runtime.httpResponses[68]!.single;
+      expect(response.status, HttpStatus.internalServerError);
+      expect(_jsonResponseBody(response), {
+        'error': 'file_response_unavailable',
+        'message': 'file-backed HTTP response could not be opened',
+      });
+      expect(runtime.responseAttempts, [handshakes.first.handle]);
+      expect(runtime.releasesAtSend, [0]);
+      expect(runtime.releasesAtOpen, [0]);
+      expect(runtime.streamCloses, [handshakes.last.handle]);
+      expect(
+        utf8.decode(runtime.chunks.expand((chunk) => chunk).toList()),
+        'recovered-after-existence-error',
+      );
+      final failures = events.where(
+        (event) => event['type'] == 'http_response_file_stream_error',
+      );
+      expect(failures, hasLength(1));
+      expect(failures.single['httpRequestId'], requestIds.first);
+      expect(failures.single['connectionId'], 68);
+      expect(
+        failures.single['error'],
+        'file-backed HTTP response could not be opened',
+      );
+      expect(
+        events.where((event) => event['type'] == 'http_response_file_streamed'),
+        hasLength(1),
+      );
+      await binding.dispose();
+      expect(handshakes.map((handshake) => handshake.releases), [1, 1]);
+      expect(errors, isEmpty);
+    });
   }
   for (final emptyPath in [false, true]) {
     for (final failureKind in ['none', 'native', 'state']) {

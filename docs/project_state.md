@@ -6,6 +6,21 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work361 locally verified: Fast361 passes. Two public sendFile regressions
+reproduce synchronous/asynchronous File.exists failures escaping into the
+binding zone (`/tmp/connectanum-file361-repro.log`, two assertion failures).
+File construction and existence checks now have a narrow error boundary:
+active requests get a sanitized 500; failures arriving after disposal do not
+send or emit stale file-result diagnostics. Four final regressions cover
+constructor, synchronous, asynchronous and post-disposal failures, with
+once-only ownership and subsequent valid-file recovery where the binding is
+still active. All 25 focused file cases pass. `file361-probe` retains 14/20
+assertion-only detections (70% raw/adjusted), two survivors, four uncredited
+timeouts and nine excluded compile failures. Both baselines pass; final
+source/test/support hashes match and native artifact is unchanged. No waivers.
+Full verify361 passes in `/tmp/connectanum-verify361.log` (exit 0, including
+browser runtimes). Hosted verification remains outstanding.
+
 Work360 locally verified: Fast360 and six file-response recovery tests pass.
 Empty and nonexistent paths each cover successful error delivery, native send
 failure and generic send failure, followed by successful file delivery on the

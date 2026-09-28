@@ -35,6 +35,17 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work361: Fast361 passes. Preserved two failing public file-existence error
+regressions before fixing construction/existence exception containment. Active
+requests receive sanitized 500 responses; disposed requests never restart I/O.
+Four final failure modes and 21 existing file cases pass. `file361-probe`
+records 14/20 assertion-only detections (70% raw/adjusted), two survivors,
+four uncredited timeouts and nine compile failures, with clean baselines and
+matching source/test/support/native evidence. All three mutations of the new
+pending-identity guard are assertion-detected. No waivers or broader score
+claim. Full verify361 passes (exit 0, including browser runtimes); hosted
+verification remains outstanding.
+
 Work360: Fast360 and six empty/missing-file error-send/recovery regressions pass.
 The selected `file360-runtime-probe` has 11/17 assertion-only detections,
 two survivors, four uncredited timeouts and nine compile failures. Both

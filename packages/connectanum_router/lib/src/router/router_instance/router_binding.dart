@@ -7116,8 +7116,21 @@ class RouterBinding {
       return;
     }
 
-    final file = File(filePath);
-    final exists = await file.exists();
+    final File file;
+    final bool exists;
+    try {
+      file = File(filePath);
+      exists = await file.exists();
+    } catch (_) {
+      if (!identical(_pendingHttpCalls[pending.id], pending)) {
+        return;
+      }
+      await _sendFileHttpResponseError(
+        pending,
+        'file-backed HTTP response could not be opened',
+      );
+      return;
+    }
     if (!identical(_pendingHttpCalls[pending.id], pending)) {
       return;
     }
