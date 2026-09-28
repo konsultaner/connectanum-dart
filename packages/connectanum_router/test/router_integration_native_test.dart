@@ -802,6 +802,79 @@ void main() {
       : null;
 
   group('Router + FFI test mode', () {
+    for (final flag in <bool?>[null, false, true]) {
+      test('MCP listener acknowledges exact requested flag=$flag', () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9149,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(maxRequestScopedListenerCount: 1),
+        );
+        addTearDown(harness.dispose);
+        final http = HttpClient();
+        addTearDown(() => http.close(force: true));
+        final port = harness.binding.listeners.single.port;
+        final request = await http.postUrl(
+          Uri.parse('http://127.0.0.1:$port/mcp/public'),
+        );
+        request.headers
+          ..contentType = ContentType.json
+          ..set('Accept', 'application/json, text/event-stream')
+          ..set('MCP-Protocol-Version', '2026-07-28')
+          ..set('Mcp-Method', 'subscriptions/listen');
+        final body = utf8.encode(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 'wire-ack',
+            'method': 'subscriptions/listen',
+            'params': {
+              '_meta': {
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+              'notifications': {
+                'toolsListChanged': ?flag,
+              },
+            },
+          }),
+        );
+        request.contentLength = body.length;
+        request.add(body);
+        final response = await request.close().timeout(
+          const Duration(seconds: 5),
+        );
+        expect(response.statusCode, HttpStatus.ok);
+        expect(response.headers.contentType?.mimeType, 'text/event-stream');
+        expect(response.headers.value('mcp-session-id'), isNull);
+        final lines = StreamIterator(
+          utf8.decoder.bind(response).transform(const LineSplitter()),
+        );
+        addTearDown(lines.cancel);
+        String? data;
+        while (await lines.moveNext().timeout(const Duration(seconds: 5))) {
+          if (lines.current.startsWith('data: ')) {
+            data = lines.current.substring(6);
+            break;
+          }
+        }
+        expect(
+          data,
+          isNotNull,
+          reason: 'An admitted listener must acknowledge',
+        );
+        expect(jsonDecode(data!), {
+          'jsonrpc': '2.0',
+          'method': 'notifications/subscriptions/acknowledged',
+          'params': {
+            '_meta': {'io.modelcontextprotocol/subscriptionId': 'wire-ack'},
+            'notifications': {if (flag == true) 'toolsListChanged': true},
+          },
+        });
+        http.close(force: true);
+        await lines.cancel();
+      }, skip: skipReason);
+    }
+
     for (final (label, notifications, diagnostic)
         in <(String, Object?, String)>[
           ('container', [], 'notifications must be an object'),

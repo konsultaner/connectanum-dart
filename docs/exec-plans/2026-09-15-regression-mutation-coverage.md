@@ -35,6 +35,13 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work345 closes the Work344 default-flag oracle gap with raw-SSE exact-ack tests
+for omitted/false/true tool flags. Fast345, focused tests and verify345 pass.
+`filter345-probe`: same 18 selected, 14 viable, all assertion-backed (seven
+assertion-only/seven mixed), four compile failures, clean baselines, 100%
+raw/adjusted targeted score, no error-only kills/waivers. Whole-router acceptance
+remains incomplete.
+
 Work344 covers nine malformed MCP listener filters over HTTP plus valid
 resource-subscription recovery with capacity one. Fast344, focused cases and
 verify344 pass. `filter344-complete-probe`: 18 selected/14 viable, 13

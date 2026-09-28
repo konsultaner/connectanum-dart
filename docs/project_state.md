@@ -6,6 +6,17 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work345 adds independent raw-SSE acknowledgment assertions for omitted, false
+and true tool-notification flags. Exact acknowledgment maps cover method,
+subscription identity and granted filters without relying on client validation.
+Fast345, focused cases and verify345 pass (`/tmp/connectanum-verify345.log`).
+`filter345-probe` reruns the same 18 selected/14 viable filter mutants with the
+rejection and wire-ack suites: all 14 have assertion-backed detections (seven
+assertion-only, seven mixed), four compile failures, no error-only kills,
+clean baselines and 100% raw/adjusted targeted score without waivers. This closes
+the Work344 default-flag oracle gap, not the whole-router milestone. Evidence:
+`out/regression-coverage-2026-09-15/filter345-probe`.
+
 Work344 adds nine raw-HTTP MCP listener filter regressions: invalid/null
 containers, non-boolean flags, invalid resource list/items, duplicate URIs and
 relative/whitespace URIs. Rejections assert HTTP/JSON-RPC status, identity and
