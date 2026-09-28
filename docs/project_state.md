@@ -6,6 +6,40 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work369 locally verified: Fast369 passes. New configuration regressions and both
+current-/multi-thread HTTP/3 listener tests fail before correction. Keeping UDP
+occupied at the TCP port deterministically reproduces the missing HTTP/3 socket
+despite explicit `http3.port: 0`. Parse HTTP settings for explicitly enabled
+HTTP/2 or HTTP/3 as well as generic HTTP, while preserving automatic protocol
+expansion only for generic HTTP. Tests cover absent/zero/nonzero/max UDP port,
+ALPN/options retention, no implicit additional protocol activation, non-HTTP
+isolation and mandatory TLS. An initial fixture wrongly used route aliases in
+endpoint protocols; it is corrected to the existing `http3` endpoint spelling,
+without expanding the API. All 28 configuration tests, both real listener/TLS
+handshake tests and all 291 serial native core tests now pass. Evidence logs are
+`/tmp/connectanum-native369-{config-repro,listener-repro,versioned-repro,config-final2,listener-final,core-final}.log`.
+The complete configuration-file campaign `native369-config-all` finishes with
+130 candidates: 104 assertion kills, 17 compile failures, five uncredited error
+classifications and four survivors; 113 viable candidates, 92.035% raw/adjusted,
+evidenceClean false. Both 291-test baselines and pinned inputs match. The four
+survivors flip conditions with identical branch bodies in `append_path_segments`
+and `sanitise_segment`; no equivalence waiver is applied. Inspect this redundancy
+and rerun after any change rather than attributing old evidence to new source.
+The auditor also misclassifies a genuine custom-message `assert!` as nonAssertion
+because it requires an assertion text prefix; retain the conservative result
+until tested source-backed recognition or meaningful explicit comparison
+diagnostics are added. Other mixed failures include real non-assertion errors.
+Full `bin/verify` passes after the campaign in `/tmp/connectanum-verify369.log`
+(exit 0, including JS/WASM; no failed tests or Cargo retries in this run).
+Local architecture
+review supports retaining explicit version boundaries; routine review's alleged
+deduplication/lifetime issues are contradicted by existing assertions and the
+shutdown sequence. This fixes the reproduced settings-loss path, not every
+possible HTTP/3 handshake timeout. Hosted verification remains outstanding.
+Next address the redundant equivalent branches and the auditor's custom-message
+assertion blind spot without crediting actual non-assertion failures, then refresh
+the affected evidence. No release/version change.
+
 Work368 locally verified with a retained first-attempt failure: Fast368 passes.
 The HTTP/2 wire regression asserts independent stream-count/window/frame/header
 limits and the connection-level receive window, using a bounded duplex peer.

@@ -9284,13 +9284,24 @@ mod tests {
     fn assert_http3_listener_starts_from_runtime(caller: tokio::runtime::Runtime) {
         let _guard = test_guard();
         shutdown().unwrap();
+        // Keep UDP occupied at the TCP port: HTTP/3 port zero must request an
+        // independent ephemeral socket, not reuse the TCP listener's port.
+        let (tcp_reservation, udp_reservation) = (0..16)
+            .find_map(|_| {
+                let udp = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+                std::net::TcpListener::bind(udp.local_addr().unwrap())
+                    .ok()
+                    .map(|tcp| (tcp, udp))
+            })
+            .expect("reserve a TCP port with an occupied UDP counterpart");
+        let tcp_port = tcp_reservation.local_addr().unwrap().port();
         let certified = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
         let config = json!({
             "schema": "connectanum.router",
             "version": 1,
             "endpoints": [{
                 "host": "127.0.0.1",
-                "port": 0,
+                "port": tcp_port,
                 "tls_mode": "native",
                 "protocols": ["http3"],
                 "http": {"http3": {"enabled": true, "port": 0}},
@@ -9304,11 +9315,12 @@ mod tests {
         let applied = apply_router_config(&serde_json::to_vec(&config).unwrap());
         assert_eq!(applied.is_ok(), true, "{applied:?}");
         start_runtime().unwrap();
+        drop(tcp_reservation);
         // Clean up even when the regression triggers a nested-runtime panic.
         let started = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             caller.block_on(async {
                 let before = tokio::runtime::Handle::current().runtime_flavor();
-                let listener = listen("127.0.0.1", 0, 128);
+                let listener = listen("127.0.0.1", tcp_port, 128);
                 assert_eq!(tokio::runtime::Handle::current().runtime_flavor(), before);
                 listener
             })
@@ -9355,10 +9367,11 @@ mod tests {
             None
         };
         shutdown().unwrap();
+        assert_eq!(udp_reservation.local_addr().unwrap().port(), tcp_port);
         assert!(started.is_ok());
         let listener = started.unwrap();
         assert_eq!(listener.is_ok(), true, "{listener:?}");
-        assert!(matches!(port, Some(Ok(Some(port))) if port > 0));
+        assert!(matches!(port, Some(Ok(Some(port))) if port > 0 && port != tcp_port));
         assert_eq!(handshake, Some(Ok(())));
     }
 

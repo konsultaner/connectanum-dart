@@ -334,7 +334,11 @@ impl EndpointRuntimeConfig {
                     endpoint.host, endpoint.port, err
                 ))
             })?;
-        let http_runtime = if protocols.contains(&TransportProtocol::Http) {
+        let generic_http = protocols.contains(&TransportProtocol::Http);
+        let http_runtime = if generic_http
+            || protocols.contains(&TransportProtocol::Http2)
+            || protocols.contains(&TransportProtocol::Http3)
+        {
             HttpEndpointRuntime::try_from_config(endpoint.http.as_ref()).map_err(|err| {
                 Error::RouterConfigInvalid(format!(
                     "endpoint {}:{} http config invalid: {}",
@@ -344,15 +348,19 @@ impl EndpointRuntimeConfig {
         } else {
             None
         };
-        if let Some(http_runtime) = &http_runtime {
-            if http_runtime.alpn.iter().any(|token| token == "h2")
-                && !protocols.contains(&TransportProtocol::Http2)
-            {
-                protocols.push(TransportProtocol::Http2);
-            }
-            if let Some(http3) = &http_runtime.http3 {
-                if http3.enabled && !protocols.contains(&TransportProtocol::Http3) {
-                    protocols.push(TransportProtocol::Http3);
+        // Version-specific endpoints retain their settings without implicitly
+        // enabling other HTTP versions. Generic HTTP keeps its expansion rules.
+        if generic_http {
+            if let Some(http_runtime) = &http_runtime {
+                if http_runtime.alpn.iter().any(|token| token == "h2")
+                    && !protocols.contains(&TransportProtocol::Http2)
+                {
+                    protocols.push(TransportProtocol::Http2);
+                }
+                if let Some(http3) = &http_runtime.http3 {
+                    if http3.enabled && !protocols.contains(&TransportProtocol::Http3) {
+                        protocols.push(TransportProtocol::Http3);
+                    }
                 }
             }
         }
@@ -810,6 +818,85 @@ mod tests {
                 "http": {"alpn": [alpn], "http3": {"enabled": http3}}
             }));
             assert_eq!(runtime.protocols, expected);
+        }
+    }
+
+    #[test]
+    fn http3_only_settings_preserve_explicit_and_default_udp_ports() {
+        for port in [None, Some(0), Some(9443), Some(u16::MAX)] {
+            let runtime = configured_runtime(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "native",
+                "sni_certificates": [{"hostname": "localhost", "certificate_chain_pem": "CERT", "private_key_pem": "KEY"}],
+                "protocols": ["http3"],
+                "http": {"alpn": [" H3 ", "h3"],
+                    "http3": {"enabled": true, "port": port},
+                    "options": {"custom_limit": 17}}
+            }));
+            assert_eq!(runtime.protocols, vec![TransportProtocol::Http3]);
+            let settings = runtime.http_settings();
+            assert!(
+                settings.is_some(),
+                "HTTP/3-only settings must survive parsing"
+            );
+            let settings = settings.unwrap();
+            assert_eq!(settings.alpn, vec!["h3"]);
+            assert_eq!(settings.options.get("custom_limit"), Some(&json!(17)));
+            assert!(settings.http3.is_some());
+            let http3 = settings.http3.as_ref().unwrap();
+            assert!(http3.enabled);
+            assert_eq!(http3.port, port);
+        }
+    }
+
+    #[test]
+    fn versioned_http_settings_do_not_implicitly_enable_other_protocols() {
+        for (protocol, expected) in [
+            ("http2", TransportProtocol::Http2),
+            ("http3", TransportProtocol::Http3),
+        ] {
+            let runtime = configured_runtime(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "native",
+                "sni_certificates": [{"hostname": "localhost", "certificate_chain_pem": "CERT", "private_key_pem": "KEY"}],
+                "protocols": [protocol],
+                "http": {"alpn": ["h2", "h3"],
+                    "http3": {"enabled": true, "port": 0}}
+            }));
+            assert_eq!(runtime.protocols, vec![expected]);
+            assert!(runtime.http_settings().is_some());
+            assert_eq!(runtime.http_settings().unwrap().alpn, vec!["h2", "h3"]);
+        }
+    }
+
+    #[test]
+    fn non_http_protocols_do_not_activate_http_settings() {
+        for (protocol, expected) in [
+            ("rawsocket", TransportProtocol::Rawsocket),
+            ("websocket", TransportProtocol::Websocket),
+        ] {
+            let runtime = configured_runtime(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "disabled",
+                "protocols": [protocol],
+                "http": {"alpn": ["h2"], "http3": {"enabled": true, "port": 0}}
+            }));
+            assert_eq!(runtime.protocols, vec![expected]);
+            assert!(runtime.http_settings().is_none());
+        }
+    }
+
+    #[test]
+    fn http3_only_port_settings_never_bypass_tls_requirement() {
+        for enabled in [false, true] {
+            for port in [None, Some(0), Some(9443)] {
+                let config: EndpointConfig = serde_json::from_value(json!({
+                    "host": "localhost", "port": 8080, "tls_mode": "disabled",
+                    "protocols": ["http3"],
+                    "http": {"http3": {"enabled": enabled, "port": port}}
+                }))
+                .unwrap();
+                let error = assert_invalid_endpoint(&config);
+                assert!(matches!(error, Error::RouterConfigInvalid(ref message)
+                    if message.contains("enables http3 but tls_mode is disabled")));
+            }
         }
     }
 

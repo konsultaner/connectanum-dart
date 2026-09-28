@@ -35,6 +35,32 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work369 locally verified: Fast369 passes. Reproduce HTTP3-only settings loss with
+configuration assertions and real listeners holding UDP occupied at the TCP
+port; both runtime variants fail before the fix. Preserve version-specific HTTP
+settings without automatically enabling additional protocols; keep generic HTTP
+expansion and TLS requirements. All 28 configuration tests, two real listener
+handshakes and all 291 serial core tests pass after correction. The initial
+configuration fixture's unsupported endpoint aliases were removed, not added
+to the public API. Keep before/after logs under `/tmp/connectanum-native369-*`.
+`native369-config-all` completes the configuration-file inventory: 104 assertion
+kills, 17 compile failures, five error classifications and four survivors from
+130 candidates (113 viable; 92.035% raw/adjusted; evidenceClean false). Both
+291-test baselines and input hashes match. Survivors flip identical branch
+bodies in `append_path_segments`/`sanitise_segment`; no waivers applied. Preserve
+their evidence and rerun after any simplification. One new custom-message
+`assert!` is conservatively misclassified by the auditor's assertion-prefix
+regex; source-backed recognition needs separate regression evidence, and real
+non-assertion failures must remain uncredited. Full verification passes serially
+after the campaign (`/tmp/connectanum-verify369.log`, exit 0, including JS/WASM;
+no failed tests or Cargo retries in this run). Hosted evidence remains outstanding.
+Next address those redundant branches and source-backed custom-assertion
+recognition, retaining actual errors and refreshing changed-snapshot evidence.
+Local
+architecture review supports the compatibility boundary; routine review's
+deduplication/lifetime claims do not match the source. Older HTTP/3 handshake
+timeouts remain a separate unresolved symptom. No release/version change.
+
 Work368: Fast368 and all five HTTP/2 security tests pass. A production-builder
 wire regression asserts independent SETTINGS values and the 64 MiB connection
 receive window. Synchronize on server poll readiness before the PING barrier:
