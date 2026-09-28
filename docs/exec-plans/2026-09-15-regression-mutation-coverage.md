@@ -35,6 +35,22 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work349 adds public-session metrics ownership/policy regressions: exact, prefix,
+wildcard; five supported invocation policies; shared counts and disconnect
+cleanup; meta-entry exclusion; exact JSON/OpenMetrics agreement. Fast349 and
+focused tests pass. `metrics349-final-probe`: 7/8 assertion kills, one unwaived
+empty-label-helper survivor, clean baselines, 87.5% raw/adjusted without error
+credit. Full verify349 passes, including browser JS/WASM runtime tests; VM348
+bookkeeping is bundled with this implementation. Whole-milestone gates remain
+unmet.
+
+VM348 at `6f2e03e2` passes: 40,203/42,927 library lines (93.654%), core
+94.420%, router 91.694%; nine additional lines versus VM342 (MessagePack +3,
+router MCP +6). Packaging is unchanged; 58 library and 12 packaging files remain
+unmeasured. Evidence: `vm348-current` under `out/regression-coverage-2026-09-15/`,
+log `/tmp/connectanum-coverage348.log`; verify347 matches. Router binding remains
+the largest measured VM gap (321 lines). No whole-milestone completion is claimed.
+
 Work347 adds MessagePack top-level framing/recovery regressions. Fast347 passes;
 final focused mutation baseline and restored baseline pass. `wire347-final-probe`
 retains 51 selected/42 viable, 38 assertion-backed detections, four unwaived

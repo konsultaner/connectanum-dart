@@ -4,6 +4,7 @@ library router_metrics_service_test;
 
 import 'dart:typed_data';
 
+import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
@@ -337,6 +338,157 @@ void main() {
       expect(failures.last['stackTrace'], firstStack);
     });
   }
+
+  test(
+    'metrics exports matching policies and shared ownership lifecycle',
+    () async {
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: _buildSettings(),
+      );
+      final binding = router.start(_NoopHandleRuntime());
+      addTearDown(binding.dispose);
+      await binding.ensureInternalServicesReady();
+      final owner = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'owner',
+        authRole: 'member',
+      );
+      addTearDown(owner.close);
+      final peer = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'peer',
+        authRole: 'member',
+      );
+      addTearDown(peer.close);
+      final observer = await binding.createInternalSession(
+        realmUri: 'connectanum.metrics',
+        authId: 'observer',
+        authRole: 'metrics',
+      );
+      addTearDown(observer.close);
+
+      await owner.subscribe('wamp.session.on_join');
+      await peer.subscribe('wamp.session.on_join');
+      await owner.register('wamp.example.metrics_probe');
+
+      final topics = <Map<String, Object?>>[];
+      final procedures = <Map<String, Object?>>[];
+      for (final match in ['exact', 'prefix', 'wildcard']) {
+        final topic = match == 'wildcard' ? 'app..topic' : 'app.$match.topic';
+        final options = core.SubscribeOptions(
+          match: match == 'exact' ? null : match,
+        );
+        final first = await owner.subscribe(topic, options: options);
+        final second = await peer.subscribe(topic, options: options);
+        expect(second.subscriptionId, first.subscriptionId);
+        topics.add({
+          'id': first.subscriptionId,
+          'topic': topic,
+          'match': match,
+        });
+        for (final policy in [
+          'single',
+          'roundrobin',
+          'random',
+          'first',
+          'last',
+        ]) {
+          final procedure = match == 'wildcard'
+              ? 'app..$policy'
+              : 'app.$match.$policy';
+          final options = core.RegisterOptions(
+            match: match == 'exact' ? null : match,
+            invoke: policy,
+          );
+          final first = await owner.register(procedure, options: options);
+          if (policy != 'single') {
+            final second = await peer.register(procedure, options: options);
+            expect(second.registrationId, greaterThan(0));
+          }
+          procedures.add({
+            'id': first.registrationId,
+            'procedure': procedure,
+            'match': match,
+            'policy': policy == 'roundrobin' ? 'roundRobin' : policy,
+          });
+        }
+      }
+
+      Future<void> expectExports({
+        required bool present,
+        required int owners,
+      }) async {
+        final result = await observer
+            .call('connectanum.metrics.snapshot')
+            .first;
+        final payload = result.arguments!.first as Map;
+        final realm = (payload['realms'] as List).cast<Map>().singleWhere(
+          (entry) => entry['realm'] == 'realm1',
+        );
+        final expectedTopics = [
+          if (present)
+            for (final topic in topics) {...topic, 'subscriber_count': owners},
+        ];
+        final expectedProcedures = [
+          if (present)
+            for (final procedure in procedures)
+              {
+                ...procedure,
+                'callee_count': procedure['policy'] == 'single' ? 1 : owners,
+              },
+        ];
+        expect(realm['topic_details'], unorderedEquals(expectedTopics));
+        expect(realm['procedure_details'], unorderedEquals(expectedProcedures));
+        expect(realm['topics'], present ? 3 : 0);
+        expect(realm['topic_subscribers'], present ? 3 * owners : 0);
+        expect(realm['registered_procedures'], present ? 15 : 0);
+        expect(realm['procedure_endpoints'], present ? 3 + 12 * owners : 0);
+
+        final exported = await observer
+            .call('connectanum.metrics.openmetrics')
+            .first;
+        final lines = (exported.arguments!.first as String).split('\n');
+        expect(
+          lines.where(
+            (line) => line.startsWith(
+              'connectanum_router_topic_subscribers{realm="realm1",',
+            ),
+          ),
+          unorderedEquals([
+            for (final topic in expectedTopics)
+              'connectanum_router_topic_subscribers{realm="realm1",topic="${topic['topic']}",match="${topic['match']}",subscription_id="${topic['id']}"} ${topic['subscriber_count']}',
+          ]),
+        );
+        expect(
+          lines.where(
+            (line) => line.startsWith(
+              'connectanum_router_procedure_endpoint_count{realm="realm1",',
+            ),
+          ),
+          unorderedEquals([
+            for (final procedure in expectedProcedures)
+              'connectanum_router_procedure_endpoint_count{realm="realm1",procedure="${procedure['procedure']}",match="${procedure['match']}",policy="${procedure['policy'] == 'roundRobin' ? 'round_robin' : procedure['policy']}",registration_id="${procedure['id']}"} ${procedure['callee_count']}',
+          ]),
+        );
+      }
+
+      await expectExports(present: true, owners: 2);
+      await peer.close();
+      await expectExports(present: true, owners: 1);
+      await owner.close();
+      await expectExports(present: false, owners: 0);
+    },
+  );
 
   test('metrics exporter collects snapshot and OpenMetrics payload', () async {
     final events = <Object>[];

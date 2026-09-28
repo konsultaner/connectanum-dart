@@ -6,6 +6,30 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work349 completes verification: metrics service regression covers all three
+matching modes across five publicly supported invocation policies, three topics
+with two subscribers, grouped shared-callee counts, exact snapshot/OpenMetrics
+labels and disconnect transitions from two owners to one to none. Internal meta
+entries prove exclusion from both exports. Fast349, static analysis and focused
+regression pass. `metrics349-final-probe`: eight viable mutants, seven assertion
+kills, one unwaived empty-label-helper survivor, clean baselines, 87.5% raw/adjusted,
+no compile/error/timeout credit. Initial `metrics349-probe` is retained separately.
+The `load` invocation enum is not reachable through the public registration
+parser; no test bypass or coverage exclusion was added. Full verification passes
+(`/tmp/connectanum-verify349.log`), including browser JS/WASM runtime tests.
+No updated whole-component line coverage or measured WASM coverage is claimed.
+
+VM348 at `6f2e03e2` completes with collector exit 0: 40,203/42,927 library
+lines (93.654%), core 6,853/7,258 (94.420%), router 17,873/19,492 (91.694%).
+Compared with VM342, MessagePack serializer gains three lines and router MCP
+six; other file scores are unchanged. Packaging remains client 391/402 (97.264%)
+and router 374/385 (97.143%). The report retains 58 unmeasured library files and
+12 unmeasured packaging files. Evidence: `out/regression-coverage-2026-09-15/vm348-current`,
+log `/tmp/connectanum-coverage348.log`; verify347 matches the source/test snapshot.
+Largest measured VM gaps remain router binding (321 lines), native runtime (227),
+router MCP (207), and worker session (163); platform-specific codec gaps and
+browser/native evidence remain separate. Whole-milestone gates remain unmet.
+
 Work347 completes verification: MessagePack wire tests add incomplete top-level
 headers, missing declared final fields, complete empty/non-array envelopes,
 null input, guarded-buffer integrity and post-rejection recovery. Fast347 passes.
