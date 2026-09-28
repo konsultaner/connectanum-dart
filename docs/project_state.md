@@ -6,6 +6,24 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work355 adds 11 passing HTTP auth JSON endpoint regressions covering whitespace,
+empty/escaped strings, mixed arrays, nested and root duplicate selectors, provider
+non-invocation on rejection, and subsequent valid grant recovery. Fast355 passes.
+`json355-root-probe` retains all 158 outcomes and 14 support-file hashes:
+116 assertion detections (73.418% raw/adjusted), 41 survivors, one uncredited
+timeout, clean baseline/restored baseline, no waivers. Earlier probes retain
+110 and 111 detections before string-boundary and root-selector improvements.
+This is selected scanner evidence, not refreshed whole-router mutation coverage.
+Full verify355 passes in `/tmp/connectanum-verify355.log` (exit 0, including
+browser runtime tests). Source, test and all support hashes match the final
+probe. Hosted verification remains outstanding.
+
+Completed VM354 collection at `4a16f42f` has a verified unchanged input manifest:
+40,220/42,921 measured library lines (93.707%), router 17,890/19,486 (91.810%),
+packaging 765/787 (97.205%). Evidence is `vm354-current` under the regression
+coverage output directory. The report retains 58 unmeasured library files;
+WASM lines remain unmeasured. These measurements precede Work355 tests.
+
 Work354 completes full verification (`/tmp/connectanum-verify354-final.log`,
 exit 0, including browser runtime tests). HTTP
 auth bridge revocation now resolves the actual token type rather than treating

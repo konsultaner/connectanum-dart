@@ -35,6 +35,20 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work355: 11 HTTP auth JSON endpoint regressions pass, including empty/escaped
+strings, all four JSON whitespace characters, mixed arrays, root/nested duplicate
+selectors, no provider invocation on rejection and valid grant recovery.
+Fast355 passes. `json355-root-probe` records 116/158 assertion detections
+(73.418% raw/adjusted), 41 survivors and one uncredited timeout with clean
+baseline/restored baseline and all 14 support parts hashed. No equivalence
+waivers or whole-router refresh claim. Earlier probe outcomes are retained.
+Full verify355 passes (`/tmp/connectanum-verify355.log`, exit 0, including
+browser runtime tests). Final probe source/test/support hashes match.
+VM354 collection finished successfully at `4a16f42f`; input manifest matches.
+Measured libraries: 40,220/42,921 (93.707%); packaging: 765/787 (97.205%).
+The 58 unmeasured library files and missing WASM instrumentation remain visible.
+These measurements do not include Work355 tests. Hosted CI remains queued.
+
 Work354: reproduced and fixed revocation returning success without invalidating
 credentials when token_type_hint names the wrong known type. The JSON bridge
 uses advisory lookup semantics, documented with RFC7009 section 2.1 without

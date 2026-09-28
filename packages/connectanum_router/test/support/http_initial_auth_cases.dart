@@ -11,6 +11,7 @@ Future<NativeHttpResponse> _terminalAuthResponse(
   _HttpRoundFixture fixture,
   Map<String, Object?> body, {
   String target = '/auth',
+  String? rawBody,
 }) async {
   final connection = fixture.nextConnection++;
   _enqueueSyntheticHttpRequest(
@@ -22,6 +23,7 @@ Future<NativeHttpResponse> _terminalAuthResponse(
     target: target,
     headers: const {'content-type': 'application/json'},
     body: body,
+    rawBody: rawBody == null ? null : utf8.encode(rawBody),
     realm: 'router.http',
     procedure: 'router.http.auth',
   );
@@ -45,6 +47,157 @@ void _httpInitialAuthenticationTests() {
   group('initial HTTP authentication', () {
     setUp(AuthSecurityTracker.reset);
     tearDown(AuthSecurityTracker.reset);
+
+    for (final whitespace in [' ', '\t', '\n', '\r']) {
+      test(
+        'JSON auth preserves mixed values with whitespace ${whitespace.codeUnitAt(0)}',
+        () async {
+          final auth = _RoundAuthenticator()
+            ..hello = () async => _RoundAuthenticator.success();
+          final fixture = await _HttpRoundFixture.start([auth]);
+          final extra = <String, Object?>{
+            '': '',
+            '"leading': '"leading',
+            '\\leading': '\\leading',
+            'quote"slash\\': 'value"ending\\',
+            'mixed': [
+              true,
+              false,
+              null,
+              -12.5e3,
+              {},
+              [],
+              {'tail': 'ok'},
+            ],
+            'nested': {
+              'items': [
+                1,
+                {'value': 2},
+                3,
+              ],
+            },
+          };
+          final body = {..._initialAuthHello, 'authextra': extra};
+          final raw =
+              '$whitespace${JsonEncoder.withIndent(whitespace).convert(body)}$whitespace';
+          expect(jsonDecode(raw), body);
+          final response = await _terminalAuthResponse(
+            fixture,
+            body,
+            rawBody: raw,
+          );
+          expect(response.status, HttpStatus.ok);
+          expect(_jsonResponseBody(response)['access_token'], isNotEmpty);
+          expect(auth.helloContext!.helloDetails['authextra'], extra);
+          expect(auth.messages, isEmpty);
+        },
+      );
+    }
+
+    for (final raw in [
+      ' \t\r\n{ }\r\n ',
+      r'{"realm":"realm1","authmethod":"ticket","authid":"user-1","\u0061uthid":"other"}',
+    ]) {
+      test(
+        'JSON auth root selectors reject $raw without provider work',
+        () async {
+          var creates = 0;
+          final auth = _RoundAuthenticator()
+            ..hello = () async => _RoundAuthenticator.success();
+          final fixture = await _HttpRoundFixture.start(
+            [auth],
+            beforeCreate: () async {
+              creates++;
+            },
+          );
+          final decoded = jsonDecode(raw) as Map<String, dynamic>;
+          final response = await _terminalAuthResponse(
+            fixture,
+            const {},
+            rawBody: raw,
+          );
+          expect(response.status, HttpStatus.badRequest);
+          expect(
+            _jsonResponseBody(response),
+            allOf(
+              containsPair(
+                'reason',
+                decoded.isEmpty
+                    ? 'missing_authmethod'
+                    : 'invalid_auth_parameter',
+              ),
+              isNot(contains('access_token')),
+              isNot(contains('state')),
+            ),
+          );
+          expect(creates, 0);
+          expect(auth.helloContext, isNull);
+          final recovered = await _terminalAuthResponse(
+            fixture,
+            _initialAuthHello,
+          );
+          expect(recovered.status, HttpStatus.ok);
+          expect(_jsonResponseBody(recovered)['access_token'], isNotEmpty);
+          expect(creates, 1);
+        },
+      );
+    }
+
+    final duplicateExtras = <String>[
+      r'{"mixed":[true,null,17,{"level":1,"\u006cevel":2},false]}',
+      r'{"mixed":[[],{},[{"deep":{"key":1,"key":2}}],3]}',
+      r'{"quote\"key":1,"quote\u0022key":2}',
+      r'{"slash\\key":1,"slash\u005ckey":2}',
+      r'{"first":{"ok":true},"last":{"x":null,"\u0078":false}}',
+    ];
+    for (var index = 0; index < duplicateExtras.length; index++) {
+      test(
+        'JSON auth rejects nested duplicate $index before provider and recovers',
+        () async {
+          var creates = 0;
+          final auth = _RoundAuthenticator()
+            ..hello = () async => _RoundAuthenticator.success();
+          final fixture = await _HttpRoundFixture.start(
+            [auth],
+            beforeCreate: () async {
+              creates++;
+            },
+          );
+          final raw =
+              '{"realm":"realm1","authmethod":"ticket",'
+              '"authid":"user-1","authextra":${duplicateExtras[index]}}';
+          expect(jsonDecode(raw), isA<Map<String, dynamic>>());
+          final response = await _terminalAuthResponse(
+            fixture,
+            const {},
+            rawBody: raw,
+          );
+          expect(response.status, HttpStatus.badRequest);
+          expect(
+            _jsonResponseBody(response),
+            allOf(
+              containsPair('reason', 'invalid_auth_parameter'),
+              isNot(contains('access_token')),
+              isNot(contains('refresh_token')),
+              isNot(contains('state')),
+            ),
+          );
+          expect(creates, 0);
+          expect(auth.helloContext, isNull);
+          final recovered = await _terminalAuthResponse(
+            fixture,
+            _initialAuthHello,
+          );
+          expect(recovered.status, HttpStatus.ok);
+          expect(_jsonResponseBody(recovered)['access_token'], isNotEmpty);
+          expect(creates, 1);
+          expect(
+            auth.helloContext!.helloDetails['authextra'],
+            _initialAuthHello['authextra'],
+          );
+        },
+      );
+    }
 
     for (final selector in ['authmethod', 'authid']) {
       for (final empty in [false, true]) {
