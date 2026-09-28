@@ -570,6 +570,130 @@ class NativeMutationTests(unittest.TestCase):
                              '/private/test work/native/transport/Cargo.toml')
             self.assertEqual(command[-3:], ['--', 'rawsocket::tests', '--test-threads=1'])
 
+    def test_whole_component_commands_keep_workspace_integration_tests(self):
+        for target, package in [('core-all', 'ct_core'), ('ffi-all', 'ct_ffi')]:
+            with self.subTest(target=target):
+                campaign, restored = collector.commands(Path('/private/work'), Path('/evidence'), target)
+                self.assertEqual(campaign[campaign.index('--package') + 1], package)
+                self.assertEqual(campaign[campaign.index('--test-workspace') + 1], 'true')
+                self.assertIn('--workspace', restored)
+                for command in (campaign, restored):
+                    self.assertIn('--all-targets', command)
+                    self.assertIn('--no-fail-fast', command)
+                    self.assertNotIn('--lib', command)
+                    self.assertNotIn('--file', command)
+                    self.assertEqual(command[-2:], ['--', '--test-threads=1'])
+                self.assertIn('--cargo-arg=--locked', campaign)
+                self.assertIn('--locked', restored)
+
+    def test_whole_workspace_assertion_does_not_skip_later_test_binary(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'Cargo.toml').write_text(
+                '[workspace]\nmembers = ["first", "second"]\nresolver = "2"\n')
+            scope = {'sources': {}}
+            for name, expected in [('first', 2), ('second', 1)]:
+                crate = root / name
+                (crate / 'src').mkdir(parents=True)
+                (crate / 'Cargo.toml').write_text(
+                    f'[package]\nname = "{name}"\nversion = "0.0.0"\nedition = "2021"\n')
+                (crate / 'src/lib.rs').write_text(
+                    f'#[test]\nfn {name}_assertion() {{ assert_eq!(1, {expected}); }}\n')
+                scope['sources'][f'{name}/src/lib.rs'] = {
+                    'classification': 'test-only', 'lineCount': 2, 'excludedLines': [1, 2]}
+            result = subprocess.run(
+                ['cargo', 'test', '--offline', '--workspace', '--all-targets', '--no-fail-fast',
+                 '--', '--test-threads=1'], cwd=root, text=True, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, timeout=90)
+            self.assertEqual(result.returncode, 101, result.stdout)
+            self.assertEqual(sorted(audit.TEST.findall(result.stdout)),
+                             [('first_assertion', 'FAILED'), ('second_assertion', 'ok')])
+            self.assertEqual(audit.classify(outcome({'Failure': 101}), result.stdout, scope, None),
+                             'killed', result.stdout)
+
+    def test_inventory_partition_retains_nested_production_body_and_pins_helper(self):
+        scope = copy.deepcopy(SCOPE)
+        path = 'native/transport/' + MUTANT['file']
+        scope['inputHashes'] = {path: 'ab' * 32}
+        source = scope['sources'][path]
+        source['exclusions'] = [{'reason': '#[cfg(test)]', 'span': {
+            'start': [40, 0], 'end': [45, 10]}}]
+        source['productionFunctionBodies'] = [{'name': 'outer', 'span': {
+            'start': [2, 0], 'end': [50, 10]}}]
+        parent = copy.deepcopy(MUTANT)
+        parent.update(name='outer', genre='FnValue', span={
+            'start': {'line': 2, 'column': 1}, 'end': {'line': 50, 'column': 11}})
+        helper = copy.deepcopy(MUTANT)
+        helper.update(name='helper', span={
+            'start': {'line': 41, 'column': 1}, 'end': {'line': 41, 'column': 3}})
+        result = collector.partition_inventory([parent, helper, MUTANT], scope)
+        self.assertEqual(result['production'], [parent, MUTANT])
+        self.assertEqual(result['excluded'], [{
+            'mutant': helper, 'source': path, 'sourceSha256': 'ab' * 32,
+            'reason': '#[cfg(test)]', 'span': source['exclusions'][0]['span']}])
+
+    def test_inventory_partition_fails_closed_on_unproved_exclusions(self):
+        for variant in ['partial', 'missing-span', 'missing-hash', 'unknown-source',
+                        'invalid-range', 'duplicate', 'empty']:
+            with self.subTest(variant=variant):
+                scope = copy.deepcopy(SCOPE)
+                path = 'native/transport/' + MUTANT['file']
+                scope['inputHashes'] = {path: 'ab' * 32}
+                source = scope['sources'][path]
+                source['exclusions'] = [{'reason': '#[cfg(test)]', 'span': {
+                    'start': [40, 0], 'end': [45, 10]}}]
+                mutant = copy.deepcopy(MUTANT)
+                mutant['span'] = {'start': {'line': 41, 'column': 1},
+                                  'end': {'line': 41, 'column': 3}}
+                inventory = [mutant]
+                if variant == 'partial':
+                    mutant['span']['start']['line'] = 39
+                elif variant == 'missing-span':
+                    source['exclusions'] = []
+                elif variant == 'missing-hash':
+                    scope['inputHashes'] = {}
+                elif variant == 'unknown-source':
+                    mutant['file'] = 'missing.rs'
+                elif variant == 'invalid-range':
+                    mutant['span']['end']['line'] = 90
+                elif variant == 'duplicate':
+                    inventory.append(copy.deepcopy(mutant))
+                else:
+                    inventory = []
+                with self.assertRaises(ValueError):
+                    collector.partition_inventory(inventory, scope)
+
+    def test_whole_inventory_preflight_rejects_filter_drift_and_preserves_raw(self):
+        for filtered in ([MUTANT], [], [MUTANT, MUTANT]):
+            with self.subTest(filtered=len(filtered)), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary)
+                with patch.object(collector.subprocess, 'check_output', side_effect=[
+                        json.dumps([MUTANT]), json.dumps(filtered)]) as command:
+                    if len(filtered) == 1:
+                        result = collector.prepare_inventory(output, output, SCOPE, 'core-all')
+                        self.assertEqual(result, {'production': [MUTANT], 'excluded': []})
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'Filtered inventory differs'):
+                            collector.prepare_inventory(output, output, SCOPE, 'core-all')
+                    self.assertEqual(command.call_count, 2)
+                    for call in command.call_args_list:
+                        self.assertIn('--no-config', call.args[0])
+                        self.assertIn('--list', call.args[0])
+                        self.assertNotIn('--file', call.args[0])
+                self.assertEqual(json.loads((output / 'raw-inventory.json').read_text()), [MUTANT])
+                self.assertEqual(json.loads((output / 'filtered-inventory.json').read_text()), filtered)
+
+    def test_helper_exclusion_regex_is_exact_and_not_a_name_prefix(self):
+        name = 'ct_ffi/src/lib.rs:10:1: replace fn[0] -> Result<(), E> with Ok(())'
+        campaign, _ = collector.commands(Path('/work'), Path('/out'), 'ffi-all',
+                                         [{'mutant': {'name': name}}])
+        regex = campaign[campaign.index('--exclude-re') + 1]
+        self.assertIsNotNone(collector.re.fullmatch(regex, name))
+        self.assertIsNone(collector.re.fullmatch(regex, name + ' extra'))
+        self.assertIsNone(collector.re.fullmatch(regex, name.replace('fn[0]', 'fn0')))
+        with self.assertRaises(ValueError):
+            collector.commands(Path('/work'), Path('/out'), exclusions=[{'mutant': {'name': name}}])
+
     def test_explicit_targets_keep_complete_matching_private_commands(self):
         work = Path('/private/test work')
         for target, source, test_filter in [
@@ -614,7 +738,7 @@ class NativeMutationTests(unittest.TestCase):
                     self.assertFalse(output.exists())
 
     def test_cli_passes_default_and_explicit_targets_without_reinterpreting_paths(self):
-        for target in [None, 'core-rawsocket', 'core-wamp', 'core-config', 'core-protocol']:
+        for target in [None, *collector.TARGETS]:
             with self.subTest(target=target):
                 argv = ['collector', '--output', 'evidence with spaces', '--analyzer', 'analyzer with spaces']
                 if target:
@@ -680,6 +804,61 @@ class NativeMutationTests(unittest.TestCase):
             root = Path(temporary)
             with self.assertRaises(FileExistsError):
                 collector.collect(root, root, Path('analyzer'))
+
+    def test_whole_collector_checks_executed_inventory_before_reporting_completion(self):
+        for target in ('core-all', 'ffi-all'):
+            for drift in (False, True):
+                with self.subTest(target=target, drift=drift), tempfile.TemporaryDirectory() as temporary:
+                    root, output = Path(temporary) / 'repo', Path(temporary) / 'evidence'
+                    (root / 'native/transport').mkdir(parents=True)
+                    for relative in collector.FIXTURES:
+                        path = root / relative
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_text('fixture')
+
+                    def prepare(_work, destination, _scope, selected):
+                        self.assertEqual(selected, target)
+                        partition = {'production': [MUTANT], 'excluded': []}
+                        for filename, data in [('raw-inventory.json', [MUTANT]),
+                                               ('filtered-inventory.json', [MUTANT]),
+                                               ('inventory-partition.json', partition)]:
+                            (destination / filename).write_text(json.dumps(data))
+                        return partition
+
+                    def command(args, _work, timeout):
+                        if 'mutants' in args:
+                            self.assertEqual(timeout, 86400)
+                            self.assertIn('--all-targets', args)
+                            directory = output / 'mutants.out'
+                            directory.mkdir()
+                            self.campaign(directory, 'survived')
+                            if drift:
+                                (directory / 'mutants.json').write_text('[]')
+                            return 2, 'campaign completed with survivor'
+                        self.assertIn('--workspace', args)
+                        return 0, log()
+
+                    with patch.object(collector.native_coverage, 'snapshot',
+                                      return_value={**SCOPE, 'inputHashes': {}}), \
+                            patch.object(collector.subprocess, 'check_output',
+                                         return_value='cargo-mutants 27.1.0\n'), \
+                            patch.object(collector, 'prepare_inventory', side_effect=prepare), \
+                            patch.object(collector, 'run', side_effect=command) as run:
+                        if drift:
+                            with self.assertRaisesRegex(RuntimeError, 'Executed inventory differs'):
+                                collector.collect(root, output, Path('analyzer'), target)
+                            self.assertEqual(run.call_count, 1)
+                            self.assertFalse((output / 'audited-results.json').exists())
+                        else:
+                            self.assertEqual(collector.collect(root, output, Path('analyzer'), target), 1)
+                            self.assertEqual(run.call_count, 2)
+                            report = json.loads((output / 'audited-results.json').read_text())
+                            self.assertEqual(report['counts'], {'survived': 1})
+                            self.assertEqual(report['rawCandidateScore'], 0)
+                    manifest = json.loads((output / 'run-manifest.json').read_text())
+                    self.assertEqual(manifest['complete'], not drift)
+                    for key in ('rawInventorySha256', 'partitionSha256', 'filteredInventorySha256'):
+                        self.assertRegex(manifest[key], '^[0-9a-f]{64}$')
 
     def test_collector_requires_restored_test_inventory_and_pins_its_tools(self):
         for restored_names, mutant_status in [(['tests::expected'], 'killed'),

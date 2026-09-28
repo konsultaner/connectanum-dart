@@ -6,6 +6,27 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work365 locally verified: Fast365 passes. Native mutation collector adds whole-core
+and whole-FFI targets using workspace unit/integration tests, with complete raw
+inventories and explicit AST/source-hash-pinned helper exclusions. Real inventory
+preflight retains 1,941 core and 1,271 FFI production candidates and records
+4/140 helper-only exclusions; these are not equivalent-mutant waivers or scores.
+Filtered and executed inventories must match the pinned production inventory.
+All 42 collector/auditor tests pass, including inventory-drift rejection. The
+real all-targets native workspace baseline passes 479 tests and the strict
+auditor accepts its log as a clean baseline. Review exposed missing Cargo
+`--no-fail-fast`: two command regressions fail before the fix. Whole-component
+commands now retain later test binaries after assertion failures; a real
+two-crate regression verifies both tests run and strict assertion classification.
+Initial verify365 was deliberately stopped (exit 143) to correct this collector
+issue, not because of a polling timeout or a product-test failure. Corrected
+full verification passes in `/tmp/connectanum-verify365-final.log` (exit 0,
+including browser runtimes). A heavyweight companion review hit its output
+limit and is not approval evidence; focused review and executable regressions
+remain the verified checks. No campaign score is claimed yet. Evidence is
+`native365-preflight` under the coverage output directory. Next run complete
+core/FFI mutation campaigns serially. Hosted verification remains outstanding.
+
 Work364 locally verified: Fast364 passes. Seven native HTTP/3 identity rejection
 cases cover absent identity, empty chain/key, malformed PEM, invalid DER and
 mismatched certificate/key, each followed by successful valid-identity recovery.

@@ -35,6 +35,28 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work365 locally verified: Fast365 passes. Whole-component native collector commands
+retain workspace unit/integration tests. Raw inventory is retained separately
+from exact-name helper exclusions proven by containing AST spans and source
+hashes. Partial overlaps fail closed; production bodies enclosing nested test
+blocks remain candidates. Real filtered inventory matches 1,941 core and 1,271
+FFI production candidates, with 4/140 explicitly recorded helper exclusions.
+These are not equivalence waivers or mutation scores. Forty-two tool tests pass;
+the real workspace baseline passes 479 tests and strict baseline classification.
+Initial verify365 was deliberately cancelled (exit 143, original log retained)
+after identifying missing `--no-fail-fast` on workspace commands. Two failing
+command regressions reproduce the omission; a real two-crate failure fixture
+proves that the corrected commands retain the later test binary and permit
+strict assertion-backed classification. Corrected full verification passes in
+`/tmp/connectanum-verify365-final.log` (exit 0, including browser runtimes).
+Heavyweight companion review reached its output limit; do not cite it as
+approval. Focused review and the real regressions remain the validation evidence.
+Next audit hosted checks and execute the full native campaigns serially.
+Full-component outer campaign deadline is 24 hours (module campaigns
+remain four hours); per-test 90-second timeouts remain uncredited. Raw inventory,
+partition, filtered inventory and actual executed inventory are hash/equality
+checked, with restored baseline and existing assertion-only scoring unchanged.
+
 Work364 locally verified: Fast364 passes. New HTTP/3 identity regression
 executes seven rejection/recovery cases and passes in
 `/tmp/connectanum-native364-focus.log`. Local review is complete; retain exact

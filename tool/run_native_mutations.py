@@ -4,6 +4,7 @@
 import argparse
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -23,7 +24,63 @@ TARGETS = {
     'core-config': ('ct_core/src/config.rs', ''),
     # Negotiation is exercised by transport integration tests as well as units.
     'core-protocol': ('ct_core/src/protocol.rs', ''),
+    'core-all': ('ct_core/**', ''),
+    'ffi-all': ('ct_ffi/**', ''),
 }
+WHOLE_COMPONENTS = frozenset(('core-all', 'ffi-all'))
+
+
+def partition_inventory(inventory, scope):
+    """Exclude only hash-pinned, AST-proven test helpers, retaining raw entries."""
+    if not isinstance(inventory, list) or not inventory:
+        raise ValueError('Require a nonempty raw native inventory')
+    production, excluded, seen = [], [], set()
+    for mutant in inventory:
+        name = mutant['name']
+        if name in seen:
+            raise ValueError('Duplicate raw mutation name')
+        seen.add(name)
+        source = native_mutations.source_for(mutant['file'], scope)
+        if source is None:
+            raise ValueError('Mutant source missing from verified source scope')
+        info = scope['sources'][source]
+        span = {edge: [mutant['span'][edge]['line'], mutant['span'][edge]['column'] - 1]
+                for edge in ('start', 'end')}
+        if not (0 < span['start'][0] <= span['end'][0] <= info['lineCount']
+                and span['start'][1] >= 0 and span['end'][1] >= 0
+                and span['start'] <= span['end']):
+            raise ValueError('Invalid mutation source span')
+        if info['classification'] not in ('production-candidate', 'test-only'):
+            raise ValueError('Unknown source classification')
+        bodies = info.get('productionFunctionBodies', [])
+        whole_body = info['classification'] == 'production-candidate' and (
+            mutant.get('genre') == 'FnValue' and any(body['span'] == span for body in bodies))
+        proofs = [item for item in info.get('exclusions', [])
+                  if item['span']['start'] <= span['start']
+                  and span['end'] <= item['span']['end']]
+        if whole_body:
+            if proofs:
+                raise ValueError('Ambiguous production and test-only body')
+            production.append(mutant)
+            continue
+        overlap = any(line in info['excludedLines']
+                      for line in range(span['start'][0], span['end'][0] + 1)) or any(
+            span['start'] < item['span']['end'] and item['span']['start'] < span['end']
+            for item in info.get('exclusions', []))
+        if info['classification'] == 'production-candidate' and not overlap:
+            production.append(mutant)
+            continue
+        if not proofs and info['classification'] != 'test-only':
+            raise ValueError('Unproved partial test/production overlap')
+        digest = scope.get('inputHashes', {}).get(source, '')
+        if not re.fullmatch(r'[0-9a-f]{64}', digest):
+            raise ValueError('Missing source hash for helper exclusion')
+        proof = proofs[0] if proofs else {'reason': 'AST test-only source', 'span': span}
+        excluded.append({'mutant': mutant, 'source': source, 'sourceSha256': digest,
+                         'reason': proof['reason'], 'span': proof['span']})
+    if not production:
+        raise ValueError('Require nonempty production mutation inventory')
+    return {'production': production, 'excluded': excluded}
 
 
 def target_options(target):
@@ -50,23 +107,52 @@ def copy_inputs(root, work, hashes):
     verify_inputs(root, hashes)
 
 
-def commands(work, output, target='core-rawsocket'):
+def commands(work, output, target='core-rawsocket', exclusions=()):
     source, test_filter = target_options(target)
+    whole = target in WHOLE_COMPONENTS
+    if exclusions and not whole:
+        raise ValueError('Helper exclusions require a whole-component inventory')
+    package = source.split('/')[0]
     # Protocol faults trigger multiple bounded network failures in the serial
     # suite (31-43 seconds observed); allow completion before auditing failures.
-    test_timeout = '90' if target == 'core-protocol' else '30'
+    test_timeout = '90' if whole or target == 'core-protocol' else '30'
     prefix = ['env', f'CARGO_TARGET_DIR={work / "target"}']
     manifest = str(work / 'native/transport/Cargo.toml')
     campaign = [*prefix, 'cargo', 'mutants', '--no-config', '--in-place',
-                '--manifest-path', manifest, '--package', 'ct_core',
-                '--file', source, '--features', 'ffi-test',
-                '--test-workspace', 'false', '--timeout', test_timeout, '--build-timeout', '180',
+                '--manifest-path', manifest, '--package', package,
+                *([] if whole else ['--file', source]), '--features', 'ffi-test',
+                '--test-workspace', 'true' if whole else 'false',
+                '--timeout', test_timeout, '--build-timeout', '180',
                 '--cargo-arg=--locked', '--output', str(output),
-                '--', '--lib', '--', test_filter, '--test-threads=1']
+                *[arg for item in exclusions for arg in
+                  ('--exclude-re', '^' + re.escape(item['mutant']['name']) + '$')],
+                '--', *(['--all-targets', '--no-fail-fast', '--'] if whole else ['--lib', '--', test_filter]),
+                '--test-threads=1']
     restored = [*prefix, 'cargo', 'test', '--manifest-path', manifest,
-                '--locked', '--package', 'ct_core', '--features', 'ffi-test',
-                '--lib', '--', test_filter, '--test-threads=1']
+                '--locked', *(['--workspace'] if whole else ['--package', package]),
+                '--features', 'ffi-test',
+                *(['--all-targets', '--no-fail-fast', '--'] if whole else ['--lib', '--', test_filter]),
+                '--test-threads=1']
     return campaign, restored
+
+
+def prepare_inventory(work, output, scope, target):
+    source, _ = target_options(target)
+    command = ['cargo', 'mutants', '--no-config', '--manifest-path',
+               str(work / 'native/transport/Cargo.toml'), '--package', source.split('/')[0],
+               '--features', 'ffi-test', '--list', '--json']
+    raw = subprocess.check_output(command, cwd=work, text=True, timeout=120)
+    (output / 'raw-inventory.json').write_text(raw)
+    partition = partition_inventory(json.loads(raw), scope)
+    (output / 'inventory-partition.json').write_text(json.dumps(partition, indent=2) + '\n')
+    campaign, _ = commands(work, output, target, partition['excluded'])
+    filtered_command = campaign[:campaign.index('--')] + ['--list', '--json']
+    filtered = subprocess.check_output(filtered_command, cwd=work, text=True, timeout=120)
+    (output / 'filtered-inventory.json').write_text(filtered)
+    if sorted(map(native_mutations.identity, json.loads(filtered))) != sorted(
+            map(native_mutations.identity, partition['production'])):
+        raise RuntimeError('Filtered inventory differs from pinned production inventory')
+    return partition
 
 
 def collect(root, output, analyzer, target='core-rawsocket'):
@@ -93,16 +179,36 @@ def collect(root, output, analyzer, target='core-rawsocket'):
     with tempfile.TemporaryDirectory(prefix='connectanum-native-mutations-') as temporary:
         work = Path(temporary)
         copy_inputs(root, work, hashes)
-        campaign, restored = commands(work, output, target)
+        partition = prepare_inventory(work, output, scope, target) if target in WHOLE_COMPONENTS else None
+        if partition is not None:
+            verify_inputs(work, hashes)
+            verify_inputs(root, hashes)
+            manifest.update(rawInventorySha256=native_coverage.digest(output / 'raw-inventory.json'),
+                            partitionSha256=native_coverage.digest(output / 'inventory-partition.json'),
+                            filteredInventorySha256=native_coverage.digest(output / 'filtered-inventory.json'))
+        campaign, restored = commands(work, output, target,
+                                      partition['excluded'] if partition else ())
+        campaign_timeout = 86400 if target in WHOLE_COMPONENTS else 14400
         manifest.update(campaignCommand=campaign, restoredCommand=restored)
+        manifest['campaignTimeoutSeconds'] = campaign_timeout
         save()
         print(f'Running complete isolated {target} mutation inventory.', flush=True)
-        code, log = run(campaign, work, 14400)
+        code, log = run(campaign, work, campaign_timeout)
         (output / 'campaign.log').write_text(log)
         manifest['campaignExitCode'] = code
         save()
         if code is None or 'connectanumInfrastructureError' in log:
             raise RuntimeError('Native campaign timed out or left unresolved process state')
+        if partition is not None:
+            for key, filename in [('rawInventorySha256', 'raw-inventory.json'),
+                                  ('partitionSha256', 'inventory-partition.json'),
+                                  ('filteredInventorySha256', 'filtered-inventory.json')]:
+                if native_coverage.digest(output / filename) != manifest[key]:
+                    raise RuntimeError('Pinned inventory evidence changed during campaign')
+            actual = json.loads((output / 'mutants.out/mutants.json').read_text())
+            if sorted(map(native_mutations.identity, actual)) != sorted(
+                    map(native_mutations.identity, partition['production'])):
+                raise RuntimeError('Executed inventory differs from pinned production inventory')
         verify_inputs(work, hashes)
         verify_inputs(root, hashes)
         code, log = run(restored, work, 180)
