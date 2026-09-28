@@ -35,6 +35,24 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work362: Fast362 and five stream-boundary tests pass. Cover empty/mixed chunks,
+read/openRead/native-open errors, prefix preservation, metadata, diagnostics,
+cancellation and once-only resource cleanup. `file362-probe` remains 14/20
+assertion-only detections, two survivors, four uncredited timeouts and nine
+compile failures; baselines and final hashes pass, no waivers. Empty-chunk
+guard removal remains indistinguishable at the test double's output because
+the stream itself suppresses empty chunks. Do not claim a mutation gain or
+change the double solely to manufacture one. Full verify362 fails (exit 1) on
+the HTTP/3 wrapper's recovery request with a five-second handshake timeout
+and native error -16. Isolate and investigate before committing this increment;
+retain `/tmp/connectanum-verify362.log` as failed evidence.
+An isolated debug run and ten serial repetitions pass. Work356 retained the
+same timeout symptom before these changes; suite concurrency is 1. Root cause
+remains unresolved. Full native-debug verify passes (exit 0, including browser
+runtimes) in `/tmp/connectanum-verify362-debug.log`; the HTTP/3 wrapper's nine
+handshakes take roughly 1-1.5 ms in this repeat. Keep the initial failure visible;
+do not claim its cause is fixed. Hosted verification remains outstanding.
+
 Work361: Fast361 passes. Preserved two failing public file-existence error
 regressions before fixing construction/existence exception containment. Active
 requests receive sanitized 500 responses; disposed requests never restart I/O.

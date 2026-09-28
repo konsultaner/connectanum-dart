@@ -3510,6 +3510,9 @@ class _FileResponseCleanupRuntime extends _HandleRuntime {
   final List<int> releasesAtOpen = [];
   final List<int> releasesAtSend = [];
   final List<int> responseAttempts = [];
+  final List<int> streamStatuses = [];
+  final List<Map<String, String>> streamHeaders = [];
+  Object? openError;
   Object? sendError;
   final addError = StateError('controlled file stream add failure');
 
@@ -3520,6 +3523,10 @@ class _FileResponseCleanupRuntime extends _HandleRuntime {
     required Map<String, String> headers,
   }) {
     releasesAtOpen.add(releases());
+    streamStatuses.add(status);
+    streamHeaders.add(Map.of(headers));
+    final error = openError;
+    if (error != null) throw error;
     return _FakeHttpResponseStream(
       handle: handshakeHandle,
       onChunk: (chunk) {
@@ -3579,9 +3586,10 @@ class _ExistenceFailureFile implements File {
 }
 
 class _DeferredResponseFile implements File {
-  _DeferredResponseFile({this.cancellation});
+  _DeferredResponseFile({this.cancellation, this.openError});
 
   final Completer<void>? cancellation;
+  final Object? openError;
   final checked = Completer<void>();
   final existence = Completer<bool>();
   final reading = Completer<void>();
@@ -3604,6 +3612,8 @@ class _DeferredResponseFile implements File {
   @override
   Stream<List<int>> openRead([int? start, int? end]) {
     reads++;
+    final error = openError;
+    if (error != null) throw error;
     return body.stream;
   }
 
@@ -3996,6 +4006,143 @@ void _fileResponseCleanupTests() {
         );
       },
     );
+  }
+  for (final mode in [
+    'empty',
+    'mixed',
+    'read-error',
+    'open-read-error',
+    'native-open-error',
+  ]) {
+    test('file response chunk boundaries mode=$mode', () async {
+      final readError = const FileSystemException(
+        'controlled file read failure',
+      );
+      final file = _DeferredResponseFile(
+        openError: mode == 'open-read-error' ? readError : null,
+      );
+      final runtime = _FileResponseCleanupRuntime(failAdd: false);
+      final nativeError = NativeTransportException(
+        -9,
+        'controlled stream open',
+      );
+      if (mode == 'native-open-error') runtime.openError = nativeError;
+      final handshake = _TrackedHttpHandshake(9471);
+      runtime.releases = () => handshake.releases;
+      const path = '/controlled-file-chunk-boundaries';
+      final parentZone = Zone.current;
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithPendingProtocols(),
+      );
+      final binding = IOOverrides.runZoned(
+        () => router.start(
+          runtime,
+          onEvent: (event) {
+            if (event is Map<String, Object?>) events.add(event);
+          },
+        ),
+        createFile: (name) =>
+            name == path ? file : parentZone.run(() => File(name)),
+      );
+      addTearDown(binding.dispose);
+      final session = await binding.createInternalSession(realmUri: 'realm1');
+      final registration = await session.register('com.example.api.stream');
+      int? requestId;
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation)!;
+        requestId = context.requestId;
+        context.sendFile(
+          path: path,
+          status: 206,
+          headers: {'x-file-boundary': mode},
+        );
+      });
+      runtime.setConnectionProtocol(78, NativeConnectionProtocol.http);
+      runtime.enqueueHttpHandshake(
+        binding.listeners.single.listenerId,
+        78,
+        handshake,
+      );
+      await file.checked.future.timeout(const Duration(seconds: 2));
+      expect(handshake.releases, 0);
+      file.existence.complete(true);
+      final opensReader =
+          mode != 'native-open-error' && mode != 'open-read-error';
+      if (opensReader) {
+        await file.reading.future.timeout(const Duration(seconds: 2));
+        file.body.add([]);
+        if (mode != 'empty') file.body.add([0, 127]);
+        file.body.add(Uint8List(0));
+        if (mode == 'mixed') {
+          file.body.add(Uint8List.fromList([128, 255]));
+          file.body.add([]);
+          file.body.add([1]);
+        }
+        if (mode == 'read-error') file.body.addError(readError);
+        await file.body.close().timeout(const Duration(seconds: 2));
+      }
+      await _waitUntil(() => handshake.releases != 0);
+      expect(handshake.releases, 1);
+      expect(runtime.releasesAtOpen, [0]);
+      expect(runtime.streamStatuses, [206]);
+      expect(runtime.streamHeaders.single['x-file-boundary'], mode);
+      expect(file.reads, mode == 'native-open-error' ? 0 : 1);
+      expect(file.cancelled.isCompleted, opensReader);
+      expect(runtime.responseAttempts, isEmpty);
+      expect(runtime.httpResponses, isEmpty);
+      final expectedChunks = switch (mode) {
+        'mixed' => [
+          [0, 127],
+          [128, 255],
+          [1],
+        ],
+        'read-error' => [
+          [0, 127],
+        ],
+        _ => <List<int>>[],
+      };
+      expect(runtime.chunks, expectedChunks);
+      expect(runtime.streamCloses, mode == 'native-open-error' ? [] : [9471]);
+      final resultEvents = events.where(
+        (event) => [
+          'http_response_file_streamed',
+          'http_response_file_stream_error',
+          'http_response_stream_open_error',
+        ].contains(event['type']),
+      );
+      expect(resultEvents, hasLength(1));
+      final result = resultEvents.single;
+      expect(result['httpRequestId'], requestId);
+      expect(result['connectionId'], 78);
+      expect(result['listenerId'], binding.listeners.single.listenerId);
+      expect(result['type'], switch (mode) {
+        'native-open-error' => 'http_response_stream_open_error',
+        'read-error' || 'open-read-error' => 'http_response_file_stream_error',
+        _ => 'http_response_file_streamed',
+      });
+      if (mode.endsWith('error')) {
+        expect(
+          result['error'],
+          (mode == 'native-open-error' ? nativeError : readError).toString(),
+        );
+      }
+      await binding.dispose();
+      expect(handshake.releases, 1);
+      expect(runtime.streamCloses, mode == 'native-open-error' ? [] : [9471]);
+      expect(runtime.chunks, expectedChunks);
+    });
   }
   for (final mode in ['async', 'sync', 'constructor', 'cancelled']) {
     test('file existence failure mode=$mode is contained', () async {

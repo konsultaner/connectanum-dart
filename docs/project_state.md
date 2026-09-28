@@ -6,6 +6,29 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work362 locally verified with an intermittent failure retained: Fast362 passes.
+Five public file-stream cases cover
+empty and mixed List/Uint8List chunks, read errors after a delivered prefix,
+synchronous openRead failure and native response-stream open failure. Exact
+bytes/order, status/header forwarding, diagnostics, read cancellation and
+once-only release/close assertions pass. `file362-probe` retains 14/20
+assertion-only detections (70% raw/adjusted), two survivors, four uncredited
+timeouts and nine compile failures, with clean baselines and matching
+source/test/support/native evidence. The empty-chunk mutant still survives:
+the stream test double also drops empty chunks, so payload assertions do not
+distinguish that guard. No equivalence waiver or score improvement is claimed.
+Full verify362 fails in `/tmp/connectanum-verify362.log` (exit 1): the HTTP/3
+wrapper test's final recovery request exceeds its five-second QUIC handshake
+deadline and returns NativeTransportException -16. Preserve this failure;
+one isolated debug run and ten serial repetitions all pass. A matching
+handshake-timeout symptom exists in the pre-change Work356 log
+`/tmp/connectanum-native356-eof-repeat2.log`; router tests use concurrency 1.
+The underlying cause is still unresolved. Full verification with native debug
+diagnostics passes in `/tmp/connectanum-verify362-debug.log` (exit 0, including
+browser runtimes); retain the failed initial run. All nine HTTP/3 wrapper
+handshakes in the repeat complete in roughly 1-1.5 ms. This is passing repeat
+evidence, not a timeout fix. Hosted verification remains outstanding.
+
 Work361 locally verified: Fast361 passes. Two public sendFile regressions
 reproduce synchronous/asynchronous File.exists failures escaping into the
 binding zone (`/tmp/connectanum-file361-repro.log`, two assertion failures).
