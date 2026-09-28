@@ -153,6 +153,11 @@ class _HomePageState extends State<HomePage> {
         selected.add(_SelectedAttachment(file, byteCount));
       }
       if (!mounted) return;
+      // Other selections may finish while file sizes are being read.
+      if (_attachments.length + selected.length >
+          WampAppAttachmentLimits.maxAttachmentsPerMessage) {
+        throw FormatException(l10n.attachmentLimit);
+      }
       setState(() {
         _attachments = List<_SelectedAttachment>.unmodifiable([
           ..._attachments,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/foundation.dart' show SynchronousFuture;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,7 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'test_support.dart';
 
 part 'support/voice_lifecycle_cases.dart';
+part 'support/attachment_picker_cases.dart';
 
 class _LocalizedMaterialApp extends StatelessWidget {
   const _LocalizedMaterialApp({required this.home});
@@ -52,6 +54,7 @@ void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
 
   _voiceLifecycleCases();
+  _attachmentPickerCases();
 
   setUp(() {
     binding.platformDispatcher.localeTestValue = const Locale('en');

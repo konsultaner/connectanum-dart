@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work352 completes full verification (`/tmp/connectanum-verify352.log`, exit 0,
+including browser runtime tests). New
+public widget regressions reproduce overlapping file selections exceeding the
+eight-attachment limit (expected five retained, observed nine); the fix rechecks
+capacity after async size reads before committing the entire batch. Nine picker
+cases cover exact/over capacity, size boundaries, atomic rejection, sanitized
+read failure/recovery, removal/replacement and late results after disposal.
+Fast352 passes. All nine cases pass in browser JS and WASM; the full Flutter
+client VM suite passes 398 tests and analyzer is clean. WASM line coverage is
+still unmeasured. No public package version or dependency version changed; the
+existing file-selector platform interface is now an explicit test dependency.
+
+Fresh `client352-current` VM coverage measures 9,293/10,281 client lines
+(90.390%), up from 9,243/10,279 (89.921%). HomePage measures 1,300/1,571
+(82.750%), 50 additional covered lines; ten client sources remain unmeasured.
+The source/test/dependency manifest verifies unchanged after collection. This is
+client-only evidence: server/shared were not rerun, and the application report
+keeps their missing instrumentation visible rather than reusing stale LCOV.
+The strict 98% gate fails. Initial `picker352-probe` has 23/27 assertion-backed
+detections; final `picker352-final-probe` has 24/27 (88.889% raw/adjusted), two
+survivors, one uncredited test-error-only detection and two compile failures.
+Both baselines pass. No equivalence waivers or whole-app mutation claims. The
+survivors change the initial remaining-capacity <= comparison to < and bypass
+the post-read mounted guard; retain their individual outcomes for review.
+
 Work351 completes full verification. The HTTP profile-auth regression matrix now
 includes an authenticated member without publish permission: two denied publishes
 deliver no events, return the existing sanitized error response, retain distinct

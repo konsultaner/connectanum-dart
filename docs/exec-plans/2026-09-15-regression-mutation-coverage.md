@@ -35,6 +35,30 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work352: fixed a reproduced HomePage attachment-capacity race. Two asynchronous
+selections could stage nine files; capacity is now rechecked immediately before
+the synchronous state update, rejecting the conflicting batch atomically. Nine
+widget regressions pass on browser JS/WASM; full client VM suite passes 398
+tests and analyzer passes. Fast352 and full verify352 pass (exit 0, including
+browser runtime tests). Preserve
+the failing reproduction in `/tmp/connectanum-picker352-repro.log` and runtime
+logs `/tmp/connectanum-picker352-{js,wasm}.log`.
+
+`client352-current` records fresh client VM coverage (9,293/10,281, 90.390%;
+HomePage 1,300/1,571, 82.750%). Ten client sources remain unmeasured. Collection
+used `flutter test --coverage --coverage-path <artifact>/lcov.info --reporter
+expanded` from the client root, then normalized only the LCOV SF:lib/ prefix to
+SF:examples/wamp_app/client/lib/. Retain raw LCOV, normalized LCOV and verified
+source/test/config manifest. This is client-only, not refreshed server/shared or
+WASM coverage. The 98% gate fails. Final picker probe (lines 136-175, widget_test,
+Flutter runner, test name `attachment picker`) has 24/27 assertion-backed
+detections (88.889% raw/adjusted), two unwaived survivors, one uncredited
+test-error-only detection and two compile failures; clean baselines. Initial
+probe is retained separately. Re-run the full app component campaign before any
+whole-app mutation claim. Next larger UI gap: attachment download/preview/save
+and buffer disposal; investigate pending-save/dialog-close ordering with a
+failing public regression before changing behavior.
+
 Work351 extends HTTP profile-auth regressions with authenticated publish denial,
 no event delivery, repeat-denial identity isolation, sanitized responses, and
 authorized RPC recovery on the same bearer session. Positive publish assertions
