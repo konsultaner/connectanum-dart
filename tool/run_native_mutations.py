@@ -121,9 +121,13 @@ def commands(work, output, target='core-rawsocket', exclusions=()):
     campaign = [*prefix, 'cargo', 'mutants', '--no-config', '--in-place',
                 '--manifest-path', manifest, '--package', package,
                 *([] if whole else ['--file', source]), '--features', 'ffi-test',
-                '--test-workspace', 'true' if whole else 'false',
+                '--test-workspace', 'false',
                 '--timeout', test_timeout, '--build-timeout', '180',
-                '--cargo-arg=--locked', '--output', str(output),
+                '--cargo-arg=--locked',
+                # cargo-mutants 27.1.0 ignores test-workspace for its baseline.
+                # Forward workspace selection to both phases without duplicating it.
+                *(['--cargo-arg=--workspace'] if whole else []),
+                '--output', str(output),
                 *[arg for item in exclusions for arg in
                   ('--exclude-re', '^' + re.escape(item['mutant']['name']) + '$')],
                 '--', *(['--all-targets', '--no-fail-fast', '--'] if whole else ['--lib', '--', test_filter]),

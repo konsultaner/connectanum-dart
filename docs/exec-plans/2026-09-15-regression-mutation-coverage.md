@@ -35,6 +35,20 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work366 locally verified: the interrupted `native365-core-all` campaign exposed
+cargo-mutants 27.1.0 selecting 284 tests for its baseline but 479 workspace tests
+for mutants/restoration. Restoration passed; strict audit rejected the incomplete
+campaign, with no score claimed. A real two-crate cargo-mutants regression fails
+for both core-all and ffi-all before correction. Forward `--workspace` using
+`--cargo-arg` and disable cargo-mutants' separate workspace switch so both phases
+receive workspace selection exactly once. All 43 tooling tests pass, including
+baseline/mutant/restored inventory equality. Fast366 and full verification pass
+(`/tmp/connectanum-verify366.log`, exit 0, including browser runtimes). The local
+companion's workspace-selection concern is disproved by the real regression;
+no timeout is weakened. Retain the interrupted evidence and use a fresh directory
+for the next complete campaign. Strict inventory and assertion-only scoring
+remain unchanged. Hosted verification is outstanding; no new score is claimed.
+
 Work365 locally verified: Fast365 passes. Whole-component native collector commands
 retain workspace unit/integration tests. Raw inventory is retained separately
 from exact-name helper exclusions proven by containing AST spans and source

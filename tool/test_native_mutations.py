@@ -575,7 +575,8 @@ class NativeMutationTests(unittest.TestCase):
             with self.subTest(target=target):
                 campaign, restored = collector.commands(Path('/private/work'), Path('/evidence'), target)
                 self.assertEqual(campaign[campaign.index('--package') + 1], package)
-                self.assertEqual(campaign[campaign.index('--test-workspace') + 1], 'true')
+                self.assertEqual(campaign[campaign.index('--test-workspace') + 1], 'false')
+                self.assertIn('--cargo-arg=--workspace', campaign)
                 self.assertIn('--workspace', restored)
                 for command in (campaign, restored):
                     self.assertIn('--all-targets', command)
@@ -585,6 +586,51 @@ class NativeMutationTests(unittest.TestCase):
                     self.assertEqual(command[-2:], ['--', '--test-threads=1'])
                 self.assertIn('--cargo-arg=--locked', campaign)
                 self.assertIn('--locked', restored)
+
+    def test_real_campaign_baseline_and_mutants_use_the_same_workspace(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary)
+            root = work / 'native/transport'
+            root.mkdir(parents=True)
+            (root / 'Cargo.toml').write_text(
+                '[workspace]\nmembers = ["ct_core", "ct_ffi"]\nresolver = "2"\n')
+            for package in ('ct_core', 'ct_ffi'):
+                crate = root / package
+                (crate / 'src').mkdir(parents=True)
+                (crate / 'Cargo.toml').write_text(
+                    f'[package]\nname = "{package}"\nversion = "0.0.0"\n'
+                    'edition = "2021"\n[features]\nffi-test = []\n')
+                (crate / 'src/lib.rs').write_text(
+                    'pub fn enabled() -> bool { true }\n'
+                    f'#[test]\nfn {package}_assertion() {{ assert!(enabled()); }}\n')
+            subprocess.run(['cargo', 'generate-lockfile', '--offline'], cwd=root,
+                           check=True, capture_output=True, timeout=30)
+            expected = ['ct_core_assertion', 'ct_ffi_assertion']
+            for target in ('core-all', 'ffi-all'):
+                with self.subTest(target=target):
+                    output = work / target
+                    campaign, restored = collector.commands(work, output, target)
+                    result = subprocess.run(campaign, cwd=work, text=True,
+                                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                            timeout=120)
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    directory = output / 'mutants.out'
+                    outcomes = json.loads((directory / 'outcomes.json').read_text())['outcomes']
+                    self.assertEqual(len(outcomes), 2, outcomes)
+                    self.assertEqual(sum(item['scenario'] == 'Baseline' for item in outcomes), 1)
+                    for item in outcomes:
+                        log_text = (directory / item['log_path']).read_text()
+                        tests = audit.TEST.findall(log_text)
+                        self.assertEqual(sorted(name for name, _ in tests), expected, log_text)
+                        failures = [name for name, status in tests if status == 'FAILED']
+                        self.assertEqual(failures, [] if item['scenario'] == 'Baseline' else
+                                         [('ct_core' if target == 'core-all' else 'ct_ffi') + '_assertion'])
+                    result = subprocess.run(restored, cwd=work, text=True,
+                                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                            timeout=90)
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(sorted(audit.TEST.findall(result.stdout)),
+                                     [(name, 'ok') for name in expected])
 
     def test_whole_workspace_assertion_does_not_skip_later_test_binary(self):
         with tempfile.TemporaryDirectory() as temporary:

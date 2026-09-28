@@ -6,6 +6,21 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work366 locally verified: the first whole-core campaign at `cea62c56` exposed a
+cargo-mutants 27.1.0 baseline mismatch: 284 selected-package tests versus 479
+workspace tests for mutants/restoration. The campaign was deliberately interrupted,
+its restored baseline passed, and the strict auditor rejected the incomplete run;
+`native365-core-all` has no score. A real two-crate cargo-mutants regression fails
+for both whole-component targets before the fix. Forwarding `--workspace` as a
+Cargo argument with `--test-workspace false` applies workspace selection once to
+both baseline and mutants. All 43 collector/auditor tests now pass, including
+baseline/mutant/restored inventory equality. No inventory check is weakened.
+Fast366 and full `bin/verify` pass, including browser runtimes; final log is
+`/tmp/connectanum-verify366.log` (exit 0). The local companion's proposed workspace
+selection concern is disproved by the real before/after campaign regression;
+no audit or timeout is weakened. Next run fresh complete core/FFI campaigns
+serially. Hosted verification remains outstanding; no new score is claimed.
+
 Work365 locally verified: Fast365 passes. Native mutation collector adds whole-core
 and whole-FFI targets using workspace unit/integration tests, with complete raw
 inventories and explicit AST/source-hash-pinned helper exclusions. Real inventory
