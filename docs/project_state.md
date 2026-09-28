@@ -6,6 +6,30 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work354 completes full verification (`/tmp/connectanum-verify354-final.log`,
+exit 0, including browser runtime tests). HTTP
+auth bridge revocation now resolves the actual token type rather than treating
+an advisory token_type_hint as a constraint. Public regressions reproduced six
+cases where an incorrect known hint returned success but left the credential
+usable (HTTP 200 instead of 401), across body/query/header selectors. Twenty
+matrix cases plus the existing conflict regression now pass, covering cached
+session denial, unrelated grants, repeated/missing/unknown token revocation,
+refresh cascade and access-only refresh recovery. Fast354 passes. Initial test
+fixture failures (negative synthetic handles and missing explicit query fields)
+are retained separately from the valid failing repro3 evidence.
+`revoke354-pinned-probe` records 11/11 viable assertion-only kills, four excluded
+compile failures, clean baseline/restored baseline, no waivers or timeout/error
+credit. Initial `revoke354-probe` retains seven kills, three uncredited timeout
+outcomes and one survivor; tests now observe handler diagnostics and assert the
+required terminal HTTP response, plus missing-token behavior. Full verify354
+initially failed because the new router test part was missing from mutation
+target supportFiles. All three affected target inventories are now updated and
+the inventory regression passes. The pinned probe reruns the same assertions
+with hashes for all 14 support files; the earlier unpinned final-probe is retained
+but is not authoritative final-input evidence. Source range and test selection
+are retained in target.json. No whole-component coverage or
+mutation refresh is claimed. Hosted verification remains outstanding.
+
 Work353 completes full verification (`/tmp/connectanum-verify353.log`, exit 0,
 including browser runtime tests). Public
 attachment-preview regressions reproduce late exports after dismissal, zeroed

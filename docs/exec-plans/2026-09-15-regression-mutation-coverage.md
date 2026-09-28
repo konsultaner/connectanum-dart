@@ -35,6 +35,27 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work354: reproduced and fixed revocation returning success without invalidating
+credentials when token_type_hint names the wrong known type. The JSON bridge
+uses advisory lookup semantics, documented with RFC7009 section 2.1 without
+claiming full OAuth endpoint compliance. Final valid pre-fix reproduction is
+`/tmp/connectanum-revoke354-repro3.log` (14 pass, six assertion failures); earlier
+logs retain fixture setup mistakes. New 20-case matrix and existing conflict
+case pass in `/tmp/connectanum-revoke354-final-tests.log`. Fast354 passes.
+Tests verify actual protected RPC denial, cached-session behavior, unrelated
+grant isolation, idempotency, absent/unknown tokens and refresh-vs-access cascade.
+`revoke354-pinned-probe` retains config/hashes/outcomes: 11/11 viable assertion-only
+detections (100% raw/adjusted), four compile failures excluded, clean baselines.
+The initial probe remains retained with three timeout outcomes and one survivor;
+no error/timeout credit or equivalence waivers. The response assertions now
+observe terminal handler diagnostics instead of timing out on absent responses.
+Initial full verify354 failed its test-part inventory check. Added the new part
+to supportFiles for binding, drain and HTTP-context targets; the inventory test
+now passes. The pinned probe rerun hashes all 14 support files, unlike the
+retained earlier unpinned final-probe. Full verify354 now passes (exit 0,
+including browser runtime tests) in `/tmp/connectanum-verify354-final.log`.
+No whole-router mutation or line coverage refresh or hosted-green claim yet.
+
 Work353: attachment-preview export lifecycle regressions and fixes pass full
 verify353 (exit 0, including browser runtime tests). Preserve failing reproductions in
 `/tmp/connectanum-preview353-{repro2,write-error-repro,transition-repro}.log`.

@@ -53,6 +53,7 @@ part 'support/internal_close_cases.dart';
 part 'support/internal_call_lifecycle_cases.dart';
 part 'support/internal_publish_filter_cases.dart';
 part 'support/http_adapter_option_cases.dart';
+part 'support/http_revocation_hint_cases.dart';
 
 const _certificatePem =
     '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
@@ -4100,6 +4101,7 @@ void _fileResponseCleanupTests() {
 void main() {
   _internalPublishFilterCases();
   registerHttpAdapterOptionCases();
+  _httpRevocationHintCases();
   _internalCallLifecycleCases();
   _internalCloseCases();
   _httpBossOwnershipCases();
@@ -15448,6 +15450,7 @@ void main() {
 
   test('auth bridge revokes refresh and access tokens', () async {
     final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
     final router = Router(
       RouterConfig(
         endpoints: [
@@ -15463,7 +15466,12 @@ void main() {
       settings: _buildRouterSettingsWithHttpAuthBridge(),
     );
 
-    final binding = router.start(runtime);
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) events.add(event);
+      },
+    );
     addTearDown(binding.dispose);
 
     await Future<void>.delayed(Duration.zero);
@@ -15532,9 +15540,22 @@ void main() {
         procedure: 'router.http.auth',
       );
       await _waitUntil(
-        () => runtime.httpResponses[conflict.connectionId]?.isNotEmpty ?? false,
+        () =>
+            (runtime.httpResponses[conflict.connectionId]?.isNotEmpty ??
+                false) ||
+            events.any(
+              (event) =>
+                  event['type'] == 'http_request_handler_error' &&
+                  event['connectionId'] == conflict.connectionId,
+            ),
       );
-      final response = runtime.httpResponses[conflict.connectionId]!.single;
+      final responses = runtime.httpResponses[conflict.connectionId] ?? [];
+      expect(
+        responses,
+        hasLength(1),
+        reason: 'Conflicting selectors must receive a terminal HTTP response',
+      );
+      final response = responses.single;
       expect(response.status, HttpStatus.badRequest);
       expect(
         _jsonResponseBody(response),

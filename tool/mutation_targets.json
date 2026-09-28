@@ -138,6 +138,7 @@
       "packages/connectanum_router/test/support/internal_call_lifecycle_cases.dart",
       "packages/connectanum_router/test/support/internal_publish_filter_cases.dart",
       "packages/connectanum_router/test/support/http_adapter_option_cases.dart",
+      "packages/connectanum_router/test/support/http_revocation_hint_cases.dart",
       "packages/connectanum_router/test/certs/http3_cert.pem",
       "packages/connectanum_router/test/certs/http3_key.pem",
       "packages/connectanum_router/test/certs/http3_ca_cert.pem"
@@ -604,7 +605,8 @@
       "packages/connectanum_router/test/support/internal_close_cases.dart",
       "packages/connectanum_router/test/support/internal_call_lifecycle_cases.dart",
       "packages/connectanum_router/test/support/internal_publish_filter_cases.dart",
-      "packages/connectanum_router/test/support/http_adapter_option_cases.dart"
+      "packages/connectanum_router/test/support/http_adapter_option_cases.dart",
+      "packages/connectanum_router/test/support/http_revocation_hint_cases.dart"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": true,
@@ -627,7 +629,8 @@
       "packages/connectanum_router/test/support/internal_close_cases.dart",
       "packages/connectanum_router/test/support/internal_call_lifecycle_cases.dart",
       "packages/connectanum_router/test/support/internal_publish_filter_cases.dart",
-      "packages/connectanum_router/test/support/http_adapter_option_cases.dart"
+      "packages/connectanum_router/test/support/http_adapter_option_cases.dart",
+      "packages/connectanum_router/test/support/http_revocation_hint_cases.dart"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": false,

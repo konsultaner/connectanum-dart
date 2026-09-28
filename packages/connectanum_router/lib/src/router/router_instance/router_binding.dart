@@ -5447,16 +5447,10 @@ class RouterBinding {
       return;
     }
     final token = tokenSelectors.isEmpty ? null : tokenSelectors.single;
-    final tokenTypeHint = tokenTypeHintSelectors.isEmpty
-        ? null
-        : tokenTypeHintSelectors.single;
 
     if (token != null && token.isNotEmpty) {
-      if (tokenTypeHint == 'refresh_token') {
-        await _revokeHttpRefreshToken(token);
-      } else if (tokenTypeHint == 'access_token') {
-        await _revokeHttpAccessToken(token);
-      } else if (_httpRefreshTokens.containsKey(token)) {
+      // A type hint must not leave a known credential valid after revocation.
+      if (_httpRefreshTokens.containsKey(token)) {
         await _revokeHttpRefreshToken(token);
       } else {
         await _revokeHttpAccessToken(token);
