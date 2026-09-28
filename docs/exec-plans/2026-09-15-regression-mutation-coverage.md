@@ -35,6 +35,26 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work351 extends HTTP profile-auth regressions with authenticated publish denial,
+no event delivery, repeat-denial identity isolation, sanitized responses, and
+authorized RPC recovery on the same bearer session. Positive publish assertions
+now correlate the acknowledgment, dispatch diagnostic and WAMP event IDs after
+the initial probe exposed an acknowledgment mutant survivor. Fast351 passes;
+`publish351-final-probe` has one viable assertion-only kill, two compile failures,
+clean baseline/restored baseline, and 100% raw/adjusted targeted score. Initial
+probe and incorrect-diagnostic test failure logs remain preserved separately.
+Full verify351 passes with exit 0 (`/tmp/connectanum-verify351.log`), including
+browser runtime tests; whole-component evidence remains unchanged.
+
+Next coverage selection: revisit the standalone application client, not only
+router micro-probes. The complete `application202-current/summary.json` reports
+client 9,243/10,279 (89.92%), server 3,298/3,531 (93.40%) and shared 1,537/1,540
+(99.81%), with 14 unmeasured sources. Its largest gap is home_page.dart at
+1,250/1,569; the current file SHA-256 still matches that report's frozen manifest.
+Application200's WebRTC gap is stale: Work201 added channel/browser regressions
+and measured the adapter at 145/146 VM lines. Inspect existing widget fixtures
+before adding tests; retain separate VM/JS/WASM and platform-plugin evidence.
+
 Work350 adds diagnostic-only native mutation failure details, preserving strict
 kill eligibility and scores, with 35 passing auditor tests. Historical Native334
 replay distinguishes nine mixed errors from three with no assertion evidence.

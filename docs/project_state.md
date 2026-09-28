@@ -6,6 +6,21 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work351 completes full verification. The HTTP profile-auth regression matrix now
+includes an authenticated member without publish permission: two denied publishes
+deliver no events, return the existing sanitized error response, retain distinct
+request/connection IDs, and leave an authorized RPC usable with the same bearer.
+The positive publish case correlates HTTP acknowledgment and dispatch diagnostic
+IDs with the delivered WAMP event. Fast351 passes. The initial focused test used
+an incorrect wire-error assumption for an internal StateError; its log is retained
+in `/tmp/connectanum-focus351.log`, with the corrected three-case pass in
+`/tmp/connectanum-focus351-final.log`. The initial `publish351-probe` exposed a
+missing acknowledgment assertion. `publish351-final-probe` detects its one viable
+mutant with assertion-only evidence (100% raw/adjusted), two compile failures,
+clean baseline/restored baseline, and no error/timeout credit. These focused
+artifacts do not update whole-router mutation or line coverage. Full verify351
+passes (`/tmp/connectanum-verify351.log`, exit 0), including browser runtime tests.
+
 Work350 completes verification. Native mutation reports now retain diagnostic-only
 per-test assertion/non-assertion/unmatched failure evidence without changing
 classification, raw/adjusted scores or fail-closed gates. The mixed-error regression

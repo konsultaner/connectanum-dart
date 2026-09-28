@@ -1860,6 +1860,7 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
   bool rotateRefreshTokens = true,
   Map<String, Object?> secureRouteOptions = const {},
   bool enableProtectedPublish = false,
+  bool allowProtectedPublish = true,
   List<String> profileAuthMethods = const ['ticket', 'wampcra', 'scram'],
 }) {
   final builder = RouterSettingsBuilder()
@@ -1893,7 +1894,7 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
               ..setMatchPolicy(PermissionMatchPolicy.prefix)
               ..allowOperations([
                 'call',
-                if (enableProtectedPublish) 'publish',
+                if (enableProtectedPublish && allowProtectedPublish) 'publish',
               ]),
           ),
         )
@@ -9894,9 +9895,13 @@ void main() {
     );
   });
 
-  for (final publish in [false, true]) {
+  for (final (publish, allowPublish) in const [
+    (false, true),
+    (true, true),
+    (true, false),
+  ]) {
     test(
-      'HTTP profile auth guards ${publish ? 'publish' : 'RPC'} without transport bearer enforcement',
+      'HTTP profile auth guards ${publish ? 'publish' : 'RPC'} without transport bearer enforcement${allowPublish ? '' : ' and without publish permission'}',
       () async {
         final runtime = _HandleRuntime();
         final events = <Map<String, Object?>>[];
@@ -9916,6 +9921,7 @@ void main() {
               settings: _buildRouterSettingsWithHttpAuthBridge(
                 secureRouteOptions: const {'require_bearer': false},
                 enableProtectedPublish: true,
+                allowProtectedPublish: allowPublish,
               ),
             ).start(
               runtime,
@@ -9948,19 +9954,21 @@ void main() {
         Future<NativeHttpResponse> send(
           Map<String, String> headers, {
           bool expectDenied = false,
+          bool asRpc = false,
         }) async {
           final id = nextConnection++;
+          final publishRequest = publish && !asRpc;
           _enqueueSyntheticHttpRequest(
             runtime: runtime,
             listenerId: listenerId,
             connectionId: id,
             handle: id,
             method: 'POST',
-            target: publish ? '/api/events' : '/api/secure',
+            target: publishRequest ? '/api/events' : '/api/secure',
             headers: headers,
             body: const {'message': 'authorized-only'},
             realm: 'realm1',
-            procedure: publish
+            procedure: publishRequest
                 ? 'router.http.publish'
                 : 'com.example.api.secure',
           );
@@ -10023,11 +10031,90 @@ void main() {
         final allowed = await send({
           'authorization': 'Bearer ${tokens.accessToken}',
         });
+        if (publish && !allowPublish) {
+          void expectPublishDenied(NativeHttpResponse response) {
+            expect(response.status, HttpStatus.internalServerError);
+            expect(_jsonResponseBody(response), {
+              'status': 'error',
+              'reason': 'publish_failed',
+              'message': 'Failed to publish HTTP route event',
+            });
+            expect(publications, isEmpty);
+            expect(
+              events.where(
+                (event) => event['type'] == 'http_publish_dispatched',
+              ),
+              isEmpty,
+            );
+          }
+
+          expectPublishDenied(allowed);
+          expect(calls, 0);
+          final recovered = await send({
+            'authorization': 'Bearer ${tokens.accessToken}',
+          }, asRpc: true);
+          expect(recovered.status, HttpStatus.ok);
+          expect(
+            (recovered.body as NativeHttpResponseText).text,
+            'authenticated',
+          );
+          expect(calls, 1);
+          expectPublishDenied(
+            await send({
+              'authorization': 'Bearer ${tokens.accessToken}',
+            }),
+          );
+          expect(calls, 1);
+          final failures = events
+              .where(
+                (event) => event['type'] == 'http_publish_error',
+              )
+              .toList();
+          expect(failures, hasLength(2));
+          for (final failure in failures) {
+            expect(failure['realm'], 'realm1');
+            expect(failure['topic'], 'com.example.events');
+            expect(failure['listenerId'], listenerId);
+            expect(
+              failure['error'],
+              contains(
+                'Not authorized to publish com.example.events in realm realm1',
+              ),
+            );
+            expect(jsonEncode(failure), isNot(contains(tokens.accessToken)));
+          }
+          expect(
+            failures.map((event) => event['httpRequestId']).toSet(),
+            hasLength(2),
+          );
+          expect(
+            failures.map((event) => event['connectionId']).toSet(),
+            hasLength(2),
+          );
+          return;
+        }
         expect(allowed.status, publish ? HttpStatus.accepted : HttpStatus.ok);
         if (publish) {
           await _waitUntil(() => publications.isNotEmpty);
           expect(publications, hasLength(1));
           final http = publications.single.argumentsKeywords!['_http'] as Map;
+          expect(_jsonResponseBody(allowed), {
+            'status': 'accepted',
+            'topic': 'com.example.events',
+            'requestId': http['id'],
+            'publicationId': publications.single.publicationId,
+          });
+          final dispatched = events
+              .where(
+                (event) => event['type'] == 'http_publish_dispatched',
+              )
+              .toList();
+          expect(dispatched, hasLength(1));
+          expect(dispatched.single['httpRequestId'], http['id']);
+          expect(
+            dispatched.single['publicationId'],
+            publications.single.publicationId,
+          );
           expect(jsonDecode(utf8.decode(http['body'] as Uint8List)), {
             'message': 'authorized-only',
           });
