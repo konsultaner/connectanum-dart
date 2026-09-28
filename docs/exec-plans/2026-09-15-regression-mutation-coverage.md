@@ -35,6 +35,32 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work370/371 locally verified: Fast370 passes. Route-helper tests establish existing ASCII,
+Unicode, root/empty path, repeated-separator and namespace behavior before
+removing two identical-branch conditions. No inventory exclusions or waivers.
+Use explicit comparison diagnostics for the custom-message config assertion;
+assert metadata fixture HTTP settings before dereferencing. Keep the auditor
+unchanged. Its real rustc fixture now also checks custom-comparison credit and
+continued unwrap/custom-plain-assert/production-panic rejection. All 43 tooling
+tests and 293 serial core tests pass. Fresh complete `native370-config-all`
+finishes with 126 generated, 17 compile failures and 109/109 viable assertion
+kills (100% raw/adjusted), zero survivors/errors/timeouts/waivers and evidenceClean
+true. Baseline/restored 293-test inventories and input hashes match. Preserve
+native369 results separately. Full verification exits 1 after the campaign:
+`/tmp/connectanum-verify370.log` records a five-second HTTP/3 handshake timeout
+in the wrapper's invalid-header case. An isolated debug rerun passes, not a
+root-cause fix or a replacement for full verification. Work371 exposes captured
+fixture server stderr for subsequent diagnostics while preserving all assertions
+and deadlines. Fast371 passes (exit 0); full verification passes serially
+with `CONNECTANUM_FFI_TEST_DEBUG=1` in `/tmp/connectanum-verify371.log`
+(exit 0, including JavaScript/WASM; no reported failures or Cargo retries).
+Both sides of the wrapper's nine successful handshakes and cleanup are visible;
+the earlier timeout remains unresolved, not erased by this pass. Hosted checks
+remain outstanding. Next add bounded RawSocket reader delivery, control-frame,
+malformed-input and lifecycle regressions, then refresh component evidence.
+This is configuration-module evidence, not whole-core coverage; full
+milestone acceptance is still incomplete. No auditor relaxation was used.
+
 Work369 locally verified: Fast369 passes. Reproduce HTTP3-only settings loss with
 configuration assertions and real listeners holding UDP occupied at the TCP
 port; both runtime variants fail before the fix. Preserve version-specific HTTP

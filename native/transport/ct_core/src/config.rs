@@ -834,8 +834,9 @@ mod tests {
             }));
             assert_eq!(runtime.protocols, vec![TransportProtocol::Http3]);
             let settings = runtime.http_settings();
-            assert!(
+            assert_eq!(
                 settings.is_some(),
+                true,
                 "HTTP/3-only settings must survive parsing"
             );
             let settings = settings.unwrap();
@@ -897,6 +898,45 @@ mod tests {
                 assert!(matches!(error, Error::RouterConfigInvalid(ref message)
                     if message.contains("enables http3 but tls_mode is disabled")));
             }
+        }
+    }
+
+    #[test]
+    fn route_segment_sanitisation_preserves_ascii_and_unicode_mapping() {
+        for byte in 0u8..=127 {
+            let input = char::from(byte).to_string();
+            let expected = match byte {
+                b'A'..=b'Z' => char::from(byte + 32).to_string(),
+                b'a'..=b'z' | b'0'..=b'9' => input.clone(),
+                _ => "_".to_string(),
+            };
+            assert_eq!(sanitise_segment(&input), expected, "ASCII byte {byte}");
+        }
+        assert_eq!(sanitise_segment(""), "index");
+        assert_eq!(sanitise_segment("A-_!09"), "a___09");
+        assert_eq!(
+            sanitise_segment("\u{c4}a\u{2014}/\u{1f60a}\u{df}"),
+            "_a____"
+        );
+    }
+
+    #[test]
+    fn route_path_appending_preserves_root_empty_segments_and_separators() {
+        for (prefix, path, expected) in [
+            ("", "", "index"),
+            ("", "///", "index"),
+            ("api.", "/", "api.index"),
+            ("api", "", "apiindex"),
+            ("api", "/A", "api.a"),
+            ("api.", "/A//B/", "api.a.index.b"),
+            ("", "a//b", "a.index.b"),
+            ("", "/./../", "_.__"),
+            ("", "/Users/A-B_C!/", "users.a_b_c_"),
+            ("api.", "/Gr\u{fc}\u{df}e/\u{1f60a}/", "api.gr__e._"),
+        ] {
+            let mut result = prefix.to_string();
+            append_path_segments(&mut result, path);
+            assert_eq!(result, expected, "prefix={prefix:?}, path={path:?}");
         }
     }
 
@@ -1855,11 +1895,7 @@ fn normalise_namespace(namespace: &str) -> String {
 fn append_path_segments(buffer: &mut String, path: &str) {
     let segments = segments_from_path(path);
     if segments.is_empty() {
-        if !buffer.is_empty() {
-            buffer.push_str("index");
-        } else {
-            buffer.push_str("index");
-        }
+        buffer.push_str("index");
         return;
     }
     for segment in segments {
@@ -1906,8 +1942,6 @@ fn sanitise_segment(segment: &str) -> String {
     for ch in segment.chars() {
         if ch.is_ascii_alphanumeric() {
             result.push(ch.to_ascii_lowercase());
-        } else if ch == '_' || ch == '-' {
-            result.push('_');
         } else {
             result.push('_');
         }

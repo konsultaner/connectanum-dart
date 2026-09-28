@@ -6,6 +6,44 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work370/371 locally verified: Fast370 passes. New route-helper regressions pass before
+simplification and assert all ASCII scalar mappings, Unicode replacement,
+root/empty paths, repeated separators and existing namespace concatenation.
+Remove only identical branch bodies in `append_path_segments` and
+`sanitise_segment`; do not exclude candidates or add equivalence waivers.
+The custom-message config assertion now uses an explicit equality comparison,
+and protocol metadata tests assert HTTP settings exist before dereferencing
+them. Scoring/auditor implementation remains unchanged. The real rustc fixture
+verifies that custom comparison diagnostics are credited while custom plain
+assertions, unwrap failures and production panics remain conservatively
+uncredited. All 43 mutation-tool tests and 293 serial core tests pass.
+Fresh complete config inventory `native370-config-all` completes: 126 generated,
+17 compile failures and 109/109 viable assertion kills (100% raw/adjusted), no
+survivors/errors/timeouts/waivers, evidenceClean true. Both 293-test baselines
+and pinned source/test/tool hashes match. Native369 evidence remains separate
+and is not attributed to these tests. Full verification exits 1 in
+`/tmp/connectanum-verify370.log`: the HTTP/3 wrapper's invalid-header request
+hits the existing five-second handshake timeout instead of argument rejection.
+The isolated debug rerun passes all nine handshakes, so the cause remains
+unresolved. Retain the failing run; do not count the rerun as full verification.
+Work371 exposes the fixture server's captured stderr to preserve both sides of
+future failures, without changing deadlines or assertions. Fast371 passes
+(`/tmp/connectanum-fast371.log`, exit 0). Full verification passes serially
+with `CONNECTANUM_FFI_TEST_DEBUG=1` in `/tmp/connectanum-verify371.log`
+(exit 0, including JavaScript/WASM tests; no reported failures or Cargo retries).
+The wrapper's nine handshakes and server-side cleanup are visible. This is
+not a root-cause fix for the retained Work370 timeout. Hosted evidence remains
+outstanding. Next strengthen RawSocket reader delivery, control-frame and
+failure/lifecycle assertions in the largest remaining native-core coverage gap,
+then refresh source-pinned component evidence.
+This is configuration-module evidence, not whole-core
+or whole-milestone completion. Local
+architecture advice supports explicit comparison diagnostics rather than an
+unproven macro-recognition relaxation. Routine review's behavior-change claim
+was self-retracted and contradicted by source and before/after tests; the fixed
+rustc fixture intentionally fails closed if its source marker changes. No
+release/version change.
+
 Work369 locally verified: Fast369 passes. New configuration regressions and both
 current-/multi-thread HTTP/3 listener tests fail before correction. Keeping UDP
 occupied at the TCP port deterministically reproduces the missing HTTP/3 socket

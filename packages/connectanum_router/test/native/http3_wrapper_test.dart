@@ -24,9 +24,13 @@ void main() {
         '${package.path}/test/certs',
       ]);
       final errors = <String>[];
-      final errorSubscription = server.stderr
-          .transform(utf8.decoder)
-          .listen(errors.add);
+      final errorSubscription = server.stderr.transform(utf8.decoder).listen((
+        chunk,
+      ) {
+        errors.add(chunk);
+        // Preserve server-side diagnostics when a later client call fails.
+        stderr.write(chunk);
+      });
       addTearDown(() async {
         server.kill();
         await server.exitCode.timeout(

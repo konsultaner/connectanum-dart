@@ -98,6 +98,7 @@ async fn http2_negotiation_selects_exact_alpn_and_preserves_preface() {
     ] {
         let mut endpoint = tests::runtime_config(Some(Duration::from_secs(2)), 16);
         endpoint.protocols.push(TransportProtocol::Http2);
+        assert!(endpoint.http.is_some());
         endpoint.http.as_mut().unwrap().alpn = tokens.iter().map(|s| s.to_string()).collect();
         let (stream, mut peer) = socket_pair().await;
         assert!(peer.write_all(HTTP2_PREFACE).await.is_ok());
@@ -266,6 +267,7 @@ fn http3_metadata_selects_first_supported_alpn_and_retains_protocols() {
         (vec!["h30", "H3-29"], None),
     ] {
         let mut endpoint = tests::runtime_config(None, 16);
+        assert!(endpoint.http.is_some());
         endpoint.http.as_mut().unwrap().alpn = tokens.iter().map(|s| s.to_string()).collect();
         let metadata = Http3Handshake::from_endpoint(&endpoint);
         assert_eq!(metadata.protocol(), "http/3");

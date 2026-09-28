@@ -424,6 +424,7 @@ class NativeMutationTests(unittest.TestCase):
     match std::env::var("MUTATION_CASE").as_deref() {
         Ok("assert") => 2,
         Ok("panic") => panic!("production error"),
+        Ok("unwrap") => None::<i32>.unwrap(),
         Ok("production-assert") => { assert!(false, "production invariant"); 1 },
         _ => 1,
     }
@@ -432,6 +433,9 @@ class NativeMutationTests(unittest.TestCase):
     #[test] fn expected() {
         if std::env::var("MUTATION_CASE").as_deref() == Ok("custom-assert") {
             assert!(false, "plain TCP sendfile: Ok(None)");
+        }
+        if std::env::var("MUTATION_CASE").as_deref() == Ok("custom-comparison") {
+            assert_eq!(false, true, "HTTP settings must survive parsing");
         }
         if std::env::var("MUTATION_CASE").as_deref() == Ok("plain-assert") {
             assert!(false);
@@ -447,11 +451,16 @@ class NativeMutationTests(unittest.TestCase):
             (root / 'src/lib.rs').write_text(source)
             subprocess.run(['rustc', '--edition=2021', '--test', 'src/lib.rs', '-o', 'suite'],
                            cwd=root, check=True, capture_output=True, timeout=30)
-            scope = {'sources': {'src/lib.rs': {'lineCount': 20,
-                'classification': 'production-candidate', 'excludedLines': list(range(9, 21))}}}
+            lines = source.splitlines()
+            test_start = lines.index('#[cfg(test)] mod tests {') + 1
+            scope = {'sources': {'src/lib.rs': {'lineCount': len(lines),
+                'classification': 'production-candidate',
+                'excludedLines': list(range(test_start, len(lines) + 1))}}}
             for case, expected in [('clean', 'survived'), ('assert', 'killed'),
-                                   ('panic', 'error'), ('production-assert', 'error'),
-                                   ('custom-assert', 'error'), ('plain-assert', 'killed')]:
+                                   ('panic', 'error'), ('unwrap', 'error'),
+                                   ('production-assert', 'error'),
+                                   ('custom-assert', 'error'), ('custom-comparison', 'killed'),
+                                   ('plain-assert', 'killed')]:
                 with self.subTest(case=case):
                     result = subprocess.run([str(root / 'suite'), '--test-threads=1'],
                         cwd=root, env={**os.environ, 'MUTATION_CASE': case},
