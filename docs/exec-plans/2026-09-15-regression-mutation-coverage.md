@@ -35,6 +35,35 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work368: Fast368 and all five HTTP/2 security tests pass. A production-builder
+wire regression asserts independent SETTINGS values and the 64 MiB connection
+receive window. Synchronize on server poll readiness before the PING barrier:
+the initial fixture demonstrated that a PING ACK can precede flow-control
+flushing. No production behavior changes. `native368-http2-probe` audits 17
+candidates with 12 assertion kills and five errors (70.588% raw/adjusted), no
+survivors/waivers, clean baseline/restoration and matching pinned inputs.
+Keep evidenceClean false: three invalid-frame mutants panic in h2; two small
+header-limit mutants mix the new assertion with other tests' non-assertion
+failures. Full verification exits 0 (`/tmp/connectanum-verify368.log`) after a
+built-in Rust retry: initial HTTP/3 current-thread listener startup fails with
+UDP address already in use. The retry is not a fix. Next reproduce HTTP3-only
+configuration dropping its explicit UDP port because HTTP settings are parsed
+only for the Http protocol; preserve TLS/protocol boundaries when correcting
+it. This is not proof of the older handshake-timeout cause. Focused companion
+review completes; hosted verification remains outstanding. Whole-component
+coverage/mutation acceptance remains incomplete.
+
+Fresh `native367-current` Rust-test coverage at `c4869f52` passes: core
+8,950/10,064 (88.931%), FFI 4,882/5,798 (84.201%), with one/three unmeasured
+files retained. Separate `nativeffi367-current` collection completes with all
+steps passing. Canonical scope equality, 758 collection input hashes and the
+instrumented library hash are verified. The production filter combines only
+these matching collections into `native367-combined`: core 9,008/10,064
+(89.507%), FFI 5,219/5,798 (90.014%). Preserve both original collections,
+combination input hashes and unmeasured files; no native363 data is mixed in.
+Hosted audit remains
+non-green because CI 36444072797 and publish dry-run 36444072775 are queued.
+
 Work367 locally verified: `native366-core-all` confirms matching 479-test baseline
 and mutant inventories. After 75 outcomes, deliberately stopped the exploratory run
 to address surviving no-op metrics recording and flow-control assertions before
@@ -50,8 +79,8 @@ Pinned source/test/tool hashes are verified. This focused probe is not a
 whole-component score. Full verification passes in
 `/tmp/connectanum-verify367.log` (exit 0, including browser runtimes). The full
 companion review hit its output limit; a complete tail-sample review confirms
-expected replacement cases. Production behavior is unchanged. Refreshed coverage
-and hosted verification are still outstanding.
+expected replacement cases. Production behavior is unchanged. Refreshed native
+coverage is recorded above; hosted verification is still outstanding.
 The final whole-core 1,941-candidate scope is unchanged; interrupted whole-core
 evidence has no campaign score.
 

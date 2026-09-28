@@ -6,6 +6,40 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work368 locally verified with a retained first-attempt failure: Fast368 passes.
+The HTTP/2 wire regression asserts independent stream-count/window/frame/header
+limits and the connection-level receive window, using a bounded duplex peer.
+The first fixture incorrectly assumed a PING ACK followed the window update;
+h2 flushes flow-control updates when receive polling becomes pending. Explicit
+poll readiness corrects the fixture without changing production behavior.
+All five HTTP/2 security tests pass. Private `native368-http2-probe` retains
+17 candidates: 12 assertion kills, five uncredited errors, no survivors or
+waivers; raw/adjusted score 70.588%, evidenceClean false. Three invalid frame-size
+mutants panic in h2, and two header-limit mutants also cause non-assertion
+failures in other tests. Baseline/restored inventories and pinned hashes match.
+Full `bin/verify` exits 0 in `/tmp/connectanum-verify368.log`, but its first Rust
+attempt fails `http3_listener_starts_from_current_thread_runtime` with UDP
+address already in use; the built-in retry passes. Do not call this a clean
+first-pass result or a fixed flake. Inspection identifies the next deterministic
+regression: HTTP3-only configuration skips HTTP settings parsing, discarding
+the explicit UDP port zero and falling back to the TCP port. Reproduce and fix
+that configuration path next, preserving protocol/TLS boundaries. This does
+not establish the cause of the earlier HTTP/3 handshake timeout. Focused local
+review completes with no concrete defect; its cleanup concern is checked
+against the awaited server abort. Hosted verification remains outstanding.
+
+Native367 Rust-test coverage at `c4869f52` completes: core 8,950/10,064
+(88.931%), FFI 4,882/5,798 (84.201%). Evidence `native367-current` retains
+one core and three FFI unmeasured files. Separate `nativeffi367-current`
+collection completes with all steps passing. Canonical scope equality, all 758
+collection input hashes and the instrumented library hash are verified before
+combining through the production coverage filter. `native367-combined` measures
+core 9,008/10,064 (89.507%) and FFI 5,219/5,798 (90.014%); original collections,
+combination input hashes and all unmeasured files remain visible. These are
+line-coverage measurements, not mutation scores. Strict hosted audit for
+this commit remains non-green: CI 36444072797 and publish dry-run 36444072775
+are queued, with no completed logs.
+
 Work367 locally verified: fresh whole-core campaign `native366-core-all` at `f6fe6d99`
 verified matching 479-test baseline/mutant inventories, then exposed systematic
 metrics assertion gaps (including no-op streaming-response and maximum body-wait
@@ -26,7 +60,7 @@ and checked. This is not a whole-component score. Full verification passes in
 `/tmp/connectanum-verify367.log` (exit 0, including browser runtimes). The full
 local companion review hit its output limit; the complete tail-sample review
 confirms expected replacement cases. No production behavior changed. Refreshed
-line coverage and hosted verification remain outstanding.
+native line coverage is recorded above; hosted verification remains outstanding.
 
 Work366 locally verified: the first whole-core campaign at `cea62c56` exposed a
 cargo-mutants 27.1.0 baseline mismatch: 284 selected-package tests versus 479
