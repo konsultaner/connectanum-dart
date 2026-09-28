@@ -9,6 +9,7 @@ import '../serializer/cbor/serializer_test.dart' as cbor_serializer;
 import '../serializer/json/binary_codec_test.dart' as json_binary;
 import '../serializer/json/serializer_test.dart' as json_serializer;
 import '../serializer/msgpack/codec_test.dart' as msgpack_codec;
+import '../serializer/msgpack/ppt_rejection_test.dart' as msgpack_ppt_rejection;
 import '../serializer/msgpack/serializer_ingress_test.dart' as msgpack_ingress;
 import '../serializer/msgpack/serializer_missing_messages_test.dart'
     as msgpack_missing;
@@ -41,6 +42,7 @@ void main() {
   group('JSON binary', json_binary.main);
   group('JSON serializer', json_serializer.main);
   group('MessagePack codec', msgpack_codec.main);
+  group('MessagePack PPT rejection', msgpack_ppt_rejection.main);
   group('MessagePack ingress', msgpack_ingress.main);
   group('MessagePack missing messages', msgpack_missing.main);
   group('MessagePack serializer', msgpack_serializer.main);

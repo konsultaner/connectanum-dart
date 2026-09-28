@@ -6,6 +6,32 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work358 locally verified: Fast358 passes. Added 26 portable MessagePack PPT
+regressions for non-map envelopes, size-only diagnostics, malformed/trailing
+bytes, optional-field shape compatibility and same-instance recovery. Final VM
+cases pass, as do the final JS and WASM cases. An initial
+root-directory browser launch failed before suite loading; the package-directory
+run passed. A draft binary-args expectation was corrected because Uint8List is
+a List, preserving existing behavior. Final `ppt358-final-probe` detects 10/10
+viable mutants (six assertion-only, four mixed assertion/error), excluding two
+compile failures, with clean baselines and matching source/test hashes. The
+initial probe retains 5/10 assertion-backed detections, three survivors and two
+error-only detections. No waivers or whole-component mutation claim. Full
+verification initially failed its inventory regression because the new test was
+not registered in serializer mutation wrappers. All four target support lists
+and the shared wrapper now include it; the focused inventory check passes.
+Full verification passes in `/tmp/connectanum-verify358-final.log` (exit 0,
+including browser runtimes); explicit final JS passes in
+`/tmp/connectanum-ppt358-js-final.log`. Preserve the initial failed verify log.
+Hosted verification remains outstanding; no refreshed whole-component coverage
+or mutation score is claimed.
+
+Browser358 at `17f42f34`, before Work358 tests, completed with its input manifest
+unchanged: core 7,443/7,706 (96.587%), client 2,777/2,859 (97.132%). Evidence is
+`out/regression-coverage-2026-09-15/browser358-current`; 159 unmeasured library
+files and missing WASM line instrumentation remain visible. Latest hosted CI
+and package dry-run for `17f42f34` are still queued, not verified green.
+
 VM357 collection at `055d9dda` completed with an unchanged source/test/config
 manifest: 40,286/42,927 measured library lines (93.848%), router
 17,956/19,492 (92.120%), and packaging 765/787 (97.205%). Evidence:

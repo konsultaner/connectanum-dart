@@ -35,6 +35,20 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work358: Fast358 and 26 new MessagePack PPT VM cases pass. Cover rejection,
+redacted diagnostics, optional-field shape compatibility and same-instance
+recovery without changing production behavior. Final 26 cases pass JS/WASM;
+initial verify358 caught missing wrapper/support inventory registration. All
+four targets and the shared wrapper are now updated and the focused inventory
+check passes. Full verify358-final passes (exit 0, including browser runtimes);
+explicit final JS also passes. Hosted evidence remains outstanding. Final selected
+`ppt358-final-probe`: 10 viable mutants, six assertion-only and four mixed
+assertion/error detections, two excluded compile failures, clean baselines,
+matching input hashes, no waivers. Preserve the initial 5/10 assertion-backed
+probe separately; no whole-core mutation claim. Browser358 preceding these
+tests measures core 7,443/7,706 and client 2,777/2,859 with unchanged input
+manifest, 159 unmeasured library files and no WASM line instrumentation.
+
 Work357: Fast357 and 38 focused ownership/progressive cases pass. Added
 missing-handle no-send/recovery assertions and independent HTTP/WAMP completion
 boundaries. Final selected `cleanup357-complete-probe`: 11/11 detections,
