@@ -6,6 +6,28 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work367 locally verified: fresh whole-core campaign `native366-core-all` at `f6fe6d99`
+verified matching 479-test baseline/mutant inventories, then exposed systematic
+metrics assertion gaps (including no-op streaming-response and maximum body-wait
+sample recording). Deliberately stopped this exploratory run to improve the suite
+before another complete campaign, not because a polling wait expired. Retain all
+75 completed mutant outcomes: raw cargo-mutants labels are 42 caught, 25 missed,
+five timeouts and three unviable; caught labels include non-assertion errors and
+are not an assertion score. Restored baseline passes; incomplete audit rejects
+the run. Full 1,941-candidate core scope and 95% assertion target remain required.
+Fast367 passes. Five deterministic native metrics regressions now check exact
+header/phase totals, inclusive 1/5/10 ms buckets, reversed-time saturation,
+concurrent response counts and complete maximum-wait sample replacement,
+including zero/equal/lower/u64-max cases. All five pass. Private diagnostic probe
+`native367-metrics-probe` detects all 12 selected recording/comparison mutants
+with assertion-only evidence, no exclusions or errors; baseline and restored
+baseline pass with identical test inventories. Source/test/tool hashes are pinned
+and checked. This is not a whole-component score. Full verification passes in
+`/tmp/connectanum-verify367.log` (exit 0, including browser runtimes). The full
+local companion review hit its output limit; the complete tail-sample review
+confirms expected replacement cases. No production behavior changed. Refreshed
+line coverage and hosted verification remain outstanding.
+
 Work366 locally verified: the first whole-core campaign at `cea62c56` exposed a
 cargo-mutants 27.1.0 baseline mismatch: 284 selected-package tests versus 479
 workspace tests for mutants/restoration. The campaign was deliberately interrupted,

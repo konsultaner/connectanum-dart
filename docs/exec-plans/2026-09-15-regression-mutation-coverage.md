@@ -35,6 +35,26 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work367 locally verified: `native366-core-all` confirms matching 479-test baseline
+and mutant inventories. After 75 outcomes, deliberately stopped the exploratory run
+to address surviving no-op metrics recording and flow-control assertions before
+the next complete inventory, not due to an observation timeout. Retain raw
+42 caught/25 missed/five timeout/three unviable labels without treating errors as
+assertion kills. Restoration passes and incomplete audit rejects the run.
+Fast367 passes. Five new native metric regressions assert precise phase totals,
+inclusive slow-path buckets, reversed-time saturation, concurrent response counts
+and full maximum-wait sample metadata on zero/equal/lower/u64-max input. All pass.
+The private `native367-metrics-probe` audits 12/12 selected assertion detections,
+without exclusions/errors, and matching passing baseline/restored inventories.
+Pinned source/test/tool hashes are verified. This focused probe is not a
+whole-component score. Full verification passes in
+`/tmp/connectanum-verify367.log` (exit 0, including browser runtimes). The full
+companion review hit its output limit; a complete tail-sample review confirms
+expected replacement cases. Production behavior is unchanged. Refreshed coverage
+and hosted verification are still outstanding.
+The final whole-core 1,941-candidate scope is unchanged; interrupted whole-core
+evidence has no campaign score.
+
 Work366 locally verified: the interrupted `native365-core-all` campaign exposed
 cargo-mutants 27.1.0 selecting 284 tests for its baseline but 479 workspace tests
 for mutants/restoration. Restoration passed; strict audit rejected the incomplete
