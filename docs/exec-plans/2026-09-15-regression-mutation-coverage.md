@@ -35,6 +35,17 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work359: Fast359 and four focused native MCP metadata integration cases pass.
+All four aliases cover danger normalization, malformed optional hints, explicit
+annotation/schema/description precedence, published events, permission isolation
+and re-registration refresh through direct and Streamable HTTP catalogs. Final
+`metadata359-assertions-probe` has 34/37 assertion-backed detections (91.892%),
+two unwaived first-guard survivors, one uncredited initialization-error-only
+detection, ten excluded compile failures, clean baselines and matching hashes.
+Preserve the initial 30/37 and intermediate 34/37 probes separately. Full
+verify359 passes (exit 0, including browser runtimes); hosted evidence remains
+outstanding. No whole-router score or completion claim.
+
 Work358: Fast358 and 26 new MessagePack PPT VM cases pass. Cover rejection,
 redacted diagnostics, optional-field shape compatibility and same-instance
 recovery without changing production behavior. Final 26 cases pass JS/WASM;

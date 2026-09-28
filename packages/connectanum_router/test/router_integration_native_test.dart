@@ -11600,6 +11600,232 @@ void main() {
       skip: skipReason,
     );
 
+    for (final metadataKey in [
+      '_ai_meta_data',
+      'ai_meta_data',
+      'aiMetaData',
+      'metadata',
+    ]) {
+      test(
+        'MCP metadata safety normalization and refresh $metadataKey',
+        () async {
+          final harness = await _RouterHarness.start(
+            connectionId: 9150,
+            nativeLib: nativeLib,
+            settings: _buildMcpSmokeSettings(),
+          );
+          addTearDown(harness.dispose);
+          final service = await harness.binding.createInternalSession(
+            realmUri: 'realm1',
+            authId: 'metadata-service',
+            authRole: 'internal',
+          );
+          addTearDown(service.close);
+          final cases = <(Object?, bool)>[
+            (null, false),
+            (false, false),
+            (true, true),
+            ('', false),
+            ('  ', false),
+            (' false ', false),
+            (' null ', false),
+            (' true ', true),
+            ('{"level":"WRITE"}', true),
+            ('requires approval', true),
+            (<String, Object?>{}, false),
+            (<String, Object?>{'level': 'WRITE'}, true),
+            (7, false),
+            (<Object?>[], false),
+          ];
+          var invocations = 0;
+          final registrations = <int>[];
+          for (var index = 0; index < cases.length; index++) {
+            final registration = await service.register(
+              'app.safe.metadata.case$index',
+              options: core.RegisterOptions(
+                custom: {
+                  metadataKey: {
+                    'shortDescription': 'Metadata case $index',
+                    'danger': cases[index].$1,
+                    'annotations': {
+                      'idempotentHint': 'not-a-boolean',
+                      'openWorldHint': 7,
+                    },
+                  },
+                },
+              ),
+            );
+            registrations.add(registration.registrationId);
+            registration.onInvoke((invocation) {
+              invocations++;
+              invocation.respondWith(argumentsKeywords: {'accepted': true});
+            });
+          }
+          await service.register(
+            'app.safe.metadata.explicit',
+            options: core.RegisterOptions(
+              custom: {
+                metadataKey: {
+                  'danger': true,
+                  'short_description': 'Preferred description',
+                  'shortDescription': 'Ignored description',
+                  'publishes_events': ['app.events.preferred'],
+                  'publishesEvents': ['app.events.ignored'],
+                  'input_json_schema': {
+                    'type': 'object',
+                    'description': 'input',
+                  },
+                  'inputJsonSchema': {
+                    'type': 'object',
+                    'description': 'ignored',
+                  },
+                  'output_json_schema': {
+                    'type': 'object',
+                    'description': 'output',
+                  },
+                  'outputJsonSchema': {
+                    'type': 'object',
+                    'description': 'ignored',
+                  },
+                  'read_only_hint': true,
+                  'readOnlyHint': false,
+                  'destructive_hint': false,
+                  'destructiveHint': true,
+                  'idempotentHint': true,
+                  'annotations': {
+                    'readOnlyHint': false,
+                    'destructiveHint': true,
+                    'idempotentHint': false,
+                    'openWorldHint': false,
+                    'open_world_hint': true,
+                  },
+                },
+              },
+            ),
+          );
+          await service.register(
+            'app.unsafe.metadata.denied',
+            options: core.RegisterOptions(
+              custom: {
+                metadataKey: {'read_only_hint': true, 'danger': false},
+              },
+            ),
+          );
+
+          final client = McpStreamableHttpClient(
+            Uri(
+              scheme: 'http',
+              host: '127.0.0.1',
+              port: harness.binding.listeners.single.port,
+              path: '/mcp/public',
+            ),
+          );
+          addTearDown(() => client.close(force: true));
+          await expectLater(
+            client.initialize(id: 'metadata-initialize'),
+            completes,
+            reason: 'malformed optional hints must not break initialization',
+          );
+          await client.notifyInitialized();
+          final sessionId = client.sessionId;
+
+          Future<void> expectCatalog({bool replaced = false}) async {
+            final directFuture = client.listConnectanumToolsDirect(
+              id: 'metadata-direct-$replaced',
+            );
+            await expectLater(directFuture, completes);
+            final direct = await directFuture;
+            final streamableFuture = client.listTools(
+              id: 'metadata-streamable-$replaced',
+            );
+            await expectLater(streamableFuture, completes);
+            final streamable = await streamableFuture;
+            for (final result in [direct, streamable]) {
+              final tools = {
+                for (final tool in result.tools) tool['name']: tool,
+              };
+              expect(tools, isNot(contains('app.unsafe.metadata.denied')));
+              for (var index = 0; index < cases.length; index++) {
+                final tool = tools['app.safe.metadata.case$index'];
+                expect(tool, isNotNull, reason: 'missing case $index');
+                expect(
+                  tool!['description'],
+                  replaced && index == 2
+                      ? 'Replacement'
+                      : 'Metadata case $index',
+                );
+                final annotations = tool['annotations'] as Map? ?? const {};
+                expect(annotations, isNot(contains('idempotentHint')));
+                expect(annotations, isNot(contains('openWorldHint')));
+                final dangerous = cases[index].$2 && !(replaced && index == 2);
+                if (dangerous) {
+                  expect(annotations['readOnlyHint'], isFalse);
+                  expect(annotations['destructiveHint'], isTrue);
+                } else {
+                  expect(annotations, isNot(contains('readOnlyHint')));
+                  expect(annotations, isNot(contains('destructiveHint')));
+                }
+              }
+              final explicit = tools['app.safe.metadata.explicit']!;
+              expect(explicit['description'], 'Preferred description');
+              expect(explicit['inputSchema'], {
+                'type': 'object',
+                'description': 'input',
+              });
+              expect(explicit['outputSchema'], {
+                'type': 'object',
+                'description': 'output',
+              });
+              expect(explicit['annotations'], {
+                'readOnlyHint': true,
+                'destructiveHint': false,
+                'idempotentHint': true,
+                'openWorldHint': false,
+              });
+            }
+            final description = await client.describeWampApiDirect(
+              'app.safe.metadata.explicit',
+              id: 'metadata-describe-$replaced',
+              kind: 'procedure',
+            );
+            expect(
+              description['metadata'],
+              containsPair('publishes_events', ['app.events.preferred']),
+            );
+            expect(client.sessionId, sessionId);
+          }
+
+          await expectCatalog();
+          final response = await client.callTool(
+            'app.safe.metadata.case2',
+            id: 'metadata-warning-is-not-authorization',
+          );
+          expect(response['isError'], isFalse);
+          expect(
+            response['structuredContent'],
+            containsPair('argumentsKeywords', containsPair('accepted', true)),
+          );
+          expect(invocations, 1);
+          await service.unregister(registrations[2]);
+          await service.register(
+            'app.safe.metadata.case2',
+            options: core.RegisterOptions(
+              custom: {
+                metadataKey: {
+                  'shortDescription': 'Replacement',
+                  'danger': false,
+                },
+              },
+            ),
+          );
+          await expectCatalog(replaced: true);
+          expect(invocations, 1, reason: 'catalog reads must not invoke tools');
+          await client.deleteSession();
+        },
+        skip: skipReason,
+      );
+    }
+
     test(
       'refreshes router-hosted MCP topic catalogs without tool shape changes',
       () async {

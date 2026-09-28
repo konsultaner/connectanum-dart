@@ -6,6 +6,23 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work359 locally verified: Fast359 passes. Four native-router integration cases
+cover all metadata aliases, 56 danger-value combinations, malformed optional
+hints, explicit annotation/schema/description precedence, published-event
+metadata, permission filtering and same-session re-registration refresh over
+direct JSON and Streamable HTTP. Public warning metadata does not grant or deny
+call permission. Focused tests pass. Initial `metadata359-probe` records 30/37
+assertion detections; expanded `metadata359-final-probe` and final-input
+`metadata359-assertions-probe` record 34/37 (91.892%), two survivors and one
+uncredited error-only detection, excluding ten compile failures. Both baselines
+pass and final source/test/support hashes match. The optional-hint mutant causes
+HTTP 500 during initialization; an explicit completion expectation still yields
+test-error-only classification, so it receives no assertion credit. Two
+first-guard danger mutants remain unwaived pending equivalence/reachability
+review. No whole-router mutation or refreshed coverage claim. Full verification
+passes in `/tmp/connectanum-verify359.log` (exit 0, including browser runtimes).
+Hosted verification remains outstanding.
+
 Work358 locally verified: Fast358 passes. Added 26 portable MessagePack PPT
 regressions for non-map envelopes, size-only diagnostics, malformed/trailing
 bytes, optional-field shape compatibility and same-instance recovery. Final VM
