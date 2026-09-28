@@ -35,6 +35,31 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work372 locally verified: Five RawSocket reader regressions pass, plus the serial
+298-test core suite, following Fast371. Test exact JSON WAMP delivery and
+ping/pong bytes, missing/closed observers, invalid/oversized frames, delivery
+channel closure, idle expiry and truncated input with bounded waits. Explicit
+16/24/25 exponent cases now protect the classic/upgraded framing boundary.
+Fresh `native372-current` Rust/native coverage completes: core 8,979/10,063
+(89.228%), FFI 4,882/5,798 (84.201%); all 298 core and 195 FFI unit tests pass.
+This is Rust-test-only evidence, not the older combined Dart-FFI measurement;
+one core and three FFI sources remain unmeasured. No new mutation score.
+Full verification passes in `/tmp/connectanum-verify372.log` (exit 0, including
+JavaScript/WASM; no reported failures or Cargo retries). Matching Dart-to-native
+coverage `nativeffi372-current` completes all 22 steps. Validate fresh AST scopes,
+source/native hashes, all 758 FFI inputs and the instrumented library hash before
+combining through the production filter. `native372-combined`: core 9,037/10,063
+(89.804%), FFI 5,219/5,798 (90.014%); originals, hashes and all four unmeasured
+sources remain available. Record the pending reader-test source snapshot in
+provenance, not merely its older base commit. No new mutation score.
+Do not attribute earlier component scores to these tests or overlap native users. No
+production protocol changes. Idle reset under traffic and backpressure remain
+follow-ups. Next address writer wire ordering, skip-versus-close behavior,
+deferred preparation and file fallback. Local review's channel-type and truncated-idle concerns contradict
+the inspected code; retain the useful boundary case. Increment 8ac07429 is
+pushed to both remotes with PR #93 updated; strict audit remains non-green
+because CI 36470893362 and publish dry-run 36470893448 are queued.
+
 Work370/371 locally verified: Fast370 passes. Route-helper tests establish existing ASCII,
 Unicode, root/empty path, repeated-separator and namespace behavior before
 removing two identical-branch conditions. No inventory exclusions or waivers.

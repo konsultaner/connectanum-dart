@@ -6,6 +6,34 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work372 locally verified: Fast371 passed before the new native reader tests. Five
+bounded loopback regressions cover exact WAMP/RawSocket message and control
+payloads, absent/closed pong observers, malformed and oversized frames,
+closed delivery channels, idle expiry, and truncated input. All five and the
+298-test serial core suite pass. Framing cases include exponents 16/24/25
+to assert the classic/upgraded boundary explicitly. Fresh Rust/native coverage
+`native372-current` completes with all 298 core and 195 FFI unit tests passing:
+core 8,979/10,063 (89.228%), FFI 4,882/5,798 (84.201%). This is the Rust-test
+lane only, not the older combined Rust/Dart-FFI evidence. One core and three
+FFI sources remain unmeasured. No new mutation score is claimed. Full
+verification passes in `/tmp/connectanum-verify372.log` (exit 0, including
+JavaScript/WASM tests; no reported failures or Cargo retries). Matching
+Dart-to-native coverage `nativeffi372-current` completes all 22 steps. Fresh
+AST scopes, source/native hashes, all 758 FFI input hashes and the instrumented
+library hash validate before combination. `native372-combined` measures core
+9,037/10,063 (89.804%) and FFI 5,219/5,798 (90.014%), retaining both originals,
+input hashes and one core/three FFI unmeasured sources. Its provenance records
+the pending reader-test snapshot explicitly rather than attributing it to the
+older base commit. This is measured line coverage, not a mutation score.
+Local review's bounded-channel concern contradicts the production function's
+unbounded channel types; truncated cases explicitly disable idle timeouts.
+Idle-reset-under-traffic and backpressure remain further regression work.
+Next strengthen RawSocket writer byte ordering, skip-versus-close behavior,
+deferred preparation and file fallback, then refresh affected evidence.
+Previous increment `8ac07429` is pushed to both remotes and PR #93 is updated.
+Its strict hosted audit remains non-green: CI 36470893362 and publish dry-run
+36470893448 are queued, not completed verification.
+
 Work370/371 locally verified: Fast370 passes. New route-helper regressions pass before
 simplification and assert all ASCII scalar mappings, Unicode replacement,
 root/empty paths, repeated separators and existing namespace concatenation.

@@ -6002,6 +6002,9 @@ mod http_transport_auth_tests;
 mod connection_registry_tests;
 
 #[cfg(test)]
+mod rawsocket_reader_tests;
+
+#[cfg(test)]
 mod http1_response_tests;
 #[cfg(test)]
 mod http_response_headers_tests;
