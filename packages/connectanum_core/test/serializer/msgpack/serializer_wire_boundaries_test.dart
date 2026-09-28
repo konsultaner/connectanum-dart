@@ -62,6 +62,88 @@ Uint8List _resultFrame(List<int> value, String padding) => Uint8List.fromList([
 
 void main() {
   final serializer = Serializer();
+  void expectRecovery() {
+    Registered? message;
+    expect(
+      () => message =
+          serializer.deserialize(Uint8List.fromList([0x93, 0x41, 7, 9]))
+              as Registered,
+      returnsNormally,
+    );
+    expect(message!.registerRequestId, 7);
+    expect(message!.registrationId, 9);
+  }
+
+  test('null input means no message and preserves subsequent decoding', () {
+    expect(serializer.deserialize(null), isNull);
+    expectRecovery();
+  });
+
+  for (final value in <Object?>[
+    null,
+    'not-a-wamp-envelope',
+    {'private': 'payload-sentinel'},
+  ]) {
+    test('ignores complete non-array ${value.runtimeType} envelopes', () {
+      Object? decoded = Object();
+      expect(
+        () => decoded = serializer.deserialize(msgpack.serialize(value)),
+        returnsNormally,
+      );
+      expect(decoded, isNull);
+      expectRecovery();
+    });
+  }
+
+  for (final header in <List<int>>[
+    [0x90],
+    [0xdc, 0, 0],
+    [0xdd, 0, 0, 0, 0],
+  ]) {
+    test('rejects complete empty array ${header.first} as missing type', () {
+      expect(
+        () => serializer.deserialize(Uint8List.fromList(header)),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'WAMP message type must be an integer',
+          ),
+        ),
+      );
+      expectRecovery();
+    });
+  }
+
+  for (final header in <List<int>>[
+    [0xdc, 0, 3],
+    [0xdd, 0, 0, 0, 3],
+  ]) {
+    test('rejects each incomplete ${header.first} array header', () {
+      for (var length = 0; length < header.length; length++) {
+        final storage = Uint8List.fromList([
+          0xff,
+          ...header.take(length),
+          0xff,
+        ]);
+        final before = storage.toList();
+        expect(
+          () => serializer.deserialize(
+            Uint8List.sublistView(storage, 1, 1 + length),
+          ),
+          throwsA(
+            isA<FormatException>()
+                .having((error) => error.source, 'source', isNull)
+                .having((error) => error.offset, 'offset', isNull),
+          ),
+          reason: 'array header truncated at $length bytes',
+        );
+        expect(storage, before);
+        expectRecovery();
+      }
+    });
+  }
+
   final malformedFrame = throwsA(
     isA<FormatException>()
         .having(
@@ -92,6 +174,31 @@ void main() {
     group(
       'MessagePack ${padding.isEmpty ? 'small' : 'depth-checked'} frames',
       () {
+        for (final header in <List<int>>[
+          [0x95],
+          [0xdc, 0, 5],
+          [0xdd, 0, 0, 0, 5],
+        ]) {
+          test('rejects missing final field for header ${header.first}', () {
+            final complete = _resultFrame([7], padding);
+            final storage = Uint8List.fromList([
+              0xff,
+              ...header,
+              ...complete.skip(1),
+              0xff,
+            ]);
+            final before = storage.toList();
+            expect(
+              () => serializer.deserialize(
+                Uint8List.sublistView(storage, 1, storage.length - 1),
+              ),
+              malformedFrame,
+            );
+            expect(storage, before);
+            expectRecovery();
+          });
+        }
+
         for (final (name, wire, expected) in _values) {
           test('decodes exact $name bytes without changing the value', () {
             final result =

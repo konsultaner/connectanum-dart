@@ -35,6 +35,21 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work347 adds MessagePack top-level framing/recovery regressions. Fast347 passes;
+final focused mutation baseline and restored baseline pass. `wire347-final-probe`
+retains 51 selected/42 viable, 38 assertion-backed detections, four unwaived
+survivors, nine compile failures and no error-only kills (90.476% raw/adjusted).
+Existing security-depth tests detect depth-check bypass mutants. Full verify347
+passes, including browser JS/WASM runtime tests. Browser346 bookkeeping is
+bundled with this implementation; whole-component acceptance remains unmet.
+
+Browser346 refresh at `d90c70a6` passes: client 2,777/2,859 (97.132%),
+core 7,437/7,706 (96.509%), combined 10,214/10,565 (96.678%). MessagePack
+serializer gains two lines compared with Browser339; 159 library files remain
+unmeasured and WASM is not measured. Evidence: `browser346-current` under
+`out/regression-coverage-2026-09-15/`, log `/tmp/connectanum-browser346.log`.
+Verify345 matches this source/test snapshot. Whole-milestone gates remain unmet.
+
 Work345 closes the Work344 default-flag oracle gap with raw-SSE exact-ack tests
 for omitted/false/true tool flags. Fast345, focused tests and verify345 pass.
 `filter345-probe`: same 18 selected, 14 viable, all assertion-backed (seven

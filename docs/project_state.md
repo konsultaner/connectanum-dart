@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work347 completes verification: MessagePack wire tests add incomplete top-level
+headers, missing declared final fields, complete empty/non-array envelopes,
+null input, guarded-buffer integrity and post-rejection recovery. Fast347 passes.
+The first 203-case VM/JS suite passed before the final envelope additions.
+`wire347-final-probe` includes the existing security-depth suite: 51 selected,
+42 viable, 38 assertion-backed detections (17 assertion-only, 21 mixed), four
+unwaived survivors, nine compile failures, clean baselines, 90.476% raw/adjusted
+and no error-only kills. Depth-check bypass mutants are detected; survivors are
+the always-depth-checked/threshold-boundary choices and exact-header-length
+comparisons. No equivalence waiver is claimed. Initial probe evidence remains
+in `wire347-probe`. Full verification passes (`/tmp/connectanum-verify347.log`),
+including VM, browser JavaScript and WASM runtime tests. This does not establish
+new whole-component line coverage or measured WASM coverage.
+
+Browser346 at `d90c70a6` completes with collector exit 0: JavaScript client
+2,777/2,859 (97.132%), core 7,437/7,706 (96.509%), combined 10,214/10,565
+(96.678%). Compared with Browser339, MessagePack serializer gains two covered
+lines; other files are unchanged. The report retains 159 unmeasured library
+files and does not measure WASM. Largest measured gaps remain MessagePack
+serializer (93 lines), client session (54), JSON serializer (42), and CBOR
+serializer (31). Evidence: `out/regression-coverage-2026-09-15/browser346-current`,
+log `/tmp/connectanum-browser346.log`; verify345 matches the source/test snapshot.
+The 98% per-runtime gate remains unmet. Latest hosted CI and package publish
+dry-run jobs for this commit were still queued when checked.
+
 Work345 adds independent raw-SSE acknowledgment assertions for omitted, false
 and true tool-notification flags. Exact acknowledgment maps cover method,
 subscription identity and granted filters without relying on client validation.
