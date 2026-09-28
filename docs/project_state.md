@@ -6,6 +6,31 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work373 locally verified: Fast373 passes before changes. Six bounded loopback writer
+regressions assert segmented/control/deferred byte order, classic/upgraded
+framing, invalid-frame skipping followed by a valid sentinel, preparation error
+and length-mismatch closure, file subrange/Base64 padding, and truncated-file
+closure before suffixes or queued frames. All six and the 304-test serial core
+suite pass. Production behavior is unchanged. Review concerns about absent
+cleanup, unbounded close waits and missing deferred mismatch assertions are
+contradicted by fixture Drop, both timed receives and the explicit mismatch case.
+Fresh Rust-only coverage `native373-current` passes: core 9,011/10,063
+(89.546%), FFI 4,882/5,798 (84.201%), retaining one core and three FFI
+unmeasured sources. These are not the older combined Dart-FFI percentages.
+Full verification passes in `/tmp/connectanum-verify373.log` (exit 0, including
+JavaScript/WASM tests; no reported test failures or retries). Matching
+`nativeffi373-current` completes all 22 steps. Fresh AST scopes, native inputs,
+all 758 FFI input hashes and the instrumented library hash validate before
+combining. `native373-combined` measures core 9,067/10,063 (90.103%) and FFI
+5,219/5,798 (90.014%), retaining one core and three FFI unmeasured sources,
+original reports and explicit pending-writer-snapshot provenance.
+No new mutation score is claimed. After a committed snapshot, return to the complete native component campaign
+and investigate remaining assertion survivors rather than treating module
+probes as component completion.
+Prior increment 40f2d1b8 is pushed to both remotes; PR #93 is updated. Its strict
+hosted audit remains non-green: CI 36473817639 and publish dry-run 36473817523
+are queued.
+
 Work372 locally verified: Fast371 passed before the new native reader tests. Five
 bounded loopback regressions cover exact WAMP/RawSocket message and control
 payloads, absent/closed pong observers, malformed and oversized frames,

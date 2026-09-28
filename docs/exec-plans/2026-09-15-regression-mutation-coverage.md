@@ -35,6 +35,27 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work373 locally verified: Fast373 passes. Add six bounded RawSocket writer tests with
+independent wire-byte expectations, segmented/control/deferred ordering,
+16/24/25 framing, invalid frame/header skipping plus valid sentinel, deferred
+errors/mismatches, offset file subranges and literal Base64 padding vectors,
+and truncated-file termination without suffix or later frames. All six and all
+304 serial core tests pass. No production behavior change. Review allegations
+of missing cleanup, unbounded receives and missing mismatch cases conflict with
+the actual assertions. Fresh Rust-only `native373-current` passes: core
+9,011/10,063 (89.546%), FFI 4,882/5,798 (84.201%), one core and three FFI
+unmeasured sources. Full verification passes serially in
+`/tmp/connectanum-verify373.log` (exit 0, including JS/WASM; no reported failures
+or retries). Matching `nativeffi373-current` completes all 22 steps. Fresh AST
+scopes, native inputs, all 758 FFI inputs and the library hash validate before
+combination. `native373-combined`: core 9,067/10,063 (90.103%), FFI 5,219/5,798
+(90.014%); retain original reports, pending-writer snapshot provenance and all
+four unmeasured sources. No new mutation score. After validation and
+commit, return to a complete native component campaign and investigate its
+remaining survivors; module probes are not completion. Prior 40f2d1b8 is pushed to both
+remotes and PR #93 is updated; CI 36473817639 and publish dry-run 36473817523
+remain queued, so the strict hosted audit is not green.
+
 Work372 locally verified: Five RawSocket reader regressions pass, plus the serial
 298-test core suite, following Fast371. Test exact JSON WAMP delivery and
 ping/pong bytes, missing/closed observers, invalid/oversized frames, delivery
