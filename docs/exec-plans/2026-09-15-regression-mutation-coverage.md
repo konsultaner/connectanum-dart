@@ -35,6 +35,18 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work390: Fast390 passes. Preserve Work389's eight empty-body cases and add
+small, inline-boundary-minus-one/exact/plus-one, and multi-chunk body variants
+for 48 total cases. Each nonempty body embeds a valid request for an allowed
+hidden route, padded to its exact declared Content-Length. Exact dispatch and
+response order continue to require only public warmup/recovery, never hidden
+or protected dispatch. All cases pass; this is regression protection, not a
+reproduced production bug. Local review's hidden-dispatch concern is refuted by
+the exact list assertion. Full verify390 exits 0 in
+`/tmp/connectanum-verify390.log`, including JS/WASM runtime suites. Commit this
+verified increment and refresh matching native coverage lanes; no new score
+claimed until those collections validate.
+
 Work389: Fast389 passes after Work388 pushed as 1dca34da. Add eight real TCP
 HTTP/1 cases requiring TLS or mTLS, ordinary GET or CORS preflight, with or
 without successful warmup. Require exact allowed dispatch history, ordered

@@ -1,10 +1,22 @@
 # Project State
 
-Last updated: 2026-10-01
+Last updated: 2026-10-02
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work390: Work389 is pushed to both remotes as 6c4feae0; hosted CI/publish checks
+remain queued at last check. Fast390 passes. Expand the HTTP/1 rejection matrix
+from eight to 48 cases with empty, small, 64-KiB-minus-one/exact/plus-one, and
+larger streamed bodies. Nonempty bodies contain a valid request for an allowed
+`/hidden` route; exact dispatch history must exclude it and include the later
+public recovery request. All 48 cases pass. No production defect reproduced.
+Local review completed; hidden request bytes are intentional body content and
+the exact dispatch list already rejects hidden-route admission. Full verify390
+exits 0 in `/tmp/connectanum-verify390.log`, including JS/WASM runtime suites.
+Commit this verified increment and refresh matching native coverage lanes.
+No refreshed coverage/mutation percentage or exclusions claimed.
 
 Work389: Work388 is pushed to both remotes as 1dca34da; exact-head CI and
 publish dry-run remain queued at last check. Fast389 passes. Add eight real
