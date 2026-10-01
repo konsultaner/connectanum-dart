@@ -17,6 +17,8 @@ pub(crate) fn test_guard() -> std::sync::MutexGuard<'static, ()> {
 mod client_connect;
 mod e2ee;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+mod encrypted_file_boundary;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 mod error_cases;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod ffi_boundaries;

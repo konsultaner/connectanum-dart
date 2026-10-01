@@ -6,6 +6,28 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work383 in progress: native382 plus all 22 nativeffi382 collection steps complete
+and hashes validate. `native382-combined` pins cfbe049c: core 9,089/10,063
+(90.321%), FFI 5,381/5,798 (92.808%), four unmeasured sources retained.
+Work382 pushed to both remotes; PR93 updated; hosted audit remained queued.
+Work383 adds an encrypted-file boundary fixture on real JSON RawSocket and
+WebSocket connections: invalid pointers/lengths, released handles, malformed or
+missing keys, unsupported cipher/encoding and overflow/range errors, followed
+by successful decryption of the exact selected file bytes for both ciphers.
+Test-owned file/keyring/session cleanup is scoped. Fast383 and all six focused
+Rust fixtures pass; JSON cases include exact EOF success and one-byte-overrun
+rejection. Full verification exits 0 in `/tmp/connectanum-verify383.log`,
+including JavaScript and WASM runtime suites.
+No 32-bit-only conversion coverage or refreshed coverage percentage is claimed.
+
+Next tooling priority: bounded native mutation batches with a strict complete
+inventory audit. The interrupted native373 core campaign completed 65/1,939
+mutants before disk exhaustion. Its observed mean phase duration (~47.8s)
+extrapolates to ~25.75h, beyond the current 24h collector limit; this is only a
+rough projection. Preserve immutable per-batch evidence and require identical
+source/test/tool hashes, baseline inventories and exact disjoint inventory union.
+Do not reuse the interrupted results as final-snapshot evidence.
+
 Work382 full verification passes: `/tmp/connectanum-verify382.log` exits 0,
 including HTTP/3 wrapper and JavaScript/WASM runtime suites. Fresh Rust-only
 coverage runs in `out/regression-coverage-2026-09-15/native382-current`, log

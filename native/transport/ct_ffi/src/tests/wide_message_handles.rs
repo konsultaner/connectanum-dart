@@ -38,7 +38,7 @@ fn incoming(connection: i32, websocket: bool, poll: bool) -> i64 {
     }
 }
 
-fn received_value(connection: i32, websocket: bool, serializer: i32) -> Value {
+pub(super) fn received_value(connection: i32, websocket: bool, serializer: i32) -> Value {
     let handle = incoming(connection, websocket, true);
     let mut info = CtMessageInfo::default();
     assert_eq!(ct_message_get_wide(handle, &mut info), SUCCESS);
@@ -221,6 +221,9 @@ fn round_trip(websocket: bool, serializer: i32) {
     legacy_forwarding(client, server, websocket, serializer);
     fragmented_sends(client, server, websocket, serializer);
     acknowledgement_metadata(client, server, websocket, serializer);
+    if serializer == 1 {
+        super::encrypted_file_boundary::check(client, server, websocket);
+    }
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 

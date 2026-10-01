@@ -35,6 +35,31 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work383 follows validated native382-combined at cfbe049c: core 9,089/10,063
+(90.321%), FFI 5,381/5,798 (92.808%), four unmeasured sources retained.
+Fast383 runs before native tests. Add encrypted-file FFI negative/recovery
+fixture using owned temporary files and keyring/session handles, verifying no
+frames after rejected inputs and exact canonical CBOR plaintext after valid
+transfers with both ciphers over JSON RawSocket/WebSocket. Never dereference
+invalid pointers or reuse released resources. 32-bit usize overflow and the
+earlier-validation-dominated cipher wildcard remain unclaimed. Fast383 exits 0;
+all six focused fixtures pass in `/tmp/connectanum-383-focused.log`, including
+exact EOF and one-byte-overrun checks for JSON. Full verify383 exits 0, including
+JavaScript/WASM runtime suites, in `/tmp/connectanum-verify383.log`.
+Local review completed; its claimed missing success assertion and non-atomic
+temporary-file creation are contradicted by the source. Adopt its useful EOF
+boundary suggestion; no allocator leak-freedom or new coverage claim is made.
+
+Next address whole-native campaign resumability before launching another
+unbounded run. native373-core-all retains 65 outcomes against its 1,939-mutant
+filtered inventory; its log ends with disk exhaustion. Observed mean phase
+duration 47.8s gives a rough 25.75h extrapolation, exceeding the collector's
+24h limit, not a precise ETA. Require deterministic bounded batches, immutable
+raw reports, source/test/tool and baseline identity, and a disjoint exact union
+against the full inventory. Reject missing/duplicate/changed batches and do not
+credit crashes/timeouts/infra errors. Local planning advice to overwrite shared
+batch output is rejected; each batch must retain its own raw evidence.
+
 Work382 full verify exits 0, including HTTP/3 wrapper and JS/WASM runtime tests.
 Fresh native382 Rust coverage runs serialized after verification. Commit the
 acknowledgement metadata tests; retain source/test hashes for matching FFI
