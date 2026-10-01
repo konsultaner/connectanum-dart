@@ -368,6 +368,8 @@ class _FakeRuntime implements NativeRuntime {
   @override
   NativeHttp3Handshake? takeHttp3Handshake(int connectionId) {
     http3HandshakePolls.add(connectionId);
+    final error = http3HandshakeErrors.remove(connectionId);
+    if (error != null) throw error;
     final queue = _http3Handshakes[connectionId];
     if (queue == null || queue.isEmpty) {
       return null;
@@ -389,7 +391,14 @@ class _FakeRuntime implements NativeRuntime {
   }
 
   @override
-  NativeHttp3Connection? takeHttp3Connection(int connectionId) => null;
+  NativeHttp3Connection? takeHttp3Connection(int connectionId) {
+    final error = http3ConnectionErrors.remove(connectionId);
+    if (error != null) throw error;
+    return null;
+  }
+
+  final http3ConnectionErrors = <int, NativeTransportException>{};
+  final http3HandshakeErrors = <int, NativeTransportException>{};
 
   @override
   NativeHttp3Stream? pollHttp3Stream(int connectionId) => null;
@@ -17043,6 +17052,78 @@ void main() {
       equals(<String>['rawsocket', 'http', 'http2']),
     );
   });
+
+  for (final failHandshake in [false, true]) {
+    test(
+      'HTTP/3 accept failure releases handshake and keeps accepting handshake=$failHandshake',
+      () async {
+        final runtime = _HandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.native,
+                maxRawSocketSizeExponent: 16,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithPendingProtocols(),
+        );
+        final events = <Object>[];
+        final binding = router.start(runtime, onEvent: events.add);
+        addTearDown(binding.dispose);
+        await Future<void>.delayed(Duration.zero);
+        var releases = 0;
+        final errors = failHandshake
+            ? runtime.http3HandshakeErrors
+            : runtime.http3ConnectionErrors;
+        errors[85] = NativeTransportException(
+          NativeTransportErrorCode.connectionNotFound,
+          'connection disappeared',
+        );
+        for (final id in [85, 86]) {
+          runtime.setConnectionProtocol(id, NativeConnectionProtocol.http3);
+          if (id != 85 || !failHandshake)
+            runtime.enqueueHttp3Handshake(
+              id,
+              NativeHttp3Handshake.synthetic(
+                handle: id,
+                onRelease: () {
+                  if (id == 85) releases++;
+                },
+              ),
+            );
+          runtime.enqueueHandle(binding.listeners.single.listenerId, id);
+        }
+        await _waitUntil(
+          () => events.whereType<Map>().any(
+            (event) =>
+                event['type'] == 'listener_protocol_pending' &&
+                event['connectionId'] == 86,
+          ),
+        );
+        expect(releases, failHandshake ? 0 : 1);
+        expect(
+          events.whereType<Map>().where(
+            (event) =>
+                event['type'] == 'boss_error' && event['connectionId'] == 85,
+          ),
+          hasLength(1),
+        );
+        expect(
+          events.whereType<Map>().where(
+            (event) =>
+                event['type'] == 'listener_protocol_pending' &&
+                event['connectionId'] == 85,
+          ),
+          isEmpty,
+        );
+      },
+    );
+  }
 
   test('emits listener_protocol_pending for HTTP/3 handshake', () async {
     final runtime = _HandleRuntime();

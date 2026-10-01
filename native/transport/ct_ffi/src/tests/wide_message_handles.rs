@@ -218,7 +218,116 @@ fn round_trip(websocket: bool, serializer: i32) {
         json!([8, 48, 7, {}, "wamp.error.runtime_error", ["error"], {"flag": true}])
     );
     ct_message_release_wide(error);
+    legacy_forwarding(client, server, websocket, serializer);
     assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+fn legacy_forwarding(client: i32, server: i32, websocket: bool, serializer: i32) {
+    let send = |value: Value| {
+        let frame = encode(serializer, &value);
+        assert_eq!(
+            ct_send_message(client, frame.as_ptr(), frame.len() as i32),
+            SUCCESS
+        );
+        let handle = ct_wait_connection_message(server, 5000);
+        assert!(handle > 0, "legacy receive failed: {handle}");
+        handle
+    };
+    let authid = CString::new("alice").unwrap();
+    let role = CString::new("user").unwrap();
+    let procedure = CString::new("legacy.echo").unwrap();
+    let call = send(json!([48, 17, {}, "legacy.echo", ["payload"], {"flag": true}]));
+    assert_eq!(
+        ct_forward_call_invocation(
+            call,
+            server,
+            181,
+            182,
+            1,
+            123,
+            authid.as_ptr(),
+            5,
+            role.as_ptr(),
+            4,
+            procedure.as_ptr(),
+            11,
+            1
+        ),
+        SUCCESS
+    );
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([
+            68, 181, 182, {"caller": 123, "caller_authid": "alice", "caller_authrole": "user",
+            "procedure": "legacy.echo", "receive_progress": true}, ["payload"], {"flag": true}
+        ])
+    );
+    assert_eq!(
+        ct_forward_call_invocation_v2(
+            call,
+            server,
+            183,
+            184,
+            1,
+            124,
+            authid.as_ptr(),
+            5,
+            role.as_ptr(),
+            4,
+            procedure.as_ptr(),
+            11,
+            0,
+            1
+        ),
+        SUCCESS
+    );
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([
+            68, 183, 184, {"caller": 124, "caller_authid": "alice", "caller_authrole": "user",
+            "procedure": "legacy.echo", "receive_progress": false, "progress": true},
+            ["payload"], {"flag": true}
+        ])
+    );
+    assert_eq!(ct_forward_result_from_call(call, server, 17), SUCCESS);
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([50, 17, {}, ["payload"], {"flag": true}])
+    );
+    ct_message_release(call);
+
+    let publish = send(json!([16, 1, {}, "legacy.topic", ["event"], {"flag": true}]));
+    let topic = CString::new("legacy.topic").unwrap();
+    assert_eq!(
+        ct_forward_publish_event(publish, server, 191, 192, 1, 125, topic.as_ptr(), 12),
+        SUCCESS
+    );
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([
+            36, 191, 192, {"publisher": 125, "topic": "legacy.topic"}, ["event"], {"flag": true}
+        ])
+    );
+    ct_message_release(publish);
+
+    let yielded = send(json!([70, 181, {}, ["result"], {"flag": true}]));
+    assert_eq!(
+        ct_forward_result_from_yield(yielded, server, 17, 1),
+        SUCCESS
+    );
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([50, 17, {"progress": true}, ["result"], {"flag": true}])
+    );
+    ct_message_release(yielded);
+    let error =
+        send(json!([8, 68, 181, {}, "wamp.error.runtime_error", ["error"], {"flag": true}]));
+    assert_eq!(ct_forward_error_from_error(error, server, 48, 17), SUCCESS);
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([8, 48, 17, {}, "wamp.error.runtime_error", ["error"], {"flag": true}])
+    );
+    ct_message_release(error);
 }
 
 #[test]

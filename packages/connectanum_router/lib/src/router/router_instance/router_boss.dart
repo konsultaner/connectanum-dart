@@ -471,14 +471,32 @@ class _RouterBoss {
           );
           continue;
         } else if (protocol == NativeConnectionProtocol.http3) {
-          final handshake = runtime.takeHttp3Handshake(connectionId);
+          NativeHttp3Handshake? handshake;
+          NativeHttp3Connection? connectionHandle;
+          try {
+            handshake = runtime.takeHttp3Handshake(connectionId);
+            connectionHandle = runtime.takeHttp3Connection(connectionId);
+          } on NativeTransportException catch (error) {
+            handshake?.release();
+            if (error.code != NativeTransportErrorCode.connectionNotFound) {
+              rethrow;
+            }
+            _lastActivityByConnection.remove(connectionId);
+            onEvent?.call({
+              'source': 'boss',
+              'type': 'boss_error',
+              'listenerId': listener.listenerId,
+              'connectionId': connectionId,
+              'error': error.toString(),
+            });
+            continue;
+          }
           final details = <String, Object?>{
             'protocol': handshake?.protocol ?? 'http/3',
           };
           if (listener.http3Port > 0) {
             details['http3Port'] = listener.http3Port;
           }
-          final connectionHandle = runtime.takeHttp3Connection(connectionId);
           if (connectionHandle != null) {
             _replaceHttp3Connection(connectionId, connectionHandle);
           }

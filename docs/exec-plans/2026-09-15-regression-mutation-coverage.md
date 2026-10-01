@@ -35,6 +35,44 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work380 full verify exits 0, including the formerly failing HTTP/3 wrapper and
+JavaScript/WASM runtime tests. Fresh Rust-only native380 coverage is running
+after verification; preserve its unchanged source/test snapshot. Commit the
+verified HTTP/3 acceptance-race fix and legacy forwarding regressions together.
+No new coverage percentage, WASM coverage or native mutation completion claimed.
+
+Work380 reproduces the secondary boss lifecycle bug before changing behavior:
+a missing HTTP/3 connection during handle take escapes the loop, leaks the
+acquired handshake and prevents accepting the next queued connection. Regression
+red log is `/tmp/connectanum-380-boss-red.log`. Catch connectionNotFound around
+handshake/handle acquisition, release handshake, clear activity and report the
+failure; preserve propagation for other native errors. The regression and all
+13 selected HTTP/3 router tests now pass, including disappearance before
+handshake retrieval with no handle acquired. This is not proof that the original
+native handshake timeout is fixed. Fast380 exits 0; full verify380 is now
+running in `/tmp/connectanum-verify380.log`, serialized after the baseline.
+
+Work379 full verification exited 1: HTTP/3 wrapper recovery request line 143
+failed after a five-second handshake timeout. Server diagnostics also show an
+unhandled connection-not-found in the boss's `takeHttp3Connection` call. Keep
+the failure log and investigate both primary timeout and secondary lifecycle
+error without increasing timeouts or masking failures. Isolated reproduction
+with the ffi-test release library passes (one test, exit 0), which does not
+clear the full-suite failure. The first isolated attempt used a non-test
+artifact and failed its capability check; it is not timeout evidence.
+Coverage collection remains pending. Seek a deterministic boss lifecycle
+regression for a connection disappearing between polling and handle take.
+
+Work379: Fast379 and six expanded real-connection fixtures pass. Legacy handles
+come directly from the legacy receive API, not narrowed wide IDs. Verify full
+forwarded invocation identity/procedure metadata, event publisher/topic,
+progress flags, results and errors for RawSocket/WebSocket JSON/MessagePack/CBOR.
+Keep existing wide-handle assertions. Source inspection confirms forwarding
+borrows handles rather than consuming them. Full verify379 is running, pending
+fresh coverage; do not attribute Work378 measurements to these new tests.
+Work378 pushed as 43f5b665 to both remotes; PR93 comment records the evidence.
+Strict hosted audit378 exited 1 for queued exact-head CI/publish dry-run.
+
 Work378 matching native coverage completed: all 22 FFI collection steps exit 0.
 Source/test inputs, AST scopes, library and raw profile hashes validate against
 the unchanged writer-test snapshot. `native378-combined` retains raw lane

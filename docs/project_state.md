@@ -6,6 +6,51 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work380 full verification passes: `/tmp/connectanum-verify380.log` exits 0,
+including the previously failing HTTP/3 wrapper and JS/WASM runtime suites.
+These runtime passes do not supply WASM line coverage or prove all causes of
+the earlier timeout absent. Fresh Rust coverage is running in
+`out/regression-coverage-2026-09-15/native380-current` with log
+`/tmp/connectanum-native380-coverage.log`, serialized after verification.
+Commit the verified HTTP/3 race fix with legacy FFI forwarding regressions;
+keep source/test inputs unchanged until collection finishes.
+
+Work380: deterministic fake-runtime regression reproduces the secondary HTTP/3
+boss failure: `takeHttp3Connection` throws connectionNotFound and the next queued
+connection is never accepted. Red log: `/tmp/connectanum-380-boss-red.log`.
+Handle that missing-connection race around handshake/connection retrieval,
+release acquired handshake, remove activity state and emit boss_error before
+continuing. Other native errors still propagate after handshake cleanup.
+All 13 selected HTTP/3 router tests pass in `/tmp/connectanum-380-http3-router-final.log`,
+including disappearance before handshake retrieval (no acquired handle to release).
+The original native handshake timeout remains unproven fixed. Fast380 exits 0;
+full verification is now running in `/tmp/connectanum-verify380.log` after it,
+without overlapping native users. Changes remain uncommitted pending results.
+
+Work379 verification blocked: full verify379 exits 1 with one failing router
+test, `native/http3_wrapper_test.dart` recovery request at line 143. Native
+diagnostics report a five-second HTTP/3 handshake timeout; the server boss
+also throws connection-not-found while taking the HTTP/3 handle. Preserve
+`/tmp/connectanum-verify379.log`; do not classify a retry as a fix. An isolated
+ffi-test-library reproduction passes in `/tmp/connectanum-379-http3-ffi-repro.log`
+(one test, exit 0); this does not clear the full-suite failure.
+The first isolated attempt used the non-test release artifact and failed the
+test-hook capability check, so it is not a reproduction of the timeout.
+No new coverage collection started. Fix/reproduce this shipped-path blocker
+before resuming native coverage or fragmented-send work.
+
+Work379 in progress: Fast379 exits 0. Extend all six real-connection wide-handle
+fixtures with legacy receive/forward/release assertions, without narrowing wide
+IDs. Verify caller/authid/authrole/procedure, publisher/topic, explicit false
+receive-progress plus true invocation progress, results and errors across both
+transports and all three serializers. All six focused tests pass. Forwarding
+borrows message handles; local review's consumption concern is contradicted by
+`with_message` and segment construction. Full verification is running in
+`/tmp/connectanum-verify379.log`; leave changes uncommitted and serialize native
+users. No refreshed Work379 coverage or mutation claim yet. Work378 is pushed
+as 43f5b665 to both remotes; PR93 updated. Strict audit378 remains non-green
+because exact-head CI36876383331 and publish dry-run36876383268 were queued.
+
 Work378 matching evidence completed: all 22 Dart-to-native collection steps
 exit 0. Source scopes, source/test inputs, library and profile hashes validate.
 `out/regression-coverage-2026-09-15/native378-combined` preserves both raw lanes
