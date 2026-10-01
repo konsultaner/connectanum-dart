@@ -220,7 +220,78 @@ fn round_trip(websocket: bool, serializer: i32) {
     ct_message_release_wide(error);
     legacy_forwarding(client, server, websocket, serializer);
     fragmented_sends(client, server, websocket, serializer);
+    acknowledgement_metadata(client, server, websocket, serializer);
     assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+fn acknowledgement_metadata(client: i32, server: i32, websocket: bool, serializer: i32) {
+    let request = (1_u64 << 32) + 17;
+    let resource = (1_u64 << 53) - 1;
+    for wide in [false, true] {
+        for code in [17_u64, 33, 65, 67] {
+            let value = if code == 67 {
+                json!([code, request])
+            } else {
+                json!([code, request, resource])
+            };
+            let frame = encode(serializer, &value);
+            assert_eq!(
+                ct_send_message(client, frame.as_ptr(), frame.len() as i32),
+                SUCCESS
+            );
+            let handle = if wide {
+                incoming(server, websocket, false)
+            } else {
+                let legacy = ct_wait_connection_message(server, 5000);
+                assert!(legacy > 0);
+                i64::from(legacy)
+            };
+            let mut info = CtMessageInfo {
+                flags: u32::MAX,
+                secondary_id: 99,
+                ..CtMessageInfo::default()
+            };
+            let result = if wide {
+                ct_message_get_wide(handle, &mut info)
+            } else {
+                ct_message_get(i32::try_from(handle).unwrap(), &mut info)
+            };
+            assert_eq!(result, SUCCESS);
+            assert_eq!(i32::from(info.serializer), serializer);
+            assert_eq!(info.message_code, code);
+            assert_eq!(info.primary_id, request);
+            assert_eq!(info.secondary_id, if code == 67 { 0 } else { resource });
+            // Public ABI: direct-bind bit 0 and metadata-bind bit 4 only.
+            assert_eq!(info.flags, 0x11);
+            assert_eq!((info.detail_number_a, info.detail_number_b), (0, 0));
+            for (pointer, length) in [
+                (info.args_ptr, info.args_len),
+                (info.kwargs_ptr, info.kwargs_len),
+                (info.details_ptr, info.details_len),
+                (info.binary_arg_ptr, info.binary_arg_len),
+                (info.string_a_ptr, info.string_a_len),
+                (info.string_b_ptr, info.string_b_len),
+                (info.string_c_ptr, info.string_c_len),
+                (info.string_d_ptr, info.string_d_len),
+                (info.string_e_ptr, info.string_e_len),
+            ] {
+                assert!(pointer.is_null());
+                assert_eq!(length, 0);
+            }
+            assert_eq!(info.frame_len, frame.len());
+            assert!(!info.frame_ptr.is_null());
+            assert_eq!(
+                unsafe { std::slice::from_raw_parts(info.frame_ptr, info.frame_len) },
+                frame
+            );
+            if wide {
+                ct_message_release_wide(handle);
+            } else {
+                ct_message_release(i32::try_from(handle).unwrap());
+            }
+            assert_eq!(ct_message_get_wide(handle, &mut info), ERR_INVALID_ARGUMENT);
+        }
+    }
 }
 
 fn fragmented_sends(client: i32, server: i32, websocket: bool, serializer: i32) {

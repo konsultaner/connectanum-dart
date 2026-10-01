@@ -6,6 +6,27 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work382 full verification passes: `/tmp/connectanum-verify382.log` exits 0,
+including HTTP/3 wrapper and JavaScript/WASM runtime suites. Fresh Rust-only
+coverage runs in `out/regression-coverage-2026-09-15/native382-current`, log
+`/tmp/connectanum-native382-coverage.log`. Commit the verified acknowledgement
+metadata regressions, preserving their source/test snapshot for matching FFI
+collection. No new line/mutation percentage or WASM line coverage claimed.
+
+Work382 in progress: native381 plus all 22 nativeffi381 steps complete and
+source/input/library/profile hashes validate. `native381-combined` pins d2e163ce:
+core 9,087/10,063 (90.301%), FFI 5,363/5,798 (92.497%), preserving four
+unmeasured sources and the core decrease. Work381 is pushed to both remotes;
+PR93 updated; exact-head publish dry-run36887590914 remains queued at last check.
+Fast382 is running. Add real-connection acknowledgement metadata assertions
+for PUBLISHED/SUBSCRIBED/REGISTERED/UNREGISTERED, both handle widths, all six
+transport/serializer combinations: IDs above 32 bits, exact binding flags,
+absent fields, original frame bytes and rejection after release. Fast382 and
+all six expanded Rust fixtures pass. Full verification now runs serialized in
+`/tmp/connectanum-verify382.log`; new coverage remains pending. Local test-planning
+output hit its token limit; review concerns about legacy width and released-handle
+status were independently checked against typed signatures and getter behavior.
+
 Work381 full verification passes: `/tmp/connectanum-verify381.log` exits 0,
 including the HTTP/3 wrapper and JS/WASM runtime tests. Fresh Rust coverage
 is running in `out/regression-coverage-2026-09-15/native381-current`, log

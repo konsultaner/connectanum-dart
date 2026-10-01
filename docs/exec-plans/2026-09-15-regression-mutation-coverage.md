@@ -35,6 +35,22 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work382 full verify exits 0, including HTTP/3 wrapper and JS/WASM runtime tests.
+Fresh native382 Rust coverage runs serialized after verification. Commit the
+acknowledgement metadata tests; retain source/test hashes for matching FFI
+collection before reporting coverage. The whole milestone remains incomplete.
+
+Work382 follows validated native381 combined evidence at d2e163ce: core
+9,087/10,063 (90.301%), FFI 5,363/5,798 (92.497%), with four unmeasured
+sources retained. Work381 pushed to both remotes and PR93 updated; hosted audit
+is not green while exact-head checks remain queued. Fast382 running. Add
+acknowledgement metadata tests for four WAMP reply types across both transports,
+three serializers and both handle widths. Assert full-width IDs, exact flags,
+absent fields, raw bytes and invalid handles after release. Fast382 and six
+expanded Rust fixtures pass; full verify382 runs serialized after them. No
+new score yet. Test-planning output was truncated, not a completed review;
+review leads were checked against the actual legacy signatures/getter contract.
+
 Work381 full verification exits 0, including HTTP/3 wrapper and browser JS/WASM
 runtime tests. Fresh native381 Rust coverage runs serialized after verification.
 Commit the verified fragmented-send test increment; no new coverage/mutation
