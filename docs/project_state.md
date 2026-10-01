@@ -6,6 +6,18 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work392: Work391 is pushed to both remotes as bb406a83; exact-head hosted CI
+and publish dry-run remain queued, and strict audit391 exits 1. Fast392 passes.
+Add HTTP body FFI regressions for invalid/null arguments, unchanged error
+outputs, exact borrowed inline slices and end/overflow boundaries, idempotent
+release, missing-handle return codes, and zero-length stream-read compatibility.
+Pre-completed streams verify partial chunks, queued bytes before EOF/error,
+finish/release propagation, independent body ownership, and empty-body recovery.
+All 62 selected FFI tests pass. Local review completed; suggested pointer and
+double-release changes conflict with the explicit API contracts. Full verify392
+exits 0 in `/tmp/connectanum-verify392.log`, including JS/WASM runtime suites.
+No new coverage or mutation percentage claimed.
+
 Work391: Matching native390 collections validate at e908968c: core
 9,185/10,063 (91.275%), FFI 5,391/5,798 (92.980%), retaining four unmeasured
 sources. Fast391 passes. Add literal binary-length vectors across 25 CBOR and

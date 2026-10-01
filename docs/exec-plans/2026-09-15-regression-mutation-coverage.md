@@ -35,6 +35,18 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work392: Fast392 passes before changes. Add HTTP body FFI boundary/lifecycle
+assertions: invalid handles and null outputs, exact inline slices, saturating
+read lengths, unchanged outputs on errors, idempotent release, released-handle
+error distinctions, zero-length read compatibility, streamed partial chunks,
+queued data before EOF/error, finish propagation, independent handles, and
+empty-body recovery. Pre-complete stream fixtures so over-consumption reaches
+EOF/error instead of waiting for nonexistent producer data. All 62 selected FFI
+tests pass. Local review completed; preserve intentional API-contract oracles.
+Full verify392 exits 0 in `/tmp/connectanum-verify392.log`, including JS/WASM
+runtime suites; no new measurement score claimed. Work391 is pushed as
+bb406a83; strict hosted audit391 remains non-green with exact-head checks queued.
+
 Work391: Native390 combined evidence validates at e908968c: core 9,185/10,063,
 FFI 5,391/5,798, four unmeasured sources retained. Fast391 passes before edits.
 Test every supported CBOR/MessagePack definite array and binary length width

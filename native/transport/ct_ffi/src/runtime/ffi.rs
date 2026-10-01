@@ -7266,6 +7266,230 @@ mod tests {
     }
 
     #[test]
+    fn http_body_ffi_inline_boundaries_and_release_preserve_outputs() {
+        let _guard = test_guard();
+        let bytes = Bytes::from_static(&[0, 0x80, 0xff, 7]);
+        let original = bytes.as_ptr();
+        let handle = store_http_body(ct_core::HttpBodyHandle::from_inline(bytes)).unwrap() as i32;
+        let sentinel = [42u8];
+        let mut view = CtHttpBodyView {
+            data_ptr: sentinel.as_ptr(),
+            data_len: 77,
+        };
+        for invalid in [i32::MIN, -1, 0] {
+            assert_eq!(ct_http_body_get(invalid, &mut view), ERR_INVALID_ARGUMENT);
+            assert_eq!(
+                ct_http_body_read(invalid, 0, 1, &mut view),
+                ERR_INVALID_ARGUMENT
+            );
+            assert_eq!(
+                ct_http_body_stream_read(invalid, 0, &mut view),
+                ERR_INVALID_ARGUMENT
+            );
+            assert_eq!(ct_http_body_finish(invalid), ERR_INVALID_ARGUMENT);
+            assert_eq!(ct_http_body_release(invalid), ERR_INVALID_ARGUMENT);
+            assert_eq!(view.data_ptr, sentinel.as_ptr());
+            assert_eq!(view.data_len, 77);
+        }
+        assert_eq!(
+            ct_http_body_get(handle, ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            ct_http_body_read(handle, 0, 1, ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            ct_http_body_stream_read(handle, 0, ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(ct_http_body_get(handle, &mut view), SUCCESS);
+        assert_eq!(view.data_ptr, original);
+        assert_eq!(view.data_len, 4);
+        assert_eq!(
+            unsafe { std::slice::from_raw_parts(view.data_ptr, view.data_len) },
+            &[0, 0x80, 0xff, 7]
+        );
+        for (offset, length, expected) in [
+            (0, 0, &[][..]),
+            (1, 2, &[0x80, 0xff][..]),
+            (2, usize::MAX, &[0xff, 7][..]),
+            (4, 1, &[][..]),
+        ] {
+            assert_eq!(
+                ct_http_body_read(handle, offset, length, &mut view),
+                SUCCESS
+            );
+            assert_eq!(view.data_ptr, unsafe { original.add(offset) });
+            assert_eq!(view.data_len, expected.len());
+            assert_eq!(
+                unsafe { std::slice::from_raw_parts(view.data_ptr, view.data_len) },
+                expected
+            );
+        }
+        for offset in [5, usize::MAX] {
+            view.data_ptr = sentinel.as_ptr();
+            view.data_len = 77;
+            assert_eq!(
+                ct_http_body_read(handle, offset, 1, &mut view),
+                ERR_INVALID_ARGUMENT
+            );
+            assert_eq!(view.data_ptr, sentinel.as_ptr());
+            assert_eq!(view.data_len, 77);
+        }
+        assert_eq!(ct_http_body_stream_read(handle, 8, &mut view), SUCCESS);
+        assert!(view.data_ptr.is_null());
+        assert_eq!(view.data_len, 0);
+        assert_eq!(ct_http_body_finish(handle), SUCCESS);
+        assert_eq!(ct_http_body_release(handle), SUCCESS);
+        assert_eq!(ct_http_body_release(handle), SUCCESS);
+        view.data_ptr = sentinel.as_ptr();
+        view.data_len = 77;
+        assert_eq!(ct_http_body_get(handle, &mut view), ERR_HANDSHAKE_CONSUMED);
+        assert_eq!(
+            ct_http_body_read(handle, 0, 1, &mut view),
+            ERR_HANDSHAKE_CONSUMED
+        );
+        assert_eq!(
+            ct_http_body_stream_read(handle, 1, &mut view),
+            ERR_HANDLE_UNAVAILABLE
+        );
+        assert_eq!(ct_http_body_finish(handle), ERR_HANDLE_UNAVAILABLE);
+        assert_eq!(view.data_ptr, sentinel.as_ptr());
+        assert_eq!(view.data_len, 77);
+        // Zero-length stream reads do not look up or revive a released handle.
+        assert_eq!(ct_http_body_stream_read(handle, 0, &mut view), SUCCESS);
+        assert!(view.data_ptr.is_null());
+        assert_eq!(view.data_len, 0);
+        assert_eq!(ct_http_body_finish(handle), ERR_HANDLE_UNAVAILABLE);
+    }
+
+    #[test]
+    fn http_body_ffi_stream_drains_chunks_before_eof_or_error_and_finishes() {
+        let _guard = test_guard();
+        for failed in [true, false] {
+            let state = ct_core::StreamingBodyState::new(5);
+            state.enqueue_vec(vec![0, 0x80, 0xff]);
+            state.enqueue_vec(vec![4, 5]);
+            // Pre-completion prevents a broken read-count assertion from blocking.
+            if failed {
+                state.mark_error("test body failure".to_owned());
+            } else {
+                state.mark_finished();
+            }
+            let handle =
+                store_http_body(ct_core::HttpBodyHandle::streaming(state.clone())).unwrap() as i32;
+            let sentinel = [42u8];
+            let mut view = CtHttpBodyView {
+                data_ptr: sentinel.as_ptr(),
+                data_len: 77,
+            };
+            assert_eq!(ct_http_body_get(handle, &mut view), ERR_UNSUPPORTED);
+            assert_eq!(
+                ct_http_body_read(handle, 0, 1, &mut view),
+                ERR_INVALID_ARGUMENT
+            );
+            assert_eq!(view.data_ptr, sentinel.as_ptr());
+            assert_eq!(view.data_len, 77);
+            assert!(!state.finish_requested());
+            assert_eq!(ct_http_body_stream_read(handle, 0, &mut view), SUCCESS);
+            assert!(view.data_ptr.is_null());
+            assert_eq!(view.data_len, 0);
+            for (length, expected) in [
+                (2, &[0, 0x80][..]),
+                (8, &[0xff][..]),
+                (usize::MAX, &[4, 5][..]),
+            ] {
+                assert_eq!(ct_http_body_stream_read(handle, length, &mut view), SUCCESS);
+                assert!(!view.data_ptr.is_null());
+                assert_eq!(view.data_len, expected.len());
+                assert_eq!(
+                    unsafe { std::slice::from_raw_parts(view.data_ptr, view.data_len) },
+                    expected
+                );
+            }
+            view.data_ptr = sentinel.as_ptr();
+            view.data_len = 77;
+            if failed {
+                assert_eq!(ct_http_body_stream_read(handle, 1, &mut view), ERR_IO);
+                assert_eq!(view.data_ptr, sentinel.as_ptr());
+                assert_eq!(view.data_len, 77);
+            } else {
+                assert_eq!(ct_http_body_stream_read(handle, 1, &mut view), SUCCESS);
+                assert!(view.data_ptr.is_null());
+                assert_eq!(view.data_len, 0);
+            }
+            assert_eq!(ct_http_body_finish(handle), SUCCESS);
+            assert!(state.finish_requested());
+            assert_eq!(ct_http_body_release(handle), SUCCESS);
+            assert_eq!(ct_http_body_finish(handle), ERR_HANDLE_UNAVAILABLE);
+        }
+        let state = ct_core::StreamingBodyState::new(0);
+        state.mark_finished();
+        let handle =
+            store_http_body(ct_core::HttpBodyHandle::streaming(state.clone())).unwrap() as i32;
+        assert!(!state.finish_requested());
+        assert_eq!(ct_http_body_release(handle), SUCCESS);
+        assert!(state.finish_requested());
+    }
+
+    #[test]
+    fn http_body_ffi_handles_keep_streams_and_release_ownership_isolated() {
+        let _guard = test_guard();
+        let first = ct_core::StreamingBodyState::new(2);
+        let second = ct_core::StreamingBodyState::new(3);
+        first.enqueue_vec(vec![1, 2]);
+        second.enqueue_vec(vec![3, 4, 5]);
+        first.mark_finished();
+        second.mark_finished();
+        let first_handle =
+            store_http_body(ct_core::HttpBodyHandle::streaming(first.clone())).unwrap() as i32;
+        let second_handle =
+            store_http_body(ct_core::HttpBodyHandle::streaming(second.clone())).unwrap() as i32;
+        assert_ne!(first_handle, second_handle);
+        let mut view = CtHttpBodyView {
+            data_ptr: ptr::null(),
+            data_len: 0,
+        };
+        assert_eq!(
+            ct_http_body_stream_read(first_handle, 1, &mut view),
+            SUCCESS
+        );
+        assert!(!view.data_ptr.is_null());
+        assert_eq!(view.data_len, 1);
+        assert_eq!(unsafe { *view.data_ptr }, 1);
+        assert_eq!(ct_http_body_release(first_handle), SUCCESS);
+        assert!(first.finish_requested());
+        assert!(!second.finish_requested());
+        assert_eq!(
+            ct_http_body_stream_read(first_handle, 1, &mut view),
+            ERR_HANDLE_UNAVAILABLE
+        );
+        assert_eq!(
+            ct_http_body_stream_read(second_handle, usize::MAX, &mut view),
+            SUCCESS
+        );
+        assert!(!view.data_ptr.is_null());
+        assert_eq!(view.data_len, 3);
+        assert_eq!(
+            unsafe { std::slice::from_raw_parts(view.data_ptr, view.data_len) },
+            &[3, 4, 5]
+        );
+        assert!(!second.finish_requested());
+        assert_eq!(ct_http_body_release(second_handle), SUCCESS);
+        assert!(second.finish_requested());
+
+        let empty = store_http_body(ct_core::HttpBodyHandle::empty()).unwrap() as i32;
+        assert_ne!(empty, first_handle);
+        assert_ne!(empty, second_handle);
+        assert_eq!(ct_http_body_get(empty, &mut view), SUCCESS);
+        assert_eq!(view.data_len, 0);
+        assert_eq!(ct_http_body_read(empty, 0, usize::MAX, &mut view), SUCCESS);
+        assert_eq!(view.data_len, 0);
+        assert_eq!(ct_http_body_release(empty), SUCCESS);
+    }
+
+    #[test]
     fn resource_handle_response_failure_does_not_send_success_headers() {
         let sent = std::cell::Cell::new(false);
         let result = open_http_response_stream_with(
