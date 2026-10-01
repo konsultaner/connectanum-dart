@@ -1,5 +1,125 @@
 use super::*;
 
+#[tokio::test]
+async fn http1_transport_rejections_preserve_dispatch_isolation_and_recovery() {
+    for mtls in [false, true] {
+        for preflight in [false, true] {
+            for warmup in [false, true] {
+                let mut config = endpoint(config::TlsMode::Disabled, None);
+                for path in ["/secure", "/warmup", "/recovered"] {
+                    config.http_routes.push(config::HttpRouteRuntime {
+                        path: path.into(),
+                        match_kind: config::HttpRouteMatchKind::Exact,
+                        protocols: vec![],
+                        transport_auth: if path == "/secure" {
+                            config::HttpRouteTransportAuthRuntime {
+                                require_tls: true,
+                                require_mtls: mtls,
+                                require_bearer: true,
+                                allow_unauthenticated_cors_preflight: true,
+                            }
+                        } else {
+                            Default::default()
+                        },
+                        methods: Default::default(),
+                        default: Some(config::HttpRouteTarget::Translation {
+                            realm: "test".into(),
+                            procedure: "test.echo".into(),
+                        }),
+                    });
+                }
+                let config = Arc::new(config);
+                let result = tokio::time::timeout(Duration::from_secs(5), async {
+                    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                    let address = listener.local_addr().unwrap();
+                    let server = async {
+                        let (stream, peer) = listener.accept().await.unwrap();
+                        let registry = Arc::new(ListenerRegistry::default());
+                        registry.register_http_connection(ListenerId(1), ConnectionId(1), config.clone(), peer);
+                        let handshake = protocol::negotiate_connection(IoStream::plain(stream), &config).await.unwrap();
+                        let protocol::NegotiatedConnection::Http(handshake) = handshake else {
+                            panic!("expected HTTP negotiation");
+                        };
+                        let serving = serve_http_connection(ListenerId(1), ConnectionId(1), handshake, config.clone(), registry.clone());
+                        tokio::pin!(serving);
+                        let mut dispatched = Vec::new();
+                        loop {
+                            tokio::select! {
+                                _ = &mut serving => break,
+                                _ = tokio::time::sleep(Duration::from_millis(1)) => {
+                                    while let Some((request, response)) = registry.poll_http_request(ConnectionId(1)).unwrap() {
+                                        let target = String::from_utf8(request.target.to_vec()).unwrap();
+                                        dispatched.push(target.clone());
+                                        response.respond(HttpResponseDispatch {
+                                            status: 200,
+                                            headers: vec![],
+                                            body: HttpResponseBody::Buffered(target.into_bytes()),
+                                        }).unwrap();
+                                    }
+                                }
+                            }
+                        }
+                        dispatched
+                    };
+                    let client = async {
+                        let mut stream = tokio::net::TcpStream::connect(address).await.unwrap();
+                        let mut request = String::new();
+                        if warmup {
+                            request.push_str("GET /warmup HTTP/1.1\r\nHost: localhost\r\n\r\n");
+                        }
+                        if preflight {
+                            request.push_str("OPTIONS /secure HTTP/1.1\r\nHost: localhost\r\nOrigin: https://consumer.example\r\nAccess-Control-Request-Method: GET\r\n\r\n");
+                        } else {
+                            request.push_str("GET /secure HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer test-token\r\n\r\n");
+                        }
+                        request.push_str("GET /recovered HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
+                        stream.write_all(request.as_bytes()).await.unwrap();
+                        let mut wire = Vec::new();
+                        stream.read_to_end(&mut wire).await.unwrap();
+                        String::from_utf8(wire).unwrap()
+                    };
+                    tokio::join!(server, client)
+                }).await.expect("bounded HTTP transport-auth exchange");
+                let (dispatched, wire) = result;
+                let allowed = if warmup {
+                    vec!["/warmup", "/recovered"]
+                } else {
+                    vec!["/recovered"]
+                };
+                assert_eq!(
+                    dispatched, allowed,
+                    "mtls={mtls} preflight={preflight} warmup={warmup}"
+                );
+                let statuses: Vec<_> = wire
+                    .split("HTTP/1.1 ")
+                    .skip(1)
+                    .map(|part| part.split("\r\n").next().unwrap())
+                    .collect();
+                let expected = if warmup {
+                    vec!["200 OK", "403 Forbidden", "200 OK"]
+                } else {
+                    vec!["403 Forbidden", "200 OK"]
+                };
+                assert_eq!(statuses, expected, "{wire}");
+                let rejected_body = if mtls {
+                    "mutual tls required"
+                } else {
+                    "tls required"
+                };
+                assert!(
+                    wire.contains(&format!("\r\n\r\n{rejected_body}HTTP/1.1 200 OK")),
+                    "{wire}"
+                );
+                assert!(wire.ends_with("\r\n\r\n/recovered"), "{wire}");
+                assert!(
+                    !wire.contains("WWW-Authenticate"),
+                    "TLS rejection must not be a bearer challenge: {wire}"
+                );
+            }
+        }
+    }
+}
+
 fn endpoint(
     tls_mode: config::TlsMode,
     client_auth: Option<config::ClientAuthMode>,

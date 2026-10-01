@@ -6,6 +6,20 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work389: Work388 is pushed to both remotes as 1dca34da; exact-head CI and
+publish dry-run remain queued at last check. Fast389 passes. Add eight real
+HTTP/1 pipeline cases for TLS/mTLS requirements, GET/CORS preflight, and initial
+versus post-warmup rejection. An isolated registry records exact dispatched
+targets; wire assertions require 403, the appropriate rejection body, and a
+successful later public request on the same socket. Joined server/client
+futures share a bounded deadline without detached tasks. All cases pass.
+Local review completed; fixed status/body oracles are intentional, the registry
+is local, and timeout `expect` fails rather than silently succeeding. Full
+verify389 exits 0 in `/tmp/connectanum-verify389.log`, including JS/WASM runtime
+suites. Commit this verified increment. No new coverage/mutation score or
+production change. Next investigate rejected streamed-body drain/recovery with
+request-like body bytes; source inspection alone does not establish a bug.
+
 Work388: Matching native387 and nativeffi387 collections completed at 38b5a48e;
 source/input/library/profile hashes validate. Combined core is 9,107/10,063
 (90.500%), FFI 5,391/5,798 (92.980%); four unmeasured sources remain visible.

@@ -35,6 +35,20 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work389: Fast389 passes after Work388 pushed as 1dca34da. Add eight real TCP
+HTTP/1 cases requiring TLS or mTLS, ordinary GET or CORS preflight, with or
+without successful warmup. Require exact allowed dispatch history, ordered
+200/403 responses, distinct TLS/mTLS rejection bodies, no bearer challenge,
+and successful final public response on the same connection. Isolated registry
+and joined bounded futures avoid global connection interference and detached
+server tasks. Focused matrix passes; local review completed and speculative
+deadlock/silent-timeout claims contradict select polling and explicit expect.
+Full verify389 exits 0 in `/tmp/connectanum-verify389.log`, including JS/WASM
+runtime suites; no score or production behavior change claimed. Commit the
+verified matrix. Next regression candidate: rejected streamed bodies containing
+request-like bytes must not dispatch those bytes, and valid followups must
+remain recoverable. Source inspection is not evidence of a current defect.
+
 Work388: Validated native387-combined at 38b5a48e: core 9,107/10,063,
 FFI 5,391/5,798, retaining four unmeasured sources. Fast388 passes before edits.
 Add four TLS tests asserting contextual configuration errors for missing and
