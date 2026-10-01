@@ -6,6 +6,27 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work386: Work385 is pushed to both remotes as 10500eb7; strict audit385 remains
+non-green because current-head CI36909456042 and dry-run36909456099 are queued.
+Fast386 passes. Add RawSocket literal length/header boundaries and real-wire
+0x010203 payload plus sentinel checks; test WebSocket continuation helper empty
+and single-nonempty segments for both masks/opcodes; assert streamed body total
+length separately from returned bytes. Harden streaming HTTP fixture polling,
+client IO, retained-handle cleanup, client joining and original panic propagation.
+This does not claim all mutated synchronous FFI reads are bounded.
+Native workspace/all-targets verification passes (313 core and 195 FFI tests).
+`native386-survivor-probe` replays three exact candidates with the full workspace:
+two have assertion-only failures; body-length subtraction has explicit assertions
+plus overflow/timeout panics and remains mixed/uncredited, not a clean kill.
+All three campaigns terminate; no complete-component score is claimed.
+Full verify386 exits 0 in `/tmp/connectanum-verify386.log`, including JS/WASM
+runtime suites. Additional `native386-parser-probe` retains two timeouts: both
+parser mutations now get past the formerly hanging streaming-body fixture.
+Split-target hangs in `http_handshake_surfaced_via_ffi`; reversed header bounds
+hang later in `websocket_handshake_surfaced_via_ffi`. Fix these and other
+unbounded fixture waits next; these results receive no kill credit.
+Commit the verified increment without claiming all native hangs are resolved.
+
 Work385 update: Fast385 passes. HTTP1 bearerless rejection now bounds client IO,
 checks that no protected application handshake is exposed while the socket is
 still alive, releases any unexpected handshake, and shuts down before assertions.

@@ -35,6 +35,31 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work386: Fast386 passes. Cover standard/extended RawSocket length bytes, sentinel
+maximum and invalid lengths/types with literal header expectations, plus real
+0x010203 payload followed by a sentinel. Exercise continuation helper fallback
+for empty/all-empty/single segments and surrounding empties, masked/unmasked,
+text/binary; this is helper coverage, not a new public transport contract.
+Assert HTTP prefix-plus-stream advertised length. Streaming FFI fixture uses
+bounded polls/client IO and catch/unwind cleanup that releases handles, joins
+the client and resumes the original failure. Synchronous FFI reads are not
+claimed universally bounded. Full native workspace/all-targets passes after
+fixing extern-C function-to-closure compile errors. Diagnostic isolated replay
+`out/regression-coverage-2026-09-15/native386-survivor-probe` preserves passing
+baseline and three outcomes: RawSocket middle-byte and continuation fallback
+have assertion-only failures; body subtraction has mixed assertions and overflow/
+timeout panics, so no clean-kill credit. FFI suite now terminates for this mutant.
+No whole-component score. Local review completed; its claim that catch_unwind
+skips following cleanup contradicts the explicit result handling. Full verify386
+exits 0 including JS/WASM runtime suites. Additional `native386-parser-probe`
+replays split-target and header-limit mutations with a passing baseline, but
+both still time out: the streaming fixture terminates; split-target hangs in
+`http_handshake_surfaced_via_ffi`, reversed header bounds hang later in
+`websocket_handshake_surfaced_via_ffi`. No kill credit; retain logs and fix
+these fixtures rather than declaring timeout hardening complete.
+Prior10500eb7 is pushed both remotes;
+strict hosted audit385 remains non-green on queued CI/dry-run, not failed jobs.
+
 Work385 update: Fast385 and focused HTTP1 auth/RawSocket negotiation tests pass.
 Bound HTTP client IO and RawSocket response/completion waits. Preserve generic
 deadline failure diagnostics (not mutation assertion kills). On auth rejection,

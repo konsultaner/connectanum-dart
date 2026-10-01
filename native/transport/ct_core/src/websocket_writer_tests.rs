@@ -117,6 +117,58 @@ fn decode(mut wire: &[u8], masked: bool) -> Vec<(u8, Vec<u8>)> {
 }
 
 #[tokio::test]
+async fn websocket_continuation_writer_preserves_empty_segment_boundaries() {
+    for masked in [false, true] {
+        for opcode in [1, 2] {
+            for segments in [
+                vec![],
+                vec![Bytes::new(), Bytes::new()],
+                vec![Bytes::from_static(b"ABC")],
+                vec![Bytes::new(), Bytes::from_static(b"ABC"), Bytes::new()],
+            ] {
+                let expected: Vec<u8> = segments
+                    .iter()
+                    .flat_map(|bytes| bytes.iter().copied())
+                    .collect();
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let address = listener.local_addr().unwrap();
+                let exchange = time::timeout(Duration::from_secs(5), async {
+                    let (client, server) =
+                        tokio::join!(tokio::net::TcpStream::connect(address), listener.accept());
+                    let mut client = client?;
+                    let (_, mut writer) = tokio::io::split(IoStream::plain(server?.0));
+                    let mut wire = Vec::new();
+                    let (sent, read) = tokio::join!(
+                        async {
+                            write_websocket_continuation_frames(
+                                &mut writer,
+                                opcode,
+                                &segments,
+                                masked,
+                                &mut Vec::new(),
+                            )
+                            .await?;
+                            writer.shutdown().await
+                        },
+                        client.read_to_end(&mut wire)
+                    );
+                    sent?;
+                    read?;
+                    Ok::<_, io::Error>(wire)
+                })
+                .await
+                .expect("continuation frame exchange timed out");
+                assert!(exchange.is_ok());
+                assert_eq!(
+                    decode(&exchange.unwrap(), masked),
+                    vec![(0x80 | opcode, expected)]
+                );
+            }
+        }
+    }
+}
+
+#[tokio::test]
 async fn websocket_writer_dispatches_types_and_closes_after_channel_end() {
     for masked in [false, true] {
         for (serializer, data_opcode) in [

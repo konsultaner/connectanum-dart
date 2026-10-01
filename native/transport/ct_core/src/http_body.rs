@@ -332,6 +332,7 @@ mod tests {
         let prefix = Bytes::from_static(b"12345");
         let (state, reclaim) =
             spawn_http1_streaming_body(prefix.clone(), read_half, 4, Duration::from_millis(200));
+        assert_eq!(state.total_len(), 9);
 
         let reader_state = state.clone();
         let reader = tokio::task::spawn_blocking(move || {

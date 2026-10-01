@@ -118,6 +118,54 @@ impl Drop for FixtureFile {
     }
 }
 
+#[test]
+fn rawsocket_header_encodes_each_length_byte_and_protocol_limits() {
+    for kind in [0, 1, 2, 7] {
+        for (len, expected) in [
+            (0, [kind, 0, 0, 0]),
+            (0xff, [kind, 0, 0, 0xff]),
+            (0x100, [kind, 0, 1, 0]),
+            (0x010203, [kind, 1, 2, 3]),
+            (0xffffff, [kind, 0xff, 0xff, 0xff]),
+            (0x1000000, [kind | 8, 0, 0, 0]),
+        ] {
+            let header = encode_frame_header(kind, len, false);
+            assert!(header.is_ok());
+            assert_eq!(header.unwrap().as_bytes(), expected);
+        }
+        assert!(encode_frame_header(kind, 0x1000001, false).is_err());
+        for (len, expected) in [
+            (0, [kind, 0, 0, 0, 0]),
+            (0x01020304, [kind, 1, 2, 3, 4]),
+            (u32::MAX as usize, [kind, 0xff, 0xff, 0xff, 0xff]),
+        ] {
+            let header = encode_frame_header(kind, len, true);
+            assert!(header.is_ok());
+            assert_eq!(header.unwrap().as_bytes(), expected);
+        }
+        if let Some(too_large) = (u32::MAX as usize).checked_add(1) {
+            assert!(encode_frame_header(kind, too_large, true).is_err());
+        }
+    }
+    for upgraded in [false, true] {
+        for kind in [8, 0xff] {
+            assert!(encode_frame_header(kind, 0, upgraded).is_err());
+        }
+    }
+}
+
+#[tokio::test]
+async fn rawsocket_writer_preserves_nonzero_middle_length_byte() {
+    let payload = Bytes::from(vec![0xa5; 0x010203]);
+    for (exponent, upgraded) in [(24, false), (25, true)] {
+        let fixture = WriterFixture::new(exponent).await;
+        fixture.enqueue(OutboundFrame::message(payload.clone()));
+        fixture.enqueue(OutboundFrame::message(Bytes::from_static(b"sentinel")));
+        let expected = [wire(0, &payload, upgraded), wire(0, b"sentinel", upgraded)].concat();
+        assert_eq!(fixture.finish().await, expected);
+    }
+}
+
 #[tokio::test]
 async fn rawsocket_writer_preserves_segments_suffixes_and_frame_order() {
     for (exponent, upgraded) in [(16, false), (24, false), (25, true)] {

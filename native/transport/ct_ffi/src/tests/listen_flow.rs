@@ -1701,91 +1701,103 @@ fn http_handshake_streaming_body_round_trip() {
     let client_handle = std::thread::spawn(move || {
         let rt = TokioRuntime::new().unwrap();
         rt.block_on(async move {
+            tokio::time::timeout(Duration::from_secs(10), async move {
             let addr = format!("127.0.0.1:{}", port);
-            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            let mut stream = tokio::net::TcpStream::connect(addr).await?;
             let request = format!(
                 "POST /stream HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
                 payload_len
             );
-            stream.write_all(request.as_bytes()).await.unwrap();
+            stream.write_all(request.as_bytes()).await?;
             let payload = vec![b'x'; payload_len];
             let initial = 32 * 1024;
             stream.write_all(&payload[..initial.min(payload.len())])
-                .await
-                .unwrap();
-            stream.flush().await.unwrap();
+                .await?;
+            stream.flush().await?;
             tokio::time::sleep(Duration::from_millis(50)).await;
             if initial < payload.len() {
-                stream.write_all(&payload[initial..]).await.unwrap();
-                stream.flush().await.unwrap();
+                stream.write_all(&payload[initial..]).await?;
+                stream.flush().await?;
             }
             let mut response = Vec::new();
-            stream.read_to_end(&mut response).await.unwrap();
-            response
+            stream.read_to_end(&mut response).await?;
+            Ok::<_, std::io::Error>(response)
+            }).await
         })
     });
 
-    let connection_id = loop {
-        let id = ct_poll_connection(listener_id);
-        if id > 0 {
-            break id;
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    };
-    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
+    let mut handle = 0;
+    let mut body_handle = 0;
+    let server_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let connection_id = wait_for_connection(listener_id);
+        assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
 
-    let handle = loop {
-        let handle = ct_connection_take_http_handshake(connection_id);
-        if handle > 0 {
-            break handle;
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    };
+        handle = wait_for_http_handshake(connection_id);
 
-    let mut info = CtHttpHandshakeInfo::default();
-    assert_eq!(
-        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
-        SUCCESS
-    );
-    assert_eq!(info.body_len, payload_len);
-
-    let body_handle = ct_http_handshake_body_retain(handle);
-    assert!(body_handle > 0, "streaming body handle expected");
-
-    let mut view = CtHttpBodyView::default();
-    assert_eq!(
-        ct_http_body_get(body_handle, &mut view as *mut CtHttpBodyView),
-        ERR_UNSUPPORTED
-    );
-
-    let mut collected = Vec::new();
-    loop {
+        let mut info = CtHttpHandshakeInfo::default();
         assert_eq!(
-            ct_http_body_stream_read(body_handle, 8192, &mut view as *mut CtHttpBodyView),
+            ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
             SUCCESS
         );
-        if view.data_len == 0 {
-            break;
+        assert_eq!(info.body_len, payload_len);
+
+        body_handle = ct_http_handshake_body_retain(handle);
+        assert!(body_handle > 0, "streaming body handle expected");
+
+        let mut view = CtHttpBodyView::default();
+        assert_eq!(
+            ct_http_body_get(body_handle, &mut view as *mut CtHttpBodyView),
+            ERR_UNSUPPORTED
+        );
+
+        let mut collected = Vec::new();
+        loop {
+            assert_eq!(
+                ct_http_body_stream_read(body_handle, 8192, &mut view as *mut CtHttpBodyView),
+                SUCCESS
+            );
+            if view.data_len == 0 {
+                break;
+            }
+            unsafe {
+                let slice = std::slice::from_raw_parts(view.data_ptr, view.data_len);
+                collected.extend_from_slice(slice);
+            }
         }
-        unsafe {
-            let slice = std::slice::from_raw_parts(view.data_ptr, view.data_len);
-            collected.extend_from_slice(slice);
-        }
+        assert_eq!(collected.len(), payload_len);
+        assert!(collected.iter().all(|byte| *byte == b'x'));
+
+        assert_eq!(ct_http_body_finish(body_handle), SUCCESS);
+        assert_eq!(ct_http_body_release(body_handle), SUCCESS);
+        body_handle = 0;
+
+        let body = b"stream-ok";
+        assert_eq!(
+            ct_http_response_send(handle, 204, std::ptr::null(), 0, body.as_ptr(), body.len(),),
+            SUCCESS
+        );
+        assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+        handle = 0;
+    }));
+
+    // Preserve the original assertion, but never abandon its client or retained handles.
+    if body_handle > 0 {
+        ct_http_body_finish(body_handle);
+        ct_http_body_release(body_handle);
     }
-    assert_eq!(collected.len(), payload_len);
-    assert!(collected.iter().all(|byte| *byte == b'x'));
-
-    assert_eq!(ct_http_body_finish(body_handle), SUCCESS);
-    assert_eq!(ct_http_body_release(body_handle), SUCCESS);
-
-    let body = b"stream-ok";
-    assert_eq!(
-        ct_http_response_send(handle, 204, std::ptr::null(), 0, body.as_ptr(), body.len(),),
-        SUCCESS
-    );
-    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
-
-    let response_bytes = client_handle.join().expect("client result");
+    if handle > 0 {
+        ct_http_handshake_release(handle);
+    }
+    let early_shutdown = server_result.is_err().then(|| ct_shutdown());
+    let client_result = client_handle.join();
+    let shutdown = early_shutdown.unwrap_or_else(|| ct_shutdown());
+    if let Err(failure) = server_result {
+        std::panic::resume_unwind(failure);
+    }
+    let response_bytes = client_result
+        .expect("streaming client thread failed")
+        .expect("streaming client IO timed out")
+        .expect("streaming client IO failed");
     let response_text = String::from_utf8_lossy(&response_bytes);
     assert!(
         response_text.starts_with("HTTP/1.1 204"),
@@ -1793,7 +1805,7 @@ fn http_handshake_streaming_body_round_trip() {
         response_text
     );
 
-    assert_eq!(ct_shutdown(), SUCCESS);
+    assert_eq!(shutdown, SUCCESS);
 }
 
 #[test]
