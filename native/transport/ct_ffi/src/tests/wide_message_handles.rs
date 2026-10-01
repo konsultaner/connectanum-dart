@@ -219,7 +219,81 @@ fn round_trip(websocket: bool, serializer: i32) {
     );
     ct_message_release_wide(error);
     legacy_forwarding(client, server, websocket, serializer);
+    fragmented_sends(client, server, websocket, serializer);
     assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+fn fragmented_sends(client: i32, server: i32, websocket: bool, serializer: i32) {
+    let value =
+        json!([48, 27, {}, "fragment.echo", ["caf\u{e9}", [0, 127, 128, 255]], {"flag": true}]);
+    let frame = encode(serializer, &value);
+    let len = frame.len() as i32;
+    let receive = |expected: &[u8]| {
+        let handle = incoming(server, websocket, false);
+        let mut info = CtMessageInfo::default();
+        assert_eq!(ct_message_get_wide(handle, &mut info), SUCCESS);
+        assert_eq!(i32::from(info.serializer), serializer);
+        assert_eq!(info.frame_len, expected.len());
+        assert!(!info.frame_ptr.is_null());
+        let actual = unsafe { std::slice::from_raw_parts(info.frame_ptr, info.frame_len) };
+        assert_eq!(actual, expected);
+        ct_message_release_wide(handle);
+    };
+    for owned in [false, true] {
+        for size in [1, 3, len - 1, len, len + 1] {
+            let result = if owned {
+                let buffer = ct_outbound_buffer_alloc(len);
+                assert!(!buffer.is_null());
+                unsafe { ptr::copy_nonoverlapping(frame.as_ptr(), buffer, frame.len()) };
+                ct_send_message_fragmented_owned(client, buffer, len, size)
+            } else {
+                let mut copied = frame.clone();
+                let result = ct_send_message_fragmented(client, copied.as_ptr(), len, size);
+                // The copying API must not borrow the caller's buffer after returning.
+                copied.fill(0);
+                result
+            };
+            assert_eq!(result, SUCCESS, "owned={owned} fragment={size}");
+            receive(&frame);
+        }
+    }
+    for size in [0, -1] {
+        assert_eq!(
+            ct_send_message_fragmented(client, frame.as_ptr(), len, size),
+            ERR_INVALID_ARGUMENT
+        );
+        let buffer = ct_outbound_buffer_alloc(len);
+        assert!(!buffer.is_null());
+        unsafe { ptr::copy_nonoverlapping(frame.as_ptr(), buffer, frame.len()) };
+        // Ownership transfers even when the fragment length is invalid.
+        assert_eq!(
+            ct_send_message_fragmented_owned(client, buffer, len, size),
+            ERR_INVALID_ARGUMENT
+        );
+    }
+    assert_eq!(
+        ct_send_message_fragmented(client, ptr::null(), 1, 1),
+        ERR_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        ct_send_message_fragmented(client, ptr::null(), -1, 1),
+        ERR_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        ct_send_message_fragmented_owned(client, ptr::null_mut(), 1, 1),
+        ERR_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        ct_send_message_fragmented_owned(client, ptr::null_mut(), -1, 1),
+        ERR_INVALID_ARGUMENT
+    );
+    let sentinel = encode(serializer, &json!([48, 28, {}, "fragment.after_errors"]));
+    assert_eq!(
+        ct_send_message_fragmented(client, sentinel.as_ptr(), sentinel.len() as i32, 2),
+        SUCCESS
+    );
+    receive(&sentinel);
+    assert_eq!(ct_wait_connection_message_wide(server, 1), 0);
 }
 
 fn legacy_forwarding(client: i32, server: i32, websocket: bool, serializer: i32) {

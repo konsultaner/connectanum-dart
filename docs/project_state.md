@@ -6,6 +6,29 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work381 full verification passes: `/tmp/connectanum-verify381.log` exits 0,
+including the HTTP/3 wrapper and JS/WASM runtime tests. Fresh Rust coverage
+is running in `out/regression-coverage-2026-09-15/native381-current`, log
+`/tmp/connectanum-native381-coverage.log`. Commit the verified fragmented-send
+regressions; preserve the unchanged source/test snapshot for matching evidence.
+No new line or mutation percentage is claimed until collection validates.
+
+Work381 in progress: native380 and all 22 nativeffi380 collection steps complete.
+Fresh scopes, source/test inputs, library and profile hashes validate; combined
+evidence is pinned to 0e5dcc80 in `out/regression-coverage-2026-09-15/native380-combined`.
+Core 9,089/10,063 (90.321%), FFI 5,325/5,798 (91.842%); preserve all four
+unmeasured sources and the five-line core decrease rather than cherry-picking.
+Work380 is pushed to both remotes and PR93 updated; publish dry-run36883637283
+passed, CI36883637267 remained queued. Fast381 is running before new native tests.
+Add exact-byte fragmented-send assertions to the six existing transport/serializer
+fixtures: copying/owned APIs, one-byte/odd/tail/exact/oversized fragments, copying
+buffer lifetime, invalid arguments and sentinel recovery. No fresh Work381
+coverage claim. Fast381 and all six expanded Rust fixtures pass; full
+verification is running in `/tmp/connectanum-verify381.log`, serialized after
+the focused tests. Local review's borrowed-buffer/oversized-fragment concerns
+are contradicted by synchronous copying and the direct-send fallback; ordinary
+tests still do not establish allocator leak freedom.
+
 Work380 full verification passes: `/tmp/connectanum-verify380.log` exits 0,
 including the previously failing HTTP/3 wrapper and JS/WASM runtime suites.
 These runtime passes do not supply WASM line coverage or prove all causes of

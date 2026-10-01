@@ -35,6 +35,23 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work381 full verification exits 0, including HTTP/3 wrapper and browser JS/WASM
+runtime tests. Fresh native381 Rust coverage runs serialized after verification.
+Commit the verified fragmented-send test increment; no new coverage/mutation
+score or WASM line-coverage claim before matching evidence is validated.
+
+Work381 starts after matching Work380 coverage completes and hashes validate.
+Combined native380 evidence pins 0e5dcc80: core 9,089/10,063 (90.321%), FFI
+5,325/5,798 (91.842%), retaining four unmeasured sources and the core decrease.
+Work380 pushed to both remotes, PR93 updated; publish dry-run passed, CI queued.
+Fast381 running. New fragmented-send fixture checks exact serialized bytes,
+copied-buffer lifetime, transferred ownership, fragment boundaries and recovery
+after rejected arguments across both transports and three serializers. Owned
+buffers are never reused or freed after transfer. Fast381 and six expanded
+native fixtures pass; full verify381 now runs serialized after those tests.
+No new coverage or full-verification success claim yet. No allocator leak
+detection is claimed by these byte/order regressions.
+
 Work380 full verify exits 0, including the formerly failing HTTP/3 wrapper and
 JavaScript/WASM runtime tests. Fresh Rust-only native380 coverage is running
 after verification; preserve its unchanged source/test snapshot. Commit the
