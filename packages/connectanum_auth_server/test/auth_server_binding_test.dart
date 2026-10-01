@@ -42,11 +42,20 @@ void main() {
   });
 
   tearDown(() async {
-    await firstBinding.close();
-    await secondBinding.close();
-    await server.close();
-    AuthenticatorRegistry.clear();
-    AuthSecurityTracker.reset();
+    try {
+      await _expectSuccessfulClose(firstBinding.close);
+    } finally {
+      try {
+        await _expectSuccessfulClose(secondBinding.close);
+      } finally {
+        try {
+          await _expectSuccessfulClose(server.close);
+        } finally {
+          AuthenticatorRegistry.clear();
+          AuthSecurityTracker.reset();
+        }
+      }
+    }
   });
 
   for (final asynchronous in [false, true]) {

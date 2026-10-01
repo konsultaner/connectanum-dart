@@ -60,6 +60,28 @@ void main() {
     ),
   );
 
+  test('closed service rejects HELLO before invoking the clock', () async {
+    final settings = server.settings;
+    await server.close();
+    var clockCalls = 0;
+    server = AuthServer(
+      settings: settings,
+      clock: () {
+        clockCalls++;
+        return now;
+      },
+    );
+    await server.close();
+
+    final response = await server.onHello(hello('already-closed'));
+    expect(response.status, RemoteHelloStatus.failure);
+    expect(response.failure?.message, 'Remote authentication service closed');
+    expect(clockCalls, 0);
+    expect(factory.calls, 0);
+    expect(factory.authenticator.helloCalls, 0);
+    expect(server.pendingAuthenticationCounts, isEmpty);
+  });
+
   test('clock shutdown prevents authentication admission', () async {
     final settings = server.settings;
     await server.close();
@@ -171,6 +193,11 @@ void main() {
     final outer = server.onAuthenticate(authenticate('clock-consume'));
     await _drain();
     provider.complete(_success());
+    expect(
+      nested,
+      isNotNull,
+      reason: 'The injected clock must reenter AUTHENTICATE',
+    );
     expect((await nested!).status, RemoteAuthenticateStatus.success);
     final response = await outer;
     expect(response.status, RemoteAuthenticateStatus.failure);
@@ -214,6 +241,11 @@ void main() {
             return timer;
           },
         ),
+      );
+      expect(
+        nested,
+        isNotNull,
+        reason: 'The injected clock must reenter HELLO',
       );
       expect((await nested!).status, RemoteHelloStatus.challenge);
       expect(outer.status, RemoteHelloStatus.failure);

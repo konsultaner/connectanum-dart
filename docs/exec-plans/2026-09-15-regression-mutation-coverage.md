@@ -35,6 +35,66 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work376 full verification completed with exit 0 in
+`/tmp/connectanum-verify376.log`, including browser JavaScript/WASM tests.
+Mutation source/test hashes match the verified pending snapshot. Runtime tests
+are not WASM line coverage. Bundle the auth CLI/lifecycle implementation now;
+investigate the remaining cleanup ownership issue in a subsequent increment.
+
+Work376 campaign result: complete, baseline/restored baseline exit 0, 312
+generated, 111 compile failures, 201 viable; 177 assertion-only kills, 19 mixed
+outcomes, five survivors. Raw/adjusted runner score 97.512%; conservative
+assertion-only score 88.060%. No equivalence waivers or completion claim.
+Preserve `auth376-component-mutations` under the existing evidence root.
+Next investigate late-provider-error teardown ownership (15 credential errors)
+and the remaining missing-realm/null/double-completion outcomes. Full verify376
+completed against this source/test snapshot.
+
+Work376: Fast376 passes after revalidating stopped campaigns and recovered disk
+space (272 GiB). Native373 remains incomplete at 65 candidates, not running.
+Auth375 completed: 156 assertion-only, 40 mixed, five survivors, 111 compile
+failures. Add explicit reentry assertions and successful-close teardown checks
+with guaranteed remaining cleanup and unchanged timeout behavior. All 122 auth
+tests pass. Full verify376 and isolated native-disabled auth376 mutation
+campaign are running; no new completed score or commit yet.
+
+Work375 pending: A closed-service HELLO regression now asserts no clock/provider
+access or pending state. All 122 auth tests pass. Fresh
+`auth375-component-mutations` is live; the early `_closed` survivor is killed by
+one assertion with zero test errors. Do not attribute the older campaign or
+coverage snapshot to this new test. Remaining release and selection survivors
+still need investigation; no waivers added. Full verification remains serialized
+behind the native campaign.
+
+Work374 pending: 19 auth CLI regressions pass after Fast373, with native builds
+disabled. Cover argument handling, exact config paths, JSON/YAML realm output,
+format/read failures and unexpected errors, preserving the explicit runtime-pending
+placeholder. Analysis is clean; `out/auth374-cli-final-coverage` measures 33/33
+CLI lines only. Add its 100% packaging file gate and expand auth-server mutation
+scope with the entry point plus a focused CLI target. `auth374-cli-mutations`
+completes nine candidates: three compile failures, six viable assertion kills,
+100% raw/adjusted, no waivers/errors/timeouts; baseline/restored tests and input
+hashes match. This is CLI-only evidence. Tooling tests pass (109, one skipped).
+Full verification remains pending; do not commit until serialized verification.
+Fresh full auth-server VM run passes 121 tests, measuring 465/465 library and
+33/33 CLI lines in `out/auth374b-component-coverage/auth-component.info`.
+Initial component attempts hit disk exhaustion; preserve the failures. Remove
+only unused historical incremental compiler caches, preserving raw evidence and
+binaries. `auth374b-component-mutations` completes 312 candidates: 111 compile
+failures, 201 viable, six survivors, 155 assertion-only and 40 mixed
+assertion/test-error kills. Runner score is 97.015% including mixed outcomes;
+strict assertion-only detection is 77.114%, so do not claim clean completion.
+Baseline/restored tests and source/test hashes match. Investigate mixed outcomes
+and all survivors; the first closed-service guard needs clock/request-access
+assertions in addition to the later failure response. Shared runner tooling is
+pinned by live native373 and must remain unchanged. Native373 also contains
+a disk-full failure for lib.rs:97:44; it remains infrastructure failure, not a
+kill or a clean campaign. No completed component mutation claim yet.
+Work373 b1dc47fe is pushed to both remotes and PR #93 updated. Whole-core
+`native373-core-all` is live: successful baseline, 1,939 production mutants,
+pinned native/tool inputs unchanged. No final score. Hosted CI 36478267011 and
+publish dry-run 36478267032 remain queued; strict audit is not green.
+
 Work373 locally verified: Fast373 passes. Add six bounded RawSocket writer tests with
 independent wire-byte expectations, segmented/control/deferred ordering,
 16/24/25 framing, invalid frame/header skipping plus valid sentinel, deferred

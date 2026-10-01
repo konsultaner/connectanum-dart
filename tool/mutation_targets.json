@@ -793,8 +793,12 @@
     "testRoot": "packages/connectanum_core"
   },
   "auth-server": {
-    "sources": ["packages/connectanum_auth_server/lib/src/auth_server.dart", "packages/connectanum_auth_server/lib/src/pending_transaction.dart", "packages/connectanum_auth_server/lib/src/selection.dart", "packages/connectanum_auth_server/lib/src/wamp_procedures_impl.dart"],
+    "sources": ["packages/connectanum_auth_server/bin/auth_server.dart", "packages/connectanum_auth_server/lib/src/auth_server.dart", "packages/connectanum_auth_server/lib/src/pending_transaction.dart", "packages/connectanum_auth_server/lib/src/selection.dart", "packages/connectanum_auth_server/lib/src/wamp_procedures_impl.dart"],
     "tests": ["packages/connectanum_auth_server/test"]
+  },
+  "auth-server-cli": {
+    "sources": ["packages/connectanum_auth_server/bin/auth_server.dart"],
+    "tests": ["packages/connectanum_auth_server/test/auth_server_cli_test.dart"]
   },
   "auth-transactions": {
     "sources": ["packages/connectanum_auth_server/lib/src/pending_transaction.dart", "packages/connectanum_auth_server/lib/src/selection.dart"],

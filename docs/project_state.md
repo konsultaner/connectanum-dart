@@ -1,10 +1,90 @@
 # Project State
 
-Last updated: 2026-09-28
+Last updated: 2026-10-01
 Current branch: `codex/regression-mutation-coverage`
 Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work376 locally verified: `bin/verify` completed with exit 0, including browser
+JavaScript/WASM tests, in `/tmp/connectanum-verify376.log`. These are runtime
+test results, not measured WASM line coverage. Mutation source/test hashes
+match the pending snapshot. Commit the auth CLI/lifecycle regression bundle;
+the cleanup ownership follow-up remains separate.
+
+Work376 mutation campaign completed (exit 0): 312 generated, 111 compile
+failures, 201 viable, 177 assertion-only kills, 19 mixed outcomes and five
+survivors. Baseline and restored baseline pass. Preserve the runner's 97.512%
+raw/adjusted score, but conservative assertion-only detection is 88.060%,
+not component completion. Compared with Work375, 21 mixed outcomes now have
+assertion-only evidence. Remaining mixed logs contain 15 credential-material
+errors, 68 missing-realm errors, 12 null checks and four double-completion
+errors (counts are error events, not mutants). The late-provider-error fixture
+injects an error during teardown even when provider entry was prevented;
+investigate cleanup ownership without hiding production errors. No source/test
+edits occurred during verify376. Hosted CI 36478267011 and
+publish dry-run 36478267032 succeeded for b1dc47fe only, not pending changes.
+
+Work376 in progress: Revalidated processes; native373 is no longer running and
+its manifest remains incomplete after 65 candidates. Preserve its disk-related
+errors and other partial outcomes, not a completed native score. Disk headroom
+is now 272 GiB. Fast376 passes. Auth375 completed with 156 assertion-only kills,
+40 mixed outcomes, five survivors and 111 compile failures (201 viable).
+Add explicit clock reentry assertions before nullable-future dereferences and
+use the existing successful-close oracle in binding teardown, with nested
+finally cleanup and unchanged timeout rethrow. All 122 auth tests pass.
+Full verification runs in `/tmp/connectanum-verify376.log`; the isolated
+native-disabled `auth376-component-mutations` campaign runs separately.
+Changes remain uncommitted pending evidence. Historical live-campaign notes
+below describe their state at the time, not current running processes.
+
+Work375 pending full verification: Add a closed-service HELLO regression that
+asserts no injected-clock/provider access and no pending state. All 122 auth
+tests pass with native builds disabled. Fresh `auth375-component-mutations` is
+running; the previously surviving early `_closed` mutant is now killed by one
+assertion with zero test errors. This individual result is not a completed
+component score. Preserve the older full campaign separately. Source inspection
+identifies remaining release-guard and authenticator-order survivors for further
+investigation; do not waive them without source-pinned proofs.
+
+Work374 pending full verification: Following Fast373, add 19 direct auth CLI
+regressions for help/invalid arguments, JSON/YAML aliases, realm output,
+malformed/unsupported configuration, absent/unreadable files and unexpected
+read errors. Assert exact requested paths outside the CLI catch-all and restore
+exitCode. Keep the runtime-pending placeholder explicit; no service is started.
+Focused tests pass with native builds disabled, analysis is clean, and raw VM
+coverage in `out/auth374-cli-final-coverage` measures the entry point at 33/33.
+This is not refreshed package-wide coverage. Add a 100% packaging file gate and
+include the entry point in auth-server mutation scope, with a focused CLI target.
+Focused `auth374-cli-mutations` completes: nine generated, three compile
+failures, six viable assertion kills (100% raw/adjusted), no waivers, errors or
+timeouts. Baseline/restored tests pass and source/test hashes match. This is
+CLI-only mutation evidence, not the whole auth-server component. Coverage and
+mutation tooling tests pass (109 tests, one skipped). Full verification remains
+pending; leave changes uncommitted until the native campaign permits serialized
+verification.
+The complete auth-server VM suite now passes 121 tests with native builds
+disabled. `out/auth374b-component-coverage/auth-component.info` measures
+465/465 library lines plus 33/33 CLI lines. Initial component coverage and
+mutation attempts failed with disk exhaustion; preserve those failures, not
+assertion credit. Removing only unused historical incremental compiler caches
+restored headroom without deleting source, binary or raw test evidence. A fresh
+`auth374b-component-mutations` completes: 312 generated, 111 compile failures,
+201 viable, six survivors, 155 assertion-only kills and 40 mixed assertion/test
+error outcomes. The runner reports 97.015% by crediting mixed outcomes; retain
+that raw result but do not claim clean completion. Assertion-only detection is
+77.114%. Baseline/restored tests pass and source/test hashes match. Investigate
+all mixed failures and six survivors, starting with the early closed-service
+guard (the later guard masks unwanted clock/request access in existing tests).
+Do not change shared runner tooling while its hash is pinned by native373.
+The live native campaign
+also records a disk-full failure for the header-limit mutant at lib.rs:97:44;
+retain this infrastructure error and do not present the campaign as clean.
+Work373 commit b1dc47fe is pushed to both remotes and PR #93 is updated.
+The complete `native373-core-all` campaign is live after a successful baseline,
+with 1,939 production mutants; no completed component score yet. Its pinned
+native/tool inputs remain unchanged. Strict hosted audit is non-green:
+CI 36478267011 and publish dry-run 36478267032 are queued at that commit.
 
 Work373 locally verified: Fast373 passes before changes. Six bounded loopback writer
 regressions assert segmented/control/deferred byte order, classic/upgraded
