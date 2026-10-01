@@ -6,6 +6,21 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work384 in progress: Work383 fb9aedce is pushed to both remotes and PR93 updated.
+Full verify383 passes. Fresh Rust-only native383 collection passes: core
+9,049/10,063 (89.923%), FFI 5,175/5,798 (89.255%); no refreshed combined lane.
+Exact-head CI36895450044 and publish dry-run36895449940 remain queued at last
+check; strict audit is not green. Fast384 passes before new native users.
+Implement deterministic whole-native batches and an independent full-inventory
+audit, retaining raw reports, snapshot hashes, baseline identities and exact
+partition coverage. Native mutation-tool regressions pass, including all ten
+new tests and real two-crate Cargo batch collection/merge with both workspace
+test binaries in each baseline. Full verification exits 0 in
+`/tmp/connectanum-verify384.log`, including JS/WASM runtime tests.
+Commit the verified batch tooling before collecting production batches;
+no production-component mutation score is established by the tiny fixture.
+Optional GLM review was unavailable (local endpoint connection refused).
+
 Work383 in progress: native382 plus all 22 nativeffi382 collection steps complete
 and hashes validate. `native382-combined` pins cfbe049c: core 9,089/10,063
 (90.321%), FFI 5,381/5,798 (92.808%), four unmeasured sources retained.

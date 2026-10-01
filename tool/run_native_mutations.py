@@ -16,7 +16,7 @@ from run_dart_mutations import run
 
 FIXTURES = ('native/bench/bench_tls.crt', 'native/bench/bench_tls.key')
 TOOL_INPUTS = ('run_native_mutations.py', 'native_mutations.py',
-               'native_coverage.py', 'run_dart_mutations.py')
+               'native_coverage.py', 'run_dart_mutations.py', 'native_mutation_batches.py')
 TARGETS = {
     'core-rawsocket': ('ct_core/src/rawsocket.rs', 'rawsocket::tests'),
     'core-wamp': ('ct_core/src/wamp.rs', 'wamp::'),
@@ -28,6 +28,17 @@ TARGETS = {
     'ffi-all': ('ct_ffi/**', ''),
 }
 WHOLE_COMPONENTS = frozenset(('core-all', 'ffi-all'))
+
+
+def select_batch(inventory, index, count):
+    if (type(index) is not int or type(count) is not int
+            or not 0 <= index < count <= len(inventory)):
+        raise ValueError('Require a nonempty batch with 0 <= index < count <= inventory size')
+    names = [item['name'] for item in inventory]
+    identities = [native_mutations.identity(item) for item in inventory]
+    if len(set(names)) != len(names) or len(set(identities)) != len(identities):
+        raise ValueError('Duplicate full inventory name or identity')
+    return sorted(inventory, key=native_mutations.identity)[index::count]
 
 
 def partition_inventory(inventory, scope):
@@ -159,8 +170,12 @@ def prepare_inventory(work, output, scope, target):
     return partition
 
 
-def collect(root, output, analyzer, target='core-rawsocket'):
+def collect(root, output, analyzer, target='core-rawsocket', batch=None):
     target_options(target)
+    if batch is not None and (target not in WHOLE_COMPONENTS or len(batch) != 2
+            or any(type(item) is not int for item in batch)
+            or not 0 <= batch[0] < batch[1]):
+        raise ValueError('Batches require a whole component and valid zero-based index/count')
     output.mkdir(parents=True, exist_ok=False)
     scope = native_coverage.snapshot(root, native_coverage.ROOTS, analyzer)
     (output / 'source-scopes.json').write_text(json.dumps(scope, indent=2) + '\n')
@@ -192,11 +207,28 @@ def collect(root, output, analyzer, target='core-rawsocket'):
                             filteredInventorySha256=native_coverage.digest(output / 'filtered-inventory.json'))
         campaign, restored = commands(work, output, target,
                                       partition['excluded'] if partition else ())
-        campaign_timeout = 86400 if target in WHOLE_COMPONENTS else 14400
+        expected_inventory = partition['production'] if partition else None
+        if batch is not None:
+            selected = select_batch(expected_inventory, *batch)
+            expression = '^(?:' + '|'.join(re.escape(item['name']) for item in selected) + ')$'
+            campaign[campaign.index('--'):campaign.index('--')] = ['--re', expression]
+            listed = subprocess.check_output(
+                campaign[:campaign.index('--')] + ['--list', '--json'],
+                cwd=work, text=True, timeout=120)
+            selected_path = output / 'batch-inventory.json'
+            selected_path.write_text(listed)
+            if sorted(map(native_mutations.identity, json.loads(listed))) != sorted(
+                    map(native_mutations.identity, selected)):
+                raise RuntimeError('Selected batch differs from deterministic inventory partition')
+            expected_inventory = selected
+            manifest.update(batch={'index': batch[0], 'count': batch[1]},
+                            batchInventorySha256=native_coverage.digest(selected_path))
+        campaign_timeout = 86400 if target in WHOLE_COMPONENTS and batch is None else 14400
         manifest.update(campaignCommand=campaign, restoredCommand=restored)
         manifest['campaignTimeoutSeconds'] = campaign_timeout
         save()
-        print(f'Running complete isolated {target} mutation inventory.', flush=True)
+        label = f'batch {batch[0]}/{batch[1]}' if batch is not None else 'complete inventory'
+        print(f'Running isolated {target} mutation {label}.', flush=True)
         code, log = run(campaign, work, campaign_timeout)
         (output / 'campaign.log').write_text(log)
         manifest['campaignExitCode'] = code
@@ -211,8 +243,10 @@ def collect(root, output, analyzer, target='core-rawsocket'):
                     raise RuntimeError('Pinned inventory evidence changed during campaign')
             actual = json.loads((output / 'mutants.out/mutants.json').read_text())
             if sorted(map(native_mutations.identity, actual)) != sorted(
-                    map(native_mutations.identity, partition['production'])):
+                    map(native_mutations.identity, expected_inventory)):
                 raise RuntimeError('Executed inventory differs from pinned production inventory')
+            if batch is not None and native_coverage.digest(output / 'batch-inventory.json') != manifest['batchInventorySha256']:
+                raise RuntimeError('Pinned batch inventory changed during campaign')
         verify_inputs(work, hashes)
         verify_inputs(root, hashes)
         code, log = run(restored, work, 180)
@@ -236,6 +270,8 @@ def collect(root, output, analyzer, target='core-rawsocket'):
         report.update(scopeSha256=native_coverage.digest(output / 'source-scopes.json'),
                       toolHashes=tool_hashes,
                       restoredBaselineLogSha256=native_coverage.digest(output / 'restored-baseline.log'))
+        if batch is not None:
+            report.update(batch=manifest['batch'], wholeComponentComplete=False)
         (output / 'audited-results.json').write_text(json.dumps(report, indent=2) + '\n')
         manifest.update(complete=True, evidenceClean=report['evidenceClean'])
         save()
@@ -250,7 +286,12 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--analyzer', type=Path, required=True)
     parser.add_argument('--target', choices=tuple(TARGETS), default='core-rawsocket')
+    parser.add_argument('--batch', nargs=2, type=int, metavar=('INDEX', 'COUNT'),
+                        help='Zero-based deterministic whole-component batch; retain each output separately')
     args = parser.parse_args()
+    if args.batch is not None:
+        return collect(native_coverage.REPO, args.output.resolve(), args.analyzer.resolve(),
+                       args.target, batch=args.batch)
     return collect(native_coverage.REPO, args.output.resolve(), args.analyzer.resolve(), args.target)
 
 

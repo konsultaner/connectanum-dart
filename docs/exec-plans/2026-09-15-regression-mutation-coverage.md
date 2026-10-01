@@ -35,6 +35,40 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work384: implement optional zero-based `--batch INDEX COUNT` collection for
+whole native components only, with deterministic disjoint selection and the
+unchanged workspace test suite. Retain the full production inventory and each
+batch's selected/executed inventory independently. `native_mutation_batches.py`
+reaudits raw logs and restored baselines, checks current source/test/tool/AST
+identity and exact whole inventory union, and only passes clean >=95% results.
+Partial reports explicitly do not establish whole-component completion.
+Batch timeout is four hours; rerun interrupted batches into fresh directories,
+never overwrite raw evidence. Fast384 passes; native mutation-tool regressions
+and ten new tests pass, including real two-crate Cargo collection/merge with
+the identical workspace baseline in both batches. CLI tests enforce clean
+>=95% scores and immutable output; audit tests reject newly added source files.
+Full verify384 exits 0, including JS/WASM runtime suites. Local review finished; its alleged absent tool
+pins, zero-denominator crash and uneven-partition issue are contradicted by
+hash checks, Python short-circuiting and explicit regression tests.
+Optional heavyweight GLM review could not connect to its local endpoint; no
+heavyweight-review success is claimed. Commit verified tooling before starting
+the immutable production batch snapshot. Preserve all interrupted older runs.
+Work383 pushed as fb9aedce; fresh
+Rust-only native383 is core 9,049/10,063 and FFI 5,175/5,798, not combined data.
+
+Reproduction interface (use fresh output directories and identical snapshots):
+
+```sh
+bin/collect-native-mutations --target core-all --batch 0 32 --output out/native-batches-core/batch-00
+python3 tool/native_mutation_batches.py --analyzer out/rust-coverage-scope-target/debug/connectanum-coverage-scope --output out/native-batches-core/combined.json out/native-batches-core/batch-*
+```
+
+Collect every index 0 through 31 serially before the second command can pass.
+The same interface supports `ffi-all`. Keep interrupted attempts, but retry into
+fresh directories and explicitly select the completed attempts for the audit;
+never use a glob that includes duplicate indices. Production batches have not
+yet been collected with this implementation.
+
 Work383 follows validated native382-combined at cfbe049c: core 9,089/10,063
 (90.321%), FFI 5,381/5,798 (92.808%), four unmeasured sources retained.
 Fast383 runs before native tests. Add encrypted-file FFI negative/recovery
