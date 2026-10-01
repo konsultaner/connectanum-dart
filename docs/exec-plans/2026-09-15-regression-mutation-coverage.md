@@ -35,6 +35,25 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work393: Native392 combined collection validates at 7202718b: core
+9,185/10,063 and FFI 5,444/5,798 (+53 covered FFI production lines versus390),
+with four unmeasured sources unchanged. Fast393 passes before changes.
+Reproduce malformed WebSocket response status1010 accepted as success, then
+require the delimiter after exact101. Four bounded joined TCP tests pass,
+covering response rejection and valid request/response compatibility. Full
+verify393 exits 0 in `/tmp/connectanum-verify393.log`, including JS/WASM runtime
+suites; no refreshed score for the changed snapshot.
+
+Protocol basis for Work393: [RFC6455 section4.1](https://datatracker.ietf.org/doc/html/rfc6455#section-4.1)
+requires status101 for upgrade success. [RFC9112 section4](https://www.rfc-editor.org/rfc/rfc9112#section-4)
+defines a three-digit status followed by a space even without a reason phrase.
+The prior prefix check admitted1010/101xyz and omitted-delimiter forms. Keep
+existing HTTP/1.0 response compatibility, case-insensitive headers, connection
+token lists, and exact WAMP subprotocol negotiation; this fix changes no WAMP
+message or authentication semantics. Regression evidence:
+`/tmp/connectanum-393-repro.log` fails with `Ok(())` before the production fix;
+`/tmp/connectanum-393-handshake.log` passes afterward.
+
 Work392: Fast392 passes before changes. Add HTTP body FFI boundary/lifecycle
 assertions: invalid handles and null outputs, exact inline slices, saturating
 read lengths, unchanged outputs on errors, idempotent release, released-handle

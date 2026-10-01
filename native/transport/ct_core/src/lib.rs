@@ -6011,6 +6011,9 @@ mod rawsocket_writer_tests;
 mod websocket_writer_tests;
 
 #[cfg(test)]
+mod websocket_client_handshake_tests;
+
+#[cfg(test)]
 mod http1_response_tests;
 #[cfg(test)]
 mod http_response_headers_tests;
@@ -6735,7 +6738,7 @@ async fn perform_websocket_client_handshake(
             "websocket handshake response missing status line",
         ))
     })?;
-    if !status_line.starts_with("HTTP/1.1 101") && !status_line.starts_with("HTTP/1.0 101") {
+    if !status_line.starts_with("HTTP/1.1 101 ") && !status_line.starts_with("HTTP/1.0 101 ") {
         return Err(Error::Io(io::Error::new(
             io::ErrorKind::ConnectionRefused,
             format!("websocket upgrade failed: {status_line}"),

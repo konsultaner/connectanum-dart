@@ -6,6 +6,17 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work393: Matching native392 collections validate at 7202718b: core
+9,185/10,063 (91.275%), FFI 5,444/5,798 (93.894%), four unmeasured sources
+retained. Fast393 passes. Reproduce a native WebSocket client accepting
+`HTTP/1.1 1010 Switching Protocols` as a successful upgrade; the new assertion
+fails before the fix. Require a space after the exact 101 status code, retaining
+HTTP/1.0 compatibility and empty reason phrases. Four bounded real-TCP tests
+cover malformed statuses, required headers, accept/protocol mismatches, UTF-8,
+truncated responses, reserved request headers, and valid upgrades. All pass.
+Full verify393 exits 0 in `/tmp/connectanum-verify393.log`, including JS/WASM
+runtime suites. No new coverage or mutation score claimed for this fix.
+
 Work392: Work391 is pushed to both remotes as bb406a83; exact-head hosted CI
 and publish dry-run remain queued, and strict audit391 exits 1. Fast392 passes.
 Add HTTP body FFI regressions for invalid/null arguments, unchanged error
