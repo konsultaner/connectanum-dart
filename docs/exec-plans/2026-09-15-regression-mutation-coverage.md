@@ -35,6 +35,46 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work377 auth campaign completed: 191/201 assertion-only kills (95.025%), five
+mixed outcomes, five survivors, 111 compile failures; no waivers. Raw/adjusted
+runner score remains 97.512%. Both baselines and all source/test hash checks
+pass. Fresh VM coverage is 498/498 library/CLI lines (122 passing tests);
+two remaining library files are exports only. Evidence summary and raw LCOV:
+`out/auth377-component-coverage`; raw mutation report:
+`out/regression-coverage-2026-09-15/auth377-component-mutations`.
+Numerical targets are met for this scope. Full verify377 subsequently completed
+with exit 0, including JS/WASM runtime tests, and the security-survivor review
+is recorded below. No whole-milestone or WASM line-coverage completion claim.
+
+Work377 security-survivor investigation (no exclusions or waivers):
+the source/test hashes in the pinned auth377 report identify this review's
+snapshot. `_release` has only two references: `_finish` when not busy and
+`_run`'s finally when finished. `_finish` marks finished before cancellation
+or external cleanup; subsequent finish calls return. Public AUTHENTICATE
+requires challenge phase and checks it again after the reentrant clock.
+HELLO rejects an occupied ID; only `_release` removes it.
+
+| Survivor | Investigation |
+| --- | --- |
+| `8814d1f188ef52009319` (release guard false) | No second release entry found through public calls: busy finish defers to the active work finally; idle finish releases directly and later finish returns. Existing busy/idle cleanup tests reenter abort and close and assert one abort plus retained capacity until cleanup resolves. |
+| `618741c6de1e7931c5de` (releasing assignment false) | Same call-site/state review; only the release-entry guard reads this flag. No observable public counterexample found, but retained as an unwaived survivor. |
+| `7a5065590d06977015ce` (terminal-failure guard true) | Failure paths are unchanged. On successful authentication the absent failure's reason throws before onAbort is invoked, inside the cleanup catch, then reaches the same finally. This is not credited as an assertion kill; no credential disclosure or extra provider callback found. |
+| `29c07708f9a2de03596e` (map identity guard true) | Only HELLO inserts and release removes. HELLO cannot replace the occupied ID during an awaited cleanup. Existing transaction-ID reuse test verifies refusal before cleanup and successful reuse afterward. No replacement-state deletion found. |
+| `33646fef253d12eefb8d` (client-order guard true) | The sole caller supplies a fresh ordinary list from `_extractClientMethods`. Adding an empty list adds zero inner-loop iterations before the unchanged realm/anonymous orders. Existing preference tests include empty client/realm lists. No auth-method ordering bypass found. |
+
+These findings do not remove mutants from the denominator or establish a
+general proof for future source changes. GLM review was unavailable; the Qwen
+counterexample search supplied no independent proof (it cited the guard under
+mutation). The above assessment relies on direct references, state transitions
+and the existing public regression assertions instead.
+
+Work377: Fast377 and all 122 auth tests pass. Correct late-provider-error
+fixture teardown ownership without removing the main-path late-error injection
+or assertions. Full verify377 and whole-component auth377 mutations are live.
+Three previously mixed mutants now fail by assertions only; preserve partial
+results without claiming a completed score. Work376 is pushed as 599aac6d to
+both remotes; publish dry-run passed, CI queued, strict audit not yet green.
+
 Work376 full verification completed with exit 0 in
 `/tmp/connectanum-verify376.log`, including browser JavaScript/WASM tests.
 Mutation source/test hashes match the verified pending snapshot. Runtime tests

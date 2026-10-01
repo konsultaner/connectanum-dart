@@ -6,6 +6,38 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work377 locally verified: full `bin/verify` exited 0, including JS/WASM runtime
+tests, in `/tmp/connectanum-verify377.log`. Fresh auth VM library/CLI coverage
+is 498/498 and conservative mutation detection is 191/201 (95.025%). All five
+survivors have individual source/call-site investigation in the active plan;
+none is waived and no public security bypass was found. Five mixed outcomes
+remain uncredited. Commit this snapshot with the lifecycle cleanup fix; no
+whole-milestone or WASM line-coverage completion claim.
+
+Work377 completed auth evidence: the whole campaign exits 0 with 312 generated,
+111 compile failures and 201 viable mutants. There are 191 assertion-only
+kills (95.025%), five mixed outcomes and five survivors, with no waivers.
+Preserve raw/adjusted runner 97.512% separately. Both baselines pass and all
+source/test hashes match. Fresh VM coverage passes 122 tests and measures
+465/465 library plus 33/33 CLI lines; the other two lib files only export APIs.
+`out/auth377-component-coverage/evidence-summary.json` pins the raw LCOV and
+mutation reports. This meets numerical auth VM/lib/CLI targets but does not
+complete the security-survivor review or broader milestone. Full verify377
+remains running; do not commit yet. Remaining mixed errors are missing realms,
+null checks and double completion, not credential errors.
+
+Work377 in progress: Fast377 passes. In the late-provider-error regression,
+fallback teardown now completes an unused future successfully instead of
+injecting an unobserved credential error when provider entry was prevented.
+The main path still injects its error after abort and retains all assertions;
+all 122 auth tests pass. Fresh `auth377-component-mutations` and full
+`/tmp/connectanum-verify377.log` are running. Three prior mixed outcomes
+(`91fe47c65d6b4db125ff`, `f612e43d807ac8e1c230`, `f970850081c3f252fa03`)
+now have assertion-only failures with zero test errors; no completed score yet.
+Work376 is committed as 599aac6d and pushed to both remotes, with PR93 updated.
+Its publish dry-run 36867156955 passed; CI36867156965 remains queued at the
+last direct check. Strict audit376 exited 1 for incomplete hosted evidence.
+
 Work376 locally verified: `bin/verify` completed with exit 0, including browser
 JavaScript/WASM tests, in `/tmp/connectanum-verify376.log`. These are runtime
 test results, not measured WASM line coverage. Mutation source/test hashes

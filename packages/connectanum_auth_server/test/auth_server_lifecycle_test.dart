@@ -1050,7 +1050,9 @@ void main() {
       final pendingHello = Completer<AuthResult>();
       addTearDown(() async {
         if (!pendingHello.isCompleted) {
-          pendingHello.completeError(StateError('credential material'));
+          // A failed entry assertion may leave this future without a listener.
+          // Inject the late error only on the verified path below.
+          pendingHello.complete(_success());
         }
         await _drain();
       });
