@@ -6,6 +6,41 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work378 matching evidence completed: all 22 Dart-to-native collection steps
+exit 0. Source scopes, source/test inputs, library and profile hashes validate.
+`out/regression-coverage-2026-09-15/native378-combined` preserves both raw lanes
+and a combination manifest: core 9,094/10,063 (90.371%), FFI 5,219/5,798
+(90.014%). One core and three FFI unmeasured sources remain visible. This is
+line coverage, not a completed native mutation campaign. Full verify378 passes;
+the writer-test increment is ready to commit. Prior CI36867150635 now has only
+the MCP mutation gate running; latest CI remains queued, not a green audit.
+
+Work378 verification completed: `/tmp/connectanum-verify378.log` exits 0,
+including JavaScript/WASM runtime tests. Matching `nativeffi378-current`
+Dart-to-native coverage is now running, serialized after verification, in
+`/tmp/connectanum-nativeffi378.log`. Do not combine older FFI evidence with
+the new writer-test snapshot. Source/tests remain unchanged and uncommitted
+pending that collection. Next measured FFI gaps are legacy invocation/event
+forwarding wrappers and fragmented sends; preserve wide-handle checks when
+extending their real-connection fixtures. Hosted preceding CI36867150635 had
+only MCP mutation and Full Verify still active at last check; no failed jobs
+were returned. Latest CI36870939558 remains queued, not a green audit.
+
+Work378 in progress: Fast378 passes. Add six bounded TCP-loopback WebSocket
+writer regressions with independent wire/mask decoding: serializer/control
+opcodes, discarded unknown frames, explicit versus automatic close, deferred
+preparation/mismatch failure, file subranges/padding/mask continuity, multi-read
+4 MiB file payloads, and truncation/length mismatch suppressing later frames
+and close. Share only the test-owned temporary-file fixture; no production
+behavior changes. All six and the 310-test serial core suite pass. Fresh
+`native378-current` Rust-only coverage passes (including 195 FFI tests): core
+9,038/10,063 (89.814%), up 27 lines from the prior Rust-only run; FFI remains
+4,882/5,798 (84.201%). Keep one core and three FFI unmeasured sources visible.
+This is not refreshed combined Dart-FFI coverage or a mutation score.
+Full `/tmp/connectanum-verify378.log` is running; changes remain uncommitted.
+Prior Work377 is pushed as 881e17f2 to both remotes and PR93 is updated.
+Publish dry-run 36870939544 passed; CI36870939558 remains queued at last check.
+
 Work377 locally verified: full `bin/verify` exited 0, including JS/WASM runtime
 tests, in `/tmp/connectanum-verify377.log`. Fresh auth VM library/CLI coverage
 is 498/498 and conservative mutation detection is 191/201 (95.025%). All five

@@ -35,6 +35,35 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work378 matching native coverage completed: all 22 FFI collection steps exit 0.
+Source/test inputs, AST scopes, library and raw profile hashes validate against
+the unchanged writer-test snapshot. `native378-combined` retains raw lane
+reports and combination provenance under `out/regression-coverage-2026-09-15`.
+Combined core is 9,094/10,063 (90.371%); FFI is 5,219/5,798 (90.014%). Retain
+one core and three FFI unmeasured sources; no native mutation completion claim.
+Full verify378 passed. Commit the implementation/test increment with this
+evidence, then extend real-connection legacy forwarding and fragmented sends.
+
+Work378 full verify completed with exit 0, including JS/WASM runtime tests.
+Matching nativeffi378 coverage is now running after native serialization;
+validate input/source/library hashes before combining it with native378.
+Next FFI coverage candidates: legacy invocation/event forwarding wrappers
+and fragmented sends, tested over real connections alongside retained wide
+handle assertions. No new combined coverage or mutation score yet.
+
+Work378: Fast378 passes before changes. Six new bounded WebSocket writer
+regressions check independent wire opcodes/masking, close ownership, deferred
+failures, file subranges/Base64 padding, mask continuity across multiple reads,
+and truncation/length-mismatch termination. All six and 310 serial core tests
+pass. Rust-only `native378-current` passes: core 9,038/10,063 (89.814%), FFI
+4,882/5,798 (84.201%), retaining all unmeasured sources. No refreshed combined
+FFI or mutation result claimed. Full verify378 is running; preserve this
+snapshot until terminal. Review's partial-emission concern contradicts deferred
+resolution before output; file failure tests deliberately expect partial bytes.
+Temporary-file paths are used by Drop; truncated complete-frame assertions are
+intentional test failures. Prior Work377 is pushed as 881e17f2 to both remotes;
+publish dry-run passed and CI remains queued, so hosted audit is not green.
+
 Work377 auth campaign completed: 191/201 assertion-only kills (95.025%), five
 mixed outcomes, five survivors, 111 compile failures; no waivers. Raw/adjusted
 runner score remains 97.512%. Both baselines and all source/test hash checks

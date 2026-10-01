@@ -80,13 +80,13 @@ fn wire(kind: u8, payload: &[u8], upgraded: bool) -> Vec<u8> {
     bytes
 }
 
-struct FixtureFile {
-    file: Arc<File>,
+pub(super) struct FixtureFile {
+    pub(super) file: Arc<File>,
     path: std::path::PathBuf,
 }
 
 impl FixtureFile {
-    fn new(bytes: &[u8]) -> Self {
+    pub(super) fn new(bytes: &[u8]) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
         assert!(nonce.is_ok());

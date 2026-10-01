@@ -6008,6 +6008,9 @@ mod rawsocket_reader_tests;
 mod rawsocket_writer_tests;
 
 #[cfg(test)]
+mod websocket_writer_tests;
+
+#[cfg(test)]
 mod http1_response_tests;
 #[cfg(test)]
 mod http_response_headers_tests;
