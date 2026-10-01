@@ -1289,11 +1289,15 @@ mod tests {
         let mut client = TcpStream::connect(addr).await.unwrap();
         send_rawsocket_handshake(&mut client, 16).await;
         let mut response = [0u8; 4];
-        let read = client.read_exact(&mut response).await;
+        let read = tokio::time::timeout(Duration::from_secs(5), client.read_exact(&mut response))
+            .await
+            .expect("RawSocket negotiation response timed out");
         assert!(read.is_ok());
         assert_eq!(response[0], RAWSOCKET_MAGIC);
 
-        let received = rx.await;
+        let received = tokio::time::timeout(Duration::from_secs(5), rx)
+            .await
+            .expect("RawSocket negotiation completion timed out");
         assert!(received.is_ok());
         let negotiated = received.unwrap();
         assert!(negotiated.is_ok());

@@ -35,6 +35,37 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work385 update: Fast385 and focused HTTP1 auth/RawSocket negotiation tests pass.
+Bound HTTP client IO and RawSocket response/completion waits. Preserve generic
+deadline failure diagnostics (not mutation assertion kills). On auth rejection,
+inspect the application handshake before socket disposal and release an
+unexpected handle, then shut down before assertions. Connection IDs alone are
+not unauthorized application admission. Diagnostic isolated replay under
+`out/regression-coverage-2026-09-15/native385-auth-probe3` has a passing baseline
+and catches auth removal with `assertion failed: !admitted` in 3.01s; no whole
+component claim. First two probes failed baseline setup and remain retained.
+Local review completed; its shutdown-order objection contradicts the actual
+ordering (shutdown status assertion is last; response bytes are owned).
+Full verify385 exits 0 (`/tmp/connectanum-verify385.log`), including JS/WASM
+runtime suites. Streaming-body and other timeout cases remain open. Hosted
+checks on preceding 331b65d8 remain queued, not failed or verified green.
+
+Work385: native384 batch00 completes at331b65d8 with restored baseline exit0
+and pinned evidence validated. Report retains 61 outcomes: 24 assertion kills,
+5 survivors, 22 errors, 5 compile failures, 5 timeouts. Strict 24/56=42.857%
+is batch-only and evidenceClean=false; no complete-component claim or waivers.
+Before collecting other batches, harden bounded network test exchanges and
+failure cleanup. Timeout mutants include string-header transport auth removal,
+HTTP body total-length subtraction, fake successful IoStream writes, empty
+HTTP target parsing and reversed header-length bounds. Generic unwrap/custom
+panic diagnostics remain uncredited; notably TLS reload already uses assert!
+but its custom message lacks the classifier's standard assertion prefix.
+Survivors identify missing successful-write tracker wrapper coverage, one
+nonempty WebSocket segment among empty segments, standard RawSocket length
+middle-byte coverage, a metrics equality candidate (not waived), and a kTLS
+candidate requiring platform-specific investigation. Preserve batch00 raw
+evidence; any changed test snapshot requires fresh subsequent campaigns.
+
 Work384: implement optional zero-based `--batch INDEX COUNT` collection for
 whole native components only, with deterministic disjoint selection and the
 unchanged workspace test suite. Retain the full production inventory and each

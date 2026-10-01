@@ -1557,31 +1557,49 @@ fn http_transport_auth_rejects_bearerless_http1_route() {
     assert!(port > 0);
 
     let rt = TokioRuntime::new().unwrap();
-    let response = rt.block_on(async move {
-        let addr = format!("127.0.0.1:{}", port);
-        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
-        stream
-            .write_all(b"GET /secure HTTP/1.1\r\nHost: localhost\r\n\r\n")
-            .await
-            .unwrap();
-        stream.shutdown().await.unwrap();
-        let mut response = Vec::new();
-        stream.read_to_end(&mut response).await.unwrap();
-        response
+    let exchange = rt.block_on(async move {
+        tokio::time::timeout(Duration::from_secs(5), async move {
+            let addr = format!("127.0.0.1:{}", port);
+            let mut stream = tokio::net::TcpStream::connect(addr).await?;
+            stream
+                .write_all(b"GET /secure HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .await?;
+            stream.shutdown().await?;
+            let mut response = Vec::new();
+            let read =
+                tokio::time::timeout(Duration::from_secs(3), stream.read_to_end(&mut response))
+                    .await;
+            // Inspect admission before dropping the socket can remove the connection.
+            let connection = ct_poll_connection(listener_id);
+            let handshake = if connection > 0 {
+                ct_connection_take_http_handshake(connection)
+            } else {
+                0
+            };
+            let admitted = handshake > 0;
+            if admitted {
+                ct_http_handshake_release(handshake);
+            }
+            Ok::<_, std::io::Error>((admitted, read, response))
+        })
+        .await
     });
+    let shutdown = ct_shutdown();
+    let (admitted, read, response) = exchange
+        .expect("HTTP auth exchange timed out")
+        .expect("HTTP auth exchange IO failed");
+    assert!(!admitted);
+    // A deadline alone is not a mutation assertion kill.
+    read.expect("HTTP auth response timed out")
+        .expect("HTTP auth response IO failed");
     let response_text = String::from_utf8_lossy(&response);
-    assert!(
-        response_text.starts_with("HTTP/1.1 401 Unauthorized"),
-        "unexpected response: {}",
-        response_text
+    assert_eq!(
+        response_text.lines().next(),
+        Some("HTTP/1.1 401 Unauthorized")
     );
-    assert!(
-        response_text.contains("WWW-Authenticate: Bearer"),
-        "unexpected response: {}",
-        response_text
-    );
+    assert!(response_text.contains("WWW-Authenticate: Bearer"));
 
-    assert_eq!(ct_shutdown(), SUCCESS);
+    assert_eq!(shutdown, SUCCESS);
 }
 
 #[test]

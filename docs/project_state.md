@@ -6,6 +6,34 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work385 update: Fast385 passes. HTTP1 bearerless rejection now bounds client IO,
+checks that no protected application handshake is exposed while the socket is
+still alive, releases any unexpected handshake, and shuts down before assertions.
+Connection admission alone is not an auth violation: HTTP connections are
+reported before route authorization. RawSocket negotiation response/completion
+waits are bounded; deadline panics remain uncredited mutation failures.
+Both focused tests pass. Isolated `native385-auth-probe3` replays the prior auth
+removal mutant: baseline passes and `assertion failed: !admitted` fires in 3.01s.
+This is diagnostic single-mutant evidence, not a component score. Earlier probe
+attempts retain feature-selection and missing-fixture baseline failures.
+Full verify385 exits 0 in `/tmp/connectanum-verify385.log`, including browser
+JavaScript/WASM runtime suites. Commit this verified increment; streaming-body
+and other timeout cases remain open. Exact-head hosted CI/dry-run for 331b65d8
+remain queued with no assigned runners; no hosted-green claim.
+
+Work385 starts from completed native384 core batch 0/32 at 331b65d8. The
+collector and restored baseline complete; strict evidence is not clean:
+61 generated, 5 compile failures, 24 assertion kills, 5 survivors, 22 errors,
+5 timeouts; 24/56 viable = 42.857% for this batch only. Full 1,939-mutant
+component remains unmeasured. Raw evidence is preserved under
+`out/regression-coverage-2026-09-15/native384-core-batches/batch-00`.
+Prioritize bounded native test exchanges and cleanup before more batches:
+HTTP1 auth rejection, streaming-body handshake, RawSocket negotiation and HTTP
+header/target parsing hang under mutants. Preserve protocol assertions and do
+not count deadline expiration itself as a kill. Tests must assert bounded
+behavior explicitly. Native384 tools are pushed to both remotes; full verify384
+passed; hosted exact-head CI/dry-run remained queued at last check.
+
 Work384 in progress: Work383 fb9aedce is pushed to both remotes and PR93 updated.
 Full verify383 passes. Fresh Rust-only native383 collection passes: core
 9,049/10,063 (89.923%), FFI 5,175/5,798 (89.255%); no refreshed combined lane.
