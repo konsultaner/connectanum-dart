@@ -6,6 +6,25 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work387: Work386 pushed both remotes as 5fa66ef0; exact-head CI36914585747 and
+publish dry-run36914585556 remain queued (audit386 returned stale older runs).
+Fast387 passes. Isolated WebSocket parser replay terminates in 5.07s with its
+existing generic connection deadline: prior last-test output did not prove a
+WebSocket fixture hang. HTTP metadata fixture had a genuine unbounded poll;
+replace it with bounded helpers, retain the client through assertions, and
+release handles/shut down before propagating failures. Add real TCP HTTP2
+wrapper assertions: reads/empty writes/flush/shutdown preserve pending headers,
+nonempty writes drain them, and peer bytes match independently.
+Native workspace/all-targets passes (314 core/195 FFI). Diagnostic
+`native387-regression-probe` completes all three candidates: tracker removal is
+assertion-only; parser cases are mixed/uncredited and finish in ~76s/~111s.
+Raise whole-workspace mutation test allowance from 90s to 180s to retain full
+bounded-failure diagnostics; focused budgets and scoring remain unchanged.
+Command regression fails first at 90s, then mutation-tool suite passes at 180s.
+Full verify387 exits 0 in `/tmp/connectanum-verify387.log`, including JS/WASM
+runtime suites. Commit this verified increment, then refresh native coverage
+before choosing the next largest measured gaps. No new coverage percentage.
+
 Work386: Work385 is pushed to both remotes as 10500eb7; strict audit385 remains
 non-green because current-head CI36909456042 and dry-run36909456099 are queued.
 Fast386 passes. Add RawSocket literal length/header boundaries and real-wire

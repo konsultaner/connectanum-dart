@@ -1324,145 +1324,162 @@ fn http_handshake_surfaced_via_ffi() {
     assert!(port > 0);
 
     let rt = TokioRuntime::new().unwrap();
-    rt.block_on(async move {
-        let addr = format!("127.0.0.1:{}", port);
-        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
-        stream
+    let mut handle = 0;
+    let mut body_handle = 0;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _client = rt
+            .block_on(async move {
+                tokio::time::timeout(Duration::from_secs(5), async move {
+                    let addr = format!("127.0.0.1:{}", port);
+                    let mut stream = tokio::net::TcpStream::connect(addr).await?;
+                    stream
             .write_all(b"GET /health?check=true HTTP/1.1\r\nHost: localhost\r\nX-Test: ffi\r\n\r\n")
-            .await
-            .unwrap();
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    });
+            .await?;
+                    Ok::<_, std::io::Error>(stream)
+                })
+                .await
+            })
+            .expect("HTTP metadata client timed out")
+            .expect("HTTP metadata client IO failed");
 
-    let connection_id = ct_poll_connection(listener_id);
-    assert!(connection_id > 0);
-    assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
+        let connection_id = wait_for_connection(listener_id);
+        assert_eq!(ct_connection_protocol(connection_id), PROTOCOL_HTTP);
 
-    let handle = loop {
-        let handle = ct_connection_take_http_handshake(connection_id);
-        if handle > 0 {
-            break handle;
+        handle = wait_for_http_handshake(connection_id);
+
+        // No additional requests should be pending yet.
+        assert_eq!(ct_connection_take_http_handshake(connection_id), 0);
+
+        let mut info = CtHttpHandshakeInfo::default();
+        assert_eq!(
+            ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
+            SUCCESS
+        );
+
+        unsafe {
+            let method =
+                std::str::from_utf8(std::slice::from_raw_parts(info.method_ptr, info.method_len))
+                    .expect("method utf8");
+            assert_eq!(method, "GET");
+
+            let target =
+                std::str::from_utf8(std::slice::from_raw_parts(info.target_ptr, info.target_len))
+                    .expect("target utf8");
+            assert_eq!(target, "/health?check=true");
+
+            let path =
+                std::str::from_utf8(std::slice::from_raw_parts(info.path_ptr, info.path_len))
+                    .expect("path utf8");
+            assert_eq!(path, "/health");
+
+            assert!(!info.query_ptr.is_null());
+            let query =
+                std::str::from_utf8(std::slice::from_raw_parts(info.query_ptr, info.query_len))
+                    .expect("query utf8");
+            assert_eq!(query, "check=true");
+
+            let protocol = std::str::from_utf8(std::slice::from_raw_parts(
+                info.protocol_ptr,
+                info.protocol_len,
+            ))
+            .expect("protocol utf8");
+            assert_eq!(protocol, "http/1.1");
+
+            assert!(!info.realm_ptr.is_null());
+            let realm =
+                std::str::from_utf8(std::slice::from_raw_parts(info.realm_ptr, info.realm_len))
+                    .expect("realm utf8");
+            assert_eq!(realm, "router.http");
+
+            assert!(!info.procedure_ptr.is_null());
+            let procedure = std::str::from_utf8(std::slice::from_raw_parts(
+                info.procedure_ptr,
+                info.procedure_len,
+            ))
+            .expect("procedure utf8");
+            assert_eq!(procedure, "health.get");
+
+            assert_eq!(info.version, 1);
+            assert_eq!(info.headers_len, 2);
+
+            let body = std::slice::from_raw_parts(info.body_ptr, info.body_len);
+            assert!(body.is_empty());
         }
-        std::thread::sleep(Duration::from_millis(10));
-    };
 
-    // No additional requests should be pending yet.
-    assert_eq!(ct_connection_take_http_handshake(connection_id), 0);
+        let mut header = CtHttpHeader::default();
+        assert_eq!(
+            ct_http_handshake_header(handle, 0, &mut header as *mut CtHttpHeader),
+            SUCCESS
+        );
+        unsafe {
+            let name =
+                std::str::from_utf8(std::slice::from_raw_parts(header.name_ptr, header.name_len))
+                    .unwrap();
+            let value = std::str::from_utf8(std::slice::from_raw_parts(
+                header.value_ptr,
+                header.value_len,
+            ))
+            .unwrap();
+            assert_eq!(name.to_lowercase(), "host");
+            assert_eq!(value, "localhost");
+        }
 
-    let mut info = CtHttpHandshakeInfo::default();
-    assert_eq!(
-        ct_http_handshake_get(handle, &mut info as *mut CtHttpHandshakeInfo),
-        SUCCESS
-    );
+        assert_eq!(
+            ct_http_handshake_header(handle, 1, &mut header as *mut CtHttpHeader),
+            SUCCESS
+        );
+        unsafe {
+            let name =
+                std::str::from_utf8(std::slice::from_raw_parts(header.name_ptr, header.name_len))
+                    .unwrap();
+            let value = std::str::from_utf8(std::slice::from_raw_parts(
+                header.value_ptr,
+                header.value_len,
+            ))
+            .unwrap();
+            assert_eq!(name.to_lowercase(), "x-test");
+            assert_eq!(value, "ffi");
+        }
 
-    unsafe {
-        let method =
-            std::str::from_utf8(std::slice::from_raw_parts(info.method_ptr, info.method_len))
-                .expect("method utf8");
-        assert_eq!(method, "GET");
+        assert_eq!(
+            ct_http_handshake_header(handle, 10, &mut header as *mut CtHttpHeader),
+            ERR_INVALID_ARGUMENT
+        );
 
-        let target =
-            std::str::from_utf8(std::slice::from_raw_parts(info.target_ptr, info.target_len))
-                .expect("target utf8");
-        assert_eq!(target, "/health?check=true");
+        body_handle = ct_http_handshake_body_retain(handle);
+        assert!(
+            body_handle > 0,
+            "HTTP body handle should be available for retained requests"
+        );
+        let mut body_view = CtHttpBodyView::default();
+        assert_eq!(
+            ct_http_body_get(body_handle, &mut body_view as *mut CtHttpBodyView),
+            SUCCESS
+        );
+        assert_eq!(body_view.data_len, 0);
+        assert_eq!(ct_http_body_release(body_handle), SUCCESS);
+        body_handle = 0;
 
-        let path = std::str::from_utf8(std::slice::from_raw_parts(info.path_ptr, info.path_len))
-            .expect("path utf8");
-        assert_eq!(path, "/health");
+        assert_eq!(ct_http_handshake_release(handle), SUCCESS);
+        assert_eq!(
+            ct_http_handshake_release(handle),
+            SUCCESS,
+            "idempotent release"
+        );
+        handle = 0;
+    }));
 
-        assert!(!info.query_ptr.is_null());
-        let query = std::str::from_utf8(std::slice::from_raw_parts(info.query_ptr, info.query_len))
-            .expect("query utf8");
-        assert_eq!(query, "check=true");
-
-        let protocol = std::str::from_utf8(std::slice::from_raw_parts(
-            info.protocol_ptr,
-            info.protocol_len,
-        ))
-        .expect("protocol utf8");
-        assert_eq!(protocol, "http/1.1");
-
-        assert!(!info.realm_ptr.is_null());
-        let realm = std::str::from_utf8(std::slice::from_raw_parts(info.realm_ptr, info.realm_len))
-            .expect("realm utf8");
-        assert_eq!(realm, "router.http");
-
-        assert!(!info.procedure_ptr.is_null());
-        let procedure = std::str::from_utf8(std::slice::from_raw_parts(
-            info.procedure_ptr,
-            info.procedure_len,
-        ))
-        .expect("procedure utf8");
-        assert_eq!(procedure, "health.get");
-
-        assert_eq!(info.version, 1);
-        assert_eq!(info.headers_len, 2);
-
-        let body = std::slice::from_raw_parts(info.body_ptr, info.body_len);
-        assert!(body.is_empty());
+    if body_handle > 0 {
+        ct_http_body_release(body_handle);
     }
-
-    let mut header = CtHttpHeader::default();
-    assert_eq!(
-        ct_http_handshake_header(handle, 0, &mut header as *mut CtHttpHeader),
-        SUCCESS
-    );
-    unsafe {
-        let name =
-            std::str::from_utf8(std::slice::from_raw_parts(header.name_ptr, header.name_len))
-                .unwrap();
-        let value = std::str::from_utf8(std::slice::from_raw_parts(
-            header.value_ptr,
-            header.value_len,
-        ))
-        .unwrap();
-        assert_eq!(name.to_lowercase(), "host");
-        assert_eq!(value, "localhost");
+    if handle > 0 {
+        ct_http_handshake_release(handle);
     }
-
-    assert_eq!(
-        ct_http_handshake_header(handle, 1, &mut header as *mut CtHttpHeader),
-        SUCCESS
-    );
-    unsafe {
-        let name =
-            std::str::from_utf8(std::slice::from_raw_parts(header.name_ptr, header.name_len))
-                .unwrap();
-        let value = std::str::from_utf8(std::slice::from_raw_parts(
-            header.value_ptr,
-            header.value_len,
-        ))
-        .unwrap();
-        assert_eq!(name.to_lowercase(), "x-test");
-        assert_eq!(value, "ffi");
+    let shutdown = ct_shutdown();
+    if let Err(failure) = result {
+        std::panic::resume_unwind(failure);
     }
-
-    assert_eq!(
-        ct_http_handshake_header(handle, 10, &mut header as *mut CtHttpHeader),
-        ERR_INVALID_ARGUMENT
-    );
-
-    let body_handle = ct_http_handshake_body_retain(handle);
-    assert!(
-        body_handle > 0,
-        "HTTP body handle should be available for retained requests"
-    );
-    let mut body_view = CtHttpBodyView::default();
-    assert_eq!(
-        ct_http_body_get(body_handle, &mut body_view as *mut CtHttpBodyView),
-        SUCCESS
-    );
-    assert_eq!(body_view.data_len, 0);
-    assert_eq!(ct_http_body_release(body_handle), SUCCESS);
-
-    assert_eq!(ct_http_handshake_release(handle), SUCCESS);
-    assert_eq!(
-        ct_http_handshake_release(handle),
-        SUCCESS,
-        "idempotent release"
-    );
-
-    assert_eq!(ct_shutdown(), SUCCESS);
+    assert_eq!(shutdown, SUCCESS);
 }
 
 #[test]

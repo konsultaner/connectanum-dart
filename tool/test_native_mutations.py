@@ -585,6 +585,7 @@ class NativeMutationTests(unittest.TestCase):
                 campaign, restored = collector.commands(Path('/private/work'), Path('/evidence'), target)
                 self.assertEqual(campaign[campaign.index('--package') + 1], package)
                 self.assertEqual(campaign[campaign.index('--test-workspace') + 1], 'false')
+                self.assertEqual(campaign[campaign.index('--timeout') + 1], '180')
                 self.assertIn('--cargo-arg=--workspace', campaign)
                 self.assertIn('--workspace', restored)
                 for command in (campaign, restored):

@@ -35,6 +35,26 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work387: Fast387 passes. Correct prior timeout interpretation: isolated
+`native387-websocket-timeout-probe` terminates in 5.07s with a generic bounded
+connection failure, not an indefinite WebSocket hang or assertion kill.
+Harden confirmed HTTP metadata handshake polling, replace fixed sleep with
+connection readiness, keep its socket alive through metadata assertions, and
+clean retained handles/runtime on unwind. Real TCP HTTP2 wrapper test checks
+its own tracker queue plus peer bytes, avoiding unrelated global metric deltas.
+Native workspace/all-targets passes 314 core and 195 FFI tests. Isolated full
+workspace `native387-regression-probe` detects tracker suppression by assertion;
+both parser cases complete with mixed failures, not clean kills. Reversed
+header limits take 27.02s core + 83.67s FFI, explaining the old 90s campaign cap.
+Raise whole-component test allowance to 180s without changing classification,
+thresholds, inventory, or focused-target budgets. The command regression fails
+before the change; mutation-tool suite then passes. Local review's duplicate
+release concern contradicts the existing explicit idempotence contract, and
+wait_for_connection already rejects nonpositive IDs. Full verify387 exits 0
+including JS/WASM runtime suites. Commit and refresh native coverage against
+the unchanged source/test snapshot before selecting the next gaps. No new
+component-wide score claimed.
+
 Work386: Fast386 passes. Cover standard/extended RawSocket length bytes, sentinel
 maximum and invalid lengths/types with literal header expectations, plus real
 0x010203 payload followed by a sentinel. Exercise continuation helper fallback

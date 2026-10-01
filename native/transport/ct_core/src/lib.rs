@@ -8551,6 +8551,45 @@ mod tests {
         assert_eq!(tracker.note_headers_sent(Instant::now()), 1);
     }
 
+    #[tokio::test]
+    async fn http2_instrumented_stream_tracks_only_nonempty_socket_writes() {
+        time::timeout(Duration::from_secs(5), async {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let (client, server) =
+                tokio::join!(tokio::net::TcpStream::connect(address), listener.accept());
+            let mut peer = client.unwrap();
+            let tracker = Arc::new(Http2ConnectionWriteTracker::default());
+            let mut stream = InstrumentedHttp2IoStream {
+                inner: IoStream::plain(server.unwrap().0),
+                write_tracker: Arc::clone(&tracker),
+            };
+            assert_eq!(tracker.note_headers_sent(Instant::now()), 1);
+            assert_eq!(tracker.note_headers_sent(Instant::now()), 2);
+            peer.write_all(b"ack").await.unwrap();
+            let mut ack = [0; 3];
+            stream.read_exact(&mut ack).await.unwrap();
+            assert_eq!(&ack, b"ack");
+            assert_eq!(stream.write(&[]).await.unwrap(), 0);
+            stream.flush().await.unwrap();
+            assert_eq!(tracker.pending_headers_sent_at.lock().unwrap().len(), 2);
+
+            stream.write_all(b"response").await.unwrap();
+            assert!(tracker.pending_headers_sent_at.lock().unwrap().is_empty());
+            let mut received = [0; 8];
+            peer.read_exact(&mut received).await.unwrap();
+            assert_eq!(&received, b"response");
+
+            assert_eq!(tracker.note_headers_sent(Instant::now()), 1);
+            stream.flush().await.unwrap();
+            stream.shutdown().await.unwrap();
+            assert_eq!(tracker.pending_headers_sent_at.lock().unwrap().len(), 1);
+            assert_eq!(peer.read(&mut received).await.unwrap(), 0);
+        })
+        .await
+        .expect("instrumented HTTP2 socket exchange timed out");
+    }
+
     #[test]
     fn http2_response_yield_requires_multiple_pending_headers() {
         assert!(!should_yield_for_pending_http2_responses(0));

@@ -124,9 +124,11 @@ def commands(work, output, target='core-rawsocket', exclusions=()):
     if exclusions and not whole:
         raise ValueError('Helper exclusions require a whole-component inventory')
     package = source.split('/')[0]
-    # Protocol faults trigger multiple bounded network failures in the serial
-    # suite (31-43 seconds observed); allow completion before auditing failures.
-    test_timeout = '90' if whole or target == 'core-protocol' else '30'
+    # Whole-workspace protocol faults take ~111s across bounded serial failures.
+    # Allow diagnostics to finish; panic/timeout evidence still cannot earn kills.
+    test_timeout = '90' if target == 'core-protocol' else '30'
+    if whole:
+        test_timeout = '180'
     prefix = ['env', f'CARGO_TARGET_DIR={work / "target"}']
     manifest = str(work / 'native/transport/Cargo.toml')
     campaign = [*prefix, 'cargo', 'mutants', '--no-config', '--in-place',
