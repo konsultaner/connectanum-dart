@@ -35,6 +35,20 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work388: Validated native387-combined at 38b5a48e: core 9,107/10,063,
+FFI 5,391/5,798, retaining four unmeasured sources. Fast388 passes before edits.
+Add four TLS tests asserting contextual configuration errors for missing and
+malformed credentials, invalid DER keys/SNI names, unsupported or empty native
+TLS setup, and unusable client-auth roots in required/optional modes. Assert
+certificate requests, mandatory policy, nonempty root hints and rejection of
+invalid supplied certificates in both modes. Valid configuration still builds.
+All 12 filtered TLS/kTLS tests and full verify388 pass, including JS/WASM.
+Use an explicit error-variant assertion rather than generic helper panics for
+unexpected acceptance; focused tests and formatting pass again. Final-snapshot
+verify388-final exits 0, including JS/WASM runtime suites. Local review completed; its ownership warning
+contradicts the immutable-reference signature. No production behavior change,
+exclusions, new percentage or mutation score. Commit the verified increment.
+
 Work387: Fast387 passes. Correct prior timeout interpretation: isolated
 `native387-websocket-timeout-probe` terminates in 5.07s with a generic bounded
 connection failure, not an indefinite WebSocket hang or assertion kill.

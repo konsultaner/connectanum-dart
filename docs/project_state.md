@@ -6,6 +6,21 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work388: Matching native387 and nativeffi387 collections completed at 38b5a48e;
+source/input/library/profile hashes validate. Combined core is 9,107/10,063
+(90.500%), FFI 5,391/5,798 (92.980%); four unmeasured sources remain visible.
+Fast388 passes. Add TLS credential rejection and client-auth policy regressions:
+missing/malformed PEM, invalid DER key and SNI name, unsupported/empty TLS
+configuration, unusable trust roots in both modes, and optional versus required
+certificate policy without disabling validation. All 12 selected TLS/kTLS tests
+pass. Full verify388 passed in `/tmp/connectanum-verify388.log`, including
+JS/WASM runtime suites. Replace rejection-helper generic panics with an explicit
+error-variant assertion so unexpected acceptance has an assertion oracle.
+Focused tests and formatting pass again; final-snapshot verify388-final exits 0
+in `/tmp/connectanum-verify388-final.log`, including JS/WASM runtime suites.
+No refreshed coverage or mutation score is claimed. Hosted checks for
+38b5a48e remain queued at last check. Commit this verified test increment.
+
 Work387: Work386 pushed both remotes as 5fa66ef0; exact-head CI36914585747 and
 publish dry-run36914585556 remain queued (audit386 returned stale older runs).
 Fast387 passes. Isolated WebSocket parser replay terminates in 5.07s with its
