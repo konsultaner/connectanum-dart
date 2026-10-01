@@ -7817,6 +7817,144 @@ mod tests {
         assert!(msgpack_single_binary_argument(&[0x91, 0xc4, 0x01, 0x01, 0x02]).is_none());
     }
 
+    fn assert_binary_length_widths(
+        serializer: RawSocketSerializer,
+        arrays: &[&[u8]],
+        binaries: &[&[u8]],
+    ) {
+        for array in arrays {
+            for binary in binaries {
+                let mut wire = array.to_vec();
+                wire.extend_from_slice(binary);
+                let payload_offset = wire.len();
+                wire.extend_from_slice(&[0, 0x80, 0xff]);
+                let result = single_binary_argument(serializer, &wire);
+                assert_eq!(result, Ok(&[0, 0x80, 0xff][..]), "{wire:02x?}");
+                assert_eq!(result.unwrap().as_ptr(), wire[payload_offset..].as_ptr());
+                for end in 0..wire.len() {
+                    assert_eq!(
+                        single_binary_argument(serializer, &wire[..end]),
+                        Err(ERR_INVALID_ARGUMENT),
+                        "truncated at {end}: {wire:02x?}"
+                    );
+                }
+                wire.push(0);
+                assert_eq!(
+                    single_binary_argument(serializer, &wire),
+                    Err(ERR_INVALID_ARGUMENT)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn binary_argument_length_widths_preserve_payload_and_reject_truncation() {
+        assert_binary_length_widths(
+            RawSocketSerializer::Cbor,
+            &[
+                &[0x81],
+                &[0x98, 1],
+                &[0x99, 0, 1],
+                &[0x9a, 0, 0, 0, 1],
+                &[0x9b, 0, 0, 0, 0, 0, 0, 0, 1],
+            ],
+            &[
+                &[0x43],
+                &[0x58, 3],
+                &[0x59, 0, 3],
+                &[0x5a, 0, 0, 0, 3],
+                &[0x5b, 0, 0, 0, 0, 0, 0, 0, 3],
+            ],
+        );
+        assert_binary_length_widths(
+            RawSocketSerializer::MessagePack,
+            &[&[0x91], &[0xdc, 0, 1], &[0xdd, 0, 0, 0, 1]],
+            &[&[0xc4, 3], &[0xc5, 0, 3], &[0xc6, 0, 0, 0, 3]],
+        );
+        assert_eq!(
+            single_binary_argument(RawSocketSerializer::Json, b"[]"),
+            Err(ERR_UNSUPPORTED)
+        );
+    }
+
+    #[test]
+    fn binary_argument_lengths_reject_wrong_types_and_oversized_declarations() {
+        for wire in [
+            &[0x81, 0x5b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff][..],
+            &[0x9b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x40],
+            &[0x81, 0x5c],
+            &[0x81, 0x5d],
+            &[0x81, 0x5e],
+            &[0x81, 0x5f, 0xff],
+            &[0xa1, 0x40],
+            &[0x80, 0x40],
+            &[0x82, 0x40],
+            &[0x81, 0x60],
+        ] {
+            assert_eq!(
+                single_binary_argument(RawSocketSerializer::Cbor, wire),
+                Err(ERR_INVALID_ARGUMENT),
+                "{wire:02x?}"
+            );
+        }
+        for wire in [
+            &[0x91, 0xc6, 0xff, 0xff, 0xff, 0xff][..],
+            &[0xdd, 0xff, 0xff, 0xff, 0xff, 0xc4, 0],
+            &[0x80, 0xc4, 0],
+            &[0x90, 0xc4, 0],
+            &[0x92, 0xc4, 0],
+            &[0x91, 0xc0],
+            &[0x91, 0xa0],
+        ] {
+            assert_eq!(
+                single_binary_argument(RawSocketSerializer::MessagePack, wire),
+                Err(ERR_INVALID_ARGUMENT),
+                "{wire:02x?}"
+            );
+        }
+        assert_eq!(
+            single_binary_argument(RawSocketSerializer::Cbor, &[0x81, 0x40]),
+            Ok(&[][..])
+        );
+        assert_eq!(
+            single_binary_argument(RawSocketSerializer::MessagePack, &[0x91, 0xc4, 0]),
+            Ok(&[][..])
+        );
+    }
+
+    #[test]
+    fn cbor_array_headers_append_literal_boundary_encodings() {
+        let cases: &[(usize, &[u8])] = &[
+            (0, &[0x80]),
+            (23, &[0x97]),
+            (24, &[0x98, 24]),
+            (255, &[0x98, 0xff]),
+            (256, &[0x99, 1, 0]),
+            (65_535, &[0x99, 0xff, 0xff]),
+            (65_536, &[0x9a, 0, 1, 0, 0]),
+            (0x01020304, &[0x9a, 1, 2, 3, 4]),
+            (0xffff_ffff, &[0x9a, 0xff, 0xff, 0xff, 0xff]),
+        ];
+        for (length, expected) in cases {
+            let mut wire = vec![0xee];
+            write_cbor_array_len(&mut wire, *length);
+            assert_eq!(wire[0], 0xee);
+            assert_eq!(&wire[1..], *expected);
+        }
+        #[cfg(target_pointer_width = "64")]
+        for (length, expected) in [
+            (0x1_0000_0000, [0x9b, 0, 0, 0, 1, 0, 0, 0, 0]),
+            (
+                usize::MAX,
+                [0x9b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff],
+            ),
+        ] {
+            let mut wire = Vec::new();
+            write_cbor_array_len(&mut wire, length);
+            assert_eq!(wire, expected);
+        }
+    }
+
     #[test]
     fn native_e2ee_file_payload_reads_the_exact_range_as_canonical_cbor() {
         let path = std::env::temp_dir().join(format!(

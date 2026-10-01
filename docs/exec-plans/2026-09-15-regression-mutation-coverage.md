@@ -35,6 +35,19 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work391: Native390 combined evidence validates at e908968c: core 9,185/10,063,
+FFI 5,391/5,798, four unmeasured sources retained. Fast391 passes before edits.
+Test every supported CBOR/MessagePack definite array and binary length width
+with literal bytes, including valid nonminimal encodings, exact borrowed slice,
+all truncated prefixes, extra bytes, wrong types, and oversized declarations.
+CBOR array headers preserve existing prefix bytes and literal width boundaries;
+64-bit-only cases are gated explicitly, not claimed as 32-bit evidence.
+All 59 selected FFI tests pass. Local review completed; suggested pointer-check
+removal would weaken the borrowing assertion and suggested MessagePack markers
+were not binary encodings. Full verify391 exits 0 in
+`/tmp/connectanum-verify391.log`, including JS/WASM runtime suites; no new score
+claimed.
+
 Work390: Fast390 passes. Preserve Work389's eight empty-body cases and add
 small, inline-boundary-minus-one/exact/plus-one, and multi-chunk body variants
 for 48 total cases. Each nonempty body embeds a valid request for an allowed

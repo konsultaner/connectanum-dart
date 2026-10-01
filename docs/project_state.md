@@ -6,6 +6,18 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work391: Matching native390 collections validate at e908968c: core
+9,185/10,063 (91.275%), FFI 5,391/5,798 (92.980%), retaining four unmeasured
+sources. Fast391 passes. Add literal binary-length vectors across 25 CBOR and
+nine MessagePack width combinations, exact borrowed payload offsets, every
+truncated prefix, trailing bytes, wrong types, and huge declared lengths without
+large allocations. Add CBOR array header boundary oracles through u32 and,
+on 64-bit hosts, u64 widths. All 59 selected FFI tests pass. Local review's
+pointer-comparison objection conflicts with the intentional borrowing oracle;
+MessagePack array16/32 and bin16/32 nonminimal encodings are already tested.
+Full verify391 exits 0 in `/tmp/connectanum-verify391.log`, including JS/WASM
+runtime suites. No new percentage or mutation score claimed.
+
 Work390: Work389 is pushed to both remotes as 6c4feae0; hosted CI/publish checks
 remain queued at last check. Fast390 passes. Expand the HTTP/1 rejection matrix
 from eight to 48 cases with empty, small, 64-KiB-minus-one/exact/plus-one, and
