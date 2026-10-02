@@ -7,10 +7,12 @@ class AuthenticatorSelection {
     required Map<String, Object?> options,
   }) : options = Map<String, Object?>.unmodifiable(options);
 
-  factory AuthenticatorSelection.anonymous() => AuthenticatorSelection._(
+  factory AuthenticatorSelection.anonymous({
+    Map<String, Object?> options = const {},
+  }) => AuthenticatorSelection._(
     method: 'anonymous',
     factory: null,
-    options: const {},
+    options: options,
   );
 
   factory AuthenticatorSelection({
@@ -38,7 +40,7 @@ AuthenticatorSelection? resolveAuthenticatorSelection({
 }) {
   final clientMethods = hello.details.authmethods ?? const <String>[];
   final realmMethods = realmSettings.auth.methods;
-  final realmAllowed = realmMethods.toSet();
+  final realmAllowed = realmMethods.map(canonicalAuthMethod).toSet();
   final profileMethods = _listenerSessionProfileMethods(
     settings: settings,
     listenerSettings: listenerSettings,
@@ -48,15 +50,16 @@ AuthenticatorSelection? resolveAuthenticatorSelection({
       : profileMethods;
   final listenerAllowed = listenerMethods.isEmpty
       ? null
-      : listenerMethods.toSet();
+      : listenerMethods.map(canonicalAuthMethod).toSet();
 
   bool listenerAllows(String method) =>
-      listenerAllowed == null || listenerAllowed.contains(method);
+      listenerAllowed == null ||
+      listenerAllowed.contains(canonicalAuthMethod(method));
   bool realmAllows(String method) {
     if (realmMethods.isEmpty) {
       return method == 'anonymous';
     }
-    return realmAllowed.contains(method);
+    return realmAllowed.contains(canonicalAuthMethod(method));
   }
 
   final Iterable<String> priority = clientMethods.isNotEmpty
@@ -68,7 +71,14 @@ AuthenticatorSelection? resolveAuthenticatorSelection({
       continue;
     }
     if (method == 'anonymous') {
-      return AuthenticatorSelection.anonymous();
+      final selection = createAuthenticatorSelectionForMethod(
+        settings: settings,
+        realmSettings: realmSettings,
+        method: method,
+      );
+      return AuthenticatorSelection.anonymous(
+        options: selection?.options ?? const {},
+      );
     }
     final selection = createAuthenticatorSelectionForMethod(
       settings: settings,
@@ -120,7 +130,11 @@ AuthenticatorSelection? createAuthenticatorSelectionForMethod({
   }
 
   final definitionKey = authenticatorKey ?? method;
-  final definition = settings.authenticators[definitionKey];
+  final definition =
+      settings.authenticators[definitionKey] ??
+      (authenticatorKey == null
+          ? settings.authenticators[authMethodAlias(method)]
+          : null);
   final factoryKey = definition?.type ?? definitionKey;
   final factory = AuthenticatorRegistry.factoryFor(factoryKey);
   if (factory == null) {

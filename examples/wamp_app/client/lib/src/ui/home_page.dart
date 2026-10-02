@@ -153,6 +153,11 @@ class _HomePageState extends State<HomePage> {
         selected.add(_SelectedAttachment(file, byteCount));
       }
       if (!mounted) return;
+      // Other selections may finish while file sizes are being read.
+      if (_attachments.length + selected.length >
+          WampAppAttachmentLimits.maxAttachmentsPerMessage) {
+        throw FormatException(l10n.attachmentLimit);
+      }
       setState(() {
         _attachments = List<_SelectedAttachment>.unmodifiable([
           ..._attachments,
@@ -262,6 +267,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _toggleVoiceRecording() async {
+    if (!mounted || _voiceControlBusy) return;
     final l10n = AppLocalizations.of(context);
     final active = _voiceRecording;
     if (active != null) {
@@ -281,25 +287,27 @@ class _HomePageState extends State<HomePage> {
     setState(() => _voiceControlBusy = true);
     try {
       final session = await _recorder.start();
-      if (!mounted) {
-        await session.cancel();
-        return;
+      if (mounted) {
+        setState(() {
+          _voiceRecording = session;
+          _voiceRecordingStartedAt = DateTime.now();
+          _voiceRecordingElapsed = Duration.zero;
+          _voiceControlBusy = false;
+        });
+        _voiceRecordingTicker = Timer.periodic(
+          const Duration(milliseconds: 250),
+          (_) => _updateVoiceRecordingElapsed(session),
+        );
       }
-      setState(() {
-        _voiceRecording = session;
-        _voiceRecordingStartedAt = DateTime.now();
-        _voiceRecordingElapsed = Duration.zero;
-        _voiceControlBusy = false;
-      });
-      _voiceRecordingTicker = Timer.periodic(
-        const Duration(milliseconds: 250),
-        (_) => _updateVoiceRecordingElapsed(session),
-      );
+      // A late start still owns completion, including cancellation and audio.
       session.completed.then(
         (recording) => _completeVoiceRecording(session, recording),
         onError: (Object error, StackTrace _) =>
             _failVoiceRecording(session, error),
       );
+      if (!mounted) {
+        await session.cancel();
+      }
     } on VoiceNoteRecordingException catch (error) {
       if (!mounted) return;
       setState(() => _voiceControlBusy = false);
@@ -416,6 +424,7 @@ class _HomePageState extends State<HomePage> {
     final l10n = AppLocalizations.of(context);
     MemoryImage? preview;
     VoiceNotePlaybackController? voicePlayer;
+    var previewOpen = true;
     try {
       if (attachment.kind == ChatAttachmentKind.image ||
           attachment.kind == ChatAttachmentKind.gif ||
@@ -456,15 +465,33 @@ class _HomePageState extends State<HomePage> {
             if (allowSaveCopy)
               TextButton.icon(
                 onPressed: () async {
-                  final location = await getSaveLocation(
-                    suggestedName: attachment.name,
-                  );
-                  if (location == null) return;
-                  await XFile.fromData(
-                    bytes,
-                    name: attachment.name,
-                    mimeType: attachment.contentType,
-                  ).saveTo(location.path);
+                  Uint8List? exportBytes;
+                  try {
+                    final location = await getSaveLocation(
+                      suggestedName: attachment.name,
+                    );
+                    if (location == null ||
+                        !previewOpen ||
+                        !mounted ||
+                        !dialogContext.mounted) {
+                      return;
+                    }
+                    // The preview clears its own buffer independently of I/O.
+                    exportBytes = Uint8List.fromList(bytes);
+                    await XFile.fromData(
+                      exportBytes,
+                      name: attachment.name,
+                      mimeType: attachment.contentType,
+                    ).saveTo(location.path);
+                  } catch (_) {
+                    if (previewOpen && mounted && dialogContext.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(l10n.attachmentSaveFailed)),
+                      );
+                    }
+                  } finally {
+                    exportBytes?.fillRange(0, exportBytes.length, 0);
+                  }
                 },
                 icon: const Icon(Icons.download_outlined),
                 label: Text(l10n.saveCopy),
@@ -477,6 +504,7 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     } finally {
+      previewOpen = false;
       try {
         await voicePlayer?.disposeAsync();
       } finally {

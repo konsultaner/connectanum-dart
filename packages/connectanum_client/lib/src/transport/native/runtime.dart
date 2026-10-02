@@ -332,7 +332,7 @@ class NativeClientRuntime {
       final result = _bindings.ctE2eeKeyringAddKey(
         keyringHandle,
         keyIdPtr,
-        keyId.length,
+        utf8.encode(keyId).length,
         keyPtr,
         key.length,
         makeDefault ? 1 : 0,
@@ -363,7 +363,7 @@ class NativeClientRuntime {
       final result = _bindings.ctE2eeSessionNew(
         keyringHandle,
         defaultKeyIdPtr,
-        defaultKeyId?.length ?? 0,
+        defaultKeyId == null ? 0 : utf8.encode(defaultKeyId).length,
       );
       if (result <= 0) {
         _throwForError(result, 'Failed to create native E2EE session');
@@ -409,7 +409,7 @@ class NativeClientRuntime {
       final result = encrypt(
         sessionHandle,
         keyIdPtr,
-        keyId?.length ?? 0,
+        keyId == null ? 0 : utf8.encode(keyId).length,
         plaintextPtr,
         plaintext.length,
         bufferPtr,
@@ -451,7 +451,7 @@ class NativeClientRuntime {
       final result = decrypt(
         sessionHandle,
         keyIdPtr,
-        keyId?.length ?? 0,
+        keyId == null ? 0 : utf8.encode(keyId).length,
         ciphertextPtr,
         ciphertext.length,
         bufferPtr,

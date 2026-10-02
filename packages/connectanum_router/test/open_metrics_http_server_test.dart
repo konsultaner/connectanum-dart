@@ -12,7 +12,8 @@ import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:test/test.dart';
 
-class _FakeRuntime implements NativeRuntime {
+class _FakeRuntime
+    implements NativeRuntime, NativeRuntimeWithConfiguredListeners {
   final Map<int, int> _ports = {};
   int _nextId = 1;
 
@@ -80,6 +81,14 @@ class _FakeRuntime implements NativeRuntime {
     _ports[id] = port == 0 ? 5000 + id : port;
     return id;
   }
+
+  @override
+  int listenConfiguredEndpoint(
+    String host,
+    int port,
+    int endpointIndex, {
+    int backlog = 128,
+  }) => listen(host, port, backlog: backlog);
 
   @override
   int pollConnection(int listenerId) => 0;
@@ -370,11 +379,12 @@ void main() {
   test('OpenMetrics settings add router-native HTTP routes', () {
     final settings = _buildSettings().withOpenMetricsHttpRoutes();
 
-    final listener = settings.listeners.single;
+    expect(settings.listeners, hasLength(2));
+    expect(settings.listeners.first.protocols, [ListenerProtocol.rawsocket]);
+    final listener = settings.listeners.last;
     expect(
       listener.protocols,
       equals(const [
-        ListenerProtocol.rawsocket,
         ListenerProtocol.http,
         ListenerProtocol.http2,
       ]),

@@ -37,6 +37,7 @@ dependencies:
     path: ../shared
 
 dev_dependencies:
+  file_selector_platform_interface: ^2.7.0
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter

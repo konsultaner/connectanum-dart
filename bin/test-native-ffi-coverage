@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+dart_workspace_bootstrap
+ensure_rust_env
+if ! native_runtime_supported; then
+  printf 'Native FFI coverage requires Linux or macOS.\n' >&2
+  exit 2
+fi
+CONNECTANUM_TEST_LLVM_COVERAGE=1 "$ROOT_DIR/bin/test-native-coverage-tools"
+python3 tool/native_ffi_coverage.py \
+  --output "${CONNECTANUM_NATIVE_FFI_COVERAGE_DIR:-$ROOT_DIR/out/coverage-native-ffi}" \
+  --analyzer "$ROOT_DIR/out/rust-coverage-scope-target/debug/connectanum-coverage-scope"

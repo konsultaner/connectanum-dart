@@ -81,6 +81,16 @@ abstract class NativeRuntime {
   NativeIncomingMessage? pollMessage(int connectionId);
 }
 
+/// Opens listeners by configuration position when their addresses are ambiguous.
+abstract class NativeRuntimeWithConfiguredListeners implements NativeRuntime {
+  int listenConfiguredEndpoint(
+    String host,
+    int port,
+    int endpointIndex, {
+    int backlog = 128,
+  });
+}
+
 /// Runtime extension that exposes raw message handles so other isolates can
 /// materialise messages without crossing isolate boundaries.
 abstract class NativeRuntimeWithHandles implements NativeRuntime {
@@ -444,11 +454,18 @@ class NativeHttpResponse {
   NativeHttpResponse({
     required this.status,
     Map<String, String>? headers,
+    List<MapEntry<String, String>>? additionalHeaders,
     required this.body,
-  }) : headers = Map.unmodifiable(headers ?? const {});
+  }) : headers = Map.unmodifiable(headers ?? const {}),
+       additionalHeaders = List.unmodifiable(additionalHeaders ?? const []);
 
   final int status;
   final Map<String, String> headers;
+
+  /// Header fields appended after [headers], without comma folding.
+  /// Use this for repeated fields such as Set-Cookie. Callers must not repeat
+  /// fields whose HTTP semantics require a single value.
+  final List<MapEntry<String, String>> additionalHeaders;
   final NativeHttpResponseBody body;
 }
 
@@ -1069,6 +1086,7 @@ class NativeHttpRequestBody {
 
   static const int _defaultChunkSize = 64 * 1024;
 
+  /// Initial body length; streaming bodies may grow beyond this snapshot.
   int get length => _length;
   int? get nativeHandle => _handle;
   bool get isStreaming => _streaming;
@@ -1077,7 +1095,11 @@ class NativeHttpRequestBody {
 
   /// View backed by the native buffer (callers must not mutate).
   Uint8List get view {
-    if (_view.isEmpty && _handle != null && !_released && _length > 0) {
+    if (_view.isEmpty &&
+        _handle != null &&
+        !_released &&
+        (_streaming || _length > 0) &&
+        !_streamFinished) {
       _view = _readAll();
     }
     return _view;
@@ -1086,14 +1108,12 @@ class NativeHttpRequestBody {
   /// Materializes an isolate-safe Dart-owned buffer without routing through
   /// the borrowed [view] path when the native handle is still active.
   Uint8List materializeOwnedBytes() {
-    if (_length == 0) {
-      if (_streaming) {
-        _finishStreaming(ignoreErrors: false);
-      }
+    if (_length == 0 && !_streaming) {
       return Uint8List(0);
     }
     if (_streaming) {
       if (_view.isEmpty &&
+          !_streamFinished &&
           ((_handle != null && !_released) || _streamReadOverride != null)) {
         _view = _readAll();
       }
@@ -1130,8 +1150,10 @@ class NativeHttpRequestBody {
     _finishStreaming(ignoreErrors: false);
   }
 
-  /// Convenience helper to expose the body as a single-chunk stream.
+  /// Streams the body, finishing the native reader when done or cancelled.
+  /// Cancellation cleanup is best effort so consumer errors remain primary.
   Stream<List<int>> openRead({int chunkSize = _defaultChunkSize}) async* {
+    if (_streaming && _streamFinished && _view.isEmpty) return;
     if (_view.isNotEmpty && (!_streaming || _streamFinished)) {
       yield _view;
       return;
@@ -1155,20 +1177,28 @@ class NativeHttpRequestBody {
     }
     var offset = 0;
     final effectiveChunk = math.max(1, chunkSize);
-    while (offset < _length) {
-      final remaining = _length - offset;
-      final toRead = math.min(remaining, effectiveChunk);
-      final chunk = _streaming
-          ? _readStreamingChunk(toRead)
-          : _readSlice(offset, toRead);
-      if (chunk.isEmpty) {
-        break;
+    var readCompleted = false;
+    try {
+      while (_streaming || offset < _length) {
+        final remaining = _length - offset;
+        final toRead = _streaming
+            ? effectiveChunk
+            : math.min(remaining, effectiveChunk);
+        final chunk = _streaming
+            ? _readStreamingChunk(toRead)
+            : _readSlice(offset, toRead);
+        if (chunk.isEmpty) {
+          break;
+        }
+        yield chunk;
+        offset += chunk.length;
       }
-      yield chunk;
-      offset += chunk.length;
-    }
-    if (_streaming) {
-      _finishStreaming(ignoreErrors: false);
+      readCompleted = true;
+    } finally {
+      if (_streaming) {
+        // Cancellation cleanup must not replace a consumer or read failure.
+        _finishStreaming(ignoreErrors: !readCompleted);
+      }
     }
   }
 
@@ -1265,10 +1295,24 @@ class NativeHttpRequestBody {
   }
 
   Uint8List _readAll() {
-    if (_length == 0) {
-      if (_streaming) {
-        _finishStreaming(ignoreErrors: false);
+    if (_streaming) {
+      // For unknown-length HTTP/3 requests the descriptor length is only a
+      // snapshot of received bytes. EOF, not that snapshot, completes the body.
+      final bytes = BytesBuilder(copy: false);
+      var readCompleted = false;
+      try {
+        while (true) {
+          final chunk = _readStreamingChunk(_defaultChunkSize);
+          if (chunk.isEmpty) break;
+          bytes.add(chunk);
+        }
+        readCompleted = true;
+      } finally {
+        _finishStreaming(ignoreErrors: !readCompleted);
       }
+      return bytes.takeBytes();
+    }
+    if (_length == 0) {
       return Uint8List(0);
     }
     final buffer = Uint8List(_length);
@@ -1276,17 +1320,12 @@ class NativeHttpRequestBody {
     while (offset < _length) {
       final remaining = _length - offset;
       final toRead = math.min(remaining, _defaultChunkSize);
-      final chunk = _streaming
-          ? _readStreamingChunk(toRead)
-          : _readSlice(offset, toRead);
+      final chunk = _readSlice(offset, toRead);
       if (chunk.isEmpty) {
         break;
       }
       buffer.setRange(offset, offset + chunk.length, chunk);
       offset += chunk.length;
-    }
-    if (_streaming) {
-      _finishStreaming(ignoreErrors: false);
     }
     if (offset == _length) {
       return buffer;
@@ -1300,7 +1339,11 @@ class NativeHttpRequestBody {
     }
     final override = _streamFinishOverride;
     if (override != null) {
-      override();
+      try {
+        override();
+      } catch (_) {
+        if (!ignoreErrors) rethrow;
+      }
       _streamFinished = true;
       return;
     }
@@ -2080,6 +2123,7 @@ abstract final class NativeLibraryLoader {
 class NativeTransportRuntime
     implements
         NativeRuntimeWithHandles,
+        NativeRuntimeWithConfiguredListeners,
         NativeRuntimeWithInternalCallForwarding {
   /// Loads `ct_ffi` and creates the process-wide native transport runtime.
   factory NativeTransportRuntime({String? libraryPath}) {
@@ -2106,9 +2150,13 @@ class NativeTransportRuntime
       );
 
   final String _libraryPath;
-  // ignore: unused_field
   final ffi.DynamicLibrary _library; // Retain library for runtime lifetime.
   final CtFfiBindings _bindings;
+  // Resolve lazily so older libraries still support unambiguous listeners.
+  late final CtListenConfiguredDart _listenConfigured = _library
+      .lookupFunction<CtListenConfiguredNative, CtListenConfiguredDart>(
+        'ct_listen_configured',
+      );
   final _MessageBindings _messageBindings;
   RandomAccessFile? _runtimeLock;
 
@@ -2231,6 +2279,39 @@ class NativeTransportRuntime
     });
   }
 
+  /// Opens a listener using its position in the applied native configuration.
+  @override
+  int listenConfiguredEndpoint(
+    String host,
+    int port,
+    int endpointIndex, {
+    int backlog = 128,
+  }) {
+    if (backlog <= 0 ||
+        port < 0 ||
+        port > 65535 ||
+        endpointIndex < 0 ||
+        endpointIndex > 0xffffffff) {
+      throw ArgumentError('Invalid configured listener arguments');
+    }
+    CtListenConfiguredDart listen;
+    try {
+      listen = _listenConfigured;
+    } on ArgumentError {
+      throw UnsupportedError(
+        'Separate port-zero listeners require an updated native transport library',
+      );
+    }
+    return using((arena) {
+      final hostPtr = host.toNativeUtf8(allocator: arena).cast<ffi.Char>();
+      final result = listen(hostPtr, port, backlog, endpointIndex);
+      if (result < 0) {
+        _throwForError(result, 'Failed to create configured listener');
+      }
+      return result;
+    });
+  }
+
   /// Returns the TCP port bound by [listenerId].
   @override
   int getLocalPort(int listenerId) {
@@ -2297,9 +2378,9 @@ class NativeTransportRuntime
         final valuePtr = value.toNativeUtf8(allocator: arena);
         headerArray[index]
           ..namePtr = namePtr.cast()
-          ..nameLen = name.length
+          ..nameLen = utf8.encode(name).length
           ..valuePtr = valuePtr.cast()
-          ..valueLen = value.length;
+          ..valueLen = utf8.encode(value).length;
         index += 1;
       });
 
@@ -2918,7 +2999,11 @@ class NativeTransportRuntime
         'HTTP responses require a native handshake handle.',
       );
     }
-    final headersList = _nativeHttpResponseHeaderEntries(response.headers);
+    final headersList = [
+      ..._nativeHttpResponseHeaderEntries(response.headers),
+      for (final entry in response.additionalHeaders)
+        MapEntry(entry.key.toLowerCase(), entry.value),
+    ];
     final headerCount = headersList.length;
     final headerPtr = headerCount == 0
         ? ffi.Pointer<CtHttpHeader>.fromAddress(0)

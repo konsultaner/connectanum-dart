@@ -339,6 +339,24 @@ Driving use case: downstream application integrations
   whether they should remain explicit registrations or be derived from WAMP API
   metadata later.
 
+## Form Calendar Validation (2026-09-18)
+
+The [modern elicitation schema](https://modelcontextprotocol.io/specification/2026-07-28/client/elicitation#requested-schema)
+retains JSON Schema `date` and `date-time` formats.
+[JSON Schema validation section 7.3.1](https://json-schema.org/draft/2020-12/json-schema-validation#section-7.3.1)
+defines them through the `full-date` and `date-time` productions in
+[RFC 3339 sections 5.6-5.7](https://www.rfc-editor.org/rfc/rfc3339.html#section-5.6).
+Connectanum already validates these formats before sending form responses, so
+accepting normalized overflow dates or a date-only `date-time` is a validation
+defect, not an intentional annotation-only policy.
+
+Validate calendar components without normalization; require the timestamp's
+seconds and timezone. Preserve lowercase `t`/`z`, fractional seconds, numeric
+offsets and the original response string. Leap-second validation checks a
+possible last UTC minute of a month, including offset-induced date changes;
+it does not consult or claim validation against historical IERS announcements.
+Public API regressions cover Gregorian century rules and invalid boundaries.
+
 ## Verification Expectations
 
 - Run `bin/test-fast` before MCP code changes.

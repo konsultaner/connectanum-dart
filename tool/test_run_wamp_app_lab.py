@@ -1,6 +1,7 @@
 import json
 import os
 import pathlib
+import re
 import socket
 import stat
 import subprocess
@@ -14,6 +15,39 @@ SCRIPT = ROOT / "bin" / "run-wamp-app-lab"
 
 
 class RunWampAppLabTests(unittest.TestCase):
+    def test_flutter_startup_observes_final_log_after_process_exit(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        helper = re.search(
+            r"(?ms)^wait_for_flutter_test_body\(\) \{.*?^\}", source
+        )
+        self.assertIsNotNone(helper)
+        marker = (
+            "verifies peer identities and exchanges encrypted chat, rich media, "
+            "controls, backup recovery, and WebRTC calls"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            log_file = pathlib.Path(temporary) / "flutter.log"
+            for final_output, expected in [(marker, 0), ("", 1), ("loading tests", 1)]:
+                with self.subTest(final_output=final_output):
+                    log_file.write_text("", encoding="utf-8")
+                    result = subprocess.run(
+                        [
+                            "bash", "-c",
+                            helper.group(0) + '\n'
+                            # Write the child's final output between the first
+                            # log read and the observation that it has exited.
+                            'owned_process_is_live() {\n'
+                            '  printf "%s\\n" "$FINAL_OUTPUT" >"$FINAL_LOG"\n'
+                            '  return 1\n'
+                            '}\n'
+                            'wait_for_flutter_test_body "$FINAL_LOG" 123\n',
+                        ],
+                        env={**os.environ, "FINAL_LOG": str(log_file),
+                             "FINAL_OUTPUT": final_output},
+                        text=True, capture_output=True, check=False, timeout=5,
+                    )
+                    self.assertEqual(result.returncode, expected, result.stderr)
+
     def run_script(self, *arguments: str, devices: list[dict] | None = None):
         if devices is None:
             devices = [

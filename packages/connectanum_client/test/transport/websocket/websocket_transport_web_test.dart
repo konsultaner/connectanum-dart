@@ -3,6 +3,8 @@ library;
 
 import 'dart:async';
 
+import 'websocket_test_observer.dart';
+
 import 'package:connectanum_core/src/message/details.dart';
 import 'package:connectanum_core/src/message/hello.dart';
 import 'package:connectanum_core/src/message/welcome.dart';
@@ -10,6 +12,11 @@ import 'package:connectanum_client/src/transport/websocket/websocket_transport_w
 import 'package:test/test.dart';
 
 void main() {
+  late WebSocketTestObserver observer;
+  setUp(() {
+    observer = WebSocketTestObserver();
+    addTearDown(observer.restore);
+  });
   group('WebSocket protocol with html communication', () {
     test('closing before opening is safe', () async {
       final transport = WebSocketTransport.withJsonSerializer(
@@ -73,6 +80,7 @@ void main() {
         final msgpackCompleter = Completer<void>();
         final cborCompleter = Completer<void>();
         var channelValues = <dynamic>[];
+        final startupFailure = Completer<Object>();
         addTearDown(() async {
           if (transportJSON != null) {
             await transportJSON!.close();
@@ -87,7 +95,7 @@ void main() {
           await channel.sink.close();
           await channelSubscription.cancel();
         });
-        channelSubscription = channel.stream.listen((event) async {
+        Future<void> initialize(dynamic event) async {
           channelValues.add(event);
           if (channelValues.length == 1) {
             port = (event as num).toInt();
@@ -102,36 +110,61 @@ void main() {
             );
           }
           if (channelValues.length == 1) {
-            await transportJSON!.open();
+            await observer.open(transportJSON!);
+            expect(transportJSON!.isReady, isTrue);
           }
           if (channelValues.length == 2) {
             jsonCompleter.complete();
-            await transportMsgpack!.open();
+            await observer.open(transportMsgpack!);
+            expect(transportMsgpack!.isReady, isTrue);
           }
           if (channelValues.length == 3) {
             msgpackCompleter.complete();
-            await transportCbor!.open();
+            await observer.open(transportCbor!);
+            expect(transportCbor!.isReady, isTrue);
           }
           if (channelValues.length == 4) {
             cborCompleter.complete();
           }
+        }
+
+        var startup = Future<void>.value();
+        channelSubscription = channel.stream.listen((event) {
+          startup = startup.then((_) => initialize(event)).catchError((
+            Object error,
+            StackTrace stack,
+          ) {
+            if (!startupFailure.isCompleted) startupFailure.complete(error);
+          });
         });
 
-        await jsonCompleter.future;
+        await _expectStartup(jsonCompleter.future, startupFailure.future);
         transportJSON!.send(Hello('my.realm', Details.forHello()));
         var welcome = await transportJSON!.receive().first;
         expect(welcome, isA<Welcome>());
 
-        await msgpackCompleter.future;
+        await _expectStartup(msgpackCompleter.future, startupFailure.future);
         transportMsgpack!.send(Hello('my.realm', Details.forHello()));
         welcome = await transportMsgpack!.receive().first;
         expect(welcome, isA<Welcome>());
 
-        await cborCompleter.future;
+        await _expectStartup(cborCompleter.future, startupFailure.future);
         transportCbor!.send(Hello('my.realm', Details.forHello()));
         welcome = await transportCbor!.receive().first;
         expect(welcome, isA<Welcome>());
       },
     );
   });
+}
+
+Future<void> _expectStartup(Future<void> ready, Future<Object> failure) async {
+  final earlyFailure = await Future.any<Object?>([
+    ready.then((_) => null),
+    failure,
+  ]);
+  expect(
+    earlyFailure,
+    isNull,
+    reason: 'WebSocket startup failed before the protocol handshake.',
+  );
 }

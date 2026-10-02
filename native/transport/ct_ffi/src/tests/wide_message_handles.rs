@@ -1,3 +1,5 @@
+use super::client_connect::ClientConnect;
+use super::ffi_completion::ct_connection_accept_websocket;
 use crate::runtime::*;
 use serde_json::{json, Value};
 use std::ffi::CString;
@@ -36,11 +38,13 @@ fn incoming(connection: i32, websocket: bool, poll: bool) -> i64 {
     }
 }
 
-fn received_value(connection: i32, websocket: bool, serializer: i32) -> Value {
+pub(super) fn received_value(connection: i32, websocket: bool, serializer: i32) -> Value {
     let handle = incoming(connection, websocket, true);
     let mut info = CtMessageInfo::default();
     assert_eq!(ct_message_get_wide(handle, &mut info), SUCCESS);
     assert_eq!(i32::from(info.serializer), serializer);
+    assert!(info.frame_len > 0);
+    assert!(!info.frame_ptr.is_null());
     let frame = unsafe { std::slice::from_raw_parts(info.frame_ptr, info.frame_len) };
     let value = match serializer {
         1 => serde_json::from_slice(frame).unwrap(),
@@ -69,7 +73,7 @@ fn round_trip(websocket: bool, serializer: i32) {
     let listener = ct_listen(host.as_ptr(), 0, 128);
     assert!(listener > 0);
     let port = ct_get_local_port(listener);
-    let connect = std::thread::spawn(move || {
+    let mut connect = ClientConnect::new(std::thread::spawn(move || {
         let host = CString::new("127.0.0.1").unwrap();
         if websocket {
             let path = CString::new("/ws").unwrap();
@@ -88,17 +92,9 @@ fn round_trip(websocket: bool, serializer: i32) {
         } else {
             ct_client_connect_rawsocket(host.as_ptr(), port, 0, 0, serializer, 16, 0, 0)
         }
-    });
+    }));
     let deadline = Instant::now() + Duration::from_secs(5);
-    let server = loop {
-        let id = ct_poll_connection(listener);
-        if id > 0 {
-            break id;
-        }
-        assert_eq!(id, 0);
-        assert!(Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(1));
-    };
+    let server = connect.wait_for_server(|| ct_poll_connection(listener), deadline);
     if websocket {
         let handshake = ct_connection_take_websocket_handshake(server);
         assert!(handshake > 0);
@@ -120,7 +116,7 @@ fn round_trip(websocket: bool, serializer: i32) {
             SUCCESS
         );
     }
-    let client = connect.join().unwrap();
+    let client = connect.finish(Instant::now() + Duration::from_secs(5));
     assert!(client > 0);
     if !websocket {
         assert_eq!(
@@ -222,7 +218,264 @@ fn round_trip(websocket: bool, serializer: i32) {
         json!([8, 48, 7, {}, "wamp.error.runtime_error", ["error"], {"flag": true}])
     );
     ct_message_release_wide(error);
+    legacy_forwarding(client, server, websocket, serializer);
+    fragmented_sends(client, server, websocket, serializer);
+    acknowledgement_metadata(client, server, websocket, serializer);
+    if serializer == 1 {
+        super::encrypted_file_boundary::check(client, server, websocket);
+    }
     assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+fn acknowledgement_metadata(client: i32, server: i32, websocket: bool, serializer: i32) {
+    let request = (1_u64 << 32) + 17;
+    let resource = (1_u64 << 53) - 1;
+    for wide in [false, true] {
+        for code in [17_u64, 33, 65, 67] {
+            let value = if code == 67 {
+                json!([code, request])
+            } else {
+                json!([code, request, resource])
+            };
+            let frame = encode(serializer, &value);
+            assert_eq!(
+                ct_send_message(client, frame.as_ptr(), frame.len() as i32),
+                SUCCESS
+            );
+            let handle = if wide {
+                incoming(server, websocket, false)
+            } else {
+                let legacy = ct_wait_connection_message(server, 5000);
+                assert!(legacy > 0);
+                i64::from(legacy)
+            };
+            let mut info = CtMessageInfo {
+                flags: u32::MAX,
+                secondary_id: 99,
+                ..CtMessageInfo::default()
+            };
+            let result = if wide {
+                ct_message_get_wide(handle, &mut info)
+            } else {
+                ct_message_get(i32::try_from(handle).unwrap(), &mut info)
+            };
+            assert_eq!(result, SUCCESS);
+            assert_eq!(i32::from(info.serializer), serializer);
+            assert_eq!(info.message_code, code);
+            assert_eq!(info.primary_id, request);
+            assert_eq!(info.secondary_id, if code == 67 { 0 } else { resource });
+            // Public ABI: direct-bind bit 0 and metadata-bind bit 4 only.
+            assert_eq!(info.flags, 0x11);
+            assert_eq!((info.detail_number_a, info.detail_number_b), (0, 0));
+            for (pointer, length) in [
+                (info.args_ptr, info.args_len),
+                (info.kwargs_ptr, info.kwargs_len),
+                (info.details_ptr, info.details_len),
+                (info.binary_arg_ptr, info.binary_arg_len),
+                (info.string_a_ptr, info.string_a_len),
+                (info.string_b_ptr, info.string_b_len),
+                (info.string_c_ptr, info.string_c_len),
+                (info.string_d_ptr, info.string_d_len),
+                (info.string_e_ptr, info.string_e_len),
+            ] {
+                assert!(pointer.is_null());
+                assert_eq!(length, 0);
+            }
+            assert_eq!(info.frame_len, frame.len());
+            assert!(!info.frame_ptr.is_null());
+            assert_eq!(
+                unsafe { std::slice::from_raw_parts(info.frame_ptr, info.frame_len) },
+                frame
+            );
+            if wide {
+                ct_message_release_wide(handle);
+            } else {
+                ct_message_release(i32::try_from(handle).unwrap());
+            }
+            assert_eq!(ct_message_get_wide(handle, &mut info), ERR_INVALID_ARGUMENT);
+        }
+    }
+}
+
+fn fragmented_sends(client: i32, server: i32, websocket: bool, serializer: i32) {
+    let value =
+        json!([48, 27, {}, "fragment.echo", ["caf\u{e9}", [0, 127, 128, 255]], {"flag": true}]);
+    let frame = encode(serializer, &value);
+    let len = frame.len() as i32;
+    let receive = |expected: &[u8]| {
+        let handle = incoming(server, websocket, false);
+        let mut info = CtMessageInfo::default();
+        assert_eq!(ct_message_get_wide(handle, &mut info), SUCCESS);
+        assert_eq!(i32::from(info.serializer), serializer);
+        assert_eq!(info.frame_len, expected.len());
+        assert!(!info.frame_ptr.is_null());
+        let actual = unsafe { std::slice::from_raw_parts(info.frame_ptr, info.frame_len) };
+        assert_eq!(actual, expected);
+        ct_message_release_wide(handle);
+    };
+    for owned in [false, true] {
+        for size in [1, 3, len - 1, len, len + 1] {
+            let result = if owned {
+                let buffer = ct_outbound_buffer_alloc(len);
+                assert!(!buffer.is_null());
+                unsafe { ptr::copy_nonoverlapping(frame.as_ptr(), buffer, frame.len()) };
+                ct_send_message_fragmented_owned(client, buffer, len, size)
+            } else {
+                let mut copied = frame.clone();
+                let result = ct_send_message_fragmented(client, copied.as_ptr(), len, size);
+                // The copying API must not borrow the caller's buffer after returning.
+                copied.fill(0);
+                result
+            };
+            assert_eq!(result, SUCCESS, "owned={owned} fragment={size}");
+            receive(&frame);
+        }
+    }
+    for size in [0, -1] {
+        assert_eq!(
+            ct_send_message_fragmented(client, frame.as_ptr(), len, size),
+            ERR_INVALID_ARGUMENT
+        );
+        let buffer = ct_outbound_buffer_alloc(len);
+        assert!(!buffer.is_null());
+        unsafe { ptr::copy_nonoverlapping(frame.as_ptr(), buffer, frame.len()) };
+        // Ownership transfers even when the fragment length is invalid.
+        assert_eq!(
+            ct_send_message_fragmented_owned(client, buffer, len, size),
+            ERR_INVALID_ARGUMENT
+        );
+    }
+    assert_eq!(
+        ct_send_message_fragmented(client, ptr::null(), 1, 1),
+        ERR_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        ct_send_message_fragmented(client, ptr::null(), -1, 1),
+        ERR_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        ct_send_message_fragmented_owned(client, ptr::null_mut(), 1, 1),
+        ERR_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        ct_send_message_fragmented_owned(client, ptr::null_mut(), -1, 1),
+        ERR_INVALID_ARGUMENT
+    );
+    let sentinel = encode(serializer, &json!([48, 28, {}, "fragment.after_errors"]));
+    assert_eq!(
+        ct_send_message_fragmented(client, sentinel.as_ptr(), sentinel.len() as i32, 2),
+        SUCCESS
+    );
+    receive(&sentinel);
+    assert_eq!(ct_wait_connection_message_wide(server, 1), 0);
+}
+
+fn legacy_forwarding(client: i32, server: i32, websocket: bool, serializer: i32) {
+    let send = |value: Value| {
+        let frame = encode(serializer, &value);
+        assert_eq!(
+            ct_send_message(client, frame.as_ptr(), frame.len() as i32),
+            SUCCESS
+        );
+        let handle = ct_wait_connection_message(server, 5000);
+        assert!(handle > 0, "legacy receive failed: {handle}");
+        handle
+    };
+    let authid = CString::new("alice").unwrap();
+    let role = CString::new("user").unwrap();
+    let procedure = CString::new("legacy.echo").unwrap();
+    let call = send(json!([48, 17, {}, "legacy.echo", ["payload"], {"flag": true}]));
+    assert_eq!(
+        ct_forward_call_invocation(
+            call,
+            server,
+            181,
+            182,
+            1,
+            123,
+            authid.as_ptr(),
+            5,
+            role.as_ptr(),
+            4,
+            procedure.as_ptr(),
+            11,
+            1
+        ),
+        SUCCESS
+    );
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([
+            68, 181, 182, {"caller": 123, "caller_authid": "alice", "caller_authrole": "user",
+            "procedure": "legacy.echo", "receive_progress": true}, ["payload"], {"flag": true}
+        ])
+    );
+    assert_eq!(
+        ct_forward_call_invocation_v2(
+            call,
+            server,
+            183,
+            184,
+            1,
+            124,
+            authid.as_ptr(),
+            5,
+            role.as_ptr(),
+            4,
+            procedure.as_ptr(),
+            11,
+            0,
+            1
+        ),
+        SUCCESS
+    );
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([
+            68, 183, 184, {"caller": 124, "caller_authid": "alice", "caller_authrole": "user",
+            "procedure": "legacy.echo", "receive_progress": false, "progress": true},
+            ["payload"], {"flag": true}
+        ])
+    );
+    assert_eq!(ct_forward_result_from_call(call, server, 17), SUCCESS);
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([50, 17, {}, ["payload"], {"flag": true}])
+    );
+    ct_message_release(call);
+
+    let publish = send(json!([16, 1, {}, "legacy.topic", ["event"], {"flag": true}]));
+    let topic = CString::new("legacy.topic").unwrap();
+    assert_eq!(
+        ct_forward_publish_event(publish, server, 191, 192, 1, 125, topic.as_ptr(), 12),
+        SUCCESS
+    );
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([
+            36, 191, 192, {"publisher": 125, "topic": "legacy.topic"}, ["event"], {"flag": true}
+        ])
+    );
+    ct_message_release(publish);
+
+    let yielded = send(json!([70, 181, {}, ["result"], {"flag": true}]));
+    assert_eq!(
+        ct_forward_result_from_yield(yielded, server, 17, 1),
+        SUCCESS
+    );
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([50, 17, {"progress": true}, ["result"], {"flag": true}])
+    );
+    ct_message_release(yielded);
+    let error =
+        send(json!([8, 68, 181, {}, "wamp.error.runtime_error", ["error"], {"flag": true}]));
+    assert_eq!(ct_forward_error_from_error(error, server, 48, 17), SUCCESS);
+    assert_eq!(
+        received_value(client, websocket, serializer),
+        json!([8, 48, 17, {}, "wamp.error.runtime_error", ["error"], {"flag": true}])
+    );
+    ct_message_release(error);
 }
 
 #[test]

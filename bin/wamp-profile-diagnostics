@@ -23,6 +23,8 @@ the strict default transport-counter gate; the heavy transfer scenarios also
 enforce checked-in data-window and lifecycle throughput policies. The
 representative pub/sub fan-out path has a checked-in release policy under
 bin/wamp-profile-validate instead of living in this diagnostic runner.
+Workload or gate failures are recorded in diagnostics-summary.tsv. Remaining
+scenarios still run, and any failed scenario makes the final exit nonzero.
 EOF
 }
 
@@ -97,6 +99,19 @@ fi
   printf 'workload_timeout_ms=%s\n' "$workload_timeout_ms"
 } >"${out_dir%/}/host-info.txt"
 
+hardware_info="${out_dir%/}/hardware-info.txt"
+if command -v lscpu >/dev/null 2>&1; then
+  LC_ALL=C lscpu >"$hardware_info" 2>&1 || printf '\nCPU information unavailable.\n' >>"$hardware_info"
+elif [[ "$(uname -s)" == Darwin ]] && command -v sysctl >/dev/null 2>&1; then
+  sysctl machdep.cpu.brand_string hw.model hw.physicalcpu hw.logicalcpu hw.memsize >"$hardware_info" 2>&1 || printf '\nSome CPU information unavailable.\n' >>"$hardware_info"
+else
+  printf 'CPU information unavailable.\n' >"$hardware_info"
+fi
+
+summary_path="${out_dir%/}/diagnostics-summary.tsv"
+printf 'scenario\tworkload_exit\tgate_exit\tstatus\n' >"$summary_path"
+diagnostics_failed=0
+
 run_diagnostic() {
   local name="$1"
   local scenario="$2"
@@ -114,6 +129,7 @@ run_diagnostic() {
   mkdir -p "$scenario_out"
 
   printf 'Running %s...\n' "$name"
+  local workload_status=0
   cargo run --release --manifest-path native/bench/Cargo.toml --bin http_stream -- \
     --native-lib "$CONNECTANUM_NATIVE_LIB" \
     --scenario "$scenario" \
@@ -121,7 +137,13 @@ run_diagnostic() {
     --artifact-dir "$scenario_out" \
     --router-worker-counts "$router_worker_counts" \
     --native-runtime-thread-counts "$native_runtime_thread_counts" \
-    --workload-timeout-ms "$workload_timeout_ms"
+    --workload-timeout-ms "$workload_timeout_ms" || workload_status=$?
+  if [[ "$workload_status" -ne 0 ]]; then
+    diagnostics_failed=1
+    printf '%s\t%s\tnot_run\tworkload_failed\n' "$name" "$workload_status" >>"$summary_path"
+    printf 'Workload %s failed (%s); continuing remaining diagnostics.\n' "$name" "$workload_status" >&2
+    return 0
+  fi
 
   local gate_args=(
     --summary "${scenario_out%/}/bench_results.summary.json"
@@ -137,7 +159,15 @@ run_diagnostic() {
   else
     printf 'Checking %s against the default transport-counter gate...\n' "$name"
   fi
-  bin/check-bench-artifacts "${gate_args[@]}"
+  local gate_status=0
+  bin/check-bench-artifacts "${gate_args[@]}" || gate_status=$?
+  if [[ "$gate_status" -ne 0 ]]; then
+    diagnostics_failed=1
+    printf '%s\t0\t%s\tgate_failed\n' "$name" "$gate_status" >>"$summary_path"
+    printf 'Gate %s failed (%s); continuing remaining diagnostics.\n' "$name" "$gate_status" >&2
+  else
+    printf '%s\t0\t0\tpassed\n' "$name" >>"$summary_path"
+  fi
 }
 
 run_diagnostic \
@@ -177,3 +207,7 @@ run_diagnostic \
   native/bench/artifact_gate/wamp_large_rawsocket_frames_heavy.json
 
 printf 'WAMP profile diagnostic artifacts written to %s\n' "$out_dir"
+if [[ "$diagnostics_failed" -ne 0 ]]; then
+  printf 'One or more diagnostics failed; see %s.\n' "$summary_path" >&2
+fi
+exit "$diagnostics_failed"

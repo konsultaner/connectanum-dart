@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
+import 'package:flutter/foundation.dart' show SynchronousFuture, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/l10n/generated/app_localizations.dart';
@@ -12,6 +14,8 @@ import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/contact_importer_contract.dart';
+import 'package:wamp_app/src/infrastructure/attachment_chunk_cache.dart';
+import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
 import 'package:wamp_app/src/infrastructure/biometric_session_store_contract.dart';
 import 'package:wamp_app/src/infrastructure/message_cipher.dart';
 import 'package:wamp_app/src/infrastructure/profile_avatar_picker.dart';
@@ -22,6 +26,13 @@ import 'package:wamp_app/src/ui/home_page.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'test_support.dart';
+import 'support/attachment_save_probe_stub.dart'
+    if (dart.library.io) 'support/attachment_save_probe_io.dart'
+    as save_probe;
+
+part 'support/voice_lifecycle_cases.dart';
+part 'support/attachment_picker_cases.dart';
+part 'support/attachment_preview_cases.dart';
 
 class _LocalizedMaterialApp extends StatelessWidget {
   const _LocalizedMaterialApp({required this.home});
@@ -47,6 +58,10 @@ Future<void> _openAdvancedServerSettings(WidgetTester tester) async {
 
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
+
+  _voiceLifecycleCases();
+  _attachmentPickerCases();
+  _attachmentPreviewCases();
 
   setUp(() {
     binding.platformDispatcher.localeTestValue = const Locale('en');

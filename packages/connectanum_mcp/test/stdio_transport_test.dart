@@ -255,5 +255,15 @@ Stream<List<int>> _input(List<Map<String, Object?>> messages) {
 
 List<Map<String, Object?>> _responses(StringBuffer output) => [
   for (final line in const LineSplitter().convert(output.toString()))
-    jsonDecode(line) as Map<String, Object?>,
+    _response(line),
 ];
+
+Map<String, Object?> _response(String line) {
+  final decoded = jsonDecode(line);
+  expect(
+    decoded,
+    isA<Map<String, Object?>>(),
+    reason: 'Each emitted line must be a JSON-RPC response object',
+  );
+  return decoded as Map<String, Object?>;
+}

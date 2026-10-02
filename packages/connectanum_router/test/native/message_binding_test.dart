@@ -1,6 +1,8 @@
 @TestOn('vm')
 library;
 
+import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
 
@@ -11,7 +13,1711 @@ import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
+import '../../../connectanum_core/test/support/native_role_contract.dart';
+
+void _bindingBoundaryContracts() {
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+  ]) {
+    Uint8List encode(Object value) => switch (serializer) {
+      NativeMessageSerializer.json => Uint8List.fromList(
+        utf8.encode(jsonEncode(value)),
+      ),
+      NativeMessageSerializer.messagePack => msgpack.serialize(value),
+      NativeMessageSerializer.cbor => Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue(value)),
+      ),
+      _ => throw StateError('Unsupported test serializer: $serializer'),
+    };
+
+    AbstractMessage bindMetadata(
+      int code, {
+      required bool direct,
+      String? stringA,
+      String? stringB,
+      Uint8List? detailsBytes,
+      int extraFlags = 0,
+    }) => bindMessage(
+      serializer,
+      encode([9999]),
+      metadataMessageCode: code,
+      metadataPrimaryId: 81,
+      metadataSecondaryId: 93,
+      metadataFlags: 16 | (direct ? 1 : 0) | extraFlags,
+      metadataStringA: stringA,
+      metadataStringB: stringB,
+      metadataDetailsBytes: detailsBytes,
+    );
+
+    test('minimal unknown extension frame stays unknown $serializer', () {
+      final bytes = encode([9999]);
+      final value = _expectMessage<UnknownMessage>(
+        _validFrame(() => bindMessage(serializer, bytes)),
+      );
+      expect(value.id, 9999);
+      expect(value.fields, isEmpty);
+      expect(value.requestId, isNull);
+    });
+    for (final payloadFields in [0, 1, 2]) {
+      test('ABORT optional payload boundary $payloadFields $serializer', () {
+        final bytes = encode([
+          3,
+          {'message': 'unavailable', '_retry': true},
+          'com.error.unavailable',
+          if (payloadFields > 0) [17, 'reason'],
+          if (payloadFields > 1) {'retry_after': 30},
+        ]);
+        final value = _expectMessage<Abort>(
+          _validFrame(() => bindMessage(serializer, bytes)),
+        );
+        expect(value.id, 3);
+        expect(value.reason, 'com.error.unavailable');
+        expect(value.message?.message, 'unavailable');
+        expect(value.details, {'message': 'unavailable', '_retry': true});
+        expect(value.arguments, payloadFields > 0 ? [17, 'reason'] : null);
+        expect(
+          value.argumentsKeywords,
+          payloadFields > 1 ? {'retry_after': 30} : null,
+        );
+      });
+    }
+    for (final present in [false, true]) {
+      for (final code in [3, 8]) {
+        test('direct details loader $code present=$present $serializer', () {
+          final value = bindMetadata(
+            code,
+            direct: true,
+            stringA: 'com.error.unavailable',
+            stringB: 'metadata message',
+            detailsBytes: present
+                ? encode({
+                    'message': 'encoded message',
+                    '_marker': 'encoded',
+                    '_local': 'encoded',
+                  })
+                : null,
+          );
+          expect(value, code == 3 ? isA<Abort>() : isA<Error>());
+          final details = _expectLazyMap(switch (value) {
+            Abort() => value.details,
+            Error() => value.details,
+            _ => fail('Unexpected details container'),
+          });
+          expect(details.hasPendingLoader, present);
+          expect(details['message'], 'metadata message');
+          expect(details.hasPendingLoader, present);
+          details['_local'] = 'caller';
+          expect(details, {
+            'message': 'metadata message',
+            '_local': 'caller',
+            if (present) '_marker': 'encoded',
+          });
+          expect(details.hasPendingLoader, isFalse);
+          expect(details['_local'], 'caller');
+        });
+      }
+    }
+
+    test('full HELLO preserves realm and identity $serializer', () {
+      final bytes = encode([
+        1,
+        'com.realm',
+        {
+          'authid': 'consumer',
+          'roles': {'caller': {}},
+        },
+      ]);
+      final value = _expectMessage<Hello>(
+        _validFrame(() => bindMessage(serializer, bytes)),
+      );
+      expect(value.id, 1);
+      expect(value.realm, 'com.realm');
+      expect(value.details.authid, 'consumer');
+      expect(value.details.roles?.caller, isNotNull);
+    });
+    for (final direct in [false, true]) {
+      for (final present in [false, true]) {
+        test(
+          'publish custom loader direct=$direct present=$present $serializer',
+          () {
+            final value = _expectMessage<Publish>(
+              bindMetadata(
+                16,
+                direct: direct,
+                extraFlags: 8,
+                stringA: 'com.topic',
+                detailsBytes: present
+                    ? encode({
+                        'acknowledge': false,
+                        '_marker': 'encoded',
+                        '_local': 'encoded',
+                      })
+                    : null,
+              ),
+            );
+            expect(value.requestId, 81);
+            expect(value.topic, 'com.topic');
+            if (!direct && !present) {
+              expect(value.options, isNull);
+              return;
+            }
+            final options = _present(value.options);
+            expect(options.acknowledge, direct);
+            final custom = _expectLazyMap(options.custom);
+            expect(custom.hasPendingLoader, direct && present);
+            custom['_local'] = 'caller';
+            expect(custom, {
+              '_local': 'caller',
+              if (present) '_marker': 'encoded',
+            });
+            expect(custom.hasPendingLoader, isFalse);
+          },
+        );
+      }
+    }
+    for (final present in [false, true]) {
+      test('HELLO details loader present=$present $serializer', () {
+        final value = _expectMessage<Hello>(
+          bindMetadata(
+            1,
+            direct: true,
+            stringA: 'com.realm',
+            stringB: 'consumer',
+            detailsBytes: present ? encode({'_marker': 'encoded'}) : null,
+          ),
+        );
+        final custom = _expectLazyMap(value.details.custom);
+        expect(custom.hasPendingLoader, present);
+        expect(value.realm, 'com.realm');
+        expect(value.details.authid, 'consumer');
+        expect(custom.hasPendingLoader, present);
+        expect(custom, {if (present) '_marker': 'encoded'});
+        expect(custom.hasPendingLoader, isFalse);
+      });
+    }
+  }
+  test('JSON normalized nested lists are fixed-length but replaceable', () {
+    final bytes = Uint8List.fromList(
+      utf8.encode(
+        jsonEncode([
+          8,
+          48,
+          81,
+          {
+            '_nested': [1, '\u0000AQID'],
+          },
+          'com.error',
+        ]),
+      ),
+    );
+    final value = _expectMessage<Error>(
+      _validFrame(() => bindMessage(NativeMessageSerializer.json, bytes)),
+    );
+    final nested = value.details['_nested'];
+    expect(nested, isA<List>());
+    final values = nested as List;
+    expect(values[0], 1);
+    expect(values[1], isA<Uint8List>());
+    expect(values[1], [1, 2, 3]);
+    values[0] = 9;
+    expect(values[0], 9);
+    expect(() => values.add(10), throwsUnsupportedError);
+    expect(() => values.removeLast(), throwsUnsupportedError);
+    expect(values.length, 2);
+    expect(values[1], [1, 2, 3]);
+  });
+}
+
+LazyStringKeyMap<dynamic> _expectLazyMap(Map<String, dynamic> value) {
+  expect(value, isA<LazyStringKeyMap<dynamic>>());
+  return value as LazyStringKeyMap<dynamic>;
+}
+
+void _metadataDispatchContracts() {
+  final contracts = <int, Matcher>{
+    1: isA<Hello>(),
+    3: isA<Abort>(),
+    5: isA<Authenticate>(),
+    6: isA<Goodbye>(),
+    7: isA<Heartbeat>(),
+    8: isA<Error>(),
+    16: isA<Publish>(),
+    32: isA<Subscribe>(),
+    34: isA<Unsubscribe>(),
+    35: isA<Unsubscribed>(),
+    48: isA<Call>(),
+    49: isA<Cancel>(),
+    64: isA<Register>(),
+    66: isA<Unregister>(),
+    69: isA<Interrupt>(),
+    70: isA<Yield>(),
+    7777: isA<UnknownMessage>(),
+  };
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+  ]) {
+    Uint8List encode(Object value) => switch (serializer) {
+      NativeMessageSerializer.json => Uint8List.fromList(
+        utf8.encode(jsonEncode(value)),
+      ),
+      NativeMessageSerializer.messagePack => msgpack.serialize(value),
+      NativeMessageSerializer.cbor => Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue(value)),
+      ),
+      _ => throw StateError('Unsupported test serializer: $serializer'),
+    };
+    for (final direct in [false, true]) {
+      for (final contract in contracts.entries) {
+        test(
+          'metadata dispatch ${contract.key} $serializer direct=$direct overrides a valid frame',
+          () {
+            // A wrong fallback must be observable as a value, not a decode crash.
+            final message = bindMessage(
+              serializer,
+              encode([9999]),
+              metadataMessageCode: contract.key,
+              metadataPrimaryId: 81,
+              metadataSecondaryId: 93,
+              metadataFlags: direct ? 17 : 16,
+              metadataStringA: 'killnowait',
+              metadataStringB: 'exact',
+              metadataDetailsBytes: encode({
+                'roles': {'dealer': {}, 'caller': {}},
+                'message': 'wire message',
+                'mode': 'killnowait',
+                'fields': ['metadata'],
+                'request_id': 73,
+                'details': {'marker': 'wire'},
+                'ping': 11,
+                'incoming': 12,
+                'outgoing': 13,
+              }),
+            );
+            expect(message, contract.value);
+            expect(message.id, contract.key);
+            switch (message) {
+              case Hello():
+                expect(message.realm, 'killnowait');
+                expect(message.details.roles?.caller, isNotNull);
+              case Abort():
+                expect(message.reason, 'killnowait');
+                expect(
+                  message.message?.message,
+                  direct ? 'exact' : 'wire message',
+                );
+              case Authenticate():
+                expect(message.signature, 'killnowait');
+                expect(message.extra?['message'], 'wire message');
+              case Goodbye():
+                expect(message.reason, 'killnowait');
+                expect(
+                  message.message?.message,
+                  direct ? 'exact' : 'wire message',
+                );
+              case Heartbeat():
+                expect(message.details, {'marker': 'wire'});
+                expect(
+                  [message.ping, message.incoming, message.outgoing],
+                  [11, 12, 13],
+                );
+              case Error():
+                expect(message.requestTypeId, 81);
+                expect(message.requestId, 93);
+                expect(message.error, 'killnowait');
+                expect(
+                  message.details['message'],
+                  direct ? 'exact' : 'wire message',
+                );
+              case Publish():
+                expect(message.requestId, 81);
+                expect(message.topic, 'killnowait');
+              case Subscribe():
+                expect(message.requestId, 81);
+                expect(message.topic, 'killnowait');
+              case Unsubscribe():
+                expect(message.requestId, 81);
+                expect(message.subscriptionId, 93);
+              case Unsubscribed():
+                expect(message.unsubscribeRequestId, 81);
+              case Call():
+                expect(message.requestId, 81);
+                expect(message.procedure, 'killnowait');
+              case Cancel():
+                expect(message.requestId, 81);
+                expect(message.options?.mode, 'killnowait');
+              case Register():
+                expect(message.requestId, 81);
+                expect(message.procedure, 'killnowait');
+              case Unregister():
+                expect(message.requestId, 81);
+                expect(message.registrationId, 93);
+              case Interrupt():
+                expect(message.requestId, 81);
+                expect(message.options?.mode, 'killnowait');
+              case Yield():
+                expect(message.invocationRequestId, 81);
+              case UnknownMessage():
+                expect(message.fields, ['metadata']);
+                expect(message.requestId, 73);
+            }
+          },
+        );
+      }
+    }
+  }
+}
+
+T _expectMessage<T extends AbstractMessage>(AbstractMessage? value) {
+  expect(value, isA<T>());
+  return value as T;
+}
+
+T _present<T extends Object>(T? value) {
+  expect(value, isNotNull);
+  return value!;
+}
+
+// Only for known-valid, synchronous in-memory frames; never negative fixtures.
+T _validFrame<T>(T Function() decode) {
+  try {
+    return decode();
+  } on FormatException catch (error) {
+    fail('Known-valid frame was rejected as malformed: $error');
+  } on ArgumentError catch (error) {
+    fail('Known-valid frame was rejected by the decoder: $error');
+  }
+}
+
+void _validFrameContracts() {
+  test(
+    'valid frame assertion evaluates once and preserves result identity',
+    () {
+      final value = Object();
+      var calls = 0;
+      expect(
+        _validFrame(() {
+          calls++;
+          return value;
+        }),
+        same(value),
+      );
+      expect(calls, 1);
+      expect(_validFrame<Object?>(() => null), isNull);
+    },
+  );
+  for (final rejection in <Object>[
+    const FormatException('fixture'),
+    ArgumentError('fixture'),
+    RangeError.index(2, [1]),
+  ]) {
+    test(
+      'valid frame assertion identifies ${rejection.runtimeType} rejection',
+      () {
+        var calls = 0;
+        expect(
+          () => _validFrame(() {
+            calls++;
+            throw rejection;
+          }),
+          throwsA(isA<TestFailure>()),
+        );
+        expect(calls, 1);
+      },
+    );
+  }
+  for (final failure in <Object>[
+    StateError('runtime'),
+    UnsupportedError('serializer'),
+    TypeError(),
+    TimeoutException('deadline'),
+    const FileSystemException('filesystem'),
+    const SocketException('socket'),
+    ProcessException('process', []),
+    TestFailure('original assertion'),
+    AssertionError('original assertion'),
+    StackOverflowError(),
+    const OutOfMemoryError(),
+  ]) {
+    test('valid frame assertion preserves ${failure.runtimeType}', () {
+      expect(() => _validFrame(() => throw failure), throwsA(same(failure)));
+    });
+  }
+}
+
 void main() {
+  _bindingBoundaryContracts();
+  _metadataDispatchContracts();
+  _validFrameContracts();
+  for (final serializer in [
+    NativeMessageSerializer.ubjson,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    test('unsupported inbound $serializer fails explicitly', () {
+      expect(
+        () => bindMessage(serializer, Uint8List.fromList([0xff])),
+        throwsUnsupportedError,
+      );
+    });
+  }
+  for (final serializer in [
+    NativeMessageSerializer.ubjson,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    test(
+      'unsupported $serializer fails when a deferred fragment is accessed',
+      () {
+        final value =
+            bindMessageFromMetadata(
+                  serializer,
+                  messageCode: 8,
+                  primaryId: 48,
+                  secondaryId: 19,
+                  detailNumberA: 0,
+                  flags: 16,
+                  argsBytes: Uint8List.fromList([0xff]),
+                  kwargsBytes: Uint8List.fromList([0xff]),
+                )
+                as Error;
+        expect(value.requestTypeId, 48);
+        expect(value.requestId, 19);
+        expect(() => value.arguments, throwsUnsupportedError);
+        expect(() => value.argumentsKeywords, throwsUnsupportedError);
+      },
+    );
+  }
+  test(
+    'JSON binary tags normalize recursively without changing ordinary strings',
+    () {
+      final value = _expectMessage<Error>(
+        _validFrame(
+          () => bindMessage(
+            NativeMessageSerializer.json,
+            Uint8List.fromList(
+              utf8.encode(
+                jsonEncode([
+                  8,
+                  48,
+                  19,
+                  {
+                    'actual': '\u0000AQID',
+                    'escaped': r'\u0000BAUG',
+                    'nested': [
+                      {'value': r'\u0000BwgJ'},
+                      'ordinary',
+                    ],
+                    'empty': '',
+                    'number': 7,
+                  },
+                  'com.error',
+                ]),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(value.details, {
+        'actual': [1, 2, 3],
+        'escaped': [4, 5, 6],
+        'nested': [
+          {
+            'value': [7, 8, 9],
+          },
+          'ordinary',
+        ],
+        'empty': '',
+        'number': 7,
+      });
+    },
+  );
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+  ]) {
+    Uint8List encode(Object? value) => switch (serializer) {
+      NativeMessageSerializer.json => Uint8List.fromList(
+        utf8.encode(jsonEncode(value)),
+      ),
+      NativeMessageSerializer.messagePack => msgpack.serialize(value),
+      NativeMessageSerializer.cbor => Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue(value)),
+      ),
+      _ => throw StateError('Unsupported test serializer: $serializer'),
+    };
+    group('full request frames $serializer', () {
+      T decode<T extends AbstractMessage>(List<Object?> frame) {
+        final bytes = encode(frame);
+        return _expectMessage<T>(
+          _validFrame(() => bindMessage(serializer, bytes)),
+        );
+      }
+
+      test('rejects non-array and empty frames', () {
+        for (final frame in <Object>[{}, 1, 'invalid', []]) {
+          expect(
+            () => bindMessage(serializer, encode(frame)),
+            throwsArgumentError,
+          );
+        }
+      });
+      test('AUTHENTICATE preserves signature and channel-binding extra', () {
+        final value = decode<Authenticate>([
+          5,
+          'proof',
+          {'channel_binding': 'tls-exporter'},
+        ]);
+        expect(value.signature, 'proof');
+        expect(value.extra, {'channel_binding': 'tls-exporter'});
+        final absent = decode<Authenticate>([5]);
+        expect(absent.signature, isNull);
+        expect(absent.extra, isNull);
+      });
+      test('AUTHENTICATE without extra retains its proof', () {
+        final value = decode<Authenticate>([5, 'proof-only']);
+        expect(value.signature, 'proof-only');
+        expect(value.extra, isNull);
+      });
+      for (var length = 1; length <= 5; length++) {
+        test('HEARTBEAT preserves exactly $length wire fields', () {
+          final frame = <Object?>[
+            7,
+            {'mode': 'ping'},
+            0,
+            17,
+            29,
+          ];
+          final value = decode<Heartbeat>(frame.sublist(0, length));
+          expect(value.details, length > 1 ? {'mode': 'ping'} : {});
+          expect(value.ping, length > 2 ? 0 : null);
+          expect(value.incoming, length > 3 ? 17 : null);
+          expect(value.outgoing, length > 4 ? 29 : null);
+        });
+      }
+      test('unknown message without fields remains an empty extension', () {
+        final value = decode<UnknownMessage>([9999]);
+        expect(value.id, 9999);
+        expect(value.fields, isEmpty);
+      });
+      test('ABORT retains reason and message', () {
+        final value = decode<Abort>([
+          3,
+          {'message': 'denied'},
+          'wamp.error.not_authorized',
+        ]);
+        expect(value.reason, 'wamp.error.not_authorized');
+        expect(value.message?.message, 'denied');
+        expect(decode<Abort>([3]).reason, '');
+        expect(decode<Abort>([3, {}]).message, isNull);
+      });
+      test('ABORT preserves the existing text shorthand', () {
+        final value = decode<Abort>([
+          3,
+          'legacy explanation',
+          'wamp.error.not_authorized',
+        ]);
+        expect(value.reason, 'wamp.error.not_authorized');
+        expect(value.message?.message, 'legacy explanation');
+        expect(value.details, {'message': 'legacy explanation'});
+      });
+      test('GOODBYE retains explanation and reason', () {
+        final value = decode<Goodbye>([
+          6,
+          {'message': 'closing'},
+          'wamp.close.normal',
+        ]);
+        expect(value.reason, 'wamp.close.normal');
+        expect(value.message?.message, 'closing');
+        expect(decode<Goodbye>([6]).message, isNull);
+        expect(decode<Goodbye>([6]).reason, '');
+      });
+      test('GOODBYE without reason preserves its explanation', () {
+        final value = decode<Goodbye>([
+          6,
+          {'message': 'closing'},
+        ]);
+        expect(value.message?.message, 'closing');
+        expect(value.reason, '');
+      });
+      test('SUBSCRIBE separates known options and extensions', () {
+        final value = decode<Subscribe>([
+          32,
+          23,
+          {
+            'match': 'prefix',
+            'meta_topic': 'com.meta',
+            'get_retained': false,
+            'extension': {'trace': 'sub'},
+          },
+          'com.topic',
+        ]);
+        expect(value.requestId, 23);
+        expect(value.topic, 'com.topic');
+        expect(value.options, isNotNull);
+        expect(value.options!.match, 'prefix');
+        expect(value.options!.metaTopic, 'com.meta');
+        expect(value.options!.getRetained, isFalse);
+        expect(value.options!.custom, {
+          'extension': {'trace': 'sub'},
+        });
+        expect(decode<Subscribe>([32, 24, null, 'com.topic']).options, isNull);
+      });
+      test(
+        'UNSUBSCRIBE and UNREGISTER keep independent request/entity IDs',
+        () {
+          final subscription = decode<Unsubscribe>([34, 27, 83]);
+          expect(subscription.requestId, 27);
+          expect(subscription.subscriptionId, 83);
+          final registration = decode<Unregister>([66, 28, 84]);
+          expect(registration.requestId, 28);
+          expect(registration.registrationId, 84);
+        },
+      );
+      for (final mode in <String?>[null, 'skip', 'kill', 'killnowait']) {
+        test('CANCEL and INTERRUPT preserve mode $mode', () {
+          final options = mode == null ? null : {'mode': mode};
+          final cancel = decode<Cancel>([49, 29, options]);
+          expect(cancel.requestId, 29);
+          expect(cancel.options?.mode, mode);
+          final interrupt = decode<Interrupt>([69, 30, options]);
+          expect(interrupt.requestId, 30);
+          expect(interrupt.options?.mode, mode);
+          if (mode == null) {
+            expect(cancel.options, isNull);
+            expect(interrupt.options, isNull);
+          }
+        });
+      }
+      test('CANCEL INTERRUPT and YIELD allow absent optional dictionaries', () {
+        final cancel = decode<Cancel>([49, 29]);
+        expect(cancel.requestId, 29);
+        expect(cancel.options, isNull);
+        final interrupt = decode<Interrupt>([69, 30]);
+        expect(interrupt.requestId, 30);
+        expect(interrupt.options, isNull);
+        final yielded = decode<Yield>([70, 31]);
+        expect(yielded.invocationRequestId, 31);
+        expect(yielded.options, isNull);
+        expect(yielded.arguments, isNull);
+        expect(yielded.argumentsKeywords, isNull);
+      });
+      test(
+        'REGISTER keeps policy, disclosure, timeout and extension options',
+        () {
+          final value = decode<Register>([
+            64,
+            31,
+            {
+              'match': 'wildcard',
+              'invoke': 'roundrobin',
+              'disclose_caller': false,
+              'forward_timeout': true,
+              'extension': 7,
+            },
+            'com..procedure',
+          ]);
+          expect(value.requestId, 31);
+          expect(value.procedure, 'com..procedure');
+          expect(value.options, isNotNull);
+          expect(value.options!.match, 'wildcard');
+          expect(value.options!.invoke, 'roundrobin');
+          expect(value.options!.discloseCaller, isFalse);
+          expect(value.options!.forwardTimeout, isTrue);
+          expect(value.options!.custom, {'extension': 7});
+          expect(decode<Register>([64, 32, null, 'com.proc']).options, isNull);
+        },
+      );
+      test(
+        'YIELD retains progress, passthrough metadata and custom fields',
+        () {
+          final value = decode<Yield>([
+            70,
+            33,
+            {
+              'progress': false,
+              'ppt_scheme': 'wamp',
+              'ppt_serializer': 'cbor',
+              'ppt_cipher': 'cipher',
+              'ppt_keyid': 'key',
+              'extension': 'yield',
+            },
+          ]);
+          expect(value.invocationRequestId, 33);
+          expect(value.options, isNotNull);
+          expect(value.options!.progress, isFalse);
+          expect(value.options!.pptScheme, 'wamp');
+          expect(value.options!.pptSerializer, 'cbor');
+          expect(value.options!.pptCipher, 'cipher');
+          expect(value.options!.pptKeyId, 'key');
+          expect(value.options!.custom, {'extension': 'yield'});
+        },
+      );
+      test(
+        'ERROR keeps request type, identity, URI, details and lazy payload',
+        () {
+          final value =
+              bindMessage(
+                    serializer,
+                    encode([
+                      8,
+                      68,
+                      34,
+                      {'trace': 'error'},
+                      'com.failure',
+                    ]),
+                    argsBytes: encode([1, 'reason']),
+                    kwargsBytes: encode({'code': 2}),
+                  )
+                  as Error;
+          expect(value.requestTypeId, 68);
+          expect(value.requestId, 34);
+          expect(value.error, 'com.failure');
+          expect(value.details, {'trace': 'error'});
+          expect(value.arguments, [1, 'reason']);
+          expect(value.argumentsKeywords, {'code': 2});
+          final absent = decode<Error>([8, 68, 35, null]);
+          expect(absent.details, isEmpty);
+          expect(absent.error, isNull);
+        },
+      );
+    });
+    group('metadata fallback contracts $serializer', () {
+      for (final code in [16, 48, 70]) {
+        for (final selected in [-1, 0, 1, 2, 3]) {
+          for (final text in ['', 'value']) {
+            test(
+              'code $code preserves sole PPT slot $selected=$text without details bytes',
+              () {
+                final strings = [
+                  for (var i = 0; i < 4; i++) i == selected ? text : null,
+                ];
+                final value = bindMessageFromMetadata(
+                  serializer,
+                  messageCode: code,
+                  primaryId: 41,
+                  secondaryId: 62,
+                  detailNumberA: 0,
+                  flags: 17,
+                  stringA: code == 70 ? strings[0] : 'com.target',
+                  stringB: code == 70 ? strings[1] : strings[0],
+                  stringC: code == 70 ? strings[2] : strings[1],
+                  stringD: code == 70 ? strings[3] : strings[2],
+                  stringE: code == 70 ? null : strings[3],
+                );
+                final PPTOptions? options = switch (value) {
+                  Publish() => value.options,
+                  Call() => value.options,
+                  Yield() => value.options,
+                  _ => throw StateError('unexpected PPT type'),
+                };
+                if (selected < 0) {
+                  expect(options, isNull);
+                } else {
+                  expect(options, isNotNull);
+                  expect([
+                    options!.pptScheme,
+                    options.pptSerializer,
+                    options.pptCipher,
+                    options.pptKeyId,
+                  ], strings);
+                }
+              },
+            );
+          }
+        }
+      }
+      for (final code in [32, 64]) {
+        for (final selected in [-1, 0, 1]) {
+          test(
+            'code $code preserves sole policy slot $selected without details bytes',
+            () {
+              final value = bindMessageFromMetadata(
+                serializer,
+                messageCode: code,
+                primaryId: 41,
+                secondaryId: 62,
+                detailNumberA: 0,
+                flags: 17,
+                stringA: 'com.target',
+                stringB: selected == 0 ? 'prefix' : null,
+                stringC: selected == 1
+                    ? (code == 32 ? 'com.meta' : 'roundrobin')
+                    : null,
+              );
+              switch (value) {
+                case Subscribe():
+                  if (selected < 0) {
+                    expect(value.options, isNull);
+                  } else {
+                    expect(value.options, isNotNull);
+                    expect(
+                      value.options!.match,
+                      selected == 0 ? 'prefix' : null,
+                    );
+                    expect(
+                      value.options!.metaTopic,
+                      selected == 1 ? 'com.meta' : null,
+                    );
+                    expect(value.options!.getRetained, isNull);
+                  }
+                case Register():
+                  if (selected < 0) {
+                    expect(value.options, isNull);
+                  } else {
+                    expect(value.options, isNotNull);
+                    expect(
+                      value.options!.match,
+                      selected == 0 ? 'prefix' : null,
+                    );
+                    expect(
+                      value.options!.invoke,
+                      selected == 1 ? 'roundrobin' : null,
+                    );
+                    expect(value.options!.discloseCaller, isNull);
+                    expect(value.options!.forwardTimeout, isNull);
+                  }
+                default:
+                  fail('unexpected policy type');
+              }
+            },
+          );
+        }
+      }
+      final authFields = <String, String? Function(Details)>{
+        'authid': (d) => d.authid,
+        'authrole': (d) => d.authrole,
+        'authmethod': (d) => d.authmethod,
+        'authprovider': (d) => d.authprovider,
+      };
+      for (final selected in authFields.keys) {
+        for (final direct in [false, true]) {
+          for (final text in ['', 'metadata-$selected']) {
+            test(
+              'HELLO $selected=$text direct=$direct preserves auth authority',
+              () {
+                final strings = [
+                  for (final field in authFields.keys)
+                    field == selected ? text : null,
+                ];
+                final value =
+                    bindMessageFromMetadata(
+                          serializer,
+                          messageCode: 1,
+                          primaryId: 0,
+                          secondaryId: 0,
+                          detailNumberA: 0,
+                          flags: direct ? 17 : 16,
+                          stringA: 'realm',
+                          stringB: strings[0],
+                          stringC: strings[1],
+                          stringD: strings[2],
+                          stringE: strings[3],
+                          detailsBytes: encode({
+                            for (final field in authFields.keys)
+                              field: 'wire-$field',
+                            'roles': {'caller': {}},
+                            'extension': 17,
+                          }),
+                        )
+                        as Hello;
+                expect(value.realm, 'realm');
+                expect(value.details.roles, isNotNull);
+                expect(value.details.roles!.caller, isNotNull);
+                for (final field in authFields.entries) {
+                  expect(
+                    field.value(value.details),
+                    direct && field.key == selected
+                        ? text
+                        : 'wire-${field.key}',
+                    reason: field.key,
+                  );
+                }
+                expect(value.details.custom, {'extension': 17});
+              },
+            );
+          }
+        }
+      }
+      test(
+        'entry point passes metadata IDs, timeout and payload fragments',
+        () {
+          final value =
+              bindMessage(
+                    serializer,
+                    Uint8List.fromList([0xff]),
+                    metadataMessageCode: 48,
+                    metadataPrimaryId: 41,
+                    metadataSecondaryId: 62,
+                    metadataDetailNumberA: 73,
+                    metadataFlags: 19,
+                    metadataStringA: 'com.proc',
+                    argsBytes: encode([12]),
+                    kwargsBytes: encode({'key': 13}),
+                  )
+                  as Call;
+          expect(value.requestId, 41);
+          expect(value.procedure, 'com.proc');
+          expect(value.options, isNotNull);
+          expect(value.options!.timeout, 73);
+          expect(value.arguments, [12]);
+          expect(value.argumentsKeywords, {'key': 13});
+          final error =
+              bindMessage(
+                    serializer,
+                    Uint8List.fromList([0xff]),
+                    metadataMessageCode: 8,
+                    metadataPrimaryId: 48,
+                    metadataSecondaryId: 62,
+                    metadataFlags: 17,
+                    metadataStringA: 'com.error',
+                  )
+                  as Error;
+          expect(error.requestTypeId, 48);
+          expect(error.requestId, 62);
+          expect(error.error, 'com.error');
+        },
+      );
+      for (final bits in [0, 2, 8, 32, 64, 128, 2 | 8 | 32 | 64 | 128]) {
+        test(
+          'direct feature bits $bits remain independent between message types',
+          () {
+            T decodeFlags<T extends AbstractMessage>(int code) =>
+                _expectMessage<T>(
+                  bindMessageFromMetadata(
+                    serializer,
+                    messageCode: code,
+                    primaryId: 41,
+                    secondaryId: 62,
+                    detailNumberA: 0,
+                    flags: 17 | bits,
+                    stringA: code == 70 ? null : 'com.target',
+                    detailsBytes: encode({'extension': 1}),
+                  ),
+                );
+            final publish = _present(decodeFlags<Publish>(16).options);
+            expect(publish.acknowledge, bits & 8 != 0 ? true : null);
+            expect(publish.excludeMe, bits & 32 != 0 ? true : null);
+            expect(publish.discloseMe, bits & 64 != 0 ? true : null);
+            expect(publish.retain, bits & 128 != 0 ? true : null);
+            final call = _present(decodeFlags<Call>(48).options);
+            expect(call.timeout, bits & 2 != 0 ? 0 : null);
+            expect(call.receiveProgress, bits & 8 != 0 ? true : null);
+            expect(call.discloseMe, bits & 32 != 0 ? true : null);
+            expect(call.progress, bits & 64 != 0 ? true : null);
+            final register = _present(decodeFlags<Register>(64).options);
+            expect(register.discloseCaller, bits & 8 != 0 ? true : null);
+            expect(register.forwardTimeout, bits & 32 != 0 ? true : null);
+            final sub = _present(decodeFlags<Subscribe>(32).options);
+            expect(sub.getRetained, bits & 8 != 0 ? true : null);
+            final result = _present(decodeFlags<Yield>(70).options);
+            expect(result.progress, bits & 8 != 0);
+            for (final options in <CustomFieldContainer>[
+              publish,
+              call,
+              register,
+              sub,
+              result,
+            ]) {
+              expect(options.custom, {'extension': 1});
+            }
+          },
+        );
+      }
+      test(
+        'direct ERROR message precedes a conflicting lazy details value',
+        () {
+          final error =
+              bindMessageFromMetadata(
+                    serializer,
+                    messageCode: 8,
+                    primaryId: 48,
+                    secondaryId: 62,
+                    detailNumberA: 0,
+                    flags: 17,
+                    stringA: 'com.error',
+                    stringB: 'metadata',
+                    detailsBytes: encode({
+                      'message': 'ignored',
+                      'extension': 1,
+                    }),
+                  )
+                  as Error;
+          expect(error.requestTypeId, 48);
+          expect(error.requestId, 62);
+          expect(error.error, 'com.error');
+          expect(error.details, {'message': 'metadata', 'extension': 1});
+        },
+      );
+      for (final explanation in ['', 'authoritative']) {
+        test('direct ABORT uses authoritative message $explanation', () {
+          final value =
+              bindMessageFromMetadata(
+                    serializer,
+                    messageCode: 3,
+                    primaryId: 0,
+                    secondaryId: 0,
+                    detailNumberA: 0,
+                    flags: 17,
+                    stringA: 'wamp.error.not_authorized',
+                    stringB: explanation,
+                    detailsBytes: encode({
+                      'message': 'not authoritative',
+                      'extension': 1,
+                    }),
+                  )
+                  as Abort;
+          expect(value.reason, 'wamp.error.not_authorized');
+          expect(value.message?.message, explanation);
+          expect(value.details, {'message': explanation, 'extension': 1});
+        });
+      }
+      for (final direct in [false, true]) {
+        test(
+          'AUTHENTICATE distinguishes absent and empty extra direct=$direct',
+          () {
+            for (final present in [false, true]) {
+              final value =
+                  bindMessageFromMetadata(
+                        serializer,
+                        messageCode: 5,
+                        primaryId: 0,
+                        secondaryId: 0,
+                        detailNumberA: 0,
+                        flags: direct ? 17 : 16,
+                        stringA: 'proof',
+                        detailsBytes: present ? encode({}) : null,
+                      )
+                      as Authenticate;
+              expect(value.signature, 'proof');
+              expect(value.extra, present ? isEmpty : isNull);
+            }
+          },
+        );
+      }
+      for (final message in <String?>[null, '', 'closing']) {
+        test('direct GOODBYE keeps nullable message $message', () {
+          final value =
+              bindMessageFromMetadata(
+                    serializer,
+                    messageCode: 6,
+                    primaryId: 0,
+                    secondaryId: 0,
+                    detailNumberA: 0,
+                    flags: 17,
+                    stringA: 'wamp.close.normal',
+                    stringB: message,
+                    detailsBytes: encode({'message': 'ignored'}),
+                  )
+                  as Goodbye;
+          expect(value.reason, 'wamp.close.normal');
+          expect(value.message?.message, message);
+          if (message == null) expect(value.message, isNull);
+        });
+      }
+      test('UNREGISTER retains independent request and registration IDs', () {
+        final value =
+            bindMessageFromMetadata(
+                  serializer,
+                  messageCode: 66,
+                  primaryId: 41,
+                  secondaryId: 62,
+                  detailNumberA: 0,
+                  flags: 16,
+                )
+                as Unregister;
+        expect(value.requestId, 41);
+        expect(value.registrationId, 62);
+      });
+      for (final code in [16, 32, 48, 64, 70]) {
+        test(
+          'direct code $code keeps extension-only options with no feature flags',
+          () {
+            final value = bindMessageFromMetadata(
+              serializer,
+              messageCode: code,
+              primaryId: 41,
+              secondaryId: 62,
+              detailNumberA: 99,
+              flags: 17,
+              stringA: code == 70 ? null : 'com.target',
+              detailsBytes: encode({'extension': 1}),
+            );
+            final options = switch (value) {
+              Publish() => value.options,
+              Subscribe() => value.options,
+              Call() => value.options,
+              Register() => value.options,
+              Yield() => value.options,
+              _ => throw StateError('unexpected options type'),
+            };
+            expect(options, isNotNull);
+            expect(options!.custom, {'extension': 1});
+            switch (value) {
+              case Publish():
+                expect(value.options!.acknowledge, isNull);
+              case Subscribe():
+                expect(value.options!.match, isNull);
+              case Call():
+                expect(value.options!.timeout, isNull);
+              case Register():
+                expect(value.options!.discloseCaller, isNull);
+              case Yield():
+                expect(value.options!.progress, isFalse);
+            }
+          },
+        );
+      }
+      for (final present in [false, true]) {
+        test(
+          'direct revocation flag preserves a zero subscription present=$present',
+          () {
+            final value =
+                bindMessageFromMetadata(
+                      serializer,
+                      messageCode: 35,
+                      primaryId: 0,
+                      secondaryId: 0,
+                      detailNumberA: 0,
+                      flags: present ? 19 : 17,
+                    )
+                    as Unsubscribed;
+            expect(value.unsubscribeRequestId, 0);
+            expect(value.details?.subscription, present ? 0 : null);
+            expect(value.details?.reason, isNull);
+            if (!present) expect(value.details, isNull);
+          },
+        );
+      }
+      T decode<T extends AbstractMessage>(
+        int code,
+        Object? details, {
+        String? stringA = 'com.target',
+      }) => _expectMessage<T>(
+        bindMessageFromMetadata(
+          serializer,
+          messageCode: code,
+          primaryId: 41,
+          secondaryId: 62,
+          detailNumberA: 999,
+          flags: 16,
+          stringA: stringA,
+          stringB: 'ignored',
+          stringC: 'ignored',
+          stringD: 'ignored',
+          stringE: 'ignored',
+          detailsBytes: encode(details),
+        ),
+      );
+
+      for (final flags in [0, 1]) {
+        test(
+          'missing metadata flag $flags returns null without reading fragments',
+          () {
+            expect(
+              bindMessageFromMetadata(
+                serializer,
+                messageCode: 1,
+                primaryId: 41,
+                secondaryId: 62,
+                detailNumberA: 0,
+                flags: flags,
+                stringA: 'realm',
+                detailsBytes: Uint8List.fromList([0xff]),
+              ),
+              isNull,
+            );
+          },
+        );
+      }
+      final frames = <int, List<Object?>>{
+        1: [1, 'realm', {}],
+        16: [16, 41, {}, 'com.topic'],
+        32: [32, 41, {}, 'com.topic'],
+        48: [48, 41, {}, 'com.proc'],
+        64: [64, 41, {}, 'com.proc'],
+      };
+      for (final frame in frames.entries) {
+        for (final direct in [false, true]) {
+          test(
+            'code ${frame.key} without required metadata string falls back direct=$direct',
+            () {
+              expect(
+                bindMessageFromMetadata(
+                  serializer,
+                  messageCode: frame.key,
+                  primaryId: 99,
+                  secondaryId: 98,
+                  detailNumberA: 97,
+                  flags: direct ? 17 : 16,
+                ),
+                isNull,
+              );
+              final value = bindMessage(
+                serializer,
+                encode(frame.value),
+                metadataMessageCode: frame.key,
+                metadataPrimaryId: 99,
+                metadataSecondaryId: 98,
+                metadataFlags: direct ? 17 : 16,
+              );
+              expect(value.id, frame.key);
+              switch (value) {
+                case Hello():
+                  expect(value.realm, 'realm');
+                case Publish():
+                  expect(value.requestId, 41);
+                  expect(value.topic, 'com.topic');
+                case Subscribe():
+                  expect(value.requestId, 41);
+                  expect(value.topic, 'com.topic');
+                case Call():
+                  expect(value.requestId, 41);
+                  expect(value.procedure, 'com.proc');
+                case Register():
+                  expect(value.requestId, 41);
+                  expect(value.procedure, 'com.proc');
+                default:
+                  fail('unexpected fallback type ${value.runtimeType}');
+              }
+            },
+          );
+        }
+      }
+      for (final options in <Map<String, Object?>?>[
+        null,
+        {},
+        {'mode': 'killnowait'},
+      ]) {
+        test(
+          'CANCEL and INTERRUPT read options $options, not string slots',
+          () {
+            final cancel = decode<Cancel>(49, options);
+            final interrupt = decode<Interrupt>(69, options);
+            expect(cancel.requestId, 41);
+            expect(interrupt.requestId, 41);
+            expect(cancel.options?.mode, options?['mode']);
+            expect(interrupt.options?.mode, options?['mode']);
+            if (options == null) expect(cancel.options, isNull);
+            if (options?['mode'] == null) expect(interrupt.options, isNull);
+          },
+        );
+      }
+      for (final present in [false, true]) {
+        test('optional fields and extensions present=$present', () {
+          final publish = decode<Publish>(
+            16,
+            present
+                ? {
+                    'acknowledge': false,
+                    'exclude_me': false,
+                    'disclose_me': false,
+                    'retain': false,
+                    'exclude': [11, 12],
+                    'eligible': [21],
+                    'exclude_authid': ['alice'],
+                    'exclude_authrole': ['guest'],
+                    'eligible_authid': ['bob'],
+                    'eligible_authrole': ['member'],
+                    'ppt_scheme': 'scheme',
+                    'ppt_serializer': 'cbor',
+                    'ppt_cipher': 'cipher',
+                    'ppt_keyid': 'key',
+                    'extension': 1,
+                  }
+                : null,
+          );
+          expect(publish.requestId, 41);
+          expect(publish.topic, 'com.target');
+          if (present) {
+            final o = _present(publish.options);
+            expect(o.acknowledge, isFalse);
+            expect(o.excludeMe, isFalse);
+            expect(o.discloseMe, isFalse);
+            expect(o.retain, isFalse);
+            expect(o.exclude, [11, 12]);
+            expect(o.eligible, [21]);
+            expect(o.excludeAuthId, ['alice']);
+            expect(o.excludeAuthRole, ['guest']);
+            expect(o.eligibleAuthId, ['bob']);
+            expect(o.eligibleAuthRole, ['member']);
+            expect(o.pptScheme, 'scheme');
+            expect(o.pptSerializer, 'cbor');
+            expect(o.pptCipher, 'cipher');
+            expect(o.pptKeyId, 'key');
+            expect(o.custom, {'extension': 1});
+          } else {
+            expect(publish.options, isNull);
+          }
+
+          final sub = decode<Subscribe>(
+            32,
+            present
+                ? {
+                    'match': 'prefix',
+                    'meta_topic': 'com.meta',
+                    'get_retained': false,
+                    'extension': 2,
+                  }
+                : null,
+          );
+          expect(sub.requestId, 41);
+          expect(sub.topic, 'com.target');
+          expect(sub.options?.match, present ? 'prefix' : null);
+          expect(sub.options?.metaTopic, present ? 'com.meta' : null);
+          expect(sub.options?.getRetained, present ? false : null);
+          expect(sub.options?.custom, present ? {'extension': 2} : null);
+          if (!present) expect(sub.options, isNull);
+
+          final call = decode<Call>(
+            48,
+            present
+                ? {
+                    'progress': false,
+                    'receive_progress': false,
+                    'timeout': 0,
+                    'disclose_me': false,
+                    'ppt_scheme': 'scheme',
+                    'ppt_serializer': 'cbor',
+                    'ppt_cipher': 'cipher',
+                    'ppt_keyid': 'key',
+                    'extension': 3,
+                  }
+                : null,
+          );
+          expect(call.requestId, 41);
+          expect(call.procedure, 'com.target');
+          expect(call.options?.progress, present ? false : null);
+          expect(call.options?.receiveProgress, present ? false : null);
+          expect(call.options?.timeout, present ? 0 : null);
+          expect(call.options?.discloseMe, present ? false : null);
+          expect(call.options?.pptScheme, present ? 'scheme' : null);
+          expect(call.options?.pptSerializer, present ? 'cbor' : null);
+          expect(call.options?.pptCipher, present ? 'cipher' : null);
+          expect(call.options?.pptKeyId, present ? 'key' : null);
+          expect(call.options?.custom, present ? {'extension': 3} : null);
+          if (!present) expect(call.options, isNull);
+
+          final reg = decode<Register>(
+            64,
+            present
+                ? {
+                    'match': 'wildcard',
+                    'invoke': 'roundrobin',
+                    'disclose_caller': false,
+                    'forward_timeout': false,
+                    'extension': 4,
+                  }
+                : null,
+          );
+          expect(reg.requestId, 41);
+          expect(reg.procedure, 'com.target');
+          expect(reg.options?.match, present ? 'wildcard' : null);
+          expect(reg.options?.invoke, present ? 'roundrobin' : null);
+          expect(reg.options?.discloseCaller, present ? false : null);
+          expect(reg.options?.forwardTimeout, present ? false : null);
+          expect(reg.options?.custom, present ? {'extension': 4} : null);
+          if (!present) expect(reg.options, isNull);
+
+          final result = decode<Yield>(
+            70,
+            present
+                ? {
+                    'progress': false,
+                    'ppt_scheme': 'scheme',
+                    'ppt_serializer': 'cbor',
+                    'ppt_cipher': 'cipher',
+                    'ppt_keyid': 'key',
+                    'extension': 5,
+                  }
+                : null,
+          );
+          expect(result.invocationRequestId, 41);
+          expect(result.options?.progress, present ? false : null);
+          expect(result.options?.pptScheme, present ? 'scheme' : null);
+          expect(result.options?.pptSerializer, present ? 'cbor' : null);
+          expect(result.options?.pptCipher, present ? 'cipher' : null);
+          expect(result.options?.pptKeyId, present ? 'key' : null);
+          expect(result.options?.custom, present ? {'extension': 5} : null);
+          if (!present) expect(result.options, isNull);
+
+          final ack = decode<Unsubscribed>(
+            35,
+            present ? {'subscription': 0, 'reason': 'com.revoked'} : null,
+          );
+          expect(ack.unsubscribeRequestId, 41);
+          expect(ack.details?.subscription, present ? 0 : null);
+          expect(ack.details?.reason, present ? 'com.revoked' : null);
+          if (!present) expect(ack.details, isNull);
+        });
+      }
+      for (final details in <Map<String, Object?>?>[
+        null,
+        {},
+        {'message': ''},
+        {'message': 'closing'},
+      ]) {
+        test('GOODBYE and ERROR read nullable detail map $details', () {
+          final goodbye = decode<Goodbye>(6, details);
+          expect(goodbye.reason, 'com.target');
+          expect(goodbye.message?.message, details?['message']);
+          if (details?['message'] == null) expect(goodbye.message, isNull);
+          final error = decode<Error>(8, details);
+          expect(error.requestTypeId, 41);
+          expect(error.requestId, 62);
+          expect(error.error, 'com.target');
+          expect(error.details, details ?? {});
+        });
+      }
+      test('unknown metadata retains fields and request correlation', () {
+        final value = decode<UnknownMessage>(9999, {
+          'fields': ['opaque', 1],
+          'request_id': 72,
+        });
+        expect(value.id, 9999);
+        expect(value.requestId, 72);
+        expect(value.fields, ['opaque', 1]);
+      });
+      test('unknown metadata without a fields list is not materialized', () {
+        expect(
+          bindMessageFromMetadata(
+            serializer,
+            messageCode: 9999,
+            primaryId: 41,
+            secondaryId: 62,
+            detailNumberA: 0,
+            flags: 16,
+            detailsBytes: encode({'fields': 'invalid'}),
+          ),
+          isNull,
+        );
+      });
+    });
+    group('fragment boundaries $serializer', () {
+      AbstractMessage metadata(int code, bool direct, Uint8List? bytes) =>
+          bindMessageFromMetadata(
+            serializer,
+            messageCode: code,
+            primaryId: 48,
+            secondaryId: 19,
+            detailNumberA: 0,
+            flags: direct ? 17 : 16,
+            stringA: 'com.reason',
+            detailsBytes: bytes,
+          )!;
+      for (final code in [3, 8]) {
+        for (final direct in [false, true]) {
+          for (final encodedNull in [false, true]) {
+            test(
+              'code $code absent details direct=$direct encodedNull=$encodedNull',
+              () {
+                final value = metadata(
+                  code,
+                  direct,
+                  encodedNull ? encode(null) : null,
+                );
+                if (value is Abort) {
+                  expect(value.details, isEmpty);
+                  expect(value.message, isNull);
+                  expect(value.reason, 'com.reason');
+                } else {
+                  final error = value as Error;
+                  expect(error.details, isEmpty);
+                  expect(error.error, 'com.reason');
+                  expect(error.requestTypeId, 48);
+                  expect(error.requestId, 19);
+                }
+              },
+            );
+          }
+          test('code $code rejects non-map details direct=$direct', () {
+            expect(() {
+              final value = metadata(code, direct, encode(['not a map']));
+              if (value is Abort) {
+                value.details.length;
+              } else {
+                (value as Error).details.length;
+              }
+            }, throwsArgumentError);
+          });
+        }
+      }
+      test(
+        'malformed full-frame details and positional payload fail closed',
+        () {
+          expect(
+            () => bindMessage(
+              serializer,
+              encode([
+                8,
+                48,
+                19,
+                ['not a map'],
+                'com.error',
+              ]),
+            ),
+            throwsArgumentError,
+          );
+          expect(
+            () => bindMessage(
+              serializer,
+              encode([
+                3,
+                {},
+                'com.reason',
+                {'not': 'a list'},
+              ]),
+            ),
+            throwsArgumentError,
+          );
+        },
+      );
+      test('integer-valued numeric heartbeat counters remain compatible', () {
+        final value =
+            bindMessage(serializer, encode([7, {}, 1.0, 2.0, 3.0]))
+                as Heartbeat;
+        expect(value.ping, 1);
+        expect(value.incoming, 2);
+        expect(value.outgoing, 3);
+      });
+      test(
+        'empty frame reports a protocol shape error, not an index error',
+        () {
+          expect(
+            () => bindMessage(serializer, encode([])),
+            throwsA(
+              isA<ArgumentError>().having(
+                (error) => error.message,
+                'message',
+                'WAMP message cannot be empty',
+              ),
+            ),
+          );
+        },
+      );
+      for (final selection in [(true, false), (false, true), (true, true)]) {
+        test('ABORT overlays only selected fragments $selection', () {
+          final value =
+              bindMessage(
+                    serializer,
+                    encode([
+                      3,
+                      {'message': 'denied'},
+                      'com.denied',
+                      [101],
+                      {'source': 'frame'},
+                    ]),
+                    argsBytes: selection.$1 ? encode([202]) : null,
+                    kwargsBytes: selection.$2
+                        ? encode({'source': 'fragment'})
+                        : null,
+                  )
+                  as Abort;
+          expect(value.arguments, selection.$1 ? [202] : [101]);
+          expect(value.argumentsKeywords, {
+            'source': selection.$2 ? 'fragment' : 'frame',
+          });
+          expect(value.details, {'message': 'denied'});
+          expect(value.message?.message, 'denied');
+          expect(value.reason, 'com.denied');
+        });
+      }
+      test('encoded null payload fragments normalize to empty containers', () {
+        final value =
+            bindMessage(
+                  serializer,
+                  encode([8, 48, 19, {}, 'com.failure']),
+                  argsBytes: encode(null),
+                  kwargsBytes: encode(null),
+                )
+                as Error;
+        expect(value.arguments, isEmpty);
+        expect(value.argumentsKeywords, isEmpty);
+      });
+      test('malformed argument fragments reject when accessed', () {
+        final value =
+            bindMessage(
+                  serializer,
+                  encode([8, 48, 19, {}, 'com.failure']),
+                  argsBytes: encode({'not': 'a list'}),
+                )
+                as Error;
+        expect(() => value.arguments, throwsArgumentError);
+      });
+      test('malformed keyword fragments reject when accessed', () {
+        final value =
+            bindMessage(
+                  serializer,
+                  encode([8, 48, 19, {}, 'com.failure']),
+                  kwargsBytes: encode(['not', 'a map']),
+                )
+                as Error;
+        expect(() => value.argumentsKeywords, throwsArgumentError);
+      });
+    });
+    for (final mode in ['frame', 'fragments', 'metadata']) {
+      group('ABORT $serializer $mode', () {
+        nativeAbortContracts(
+          (details, args, kwargs) =>
+              bindMessage(
+                    serializer,
+                    mode == 'metadata'
+                        ? Uint8List.fromList([0xff])
+                        : encode([
+                            3,
+                            details,
+                            'wamp.error.not_authorized',
+                            if (mode == 'frame' && args != null) args,
+                            if (mode == 'frame' && kwargs != null) kwargs,
+                          ]),
+                    argsBytes: mode != 'frame' && args != null
+                        ? encode(args)
+                        : null,
+                    kwargsBytes: mode != 'frame' && kwargs != null
+                        ? encode(kwargs)
+                        : null,
+                    metadataMessageCode: mode == 'metadata' ? 3 : null,
+                    metadataFlags: mode == 'metadata' ? 1 << 4 : null,
+                    metadataStringA: mode == 'metadata'
+                        ? 'wamp.error.not_authorized'
+                        : null,
+                    metadataDetailsBytes: mode == 'metadata'
+                        ? encode(details)
+                        : null,
+                  )
+                  as Abort,
+        );
+      });
+    }
+    for (final fromMetadata in [false, true]) {
+      group('HELLO roles $serializer metadata=$fromMetadata', () {
+        nativeRoleContracts((details) {
+          final message =
+              bindMessage(
+                    serializer,
+                    fromMetadata
+                        ? Uint8List.fromList([0xff])
+                        : encode([
+                            MessageTypes.codeHello,
+                            'consumer.realm',
+                            details,
+                          ]),
+                    metadataMessageCode: fromMetadata
+                        ? MessageTypes.codeHello
+                        : null,
+                    metadataFlags: fromMetadata ? 1 << 4 : null,
+                    metadataStringA: fromMetadata ? 'consumer.realm' : null,
+                    metadataDetailsBytes: fromMetadata ? encode(details) : null,
+                  )
+                  as Hello;
+          expect(message.realm, 'consumer.realm');
+          return message.details;
+        });
+      });
+    }
+  }
   group('bindMessage', () {
     test('decodes standard Subscriber feature keys from Hello', () {
       final message = bindMessage(

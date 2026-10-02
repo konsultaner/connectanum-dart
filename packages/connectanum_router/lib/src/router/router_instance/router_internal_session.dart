@@ -2,6 +2,7 @@ part of '../router_instance.dart';
 
 const String _jsonBinaryPrefix = '\u0000';
 const String _jsonEscapedBinaryPrefix = '\\u0000';
+final Object _routerSessionCloseCleanupKey = Object();
 
 class RouterSession {
   RouterSession._({
@@ -48,6 +49,7 @@ class RouterSession {
   NativeMessageHandleDecoder? _nativePayloadDecoder;
 
   bool _closed = false;
+  Future<void>? _closeFuture;
   int _nextCommandId = 1;
   int _nextRegisterRequestId = 1;
   int _nextSubscribeRequestId = 1;
@@ -59,48 +61,105 @@ class RouterSession {
   final Map<int, List<subscribed_msg.Subscribed>> _subscriptions = {};
   final Map<int, StreamController<result_msg.Result>> _callControllers = {};
 
-  Future<void> close() async {
+  /// External callers share shutdown completion, including cleanup failures.
+  /// Reentrant calls from owned cleanup cannot wait for their own completion.
+  Future<void> close() {
+    final operation = _closeFuture;
+    if (operation != null) {
+      if (identical(Zone.current[_routerSessionCloseCleanupKey], this)) {
+        return Future<void>.value();
+      }
+      return operation;
+    }
     if (_closed) {
-      return;
+      return Future<void>.value();
     }
-    final closeFuture = _sendCommand(_internalCmdClose, const {});
+    final completion = Completer<void>();
+    final result = _closeFuture = completion.future;
+    final command = Future<dynamic>.sync(
+      () => _sendCommand(_internalCmdClose, const {}),
+    );
     _closed = true;
-    await closeFuture;
-    _controlPort.close();
-    _responsePort.close();
-    _pendingCommands.clear();
-    for (final registered in _registrations.values.toList()) {
-      await registered.closeInvocationStream();
-    }
-    _registrations.clear();
-    for (final subscriptions in _subscriptions.values.toList()) {
-      for (final subscribed in subscriptions) {
-        await subscribed.closeEventStream();
+    completion.complete(_closeOwnedResources(command));
+    return result;
+  }
+
+  Future<void> _closeOwnedResources(Future<dynamic> command) async {
+    ({Object error, StackTrace stack})? failure;
+    Future<void> cleanup(FutureOr<void> Function() action) async {
+      try {
+        await runZoned<FutureOr<void>>(
+          action,
+          zoneValues: {_routerSessionCloseCleanupKey: this},
+        );
+      } catch (error, stack) {
+        failure ??= (error: error, stack: stack);
       }
     }
-    _subscriptions.clear();
-    for (final controller in _callControllers.values.toList()) {
-      await controller.close();
+
+    await cleanup(() async => await command);
+    await cleanup(_controlPort.close);
+    await cleanup(_responsePort.close);
+    final pending = _pendingCommands.values.toList(growable: false);
+    _pendingCommands.clear();
+    for (final completer in pending) {
+      if (!completer.isCompleted) {
+        completer.completeError(StateError('Router session is closed'));
+      }
     }
+    final registrations = _registrations.values.toList(growable: false);
+    _registrations.clear();
+    final subscriptionGroups = _subscriptions.values.toList(growable: false);
+    _subscriptions.clear();
+    final controllers = _callControllers.values.toList(growable: false);
     _callControllers.clear();
-    binding._removeInternalSession(this);
-    _isolate.kill(priority: Isolate.immediate);
+    for (final registered in registrations) {
+      await cleanup(
+        () => registered_msg.closeInvocationStreamForOwner(registered),
+      );
+    }
+    for (final subscriptions in subscriptionGroups) {
+      for (final subscribed in subscriptions) {
+        await cleanup(
+          () => subscribed_msg.closeEventStreamForOwner(subscribed),
+        );
+      }
+    }
+    for (final controller in controllers) {
+      await cleanup(() => unawaited(controller.close()));
+    }
+    await cleanup(() => binding._removeInternalSession(this));
+    await cleanup(() => _isolate.kill(priority: Isolate.immediate));
+    final error = failure;
+    if (error != null) {
+      Error.throwWithStackTrace(error.error, error.stack);
+    }
   }
 
   Future<dynamic> _sendCommand(String command, Map<String, Object?> payload) {
     if (_closed) {
       throw StateError('Internal session closed');
     }
+    final transferredPayload = _transferIsolateValue(payload);
+    // Conversion may invoke application collection getters that close us.
+    if (_closed) {
+      throw StateError('Internal session closed');
+    }
     final requestId = _nextCommandId++;
     final completer = Completer<dynamic>();
     _pendingCommands[requestId] = completer;
-    _commandPort.send({
-      'type': 'command',
-      'command': command,
-      'requestId': requestId,
-      'payload': _transferIsolateValue(payload),
-      'replyPort': _responsePort.sendPort,
-    });
+    try {
+      _commandPort.send({
+        'type': 'command',
+        'command': command,
+        'requestId': requestId,
+        'payload': transferredPayload,
+        'replyPort': _responsePort.sendPort,
+      });
+    } catch (_) {
+      _pendingCommands.remove(requestId);
+      rethrow;
+    }
     return completer.future;
   }
 
@@ -796,35 +855,48 @@ class RouterSession {
     call_msg.CallOptions? options,
     Completer<String>? cancelCompleter,
   }) {
+    if (_closed) {
+      throw StateError('Internal session closed');
+    }
     final requestId = _nextCallRequestId++;
-    final controller = StreamController<result_msg.Result>(
-      onCancel: () {
-        _callControllers.remove(requestId);
-      },
-    );
-    _callControllers[requestId] = controller;
     final commandPayload = <String, Object?>{
       'requestId': requestId,
       'procedure': procedure,
       'lazyPayload': _transferLazyMessagePayload(payload),
       'options': _callOptionsToMap(options),
     };
-    _sendCommand(_internalCmdCall, commandPayload).catchError((error, stack) {
-      if (!controller.isClosed) {
-        controller.addError(
-          error,
-          stack is StackTrace ? stack : StackTrace.current,
-        );
-        controller.close();
+    final command = _sendCommand(_internalCmdCall, commandPayload);
+    final controller = StreamController<result_msg.Result>(
+      onCancel: () {
+        _callControllers.remove(requestId);
+      },
+    );
+    _callControllers[requestId] = controller;
+    void failCall(Object error, StackTrace stack) {
+      if (_closed || !identical(_callControllers[requestId], controller)) {
+        return;
       }
-    });
+      _callControllers.remove(requestId);
+      controller.addError(error, stack);
+      unawaited(controller.close());
+    }
+
+    unawaited(command.then<void>((_) {}, onError: failCall));
     if (cancelCompleter != null) {
-      cancelCompleter.future.then((mode) {
-        _sendCommand(_internalCmdCancel, <String, Object?>{
-          'requestId': requestId,
-          'mode': mode,
-        });
-      });
+      unawaited(
+        cancelCompleter.future
+            .then((mode) async {
+              if (_closed ||
+                  !identical(_callControllers[requestId], controller)) {
+                return;
+              }
+              await _sendCommand(_internalCmdCancel, <String, Object?>{
+                'requestId': requestId,
+                'mode': mode,
+              });
+            })
+            .catchError(failCall),
+      );
     }
     return controller.stream;
   }

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+ensure_rust_env
+"$ROOT_DIR/bin/test-native-mutation-tools"
+cargo build --manifest-path tool/rust_coverage_scope/Cargo.toml --locked \
+  --target-dir "$ROOT_DIR/out/rust-coverage-scope-target"
+# Clean checkouts have no ignored transport lock. Pin it before hashing and
+# copying inputs; every baseline and mutation must still use --locked.
+if [[ ! -f native/transport/Cargo.lock ]]; then
+  cargo generate-lockfile --manifest-path native/transport/Cargo.toml
+fi
+python3 tool/run_native_mutations.py \
+  --analyzer "$ROOT_DIR/out/rust-coverage-scope-target/debug/connectanum-coverage-scope" "$@"

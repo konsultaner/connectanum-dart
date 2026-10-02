@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:meta/meta.dart';
 
 import '../state/subscription.dart';
+import 'auth_method.dart';
 
 /// Supported matching policies for role permissions.
 enum PermissionMatchPolicy { exact, prefix, wildcard }
@@ -208,7 +209,8 @@ class RealmAuthSettings {
   final List<String> methods;
   final Map<String, Map<String, Object?>> methodOptions;
 
-  Map<String, Object?>? optionsFor(String method) => methodOptions[method];
+  Map<String, Object?>? optionsFor(String method) =>
+      methodOptions[method] ?? methodOptions[authMethodAlias(method)];
 }
 
 /// Role definition containing permissions for publish/subscribe/RPC actions.
@@ -1063,12 +1065,18 @@ extension RouterSettingsOpenMetricsHttp on RouterSettings {
     }
 
     final routes = _openMetricsHttpRoutes(openMetrics);
+    final listenUri = Uri.parse(
+      listen.contains('://') ? listen : 'tcp://$listen',
+    );
+    final ephemeral = listenUri.port == 0;
     final updatedListeners = <ListenerSettings>[];
     var foundMetricsListener = false;
     var changed = false;
 
     for (final listener in listeners) {
-      if (listener.endpoint.trim() != listen) {
+      if (listener.endpoint.trim() != listen ||
+          (ephemeral &&
+              listener.options['connectanum_open_metrics_listener'] != true)) {
         updatedListeners.add(listener);
         continue;
       }

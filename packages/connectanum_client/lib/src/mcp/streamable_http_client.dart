@@ -767,13 +767,11 @@ void _validateMcpFormValue(
           throw FormatException('$label must be an absolute URI');
         }
       }
-      if (format == 'date' &&
-          (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value) ||
-              DateTime.tryParse(value) == null)) {
-        throw FormatException('$label must be an ISO date');
+      if (format == 'date' && _parseMcpFormDate(value) == null) {
+        throw FormatException('$label must be an RFC 3339 date');
       }
-      if (format == 'date-time' && DateTime.tryParse(value) == null) {
-        throw FormatException('$label must be an ISO date-time');
+      if (format == 'date-time' && !_isMcpFormDateTime(value)) {
+        throw FormatException('$label must be an RFC 3339 date-time');
       }
       final allowed = _mcpStringChoices(schema);
       if (allowed != null && !allowed.contains(value)) {
@@ -811,6 +809,50 @@ void _validateMcpFormValue(
         throw FormatException('$label contains an unsupported enum value');
       }
   }
+}
+
+DateTime? _parseMcpFormDate(String value) {
+  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);
+  if (match == null || match.end != value.length) return null;
+  final year = int.parse(match.group(1)!);
+  final month = int.parse(match.group(2)!);
+  final day = int.parse(match.group(3)!);
+  final date = DateTime.utc(year, month, day);
+  // DateTime normalizes overflow; form validation must reject it instead.
+  return date.year == year && date.month == month && date.day == day
+      ? date
+      : null;
+}
+
+bool _isMcpFormDateTime(String value) {
+  final match = RegExp(
+    r'^(\d{4}-\d{2}-\d{2})[Tt]([01]\d|2[0-3]):'
+    r'([0-5]\d):([0-5]\d|60)(?:\.\d+)?'
+    r'([Zz]|([+-])([01]\d|2[0-3]):([0-5]\d))$',
+  ).firstMatch(value);
+  if (match == null || match.end != value.length) return false;
+  final date = _parseMcpFormDate(match.group(1)!);
+  if (date == null) return false;
+  if (match.group(4) != '60') return true;
+
+  // An inserted leap second belongs to the last UTC minute of a month,
+  // including when an offset puts the local timestamp on the next day.
+  var offsetMinutes = 0;
+  if (match.group(6) != null) {
+    offsetMinutes =
+        int.parse(match.group(7)!) * 60 + int.parse(match.group(8)!);
+    if (match.group(6) == '-') offsetMinutes = -offsetMinutes;
+  }
+  final utcMinute = DateTime.utc(
+    date.year,
+    date.month,
+    date.day,
+    int.parse(match.group(2)!),
+    int.parse(match.group(3)!),
+  ).subtract(Duration(minutes: offsetMinutes));
+  return utcMinute.hour == 23 &&
+      utcMinute.minute == 59 &&
+      utcMinute.day == DateTime.utc(utcMinute.year, utcMinute.month + 1, 0).day;
 }
 
 Set<String>? _mcpStringChoices(McpJsonMap schema) {

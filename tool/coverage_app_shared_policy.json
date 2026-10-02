@@ -1,0 +1,18 @@
+{
+  "target": 98,
+  "sourceScope": "application",
+  "packages": {"shared": 98},
+  "requiredSources": [
+    "examples/wamp_app/shared/lib/src/account_profile.dart",
+    "examples/wamp_app/shared/lib/src/account_registration.dart",
+    "examples/wamp_app/shared/lib/src/call_signaling.dart",
+    "examples/wamp_app/shared/lib/src/device_identity.dart",
+    "examples/wamp_app/shared/lib/src/encrypted_attachment.dart",
+    "examples/wamp_app/shared/lib/src/encrypted_backup.dart",
+    "examples/wamp_app/shared/lib/src/encrypted_messaging.dart",
+    "examples/wamp_app/shared/lib/src/mcp_access.dart",
+    "examples/wamp_app/shared/lib/src/mcp_consent.dart",
+    "examples/wamp_app/shared/lib/src/platform_push.dart",
+    "examples/wamp_app/shared/lib/src/server_endpoint.dart"
+  ]
+}

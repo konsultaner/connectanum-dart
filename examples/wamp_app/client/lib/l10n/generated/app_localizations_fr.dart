@@ -329,6 +329,7 @@ class AppLocalizationsFr extends AppLocalizations {
       locale: localeName,
       other: '$count contacts locaux',
       one: '1 contact local',
+      zero: '0 contacts locaux',
     );
     return '$_temp0';
   }
@@ -460,6 +461,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get saveCopy => 'Enregistrer une copie';
+
+  @override
+  String get attachmentSaveFailed =>
+      'Impossible d\'enregistrer le fichier. Réessayez.';
 
   @override
   String get viewOnceMessage => 'Message à vue unique';
@@ -666,6 +671,7 @@ class AppLocalizationsFr extends AppLocalizations {
       locale: localeName,
       other: 'Recherche locale · $count résultats',
       one: 'Recherche locale · 1 résultat',
+      zero: 'Recherche locale · 0 résultats',
     );
     return '$_temp0';
   }

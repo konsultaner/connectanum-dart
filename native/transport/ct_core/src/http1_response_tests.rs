@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
-use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream};
 use tokio::time::{timeout, Duration};
 use tokio_rustls::{client, server, TlsAcceptor, TlsConnector};
 
@@ -97,13 +97,119 @@ fn expected_response(chunked: bool, body: &[u8]) -> Vec<u8> {
     result
 }
 
+async fn assert_response_bytes(reader: &mut (impl AsyncRead + Unpin), expected: &[u8]) {
+    let status_end = expected.iter().position(|byte| *byte == b'\n').unwrap() + 1;
+    let mut status = Vec::new();
+    // Check framing before waiting for a body on a persistent connection.
+    while status.len() < status_end {
+        let byte = reader.read_u8().await.expect("HTTP/1 status byte");
+        status.push(byte);
+        if byte == b'\n' {
+            break;
+        }
+    }
+    assert_eq!(status, expected[..status_end], "HTTP/1 status line");
+    let header_end = expected
+        .windows(4)
+        .position(|bytes| bytes == b"\r\n\r\n")
+        .expect("expected response has a complete header")
+        + 4;
+    let mut header = status;
+    while header.len() < header_end && !header.ends_with(b"\r\n\r\n") {
+        header.push(reader.read_u8().await.expect("HTTP/1 header byte"));
+    }
+    assert_eq!(header, expected[..header_end], "HTTP/1 header block");
+    let mut remaining = vec![0; expected.len() - header_end];
+    reader
+        .read_exact(&mut remaining)
+        .await
+        .expect("HTTP/1 response remainder");
+    assert_eq!(remaining, expected[header_end..]);
+}
+
+#[tokio::test]
+#[should_panic(expected = "HTTP/1 status line")]
+async fn http1_short_status_is_asserted_before_waiting_for_body() {
+    let (mut producer, mut reader) = tokio::io::duplex(64);
+    producer.write_all(b"HTTP/1.1 200 \r\n").await.unwrap();
+    timeout(
+        Duration::from_secs(1),
+        assert_response_bytes(&mut reader, &expected_response(false, b"body")),
+    )
+    .await
+    .expect("status validation must not wait for body or EOF");
+    drop(producer);
+}
+
+#[tokio::test]
+#[should_panic(expected = "HTTP/1 header block")]
+async fn http1_short_header_is_asserted_before_waiting_for_body() {
+    let (mut producer, mut reader) = tokio::io::duplex(128);
+    producer
+        .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n")
+        .await
+        .unwrap();
+    timeout(
+        Duration::from_secs(1),
+        assert_response_bytes(&mut reader, &expected_response(false, b"body")),
+    )
+    .await
+    .expect("header validation must not wait for body or EOF");
+    drop(producer);
+}
+
+struct CountedWriter<'a, W> {
+    inner: &'a mut W,
+    written: usize,
+}
+
+impl<W: AsyncWrite + Unpin> AsyncWrite for CountedWriter<'_, W> {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bytes: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let result = Pin::new(&mut *self.inner).poll_write(cx, bytes);
+        if let Poll::Ready(Ok(count)) = &result {
+            self.written += count;
+        }
+        result
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut *self.inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut *self.inner).poll_shutdown(cx)
+    }
+}
+
+async fn send_counted_response<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    chunked: bool,
+    body: Vec<u8>,
+) {
+    let expected_len = expected_response(chunked, &body).len();
+    let mut writer = CountedWriter {
+        inner: writer,
+        written: 0,
+    };
+    send_response(&mut writer, chunked, body).await.unwrap();
+    // Successful return must account for the entire response before keepalive.
+    assert_eq!(
+        writer.written, expected_len,
+        "HTTP/1 accepted response bytes"
+    );
+}
+
 async fn assert_tls_response_completion(chunked: bool, len: usize) {
     timeout(Duration::from_secs(5), async {
         let (mut server, mut client) = tls_pair().await;
         let body = vec![0x5a; len];
         let expected = expected_response(chunked, &body);
-        let server = tokio::spawn(async move {
-            send_response(&mut server, chunked, body).await.unwrap();
+        let send = async {
+            send_counted_response(&mut server, chunked, body).await;
             assert!(
                 !server.get_ref().1.wants_write(),
                 "HTTP/1 response returned with unflushed TLS ciphertext"
@@ -112,24 +218,17 @@ async fn assert_tls_response_completion(chunked: bool, len: usize) {
             let mut next = [0; 4];
             server.read_exact(&mut next).await.unwrap();
             assert_eq!(&next, b"next");
-            send_response(&mut server, false, b"second".to_vec())
-                .await
-                .unwrap();
+            send_counted_response(&mut server, false, b"second".to_vec()).await;
             assert!(!server.get_ref().1.wants_write());
-        });
-        let mut received = vec![0; expected.len()];
-        client
-            .read_exact(&mut received)
-            .await
-            .expect("complete first response before the next request");
-        assert_eq!(received, expected);
-        client.write_all(b"next").await.unwrap();
-        client.flush().await.unwrap();
-        let expected = expected_response(false, b"second");
-        let mut received = vec![0; expected.len()];
-        client.read_exact(&mut received).await.unwrap();
-        assert_eq!(received, expected);
-        server.await.unwrap();
+        };
+        let receive = async {
+            assert_response_bytes(&mut client, &expected).await;
+            client.write_all(b"next").await.unwrap();
+            client.flush().await.unwrap();
+            let expected = expected_response(false, b"second");
+            assert_response_bytes(&mut client, &expected).await;
+        };
+        tokio::join!(send, receive);
     })
     .await
     .expect("bounded HTTP/1 TLS completion test");
@@ -325,12 +424,11 @@ impl AsyncWrite for FlushCounter {
 
 #[tokio::test]
 async fn http1_buffered_response_propagates_flush_failure() {
+    let result = send_response(&mut FlushFailure, false, vec![1]).await;
     assert_eq!(
-        send_response(&mut FlushFailure, false, vec![1])
-            .await
-            .unwrap_err()
-            .kind(),
-        io::ErrorKind::BrokenPipe
+        matches!(&result, Err(error) if error.kind() == io::ErrorKind::BrokenPipe),
+        true,
+        "buffered response must propagate flush failure: {result:?}"
     );
 }
 

@@ -172,6 +172,7 @@ void main() {
         'params': {},
       });
 
+      expect(response?['result'], isA<Map<String, Object?>>());
       final result = response?['result'] as Map<String, Object?>;
       final resources = result['resources'] as List<Object?>;
       expect(result.containsKey('nextCursor'), isFalse);
@@ -697,6 +698,7 @@ void main() {
           'params': {},
         });
 
+        expect(response?['result'], isA<Map<String, Object?>>());
         final result = response?['result'] as Map<String, Object?>;
         expect(_resourceTemplateNames(result), ['alpha', 'beta', 'gamma']);
       },

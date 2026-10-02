@@ -98,7 +98,7 @@ void main() {
 
         final owned = body.materializeOwnedBytes();
         expect(owned, equals(Uint8List.fromList([1, 2, 3, 4])));
-        expect(reads, 2);
+        expect(reads, 3);
         expect(finishCalls, 1);
 
         final copied = body.copy();

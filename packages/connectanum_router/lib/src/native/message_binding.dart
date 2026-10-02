@@ -61,6 +61,19 @@ AbstractMessage bindMessage(
   if (message is AbstractMessageWithPayload) {
     _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
   }
+  if (message is Abort && (argsBytes != null || kwargsBytes != null)) {
+    return Abort(
+      message.reason,
+      details: message.details,
+      message: message.message?.message,
+      arguments: argsBytes == null
+          ? message.arguments
+          : _decodeArgumentList(serializer, argsBytes),
+      argumentsKeywords: kwargsBytes == null
+          ? message.argumentsKeywords
+          : _decodeKeywordMap(serializer, kwargsBytes),
+    );
+  }
   return message;
 }
 
@@ -136,6 +149,12 @@ AbstractMessage? bindMessageFromMetadata(
       stringA ?? '',
       details: detailsMap,
       message: detailsMap?['message'] as String?,
+      arguments: argsBytes == null
+          ? null
+          : _decodeArgumentList(serializer, argsBytes),
+      argumentsKeywords: kwargsBytes == null
+          ? null
+          : _decodeKeywordMap(serializer, kwargsBytes),
     );
   } else if (messageCode == MessageTypes.codeHeartbeat) {
     final heartbeat =
@@ -388,7 +407,16 @@ AbstractMessage _bindDecoded(List<dynamic> message) {
   }
   if (code == MessageTypes.codeAbort) {
     final reason = message.length > 2 ? message[2] as String : '';
-    return Abort(reason, message: _readOptionalMessageText(message, 1));
+    final rawDetails = message.length > 1 ? message[1] : null;
+    return Abort(
+      reason,
+      details: rawDetails is Map ? _asStringKeyMap(rawDetails) : null,
+      message: _readOptionalMessageText(message, 1),
+      arguments: message.length > 3 ? _asDynamicList(message[3]) : null,
+      argumentsKeywords: message.length > 4
+          ? _asStringKeyMap(message[4])
+          : null,
+    );
   }
   if (code == MessageTypes.codeHeartbeat) {
     return Heartbeat(
@@ -826,6 +854,9 @@ DealerFeatures? _mapDealerFeatures(Map<String, dynamic>? map) {
   features.sessionMetaApi = map['session_meta_api'] ?? features.sessionMetaApi;
   features.callTimeout = map['call_timeout'] ?? features.callTimeout;
   features.callCanceling = map['call_canceling'] ?? features.callCanceling;
+  features.progressiveCallInvocations =
+      map['progressive_call_invocations'] ??
+      features.progressiveCallInvocations;
   features.progressiveCallResults =
       map['progressive_call_results'] ?? features.progressiveCallResults;
   features.payloadPassThruMode =
@@ -846,6 +877,9 @@ CalleeFeatures? _mapCalleeFeatures(Map<String, dynamic>? map) {
       map['shared_registration'] ?? features.sharedRegistration;
   features.callTimeout = map['call_timeout'] ?? features.callTimeout;
   features.callCanceling = map['call_canceling'] ?? features.callCanceling;
+  features.progressiveCallInvocations =
+      map['progressive_call_invocations'] ??
+      features.progressiveCallInvocations;
   features.progressiveCallResults =
       map['progressive_call_results'] ?? features.progressiveCallResults;
   features.payloadPassThruMode =
@@ -860,6 +894,9 @@ CallerFeatures? _mapCallerFeatures(Map<String, dynamic>? map) {
       map['caller_identification'] ?? features.callerIdentification;
   features.callTimeout = map['call_timeout'] ?? features.callTimeout;
   features.callCanceling = map['call_canceling'] ?? features.callCanceling;
+  features.progressiveCallInvocations =
+      map['progressive_call_invocations'] ??
+      features.progressiveCallInvocations;
   features.progressiveCallResults =
       map['progressive_call_results'] ?? features.progressiveCallResults;
   features.payloadPassThruMode =
@@ -1236,8 +1273,8 @@ Map<String, dynamic> _extractCustomFields(
 
 String? _readOptionalMessageText(List<dynamic> message, int index) {
   final value = message.length > index ? message[index] : null;
-  if (value is Map && value['message'] is String) {
-    return value['message'] as String;
+  if (value is Map) {
+    return value['message'] as String?;
   }
   return value as String?;
 }

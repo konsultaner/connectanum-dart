@@ -143,6 +143,7 @@
   "@stickerLabel": {"placeholders": {"label": {"type": "String"}}},
   "noMatchingExpressions": "No matching expressions",
   "saveCopy": "Save copy",
+  "attachmentSaveFailed": "The file could not be saved. Please try again.",
   "viewOnceMessage": "View-once message",
   "viewOnceOpenFailed": "This view-once attachment could not be opened.",
   "profileUpdated": "Profile updated.",

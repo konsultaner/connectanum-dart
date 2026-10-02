@@ -16,6 +16,7 @@ import 'dart:io'
         FileSystemException,
         HttpClient,
         HttpDate,
+        HttpException,
         HttpHeaders,
         HttpStatus,
         InternetAddress,
@@ -88,6 +89,7 @@ import 'package:meta/meta.dart';
 
 import 'config/authenticator.dart';
 import 'config/auth_registry.dart';
+import 'config/auth_method.dart';
 import 'config/http_route_transport_auth.dart';
 
 import '../native/runtime.dart';

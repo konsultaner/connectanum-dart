@@ -19,6 +19,72 @@ void main() {
   tearDown(() => directory.delete(recursive: true));
 
   test(
+    'an absent mailbox retains empty-store initialization semantics',
+    () async {
+      await store.file.delete();
+      final empty = await store.sync('alice', afterCursor: 0);
+      expect(empty.nextCursor, 0);
+      expect(empty.messages, isEmpty);
+      final appended = await store.append(_message());
+      expect(appended.message.cursor, 1);
+      expect((await store.sync('bob', afterCursor: 0)).messages, hasLength(1));
+    },
+  );
+
+  for (final obstruction in ['directory', 'dangling link']) {
+    test(
+      'a $obstruction cannot masquerade as an empty mailbox',
+      () async {
+        await store.append(_message());
+        final original = await store.file.readAsBytes();
+        await store.file.delete();
+        final FileSystemEntity entity;
+        if (obstruction == 'directory') {
+          entity = await Directory(store.file.path).create();
+        } else {
+          entity = await Link(
+            store.file.path,
+          ).create('${directory.path}/missing');
+        }
+        try {
+          for (final operation in <Future<Object?> Function()>[
+            () => store.sync('alice', afterCursor: 0),
+            () => store.append(_message(messageSeed: 10)),
+            () => store.markReceipt('bob', _message().messageId, read: true),
+            () => store.activeAttachmentMessages(),
+          ]) {
+            await expectLater(operation(), throwsA(isA<FileSystemException>()));
+          }
+          expect(
+            await FileSystemEntity.type(store.file.path, followLinks: false),
+            obstruction == 'directory'
+                ? FileSystemEntityType.directory
+                : FileSystemEntityType.link,
+          );
+        } finally {
+          await entity.delete();
+          await store.file.writeAsBytes(original, flush: true);
+        }
+        final recovered = await store.sync('bob', afterCursor: 0);
+        expect(recovered.nextCursor, 1);
+        expect(
+          recovered.messages.single.message.messageId,
+          _message().messageId,
+        );
+        final receipt = await store.markReceipt(
+          'bob',
+          _message().messageId,
+          read: true,
+        );
+        expect(receipt.receipt.cursor, 2);
+      },
+      skip: obstruction == 'dangling link' && Platform.isWindows
+          ? 'Creating Windows symlinks requires additional privileges.'
+          : false,
+    );
+  }
+
+  test(
     'retries identical message IDs idempotently and rejects conflicts',
     () async {
       final message = _message();

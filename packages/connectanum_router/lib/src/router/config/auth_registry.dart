@@ -1,4 +1,5 @@
 import 'authenticator.dart';
+import 'auth_method.dart';
 
 /// Registry for pluggable authenticator factories.
 class AuthenticatorRegistry {
@@ -24,7 +25,8 @@ class AuthenticatorRegistry {
   }
 
   /// Retrieves a factory by method, or null if none registered.
-  static AuthenticatorFactory? factoryFor(String method) => _factories[method];
+  static AuthenticatorFactory? factoryFor(String method) =>
+      _factories[method] ?? _factories[authMethodAlias(method)];
 
   /// Returns an immutable view of the registered factories.
   static Map<String, AuthenticatorFactory> get factories =>

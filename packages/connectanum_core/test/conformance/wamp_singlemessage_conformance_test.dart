@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor_pkg;
@@ -14,6 +13,9 @@ import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
+import 'fixture_bundle.dart';
+import 'msgpack_reference.dart';
+
 final _deepEquals = const DeepCollectionEquality();
 
 final _jsonSerializer = json_serializer.Serializer();
@@ -21,18 +23,18 @@ final _msgpackSerializer = msgpack_serializer.Serializer();
 final _cborSerializer = cbor_serializer.Serializer();
 
 void main() {
-  final vectorsRoot = _resolveVectorsRoot();
-  final vectorCases = _loadVectorCases(vectorsRoot);
+  final fixtures = loadConformanceFixtures();
+  final vectorCases = _loadVectorCases(fixtures);
 
   group('pinned WAMP single-message conformance', () {
     test('vendors the upstream metadata snapshot', () {
       expect(
-        File('${vectorsRoot.path}/README.md').existsSync(),
+        fixtures.containsKey('README.md'),
         isTrue,
         reason: 'Missing vendored upstream metadata for the pinned suite',
       );
       expect(
-        File('${vectorsRoot.path}/SCHEMA.json').existsSync(),
+        fixtures.containsKey('SCHEMA.json'),
         isTrue,
         reason: 'Missing vendored upstream schema for the pinned suite',
       );
@@ -103,35 +105,22 @@ void main() {
   });
 }
 
-Directory _resolveVectorsRoot() {
-  final candidates = [
-    Directory('packages/connectanum_core/testdata/wamp_conformance'),
-    Directory('testdata/wamp_conformance'),
-  ];
-  for (final candidate in candidates) {
-    if (candidate.existsSync()) {
-      return candidate;
-    }
-  }
-  throw StateError('Could not locate vendored WAMP conformance vectors');
-}
-
-List<_VectorCase> _loadVectorCases(Directory root) {
+List<_VectorCase> _loadVectorCases(Map<String, String> fixtures) {
   final files =
-      root
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.json'))
-          .where((file) => file.path.contains('/singlemessage/'))
+      fixtures.entries
+          .where((file) => file.key.endsWith('.json'))
+          .where((file) => file.key.startsWith('singlemessage/'))
           .toList()
-        ..sort((left, right) => left.path.compareTo(right.path));
+        ..sort((left, right) => left.key.compareTo(right.key));
 
   return files.expand(_loadVectorCasesFromFile).toList(growable: false);
 }
 
-Iterable<_VectorCase> _loadVectorCasesFromFile(File file) sync* {
-  final vector = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-  final relativePath = file.path.replaceAll('\\', '/');
+Iterable<_VectorCase> _loadVectorCasesFromFile(
+  MapEntry<String, String> file,
+) sync* {
+  final vector = jsonDecode(file.value) as Map<String, dynamic>;
+  final relativePath = file.key;
 
   final topLevelExpected = _normalizeWireValue(vector['expected_attributes']);
   final topLevelSerializers = vector['serializers'] as Map<String, dynamic>?;
@@ -159,7 +148,7 @@ Iterable<_VectorCase> _loadVectorCasesFromFile(File file) sync* {
   }
 
   if (topLevelExpected == null || topLevelSerializers == null) {
-    throw StateError('Malformed vector file: ${file.path}');
+    throw StateError('Malformed vector file: ${file.key}');
   }
 
   yield _VectorCase(
@@ -240,11 +229,24 @@ Uint8List _serialize(String serializerId, AbstractMessage message) {
 Object? _decodeWireFrame(String serializerId, Uint8List bytes) {
   final decoded = switch (serializerId) {
     'json' => jsonDecode(utf8.decode(bytes)),
-    'msgpack' => msgpack_dart.deserialize(bytes),
+    'msgpack' => _decodeMessagePackFrame(bytes),
     'cbor' => cbor_pkg.cbor.decode(bytes.toList()),
     _ => throw StateError('Unsupported serializer: $serializerId'),
   };
   return _normalizeWireValue(decoded);
+}
+
+Object? _decodeMessagePackFrame(Uint8List bytes) {
+  final decoded = decodeReferenceMessagePack(bytes);
+  // The original oracle remains an additional cross-check on VM and WASM.
+  // Dart2JS represents ints as doubles and lacks ByteData's 64-bit accessors.
+  if (!identical(0, 0.0)) {
+    expect(
+      _normalizeWireValue(decoded),
+      equals(_normalizeWireValue(msgpack_dart.deserialize(bytes))),
+    );
+  }
+  return decoded;
 }
 
 Map<String, dynamic> _normalizeMessage(AbstractMessage message) {

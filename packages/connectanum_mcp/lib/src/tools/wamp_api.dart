@@ -1255,9 +1255,15 @@ class _PendingBufferedSubscription {
     if (release == null) {
       throw StateError('WAMP unsubscribe support is not configured.');
     }
-    final operation = _releaseFuture ??= Future<void>.sync(
-      () => release(buffer.subscription),
-    );
+    var operation = _releaseFuture;
+    if (operation == null) {
+      final completion = Completer<void>();
+      // Publish the in-flight operation before invoking reentrant callbacks.
+      operation = _releaseFuture = completion.future;
+      completion.complete(
+        Future<void>.sync(() => release(buffer.subscription)),
+      );
+    }
     try {
       await operation;
       released = true;

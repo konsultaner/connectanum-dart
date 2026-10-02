@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:connectanum_client/mcp.dart';
 import 'package:test/test.dart';
 
+import 'discovery_test_expectations.dart';
+
 void main() {
   group('MCP OAuth loopback callback listener', () {
     late HttpServer authorizationServerHost;
@@ -16,6 +18,7 @@ void main() {
         InternetAddress.loopbackIPv4,
         0,
       );
+      addTearDown(() => authorizationServerHost.close(force: true));
       issuer = Uri.parse(
         'http://${authorizationServerHost.address.address}:'
         '${authorizationServerHost.port}/issuer',
@@ -37,12 +40,12 @@ void main() {
         );
         await request.response.close();
       });
-      authorizationServer = (await discoverMcpAuthorizationServerMetadata(
-        issuer,
-      )).metadata;
     });
 
-    tearDownAll(() => authorizationServerHost.close(force: true));
+    setUp(() async {
+      final discovery = discoverMcpAuthorizationServerMetadata(issuer);
+      authorizationServer = (await expectDiscoverySuccess(discovery)).metadata;
+    });
 
     test('receives one valid callback on an ephemeral IPv4 port', () async {
       final listener = await McpOAuthLoopbackCallbackListener.bind();

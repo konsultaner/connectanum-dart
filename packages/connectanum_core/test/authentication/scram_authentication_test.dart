@@ -29,6 +29,30 @@ void main() {
     authExtra['nonce'] = challengeExtra.nonce;
     authExtra['channel_binding'] = null;
 
+    Future<String> argonProof(
+      String password, {
+      AuthenticationStringEncoding encoding = AuthenticationStringEncoding.utf8,
+    }) async {
+      if (const bool.fromEnvironment('dart.library.js_interop')) {
+        return ScramAuthentication.generateProofAsync(
+          secret: password,
+          authId: user,
+          clientNonce: helloNonce,
+          challenge: challengeExtraArgon2,
+          authExtra: authExtra,
+          stringEncoding: encoding,
+        );
+      }
+      final auth = ScramAuthentication(password, stringEncoding: encoding);
+      addTearDown(auth.dispose);
+      return auth.createSignature(
+        user,
+        helloNonce,
+        challengeExtraArgon2,
+        authExtra,
+      );
+    }
+
     test('hello init', () async {
       final authMethod = ScramAuthentication(
         secret,
@@ -113,9 +137,7 @@ void main() {
       expect(authenticateSignature, equals(signature));
     });
     test('derive key argon2id', () async {
-      final authenticateSignature = ScramAuthentication(
-        secret,
-      ).createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+      final authenticateSignature = await argonProof(secret);
       expect(authenticateSignature, equals(signatureArgon));
     });
     test('PBKDF2 with non-ASCII password uses UTF-8 bytes', () {
@@ -137,20 +159,18 @@ void main() {
         equals('NrrMuWTWkdLdDhentdYKxc1Mog1il6vOPvtrd1dsNxU='),
       );
     });
-    test('Argon2id with non-ASCII password uses UTF-8 bytes', () {
-      final authenticateSignature = ScramAuthentication(
-        'Straße',
-      ).createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+    test('Argon2id with non-ASCII password uses UTF-8 bytes', () async {
+      final authenticateSignature = await argonProof('Straße');
       expect(
         authenticateSignature,
         equals('j1eU8k4NK9CglyQSc4X0ZsVj2Jr9o8AfJrD3zwR8+pg='),
       );
     });
-    test('Argon2id supports UTF-16 compatibility mode', () {
-      final authenticateSignature = ScramAuthentication(
+    test('Argon2id supports UTF-16 compatibility mode', () async {
+      final authenticateSignature = await argonProof(
         'Straße',
-        stringEncoding: AuthenticationStringEncoding.utf16,
-      ).createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+        encoding: AuthenticationStringEncoding.utf16,
+      );
       expect(
         authenticateSignature,
         equals('h1krogHvNHm3PelExNS1M+4Yf5L0yRNZyAGocLyHfUo='),
@@ -158,23 +178,53 @@ void main() {
     });
     test('reuse client key for authentication', () async {
       final authMethod = ScramAuthentication(secret);
-      var authenticateSignature = authMethod.createSignature(
-        user,
-        helloNonce,
-        challengeExtraArgon2,
-        authExtra,
-      );
+      addTearDown(authMethod.dispose);
+      if (const bool.fromEnvironment('dart.library.js_interop')) {
+        await authMethod.hello('com.realm', Details.forHello()..authid = user);
+        final response = await authMethod.challenge(
+          Extra(
+            iterations: challengeExtraArgon2.iterations,
+            memory: challengeExtraArgon2.memory,
+            salt: challengeExtraArgon2.salt,
+            nonce: '${authMethod.helloNonce!}server',
+            kdf: challengeExtraArgon2.kdf,
+          ),
+        );
+        expect(response.signature, isNotEmpty);
+      } else {
+        expect(
+          authMethod.createSignature(
+            user,
+            helloNonce,
+            challengeExtraArgon2,
+            authExtra,
+          ),
+          equals(signatureArgon),
+        );
+      }
       var clientKey = await authMethod.clientKey;
-      final serverSecrets = ScramAuthentication.deriveServerSecrets(
-        secret: secret,
-        salt: challengeExtraArgon2.salt!,
-        kdf: challengeExtraArgon2.kdf!,
-        iterations: challengeExtraArgon2.iterations!,
-        memory: challengeExtraArgon2.memory,
-      );
-      authenticateSignature = ScramAuthentication.fromClientKey(
+      addTearDown(() => clientKey.fillRange(0, clientKey.length, 0));
+      final serverSecrets =
+          const bool.fromEnvironment('dart.library.js_interop')
+          ? await ScramAuthentication.deriveServerSecretsAsync(
+              secret: secret,
+              salt: challengeExtraArgon2.salt!,
+              kdf: challengeExtraArgon2.kdf!,
+              iterations: challengeExtraArgon2.iterations!,
+              memory: challengeExtraArgon2.memory,
+            )
+          : ScramAuthentication.deriveServerSecrets(
+              secret: secret,
+              salt: challengeExtraArgon2.salt!,
+              kdf: challengeExtraArgon2.kdf!,
+              iterations: challengeExtraArgon2.iterations!,
+              memory: challengeExtraArgon2.memory,
+            );
+      final serverKey = base64.decode(serverSecrets.serverKey);
+      addTearDown(() => serverKey.fillRange(0, serverKey.length, 0));
+      final cached = ScramAuthentication.fromClientKey(
         clientKey,
-        serverKey: base64.decode(serverSecrets.serverKey),
+        serverKey: serverKey,
         binding: ScramKeyCacheBinding(
           authId: user,
           salt: challengeExtraArgon2.salt!,
@@ -182,7 +232,14 @@ void main() {
           iterations: challengeExtraArgon2.iterations!,
           memory: challengeExtraArgon2.memory!,
         ),
-      ).createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+      );
+      addTearDown(cached.dispose);
+      final authenticateSignature = cached.createSignature(
+        user,
+        helloNonce,
+        challengeExtraArgon2,
+        authExtra,
+      );
       expect(authenticateSignature, equals(signatureArgon));
     });
     test('verify key', () {

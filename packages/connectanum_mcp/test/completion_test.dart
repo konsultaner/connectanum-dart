@@ -71,6 +71,7 @@ void main() {
             },
           },
         });
+        expect(promptResponse, containsPair('result', isA<Map>()));
         expect(
           ((promptResponse as Map)['result'] as Map)['completion'],
           <String, Object?>{
@@ -79,7 +80,9 @@ void main() {
             'hasMore': false,
           },
         );
+        expect(seen, hasLength(1));
         expect(seen.single.argument.value, 'T-');
+        expect(seen.single.context, isNotNull);
         expect(
           seen.single.context!.arguments,
           containsPair('project', 'alpha'),
@@ -97,6 +100,7 @@ void main() {
             'argument': <String, Object?>{'name': 'taskId', 'value': 'T-2'},
           },
         });
+        expect(resourceResponse?['result'], isA<Map>());
         expect(
           (((resourceResponse as Map)['result'] as Map)['completion']
               as Map)['values'],
@@ -104,6 +108,102 @@ void main() {
         );
       },
     );
+
+    for (final (overrides, label) in <(Map<String, Object?>, String)>[
+      (
+        {
+          'ref': {'type': 'ref/prompt', 'name': 'bad name'},
+        },
+        'prompt name',
+      ),
+      (
+        {
+          'argument': {'name': 'task id', 'value': 'T-'},
+        },
+        'argument name',
+      ),
+      (
+        {
+          'context': {
+            'arguments': {'bad key': 'alpha'},
+          },
+        },
+        'context argument name',
+      ),
+    ]) {
+      test(
+        'invalid $label retains actionable diagnostics and recovers',
+        () async {
+          final seen = <McpCompletionRequest>[];
+          final server = McpServer(
+            serverInfo: const McpServerInfo(
+              name: 'completion-test',
+              version: '1',
+            ),
+            prompts: [
+              McpPrompt(
+                name: 'summarize-task',
+                arguments: [McpPromptArgument(name: 'taskId')],
+                handler: (_) => McpPromptResult.text('summary'),
+                complete: (request) {
+                  seen.add(request);
+                  return McpCompletionResult(values: ['T-100']);
+                },
+              ),
+            ],
+          );
+          addTearDown(server.shutdown);
+          await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': 'initialize',
+            'method': 'initialize',
+            'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
+          });
+          await server.handleMessage({
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+          });
+          final valid = <String, Object?>{
+            'ref': {'type': 'ref/prompt', 'name': 'summarize-task'},
+            'argument': {'name': 'taskId', 'value': 'T-'},
+          };
+          final rejected = await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': 'invalid',
+            'method': 'completion/complete',
+            'params': {...valid, ...overrides},
+          });
+          expect(rejected, {
+            'jsonrpc': '2.0',
+            'id': 'invalid',
+            'error': {
+              'code': -32602,
+              'message':
+                  'MCP completion $label must be non-empty and contain '
+                  'no whitespace or control characters.',
+            },
+          });
+          expect(seen, isEmpty);
+          final recovered = await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': 'valid',
+            'method': 'completion/complete',
+            'params': valid,
+          });
+          expect(recovered, {
+            'jsonrpc': '2.0',
+            'id': 'valid',
+            'result': {
+              'completion': {
+                'values': ['T-100'],
+              },
+            },
+          });
+          expect(seen.single.argument.name, 'taskId');
+          expect(seen.single.argument.value, 'T-');
+        },
+      );
+    }
 
     test('rejects unknown references and undeclared arguments', () async {
       final server = McpServer(
@@ -150,6 +250,7 @@ void main() {
           'method': 'completion/complete',
           'params': params,
         });
+        expect(response?['error'], isA<Map>());
         expect(((response as Map)['error'] as Map)['code'], -32602);
       }
     });

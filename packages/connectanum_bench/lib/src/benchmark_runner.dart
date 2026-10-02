@@ -78,8 +78,11 @@ class BenchmarkRunner {
       workingDirectory: 'native/transport',
       runInShell: true,
     );
-    await stdout.addStream(proc.stdout);
-    await stderr.addStream(proc.stderr);
+    // Either pipe can fill before the child closes the other one.
+    await Future.wait([
+      stdout.addStream(proc.stdout),
+      stderr.addStream(proc.stderr),
+    ]);
     final code = await proc.exitCode;
     if (code != 0) {
       throw ProcessException(

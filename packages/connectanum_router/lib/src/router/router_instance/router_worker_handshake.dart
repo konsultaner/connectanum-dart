@@ -144,19 +144,19 @@ Future<void> _handleHello(
 
   state.authMethod = selection.method;
 
-  if (selection.isAnonymous) {
-    await _openAnonymousSession(
-      bossPort: bossPort,
-      statePort: statePort,
-      state: state,
-      hello: hello,
-      connectionId: connectionId,
-      workerId: workerId,
-    );
-    return;
-  }
-
   try {
+    if (selection.isAnonymous) {
+      await _openAnonymousSession(
+        bossPort: bossPort,
+        statePort: statePort,
+        state: state,
+        hello: hello,
+        connectionId: connectionId,
+        workerId: workerId,
+        options: selection.options,
+      );
+      return;
+    }
     final sessionId = await allocateSessionId(statePort);
     state.sessionId = sessionId;
 
@@ -346,16 +346,18 @@ Future<void> _openAnonymousSession({
   required Hello hello,
   required int connectionId,
   required int workerId,
+  required Map<String, Object?> options,
 }) async {
   final serializer = state.serializer ?? NativeMessageSerializer.json;
   final realmUri = state.realmUri!;
-  final authId = hello.details.authid ?? 'anonymous';
+  final authId =
+      options['authid'] as String? ?? hello.details.authid ?? 'anonymous';
   final welcomeDetails = Details.forWelcome(
     realm: realmUri,
     authId: authId,
     authMethod: 'anonymous',
-    authProvider: 'static',
-    authRole: 'anonymous',
+    authProvider: options['authprovider'] as String? ?? 'static',
+    authRole: options['authrole'] as String? ?? 'anonymous',
   );
   state.welcomeDetails = welcomeDetails;
   state.authMethod = 'anonymous';

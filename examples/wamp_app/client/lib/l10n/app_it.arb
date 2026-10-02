@@ -141,6 +141,7 @@
   "stickerLabel": "Sticker {label}",
   "noMatchingExpressions": "Nessun risultato",
   "saveCopy": "Salva copia",
+  "attachmentSaveFailed": "Impossibile salvare il file. Riprova.",
   "viewOnceMessage": "Messaggio visualizzabile una volta",
   "viewOnceOpenFailed": "Impossibile aprire questo allegato visualizzabile una volta.",
   "profileUpdated": "Profilo aggiornato.",

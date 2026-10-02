@@ -75,7 +75,9 @@ void main() {
       expect(details.authid, 'bench-user');
       expect(loadCount, 0);
 
-      expect(details.realm, 'bench.realm');
+      String? realm;
+      expect(() => realm = details.realm, returnsNormally);
+      expect(realm, 'bench.realm');
       expect(loadCount, 1);
       expect(details.authmethods, ['ticket']);
       expect(details.authextra?['nonce'], 'abc123');

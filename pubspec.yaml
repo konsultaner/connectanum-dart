@@ -1,4 +1,6 @@
 name: connectanum_workspace
+dev_dependencies:
+  analyzer: ^14.1.0
 environment:
   sdk: '^3.10.0'
 hooks:

@@ -1,6 +1,8 @@
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
+import 'support/expect_valid.dart';
+
 void main() {
   group('MCP icons', () {
     test('serializes implementation, tool, prompt, and resource icons', () {
@@ -18,11 +20,13 @@ void main() {
       };
 
       expect(
-        const McpServerInfo(
-          name: 'connectanum-test',
-          version: '0.1.0',
-          icons: [icon],
-        ).toJson(),
+        expectValid(
+          () => const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+            icons: [icon],
+          ).toJson(),
+        ),
         {
           'name': 'connectanum-test',
           'version': '0.1.0',
@@ -31,11 +35,13 @@ void main() {
       );
 
       expect(
-        McpTool(
-          name: 'task.create',
-          icons: const [icon],
-          handler: (_) => McpToolResult.text('created'),
-        ).toJson(),
+        expectValid(
+          () => McpTool(
+            name: 'task.create',
+            icons: const [icon],
+            handler: (_) => McpToolResult.text('created'),
+          ).toJson(),
+        ),
         {
           'name': 'task.create',
           'inputSchema': {'type': 'object', 'additionalProperties': false},
@@ -44,11 +50,13 @@ void main() {
       );
 
       expect(
-        McpPrompt(
-          name: 'task.summary',
-          icons: const [icon],
-          handler: (_) => McpPromptResult.text('summarize'),
-        ).toJson(),
+        expectValid(
+          () => McpPrompt(
+            name: 'task.summary',
+            icons: const [icon],
+            handler: (_) => McpPromptResult.text('summarize'),
+          ).toJson(),
+        ),
         {
           'name': 'task.summary',
           'icons': [iconJson],
@@ -56,14 +64,16 @@ void main() {
       );
 
       expect(
-        McpResource(
-          uri: 'app://tasks/open',
-          name: 'open-tasks',
-          icons: const [icon],
-          read: (request) => [
-            McpTextResourceContent(uri: request.uri, text: '[]'),
-          ],
-        ).toJson(),
+        expectValid(
+          () => McpResource(
+            uri: 'app://tasks/open',
+            name: 'open-tasks',
+            icons: const [icon],
+            read: (request) => [
+              McpTextResourceContent(uri: request.uri, text: '[]'),
+            ],
+          ).toJson(),
+        ),
         {
           'uri': 'app://tasks/open',
           'name': 'open-tasks',
@@ -72,11 +82,13 @@ void main() {
       );
 
       expect(
-        McpResourceTemplate(
-          uriTemplate: 'app://tasks/{id}',
-          name: 'task',
-          icons: const [icon],
-        ).toJson(),
+        expectValid(
+          () => McpResourceTemplate(
+            uriTemplate: 'app://tasks/{id}',
+            name: 'task',
+            icons: const [icon],
+          ).toJson(),
+        ),
         {
           'uriTemplate': 'app://tasks/{id}',
           'name': 'task',
@@ -87,10 +99,12 @@ void main() {
 
     test('serializes data URI icons with optional light theme', () {
       expect(
-        const McpIcon(
-          src: 'data:image/svg+xml;base64,PHN2Zy8+',
-          theme: McpIconTheme.light,
-        ).toJson(),
+        expectValid(
+          () => const McpIcon(
+            src: 'data:image/svg+xml;base64,PHN2Zy8+',
+            theme: McpIconTheme.light,
+          ).toJson(),
+        ),
         {'src': 'data:image/svg+xml;base64,PHN2Zy8+', 'theme': 'light'},
       );
     });

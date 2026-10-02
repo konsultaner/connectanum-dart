@@ -108,7 +108,9 @@ pub fn apply_router_config_bytes(bytes: &[u8]) -> Result<(), Error> {
     let mut sanctioned_ports: HashSet<(String, u16)> = HashSet::new();
     for endpoint in &parsed.endpoints {
         EndpointRuntimeConfig::try_from_endpoint(endpoint)?;
-        if !sanctioned_ports.insert((endpoint.host.to_lowercase(), endpoint.port)) {
+        if endpoint.port != 0
+            && !sanctioned_ports.insert((endpoint.host.to_lowercase(), endpoint.port))
+        {
             return Err(Error::RouterConfigInvalid(format!(
                 "duplicate endpoint {}:{}",
                 endpoint.host, endpoint.port
@@ -128,17 +130,26 @@ pub fn current_config() -> Option<Arc<RouterConfig>> {
 }
 
 pub fn find_endpoint(host: &str, port: u16) -> Option<Arc<EndpointConfig>> {
-    config_lock()
-        .read()
-        .ok()
-        .and_then(|guard| guard.clone())
-        .and_then(|cfg| {
-            cfg.endpoints
-                .iter()
-                .find(|endpoint| endpoint.host.eq_ignore_ascii_case(host) && endpoint.port == port)
-                .cloned()
-                .map(Arc::new)
-        })
+    let cfg = current_config()?;
+    let mut matches = cfg
+        .endpoints
+        .iter()
+        .filter(|endpoint| endpoint.host.eq_ignore_ascii_case(host) && endpoint.port == port);
+    let endpoint = matches.next()?;
+    // An address alone cannot identify separately configured ephemeral sockets.
+    if matches.next().is_some() {
+        return None;
+    }
+    Some(Arc::new(endpoint.clone()))
+}
+
+pub fn find_endpoint_at(index: usize, host: &str, port: u16) -> Option<Arc<EndpointConfig>> {
+    let cfg = current_config()?;
+    let endpoint = cfg.endpoints.get(index)?;
+    if !endpoint.host.eq_ignore_ascii_case(host) || endpoint.port != port {
+        return None;
+    }
+    Some(Arc::new(endpoint.clone()))
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -334,7 +345,11 @@ impl EndpointRuntimeConfig {
                     endpoint.host, endpoint.port, err
                 ))
             })?;
-        let http_runtime = if protocols.contains(&TransportProtocol::Http) {
+        let generic_http = protocols.contains(&TransportProtocol::Http);
+        let http_runtime = if generic_http
+            || protocols.contains(&TransportProtocol::Http2)
+            || protocols.contains(&TransportProtocol::Http3)
+        {
             HttpEndpointRuntime::try_from_config(endpoint.http.as_ref()).map_err(|err| {
                 Error::RouterConfigInvalid(format!(
                     "endpoint {}:{} http config invalid: {}",
@@ -344,15 +359,19 @@ impl EndpointRuntimeConfig {
         } else {
             None
         };
-        if let Some(http_runtime) = &http_runtime {
-            if http_runtime.alpn.iter().any(|token| token == "h2")
-                && !protocols.contains(&TransportProtocol::Http2)
-            {
-                protocols.push(TransportProtocol::Http2);
-            }
-            if let Some(http3) = &http_runtime.http3 {
-                if http3.enabled && !protocols.contains(&TransportProtocol::Http3) {
-                    protocols.push(TransportProtocol::Http3);
+        // Version-specific endpoints retain their settings without implicitly
+        // enabling other HTTP versions. Generic HTTP keeps its expansion rules.
+        if generic_http {
+            if let Some(http_runtime) = &http_runtime {
+                if http_runtime.alpn.iter().any(|token| token == "h2")
+                    && !protocols.contains(&TransportProtocol::Http2)
+                {
+                    protocols.push(TransportProtocol::Http2);
+                }
+                if let Some(http3) = &http_runtime.http3 {
+                    if http3.enabled && !protocols.contains(&TransportProtocol::Http3) {
+                        protocols.push(TransportProtocol::Http3);
+                    }
                 }
             }
         }
@@ -722,6 +741,265 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    fn configured_runtime(value: serde_json::Value) -> EndpointRuntimeConfig {
+        let config = serde_json::from_value::<EndpointConfig>(value);
+        assert!(config.is_ok());
+        assert_valid_endpoint(&config.unwrap())
+    }
+
+    fn assert_valid_endpoint(config: &EndpointConfig) -> EndpointRuntimeConfig {
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(config);
+        assert!(runtime.is_ok());
+        runtime.unwrap()
+    }
+
+    fn assert_invalid_endpoint(config: &EndpointConfig) -> Error {
+        let runtime = EndpointRuntimeConfig::try_from_endpoint(config);
+        assert!(runtime.is_err());
+        runtime.unwrap_err()
+    }
+
+    #[test]
+    fn route_auth_policy_survives_configuration_and_resolution() {
+        for (tls, mtls, expected_tls) in [
+            (false, false, false),
+            (true, false, true),
+            (false, true, true),
+            (true, true, true),
+        ] {
+            for bearer in [false, true] {
+                for preflight in [false, true] {
+                    let runtime = configured_runtime(json!({
+                        "host": "localhost", "port": 8080, "tls_mode": "disabled",
+                        "protocols": ["http"],
+                        "http_routes": [{
+                            "path": "/guarded",
+                            "transport_auth": {
+                                "require_bearer": bearer, "require_tls": tls,
+                                "require_mtls": mtls,
+                                "allow_unauthenticated_cors_preflight": preflight
+                            },
+                            "default": {"type": "reserved_realm"}
+                        }]
+                    }));
+                    let matched = runtime.match_http_route("/guarded", None, "GET", "http");
+                    assert!(matches!(matched, HttpRouteMatch::Resolved(_)));
+                    let HttpRouteMatch::Resolved(resolved) = matched else {
+                        unreachable!()
+                    };
+                    for policy in [
+                        &runtime.http_routes[0].transport_auth,
+                        &resolved.transport_auth,
+                    ] {
+                        assert_eq!(policy.require_bearer, bearer);
+                        assert_eq!(policy.require_tls, expected_tls);
+                        assert_eq!(policy.require_mtls, mtls);
+                        assert_eq!(policy.allow_unauthenticated_cors_preflight, preflight);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn http_protocol_enabling_is_exact_and_deduplicated() {
+        use TransportProtocol::{Http, Http2, Http3};
+        for (alpn, http3, declared, expected) in [
+            ("http/1.1", false, vec!["http"], vec![Http]),
+            ("h2", false, vec!["http"], vec![Http, Http2]),
+            ("http/1.1", true, vec!["http"], vec![Http, Http3]),
+            ("h2", true, vec!["http"], vec![Http, Http2, Http3]),
+            (
+                "h2",
+                true,
+                vec!["http", "http2", "http3"],
+                vec![Http, Http2, Http3],
+            ),
+            (
+                "http/1.1",
+                false,
+                vec!["http", "http2", "http3"],
+                vec![Http, Http2, Http3],
+            ),
+        ] {
+            let runtime = configured_runtime(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "native",
+                "sni_certificates": [{"hostname": "localhost", "certificate_chain_pem": "CERT", "private_key_pem": "KEY"}],
+                "protocols": declared,
+                "http": {"alpn": [alpn], "http3": {"enabled": http3}}
+            }));
+            assert_eq!(runtime.protocols, expected);
+        }
+    }
+
+    #[test]
+    fn http3_only_settings_preserve_explicit_and_default_udp_ports() {
+        for port in [None, Some(0), Some(9443), Some(u16::MAX)] {
+            let runtime = configured_runtime(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "native",
+                "sni_certificates": [{"hostname": "localhost", "certificate_chain_pem": "CERT", "private_key_pem": "KEY"}],
+                "protocols": ["http3"],
+                "http": {"alpn": [" H3 ", "h3"],
+                    "http3": {"enabled": true, "port": port},
+                    "options": {"custom_limit": 17}}
+            }));
+            assert_eq!(runtime.protocols, vec![TransportProtocol::Http3]);
+            let settings = runtime.http_settings();
+            assert_eq!(
+                settings.is_some(),
+                true,
+                "HTTP/3-only settings must survive parsing"
+            );
+            let settings = settings.unwrap();
+            assert_eq!(settings.alpn, vec!["h3"]);
+            assert_eq!(settings.options.get("custom_limit"), Some(&json!(17)));
+            assert!(settings.http3.is_some());
+            let http3 = settings.http3.as_ref().unwrap();
+            assert!(http3.enabled);
+            assert_eq!(http3.port, port);
+        }
+    }
+
+    #[test]
+    fn versioned_http_settings_do_not_implicitly_enable_other_protocols() {
+        for (protocol, expected) in [
+            ("http2", TransportProtocol::Http2),
+            ("http3", TransportProtocol::Http3),
+        ] {
+            let runtime = configured_runtime(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "native",
+                "sni_certificates": [{"hostname": "localhost", "certificate_chain_pem": "CERT", "private_key_pem": "KEY"}],
+                "protocols": [protocol],
+                "http": {"alpn": ["h2", "h3"],
+                    "http3": {"enabled": true, "port": 0}}
+            }));
+            assert_eq!(runtime.protocols, vec![expected]);
+            assert!(runtime.http_settings().is_some());
+            assert_eq!(runtime.http_settings().unwrap().alpn, vec!["h2", "h3"]);
+        }
+    }
+
+    #[test]
+    fn non_http_protocols_do_not_activate_http_settings() {
+        for (protocol, expected) in [
+            ("rawsocket", TransportProtocol::Rawsocket),
+            ("websocket", TransportProtocol::Websocket),
+        ] {
+            let runtime = configured_runtime(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "disabled",
+                "protocols": [protocol],
+                "http": {"alpn": ["h2"], "http3": {"enabled": true, "port": 0}}
+            }));
+            assert_eq!(runtime.protocols, vec![expected]);
+            assert!(runtime.http_settings().is_none());
+        }
+    }
+
+    #[test]
+    fn http3_only_port_settings_never_bypass_tls_requirement() {
+        for enabled in [false, true] {
+            for port in [None, Some(0), Some(9443)] {
+                let config: EndpointConfig = serde_json::from_value(json!({
+                    "host": "localhost", "port": 8080, "tls_mode": "disabled",
+                    "protocols": ["http3"],
+                    "http": {"http3": {"enabled": enabled, "port": port}}
+                }))
+                .unwrap();
+                let error = assert_invalid_endpoint(&config);
+                assert!(matches!(error, Error::RouterConfigInvalid(ref message)
+                    if message.contains("enables http3 but tls_mode is disabled")));
+            }
+        }
+    }
+
+    #[test]
+    fn route_segment_sanitisation_preserves_ascii_and_unicode_mapping() {
+        for byte in 0u8..=127 {
+            let input = char::from(byte).to_string();
+            let expected = match byte {
+                b'A'..=b'Z' => char::from(byte + 32).to_string(),
+                b'a'..=b'z' | b'0'..=b'9' => input.clone(),
+                _ => "_".to_string(),
+            };
+            assert_eq!(sanitise_segment(&input), expected, "ASCII byte {byte}");
+        }
+        assert_eq!(sanitise_segment(""), "index");
+        assert_eq!(sanitise_segment("A-_!09"), "a___09");
+        assert_eq!(
+            sanitise_segment("\u{c4}a\u{2014}/\u{1f60a}\u{df}"),
+            "_a____"
+        );
+    }
+
+    #[test]
+    fn route_path_appending_preserves_root_empty_segments_and_separators() {
+        for (prefix, path, expected) in [
+            ("", "", "index"),
+            ("", "///", "index"),
+            ("api.", "/", "api.index"),
+            ("api", "", "apiindex"),
+            ("api", "/A", "api.a"),
+            ("api.", "/A//B/", "api.a.index.b"),
+            ("", "a//b", "a.index.b"),
+            ("", "/./../", "_.__"),
+            ("", "/Users/A-B_C!/", "users.a_b_c_"),
+            ("api.", "/Gr\u{fc}\u{df}e/\u{1f60a}/", "api.gr__e._"),
+        ] {
+            let mut result = prefix.to_string();
+            append_path_segments(&mut result, path);
+            assert_eq!(result, expected, "prefix={prefix:?}, path={path:?}");
+        }
+    }
+
+    #[test]
+    fn route_protocol_aliases_deduplicate_and_reject_blank_identifiers() {
+        let inputs = [
+            "H3", "http/3", "http3", " H2 ", "http/2", "HTTP/1.1", "http", "custom",
+        ];
+        assert_eq!(
+            normalise_protocols(&inputs.map(str::to_string)),
+            Ok(vec![
+                "http3".into(),
+                "http2".into(),
+                "http".into(),
+                "custom".into()
+            ])
+        );
+        for blank in ["", "   "] {
+            assert_eq!(
+                normalise_protocols(&[blank.to_string()]),
+                Err("protocol identifiers cannot be empty".into())
+            );
+        }
+    }
+
+    #[test]
+    fn transport_identifiers_defaults_and_membership_are_exact() {
+        let config: EndpointConfig = serde_json::from_value(json!({
+            "host": "localhost", "port": 8080, "tls_mode": "disabled"
+        }))
+        .unwrap();
+        assert_eq!(config.protocols, vec![TransportProtocol::Rawsocket]);
+        let protocols = [
+            (TransportProtocol::Rawsocket, "rawsocket"),
+            (TransportProtocol::Websocket, "websocket"),
+            (TransportProtocol::Http, "http"),
+            (TransportProtocol::Http2, "http2"),
+            (TransportProtocol::Http3, "http3"),
+        ];
+        for (selected, (protocol, name)) in protocols.iter().enumerate() {
+            assert_eq!(protocol.identifier(), *name);
+            let runtime = configured_runtime(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "native",
+                "sni_certificates": [{"hostname": "localhost", "certificate_chain_pem": "CERT", "private_key_pem": "KEY"}],
+                "protocols": [name]
+            }));
+            for (candidate, (query, _)) in protocols.iter().enumerate() {
+                assert_eq!(runtime.supports_protocol(*query), candidate == selected);
+            }
+        }
+    }
+
     #[test]
     fn default_protocols_include_rawsocket() {
         let cfg: EndpointConfig = serde_json::from_value(json!({
@@ -730,8 +1008,179 @@ mod tests {
             "tls_mode": "disabled"
         }))
         .unwrap();
-        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        let runtime = assert_valid_endpoint(&cfg);
         assert_eq!(runtime.protocols, vec![TransportProtocol::Rawsocket]);
+    }
+
+    #[test]
+    fn endpoint_positive_limits_reject_zero_and_preserve_one() {
+        for field in [
+            "idle_timeout_ms",
+            "heartbeat_interval_ms",
+            "heartbeat_timeout_ms",
+            "handshake_timeout_ms",
+            "max_http_content_length",
+        ] {
+            for value in [0, 1] {
+                let mut input = json!({"host": "localhost", "port": 8080, "tls_mode": "disabled"});
+                input[field] = json!(value);
+                let cfg: EndpointConfig = serde_json::from_value(input).unwrap();
+                let result = EndpointRuntimeConfig::try_from_endpoint(&cfg);
+                if value == 0 {
+                    assert!(result.is_err());
+                    let err = result.unwrap_err();
+                    assert!(matches!(err, Error::RouterConfigInvalid(_)));
+                    assert_eq!(
+                        err.to_string()
+                            .contains(&format!("{field} must be positive")),
+                        true,
+                        "{err}"
+                    );
+                    assert_eq!(err.to_string().contains("localhost:8080"), true, "{err}");
+                } else {
+                    assert!(result.is_ok());
+                    let runtime = result.unwrap();
+                    let millisecond = Some(Duration::from_millis(1));
+                    match field {
+                        "idle_timeout_ms" => assert_eq!(runtime.idle_timeout, millisecond),
+                        "heartbeat_interval_ms" => {
+                            assert_eq!(runtime.heartbeat_interval, millisecond)
+                        }
+                        "heartbeat_timeout_ms" => {
+                            assert_eq!(runtime.heartbeat_timeout, millisecond)
+                        }
+                        "handshake_timeout_ms" => {
+                            assert_eq!(runtime.handshake_timeout, millisecond.unwrap())
+                        }
+                        "max_http_content_length" => {
+                            assert_eq!(runtime.max_http_content_length, Some(1))
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn endpoint_heartbeat_timeout_accepts_equality_but_not_shorter() {
+        for timeout in [9, 10, 11] {
+            let cfg: EndpointConfig = serde_json::from_value(json!({
+                "host": "localhost", "port": 8080,
+                "tls_mode": "disabled",
+                "heartbeat_interval_ms": 10, "heartbeat_timeout_ms": timeout
+            }))
+            .unwrap();
+            let result = EndpointRuntimeConfig::try_from_endpoint(&cfg);
+            if timeout < 10 {
+                assert!(result.is_err());
+                let err = result.unwrap_err();
+                assert!(matches!(err, Error::RouterConfigInvalid(_)));
+                assert!(err
+                    .to_string()
+                    .contains("heartbeat_timeout_ms must be >= heartbeat_interval_ms"));
+            } else {
+                assert!(result.is_ok());
+                let runtime = result.unwrap();
+                assert_eq!(runtime.heartbeat_interval, Some(Duration::from_millis(10)));
+                assert_eq!(
+                    runtime.heartbeat_timeout,
+                    Some(Duration::from_millis(timeout))
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn endpoint_tls_rejects_unusable_modes() {
+        for (mode, protocols, message) in [
+            (
+                "disabled",
+                vec!["http3"],
+                "enables http3 but tls_mode is disabled",
+            ),
+            (
+                "native",
+                vec!["rawsocket"],
+                "requires at least one sni_certificates entry",
+            ),
+            (
+                "dart",
+                vec!["rawsocket"],
+                "tls_mode dart is not supported yet",
+            ),
+        ] {
+            let cfg: EndpointConfig = serde_json::from_value(json!({
+                "host": "localhost", "port": 8080,
+                "tls_mode": mode, "protocols": protocols
+            }))
+            .unwrap();
+            let err = assert_invalid_endpoint(&cfg);
+            assert!(matches!(err, Error::RouterConfigInvalid(_)));
+            assert_eq!(err.to_string().contains(message), true, "{err}");
+        }
+    }
+
+    #[test]
+    fn endpoint_rawsocket_exponent_boundaries_preserve_byte_limits() {
+        for (exponent, bytes) in [
+            (8, None),
+            (9, Some(512)),
+            (30, Some(1_073_741_824)),
+            (31, None),
+        ] {
+            let cfg: EndpointConfig = serde_json::from_value(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "disabled",
+                "max_rawsocket_size_exponent": exponent
+            }))
+            .unwrap();
+            let result = EndpointRuntimeConfig::try_from_endpoint(&cfg);
+            if let Some(bytes) = bytes {
+                assert!(result.is_ok());
+                let runtime = result.unwrap();
+                assert_eq!(runtime.max_rawsocket_size, bytes);
+                assert_eq!(runtime.max_rawsocket_size_exponent, exponent);
+                assert_eq!(runtime.max_upgrade_exponent, Some(exponent));
+            } else {
+                assert!(result.is_err());
+                let err = result.unwrap_err();
+                assert!(matches!(err, Error::RouterConfigInvalid(_)));
+                assert_eq!(
+                    err.to_string().contains(&format!(
+                        "max_rawsocket_size_exponent {exponent} outside supported range 9..30"
+                    )),
+                    true,
+                    "{err}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn endpoint_queue_capacity_accepts_exact_bounds_only() {
+        for capacity in [0, 1, 65_535, 65_536] {
+            let cfg: EndpointConfig = serde_json::from_value(json!({
+                "host": "localhost", "port": 8080, "tls_mode": "disabled",
+                "outbound_send_queue_capacity": capacity
+            }))
+            .unwrap();
+            let result = EndpointRuntimeConfig::try_from_endpoint(&cfg);
+            if capacity == 1 || capacity == 65_535 {
+                assert!(result.is_ok());
+                assert_eq!(result.unwrap().outbound_send_queue_capacity, capacity);
+            } else {
+                assert!(result.is_err());
+                let err = result.unwrap_err();
+                assert!(matches!(err, Error::RouterConfigInvalid(_)));
+                assert_eq!(
+                    err.to_string().contains(&format!(
+                        "outbound_send_queue_capacity {capacity} outside supported range 1..65535"
+                    )),
+                    true,
+                    "{err}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -743,7 +1192,7 @@ mod tests {
             "protocols": ["rawsocket", "http", "websocket", "http"]
         }))
         .unwrap();
-        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        let runtime = assert_valid_endpoint(&cfg);
         assert_eq!(
             runtime.protocols,
             vec![
@@ -770,9 +1219,10 @@ mod tests {
             }]
         }))
         .unwrap();
-        let err = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap_err();
-        assert!(
+        let err = assert_invalid_endpoint(&cfg);
+        assert_eq!(
             format!("{err}").contains("defines http routes but HTTP protocol disabled"),
+            true,
             "{err}"
         );
     }
@@ -802,12 +1252,17 @@ mod tests {
             ]
         }))
         .unwrap();
-        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        let runtime = assert_valid_endpoint(&cfg);
 
         let h1_match = runtime.match_http_route("/api/h1", None, "GET", "http/1.1");
         assert!(matches!(h1_match, HttpRouteMatch::Resolved(_)));
 
-        match runtime.match_http_route("/api/h2-only", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/api/h2-only", None, "GET", "http/1.1");
+        assert!(matches!(
+            &matched,
+            HttpRouteMatch::ProtocolNotAllowed { .. }
+        ));
+        match matched {
             HttpRouteMatch::ProtocolNotAllowed { allowed_protocols } => {
                 assert_eq!(allowed_protocols, vec!["http2".to_string()]);
             }
@@ -834,9 +1289,11 @@ mod tests {
             }]
         }))
         .unwrap();
-        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        let runtime = assert_valid_endpoint(&cfg);
 
-        match runtime.match_http_route("/api/items", None, "DELETE", "http/1.1") {
+        let matched = runtime.match_http_route("/api/items", None, "DELETE", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::MethodNotAllowed { .. }));
+        match matched {
             HttpRouteMatch::MethodNotAllowed { allowed_methods } => {
                 assert_eq!(allowed_methods, vec!["GET".to_string(), "POST".to_string()]);
             }
@@ -847,6 +1304,93 @@ mod tests {
             runtime.match_http_route("/api/missing", None, "DELETE", "http/1.1"),
             HttpRouteMatch::NotFound
         ));
+    }
+
+    #[test]
+    fn http_route_equal_priority_preserves_first_configured_target() {
+        let runtime = configured_runtime(json!({
+            "host": "127.0.0.1", "port": 0, "tls_mode": "disabled",
+            "protocols": ["http"],
+            "http_routes": [
+                {"path": "/api", "match_kind": "prefix", "default": {
+                    "type": "translation", "realm": "first", "procedure": "first.target"
+                }},
+                {"path": "/api", "match_kind": "prefix", "default": {
+                    "type": "translation", "realm": "second", "procedure": "second.target"
+                }}
+            ]
+        }));
+        for path in ["/api", "/api/items"] {
+            let result = runtime.match_http_route(path, None, "GET", "http");
+            assert!(matches!(&result, HttpRouteMatch::Resolved(_)));
+            if let HttpRouteMatch::Resolved(resolution) = result {
+                assert_eq!(resolution.realm, "first");
+                assert_eq!(resolution.procedure, "first.target");
+            }
+        }
+    }
+
+    #[test]
+    fn http_prefix_boundaries_distinguish_sibling_paths() {
+        for (prefix, accepted, rejected) in [
+            (
+                "/api",
+                vec!["/api", "/api/", "/api/items"],
+                vec!["/apix", "/api-v2"],
+            ),
+            (
+                "/api/",
+                vec!["/api/", "/api/items"],
+                vec!["/api", "/apix/items"],
+            ),
+        ] {
+            let runtime = configured_runtime(json!({
+                "host": "127.0.0.1", "port": 0, "tls_mode": "disabled",
+                "protocols": ["http"],
+                "http_routes": [{"path": prefix, "match_kind": "prefix", "default": {
+                    "type": "translation", "realm": "api", "procedure": "api.target"
+                }}]
+            }));
+            for path in accepted {
+                assert!(matches!(
+                    runtime.match_http_route(path, None, "GET", "http"),
+                    HttpRouteMatch::Resolved(_)
+                ));
+            }
+            for path in rejected {
+                assert!(matches!(
+                    runtime.match_http_route(path, None, "GET", "http"),
+                    HttpRouteMatch::NotFound
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn http_shorthand_defaults_append_method_and_normalise_segments() {
+        for target in [
+            json!({"type": "reserved_realm", "namespace": "api"}),
+            json!({"type": "namespace", "realm": "example", "namespace": "api"}),
+        ] {
+            let runtime = configured_runtime(json!({
+                "host": "127.0.0.1", "port": 0, "tls_mode": "disabled",
+                "protocols": ["http"],
+                "http_routes": [{"path": "/", "match_kind": "prefix", "default": target}]
+            }));
+            for (path, expected) in [
+                ("/", "api.index.post"),
+                ("/Items/A-B_C!", "api.items.a_b_c_.post"),
+                ("/items//42", "api.items.index.42.post"),
+            ] {
+                let result = runtime.match_http_route(path, Some("q=1"), "POST", "http");
+                assert!(matches!(&result, HttpRouteMatch::Resolved(_)));
+                if let HttpRouteMatch::Resolved(resolution) = result {
+                    assert_eq!(resolution.procedure, expected);
+                    assert_eq!(resolution.path, path);
+                    assert_eq!(resolution.query.as_deref(), Some("q=1"));
+                }
+            }
+        }
     }
 
     #[test]
@@ -882,16 +1426,20 @@ mod tests {
             ]
         }))
         .unwrap();
-        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        let runtime = assert_valid_endpoint(&cfg);
 
-        match runtime.match_http_route("/other/path", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/other/path", None, "GET", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.procedure, "com.example.catch_all");
             }
             other => panic!("expected catch-all resolution, got {other:?}"),
         }
 
-        match runtime.match_http_route("/api/items", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/api/items", None, "GET", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.procedure, "com.example.api");
             }
@@ -920,9 +1468,11 @@ mod tests {
             }]
         }))
         .unwrap();
-        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        let runtime = assert_valid_endpoint(&cfg);
 
-        match runtime.match_http_route("/api/items/42", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/api/items/42", None, "GET", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.realm, "realm1");
                 assert_eq!(resolution.procedure, "api.items.42.get");
@@ -931,7 +1481,9 @@ mod tests {
             other => panic!("expected namespace prefix resolution, got {other:?}"),
         }
 
-        match runtime.match_http_route("/api", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/api", None, "GET", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.procedure, "api.index.get");
                 assert_eq!(resolution.path, "/api");
@@ -971,9 +1523,11 @@ mod tests {
             ]
         }))
         .unwrap();
-        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        let runtime = assert_valid_endpoint(&cfg);
 
-        match runtime.match_http_route("/healthz", None, "GET", "http/1.1") {
+        let matched = runtime.match_http_route("/healthz", None, "GET", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.realm, RESERVED_HTTP_REALM);
                 assert_eq!(resolution.procedure, "healthz.get");
@@ -982,7 +1536,9 @@ mod tests {
             other => panic!("expected exact shorthand resolution, got {other:?}"),
         }
 
-        match runtime.match_http_route("/ops/restart", None, "POST", "http/1.1") {
+        let matched = runtime.match_http_route("/ops/restart", None, "POST", "http/1.1");
+        assert!(matches!(&matched, HttpRouteMatch::Resolved(_)));
+        match matched {
             HttpRouteMatch::Resolved(resolution) => {
                 assert_eq!(resolution.realm, RESERVED_HTTP_REALM);
                 assert_eq!(resolution.procedure, "ops.ops.restart.post");
@@ -1011,10 +1567,14 @@ mod tests {
             }
         }))
         .unwrap();
-        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
-        let http = runtime.http_settings().expect("http runtime");
+        let runtime = assert_valid_endpoint(&cfg);
+        let http = runtime.http_settings();
+        assert!(http.is_some());
+        let http = http.unwrap();
         assert_eq!(http.alpn, vec!["h2", "http/1.1"]);
-        let http3 = http.http3.as_ref().expect("http3 enabled");
+        let http3 = http.http3.as_ref();
+        assert!(http3.is_some());
+        let http3 = http3.unwrap();
         assert!(http3.enabled);
         assert_eq!(http3.port, Some(9443));
         assert_eq!(
@@ -1034,9 +1594,10 @@ mod tests {
             "client_auth": {"mode": "required", "ca_certificates_pem": "CERT"}
         }))
         .unwrap();
-        let err = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap_err();
-        assert!(
+        let err = assert_invalid_endpoint(&cfg);
+        assert_eq!(
             format!("{err}").contains("client_auth requires tls_mode native"),
+            true,
             "{err}"
         );
     }
@@ -1055,9 +1616,10 @@ mod tests {
             "client_auth": {"mode": "required"}
         }))
         .unwrap();
-        let err = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap_err();
-        assert!(
+        let err = assert_invalid_endpoint(&cfg);
+        assert_eq!(
             format!("{err}").contains("client_auth requires ca_certificates_pem"),
+            true,
             "{err}"
         );
     }
@@ -1070,7 +1632,7 @@ mod tests {
             "tls_mode": "disabled"
         }))
         .unwrap();
-        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        let runtime = assert_valid_endpoint(&cfg);
         assert_eq!(
             runtime.outbound_send_queue_capacity,
             DEFAULT_OUTBOUND_SEND_QUEUE_CAPACITY
@@ -1083,7 +1645,7 @@ mod tests {
             "outbound_send_queue_capacity": 32
         }))
         .unwrap();
-        let runtime = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap();
+        let runtime = assert_valid_endpoint(&cfg);
         assert_eq!(runtime.outbound_send_queue_capacity, 32);
 
         let cfg: EndpointConfig = serde_json::from_value(json!({
@@ -1093,9 +1655,10 @@ mod tests {
             "outbound_send_queue_capacity": 0
         }))
         .unwrap();
-        let err = EndpointRuntimeConfig::try_from_endpoint(&cfg).unwrap_err();
-        assert!(
+        let err = assert_invalid_endpoint(&cfg);
+        assert_eq!(
             format!("{err}").contains("outbound_send_queue_capacity"),
+            true,
             "{err}"
         );
     }
@@ -1343,11 +1906,7 @@ fn normalise_namespace(namespace: &str) -> String {
 fn append_path_segments(buffer: &mut String, path: &str) {
     let segments = segments_from_path(path);
     if segments.is_empty() {
-        if !buffer.is_empty() {
-            buffer.push_str("index");
-        } else {
-            buffer.push_str("index");
-        }
+        buffer.push_str("index");
         return;
     }
     for segment in segments {
@@ -1394,8 +1953,6 @@ fn sanitise_segment(segment: &str) -> String {
     for ch in segment.chars() {
         if ch.is_ascii_alphanumeric() {
             result.push(ch.to_ascii_lowercase());
-        } else if ch == '_' || ch == '-' {
-            result.push('_');
         } else {
             result.push('_');
         }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart';
@@ -13,6 +14,79 @@ void main() {
     'NativeWampCborXsalsa20Poly1305Provider',
     () {
       tearDown(NativeClientRuntime.shutdownShared);
+
+      test(
+        'publishLazyPayload supports a native session E2EE provider resolver',
+        () async {
+          final transport = _SessionTransport();
+          final inspectingProvider =
+              NativeWampCborXsalsa20Poly1305Provider.single(
+                keyId: 'kid-server-a',
+                key: List<int>.generate(32, (index) => index + 1),
+              );
+          addTearDown(inspectingProvider.release);
+          final client = Client(
+            realm: 'test.realm',
+            transport: transport,
+            e2eeProviderResolver: (_) =>
+                NativeWampCborXsalsa20Poly1305Provider.single(
+                  keyId: 'kid-server-a',
+                  key: List<int>.generate(32, (index) => index + 1),
+                ),
+          );
+          addTearDown(client.disconnect);
+          final published = Completer<Publish>();
+          transport.outbound.stream.listen((message) {
+            if (message is Hello) {
+              transport.inbound.add(
+                Welcome(
+                  42,
+                  Details.forWelcome(
+                    authExtra: {
+                      'e2ee': {
+                        'version': ConnectanumE2eeProfile.version,
+                        'required': false,
+                        'established': true,
+                        'scheme': 'wamp',
+                        'serializer': 'cbor',
+                        'cipher': ConnectanumE2eeProfile.xsalsa20Poly1305,
+                        'send_key_id': 'kid-server-a',
+                        'receive_key_id': 'kid-client-a',
+                        'peer_key_id': 'kid-server-a',
+                      },
+                    },
+                  ),
+                ),
+              );
+            } else if (message is Publish) {
+              published.complete(message);
+            }
+          });
+          final session = await client.connect().first;
+          await session.publishLazyPayload(
+            'ppt.topic',
+            payload: LazyMessagePayload.materialized(
+              arguments: const ['wrapped'],
+              argumentsKeywords: const {'worker': 4},
+            ),
+            options: PublishOptions(pptScheme: 'wamp'),
+          );
+          final publish = await published.future.timeout(
+            const Duration(seconds: 5),
+          );
+          expect(publish.options?.pptSerializer, equals('cbor'));
+          expect(publish.options?.pptCipher, equals('xsalsa20poly1305'));
+          expect(publish.options?.pptKeyId, equals('kid-server-a'));
+          final decoded = inspectingProvider.unpackPayload(
+            publish.arguments,
+            publish.options!,
+          );
+          expect(decoded.arguments, equals(const ['wrapped']));
+          expect(decoded.argumentsKeywords, equals(const {'worker': 4}));
+          expect(publish.argumentsKeywords, isNull);
+          await session.close(timeout: Duration.zero);
+        },
+      );
 
       test('round-trips payloads and populates PPT metadata', () {
         final provider = NativeWampCborXsalsa20Poly1305Provider.single(
@@ -256,4 +330,45 @@ void main() {
       );
     });
   }, skip: nativeClientRuntimeUnavailableReason);
+}
+
+class _SessionTransport extends AbstractTransport {
+  final inbound = StreamController<AbstractMessage>.broadcast();
+  final outbound = StreamController<AbstractMessage>();
+  var _open = false;
+
+  @override
+  final Completer<void> onDisconnect = Completer<void>();
+
+  @override
+  final Completer<void> onConnectionLost = Completer<void>();
+
+  @override
+  bool get isOpen => _open;
+
+  @override
+  bool get isReady => _open;
+
+  @override
+  Future<void> get onReady => Future.value();
+
+  @override
+  Future<void> open({Duration? pingInterval}) async {
+    _open = true;
+  }
+
+  @override
+  Future<void> close({dynamic error}) async {
+    if (!_open) return;
+    _open = false;
+    unawaited(inbound.close());
+    unawaited(outbound.close());
+    onDisconnect.complete();
+  }
+
+  @override
+  Stream<AbstractMessage> receive() => inbound.stream;
+
+  @override
+  void send(AbstractMessage message) => outbound.add(message);
 }

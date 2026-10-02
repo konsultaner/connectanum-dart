@@ -2,16 +2,26 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:wamp_app/l10n/generated/app_localizations.dart';
 import 'package:wamp_app/src/application/call_controller.dart';
 import 'package:wamp_app/src/domain/local_app_preferences.dart';
 import 'package:wamp_app/src/infrastructure/call_media.dart';
+import 'package:wamp_app/src/infrastructure/flutter_webrtc_call_media.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
+import 'package:wamp_app/src/ui/call_overlay.dart';
+import 'package:wamp_app/src/ui/wamp_app_theme.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'test_support.dart';
 
+part 'support/call_overlay_cases.dart';
+
 void main() {
+  _callOverlayTests();
   test('outgoing call encrypts offers and flushes ICE after answer', () async {
     final harness = _CallHarness();
     final media = _FakeCallMediaSession(CallMediaKind.video);
@@ -500,7 +510,9 @@ final class _FakeCallMediaSession implements CallMediaSession {
       StreamController<CallIceCandidate>.broadcast(sync: true);
   final StreamController<CallMediaConnectionState> _states =
       StreamController<CallMediaConnectionState>.broadcast(sync: true);
-  final _FakeRenderer _renderer = _FakeRenderer();
+  CallVideoRendererHandle localVideo = _FakeRenderer();
+  CallVideoRendererHandle remoteVideo = _FakeRenderer();
+  bool routingSupported = true;
   final List<CallSessionDescription> acceptedOffers = [];
   final List<CallSessionDescription> appliedAnswers = [];
   final List<CallIceCandidate> remoteCandidates = [];
@@ -516,15 +528,15 @@ final class _FakeCallMediaSession implements CallMediaSession {
   @override
   Stream<CallMediaConnectionState> get connectionStates => _states.stream;
   @override
-  CallVideoRendererHandle get localRenderer => _renderer;
+  CallVideoRendererHandle get localRenderer => localVideo;
   @override
-  CallVideoRendererHandle get remoteRenderer => _renderer;
+  CallVideoRendererHandle get remoteRenderer => remoteVideo;
   @override
   bool get muted => _muted;
   @override
   bool get cameraEnabled => media == CallMediaKind.video && _cameraEnabled;
   @override
-  bool get speakerRoutingSupported => true;
+  bool get speakerRoutingSupported => routingSupported;
   @override
   bool get speakerEnabled => _speakerEnabled;
 

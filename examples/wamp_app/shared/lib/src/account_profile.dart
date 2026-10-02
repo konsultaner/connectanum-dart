@@ -275,6 +275,9 @@ Uint8List? _readBytes(Object? value) {
     if (value.length > AccountProfileLimits.maxAvatarBytes) {
       throw const FormatException('Avatar exceeds the 256 KiB limit.');
     }
+    if (value.any((byte) => byte < 0 || byte > 255)) {
+      throw const FormatException('avatar_bytes must contain bytes in 0-255.');
+    }
     return Uint8List.fromList(value);
   }
   throw const FormatException('avatar_bytes must be binary data.');

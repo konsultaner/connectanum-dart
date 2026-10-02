@@ -128,8 +128,20 @@ class Invocation extends AbstractMessageWithPayload {
   void Function(AbstractMessageWithPayload invocationResultMessage)?
   _onResponse;
   bool _responseClosed = false;
+  bool _responseAbandoned = false;
 
   bool get responseClosed => _responseClosed;
+
+  /// Closes this response handler without sending a WAMP message.
+  ///
+  /// Session adapters use this when the connection can no longer deliver a
+  /// reply. Closing is idempotent and cannot be undone by a failed dispatch or
+  /// by attaching another response callback.
+  void closeResponse() {
+    _responseAbandoned = true;
+    _responseClosed = true;
+    _onResponse = null;
+  }
 
   void respondWith({
     LazyMessagePayload? lazyPayload,
@@ -184,7 +196,11 @@ class Invocation extends AbstractMessageWithPayload {
       } else if (options?.pptScheme != null) {
         // It's some variation of PPT
         invokeArguments = packedPayload == null
-            ? PPTPayload.packPPTPayload(arguments, argumentsKeywords, options!)
+            ? PPTPayload.packPPTPayload(
+                lazyPayload?.arguments ?? arguments,
+                lazyPayload?.argumentsKeywords ?? argumentsKeywords,
+                options!,
+              )
             : [packedPayload];
         invokeArgumentsKeywords = null;
       }
@@ -284,15 +300,18 @@ class Invocation extends AbstractMessageWithPayload {
     if (onResponse == null) {
       throw StateError('Invocation response handler not attached');
     }
-    onResponse(response);
-    if (response is Error) {
-      _responseClosed = true;
-      return;
-    }
     if (response is Yield && response.options?.progress == true) {
+      onResponse(response);
       return;
     }
+    // Block terminal reentry, but preserve retryability if dispatch is rejected.
     _responseClosed = true;
+    try {
+      onResponse(response);
+    } catch (_) {
+      _responseClosed = _responseAbandoned;
+      rethrow;
+    }
   }
 
   WampE2eeRuntimeContext? _responseRuntimeContext() {

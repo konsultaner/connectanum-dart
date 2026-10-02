@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+require_command dart
+require_command python3
+
+runtime="${CONNECTANUM_APP_SHARED_COVERAGE_RUNTIME:-vm}"
+test_options=(--platform=vm)
+format_options=(--lcov)
+case "$runtime" in
+  vm) format_options+=(--check-ignore) ;;
+  chrome)
+    if ! ensure_chrome_env; then
+      printf 'Chrome is required for shared application coverage; no empty report will be emitted.\n' >&2
+      exit 1
+    fi
+    test_options=(--platform=chrome --compiler=dart2js --concurrency=1)
+    # VM ignore comments must not hide browser source-map lines.
+    ;;
+  *)
+    printf 'Unsupported shared application coverage runtime: %s (expected vm or chrome).\n' "$runtime" >&2
+    exit 2
+    ;;
+esac
+
+coverage_root="${CONNECTANUM_APP_SHARED_COVERAGE_DIR:-}"
+if [[ -z "$coverage_root" ]]; then
+  coverage_root="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-app-shared-coverage.XXXXXX")"
+elif [[ "$coverage_root" != /* ]]; then
+  coverage_root="$ROOT_DIR/$coverage_root"
+fi
+if [[ -e "$coverage_root/raw" || -e "$coverage_root/lcov.info" || -e "$coverage_root/summary.json" ]]; then
+  printf 'Coverage output already exists at %s; choose an empty CONNECTANUM_APP_SHARED_COVERAGE_DIR.\n' "$coverage_root" >&2
+  exit 2
+fi
+mkdir -p "$coverage_root/raw"
+
+(
+  cd examples/wamp_app/shared
+  dart pub get
+  dart test "${test_options[@]}" --coverage="$coverage_root/raw"
+)
+
+dart pub global run coverage:format_coverage \
+  "${format_options[@]}" \
+  --in="$coverage_root/raw" \
+  --out="$coverage_root/lcov.info" \
+  --package="$ROOT_DIR/examples/wamp_app/shared" \
+  --base-directory="$ROOT_DIR" \
+  --report-on=examples/wamp_app/shared/lib
+
+python3 tool/check_coverage.py "$coverage_root/lcov.info" \
+  --scope=application \
+  --runtime="$runtime" \
+  --policy=tool/coverage_app_shared_policy.json \
+  --output="$coverage_root/summary.json"

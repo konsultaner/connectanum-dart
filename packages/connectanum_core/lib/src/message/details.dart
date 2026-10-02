@@ -280,8 +280,8 @@ class Details {
       'trustlevel',
       'roles',
     });
-    if (customFields.isNotEmpty) {
-      custom.addAll(customFields);
+    for (final entry in customFields.entries) {
+      custom.putIfAbsent(entry.key, () => entry.value);
     }
   }
 

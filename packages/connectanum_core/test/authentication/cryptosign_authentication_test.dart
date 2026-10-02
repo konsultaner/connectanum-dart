@@ -110,7 +110,10 @@ void main() {
     ];
 
     test('message handling', () async {
-      final pkcs8Pem = Pkcs8.fromEd25519Seed(Uint8List.fromList(openSshSeed));
+      late String pkcs8Pem;
+      expect(() {
+        pkcs8Pem = Pkcs8.fromEd25519Seed(Uint8List.fromList(openSshSeed));
+      }, returnsNormally);
       expect(pkcs8Pem, contains('BEGIN PRIVATE KEY'));
 
       for (var vector in testVectors) {
@@ -356,33 +359,48 @@ void main() {
     });
 
     test('load open ssh private key', () async {
-      final unencryptedOpenSshKey = Pem.loadPrivateKeyFromOpenSSHPem(
-        MockKeys.ed25519Key.value,
-      );
+      late Uint8List unencryptedOpenSshKey;
+      expect(() {
+        unencryptedOpenSshKey = Pem.loadPrivateKeyFromOpenSSHPem(
+          MockKeys.ed25519Key.value,
+        );
+      }, returnsNormally);
       expect(unencryptedOpenSshKey, equals(openSshSeed));
 
-      final unencryptedOpenSshKeyFromPutty = Pem.loadPrivateKeyFromOpenSSHPem(
-        MockKeys.ed25519Pem.value,
-      );
+      late Uint8List unencryptedOpenSshKeyFromPutty;
+      expect(() {
+        unencryptedOpenSshKeyFromPutty = Pem.loadPrivateKeyFromOpenSSHPem(
+          MockKeys.ed25519Pem.value,
+        );
+      }, returnsNormally);
       expect(unencryptedOpenSshKeyFromPutty, equals(puttySeed));
 
-      final unencryptedOpenSshKeyFromPuttyWithPassword =
-          Pem.loadPrivateKeyFromOpenSSHPem(
-            MockKeys.ed25519PasswordPem.value,
-            password: 'password',
-          );
+      late Uint8List unencryptedOpenSshKeyFromPuttyWithPassword;
+      expect(() {
+        unencryptedOpenSshKeyFromPuttyWithPassword =
+            Pem.loadPrivateKeyFromOpenSSHPem(
+              MockKeys.ed25519PasswordPem.value,
+              password: 'password',
+            );
+      }, returnsNormally);
       expect(unencryptedOpenSshKeyFromPuttyWithPassword, equals(puttySeed));
     });
 
     test('create pkcs#8 pem', () {
-      final pkcs8Key = Pkcs8.fromEd25519Seed(Uint8List.fromList(openSshSeed));
+      late String pkcs8Key;
+      expect(() {
+        pkcs8Key = Pkcs8.fromEd25519Seed(Uint8List.fromList(openSshSeed));
+      }, returnsNormally);
       expect(pkcs8Key, equals(MockKeys.ed25519OpensshPkcs8.value));
     });
 
     test('load pkcs#8 pem', () {
-      final unencryptedOpenSshKey = Pkcs8.loadPrivateKeyFromPKCS8Ed25519(
-        MockKeys.ed25519OpensshPkcs8.value,
-      );
+      late Uint8List unencryptedOpenSshKey;
+      expect(() {
+        unencryptedOpenSshKey = Pkcs8.loadPrivateKeyFromPKCS8Ed25519(
+          MockKeys.ed25519OpensshPkcs8.value,
+        );
+      }, returnsNormally);
       expect(unencryptedOpenSshKey, equals(openSshSeed));
     });
 

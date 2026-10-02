@@ -327,6 +327,148 @@ mod tests {
     use crate::config::{EndpointRuntimeConfig, SniCertificate, TlsMode, TransportProtocol};
     use std::time::Duration;
 
+    fn configuration_error<T>(result: Result<T, Error>, expected: &str) {
+        assert!(
+            matches!(&result, Err(Error::RouterConfigInvalid(_))),
+            "expected a TLS configuration rejection: {expected}"
+        );
+        if let Err(Error::RouterConfigInvalid(message)) = result {
+            assert!(message.contains("127.0.0.1:443"), "{message}");
+            assert!(message.contains(expected), "{message}");
+        }
+    }
+
+    #[test]
+    fn identity_rejects_missing_and_malformed_credentials_with_context() {
+        let endpoint = test_endpoint_config();
+        for (pem, expected) in [
+            ("", "tls certificate chain empty for localhost"),
+            (
+                "not a PEM certificate",
+                "tls certificate chain empty for localhost",
+            ),
+            (
+                "-----BEGIN CERTIFICATE-----\n%%%\n-----END CERTIFICATE-----\n",
+                "failed to parse tls certificate for localhost",
+            ),
+        ] {
+            let mut entry = endpoint.sni_certificates[0].clone();
+            entry.certificate_chain_pem = pem.into();
+            configuration_error(parse_identity(&entry, &endpoint), expected);
+        }
+        for (pem, expected) in [
+            ("", "tls private key missing for localhost"),
+            ("not a PEM key", "tls private key missing for localhost"),
+            (
+                "-----BEGIN PRIVATE KEY-----\n%%%\n-----END PRIVATE KEY-----\n",
+                "failed to parse pkcs8 key for tls localhost",
+            ),
+        ] {
+            let mut entry = endpoint.sni_certificates[0].clone();
+            entry.private_key_pem = pem.into();
+            configuration_error(parse_identity(&entry, &endpoint), expected);
+        }
+        assert!(parse_identity(&endpoint.sni_certificates[0], &endpoint).is_ok());
+    }
+
+    #[test]
+    fn acceptor_rejects_invalid_identity_and_modes_without_fallback() {
+        let mut endpoint = test_endpoint_config();
+        endpoint.tls_mode = TlsMode::Disabled;
+        endpoint.sni_certificates.clear();
+        assert!(build_tls_acceptor(&endpoint).unwrap().is_none());
+        endpoint.tls_mode = TlsMode::Dart;
+        configuration_error(
+            build_tls_acceptor(&endpoint),
+            "tls_mode 'dart' not supported",
+        );
+        endpoint.tls_mode = TlsMode::Native;
+        configuration_error(
+            build_tls_acceptor(&endpoint),
+            "requires at least one sni_certificates entry",
+        );
+
+        let mut endpoint = test_endpoint_config();
+        endpoint.sni_certificates[0].private_key_pem =
+            "-----BEGIN PRIVATE KEY-----\nAQID\n-----END PRIVATE KEY-----\n".into();
+        configuration_error(
+            build_tls_acceptor(&endpoint),
+            "tls certificate invalid for localhost",
+        );
+        let mut endpoint = test_endpoint_config();
+        endpoint.sni_certificates[0].hostname = "invalid host name".into();
+        configuration_error(
+            build_tls_acceptor(&endpoint),
+            "tls SNI certificate invalid for invalid host name",
+        );
+        assert!(build_tls_acceptor(&test_endpoint_config())
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn client_auth_rejects_unusable_trust_roots_even_when_optional() {
+        for mode in [ClientAuthMode::Required, ClientAuthMode::Optional] {
+            for (pem, expected) in [
+                ("", "did not contain valid certificates"),
+                (
+                    "not a PEM certificate",
+                    "did not contain valid certificates",
+                ),
+                (
+                    "-----BEGIN CERTIFICATE-----\nAQID\n-----END CERTIFICATE-----\n",
+                    "did not contain valid certificates",
+                ),
+                (
+                    "-----BEGIN CERTIFICATE-----\n%%%\n-----END CERTIFICATE-----\n",
+                    "failed to parse client_auth ca_certificates_pem",
+                ),
+            ] {
+                let mut endpoint = test_endpoint_config();
+                endpoint.client_auth = Some(crate::config::ClientAuthRuntime {
+                    mode,
+                    ca_certificates_pem: pem.into(),
+                });
+                configuration_error(
+                    build_client_cert_verifier(&endpoint, &default_provider()),
+                    expected,
+                );
+                configuration_error(build_tls_acceptor(&endpoint), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn client_auth_modes_preserve_certificate_validation() {
+        let mut endpoint = test_endpoint_config();
+        assert!(build_client_cert_verifier(&endpoint, &default_provider())
+            .unwrap()
+            .is_none());
+        for (mode, mandatory) in [
+            (ClientAuthMode::Required, true),
+            (ClientAuthMode::Optional, false),
+        ] {
+            endpoint.client_auth = Some(crate::config::ClientAuthRuntime {
+                mode,
+                ca_certificates_pem: include_str!("../../../bench/bench_tls.crt").into(),
+            });
+            let verifier = build_client_cert_verifier(&endpoint, &default_provider())
+                .unwrap()
+                .unwrap();
+            assert!(verifier.offer_client_auth());
+            assert_eq!(verifier.client_auth_mandatory(), mandatory);
+            assert!(!verifier.root_hint_subjects().is_empty());
+            assert!(verifier
+                .verify_client_cert(
+                    &CertificateDer::from(vec![1, 2, 3]),
+                    &[],
+                    UnixTime::since_unix_epoch(Duration::from_secs(1)),
+                )
+                .is_err());
+            assert!(build_tls_acceptor(&endpoint).unwrap().is_some());
+        }
+    }
+
     #[test]
     fn apply_server_tls_runtime_settings_disables_tls13_tickets_for_secret_extraction() {
         let endpoint = test_endpoint_config();

@@ -1,6 +1,8 @@
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 import 'package:test/test.dart';
 
+import 'support/expect_valid.dart';
+
 void main() {
   group('MCP prompts', () {
     test('initialize advertises prompts when prompts are configured', () async {
@@ -17,7 +19,7 @@ void main() {
         },
       });
 
-      final result = response?['result'] as Map<String, Object?>;
+      final result = _result(response);
       expect(result['capabilities'], {
         'tools': <String, Object?>{},
         'prompts': <String, Object?>{},
@@ -35,7 +37,7 @@ void main() {
         'params': {},
       });
 
-      final result = response?['result'] as Map<String, Object?>;
+      final result = _result(response);
       final prompts = result['prompts'] as List<Object?>;
       expect(result.containsKey('nextCursor'), isFalse);
       expect(prompts, [
@@ -57,13 +59,15 @@ void main() {
     });
 
     test('prompts/list paginates with opaque cursors', () async {
-      final server = McpServer(
-        serverInfo: const McpServerInfo(
-          name: 'connectanum-test',
-          version: '0.1.0',
+      final server = expectValid(
+        () => McpServer(
+          serverInfo: const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+          ),
+          promptListPageSize: 2,
+          prompts: [_prompt('alpha'), _prompt('beta'), _prompt('gamma')],
         ),
-        promptListPageSize: 2,
-        prompts: [_prompt('alpha'), _prompt('beta'), _prompt('gamma')],
       );
       await _initializeAndStart(server);
 
@@ -74,7 +78,7 @@ void main() {
         'params': {},
       });
 
-      final first = firstResponse?['result'] as Map<String, Object?>;
+      final first = _result(firstResponse);
       expect(_promptNames(first), ['alpha', 'beta']);
       final cursor = first['nextCursor'];
       expect(cursor, isA<String>());
@@ -86,7 +90,7 @@ void main() {
         'params': {'cursor': cursor},
       });
 
-      final second = secondResponse?['result'] as Map<String, Object?>;
+      final second = _result(secondResponse);
       expect(_promptNames(second), ['gamma']);
       expect(second.containsKey('nextCursor'), isFalse);
     });
@@ -108,7 +112,7 @@ void main() {
         'params': {},
       });
 
-      final result = response?['result'] as Map<String, Object?>;
+      final result = _result(response);
       expect(_promptNames(result), ['alpha', 'beta', 'gamma']);
     });
 
@@ -129,7 +133,7 @@ void main() {
         'method': 'prompts/list',
         'params': {},
       });
-      final first = firstResponse?['result'] as Map<String, Object?>;
+      final first = _result(firstResponse);
       final staleCursor = first['nextCursor'];
       expect(staleCursor, isA<String>());
 
@@ -141,6 +145,7 @@ void main() {
         'params': {'cursor': staleCursor},
       });
 
+      expect(staleResponse, containsPair('error', isA<Map<String, Object?>>()));
       final error = staleResponse?['error'] as Map<String, Object?>;
       expect(error['code'], McpErrorCodes.invalidParams);
     });
@@ -213,7 +218,7 @@ void main() {
           },
         });
 
-        final result = response?['result'] as Map<String, Object?>;
+        final result = _result(response);
         expect(result['description'], 'Task summary prompt for T-42.');
         expect(result['messages'], [
           {
@@ -327,45 +332,56 @@ void main() {
   });
 }
 
-McpServer _server() => McpServer(
-  serverInfo: const McpServerInfo(name: 'connectanum-test', version: '0.1.0'),
-  prompts: [
-    McpPrompt(
-      name: 'task.summary',
-      title: 'Task Summary',
-      description: 'Summarizes an application task.',
-      arguments: [
-        McpPromptArgument(
-          name: 'task_id',
-          title: 'Task ID',
-          description: 'Application task identifier.',
-          required: true,
-        ),
-        McpPromptArgument(name: 'tone', description: 'Optional response tone.'),
-      ],
-      handler: (request) {
-        final taskId = request.arguments['task_id']!;
-        final tone = request.arguments['tone'] ?? 'neutral';
-        return McpPromptResult(
-          description: 'Task summary prompt for $taskId.',
-          messages: [
-            McpPromptMessage.user(
-              McpTextContent('Summarize task $taskId in a $tone tone.'),
-            ),
-            McpPromptMessage.assistant(
-              McpEmbeddedResourceContent(
-                resource: McpTextResourceContent(
-                  uri: 'app://tasks/$taskId',
-                  mimeType: 'application/json',
-                  text: '{"id":"$taskId"}',
+Map<String, Object?> _result(dynamic response) {
+  expect(response, containsPair('result', isA<Map<String, Object?>>()));
+  expect(response, isNot(contains('error')));
+  return response['result'] as Map<String, Object?>;
+}
+
+McpServer _server() => expectValid(
+  () => McpServer(
+    serverInfo: const McpServerInfo(name: 'connectanum-test', version: '0.1.0'),
+    prompts: [
+      McpPrompt(
+        name: 'task.summary',
+        title: 'Task Summary',
+        description: 'Summarizes an application task.',
+        arguments: [
+          McpPromptArgument(
+            name: 'task_id',
+            title: 'Task ID',
+            description: 'Application task identifier.',
+            required: true,
+          ),
+          McpPromptArgument(
+            name: 'tone',
+            description: 'Optional response tone.',
+          ),
+        ],
+        handler: (request) {
+          final taskId = request.arguments['task_id']!;
+          final tone = request.arguments['tone'] ?? 'neutral';
+          return McpPromptResult(
+            description: 'Task summary prompt for $taskId.',
+            messages: [
+              McpPromptMessage.user(
+                McpTextContent('Summarize task $taskId in a $tone tone.'),
+              ),
+              McpPromptMessage.assistant(
+                McpEmbeddedResourceContent(
+                  resource: McpTextResourceContent(
+                    uri: 'app://tasks/$taskId',
+                    mimeType: 'application/json',
+                    text: '{"id":"$taskId"}',
+                  ),
                 ),
               ),
-            ),
-          ],
-        );
-      },
-    ),
-  ],
+            ],
+          );
+        },
+      ),
+    ],
+  ),
 );
 
 McpPrompt _prompt(String name) =>

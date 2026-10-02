@@ -580,12 +580,12 @@ void main() {
           resource,
           clientId: 'consumer: client',
         );
-        late String authorization;
+        String? authorization;
         late Map<String, String> capturedForm;
         tokenHandler = (request, body) async {
           authorization = request.headers.value(
             HttpHeaders.authorizationHeader,
-          )!;
+          );
           capturedForm = Uri.splitQueryString(body);
           request.response.headers.contentType = ContentType.json;
           request.response.write(
@@ -608,7 +608,7 @@ void main() {
 
         expect(authorization, startsWith('Basic '));
         expect(
-          utf8.decode(base64.decode(authorization.substring('Basic '.length))),
+          utf8.decode(base64.decode(authorization!.substring('Basic '.length))),
           'consumer%3A+client:secret%3A+value',
         );
         expect(capturedForm.containsKey('client_id'), isFalse);

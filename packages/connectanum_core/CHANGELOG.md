@@ -5,6 +5,8 @@
   of attacker-controlled payload content.
 - Preserve exact WAMP-safe 64-bit MessagePack identifiers in dart2js browsers
   while rejecting lossy or out-of-range integer values.
+- Reject invalid Base64 bytes consistently on VM and Flutter Web and preserve
+  URL-safe binary payloads without corruption in the browser fast path.
 
 ## 3.0.0-beta.5
 

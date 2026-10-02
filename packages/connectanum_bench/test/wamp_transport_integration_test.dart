@@ -11,12 +11,15 @@ import 'package:connectanum_bench/connectanum_bench.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
+import 'package:connectanum_client/connectanum.dart' as client;
 import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart'
     as native_e2ee;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
+
+import 'support/native_reply_callee.dart';
 
 void main() {
   final nativeLib = _resolveNativeLib();
@@ -44,6 +47,81 @@ void main() {
     tearDownAll(() async {
       await harness?.close();
     });
+
+    for (final webSocket in [false, true]) {
+      for (final wireSerializer in ['json', 'msgpack', 'cbor']) {
+        test(
+          'native lazy replies ${webSocket ? 'WebSocket' : 'RawSocket'} '
+          '$wireSerializer preserve PPT and encrypted payloads',
+          () async {
+            final binding = harness!.binding;
+            final rawPort = binding.listeners
+                .firstWhere(
+                  (listener) =>
+                      listener.settings?.protocols.contains(
+                        ListenerProtocol.rawsocket,
+                      ) ??
+                      false,
+                )
+                .port;
+            final webPort = binding.listeners
+                .firstWhere(
+                  (listener) =>
+                      listener.settings?.protocols.contains(
+                        ListenerProtocol.websocket,
+                      ) ??
+                      false,
+                )
+                .port;
+            final webUrl = 'ws://127.0.0.1:$webPort/wamp';
+            final callee = await NativeReplyCallee.start(
+              webSocket: webSocket,
+              wireSerializer: wireSerializer,
+              rawPort: rawPort,
+              webUrl: webUrl,
+              nativeLib: nativeLib!,
+            );
+            addTearDown(() async {
+              await callee.close();
+            });
+            final caller = client.Client(
+              realm: 'bench.secure',
+              authId: 'bench-user',
+              authenticationMethods: [
+                client.TicketAuthentication('bench-ticket'),
+              ],
+              transport: client.WebSocketTransport.withJsonSerializer(webUrl),
+              e2eeProvider: client.WampCborXsalsa20Poly1305Provider.single(
+                keyId: 'native-reply',
+                key: Uint8List.fromList(
+                  List.generate(32, (index) => index + 1),
+                ),
+              ),
+            );
+            addTearDown(caller.disconnect);
+            final callerSession = await caller.connect().first.timeout(
+              const Duration(seconds: 10),
+            );
+            var expectedReplies = 0;
+            for (final shape in ['explicit', 'materialized', 'encoded']) {
+              for (final mode in ['json', 'msgpack', 'cbor', 'wamp']) {
+                final result = await callerSession
+                    .callSingle(
+                      'bench.rpc.native_lazy',
+                      arguments: [shape, mode],
+                    )
+                    .timeout(const Duration(seconds: 10));
+                expectedReplies++;
+                expect(result.arguments, ['reply', expectedReplies]);
+                expect(result.argumentsKeywords, {'shape': shape});
+              }
+            }
+            expect(await callee.close(), 12);
+          },
+          skip: skipReason,
+        );
+      }
+    }
 
     test('Dart RawSocket RPC workload runs against a real router', () async {
       final samples = await harness!.runDart(
@@ -1002,56 +1080,235 @@ void main() {
     );
   });
 
+  benchmarkRunnerRegressionTests();
+}
+
+void benchmarkRunnerRegressionTests() {
+  final nativeLib = _resolveNativeLib();
+  final skipReason = nativeLib == null
+      ? 'Native transport library missing; build native transport first.'
+      : null;
   group('BenchmarkRunner WAMP scenarios', () {
     test(
-      'runs RawSocket RPC workload from YAML benchmark scenario',
-      () async {
-        final tempDir = await Directory.systemTemp.createTemp(
-          'connectanum-benchmark-runner-',
+      'runner defaults execute load without rebuilding the native library',
+      () {
+        final runner = BenchmarkRunner(
+          nativeLibraryPath: 'unused',
+          routerConfigPath: 'unused',
+          config: BenchmarkConfig(scenarios: []),
         );
-        addTearDown(() async {
-          if (await tempDir.exists()) {
-            await tempDir.delete(recursive: true);
-          }
-        });
-
-        final rawSocketPort = await _reservePort();
-        final routerConfig = File('${tempDir.path}/router.yaml');
-        await routerConfig.writeAsString(
-          _benchmarkRunnerRouterConfig(rawSocketPort),
-        );
-        final scenarioFile = File('${tempDir.path}/benchmarks.yaml');
-        await scenarioFile.writeAsString(_benchmarkRunnerScenario());
-
-        final records = <LogRecord>[];
-        final previousRootLevel = Logger.root.level;
-        Logger.root.level = Level.ALL;
-        final subscription = Logger(
-          'BenchmarkRunner',
-        ).onRecord.listen(records.add);
-        addTearDown(() async {
-          await subscription.cancel();
-          Logger.root.level = previousRootLevel;
-        });
-
-        await BenchmarkRunner(
-          nativeLibraryPath: nativeLib!,
-          routerConfigPath: routerConfig.path,
-          config: BenchmarkConfig.fromYaml(await scenarioFile.readAsString()),
-        ).run();
-
-        expect(
-          records.any((record) => record.message.contains('WAMP samples: 1')),
-          isTrue,
-        );
+        expect(runner.buildNative, isFalse);
+        expect(runner.dryRun, isFalse);
       },
-      skip: skipReason,
-      timeout: const Timeout(Duration(seconds: 45)),
     );
+    test('CLI defaults require explicit router and native library paths', () {
+      for (final arguments in [
+        <String>[],
+        ['-c', 'router.yaml'],
+        ['-n', 'native.so'],
+      ]) {
+        final options = buildArgParser().parse(arguments);
+        if (!arguments.contains('-c')) {
+          expect(() => options['config'], throwsArgumentError);
+        }
+        if (!arguments.contains('-n')) {
+          expect(() => options['native-lib'], throwsArgumentError);
+        }
+      }
+      final options = buildArgParser().parse([
+        '-c',
+        'router.yaml',
+        '-n',
+        'native.so',
+      ]);
+      expect(options['config'], 'router.yaml');
+      expect(options['native-lib'], 'native.so');
+      expect(options['scenario'], 'benchmarks.yaml');
+      expect(options['help'], isFalse);
+      expect(options['build-native'], isFalse);
+      expect(options['dry-run'], isFalse);
+    });
+    for (final enabled in [false, true]) {
+      test('CLI flags can explicitly select enabled=$enabled', () {
+        final options = buildArgParser().parse([
+          '-c',
+          'custom.yaml',
+          '-n',
+          'custom.so',
+          '-s',
+          'custom-bench.yaml',
+          '-h',
+          enabled ? '--build-native' : '--no-build-native',
+          enabled ? '--dry-run' : '--no-dry-run',
+        ]);
+        expect(options['config'], 'custom.yaml');
+        expect(options['native-lib'], 'custom.so');
+        expect(options['scenario'], 'custom-bench.yaml');
+        expect(options['help'], isTrue);
+        expect(options['build-native'], enabled);
+        expect(options['dry-run'], enabled);
+        expect(
+          () => buildArgParser().parse(['--no-help']),
+          throwsFormatException,
+        );
+      });
+    }
+    for (final transport in WampTransport.values) {
+      for (final serializer in WampSerializer.values) {
+        for (final dryRun in [false, true]) {
+          test(
+            'runs ${transport.name}/${serializer.name} RPC from YAML dryRun=$dryRun with exact accounting',
+            () async {
+              final tempDir = await Directory.systemTemp.createTemp(
+                'connectanum-benchmark-runner-',
+              );
+              addTearDown(() async {
+                if (await tempDir.exists()) {
+                  await tempDir.delete(recursive: true);
+                }
+              });
+
+              final rawSocketPort = await _reservePort();
+              final routerConfig = File('${tempDir.path}/router.yaml');
+              await routerConfig.writeAsString(
+                _benchmarkRunnerRouterConfig(
+                  rawSocketPort,
+                  transport: transport,
+                ),
+              );
+              final scenarioFile = File('${tempDir.path}/benchmarks.yaml');
+              await scenarioFile.writeAsString(
+                _benchmarkRunnerScenario(
+                  transport: transport,
+                  serializer: serializer,
+                ),
+              );
+
+              final records = <LogRecord>[];
+              final previousRootLevel = Logger.root.level;
+              Logger.root.level = Level.ALL;
+              final subscription = Logger(
+                'BenchmarkRunner',
+              ).onRecord.listen(records.add);
+              addTearDown(() async {
+                await subscription.cancel();
+                Logger.root.level = previousRootLevel;
+              });
+
+              await expectLater(
+                BenchmarkRunner(
+                  nativeLibraryPath: nativeLib!,
+                  routerConfigPath: routerConfig.path,
+                  dryRun: dryRun,
+                  config: BenchmarkConfig.fromYaml(
+                    await scenarioFile.readAsString(),
+                  ),
+                ).run(),
+                completes,
+              );
+
+              final messages = records.map((record) => record.message).toList();
+              expect(
+                messages.where(
+                  (message) => message.startsWith(' WAMP samples:'),
+                ),
+                dryRun ? isEmpty : [' WAMP samples: 6'],
+              );
+              expect(
+                messages.where(
+                  (message) => message.startsWith(' WAMP request bytes:'),
+                ),
+                dryRun ? isEmpty : [' WAMP request bytes: 102'],
+              );
+              expect(
+                messages.where(
+                  (message) => message.startsWith(' WAMP response bytes:'),
+                ),
+                dryRun ? isEmpty : [' WAMP response bytes: 102'],
+              );
+              expect(messages, contains(' Pending invocations: 0'));
+              expect(
+                messages,
+                contains(' Total invocations dispatched: ${dryRun ? 0 : 6}'),
+              );
+              expect(
+                records.where((record) => record.level >= Level.WARNING),
+                isEmpty,
+              );
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+    }
+    for (final dryRun in [false, true]) {
+      test(
+        'non-WAMP scenario dryRun=$dryRun does not claim generated load',
+        () async {
+          final directory = await Directory.systemTemp.createTemp(
+            'connectanum-runner-no-load-',
+          );
+          addTearDown(() => directory.delete(recursive: true));
+          final configFile = File('${directory.path}/router.yaml');
+          await configFile.writeAsString(
+            _benchmarkRunnerRouterConfig(await _reservePort()),
+          );
+          final previousRootLevel = Logger.root.level;
+          Logger.root.level = Level.ALL;
+          final records = <LogRecord>[];
+          final subscription = Logger(
+            'BenchmarkRunner',
+          ).onRecord.listen(records.add);
+          addTearDown(() async {
+            await subscription.cancel();
+            Logger.root.level = previousRootLevel;
+          });
+          await expectLater(
+            BenchmarkRunner(
+              nativeLibraryPath: nativeLib!,
+              routerConfigPath: configFile.path,
+              config: BenchmarkConfig.fromYaml('''
+benchmarks:
+  - name: no_load
+    type: http
+    warmup: 1ms
+    duration: 1ms
+'''),
+              dryRun: dryRun,
+            ).run(),
+            completes,
+          );
+          final messages = records.map((record) => record.message).toList();
+          expect(messages, contains('Scenario "no_load" complete.'));
+          expect(messages, contains(' Warm-up for 0s'));
+          expect(messages, contains(' Total invocations dispatched: 0'));
+          expect(messages, contains(' Total publications routed: 0'));
+          expect(
+            messages.where((message) => message.startsWith(' WAMP ')),
+            isEmpty,
+          );
+          expect(
+            records
+                .where((record) => record.level == Level.WARNING)
+                .map((record) => record.message),
+            dryRun
+                ? isEmpty
+                : [
+                    ' No load generators are configured yet. Sleeping for scenario duration.',
+                  ],
+          );
+        },
+        skip: skipReason,
+      );
+    }
   });
 }
 
-String _benchmarkRunnerRouterConfig(int rawSocketPort) =>
+String _benchmarkRunnerRouterConfig(
+  int rawSocketPort, {
+  WampTransport transport = WampTransport.rawsocket,
+}) =>
     '''
 router:
   realms:
@@ -1073,11 +1330,14 @@ router:
   listeners:
     - endpoint: 127.0.0.1:$rawSocketPort
       authmethods: [anonymous]
-      protocols: [rawsocket]
+      protocols: [${transport.name}]
       tls:
         mode: disabled
       rawsocket:
         max_rawsocket_size_exponent: 16
+      websocket:
+        path: /wamp
+        subprotocols: [wamp.2.json, wamp.2.msgpack, wamp.2.cbor]
 
   worker_pool:
     min_workers: 1
@@ -1087,16 +1347,22 @@ router:
       type: anonymous
 ''';
 
-String _benchmarkRunnerScenario() => '''
+String _benchmarkRunnerScenario({
+  required WampTransport transport,
+  required WampSerializer serializer,
+}) =>
+    '''
 benchmarks:
-  - name: rawsocket_rpc_package_runner
-    type: wamp_rawsocket_rpc
+  - name: rpc_package_runner
+    type: benchmark_fixture
     duration: 1ms
+    concurrency: 2
     extra:
-      serializer: json
+      protocol: WAMP_${transport.name.toUpperCase()}_RPC
+      serializer: ${serializer.name}
       path: bench.rpc.echo
-      iterations: 1
-      request_bytes: 16
+      iterations: 3
+      request_bytes: 17
 ''';
 
 class _WampTransportHarness {

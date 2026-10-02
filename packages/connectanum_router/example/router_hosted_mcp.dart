@@ -148,11 +148,21 @@ Future<void> main(List<String> args) async {
     );
 
     if (!smokeAndExit) {
-      print('Press Ctrl+C to stop.');
-      await Future.any([
-        ProcessSignal.sigint.watch().first,
-        ProcessSignal.sigterm.watch().first,
-      ]);
+      final stopped = Completer<void>();
+      void stop(ProcessSignal _) {
+        if (!stopped.isCompleted) stopped.complete();
+      }
+
+      final interrupt = ProcessSignal.sigint.watch().listen(stop);
+      final terminate = ProcessSignal.sigterm.watch().listen(stop);
+      try {
+        print('Press Ctrl+C to stop.');
+        await stopped.future;
+      } finally {
+        // Future.any does not cancel the other signal's subscription.
+        await interrupt.cancel();
+        await terminate.cancel();
+      }
     }
   } finally {
     await _closeMcpClient(publicMcpClient);

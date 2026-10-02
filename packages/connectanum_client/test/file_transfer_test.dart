@@ -7,7 +7,16 @@ import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart';
 import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
+part 'support/file_receiver_failure_cases.dart';
+part 'support/file_receiver_admission_cases.dart';
+part 'support/file_receiver_chunk_cases.dart';
+part 'support/file_transfer_edge_cases.dart';
+
 void main() {
+  _fileReceiverFailureCases();
+  _fileReceiverAdmissionCases();
+  _fileReceiverChunkCases();
+  _fileTransferEdgeCases();
   group('progressive file transfer', () {
     test('setFile sends metadata then bounded binary chunks', () async {
       final transport = _FileTransferTransport();
@@ -134,16 +143,45 @@ void main() {
         ),
         chunkSize: 2,
       );
+      var settled = false;
+      Object? failure;
+      Result? result;
+      final observed = transfer.then<void>(
+        (value) {
+          result = value;
+          settled = true;
+        },
+        onError: (Object error, StackTrace stack) {
+          failure = error;
+          settled = true;
+        },
+      );
 
-      await _waitUntil(() => transport.drainCount == 1);
+      await _waitUntil(() => transport.drainCount == 1 || settled);
+      expect(failure, isNull);
+      expect(
+        settled,
+        isFalse,
+        reason: 'The first drain must hold the transfer',
+      );
+      expect(transport.drainCount, 1);
       expect(transport.calls, hasLength(2));
 
       transport.releaseNextDrain();
-      await _waitUntil(() => transport.drainCount == 2);
+      await _waitUntil(() => transport.drainCount == 2 || settled);
+      expect(failure, isNull);
+      expect(
+        settled,
+        isFalse,
+        reason: 'The second drain must hold the transfer',
+      );
+      expect(transport.drainCount, 2);
       expect(transport.calls, hasLength(3));
 
       transport.releaseNextDrain();
-      await transfer;
+      await observed;
+      expect(failure, isNull);
+      expect(result?.arguments, ['ok']);
       expect(transport.calls, hasLength(4));
     });
 
@@ -374,7 +412,12 @@ void main() {
               throw StateError('buffered source must not be opened'),
         );
 
-        final result = await session.setFile('files.set', source, chunkSize: 2);
+        final result = await session.setFile(
+          'files.set',
+          source,
+          chunkSize: 2,
+          timeout: const Duration(milliseconds: 100),
+        );
 
         expect(result.arguments, equals(const <dynamic>['ok']));
         expect(transport.openedPath, equals('/tmp/native.bin'));
@@ -409,7 +452,12 @@ void main() {
         );
 
         await expectLater(
-          session.setFile('files.set', source, chunkSize: 1),
+          session.setFile(
+            'files.set',
+            source,
+            chunkSize: 1,
+            timeout: const Duration(milliseconds: 100),
+          ),
           throwsA(same(transport.protocolError)),
         );
 
@@ -441,7 +489,12 @@ void main() {
               throw StateError('buffered source must not be opened'),
         );
 
-        final transfer = session.setFile('files.set', source, chunkSize: 2);
+        final transfer = session.setFile(
+          'files.set',
+          source,
+          chunkSize: 2,
+          timeout: const Duration(milliseconds: 100),
+        );
         expect(transport.segments, hasLength(1));
 
         final controlCompleter = Completer<Result>();
@@ -517,6 +570,7 @@ void main() {
             pptCipher: ConnectanumE2eeProfile.aes256Gcm,
             pptKeyId: 'test-key',
           ),
+          timeout: const Duration(milliseconds: 100),
         );
 
         expect(result.arguments, equals(const <dynamic>['ok']));
@@ -643,7 +697,9 @@ void main() {
           progress: false,
         );
 
-        await _waitUntil(() => transport.yields.isNotEmpty);
+        await _settleChunkContinuations();
+        expect(transport.errors, isEmpty);
+        expect(transport.yields, hasLength(1));
         expect(sink.bytes, equals(bytes));
         expect(sink.receipt?.receivedBytes, equals(3));
         expect(
@@ -695,12 +751,14 @@ void main() {
           progress: false,
         );
 
-        await _waitUntil(() => transport.errors.isNotEmpty);
+        await _settleChunkContinuations();
+        expect(transport.errors, hasLength(1));
         expect(
           transport.errors.single.error,
           WampFileReceiver.capacityExceededError,
         );
-        await _waitUntil(() => sink.aborted && receiver.bufferedBytes == 0);
+        expect(sink.aborted, isTrue);
+        expect(receiver.bufferedBytes, 0);
         expect(receiver.activeTransfers, equals(0));
         await receiver.close();
       },
@@ -735,14 +793,17 @@ void main() {
         bytes: Uint8List.fromList(const <int>[1, 2]),
         progress: true,
       );
+      expect(sink.bytes, const <int>[1, 2]);
+      expect(receiver.bufferedBytes, 0);
       transport.invokeChunk(
         requestId: 89,
         bytes: Uint8List.fromList(const <int>[3, 4]),
         progress: false,
       );
 
-      await _waitUntil(() => transport.yields.isNotEmpty);
+      await _settleChunkContinuations();
       expect(transport.errors, isEmpty);
+      expect(transport.yields, hasLength(1));
       expect(sink.bytes, const <int>[1, 2, 3, 4]);
       expect(receiver.bufferedBytes, 0);
       await receiver.close();
@@ -811,7 +872,15 @@ void main() {
         progress: false,
       );
 
-      await _waitUntil(() => transport.errors.isNotEmpty);
+      await _waitUntil(
+        () => transport.errors.isNotEmpty || transport.yields.isNotEmpty,
+      );
+      expect(
+        transport.yields,
+        isEmpty,
+        reason: 'A checksum mismatch cannot succeed',
+      );
+      expect(transport.errors, hasLength(1));
       expect(
         transport.errors.single.error,
         WampFileReceiver.checksumMismatchError,
@@ -883,6 +952,7 @@ class _CollectingFileSink extends WampFileSink {
   final List<int> _bytes = <int>[];
   WampFileReceipt? receipt;
   bool aborted = false;
+  int abortCount = 0;
 
   Uint8List get bytes => Uint8List.fromList(_bytes);
 
@@ -900,6 +970,7 @@ class _CollectingFileSink extends WampFileSink {
   @override
   void abort(Object error) {
     aborted = true;
+    abortCount++;
   }
 }
 
@@ -932,6 +1003,7 @@ class _FileTransferTransport extends AbstractTransport {
   final List<Cancel> cancels = <Cancel>[];
   final List<Yield> yields = <Yield>[];
   final List<Error> errors = <Error>[];
+  int unregisterCount = 0;
   Completer<void>? _disconnect;
   Completer<void>? _connectionLost;
   bool _open = false;
@@ -980,6 +1052,7 @@ class _FileTransferTransport extends AbstractTransport {
       return;
     }
     if (message is Unregister) {
+      unregisterCount++;
       _inbound.add(Unregistered(message.requestId));
       return;
     }
@@ -1013,6 +1086,11 @@ class _FileTransferTransport extends AbstractTransport {
     required int requestId,
     required WampFileMetadata metadata,
   }) {
+    expect(
+      () => WampFileMetadata.fromJson(metadata.toJson()),
+      returnsNormally,
+      reason: 'Valid wire metadata must be accepted before waiting for a sink',
+    );
     final details = InvocationDetails(1, 'files.set', false)..progress = true;
     _inbound.add(
       Invocation(

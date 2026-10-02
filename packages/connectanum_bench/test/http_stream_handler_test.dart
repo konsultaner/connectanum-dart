@@ -80,11 +80,16 @@ void main() {
       var closeCalls = 0;
       final stats = await streamBenchHttpResponse(
         request: request,
-        addChunk: emittedChunks.add,
+        addChunk: (chunk) {
+          expect(reads, 3, reason: 'Drain must observe EOF before responding');
+          expect(queue, isEmpty);
+          expect(finishCalls, 1);
+          emittedChunks.add(chunk);
+        },
         close: ([List<int>? _]) => closeCalls++,
       );
 
-      expect(reads, 2);
+      expect(reads, 3);
       expect(finishCalls, 1);
       expect(emittedChunks, hasLength(2));
       expect(emittedChunks[0], hasLength(4));

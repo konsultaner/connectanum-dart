@@ -4,19 +4,24 @@ import 'package:connectanum_router/src/native_release_installer.dart'
     as native_build;
 
 Future<void> main(List<String> args) async {
+  exitCode = await runInstallCommand(args);
+}
+
+Future<int> runInstallCommand(List<String> args) async {
   try {
     final installed = await installNative(args);
     stdout.writeln(installed.path);
+    return 0;
   } on _UsageException catch (error) {
     final sink = error.exitCode == 0 ? stdout : stderr;
     if (error.message.isNotEmpty) {
       sink.writeln(error.message);
     }
     sink.writeln(_usage);
-    exitCode = error.exitCode;
+    return error.exitCode;
   } catch (error) {
     stderr.writeln('Failed to install ct_ffi: $error');
-    exitCode = 1;
+    return 1;
   }
 }
 

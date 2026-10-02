@@ -3342,29 +3342,40 @@ Future<void> _smokeProtectedResourceDiscovery(
   );
   final browserClient = HttpClient();
   Uri? launchedAuthorizationUri;
-  late final int callbackStatusCode;
-  final authorizationCode = await callbackListener
-      .authorizeWithExternalUserAgent(
-        request: restoredAuthorizationRequest,
-        launchExternalUserAgent: (authorizationUri) async {
-          launchedAuthorizationUri = authorizationUri;
-          try {
-            final browserRequest = await browserClient.getUrl(callback);
-            final browserResponse = await browserRequest.close();
-            callbackStatusCode = browserResponse.statusCode;
-            await browserResponse.drain<void>();
-          } finally {
-            browserClient.close(force: true);
-          }
-        },
-      );
-  _expect(
-    launchedAuthorizationUri == restoredAuthorizationRequest.uri &&
-        callbackStatusCode == HttpStatus.ok &&
-        authorizationCode.code == 'consumer-authorization-code' &&
-        authorizationCode.request.pkce.verifier.length == 43,
-    'external user-agent callback did not preserve code and PKCE state',
-  );
+  final callbackStatusCode = Completer<int>();
+  // Authorization may finish before the launcher receives its HTTP response.
+  // Observe early errors too, without changing the original future we await.
+  callbackStatusCode.future.ignore();
+  late final McpAuthorizationCode authorizationCode;
+  try {
+    authorizationCode = await callbackListener.authorizeWithExternalUserAgent(
+      request: restoredAuthorizationRequest,
+      launchExternalUserAgent: (authorizationUri) async {
+        launchedAuthorizationUri = authorizationUri;
+        try {
+          final browserRequest = await browserClient.getUrl(callback);
+          final browserResponse = await browserRequest.close();
+          await browserResponse.drain<void>();
+          callbackStatusCode.complete(browserResponse.statusCode);
+        } catch (error, stackTrace) {
+          callbackStatusCode.completeError(error, stackTrace);
+          rethrow;
+        }
+      },
+    );
+    final browserStatus = await callbackStatusCode.future.timeout(
+      const Duration(seconds: 10),
+    );
+    _expect(
+      launchedAuthorizationUri == restoredAuthorizationRequest.uri &&
+          browserStatus == HttpStatus.ok &&
+          authorizationCode.code == 'consumer-authorization-code' &&
+          authorizationCode.request.pkce.verifier.length == 43,
+      'external user-agent callback did not preserve code and PKCE state',
+    );
+  } finally {
+    browserClient.close(force: true);
+  }
   final issuedOAuthGrant = await client.exchangeAuthorizationCode(
     authorizationCode,
     clientAuthentication: registration.clientAuthentication,

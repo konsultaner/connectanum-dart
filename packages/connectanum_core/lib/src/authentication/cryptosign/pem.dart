@@ -40,12 +40,14 @@ class Pem {
     String pemFileContent, {
     String? password,
   }) {
-    if (!pemFileContent.startsWith(openSshHeader) ||
-        !pemFileContent.startsWith(openSshHeader)) {
+    if (!pemFileContent.startsWith(openSshHeader)) {
       throw Exception('Wrong file format');
     }
 
     pemFileContent = pemFileContent.replaceAll(RegExp(r'[\n\r]'), '');
+    if (!pemFileContent.endsWith(openSshFooter)) {
+      throw Exception('Wrong file format');
+    }
     pemFileContent = pemFileContent.substring(openSshHeader.length).trimLeft();
     pemFileContent = pemFileContent
         .substring(0, pemFileContent.length - openSshFooter.length)

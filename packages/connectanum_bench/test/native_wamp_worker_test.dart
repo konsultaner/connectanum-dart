@@ -5,6 +5,27 @@ import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (final entrypoint in [
+    './tool/worker.dart',
+    'bin/worker',
+    'worker:with/slashes',
+  ]) {
+    test('native worker normalizes relative file entrypoint $entrypoint', () {
+      final worker = NativeWampWorker(
+        realmUri: 'bench.control',
+        wampTargets: const {},
+        nativeLibraryPath: 'unused_native_library',
+        workerScriptPath: entrypoint,
+      );
+      expect(worker.workerScriptPath, File(entrypoint).absolute.path);
+      expect(
+        worker.nativeLibraryPath,
+        File('unused_native_library').absolute.path,
+      );
+      expect(worker.dartExecutable, Platform.resolvedExecutable);
+    });
+  }
+
   test('native worker process metrics preserve byte counters', () {
     final metrics = NativeWampWorkerProcessMetrics.fromJson({
       'pid': 42,

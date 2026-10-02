@@ -59,7 +59,11 @@ _AuthenticatorSelection? _createSelectionForMethod({
   }
 
   final definitionKey = authenticatorKey ?? method;
-  final definition = settings.authenticators[definitionKey];
+  final definition =
+      settings.authenticators[definitionKey] ??
+      (authenticatorKey == null
+          ? settings.authenticators[authMethodAlias(method)]
+          : null);
   final factoryKey = definition?.type ?? definitionKey;
   final factory = AuthenticatorRegistry.factoryFor(factoryKey);
   if (factory == null) {

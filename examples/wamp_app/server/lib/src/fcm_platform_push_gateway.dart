@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -39,6 +40,8 @@ final class FcmPlatformPushGateway implements PlatformPushGateway {
   final Uri _endpoint;
   final int maxResponseBytes;
   final Duration requestTimeout;
+  // googleapis_auth does not own a caller-supplied base client.
+  http.Client? _ownedBaseClient;
   bool _closed = false;
 
   @override
@@ -53,6 +56,7 @@ final class FcmPlatformPushGateway implements PlatformPushGateway {
     }
     final baseClient = http.Client();
     http.Client? authenticatedClient;
+    var initializationAbandoned = false;
     try {
       final credentials = await _loadCredentials(config.serviceAccountPath);
       final projectId = config.projectId ?? credentials.projectId;
@@ -63,13 +67,23 @@ final class FcmPlatformPushGateway implements PlatformPushGateway {
           .clientViaServiceAccount(credentials, const [
             _messagingScope,
           ], baseClient: baseClient)
+          .then((client) {
+            // Future.timeout does not cancel the underlying authentication.
+            if (initializationAbandoned) client.close();
+            return client;
+          })
           .timeout(initializationTimeout);
       return FcmPlatformPushGateway(
         projectId: projectId,
         client: authenticatedClient,
-      );
+      ).._ownedBaseClient = baseClient;
     } catch (_) {
-      (authenticatedClient ?? baseClient).close();
+      initializationAbandoned = true;
+      try {
+        authenticatedClient?.close();
+      } finally {
+        baseClient.close();
+      }
       throw StateError('FCM platform push initialization failed.');
     }
   }
@@ -118,8 +132,9 @@ final class FcmPlatformPushGateway implements PlatformPushGateway {
       final request = http.Request('POST', _endpoint)
         ..headers['content-type'] = 'application/json'
         ..body = jsonEncode({'message': message});
+      final elapsed = Stopwatch()..start();
       final response = await _client.send(request).timeout(requestTimeout);
-      final body = await _readBounded(response.stream);
+      final body = await _readBounded(response.stream, elapsed);
       if (body == null) return PlatformPushDeliveryResult.retryableFailure;
       final decoded = jsonDecode(utf8.decode(body));
       if (decoded is! Map<String, dynamic>) {
@@ -144,18 +159,37 @@ final class FcmPlatformPushGateway implements PlatformPushGateway {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    _client.close();
+    try {
+      _client.close();
+    } finally {
+      _ownedBaseClient?.close();
+    }
   }
 
-  Future<Uint8List?> _readBounded(Stream<List<int>> stream) async {
+  Future<Uint8List?> _readBounded(
+    Stream<List<int>> stream,
+    Stopwatch elapsed,
+  ) async {
     final bytes = BytesBuilder(copy: false);
     var length = 0;
-    await for (final chunk in stream) {
-      length += chunk.length;
-      if (length > maxResponseBytes) return null;
-      bytes.add(chunk);
+    final chunks = StreamIterator(stream);
+    try {
+      while (true) {
+        // One deadline spans headers and every body chunk, including slow drips.
+        final remaining = requestTimeout - elapsed.elapsed;
+        if (remaining <= Duration.zero) return null;
+        if (!await chunks.moveNext().timeout(remaining)) break;
+        final chunk = chunks.current;
+        length += chunk.length;
+        if (length > maxResponseBytes) return null;
+        bytes.add(chunk);
+      }
+      return bytes.takeBytes();
+    } on TimeoutException {
+      return null;
+    } finally {
+      await chunks.cancel();
     }
-    return bytes.takeBytes();
   }
 
   static Future<google_auth.ServiceAccountCredentials> _loadCredentials(

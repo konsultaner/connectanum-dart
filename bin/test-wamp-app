@@ -6,18 +6,21 @@ source "$(dirname "$0")/common.sh"
 
 cd_repo_root
 
+# The isolated mutation driver uses the workspace's pinned analyzer inputs.
+dart_workspace_bootstrap
+
 if ! command -v flutter >/dev/null 2>&1; then
   printf 'Flutter is required to verify examples/wamp_app.\n' >&2
   exit 1
 fi
 
-run_wamp_app_browser_tests() {
+run_wamp_app_browser_test() {
   local attempt
   local attempt_timeout_seconds
-  local browser_tests
   local max_attempts
   local status
-  local test_file
+  local test_file="$1"
+  local compiler="${2:-javascript}"
 
   max_attempts="${CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPTS:-2}"
   if ! [[ "$max_attempts" =~ ^[1-9][0-9]*$ ]]; then
@@ -33,12 +36,49 @@ run_wamp_app_browser_tests() {
     return 2
   fi
 
-  browser_tests=(
+  for attempt in $(seq 1 "$max_attempts"); do
+    local args=(
+      test
+      --platform chrome
+      --timeout=5m
+      "$test_file"
+    )
+
+    if [[ "$compiler" == wasm ]]; then
+      args+=(--wasm)
+    fi
+    if ((attempt < max_attempts)); then
+      args+=(--reporter=expanded)
+    fi
+
+    if run_command_with_timeout \
+      "WampApp $compiler browser test $test_file" \
+      "$attempt_timeout_seconds" \
+      flutter "${args[@]}"; then
+      return 0
+    else
+      status=$?
+    fi
+
+    if ((status != 124 || attempt == max_attempts)); then
+      return "$status"
+    fi
+
+    printf 'WampApp %s browser test %s stalled on attempt %s/%s; retrying.\n' \
+      "$compiler" "$test_file" "$attempt" "$max_attempts" >&2
+    sleep 2
+  done
+}
+
+run_wamp_app_browser_tests() {
+  local test_file
+  local browser_tests=(
     test/attachment_chunk_cache_web_test.dart
     test/attachment_crypto_worker_web_test.dart
     test/call_controller_test.dart
     test/call_media_test.dart
     test/fcm_platform_push_token_source_test.dart
+    test/flutter_webrtc_browser_test.dart
     test/local_app_preferences_test.dart
     test/local_message_query_test.dart
     test/platform_push_registration_test.dart
@@ -47,36 +87,9 @@ run_wamp_app_browser_tests() {
   )
 
   for test_file in "${browser_tests[@]}"; do
-    for attempt in $(seq 1 "$max_attempts"); do
-      local args=(
-        test
-        --platform chrome
-        --timeout=5m
-        "$test_file"
-      )
-
-      if ((attempt < max_attempts)); then
-        args+=(--reporter=expanded)
-      fi
-
-      if run_command_with_timeout \
-        "WampApp browser test $test_file" \
-        "$attempt_timeout_seconds" \
-        flutter "${args[@]}"; then
-        break
-      else
-        status=$?
-      fi
-
-      if ((status != 124 || attempt == max_attempts)); then
-        return "$status"
-      fi
-
-      printf 'WampApp browser test %s stalled on attempt %s/%s; retrying.\n' \
-        "$test_file" "$attempt" "$max_attempts" >&2
-      sleep 2
-    done
+    run_wamp_app_browser_test "$test_file"
   done
+  run_wamp_app_browser_test test/flutter_webrtc_browser_test.dart wasm
 }
 
 (
@@ -104,8 +117,20 @@ run_wamp_app_browser_tests() {
   flutter test test/widget_test.dart \
     --plain-name 'registers and opens the authenticated shell' \
     --dart-define=WAMP_APP_SERVER_ADDRESS=ws://localhost:18080/ws
+  CONNECTANUM_RUN_FLUTTER_MUTATION_TESTS=1 \
+    CONNECTANUM_FLUTTER_MUTATION_TEST_PLATFORM=vm \
+    CONNECTANUM_FLUTTER_MUTATION_TEST_COMPILER=vm \
+    python3 "$ROOT_DIR/tool/test_flutter_mutations.py"
   if ensure_chrome_env; then
     run_wamp_app_browser_tests
+    CONNECTANUM_RUN_FLUTTER_MUTATION_TESTS=1 \
+      CONNECTANUM_FLUTTER_MUTATION_TEST_PLATFORM=chrome \
+      CONNECTANUM_FLUTTER_MUTATION_TEST_COMPILER=dartdevc \
+      python3 "$ROOT_DIR/tool/test_flutter_mutations.py"
+    CONNECTANUM_RUN_FLUTTER_MUTATION_TESTS=1 \
+      CONNECTANUM_FLUTTER_MUTATION_TEST_PLATFORM=chrome \
+      CONNECTANUM_FLUTTER_MUTATION_TEST_COMPILER=dart2wasm \
+      python3 "$ROOT_DIR/tool/test_flutter_mutations.py"
   else
     printf 'Chrome unavailable; skipping WampApp browser worker tests.\n' >&2
   fi

@@ -7,11 +7,21 @@ source "$(dirname "$0")/common.sh"
 cd_repo_root
 dart_workspace_bootstrap
 cargo_workspace_check
+"$ROOT_DIR/bin/test-native-coverage-tools"
+"$ROOT_DIR/bin/test-native-mutation-tools"
 
 run_client_vm_tests() {
   dart test packages/connectanum_client/test/client_test.dart
+  dart test packages/connectanum_client/test/meta_state_cache_test.dart
+  dart test packages/connectanum_client/test/session_e2ee_profile_test.dart
+  dart test packages/connectanum_client/test/session_lazy_reply_test.dart
+  dart test packages/connectanum_client/test/session_progressive_file_test.dart
+  dart test packages/connectanum_client/test/session_progressive_call_test.dart
+  dart test packages/connectanum_client/test/session_goodbye_test.dart
   dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
   dart test packages/connectanum_client/test/file_transfer_test.dart
+  dart test packages/connectanum_client/test/file_transfer_metadata_test.dart
+  dart test packages/connectanum_client/test/file_transfer_digest_test.dart
   dart test packages/connectanum_client/test/transport/local
   dart test packages/connectanum_client/test/transport/native/native_library_loader_test.dart
   dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart
@@ -19,12 +29,14 @@ run_client_vm_tests() {
   dart test packages/connectanum_client/test/transport/native/message_binding_test.dart
   dart test packages/connectanum_client/test/transport/native/message_handle_abi_test.dart
   dart test packages/connectanum_client/test/mcp
+  dart test packages/connectanum_client/test/hook
 
   if native_runtime_supported; then
     dart test packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/resource_restart_test.dart --concurrency=1
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
+    dart test packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart
   else
     printf 'Native client transports require Linux or macOS; skipping native transport tests on %s.\n' "$(uname -s)"
   fi
@@ -73,10 +85,8 @@ run_core_browser_tests() {
 
     run_command_with_timeout \
       "Core browser tests" \
-      "${CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-420}" \
-      dart test \
-        test/authentication/scram_key_derivation_web_test.dart \
-        test/serializer/serializer_optional_numeric_security_test.dart \
+      "${CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-900}" \
+      dart test test \
         -p chrome \
         --compiler="$browser_compiler" \
         --timeout=5m \
@@ -123,7 +133,21 @@ run_client_browser_websocket_test() {
 
     for attempt in $(seq 1 "$max_attempts"); do
       local args=(
+        test/client_test.dart
+        test/meta_state_cache_test.dart
+        test/session_e2ee_profile_test.dart
+        test/session_lazy_reply_test.dart
+        test/session_progressive_file_test.dart
+        test/file_transfer_metadata_test.dart
+        test/file_transfer_digest_test.dart
+        test/session_progressive_call_test.dart
+        test/session_goodbye_test.dart
+        test/transport/native/message_binding_test.dart
+        test/transport/local
         test/transport/websocket/websocket_transport_web_test.dart
+        test/transport/websocket/websocket_browser_lifecycle_test.dart
+        test/transport/websocket/websocket_attempt_lifecycle_test.dart
+        test/mcp/form_elicitation_regression_test.dart
         -p chrome
         --compiler="$browser_compiler"
         --timeout=5m
@@ -172,11 +196,19 @@ python3 tool/test_package_wamp_app.py
 python3 tool/test_run_wamp_app_lab.py
 python3 tool/test_check_wamp_app_benchmarks.py
 python3 tool/test_verification_scripts.py
+python3 tool/test_mcp_consumer_package_boundary.py
+python3 tool/build_conformance_fixtures.py --check
+python3 tool/test_build_conformance_fixtures.py
 python3 tool/check_public_artifact_references.py
 python3 tool/test_public_artifact_references.py
 python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
 python3 tool/test_router_image_mcp_smoke.py
+python3 tool/test_check_coverage.py
+python3 tool/test_run_dart_mutations.py
+python3 tool/test_flutter_mutations.py
+python3 tool/test_websocket_integration.py
+python3 tool/test_dart_mutations.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test
 dart test packages/connectanum/test

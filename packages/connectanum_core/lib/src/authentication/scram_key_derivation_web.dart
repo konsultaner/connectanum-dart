@@ -93,6 +93,15 @@ final class _WebDerivationTask implements ScramKeyDerivationTask {
         final data = event.data;
         if (data?.isA<JSUint8Array>() ?? false) {
           final workerBytes = (data! as JSUint8Array).toDart;
+          if (workerBytes.length != _request.keyLength) {
+            _clear(workerBytes);
+            _fail(
+              const ScramKeyDerivationException(
+                'worker returned invalid length',
+              ),
+            );
+            return;
+          }
           final result = Uint8List.fromList(workerBytes);
           _clear(workerBytes);
           _succeed(result);

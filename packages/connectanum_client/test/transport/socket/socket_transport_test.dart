@@ -7,7 +7,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/connectanum_core.dart' hide Invocation;
 import 'package:connectanum_core/src/serializer/json/serializer.dart'
     as json_serializer;
 import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
@@ -19,7 +19,10 @@ import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_client/src/transport/socket/socket_transport.dart';
 import 'package:test/test.dart';
 
+part 'socket_chunk_boundaries.dart';
+
 void main() {
+  _controlledSocketChunks();
   group('Socket open and close', () {
     test('initial close', () async {
       final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);

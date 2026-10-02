@@ -19,8 +19,8 @@ class WebSocketTransport extends AbstractTransport {
   final AbstractSerializer _serializer;
   final String _serializerType;
   WebSocket? _socket;
-  bool _goodbyeSent = false;
-  bool _goodbyeReceived = false;
+  int _openAttempt = 0;
+  _WebSocketCloseState _closeState = _WebSocketCloseState();
   Completer? _onConnectionLost;
   Completer? _onDisconnect;
   late Completer _onReady;
@@ -83,6 +83,7 @@ class WebSocketTransport extends AbstractTransport {
   /// Calling close will close the underlying socket connection
   @override
   Future<void> close({error}) {
+    _openAttempt++;
     _socket?.close();
     complete(_onDisconnect, error);
     return Future.value();
@@ -114,27 +115,35 @@ class WebSocketTransport extends AbstractTransport {
   /// or fail respectively
   @override
   Future<void> open({Duration? pingInterval}) async {
+    final openAttempt = ++_openAttempt;
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
-    _goodbyeSent = false;
-    _goodbyeReceived = false;
+    _closeState = _WebSocketCloseState();
+    final onReady = _onReady;
+    final onConnectionLost = _onConnectionLost;
     var openCompleter = Completer();
+    final previousSocket = _socket;
     final socket = WebSocket(_url, [_serializerType.toJS].toJS);
     _socket = socket;
+    previousSocket?.close();
     if (pingInterval != null) {
       _logger.info(
         'The browsers WebSocket API does not support ping interval configuration.',
       );
     }
-    socket.onOpen.listen((open) => openCompleter.complete(open));
+    socket.onOpen.listen((open) {
+      if (!openCompleter.isCompleted) openCompleter.complete(open);
+    });
     socket.onError.listen((Event error) {
-      openCompleter.completeError(error);
-      complete(_onConnectionLost, error);
+      if (!openCompleter.isCompleted) openCompleter.completeError(error);
+      if (openAttempt == _openAttempt) complete(onConnectionLost, error);
     });
     try {
       await openCompleter.future;
-      _onReady.complete();
+      if (openAttempt == _openAttempt && !onReady.isCompleted) {
+        onReady.complete();
+      }
     } catch (_) {
       _logger.info('Error while opening the channel');
     }
@@ -145,7 +154,7 @@ class WebSocketTransport extends AbstractTransport {
   @override
   void send(AbstractMessage message) {
     if (message is Goodbye) {
-      _goodbyeSent = true;
+      _closeState.goodbyeSent = true;
     }
     var serializedMessage = _serializer.serialize(message);
     // toJS only works on casted objects
@@ -165,9 +174,12 @@ class WebSocketTransport extends AbstractTransport {
       throw StateError('WebSocket transport is not open.');
     }
     final onDisconnect = _onDisconnect!;
+    final closeState = _closeState;
     final onConnectionLost = _onConnectionLost!;
     socket.onClose.listen((closeEvent) {
-      if (closeEvent.code > 1000 && !_goodbyeSent && !_goodbyeReceived) {
+      if (closeEvent.code > 1000 &&
+          !closeState.goodbyeSent &&
+          !closeState.goodbyeReceived) {
         // A status code other than 1000 indicates that the server tried to quit.
         complete(onConnectionLost, null);
       } else {
@@ -175,15 +187,26 @@ class WebSocketTransport extends AbstractTransport {
       }
       _logger.info('The connection has been closed with ${closeEvent.code}');
     });
-    return socket.onMessage.asyncMap((messageEvent) async {
+    // Pausing a DOM event stream removes its listener. Buffer in Dart instead
+    // so frames received while Blob decoding is pending cannot be dropped.
+    final messages = Stream<MessageEvent>.multi((controller) {
+      final subscription = socket.onMessage.listen(controller.addSync);
+      controller.onCancel = subscription.cancel;
+    }, isBroadcast: true);
+    return messages.asyncMap((messageEvent) async {
       try {
         final message = await _decodeInboundMessage(messageEvent);
-        if (message is Goodbye && identical(_socket, socket)) {
-          _goodbyeReceived = true;
+        if (message is Goodbye) {
+          closeState.goodbyeReceived = true;
         }
         return message;
       } on Object catch (error) {
-        _handleInboundMessageError(error);
+        _handleInboundMessageError(
+          error,
+          socket,
+          onDisconnect,
+          onConnectionLost,
+        );
         return null;
       }
     });
@@ -217,11 +240,25 @@ class WebSocketTransport extends AbstractTransport {
     return message;
   }
 
-  void _handleInboundMessageError(Object error) {
-    final closeFuture = close(error: error);
-    if (!_onConnectionLost!.isCompleted) {
-      _onConnectionLost!.complete(error);
+  void _handleInboundMessageError(
+    Object error,
+    WebSocket socket,
+    Completer onDisconnect,
+    Completer onConnectionLost,
+  ) {
+    if (identical(_socket, socket)) {
+      unawaited(close(error: error));
+    } else {
+      socket.close();
+      complete(onDisconnect, error);
     }
-    unawaited(closeFuture);
+    if (!onConnectionLost.isCompleted) {
+      onConnectionLost.complete(error);
+    }
   }
+}
+
+class _WebSocketCloseState {
+  bool goodbyeSent = false;
+  bool goodbyeReceived = false;
 }

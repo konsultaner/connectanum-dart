@@ -87,6 +87,11 @@ class AuthServer implements RemoteAuthenticatorDelegate {
     final authId = rawAuthId == null || rawAuthId.isEmpty
         ? 'unknown'
         : rawAuthId;
+    final timeout =
+        _challengeTimeout ?? Duration(milliseconds: realm.limits.authTimeoutMs);
+    // The injected clock can reenter admission or close the server.
+    final deadline = timeout > Duration.zero ? _clock().add(timeout) : null;
+    if (_closed) return const RemoteHelloResponse.failure(_closedFailure);
     if (_pending.containsKey(request.transactionId)) {
       return const RemoteHelloResponse.failure(_stateFailure);
     }
@@ -95,8 +100,6 @@ class AuthServer implements RemoteAuthenticatorDelegate {
         count >= realm.limits.maxPendingAuth) {
       return const RemoteHelloResponse.failure(_capacityFailure);
     }
-    final timeout =
-        _challengeTimeout ?? Duration(milliseconds: realm.limits.authTimeoutMs);
     final pending = _PendingSession(
       id: request.transactionId,
       owner: owner,
@@ -108,12 +111,25 @@ class AuthServer implements RemoteAuthenticatorDelegate {
         helloDetails: Map<String, Object?>.unmodifiable(helloDetails),
       ),
       authId: authId,
-      deadline: timeout > Duration.zero ? _clock().add(timeout) : null,
+      deadline: deadline,
     );
     _pending[pending.id] = pending;
     _pendingCounts[realm.name] = count + 1;
     if (timeout > Duration.zero) {
-      pending.timer = Timer(timeout, () => _finish(pending, _expiredFailure));
+      try {
+        pending.timer = Timer(timeout, () => _finish(pending, _expiredFailure));
+      } catch (_) {
+        final failure = pending.terminalFailure ?? _rejectedFailure;
+        _finish(pending, failure);
+        return RemoteHelloResponse.failure(failure);
+      }
+    }
+    // Timer registration can reenter cancellation or consume the deadline.
+    final stopped = _stopped(pending);
+    if (stopped != null) {
+      pending.timer?.cancel();
+      pending.timer = null;
+      return RemoteHelloResponse.failure(stopped);
     }
     return _run(
       pending,
@@ -226,6 +242,10 @@ class AuthServer implements RemoteAuthenticatorDelegate {
     }
     final stopped = _stopped(pending);
     if (stopped != null) return RemoteAuthenticateResponse.failure(stopped);
+    // The deadline clock can synchronously consume this challenge itself.
+    if (pending.phase != _AuthPhase.challenge) {
+      return const RemoteAuthenticateResponse.failure(_stateFailure);
+    }
     pending.phase = _AuthPhase.authenticate;
     return _run(
       pending,

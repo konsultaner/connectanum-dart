@@ -91,4 +91,40 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('backup wire parsers reject malformed IDs, bytes, and dates', () {
+    final bytes = <int>[0, 255];
+    final wire = <String, dynamic>{
+      'upload_id': 'abcdefghijklmnop',
+      'chunk_index': 0,
+      'bytes': bytes,
+    };
+    final chunk = EncryptedBackupChunk.fromWampKeywords(wire);
+    bytes[0] = 42;
+    expect(chunk.bytes, [0, 255]);
+    for (final invalid in <Map<String, dynamic>>[
+      {'upload_id': ''},
+      {'upload_id': 'short'},
+      {'bytes': 'binary'},
+    ]) {
+      expect(
+        () => EncryptedBackupChunk.fromWampKeywords({...wire, ...invalid}),
+        throwsFormatException,
+      );
+    }
+    final metadata = BackupMetadata(
+      revision: 1,
+      byteCount: 1,
+      chunkCount: 1,
+      sha256: digest,
+      updatedAt: DateTime.utc(2026),
+    ).toWampKeywords();
+    for (final value in <Object?>[null, 42, 'invalid', '2026-01-01T00:00:00']) {
+      expect(
+        () =>
+            BackupMetadata.fromWampKeywords({...metadata, 'updated_at': value}),
+        throwsFormatException,
+      );
+    }
+  });
 }

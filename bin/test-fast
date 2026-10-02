@@ -15,8 +15,16 @@ run_client_fast_tests() {
   fi
 
   dart test packages/connectanum_client/test/client_test.dart
+  dart test packages/connectanum_client/test/meta_state_cache_test.dart
+  dart test packages/connectanum_client/test/session_e2ee_profile_test.dart
+  dart test packages/connectanum_client/test/session_lazy_reply_test.dart
+  dart test packages/connectanum_client/test/session_progressive_file_test.dart
+  dart test packages/connectanum_client/test/session_progressive_call_test.dart
+  dart test packages/connectanum_client/test/session_goodbye_test.dart
   dart test packages/connectanum_client/test/client_on_transport_io_events_test.dart
   dart test packages/connectanum_client/test/file_transfer_test.dart
+  dart test packages/connectanum_client/test/file_transfer_metadata_test.dart
+  dart test packages/connectanum_client/test/file_transfer_digest_test.dart
   dart test packages/connectanum_client/test/transport/local
   dart test packages/connectanum_client/test/transport/native/native_library_loader_test.dart
   dart test packages/connectanum_client/test/transport/socket/socket_transport_test.dart
@@ -24,6 +32,7 @@ run_client_fast_tests() {
   dart test packages/connectanum_client/test/transport/native/message_binding_test.dart
   dart test packages/connectanum_client/test/transport/native/message_handle_abi_test.dart
   dart test packages/connectanum_client/test/mcp
+  dart test packages/connectanum_client/test/hook
 
   if ! native_runtime_supported; then
     printf 'Native client transports require Linux or macOS; skipping native transport fast tests on %s.\n' "$(uname -s)"
@@ -35,6 +44,7 @@ run_client_fast_tests() {
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/resource_restart_test.dart --concurrency=1
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
+    dart test packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart
     return 0
   fi
 
@@ -53,16 +63,28 @@ run_bench_vm_tests() {
 }
 
 dart analyze
+if ensure_rust_env; then
+  "$ROOT_DIR/bin/test-native-coverage-tools"
+  "$ROOT_DIR/bin/test-native-mutation-tools"
+fi
 python3 tool/test_package_native_artifact.py
 python3 tool/test_package_wamp_app.py
 python3 tool/test_run_wamp_app_lab.py
 python3 tool/test_check_wamp_app_benchmarks.py
 python3 tool/test_verification_scripts.py
+python3 tool/test_mcp_consumer_package_boundary.py
+python3 tool/build_conformance_fixtures.py --check
+python3 tool/test_build_conformance_fixtures.py
 python3 tool/check_public_artifact_references.py
 python3 tool/test_public_artifact_references.py
 python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
 python3 tool/test_router_image_mcp_smoke.py
+python3 tool/test_check_coverage.py
+python3 tool/test_run_dart_mutations.py
+python3 tool/test_flutter_mutations.py
+python3 tool/test_websocket_integration.py
+python3 tool/test_dart_mutations.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test
 dart test packages/connectanum/test
@@ -71,6 +93,7 @@ run_mcp_client_package_smoke
 run_client_consumer_package_smoke
 run_client_fast_tests
 dart test packages/connectanum_auth_server/test
+dart test packages/connectanum_router/test/authorization_test.dart packages/connectanum_router/test/authorization_regression_test.dart
 run_bench_vm_tests
 run_bench_cli_consumer_package_smoke
 dart test packages/connectanum_router/test/native/native_library_loader_test.dart
