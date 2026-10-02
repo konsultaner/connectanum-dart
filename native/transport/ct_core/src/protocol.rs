@@ -1004,6 +1004,164 @@ mod tests {
         stream.write_all(&frame).await.expect("handshake write");
     }
 
+    async fn admission_exchange(
+        config: &EndpointRuntimeConfig,
+        request: &[u8],
+    ) -> (Result<NegotiatedConnection, NegotiationError>, Vec<u8>) {
+        time::timeout(Duration::from_secs(5), async {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            let server = async {
+                let (socket, _) = listener.accept().await.unwrap();
+                negotiate_connection(IoStream::plain(socket), config).await
+            };
+            let client = async {
+                let mut socket = TcpStream::connect(addr).await.unwrap();
+                socket.write_all(request).await.unwrap();
+                socket.shutdown().await.unwrap();
+                socket
+            };
+            let (result, mut client) = tokio::join!(server, client);
+            let mut response = Vec::new();
+            if result.is_err() {
+                client.read_to_end(&mut response).await.unwrap();
+            }
+            (result, response)
+        })
+        .await
+        .expect("bounded listener admission exchange")
+    }
+
+    #[tokio::test]
+    async fn listener_admission_rejects_disabled_protocols_and_bad_preambles() {
+        for (protocols, request, expected) in [
+            (
+                vec![TransportProtocol::Http],
+                &b"PRI "[..],
+                "http2 protocol disabled for listener",
+            ),
+            (
+                vec![TransportProtocol::Rawsocket],
+                &b"GET "[..],
+                "http/websocket protocols disabled for listener",
+            ),
+            (
+                vec![TransportProtocol::Http],
+                &[0x7f, 0x71, 0, 0][..],
+                "rawsocket protocol disabled for listener",
+            ),
+            (
+                vec![TransportProtocol::Http],
+                &[0, 1, 2, 3][..],
+                "unsupported listener handshake preamble",
+            ),
+            (
+                vec![TransportProtocol::Http],
+                &b"GE"[..],
+                "connection closed before protocol negotiation",
+            ),
+            (
+                vec![TransportProtocol::Http],
+                &b"GET / HTTP/1.1\r\n"[..],
+                "connection closed before HTTP headers completed",
+            ),
+            (
+                vec![TransportProtocol::Http],
+                &b"POST / HTTP/1.1\r\nContent-Length: 3\r\n\r\nx"[..],
+                "connection closed before receiving declared HTTP body",
+            ),
+        ] {
+            let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
+            config.protocols = protocols;
+            let (result, response) = admission_exchange(&config, request).await;
+            assert!(
+                matches!(&result, Err(NegotiationError::Protocol(detail)) if detail == expected),
+                "{request:?}: {result:?}"
+            );
+            assert!(
+                response.is_empty(),
+                "unexpected success/error wire: {response:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn listener_admission_preserves_rawsocket_rejection_codes() {
+        let config = runtime_config(Some(Duration::from_secs(1)), 16);
+        for (request, expected, response_code) in [
+            ([0x7f, 0x70, 0, 0], "unsupported serializer", 0x10),
+            ([0x7f, 0x71, 1, 0], "reserved bits must be zero", 0x30),
+            ([0x7f, 0x71, 0, 1], "reserved bits must be zero", 0x30),
+        ] {
+            let (result, response) = admission_exchange(&config, &request).await;
+            assert!(
+                matches!(&result, Err(NegotiationError::Protocol(detail)) if detail == expected),
+                "{result:?}"
+            );
+            assert_eq!(response, [0x7f, response_code, 0, 0]);
+        }
+    }
+
+    #[tokio::test]
+    async fn listener_admission_websocket_rejection_preserves_http_fallback() {
+        let upgrade = "GET /wamp?realm=public HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n";
+        for request in [
+            upgrade.replacen("GET ", "POST ", 1),
+            upgrade.replace("Upgrade: websocket\r\n", ""),
+            upgrade.replace("Connection: Upgrade\r\n", "Connection: keep-alive\r\n"),
+            upgrade.replace("Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n", ""),
+            upgrade.replace("\r\n\r\n", "\r\nContent-Length: 3\r\n\r\nabc"),
+        ] {
+            for allow_http in [false, true] {
+                let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
+                config.protocols = vec![TransportProtocol::Websocket];
+                if allow_http {
+                    config.protocols.push(TransportProtocol::Http);
+                }
+                let (result, response) = admission_exchange(&config, request.as_bytes()).await;
+                if allow_http {
+                    assert!(
+                        matches!(&result, Ok(NegotiatedConnection::Http(_))),
+                        "{result:?}"
+                    );
+                    if let Ok(NegotiatedConnection::Http(handshake)) = result {
+                        assert_eq!(handshake.request.target, "/wamp?realm=public");
+                        assert_eq!(
+                            handshake.request.method,
+                            if request.starts_with("POST") {
+                                "POST"
+                            } else {
+                                "GET"
+                            }
+                        );
+                        let expected = if request.ends_with("abc") {
+                            &b"abc"[..]
+                        } else {
+                            &[][..]
+                        };
+                        assert_eq!(handshake.body_len(), expected.len());
+                        assert!(
+                            matches!(&handshake.body, HttpBodyPhase::Buffered(bytes) if bytes.as_ref() == expected)
+                        );
+                    }
+                } else {
+                    assert!(
+                        matches!(&result, Err(NegotiationError::Protocol(detail)) if detail == "websocket handshake rejected and HTTP disabled"),
+                        "{result:?}"
+                    );
+                }
+                assert!(response.is_empty());
+            }
+        }
+        let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
+        config.protocols = vec![TransportProtocol::Websocket];
+        let (result, _) = admission_exchange(&config, upgrade.as_bytes()).await;
+        assert!(
+            matches!(result, Ok(NegotiatedConnection::WebSocket(_))),
+            "{result:?}"
+        );
+    }
+
     async fn send_http2_preface(stream: &mut TcpStream) {
         stream
             .write_all(HTTP2_PREFACE)

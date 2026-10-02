@@ -6,6 +6,19 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work394: Matching native393 collections validate at 9db9e608: core
+9,227/10,063 (91.692%), FFI 5,444/5,798 (93.894%), four unmeasured sources
+retained. Fast394 passes. Add 21 local-TCP listener admission scenarios covering
+disabled protocols, malformed/truncated preambles and HTTP inputs, exact
+RawSocket rejection frames, and WebSocket rejection with/without HTTP fallback.
+Assert preserved request method, target and body, plus successful later valid
+upgrade. Joined futures retain the peer through negotiation under a deadline.
+Use only four bytes for disabled-HTTP detection to avoid an unrelated reset
+from unread request bytes. Focused admission and broader protocol suites pass;
+local review completed. Full verify394 exits 0 in
+`/tmp/connectanum-verify394-final.log`, including JS/WASM runtime suites;
+no new score claimed.
+
 Work393: Matching native392 collections validate at 7202718b: core
 9,185/10,063 (91.275%), FFI 5,444/5,798 (93.894%), four unmeasured sources
 retained. Fast393 passes. Reproduce a native WebSocket client accepting

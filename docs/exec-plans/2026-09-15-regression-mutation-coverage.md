@@ -35,6 +35,21 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work394: Native393 collections combine at 9db9e608 with core9,227/10,063,
+FFI5,444/5,798 and four unmeasured sources. Fast394 passes before edits.
+Add 21 listener admission scenarios: seven disabled/malformed/truncated input
+cases, three RawSocket rejection-frame cases, ten rejected-WebSocket cases
+paired with HTTP fallback enabled/disabled, and one final valid upgrade.
+Assert exact errors/wire bytes and preserved fallback method/target/body.
+Retain client sockets until joined negotiation completes; bound the entire
+exchange. The first fixture used extra HTTP bytes after a rejected four-byte
+preamble and triggered a TCP reset; use the actual minimal admission input
+instead of accepting unrelated IO errors. Admission and full protocol suites
+pass. Local review completed; join waits for both futures and half-close is
+intentional for truncated input. Full verify394 exits 0 in
+`/tmp/connectanum-verify394-final.log`, including JS/WASM runtime suites;
+no new percentage.
+
 Work393: Native392 combined collection validates at 7202718b: core
 9,185/10,063 and FFI 5,444/5,798 (+53 covered FFI production lines versus390),
 with four unmeasured sources unchanged. Fast393 passes before changes.
