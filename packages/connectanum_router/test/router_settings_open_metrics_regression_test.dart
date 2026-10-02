@@ -142,6 +142,29 @@ void main() {
       );
     }
 
+    test('port zero creates a separate, idempotent metrics listener', () {
+      final websocket = ListenerSettings(
+        type: 'websocket',
+        endpoint: '127.0.0.1:0',
+        options: const {},
+      );
+      final settings = RouterSettings(
+        realms: const [],
+        listeners: [websocket],
+        metrics: const MetricsSettings(
+          openMetrics: OpenMetricsSettings(
+            enabled: true,
+            listen: '127.0.0.1:0',
+          ),
+        ),
+      );
+      final result = settings.withOpenMetricsHttpRoutes();
+      expect(result.listeners, hasLength(2));
+      expect(result.listeners.first, same(websocket));
+      expect(result.listeners.last.type, 'http');
+      expect(result.withOpenMetricsHttpRoutes(), same(result));
+    });
+
     for (final path in {
       'metrics': '/metrics',
       ' /custom ': '/custom',

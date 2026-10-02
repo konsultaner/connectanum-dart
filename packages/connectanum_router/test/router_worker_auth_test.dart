@@ -40,6 +40,106 @@ void main() {
     RemoteAuthenticator.resetRateLimiter();
   });
 
+  group('Anonymous authentication configuration', () {
+    test('anonymous uses server role, never HELLO role claims', () async {
+      final settings = _buildRouterSettings(
+        realmMethods: const ['anonymous'],
+        realmOptions: const {
+          'anonymous': {'authrole': 'customer', 'authprovider': 'configured'},
+        },
+        listenerMethods: const ['anonymous'],
+        authenticators: const {},
+      );
+      final context = _HandshakeHarness(settings, serializer);
+      await context.performHelloWithDetails(
+        Details.forHello()
+          ..authmethods = ['anonymous']
+          ..authrole = 'admin'
+          ..authprovider = 'untrusted',
+      );
+      expect(context.lastWelcome!.details.authrole, 'customer');
+      expect(context.lastWelcome!.details.authprovider, 'configured');
+      expect(context.openedSessions.single.authRole, 'customer');
+    });
+
+    test(
+      'definition options override realm defaults and client identity',
+      () async {
+        final context = _HandshakeHarness(
+          _buildRouterSettings(
+            realmMethods: const ['anonymous'],
+            realmOptions: const {
+              'anonymous': {
+                'use': 'customer-anonymous',
+                'authrole': 'realm-default',
+              },
+            },
+            listenerMethods: const ['anonymous'],
+            authenticators: const {
+              'customer-anonymous': AuthenticatorDefinition(
+                type: 'anonymous',
+                options: {
+                  'authrole': 'customer',
+                  'authid': 'server-identity',
+                },
+              ),
+            },
+          ),
+          serializer,
+        );
+        await context.performHelloWithDetails(
+          Details.forHello()
+            ..authmethods = ['anonymous']
+            ..authid = 'client-identity'
+            ..authrole = 'admin',
+        );
+        expect(context.lastWelcome!.details.authrole, 'customer');
+        expect(context.lastWelcome!.details.authid, 'server-identity');
+      },
+    );
+
+    test(
+      'unconfigured anonymous preserves defaults, ignoring role claims',
+      () async {
+        final context = _HandshakeHarness(
+          _buildRouterSettings(
+            realmMethods: const [],
+            realmOptions: const {},
+            listenerMethods: const [],
+            authenticators: const {},
+          ),
+          serializer,
+        );
+        await context.performHelloWithDetails(
+          Details.forHello()..authrole = 'admin',
+        );
+        expect(context.lastWelcome!.details.authrole, 'anonymous');
+        expect(context.lastWelcome!.details.authprovider, 'static');
+        expect(context.lastWelcome!.details.authid, 'anonymous');
+      },
+    );
+
+    test(
+      'invalid anonymous role fails closed before opening a session',
+      () async {
+        final context = _HandshakeHarness(
+          _buildRouterSettings(
+            realmMethods: const ['anonymous'],
+            realmOptions: const {
+              'anonymous': {'authrole': 42},
+            },
+            listenerMethods: const ['anonymous'],
+            authenticators: const {},
+          ),
+          serializer,
+        );
+        await context.performHelloWithDetails(Details.forHello());
+        expect(context.lastAbort?.reason, wamp_core.Error.notAuthorized);
+        expect(context.openedSessions, isEmpty);
+      },
+    );
+  });
+
   group('Ticket authenticator', () {
     test('accepts correct ticket', () async {
       final routerSettings = _buildRouterSettings(
@@ -366,6 +466,89 @@ void main() {
   });
 
   group('SCRAM authenticator', () {
+    test('SCRAM alias does not bypass listener auth restrictions', () async {
+      final context = _HandshakeHarness(
+        _buildRouterSettings(
+          realmMethods: const ['scram'],
+          realmOptions: const {},
+          listenerMethods: const ['ticket'],
+          authenticators: const {},
+        ),
+        serializer,
+      );
+      await context.performHelloWithDetails(
+        Details.forHello()
+          ..authmethods = ['wamp-scram']
+          ..authid = 'user-1',
+      );
+      expect(context.lastAbort?.reason, wamp_core.Error.notAuthorized);
+      expect(context.openedSessions, isEmpty);
+    });
+
+    test('SCRAM explicit missing definition is not rewritten to an alias', () {
+      final settings = _buildRouterSettings(
+        realmMethods: const ['wamp-scram'],
+        realmOptions: const {
+          'wamp-scram': {'use': 'missing-provider'},
+        },
+        listenerMethods: const ['scram'],
+        authenticators: const {'scram': AuthenticatorDefinition(type: 'scram')},
+      );
+      expect(
+        createAuthenticatorSelectionForMethod(
+          settings: settings,
+          realmSettings: settings.realms.single,
+          method: 'wamp-scram',
+        ),
+        isNull,
+      );
+    });
+
+    for (final configuredMethod in ['scram', 'wamp-scram']) {
+      test(
+        'standard client negotiates $configuredMethod configuration',
+        () async {
+          final settings = _buildRouterSettings(
+            realmMethods: [configuredMethod],
+            realmOptions: {
+              configuredMethod: {'authenticator': 'scram-basic'},
+            },
+            listenerMethods: [configuredMethod],
+            authenticators: {
+              'scram-basic': AuthenticatorDefinition(
+                type: configuredMethod,
+                options: const {
+                  'secrets': {
+                    'user-1': {'secret': 'pencil', 'role': 'member'},
+                  },
+                },
+              ),
+            },
+          );
+          final context = _HandshakeHarness(settings, serializer);
+          final scram = ScramAuthentication('pencil');
+          addTearDown(scram.dispose);
+          final details = Details.forHello()
+            ..authmethods = [scram.getName()]
+            ..authid = 'user-1';
+          await scram.hello('realm1', details);
+          await context.performHelloWithDetails(details);
+          expect(context.lastChallenge?.authMethod, 'wamp-scram');
+          await context.performAuthenticate(
+            await scram.challenge(context.lastChallenge!.extra),
+          );
+          final welcome = context.lastWelcome!;
+          expect(welcome.details.authmethod, 'wamp-scram');
+          await scram.verifyFinal(
+            authId: welcome.details.authid,
+            authMethod: welcome.details.authmethod,
+            authExtra: welcome.details.authextra,
+          );
+          expect(context.openedSessions.single.authRole, 'member');
+        },
+      );
+    }
+
     test('accepts valid proof', () async {
       final salt = base64.encode(List<int>.generate(16, (i) => i + 10));
       final routerSettings = _buildRouterSettings(

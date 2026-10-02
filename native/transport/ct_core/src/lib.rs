@@ -1602,6 +1602,7 @@ impl Default for ListenerRegistry {
 }
 
 struct ListenerEntry {
+    configured_endpoint_index: Option<usize>,
     addr: SocketAddr,
     receiver: Mutex<Option<mpsc::Receiver<ConnectionId>>>,
     _sender: mpsc::Sender<ConnectionId>,
@@ -1833,8 +1834,11 @@ impl ListenerRegistry {
         let mut updated = 0u32;
         for (listener_id, entry) in listeners.iter() {
             let current = entry.config_state.endpoint_config();
-            let endpoint_cfg = config::find_endpoint(&current.host, current.port)
-                .ok_or_else(|| Error::EndpointNotConfigured(current.host.clone(), current.port))?;
+            let endpoint_cfg = match entry.configured_endpoint_index {
+                Some(index) => config::find_endpoint_at(index, &current.host, current.port),
+                None => config::find_endpoint(&current.host, current.port),
+            }
+            .ok_or_else(|| Error::EndpointNotConfigured(current.host.clone(), current.port))?;
             let next = Arc::new(config::EndpointRuntimeConfig::try_from_endpoint(
                 &endpoint_cfg,
             )?);
@@ -5218,6 +5222,25 @@ async fn negotiate_accepted_connection(
 
 /// Starts listening on the provided address and returns the allocated listener id.
 pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> {
+    listen_endpoint(addr, port, backlog, None)
+}
+
+/// Opens a particular configured endpoint, including distinct port-zero listeners.
+pub fn listen_configured_endpoint(
+    addr: &str,
+    port: u16,
+    backlog: i32,
+    endpoint_index: usize,
+) -> Result<ListenerId, Error> {
+    listen_endpoint(addr, port, backlog, Some(endpoint_index))
+}
+
+fn listen_endpoint(
+    addr: &str,
+    port: u16,
+    backlog: i32,
+    endpoint_index: Option<usize>,
+) -> Result<ListenerId, Error> {
     if backlog <= 0 {
         return Err(Error::InvalidBacklog);
     }
@@ -5225,8 +5248,11 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
     manager
         .with_state(|view| {
             let socket_addr = resolve_socket_addr(addr, port)?;
-            let endpoint_config = config::find_endpoint(addr, port)
-                .ok_or_else(|| Error::EndpointNotConfigured(addr.to_string(), port))?;
+            let endpoint_config = match endpoint_index {
+                Some(index) => config::find_endpoint_at(index, addr, port),
+                None => config::find_endpoint(addr, port),
+            }
+            .ok_or_else(|| Error::EndpointNotConfigured(addr.to_string(), port))?;
             let runtime_config = Arc::new(config::EndpointRuntimeConfig::try_from_endpoint(
                 &endpoint_config,
             )?);
@@ -5315,6 +5341,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
             }
 
             let entry = ListenerEntry {
+                configured_endpoint_index: endpoint_index,
                 addr: local_addr,
                 receiver: Mutex::new(Some(receiver)),
                 _sender: sender,
@@ -11054,6 +11081,68 @@ mod tests {
         shutdown().ok();
         let err = listen("127.0.0.1", 0, 128).expect_err("runtime missing");
         assert!(matches!(err, Error::RuntimeNotStarted));
+    }
+
+    #[test]
+    fn configured_ephemeral_listeners_preserve_identity_and_reload() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let config = br#"{"schema":"connectanum.router","version":1,"endpoints":[
+          {"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"],"websocket_path":"/ws"},
+          {"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["http"]}
+        ]}"#;
+        apply_router_config(config).unwrap();
+        assert!(config::find_endpoint("127.0.0.1", 0).is_none());
+        assert!(config::find_endpoint_at(2, "127.0.0.1", 0).is_none());
+        assert!(config::find_endpoint_at(0, "localhost", 0).is_none());
+        assert!(config::find_endpoint_at(0, "127.0.0.1", 1).is_none());
+        start_runtime().unwrap();
+        assert!(matches!(
+            listen("127.0.0.1", 0, 128),
+            Err(Error::EndpointNotConfigured(_, 0))
+        ));
+        assert!(listen_configured_endpoint("127.0.0.1", 0, 0, 0).is_err());
+        assert!(listen_configured_endpoint("127.0.0.1", 0, 128, 2).is_err());
+        let ws = listen_configured_endpoint("127.0.0.1", 0, 128, 0).unwrap();
+        let http = listen_configured_endpoint("127.0.0.1", 0, 128, 1).unwrap();
+        assert_ne!(
+            local_addr(ws).unwrap().port(),
+            local_addr(http).unwrap().port()
+        );
+        assert_eq!(reload_tls().unwrap(), 2);
+        RuntimeManager::global()
+            .with_state(|view| {
+                let listeners = view.registry.listeners.lock().unwrap();
+                assert_eq!(
+                    listeners[&ws].config_state.endpoint_config().protocols,
+                    vec![TransportProtocol::Websocket]
+                );
+                assert_eq!(
+                    listeners[&http].config_state.endpoint_config().protocols,
+                    vec![TransportProtocol::Http]
+                );
+                Ok(())
+            })
+            .unwrap();
+        close_listener(ws).unwrap();
+        let reopened = listen_configured_endpoint("127.0.0.1", 0, 128, 0).unwrap();
+        assert_ne!(
+            local_addr(reopened).unwrap().port(),
+            local_addr(http).unwrap().port()
+        );
+        assert_eq!(reload_tls().unwrap(), 2);
+        shutdown().unwrap();
+
+        let invalid = br#"{"schema":"connectanum.router","version":1,"endpoints":[
+          {"host":"LOCALHOST","port":8080,"tls_mode":"disabled"},
+          {"host":"localhost","port":8080,"tls_mode":"disabled"}
+        ]}"#;
+        assert!(matches!(
+            apply_router_config(invalid),
+            Err(Error::RouterConfigInvalid(_))
+        ));
+        // Rejected replacement must leave the previous configuration intact.
+        assert!(config::find_endpoint_at(1, "127.0.0.1", 0).is_some());
     }
 
     #[test]

@@ -216,7 +216,16 @@ The Java executor generates a “fake” SCRAM/Cra challenge when the remote ser
 
 ### Delegate registration & failover
 
-Register each remote delegate with a stable identifier before starting the router:
+The delegate registry is isolate-local. Register objects this way only when the
+authenticator executes in the same isolate (for example, a direct unit test).
+Registering an object in the main isolate does not install it in native router
+worker isolates. Production worker-backed routers must use the `rpc` configuration
+above and bind `AuthServerProcedureBinding` on the authentication service; worker
+connections are initialized from that configuration, not from a main-isolate
+registry. Multiple logical routers may share one `NativeTransportRuntime`; do not
+construct a second process-wide native runtime for the authentication listener.
+
+For same-isolate execution, register delegates with stable identifiers:
 
 ```dart
 RemoteAuthenticatorRegistry.register(primaryDelegate, id: 'primary');

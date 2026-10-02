@@ -3,6 +3,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectanum_auth_server/connectanum_auth_server.dart';
@@ -23,6 +24,91 @@ void main() {
       : null;
 
   group('Remote auth integration', () {
+    for (final kdf in [
+      wamp_core.ScramAuthentication.kdfPbkdf2,
+      wamp_core.ScramAuthentication.kdfArgon,
+    ]) {
+      test(
+        'worker-isolate SCRAM RPC login, verifier and reconnect ($kdf)',
+        () async {
+          final harness = await _RemoteAuthHarness.start(
+            nativeLib: nativeLib!,
+            userMethod: 'wamp-scram',
+          );
+          addTearDown(harness.dispose);
+          final salt = base64.encode(List<int>.generate(16, (i) => i + 10));
+          final secrets = wamp_core.ScramAuthentication.deriveServerSecrets(
+            secret: 'pencil',
+            salt: salt,
+            iterations: kdf == wamp_core.ScramAuthentication.kdfPbkdf2
+                ? 4096
+                : 2,
+            memory: kdf == wamp_core.ScramAuthentication.kdfArgon ? 1024 : null,
+            kdf: kdf,
+          );
+          final server = AuthServer(
+            settings: RouterSettings(
+              listeners: const [],
+              realms: const [
+                RealmSettings(
+                  name: 'demo.realm',
+                  auth: RealmAuthSettings(methods: ['scram']),
+                  roles: [],
+                  limits: RealmLimitSettings(),
+                ),
+              ],
+              authenticators: {
+                'scram': AuthenticatorDefinition(
+                  type: 'scram',
+                  options: {
+                    'secrets': {
+                      'scram-user': {
+                        'stored_key': secrets.storedKey,
+                        'server_key': secrets.serverKey,
+                        'salt': salt,
+                        'kdf': kdf,
+                        'iterations':
+                            kdf == wamp_core.ScramAuthentication.kdfPbkdf2
+                            ? 4096
+                            : 2,
+                        if (kdf == wamp_core.ScramAuthentication.kdfArgon)
+                          'memory': 1024,
+                        'role': 'member',
+                      },
+                    },
+                  },
+                ),
+              },
+            ),
+            authTokens: const ['shared-token'],
+          );
+          addTearDown(server.close);
+          await harness.bindAuthServer(server);
+          // No main-isolate delegate registry: both routers use the shared runtime
+          // and authentication crosses the worker boundary via configured WAMP RPC.
+          for (var attempt = 0; attempt < 2; attempt++) {
+            final session = await harness.connectScramUser('pencil');
+            expect(session.authId, 'scram-user');
+            expect(session.authRole, 'member');
+            expect(session.authMethod, 'wamp-scram');
+            await session.close();
+          }
+          await expectLater(
+            harness.connectScramUser('wrong-password'),
+            throwsA(
+              isA<client_pkg.Abort>().having(
+                (abort) => abort.reason,
+                'reason',
+                wamp_core.Error.notAuthorized,
+              ),
+            ),
+          );
+          expect(server.pendingAuthenticationCounts, isEmpty);
+        },
+        skip: skipReason,
+      );
+    }
+
     test(
       'RPC deadline cancels active provider creation and rejects late success',
       () async {
@@ -587,6 +673,7 @@ class _RemoteAuthHarness {
   static Future<_RemoteAuthHarness> start({
     required String nativeLib,
     int callTimeoutMs = 1000,
+    String userMethod = 'ticket',
   }) async {
     final workingDirectory = await Directory.systemTemp.createTemp(
       'connectanum_remote_auth_',
@@ -624,6 +711,7 @@ class _RemoteAuthHarness {
         authTokenFile: authTokenFile.path,
         serviceSecretFile: serviceSecretFile.path,
         callTimeoutMs: callTimeoutMs,
+        userMethod: userMethod,
       ),
     ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
 
@@ -685,6 +773,20 @@ class _RemoteAuthHarness {
       authenticationMethods: <client_pkg.AbstractAuthentication>[
         client_pkg.TicketAuthentication('ticket-secret'),
       ],
+      transport: client_pkg.WebSocketTransport.withJsonSerializer(
+        'ws://127.0.0.1:${listener.port}/ws',
+      ),
+    );
+    _clients.add(client);
+    return client.connect().first.timeout(const Duration(seconds: 10));
+  }
+
+  Future<client_pkg.Session> connectScramUser(String password) async {
+    final listener = edgeRouter.listeners.single;
+    final client = client_pkg.Client(
+      realm: 'demo.realm',
+      authId: 'scram-user',
+      authenticationMethods: [client_pkg.ScramAuthentication(password)],
       transport: client_pkg.WebSocketTransport.withJsonSerializer(
         'ws://127.0.0.1:${listener.port}/ws',
       ),
@@ -958,10 +1060,11 @@ RouterSettings _buildEdgeRouterSettings({
   required String authTokenFile,
   required String serviceSecretFile,
   int callTimeoutMs = 1000,
+  String userMethod = 'ticket',
 }) {
   final listener = ListenerSettingsBuilder('websocket', '127.0.0.1:0')
     ..setPath('/ws')
-    ..addAuthMethod('ticket')
+    ..addAuthMethod(userMethod)
     ..addProtocol(ListenerProtocol.websocket)
     ..setWebSocketOptions(
       const WebSocketListenerSettings(subprotocols: <String>['wamp.2.json']),
@@ -972,7 +1075,7 @@ RouterSettings _buildEdgeRouterSettings({
       RealmSettingsBuilder('demo.realm')
         ..setLimits(const RealmLimitSettings())
         ..addAuthMethod(
-          'ticket',
+          userMethod,
           options: const {'authenticator': 'remote-ticket'},
         )
         ..addRoleFromBuilder(

@@ -13,6 +13,15 @@ typedef CtShutdownDart = int Function();
 typedef CtListenNative =
     ffi.Int32 Function(ffi.Pointer<ffi.Char>, ffi.Uint32, ffi.Int32);
 typedef CtListenDart = int Function(ffi.Pointer<ffi.Char>, int, int);
+typedef CtListenConfiguredNative =
+    ffi.Int32 Function(
+      ffi.Pointer<ffi.Char>,
+      ffi.Uint32,
+      ffi.Int32,
+      ffi.Uint32,
+    );
+typedef CtListenConfiguredDart =
+    int Function(ffi.Pointer<ffi.Char>, int, int, int);
 
 typedef CtGetLocalPortNative = ffi.Int32 Function(ffi.Int32);
 typedef CtGetLocalPortDart = int Function(int);

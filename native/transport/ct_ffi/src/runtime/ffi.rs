@@ -40,14 +40,14 @@ use ct_core::{
     connection_reject_websocket, connection_supports_file_segments,
     connection_take_http2_handshake, connection_take_http3_handshake,
     connection_take_websocket_handshake, connection_websocket_protocol, listen,
-    listener_http3_port, local_addr, poll_connection_message, reload_tls, response_stream_channel,
-    send_wamp_base64_file_segment, send_wamp_deferred_segment_with_suffix, send_wamp_file_segment,
-    send_wamp_message, send_wamp_segments, shutdown, start_runtime, wait_connection_message,
-    ConnectionId, ConnectionProtocol, Error as CoreError, FileSegmentMetricsSnapshot,
-    HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
-    HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
-    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, ResponseStreamWriter,
-    WampMessage, RESPONSE_STREAM_BUFFER,
+    listen_configured_endpoint, listener_http3_port, local_addr, poll_connection_message,
+    reload_tls, response_stream_channel, send_wamp_base64_file_segment,
+    send_wamp_deferred_segment_with_suffix, send_wamp_file_segment, send_wamp_message,
+    send_wamp_segments, shutdown, start_runtime, wait_connection_message, ConnectionId,
+    ConnectionProtocol, Error as CoreError, FileSegmentMetricsSnapshot, HttpConnectionCloseReason,
+    HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpRequestBodyStreamMetricsSnapshot,
+    HttpResponseBody, HttpResponseDispatch, HttpResponseStreamMetricsSnapshot, ListenerId,
+    RawSocketSerializer, ResponseStreamWriter, WampMessage, RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -2442,6 +2442,33 @@ pub extern "C" fn ct_listen(addr: *const c_char, port: c_uint, backlog: c_int) -
     };
 
     match listen(addr_str, port as u16, backlog) {
+        Ok(listener_id) => match accept_channel(listener_id) {
+            Ok(receiver) => {
+                store_channel(listener_id, receiver);
+                invoke_listener_callback(listener_id, SUCCESS);
+                listener_id.0 as c_int
+            }
+            Err(err) => map_error(err),
+        },
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_listen_configured(
+    addr: *const c_char,
+    port: c_uint,
+    backlog: c_int,
+    endpoint_index: c_uint,
+) -> c_int {
+    if addr.is_null() || port > u16::MAX as c_uint || backlog <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let addr_str = match unsafe { CStr::from_ptr(addr) }.to_str() {
+        Ok(value) => value,
+        Err(_) => return ERR_INVALID_ARGUMENT,
+    };
+    match listen_configured_endpoint(addr_str, port as u16, backlog, endpoint_index as usize) {
         Ok(listener_id) => match accept_channel(listener_id) {
             Ok(receiver) => {
                 store_channel(listener_id, receiver);
@@ -7263,6 +7290,29 @@ mod tests {
             ERR_HANDLE_UNAVAILABLE
         );
         assert!(ERR_HANDLE_UNAVAILABLE < 0);
+    }
+
+    #[test]
+    fn configured_listener_ffi_rejects_invalid_arguments() {
+        let _guard = test_guard();
+        let host = std::ffi::CString::new("127.0.0.1").unwrap();
+        assert_eq!(
+            ct_listen_configured(ptr::null(), 0, 128, 0),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            ct_listen_configured(host.as_ptr(), 65536, 128, 0),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            ct_listen_configured(host.as_ptr(), 0, 0, 0),
+            ERR_INVALID_ARGUMENT
+        );
+        let invalid_utf8 = [0xff_u8, 0];
+        assert_eq!(
+            ct_listen_configured(invalid_utf8.as_ptr().cast(), 0, 128, 0),
+            ERR_INVALID_ARGUMENT
+        );
     }
 
     #[test]

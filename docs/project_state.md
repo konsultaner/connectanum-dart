@@ -6,6 +6,30 @@ Current milestone: near-complete regression and mutation testing, per the
 operator's latest priority. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work395: Consumer-reported authentication/listener regressions take priority
+within the coverage milestone. Fast395 exits 0 before edits. Four fail-first
+assertions reproduce canonical SCRAM negotiation failures with both legacy and
+standard configuration, ignored anonymous role options, and merged port-zero
+metrics listeners. Accept `scram`/`wamp-scram` configuration aliases while
+preserving the client-offered wire method and server signature verification.
+Anonymous sessions use server-configured identity/role/provider, never HELLO
+role/provider claims; invalid role configuration fails closed. Preserve distinct
+ephemeral listener configuration through Dart mapping and explicit native/FFI
+endpoint indexing, including TLS reload and close/reopen. Keep fixed-port
+duplicate rejection and lazy new-symbol lookup for older native libraries.
+Real WebSocket/health/metrics and worker-isolate remote SCRAM integration tests
+pass (PBKDF2 and Argon2id13, stored keys, reconnect, wrong-password denial).
+Remote RPC is functional; main-isolate object registries are not worker service
+registries. Two logical routers share one process-wide runtime in the tests;
+independent native runtimes remain unsupported. Focused Dart/native/FFI suites
+pass. Qwen reviews completed; alias/index warnings conflict with the explicit
+reference guard, bounded configuration index, and existing listener task aborts.
+GLM judge is unreachable. Full verify395 exits 0 in
+`/tmp/connectanum-verify395.log`, including JS/WASM runtime suites and the 64-MiB
+SCRAM worker responsiveness regression. Hosted chain evidence is pending; no
+green hosted claim or new coverage/mutation percentage. No merge, package
+publication or version change.
+
 Work394: Matching native393 collections validate at 9db9e608: core
 9,227/10,063 (91.692%), FFI 5,444/5,798 (93.894%), four unmeasured sources
 retained. Fast394 passes. Add 21 local-TCP listener admission scenarios covering

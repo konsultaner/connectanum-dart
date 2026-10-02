@@ -108,7 +108,9 @@ pub fn apply_router_config_bytes(bytes: &[u8]) -> Result<(), Error> {
     let mut sanctioned_ports: HashSet<(String, u16)> = HashSet::new();
     for endpoint in &parsed.endpoints {
         EndpointRuntimeConfig::try_from_endpoint(endpoint)?;
-        if !sanctioned_ports.insert((endpoint.host.to_lowercase(), endpoint.port)) {
+        if endpoint.port != 0
+            && !sanctioned_ports.insert((endpoint.host.to_lowercase(), endpoint.port))
+        {
             return Err(Error::RouterConfigInvalid(format!(
                 "duplicate endpoint {}:{}",
                 endpoint.host, endpoint.port
@@ -128,17 +130,26 @@ pub fn current_config() -> Option<Arc<RouterConfig>> {
 }
 
 pub fn find_endpoint(host: &str, port: u16) -> Option<Arc<EndpointConfig>> {
-    config_lock()
-        .read()
-        .ok()
-        .and_then(|guard| guard.clone())
-        .and_then(|cfg| {
-            cfg.endpoints
-                .iter()
-                .find(|endpoint| endpoint.host.eq_ignore_ascii_case(host) && endpoint.port == port)
-                .cloned()
-                .map(Arc::new)
-        })
+    let cfg = current_config()?;
+    let mut matches = cfg
+        .endpoints
+        .iter()
+        .filter(|endpoint| endpoint.host.eq_ignore_ascii_case(host) && endpoint.port == port);
+    let endpoint = matches.next()?;
+    // An address alone cannot identify separately configured ephemeral sockets.
+    if matches.next().is_some() {
+        return None;
+    }
+    Some(Arc::new(endpoint.clone()))
+}
+
+pub fn find_endpoint_at(index: usize, host: &str, port: u16) -> Option<Arc<EndpointConfig>> {
+    let cfg = current_config()?;
+    let endpoint = cfg.endpoints.get(index)?;
+    if !endpoint.host.eq_ignore_ascii_case(host) || endpoint.port != port {
+        return None;
+    }
+    Some(Arc::new(endpoint.clone()))
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]

@@ -35,6 +35,34 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+Work395: Reproduce and fix consumer-reported package defects before resuming
+percentage work. Fast395 passes. Fail-first evidence is retained in
+`/tmp/connectanum-395-repro.log`: both canonical SCRAM configuration variants,
+configured anonymous role, and port-zero metrics separation fail before fixes.
+SCRAM method aliasing applies to configuration, not client-selected wire names;
+exact configuration wins, explicit missing references are not rewritten, and
+listener restrictions remain enforced. Anonymous identity/role/provider options
+come only from server configuration; defaults and HELLO role-claim rejection
+remain covered. New configured-listen FFI entry point is additive/lazy and
+validates index plus address. Duplicate fixed endpoints stay invalid; duplicate
+ephemeral endpoints retain independent protocol/routes and reload/reopen state.
+The real HTTP/WebSocket test confirms health does not migrate to the WAMP port.
+Remote SCRAM RPC passes across actual worker isolates with PBKDF2/Argon2id13
+stored/server keys, final verifier checks, repeated login and wrong-password
+rejection. Both logical routers share the existing process-wide runtime; no
+independent-runtime redesign. Clarify isolate-local delegate registry scope.
+Focused native/FFI and Dart suites pass; Qwen reviews completed, GLM unavailable.
+Alias/index suggestions conflict with the explicit-reference guard, uint32
+configuration-index bound and existing close-listener task aborts. Full
+verify395 exits 0 in `/tmp/connectanum-verify395.log`, including JS/WASM and the
+64-MiB SCRAM worker responsiveness regression. Hosted chain evidence is pending;
+no new score or green hosted claim.
+
+Protocol basis: [WAMP section 13.3](https://wamp-proto.org/wamp_latest_ietf.html)
+specifies `wamp-scram` negotiation and a server verifier in WELCOME authextra.
+Retain legacy `scram` configuration without changing password KDFs, proof bytes,
+or public client authentication contracts.
+
 Work394: Native393 collections combine at 9db9e608 with core9,227/10,063,
 FFI5,444/5,798 and four unmeasured sources. Fast394 passes before edits.
 Add 21 listener admission scenarios: seven disabled/malformed/truncated input

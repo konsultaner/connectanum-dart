@@ -1264,11 +1264,32 @@ class RouterBinding {
     if (_ready) {
       return;
     }
-    for (final endpoint in _pendingEndpoints) {
-      final listenerId = runtime.listen(endpoint.host, endpoint.port);
+    final configs = _matchListenerSettings(
+      _pendingEndpoints,
+      settings.listeners,
+    );
+    final keys = _pendingEndpoints
+        .map((e) => _endpointKey(e.host, e.port))
+        .toList();
+    final ambiguous = keys.toSet().length != keys.length;
+    if (ambiguous && runtime is! NativeRuntimeWithConfiguredListeners) {
+      throw UnsupportedError(
+        'Runtime cannot distinguish separate port-zero listeners',
+      );
+    }
+    for (var index = 0; index < _pendingEndpoints.length; index++) {
+      final endpoint = _pendingEndpoints[index];
+      final listenerId = ambiguous
+          ? (runtime as NativeRuntimeWithConfiguredListeners)
+                .listenConfiguredEndpoint(
+                  endpoint.host,
+                  endpoint.port,
+                  index,
+                )
+          : runtime.listen(endpoint.host, endpoint.port);
       final boundPort = runtime.getLocalPort(listenerId);
       final http3Port = runtime.getHttp3Port(listenerId);
-      final config = _lookupListenerSettings(endpoint);
+      final config = configs[index];
       final listener = RouterListener(
         listenerId: listenerId,
         endpoint: endpoint,
@@ -7548,6 +7569,27 @@ class RouterBinding {
 
 String _endpointKey(String host, int port) =>
     '${host.trim().toLowerCase()}:$port';
+
+List<ListenerSettings?> _matchListenerSettings(
+  Iterable<Endpoint> endpoints,
+  Iterable<ListenerSettings> listeners,
+) {
+  final remaining = <String, List<ListenerSettings>>{};
+  for (final listener in listeners) {
+    remaining
+        .putIfAbsent(_normalizeConfiguredEndpoint(listener.endpoint), () => [])
+        .add(listener);
+  }
+  return endpoints
+      .map((endpoint) {
+        final candidates =
+            remaining[_endpointKey(endpoint.host, endpoint.port)];
+        return candidates == null || candidates.isEmpty
+            ? null
+            : candidates.removeAt(0);
+      })
+      .toList(growable: false);
+}
 
 String _normalizeConfiguredEndpoint(String endpoint) {
   final trimmed = endpoint.trim();

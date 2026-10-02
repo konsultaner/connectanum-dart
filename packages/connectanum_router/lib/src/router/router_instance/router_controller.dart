@@ -49,18 +49,15 @@ class Router {
   }
 
   Map<String, Object?> _buildNativeMap(RouterSettings? settings) {
-    final listenerByEndpoint = <String, ListenerSettings>{};
-    if (settings != null) {
-      for (final listener in settings.listeners) {
-        listenerByEndpoint[_normalizeConfiguredEndpoint(listener.endpoint)] =
-            listener;
-      }
-    }
+    final listeners = _matchListenerSettings(
+      config.endpoints,
+      settings?.listeners ?? [],
+    );
+    var endpointIndex = 0;
     final endpoints = config.endpoints
         .map((endpoint) {
           final map = endpoint.toNativeJson();
-          final key = _endpointKey(endpoint.host, endpoint.port);
-          final listener = listenerByEndpoint[key];
+          final listener = listeners[endpointIndex++];
           map['protocols'] =
               listener?.protocols
                   .map(listenerProtocolToString)

@@ -81,6 +81,16 @@ abstract class NativeRuntime {
   NativeIncomingMessage? pollMessage(int connectionId);
 }
 
+/// Opens listeners by configuration position when their addresses are ambiguous.
+abstract class NativeRuntimeWithConfiguredListeners implements NativeRuntime {
+  int listenConfiguredEndpoint(
+    String host,
+    int port,
+    int endpointIndex, {
+    int backlog = 128,
+  });
+}
+
 /// Runtime extension that exposes raw message handles so other isolates can
 /// materialise messages without crossing isolate boundaries.
 abstract class NativeRuntimeWithHandles implements NativeRuntime {
@@ -2113,6 +2123,7 @@ abstract final class NativeLibraryLoader {
 class NativeTransportRuntime
     implements
         NativeRuntimeWithHandles,
+        NativeRuntimeWithConfiguredListeners,
         NativeRuntimeWithInternalCallForwarding {
   /// Loads `ct_ffi` and creates the process-wide native transport runtime.
   factory NativeTransportRuntime({String? libraryPath}) {
@@ -2139,9 +2150,13 @@ class NativeTransportRuntime
       );
 
   final String _libraryPath;
-  // ignore: unused_field
   final ffi.DynamicLibrary _library; // Retain library for runtime lifetime.
   final CtFfiBindings _bindings;
+  // Resolve lazily so older libraries still support unambiguous listeners.
+  late final CtListenConfiguredDart _listenConfigured = _library
+      .lookupFunction<CtListenConfiguredNative, CtListenConfiguredDart>(
+        'ct_listen_configured',
+      );
   final _MessageBindings _messageBindings;
   RandomAccessFile? _runtimeLock;
 
@@ -2259,6 +2274,39 @@ class NativeTransportRuntime
       final result = _bindings.ctListen(hostPtr, port, backlog);
       if (result < 0) {
         _throwForError(result, 'Failed to create listener');
+      }
+      return result;
+    });
+  }
+
+  /// Opens a listener using its position in the applied native configuration.
+  @override
+  int listenConfiguredEndpoint(
+    String host,
+    int port,
+    int endpointIndex, {
+    int backlog = 128,
+  }) {
+    if (backlog <= 0 ||
+        port < 0 ||
+        port > 65535 ||
+        endpointIndex < 0 ||
+        endpointIndex > 0xffffffff) {
+      throw ArgumentError('Invalid configured listener arguments');
+    }
+    CtListenConfiguredDart listen;
+    try {
+      listen = _listenConfigured;
+    } on ArgumentError {
+      throw UnsupportedError(
+        'Separate port-zero listeners require an updated native transport library',
+      );
+    }
+    return using((arena) {
+      final hostPtr = host.toNativeUtf8(allocator: arena).cast<ffi.Char>();
+      final result = listen(hostPtr, port, backlog, endpointIndex);
+      if (result < 0) {
+        _throwForError(result, 'Failed to create configured listener');
       }
       return result;
     });
