@@ -7,8 +7,8 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
-Draft PR #105 includes foundation, package-constraint repair and native
-owned buffers. Binding follow-up commit 722175ca resolves nullable
+Draft PR #105 is pushed through a93de717 with foundation, package-constraint
+repair, native-owned buffers and producer leases. Binding follow-up commit 722175ca resolves nullable
 HEARTBEAT controls and custom CHALLENGE method strings with append-only fields.
 All 51 binding tests pass on VM, Chrome JS and WASM; focused analysis, six
 schema-generator tests, exact regeneration and flatc conformance pass. Unmodified
@@ -70,9 +70,30 @@ Local Qwen/GLM lease test planning and review attempts time out without findings
 manual source inspection and executable tests remain the evidence. The smaller GLM ownership judgment also times out at 60 seconds without
 output; no successful external-lease companion judgment is claimed.
 
-All ten issues remain open. Next: finish producer-lease validation and implement
-observable actual local write completion (#97), independently of native resource
-release. No FlatBuffers network codec, write-completion API, E2EE profile,
+Uncommitted write-receipt ABI v1 observes full native frame write and flush,
+with Abandoned on rejection, preparation failure, partial write/flush failure
+or cancellation. Its 8192-entry reservation pool is independent of payload
+owners and runtime shutdown. A FIFO flush barrier emits no protocol bytes.
+Dart exposes tracked sends and drainWrites(); legacy drain() remains a yield.
+All 338 core and 218 FFI tests pass in
+/tmp/connectanum-write-completion-native-all.log. Six controlled writer tests
+cover both transports, including a slow fan-out recipient and cancellation while
+a native preparation worker still holds the loan. All 23 Dart ownership tests
+pass, including live tracked RawSocket/WebSocket writes, independent optional
+ABI/version/missing-symbol checks and forced GC returning receipt capacity
+without cancelling the frame. Focused analysis has no issues. Full write-completion bin/verify exits 0 in session 6724,
+/tmp/connectanum-write-completion-verify.log, including Chrome/WASM. The
+completion candidate is ready to commit; combined native lending/network
+integration still remains before closing #97.
+
+Qwen completes a narrowed receipt review. Its claimed unlocked map mutation is
+contradicted by installed DashMap source: get_mut returns RefMut holding a shard
+RwLockWriteGuard. Reservation rollback and hidden reserved entries preserve the
+quota on normal errors. The earlier truncated review is incomplete evidence.
+
+All ten issues remain open. Next: full write-completion verification and combined
+native-producer/delayed-write/fan-out integration, then the full codecs and
+remaining milestone criteria. No FlatBuffers network codec, E2EE profile,
 benchmark parity, ObjectBox adapter or milestone completion is claimed.
 
 Work396: Resume mutation work after beta.6 publication. Master CI `37035848715`

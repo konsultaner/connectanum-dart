@@ -66,15 +66,19 @@ void main() {
       Future<NativeBufferAllocator> load(
         int version, {
         int? externalVersion,
+        int? writeVersion,
+        bool omitWriteFinalizer = false,
       }) async {
         final output =
-            '${directory.path}/owned-$version-$externalVersion.${Platform.isMacOS ? 'dylib' : 'so'}';
+            '${directory.path}/owned-$version-$externalVersion-$writeVersion-$omitWriteFinalizer.${Platform.isMacOS ? 'dylib' : 'so'}';
         final result = await Process.run('cc', [
           Platform.isMacOS ? '-dynamiclib' : '-shared',
           '-fPIC',
           '-DOWNED_BUFFER_VERSION=$version',
           if (externalVersion != null)
             '-DEXTERNAL_LEASE_VERSION=$externalVersion',
+          if (writeVersion != null) '-DWRITE_RECEIPT_VERSION=$writeVersion',
+          if (omitWriteFinalizer) '-DOMIT_WRITE_FINALIZER',
           '-o',
           output,
           fixture,
@@ -92,6 +96,7 @@ void main() {
       expect(() => differentVersion.allocate(8), throwsUnsupportedError);
       final foreign = await load(1);
       expect(foreign.isSupported, isTrue);
+      expect(foreign.supportsWriteCompletion, isFalse);
       expect(foreign.supportsExternalTokens, isFalse);
       // Capability rejection must happen before reading even a non-null token.
       expect(
@@ -107,12 +112,36 @@ void main() {
       );
       final buffer = allocator.allocate(8).freeze();
       expect(
+        () => foreign.sendTracked(42, buffer, transfer: true),
+        throwsUnsupportedError,
+      );
+      expect(buffer.isDisposed, isFalse);
+      expect(
         () => foreign.send(42, buffer, transfer: true),
         throwsArgumentError,
       );
       expect(buffer.isDisposed, isFalse);
       expect(buffer.bytes, hasLength(8));
       buffer.dispose();
+
+      final wrongWrite = await load(1, writeVersion: 2);
+      expect(wrongWrite.isSupported, isTrue);
+      expect(wrongWrite.supportsWriteCompletion, isFalse);
+      final missingWrite = await load(
+        1,
+        writeVersion: 1,
+        omitWriteFinalizer: true,
+      );
+      expect(missingWrite.supportsWriteCompletion, isFalse);
+      await expectLater(missingWrite.drainWrites(42), throwsUnsupportedError);
+      final writeOnly = await load(1, writeVersion: 1);
+      expect(writeOnly.supportsWriteCompletion, isTrue);
+      expect(writeOnly.supportsExternalTokens, isFalse);
+      // Producer and receipt capabilities are independently versioned.
+      await expectLater(
+        writeOnly.drainWrites(42),
+        throwsA(isA<NativeBufferException>()),
+      );
     },
     skip: Platform.isWindows
         ? 'Native verification uses Unix C toolchains'
@@ -246,6 +275,39 @@ void main() {
     skip: Platform.isWindows
         ? 'Native verification uses Unix C toolchains'
         : false,
+    timeout: const Timeout(Duration(seconds: 45)),
+  );
+
+  test(
+    'collected write receipts return capacity without cancelling sends',
+    () async {
+      final source = await Isolate.resolvePackageUri(
+        Uri.parse('package:connectanum_client/native_buffers.dart'),
+      );
+      final result = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          '--enable-vm-service=0',
+          '--disable-service-auth-codes',
+          'run',
+          source!
+              .resolve(
+                '../test/transport/native/support/write_receipt_gc_probe.dart',
+              )
+              .toFilePath(),
+        ],
+        environment: {
+          'CONNECTANUM_NATIVE_LIB': NativeClientRuntime.instance().libraryPath,
+        },
+      );
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      expect(
+        result.stdout,
+        contains(
+          'write-receipt-gc: collected observer returned capacity without cancelling frame',
+        ),
+      );
+    },
     timeout: const Timeout(Duration(seconds: 45)),
   );
 
@@ -413,6 +475,38 @@ void main() {
         expect(view, utf8.encode(frame));
         expect(buffer.growthCopiedBytes, 0);
         expect(buffer.inputCopiedBytes, 0);
+
+        final trackedBuffer = allocator.allocate(256);
+        for (var i = 0; i < frame.length; i++) {
+          trackedBuffer.setUint8(i, frame.codeUnitAt(i));
+        }
+        final frozen = trackedBuffer.freeze(length: frame.length);
+        final retainedReceipt = nativeTransport.sendEncodedNativeBufferTracked(
+          frozen,
+        );
+        expect(frozen.isDisposed, isFalse);
+        expect(
+          await retainedReceipt.wait(timeout: const Duration(seconds: 2)),
+          NativeWriteOutcome.written,
+        );
+        retainedReceipt.dispose();
+        retainedReceipt.dispose();
+        expect(() => retainedReceipt.outcome, throwsStateError);
+        expect(await messages.moveNext(), isTrue);
+        expect(messages.current, utf8.encode(frame));
+        final receipt = nativeTransport.sendEncodedNativeBufferTracked(
+          frozen,
+          transfer: true,
+        );
+        expect(frozen.isDisposed, isTrue);
+        expect(
+          await receipt.wait(timeout: const Duration(seconds: 2)),
+          NativeWriteOutcome.written,
+        );
+        receipt.dispose();
+        await nativeTransport.drainWrites();
+        expect(await messages.moveNext(), isTrue);
+        expect(messages.current, utf8.encode(frame));
       },
     );
   }
@@ -560,6 +654,35 @@ void main() {
     // The runtime can initialize later; allocation ownership is independent.
     expect(NativeClientRuntime.instance().nativeBuffers.isSupported, isTrue);
   });
+
+  test(
+    'tracked rejection consumes transfers and preserves retained sends',
+    () async {
+      expect(allocator.supportsWriteCompletion, isTrue);
+      final buffer = allocator.allocate(8).freeze();
+      expect(
+        () => allocator.sendTracked(0, buffer, transfer: true),
+        throwsRangeError,
+      );
+      expect(buffer.isDisposed, isFalse);
+      expect(
+        () => allocator.sendTracked(0x7fffffff, buffer),
+        throwsA(isA<NativeBufferException>()),
+      );
+      expect(buffer.isDisposed, isFalse);
+      expect(
+        () => allocator.sendTracked(0x7fffffff, buffer, transfer: true),
+        throwsA(isA<NativeBufferException>()),
+      );
+      expect(buffer.isDisposed, isTrue);
+      expect(() => allocator.sendTracked(0x7fffffff, buffer), throwsStateError);
+      await expectLater(allocator.drainWrites(0), throwsRangeError);
+      await expectLater(
+        allocator.drainWrites(0x7fffffff),
+        throwsA(isA<NativeBufferException>()),
+      );
+    },
+  );
 }
 
 @pragma('vm:entry-point')

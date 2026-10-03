@@ -7,6 +7,17 @@
 #ifndef OWNED_BUFFER_VERSION
 #define OWNED_BUFFER_VERSION 2
 #endif
+
+#ifdef WRITE_RECEIPT_VERSION
+uint32_t ct_write_receipt_abi_version(void) { return WRITE_RECEIPT_VERSION; }
+int32_t ct_owned_buffer_send_tracked(int32_t connection, int32_t id) { (void)connection; (void)id; return -4; }
+int32_t ct_connection_drain_writes(int32_t connection) { (void)connection; return -4; }
+int32_t ct_write_receipt_state(int32_t id) { (void)id; return -4; }
+int32_t ct_write_receipt_release(int32_t id) { (void)id; return -4; }
+#ifndef OMIT_WRITE_FINALIZER
+void ct_write_receipt_finalizer(void *token) { (void)token; }
+#endif
+#endif
 uint32_t ct_owned_buffer_abi_version(void) { return OWNED_BUFFER_VERSION; }
 int32_t ct_owned_buffer_allocate(int32_t length) { (void)length; return -4; }
 int32_t ct_owned_buffer_info(int32_t id, void *out) { (void)id; (void)out; return -4; }

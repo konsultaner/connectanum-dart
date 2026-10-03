@@ -23,6 +23,7 @@ pub const ERR_LEASE_CLOSING: i32 = -21;
 pub const ERR_LEASE_QUOTA_EXCEEDED: i32 = -22;
 pub const ERR_LEASE_BUSY: i32 = -23;
 pub const ERR_LEASE_REENTRANT: i32 = -24;
+pub const ERR_WRITE_RECEIPT_QUOTA_EXCEEDED: i32 = -25;
 
 pub const PROTOCOL_RAWSOCKET: i32 = 1;
 pub const PROTOCOL_WEBSOCKET: i32 = 2;

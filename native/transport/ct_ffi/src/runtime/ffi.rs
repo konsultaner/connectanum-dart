@@ -525,7 +525,7 @@ impl_zeroed_ffi_default!(
     CtWebSocketHandshakeInfo,
 );
 
-fn map_error(err: CoreError) -> c_int {
+pub(super) fn map_error(err: CoreError) -> c_int {
     match err {
         CoreError::RuntimeAlreadyStarted => ERR_ALREADY_STARTED,
         CoreError::RuntimeNotStarted => ERR_RUNTIME_NOT_STARTED,

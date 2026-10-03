@@ -1,7 +1,7 @@
 # External native leases and write completion
 
 Status: producer-lease ABI v1 and trusted Dart token adoption implemented for
-milestone issue #97; local write completion remains planned. Full local bin/verify passes in /tmp/connectanum-external-adoption-verify.log;
+milestone issue #97; local write completion is implemented in the uncommitted candidate. Full local bin/verify passes in /tmp/connectanum-external-adoption-verify.log;
 hosted evidence for this candidate is pending.
 
 The following design separates native producer ownership from transport progress.
@@ -97,7 +97,7 @@ publishes a subrange. A forced-GC Dart child proves immutable derived ByteData
 keeps that resource alive after wrappers die, then observes exactly one cleanup
 on the registering thread. The fixture does not integrate ObjectBox.
 
-## Planned write receipt boundary
+## Implemented write receipt boundary (candidate)
 
 Completion uses an independent, versioned six-symbol ABI. A tracked send consumes
 one valid frozen handle on queue, runtime, connection or receipt-quota rejection,
@@ -118,10 +118,30 @@ protocol bytes. Failure of an earlier write abandons the barrier. Dart's new
 `drainWrites()` observes this barrier; legacy `drain()` remains an event-loop
 yield and does not establish a native write boundary.
 
-Tests will use a controllable AsyncWrite to stop after a partial write, block
-flush independently and inject I/O failure. They must cover both RawSocket and
+Six tests use a controllable AsyncWrite to stop after a partial write, block
+flush independently and inject I/O failure. They cover both RawSocket and
 WebSocket writers, cancellation of active and queued receipts, rejected queues,
 invalid deferred preparation and two fan-out recipients sharing one loan. One
 written receipt cannot authorize release while the slow recipient retains bytes.
 The C producer/SDK lifetime probe remains separate evidence for thread-affine
-resource release. No planned receipt behavior is advertised as implemented.
+resource release. Full receipt-candidate bin/verify passes in
+/tmp/connectanum-write-completion-verify.log; combined producer/network
+integration remains pending. The new receipt ABI is ready to commit.
+
+
+The receipt ABI consists of ct_write_receipt_abi_version,
+ct_owned_buffer_send_tracked, ct_connection_drain_writes, ct_write_receipt_state,
+ct_write_receipt_release and ct_write_receipt_finalizer. All six symbols and
+version 1 are required independently of the producer lease capability. Capacity
+is 8192 outstanding/reserved receipts; error -25 means receipt quota exhausted.
+Terminal receipts count until explicitly disposed or finalized. IDs are never
+recycled across runtime restart. State is readable from any native thread; the
+Dart wait method polls asynchronously and a timeout stops observation without
+cancelling native work. drainWrites() disposes its barrier receipt on every path.
+
+Live Dart tests verify both native transport APIs and missing/mismatched ABI
+rejection. A VM-service child abandons a receipt, confirms the frame still
+arrives, then forces GC and observes the registry capacity return. A separate
+native test cancels a deferred write while the worker keeps its loan: the
+receipt becomes Abandoned before that worker releases storage. This explicitly
+proves that abandonment cannot authorize premature producer resource cleanup.

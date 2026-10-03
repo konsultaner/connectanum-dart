@@ -418,3 +418,49 @@ builds with -Wall -Wextra -Werror. Producer changes are ready to commit; every
 milestone issue remains open because acceptance audits and actual write
 completion/fan-out integration remain pending. Temporary completion prototypes
 are prepared outside the worktree and have not affected this verified snapshot.
+
+
+## Native write completion candidate
+
+Producer stage a93de717 and binding 722175ca are pushed; draft PR #105 now
+reflects that reviewed scope. Current uncommitted candidate adds native frame
+completion guards and a FIFO flush barrier to both writers, plus a bounded
+six-symbol receipt ABI and public Dart tracked sends/drainWrites. Legacy drain
+continues yielding an event-loop turn. Six native writer tests distinguish
+partial writes, delayed flushes, queued/active cancellation, deferred failure,
+slow fan-out and cancelled preparation workers retaining storage. All 338 core
+and 218 FFI tests pass in /tmp/connectanum-write-completion-native-all.log.
+All 23 Dart ownership tests pass in
+/tmp/connectanum-write-completion-dart-tests.log; focused analysis has no issues.
+The receipt GC child observes actual registry capacity returned after observer
+collection while the already submitted frame reaches the peer. Complete,
+missing-symbol and wrong-version receipt groups are checked independently of
+the producer capability. Full candidate bin/verify is next.
+
+A completed narrowed Qwen review claims unguarded map mutation. Installed
+DashMap source contradicts it: RefMut contains RwLockWriteGuard, and get_mut
+acquires the write shard. Reserved entries cannot be publicly removed, and the
+RAII reservation returns count/entry on failure. No concurrency redesign is
+justified by this finding. The earlier output-limited review is incomplete.
+
+Combined real producer lending through delayed/native network writes and fan-out
+still needs proof before closing #97. Full codecs, negotiation/routing/PPT/E2EE,
+hardening, benchmark parity and release evidence remain in the goal. All ten
+issues stay open; no milestone completion is claimed.
+
+Full completion-candidate bin/verify is running in session 6724,
+/tmp/connectanum-write-completion-verify.log. Do not start a duplicate verification
+run while this session is active.
+
+
+Write-completion full bin/verify (session 6724) exits 0, including Chrome/WASM,
+in /tmp/connectanum-write-completion-verify.log. Prior turn is progress: committed
+and pushed native producer leases, implemented actual writer guards/barriers and
+Dart receipts, and completed full local verification. Next is combined lending
+through native network fan-out and all remaining milestone work.
+
+Focused Qwen network-test planning completes. Its suggestion that producer-wait
+timeout abandons a write is incorrect: wait only reports cleanup readiness or a
+timeout. Likewise quota cannot return while an exported owner remains alive.
+The real test uses socket disconnect/runtime shutdown for abandonment and keeps
+producer cleanup as a separate final-reference boundary.

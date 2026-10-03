@@ -1,6 +1,7 @@
 /// VM-only initialized native-owned storage and guarded FlatBuffers builders.
 library;
 
+import 'dart:async';
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
@@ -68,6 +69,71 @@ abstract interface class NativeBufferTransport {
     NativeOwnedBuffer buffer, {
     bool transfer = false,
   });
+
+  NativeWriteReceipt sendEncodedNativeBufferTracked(
+    NativeOwnedBuffer buffer, {
+    bool transfer = false,
+  });
+
+  /// Flush everything accepted before this call in the native writer queue.
+  /// Requires the write-receipt ABI; an abandoned barrier fails explicitly.
+  Future<void> drainWrites();
+}
+
+enum NativeWriteOutcome { pending, written, abandoned }
+
+/// Observes local native writing, independently of payload release or peer ACK.
+/// Explicit disposal returns bounded receipt capacity and does not cancel a send.
+final class NativeWriteReceipt implements ffi.Finalizable {
+  NativeWriteReceipt._(this._api, this._id) {
+    try {
+      _api._receiptFinalizer.attach(
+        this,
+        ffi.Pointer.fromAddress(_id),
+        detach: this,
+      );
+    } catch (_) {
+      _api._receiptRelease(_id);
+      rethrow;
+    }
+  }
+
+  final NativeBufferAllocator _api;
+  final int _id;
+  bool _disposed = false;
+
+  NativeWriteOutcome get outcome {
+    if (_disposed) throw StateError('Native write receipt is disposed');
+    final state = _api._receiptState(_id);
+    _check(state);
+    if (state >= NativeWriteOutcome.values.length) {
+      throw StateError('Invalid native write outcome $state');
+    }
+    return NativeWriteOutcome.values[state];
+  }
+
+  /// A timeout stops observation; it does not cancel queued/active writing.
+  Future<NativeWriteOutcome> wait({Duration? timeout}) async {
+    if (timeout != null && timeout.isNegative) {
+      throw ArgumentError.value(timeout, 'timeout', 'Must not be negative');
+    }
+    final elapsed = Stopwatch()..start();
+    while (true) {
+      final state = outcome;
+      if (state != NativeWriteOutcome.pending) return state;
+      if (timeout != null && elapsed.elapsed >= timeout) {
+        throw TimeoutException('Native write is still pending', timeout);
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _api._receiptFinalizer.detach(this);
+    _check(_api._receiptRelease(_id));
+  }
 }
 
 final class NativeBufferException implements Exception {
@@ -130,6 +196,11 @@ final class NativeBufferAllocator {
         .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
     _send = library.lookupFunction<_SendN, _SendD>(symbols[9]);
     _supported = true;
+    _loadExternalTokens(library);
+    _loadWriteCompletion(library);
+  }
+
+  void _loadExternalTokens(ffi.DynamicLibrary library) {
     const externalSymbols = [
       'ct_external_lease_abi_version',
       'ct_external_buffer_store_identity',
@@ -154,8 +225,40 @@ final class NativeBufferAllocator {
     _externalSupported = true;
   }
 
+  static final _receiptLibraryFinalizers = <int, ffi.NativeFinalizer>{};
+
+  void _loadWriteCompletion(ffi.DynamicLibrary library) {
+    const symbols = [
+      'ct_write_receipt_abi_version',
+      'ct_owned_buffer_send_tracked',
+      'ct_connection_drain_writes',
+      'ct_write_receipt_state',
+      'ct_write_receipt_release',
+      'ct_write_receipt_finalizer',
+    ];
+    if (!symbols.every(library.providesSymbol)) return;
+    if (library.lookupFunction<_VersionN, _VersionD>(symbols[0])() != 1) return;
+    _sendTracked = library.lookupFunction<_SendN, _SendD>(symbols[1]);
+    _drainWrites = library.lookupFunction<_ReleaseN, _ReleaseD>(symbols[2]);
+    _receiptState = library.lookupFunction<_ReleaseN, _ReleaseD>(symbols[3]);
+    _receiptRelease = library.lookupFunction<_ReleaseN, _ReleaseD>(symbols[4]);
+    _receiptFinalizer = _receiptLibraryFinalizers.putIfAbsent(
+      _identity,
+      () => ffi.NativeFinalizer(
+        library.lookup<ffi.NativeFinalizerFunction>(symbols[5]),
+      ),
+    );
+    _writeCompletionSupported = true;
+  }
+
   bool _supported = false;
   bool _externalSupported = false;
+  bool _writeCompletionSupported = false;
+  late final _SendD _sendTracked;
+  late final _ReleaseD _drainWrites;
+  late final _ReleaseD _receiptState;
+  late final _ReleaseD _receiptRelease;
+  late final ffi.NativeFinalizer _receiptFinalizer;
   late final ffi.Pointer<ffi.Void> _externalIdentity;
   late final int _identity;
   late final _AllocateD _allocate;
@@ -173,6 +276,15 @@ final class NativeBufferAllocator {
 
   /// Complete producer-lease ABI v1 and native token adoption are available.
   bool get supportsExternalTokens => _externalSupported;
+
+  bool get supportsWriteCompletion => _writeCompletionSupported;
+
+  void _requireWriteCompletion() {
+    _require();
+    if (!_writeCompletionSupported) {
+      throw UnsupportedError('Native write-receipt ABI v1 is unavailable');
+    }
+  }
 
   /// Claims one frozen handle published by a trusted native integration.
   /// `token` must point to initialized, writable [NativeBufferToken] storage.
@@ -332,6 +444,56 @@ final class NativeBufferAllocator {
     final submitted = transfer ? buffer : buffer.retain();
     final handle = submitted._handle.consume();
     _check(_send(connectionId, handle));
+  }
+
+  /// A positive receipt reports queue acceptance. Its Written outcome requires
+  /// a complete write and flush. Transfers are consumed on native rejection,
+  /// including receipt quota exhaustion; retained sends preserve the original.
+  NativeWriteReceipt sendTracked(
+    int connectionId,
+    NativeOwnedBuffer buffer, {
+    bool transfer = false,
+  }) {
+    _requireWriteCompletion();
+    RangeError.checkValueInInterval(
+      connectionId,
+      1,
+      0x7fffffff,
+      'connectionId',
+    );
+    buffer._handle.check();
+    if (buffer._handle.api._identity != _identity) {
+      throw ArgumentError('Buffer belongs to a different native library');
+    }
+    final submitted = transfer ? buffer : buffer.retain();
+    final receipt = _sendTracked(connectionId, submitted._handle.consume());
+    _check(receipt);
+    if (receipt == 0) throw StateError('Native writer returned no receipt');
+    return NativeWriteReceipt._(this, receipt);
+  }
+
+  Future<void> drainWrites(int connectionId, {Duration? timeout}) async {
+    _requireWriteCompletion();
+    RangeError.checkValueInInterval(
+      connectionId,
+      1,
+      0x7fffffff,
+      'connectionId',
+    );
+    if (timeout != null && timeout.isNegative) {
+      throw ArgumentError.value(timeout, 'timeout', 'Must not be negative');
+    }
+    final id = _drainWrites(connectionId);
+    _check(id);
+    if (id == 0) throw StateError('Native writer returned no barrier receipt');
+    final receipt = NativeWriteReceipt._(this, id);
+    try {
+      if (await receipt.wait(timeout: timeout) != NativeWriteOutcome.written) {
+        throw StateError('Native writer abandoned the queued flush barrier');
+      }
+    } finally {
+      receipt.dispose();
+    }
   }
 
   Uint8List _bytes(_OwnedHandle handle) {

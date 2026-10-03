@@ -136,6 +136,23 @@ abstract class _NativeTransportBase extends AbstractTransport
   }
 
   @override
+  NativeWriteReceipt sendEncodedNativeBufferTracked(
+    NativeOwnedBuffer buffer, {
+    bool transfer = false,
+  }) {
+    final id = _connectionId;
+    if (id == null) throw StateError('Transport is not connected.');
+    return nativeBuffers.sendTracked(id, buffer, transfer: transfer);
+  }
+
+  @override
+  Future<void> drainWrites() {
+    final id = _connectionId;
+    if (id == null) throw StateError('Transport is not connected.');
+    return nativeBuffers.drainWrites(id);
+  }
+
+  @override
   Future<void> open({Duration? pingInterval}) async {
     if (isOpen) {
       return;
@@ -219,6 +236,7 @@ abstract class _NativeTransportBase extends AbstractTransport
   }
 
   @override
+  /// Legacy event-loop yield. Use [drainWrites] to observe native writer flush.
   Future<void> drain() => Future<void>.delayed(Duration.zero);
 
   Future<void> _pumpMessages(int connectionId) async {

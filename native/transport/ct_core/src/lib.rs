@@ -65,6 +65,11 @@ mod protocol;
 mod rawsocket;
 mod tls;
 mod wamp;
+mod write_completion;
+#[cfg(test)]
+mod write_completion_tests;
+use write_completion::WriteGuard;
+pub use write_completion::{WriteOutcome, WriteReceipt};
 
 use config::{HttpRouteMatch, TransportProtocol};
 use quinn::{
@@ -3117,15 +3122,27 @@ struct OutboundFrame {
     deferred_segment: Option<Box<dyn FnOnce() -> Result<Bytes, String> + Send + 'static>>,
     file_segment: Option<OutboundFileSegment>,
     suffix_segments: Vec<Bytes>,
+    completion: Option<WriteGuard>,
 }
 
 impl OutboundFrame {
+    fn tracked(mut self) -> (Self, WriteReceipt) {
+        let (guard, receipt) = WriteGuard::new();
+        self.completion = Some(guard);
+        (self, receipt)
+    }
+
+    fn barrier() -> Self {
+        Self::control(0xff, Bytes::new())
+    }
+
     fn message(payload: Bytes) -> Self {
         let len = payload.len();
         Self {
             frame_type: 0,
             payload_len: len,
             segments: vec![payload],
+            completion: None,
             deferred_segment: None,
             file_segment: None,
             suffix_segments: Vec::new(),
@@ -3138,6 +3155,7 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len,
             segments,
+            completion: None,
             deferred_segment: None,
             file_segment: None,
             suffix_segments: Vec::new(),
@@ -3173,6 +3191,7 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len,
             segments: vec![prefix],
+            completion: None,
             deferred_segment: Some(Box::new(prepare)),
             file_segment: None,
             suffix_segments: if suffix.is_empty() {
@@ -3203,6 +3222,7 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len,
             segments: vec![prefix],
+            completion: None,
             deferred_segment: None,
             file_segment: Some(OutboundFileSegment {
                 file,
@@ -3220,6 +3240,7 @@ impl OutboundFrame {
             frame_type,
             payload_len: len,
             segments: vec![payload],
+            completion: None,
             deferred_segment: None,
             file_segment: None,
             suffix_segments: Vec::new(),
@@ -3356,10 +3377,10 @@ async fn resolve_deferred_segment(mut frame: OutboundFrame) -> Result<OutboundFr
     Ok(frame)
 }
 
-fn spawn_connection_writer(
+fn spawn_connection_writer<W: AsyncWrite + Unpin + Send + 'static>(
     handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
-    mut writer: IoWriteHalf,
+    mut writer: W,
     file_sender: Option<rawsocket::RawSocketFileSender>,
     max_message_size_exponent: u32,
     mut rx: mpsc::Receiver<OutboundFrame>,
@@ -3370,7 +3391,7 @@ fn spawn_connection_writer(
         let mut file_scratch = Vec::new();
         let mut encoded_file_scratch = Vec::new();
         'writer: while let Some(frame) = rx.recv().await {
-            let frame = match resolve_deferred_segment(frame).await {
+            let mut frame = match resolve_deferred_segment(frame).await {
                 Ok(frame) => frame,
                 Err(err) => {
                     eprintln!(
@@ -3380,6 +3401,15 @@ fn spawn_connection_writer(
                     break;
                 }
             };
+            if frame.frame_type == 0xff {
+                if writer.flush().await.is_err() {
+                    break;
+                }
+                if let Some(completion) = frame.completion.take() {
+                    completion.written();
+                }
+                continue;
+            }
             if frame.frame_type > 2 {
                 continue;
             }
@@ -3469,6 +3499,9 @@ fn spawn_connection_writer(
                     );
                 }
                 break;
+            }
+            if let Some(completion) = frame.completion.take() {
+                completion.written();
             }
         }
         let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
@@ -3652,11 +3685,11 @@ fn spawn_websocket_reader(
     task.abort_handle()
 }
 
-fn spawn_websocket_writer(
+fn spawn_websocket_writer<W: AsyncWrite + Unpin + Send + 'static>(
     handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
     serializer: rawsocket::Serializer,
-    mut writer: IoWriteHalf,
+    mut writer: W,
     mut rx: mpsc::Receiver<OutboundFrame>,
     close_tx: UnboundedSender<ConnectionTaskSignal>,
     mask_outbound_frames: bool,
@@ -3668,7 +3701,7 @@ fn spawn_websocket_writer(
         let mut file_scratch = Vec::new();
         let mut encoded_file_scratch = Vec::new();
         while let Some(frame) = rx.recv().await {
-            let frame = match resolve_deferred_segment(frame).await {
+            let mut frame = match resolve_deferred_segment(frame).await {
                 Ok(frame) => frame,
                 Err(err) => {
                     eprintln!(
@@ -3679,6 +3712,16 @@ fn spawn_websocket_writer(
                     break;
                 }
             };
+            if frame.frame_type == 0xff {
+                if writer.flush().await.is_err() {
+                    write_failed = true;
+                    break;
+                }
+                if let Some(completion) = frame.completion.take() {
+                    completion.written();
+                }
+                continue;
+            }
             let is_close_frame = frame.frame_type == 3;
             let opcode = match frame.frame_type {
                 0 => match serializer {
@@ -3735,6 +3778,9 @@ fn spawn_websocket_writer(
                 }
                 write_failed = true;
                 break;
+            }
+            if let Some(completion) = frame.completion.take() {
+                completion.written();
             }
             if is_close_frame {
                 close_sent = true;
@@ -4293,8 +4339,8 @@ fn encode_websocket_close_payload(code: Option<u16>, reason: &str) -> Bytes {
 }
 
 #[cfg(test)]
-async fn write_websocket_frame(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_frame<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     payload_len: usize,
     segments: &[Bytes],
@@ -4313,8 +4359,8 @@ async fn write_websocket_frame(
 }
 
 #[cfg(test)]
-async fn write_websocket_frame_client(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_frame_client<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     payload_len: usize,
     segments: &[Bytes],
@@ -4332,8 +4378,8 @@ async fn write_websocket_frame_client(
     .await
 }
 
-async fn write_websocket_frame_mode(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_frame_mode<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     payload_len: usize,
     segments: &[Bytes],
@@ -4387,8 +4433,8 @@ async fn write_websocket_frame_mode(
     .await
 }
 
-async fn write_websocket_continuation_frames(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_continuation_frames<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     segments: &[Bytes],
     mask_payload: bool,
@@ -4465,8 +4511,8 @@ async fn write_websocket_continuation_frames(
     flush_websocket_frame_batch(writer, mask_scratch).await
 }
 
-async fn flush_websocket_frame_batch(
-    writer: &mut IoWriteHalf,
+async fn flush_websocket_frame_batch<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     write_scratch: &mut Vec<u8>,
 ) -> io::Result<()> {
     if write_scratch.is_empty() {
@@ -4477,8 +4523,8 @@ async fn flush_websocket_frame_batch(
     Ok(())
 }
 
-async fn write_websocket_frame_fragment_mode(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_frame_fragment_mode<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     fin: bool,
     payload_len: usize,
@@ -4493,8 +4539,8 @@ async fn write_websocket_frame_fragment_mode(
     write_unmasked_websocket_frame(writer, &header, payload, mask_scratch).await
 }
 
-async fn write_unmasked_websocket_frame(
-    writer: &mut IoWriteHalf,
+async fn write_unmasked_websocket_frame<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     header: &[u8],
     payload: &[u8],
     write_scratch: &mut Vec<u8>,
@@ -4540,8 +4586,8 @@ async fn write_unmasked_websocket_frame(
     writer.write_all(payload).await
 }
 
-async fn write_masked_websocket_frame(
-    writer: &mut IoWriteHalf,
+async fn write_masked_websocket_frame<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     header: &[u8],
     payload: &[u8],
     mask: &[u8; 4],
@@ -4629,8 +4675,8 @@ fn xor_websocket_mask(payload: &mut [u8], mask: &[u8; 4], offset: usize) {
     }
 }
 
-async fn write_websocket_payload(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_payload<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     payload: &[u8],
     mask: Option<&[u8; 4]>,
     payload_offset: &mut usize,
@@ -4658,8 +4704,8 @@ async fn write_websocket_payload(
     Ok(())
 }
 
-async fn write_file_segment_buffered(
-    writer: &mut IoWriteHalf,
+async fn write_file_segment_buffered<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     segment: &OutboundFileSegment,
     file_scratch: &mut Vec<u8>,
     encoded_file_scratch: &mut Vec<u8>,
@@ -4785,8 +4831,8 @@ fn read_file_exact_at(_file: &File, _offset: u64, _buffer: &mut [u8]) -> io::Res
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn write_websocket_file_frame_mode(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_file_frame_mode<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     payload_len: usize,
     prefix_segments: &[Bytes],
@@ -5753,6 +5799,28 @@ pub fn send_wamp_message(connection_id: ConnectionId, payload: Bytes) -> Result<
             .registry
             .enqueue_frame(connection_id, OutboundFrame::message(payload))
     })
+}
+
+/// Enqueues a frame and observes local full-frame write plus flush.
+/// Queue rejection is an error; completion never implies peer acknowledgement
+/// or the release of other retained payload references.
+pub fn send_wamp_message_tracked(
+    connection_id: ConnectionId,
+    payload: Bytes,
+) -> Result<WriteReceipt, Error> {
+    let (frame, receipt) = OutboundFrame::message(payload).tracked();
+    RuntimeManager::global()
+        .with_state(|state| state.registry.enqueue_frame(connection_id, frame))?;
+    Ok(receipt)
+}
+
+/// A FIFO local flush barrier, without emitting an additional protocol frame.
+/// Shutdown or a failed earlier write abandons this receipt.
+pub fn drain_wamp_writes(connection_id: ConnectionId) -> Result<WriteReceipt, Error> {
+    let (frame, receipt) = OutboundFrame::barrier().tracked();
+    RuntimeManager::global()
+        .with_state(|state| state.registry.enqueue_frame(connection_id, frame))?;
+    Ok(receipt)
 }
 
 /// Sends an HTTP response to the client. Currently unsupported.
