@@ -13,12 +13,21 @@ import 'package:test/test.dart';
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  test('malformed FlatBuffers frame fails as malformed input', () {
+    expect(
+      () => bindMessage(
+        NativeMessageSerializer.flatbuffers,
+        Uint8List.fromList([0xff]),
+      ),
+      throwsFormatException,
+    );
+  });
+
   _bindingBoundaryContracts();
   _metadataDispatchContracts();
   _validFrameContracts();
   for (final serializer in [
     NativeMessageSerializer.ubjson,
-    NativeMessageSerializer.flatbuffers,
   ]) {
     test('unsupported inbound $serializer fails explicitly', () {
       expect(
@@ -29,7 +38,6 @@ void main() {
   }
   for (final serializer in [
     NativeMessageSerializer.ubjson,
-    NativeMessageSerializer.flatbuffers,
   ]) {
     test(
       'unsupported $serializer fails when a deferred fragment is accessed',

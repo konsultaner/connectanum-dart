@@ -4,6 +4,8 @@ import '../../message/abstract_message.dart';
 import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
 import 'message_reader.dart';
+import 'cbor_validation.dart';
+import 'dictionary_retention.dart';
 import 'message_writer.dart';
 import 'runtime.dart';
 
@@ -28,6 +30,26 @@ class Serializer extends AbstractSerializer {
   @override
   AbstractMessage? deserialize(Uint8List? message) =>
       message == null ? null : readWampFlatBufferMessage(message);
+
+  /// Decode a validated native metadata dictionary without reading application
+  /// vectors. WAMP integers retain their portable value across Dart platforms.
+  Map<String, dynamic> deserializeMetadata(Uint8List encodedDictionary) =>
+      decodeFlatBufferMetadata(encodedDictionary);
+
+  /// Decode a bounded application CBOR span when a native consumer accesses it.
+  /// This preserves the same integer and binary values as [deserialize].
+  Object? deserializeApplication(Uint8List encodedValue) =>
+      decodeWampFlatBufferApplication(encodedValue);
+
+  /// Preserve the original dictionary when a native bridge reconstructs a
+  /// message from routing fields. Application vectors are never materialized.
+  void retainMetadata(AbstractMessage message, Uint8List encodedDictionary) {
+    retainWampFlatBufferDictionary(
+      message,
+      encodedDictionary,
+      decodeFlatBufferMetadata(encodedDictionary),
+    );
+  }
 
   /// A typed FlatBuffers PPT payload is an application-provided byte buffer.
   /// Its schema belongs to the application; this codec does not interpret it.

@@ -431,5 +431,21 @@ message-info and exported-view lifetime contracts. It does not rebuild ordinary
 FlatBuffers dictionaries. HEARTBEAT constructs a small CBOR metadata wrapper
 containing its dictionary and present control fields, including explicit zero.
 This preserves the existing C structure layout. Metadata delivery alone does not
-enable native factories: Dart/router fragment binding, opaque-payload delivery
-and negotiated profile/version guards remain required.
+enable native factories: opaque-payload delivery and negotiated profile/version
+guards remain required.
+
+### Dart native dictionary and application binding
+
+Both native Dart consumers bind from exported routing metadata without requiring
+a complete frame. Reconstructed messages retain the original dictionary for
+lossless FlatBuffers re-encoding, including fields absent from a public model.
+Native application spans remain encoded until accessed, and use the same bounded
+CBOR normalization as the public codec. Portable integers, nested values and
+binary data therefore have the same meaning across both paths. Metadata maps
+remain subject to the 1-MiB limit. HEARTBEAT uses its small native control wrapper.
+The runtime's owned-view exporter or metadata copy must own every retained span;
+a bare reference to borrowed database memory does not extend its lifetime.
+
+The current binding stage does not expose the native opaque payload vector.
+Factories remain disabled pending that delivery path and negotiated profile/
+version guards; no complete native-session or performance-parity claim is made.

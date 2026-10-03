@@ -16,6 +16,7 @@ import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
 import '../support/native_lib.dart';
+import '../support/flatbuffers_message_bindings.dart';
 
 typedef _EnqueueNative =
     ffi.Int64 Function(ffi.Int32, ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
@@ -36,6 +37,7 @@ void main() {
       ? null
       : ffi.DynamicLibrary.open(legacyPath);
   final wide = library?.providesSymbol('ct_test_message_enqueue_wide') ?? false;
+  flatbuffersMessageBindingContracts(library);
 
   test('client, router and exporter select the same complete family', () {
     final expected = NativeMessageHandleAbi.detect(library!);

@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:cbor/cbor.dart' as cbor;
+import 'package:connectanum_core/connectanum_core.dart' as core;
+import 'package:connectanum_core/src/serializer/flatbuffers/frame.dart'
+    show readWampFlatBufferFrame;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
 import 'package:connectanum_core/json_serializer.dart' as json;
 import 'package:test/test.dart';
@@ -8,6 +12,79 @@ import 'package:test/test.dart';
 void main() {
   final flatCodec = flat.Serializer();
   final jsonCodec = json.Serializer();
+  Uint8List metadata(Object? value) => Uint8List.fromList(
+    cbor.cbor.encode(cbor.CborValue(value)),
+  );
+  test('native metadata decoding preserves portable integer principals', () {
+    const ids = [1, 4294967296, 9007199254740992];
+    expect(flatCodec.deserializeMetadata(metadata({'exclude': ids})), {
+      'exclude': ids,
+    });
+  });
+  test('native application decoding preserves nested integers and bytes', () {
+    final value = [
+      9007199254740992,
+      {'nested': 9007199254740992},
+      Uint8List.fromList([0, 255]),
+    ];
+    expect(flatCodec.deserializeApplication(metadata(value)), value);
+    expect(
+      () => flatCodec.deserializeApplication(Uint8List.fromList([0xff])),
+      throwsFormatException,
+    );
+  });
+  test('native metadata rejects invalid dictionary boundaries', () {
+    for (final bytes in [
+      Uint8List.fromList([0x80]),
+      Uint8List.fromList([0xa1]),
+      Uint8List.fromList([0xa1, 1, 0]),
+      Uint8List.fromList([0xa2, 0x61, 0x78, 1, 0x61, 0x78, 2]),
+      Uint8List(1048577),
+    ]) {
+      expect(() => flatCodec.deserializeMetadata(bytes), throwsFormatException);
+    }
+  });
+  test('native dictionary retention leaves application vectors encoded', () {
+    final message = core.Call(
+      42,
+      'com.proc',
+      options: core.CallOptions(timeout: 123),
+    );
+    final args = Uint8List.fromList([0x81, 0x18, 0x2a]);
+    final kwargs = Uint8List.fromList([0xa1, 0x61, 0x6b, 1]);
+    var reads = 0;
+    message.setLazyPayload(
+      argumentsBytes: args,
+      argumentsDecoder: (_) {
+        reads++;
+        throw StateError('Payload was decoded');
+      },
+      argumentsKeywordsBytes: kwargs,
+      argumentsKeywordsDecoder: (_) {
+        reads++;
+        throw StateError('Payload was decoded');
+      },
+      encoding: core.LazyPayloadEncoding.cbor,
+    );
+    final dictionary = metadata({
+      'timeout': 123,
+      'x_vendor': {'enabled': true},
+    });
+    flatCodec.retainMetadata(message, dictionary);
+    flatCodec.retainMetadata(message, dictionary);
+    message.options!.timeout = 321;
+    final frame = readWampFlatBufferFrame(flatCodec.serialize(message));
+    expect(frame.dictionary, {
+      'timeout': 321,
+      'x_vendor': {'enabled': true},
+    });
+    expect(identical(message.debugEncodedArgumentsBytes, args), isTrue);
+    expect(
+      identical(message.debugEncodedArgumentsKeywordsBytes, kwargs),
+      isTrue,
+    );
+    expect(reads, 0);
+  });
   const ppt = {
     'ppt_scheme': 'x_profile',
     'ppt_serializer': 'flatbuffers',

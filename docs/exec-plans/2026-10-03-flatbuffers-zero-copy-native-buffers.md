@@ -867,3 +867,63 @@ A temporary three-package overlay passes all 50 actual native-info binding paths
 after using bounded metadata decoding to preserve the portable 2^53 principal ID.
 The overlay is preparatory evidence only; persistent integration tests and the
 actual worktree change remain next. All ten issues remain open.
+
+## Dart native binding stage
+
+Delivery/CI repair is committed/pushed as dff1fba0 and draft PR #105 updated.
+Apply core bounded metadata/application helpers and reuse them in both native
+binders. Full-frame fallback uses the public codec. Metadata-only paths retain
+unknown dictionaries on the final materialized model and keep encoded payload
+spans unchanged. Preserve HEARTBEAT's existing control wrapper.
+
+The real C ABI corpus covers 25 kinds through both consumers, metadata-only
+binding, repeated retention and later model edits. The additional 2^53/nested/
+binary application case first fails all three paths with incompatible BigInt
+values; sharing the core application decoder repairs it. All 84 corpus cases
+and all 3,810 focused tests pass. The 28 public metadata/application checks pass
+on VM, Chrome JS and WASM. Analysis and diff checks pass.
+
+Qwen's bounded review completes, but both findings are contradicted by inspected
+source: deserialize returns null only for null input, and both binders retain
+metadata. Intentional bounded ownership is not established as a leak. GLM's
+prior preparatory identity/double-retention suggestions are covered by real
+materialization, repeat-retention and mutation tests; a referenced message cannot
+be collected. No unsupported claim is accepted from either advisory.
+
+Fresh full verification 52267 is active at
+/tmp/connectanum-flatbuffers-binding-verify.log. Product source stays frozen;
+only progress documentation changes afterward. Supporting fast37810 overlaps
+binding edits and remains supporting evidence. Opaque delivery, profile/version
+guards, factories, live flows, performance and release/consumer work remain.
+
+Supporting fast37810 exits 0 but overlaps the binding stage; final proof remains
+verification52267. The pinned typed CALL fixture has a 136-byte reference opaque
+vector. The current C
+ABI exports neither encoded args nor binary info for it and rejects the proposed
+opaque selector 5 with -4. Probe logs: /tmp/connectanum-flatbuffers-opaque-fail-first.log
+and /tmp/connectanum-flatbuffers-opaque-reference.txt. No product source changes
+follow the binding verification launch. Add explicit opaque presence/span ownership
+next; an opaque application buffer cannot be treated as CBOR arguments.
+
+An independent real C-ABI-info -> current router binder probe confirms the
+functional opaque loss: expected transparent vector length 136, actual null.
+Log: /tmp/connectanum-flatbuffers-opaque-binding-fail-first.log.
+Prepared next-stage Rust source and focused ownership tests remain outside the
+worktree in /tmp/connectanum-flatbuffers-opaque-stage (not applied or compiled).
+They add an explicit presence flag, byte selector 5 and an additive native binding
+version, retaining the original allocation through exported-view owners. Wire
+negotiation remains independently required. Apply only after the frozen binding
+verification has a terminal result; then extend both Dart runtime/binding paths,
+older-library guards and real opaque delivery/lifetime coverage.
+
+2026-10-04: Fresh binding verification52267 exits 0, with product source
+unchanged throughout the run. The binding stage is ready for commit/push.
+The independent opaque Rust overlay compiles and passes two focused tests:
+all seven payload-bearing kinds preserve empty/nonempty presence and the
+original allocation; narrow/wide exported owners survive message-handle release.
+The first overlay build lacks public benchmark TLS fixtures; copying those
+fixtures into the correctly laid-out temporary overlay repairs its build without
+changing the worktree. Prototype log: /tmp/connectanum-flatbuffers-opaque-native-overlay.log.
+Its library build is active in session64702 at
+/tmp/connectanum-flatbuffers-opaque-overlay-library.log. Actual opaque source,
+Dart runtime integration and full verification remain next. All ten issues stay open.

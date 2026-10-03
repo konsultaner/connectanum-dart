@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/json_serializer.dart' show decodeBase64Bytes;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
@@ -123,6 +124,9 @@ AbstractMessage _bindDecodedPayload(
   NativeMessageSerializer serializer,
   Uint8List bytes,
 ) {
+  if (serializer == NativeMessageSerializer.flatbuffers) {
+    return flatbuffers.Serializer().deserialize(bytes)!;
+  }
   final decoded = _decodePayload(serializer, bytes);
   if (decoded is! List) {
     throw ArgumentError('Decoded WAMP message is not an array: $decoded');
@@ -134,6 +138,27 @@ AbstractMessage _bindDecodedPayload(
 }
 
 AbstractMessage? _bindFromMetadata(
+  NativeMessageSerializer serializer,
+  NativeMessageMetadata metadata, {
+  Uint8List? argsBytes,
+  Uint8List? kwargsBytes,
+}) {
+  final message = _bindFromMetadataFields(
+    serializer,
+    metadata,
+    argsBytes: argsBytes,
+    kwargsBytes: kwargsBytes,
+  );
+  if (message != null &&
+      serializer == NativeMessageSerializer.flatbuffers &&
+      metadata.messageCode != MessageTypes.codeHeartbeat &&
+      metadata.detailsBytes != null) {
+    flatbuffers.Serializer().retainMetadata(message, metadata.detailsBytes!);
+  }
+  return message;
+}
+
+AbstractMessage? _bindFromMetadataFields(
   NativeMessageSerializer serializer,
   NativeMessageMetadata metadata, {
   Uint8List? argsBytes,
@@ -446,6 +471,9 @@ Map<String, dynamic>? _decodeOptionalMapFragment(
   if (bytes == null) {
     return null;
   }
+  if (serializer == NativeMessageSerializer.flatbuffers) {
+    return flatbuffers.Serializer().deserializeMetadata(bytes);
+  }
   final decoded = _decodeFragment(serializer, bytes);
   if (decoded == null) {
     return null;
@@ -677,7 +705,7 @@ LazyPayloadEncoding? _lazyPayloadEncodingForSerializer(
     NativeMessageSerializer.messagePack => LazyPayloadEncoding.messagePack,
     NativeMessageSerializer.cbor => LazyPayloadEncoding.cbor,
     NativeMessageSerializer.ubjson => null,
-    NativeMessageSerializer.flatbuffers => null,
+    NativeMessageSerializer.flatbuffers => LazyPayloadEncoding.cbor,
   };
 }
 
@@ -916,8 +944,9 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
       return cbor.cborDecode(bytes).toObject();
-    case NativeMessageSerializer.ubjson:
     case NativeMessageSerializer.flatbuffers:
+      return flatbuffers.Serializer().deserializeApplication(bytes);
+    case NativeMessageSerializer.ubjson:
       throw UnsupportedError(
         'Serializer ${serializer.name} is not supported for payload decoding',
       );

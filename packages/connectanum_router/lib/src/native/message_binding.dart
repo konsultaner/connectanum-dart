@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
@@ -49,6 +50,13 @@ AbstractMessage bindMessage(
     if (metadataBound != null) {
       return metadataBound;
     }
+  }
+  if (serializer == NativeMessageSerializer.flatbuffers) {
+    final message = flatbuffers.Serializer().deserialize(bytes)!;
+    if (message is AbstractMessageWithPayload) {
+      _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
+    }
+    return message;
   }
   final decoded = _decodePayload(serializer, bytes);
   if (decoded is! List) {
@@ -370,6 +378,12 @@ AbstractMessage? bindMessageFromMetadata(
   if (message is AbstractMessageWithPayload) {
     _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
   }
+  if (message != null &&
+      serializer == NativeMessageSerializer.flatbuffers &&
+      messageCode != MessageTypes.codeHeartbeat &&
+      detailsBytes != null) {
+    flatbuffers.Serializer().retainMetadata(message, detailsBytes);
+  }
   return message;
 }
 
@@ -567,7 +581,7 @@ LazyPayloadEncoding? _lazyPayloadEncodingForSerializer(
     NativeMessageSerializer.messagePack => LazyPayloadEncoding.messagePack,
     NativeMessageSerializer.cbor => LazyPayloadEncoding.cbor,
     NativeMessageSerializer.ubjson => null,
-    NativeMessageSerializer.flatbuffers => null,
+    NativeMessageSerializer.flatbuffers => LazyPayloadEncoding.cbor,
   };
 }
 
@@ -685,8 +699,9 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
       return _decodeCborBytes(bytes);
-    case NativeMessageSerializer.ubjson:
     case NativeMessageSerializer.flatbuffers:
+      return flatbuffers.Serializer().deserializeApplication(bytes);
+    case NativeMessageSerializer.ubjson:
       throw UnsupportedError(
         'Serializer ${serializer.name} is not supported for payload decoding',
       );
@@ -699,6 +714,9 @@ Map<String, dynamic>? _decodeOptionalMapFragment(
 ) {
   if (bytes == null || bytes.isEmpty) {
     return null;
+  }
+  if (serializer == NativeMessageSerializer.flatbuffers) {
+    return flatbuffers.Serializer().deserializeMetadata(bytes);
   }
   final decoded = _decodeFragment(serializer, bytes);
   if (decoded == null) {

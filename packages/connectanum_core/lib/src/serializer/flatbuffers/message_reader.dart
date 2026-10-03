@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'dictionary_retention.dart';
+import 'cbor_validation.dart';
 
 import 'package:cbor/cbor.dart';
 import 'package:connectanum_core/connectanum_core.dart';
@@ -204,6 +205,13 @@ ResultDetails _resultDetails(Map<String, dynamic> map) => ResultDetails(
   pptKeyId: map['ppt_keyid'] as String?,
   custom: _copyWithoutKeys(map, _resultDetailKeys),
 );
+
+/// Decode a native application span with the same limits and value semantics
+/// as the public FlatBuffers reader. Decoding happens only on application access.
+Object? decodeWampFlatBufferApplication(Uint8List bytes) {
+  validateFlatBufferCbor(bytes);
+  return _decodeApplication(bytes);
+}
 
 Object? _decodeApplication(Uint8List bytes) {
   try {

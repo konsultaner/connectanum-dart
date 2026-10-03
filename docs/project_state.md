@@ -1,13 +1,13 @@
 # Project State
 
-Last updated: 2026-10-03
+Last updated: 2026-10-04
 Current branch: `codex/flatbuffers-zero-copy`
 Current milestone: FlatBuffers and zero-copy native buffers (GitHub milestone 1).
 Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
-Draft PR #105 at 07a81127 contains foundation, package-constraint repair,
+Draft PR #105 at dff1fba0 contains foundation, package-constraint repair,
 native-owned buffers, producer leases, write completion and native network
 lifetime coverage, structural validation, direct model writing, and the public
 Dart codec with mutable-model metadata retention. The committed native codec
@@ -15,6 +15,24 @@ stage adds a bounded Rust parser and direct encoder for all 25 native WAMP
 models, transparent payload storage, and public Dart/Rust codec interoperability.
 Native transport factories, FFI/router integration and profile negotiation remain
 incomplete; the codec alone does not establish live FlatBuffers support.
+
+Verified native dictionary delivery and CI-repair work is committed/pushed as
+dff1fba0. Delivery bin/verify 5336 exits 0 with unchanged product source.
+The current uncommitted Dart native/router binding stage preserves metadata on
+the final model and uses bounded core decoding for native CBOR fragments.
+A real C ABI regression covers all 25 message kinds in both consumers plus
+metadata-only delivery and a large-integer/binary application case (84 cases).
+All 3,810 focused regression tests pass; 28 metadata/application tests pass on
+Chrome JS and WASM. Analysis and diff checks pass. The large-payload test first
+fails all three paths on a BigInt/portable-int mismatch, then passes with the
+shared core decoder. Qwen completes a narrow review; its nullable-deserialize
+and asymmetric-retention findings are rejected against source: non-null bytes
+always produce a model or FormatException, and both consumers retain metadata.
+The earlier review reaches its token limit without a completed report.
+Fresh bin/verify 52267 exits 0 at
+/tmp/connectanum-flatbuffers-binding-verify.log, with product source unchanged
+throughout. Supporting bin/test-fast 37810 exits 0 but overlaps these binding
+edits; full verification is the final current-source proof. All ten milestone issues remain open.
 
 Native focused checks pass: 17 tests, including all 25 model cases, all eight
 nullable HEARTBEAT combinations, contradictory metadata rejection, original
