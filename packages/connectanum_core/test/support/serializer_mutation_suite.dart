@@ -7,6 +7,9 @@ import '../serializer/cbor/serializer_missing_messages_test.dart'
 import '../serializer/cbor/serializer_ppt_binary_test.dart' as cbor_ppt;
 import '../serializer/cbor/serializer_test.dart' as cbor_serializer;
 import '../serializer/flatbuffers_binding_test.dart' as flatbuffers_binding;
+import '../serializer/flatbuffers_validation_test.dart'
+    as flatbuffers_validation;
+import '../serializer/flatbuffers_wire_writer_test.dart' as flatbuffers_writer;
 import '../serializer/json/binary_codec_test.dart' as json_binary;
 import '../serializer/json/serializer_test.dart' as json_serializer;
 import '../serializer/msgpack/codec_test.dart' as msgpack_codec;
@@ -41,6 +44,8 @@ void main() {
   group('CBOR PPT binary', cbor_ppt.main);
   group('CBOR serializer', cbor_serializer.main);
   group('FlatBuffers binding', flatbuffers_binding.main);
+  group('FlatBuffers validation', flatbuffers_validation.main);
+  group('FlatBuffers writer', flatbuffers_writer.main);
   group('JSON binary', json_binary.main);
   group('JSON serializer', json_serializer.main);
   group('MessagePack codec', msgpack_codec.main);

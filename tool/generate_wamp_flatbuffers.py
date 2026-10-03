@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import tempfile
 
+from wamp_flatbuffers_validation_schema import validation_schema
+
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = Path("schemas/wamp_flatbuffers")
 DART = Path("packages/connectanum_core/lib/src/serializer/flatbuffers/generated")
@@ -91,6 +93,7 @@ def generate(root, flatc, output):
     rust_license = RUST.with_name("flatbuffers_UPSTREAM_LICENSE")
     (output / rust_license).write_bytes(license)
     run([flatc, "--dart", "--gen-all", "-o", dart, schema])
+    (dart / "validation_schema.dart").write_text(validation_schema(schema.read_text()))
     for path in dart.glob("*.dart"):
         source = path.read_text()
         source = source.replace(

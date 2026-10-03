@@ -393,7 +393,9 @@
       "packages/connectanum_core/test/serializer/serializer_security_limits_test.dart",
       "packages/connectanum_core/test/serializer_challenge_welcome_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_binding_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_fixture_data.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_fixture_data.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_validation_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_wire_writer_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -433,7 +435,9 @@
       "packages/connectanum_core/test/serializer/serializer_security_limits_test.dart",
       "packages/connectanum_core/test/serializer_challenge_welcome_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_binding_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_fixture_data.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_fixture_data.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_validation_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_wire_writer_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -474,7 +478,9 @@
       "packages/connectanum_core/test/serializer_challenge_welcome_test.dart",
       "packages/connectanum_core/test/support/serializer_mutation_suite.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_binding_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_fixture_data.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_fixture_data.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_validation_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_wire_writer_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
@@ -517,7 +523,9 @@
       "packages/connectanum_core/test/serializer_challenge_welcome_test.dart",
       "packages/connectanum_core/test/support/serializer_mutation_suite.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_binding_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_fixture_data.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_fixture_data.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_validation_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_wire_writer_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"

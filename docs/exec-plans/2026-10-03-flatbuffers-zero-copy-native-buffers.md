@@ -500,3 +500,55 @@ regressions. Browser scratch runs cannot load /tmp tests through the package's
 HTTP server; rerun from the package after integrating the validator. No browser
 pass is claimed yet. Keep the running network verification snapshot stable
 before integrating these new production files.
+
+Network and completion commits are pushed through ff5cc4c7 in draft PR #105.
+The structural validator is now integrated with reproducibly generated field
+descriptors. All 53 focused tests pass on VM, JavaScript and WASM from the
+package root. Analysis is clean, all nine generator tests pass, and exact
+regeneration verifies 50 artifacts without changing existing schema/bindings or
+fixtures. The scratch browser-loader failures are resolved by that invocation.
+No working message codec or metadata/argument semantic validation is claimed.
+The first full validator-candidate bin/verify (71236) exits 1 at five complete
+serializer-inventory assertions in /tmp/connectanum-flatbuffers-validator-verify.log.
+The new test was absent from four support-file inventories and the shared suite.
+Those entries are restored without weakening checks or adding exclusions. All
+79 tooling tests and all 53 validator cases through the shared wrapper pass.
+Qwen debug identifies the same missing-inventory cause, verified against source.
+Fresh full verification restarts in
+/tmp/connectanum-flatbuffers-validator-verify-retry.log. The validator candidate
+was checked by session 67905, which exits 1 at the existing TLS-ticket harness.
+The candidate
+is uncommitted. Hosted ff5cc4c7 package dry-runs pass (37139143935);
+CI 37139143966 remains queued, without a hosted all-green claim.
+
+## Primitive writer and isolated verification
+
+The retry fails after native/client tests at the TLS harness's global runtime
+file lock. lsof identifies live PID 85257 in the separate configurable-rights
+checkout, listening on localhost:65092. Its library/runtime is unrelated to this
+candidate. A task-specific TMPDIR preserves lock coordination within this run;
+the entire TLS-ticket case then passes in
+/tmp/connectanum-flatbuffers-isolated-tls-probe.log. No other process is stopped
+and no production lock semantics, timeouts or gates are changed.
+
+The new pinned-schema writer builds each of the 42 fixture field trees directly
+into a supplied fb.Builder. It preserves same-builder byte vectors by end-relative
+offset, including growth, and rejects cross-builder references. References are
+trusted generated offsets valid only within one build, before reset. It does not
+adopt external pointers. All 46 writer tests pass on VM/JS/WASM, focused analysis
+is clean and all 79 complete-inventory tooling checks pass. The JS oversized-ID
+test uses 2^53+2, because 2^53+1 cannot be represented as a JS source literal;
+the structural verifier separately tests its exact wire bits. Qwen's broad
+writer review times out without evidence; a completed narrowed reference review
+finds no concrete bug, and the pointer-offset tests cover its remaining concerns.
+
+Public message-model projection/decoding, metadata semantics, lazy encoded
+payload integration, serializer selection and native network codecs remain
+required. This kernel is an intermediate implementation, not a substitute for
+the entire ten-issue goal. Full verification of the combined uncommitted
+validation/writer candidate is next, with isolated temporary storage.
+The combined bin/verify exits 0 in session 46508 in
+/tmp/connectanum-flatbuffers-encoding-verify.log, with TMPDIR=/tmp/connectanum-flatbuffers-verify.jr3fJ8.
+The completed source snapshot includes both the validator and primitive writer,
+all complete-inventory checks and Chrome/WASM suites. Full model projection and
+encoding are the next implementation stage; the public serializer stays disabled.

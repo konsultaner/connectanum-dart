@@ -7,8 +7,9 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
-Draft PR #105 is pushed through a93de717 with foundation, package-constraint
-repair, native-owned buffers and producer leases. Binding follow-up commit 722175ca resolves nullable
+Draft PR #105 is pushed through ff5cc4c7 with foundation, package-constraint
+repair, native-owned buffers, producer leases, write completion and native
+network lifetime coverage. Binding follow-up commit 722175ca resolves nullable
 HEARTBEAT controls and custom CHALLENGE method strings with append-only fields.
 All 51 binding tests pass on VM, Chrome JS and WASM; focused analysis, six
 schema-generator tests, exact regeneration and flatc conformance pass. Unmodified
@@ -70,7 +71,7 @@ Local Qwen/GLM lease test planning and review attempts time out without findings
 manual source inspection and executable tests remain the evidence. The smaller GLM ownership judgment also times out at 60 seconds without
 output; no successful external-lease companion judgment is claimed.
 
-Uncommitted write-receipt ABI v1 observes full native frame write and flush,
+Committed write-receipt ABI v1 observes full native frame write and flush,
 with Abandoned on rejection, preparation failure, partial write/flush failure
 or cancellation. Its 8192-entry reservation pool is independent of payload
 owners and runtime shutdown. A FIFO flush barrier emits no protocol bytes.
@@ -83,7 +84,7 @@ pass, including live tracked RawSocket/WebSocket writes, independent optional
 ABI/version/missing-symbol checks and forced GC returning receipt capacity
 without cancelling the frame. Focused analysis has no issues. Full write-completion bin/verify exits 0 in session 6724,
 /tmp/connectanum-write-completion-verify.log, including Chrome/WASM. The
-completion changes are committed as ddc2e06b; that commit is not pushed yet.
+completion changes are committed as ddc2e06b and pushed with ff5cc4c7.
 Combined native lending/network integration is now covered by a real native
 producer test on RawSocket and WebSocket, for both peer disconnect and runtime
 shutdown. One 8 MiB immutable loan backs two sends and an exported view; the
@@ -100,7 +101,38 @@ contradicted by installed DashMap source: get_mut returns RefMut holding a shard
 RwLockWriteGuard. Reservation rollback and hidden reserved entries preserve the
 quota on normal errors. The earlier truncated review is incomplete evidence.
 
-All ten issues remain open. Next: bounded Dart decoding, the full codecs and
+A Dart structural validator now checks the pinned known schema
+before generated-reader access. Schema descriptors regenerate alongside the wire
+bindings. All 53 tests pass on VM, Chrome JS and WASM, covering all 42 fixtures,
+offset/length/alignment failures, required fields, UTF-8, enum and uint64 limits,
+valid table aliases, signed negative vtable offsets and 2,272 mutations/truncations.
+Opaque byte vectors are range-checked without interpreting their contents.
+Focused analysis, nine generator tests and exact 50-artifact regeneration pass.
+This does not implement metadata/argument semantics or enable the serializer.
+The first validator-candidate bin/verify (71236) exits 1 at five complete
+serializer-inventory assertions. The new test was missing from four support-file
+inventories and the shared mutation wrapper. Both are repaired; all 79 tooling
+checks and all 53 tests through the wrapper pass. Fresh full verification is
+restarting in /tmp/connectanum-flatbuffers-validator-verify-retry.log.
+Retry session 67905 exits 1 at the existing TLS-ticket harness. Its lock error
+is verified environmental contention: lsof identifies PID 85257's live Java
+interop router in the separate configurable-rights checkout. The complete TLS
+case passes with a per-run TMPDIR in
+/tmp/connectanum-flatbuffers-isolated-tls-probe.log. No runtime/test timeout,
+check or other checkout's process is changed.
+
+The primitive writer now emits all 42 fixture field trees into supplied builders
+without encoding a complete message through another serializer. Same-builder
+byte-vector references preserve existing offsets across growth and reject
+foreign builders. All 46 writer tests pass on VM, JS and WASM; analysis is clean
+and all 79 tooling checks pass with both new tests in the complete inventory.
+This is not yet the public message-model serializer or transport negotiation.
+Combined validation/writer bin/verify exits 0 in session 46508,
+/tmp/connectanum-flatbuffers-encoding-verify.log, with the isolated
+TMPDIR=/tmp/connectanum-flatbuffers-verify.jr3fJ8. This includes Chrome/WASM.
+Hosted ff5cc4c7 package dry-runs pass (37139143935); CI 37139143966 is queued.
+
+All ten issues remain open. Next: complete bounded Dart decoding, the full codecs and
 remaining milestone criteria. No FlatBuffers network codec, E2EE profile,
 benchmark parity, ObjectBox adapter or milestone completion is claimed.
 

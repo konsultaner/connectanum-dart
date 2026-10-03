@@ -208,6 +208,23 @@ representable entry against metadata, including absence/default distinctions;
 an extended placeholder must never create a logical anonymous method. Such
 loss-sensitive values are rejected in an upstream-subset session.
 
+## Dart structural validation
+
+The internal Dart validator uses field descriptors generated from the same
+pinned schema as the wire readers. It checks known table fields, required
+offsets, unions, vector bounds/alignment, enum values, UTF-8 and portable WAMP
+uint64 bounds before generated-reader access. Configurable limits bound frame
+bytes, table visits, depth, structured-vector elements and string-validation
+work. Defaults are 64 MiB, 10,000 typed table visits, depth 64, 1,000,000 vector
+elements and 1 MiB of string bytes respectively. Opaque byte vectors are bounded
+by frame size and are not scanned or decoded.
+
+Valid table aliases and signed negative vtable offsets remain supported.
+The input must remain unchanged while borrowed views are consumed. Structural
+validation does not replace codec-level metadata agreement, argument/container
+validation, authentication or negotiated-capability checks. The message codec
+and its public serializer selection are still pending.
+
 ## Capabilities and fallback
 
 The codec can parse the pinned upstream subset and the compatible extension.

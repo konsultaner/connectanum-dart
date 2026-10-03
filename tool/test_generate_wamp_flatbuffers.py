@@ -53,6 +53,40 @@ class PinnedSchemaTests(unittest.TestCase):
         self.assertEqual(tags["heartbeat"], (26, 7))
         self.assertEqual({tag for tag, _ in tags.values()}, set(range(1, 27)))
 
+    def test_validation_schema_preserves_union_slots_and_qualified_types(self):
+        source = '''
+            namespace wamp;
+            table Map { key: string (key, required); }
+            namespace wamp.proto;
+            enum Method: uint8 { NONE = 0, TICKET = 4 }
+            table Hello {
+                roles: wamp.Map (required);
+                authmethods: [Method];
+                sessions: [uint64];
+            }
+            union AnyMessage { Hello }
+            table Message { msg: AnyMessage (required); metadata: [ubyte]; }
+        '''
+        result = generator.validation_schema(source)
+        self.assertIn("FlatBufferFieldSpec('key', FlatBufferFieldKind.string, 4, required: true)", result)
+        self.assertIn("FlatBufferFieldSpec('roles', FlatBufferFieldKind.table, 4, required: true, reference: 0)", result)
+        self.assertIn("FlatBufferFieldSpec('authmethods', FlatBufferFieldKind.scalarVector, 1, values: [0, 4])", result)
+        self.assertIn("FlatBufferFieldSpec('sessions', FlatBufferFieldKind.scalarVector, 8, wampInteger: true)", result)
+        self.assertIn("FlatBufferFieldSpec('msg_type', FlatBufferFieldKind.scalar, 1, values: [0, 1])", result)
+        self.assertIn("FlatBufferFieldSpec('msg', FlatBufferFieldKind.union, 4, required: true, values: [-1, 1])", result)
+        self.assertIn("const wampRootTable = 2;", result)
+        self.assertLess(result.index("'msg_type'"), result.index("'msg'"))
+        self.assertLess(result.index("'msg'"), result.index("'metadata'"))
+
+    def test_validation_schema_rejects_unsupported_field_types(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported validation type"):
+            generator.validation_schema("table Message { future: UnknownType; }")
+
+    def test_validation_schema_rejects_unsupported_union_vectors(self):
+        source = "table Hello {} union AnyMessage { Hello } table Message { msg: [AnyMessage]; }"
+        with self.assertRaisesRegex(ValueError, "Union vectors"):
+            generator.validation_schema(source)
+
 
 if __name__ == "__main__":
     unittest.main()
