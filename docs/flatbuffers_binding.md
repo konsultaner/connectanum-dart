@@ -17,6 +17,10 @@ compiler binary checksums and runtime versions are in `manifest.json`.
 Use flatc **25.9.23**, Dart `flat_buffers` **25.9.23**, Rust `flatbuffers`
 **25.9.23** and Python `flatbuffers` **25.9.23**. The Dart formatter uses language
 version 3.10, matching the package's lower SDK bound.
+The unpublished workspace pins the Dart conformance runtime exactly. Published
+libraries permit the bounded patch range `>=25.9.23 <25.10.0` so pub's strict
+dependency validation passes. The named interoperable baseline remains 25.9.23;
+a future runtime update requires regeneration and cross-platform verification.
 
 ```sh
 python3 tool/fetch_flatc.py --output /tmp/connectanum-flatc

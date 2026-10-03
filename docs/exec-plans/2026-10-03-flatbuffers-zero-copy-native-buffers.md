@@ -157,3 +157,42 @@ with coverage: handwritten 6,815/7,295 (93.420%), raw including generated
 collector-only change follows the completed full library verification and is
 validated by its focused tool tests. Full browser coverage runs in session 9175,
 log /tmp/connectanum-flatbuffers-foundation-browser-coverage.log; no result yet.
+
+## Pushed foundation and CI repair
+
+Foundation commit 3ff76b9b1390f8f98f7d463511dcd23b4f70c2dd is pushed in draft
+PR #105. Full browser coverage exits 0: core 7,487/7,748 (96.631%), client
+2,777/2,859 (97.132%), preserving all floors and VM-ignore handling. Hosted
+package dry-runs 37118172292 and 37118238076 fail on pub's single-version
+flat_buffers dependency warning. Move the exact 25.9.23 conformance pin to the
+unpublished workspace dev dependency and allow >=25.9.23 <25.10.0 in published
+libraries; pin compiler, Rust and Python versions unchanged. Verify a clean
+commit snapshot through the strict package dry-run before claiming repair.
+The main CI runs remain queued; there is no hosted binding pass yet.
+
+## Native-owned buffer partial implementation (#96)
+
+Uncommitted Rust owned-buffer ABI v1 and VM-only public native_buffers.dart now
+implement initialized handle-owned allocation, freeze/subranges, retain/slice,
+independent exported owners and consume-on-submission sending. Rust preserves
+base/capacity using Bytes::from_owner; no foreign or interior Vec adoption.
+All six Rust ownership tests and ten Dart guard/model/export tests pass, and
+focused Dart analysis passes. The fake old-library test must use a separate
+system-library handle: DynamicLibrary.process() sees ct_ffi already loaded by
+build hooks. Ordinary client sends remain available.
+
+The Dart FlatBuffers facade implements the complete pinned Builder interface.
+writeListOfStructs passes the facade into model callbacks; all writes block after
+freeze or disposal and callbacks cannot freeze/dispose during an in-progress
+write. Read-only list/ByteBuffer/ByteData/subviews survive wrapper disposal.
+Constructor/finalizer setup failures release owned handles. Native builders
+account for growth and raw byte-vector input copies separately from newly
+encoded scalar/string writes. Public runtime allocation is lazy and optional;
+older libraries reject the whole ownership capability explicitly.
+
+Not complete: real accepted/queue-full transport sends, forced-GC derived-view
+finalization, native allocation counters/performance proof, public transport
+integration, shared router API, old-native-runtime fixture and canonical
+coverage/mutation test inventories, broad/full verification and hosted evidence.
+External owner leases/completion (#97) are still absent. Do not close #96 or
+claim actual FlatBuffers transport support from these ownership tests.

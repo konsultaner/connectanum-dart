@@ -23,10 +23,17 @@ review completes. Source inspection and tests remain authoritative.
 Coverage collector change: all 105 selected tool regressions pass. Core VM
 coverage passes existing policy at 6,815/7,295 handwritten lines (93.420%);
 the 3,425 generated lines and raw aggregate remain separately visible. Browser
-coverage is running in session 9175. No new hosted coverage claim.
+coverage exits 0: core 7,487/7,748 (96.631%), client 2,777/2,859
+(97.132%). Raw generated totals remain visible. No hosted coverage claim.
 Next stage: #96 native allocation base/capacity/used-range ownership and guarded
-build/freeze/transfer APIs. Drafts remain outside the worktree until the
-foundation checkpoint is committed; see the active plan for exact constraints.
+build/freeze/transfer APIs. Foundation commit 3ff76b9b is pushed in draft PR #105. Native-owned APIs
+are now uncommitted in this worktree: six Rust and ten Dart focused tests pass;
+full new-candidate verification and live-send/finalizer proof remain pending.
+Hosted package dry-run fails solely because an exact published flat_buffers
+pin is rejected by pub. Keep an exact unpublished workspace dev pin and allow
+a bounded 25.9.x patch range in published libraries. Core local dry-run now
+reports only its uncommitted-file warning; clean-snapshot verification follows.
+The milestone remains active and all issues remain open.
 
 Work396: Resume mutation work after beta.6 publication. Master CI `37035848715`
 finishes cancelled: the MCP-library job reaches its 180-minute outer deadline
