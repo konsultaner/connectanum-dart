@@ -83,16 +83,24 @@ pass, including live tracked RawSocket/WebSocket writes, independent optional
 ABI/version/missing-symbol checks and forced GC returning receipt capacity
 without cancelling the frame. Focused analysis has no issues. Full write-completion bin/verify exits 0 in session 6724,
 /tmp/connectanum-write-completion-verify.log, including Chrome/WASM. The
-completion candidate is ready to commit; combined native lending/network
-integration still remains before closing #97.
+completion changes are committed as ddc2e06b; that commit is not pushed yet.
+Combined native lending/network integration is now covered by a real native
+producer test on RawSocket and WebSocket, for both peer disconnect and runtime
+shutdown. One 8 MiB immutable loan backs two sends and an exported view; the
+test checks native pointer identity, an independently verified complete wire
+payload, pending/abandoned slow-write receipts, owner quota and final cleanup
+on the producer thread. It also verifies WebSocket masking leaves borrowed
+input unchanged. All 219 FFI tests pass in
+/tmp/connectanum-external-network-all-ffi.log. Fresh full network-candidate
+bin/verify exits 0 in /tmp/connectanum-external-network-verify.log (12506),
+including Chrome/WASM.
 
 Qwen completes a narrowed receipt review. Its claimed unlocked map mutation is
 contradicted by installed DashMap source: get_mut returns RefMut holding a shard
 RwLockWriteGuard. Reservation rollback and hidden reserved entries preserve the
 quota on normal errors. The earlier truncated review is incomplete evidence.
 
-All ten issues remain open. Next: full write-completion verification and combined
-native-producer/delayed-write/fan-out integration, then the full codecs and
+All ten issues remain open. Next: bounded Dart decoding, the full codecs and
 remaining milestone criteria. No FlatBuffers network codec, E2EE profile,
 benchmark parity, ObjectBox adapter or milestone completion is claimed.
 

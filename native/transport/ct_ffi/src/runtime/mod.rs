@@ -10,6 +10,9 @@ mod external_leases;
 mod write_receipts;
 
 #[cfg(all(test, any(target_os = "linux", target_os = "macos")))]
+mod external_network_tests;
+
+#[cfg(all(test, any(target_os = "linux", target_os = "macos")))]
 mod resource_restart_tests;
 
 pub use constants::*;

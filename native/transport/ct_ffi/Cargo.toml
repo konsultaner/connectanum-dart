@@ -34,6 +34,8 @@ ring = "0.17"
 xsalsa20poly1305 = "0.9"
 
 [dev-dependencies]
+socket2 = "0.5"
+sha1 = "0.10"
 aes-gcm = "0.10"
 rcgen = "0.13"
 h2 = { version = "0.4.16" }

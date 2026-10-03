@@ -125,8 +125,14 @@ invalid deferred preparation and two fan-out recipients sharing one loan. One
 written receipt cannot authorize release while the slow recipient retains bytes.
 The C producer/SDK lifetime probe remains separate evidence for thread-affine
 resource release. Full receipt-candidate bin/verify passes in
-/tmp/connectanum-write-completion-verify.log; combined producer/network
-integration remains pending. The new receipt ABI is ready to commit.
+/tmp/connectanum-write-completion-verify.log. Receipt support is committed as
+ddc2e06b. The combined producer/network test now lends one 8 MiB allocation to
+fast and stalled peers plus an exported view, across RawSocket/WebSocket and
+disconnect/runtime shutdown. It verifies the original pointer, full independent
+wire contents, pending/abandoned receipts, unchanged WebSocket source bytes,
+quota return and final producer-thread cleanup. All 219 FFI tests pass; fresh
+full network-candidate bin/verify passes, including Chrome/WASM, in
+/tmp/connectanum-external-network-verify.log.
 
 
 The receipt ABI consists of ct_write_receipt_abi_version,

@@ -423,7 +423,7 @@ are prepared outside the worktree and have not affected this verified snapshot.
 ## Native write completion candidate
 
 Producer stage a93de717 and binding 722175ca are pushed; draft PR #105 now
-reflects that reviewed scope. Current uncommitted candidate adds native frame
+reflects that reviewed scope. Commit ddc2e06b adds native frame
 completion guards and a FIFO flush barrier to both writers, plus a bounded
 six-symbol receipt ABI and public Dart tracked sends/drainWrites. Legacy drain
 continues yielding an event-loop turn. Six native writer tests distinguish
@@ -435,7 +435,7 @@ All 23 Dart ownership tests pass in
 The receipt GC child observes actual registry capacity returned after observer
 collection while the already submitted frame reaches the peer. Complete,
 missing-symbol and wrong-version receipt groups are checked independently of
-the producer capability. Full candidate bin/verify is next.
+the producer capability. Full candidate bin/verify exits 0 (session 6724).
 
 A completed narrowed Qwen review claims unguarded map mutation. Installed
 DashMap source contradicts it: RefMut contains RwLockWriteGuard, and get_mut
@@ -444,13 +444,12 @@ RAII reservation returns count/entry on failure. No concurrency redesign is
 justified by this finding. The earlier output-limited review is incomplete.
 
 Combined real producer lending through delayed/native network writes and fan-out
-still needs proof before closing #97. Full codecs, negotiation/routing/PPT/E2EE,
+is covered by the network checkpoint below. Full codecs, negotiation/routing/PPT/E2EE,
 hardening, benchmark parity and release evidence remain in the goal. All ten
 issues stay open; no milestone completion is claimed.
 
-Full completion-candidate bin/verify is running in session 6724,
-/tmp/connectanum-write-completion-verify.log. Do not start a duplicate verification
-run while this session is active.
+Full completion-candidate bin/verify exits 0 in session 6724,
+/tmp/connectanum-write-completion-verify.log.
 
 
 Write-completion full bin/verify (session 6724) exits 0, including Chrome/WASM,
@@ -464,3 +463,40 @@ timeout abandons a write is incorrect: wait only reports cleanup readiness or a
 timeout. Likewise quota cannot return while an exported owner remains alive.
 The real test uses socket disconnect/runtime shutdown for abandonment and keeps
 producer cleanup as a separate final-reference boundary.
+
+## Native producer network integration
+
+The independent native producer lends one 8 MiB valid WAMP payload to a fast
+peer, a peer with a 4 KiB receive buffer, and an exported view. RawSocket and
+WebSocket both run disconnect and runtime-shutdown scenarios. Pointer identity
+is checked before sending, the fast peer parses framing independently and checks
+the full payload, and the slow receipt remains pending. Dropping the view before
+disconnect proves the stalled writer retains the original loan; retaining the
+view across runtime shutdown proves shutdown does not invalidate SDK storage.
+Only final release returns the quota and calls cleanup on the producer thread.
+WebSocket masking is checked against the untouched producer allocation.
+
+All 219 FFI tests pass in /tmp/connectanum-external-network-all-ffi.log.
+Fresh full bin/verify exits 0 in /tmp/connectanum-external-network-verify.log
+(12506), including Chrome/WASM. The initial broad Qwen review times out. A completed
+narrow review claims outcome polling needs an extra socket synchronization step;
+the actual helper already waits up to five seconds with a 1 ms poll interval,
+and the independent fast reader is joined before runtime or producer cleanup.
+Those claims do not justify changing the tested ownership contract.
+
+## Dart validation preparation (#98 / #102)
+
+An isolated scratch validator accepts all 42 pinned compiler fixtures and passes
+53 VM tests, including input subranges, malformed roots/vtables/fields/vectors,
+required fields, unknown enums, UTF-8, uint64 limits and 2,272 deterministic
+truncation/mutation cases. Opaque byte vectors are bounded without scanning their
+contents. Table types may share an address, and signed negative vtable offsets
+are legal when a reused vtable follows its table. Both are covered explicitly.
+This is structural checking, not metadata/argument semantics or a working codec.
+
+Focused Qwen test planning/review completes. Claimed unsafe signed-vtable reads
+and scalar-alignment bypasses are refuted by checked u16/scalar reads and explicit
+regressions. Browser scratch runs cannot load /tmp tests through the package's
+HTTP server; rerun from the package after integrating the validator. No browser
+pass is claimed yet. Keep the running network verification snapshot stable
+before integrating these new production files.
