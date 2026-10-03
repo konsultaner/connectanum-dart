@@ -196,3 +196,126 @@ integration, shared router API, old-native-runtime fixture and canonical
 coverage/mutation test inventories, broad/full verification and hosted evidence.
 External owner leases/completion (#97) are still absent. Do not close #96 or
 claim actual FlatBuffers transport support from these ownership tests.
+
+## Native owned-buffer validation checkpoint
+
+The complete owned ABI v1, public VM buffer/FlatBuffers facade and native
+transport capability now have seven Rust and 18 Dart focused passing tests.
+A standalone VM-service probe proves wrapper collection, derived ByteData
+retention and actual allocation destruction after its final view disappears.
+Independent C fixtures prove complete-symbol version rejection and distinct
+library identity rejection before transfer. Live JSON RawSocket/WebSocket peers
+receive both retained and transferred native frames. Controlled submission tests
+prove the exact backward-subrange pointer and release on queue-full rejection.
+The full verification of the earlier partial native candidate exits 0. The
+expanded run first catches a newly added mutation-job audit inventory mismatch;
+the proposed gate is deferred while its coverage remains inadequate, preserving
+the existing hosted gates. A fresh full candidate verification runs in session
+80399, log /tmp/connectanum-owned-buffers-verify-repaired.log.
+
+A complete 99-mutant ownership diagnostic finishes with clean/restored baselines
+and unchanged native artifact, but fails its 95% assertion gate: 69.697%
+detection, 44.444% assertion lower bound. This is evidence for the earlier
+13-test candidate, not the expanded 18-test suite. Missing default-range,
+finish/reset/reentrancy and ABI-version/library-identity regressions are added.
+The diagnostic remains registered; no score waiver or hosted green claim is made.
+Expanded lifetime/fuzz/mutation hardening remains #102.
+
+The package constraint repair passes all seven clean-snapshot strict dry-runs;
+hosted package run 37119001156 and the binding job in CI 37119001152 pass.
+Its Fast Checks also pass; Full Verify and remaining matrix jobs are pending.
+The binding contract now requires positive pinned-layout acknowledgement by
+default; an explicitly trusted upstream-subset peer must name the pinned schema
+revision because old union ordinals can parse as layout-compatible wrong types.
+The portable uint64 timeout bound is recorded separately from WAMP ID semantics.
+
+GLM and Qwen now complete narrow requests. Their claims that SDK view tokens die
+with wrapper collection and that repeated monotonic-handle release double-frees
+are contradicted by the forced-GC/Rust tests and the handle-store contract.
+The actual exported-token failure path is tightened: once asTypedList succeeds,
+SDK backing storage remains the sole releaser even if the read-only facade
+allocation fails. See docs/native_owned_buffers.md for the ownership matrix,
+copy accounting and SDK sources. No performance-parity claim is made.
+
+## Native physical-alignment regression
+
+Source inspection identifies a real native-consumer defect missed by relative
+Dart reads: flat_buffers aligns fields relative to the allocation end. A
+1023-byte native capacity leaves a uint64-containing root at address modulo 8
+of 7. A new test-only native observation reproduces the failure before changing
+the allocator (/tmp/connectanum-owned-alignment-repro.log). Round every native
+FlatBuffers allocation/growth capacity to eight bytes, preserving downward copy
+ranges and accounting; generic byte builders retain arbitrary byte ranges.
+The expanded focused 19-test candidate is running in
+/tmp/connectanum-owned-buffers-alignment-fixed.log. Current full verification
+session 80399 started before this alignment change; rerun affected suites and
+fresh full verification before committing the final owned-buffer increment.
+
+External-lease design judgment completed. Owner-affine release queues must offer
+native waiting/wakeup and documented pumping rather than requiring an owner to
+block on peer delivery. Retained limits remain charged until actual native
+producer-thread release; queue starvation causes bounded rejection, not unsafe
+release or unbounded storage. Buffer-release and local-write completion remain
+separate observable states. Implementation of #97 is still pending.
+
+The repaired full run 80399 exits 0. The physical-alignment fix then passes all
+19 focused ownership tests and focused analysis. Final full verification is
+running in session 82853, /tmp/connectanum-owned-buffers-aligned-verify.log;
+its owned-buffer suite has passed all 19 tests. The external lease/write-completion
+contract is captured as planned work in docs/native_external_leases_design.md.
+No external capability is advertised. Qwen's claim that downward resize copies
+new capacity instead of back+front is contradicted by the pinned allocator's
+_copyDownward implementation; the existing copied-byte counter remains exact.
+
+## Ephemeral allocator finalizer regression
+
+Full aligned-candidate bin/verify 82853 exits 0. SDK NativeFinalizer documentation
+requires the finalizer itself to remain reachable. Strengthen the GC child to
+use ephemeral allocators and prove their collection too. It fails first with two
+native allocations/handles remaining (/tmp/connectanum-owned-ephemeral-allocator-repro.log).
+Retain one native handle finalizer per loaded library identity for process
+lifetime; its monotonic stale-handle release remains harmless. All 19 tests and
+focused analysis now pass, including allocator collection and derived-view
+release. Final full verification runs in /tmp/connectanum-owned-buffers-finalizer-verify.log.
+This supersedes the earlier aligned verification for final handoff. A broader
+GLM registry judgment times out at 60 seconds; narrow completed judgments and
+source/forced-GC evidence remain the authority. No issue closure yet.
+
+## Remaining binding audit before closing #95
+
+Focused source audit of current Heartbeat and session.fbs finds two additional
+non-dictionary gaps: Heartbeat.ping/incoming/outgoing are nullable in the shipped
+Dart/Rust models but the extension currently uses ordinary default-zero scalars;
+Challenge.method is an AuthMethod enum while existing WAMP authentication accepts
+custom method strings. Root metadata preserves only the existing dictionary
+position, so it cannot fix these control-field gaps implicitly.
+
+Before enabling the codec or closing #95, append a Heartbeat presence mask
+(default all three present for existing fixture interpretation) and an optional
+Challenge.method_name string. Preserve every upstream field/union tag and verify
+flatc conformance plus absent/explicit-zero/custom-method cross-language fixtures.
+Audit ERROR.request_type for HEARTBEAT ID 7 against the upstream MessageType enum.
+Existing generic invalid request types need an explicit supported-code policy.
+
+Authentication also precedes WELCOME. Negotiation rules must permit a router
+that received the client's metadata feature in HELLO to acknowledge it in
+CHALLENGE.extra before extended challenge/authenticate data is used. Anonymous
+sessions acknowledge in WELCOME. Ordinary RPC/pub-sub still requires affirmative
+binding identity. Bootstrap ABORT needs an explicit terminal/error policy rather
+than blindly treating every pre-WELCOME extension as forbidden. These are design
+requirements, not implemented codec/session behavior. Keep #95 open until the
+wire contract and fixtures resolve them; #96 implementation can be committed
+independently while its issue closure waits for its declared dependency.
+
+Final native-owned candidate bin/verify 88323 exits 0, log
+/tmp/connectanum-owned-buffers-finalizer-verify.log. All 19 ownership tests,
+Rust suites, native integration, browser JS/WASM and SCRAM worker checks pass.
+Only constructor/library-lifetime documentation changes after this run starts;
+no functional code changes. SDK DynamicLibrary.close can unload callback code,
+so the custom constructor explicitly borrows a library kept loaded for process
+lifetime; managed runtime allocators are preferred. Hosted foundation Full Verify
+and Core Browser Coverage also pass in 37119001152; remaining mutation jobs run.
+Final narrow Qwen/GLM attempts hit output/deadline limits; prior completed narrow
+reviews, source checks and fail-first alignment/ephemeral-GC regressions remain
+recorded. Commit this verified owned-buffer increment, keeping all issues open
+until the binding gaps and remaining milestone acceptance criteria are resolved.

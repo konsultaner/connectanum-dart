@@ -45,6 +45,11 @@ unsupported dart2js ByteData uint64 operations without changing the schema to
 float64 or losing IDs above 2^32. The WAMP ID upper bound is inclusive 2^53;
 that exact value is supported, and larger uint64 values are rejected before
 conversion to a potentially rounded JavaScript integer.
+The portable binding currently applies this exact-integer bound to every
+generated uint64 control field, including the non-ID CALL timeout. A timeout
+above 2^53 is rejected explicitly; it is not truncated or treated as a WAMP ID.
+Application payload integers are governed by their declared payload encoding,
+not by this envelope limit.
 BufferContext construction respects the length and offset of an input Uint8List
 view; it cannot extend into unrelated bytes of the underlying allocation.
 
@@ -116,7 +121,10 @@ WAMP message codes cannot be invented under this binding.
 The upstream schema history changed RPC union ordinals when EVENT_RECEIVED was
 inserted. The generic serializer identifier does not identify a schema revision.
 Interoperability claims therefore name this pinned revision and actual fixtures;
-older incompatible layouts must fail explicitly. A genuinely incompatible
+older incompatible layouts must fail explicitly. Verification cannot establish
+revision identity: an older union tag may describe a different table with the
+same layout. Ordinary network traffic requires positive binding identity, as
+described below. A genuinely incompatible
 binding requires a separately registered WebSocket subprotocol, not reserved
 RawSocket IDs 6–15.
 
@@ -171,12 +179,16 @@ Transport session state controls whether extension semantics may be sent:
    role's features, carried in its metadata dictionary. The basic HELLO fields
    remain valid for an upstream reader.
    The leading underscore follows WAMP's implementation-specific key convention.
-2. WELCOME acknowledges the same feature for the selected router roles. The
+2. WELCOME acknowledges the same feature for the selected router roles. This
+   capability names this pinned union/table layout and metadata version. The
    receiver records peer support before ordinary traffic is admitted.
 3. Subsequent metadata and HEARTBEAT extension messages require this capability.
    HELLO/WELCOME metadata used for capability exchange is the bootstrap exception.
-4. Without acknowledgement, an upstream-subset session may send only values
-   represented losslessly by the pinned schema. Unsupported authentication
+4. Without acknowledgement, the default session rejects the peer before ordinary
+   traffic. An explicitly configured upstream-subset session must affirm that
+   its peer uses this exact pinned schema revision; absence of metadata is not
+   evidence of that identity. Such a session may send only values represented
+   losslessly by the pinned schema. Unsupported authentication
    extras, custom/nullable/default-sensitive fields or extension alternatives
    fail explicitly. No silent dictionary loss or encoding relabeling is allowed.
 5. If a caller explicitly configured existing serializer alternatives, transport

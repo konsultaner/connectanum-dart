@@ -4,36 +4,55 @@ Last updated: 2026-10-03
 Current branch: `codex/flatbuffers-zero-copy`
 Current milestone: FlatBuffers and zero-copy native buffers (GitHub milestone 1).
 Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.
-This isolated worktree starts from 54eafc5f; primary-checkout router embedding
-changes remain separate. The regression/mutation coverage objective remains open.
+Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
+remain separate. The earlier regression/mutation objective remains open.
 
-FlatBuffers foundation: pinned schemas, append-only extension contract,
-reproducible Dart/Rust bindings and independent Python/Dart/Rust fixtures are
-implemented. All 34 binding tests pass on VM, Chrome JS and WASM, including
-pre-encoded typed payloads, the inclusive 2^53 WAMP ID bound and empty vectors.
-A fail-first boundary regression proves the earlier max-safe-ID limit was too
-narrow. Native pointer-range and foreign-reader checks pass. Pre-change
-bin/test-fast and fresh full library bin/verify both exit 0; library-tree log is
-/tmp/connectanum-flatbuffers-foundation-verify-final.log. New hosted evidence
-and all ten issue closures remain pending; transports are not yet enabled.
-Local summary/planning/focused review ran. GLM initially refused connections;
-later architecture requests reached the server but timed out. Broad Qwen review
-requests also hit deadlines/output limits; narrow arithmetic/atomic-transfer
-review completes. Source inspection and tests remain authoritative.
-Coverage collector change: all 105 selected tool regressions pass. Core VM
-coverage passes existing policy at 6,815/7,295 handwritten lines (93.420%);
-the 3,425 generated lines and raw aggregate remain separately visible. Browser
-coverage exits 0: core 7,487/7,748 (96.631%), client 2,777/2,859
-(97.132%). Raw generated totals remain visible. No hosted coverage claim.
-Next stage: #96 native allocation base/capacity/used-range ownership and guarded
-build/freeze/transfer APIs. Foundation commit 3ff76b9b is pushed in draft PR #105. Native-owned APIs
-are now uncommitted in this worktree: six Rust and ten Dart focused tests pass;
-full new-candidate verification and live-send/finalizer proof remain pending.
-Hosted package dry-run fails solely because an exact published flat_buffers
-pin is rejected by pub. Keep an exact unpublished workspace dev pin and allow
-a bounded 25.9.x patch range in published libraries. Core local dry-run now
-reports only its uncommitted-file warning; clean-snapshot verification follows.
-The milestone remains active and all issues remain open.
+The pushed binding foundation and package-constraint repair are in draft PR
+#105 at 1cdd1804. All 34 binding tests pass on VM, Chrome JS and WASM; independent
+Python/Dart/Rust readers and exact regeneration pass. Full foundation bin/verify
+and browser coverage pass. All seven clean-snapshot strict package dry-runs pass;
+hosted package 37119001156, FlatBuffers Binding and Fast Checks in 37119001152
+pass. Remaining hosted/full jobs are pending; no all-green workflow claim.
+
+Uncommitted native owned-buffer ABI v1, guarded native builders and public native
+transport capability pass seven Rust and 19 Dart focused tests. Forced GC proves
+derived ByteData survives collected/disposed wrappers, then native allocation
+release when the view is dropped. C fixtures prove ABI version/library identity
+rejection. Live RawSocket/WebSocket retained/transfer sends and exact native
+submission pointer/queue rejection tests pass. SDK-adopted export tokens remain
+owned by backing storage on subsequent facade construction failure.
+
+The earlier full native candidate verifies cleanly. Expanded verification first
+finds a mutation-job audit mismatch; the proposed new hosted mutation gate is
+deferred until its coverage is ready, preserving existing gates. The repaired full run exits 0 in /tmp/connectanum-owned-buffers-verify-repaired.log.
+A subsequent fail-first pointer regression detects misalignment with odd native
+FlatBuffers capacities (1023 bytes gives address modulo 8 of 7). Round only the
+FlatBuffers allocator capacities to eight bytes; all 19 focused tests and
+analysis pass. That aligned full verification exits 0. A stronger ephemeral-allocator GC test
+then fails with two leaked native handles/allocations. Retain one NativeFinalizer
+per loaded library identity, as required by the SDK reachability contract; all
+19 focused tests and analysis pass. Final full bin/verify exits 0 in
+/tmp/connectanum-owned-buffers-finalizer-verify.log, including all 19 ownership
+regressions, the browser/WASM suites and native integration. Hosted foundation
+Full Verify and Core Browser Coverage in 37119001152 now pass; its remaining
+mutation matrix is still running. Two newly audited binding gaps (nullable
+Heartbeat controls and custom CHALLENGE method names) and pre-WELCOME challenge
+acknowledgement remain #95 work before codec enablement or issue closure.
+The complete 99-mutant diagnostic for the earlier 13-test candidate fails its
+95% assertion gate (69.697% detection, 44.444% assertion lower bound). Expanded
+range/state/reentrancy/version/library regressions are added; no waiver or new
+score is claimed. Hardening remains #102 and is recorded in the active plan.
+
+The binding default requires acknowledgement identifying its pinned layout;
+metadata absence cannot identify old union revisions. An explicitly configured
+upstream subset must affirm the exact pinned revision. Portable uint64 timeout
+limits are explicit. Native lifetime docs describe ownership and copy boundaries.
+Local Gemma summaries, Qwen planning/review/debug and narrow GLM judgments ran;
+claims are checked against source and forced-GC tests. All issues remain open.
+Next: finish #96 candidate verification, then generic external-owner leases and
+observable local write completion (#97). No FlatBuffers network codec, external
+lease, E2EE profile, benchmark parity, ObjectBox adapter or milestone completion
+is claimed.
 
 Work396: Resume mutation work after beta.6 publication. Master CI `37035848715`
 finishes cancelled: the MCP-library job reaches its 180-minute outer deadline

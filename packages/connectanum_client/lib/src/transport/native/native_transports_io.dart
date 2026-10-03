@@ -10,6 +10,8 @@ import 'package:connectanum_core/msgpack_serializer.dart' as serializer_msgpack;
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
+import '../../../native_buffers.dart';
+
 import '../abstract_transport.dart';
 import '../socket/socket_helper.dart';
 import '../websocket/websocket_transport_serialization.dart';
@@ -63,7 +65,10 @@ Uint8List? nativeSingleBinaryArgumentForAnchor(Object? anchor) =>
     nativeIncomingMessageForAnchor(anchor)?.singleBinaryArgumentBytes;
 
 abstract class _NativeTransportBase extends AbstractTransport
-    implements SessionOptimizedTransport, DrainableTransport {
+    implements
+        SessionOptimizedTransport,
+        DrainableTransport,
+        NativeBufferTransport {
   _NativeTransportBase(
     this._serializer,
     this._nativeSerializer, {
@@ -111,6 +116,24 @@ abstract class _NativeTransportBase extends AbstractTransport
   Future<void> get onReady => _onReadyCompleter!.future;
 
   int? get connectionId => _connectionId;
+
+  /// VM-only allocator paired with this transport's loaded native library.
+  @override
+  NativeBufferAllocator get nativeBuffers => _runtime.nativeBuffers;
+
+  /// Submit a complete frame encoded for this transport's selected serializer.
+  /// A transfer is consumed on native submission, including native rejection.
+  /// A disconnected transport rejects it before transfer. Success reports
+  /// queue acceptance; it does not report write completion or peer delivery.
+  @override
+  void sendEncodedNativeBuffer(
+    NativeOwnedBuffer buffer, {
+    bool transfer = false,
+  }) {
+    final id = _connectionId;
+    if (id == null) throw StateError('Transport is not connected.');
+    _runtime.sendNativeBuffer(id, buffer, transfer: transfer);
+  }
 
   @override
   Future<void> open({Duration? pingInterval}) async {

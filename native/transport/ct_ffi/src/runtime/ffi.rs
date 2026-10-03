@@ -5274,6 +5274,20 @@ pub extern "C" fn ct_send_message_owned(
     }
 }
 
+/// Consume one frozen native-buffer handle on every submission outcome,
+/// including runtime/connection/queue rejection. Mutable or unknown handles
+/// are rejected without consumption. This reports queue acceptance, not local
+/// write completion, final buffer release or peer acknowledgement.
+#[no_mangle]
+pub extern "C" fn ct_owned_buffer_send(connection_id: c_int, handle: c_int) -> c_int {
+    super::owned_buffers::submit_frozen(handle, |payload| {
+        match send_wamp_message(ConnectionId(connection_id as u32), payload) {
+            Ok(()) => SUCCESS,
+            Err(error) => map_error(error),
+        }
+    })
+}
+
 unsafe fn take_owned_outbound_segments(
     segment_ptrs: *const *mut u8,
     segment_lens: *const c_int,
