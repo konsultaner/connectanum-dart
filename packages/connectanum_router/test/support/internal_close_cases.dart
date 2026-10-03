@@ -1,6 +1,141 @@
 part of '../router_runtime_test.dart';
 
 void _internalCloseCases() {
+  group('binding disposal ownership', () {
+    test(
+      'concurrent callers wait and new session starts fail closed',
+      () async {
+        final fixture = _internalCloseFixture();
+        final binding = fixture.binding;
+        final session = await binding.createInternalSession(realmUri: 'realm1');
+        final entered = Completer<void>();
+        final release = Completer<void>();
+        final owner = await session.subscribe('app.binding_close');
+        final source = StreamController<Event>(
+          onCancel: () {
+            entered.complete();
+            return release.future;
+          },
+        );
+        owner.eventStream = source.stream;
+        owner.onEvent((_) {});
+        addTearDown(source.close);
+        var completed = false;
+        final disposing = binding.dispose();
+        final observed = disposing.then((_) => completed = true);
+        try {
+          await _assertInternalCloseCompletes(entered.future);
+          expect(binding.dispose(), same(disposing));
+          await expectLater(
+            binding.createInternalSession(realmUri: 'realm1'),
+            throwsStateError,
+          );
+          expect(completed, isFalse);
+        } finally {
+          release.complete();
+          await observed;
+        }
+        expect(completed, isTrue);
+        expect(binding.internalSessionForRealm('realm1'), isNull);
+        expect(binding.dispose(), same(disposing));
+        expect(fixture.errors, isEmpty);
+      },
+    );
+
+    test('owned cancellation can await its binding disposal', () async {
+      final fixture = _internalCloseFixture();
+      final binding = fixture.binding;
+      final session = await binding.createInternalSession(realmUri: 'realm1');
+      final entered = Completer<void>();
+      final rescue = Completer<void>();
+      var reentered = false;
+      final owner = await session.subscribe('app.binding_reentrant');
+      final source = StreamController<Event>(
+        onCancel: () async {
+          final nested = binding.dispose().then((_) => reentered = true);
+          entered.complete();
+          await Future.any([nested, rescue.future]);
+        },
+      );
+      owner.eventStream = source.stream;
+      owner.onEvent((_) {});
+      addTearDown(source.close);
+      final disposing = binding.dispose();
+      try {
+        await _assertInternalCloseCompletes(entered.future);
+        await Future<void>(() {});
+        expect(reentered, isTrue);
+      } finally {
+        rescue.complete();
+        await disposing;
+      }
+      expect(fixture.errors, isEmpty);
+    });
+
+    test('failed startup does not strand disposal', () async {
+      final fixture = _internalCloseFixture();
+      await expectLater(
+        fixture.binding.createInternalSession(realmUri: 'not.configured'),
+        throwsStateError,
+      );
+      await _assertInternalCloseCompletes(fixture.binding.dispose());
+      expect(fixture.errors, isEmpty);
+    });
+
+    test('reentrant bypass does not skip another binding shutdown', () async {
+      final first = _internalCloseFixture().binding;
+      final second = _internalCloseFixture().binding;
+      final firstSession = await first.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final secondSession = await second.createInternalSession(
+        realmUri: 'realm1',
+      );
+      final enteredFirst = Completer<void>();
+      final enteredSecond = Completer<void>();
+      final releaseSecond = Completer<void>();
+      final secondOwner = await secondSession.subscribe('app.second_binding');
+      final secondSource = StreamController<Event>(
+        onCancel: () {
+          enteredSecond.complete();
+          return releaseSecond.future;
+        },
+      );
+      secondOwner.eventStream = secondSource.stream;
+      secondOwner.onEvent((_) {});
+      addTearDown(secondSource.close);
+      final secondDisposing = second.dispose();
+      await _assertInternalCloseCompletes(enteredSecond.future);
+
+      Future<void>? observedOther;
+      final firstOwner = await firstSession.subscribe('app.first_binding');
+      final firstSource = StreamController<Event>(
+        onCancel: () {
+          observedOther = second.dispose();
+          enteredFirst.complete();
+          return observedOther;
+        },
+      );
+      firstOwner.eventStream = firstSource.stream;
+      firstOwner.onEvent((_) {});
+      addTearDown(firstSource.close);
+      var completed = false;
+      final firstDisposing = first.dispose();
+      final external = firstDisposing.then((_) => completed = true);
+      try {
+        await _assertInternalCloseCompletes(enteredFirst.future);
+        await Future<void>(() {});
+        expect(observedOther, same(secondDisposing));
+        expect(completed, isFalse);
+        expect(first.dispose(), same(firstDisposing));
+      } finally {
+        releaseSecond.complete();
+        await Future.wait([firstDisposing, secondDisposing, external]);
+      }
+      expect(completed, isTrue);
+    });
+  });
+
   group('internal session close ownership', () {
     for (final registration in [false, true]) {
       for (final deferred in [false, true]) {

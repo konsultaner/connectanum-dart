@@ -9,11 +9,9 @@ Pub/Sub example. A Connectanum router deployment has three parts:
 
 ## Beta Availability
 
-The synchronized `3.0.0-beta.5` Dart packages and matching `v3.0.0-beta.5`
-native release assets are public for integration testing. The source tree
-prepares the coordinated `3.0.0-beta.6` security-hardening beta. Package
-consumers should remain on beta.5 until every beta.6 package and native asset is
-published. Use the [package path](#install-the-published-package) for
+This guide targets the synchronized `3.0.0-beta.7` Dart packages and matching
+`v3.0.0-beta.7` native release assets for integration testing before final
+`3.0.0`. Use the [package path](#install-the-published-package) for
 applications or the [source-checkout path](#run-the-current-beta-from-source)
 when contributing to Connectanum itself.
 

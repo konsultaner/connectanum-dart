@@ -1,10 +1,178 @@
 # Project State
 
-Last updated: 2026-10-02
-Current branch: `codex/regression-mutation-coverage`
-Current milestone: near-complete regression and mutation testing, per the
-operator's latest priority. The active plan is
+Last updated: 2026-10-03
+Current branch: `codex/router-listener-isolation`
+Current milestone: synchronized `3.0.0-beta.7` publication of the verified router
+embedding and shutdown fixes; beta.6 publication completed.
+The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work399: The operator authorizes deploying the router isolation/shutdown fixes
+as a new beta. Prepare synchronized beta.7 manifests, internal constraints,
+Rust crates, public MCP metadata and release notes for all seven packages,
+including the compatibility facade. Beta.7 is absent from every package on
+pub.dev and no native beta.7 release exists at startup. Fast399 is launched
+before edits in `/tmp/connectanum-beta7-fast399.log`. The 23 publishing-tool
+regressions pass; Qwen's focused version/workflow review finds no concrete
+mismatch, and GLM is independently unavailable. Initial strict archives reject
+dirty package files with pub's checked-in-file warning; commit the implementation
+candidate and repeat the zero-warning gate from a clean tree. Full verification,
+strict archives, protected-master promotion, native assets and dependency-ordered OIDC
+publication remain pending. The coverage objective and independent-runtime
+phase 2 are not completed by publication. Existing unrelated worktrees and PRs
+are outside this release slice. No publication or hosted-green claim yet.
+
+Work398: The operator requests deeper investigation of the consumer shutdown
+hang. Fast398 is launched before implementation and exits 0 in
+`/tmp/connectanum-shutdown-fast398.log`. Two real-process
+fail-first regressions reproduce completed cleanup followed by a process that
+does not exit: internal-session startup racing disposal, and a session-owned
+cancellation callback throwing before the remaining binding owners are closed.
+The VM service snapshot in `/tmp/connectanum-shutdown-vm398.json` shows 16
+surviving internal-session isolates after the first child's cleanup marker;
+an inspected isolate still has two live ports. This establishes package defects,
+not the exact unavailable consumer application's shutdown sequence.
+
+Track accepted internal starts, reject new/late starts after disposal begins,
+release unpublished isolate/port ownership in `finally`, and settle bootstrap
+and starts before closing the state store. Concurrent disposal shares its
+completion/failure, with binding-scoped reentrant owned cleanup. Service/session
+cleanup failures are retained while remaining owners still receive cleanup.
+Focused ownership and real-process regressions pass, including metrics bootstrap,
+later startup turns, an active WebSocket client, cleanup failure, new-session
+rejection, concurrent/reentrant disposal and failed startup. A file cancellation
+callback's reentrant self-wait is reproduced separately and fixed by applying
+the binding-scoped cleanup context to the entire disposal, not just service
+cleanup. All 33 focused binding/session/file ownership tests pass.
+
+The public CLI also retains the losing signal subscription in `Future.any`;
+removing its forced exit exposes another natural-exit deadline failure. Own and
+cancel all signal subscriptions, announce readiness only after installation,
+and return from main without `exit()`. The shared-engine change also requires
+CLI TLS reload to use the binding snapshot: a fail-first SIGHUP test gets zero
+reloaded listeners with the legacy global call. Both SIGINT/SIGTERM natural-exit
+variants and binding-scoped reload pass; all eight process tests pass. Focused
+analysis passes. The initial full verify fails seven controlled-error tests
+whose repeated disposal/teardown assumed the original cleanup failure vanished;
+retain all release checks and explicitly assert that same failure on repeat
+calls instead. These updated file tests pass. Final `bin/verify` exits 0 in
+`/tmp/connectanum-shutdown-verify398-final.log`, including the complete router
+suite, remote-auth integration, zero-copy publish and Chrome/WASM core/client
+tests. Final focused formatting and analysis also pass. No new hosted, release
+or mutation-score claim. Qwen planning/review/triage ran; GLM remains
+independently unreachable.
+
+Work397: Operator-authorized router embedding work starts from `54eafc5f`, whose
+complete CI `37062527790` and package dry-run `37062527796` pass. Do not infer a
+new mutation score without auditing the matching artifact. Fast397 passes.
+A fail-first real-client regression reproduces global native configuration
+leakage: deferred WebSocket router A adopts router B's RawSocket-only config.
+Explicit immutable listener snapshots and selected-listener TLS reload fix that
+path without deleting the singleton guard. TLS reload validates all requested
+listeners/identities before updating any; legacy reload skips scoped listeners.
+Focused Rust/FFI/Dart tests, analysis, real two-router authentication, sibling
+disposal/restart continuity and the port-zero health regression pass. The older
+native ABI loads and rejects scoped operations explicitly. Qwen review/test
+planning ran; GLM is unavailable. Initial and final `bin/verify` exit 0; the final
+candidate is verified in `/tmp/connectanum-router-verify397-final.log`, including
+the process regressions, native integration, browser WASM and 64-MiB SCRAM
+worker responsiveness.
+
+A subsequent consumer report reveals the temp-directory ownership lock also
+serializes unrelated OS processes. A fail-first subprocess test starts one live
+WAMP router, then times out waiting for a second in the same temp directory.
+PID-scoped ownership fixes that defect; both independently authenticate and exit
+naturally after awaited binding/client cleanup and runtime shutdown/disposal.
+This minimal path did not reproduce the reported application-specific exit hang;
+the more demanding Work398 probes above do reproduce package shutdown defects.
+A separate minimal listener-only probe also exits naturally without
+`runtime.dispose()`, so omission of that method is not an established cause.
+Do not mark the application-specific hang resolved or require `exit(0)` as a
+workaround. Fresh full verification after the lock-scope change passes.
+
+This is phase 1, not complete independent native runtimes. Shared runtime
+ownership, callbacks/event queues, metrics, partial-start cleanup and stress
+coverage remain in phase 2. Engine shutdown still stops all bindings, and a
+second `NativeTransportRuntime` constructor remains unsupported. No package
+version change, publication, push or mutation-goal completion is claimed.
+
+Work396: Resume mutation work after beta.6 publication. Master CI `37035848715`
+finishes cancelled: the MCP-library job reaches its 180-minute outer deadline
+after 999/1,101 candidates. Its retained report has a passing baseline but no
+restored baseline: 742 detections (526 assertion-only, 216 mixed), 238 compile
+failures and 19 unwaived survivors, with no errors/timeouts. The partial 97.503%
+score is not a complete component result. All 33 other mutation gates and
+ordinary jobs pass. A fail-first workflow test requires a 240-minute MCP job
+budget; the matching config change passes without altering per-mutant deadlines,
+inventory, 95% threshold or fail-closed scoring.
+
+Eight public-tool regressions cover UTF-8 byte-limit minus-one/exact/plus-one,
+oversized-event preservation, oldest-event eviction, partial drain/refill and
+independent count limits. Known-valid callbacks assert acceptance before values.
+The source-matched event-buffer probe selects 22/450 WAMP API candidates: 13
+assertion-only kills, eight compile failures and one unwaived poll-clamp survivor,
+with clean/restored baselines and no errors/timeouts. Its 92.857% gate fails and
+stays visible; this is not whole-MCP evidence. The earlier drain-only probe is
+retained separately. No new production defect or equivalence waiver is claimed.
+Fast396 exits 0 in `/tmp/connectanum-mutation-resume-fast.log`; focused VM,
+JavaScript and WASM tests, analysis and workflow suite pass. Browser suites must
+run from the package root; a workspace-root asset-path loading failure resolves
+with that invocation, without changing production code. Qwen review and focused
+browser-log triage completed; GLM is unavailable.
+Full `bin/verify` exits 0 in `/tmp/connectanum-verify396.log`, including native
+integration suites, WASM browser suites and 64-MiB SCRAM worker responsiveness.
+Push a fresh candidate and obtain a complete hosted MCP campaign before claiming
+CI repair. Earlier merge/publication bookkeeping accompanies this implementation
+increment; no package version or production behavior changes.
+
+Beta.6 publication checkpoint: All seven packages, including `connectanum`, are
+published and indexed at `3.0.0-beta.6` under `dart.konsultaner.de`. Release
+source is master `6661ee24`, with no implementation/version changes. All seven
+tag-triggered trusted-publisher workflows pass; package and native release tags
+are mirrored to GitLab. Native prerelease `v3.0.0-beta.6` is published by run
+`37056358196`, with five platform bundles and 30 assets. Client/router installer
+validation exits 0. Fresh `bin/verify` and strict seven-package dry-run exit 0.
+Preflight strict audit passes with explicit native preview `37054347828`;
+post-publication strict protection/visibility/package/image/benchmark audit
+also exits 0, with actual native publication checked separately.
+
+A fresh-cache downstream consumer outside the workspace resolves all seven
+exact hosted versions without path dependencies or native overrides. Public API
+analysis, released native router with facade/direct clients, configured anonymous
+roles, denied RPC, successful RPC/pub-sub, MCP JSON-RPC API, cleanup and public
+router/benchmark CLI help all pass. Downloaded native manifest matches `6661ee24`.
+All ordinary master CI jobs, package/image dry-runs and WAMP benchmarks pass.
+At publication handoff, CI `37035848715` was still in progress for the extended
+mutation campaign; its later MCP cancellation is recorded in Work396 above.
+This is not mutation-goal completion or a claim that the full CI workflow is
+green. Release evidence and package workflow IDs are in the active plan.
+Earlier docs-only bookkeeping is bundled with the Work396 implementation.
+
+Beta merge checkpoint: The operator authorized merging PR #93 after technical
+approval while deferring the complete mutation-coverage objective. PR #93 is
+merged as `6661ee24` on GitHub and mirrored to GitLab; the local checkout is on
+the same master commit. Its source tree exactly matches reviewed/tested head
+`f5a4b3ba`. Fresh `bin/test-fast` and `bin/verify` exit 0, including WASM and the
+64-MiB SCRAM worker responsiveness test. Both pre-merge hosted Fast Checks,
+Full Verify and VM coverage jobs pass in runs `37026142919` and `37026148968`;
+hosted Full Verify uses JavaScript, not WASM. Package/native/image dry-runs and
+WAMP benchmarks also pass for that tested head. The matching VM artifact reports
+40,395/42,994 measured library lines (93.955%), with 58 unmeasured sources;
+packaging reports 792/820 (96.585%), with 11 unmeasured sources. These are not
+whole-project coverage or mutation-goal completion claims.
+
+Post-merge master package dry-run `37035848544` passes. CI `37035848715`,
+native dry-run `37035963625`, image dry-run `37035967407` and WAMP benchmarks
+`37035848420` are queued/running at handoff; no all-green master-chain claim.
+The read-only strict protection/workflow-visibility/package audit exits 0;
+the full-chain strict audit exits 1 because CI/native/image/benchmark evidence
+is still queued/running, not a completed failing test. Full chain readiness
+needs those runs to finish. Branch protection is unchanged; the maintainer
+override handled self-review/history restrictions
+only after normal checks passed. No package publication or version change:
+all seven packages remain `3.0.0-beta.6`. Continue coverage work on a fresh
+`codex/` branch from master, preserving this checkpoint. Docs-only merge
+bookkeeping remains uncommitted until bundled with implementation.
 
 Work395: Consumer-reported authentication/listener regressions take priority
 within the coverage milestone. Fast395 exits 0 before edits. Four fail-first

@@ -27,10 +27,13 @@ class Router {
   }) {
     final routerSettings = settings ?? _settings ?? _buildDefaultSettings();
     final configBytes = buildNativeConfigJson(routerSettings);
-    try {
-      runtime.applyRouterConfig(configBytes);
-    } on UnsupportedError {
-      // Ignore runtimes that do not yet support configuration wiring.
+    if (runtime is! NativeRuntimeWithRouterConfiguration ||
+        !runtime.supportsRouterConfiguration) {
+      try {
+        runtime.applyRouterConfig(configBytes);
+      } on UnsupportedError {
+        // Ignore runtimes that do not yet support configuration wiring.
+      }
     }
     final binding = RouterBinding(
       runtime: runtime,

@@ -103,7 +103,7 @@ void main() {
         metrics.settings!.options['connectanum_open_metrics_listener'],
         true,
       );
-      expect(runtime.reloadTls(), 2);
+      expect(binding.reloadTls(), 2);
 
       final consumer = client.Client(
         realm: 'consumer',

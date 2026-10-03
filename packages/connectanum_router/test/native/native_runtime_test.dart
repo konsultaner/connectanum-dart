@@ -74,6 +74,67 @@ void main() {
   });
 
   group('NativeTransportRuntime', () {
+    test(
+      'router-scoped capability validates arguments and fails closed on old ABI',
+      () {
+        final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
+        addTearDown(runtime.dispose);
+        final library = ffi.DynamicLibrary.open(libraryPath);
+        expect(
+          runtime.supportsRouterConfiguration,
+          library.providesSymbol('ct_listen_router_endpoint') &&
+              library.providesSymbol('ct_reload_router_tls'),
+        );
+        final config = Uint8List.fromList(
+          utf8.encode(
+            '{"schema":"connectanum.router","version":1,"endpoints":[]}',
+          ),
+        );
+        for (final index in [-1, 0x100000000]) {
+          expect(
+            () => runtime.listenRouterEndpoint(config, index),
+            throwsArgumentError,
+          );
+        }
+        for (final backlog in [0, -1, 0x80000000]) {
+          expect(
+            () => runtime.listenRouterEndpoint(config, 0, backlog: backlog),
+            throwsArgumentError,
+          );
+        }
+        expect(
+          () => runtime.listenRouterEndpoint(Uint8List(0), 0),
+          throwsArgumentError,
+        );
+        expect(
+          () => runtime.reloadRouterTls(Uint8List(0), []),
+          throwsArgumentError,
+        );
+        for (final ids in [
+          [0],
+          [-1],
+          [0x80000000],
+          [1, 1],
+        ]) {
+          expect(
+            () => runtime.reloadRouterTls(config, ids),
+            throwsArgumentError,
+          );
+        }
+        if (!runtime.supportsRouterConfiguration) {
+          expect(
+            () => runtime.listenRouterEndpoint(config, 0),
+            throwsUnsupportedError,
+          );
+          expect(
+            () => runtime.reloadRouterTls(config, []),
+            throwsUnsupportedError,
+          );
+        }
+      },
+      skip: skipReason,
+    );
+
     group('resource error contracts', () {
       late NativeTransportRuntime runtime;
       late int listener;
