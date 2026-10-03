@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum_client/native_message_bytes.dart';
 import 'package:ffi/ffi.dart';
+import 'package:connectanum_client/native_buffers.dart';
 
 import 'external_byte_buffer.dart';
 import 'ffi_bindings.dart';
@@ -197,6 +198,9 @@ class NativeClientRuntime {
   final ffi.DynamicLibrary _library;
   final CtFfiBindings _bindings;
   final Finalizer<_MessageFinalizerToken> _messageFinalizer;
+  late final NativeBufferAllocator nativeBuffers = NativeBufferAllocator(
+    _library,
+  );
   late final NativeMessageBytes _messageBytes = NativeMessageBytes(_library);
   late final ffi.NativeFinalizer _externalByteBufferFinalizer =
       ffi.NativeFinalizer(
@@ -758,6 +762,22 @@ class NativeClientRuntime {
     } finally {
       malloc.free(dataPtr);
     }
+  }
+
+  /// Submit a frozen native frame without copying it from Dart storage.
+  /// Transfer consumes the buffer on every native submission result; Dart
+  /// validation or runtime-start failures occur before ownership is submitted.
+  /// The result is queue acceptance; completion semantics are separate.
+  void sendNativeBuffer(
+    int connectionId,
+    NativeOwnedBuffer buffer, {
+    bool transfer = false,
+  }) {
+    if (!nativeBuffers.isSupported) {
+      throw UnsupportedError('Native library lacks owned-buffer support');
+    }
+    ensureStarted();
+    nativeBuffers.send(connectionId, buffer, transfer: transfer);
   }
 
   void sendMessageFragmented(

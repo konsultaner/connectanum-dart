@@ -175,7 +175,7 @@ test -s native/transport/Cargo.lock
         self.assertEqual(len(entries), len(budgets), 'Duplicate timeout override')
         self.assertLessEqual(set(budgets), targets, 'Override would add a matrix job')
         self.assertEqual(budgets, {
-            'mcp-library': 180,
+            'mcp-library': 240,
             'router-remote-wamp-vm': 45,
             'router-config-loader-vm': 45,
             'router-remote-authenticator-vm': 45,

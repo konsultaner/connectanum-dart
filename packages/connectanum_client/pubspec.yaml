@@ -13,6 +13,7 @@ dependencies:
   crypto: ^3.0.7
   web: ^1.1.1
   ffi: ^2.1.0
+  flat_buffers: '>=25.9.23 <25.10.0'
   hooks: ^2.2.0
   code_assets: ^2.0.0
   collection: ^1.18.0

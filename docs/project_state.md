@@ -1,10 +1,136 @@
 # Project State
 
-Last updated: 2026-10-02
-Current branch: `codex/regression-mutation-coverage`
-Current milestone: near-complete regression and mutation testing, per the
-operator's latest priority. The active plan is
-`docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+Last updated: 2026-10-03
+Current branch: `codex/flatbuffers-zero-copy`
+Current milestone: FlatBuffers and zero-copy native buffers (GitHub milestone 1).
+Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.
+Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
+remain separate. The earlier regression/mutation objective remains open.
+
+The pushed binding foundation and package-constraint repair are in draft PR
+#105 at 1cdd1804. All 34 binding tests pass on VM, Chrome JS and WASM; independent
+Python/Dart/Rust readers and exact regeneration pass. Full foundation bin/verify
+and browser coverage pass. All seven clean-snapshot strict package dry-runs pass;
+hosted package 37119001156, FlatBuffers Binding and Fast Checks in 37119001152
+pass. Remaining hosted/full jobs are pending; no all-green workflow claim.
+
+Uncommitted native owned-buffer ABI v1, guarded native builders and public native
+transport capability pass seven Rust and 19 Dart focused tests. Forced GC proves
+derived ByteData survives collected/disposed wrappers, then native allocation
+release when the view is dropped. C fixtures prove ABI version/library identity
+rejection. Live RawSocket/WebSocket retained/transfer sends and exact native
+submission pointer/queue rejection tests pass. SDK-adopted export tokens remain
+owned by backing storage on subsequent facade construction failure.
+
+The earlier full native candidate verifies cleanly. Expanded verification first
+finds a mutation-job audit mismatch; the proposed new hosted mutation gate is
+deferred until its coverage is ready, preserving existing gates. The repaired full run exits 0 in /tmp/connectanum-owned-buffers-verify-repaired.log.
+A subsequent fail-first pointer regression detects misalignment with odd native
+FlatBuffers capacities (1023 bytes gives address modulo 8 of 7). Round only the
+FlatBuffers allocator capacities to eight bytes; all 19 focused tests and
+analysis pass. That aligned full verification exits 0. A stronger ephemeral-allocator GC test
+then fails with two leaked native handles/allocations. Retain one NativeFinalizer
+per loaded library identity, as required by the SDK reachability contract; all
+19 focused tests and analysis pass. Final full bin/verify exits 0 in
+/tmp/connectanum-owned-buffers-finalizer-verify.log, including all 19 ownership
+regressions, the browser/WASM suites and native integration. Hosted foundation
+Full Verify and Core Browser Coverage in 37119001152 now pass; its remaining
+mutation matrix is still running. Two newly audited binding gaps (nullable
+Heartbeat controls and custom CHALLENGE method names) and pre-WELCOME challenge
+acknowledgement remain #95 work before codec enablement or issue closure.
+The complete 99-mutant diagnostic for the earlier 13-test candidate fails its
+95% assertion gate (69.697% detection, 44.444% assertion lower bound). Expanded
+range/state/reentrancy/version/library regressions are added; no waiver or new
+score is claimed. Hardening remains #102 and is recorded in the active plan.
+
+The binding default requires acknowledgement identifying its pinned layout;
+metadata absence cannot identify old union revisions. An explicitly configured
+upstream subset must affirm the exact pinned revision. Portable uint64 timeout
+limits are explicit. Native lifetime docs describe ownership and copy boundaries.
+Local Gemma summaries, Qwen planning/review/debug and narrow GLM judgments ran;
+claims are checked against source and forced-GC tests. All issues remain open.
+Next: finish #96 candidate verification, then generic external-owner leases and
+observable local write completion (#97). No FlatBuffers network codec, external
+lease, E2EE profile, benchmark parity, ObjectBox adapter or milestone completion
+is claimed.
+
+Work396: Resume mutation work after beta.6 publication. Master CI `37035848715`
+finishes cancelled: the MCP-library job reaches its 180-minute outer deadline
+after 999/1,101 candidates. Its retained report has a passing baseline but no
+restored baseline: 742 detections (526 assertion-only, 216 mixed), 238 compile
+failures and 19 unwaived survivors, with no errors/timeouts. The partial 97.503%
+score is not a complete component result. All 33 other mutation gates and
+ordinary jobs pass. A fail-first workflow test requires a 240-minute MCP job
+budget; the matching config change passes without altering per-mutant deadlines,
+inventory, 95% threshold or fail-closed scoring.
+
+Eight public-tool regressions cover UTF-8 byte-limit minus-one/exact/plus-one,
+oversized-event preservation, oldest-event eviction, partial drain/refill and
+independent count limits. Known-valid callbacks assert acceptance before values.
+The source-matched event-buffer probe selects 22/450 WAMP API candidates: 13
+assertion-only kills, eight compile failures and one unwaived poll-clamp survivor,
+with clean/restored baselines and no errors/timeouts. Its 92.857% gate fails and
+stays visible; this is not whole-MCP evidence. The earlier drain-only probe is
+retained separately. No new production defect or equivalence waiver is claimed.
+Fast396 exits 0 in `/tmp/connectanum-mutation-resume-fast.log`; focused VM,
+JavaScript and WASM tests, analysis and workflow suite pass. Browser suites must
+run from the package root; a workspace-root asset-path loading failure resolves
+with that invocation, without changing production code. Qwen review and focused
+browser-log triage completed; GLM is unavailable.
+Full `bin/verify` exits 0 in `/tmp/connectanum-verify396.log`, including native
+integration suites, WASM browser suites and 64-MiB SCRAM worker responsiveness.
+Push a fresh candidate and obtain a complete hosted MCP campaign before claiming
+CI repair. Earlier merge/publication bookkeeping accompanies this implementation
+increment; no package version or production behavior changes.
+
+Beta.6 publication checkpoint: All seven packages, including `connectanum`, are
+published and indexed at `3.0.0-beta.6` under `dart.konsultaner.de`. Release
+source is master `6661ee24`, with no implementation/version changes. All seven
+tag-triggered trusted-publisher workflows pass; package and native release tags
+are mirrored to GitLab. Native prerelease `v3.0.0-beta.6` is published by run
+`37056358196`, with five platform bundles and 30 assets. Client/router installer
+validation exits 0. Fresh `bin/verify` and strict seven-package dry-run exit 0.
+Preflight strict audit passes with explicit native preview `37054347828`;
+post-publication strict protection/visibility/package/image/benchmark audit
+also exits 0, with actual native publication checked separately.
+
+A fresh-cache downstream consumer outside the workspace resolves all seven
+exact hosted versions without path dependencies or native overrides. Public API
+analysis, released native router with facade/direct clients, configured anonymous
+roles, denied RPC, successful RPC/pub-sub, MCP JSON-RPC API, cleanup and public
+router/benchmark CLI help all pass. Downloaded native manifest matches `6661ee24`.
+All ordinary master CI jobs, package/image dry-runs and WAMP benchmarks pass.
+At publication handoff, CI `37035848715` was still in progress for the extended
+mutation campaign; its later MCP cancellation is recorded in Work396 above.
+This is not mutation-goal completion or a claim that the full CI workflow is
+green. Release evidence and package workflow IDs are in the active plan.
+Earlier docs-only bookkeeping is bundled with the Work396 implementation.
+
+Beta merge checkpoint: The operator authorized merging PR #93 after technical
+approval while deferring the complete mutation-coverage objective. PR #93 is
+merged as `6661ee24` on GitHub and mirrored to GitLab; the local checkout is on
+the same master commit. Its source tree exactly matches reviewed/tested head
+`f5a4b3ba`. Fresh `bin/test-fast` and `bin/verify` exit 0, including WASM and the
+64-MiB SCRAM worker responsiveness test. Both pre-merge hosted Fast Checks,
+Full Verify and VM coverage jobs pass in runs `37026142919` and `37026148968`;
+hosted Full Verify uses JavaScript, not WASM. Package/native/image dry-runs and
+WAMP benchmarks also pass for that tested head. The matching VM artifact reports
+40,395/42,994 measured library lines (93.955%), with 58 unmeasured sources;
+packaging reports 792/820 (96.585%), with 11 unmeasured sources. These are not
+whole-project coverage or mutation-goal completion claims.
+
+Post-merge master package dry-run `37035848544` passes. CI `37035848715`,
+native dry-run `37035963625`, image dry-run `37035967407` and WAMP benchmarks
+`37035848420` are queued/running at handoff; no all-green master-chain claim.
+The read-only strict protection/workflow-visibility/package audit exits 0;
+the full-chain strict audit exits 1 because CI/native/image/benchmark evidence
+is still queued/running, not a completed failing test. Full chain readiness
+needs those runs to finish. Branch protection is unchanged; the maintainer
+override handled self-review/history restrictions
+only after normal checks passed. No package publication or version change:
+all seven packages remain `3.0.0-beta.6`. Continue coverage work on a fresh
+`codex/` branch from master, preserving this checkpoint. Docs-only merge
+bookkeeping remains uncommitted until bundled with implementation.
 
 Work395: Consumer-reported authentication/listener regressions take priority
 within the coverage milestone. Fast395 exits 0 before edits. Four fail-first
