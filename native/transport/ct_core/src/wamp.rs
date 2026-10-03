@@ -223,6 +223,9 @@ pub struct ParsedMessage {
     pub message: WampMessage,
     pub raw: RawFrame,
     pub serializer: Serializer,
+    /// Validated dictionary bytes in the binding's inner encoding. FlatBuffers
+    /// dictionaries use CBOR and retain the original frame allocation.
+    pub encoded_metadata: Option<Bytes>,
 }
 
 #[derive(Debug, Clone)]
@@ -395,6 +398,7 @@ fn parse_value_message(
         message,
         raw: raw_payload,
         serializer,
+        encoded_metadata: None,
     })
 }
 
@@ -482,6 +486,7 @@ fn parse_cbor_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError
         message,
         raw: raw_payload,
         serializer: Serializer::Cbor,
+        encoded_metadata: None,
     })
 }
 
@@ -1016,6 +1021,7 @@ fn parse_json_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError
         message,
         raw: RawFrame::Contiguous(raw_payload),
         serializer: Serializer::Json,
+        encoded_metadata: None,
     })
 }
 
@@ -1550,6 +1556,7 @@ fn parse_msgpack_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseEr
         message,
         raw: raw_payload,
         serializer: Serializer::MessagePack,
+        encoded_metadata: None,
     })
 }
 

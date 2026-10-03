@@ -7,10 +7,10 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
-Draft PR #105 at 652ab865 contains foundation, package-constraint repair,
+Draft PR #105 at 07a81127 contains foundation, package-constraint repair,
 native-owned buffers, producer leases, write completion and native network
 lifetime coverage, structural validation, direct model writing, and the public
-Dart codec with mutable-model metadata retention. The verified native codec
+Dart codec with mutable-model metadata retention. The committed native codec
 stage adds a bounded Rust parser and direct encoder for all 25 native WAMP
 models, transparent payload storage, and public Dart/Rust codec interoperability.
 Native transport factories, FFI/router integration and profile negotiation remain
@@ -35,8 +35,51 @@ FFI regression run 52037 passes 229 tests with ffi-test enabled.
 Qwen and GLM review requests both time out without completed reports; no complete
 companion review is claimed. Focused executable checks remain the evidence.
 Hosted CI for 652ab865 is still running, with confirmed failures in Core Browser
-Coverage and Full Verify. Those logs are being inspected before further feature
-work; no green hosted result is claimed for this native codec stage.
+Coverage (94.627% versus the existing 96% gate) and Full Verify (external-buffer
+fan-out terminal-boundary timeout). CI repair takes priority over FFI feature work.
+The candidate adds 24 public metadata round trips, passing VM, Chrome JS and WASM.
+Fresh complete browser coverage passes: core 96.096% (8960/9324), client
+97.132% (2777/2859). The existing gates remain unchanged; hosted confirmation
+of the repair is still required.
+The fan-out fixture now keeps its fast peer alive until the write receipt and
+labels each terminal boundary. The original fixture passes 30 repeated Linux ARM64
+runs locally, so the hosted timeout's exact boundary is not yet reproduced.
+The repaired fixture passes macOS and Linux ARM64. No timeout or coverage
+threshold is relaxed. The focused CI-test Qwen review reaches its token limit
+without a completed report. Verification 71043 exits 1 because the serializer
+wrapper omits the new test; that wrapper is now fixed and its inventory guard
+passes. The supporting bin/test-fast run 70684 exits 0 but overlaps the later
+metadata changes, so it is not final current-source proof. Four mutation-tool
+regressions pass.
+
+The current native delivery candidate retains validated FlatBuffers metadata
+bytes in ParsedMessage and exports them through both C handle APIs. The bytes
+borrow the original frame; HEARTBEAT builds a small CBOR wrapper for its nullable
+controls. The C ABI layout is unchanged. A real C-ABI fail-first probe changes
+from zero dictionary bytes to a retained span within the frame. Four new tests
+cover pointer identity, lifetime after dropping the parsed message, dictionary
+absence, both handle APIs and all eight nullable HEARTBEAT combinations. All
+233 FFI tests, 17 native codec tests and the 24-case mutation-wrapper selection
+pass. A focused Qwen metadata-path review completes with no findings.
+Combined verification 37274 exits 101 because the new test module inherits a
+feature-gated parse_message import. Import ct_core::parse_message explicitly;
+default-feature FFI verification passes all 222 tests. Fresh full verification
+5336 exits 0 at /tmp/connectanum-flatbuffers-delivery-final.log; product source
+remained unchanged throughout the run.
+Complete browser coverage 42492 exits 0 at
+/tmp/connectanum-flatbuffers-delivery-browser.log, and
+Linux ARM64 FFI verification 68102 exits 0 with 232 tests at
+/tmp/connectanum-flatbuffers-linux-delivery.log.
+Only the native test import changes after launch; browser Dart sources remain
+unchanged. The verified delivery stage is ready for commit/push.
+Dart native/router fragment binding, opaque delivery and profile negotiation
+still require implementation before factories can advertise support. A temporary
+C ABI capture records all 25 native message-info cases and confirms 45 of 50
+client/router binding paths currently fail. Dictionary re-encoding additionally
+exposes GOODBYE and UNREGISTERED metadata loss, which JSON-model comparison hides. Corpus and probe:
+/tmp/connectanum-flatbuffers-native-bindings-corpus/message_info.json and
+/tmp/connectanum-flatbuffers-native-binding-probe.dart; failure log:
+/tmp/connectanum-flatbuffers-native-binding-fail-first.log.
 Current decoder candidate: all 25 public messages reconstruct directly; lazy
 CBOR payload spans retain the original frame. Automatic guarded boolean setters
 preserve explicit false assignments after decoding. Replaced metadata objects

@@ -47,6 +47,10 @@ pub(super) fn parse(raw: RawFrame) -> Result<ParsedMessage, ParseError> {
         Some(Value::Null) if no_dictionary => ValueMap::new(),
         _ => return Err(wire::invalid("metadata presence")),
     };
+    let encoded_metadata = match fields.get("metadata") {
+        Some(Value::Bytes(bytes)) => Some(bytes.clone()),
+        _ => None,
+    };
     if name != "Heartbeat" {
         super::flatbuffers_projection::agree(name, body, &dictionary, reference)?;
     }
@@ -217,6 +221,7 @@ pub(super) fn parse(raw: RawFrame) -> Result<ParsedMessage, ParseError> {
         message,
         raw: RawFrame::Contiguous(bytes),
         serializer: Serializer::Flatbuffers,
+        encoded_metadata,
     })
 }
 fn integer(fields: &Fields, key: &'static str) -> Result<u64, ParseError> {

@@ -186,12 +186,12 @@ impl Drop for Receipt {
     }
 }
 
-fn until(predicate: impl Fn() -> bool) {
+fn until(boundary: &str, predicate: impl Fn() -> bool) {
     let deadline = Instant::now() + Duration::from_secs(5);
     while !predicate() {
         assert!(
             Instant::now() < deadline,
-            "native terminal boundary did not arrive"
+            "native terminal boundary did not arrive: {boundary}"
         );
         thread::sleep(Duration::from_millis(1));
     }
@@ -266,7 +266,7 @@ fn connect(websocket: bool, slow: bool) -> (i32, TcpStream) {
     (connection, stream)
 }
 
-fn read_payload(mut stream: TcpStream, websocket: bool) -> Vec<u8> {
+fn read_payload(stream: &mut TcpStream, websocket: bool) -> Vec<u8> {
     let mut mask = None;
     let length = if websocket {
         let mut header = [0; 2];
@@ -303,7 +303,7 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
         for shutdown in [false, true] {
             let producer = Producer::new();
             let _runtime = Runtime::new();
-            let (fast, fast_peer) = connect(websocket, false);
+            let (fast, mut fast_peer) = connect(websocket, false);
             let (slow, slow_peer) = connect(websocket, true);
             let mut view = Some(View::new(producer.handle));
             assert_eq!(view.as_ref().unwrap().0.ptr as usize, producer.base);
@@ -315,11 +315,17 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
             let info = unsafe { info.assume_init() };
             assert_eq!(info.base as usize, producer.base);
             assert_eq!(info.writable, 0);
-            let reader = thread::spawn(move || read_payload(fast_peer, websocket));
+            let reader = thread::spawn(move || {
+                let payload = read_payload(&mut fast_peer, websocket);
+                // Reading the final byte does not prove the local writer has
+                // published its receipt. Keep the peer open until that boundary.
+                (fast_peer, payload)
+            });
             let fast_receipt = Receipt::new(fast, copy);
             let slow_receipt = Receipt::new(slow, producer.handle);
-            until(|| fast_receipt.outcome() == 1);
-            assert!(valid_payload(&reader.join().unwrap()));
+            until("fast local write", || fast_receipt.outcome() == 1);
+            let (_fast_peer, payload) = reader.join().unwrap();
+            assert!(valid_payload(&payload));
             // The TCP receiver's fixed small window has not consumed the body.
             thread::sleep(Duration::from_millis(30));
             assert_eq!(slow_receipt.outcome(), 0);
@@ -338,7 +344,9 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
                 );
                 slow_peer.shutdown(Shutdown::Both).unwrap();
             }
-            until(|| slow_receipt.outcome() == 2);
+            until("slow local write abandonment", || {
+                slow_receipt.outcome() == 2
+            });
             // Runtime/socket termination leaves the independent exported owner.
             if let Some(view) = view.as_ref() {
                 assert_eq!(producer.statistics.released.load(Ordering::Acquire), 0);
@@ -346,8 +354,12 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
                 assert!(valid_payload(bytes));
             }
             drop(view.take());
-            until(|| producer.statistics.released.load(Ordering::Acquire) == 1);
-            until(|| producer.metrics().outstanding_leases == 0);
+            until("owner-affine producer release", || {
+                producer.statistics.released.load(Ordering::Acquire) == 1
+            });
+            until("external lease release", || {
+                producer.metrics().outstanding_leases == 0
+            });
             assert_eq!(producer.metrics().retained_bytes, 0);
             assert!(!producer.statistics.wrong_thread.load(Ordering::Acquire));
             assert!(!producer.statistics.corrupted.load(Ordering::Acquire));

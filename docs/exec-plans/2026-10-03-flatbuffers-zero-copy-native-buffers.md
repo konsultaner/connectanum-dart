@@ -784,3 +784,86 @@ during the run. Commit/push of this verified stage is now ready. Hosted base
 652ab865 has confirmed Core Browser Coverage and Full Verify failures in run
 37149216957. Inspect those logs before continuing FFI feature work. The milestone
 and all ten issues remain open.
+
+Verified native codec stage is committed/pushed as 07a81127; draft PR #105
+now describes both public codecs and their remaining integration boundaries.
+Hosted base CI failures are browser coverage (94.627% versus 96%) and the
+external-buffer fan-out terminal wait. Add 24 independent JSON-reference metadata
+round trips, including boolean values, principal lists and empty role capabilities.
+VM, Chrome JS and WASM pass. Merge actual new Chrome coverage with the unchanged
+hosted report: 96.096% (8960/9324); this is not a new complete hosted run. Include
+the tests in all four serializer mutation inventories. Retain the fast peer
+until its local write receipt and name every terminal wait; do not relax assertions
+or timeouts. Original fixture passes 30 local Linux repetitions, so exact hosted
+failure remains unconfirmed. Candidate macOS fixture passes; Linux follow-up and
+fresh complete verification are pending. Qwen narrow test review hits its token
+limit and provides no complete report. FFI metadata tests are prepared separately
+at /tmp/connectanum-flatbuffers-ffi-metadata-tests.rs, not yet applied.
+
+Fresh CI-repair bin/verify is active in session 71043 at
+/tmp/connectanum-flatbuffers-ci-verify.log, with source frozen after launch.
+The bin/test-fast run 70684 remains active; four mutation-tool regressions pass.
+Candidate changes remain uncommitted pending final verification. Linux candidate
+run 60251 is compiling with persistent toolchain/cache at
+/tmp/connectanum-flatbuffers-linux-peer-lifetime.log. Do not claim the hosted
+timeout resolved until the named-boundary candidate has hosted evidence.
+
+CI-repair verification 71043 exits 1: the new metadata test is missing from the
+serializer mutation wrapper. Add its import/group and verify the inventory guard.
+Supporting test-fast 70684 exits 0 but overlaps later native metadata edits.
+The repaired fan-out fixture passes on macOS and Linux ARM64.
+
+A real C-ABI probe reproduces FlatBuffers dictionary loss: CALL parses but
+details_len is zero. Retain the validated CBOR metadata Bytes span in
+ParsedMessage and prefer it during FFI storage; both enqueue APIs share the
+storage helper. HEARTBEAT constructs its existing small metadata/control wrapper.
+No C structure layout changes. The probe now exports metadata from inside the
+frame allocation. Four tests cover owner retention after message drop, pointer
+identity, absent dictionaries, narrow/wide APIs and all eight HEARTBEAT masks.
+233 FFI tests and 17 native codec tests pass, as does the 24-case mutation wrapper.
+Focused Qwen review of the metadata path completes with no findings.
+
+Fresh combined bin/verify 37274 is active at
+/tmp/connectanum-flatbuffers-delivery-verify.log. Complete browser coverage 42492
+is active at /tmp/connectanum-flatbuffers-delivery-browser.log, and Linux ARM64
+FFI verification 68102 at /tmp/connectanum-flatbuffers-linux-delivery.log. Source
+is frozen after launch. Commit/push and PR body update wait for final checks.
+Next implementation remains Dart native/router fragment binding, opaque payload
+delivery, version/capability guards and authenticated FlatBuffers sessions.
+
+Verification 37274 exits 101: parse_message is inherited from a feature-gated
+FFI import, so the new test module does not compile without ffi-test. Import
+ct_core::parse_message explicitly and run default-feature FFI tests before retry.
+Linux ARM64 ffi-test verification 68102 exits 0 with 232 tests; the native test
+import fix does not affect browser Dart sources. Complete browser coverage 42492
+continues unchanged.
+
+Default-feature FFI verification now passes 222 tests. Fresh final bin/verify
+5336 is active at /tmp/connectanum-flatbuffers-delivery-final.log. Only progress
+documents change after its launch. Capture actual C ABI message-info records
+for all 25 native codec cases and execute both current Dart binders against the
+public FlatBuffers codec reference: 42/50 paths fail. Probe artifacts remain in
+/tmp/connectanum-flatbuffers-native-bindings-corpus/message_info.json,
+/tmp/connectanum-flatbuffers-capture-message-info.py and
+/tmp/connectanum-flatbuffers-native-binding-probe.dart; failure log is
+/tmp/connectanum-flatbuffers-native-binding-fail-first.log. Convert this corpus
+into reproducible binding coverage during the next integration stage.
+
+Complete browser coverage 42492 exits 0: core 96.096% (8960/9324), client
+97.132% (2777/2859). Existing gates are unchanged. The fresh final verification
+5336 has passed both default (222 tests) and ffi-test (233 tests) native FFI
+checks and continues. Candidate commit/push remains pending its terminal result.
+
+Strengthen the temporary native-binding oracle with re-encoded FlatBuffers
+dictionary equality as well as JSON-model equality. It exposes GOODBYE dictionary
+loss on both binders and UNREGISTERED dictionary loss on the client, bringing
+the existing failures to 45/50. Preserve unknown metadata during the upcoming
+binding implementation; JSON-only comparison cannot prove that requirement.
+
+Fresh delivery verification 5336 exits 0 at
+/tmp/connectanum-flatbuffers-delivery-final.log, with product source unchanged
+throughout. The verified native metadata/CI stage is ready for commit/push.
+A temporary three-package overlay passes all 50 actual native-info binding paths
+after using bounded metadata decoding to preserve the portable 2^53 principal ID.
+The overlay is preparatory evidence only; persistent integration tests and the
+actual worktree change remain next. All ten issues remain open.

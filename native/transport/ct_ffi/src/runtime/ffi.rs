@@ -585,8 +585,11 @@ fn encode_serializable_bytes<T: Serialize>(
     let encoded = match serializer {
         RawSocketSerializer::Json => serde_json::to_vec(value).ok()?,
         RawSocketSerializer::MessagePack => rmp_serde::to_vec(value).ok()?,
-        RawSocketSerializer::Cbor => serde_cbor::to_vec(value).ok()?,
-        RawSocketSerializer::Ubjson | RawSocketSerializer::Flatbuffers => return None,
+        // FlatBuffers embeds dynamic fragments and metadata as CBOR.
+        RawSocketSerializer::Cbor | RawSocketSerializer::Flatbuffers => {
+            serde_cbor::to_vec(value).ok()?
+        }
+        RawSocketSerializer::Ubjson => return None,
     };
     Some(Bytes::from(encoded))
 }
@@ -4459,9 +4462,16 @@ fn parsed_message_value(parsed: ct_core::ParsedMessage) -> StoredMessage {
         message,
         raw,
         serializer,
+        encoded_metadata,
     } = parsed;
     let (args, kwargs) = extract_payload_slices(&message);
-    let details = extract_detail_bytes(serializer, &message);
+    let details = if matches!(message, WampMessage::Heartbeat { .. }) {
+        // The FFI heartbeat dictionary includes nullable control fields in
+        // addition to the wire metadata, so this small wrapper is constructed.
+        extract_detail_bytes(serializer, &message)
+    } else {
+        encoded_metadata.or_else(|| extract_detail_bytes(serializer, &message))
+    };
     StoredMessage {
         serializer,
         code: message.code(),
@@ -4623,22 +4633,8 @@ pub extern "C" fn ct_test_message_enqueue(
     let bytes = unsafe { slice::from_raw_parts(frame_ptr, frame_len as usize) };
     let payload = Bytes::copy_from_slice(bytes);
     match parse_message(serializer, payload) {
-        Ok(ct_core::ParsedMessage {
-            message,
-            raw,
-            serializer: _,
-        }) => {
-            let (args, kwargs) = extract_payload_slices(&message);
-            let details = extract_detail_bytes(serializer, &message);
-            let handle = match store_message(StoredMessage {
-                serializer,
-                code: message.code(),
-                raw: StoredRawFrame::from_raw(raw),
-                message,
-                details,
-                args,
-                kwargs,
-            }) {
+        Ok(parsed) => {
+            let handle = match store_message(parsed_message_value(parsed)) {
                 Ok(handle) => handle,
                 Err(error) => return message_handle_result(Err(error)),
             };
@@ -7280,6 +7276,10 @@ mod segmented_forwarding_tests;
 #[cfg(test)]
 #[path = "metadata_projection_tests.rs"]
 mod metadata_projection_tests;
+
+#[cfg(test)]
+#[path = "flatbuffers_metadata_tests.rs"]
+mod flatbuffers_metadata_tests;
 
 #[cfg(test)]
 mod tests {

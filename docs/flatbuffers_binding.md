@@ -422,3 +422,14 @@ unserialize dispatch. Do not use its successful import as proof of a working
 live peer. Current independent evidence uses the original schema's generated
 Python reader/writer. Later conformance work must provide a functioning external
 peer or equally explicit bidirectional codec fixtures for supported session flows.
+
+### Native dictionary delivery
+
+The internal parsed message retains the validated metadata vector as a Bytes
+slice of the input frame. FFI exports that CBOR span through the existing
+message-info and exported-view lifetime contracts. It does not rebuild ordinary
+FlatBuffers dictionaries. HEARTBEAT constructs a small CBOR metadata wrapper
+containing its dictionary and present control fields, including explicit zero.
+This preserves the existing C structure layout. Metadata delivery alone does not
+enable native factories: Dart/router fragment binding, opaque-payload delivery
+and negotiated profile/version guards remain required.
