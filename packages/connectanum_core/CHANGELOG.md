@@ -1,3 +1,8 @@
+## 3.0.0-beta.7
+
+- Keep the shared protocol package synchronized with the router embedding and
+  shutdown correctness release.
+
 ## 3.0.0-beta.6
 
 - Bound serializer nesting and declared collection allocation, reject malformed

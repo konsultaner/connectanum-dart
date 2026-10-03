@@ -90,6 +90,9 @@ For fuller examples, see:
   config starter
 - [../../docs/examples.md](../../docs/examples.md) - curated repo-level example
   gallery
+- [../../docs/router_embedding.md](../../docs/router_embedding.md) - multiple
+  logical routers sharing one native engine, scoped TLS reload and current
+  isolation boundaries
 
 ## Graceful Drain And Health Checks
 

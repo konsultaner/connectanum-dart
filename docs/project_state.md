@@ -1,11 +1,100 @@
 # Project State
 
-Last updated: 2026-10-02
-Current branch: `codex/mutation-campaign-beta6`
-Current milestone: regression/mutation coverage; synchronized `3.0.0-beta.6`
-publication completed.
+Last updated: 2026-10-03
+Current branch: `codex/router-listener-isolation`
+Current milestone: synchronized `3.0.0-beta.7` publication of the verified router
+embedding and shutdown fixes; beta.6 publication completed.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work399: The operator authorizes deploying the router isolation/shutdown fixes
+as a new beta. Prepare synchronized beta.7 manifests, internal constraints,
+Rust crates, public MCP metadata and release notes for all seven packages,
+including the compatibility facade. Beta.7 is absent from every package on
+pub.dev and no native beta.7 release exists at startup. Fast399 is launched
+before edits in `/tmp/connectanum-beta7-fast399.log`. The 23 publishing-tool
+regressions pass; Qwen's focused version/workflow review finds no concrete
+mismatch, and GLM is independently unavailable. Initial strict archives reject
+dirty package files with pub's checked-in-file warning; commit the implementation
+candidate and repeat the zero-warning gate from a clean tree. Full verification,
+strict archives, protected-master promotion, native assets and dependency-ordered OIDC
+publication remain pending. The coverage objective and independent-runtime
+phase 2 are not completed by publication. Existing unrelated worktrees and PRs
+are outside this release slice. No publication or hosted-green claim yet.
+
+Work398: The operator requests deeper investigation of the consumer shutdown
+hang. Fast398 is launched before implementation and exits 0 in
+`/tmp/connectanum-shutdown-fast398.log`. Two real-process
+fail-first regressions reproduce completed cleanup followed by a process that
+does not exit: internal-session startup racing disposal, and a session-owned
+cancellation callback throwing before the remaining binding owners are closed.
+The VM service snapshot in `/tmp/connectanum-shutdown-vm398.json` shows 16
+surviving internal-session isolates after the first child's cleanup marker;
+an inspected isolate still has two live ports. This establishes package defects,
+not the exact unavailable consumer application's shutdown sequence.
+
+Track accepted internal starts, reject new/late starts after disposal begins,
+release unpublished isolate/port ownership in `finally`, and settle bootstrap
+and starts before closing the state store. Concurrent disposal shares its
+completion/failure, with binding-scoped reentrant owned cleanup. Service/session
+cleanup failures are retained while remaining owners still receive cleanup.
+Focused ownership and real-process regressions pass, including metrics bootstrap,
+later startup turns, an active WebSocket client, cleanup failure, new-session
+rejection, concurrent/reentrant disposal and failed startup. A file cancellation
+callback's reentrant self-wait is reproduced separately and fixed by applying
+the binding-scoped cleanup context to the entire disposal, not just service
+cleanup. All 33 focused binding/session/file ownership tests pass.
+
+The public CLI also retains the losing signal subscription in `Future.any`;
+removing its forced exit exposes another natural-exit deadline failure. Own and
+cancel all signal subscriptions, announce readiness only after installation,
+and return from main without `exit()`. The shared-engine change also requires
+CLI TLS reload to use the binding snapshot: a fail-first SIGHUP test gets zero
+reloaded listeners with the legacy global call. Both SIGINT/SIGTERM natural-exit
+variants and binding-scoped reload pass; all eight process tests pass. Focused
+analysis passes. The initial full verify fails seven controlled-error tests
+whose repeated disposal/teardown assumed the original cleanup failure vanished;
+retain all release checks and explicitly assert that same failure on repeat
+calls instead. These updated file tests pass. Final `bin/verify` exits 0 in
+`/tmp/connectanum-shutdown-verify398-final.log`, including the complete router
+suite, remote-auth integration, zero-copy publish and Chrome/WASM core/client
+tests. Final focused formatting and analysis also pass. No new hosted, release
+or mutation-score claim. Qwen planning/review/triage ran; GLM remains
+independently unreachable.
+
+Work397: Operator-authorized router embedding work starts from `54eafc5f`, whose
+complete CI `37062527790` and package dry-run `37062527796` pass. Do not infer a
+new mutation score without auditing the matching artifact. Fast397 passes.
+A fail-first real-client regression reproduces global native configuration
+leakage: deferred WebSocket router A adopts router B's RawSocket-only config.
+Explicit immutable listener snapshots and selected-listener TLS reload fix that
+path without deleting the singleton guard. TLS reload validates all requested
+listeners/identities before updating any; legacy reload skips scoped listeners.
+Focused Rust/FFI/Dart tests, analysis, real two-router authentication, sibling
+disposal/restart continuity and the port-zero health regression pass. The older
+native ABI loads and rejects scoped operations explicitly. Qwen review/test
+planning ran; GLM is unavailable. Initial and final `bin/verify` exit 0; the final
+candidate is verified in `/tmp/connectanum-router-verify397-final.log`, including
+the process regressions, native integration, browser WASM and 64-MiB SCRAM
+worker responsiveness.
+
+A subsequent consumer report reveals the temp-directory ownership lock also
+serializes unrelated OS processes. A fail-first subprocess test starts one live
+WAMP router, then times out waiting for a second in the same temp directory.
+PID-scoped ownership fixes that defect; both independently authenticate and exit
+naturally after awaited binding/client cleanup and runtime shutdown/disposal.
+This minimal path did not reproduce the reported application-specific exit hang;
+the more demanding Work398 probes above do reproduce package shutdown defects.
+A separate minimal listener-only probe also exits naturally without
+`runtime.dispose()`, so omission of that method is not an established cause.
+Do not mark the application-specific hang resolved or require `exit(0)` as a
+workaround. Fresh full verification after the lock-scope change passes.
+
+This is phase 1, not complete independent native runtimes. Shared runtime
+ownership, callbacks/event queues, metrics, partial-start cleanup and stress
+coverage remain in phase 2. Engine shutdown still stops all bindings, and a
+second `NativeTransportRuntime` constructor remains unsupported. No package
+version change, publication, push or mutation-goal completion is claimed.
 
 Work396: Resume mutation work after beta.6 publication. Master CI `37035848715`
 finishes cancelled: the MCP-library job reaches its 180-minute outer deadline

@@ -1,3 +1,8 @@
+## 3.0.0-beta.7
+
+- Keep the compatibility facade aligned with the beta.7 client and matching
+  native release assets.
+
 ## 3.0.0-beta.6
 
 - Expose the synchronized client release with hardened native payload ownership,

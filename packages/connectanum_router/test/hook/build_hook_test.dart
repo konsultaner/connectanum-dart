@@ -283,7 +283,7 @@ void main() {
       addTearDown(() => packageRoot.delete(recursive: true));
       File('${packageRoot.path}/pubspec.yaml').writeAsStringSync('''
 name: connectanum_router
-version: 3.0.0-beta.6
+version: 3.0.0-beta.7
 environment:
   sdk: ^3.9.2
 ''');
@@ -327,7 +327,7 @@ environment:
               downloaded.map((uri) => uri.toString()),
               contains(
                 'https://github.com/konsultaner/connectanum-dart/releases/download/'
-                'v3.0.0-beta.6/${_releaseArchiveName()}',
+                'v3.0.0-beta.7/${_releaseArchiveName()}',
               ),
             );
           },
@@ -351,7 +351,7 @@ environment:
     )..createSync(recursive: true);
     File('${packageRoot.path}/pubspec.yaml').writeAsStringSync('''
 name: connectanum_router
-version: 3.0.0-beta.6
+version: 3.0.0-beta.7
 environment:
   sdk: ^3.9.2
 ''');
@@ -431,7 +431,7 @@ Future<void> _withPackageRoot(Future<void> Function() body) async {
   final root = await Directory.systemTemp.createTemp('router_hook_package_');
   try {
     File('${root.path}/pubspec.yaml').writeAsStringSync(
-      'name: connectanum_router\nversion: 3.0.0-beta.6\n',
+      'name: connectanum_router\nversion: 3.0.0-beta.7\n',
     );
     await IOOverrides.runZoned(body, getCurrentDirectory: () => root);
   } finally {

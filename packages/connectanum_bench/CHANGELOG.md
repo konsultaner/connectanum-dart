@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.7
+
+- Synchronize the Dart and native benchmark packages with the router lifecycle
+  fix release without changing benchmark budgets or performance claims.
+
 ## 3.0.0-beta.6
 
 - Update the native benchmark dependency graph to patched HTTP/2 and QUIC
