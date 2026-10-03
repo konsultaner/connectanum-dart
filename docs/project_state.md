@@ -7,52 +7,73 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
-The pushed binding foundation and package-constraint repair are in draft PR
-#105 at 1cdd1804. All 34 binding tests pass on VM, Chrome JS and WASM; independent
-Python/Dart/Rust readers and exact regeneration pass. Full foundation bin/verify
-and browser coverage pass. All seven clean-snapshot strict package dry-runs pass;
-hosted package 37119001156, FlatBuffers Binding and Fast Checks in 37119001152
-pass. Remaining hosted/full jobs are pending; no all-green workflow claim.
+Draft PR #105 includes foundation, package-constraint repair and native
+owned buffers. Binding follow-up commit 722175ca resolves nullable
+HEARTBEAT controls and custom CHALLENGE method strings with append-only fields.
+All 51 binding tests pass on VM, Chrome JS and WASM; focused analysis, six
+schema-generator tests, exact regeneration and flatc conformance pass. Unmodified
+upstream Python reads 33 fixtures; derived readers check all 42 and Dart/Rust
+extension output. Original upstream files and heartbeat.bin are unchanged.
 
-Uncommitted native owned-buffer ABI v1, guarded native builders and public native
-transport capability pass seven Rust and 19 Dart focused tests. Forced GC proves
-derived ByteData survives collected/disposed wrappers, then native allocation
-release when the view is dropped. C fixtures prove ABI version/library identity
-rejection. Live RawSocket/WebSocket retained/transfer sends and exact native
-submission pointer/queue rejection tests pass. SDK-adopted export tokens remain
-owned by backing storage on subsequent facade construction failure.
+The checked-in contract defines ERROR's seven supported request types and
+pre-WELCOME acknowledgement in CHALLENGE.extra, with fresh role acknowledgement
+required in WELCOME. A bounded terminal bootstrap ABORT grants no capability.
+These binding fixtures/policies do not implement network/session validation.
+Baseline bin/test-fast exits 0 in /tmp/connectanum-flatbuffers-binding-audit-fast.log.
+Binding follow-up bin/verify exits 0 in
+/tmp/connectanum-flatbuffers-controls-verify.log (session 71200). This predates
+the new producer-lease API; fresh full producer/adoption verification now passes in
+/tmp/connectanum-external-adoption-verify.log (session 64643).
+Commit/issue closure requires a requirement-by-requirement acceptance audit.
 
-The earlier full native candidate verifies cleanly. Expanded verification first
-finds a mutation-job audit mismatch; the proposed new hosted mutation gate is
-deferred until its coverage is ready, preserving existing gates. The repaired full run exits 0 in /tmp/connectanum-owned-buffers-verify-repaired.log.
-A subsequent fail-first pointer regression detects misalignment with odd native
-FlatBuffers capacities (1023 bytes gives address modulo 8 of 7). Round only the
-FlatBuffers allocator capacities to eight bytes; all 19 focused tests and
-analysis pass. That aligned full verification exits 0. A stronger ephemeral-allocator GC test
-then fails with two leaked native handles/allocations. Retain one NativeFinalizer
-per loaded library identity, as required by the SDK reachability contract; all
-19 focused tests and analysis pass. Final full bin/verify exits 0 in
-/tmp/connectanum-owned-buffers-finalizer-verify.log, including all 19 ownership
-regressions, the browser/WASM suites and native integration. Hosted foundation
-Full Verify and Core Browser Coverage in 37119001152 now pass; its remaining
-mutation matrix is still running. Two newly audited binding gaps (nullable
-Heartbeat controls and custom CHALLENGE method names) and pre-WELCOME challenge
-acknowledgement remain #95 work before codec enablement or issue closure.
-The complete 99-mutant diagnostic for the earlier 13-test candidate fails its
-95% assertion gate (69.697% detection, 44.444% assertion lower bound). Expanded
-range/state/reentrancy/version/library regressions are added; no waiver or new
-score is claimed. Hardening remains #102 and is recorded in the active plan.
+Committed native owned-buffer ABI v1, guarded native builders and public native
+transport capability pass seven Rust and 19 Dart tests. Forced GC proves derived
+ByteData survives collected/disposed wrappers and ephemeral allocators, then
+releases native storage when the view is dropped. ABI version/library identity,
+retained/transfer RawSocket/WebSocket sends, native pointer identity, queue
+rejection, capacity alignment and growth accounting are covered. SDK-adopted
+export tokens stay owned by backing storage after facade construction failure.
+The custom allocator borrows a DynamicLibrary kept loaded for process lifetime;
+managed runtime allocators are preferred.
 
-The binding default requires acknowledgement identifying its pinned layout;
-metadata absence cannot identify old union revisions. An explicitly configured
-upstream subset must affirm the exact pinned revision. Portable uint64 timeout
-limits are explicit. Native lifetime docs describe ownership and copy boundaries.
-Local Gemma summaries, Qwen planning/review/debug and narrow GLM judgments ran;
-claims are checked against source and forced-GC tests. All issues remain open.
-Next: finish #96 candidate verification, then generic external-owner leases and
-observable local write completion (#97). No FlatBuffers network codec, external
-lease, E2EE profile, benchmark parity, ObjectBox adapter or milestone completion
-is claimed.
+Full native-owned bin/verify exits 0 in
+/tmp/connectanum-owned-buffers-finalizer-verify.log. All seven final clean-snapshot
+strict package dry-runs pass without warnings, and 6637e741 is pushed. Hosted
+current-head package dry-runs, binding, fast checks, consumer and browser coverage
+pass; hosted Full Verify now passes and remaining mutation jobs are running. No failed job was
+reported in the latest current-head snapshot; no all-green workflow claim.
+
+The complete 99-mutant diagnostic for the earlier 13-test ownership candidate
+fails its 95% assertion gate (69.697% detection, 44.444% assertion lower bound).
+Expanded range/state/reentrancy/version/library regressions are added; no waiver
+or new score is claimed. Its proposed hosted gate remains deferred, preserving
+existing gates. Lifetime/fuzz/mutation hardening remains #102.
+
+Gemma summary and Qwen planning/review completed; source/tests refute incorrect
+union examples and a sys.modules snapshot warning. GLM was stopped, restarted,
+and reaches healthy state. A smaller completed contract judgment recommends
+explicit rejection if WELCOME omits acknowledgement after CHALLENGE; the contract
+now states that directly. Partial/timed-out reviews remain recorded in the plan.
+
+#97 producer-lease ABI v1 registers immutable foreign memory as a
+Bytes owner without taking allocator ownership. Native producer-only admission,
+thread-affine dispatch, bounded quota, handle reservation rollback, preallocated
+release queues and close/destroy behavior pass 15 lease/FFI tests; all 216 ct_ffi
+tests pass. SDK export and retained slices preserve the original span. Dart
+adopts a trusted native handle/library token only after complete ABI validation.
+An independent C pthread fixture plus forced-GC Dart child proves a derived
+read-only view outlives its disposed/collected facade and releases the fake
+transaction exactly once on the original native producer thread. Older/mismatched
+lease ABIs reject before token dereference. All 21 Dart ownership tests and focused analysis pass; fresh full bin/verify
+exits 0 in session 64643, /tmp/connectanum-external-adoption-verify.log.
+Local Qwen/GLM lease test planning and review attempts time out without findings;
+manual source inspection and executable tests remain the evidence. The smaller GLM ownership judgment also times out at 60 seconds without
+output; no successful external-lease companion judgment is claimed.
+
+All ten issues remain open. Next: finish producer-lease validation and implement
+observable actual local write completion (#97), independently of native resource
+release. No FlatBuffers network codec, write-completion API, E2EE profile,
+benchmark parity, ObjectBox adapter or milestone completion is claimed.
 
 Work396: Resume mutation work after beta.6 publication. Master CI `37035848715`
 finishes cancelled: the MCP-library job reaches its 180-minute outer deadline

@@ -596,7 +596,9 @@
       "packages/connectanum_client/test/test_support/native_runtime_support_stub.dart",
       "packages/connectanum_client/test/transport/native/support/file_digest_cases.dart",
       "packages/connectanum_client/test/transport/native/support/owned_buffer_gc_probe.dart",
-      "packages/connectanum_client/test/transport/native/support/owned_buffer_abi_fixture.c"
+      "packages/connectanum_client/test/transport/native/support/owned_buffer_abi_fixture.c",
+      "packages/connectanum_client/test/transport/native/support/external_lease_actor_fixture.c",
+      "packages/connectanum_client/test/transport/native/support/external_lease_gc_probe.dart"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": true,
@@ -611,7 +613,9 @@
     ],
     "supportFiles": [
       "packages/connectanum_client/test/transport/native/support/owned_buffer_gc_probe.dart",
-      "packages/connectanum_client/test/transport/native/support/owned_buffer_abi_fixture.c"
+      "packages/connectanum_client/test/transport/native/support/owned_buffer_abi_fixture.c",
+      "packages/connectanum_client/test/transport/native/support/external_lease_actor_fixture.c",
+      "packages/connectanum_client/test/transport/native/support/external_lease_gc_probe.dart"
     ],
     "requiresNativeLibrary": true,
     "testRoot": "packages/connectanum_client",

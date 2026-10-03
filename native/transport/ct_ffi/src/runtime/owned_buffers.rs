@@ -52,6 +52,7 @@ impl Frozen {
 }
 
 enum Storage {
+    Reserved,
     Mutable(Allocation),
     Frozen(Frozen),
 }
@@ -92,9 +93,19 @@ impl BufferStore {
         insert_resource(&self.next, &self.entries, storage).map_err(|_| ERR_HANDLE_UNAVAILABLE)
     }
 
+    fn reserve_frozen(&self) -> Result<FrozenReservation<'_>, i32> {
+        let handle = self.insert(Storage::Reserved)?;
+        Ok(FrozenReservation {
+            store: self,
+            handle,
+            active: true,
+        })
+    }
+
     fn info(&self, handle: u32) -> Result<CtOwnedBufferInfo, i32> {
         let storage = self.entries.get(&handle).ok_or(ERR_INVALID_ARGUMENT)?;
         Ok(match storage.value() {
+            Storage::Reserved => return Err(ERR_INVALID_ARGUMENT),
             Storage::Mutable(allocation) => CtOwnedBufferInfo {
                 base: allocation.storage.as_ptr(),
                 capacity: allocation.storage.capacity(),
@@ -154,7 +165,7 @@ impl BufferStore {
         let storage = self.entries.get(&handle).ok_or(ERR_INVALID_ARGUMENT)?;
         match storage.value() {
             Storage::Frozen(frozen) => Ok(frozen.clone()),
-            Storage::Mutable(_) => Err(ERR_INVALID_ARGUMENT),
+            Storage::Mutable(_) | Storage::Reserved => Err(ERR_INVALID_ARGUMENT),
         }
     }
 
@@ -181,10 +192,49 @@ impl BufferStore {
     }
 
     fn release(&self, handle: u32) -> Result<(), i32> {
-        self.entries
-            .remove(&handle)
-            .map(|_| ())
-            .ok_or(ERR_INVALID_ARGUMENT)
+        match self.entries.entry(handle) {
+            Entry::Occupied(entry) if !matches!(entry.get(), Storage::Reserved) => {
+                entry.remove();
+                Ok(())
+            }
+            _ => Err(ERR_INVALID_ARGUMENT),
+        }
+    }
+}
+
+/// An unobservable handle reserved before a native producer token is consumed.
+pub(super) struct FrozenReservation<'a> {
+    store: &'a BufferStore,
+    handle: u32,
+    active: bool,
+}
+
+impl FrozenReservation<'_> {
+    /// Caller validates this range before admitting the foreign owner. Publishing
+    /// is infallible: public operations cannot remove or mutate a reserved slot.
+    pub fn commit(mut self, allocation: Bytes, range: Range<usize>) -> u32 {
+        assert!(range.start <= range.end && range.end <= allocation.len());
+        let mut entry = self
+            .store
+            .entries
+            .get_mut(&self.handle)
+            .expect("reserved slot");
+        assert!(matches!(entry.value(), Storage::Reserved));
+        *entry = Storage::Frozen(Frozen {
+            capacity: allocation.len(),
+            allocation,
+            range,
+        });
+        self.active = false;
+        self.handle
+    }
+}
+
+impl Drop for FrozenReservation<'_> {
+    fn drop(&mut self) {
+        if self.active {
+            self.store.entries.remove(&self.handle);
+        }
     }
 }
 
@@ -194,6 +244,14 @@ fn store() -> &'static BufferStore {
     // Not cleared on runtime shutdown: queued writes, builders and exported
     // typed-data views have independent lifetimes. IDs are never recycled.
     STORE.get_or_init(BufferStore::default)
+}
+
+pub(super) fn reserve_frozen() -> Result<FrozenReservation<'static>, i32> {
+    store().reserve_frozen()
+}
+
+pub(super) fn store_identity() -> *const c_void {
+    (store() as *const BufferStore).cast()
 }
 
 pub(super) fn take_frozen(handle: i32) -> Result<Bytes, i32> {
@@ -362,6 +420,36 @@ pub extern "C" fn ct_owned_buffer_view_finalizer(owner: *mut c_void) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reservation_is_unobservable_and_rolls_back_without_reviving_its_id() {
+        let store = BufferStore::default();
+        let reserved = store.reserve_frozen().unwrap();
+        let id = reserved.handle;
+        assert_eq!(store.info(id).unwrap_err(), ERR_INVALID_ARGUMENT);
+        assert_eq!(store.take(id).unwrap_err(), ERR_INVALID_ARGUMENT);
+        assert_eq!(store.freeze(id, 0, 0), Err(ERR_INVALID_ARGUMENT));
+        assert_eq!(store.release(id), Err(ERR_INVALID_ARGUMENT));
+        assert_eq!(store.slice(id, 0, 0).err(), Some(ERR_INVALID_ARGUMENT));
+        drop(reserved);
+        assert!(store.entries.is_empty());
+        assert_ne!(store.allocate(0).unwrap(), id);
+    }
+
+    #[test]
+    fn reservation_publishes_borrowed_subrange_without_copying() {
+        let store = BufferStore::default();
+        let bytes = Bytes::from_static(&[0, 1, 2, 3]);
+        let base = bytes.as_ptr();
+        let handle = store.reserve_frozen().unwrap().commit(bytes, 1..3);
+        let info = store.info(handle).unwrap();
+        assert_eq!(info.base, base);
+        assert_eq!((info.capacity, info.initialized_length), (4, 4));
+        assert_eq!((info.offset, info.length, info.writable), (1, 2, 0));
+        let bytes = store.take(handle).unwrap();
+        assert_eq!(bytes.as_ptr(), unsafe { base.add(1) });
+        assert_eq!(bytes.as_ref(), &[1, 2]);
+    }
 
     fn observer(store: &BufferStore, handle: u32) -> std::sync::Weak<()> {
         let storage = store.entries.get(&handle).unwrap();

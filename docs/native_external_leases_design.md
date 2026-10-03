@@ -1,7 +1,8 @@
 # External native leases and write completion
 
-Status: planned for milestone issue #97. The implemented ABI v1 owns its Rust
-allocations; it does not yet support foreign memory or write completion.
+Status: producer-lease ABI v1 and trusted Dart token adoption implemented for
+milestone issue #97; local write completion remains planned. Full local bin/verify passes in /tmp/connectanum-external-adoption-verify.log;
+hosted evidence for this candidate is pending.
 
 The following design separates native producer ownership from transport progress.
 It must be tested before being advertised as an adapter capability.
@@ -29,6 +30,25 @@ foreign memory. Producer-thread dispatch invokes the native release callback
 outside registry locks, then returns its quota. Owner close prevents new loans;
 actual deletion requires every queued/live loan to drain.
 
+The frozen-buffer store needs an internal reservation state and RAII rollback;
+constructing a foreign Bytes owner before reserving its handle would consume the
+producer token when insertion fails. Reserved entries are never exposed as
+readable handles. Commit publishes the immutable owner only after every normal
+admission check succeeds.
+
+Owner creation reserves release-queue capacity for its maximum lease count.
+Last-reference cleanup must not need a new queue allocation on a worker thread.
+Quota includes queued releases and the callback currently being dispatched;
+dispatch invokes callbacks outside locks and rejects recursive dispatch. Owner
+deletion cannot race a callback because its outstanding lease remains charged
+until return. These requirements have focused native regression coverage; the independent C
+producer/GC probe verifies actual C-to-Dart adoption and owner-thread cleanup.
+
+Retained-byte quota measures the complete registered memory span once, even
+when a small/empty slice is sent or exported. A producer may keep a larger
+transaction/cursor resource alive than that span; an adapter must impose its
+own resource/time limits. Core byte quota cannot measure that external cost.
+
 A producer must pump or wait on the release notification while loans are active.
 It must not block that release loop waiting for a peer acknowledgement. Starving
 dispatch retains its bounded quota and rejects new loans; it never authorizes an
@@ -46,3 +66,62 @@ The first adapter example will use a fake transaction-like native producer. No
 ObjectBox dependency, cursor model, database ID policy or actual adapter is
 implemented in this repository. ObjectBox-specific rules belong in a separate
 connectanum_objectbox_adapter package using the verified generic boundary.
+
+## Implemented producer ABI
+
+`ct_external_lease_abi_version()` returns 1. A separate store-identity cookie
+binds `CtExternalBufferToken { int32_t handle; const void *identity; }` to its
+loaded native library. Native integrations create an owner with byte/count
+limits, register one immutable full span plus a used subrange, and publish one
+initialized token to one Dart consumer. `adoptTrustedNativeToken()` checks the
+complete symbol group, version, identity and frozen handle before clearing the
+token. Copies of token fields do not retain references. Registration/adoption
+is a trusted native boundary, not a pointer-validation or isolation mechanism.
+
+The producer pumps `ct_external_owner_dispatch()` and may block its dedicated
+thread in `ct_external_owner_wait()`. Metrics count the complete original span
+once per loan. Close rejects new registrations immediately; destroy succeeds
+only after all live references and queued/in-flight cleanup have drained. Both
+operations require the creating native thread. The registry retains at most
+1024 owners and is independent of transport shutdown. The producer thread and
+callback library must remain alive until destroy succeeds. Callback code must
+be native, must not unwind and must not enter Dart through a Dart callback.
+
+Error codes -20 through -24 mean wrong thread, closing, quota full, busy and
+recursive dispatch/wait, respectively. Registration failure zeroes its output
+token and does not consume the native producer resource. Quota remains charged
+until callback return; a cleanup notification alone does not return quota.
+
+The independent C fixture holds a fake transaction on a native pthread and
+publishes a subrange. A forced-GC Dart child proves immutable derived ByteData
+keeps that resource alive after wrappers die, then observes exactly one cleanup
+on the registering thread. The fixture does not integrate ObjectBox.
+
+## Planned write receipt boundary
+
+Completion uses an independent, versioned six-symbol ABI. A tracked send consumes
+one valid frozen handle on queue, runtime, connection or receipt-quota rejection,
+as the existing owned-send path does. Unsupported ABI/library identity and
+Dart argument rejection occur before transfer. A positive receipt handle means
+queue acceptance; its observable states are Pending, Written and Abandoned.
+The receipt registry reserves capacity and an ID before enqueueing, so it cannot
+report an allocation/handle error after an accepted frame. Explicit release or a
+native finalizer returns registry capacity; releasing a receipt never cancels a
+frame or frees another consumer's payload ownership.
+
+Each tracked frame carries one native completion guard. Writers mark Written
+only after all segments and the final flush succeed. Dropping queued or active
+work marks Abandoned, covering rejection, deferred preparation failure, partial
+write/flush errors and task cancellation. Receipts themselves retain no payload.
+A FIFO internal barrier runs a flush in the same outbound queue and emits no
+protocol bytes. Failure of an earlier write abandons the barrier. Dart's new
+`drainWrites()` observes this barrier; legacy `drain()` remains an event-loop
+yield and does not establish a native write boundary.
+
+Tests will use a controllable AsyncWrite to stop after a partial write, block
+flush independently and inject I/O failure. They must cover both RawSocket and
+WebSocket writers, cancellation of active and queued receipts, rejected queues,
+invalid deferred preparation and two fan-out recipients sharing one loan. One
+written receipt cannot authorize release while the slow recipient retains bytes.
+The C producer/SDK lifetime probe remains separate evidence for thread-affine
+resource release. No planned receipt behavior is advertised as implemented.

@@ -9,6 +9,18 @@ import 'package:flat_buffers/flat_buffers.dart' as fb;
 
 import 'src/transport/native/runtime.dart' show NativeClientRuntime;
 
+/// Native integration output from `ct_external_buffer_register`.
+/// Publish this initialized structure to exactly one Dart consumer. Its handle
+/// is a resource reference; copying/forging the fields does not retain it.
+final class NativeBufferToken extends ffi.Struct {
+  @ffi.Int32()
+  external int handle;
+  external ffi.Pointer<ffi.Void> identity;
+}
+
+typedef _IdentityN = ffi.Pointer<ffi.Void> Function();
+typedef _IdentityD = ffi.Pointer<ffi.Void> Function();
+
 final class _BufferInfo extends ffi.Struct {
   external ffi.Pointer<ffi.Uint8> base;
   @ffi.UintPtr()
@@ -118,9 +130,33 @@ final class NativeBufferAllocator {
         .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
     _send = library.lookupFunction<_SendN, _SendD>(symbols[9]);
     _supported = true;
+    const externalSymbols = [
+      'ct_external_lease_abi_version',
+      'ct_external_buffer_store_identity',
+      'ct_external_owner_create',
+      'ct_external_owner_close',
+      'ct_external_owner_destroy',
+      'ct_external_owner_dispatch',
+      'ct_external_owner_wait',
+      'ct_external_owner_metrics',
+      'ct_external_buffer_register',
+    ];
+    if (!externalSymbols.every(library.providesSymbol)) return;
+    final externalVersion = library.lookupFunction<_VersionN, _VersionD>(
+      externalSymbols[0],
+    );
+    if (externalVersion() != 1) return;
+    final identity = library.lookupFunction<_IdentityN, _IdentityD>(
+      externalSymbols[1],
+    )();
+    if (identity.address == 0) return;
+    _externalIdentity = identity;
+    _externalSupported = true;
   }
 
   bool _supported = false;
+  bool _externalSupported = false;
+  late final ffi.Pointer<ffi.Void> _externalIdentity;
   late final int _identity;
   late final _AllocateD _allocate;
   late final _InfoD _info;
@@ -134,6 +170,47 @@ final class NativeBufferAllocator {
   late final void Function(ffi.Pointer<ffi.Void>) _freeView;
 
   bool get isSupported => _supported;
+
+  /// Complete producer-lease ABI v1 and native token adoption are available.
+  bool get supportsExternalTokens => _externalSupported;
+
+  /// Claims one frozen handle published by a trusted native integration.
+  /// `token` must point to initialized, writable [NativeBufferToken] storage.
+  /// The native producer owns its release loop and resource lifetime; this
+  /// method neither registers callbacks nor dispatches them on a Dart thread.
+  ///
+  /// ABI, identity and mutable-handle rejection leave the token unconsumed.
+  /// Successful validation clears the token before constructing the owner;
+  /// later construction failure releases that claimed handle exactly once.
+  NativeOwnedBuffer adoptTrustedNativeToken(
+    ffi.Pointer<NativeBufferToken> token,
+  ) {
+    _require();
+    if (!_externalSupported) {
+      throw UnsupportedError('Native producer-lease ABI v1 is unavailable');
+    }
+    if (token.address == 0) {
+      throw ArgumentError.value(token, 'token', 'Null native token');
+    }
+    final value = token.ref;
+    final id = value.handle;
+    if (id <= 0 || value.identity != _externalIdentity) {
+      throw ArgumentError('Invalid native token or different buffer library');
+    }
+    final info = _getInfoId(id);
+    if (info.writable != 0) {
+      throw StateError('Native token must reference an immutable buffer');
+    }
+    value.handle = 0;
+    value.identity = ffi.nullptr;
+    final handle = _OwnedHandle(this, id, externalSize: info.capacity);
+    try {
+      return NativeOwnedBuffer._(handle, info.length, 0, 0);
+    } catch (_) {
+      handle.dispose();
+      rethrow;
+    }
+  }
 
   void _require() {
     if (!_supported) {
@@ -159,9 +236,21 @@ final class NativeBufferAllocator {
   })
   _getInfo(_OwnedHandle handle) {
     handle.check();
+    return _getInfoId(handle.id);
+  }
+
+  ({
+    ffi.Pointer<ffi.Uint8> base,
+    int capacity,
+    int initializedLength,
+    int offset,
+    int length,
+    int writable,
+  })
+  _getInfoId(int id) {
     final output = calloc<_BufferInfo>();
     try {
-      _check(_info(handle.id, output));
+      _check(_info(id, output));
       // Snapshot fields; returning output.ref would escape freed struct memory.
       final info = output.ref;
       return (

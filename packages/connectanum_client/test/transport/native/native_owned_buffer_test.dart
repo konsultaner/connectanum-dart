@@ -15,6 +15,7 @@ import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/generated/wamp_wamp.proto_generated.dart'
     as wire;
 import 'package:flat_buffers/flat_buffers.dart' as fb;
+import 'package:ffi/ffi.dart' as ffi_alloc;
 import 'package:test/test.dart';
 
 void main() {
@@ -62,13 +63,18 @@ void main() {
         'connectanum-owned-abi-',
       );
       addTearDown(() => directory.delete(recursive: true));
-      Future<NativeBufferAllocator> load(int version) async {
+      Future<NativeBufferAllocator> load(
+        int version, {
+        int? externalVersion,
+      }) async {
         final output =
-            '${directory.path}/owned-$version.${Platform.isMacOS ? 'dylib' : 'so'}';
+            '${directory.path}/owned-$version-$externalVersion.${Platform.isMacOS ? 'dylib' : 'so'}';
         final result = await Process.run('cc', [
           Platform.isMacOS ? '-dynamiclib' : '-shared',
           '-fPIC',
           '-DOWNED_BUFFER_VERSION=$version',
+          if (externalVersion != null)
+            '-DEXTERNAL_LEASE_VERSION=$externalVersion',
           '-o',
           output,
           fixture,
@@ -86,6 +92,19 @@ void main() {
       expect(() => differentVersion.allocate(8), throwsUnsupportedError);
       final foreign = await load(1);
       expect(foreign.isSupported, isTrue);
+      expect(foreign.supportsExternalTokens, isFalse);
+      // Capability rejection must happen before reading even a non-null token.
+      expect(
+        () => foreign.adoptTrustedNativeToken(Pointer.fromAddress(1)),
+        throwsUnsupportedError,
+      );
+      final wrongExternal = await load(1, externalVersion: 2);
+      expect(wrongExternal.isSupported, isTrue);
+      expect(wrongExternal.supportsExternalTokens, isFalse);
+      expect(
+        () => wrongExternal.adoptTrustedNativeToken(Pointer.fromAddress(1)),
+        throwsUnsupportedError,
+      );
       final buffer = allocator.allocate(8).freeze();
       expect(
         () => foreign.send(42, buffer, transfer: true),
@@ -98,6 +117,46 @@ void main() {
     skip: Platform.isWindows
         ? 'Native verification uses Unix C toolchains'
         : false,
+  );
+
+  test(
+    'mutable, stale and null producer tokens reject without consumption',
+    () {
+      final library = DynamicLibrary.open(
+        NativeClientRuntime.instance().libraryPath,
+      );
+      final allocate = library
+          .lookupFunction<Int32 Function(Int32), int Function(int)>(
+            'ct_owned_buffer_allocate',
+          );
+      final release = library
+          .lookupFunction<Int32 Function(Int32), int Function(int)>(
+            'ct_owned_buffer_release',
+          );
+      final identity = library
+          .lookupFunction<Pointer<Void> Function(), Pointer<Void> Function()>(
+            'ct_external_buffer_store_identity',
+          );
+      final api = NativeBufferAllocator(library);
+      expect(api.supportsExternalTokens, isTrue);
+      expect(() => api.adoptTrustedNativeToken(nullptr), throwsArgumentError);
+      final token = ffi_alloc.calloc<NativeBufferToken>();
+      addTearDown(() => ffi_alloc.calloc.free(token));
+      final id = allocate(8);
+      expect(id, greaterThan(0));
+      token.ref.handle = id;
+      token.ref.identity = identity();
+      expect(() => api.adoptTrustedNativeToken(token), throwsStateError);
+      expect(token.ref.handle, id);
+      expect(release(id), 0);
+      expect(
+        () => api.adoptTrustedNativeToken(token),
+        throwsA(
+          isA<NativeBufferException>().having((e) => e.code, 'code', -4),
+        ),
+      );
+      expect(token.ref.handle, id);
+    },
   );
 
   test(
@@ -131,6 +190,63 @@ void main() {
       );
     },
     timeout: const Timeout(Duration(seconds: 40)),
+  );
+
+  test(
+    'C producer leases survive derived views and release on the owner thread',
+    () async {
+      final source = await Isolate.resolvePackageUri(
+        Uri.parse('package:connectanum_client/native_buffers.dart'),
+      );
+      final support = source!.resolve('../test/transport/native/support/');
+      final directory = await Directory.systemTemp.createTemp(
+        'connectanum-lease-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final output =
+          '${directory.path}/actor.${Platform.isMacOS ? 'dylib' : 'so'}';
+      final compiled = await Process.run('cc', [
+        Platform.isMacOS ? '-dynamiclib' : '-shared',
+        '-fPIC',
+        '-pthread',
+        '-Wall',
+        '-Wextra',
+        '-Werror',
+        '-o',
+        output,
+        support.resolve('external_lease_actor_fixture.c').toFilePath(),
+        if (!Platform.isMacOS) '-ldl',
+      ]);
+      expect(
+        compiled.exitCode,
+        0,
+        reason: '${compiled.stdout}\n${compiled.stderr}',
+      );
+      final result = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          '--enable-vm-service=0',
+          '--disable-service-auth-codes',
+          'run',
+          support.resolve('external_lease_gc_probe.dart').toFilePath(),
+          output,
+        ],
+        environment: {
+          'CONNECTANUM_NATIVE_LIB': NativeClientRuntime.instance().libraryPath,
+        },
+      );
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      expect(
+        result.stdout,
+        contains(
+          'external-lease-gc: native owner thread released after derived view',
+        ),
+      );
+    },
+    skip: Platform.isWindows
+        ? 'Native verification uses Unix C toolchains'
+        : false,
+    timeout: const Timeout(Duration(seconds: 45)),
   );
 
   test('zero-filled native storage freezes a backward subrange', () {

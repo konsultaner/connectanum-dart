@@ -319,3 +319,102 @@ Final narrow Qwen/GLM attempts hit output/deadline limits; prior completed narro
 reviews, source checks and fail-first alignment/ephemeral-GC regressions remain
 recorded. Commit this verified owned-buffer increment, keeping all issues open
 until the binding gaps and remaining milestone acceptance criteria are resolved.
+
+## Binding control-presence and authentication follow-up
+
+The preceding goal turn made verified progress: commit 6637e741 adds native-owned
+builders and submission, passes full verification and all seven strict package
+dry-runs, and is pushed to draft PR #105. Current-head package, binding, fast,
+consumer and browser checks pass; Full Verify and mutation jobs are running.
+
+Two fail-first generation-contract regressions reproduce missing nullable
+HEARTBEAT controls and custom CHALLENGE control strings. Append presence:ubyte=7
+after the three heartbeat scalars, and method_name:string after Challenge.extra.
+The original seven upstream files and original heartbeat.bin remain unchanged;
+flatc conformance passes. Nine heartbeat fixtures cover the original plus all
+eight absent/explicit-zero masks; authentication/bootstrap fixtures raise the
+total to 42. Fifty Dart tests pass on VM, Chrome JS and WASM, focused analysis
+and exact regeneration pass. Independent unmodified Python reads 33 compatible
+fixtures; derived readers check all 42 and Dart/Rust emitted extensions. Rust
+also reads the Dart extensions. These are binding tests, not session-validation
+or authenticated network-codec claims.
+
+ERROR retains the upstream enum: its seven supported request codes exclude
+HEARTBEAT, which has no correlated request ID. The checked-in contract records
+the WAMP source and rejection policy. CHALLENGE may acknowledge the offered
+metadata/binding feature before AUTHENTICATE; WELCOME still establishes the
+session and requires the applicable role acknowledgement. Bounded terminal
+bootstrap ABORT metadata grants no capability. Reserved heartbeat bits,
+absent-bit/nonzero scalar contradictions and method-name/enum mismatches must
+be rejected by the future codec.
+
+Gemma summary and narrow Qwen planning/review complete. Qwen's union-ID examples
+and sys.modules mutation warning are contradicted by the pinned tag map and
+list(sys.modules) snapshot. Upstream input hashes make its speculative formatting
+drift inapplicable. GLM initially refuses connections; its stopped service is
+restarted and loading before the bounded contract judgment is retried. Fresh
+full verification is required before committing this follow-up or closing #95.
+
+SCRAM fixture parameters are typed explicitly (integer iterations and base64
+salt), with a focused decoded-metadata assertion. Final focused count is 51 on
+VM/JS/WASM; independent 42-fixture interop and regeneration still pass. Baseline
+bin/test-fast exits 0 in /tmp/connectanum-flatbuffers-binding-audit-fast.log.
+Fresh full bin/verify runs in /tmp/connectanum-flatbuffers-controls-verify.log.
+The restarted GLM reaches healthy state; the first 55-second contract judgment
+times out during reasoning, and a smaller bounded prompt is tried next. No
+completed judgment is inferred from either reachability or a partial stream.
+
+The smaller GLM contract judgment completes at 70 seconds. Its only suggested
+clarification is explicit rejection of missing/false WELCOME acknowledgement
+after a CHALLENGE acknowledgement; this follows the existing policy and is now
+stated directly. Full verification is live in exec session 71200; poll that
+handle rather than restarting the run. No functional change follows its start.
+The planned #97 design additionally records pre-reserved frozen handles and
+release-queue capacity, quota held through callback return, recursive-dispatch
+rejection, and adapter-specific transaction resource limits. No lease API exists
+yet and those requirements have no implementation evidence.
+
+
+## Producer lease and token adoption checkpoint
+
+Binding follow-up full bin/verify (session 71200) exits 0. Hosted Full Verify
+passes at pushed 6637e741; remaining mutations still need their final status.
+All issues remain open; no network codec or completed milestone is claimed.
+
+Uncommitted producer ABI v1 registers foreign immutable spans via
+Bytes::from_owner, with frozen handle reservation before resource consumption.
+The bounded registry retains owners independently of transport shutdown;
+last-reference drops enqueue native cleanup and notify the producer. Only the
+registration OS thread can admit, wait, dispatch, close or destroy. Full-span
+byte/count quota includes queued/in-flight cleanup. Reserved buffer handles
+are invisible and roll back on failure. All 216 ct_ffi tests pass, including 15
+lease/FFI and nine owned-buffer tests, in
+/tmp/connectanum-external-lease-all-ffi-tests.log.
+
+Dart adoption checks the complete optional producer symbol group, version,
+store cookie and immutable handle, then consumes the native token exactly once.
+The independent C pthread producer plus forced-GC Dart child passes: a derived
+read-only ByteData retains the transaction after facade disposal/collection,
+then cleanup occurs once on the original native owner thread. Additional old
+ABI, wrong version, null/mutable/stale token checks pass. All 21 focused Dart
+ownership tests and focused analysis pass.
+Current focused test log: /tmp/connectanum-external-adoption-tests.log.
+
+Qwen and GLM external-lease review/test-planning attempts time out at 90 seconds
+without findings. The smaller GLM ownership judgment also times out after 60 seconds without
+output; no completed review is claimed. This is a local companion limitation, not a task blocker.
+Next: fresh candidate verification, then actual write completion and FIFO
+writer drain, separate from lease-resource release and peer acknowledgements.
+
+Fresh full producer/adoption bin/verify is running in session 64643,
+/tmp/connectanum-external-adoption-verify.log. The binding follow-up is committed
+as 722175ca; producer-lease/adoption changes remain uncommitted.
+
+
+Producer/adoption full bin/verify (session 64643) exits 0 in
+/tmp/connectanum-external-adoption-verify.log, including Chrome/WASM. Focused
+analysis has no issues and all 21 Dart ownership tests pass. The new C fixture
+builds with -Wall -Wextra -Werror. Producer changes are ready to commit; every
+milestone issue remains open because acceptance audits and actual write
+completion/fan-out integration remain pending. Temporary completion prototypes
+are prepared outside the worktree and have not affected this verified snapshot.
