@@ -26,6 +26,9 @@ void main() {
         expect(actual[entry.key], entry.value, reason: entry.key);
       }
       expect(message.metadata, fixture['wire']['metadata']);
+      if (message.metadata != null) {
+        expect(cbor.decode(message.metadata!).toObject(), isA<Map>());
+      }
       if (actual['args'] != null) {
         expect(cbor.decode(actual['args'] as List<int>).toObject(), [
           1,
@@ -60,6 +63,60 @@ void main() {
     expect(wire.AnyMessageTypeId.Error.value, 7);
     expect(wire.MessageType.ERROR.value, 8);
     expect(wire.AnyMessageTypeId.Heartbeat.value, 26);
+  });
+
+  test('HEARTBEAT presence distinguishes every absent/zero combination', () {
+    for (var mask = 0; mask < 8; mask++) {
+      final bytes = wire.MessageObjectBuilder(
+        msgType: wire.AnyMessageTypeId.Heartbeat,
+        msg: wire.HeartbeatObjectBuilder(
+          ping: 0,
+          incoming: 0,
+          outgoing: 0,
+          presence: mask,
+        ),
+      ).toBytes();
+      final heartbeat = wire.Message(bytes).msg as wire.Heartbeat;
+      expect(heartbeat.presence, mask);
+      expect(heartbeat.ping, 0);
+      expect(heartbeat.incoming, 0);
+      expect(heartbeat.outgoing, 0);
+    }
+    final legacy = cases.singleWhere((c) => c['name'] == 'heartbeat');
+    final heartbeat =
+        wire.Message(base64Decode(legacy['base64'])).msg as wire.Heartbeat;
+    expect(heartbeat.presence, 7);
+    expect([heartbeat.ping, heartbeat.incoming, heartbeat.outgoing], [1, 2, 3]);
+  });
+
+  test('custom authentication control and binary extras remain separate', () {
+    final fixture = cases.singleWhere((c) => c['name'] == 'challenge_custom');
+    final message = wire.Message(base64Decode(fixture['base64']));
+    final challenge = message.msg as wire.Challenge;
+    expect(challenge.method, wire.AuthMethod.NULL);
+    expect(challenge.methodName, 'com.example.custom');
+    expect(challenge.extra, isNull);
+    expect(cbor.decode(message.metadata!).toObject(), {
+      '_connectanum_flatbuffers_metadata_v1': true,
+      'nonce': Uint8List.fromList([0, 255]),
+    });
+  });
+
+  test('SCRAM acknowledgement preserves the method and typed parameters', () {
+    final fixture = cases.singleWhere(
+      (c) => c['name'] == 'challenge_scram_ack',
+    );
+    final message = wire.Message(base64Decode(fixture['base64']));
+    final challenge = message.msg as wire.Challenge;
+    expect(challenge.method, wire.AuthMethod.SCRAM);
+    expect(challenge.methodName, 'wamp-scram');
+    expect(cbor.decode(message.metadata!).toObject(), {
+      '_connectanum_flatbuffers_metadata_v1': true,
+      'nonce': 'nonce-example',
+      'salt': 'c2FsdA==',
+      'iterations': 4096,
+      'kdf': 'pbkdf2',
+    });
   });
 
   test('Dart builder emits a standard Call plus optional metadata', () {
@@ -211,6 +268,7 @@ Map<String, dynamic> _fields(dynamic value) => switch (value) {
   wire.Abort m => {'reason': m.reason, 'message': m.message},
   wire.Challenge m => {
     'method': m.method.name,
+    'method_name': m.methodName,
     'extra': {'key': m.extra?.key, 'value': m.extra?.value},
   },
   wire.Authenticate m => {
@@ -302,6 +360,7 @@ Map<String, dynamic> _fields(dynamic value) => switch (value) {
     'ping': m.ping,
     'incoming': m.incoming,
     'outgoing': m.outgoing,
+    'presence': m.presence,
   },
   _ => throw StateError('Unexpected fixture type ${value.runtimeType}'),
 };

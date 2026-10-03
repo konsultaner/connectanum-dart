@@ -8146,6 +8146,7 @@ pub mod wamp {
             pub const VT_SESSION: flatbuffers::VOffsetT = 4;
             pub const VT_METHOD: flatbuffers::VOffsetT = 6;
             pub const VT_EXTRA: flatbuffers::VOffsetT = 8;
+            pub const VT_METHOD_NAME: flatbuffers::VOffsetT = 10;
 
             #[inline]
             pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -8163,6 +8164,9 @@ pub mod wamp {
             ) -> flatbuffers::WIPOffset<Challenge<'bldr>> {
                 let mut builder = ChallengeBuilder::new(_fbb);
                 builder.add_session(args.session);
+                if let Some(x) = args.method_name {
+                    builder.add_method_name(x);
+                }
                 if let Some(x) = args.extra {
                     builder.add_extra(x);
                 }
@@ -8202,6 +8206,16 @@ pub mod wamp {
                         .get::<flatbuffers::ForwardsUOffset<super::Map>>(Challenge::VT_EXTRA, None)
                 }
             }
+            #[inline]
+            pub fn method_name(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<flatbuffers::ForwardsUOffset<&str>>(Challenge::VT_METHOD_NAME, None)
+                }
+            }
         }
 
         impl flatbuffers::Verifiable for Challenge<'_> {
@@ -8219,6 +8233,11 @@ pub mod wamp {
                         Self::VT_EXTRA,
                         false,
                     )?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                        "method_name",
+                        Self::VT_METHOD_NAME,
+                        false,
+                    )?
                     .finish();
                 Ok(())
             }
@@ -8227,6 +8246,7 @@ pub mod wamp {
             pub session: u64,
             pub method: AuthMethod,
             pub extra: Option<flatbuffers::WIPOffset<super::Map<'a>>>,
+            pub method_name: Option<flatbuffers::WIPOffset<&'a str>>,
         }
         impl<'a> Default for ChallengeArgs<'a> {
             #[inline]
@@ -8235,6 +8255,7 @@ pub mod wamp {
                     session: 0,
                     method: AuthMethod::NULL,
                     extra: None,
+                    method_name: None,
                 }
             }
         }
@@ -8263,6 +8284,13 @@ pub mod wamp {
                     );
             }
             #[inline]
+            pub fn add_method_name(&mut self, method_name: flatbuffers::WIPOffset<&'b str>) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    Challenge::VT_METHOD_NAME,
+                    method_name,
+                );
+            }
+            #[inline]
             pub fn new(
                 _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
             ) -> ChallengeBuilder<'a, 'b, A> {
@@ -8285,6 +8313,7 @@ pub mod wamp {
                 ds.field("session", &self.session());
                 ds.field("method", &self.method());
                 ds.field("extra", &self.extra());
+                ds.field("method_name", &self.method_name());
                 ds.finish()
             }
         }
@@ -15642,6 +15671,7 @@ pub mod wamp {
             pub const VT_PING: flatbuffers::VOffsetT = 4;
             pub const VT_INCOMING: flatbuffers::VOffsetT = 6;
             pub const VT_OUTGOING: flatbuffers::VOffsetT = 8;
+            pub const VT_PRESENCE: flatbuffers::VOffsetT = 10;
 
             #[inline]
             pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -15661,6 +15691,7 @@ pub mod wamp {
                 builder.add_outgoing(args.outgoing);
                 builder.add_incoming(args.incoming);
                 builder.add_ping(args.ping);
+                builder.add_presence(args.presence);
                 builder.finish()
             }
 
@@ -15693,6 +15724,17 @@ pub mod wamp {
                         .unwrap()
                 }
             }
+            #[inline]
+            pub fn presence(&self) -> u8 {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<u8>(Heartbeat::VT_PRESENCE, Some(7))
+                        .unwrap()
+                }
+            }
         }
 
         impl flatbuffers::Verifiable for Heartbeat<'_> {
@@ -15706,6 +15748,7 @@ pub mod wamp {
                     .visit_field::<u64>("ping", Self::VT_PING, false)?
                     .visit_field::<u64>("incoming", Self::VT_INCOMING, false)?
                     .visit_field::<u64>("outgoing", Self::VT_OUTGOING, false)?
+                    .visit_field::<u8>("presence", Self::VT_PRESENCE, false)?
                     .finish();
                 Ok(())
             }
@@ -15714,6 +15757,7 @@ pub mod wamp {
             pub ping: u64,
             pub incoming: u64,
             pub outgoing: u64,
+            pub presence: u8,
         }
         impl<'a> Default for HeartbeatArgs {
             #[inline]
@@ -15722,6 +15766,7 @@ pub mod wamp {
                     ping: 0,
                     incoming: 0,
                     outgoing: 0,
+                    presence: 7,
                 }
             }
         }
@@ -15746,6 +15791,11 @@ pub mod wamp {
                     .push_slot::<u64>(Heartbeat::VT_OUTGOING, outgoing, 0);
             }
             #[inline]
+            pub fn add_presence(&mut self, presence: u8) {
+                self.fbb_
+                    .push_slot::<u8>(Heartbeat::VT_PRESENCE, presence, 7);
+            }
+            #[inline]
             pub fn new(
                 _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
             ) -> HeartbeatBuilder<'a, 'b, A> {
@@ -15768,6 +15818,7 @@ pub mod wamp {
                 ds.field("ping", &self.ping());
                 ds.field("incoming", &self.incoming());
                 ds.field("outgoing", &self.outgoing());
+                ds.field("presence", &self.presence());
                 ds.finish()
             }
         }

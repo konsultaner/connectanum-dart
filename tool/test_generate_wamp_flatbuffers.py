@@ -17,6 +17,18 @@ class PinnedSchemaTests(unittest.TestCase):
         self.assertIn("    Yield,\n    Heartbeat\n", combined)
         self.assertNotIn('include "', combined)
 
+    def test_heartbeat_preserves_nullable_control_presence(self):
+        combined = generator.combined_schema(generator.ROOT)
+        heartbeat = combined.split("table Heartbeat {", 1)[1].split("}", 1)[0]
+        self.assertIn("presence: ubyte = 7;", heartbeat)
+
+    def test_custom_challenge_method_is_an_append_only_string(self):
+        combined = generator.combined_schema(generator.ROOT)
+        challenge = combined.split("table Challenge\n{", 1)[1].split("}", 1)[0]
+        self.assertLess(challenge.index("extra: Map;"), challenge.index("method_name: string;"))
+        upstream = generator.combined_schema(generator.ROOT, extensions=False)
+        self.assertNotIn("method_name: string;", upstream)
+
     def test_changed_upstream_input_is_rejected_before_generation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

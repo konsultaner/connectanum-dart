@@ -55,4 +55,28 @@ void main(List<String> arguments) {
   File(
     '${directory.path}/dart_publish_empty_ids.bin',
   ).writeAsBytesSync(emptyPublication.toBytes());
+  for (final mask in [0, 1, 7]) {
+    final heartbeat = wire.MessageObjectBuilder(
+      msgType: wire.AnyMessageTypeId.Heartbeat,
+      msg: wire.HeartbeatObjectBuilder(
+        ping: 0,
+        incoming: 0,
+        outgoing: 0,
+        presence: mask,
+      ),
+    );
+    File(
+      '${directory.path}/dart_heartbeat_$mask.bin',
+    ).writeAsBytesSync(heartbeat.toBytes());
+  }
+  final challenge = wire.MessageObjectBuilder(
+    msgType: wire.AnyMessageTypeId.Challenge,
+    msg: wire.ChallengeObjectBuilder(
+      method: wire.AuthMethod.NULL,
+      methodName: 'com.example.custom',
+    ),
+  );
+  File(
+    '${directory.path}/dart_challenge_custom.bin',
+  ).writeAsBytesSync(challenge.toBytes());
 }

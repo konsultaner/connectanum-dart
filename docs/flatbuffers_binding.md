@@ -118,6 +118,25 @@ table is appended to the union. Never insert alternatives before existing ones.
 Unknown union alternatives are rejected before table access. Arbitrary unknown
 WAMP message codes cannot be invented under this binding.
 
+The appended HEARTBEAT table has `ping:uint64`, `incoming:uint64`,
+`outgoing:uint64`, then `presence:ubyte = 7` (vtable offsets 4, 6, 8, 10).
+Bits 1, 2 and 4 indicate that the respective control is present. A present zero
+and an absent value therefore remain distinct even when flatc omits default-zero
+scalar storage. The default mask 7 preserves the original fixture's three
+present controls. Senders set the mask explicitly from nullable model values;
+receivers reject reserved bits and a nonzero scalar whose bit is absent.
+The nine HEARTBEAT fixtures include the original bytes and all eight zero masks.
+
+`ERROR.request_type` retains the original `MessageType` enum. Its supported
+request codes are PUBLISH (16), SUBSCRIBE (32), UNSUBSCRIBE (34), CALL (48),
+REGISTER (64), UNREGISTER (66) and INVOCATION (68). Other codes, NULL, unknown
+enum values and values outside uint16 fail explicitly; they are never truncated
+or converted to another request type. HEARTBEAT has no correlatable request ID
+and is not an ERROR request type. This binding policy follows the request/error
+flows and invalid REQUEST.Type rule in the [WAMP specification](https://wamp-proto.org/wamp_latest_ietf.html)
+(checked 2026-10-03). Recognition of a message enum alone does not authorize it
+in ERROR or in the current session state.
+
 The upstream schema history changed RPC union ordinals when EVENT_RECEIVED was
 inserted. The generic serializer identifier does not identify a schema revision.
 Interoperability claims therefore name this pinned revision and actual fixtures;
@@ -170,6 +189,25 @@ non-string keys, duplicate keys, extra trailing CBOR values, oversized/deep data
 and contradictory fields are errors. The codec applies the existing WAMP bounds
 and explicit metadata byte/depth/item limits before materialization.
 
+CHALLENGE's non-dictionary method name uses a separate append-only field:
+`method_name:string` follows `session`, `method` and `extra` (vtable offset 10).
+The enum maps NULL to `anonymous`, TICKET to `ticket`, CRA to `wampcra`, SCRAM
+to `wamp-scram` and CRYPTOSIGN to `cryptosign`. Known methods normally omit the
+new string; if present it must match the enum exactly. A custom nonempty method
+uses enum NULL as a negotiated placeholder and its actual name in `method_name`.
+That combination never selects anonymous authentication. An unknown enum,
+empty string or contradictory known method/string is an error. The string is
+not smuggled into CHALLENGE.extra, whose full dictionary remains in metadata.
+An upstream-subset peer cannot receive a custom method.
+
+HELLO.authmethods and WELCOME.authmethod are members of their existing details
+dictionaries. Metadata preserves custom names there: the upstream HELLO vector
+contains only representable methods in their original order, while a custom
+WELCOME method uses the enum NULL placeholder. Receivers validate every
+representable entry against metadata, including absence/default distinctions;
+an extended placeholder must never create a logical anonymous method. Such
+loss-sensitive values are rejected in an upstream-subset session.
+
 ## Capabilities and fallback
 
 The codec can parse the pinned upstream subset and the compatible extension.
@@ -179,19 +217,33 @@ Transport session state controls whether extension semantics may be sent:
    role's features, carried in its metadata dictionary. The basic HELLO fields
    remain valid for an upstream reader.
    The leading underscore follows WAMP's implementation-specific key convention.
-2. WELCOME acknowledges the same feature for the selected router roles. This
-   capability names this pinned union/table layout and metadata version. The
-   receiver records peer support before ordinary traffic is admitted.
-3. Subsequent metadata and HEARTBEAT extension messages require this capability.
-   HELLO/WELCOME metadata used for capability exchange is the bootstrap exception.
-4. Without acknowledgement, the default session rejects the peer before ordinary
+2. For authentication before WELCOME, a supporting router that received the
+   HELLO advertisement acknowledges `_connectanum_flatbuffers_metadata_v1: true`
+   in CHALLENGE.extra metadata. The client validates and records this explicit
+   acknowledgement before interpreting extended challenge controls or sending
+   extended AUTHENTICATE.extra. Its HELLO offer alone never establishes router
+   support. Missing or false acknowledgement fails before credentials are sent,
+   unless an explicitly trusted, lossless upstream-subset session was selected.
+3. WELCOME acknowledges the same feature for the selected router roles. Anonymous
+   sessions first receive acknowledgement here; challenged sessions require it
+   here too. A challenge acknowledgement does not establish a WAMP session or
+   authenticate either peer. A missing or false WELCOME acknowledgement is
+   rejected even after a valid challenge acknowledgement. This capability names the pinned union/table layout
+   and metadata version; ordinary traffic requires a valid WELCOME and agreement
+   for every applicable role, alongside normal authentication checks.
+4. Subsequent metadata and HEARTBEAT extension messages require this capability.
+   HELLO, acknowledging CHALLENGE and WELCOME are bootstrap exceptions. A bounded,
+   structurally valid pre-WELCOME ABORT may carry diagnostic details metadata;
+   it terminates setup and grants no capability. Malformed bootstrap metadata
+   fails closed. These exceptions do not admit ordinary RPC or pub/sub frames.
+5. Without acknowledgement, the default session rejects the peer before ordinary
    traffic. An explicitly configured upstream-subset session must affirm that
    its peer uses this exact pinned schema revision; absence of metadata is not
    evidence of that identity. Such a session may send only values represented
    losslessly by the pinned schema. Unsupported authentication
    extras, custom/nullable/default-sensitive fields or extension alternatives
    fail explicitly. No silent dictionary loss or encoding relabeling is allowed.
-5. If a caller explicitly configured existing serializer alternatives, transport
+6. If a caller explicitly configured existing serializer alternatives, transport
    negotiation can use them according to the existing selection model. Selecting
    FlatBuffers alone produces a useful unsupported-peer error rather than
    inventing automatic reconnect or schema downgrade policy.

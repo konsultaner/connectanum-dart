@@ -3854,10 +3854,12 @@ class Challenge {
     const fb.Uint8Reader().vTableGet(_bc, _bcOffset, 6, 0),
   );
   wamp.Map? get extra => wamp.Map.reader.vTableGetNullable(_bc, _bcOffset, 8);
+  String? get methodName =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
 
   @override
   String toString() {
-    return 'Challenge{session: ${session}, method: ${method}, extra: ${extra}}';
+    return 'Challenge{session: ${session}, method: ${method}, extra: ${extra}, methodName: ${methodName}}';
   }
 }
 
@@ -3875,7 +3877,7 @@ class ChallengeBuilder {
   final fb.Builder fbBuilder;
 
   void begin() {
-    fbBuilder.startTable(3);
+    fbBuilder.startTable(4);
   }
 
   int addSession(int? session) {
@@ -3893,6 +3895,11 @@ class ChallengeBuilder {
     return fbBuilder.offset;
   }
 
+  int addMethodNameOffset(int? offset) {
+    fbBuilder.addOffset(3, offset);
+    return fbBuilder.offset;
+  }
+
   int finish() {
     return fbBuilder.endTable();
   }
@@ -3902,23 +3909,30 @@ class ChallengeObjectBuilder extends fb.ObjectBuilder {
   final int? _session;
   final AuthMethod? _method;
   final wamp.MapObjectBuilder? _extra;
+  final String? _methodName;
 
   ChallengeObjectBuilder({
     int? session,
     AuthMethod? method,
     wamp.MapObjectBuilder? extra,
+    String? methodName,
   }) : _session = session,
        _method = method,
-       _extra = extra;
+       _extra = extra,
+       _methodName = methodName;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
     final int? extraOffset = _extra?.getOrCreateOffset(fbBuilder);
-    fbBuilder.startTable(3);
+    final int? methodNameOffset = _methodName == null
+        ? null
+        : fbBuilder.writeString(_methodName!);
+    fbBuilder.startTable(4);
     fbBuilder.addUint64(0, _session);
     fbBuilder.addUint8(1, _method?.value);
     fbBuilder.addOffset(2, extraOffset);
+    fbBuilder.addOffset(3, methodNameOffset);
     return fbBuilder.endTable();
   }
 
@@ -7636,10 +7650,11 @@ class Heartbeat {
       const wamp_runtime.WampUint64Reader().vTableGet(_bc, _bcOffset, 6, 0);
   int get outgoing =>
       const wamp_runtime.WampUint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
+  int get presence => const fb.Uint8Reader().vTableGet(_bc, _bcOffset, 10, 7);
 
   @override
   String toString() {
-    return 'Heartbeat{ping: ${ping}, incoming: ${incoming}, outgoing: ${outgoing}}';
+    return 'Heartbeat{ping: ${ping}, incoming: ${incoming}, outgoing: ${outgoing}, presence: ${presence}}';
   }
 }
 
@@ -7657,7 +7672,7 @@ class HeartbeatBuilder {
   final fb.Builder fbBuilder;
 
   void begin() {
-    fbBuilder.startTable(3);
+    fbBuilder.startTable(4);
   }
 
   int addPing(int? ping) {
@@ -7675,6 +7690,11 @@ class HeartbeatBuilder {
     return fbBuilder.offset;
   }
 
+  int addPresence(int? presence) {
+    fbBuilder.addUint8(3, presence);
+    return fbBuilder.offset;
+  }
+
   int finish() {
     return fbBuilder.endTable();
   }
@@ -7684,19 +7704,26 @@ class HeartbeatObjectBuilder extends fb.ObjectBuilder {
   final int? _ping;
   final int? _incoming;
   final int? _outgoing;
+  final int? _presence;
 
-  HeartbeatObjectBuilder({int? ping, int? incoming, int? outgoing})
-    : _ping = ping,
-      _incoming = incoming,
-      _outgoing = outgoing;
+  HeartbeatObjectBuilder({
+    int? ping,
+    int? incoming,
+    int? outgoing,
+    int? presence,
+  }) : _ping = ping,
+       _incoming = incoming,
+       _outgoing = outgoing,
+       _presence = presence;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    fbBuilder.startTable(3);
+    fbBuilder.startTable(4);
     fbBuilder.addUint64(0, _ping);
     fbBuilder.addUint64(1, _incoming);
     fbBuilder.addUint64(2, _outgoing);
+    fbBuilder.addUint8(3, _presence);
     return fbBuilder.endTable();
   }
 

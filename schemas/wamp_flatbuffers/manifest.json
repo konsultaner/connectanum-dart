@@ -34,6 +34,19 @@
     "encoding": "CBOR options/details dictionary",
     "capability": "_connectanum_flatbuffers_metadata_v1"
   },
+  "control_extensions": {
+    "Challenge.method_name": {
+      "vtable_offset": 10,
+      "type": "string"
+    },
+    "Heartbeat": {
+      "union_tag": 26,
+      "wamp_id": 7,
+      "presence_vtable_offset": 10,
+      "presence_default": 7,
+      "presence_bits": { "ping": 1, "incoming": 2, "outgoing": 4 }
+    }
+  },
   "dart_format_language": "3.10",
   "compiler_assets": {
     "linux-x86_64": {

@@ -764,6 +764,574 @@ const flatBuffersFixtureJson = r'''
       ]
     },
     "base64": "FAAAAAAAAAAAAAoAEAAHAAgADAAKAAAAAAAAEGwAAAAEAAAASQAAAKNqcHB0X3NjaGVtZWZvcGFxdWVucHB0X3NlcmlhbGl6ZXJrZmxhdGJ1ZmZlcnNnX3NjaGVtYXJ3YW1wLnByb3RvLk1lc3NhZ2UAAAAUABwAAAAQAAgAAAAAAAwABgAHABQAAAAAAAQGoAAAABAAAABOAAAAAAAAAAAAAACIAAAAEAAAAAAAAAAIAAwABwAIAAgAAAAAAAAQIAAAABwAIAAAABgACAAMABAAAAAAAAAAAAAAABQABwAcAAAAAAAAATAAAAAgAAAAEAAAAMQJAABNAAAAAAAAAAgAAAChY2tleUIA/wgAAACCAWVoZWxsbxAAAABjb20uZXhhbXBsZS5wcm9jAAAAABEAAABjb20uZXhhbXBsZS50eXBlZAAAAA=="
+  },
+  {
+    "name": "heartbeat_zero_mask_0",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 0
+      },
+      "metadata": [
+        160
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAaHAAAAAQAAAABAAAAoAAAAAwACAAAAAAAAAAHAAwAAAAAAAAA"
+  },
+  {
+    "name": "heartbeat_zero_mask_1",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 1
+      },
+      "metadata": [
+        160
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAaHAAAAAQAAAABAAAAoAAAAAwACAAAAAAAAAAHAAwAAAAAAAAB"
+  },
+  {
+    "name": "heartbeat_zero_mask_2",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 2
+      },
+      "metadata": [
+        160
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAaHAAAAAQAAAABAAAAoAAAAAwACAAAAAAAAAAHAAwAAAAAAAAC"
+  },
+  {
+    "name": "heartbeat_zero_mask_3",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 3
+      },
+      "metadata": [
+        160
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAaHAAAAAQAAAABAAAAoAAAAAwACAAAAAAAAAAHAAwAAAAAAAAD"
+  },
+  {
+    "name": "heartbeat_zero_mask_4",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 4
+      },
+      "metadata": [
+        160
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAaHAAAAAQAAAABAAAAoAAAAAwACAAAAAAAAAAHAAwAAAAAAAAE"
+  },
+  {
+    "name": "heartbeat_zero_mask_5",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 5
+      },
+      "metadata": [
+        160
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAaHAAAAAQAAAABAAAAoAAAAAwACAAAAAAAAAAHAAwAAAAAAAAF"
+  },
+  {
+    "name": "heartbeat_zero_mask_6",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 6
+      },
+      "metadata": [
+        160
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAaHAAAAAQAAAABAAAAoAAAAAwACAAAAAAAAAAHAAwAAAAAAAAG"
+  },
+  {
+    "name": "heartbeat_zero_mask_7",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 7
+      },
+      "metadata": [
+        160
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAaFAAAAAQAAAABAAAAoAAAAAQABAAEAAAA"
+  },
+  {
+    "name": "challenge_custom",
+    "union_tag": 4,
+    "wamp_id": 4,
+    "wire": {
+      "msg_type": "Challenge",
+      "msg": {
+        "method": "NULL",
+        "method_name": "com.example.custom"
+      },
+      "metadata": [
+        162,
+        120,
+        36,
+        95,
+        99,
+        111,
+        110,
+        110,
+        101,
+        99,
+        116,
+        97,
+        110,
+        117,
+        109,
+        95,
+        102,
+        108,
+        97,
+        116,
+        98,
+        117,
+        102,
+        102,
+        101,
+        114,
+        115,
+        95,
+        109,
+        101,
+        116,
+        97,
+        100,
+        97,
+        116,
+        97,
+        95,
+        118,
+        49,
+        245,
+        101,
+        110,
+        111,
+        110,
+        99,
+        101,
+        66,
+        0,
+        255
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAETAAAAAQAAAAxAAAAongkX2Nvbm5lY3RhbnVtX2ZsYXRidWZmZXJzX21ldGFkYXRhX3Yx9WVub25jZUIA/wAAAAwACAAAAAAAAAAEAAwAAAAEAAAAEgAAAGNvbS5leGFtcGxlLmN1c3RvbQAA"
+  },
+  {
+    "name": "challenge_scram_ack",
+    "union_tag": 4,
+    "wamp_id": 4,
+    "wire": {
+      "msg_type": "Challenge",
+      "msg": {
+        "method": "SCRAM",
+        "method_name": "wamp-scram"
+      },
+      "metadata": [
+        165,
+        120,
+        36,
+        95,
+        99,
+        111,
+        110,
+        110,
+        101,
+        99,
+        116,
+        97,
+        110,
+        117,
+        109,
+        95,
+        102,
+        108,
+        97,
+        116,
+        98,
+        117,
+        102,
+        102,
+        101,
+        114,
+        115,
+        95,
+        109,
+        101,
+        116,
+        97,
+        100,
+        97,
+        116,
+        97,
+        95,
+        118,
+        49,
+        245,
+        101,
+        110,
+        111,
+        110,
+        99,
+        101,
+        109,
+        110,
+        111,
+        110,
+        99,
+        101,
+        45,
+        101,
+        120,
+        97,
+        109,
+        112,
+        108,
+        101,
+        100,
+        115,
+        97,
+        108,
+        116,
+        104,
+        99,
+        50,
+        70,
+        115,
+        100,
+        65,
+        61,
+        61,
+        106,
+        105,
+        116,
+        101,
+        114,
+        97,
+        116,
+        105,
+        111,
+        110,
+        115,
+        25,
+        16,
+        0,
+        99,
+        107,
+        100,
+        102,
+        102,
+        112,
+        98,
+        107,
+        100,
+        102,
+        50
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAEfAAAAAQAAABjAAAApXgkX2Nvbm5lY3RhbnVtX2ZsYXRidWZmZXJzX21ldGFkYXRhX3Yx9WVub25jZW1ub25jZS1leGFtcGxlZHNhbHRoYzJGc2RBPT1qaXRlcmF0aW9ucxkQAGNrZGZmcGJrZGYyAAwADAAAAAcAAAAIAAwAAAAAAAADBAAAAAoAAAB3YW1wLXNjcmFtAAA="
+  },
+  {
+    "name": "authenticate_binary_extra",
+    "union_tag": 5,
+    "wamp_id": 5,
+    "wire": {
+      "msg_type": "Authenticate",
+      "msg": {
+        "signature": "signature-example"
+      },
+      "metadata": [
+        161,
+        111,
+        99,
+        104,
+        97,
+        110,
+        110,
+        101,
+        108,
+        95,
+        98,
+        105,
+        110,
+        100,
+        105,
+        110,
+        103,
+        67,
+        0,
+        255,
+        1
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAFLAAAAAQAAAAVAAAAoW9jaGFubmVsX2JpbmRpbmdDAP8BAAAACAAIAAAABAAIAAAABAAAABEAAABzaWduYXR1cmUtZXhhbXBsZQAAAA=="
+  },
+  {
+    "name": "hello_metadata_advertisement",
+    "union_tag": 1,
+    "wamp_id": 1,
+    "wire": {
+      "msg_type": "Hello",
+      "msg": {
+        "realm": "realm1",
+        "roles": {
+          "caller": {}
+        }
+      },
+      "metadata": [
+        161,
+        101,
+        114,
+        111,
+        108,
+        101,
+        115,
+        161,
+        102,
+        99,
+        97,
+        108,
+        108,
+        101,
+        114,
+        161,
+        104,
+        102,
+        101,
+        97,
+        116,
+        117,
+        114,
+        101,
+        115,
+        161,
+        120,
+        36,
+        95,
+        99,
+        111,
+        110,
+        110,
+        101,
+        99,
+        116,
+        97,
+        110,
+        117,
+        109,
+        95,
+        102,
+        108,
+        97,
+        116,
+        98,
+        117,
+        102,
+        102,
+        101,
+        114,
+        115,
+        95,
+        109,
+        101,
+        116,
+        97,
+        100,
+        97,
+        116,
+        97,
+        95,
+        118,
+        49,
+        245
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAABWAAAAAQAAABBAAAAoWVyb2xlc6FmY2FsbGVyoWhmZWF0dXJlc6F4JF9jb25uZWN0YW51bV9mbGF0YnVmZmVyc19tZXRhZGF0YV92MfUACgAOAAAABAAIAAoAAAAUAAAAIAAAAAAACgAIAAAAAAAEAAoAAAAIAAAABAAEAAQAAAAGAAAAcmVhbG0xAAA="
+  },
+  {
+    "name": "welcome_metadata_ack",
+    "union_tag": 2,
+    "wamp_id": 2,
+    "wire": {
+      "msg_type": "Welcome",
+      "msg": {
+        "session": 123,
+        "realm": "realm1",
+        "roles": {
+          "dealer": {}
+        },
+        "authid": "",
+        "authrole": ""
+      },
+      "metadata": [
+        161,
+        101,
+        114,
+        111,
+        108,
+        101,
+        115,
+        161,
+        102,
+        100,
+        101,
+        97,
+        108,
+        101,
+        114,
+        161,
+        104,
+        102,
+        101,
+        97,
+        116,
+        117,
+        114,
+        101,
+        115,
+        161,
+        120,
+        36,
+        95,
+        99,
+        111,
+        110,
+        110,
+        101,
+        99,
+        116,
+        97,
+        110,
+        117,
+        109,
+        95,
+        102,
+        108,
+        97,
+        116,
+        98,
+        117,
+        102,
+        102,
+        101,
+        114,
+        115,
+        95,
+        109,
+        101,
+        116,
+        97,
+        100,
+        97,
+        116,
+        97,
+        95,
+        118,
+        49,
+        245
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAACXAAAAAQAAABBAAAAoWVyb2xlc6FmZGVhbGVyoWhmZWF0dXJlc6F4JF9jb25uZWN0YW51bV9mbGF0YnVmZmVyc19tZXRhZGF0YV92MfUADgAgABQABAAIAAwAEAAOAAAANAAAAEAAAAAcAAAAEAAAAHsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAgAAAAEAAgAAAAIAAAABAAEAAQAAAAGAAAAcmVhbG0xAAA="
+  },
+  {
+    "name": "abort_bootstrap_metadata",
+    "union_tag": 3,
+    "wamp_id": 3,
+    "wire": {
+      "msg_type": "Abort",
+      "msg": {
+        "reason": "wamp.error.protocol_violation",
+        "message": "Unsupported binding"
+      },
+      "metadata": [
+        161,
+        103,
+        109,
+        101,
+        115,
+        115,
+        97,
+        103,
+        101,
+        115,
+        85,
+        110,
+        115,
+        117,
+        112,
+        112,
+        111,
+        114,
+        116,
+        101,
+        100,
+        32,
+        98,
+        105,
+        110,
+        100,
+        105,
+        110,
+        103
+      ]
+    },
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAADNAAAAAQAAAAdAAAAoWdtZXNzYWdlc1Vuc3VwcG9ydGVkIGJpbmRpbmcACgAMAAAABAAIAAoAAAAgAAAABAAAABMAAABVbnN1cHBvcnRlZCBiaW5kaW5nAB0AAAB3YW1wLmVycm9yLnByb3RvY29sX3Zpb2xhdGlvbgAAAA=="
   }
 ]
 ''';

@@ -91,10 +91,14 @@ def main():
                         str(ROOT / SCHEMA / "upstream/wamp.fbs")], check=True)
         sys.path.insert(0, str(generated))
         cases = json.loads((ROOT / SCHEMA / "fixtures.json").read_text())
-        upstream_cases = [case for case in cases if case["name"] != "heartbeat"]
+        upstream_cases = [case for case in cases if case["union_tag"] != 26]
         for case in upstream_cases:
             data = (ROOT / SCHEMA / "fixtures" / (case["name"] + ".bin")).read_bytes()
-            read_message(data, case["wire"]["msg_type"], case["union_tag"], case["wire"]["msg"])
+            # The unmodified reader intentionally ignores the appended control
+            # string; all upstream fields must still agree.
+            fields = dict(case["wire"]["msg"])
+            fields.pop("method_name", None)
+            read_message(data, case["wire"]["msg_type"], case["union_tag"], fields)
         emitted = directory / "emitted"
         emitted.mkdir()
         write_python_call(emitted / "python_call.bin")
@@ -113,7 +117,30 @@ def main():
                       "exclude": [1, 4294967296, 9007199254740991, 9007199254740992]})
         read_message((emitted / "dart_publish_empty_ids.bin").read_bytes(), "Publish", 8,
                      {"request": 42, "topic": "com.example.topic", "exclude": []})
+        # Reload modules from the derived schema only after upstream checks,
+        # so no extended getter can accidentally mask an upstream incompatibility.
+        extended = directory / "extended_python"
+        subprocess.run([args.flatc, "--python", "--python-typing", "--gen-all", "-o", str(extended),
+                        str(ROOT / SCHEMA / "wamp.fbs")], check=True)
+        for module in list(sys.modules):
+            if module == "wamp" or module.startswith("wamp."):
+                del sys.modules[module]
+        sys.path.insert(0, str(extended))
+        for case in cases:
+            data = (ROOT / SCHEMA / "fixtures" / (case["name"] + ".bin")).read_bytes()
+            read_message(data, case["wire"]["msg_type"], case["union_tag"], case["wire"]["msg"])
+            root = importlib.import_module("wamp.proto.Message").Message.GetRootAs(data, 0)
+            expected = case["wire"].get("metadata")
+            actual = [root.Metadata(i) for i in range(root.MetadataLength())]
+            assert actual == (expected or []), case["name"]
+        for language in ["dart", "rust"]:
+            for mask in [0, 1, 7]:
+                read_message((emitted / f"{language}_heartbeat_{mask}.bin").read_bytes(), "Heartbeat", 26,
+                             {"ping": 0, "incoming": 0, "outgoing": 0, "presence": mask})
+            read_message((emitted / f"{language}_challenge_custom.bin").read_bytes(), "Challenge", 4,
+                         {"method": "NULL", "method_name": "com.example.custom"})
         print(f"Unmodified upstream readers accepted {len(upstream_cases)} fixtures; "
+              f"extended readers accepted {len(cases)} fixtures and Dart/Rust extension output; "
               "Python/Dart/Rust bidirectional Call conformance passed.")
 
 

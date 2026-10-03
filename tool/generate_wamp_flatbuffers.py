@@ -38,6 +38,15 @@ def combined_schema(root, extensions=True):
     for name in ORDER:
         source = (root / SCHEMA / "upstream" / f"{name}.fbs").read_text()
         source = "\n".join(line for line in source.splitlines() if not line.startswith("include ")) + "\n"
+        if name == "session" and extensions:
+            # Authentication method names are protocol control strings, not
+            # members of CHALLENGE.extra. Append after every upstream slot.
+            original = "table Challenge\n{"
+            start = source.index(original)
+            end = source.index("\n}", start)
+            source = (source[:end] +
+                      "\n\n    // Custom method name; requires negotiated metadata capability.\n"
+                      "    method_name: string;" + source[end:])
         if name == "wamp" and extensions:
             if source.count("    msg: AnyMessage (required);") != 1:
                 raise ValueError("Upstream Message layout changed")
@@ -47,7 +56,10 @@ def combined_schema(root, extensions=True):
             source = source.replace("    Yield\n", "    Yield,\n    Heartbeat\n")
             source += (
                 "\n// Connectanum HEARTBEAT extension (requires metadata capability).\n"
-                "table Heartbeat { ping: uint64; incoming: uint64; outgoing: uint64; }\n"
+                "table Heartbeat {\n"
+                "    ping: uint64;\n    incoming: uint64;\n    outgoing: uint64;\n"
+                "    // Bits 1/2/4 distinguish absent controls from explicit zero.\n"
+                "    presence: ubyte = 7;\n}\n"
             )
         result += source
     return result

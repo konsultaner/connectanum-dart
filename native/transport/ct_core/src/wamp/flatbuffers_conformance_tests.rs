@@ -18,7 +18,7 @@ fn pinned_compiler_fixtures_verify_with_independent_message_discriminators() {
         "../../../../../schemas/wamp_flatbuffers/fixtures.json"
     ))
     .expect("fixture manifest");
-    assert_eq!(cases.len(), 28);
+    assert_eq!(cases.len(), 42);
     for case in cases {
         let name = case["name"].as_str().expect("case name");
         let bytes = fixture(name);
@@ -29,13 +29,53 @@ fn pinned_compiler_fixtures_verify_with_independent_message_discriminators() {
             "{name}"
         );
         assert!(message.msg().loc() < bytes.len(), "{name}");
+        match case["wire"].get("metadata") {
+            Some(expected) => {
+                let expected: Vec<u8> = serde_json::from_value(expected.clone()).unwrap();
+                assert_eq!(message.metadata().unwrap().bytes(), expected, "{name}");
+                assert!(
+                    matches!(
+                        serde_cbor::from_slice::<serde_cbor::Value>(&expected).unwrap(),
+                        serde_cbor::Value::Map(_)
+                    ),
+                    "{name}"
+                );
+            }
+            None => assert!(message.metadata().is_none(), "{name}"),
+        }
         if name == "call_metadata" {
             assert_eq!(
                 message.metadata().unwrap().bytes(),
                 &[0xa1, 0x61, 0x78, 0x18, 0x2a]
             );
         } else if name == "heartbeat" {
-            assert_eq!(message.msg_as_heartbeat().unwrap().outgoing(), 3);
+            let heartbeat = message.msg_as_heartbeat().unwrap();
+            assert_eq!(heartbeat.outgoing(), 3);
+            assert_eq!(heartbeat.presence(), 7);
+        } else if name.starts_with("heartbeat_zero_mask_") {
+            let heartbeat = message.msg_as_heartbeat().unwrap();
+            assert_eq!(
+                heartbeat.presence() as u64,
+                case["wire"]["msg"]["presence"].as_u64().unwrap()
+            );
+            assert_eq!(
+                (heartbeat.ping(), heartbeat.incoming(), heartbeat.outgoing()),
+                (0, 0, 0)
+            );
+        } else if name == "challenge_custom" || name == "challenge_scram_ack" {
+            let challenge = message.msg_as_challenge().unwrap();
+            assert_eq!(
+                challenge.method_name(),
+                case["wire"]["msg"]["method_name"].as_str()
+            );
+            assert_eq!(
+                challenge.method(),
+                if name == "challenge_custom" {
+                    wire::AuthMethod::NULL
+                } else {
+                    wire::AuthMethod::SCRAM
+                }
+            );
         } else if name == "call_typed_payload" {
             let call = message.msg_as_call().unwrap();
             assert_eq!(call.ppt_scheme(), wire::PPTScheme::OPAQUE);
@@ -46,9 +86,88 @@ fn pinned_compiler_fixtures_verify_with_independent_message_discriminators() {
             let inner = wire::root_as_message(payload).unwrap();
             assert_eq!(inner.msg_as_call().unwrap().request(), 77);
             assert!(message.metadata().is_some());
-        } else {
-            assert!(message.metadata().is_none(), "{name}");
         }
+    }
+}
+
+#[test]
+fn extension_builders_preserve_zero_presence_and_custom_method_control() {
+    for mask in [0, 1, 7] {
+        let mut builder = FlatBufferBuilder::new();
+        let heartbeat = wire::Heartbeat::create(
+            &mut builder,
+            &wire::HeartbeatArgs {
+                presence: mask,
+                ..Default::default()
+            },
+        );
+        let root = wire::Message::create(
+            &mut builder,
+            &wire::MessageArgs {
+                msg_type: wire::AnyMessage::Heartbeat,
+                msg: Some(heartbeat.as_union_value()),
+                ..Default::default()
+            },
+        );
+        wire::finish_message_buffer(&mut builder, root);
+        let bytes = builder.finished_data();
+        let root = wire::root_as_message(bytes).unwrap();
+        let heartbeat = root.msg_as_heartbeat().unwrap();
+        assert_eq!(heartbeat.presence(), mask);
+        assert_eq!(
+            (heartbeat.ping(), heartbeat.incoming(), heartbeat.outgoing()),
+            (0, 0, 0)
+        );
+        if let Ok(directory) = std::env::var("CONNECTANUM_FLATBUFFERS_EMIT_DIR") {
+            let directory = Path::new(&directory);
+            std::fs::write(directory.join(format!("rust_heartbeat_{mask}.bin")), bytes).unwrap();
+            let dart = std::fs::read(directory.join(format!("dart_heartbeat_{mask}.bin"))).unwrap();
+            assert_eq!(
+                wire::root_as_message(&dart)
+                    .unwrap()
+                    .msg_as_heartbeat()
+                    .unwrap()
+                    .presence(),
+                mask
+            );
+        }
+    }
+    let mut builder = FlatBufferBuilder::new();
+    let method = builder.create_string("com.example.custom");
+    let challenge = wire::Challenge::create(
+        &mut builder,
+        &wire::ChallengeArgs {
+            method: wire::AuthMethod::NULL,
+            method_name: Some(method),
+            ..Default::default()
+        },
+    );
+    let root = wire::Message::create(
+        &mut builder,
+        &wire::MessageArgs {
+            msg_type: wire::AnyMessage::Challenge,
+            msg: Some(challenge.as_union_value()),
+            ..Default::default()
+        },
+    );
+    wire::finish_message_buffer(&mut builder, root);
+    let bytes = builder.finished_data();
+    let root = wire::root_as_message(bytes).unwrap();
+    let challenge = root.msg_as_challenge().unwrap();
+    assert_eq!(challenge.method(), wire::AuthMethod::NULL);
+    assert_eq!(challenge.method_name(), Some("com.example.custom"));
+    if let Ok(directory) = std::env::var("CONNECTANUM_FLATBUFFERS_EMIT_DIR") {
+        let directory = Path::new(&directory);
+        std::fs::write(directory.join("rust_challenge_custom.bin"), bytes).unwrap();
+        let dart = std::fs::read(directory.join("dart_challenge_custom.bin")).unwrap();
+        assert_eq!(
+            wire::root_as_message(&dart)
+                .unwrap()
+                .msg_as_challenge()
+                .unwrap()
+                .method_name(),
+            Some("com.example.custom")
+        );
     }
 }
 

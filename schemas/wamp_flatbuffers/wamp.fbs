@@ -789,6 +789,9 @@ table Challenge
 
     // Challenge method specific information.
     extra: Map;
+
+    // Custom method name; requires negotiated metadata capability.
+    method_name: string;
 }
 
 
@@ -1505,4 +1508,10 @@ table Message
 root_type Message;
 
 // Connectanum HEARTBEAT extension (requires metadata capability).
-table Heartbeat { ping: uint64; incoming: uint64; outgoing: uint64; }
+table Heartbeat {
+    ping: uint64;
+    incoming: uint64;
+    outgoing: uint64;
+    // Bits 1/2/4 distinguish absent controls from explicit zero.
+    presence: ubyte = 7;
+}
