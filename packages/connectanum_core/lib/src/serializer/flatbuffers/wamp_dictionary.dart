@@ -100,6 +100,12 @@ class WampDictionaryCodec {
               'subscription_revocation',
               subscriberFeatures.subscriptionRevocation,
             ),
+            MapEntry('call_timeout', subscriberFeatures.callTimeout),
+            MapEntry('call_canceling', subscriberFeatures.callCanceling),
+            MapEntry(
+              'progressive_call_results',
+              subscriberFeatures.progressiveCallResults,
+            ),
           ]);
           roles.addEntries([
             MapEntry('subscriber', {'features': subscriberFeaturesMap}),

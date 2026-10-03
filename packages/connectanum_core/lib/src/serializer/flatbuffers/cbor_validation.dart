@@ -21,6 +21,7 @@ void validateFlatBufferCbor(
   Uint8List bytes, {
   int? rootMajor,
   bool stringDictionaryKeys = false,
+  bool rootStringDictionaryKeys = false,
   FlatBufferCborLimits limits = const FlatBufferCborLimits(),
 }) {
   if (limits.maxBytes < 0 || limits.maxDepth < 1 || limits.maxItems < 1) {
@@ -31,7 +32,12 @@ void validateFlatBufferCbor(
       (rootMajor != null && bytes.first ~/ 32 != rootMajor)) {
     throw const FormatException('Invalid FlatBuffers CBOR container or size');
   }
-  final scanner = _Scanner(bytes, limits, stringDictionaryKeys);
+  final scanner = _Scanner(
+    bytes,
+    limits,
+    stringDictionaryKeys,
+    rootStringDictionaryKeys,
+  );
   scanner.value(0);
   if (scanner.cursor != bytes.length) scanner.invalid('trailing values');
 }
@@ -73,10 +79,16 @@ Object? _normalize(Object? value) {
 }
 
 class _Scanner {
-  _Scanner(this.bytes, this.limits, this.stringDictionaryKeys);
+  _Scanner(
+    this.bytes,
+    this.limits,
+    this.stringDictionaryKeys,
+    this.rootStringDictionaryKeys,
+  );
   final Uint8List bytes;
   final FlatBufferCborLimits limits;
   final bool stringDictionaryKeys;
+  final bool rootStringDictionaryKeys;
   int cursor = 0;
   int items = 0;
 
@@ -197,7 +209,12 @@ class _Scanner {
       case 4 || 5:
         if (depth >= limits.maxDepth) invalid('depth limit');
         final count = info == 31 ? null : length(info);
-        final keys = stringDictionaryKeys && major == 5 ? <String>{} : null;
+        final keys =
+            major == 5 &&
+                (stringDictionaryKeys ||
+                    (rootStringDictionaryKeys && depth == 0))
+            ? <String>{}
+            : null;
         var index = 0;
         while (count == null ? !takeBreak() : index < count) {
           if (major == 5 && keys != null) {

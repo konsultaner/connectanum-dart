@@ -89,7 +89,11 @@ FlatBufferFrame readWampFlatBufferFrame(Uint8List bytes) {
       validateFlatBufferCbor(args, rootMajor: 4);
     }
     if (body['kwargs'] case final Uint8List kwargs) {
-      validateFlatBufferCbor(kwargs, rootMajor: 5);
+      validateFlatBufferCbor(
+        kwargs,
+        rootMajor: 5,
+        rootStringDictionaryKeys: true,
+      );
     }
   }
   return frame;

@@ -4,6 +4,7 @@ import 'generated/validation_schema.dart';
 import 'generated/wamp_wamp.proto_generated.dart' as wire;
 import 'validation_types.dart';
 import 'wamp_dictionary.dart';
+import 'dictionary_retention.dart';
 
 /// The message envelope and its complete logical WAMP dictionary. Application
 /// byte vectors are supplied separately by the serializer or native builder.
@@ -15,8 +16,9 @@ class FlatBufferMessageProjection {
 }
 
 FlatBufferMessageProjection projectWampFlatBufferMessage(
-  AbstractMessage message,
-) {
+  AbstractMessage message, {
+  bool retainMetadata = true,
+}) {
   String name;
   final body = <String, Object?>{};
   Map<String, Object?>? dictionary;
@@ -202,6 +204,9 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
       throw UnsupportedError(
         'FlatBuffers does not support ${message.runtimeType}',
       );
+  }
+  if (retainMetadata) {
+    dictionary = retainedWampFlatBufferDictionary(message, dictionary);
   }
   if (dictionary != null && name != 'Heartbeat') {
     body.addAll(projectFlatBufferDictionary(name, dictionary));

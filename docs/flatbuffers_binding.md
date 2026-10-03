@@ -241,8 +241,42 @@ truncation, indefinite-string chunk violations and trailing values before callin
 the materializer. These rules follow the WAMP dictionary contract and RFC 8949.
 See [WAMP dictionary rules](https://wamp-proto.org/wamp_latest_ietf.html) and
 [RFC 8949](https://datatracker.ietf.org/doc/html/rfc8949).
-Public message reconstruction, serializer selection and session negotiation remain
-pending. Retaining encoded vectors does not make mutable input safe to borrow.
+Public message reconstruction is available through the stateless Dart serializer.
+Transport factories and session negotiation remain pending. Retaining encoded
+vectors does not make mutable input safe to borrow.
+
+## Dart codec and payload retention
+
+Import `package:connectanum_core/flatbuffers_serializer.dart`,
+`package:connectanum_client/flatbuffers.dart`, or the compatibility facade
+`package:connectanum/flatbuffers.dart`. Each exports `Serializer`, the portable
+builder, the direct model writer and same-builder byte-vector references.
+`connectanum_client/native_buffers.dart` supplies the optional native-backed
+builder.
+These exports do not yet enable native or browser transport selection.
+
+The decoder reconstructs the 25 public WAMP models from validated frames.
+Dictionary-bearing messages require the extended metadata; the five messages
+without a dictionary do not. EVENT_RECEIVED has no public model and is explicitly
+unsupported. Dynamic args/kwargs remain CBOR byte views until accessed, and
+kwargs must have unique string keys at their root; nested application maps may
+use other supported key types. The message retains its original frame owner.
+
+Untouched metadata preserves unknown fields, null values and absent known flags.
+Edits to typed fields update their values while preserving unknown siblings.
+Explicit assignment of a default boolean replaces a retained null/absent value.
+Replacing an options, roles or features object replaces that entire branch,
+including any unknown fields that belonged to the old object. Ordinary models
+allocate no assignment-tracking state unless decoded through this codec.
+Metadata snapshots are bounded and include copies of metadata binary values;
+application payload vectors are not copied by that retention layer.
+
+`flatbuffers` PPT dispatch accepts one application-provided `Uint8List` with
+no kwargs and returns the same bytes. The application chooses and validates
+the payload schema. Dynamic values and encoded CBOR argument fragments are
+explicitly rejected under this PPT serializer name. An application can use a
+custom `x_` PPT scheme; typed profile/capability negotiation remains #101.
+This does not change the existing `wamp` E2EE scheme's CBOR-only validation.
 
 ## Capabilities and fallback
 

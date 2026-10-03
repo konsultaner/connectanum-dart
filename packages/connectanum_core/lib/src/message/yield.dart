@@ -1,3 +1,4 @@
+import 'field_assignments.dart';
 import 'abstract_ppt_options.dart';
 import 'custom_fields.dart';
 import 'message_types.dart';
@@ -20,7 +21,12 @@ class Yield extends AbstractMessageWithPayload {
 }
 
 class YieldOptions extends PPTOptions with CustomFieldContainer {
-  bool progress = false;
+  bool _progress = false;
+  bool get progress => _progress;
+  set progress(bool value) {
+    _progress = value;
+    recordWampFieldAssignment(this, 'progress');
+  }
 
   YieldOptions({
     bool? progress,

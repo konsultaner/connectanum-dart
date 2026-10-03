@@ -10,7 +10,22 @@ remain separate. The earlier regression/mutation objective remains open.
 Draft PR #105 contains foundation, package-constraint
 repair, native-owned buffers, producer leases, write completion and native
 network lifetime coverage, structural validation, primitive/direct model writing
-and bounded internal frame reading. The public codecs remain disabled.
+and bounded internal frame reading. The uncommitted candidate now adds the
+public stateless Dart codec and mutable-model metadata retention; transport
+factories and Rust codec/network negotiation remain disabled.
+Current decoder candidate: all 25 public messages reconstruct directly; lazy
+CBOR payload spans retain the original frame. Automatic guarded boolean setters
+preserve explicit false assignments after decoding. Replaced metadata objects
+replace their branch; unknown siblings and binary edits have regressions.
+Typed FlatBuffers PPT dispatch is an application-buffer pass-through and rejects
+dynamic values/CBOR fragments. E2EE remains the existing CBOR profile.
+All 228 focused VM tests and core/client/facade analysis pass. The serializer
+mutation wrapper and all four inventories include the new reader suite; all
+89 mutation-tooling tests pass (one existing skip). The 227-case focused suites pass on Chrome JS and WASM. Fresh canonical
+bin/verify exits 0 in session 62824 at
+/tmp/connectanum-flatbuffers-public-codec-verify.log, including native, VM,
+Chrome/WASM, router and consumer checks. All ten issues remain open.
+
 Binding follow-up commit 722175ca resolves nullable
 HEARTBEAT controls and custom CHALLENGE method strings with append-only fields.
 All 51 binding tests pass on VM, Chrome JS and WASM; focused analysis, six
@@ -172,6 +187,12 @@ passing full result. Fresh bin/verify exits 0 in session 70693 at
 /tmp/connectanum-flatbuffers-frame-cached-strings-verify.log, including
 Chrome/WASM, native, router and consumer checks. Public models, retention and
 session checks remain open.
+
+The writer/frame stage is pushed as 71e57a46 in draft PR #105. Exact-head hosted
+package dry-run 37146562164 succeeds; CI 37146562161 is queued. The next stage
+integrates the temporary reconstruction/retention draft, automatic assignment
+tracking and replaced-object semantics. The small documentation-only checkpoint
+update is reserved for that next implementation commit.
 
 All ten issues remain open. Next: complete bounded Dart decoding, the full codecs and
 remaining milestone criteria. No FlatBuffers network codec, E2EE profile,

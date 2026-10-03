@@ -398,7 +398,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_wire_writer_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_writer_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_cbor_validation_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -443,7 +444,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_wire_writer_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_writer_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_cbor_validation_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -489,7 +491,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_wire_writer_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_writer_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_cbor_validation_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
@@ -537,7 +540,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_wire_writer_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_writer_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_cbor_validation_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"

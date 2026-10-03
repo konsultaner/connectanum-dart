@@ -1,11 +1,11 @@
 import 'dart:typed_data';
-import 'dart:collection';
 
-import 'package:cbor/cbor.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 
 import 'message_projection.dart';
+import 'cbor_encoding.dart';
+import 'cbor_validation.dart';
 import 'wire_writer.dart';
 
 /// Write a model directly into the supplied builder. The caller finishes and
@@ -23,7 +23,11 @@ int writeWampFlatBufferMessage(
   final fields = projection.fields;
   final body = fields['msg'] as Map<String, Object?>;
   if (projection.dictionary != null) {
-    fields['metadata'] = _encode(projection.dictionary, maximumBytes: 1048576);
+    fields['metadata'] = encodeWampFlatBufferCbor(
+      projection.dictionary,
+      maximumBytes: 1048576,
+      stringDictionaryKeys: true,
+    );
   }
   if (message is AbstractMessageWithPayload) {
     final lazy = message.toLazyPayload();
@@ -46,7 +50,7 @@ int writeWampFlatBufferMessage(
         lazy.argumentsBytes != null) {
       body['args'] = lazy.argumentsBytes;
     } else if (message.wireArguments != null) {
-      body['args'] = _encode(message.wireArguments);
+      body['args'] = encodeWampFlatBufferCbor(message.wireArguments);
     }
     if (argumentsKeywordsVector != null) {
       body['kwargs'] = argumentsKeywordsVector;
@@ -54,80 +58,22 @@ int writeWampFlatBufferMessage(
         lazy.argumentsKeywordsBytes != null) {
       body['kwargs'] = lazy.argumentsKeywordsBytes;
     } else if (message.wireArgumentsKeywords != null) {
-      body['kwargs'] = _encode(message.wireArgumentsKeywords);
+      body['kwargs'] = encodeWampFlatBufferCbor(message.wireArgumentsKeywords);
     }
   } else if (argumentsVector != null ||
       argumentsKeywordsVector != null ||
       payloadVector != null) {
     throw ArgumentError('This WAMP message has no payload vectors');
   }
-  return writeWampFlatBufferFields(fields, builder);
-}
-
-Uint8List _encode(Object? value, {int maximumBytes = 67108864}) {
-  _CborInputBudget(maximumBytes).visit(value, 0);
-  final bytes = cbor.encode(CborValue(value));
-  if (bytes.length > maximumBytes) {
-    throw ArgumentError(
-      'Encoded FlatBuffers CBOR value exceeds the byte limit',
+  if (body['args'] case final Uint8List args) {
+    validateFlatBufferCbor(args, rootMajor: 4);
+  }
+  if (body['kwargs'] case final Uint8List kwargs) {
+    validateFlatBufferCbor(
+      kwargs,
+      rootMajor: 5,
+      rootStringDictionaryKeys: true,
     );
   }
-  return Uint8List.fromList(bytes);
-}
-
-/// Bound construction work before entering the recursive CBOR encoder. The
-/// byte count is a lower bound; the exact encoded length is checked afterward.
-class _CborInputBudget {
-  _CborInputBudget(this.maximumBytes);
-  final int maximumBytes;
-  final active = HashSet<Object>.identity();
-  int items = 0;
-  int minimumBytes = 0;
-
-  void charge(int bytes) {
-    minimumBytes += bytes;
-    if (minimumBytes > maximumBytes || ++items > 1000000) {
-      throw ArgumentError(
-        'FlatBuffers CBOR input exceeds the construction budget',
-      );
-    }
-  }
-
-  void visit(Object? value, int depth) {
-    if (value is Uint8List) {
-      charge(value.length + 1);
-    } else if (value is String) {
-      charge(value.length + 1);
-    } else if (value is List || value is Map) {
-      charge(1);
-      if (depth >= 64 || !active.add(value!)) {
-        throw ArgumentError(
-          'FlatBuffers CBOR input is cyclic or too deeply nested',
-        );
-      }
-      try {
-        if (value is List) {
-          for (final item in value) {
-            visit(item, depth + 1);
-          }
-        } else {
-          for (final entry in (value as Map).entries) {
-            visit(entry.key, depth + 1);
-            visit(entry.value, depth + 1);
-          }
-        }
-      } finally {
-        active.remove(value);
-      }
-    } else if (value is DateTime) {
-      // The shared CBOR codec represents dates as tagged ISO-8601 strings.
-      charge(value.toIso8601String().length + 2);
-    } else if (value is BigInt) {
-      charge((value.bitLength + 7) ~/ 8 + 1);
-    } else if (value == null || value is bool || value is num) {
-      charge(1);
-    } else {
-      throw UnsupportedError('Unsupported WAMP value ${value.runtimeType}');
-    }
-  }
+  return writeWampFlatBufferFields(fields, builder);
 }

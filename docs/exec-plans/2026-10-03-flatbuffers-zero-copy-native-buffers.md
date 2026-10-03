@@ -626,7 +626,7 @@ cache decoded strings by their validated wire target. This is allocation
 avoidance within the existing limit, not an unbounded-input fix: the validator
 already charges repeated string references. The initial full frame-stage run
 in /tmp/connectanum-flatbuffers-frame-verify.log is deliberately interrupted for
-this follow-up and must not be counted as passing. Fresh full bin/verify is
+this follow-up and must not be counted as passing. Fresh full bin/verify
 exits 0 in session 70693 at
 /tmp/connectanum-flatbuffers-frame-cached-strings-verify.log, with the same isolated
 TMPDIR. The expanded 134-test suite passes on VM, JS and WASM; analysis is clean.
@@ -647,8 +647,66 @@ and frame reader can now be committed/pushed. All ten issue acceptance audits
 remain open; the temporary reconstruction/retention files are not part of this
 verified candidate.
 
+The writer/frame stage is committed and pushed as 71e57a46 in draft PR #105.
+Hosted package dry-run 37146562164 succeeds at that exact commit; CI 37146562161
+is queued in the latest snapshot. The PR description is updated around the
+verified stage, with public codecs and every whole-issue acceptance still open.
+
 Before the public decoder is enabled, enforce string/unique keys at the kwargs
 root while preserving other supported map types in application values. Complete
 the ordinary outgoing TransferableTypedData normalization as well. Metadata
 already applies string/unique keys to its entire dictionary tree. These are
 remaining codec acceptance checks, not advertised public support in this stage.
+
+
+## Public Dart codec and mutable dictionary retention (#98)
+
+Integrated direct model reconstruction and owner-retaining lazy CBOR vectors.
+Guarded setters observe 47 feature booleans and Yield progress only after the
+received baseline is captured. A fail-first explicit-false regression reproduced
+the previous retained-null loss; all per-feature cases now pass. Tests also cover
+replaced features/options, unknown siblings, in-place binary edits, cycles,
+aliased TransferableTypedData, unchanged-container identity and root kwargs keys.
+Metadata input normalization bounds recursion before snapshots and avoids cloning
+unchanged containers. Root kwargs require unique string keys; nested application
+maps retain supported non-string keys. Typed model failures become payload-free
+FormatExceptions before the decoded model is returned.
+
+Added the public stateless Serializer and core/client/facade exports, including
+portable/native-builder construction helpers. Typed FlatBuffers PPT dispatch
+passes through one application Uint8List and explicitly rejects dynamic values
+and CBOR argument fragments; the application owns schema validation. No new
+cryptographic profile is implied. Native/browser transport factories, strict
+capability/session negotiation and native Rust codec remain pending.
+
+All 228 focused VM tests and core/client/facade analysis pass. The complete
+serializer mutation wrapper and all four inventories include the new test.
+All 89 mutation-tooling tests pass, with one existing skip. The earlier fast run
+94627 exits 0, but later stages overlapped these edits; it is not an untouched
+baseline proof. Exact pre-change verification remains 70693 at commit 71e57a46.
+Fresh browser/canonical candidate verification is required before commit/push.
+
+Local Qwen retention review reaches its output limit and is incomplete. A narrowed
+GLM review completes, but its suggestions contradict the explicit replacement
+policy, scalar setter source and normalization guard. The replacement/47-setter
+regressions confirm those boundaries. Expando state cannot vanish while the
+message strongly retains the observed objects. No suggested change is applied
+without a reproducer. A separate codec/normalization GLM review reaches its output limit without a
+completed report; no full companion review of this candidate is claimed.
+Source inspection and executable regressions remain the evidence. The focused
+227-case suites pass on both Chrome JS and WASM (the transferred-data case is
+VM-only). An independent transparent-payload probe confirms original-storage
+aliasing, direct PPT view identity and byte-preserving re-encoding. Automatic
+transparent-payload delivery through session PPT APIs remains #101.
+All ten whole-issue acceptance audits remain open.
+
+
+Fresh public-codec candidate bin/verify exits 0 in session 62824 at
+/tmp/connectanum-flatbuffers-public-codec-verify.log, using the same isolated
+TMPDIR. This includes native core/FFI, VM, Chrome/WASM, router, benchmark-path
+regressions and external consumer checks. Source remained unchanged throughout
+this run; only progress documentation was updated afterward. All 228 focused VM
+and 227 JS/WASM cases pass; the earlier narrow tooling command's import-path
+failure is repaired with unittest discovery and all 89 tests pass (one skip).
+The current candidate can now be committed/pushed without claiming completion
+of #98 or any other whole milestone issue.

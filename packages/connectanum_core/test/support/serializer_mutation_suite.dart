@@ -15,6 +15,8 @@ import '../serializer/flatbuffers_message_writer_test.dart'
 import '../serializer/flatbuffers_cbor_validation_test.dart'
     as flatbuffers_cbor_validation;
 import '../serializer/flatbuffers_frame_test.dart' as flatbuffers_frame;
+import '../serializer/flatbuffers_message_reader_test.dart'
+    as flatbuffers_message_reader;
 import '../serializer/json/binary_codec_test.dart' as json_binary;
 import '../serializer/json/serializer_test.dart' as json_serializer;
 import '../serializer/msgpack/codec_test.dart' as msgpack_codec;
@@ -54,6 +56,7 @@ void main() {
   group('FlatBuffers message writer', flatbuffers_message_writer.main);
   group('FlatBuffers CBOR validation', flatbuffers_cbor_validation.main);
   group('FlatBuffers frame', flatbuffers_frame.main);
+  group('FlatBuffers message reader', flatbuffers_message_reader.main);
   group('JSON binary', json_binary.main);
   group('JSON serializer', json_serializer.main);
   group('MessagePack codec', msgpack_codec.main);
