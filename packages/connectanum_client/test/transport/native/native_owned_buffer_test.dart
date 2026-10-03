@@ -14,6 +14,9 @@ import 'package:connectanum_client/native_buffers.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/generated/wamp_wamp.proto_generated.dart'
     as wire;
+import 'package:connectanum_core/src/serializer/flatbuffers/message_writer.dart';
+import 'package:connectanum_core/src/serializer/flatbuffers/validation.dart';
+import 'package:connectanum_core/src/serializer/flatbuffers/wire_writer.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 import 'package:ffi/ffi.dart' as ffi_alloc;
 import 'package:test/test.dart';
@@ -531,6 +534,53 @@ void main() {
     expect(buffer.growthCopiedBytes, 0);
     expect(buffer.inputCopiedBytes, 1);
   });
+
+  test(
+    'message models reuse native vectors without an envelope payload copy',
+    () {
+      final builder = allocator.flatBuffers(initialSize: 4096);
+      addTearDown(builder.dispose);
+      final vector = FlatBufferByteVectorReference(
+        builder,
+        builder.writeListUint8([0x81, 7]),
+      );
+      final message = Call(
+        9007199254740992,
+        'com.example.native',
+        options: CallOptions(custom: {'_ready': true}),
+      );
+      builder.finish(
+        writeWampFlatBufferMessage(
+          message,
+          builder,
+          argumentsVector: vector,
+        ),
+      );
+      final buffer = builder.freeze();
+      addTearDown(buffer.dispose);
+      final bytes = buffer.bytes;
+      validateWampFlatBuffer(bytes);
+      final rootMessage = wire.Message(bytes);
+      final call = rootMessage.msg as wire.Call;
+      expect(call.request, 9007199254740992);
+      expect(call.procedure, 'com.example.native');
+      expect(call.args, [0x81, 7]);
+      expect(buffer.growthCopiedBytes, 0);
+      expect(buffer.inputCopiedBytes, 2 + rootMessage.metadata!.length);
+      final data = ByteData.sublistView(bytes);
+      final root = data.getUint32(0, Endian.little);
+      final rootVtable = root - data.getInt32(root, Endian.little);
+      final msgField = root + data.getUint16(rootVtable + 6, Endian.little);
+      final body = msgField + data.getUint32(msgField, Endian.little);
+      final vtable = body - data.getInt32(body, Endian.little);
+      final argsField = body + data.getUint16(vtable + 10, Endian.little);
+      final argsOffset = argsField + data.getUint32(argsField, Endian.little);
+      expect(argsOffset, bytes.length - vector.offset);
+      builder.dispose();
+      expect(call.args, [0x81, 7]);
+      expect(() => builder.putUint8(1), throwsStateError);
+    },
+  );
 
   test(
     'native FlatBuffers remain physically aligned with odd capacity requests',

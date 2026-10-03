@@ -7,9 +7,11 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
-Draft PR #105 is pushed through ff5cc4c7 with foundation, package-constraint
+Draft PR #105 contains foundation, package-constraint
 repair, native-owned buffers, producer leases, write completion and native
-network lifetime coverage. Binding follow-up commit 722175ca resolves nullable
+network lifetime coverage, structural validation, primitive/direct model writing
+and bounded internal frame reading. The public codecs remain disabled.
+Binding follow-up commit 722175ca resolves nullable
 HEARTBEAT controls and custom CHALLENGE method strings with append-only fields.
 All 51 binding tests pass on VM, Chrome JS and WASM; focused analysis, six
 schema-generator tests, exact regeneration and flatc conformance pass. Unmodified
@@ -131,6 +133,45 @@ Combined validation/writer bin/verify exits 0 in session 46508,
 /tmp/connectanum-flatbuffers-encoding-verify.log, with the isolated
 TMPDIR=/tmp/connectanum-flatbuffers-verify.jr3fJ8. This includes Chrome/WASM.
 Hosted ff5cc4c7 package dry-runs pass (37139143935); CI 37139143966 is queued.
+
+The next candidate projects all 25 supported message models directly into the
+pinned envelope and writes complete CBOR metadata plus separate application
+vectors. Native builders accept the same model writer, and same-builder vector
+references avoid writing payload bytes a second time. The writer preserves lazy
+CBOR fragments and transparent/packed payloads without invoking their decoders.
+Metadata construction is bounded to 1 MiB, depth 64 and one million input items;
+cyclic inputs fail before entering the recursive CBOR encoder. The new Details
+dictionary helper also preserves fields when roles are absent and empty
+authmethod lists. This does not yet resolve received dictionary presence or
+unknown role-feature preservation through typed model round trips.
+All 40 model-writer cases pass on VM, JavaScript and WASM, including routing-ID
+mapping, native-vector offset reuse, lazy payload preservation and construction
+limits. A real native-builder regression proves zero growth and no second vector
+write using offsets and copied-byte counters. Focused core/client analysis has
+no issues; all 79 complete-inventory tooling checks pass. A broader Qwen writer
+review reaches its output-token limit and is incomplete evidence.
+Hosted 390529e7 package dry-runs pass (37142543729); CI 37142543742 is queued.
+Full model-writer bin/verify exits 0 in session 5697,
+/tmp/connectanum-flatbuffers-model-writer-verify.log, with the same isolated
+TMPDIR. This predates the bounded frame-reader changes below.
+
+The internal frame reader validates metadata CBOR, projected-field agreement,
+reserved session controls, authentication method strings, ERROR request kinds
+and payload container shape before returning original byte-vector views.
+134 focused writer/CBOR/frame tests pass on VM, JS and WASM; focused analysis is
+clean, nine generator tests and independent Python/Dart/Rust conformance pass.
+Fail-first regressions correct metadata overwriting HELLO realm/AUTHENTICATE
+signature and omitted CHALLENGE extra projection. Two derived fixtures now obey
+the documented metadata agreement; original upstream fixtures are unchanged.
+CBOR DateTime values remain supported in metadata and ordinary arguments.
+The reader now caches strings by their wire target: a fail-first valid 256-alias
+fixture proves repeated offsets share one decoded allocation. The structural
+validator still charges repeated references against its string-work limit.
+The initial frame-stage full run is interrupted for this follow-up; it is not a
+passing full result. Fresh bin/verify exits 0 in session 70693 at
+/tmp/connectanum-flatbuffers-frame-cached-strings-verify.log, including
+Chrome/WASM, native, router and consumer checks. Public models, retention and
+session checks remain open.
 
 All ten issues remain open. Next: complete bounded Dart decoding, the full codecs and
 remaining milestone criteria. No FlatBuffers network codec, E2EE profile,

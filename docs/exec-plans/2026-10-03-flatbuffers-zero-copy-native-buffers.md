@@ -552,3 +552,103 @@ The combined bin/verify exits 0 in session 46508 in
 The completed source snapshot includes both the validator and primitive writer,
 all complete-inventory checks and Chrome/WASM suites. Full model projection and
 encoding are the next implementation stage; the public serializer stays disabled.
+
+## Direct message-model writer (#98)
+
+Validation and primitive writing are committed/pushed as 390529e7 after the
+combined bin/verify passes. The new uncommitted candidate projects all 25
+supported public message models directly into pinned table fields. It does not
+encode and decode a complete CBOR/JSON message to get an envelope. Dynamic
+args/kwargs and the complete dictionary are independently CBOR-encoded.
+Routing IDs and URIs remain distinct from dictionary fields. Unsupported ERROR
+request types are rejected, custom authentication names use the negotiated
+placeholder fields, and values exceeding upstream scalar width remain in
+metadata without truncation. General Details fields and empty authmethods survive
+even without typed roles. Incoming dictionary presence and unknown role features
+still require a model/codec retention solution before #98/#100 can complete.
+
+The model writer accepts the same guarded native-backed builder and prebuilt
+byte-vector references. Retained CBOR args and transparent/packed payloads avoid
+calling application decoders. Ordinary values still incur CBOR construction and
+vector-write copies. Metadata construction is capped at 1 MiB, container depth
+64 and one million input items, with cycle rejection before recursive encoding.
+Dynamic construction has a 64 MiB per-value limit; complete frame-size and
+encoded-input semantic checks remain work for the actual public codec.
+
+Gemma summarizes the selected dictionary helpers; its claim that dictionary-only
+output is inherently lossy is inapplicable to this purpose. Qwen test planning
+times out without a complete answer. A completed narrowed scalar/vector
+projection review has no concrete findings; unspecified enum names are retained
+in metadata intentionally. The code/tests cover remaining nested handling.
+The candidate remains an internal encoding stage: public serializer/factories,
+strict bounded incoming metadata, agreement and capability negotiation, native
+Rust codec, routing, PPT/E2EE and performance gates are still required.
+
+The candidate passes 40 VM/JS/WASM model-writer cases. The CBOR package exposes
+the same 2^53 integer as BigInt on VM/WASM and int on JS; the test accepts either
+integer type while checking its exact numeric value. The native-backed model
+test independently checks the prebuilt vector's physical end-relative offset,
+zero growth and exactly the initial vector plus metadata input-copy count. A
+derived reader remains valid after disposing the builder. Focused core/client
+analysis and all 79 complete-inventory tooling checks pass. Broader Qwen writer
+review reaches its token limit without a completed report; no full review claim.
+Hosted 390529e7 package dry-runs pass (37142543729), with CI 37142543742 queued.
+Fresh full model-writer bin/verify exits 0 in session 5697 at
+/tmp/connectanum-flatbuffers-model-writer-verify.log, with
+TMPDIR=/tmp/connectanum-flatbuffers-verify.jr3fJ8. The next code stage is bounded
+CBOR metadata decoding, wire/metadata agreement, public message reconstruction
+and lossless dictionary retention before enabling factory/network selection.
+
+## Bounded frame decoding (#98)
+
+The new CBOR scanner bounds bytes, nesting and item count before materialization,
+rejecting truncation, invalid UTF-8, malformed indefinite chunks, duplicate or
+non-string metadata keys and trailing values. A schema-driven wire reader keeps
+byte vectors as original input spans. Frame checks enforce projected metadata
+agreement, reserved zero sessions outside WELCOME, ERROR kinds, CHALLENGE method
+consistency, HEARTBEAT presence and disjoint ordinary/transparent payloads.
+It validates one complete array/map for ordinary args/kwargs without decoding
+their application values. Public models/selection/capability handling remain open.
+
+Two fail-first regressions expose dictionary overwriting independent HELLO realm
+and AUTHENTICATE signature and omitted CHALLENGE extra projection. They are fixed;
+challenge_scram_ack and welcome_metadata_ack derived fixtures are corrected to
+match the existing agreement rules. No original upstream fixture/schema changed.
+CBOR DateTime compatibility is retained in metadata and application vectors.
+All 133 focused tests pass on VM/JS/WASM, analysis has no issues, nine generator
+tests pass and independent upstream/extended Python with Dart/Rust checks pass.
+The binding document records reserved-session and extra-map projection policies
+and primary WAMP/RFC 8949 sources. The previous full verification predates this
+stage; a fresh full run is required before committing it.
+
+A valid 256-alias fixture reproduces repeated string allocation in the reader;
+cache decoded strings by their validated wire target. This is allocation
+avoidance within the existing limit, not an unbounded-input fix: the validator
+already charges repeated string references. The initial full frame-stage run
+in /tmp/connectanum-flatbuffers-frame-verify.log is deliberately interrupted for
+this follow-up and must not be counted as passing. Fresh full bin/verify is
+exits 0 in session 70693 at
+/tmp/connectanum-flatbuffers-frame-cached-strings-verify.log, with the same isolated
+TMPDIR. The expanded 134-test suite passes on VM, JS and WASM; analysis is clean.
+Qwen's CBOR-scanner review times out at 90 seconds without a completed report.
+
+The next model-reconstruction/retention candidate is prepared outside the worktree
+while preserving this verification snapshot. Its 31 VM checks pass, including
+all 25 models, lazy original payload spans, binary/date values, absent/empty
+containers and retention of unknown role features and null dictionary values.
+Two fail-first cases prove why raw dictionaries need retention. The draft merge
+supports explicitly supplied changed paths, but automatic default-value setter
+tracking and replaced-object handling are not integrated. No production codec
+or lossless mutable-model completion is claimed from that draft.
+
+The full cached-string frame-stage verification completes successfully, including
+native, VM, Chrome/WASM, router and consumer checks. The verified internal writer
+and frame reader can now be committed/pushed. All ten issue acceptance audits
+remain open; the temporary reconstruction/retention files are not part of this
+verified candidate.
+
+Before the public decoder is enabled, enforce string/unique keys at the kwargs
+root while preserving other supported map types in application values. Complete
+the ordinary outgoing TransferableTypedData normalization as well. Metadata
+already applies string/unique keys to its entire dictionary tree. These are
+remaining codec acceptance checks, not advertised public support in this stage.

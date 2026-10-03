@@ -184,6 +184,17 @@ placeholder and remains absent in the metadata dictionary; it must not create
 an authentication identity. WELCOME from an upstream-only peer must satisfy the
 upstream required fields with real values.
 
+Only WELCOME's top-level `session` establishes a session identity. The same
+upstream field on other message tables is reserved and must be zero. This does
+not restrict `forward_for` principal session IDs. Dictionary entries with the
+same name as independent routing fields remain dictionary data: HELLO's realm,
+AUTHENTICATE's signature, request IDs and routed URIs come from their dedicated
+message positions. They cannot be replaced by custom dictionary entries.
+
+CHALLENGE and AUTHENTICATE project one representable string entry from their
+whole extra dictionary into the upstream `Map`; a receiver accepts any matching
+entry, rather than requiring a particular dictionary iteration order.
+
 A frame cannot carry metadata on a message with no dictionary. Non-map metadata,
 non-string keys, duplicate keys, extra trailing CBOR values, oversized/deep data
 and contradictory fields are errors. The codec applies the existing WAMP bounds
@@ -221,9 +232,17 @@ by frame size and are not scanned or decoded.
 
 Valid table aliases and signed negative vtable offsets remain supported.
 The input must remain unchanged while borrowed views are consumed. Structural
-validation does not replace codec-level metadata agreement, argument/container
-validation, authentication or negotiated-capability checks. The message codec
-and its public serializer selection are still pending.
+validation does not replace authentication or negotiated-capability checks.
+The internal frame reader now checks metadata agreement and validates one complete
+CBOR array/map in each ordinary args/kwargs vector before returning its original
+byte view. Metadata validation enforces string and unique dictionary keys,
+64 levels, one million items and 1 MiB; the CBOR scanner rejects malformed UTF-8,
+truncation, indefinite-string chunk violations and trailing values before calling
+the materializer. These rules follow the WAMP dictionary contract and RFC 8949.
+See [WAMP dictionary rules](https://wamp-proto.org/wamp_latest_ietf.html) and
+[RFC 8949](https://datatracker.ietf.org/doc/html/rfc8949).
+Public message reconstruction, serializer selection and session negotiation remain
+pending. Retaining encoded vectors does not make mutable input safe to borrow.
 
 ## Capabilities and fallback
 

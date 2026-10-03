@@ -942,7 +942,11 @@
       "msg_type": "Challenge",
       "msg": {
         "method": "SCRAM",
-        "method_name": "wamp-scram"
+        "method_name": "wamp-scram",
+        "extra": {
+          "key": "nonce",
+          "value": "nonce-example"
+        }
       },
       "metadata": [
         165,
@@ -1170,7 +1174,7 @@
       "msg_type": "Welcome",
       "msg": {
         "session": 123,
-        "realm": "realm1",
+        "realm": "",
         "roles": {
           "dealer": {}
         },

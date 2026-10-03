@@ -981,7 +981,11 @@ const flatBuffersFixtureJson = r'''
       "msg_type": "Challenge",
       "msg": {
         "method": "SCRAM",
-        "method_name": "wamp-scram"
+        "method_name": "wamp-scram",
+        "extra": {
+          "key": "nonce",
+          "value": "nonce-example"
+        }
       },
       "metadata": [
         165,
@@ -1085,7 +1089,7 @@ const flatBuffersFixtureJson = r'''
         50
       ]
     },
-    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAEfAAAAAQAAABjAAAApXgkX2Nvbm5lY3RhbnVtX2ZsYXRidWZmZXJzX21ldGFkYXRhX3Yx9WVub25jZW1ub25jZS1leGFtcGxlZHNhbHRoYzJGc2RBPT1qaXRlcmF0aW9ucxkQAGNrZGZmcGJrZGYyAAwADAAAAAcAAAAIAAwAAAAAAAADBAAAAAoAAAB3YW1wLXNjcmFtAAA="
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAAEfAAAAAQAAABjAAAApXgkX2Nvbm5lY3RhbnVtX2ZsYXRidWZmZXJzX21ldGFkYXRhX3Yx9WVub25jZW1ub25jZS1leGFtcGxlZHNhbHRoYzJGc2RBPT1qaXRlcmF0aW9ucxkQAGNrZGZmcGJrZGYyAAwAEAAAAAcACAAMAAwAAAAAAAADEAAAADgAAAAIAAwABAAIAAgAAAAcAAAABAAAAA0AAABub25jZS1leGFtcGxlAAAABQAAAG5vbmNlAAAACgAAAHdhbXAtc2NyYW0AAA=="
   },
   {
     "name": "authenticate_binary_extra",
@@ -1212,7 +1216,7 @@ const flatBuffersFixtureJson = r'''
       "msg_type": "Welcome",
       "msg": {
         "session": 123,
-        "realm": "realm1",
+        "realm": "",
         "roles": {
           "dealer": {}
         },
@@ -1287,7 +1291,7 @@ const flatBuffersFixtureJson = r'''
         245
       ]
     },
-    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAACXAAAAAQAAABBAAAAoWVyb2xlc6FmZGVhbGVyoWhmZWF0dXJlc6F4JF9jb25uZWN0YW51bV9mbGF0YnVmZmVyc19tZXRhZGF0YV92MfUADgAgABQABAAIAAwAEAAOAAAANAAAAEAAAAAcAAAAEAAAAHsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAgAAAAEAAgAAAAIAAAABAAEAAQAAAAGAAAAcmVhbG0xAAA="
+    "base64": "EAAAAAAACgAQAAcACAAMAAoAAAAAAAACXAAAAAQAAABBAAAAoWVyb2xlc6FmZGVhbGVyoWhmZWF0dXJlc6F4JF9jb25uZWN0YW51bV9mbGF0YnVmZmVyc19tZXRhZGF0YV92MfUADgAcABQABAAIAAwAEAAOAAAAMAAAADwAAAAYAAAADAAAAHsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgACAAAAAQACAAAAAgAAAAEAAQABAAAAAAAAAAAAAAA"
   },
   {
     "name": "abort_bootstrap_metadata",
