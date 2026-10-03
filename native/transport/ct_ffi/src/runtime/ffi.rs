@@ -564,6 +564,22 @@ fn extract_payload_slices(message: &WampMessage) -> (Option<Bytes>, Option<Bytes
     }
 }
 
+// Opaque application bytes are distinct from encoded argument containers.
+fn extract_transparent_payload(message: &WampMessage) -> Option<&Bytes> {
+    match message {
+        WampMessage::Publish { payload, .. }
+        | WampMessage::Event { payload, .. }
+        | WampMessage::Call { payload, .. }
+        | WampMessage::Result { payload, .. }
+        | WampMessage::Invocation { payload, .. }
+        | WampMessage::Yield { payload, .. }
+        | WampMessage::Error { payload, .. }
+        | WampMessage::Abort { payload, .. }
+        | WampMessage::Goodbye { payload, .. } => payload.transparent.as_ref(),
+        _ => None,
+    }
+}
+
 fn option_bytes_ptr(bytes: &Option<Bytes>) -> (*const u8, usize) {
     match bytes {
         Some(data) => (data.as_ptr(), data.len()),
@@ -3579,6 +3595,7 @@ const CT_MESSAGE_FLAG_METADATA_BIND: u32 = 1 << 4;
 const CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE: u32 = 1 << 5;
 const CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE: u32 = 1 << 6;
 const CT_MESSAGE_FLAG_DETAIL_BOOL_D_TRUE: u32 = 1 << 7;
+const CT_MESSAGE_FLAG_TRANSPARENT_BINARY_PAYLOAD: u32 = 1 << 8;
 
 fn serializer_id(serializer: ct_core::RawSocketSerializer) -> u8 {
     match serializer {
@@ -4139,7 +4156,10 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
     let (args_ptr, args_len) = option_bytes_ptr(&msg.args);
     let (kwargs_ptr, kwargs_len) = option_bytes_ptr(&msg.kwargs);
     let (details_ptr, details_len) = option_bytes_ptr(&msg.details);
-    let binary_argument = if msg.code == 68 && msg.kwargs.is_none() {
+    let transparent = extract_transparent_payload(&msg.message);
+    let binary_argument = if let Some(payload) = transparent {
+        Some(payload.as_ref())
+    } else if msg.code == 68 && msg.kwargs.is_none() {
         msg.args
             .as_deref()
             .and_then(|args| single_binary_argument(msg.serializer, args).ok())
@@ -4159,6 +4179,11 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
         details_len,
         binary_arg_ptr: binary_argument.map_or(ptr::null(), <[u8]>::as_ptr),
         binary_arg_len: binary_argument.map_or(0, <[u8]>::len),
+        flags: if transparent.is_some() {
+            CT_MESSAGE_FLAG_TRANSPARENT_BINARY_PAYLOAD
+        } else {
+            0
+        },
         ..CtMessageInfo::default()
     };
     match &msg.message {
@@ -4497,6 +4522,15 @@ fn wide_message_handle_result(result: Result<u64, MessageHandleError>) -> i64 {
 
 fn store_parsed_message_wide(parsed: ct_core::ParsedMessage) -> i64 {
     wide_message_handle_result(super::message_handles::insert(parsed_message_value(parsed)))
+}
+
+/// Version 1 declares the pinned FlatBuffers codec, original metadata export,
+/// transparent-payload flag at bit 8 and byte-view selector 5. Session profile
+/// negotiation remains required independently of this native binding contract.
+#[cfg(not(all(feature = "ffi-test", connectanum_legacy_message_handles_test)))]
+#[no_mangle]
+pub extern "C" fn ct_flatbuffers_binding_version() -> c_uint {
+    1
 }
 
 /// Version 1 is the complete additive signed 64-bit message-handle family.
@@ -6516,7 +6550,8 @@ pub struct CtMessageByteView {
 }
 
 /// Exports a zero-copy slice with ownership independent of routing handles.
-/// Parts: 0 frame, 1 arguments, 2 keyword arguments, 3 details, 4 binary argument.
+/// Parts: 0 frame, 1 arguments, 2 keyword arguments, 3 details, 4 binary argument,
+/// 5 transparent application payload (FlatBuffers opaque vector).
 /// The caller must release each non-null owner exactly once with
 /// `ct_message_buffer_free`, after every view of that slice is unreachable.
 /// Token addresses may repeat; each successful export owns a separate reference.
@@ -6558,6 +6593,7 @@ pub extern "C" fn ct_message_buffer_export_wide(
             .as_deref()
             .and_then(|args| single_binary_argument(message.serializer, args).ok()),
         4 => None,
+        5 => extract_transparent_payload(&message.message).map(Bytes::as_ref),
         _ => return ERR_INVALID_ARGUMENT,
     };
     let Some(bytes) = bytes else {
@@ -7280,6 +7316,10 @@ mod metadata_projection_tests;
 #[cfg(test)]
 #[path = "flatbuffers_metadata_tests.rs"]
 mod flatbuffers_metadata_tests;
+
+#[cfg(test)]
+#[path = "flatbuffers_opaque_tests.rs"]
+mod flatbuffers_opaque_tests;
 
 #[cfg(test)]
 mod tests {

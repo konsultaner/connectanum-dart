@@ -50,6 +50,7 @@ class NativeMessageMetadata {
     required this.detailNumberB,
     required this.flags,
     this.detailsBytes,
+    this.transparentPayloadBytes,
     this.stringA,
     this.stringB,
     this.stringC,
@@ -65,6 +66,7 @@ class NativeMessageMetadata {
   static const flagDetailBoolBTrue = 1 << 5;
   static const flagDetailBoolCTrue = 1 << 6;
   static const flagDetailBoolDTrue = 1 << 7;
+  static const flagTransparentPayload = 1 << 8;
 
   final int messageCode;
   final int primaryId;
@@ -73,6 +75,7 @@ class NativeMessageMetadata {
   final int detailNumberB;
   final int flags;
   final Uint8List? detailsBytes;
+  final Uint8List? transparentPayloadBytes;
   final String? stringA;
   final String? stringB;
   final String? stringC;

@@ -22,6 +22,7 @@ AbstractMessage bindMessage(
   int? metadataDetailNumberA,
   int? metadataFlags,
   Uint8List? metadataDetailsBytes,
+  Uint8List? metadataTransparentPayloadBytes,
   String? metadataStringA,
   String? metadataStringB,
   String? metadataStringC,
@@ -39,6 +40,7 @@ AbstractMessage bindMessage(
       detailNumberA: metadataDetailNumberA ?? 0,
       flags: metadataFlags,
       detailsBytes: metadataDetailsBytes,
+      transparentPayloadBytes: metadataTransparentPayloadBytes,
       stringA: metadataStringA,
       stringB: metadataStringB,
       stringC: metadataStringC,
@@ -86,6 +88,7 @@ AbstractMessage bindMessage(
 }
 
 const int _metadataBindFlag = 1 << 4;
+const int _transparentPayloadFlag = 1 << 8;
 const int _directBindFlag = 1 << 0;
 const int _detailNumberAPresentFlag = 1 << 1;
 const int _detailBoolATrueFlag = 1 << 3;
@@ -101,6 +104,7 @@ AbstractMessage? bindMessageFromMetadata(
   required int detailNumberA,
   required int flags,
   Uint8List? detailsBytes,
+  Uint8List? transparentPayloadBytes,
   String? stringA,
   String? stringB,
   String? stringC,
@@ -375,6 +379,19 @@ AbstractMessage? bindMessageFromMetadata(
     }
   }
 
+  if (message != null) {
+    final present = (flags & _transparentPayloadFlag) != 0;
+    if (present != (transparentPayloadBytes != null) ||
+        (present &&
+            (serializer != NativeMessageSerializer.flatbuffers ||
+                message is! AbstractMessageWithPayload))) {
+      throw ArgumentError('Invalid native transparent payload metadata');
+    }
+    if (present) {
+      (message as AbstractMessageWithPayload).transparentBinaryPayload =
+          transparentPayloadBytes;
+    }
+  }
   if (message is AbstractMessageWithPayload) {
     _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
   }

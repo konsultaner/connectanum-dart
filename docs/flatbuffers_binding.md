@@ -266,8 +266,9 @@ Contiguous input retains its allocation. Segmented input currently coalesces onc
 The encoder moves the finished FlatBuffers allocation into Bytes without a final
 copy. Constructing embedded vectors still copies their bytes. ABORT/GOODBYE
 application payloads, which have no pinned schema slots, are rejected explicitly.
-Native FFI/router delivery, transport factories and metadata capability negotiation
-are subsequent integration work; this codec does not advertise their completion.
+Native FFI delivery retains these spans as described below. Routing, transport
+factories and metadata capability negotiation remain subsequent integration work;
+this codec does not advertise their completion.
 
 ## Dart codec and payload retention
 
@@ -431,8 +432,7 @@ message-info and exported-view lifetime contracts. It does not rebuild ordinary
 FlatBuffers dictionaries. HEARTBEAT constructs a small CBOR metadata wrapper
 containing its dictionary and present control fields, including explicit zero.
 This preserves the existing C structure layout. Metadata delivery alone does not
-enable native factories: opaque-payload delivery and negotiated profile/version
-guards remain required.
+enable native factories: negotiated session-profile guards remain required.
 
 ### Dart native dictionary and application binding
 
@@ -446,6 +446,29 @@ remain subject to the 1-MiB limit. HEARTBEAT uses its small native control wrapp
 The runtime's owned-view exporter or metadata copy must own every retained span;
 a bare reference to borrowed database memory does not extend its lifetime.
 
-The current binding stage does not expose the native opaque payload vector.
-Factories remain disabled pending that delivery path and negotiated profile/
-version guards; no complete native-session or performance-parity claim is made.
+### Native opaque payload delivery
+
+The additive `ct_flatbuffers_binding_version()` returns 1 for the pinned codec,
+dictionary export and opaque-vector binding. Dart requires this version and the
+native byte-owner export/destructor family before accepting native FlatBuffers
+messages. Missing, unknown or incomplete versions fail before byte access,
+including present-empty vectors. This local ABI capability never establishes
+agreement with a remote peer.
+
+For an opaque application vector, message-info flag `1 << 8` is set and
+`binary_arg_ptr` / `binary_arg_len` describe that vector. Export selector 5 retains
+its original allocation through an independent native owner. Selector 4 remains
+the separate INVOCATION single-binary-argument API; consumers must check the flag
+before choosing a selector. An absent or empty export has no owner, consistently
+with the existing byte-view ABI; flag 8 distinguishes present-empty from absent.
+
+Both Dart materializers and the payload-only CALL reader preserve opaque bytes
+separately from encoded CBOR args/kwargs. The session wrapper and final model
+reject contradictory presence metadata. Native receive views are read-only,
+including their ByteBuffer and subviews: writing through an alias must not mutate
+shared Rust storage. Metadata copies remain independently owned Dart buffers.
+Nonempty payload subviews retain native storage after message-handle release and
+runtime shutdown, without an application-payload copy at that receive boundary.
+
+Factories remain disabled pending negotiated profile guards and complete routing.
+No complete native-session or performance-parity claim is made.

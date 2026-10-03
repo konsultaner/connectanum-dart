@@ -20,6 +20,7 @@ class NativeSessionMessage extends AbstractMessageWithPayload {
     Uint8List? kwargsBytes,
   }) {
     id = metadata.messageCode;
+    _applyNativeTransparentPayload(this, serializer, metadata);
     _applyLazyPayload(this, serializer, argsBytes, kwargsBytes);
   }
 
@@ -149,6 +150,9 @@ AbstractMessage? _bindFromMetadata(
     argsBytes: argsBytes,
     kwargsBytes: kwargsBytes,
   );
+  if (message != null) {
+    _applyNativeTransparentPayload(message, serializer, metadata);
+  }
   if (message != null &&
       serializer == NativeMessageSerializer.flatbuffers &&
       metadata.messageCode != MessageTypes.codeHeartbeat &&
@@ -156,6 +160,27 @@ AbstractMessage? _bindFromMetadata(
     flatbuffers.Serializer().retainMetadata(message, metadata.detailsBytes!);
   }
   return message;
+}
+
+void _applyNativeTransparentPayload(
+  AbstractMessage message,
+  NativeMessageSerializer serializer,
+  NativeMessageMetadata metadata,
+) {
+  final present = metadata.hasFlag(
+    NativeMessageMetadata.flagTransparentPayload,
+  );
+  final bytes = metadata.transparentPayloadBytes;
+  if (present != (bytes != null) ||
+      (present &&
+          (serializer != NativeMessageSerializer.flatbuffers ||
+              message is! AbstractMessageWithPayload ||
+              !{16, 36, 48, 50, 68, 70, 8}.contains(metadata.messageCode)))) {
+    throw ArgumentError('Invalid native transparent payload metadata');
+  }
+  if (present) {
+    (message as AbstractMessageWithPayload).transparentBinaryPayload = bytes;
+  }
 }
 
 AbstractMessage? _bindFromMetadataFields(

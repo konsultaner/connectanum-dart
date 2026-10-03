@@ -39,6 +39,69 @@ void main() {
   final wide = library?.providesSymbol('ct_test_message_enqueue_wide') ?? false;
   flatbuffersMessageBindingContracts(library);
 
+  test('current native library provides the opaque FlatBuffers binding', () {
+    final bytes = NativeMessageBytes(library!);
+    expect(bytes.supportsFlatbuffersBinding, isTrue);
+    expect(bytes.requireFlatbuffersBinding, returnsNormally);
+  }, skip: library == null ? 'Native library unavailable' : false);
+
+  for (final version in [null, 0, 1, 2]) {
+    test(
+      'incomplete FlatBuffers binding $version rejects before reading bytes',
+      () {
+        final fixture = [
+          File('test/fixtures/flatbuffers_binding_version.c'),
+          File(
+            'packages/connectanum_router/test/fixtures/flatbuffers_binding_version.c',
+          ),
+        ].firstWhere((file) => file.existsSync());
+        final directory = Directory.systemTemp.createTempSync(
+          'connectanum-fb-abi-',
+        );
+        addTearDown(() => directory.deleteSync(recursive: true));
+        final output =
+            '${directory.path}/fixture.${Platform.isMacOS ? 'dylib' : 'so'}';
+        final build = Process.runSync('cc', [
+          if (Platform.isMacOS) '-dynamiclib' else '-shared',
+          '-fPIC',
+          if (version != null) '-DFLATBUFFERS_BINDING_VERSION=$version',
+          fixture.path,
+          '-o',
+          output,
+        ]);
+        expect(build.exitCode, 0, reason: '${build.stdout}\n${build.stderr}');
+        final bytes = NativeMessageBytes(ffi.DynamicLibrary.open(output));
+        expect(bytes.supportsFlatbuffersBinding, isFalse);
+        expect(bytes.requireFlatbuffersBinding, throwsUnsupportedError);
+        for (final length in [0, 1]) {
+          expect(
+            () => bytes.read(
+              1,
+              NativeMessageBytePart.transparentPayload,
+              borrowed: ffi.nullptr,
+              length: length,
+            ),
+            throwsUnsupportedError,
+          );
+          expect(
+            () => bytes.withCopiedBytes(
+              1,
+              NativeMessageBytePart.transparentPayload,
+              borrowed: ffi.nullptr,
+              length: length,
+              consume: (_) =>
+                  fail('Unsupported ABI must not read borrowed memory'),
+            ),
+            throwsUnsupportedError,
+          );
+        }
+      },
+      skip: Platform.isMacOS || Platform.isLinux
+          ? false
+          : 'C fixture platform only',
+    );
+  }
+
   test('client, router and exporter select the same complete family', () {
     final expected = NativeMessageHandleAbi.detect(library!);
     expect(client.CtFfiBindings(library).messageHandleAbi, expected);

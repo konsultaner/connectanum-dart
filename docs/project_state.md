@@ -7,18 +7,19 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
-Draft PR #105 at dff1fba0 contains foundation, package-constraint repair,
+Draft PR #105 at ce6f55ec contains foundation, package-constraint repair,
 native-owned buffers, producer leases, write completion and native network
 lifetime coverage, structural validation, direct model writing, and the public
 Dart codec with mutable-model metadata retention. The committed native codec
 stage adds a bounded Rust parser and direct encoder for all 25 native WAMP
 models, transparent payload storage, and public Dart/Rust codec interoperability.
-Native transport factories, FFI/router integration and profile negotiation remain
+Native transport factories, complete routing and profile negotiation remain
 incomplete; the codec alone does not establish live FlatBuffers support.
 
 Verified native dictionary delivery and CI-repair work is committed/pushed as
 dff1fba0. Delivery bin/verify 5336 exits 0 with unchanged product source.
-The current uncommitted Dart native/router binding stage preserves metadata on
+The verified Dart native/router binding stage is committed/pushed as ce6f55ec.
+It preserves metadata on
 the final model and uses bounded core decoding for native CBOR fragments.
 A real C ABI regression covers all 25 message kinds in both consumers plus
 metadata-only delivery and a large-integer/binary application case (84 cases).
@@ -33,6 +34,38 @@ Fresh bin/verify 52267 exits 0 at
 /tmp/connectanum-flatbuffers-binding-verify.log, with product source unchanged
 throughout. Supporting bin/test-fast 37810 exits 0 but overlaps these binding
 edits; full verification is the final current-source proof. All ten milestone issues remain open.
+
+The native opaque candidate is applied but uncommitted. It exports the original
+transparent vector under presence bit 8 and byte selector 5, with additive
+ct_flatbuffers_binding_version=1 and unchanged C structure layout. Both Dart
+materializers and the payload-only CALL reader retain the vector independently
+of the routing handle. Version 1 also requires the native owner family; missing,
+unknown and incomplete ABI probes reject before empty-vector shortcuts or copies.
+Native receive views are read-only, including their buffers and subviews. A
+fail-first regression demonstrates that the earlier view could mutate Rust data.
+All 61 lifetime checks pass after the read-only change. The earlier 3,848 binding
+regressions pass before that final change; complete verification remains required.
+Two current Rust tests cover all seven opaque message types and narrow/wide
+export presence, empty/absent behavior and release survival. Workspace analysis
+exits 0 with 14 existing informational lints outside these changes.
+
+Supporting fast25100 exits 1: its benchmark worker's stdout ends before READY,
+raising StateError before any cancel workload. Its product source overlapped
+edits, and the cause is unproven. The isolated case and all 56 transport suite
+tests pass in fresh processes; preserve the initial failure log. GLM confirms
+the Arc export ownership and empty-span contract. Its selector4/5 concern is
+documented explicitly; flag defaults/preservation are verified. Qwen's completed
+review incorrectly conflates ABI capability with per-message presence; actual
+materializers validate the flag and byte span. Its earlier review times out.
+Factories remain disabled; the native version does not grant session agreement.
+All ten issues remain open. Fresh bin/verify2971 exits 0 at
+/tmp/connectanum-flatbuffers-opaque-verify.log, with product source unchanged
+throughout. The verified opaque receive stage is ready for commit/push. The
+existing Rust HTTP CLI startup test misses its 2-second READY deadline once and
+passes the verifier's unchanged built-in retry. Preserve that attempt; no new
+deadline, manual waiver or clean first-attempt claim is made. A client-profile
+state/acknowledgement prototype passes outside the worktree at
+/tmp/connectanum-flatbuffers-profile-stage, but is not transport integration.
 
 Native focused checks pass: 17 tests, including all 25 model cases, all eight
 nullable HEARTBEAT combinations, contradictory metadata rejection, original

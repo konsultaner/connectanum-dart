@@ -1319,9 +1319,11 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
           ownedNativePayload.serializer.name != encoding?.name)) {
     throw StateError('Native payload must be retained before reading');
   }
-  final transparentBinaryPayload = _coerceTransferredBytes(
-    raw[_transferredLazyPayloadTransparentBinaryKey],
-  );
+  final transparentBinaryPayload = retainedNativeCallPayload
+      ? ownedNativePayload!.transparentPayloadBytes
+      : _coerceTransferredBytes(
+          raw[_transferredLazyPayloadTransparentBinaryKey],
+        );
   final pptDecoded = raw[_transferredLazyPayloadPptDecodedKey] == true;
   final argumentsBytes = retainedNativeCallPayload
       ? ownedNativePayload!.argumentsBytes

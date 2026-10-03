@@ -927,3 +927,72 @@ changing the worktree. Prototype log: /tmp/connectanum-flatbuffers-opaque-native
 Its library build is active in session64702 at
 /tmp/connectanum-flatbuffers-opaque-overlay-library.log. Actual opaque source,
 Dart runtime integration and full verification remain next. All ten issues stay open.
+
+The verified binding stage is committed/pushed as ce6f55ec; draft PR #105 now
+reports its final validation and remaining scope. Native opaque overlay library
+build64702 exits 0; its real C-ABI probe exports all 136 bytes under selector5,
+matching message info and the public codec reference. Apply the tested native
+opaque candidate and two tests to the worktree after starting fast25100.
+Focused native run66535 is at /tmp/connectanum-flatbuffers-opaque-native-focused.log.
+The candidate remains uncommitted. Next: NativeMessageBytePart selector, explicit
+presence delivery, safe exported payload views in both materializers, final-model
+retention, older-library/version guards, empty-vector/absence and lifetime tests.
+Do not call selector4 for an opaque vector or advertise factories before profile
+negotiation is complete. No complete verification of this new candidate is claimed.
+
+## Opaque native/Dart receive integration
+
+Both runtimes now export selector5 under presence bit8, retain the vector on the
+final payload model and skip selector4 for opaque INVOCATION data. The payload-only
+CALL reader also owns its opaque vector. No app schema registry or ObjectBox
+runtime dependency is introduced. Missing/unknown binding versions and version1
+without native byte ownership reject before reading even an empty vector.
+
+The payload-only regression first fails on the absent API, then passes for
+absent/empty/nonempty vectors. A separate fail-first C fixture demonstrates that
+version1 without byte ownership was incorrectly accepted; the complete guard
+repairs it. Another fail-first test writes through an exposed native view;
+read-only views now block writes through list, ByteBuffer and subview aliases.
+All 61 lifecycle tests pass after that change. Two Rust tests cover all seven
+payload-bearing kinds and narrow/wide exports, including the existing no-owner
+empty-span ABI. Earlier 3,848 binding regressions pass before final immutability.
+Logs: opaque-call-reader-fail-first, opaque-version-fail-first,
+opaque-mutable-view-fail-first, opaque-bindings-regression,
+opaque-immutable-lifetime and opaque-native-final under /tmp/connectanum-flatbuffers-.
+
+Supporting fast25100 is terminal1, with worker stdout EOF before READY (not an
+observed cancel failure); source overlapped edits. Its cause remains unproven.
+The isolated worker case and all 56 full transport integration tests pass in new
+processes. Do not replace this with a clean-fast claim or alter deadlines. Fresh
+bin/verify must run with source frozen and a unique temporary directory.
+
+GLM's ownership audit completes: original Arc ownership and empty exports are
+sound. Document selector4 versus flagged selector5 explicitly; default flags and
+existing flag preservation are confirmed. Qwen's final bounded review completes
+but its proposed bit8 check in the library capability probe is rejected: presence
+belongs to the per-message metadata checks, while ownership is validated by the
+exported owner. Its broad earlier review times out without a completed report.
+The test advisory's proposal to read after freeing a view owner is rejected;
+weak witnesses check lifetime before any escaped byte is dereferenced instead.
+All ten issues remain open. Session negotiation/factories, routing, live flows,
+PPT/E2EE, full CI/memory/performance gates and release consumers remain required.
+
+Fresh verification2971 is live at /tmp/connectanum-flatbuffers-opaque-verify.log,
+with a unique TMPDIR and product source frozen. Its Rust HTTP CLI startup test
+misses the 2-second READY deadline on attempt1 and passes the unchanged built-in
+retry. Preserve the attempt and do not invent a clean-first-attempt result.
+A preparatory client-profile state machine and rejection checks pass outside the
+worktree in /tmp/connectanum-flatbuffers-profile-stage. It is not shipped/session
+proof. Integration points are native transport receive before controller delivery,
+outgoing validation with state committed only after queue acceptance, and router
+HELLO/CHALLENGE/WELCOME in router_worker_handshake.dart. Core retained-dictionary
+projection is needed to inspect and decorate unknown role feature keys without
+losing metadata or reading app payloads. Implement and test the actual paths only
+after verification2971 becomes terminal and the opaque stage is committed.
+
+Verification2971 exits 0 with product source unchanged throughout. Native Rust
+(default and ffi-test), VM, external package consumers, router/native forwarding
+and Chrome/WASM suites pass, including all 4,460 core and 2,673 client browser
+checks. Retain the HTTP CLI first-attempt startup failure and canonical retry.
+The opaque stage is ready for commit/push. Factories and profile guards remain
+next; the independent prototype is preparatory only and all ten issues stay open.

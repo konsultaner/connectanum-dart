@@ -1314,6 +1314,9 @@ class NativeClientRuntime {
       }
       var info = infoPtr.ref;
       final serializer = NativeMessageSerializer.fromId(info.serializer);
+      if (serializer == NativeMessageSerializer.flatbuffers) {
+        _messageBytes.requireFlatbuffersBinding();
+      }
       final args = info.argsLen == 0
           ? null
           : _messageBytes.read(
@@ -1331,7 +1334,9 @@ class NativeClientRuntime {
               length: info.kwargsLen,
             );
       final metadata = _metadataFromFfi(info, handle, _messageBytes);
-      var singleBinaryArgument = info.binaryArgPtr == ffi.nullptr
+      var singleBinaryArgument =
+          metadata.hasFlag(NativeMessageMetadata.flagTransparentPayload) ||
+              info.binaryArgPtr == ffi.nullptr
           ? null
           : _messageBytes.read(
               handle,
@@ -1614,6 +1619,15 @@ NativeMessageMetadata _metadataFromFfi(
 ) {
   final flags = info.flags;
   final metadataBind = (flags & NativeMessageMetadata.flagMetadataBind) != 0;
+  final transparent =
+      (flags & NativeMessageMetadata.flagTransparentPayload) == 0
+      ? null
+      : bytes.read(
+          handle,
+          NativeMessageBytePart.transparentPayload,
+          borrowed: info.binaryArgPtr,
+          length: info.binaryArgLen,
+        );
   NativeMessageMetadata build(Uint8List? details) => NativeMessageMetadata(
     messageCode: info.messageCode,
     primaryId: info.primaryId,
@@ -1622,6 +1636,7 @@ NativeMessageMetadata _metadataFromFfi(
     detailNumberB: info.detailNumberB,
     flags: flags,
     detailsBytes: details,
+    transparentPayloadBytes: transparent,
     stringA: metadataBind
         ? _readOptionalString(info.stringAPtr, info.stringALen)
         : null,
