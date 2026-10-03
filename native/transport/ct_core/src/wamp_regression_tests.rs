@@ -8,6 +8,43 @@ use serde_json::{json, Value as Json};
 
 const SERIALIZERS: [Serializer; 3] = [Serializer::Json, Serializer::MessagePack, Serializer::Cbor];
 
+#[test]
+fn unregistered_details_survive_ordinary_and_segmented_binary_codecs() {
+    for serializer in SERIALIZERS {
+        let bytes = wire(
+            serializer,
+            &json!([67,16,{"reason":"wamp.error.revoked","x_vendor":true}]),
+        );
+        let expected = parse_message(serializer, bytes.clone())
+            .assert_success()
+            .message;
+        let WampMessage::Unregistered { details, .. } = &expected else {
+            panic!("UNREGISTERED expected");
+        };
+        assert_eq!(
+            details.get(&Value::String("reason".into())),
+            Some(&Value::String("wamp.error.revoked".into()))
+        );
+        assert_eq!(
+            details.get(&Value::String("x_vendor".into())),
+            Some(&Value::Bool(true))
+        );
+        for split in 0..=bytes.len() {
+            assert_eq!(
+                parse_message_segments(serializer, fragments(&bytes, split))
+                    .assert_success()
+                    .message,
+                expected
+            );
+        }
+        let invalid = wire(serializer, &json!([67, 16, "invalid details"]));
+        assert_condition!(matches!(
+            parse_message(serializer, invalid),
+            Err(ParseError::ExpectedMap("unregistered.details"))
+        ));
+    }
+}
+
 fn wire(serializer: Serializer, value: &Json) -> Bytes {
     Bytes::from(match serializer {
         Serializer::Json => serde_json::to_vec(value).assert_success(),
@@ -63,7 +100,13 @@ fn json_message_boundary_permits_only_json_whitespace() {
     for split in 0..=raw.len() {
         let parsed =
             parse_message_segments(Serializer::Json, fragments(&raw, split)).assert_success();
-        assert_eq!(parsed.message, WampMessage::Unregistered { request_id: 7 });
+        assert_eq!(
+            parsed.message,
+            WampMessage::Unregistered {
+                request_id: 7,
+                details: Default::default()
+            }
+        );
         assert_eq!(parsed.raw.into_bytes(), raw);
     }
 }
@@ -280,7 +323,10 @@ fn message_cases() -> Vec<(Json, WampMessage, Vec<&'static str>)> {
         ),
         (
             json!([67, 17]),
-            WampMessage::Unregistered { request_id: 17 },
+            WampMessage::Unregistered {
+                request_id: 17,
+                details: Default::default(),
+            },
             vec!["unregistered.request_id"],
         ),
         (
@@ -467,9 +513,15 @@ fn empty_non_array_and_invalid_code_messages_fail_closed() {
             } else {
                 parse_message(serializer, raw)
             };
-            assert_condition!(
-                matches!(result, Err(ParseError::UnsupportedSerializer(actual)) if actual == serializer)
-            );
+            let rejected = match serializer {
+                Serializer::Flatbuffers => {
+                    matches!(result, Err(ParseError::Deserialize(message)) if message.starts_with("Invalid FlatBuffers frame:"))
+                }
+                _ => {
+                    matches!(result, Err(ParseError::UnsupportedSerializer(actual)) if actual == serializer)
+                }
+            };
+            assert_condition!(rejected);
         }
     }
 }
@@ -514,6 +566,7 @@ fn all_payload_messages_preserve_absent_null_empty_and_populated_arguments() {
                         kwargs: kwargs
                             .filter(|value| !value.is_null())
                             .map(|value| wire(serializer, &value)),
+                        transparent: None,
                     };
                     check_valid(serializer, &value, &expected);
                 }
@@ -725,6 +778,7 @@ fn msgpack_marker_widths_preserve_lazy_payload_ranges_and_reject_every_truncatio
             payload: Payload {
                 args: Some(raw.slice(4..)),
                 kwargs: None,
+                transparent: None,
             },
         };
         for split in 0..=raw.len() {
@@ -785,7 +839,10 @@ fn binary_array_headers_decode_all_widths_and_reject_truncation() {
             let mut raw = header.clone();
             raw.extend(&body);
             let raw = Bytes::from(raw);
-            let expected = WampMessage::Unregistered { request_id: 7 };
+            let expected = WampMessage::Unregistered {
+                request_id: 7,
+                details: Default::default(),
+            };
             assert_eq!(
                 parse_message(serializer, raw.clone())
                     .assert_success()
@@ -825,7 +882,10 @@ fn binary_array_headers_decode_all_widths_and_reject_truncation() {
         parse_message(Serializer::Cbor, indefinite)
             .assert_success()
             .message,
-        WampMessage::Unregistered { request_id: 7 }
+        WampMessage::Unregistered {
+            request_id: 7,
+            details: Default::default()
+        }
     );
 }
 

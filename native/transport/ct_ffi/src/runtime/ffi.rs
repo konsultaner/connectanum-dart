@@ -611,6 +611,9 @@ struct UnknownMetadata<'a> {
 
 fn extract_detail_bytes(serializer: RawSocketSerializer, message: &WampMessage) -> Option<Bytes> {
     match message {
+        WampMessage::Unregistered { details, .. } if !details.is_empty() => {
+            encode_value_map_bytes(serializer, details)
+        }
         WampMessage::Hello { details, .. }
         | WampMessage::Publish {
             options: details, ..
@@ -4265,7 +4268,7 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
             info.secondary_id = *registration_id;
             info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
         }
-        WampMessage::Unregistered { request_id } => {
+        WampMessage::Unregistered { request_id, .. } => {
             info.primary_id = *request_id;
             info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
         }
@@ -9322,6 +9325,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(args.clone()),
                     kwargs: Some(kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -9369,6 +9373,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(args.clone()),
                     kwargs: Some(kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -9432,6 +9437,7 @@ mod tests {
                         payload: WampPayload {
                             args: None,
                             kwargs: None,
+                            transparent: None,
                         },
                     },
                     details: None,
@@ -9480,6 +9486,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(msgpack_args.clone()),
                     kwargs: Some(msgpack_kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -9513,6 +9520,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(cbor_args.clone()),
                     kwargs: Some(cbor_kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -9555,6 +9563,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(args.clone()),
                     kwargs: Some(kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -9580,6 +9589,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(args.clone()),
                     kwargs: Some(kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,

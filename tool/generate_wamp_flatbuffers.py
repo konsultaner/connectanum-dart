@@ -10,12 +10,13 @@ import shutil
 import subprocess
 import tempfile
 
-from wamp_flatbuffers_validation_schema import validation_schema
+from wamp_flatbuffers_validation_schema import validation_schema, rust_validation_schema
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = Path("schemas/wamp_flatbuffers")
 DART = Path("packages/connectanum_core/lib/src/serializer/flatbuffers/generated")
 RUST = Path("native/transport/ct_core/src/wamp/flatbuffers_generated.rs")
+RUST_SCHEMA = RUST.with_name("flatbuffers_schema.rs")
 FIXTURES = SCHEMA / "fixtures"
 DART_FIXTURES = Path("packages/connectanum_core/test/serializer/flatbuffers_fixture_data.dart")
 ORDER = ("types", "roles", "auth", "session", "pubsub", "rpc", "wamp")
@@ -94,6 +95,8 @@ def generate(root, flatc, output):
     (output / rust_license).write_bytes(license)
     run([flatc, "--dart", "--gen-all", "-o", dart, schema])
     (dart / "validation_schema.dart").write_text(validation_schema(schema.read_text()))
+    (output / RUST_SCHEMA).write_text(rust_validation_schema(schema.read_text()))
+    run(["rustfmt", "--edition", "2021", output / RUST_SCHEMA])
     for path in dart.glob("*.dart"):
         source = path.read_text()
         source = source.replace(
@@ -149,7 +152,7 @@ def generate(root, flatc, output):
     )
     run(["dart", "format", "--language-version", manifest["dart_format_language"],
          "--output=write", helper])
-    generated = [SCHEMA / "wamp.fbs", RUST, DART_FIXTURES,
+    generated = [SCHEMA / "wamp.fbs", RUST, RUST_SCHEMA, DART_FIXTURES,
                  DART / "UPSTREAM_LICENSE", rust_license]
     generated += [path.relative_to(output) for path in sorted(dart.glob("*.dart"))]
     generated += [path.relative_to(output) for path in sorted(target.glob("*.bin"))]

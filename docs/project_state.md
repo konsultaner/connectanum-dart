@@ -7,12 +7,36 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
-Draft PR #105 contains foundation, package-constraint
-repair, native-owned buffers, producer leases, write completion and native
-network lifetime coverage, structural validation, primitive/direct model writing
-and bounded internal frame reading. The uncommitted candidate now adds the
-public stateless Dart codec and mutable-model metadata retention; transport
-factories and Rust codec/network negotiation remain disabled.
+Draft PR #105 at 652ab865 contains foundation, package-constraint repair,
+native-owned buffers, producer leases, write completion and native network
+lifetime coverage, structural validation, direct model writing, and the public
+Dart codec with mutable-model metadata retention. The verified native codec
+stage adds a bounded Rust parser and direct encoder for all 25 native WAMP
+models, transparent payload storage, and public Dart/Rust codec interoperability.
+Native transport factories, FFI/router integration and profile negotiation remain
+incomplete; the codec alone does not establish live FlatBuffers support.
+
+Native focused checks pass: 17 tests, including all 25 model cases, all eight
+nullable HEARTBEAT combinations, contradictory metadata rejection, original
+payload allocation retention, every segmented split, and bounded fixture mutation
+checks. The 42 pinned fixtures pass structural reading. Independent Python readers
+and Rust -> public Dart -> Rust checks pass for all 25 messages, retaining custom
+metadata and encoded arguments. UNREGISTERED now retains its dictionary in the
+native model; a fail-first regression proved re-encoding previously discarded it.
+JSON, MessagePack and CBOR preserve optional revocation dictionaries across every
+segmentation split. Ten generator regressions and exact regeneration
+of 51 artifacts pass. Initial bin/verify found an obsolete assertion that all
+FlatBuffers input is unsupported; it now asserts malformed-frame rejection.
+Verification session 3387 at /tmp/connectanum-flatbuffers-native-codec-verify-final.log
+exits 0 but overlaps the later UNREGISTERED fix. Fresh final verification exits 0 in
+session 92983 at /tmp/connectanum-flatbuffers-native-codec-verified.log, with no
+source changes during that run. The current
+FFI regression run 52037 passes 229 tests with ffi-test enabled.
+Qwen and GLM review requests both time out without completed reports; no complete
+companion review is claimed. Focused executable checks remain the evidence.
+Hosted CI for 652ab865 is still running, with confirmed failures in Core Browser
+Coverage and Full Verify. Those logs are being inspected before further feature
+work; no green hosted result is claimed for this native codec stage.
 Current decoder candidate: all 25 public messages reconstruct directly; lazy
 CBOR payload spans retain the original frame. Automatic guarded boolean setters
 preserve explicit false assignments after decoding. Replaced metadata objects

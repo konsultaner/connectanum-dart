@@ -14,6 +14,16 @@ mod flatbuffers_conformance_tests;
 #[allow(unused_imports)]
 mod flatbuffers_generated;
 
+mod flatbuffers_cbor;
+mod flatbuffers_codec;
+mod flatbuffers_encoder;
+mod flatbuffers_projection;
+mod flatbuffers_schema;
+mod flatbuffers_wire;
+mod flatbuffers_writer;
+
+pub use flatbuffers_encoder::encode as encode_flatbuffers_message;
+
 use serde_json::value::RawValue;
 
 type ValueMap = BTreeMap<Value, Value>;
@@ -22,6 +32,8 @@ type ValueMap = BTreeMap<Value, Value>;
 pub struct Payload {
     pub args: Option<Bytes>,
     pub kwargs: Option<Bytes>,
+    /// Transparent FlatBuffers application data, independent of CBOR arguments.
+    pub transparent: Option<Bytes>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -150,6 +162,7 @@ pub enum WampMessage {
     },
     Unregistered {
         request_id: u64,
+        details: ValueMap,
     },
     Invocation {
         request_id: u64,
@@ -358,6 +371,7 @@ fn parse_message_frame(
         Serializer::Json => parse_json_message(raw_payload),
         Serializer::MessagePack => parse_msgpack_message(raw_payload),
         Serializer::Cbor => parse_cbor_message(raw_payload),
+        Serializer::Flatbuffers => flatbuffers_codec::parse(raw_payload),
         other => parse_value_message(other, raw_payload),
     }
 }
@@ -519,7 +533,11 @@ fn cbor_payload(
         spec.kwargs_label,
         ParseError::ExpectedMap,
     )?;
-    Ok(Payload { args, kwargs })
+    Ok(Payload {
+        args,
+        kwargs,
+        transparent: None,
+    })
 }
 
 fn cbor_payload_part(
@@ -933,6 +951,7 @@ fn parse_json_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError
             let request_raw = json_get(&fields, 1, "unregistered.request_id")?;
             WampMessage::Unregistered {
                 request_id: json_u64(request_raw, "unregistered.request_id")?,
+                details: json_optional_map(fields.get(2).copied(), "unregistered.details")?,
             }
         }
         68 => {
@@ -1441,7 +1460,10 @@ fn parse_msgpack_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseEr
                 range_at(&ranges, 1, "unregistered.request_id")?,
                 "unregistered.request_id",
             )?;
-            WampMessage::Unregistered { request_id }
+            WampMessage::Unregistered {
+                request_id,
+                details: msgpack_optional_map(data, range_opt(&ranges, 2), "unregistered.details")?,
+            }
         }
         68 => {
             let request_id = msgpack_u64(
@@ -1840,7 +1862,11 @@ fn msgpack_payload(
         }
     };
 
-    Ok(Payload { args, kwargs })
+    Ok(Payload {
+        args,
+        kwargs,
+        transparent: None,
+    })
 }
 
 fn msgpack_value(data: &RawFrame, range: &Range<usize>) -> Result<Value, ParseError> {
@@ -1966,6 +1992,7 @@ fn json_payload(
     Ok(Payload {
         args: args_bytes,
         kwargs: kwargs_bytes,
+        transparent: None,
     })
 }
 
@@ -2388,7 +2415,10 @@ fn parse_unregistered(parts: &[Value]) -> Result<WampMessage, ParseError> {
         get(parts, 0, "unregistered.request_id")?,
         "unregistered.request_id",
     )?;
-    Ok(WampMessage::Unregistered { request_id })
+    Ok(WampMessage::Unregistered {
+        request_id,
+        details: map_or_default(parts.get(1), "unregistered.details")?,
+    })
 }
 
 fn parse_invocation(serializer: Serializer, parts: &[Value]) -> Result<WampMessage, ParseError> {
@@ -2509,7 +2539,11 @@ fn extract_payload(
         },
         None => None,
     };
-    Ok(Payload { args, kwargs })
+    Ok(Payload {
+        args,
+        kwargs,
+        transparent: None,
+    })
 }
 
 fn serialize_value(serializer: Serializer, value: &Value) -> Result<Bytes, ParseError> {
@@ -3040,7 +3074,7 @@ mod tests {
     #[test]
     fn unsupported_serializer() {
         let payload = Bytes::from_static(b"");
-        let err = parse_message(Serializer::Flatbuffers, payload).assert_error();
+        let err = parse_message(Serializer::Ubjson, payload).assert_error();
         assert_condition!(matches!(err, ParseError::UnsupportedSerializer(_)));
     }
 }

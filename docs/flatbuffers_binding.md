@@ -245,6 +245,30 @@ Public message reconstruction is available through the stateless Dart serializer
 Transport factories and session negotiation remain pending. Retaining encoded
 vectors does not make mutable input safe to borrow.
 
+## Native Rust codec
+
+`ct_core::encode_flatbuffers_message` constructs the pinned extended binding
+directly from native WAMP models. `parse_message` and `parse_message_segments`
+accept FlatBuffers frames through a checked reader generated from the same
+field descriptors as Dart. All 25 message kinds have public-Dart/Rust round-trip
+fixtures, checked by the existing mandatory interoperability command.
+UNREGISTERED's optional revocation dictionary is retained in the native model,
+including custom fields, and survives native/public-Dart re-encoding. The ordinary
+JSON, MessagePack and CBOR parsers also preserve that optional dictionary.
+
+The reader bounds frame size, table/element counts, depth, string bytes, offsets,
+alignment, required fields, enum values and portable WAMP integers. It validates
+CBOR container syntax, unique string dictionary keys and known-field agreement
+before materializing metadata. Ordinary application arguments remain encoded
+Bytes slices; transparent application data uses a distinct opaque payload span.
+Contiguous input retains its allocation. Segmented input currently coalesces once.
+
+The encoder moves the finished FlatBuffers allocation into Bytes without a final
+copy. Constructing embedded vectors still copies their bytes. ABORT/GOODBYE
+application payloads, which have no pinned schema slots, are rejected explicitly.
+Native FFI/router delivery, transport factories and metadata capability negotiation
+are subsequent integration work; this codec does not advertise their completion.
+
 ## Dart codec and payload retention
 
 Import `package:connectanum_core/flatbuffers_serializer.dart`,

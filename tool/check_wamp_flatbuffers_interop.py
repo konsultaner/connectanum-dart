@@ -139,9 +139,24 @@ def main():
                              {"ping": 0, "incoming": 0, "outgoing": 0, "presence": mask})
             read_message((emitted / f"{language}_challenge_custom.bin").read_bytes(), "Challenge", 4,
                          {"method": "NULL", "method_name": "com.example.custom"})
+        # Exercise the actual native model codec and the public Dart serializer,
+        # including retained custom metadata and encoded argument spans.
+        codec_environment = dict(environment, CONNECTANUM_FLATBUFFERS_CODEC_DIR=str(emitted))
+        codec_test = ["cargo", "test", "-p", "ct_core", "all_public_messages_round_trip_without_a_whole_message_cbor_shim"]
+        subprocess.run(codec_test, cwd=ROOT / "native/transport", env=codec_environment, check=True)
+        subprocess.run(["dart", "run", "tool/roundtrip_flatbuffers_codec.dart", str(emitted)],
+                       cwd=ROOT / "packages/connectanum_core", check=True)
+        subprocess.run(codec_test, cwd=ROOT / "native/transport", env=codec_environment, check=True)
+        codec_cases = json.loads((ROOT / SCHEMA / "codec_cases.json").read_text())
+        canonical = {case["name"]: case for case in cases}
+        for case in codec_cases:
+            pinned = canonical[case["name"]]
+            for language in ["rust", "dart"]:
+                read_message((emitted / f"{language}_codec_{case['name']}.bin").read_bytes(),
+                             pinned["wire"]["msg_type"], pinned["union_tag"], {})
         print(f"Unmodified upstream readers accepted {len(upstream_cases)} fixtures; "
               f"extended readers accepted {len(cases)} fixtures and Dart/Rust extension output; "
-              "Python/Dart/Rust bidirectional Call conformance passed.")
+              f"Python/Dart/Rust bidirectional Call conformance and all {len(codec_cases)} public codec messages passed.")
 
 
 if __name__ == "__main__":

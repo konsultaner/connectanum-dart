@@ -1264,8 +1264,9 @@ pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
 pub use protocol::{Http2Handshake, Http3Handshake, HttpHandshake, WebSocketHandshake};
 pub use rawsocket::Serializer as RawSocketSerializer;
 pub use wamp::{
-    parse_message, parse_message_segments, ParseError as WampParseError, ParsedMessage,
-    Payload as WampPayload, RawFrame as WampRawFrame, WampMessage,
+    encode_flatbuffers_message, parse_message, parse_message_segments,
+    ParseError as WampParseError, ParsedMessage, Payload as WampPayload, RawFrame as WampRawFrame,
+    WampMessage,
 };
 
 static RUNTIME_MANAGER: OnceLock<RuntimeManager> = OnceLock::new();

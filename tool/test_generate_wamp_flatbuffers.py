@@ -82,6 +82,15 @@ class PinnedSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported validation type"):
             generator.validation_schema("table Message { future: UnknownType; }")
 
+    def test_rust_descriptors_preserve_slots_defaults_and_limits(self):
+        combined = generator.combined_schema(generator.ROOT)
+        result = generator.rust_validation_schema(combined)
+        self.assertIn('pub(super) const ROOT: usize = 49;', result)
+        self.assertIn('name: "exclude_me", kind: Kind::Scalar, width: 1, required: false, reference: 0, values: &[0, 1], wamp_integer: false, default: 1', result)
+        self.assertIn('name: "presence", kind: Kind::Scalar, width: 1, required: false, reference: 0, values: &[], wamp_integer: false, default: 7', result)
+        self.assertIn('name: "msg", kind: Kind::Union, width: 4, required: true', result)
+        self.assertIn('wamp_integer: true', result)
+
     def test_validation_schema_rejects_unsupported_union_vectors(self):
         source = "table Hello {} union AnyMessage { Hello } table Message { msg: [AnyMessage]; }"
         with self.assertRaisesRegex(ValueError, "Union vectors"):

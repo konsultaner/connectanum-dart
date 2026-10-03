@@ -35,6 +35,7 @@ fn payload(serializer: RawSocketSerializer, shape: usize) -> WampPayload {
         }),
         kwargs: (shape & 2 != 0)
             .then(|| guarded_value(serializer, &json!({"key": [false, "\\", 42]}))),
+        transparent: None,
     }
 }
 
@@ -391,6 +392,7 @@ fn unsupported_forwarding_serializers_return_errors_for_every_message_kind() {
         let empty = WampPayload {
             args: None,
             kwargs: None,
+            transparent: None,
         };
         let publish = stored(
             serializer,

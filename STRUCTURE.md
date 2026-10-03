@@ -169,3 +169,22 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
 - `packages/connectanum_router/lib/src/router/router_instance/router_binding.dart` – `/healthz` returns `503 draining` while the router is draining and refusing new accepts.
 - `docs/tls.md` / `docs/deployment.md` / `docs/router_example.yaml` – TLS configuration notes (SNI certs + optional mTLS via `tls.client_auth`) and a starter production config that now shows shared `session_profiles` for WAMP, HTTP, and internal sessions.
 - `deploy/docker` / `deploy/systemd` / `deploy/k8s` – production deployment templates (container image, systemd unit, Kubernetes manifests).
+
+## FlatBuffers codec and native buffer work
+
+- `packages/connectanum_core/lib/flatbuffers_serializer.dart` exports the public
+  stateless codec, portable builder, direct model writer and same-builder vector
+  references. Client/facade exports provide the same serializer surface.
+- `native/transport/ct_core/src/wamp/flatbuffers_wire.rs` and
+  `flatbuffers_cbor.rs` validate incoming frames and encoded application spans.
+  `flatbuffers_codec.rs` reconstructs native models; `flatbuffers_projection.rs`
+  checks typed-field/metadata agreement. Generated `flatbuffers_schema.rs`
+  shares the pinned descriptor inputs with Dart.
+- `flatbuffers_encoder.rs` and `flatbuffers_writer.rs` implement
+  `ct_core::encode_flatbuffers_message`. Finished allocations move into Bytes;
+  contiguous construction still copies embedded vectors. Native payloads retain
+  separate CBOR args/kwargs and opaque transparent bytes.
+- `schemas/wamp_flatbuffers/codec_cases.json` and the core codec round-trip tool
+  extend `tool/check_wamp_flatbuffers_interop.py` with all 25 native/public-Dart
+  message cases. Transport/profile/router integration remains milestone work,
+  tracked in `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.

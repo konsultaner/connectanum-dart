@@ -710,3 +710,77 @@ and 227 JS/WASM cases pass; the earlier narrow tooling command's import-path
 failure is repaired with unittest discovery and all 89 tests pass (one skip).
 The current candidate can now be committed/pushed without claiming completion
 of #98 or any other whole milestone issue.
+
+## Native Rust codec (#99 / #102)
+
+The public Dart stage is committed/pushed as 652ab865. The previous continuation
+audited the existing issue set without changing implementation. Resume the
+existing native candidate rather than restarting it. Its fast-check handle 94766
+and focused parser handle 49729 are confirmed terminal with exit 0; later edits
+overlapped the fast run, so it is not an untouched baseline claim.
+
+The RawSocket ID-5/parser mismatch has a real failing reproduction. Add shared
+generated field descriptors, a checked wire reader, bounded CBOR scanning before
+metadata allocation, direct reconstruction of 25 native messages, and transparent
+payload storage distinct from CBOR args/kwargs. Byte vectors retain Bytes slices
+from the input allocation. Segmented input coalesces once and retains that owner.
+Do not advertise new transport capability until native FFI/session paths work.
+
+A second fail-first regression proves contradictory typed timeout/metadata was
+accepted. Metadata projection/agreement now rejects it and validates pinned
+known fields/defaults. The direct encoder constructs schema tables/vectors with
+the pinned runtime and moves its finished allocation into Bytes without a final
+copy. Embedded byte vectors are copied during construction; no end-to-end
+zero-copy claim is made for this contiguous encoder. Unsupported ABORT/GOODBYE
+payload fields return an error instead of being silently discarded.
+
+All 17 focused tests pass, covering all 25 models, nullable HEARTBEAT masks,
+opaque payloads, metadata/CBOR corruption, portable integer boundaries, payload
+allocation identity after owner release, every segmentation split, and truncation/
+byte mutations of all 42 pinned fixtures without a panic. Independent Python
+readers verify generated output; actual Rust -> public Dart -> Rust checks pass
+for all 25 messages with custom metadata and CBOR argument spans. The existing
+mandatory interop CI command now includes those public-codec checks. Ten generator
+tests and exact regeneration of 51 artifacts pass. Logs:
+/tmp/connectanum-flatbuffers-native-codec-focused.log,
+/tmp/connectanum-flatbuffers-native-codec-interop.log,
+/tmp/connectanum-flatbuffers-native-generator-test.log and
+/tmp/connectanum-flatbuffers-native-generator-check.log.
+
+Local test planning completes. The broad Qwen review reaches its 120-second
+deadline without a completed report; the independent GLM reader review also
+stops responding at its 90-second deadline. Neither completes, and no full
+companion review is claimed. Initial bin/verify 90258 finds a test that assumes FlatBuffers is
+unsupported. Retain its malformed-input coverage and assert Deserialize for
+FlatBuffers while keeping UBJSON's UnsupportedSerializer assertion. Fresh
+bin/verify is running in session 3387 at
+/tmp/connectanum-flatbuffers-native-codec-verify-final.log with its own TMPDIR.
+Hosted 652ab865 CI 37149216957 remains in progress. All ten issues remain open.
+Next: FFI metadata/payload support, RawSocket/WebSocket factories and explicit
+metadata profile negotiation, followed by authenticated RPC/pub-sub and routing.
+
+A third fail-first test proves UNREGISTERED metadata was lost when parsed native
+models were re-encoded. Retain its dictionary in the native variant, preserve
+optional dictionaries in JSON/MessagePack/CBOR, and keep nonempty metadata
+available to existing FFI exports. The C ABI layout is unchanged. The all-25
+interop corpus now includes revocation/custom UNREGISTERED details; native model
+re-encoding and actual public-Dart/Rust interop pass. An ordinary/segmented codec
+regression checks every split and malformed optional dictionaries. Logs:
+/tmp/connectanum-flatbuffers-unregistered-fail-first.log and
+/tmp/connectanum-unregistered-codecs.log. Verification 3387 overlaps this later
+fix and cannot establish complete current-candidate verification; a fresh final
+run is required after it finishes. The focused current FFI regression run 52037
+exits 0, with 229 passing tests at
+/tmp/connectanum-flatbuffers-native-ffi-regression.log. The overlapped full run
+3387 exits 0. A fresh final bin/verify is now active in session 92983 at
+/tmp/connectanum-flatbuffers-native-codec-verified.log. No source changes follow
+its launch; only progress documents are updated. Commit/push and draft PR body
+publication remain pending this final run. Prepared PR body:
+/tmp/connectanum-flatbuffers-pr-native-codec-body.md.
+
+Final native codec verification 92983 exits 0 at
+/tmp/connectanum-flatbuffers-native-codec-verified.log; source stayed frozen
+during the run. Commit/push of this verified stage is now ready. Hosted base
+652ab865 has confirmed Core Browser Coverage and Full Verify failures in run
+37149216957. Inspect those logs before continuing FFI feature work. The milestone
+and all ten issues remain open.
