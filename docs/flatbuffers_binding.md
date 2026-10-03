@@ -349,6 +349,28 @@ FlatBuffers operations before connection establishment instead of accepting a
 handshake it cannot parse. Native WebSocket and RawSocket advertisement is enabled
 only after codec, metadata and routing support exist end to end.
 
+The shared `FlatBuffersSessionProfile` checks both client and router directions.
+Its outgoing transition is immutable and must be committed only after enqueue
+acceptance. Bootstrap advertisement decorates the supplied model through a
+bounded metadata snapshot. `Serializer.metadataFor` exposes a detached logical
+dictionary, including retained unknown role features and current model edits,
+without accessing application vectors.
+
+Native client sending and receiving now apply that gate before delivering a
+challenge to authentication code. Pre-encoded native-owned or externally leased
+frames use the same gate without decoration: their encoded HELLO offer must
+already contain the capability. Rejected sends preserve ownership until the
+native send API is invoked. Rejected receive messages, remaining batch handles
+and batches buffered during worker cancellation are released; the connection is
+closed. Both native connection APIs check binding version 1 and receive-owner
+support before calling the native connector.
+
+This stage is validated with a real native RawSocket client and an isolated wire
+peer, including anonymous RPC, missing CHALLENGE/WELCOME acknowledgements, and
+tracked/untracked native-owned sending. Router handshake integration and ordinary
+transport factories remain unfinished; this is not a live router or release
+support claim.
+
 General serializer preference negotiation
 [#44](https://github.com/konsultaner/connectanum-dart/issues/44) and WAMP IDL
 [#26](https://github.com/konsultaner/connectanum-dart/issues/26) remain separate

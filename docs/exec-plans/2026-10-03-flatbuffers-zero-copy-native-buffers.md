@@ -996,3 +996,87 @@ and Chrome/WASM suites pass, including all 4,460 core and 2,673 client browser
 checks. Retain the HTTP CLI first-attempt startup failure and canonical retry.
 The opaque stage is ready for commit/push. Factories and profile guards remain
 next; the independent prototype is preparatory only and all ten issues stay open.
+
+Opaque receive integration is committed/pushed as 896fd29a; draft PR105 has its
+final scope and evidence. Native default/ffi-test totals are 223/235. Exact-head
+CI runs37159768909 and37159768913 are queued; no new hosted pass is claimed.
+Product source and the recorded verification agree. Leave this bookkeeping
+uncommitted until the next implementation stage. Next: fresh test-fast, shared
+metadata projection/profile gates, native version checks before connect, and
+normal RawSocket/WebSocket factory selection with real authentication tests.
+
+## Shared session profile and native client enforcement
+
+2026-10-04: Prior turn verifies all ten issues and adds explicit WAMP custom-binding
+and ObjectBox C/Dart clarifications to #95/#97; the full milestone remains active.
+Test-fast32338 exits0 but overlaps subsequent source edits. The new bounded
+metadata accessor preserves retained unknown role keys, detaches nested maps and
+binary data, and does not access application vectors. Its absent API fails first;
+all three new metadata tests pass after implementation.
+
+Add a shared immutable client/router profile with explicit HELLO advertisement,
+CHALLENGE acknowledgement before credentials, fresh WELCOME acknowledgement,
+repeated acknowledged authentication rounds, bootstrap ABORT and terminal
+GOODBYE handling. Integrate native client ingress before controller delivery and
+both ordinary and pre-encoded owned/leased send paths. Commit outgoing state only
+after enqueue acceptance. Require the complete native binding capability before
+both RawSocket/WebSocket native connect calls. A version0 local artifact fails
+before connecting; rebuilding current source with ffi-test passes.
+
+With the rebuilt library and the previous transport source, a real RawSocket
+peer reproduces unacknowledged CHALLENGE delivery and a resulting WELCOME. Restore
+the candidate source after that baseline probe; five live cases then pass,
+including ordinary anonymous RPC and tracked/untracked native-owned transfers.
+Rejection leaves pre-encoded buffers unconsumed. Both current and buffered receive
+batches have explicit handle cleanup. All 74 existing native transport/owned-buffer
+regressions and 3,240 serializer-wrapper cases pass before final constructor
+consistency coverage. Register the new tests in canonical native scripts and the
+serializer wrapper. Expanded profile tests pass; final six-case native run,
+browser coverage and unchanged-source bin/verify remain required.
+
+Qwen/GLM reviews complete. Reject their proposed removal of anonymous WELCOME and
+repeated challenge rounds: these are intentional and tested. Profile immutability
+does not forbid decorating bootstrap models. Non-null codec input cannot return
+null; decoded retained feature dictionaries are lossless and explicitly tested.
+A rejected receive frame closes the connection and drains its handles, so there
+is no subsequent ABORT transition to grant on that connection. No valid new
+finding is established by those advisories. Keep all ten issues open; next work
+is router handshake enforcement and normal factories, then live routing/PPT,
+memory/conformance/CI and performance/release gates.
+
+The final six native cases and focused analysis pass. First full verify32863
+exits1 with product source unchanged; native/default/ffi-test and benchmark Rust
+suites pass, then the complete serializer mutation inventory guard reports the
+two new files absent from all four VM/web CBOR/MessagePack support lists. Add the
+files to those manifests without changing the guard; the isolated inventory
+regression passes. Preserve /tmp/connectanum-flatbuffers-profile-verify.log.
+Browser coverage78292 remains live, with Dart product libraries/tests unchanged.
+Freeze the corrected complete source for fresh canonical verification.
+
+Browser coverage78292 exits0: core96.085% (9032/9400), client96.877%
+(2792/2882), with unchanged gates and 2,673 client browser cases. The Dart
+libraries/tests remain unchanged throughout that run; only the mutation support
+manifest is repaired after first verification fails. Fresh verify44100 is live
+at /tmp/connectanum-flatbuffers-profile-verify-final.log with product source
+frozen and verified unchanged against
+/tmp/connectanum-flatbuffers-profile-frozen-source-final.json. Do not edit
+product source, commit or claim its full verification until that handle reaches
+a terminal result. All ten issues and the full milestone remain open.
+
+
+2026-10-04: Final profile verification44100 exits0. Its complete product source
+matches all 1,415 frozen-file hashes at completion; no source edits occurred
+throughout verification. Canonical native/default/ffi-test, VM, router/consumer
+and Chrome JS/WASM checks pass, ending with 2,673 client WASM cases. Browser
+coverage remains core96.085% and client96.877% with the existing gates. The prior
+mutation-inventory failure remains recorded; its support-manifest correction is
+included in the final verified candidate. Commit/push the profile stage next.
+
+While source was frozen, prepare router profile enforcement in the temporary
+package overlay recorded at /tmp/connectanum-flatbuffers-router-profile-stage-path.txt.
+Six initial handshake/queue-acceptance scenarios pass, including delayed WELCOME
+acceptance for anonymous and authenticated sessions. Extend all ten ordinary
+session send call sites with connection context and test failed CHALLENGE/WELCOME
+cleanup. This is preparatory overlay evidence, not shipped/live-router proof.
+No ordinary factory, routing, PPT/E2EE, performance or release completion is claimed.
+All ten issues and the full milestone remain open.

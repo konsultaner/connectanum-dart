@@ -7,7 +7,7 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
-Draft PR #105 at ce6f55ec contains foundation, package-constraint repair,
+Draft PR #105 at 896fd29a contains foundation, package-constraint repair,
 native-owned buffers, producer leases, write completion and native network
 lifetime coverage, structural validation, direct model writing, and the public
 Dart codec with mutable-model metadata retention. The committed native codec
@@ -15,6 +15,33 @@ stage adds a bounded Rust parser and direct encoder for all 25 native WAMP
 models, transparent payload storage, and public Dart/Rust codec interoperability.
 Native transport factories, complete routing and profile negotiation remain
 incomplete; the codec alone does not establish live FlatBuffers support.
+
+The next uncommitted stage adds bounded, detached logical metadata access and a
+shared immutable client/router capability gate. Native client ingress validates
+before authentication delivery; normal and pre-encoded owned/leased sends commit
+state only after enqueue acceptance. The native receive worker releases rejected
+messages, remaining handles and buffered batches on cancellation. Both native
+connect APIs reject older binding versions before starting a connector. An older
+local artifact reports version0 and fails that new early check; rebuilding the
+current Rust source with ffi-test succeeds. A real wire-peer baseline then
+reproduces unacknowledged CHALLENGE delivery and reaches WELCOME after credentials;
+the guarded source passes all six final native cases, including constructor
+consistency rejection before opening. All 74 existing
+native transport/owned-buffer regressions and 3,240 serializer-wrapper checks
+pass. The expanded profile tests pass. Supporting test-fast32338 exits0 but
+overlaps these edits; it is not final source verification. Browser coverage is
+completed at /tmp/connectanum-flatbuffers-profile-browser-coverage.log: core
+96.085% (9032/9400), client96.877% (2792/2882), with existing gates unchanged. Full
+verify32863 exits1 with source unchanged: the four VM/web CBOR/MessagePack
+mutation manifests omit the two new serializer tests. Add both files to all four
+support-file inventories; the unchanged inventory guard now passes. Preserve the
+initial failure log. Fresh verify44100 exits0 at
+/tmp/connectanum-flatbuffers-profile-verify-final.log with corrected product
+source unchanged throughout the complete run. Native/default/ffi-test, VM,
+router/consumer and Chrome JS/WASM checks pass. This stage is ready for commit;
+all ten milestone issues remain open.
+Router handshake integration,
+ordinary factories and the remaining milestone acceptance criteria stay open.
 
 Verified native dictionary delivery and CI-repair work is committed/pushed as
 dff1fba0. Delivery bin/verify 5336 exits 0 with unchanged product source.
@@ -35,7 +62,7 @@ Fresh bin/verify 52267 exits 0 at
 throughout. Supporting bin/test-fast 37810 exits 0 but overlaps these binding
 edits; full verification is the final current-source proof. All ten milestone issues remain open.
 
-The native opaque candidate is applied but uncommitted. It exports the original
+The native opaque stage is committed/pushed as 896fd29a. It exports the original
 transparent vector under presence bit 8 and byte selector 5, with additive
 ct_flatbuffers_binding_version=1 and unchanged C structure layout. Both Dart
 materializers and the payload-only CALL reader retain the vector independently
@@ -60,7 +87,10 @@ materializers validate the flag and byte span. Its earlier review times out.
 Factories remain disabled; the native version does not grant session agreement.
 All ten issues remain open. Fresh bin/verify2971 exits 0 at
 /tmp/connectanum-flatbuffers-opaque-verify.log, with product source unchanged
-throughout. The verified opaque receive stage is ready for commit/push. The
+throughout. Draft PR #105 records the final opaque receive validation. New
+exact-head CI runs 37159768909 and 37159768913 are queued; no hosted result is
+claimed for this commit. Leave this bookkeeping for the next implementation
+commit. The
 existing Rust HTTP CLI startup test misses its 2-second READY deadline once and
 passes the verifier's unchanged built-in retry. Preserve that attempt; no new
 deadline, manual waiver or clean first-attempt claim is made. A client-profile

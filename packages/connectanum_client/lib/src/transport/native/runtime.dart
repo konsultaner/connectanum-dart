@@ -291,6 +291,9 @@ class NativeClientRuntime {
     Duration? heartbeatInterval,
     Duration? heartbeatTimeout,
   }) {
+    if (serializer == NativeMessageSerializer.flatbuffers) {
+      _messageBytes.requireFlatbuffersBinding();
+    }
     ensureStarted();
     final hostPtr = host.toNativeUtf8().cast<ffi.Char>();
     try {
@@ -637,6 +640,9 @@ class NativeClientRuntime {
     Duration? heartbeatInterval,
     Duration? heartbeatTimeout,
   }) {
+    if (serializer == NativeMessageSerializer.flatbuffers) {
+      _messageBytes.requireFlatbuffersBinding();
+    }
     ensureStarted();
     final hostPtr = host.toNativeUtf8().cast<ffi.Char>();
     final targetPtr = target.toNativeUtf8().cast<ffi.Char>();

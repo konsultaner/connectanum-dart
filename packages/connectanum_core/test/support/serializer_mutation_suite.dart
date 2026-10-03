@@ -19,6 +19,10 @@ import '../serializer/flatbuffers_message_reader_test.dart'
     as flatbuffers_message_reader;
 import '../serializer/flatbuffers_metadata_roundtrip_test.dart'
     as flatbuffers_metadata_roundtrip;
+import '../serializer/flatbuffers_metadata_access_test.dart'
+    as flatbuffers_metadata_access;
+import '../serializer/flatbuffers_session_profile_test.dart'
+    as flatbuffers_session_profile;
 import '../serializer/json/binary_codec_test.dart' as json_binary;
 import '../serializer/json/serializer_test.dart' as json_serializer;
 import '../serializer/msgpack/codec_test.dart' as msgpack_codec;
@@ -60,6 +64,8 @@ void main() {
   group('FlatBuffers frame', flatbuffers_frame.main);
   group('FlatBuffers message reader', flatbuffers_message_reader.main);
   group('FlatBuffers metadata roundtrip', flatbuffers_metadata_roundtrip.main);
+  group('FlatBuffers metadata access', flatbuffers_metadata_access.main);
+  group('FlatBuffers session profile', flatbuffers_session_profile.main);
   group('JSON binary', json_binary.main);
   group('JSON serializer', json_serializer.main);
   group('MessagePack codec', msgpack_codec.main);

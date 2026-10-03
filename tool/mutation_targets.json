@@ -400,7 +400,9 @@
       "packages/connectanum_core/test/serializer/flatbuffers_cbor_validation_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -447,7 +449,9 @@
       "packages/connectanum_core/test/serializer/flatbuffers_cbor_validation_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -495,7 +499,9 @@
       "packages/connectanum_core/test/serializer/flatbuffers_cbor_validation_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
@@ -545,7 +551,9 @@
       "packages/connectanum_core/test/serializer/flatbuffers_cbor_validation_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_frame_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"

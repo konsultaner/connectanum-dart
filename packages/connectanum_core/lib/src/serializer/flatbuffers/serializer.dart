@@ -4,6 +4,8 @@ import '../../message/abstract_message.dart';
 import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
 import 'message_reader.dart';
+import 'message_projection.dart';
+import 'cbor_encoding.dart';
 import 'cbor_validation.dart';
 import 'dictionary_retention.dart';
 import 'message_writer.dart';
@@ -50,6 +52,33 @@ class Serializer extends AbstractSerializer {
       decodeFlatBufferMetadata(encodedDictionary),
     );
   }
+
+  /// Return a bounded, detached logical dictionary, including retained unknown
+  /// keys and current model edits. Application vectors are never accessed.
+  Map<String, dynamic> metadataFor(AbstractMessage message) =>
+      decodeFlatBufferMetadata(
+        encodeWampFlatBufferCbor(
+          projectWampFlatBufferMessage(message).dictionary ??
+              <String, Object?>{},
+          maximumBytes: 1024 * 1024,
+          stringDictionaryKeys: true,
+        ),
+      );
+
+  /// Snapshot logical metadata for a reconstructed or decorated message.
+  /// This has the same retention semantics as [retainMetadata], with bounded
+  /// encoding and detached binary values before any retained state is changed.
+  void retainMetadataValues(
+    AbstractMessage message,
+    Map<String, dynamic> dictionary,
+  ) => retainMetadata(
+    message,
+    encodeWampFlatBufferCbor(
+      dictionary,
+      maximumBytes: 1024 * 1024,
+      stringDictionaryKeys: true,
+    ),
+  );
 
   /// A typed FlatBuffers PPT payload is an application-provided byte buffer.
   /// Its schema belongs to the application; this codec does not interpret it.

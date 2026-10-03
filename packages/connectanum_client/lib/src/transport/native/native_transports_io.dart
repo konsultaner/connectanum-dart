@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:collection';
 import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_core/json_serializer.dart' as serializer_json;
 import 'package:connectanum_core/msgpack_serializer.dart' as serializer_msgpack;
 import 'package:logging/logging.dart';
@@ -73,7 +75,12 @@ abstract class _NativeTransportBase extends AbstractTransport
     this._serializer,
     this._nativeSerializer, {
     String? libraryPath,
-  }) : _libraryPath = libraryPath;
+  }) : _libraryPath = libraryPath {
+    if ((_nativeSerializer == NativeMessageSerializer.flatbuffers) !=
+        (_serializer is flatbuffers.Serializer)) {
+      throw ArgumentError('FlatBuffers transport requires its matching codec');
+    }
+  }
 
   final AbstractSerializer _serializer;
   final NativeMessageSerializer _nativeSerializer;
@@ -92,6 +99,30 @@ abstract class _NativeTransportBase extends AbstractTransport
   bool _closeRequested = false;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
+  flatbuffers.FlatBuffersSessionProfile? _flatBuffersProfile;
+
+  ({flatbuffers.FlatBuffersSessionProfile profile, AbstractMessage message})?
+  _prepareEncodedSend(
+    NativeOwnedBuffer buffer,
+  ) {
+    final profile = _flatBuffersProfile;
+    if (profile == null) return null;
+    final message = (_serializer as flatbuffers.Serializer).deserialize(
+      buffer.bytes,
+    )!;
+    return (
+      profile: profile.prepareOutgoing(message, advertise: false),
+      message: message,
+    );
+  }
+
+  void _commitSend(
+    flatbuffers.FlatBuffersSessionProfile? profile,
+    AbstractMessage? message,
+  ) {
+    _flatBuffersProfile = profile;
+    if (message is Goodbye) _goodbyeSent = true;
+  }
 
   Future<int> openNativeConnection(Duration? pingInterval);
 
@@ -132,7 +163,9 @@ abstract class _NativeTransportBase extends AbstractTransport
   }) {
     final id = _connectionId;
     if (id == null) throw StateError('Transport is not connected.');
+    final nextProfile = _prepareEncodedSend(buffer);
     _runtime.sendNativeBuffer(id, buffer, transfer: transfer);
+    _commitSend(nextProfile?.profile, nextProfile?.message);
   }
 
   @override
@@ -142,7 +175,10 @@ abstract class _NativeTransportBase extends AbstractTransport
   }) {
     final id = _connectionId;
     if (id == null) throw StateError('Transport is not connected.');
-    return nativeBuffers.sendTracked(id, buffer, transfer: transfer);
+    final nextProfile = _prepareEncodedSend(buffer);
+    final receipt = nativeBuffers.sendTracked(id, buffer, transfer: transfer);
+    _commitSend(nextProfile?.profile, nextProfile?.message);
+    return receipt;
   }
 
   @override
@@ -160,6 +196,10 @@ abstract class _NativeTransportBase extends AbstractTransport
     _closeRequested = false;
     _goodbyeSent = false;
     _goodbyeReceived = false;
+    _flatBuffersProfile =
+        _nativeSerializer == NativeMessageSerializer.flatbuffers
+        ? const flatbuffers.FlatBuffersSessionProfile.client()
+        : null;
     _pumpStarted = false;
     _messageController = StreamController<Object?>.broadcast();
     _onReadyCompleter = Completer<void>();
@@ -224,15 +264,15 @@ abstract class _NativeTransportBase extends AbstractTransport
     if (connectionId == null) {
       throw StateError('Transport is not connected.');
     }
-    if (message is Goodbye) {
-      _goodbyeSent = true;
-    }
+    final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
     final fragments = _serializer.serializeFragments(message);
     if (fragments != null &&
         _runtime.trySendMessageSegments(connectionId, fragments)) {
+      _commitSend(nextProfile, message);
       return;
     }
     _runtime.sendMessage(connectionId, _encodeMessage(message));
+    _commitSend(nextProfile, message);
   }
 
   @override
@@ -253,19 +293,42 @@ abstract class _NativeTransportBase extends AbstractTransport
         _receiveWorker = worker;
       }
       await for (final batch in worker.handleBatches) {
+        worker.takeBatch(batch);
         for (var index = 0; index < batch.length; index += 1) {
           final handle = batch[index];
           if (_connectionId != connectionId) {
             _runtime.releaseMessageHandle(handle);
             continue;
           }
-          final incoming = _runtime.materialize(handle);
-          final message = incoming.message;
-          attachSessionMessageAnchor(message, incoming);
-          if (_isGoodbyeMessage(message)) {
-            _goodbyeReceived = true;
-          }
-          if (controller.isClosed) {
+          NativeIncomingMessage? incoming;
+          try {
+            incoming = _runtime.materialize(handle);
+            final message = _flatBuffersProfile == null
+                ? incoming.message
+                : _materializePublicMessage(incoming.message)!;
+            if (_flatBuffersProfile case final profile?) {
+              _flatBuffersProfile = profile.acceptIncoming(
+                message as AbstractMessage,
+              );
+            }
+            if (controller.isClosed) {
+              incoming.release();
+              for (
+                var remaining = index + 1;
+                remaining < batch.length;
+                remaining++
+              ) {
+                _runtime.releaseMessageHandle(batch[remaining]);
+              }
+              return;
+            }
+            attachSessionMessageAnchor(message, incoming);
+            if (_isGoodbyeMessage(message)) _goodbyeReceived = true;
+            controller.add(message);
+          } catch (_) {
+            // materialize releases its handle on failure; after materialization
+            // this scope owns the undelivered message and the rest of its batch.
+            incoming?.release();
             for (
               var remaining = index + 1;
               remaining < batch.length;
@@ -273,9 +336,8 @@ abstract class _NativeTransportBase extends AbstractTransport
             ) {
               _runtime.releaseMessageHandle(batch[remaining]);
             }
-            return;
+            rethrow;
           }
-          controller.add(message);
         }
       }
       if (_connectionId == connectionId &&
@@ -287,12 +349,22 @@ abstract class _NativeTransportBase extends AbstractTransport
         );
       }
       if (_connectionId == connectionId) {
+        try {
+          _runtime.closeConnection(connectionId);
+        } catch (_) {
+          // A terminal transport error can already have removed the connection.
+        }
         _connectionId = null;
         unawaited(controller.close());
         complete(disconnect, null);
       }
     } catch (error, stackTrace) {
       if (_connectionId == connectionId) {
+        try {
+          _runtime.closeConnection(connectionId);
+        } catch (_) {
+          // The native connection may already be gone.
+        }
         _connectionId = null;
         final graceful = _closeRequested || _goodbyeSent || _goodbyeReceived;
         if (!controller.isClosed) {
@@ -923,9 +995,7 @@ class NativeWebSocketTransport extends _NativeTransportBase
     if (connectionId == null) {
       throw StateError('Transport is not connected.');
     }
-    if (message is Goodbye) {
-      _goodbyeSent = true;
-    }
+    final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
     final fragments = _serializer.serializeFragments(message);
     if (fragments != null &&
         _runtime.trySendMessageSegments(
@@ -933,6 +1003,7 @@ class NativeWebSocketTransport extends _NativeTransportBase
           fragments,
           fragmentSize: _fragmentSize ?? 0,
         )) {
+      _commitSend(nextProfile, message);
       return;
     }
     final encoded = _encodeMessage(message);
@@ -945,9 +1016,11 @@ class NativeWebSocketTransport extends _NativeTransportBase
         encoded,
         fragmentSize: fragmentSize,
       );
+      _commitSend(nextProfile, message);
       return;
     }
     _runtime.sendMessage(connectionId, encoded);
+    _commitSend(nextProfile, message);
   }
 
   @override
@@ -1033,6 +1106,8 @@ class _NativeReceiveWorker {
     this._exited,
     this.handleBatches,
     this._controlPort,
+    this._pendingBatches,
+    this._releaseHandle,
   );
 
   static const _waitTimeout = Duration(milliseconds: 50);
@@ -1041,6 +1116,10 @@ class _NativeReceiveWorker {
   final ReceivePort _eventsPort;
   final Future<void> _exited;
   final Stream<List<int>> handleBatches;
+  final Set<List<int>> _pendingBatches;
+  final void Function(int) _releaseHandle;
+
+  void takeBatch(List<int> batch) => _pendingBatches.remove(batch);
   final SendPort _controlPort;
   Future<void>? _closeFuture;
 
@@ -1053,6 +1132,7 @@ class _NativeReceiveWorker {
     final controlPort = Completer<SendPort>();
     // Buffer handles until the pump attaches, and order exit after its messages.
     final batches = StreamController<List<int>>();
+    final pendingBatches = HashSet<List<int>>.identity();
     eventsPort.listen((dynamic event) {
       if (event is SendPort) {
         controlPort.complete(event);
@@ -1066,7 +1146,9 @@ class _NativeReceiveWorker {
           );
         }
       } else if (event is int) {
-        batches.add(<int>[event]);
+        final batch = <int>[event];
+        pendingBatches.add(batch);
+        batches.add(batch);
       } else if (event is List && event.length == 2 && event.first is String) {
         final error = RemoteError(
           event[0] as String,
@@ -1074,7 +1156,9 @@ class _NativeReceiveWorker {
         );
         batches.addError(error, error.stackTrace);
       } else {
-        batches.add((event as List<dynamic>).cast<int>());
+        final batch = (event as List<dynamic>).cast<int>();
+        pendingBatches.add(batch);
+        batches.add(batch);
       }
     });
     late Isolate isolate;
@@ -1102,6 +1186,10 @@ class _NativeReceiveWorker {
       exited.future,
       batches.stream,
       await controlPort.future,
+      pendingBatches,
+      NativeClientRuntime.instance(
+        libraryPath: libraryPath,
+      ).releaseMessageHandle,
     );
   }
 
@@ -1118,6 +1206,12 @@ class _NativeReceiveWorker {
       await _exited.timeout(const Duration(seconds: 1));
     } finally {
       _eventsPort.close();
+      for (final batch in _pendingBatches) {
+        for (final handle in batch) {
+          _releaseHandle(handle);
+        }
+      }
+      _pendingBatches.clear();
     }
   }
 }
