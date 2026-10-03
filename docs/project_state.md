@@ -1,11 +1,32 @@
 # Project State
 
-Last updated: 2026-10-02
-Current branch: `codex/mutation-campaign-beta6`
-Current milestone: regression/mutation coverage; synchronized `3.0.0-beta.6`
-publication completed.
-The regression/mutation coverage objective remains open. The active plan is
-`docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+Last updated: 2026-10-03
+Current branch: `codex/flatbuffers-zero-copy`
+Current milestone: FlatBuffers and zero-copy native buffers (GitHub milestone 1).
+Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.
+This isolated worktree starts from 54eafc5f; primary-checkout router embedding
+changes remain separate. The regression/mutation coverage objective remains open.
+
+FlatBuffers foundation: pinned schemas, append-only extension contract,
+reproducible Dart/Rust bindings and independent Python/Dart/Rust fixtures are
+implemented. All 34 binding tests pass on VM, Chrome JS and WASM, including
+pre-encoded typed payloads, the inclusive 2^53 WAMP ID bound and empty vectors.
+A fail-first boundary regression proves the earlier max-safe-ID limit was too
+narrow. Native pointer-range and foreign-reader checks pass. Pre-change
+bin/test-fast and fresh full library bin/verify both exit 0; library-tree log is
+/tmp/connectanum-flatbuffers-foundation-verify-final.log. New hosted evidence
+and all ten issue closures remain pending; transports are not yet enabled.
+Local summary/planning/focused review ran. GLM initially refused connections;
+later architecture requests reached the server but timed out. Broad Qwen review
+requests also hit deadlines/output limits; narrow arithmetic/atomic-transfer
+review completes. Source inspection and tests remain authoritative.
+Coverage collector change: all 105 selected tool regressions pass. Core VM
+coverage passes existing policy at 6,815/7,295 handwritten lines (93.420%);
+the 3,425 generated lines and raw aggregate remain separately visible. Browser
+coverage is running in session 9175. No new hosted coverage claim.
+Next stage: #96 native allocation base/capacity/used-range ownership and guarded
+build/freeze/transfer APIs. Drafts remain outside the worktree until the
+foundation checkpoint is committed; see the active plan for exact constraints.
 
 Work396: Resume mutation work after beta.6 publication. Master CI `37035848715`
 finishes cancelled: the MCP-library job reaches its 180-minute outer deadline

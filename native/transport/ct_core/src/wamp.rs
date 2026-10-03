@@ -8,6 +8,12 @@ use std::ops::Range;
 
 use crate::rawsocket::Serializer;
 
+#[cfg(test)]
+mod flatbuffers_conformance_tests;
+#[cfg(test)]
+#[allow(unused_imports)]
+mod flatbuffers_generated;
+
 use serde_json::value::RawValue;
 
 type ValueMap = BTreeMap<Value, Value>;

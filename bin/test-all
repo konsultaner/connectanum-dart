@@ -199,6 +199,8 @@ python3 tool/test_verification_scripts.py
 python3 tool/test_mcp_consumer_package_boundary.py
 python3 tool/build_conformance_fixtures.py --check
 python3 tool/test_build_conformance_fixtures.py
+python3 tool/generate_wamp_flatbuffers.py --verify-inputs-only
+python3 tool/test_generate_wamp_flatbuffers.py
 python3 tool/check_public_artifact_references.py
 python3 tool/test_public_artifact_references.py
 python3 tool/test_dart_package_publish_dry_run.py

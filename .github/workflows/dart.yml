@@ -14,6 +14,28 @@ env:
   CI: true
 
 jobs:
+  flatbuffers-binding:
+    name: FlatBuffers Binding
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Fetch checksum-pinned compiler
+        run: python3 tool/fetch_flatc.py --output "$RUNNER_TEMP/flatc"
+      - name: Bootstrap workspace
+        run: dart pub get
+      - name: Verify generated bindings and fixtures
+        run: python3 tool/generate_wamp_flatbuffers.py --check --flatc "$RUNNER_TEMP/flatc/flatc"
+      - name: Verify independent upstream interoperability
+        run: |
+          python3 -m venv "$RUNNER_TEMP/flatbuffers-python"
+          "$RUNNER_TEMP/flatbuffers-python/bin/python" -m pip install flatbuffers==25.9.23
+          "$RUNNER_TEMP/flatbuffers-python/bin/python" tool/check_wamp_flatbuffers_interop.py --flatc "$RUNNER_TEMP/flatc/flatc"
+
   fast:
     name: Fast Checks
     runs-on: ubuntu-latest
@@ -114,7 +136,7 @@ jobs:
     name: Full Verify
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    needs: [fast, wamp-app]
+    needs: [fast, wamp-app, flatbuffers-binding]
 
     steps:
       - uses: actions/checkout@v5
