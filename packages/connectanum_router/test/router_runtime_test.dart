@@ -42,6 +42,7 @@ import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
 part 'support/http_edge_cases.dart';
+part 'support/flatbuffers_worker_ack_cases.dart';
 part 'support/http_progressive_failure_cases.dart';
 part 'support/http_initial_auth_cases.dart';
 part 'support/http_auth_abort_cases.dart';
@@ -4554,6 +4555,7 @@ void _fileResponseCleanupTests() {
 }
 
 void main() {
+  _flatbuffersWorkerAckTests();
   _internalPublishFilterCases();
   registerHttpAdapterOptionCases();
   _httpRevocationHintCases();

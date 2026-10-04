@@ -7,16 +7,16 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
-Draft PR #105 at 896fd29a contains foundation, package-constraint repair,
+Draft PR #105 contains foundation, package-constraint repair,
 native-owned buffers, producer leases, write completion and native network
 lifetime coverage, structural validation, direct model writing, and the public
 Dart codec with mutable-model metadata retention. The committed native codec
 stage adds a bounded Rust parser and direct encoder for all 25 native WAMP
 models, transparent payload storage, and public Dart/Rust codec interoperability.
-Native transport factories, complete routing and profile negotiation remain
+Native transport factories, complete mixed routing and WebSocket negotiation remain
 incomplete; the codec alone does not establish live FlatBuffers support.
 
-The next uncommitted stage adds bounded, detached logical metadata access and a
+The profile stage, committed/pushed as 6727a18c, adds bounded, detached logical metadata access and a
 shared immutable client/router capability gate. Native client ingress validates
 before authentication delivery; normal and pre-encoded owned/leased sends commit
 state only after enqueue acceptance. The native receive worker releases rejected
@@ -38,10 +38,51 @@ support-file inventories; the unchanged inventory guard now passes. Preserve the
 initial failure log. Fresh verify44100 exits0 at
 /tmp/connectanum-flatbuffers-profile-verify-final.log with corrected product
 source unchanged throughout the complete run. Native/default/ffi-test, VM,
-router/consumer and Chrome JS/WASM checks pass. This stage is ready for commit;
-all ten milestone issues remain open.
-Router handshake integration,
-ordinary factories and the remaining milestone acceptance criteria stay open.
+router/consumer and Chrome JS/WASM checks pass. This stage is committed/pushed; all ten milestone issues remain open.
+
+The verified router/native stage integrates the profile into actual router HELLO,
+CHALLENGE, AUTHENTICATE, WELCOME and ordinary session dispatch. Real boss enqueue
+acknowledgements precede profile/session commits; phase/profile checks prevent
+late acknowledgements from reopening disconnected sessions. Pending authentication
+cleanup is idempotent, and GOODBYE/drain closes sessions even when enqueue fails.
+All 142 focused router auth/session/profile cases pass. A real RawSocket test first
+completes HELLO/registration but fails native INVOCATION with ERR_UNSUPPORTED.
+Implement all five FlatBuffers native forwarding entry points with a segmented
+writer retaining args/kwargs/opaque Bytes allocations. Core tests first demonstrate
+that a contiguous-writer fallback violates allocation identity. The final 21 core
+FlatBuffers tests pass, including all 25 models under the pinned generated verifier,
+valid offsets/alignment, guarded slices and 128 KiB binary spans. Nine ffi-test
+forwarding tests pass, including three serializers plus FlatBuffers, metadata
+filtering, progress flags and exactly-once opaque-producer cleanup. An initial
+producer test supplies forbidden mixed ordinary/opaque vectors; correct it to
+assert rejection/cleanup for that case and retention for valid opaque-only frames.
+The rebuilt native library passes anonymous/ticket live router scenarios for
+128 KiB ordinary/opaque RPC/pubsub, progressive results, callee errors and GOODBYE.
+Canonical scripts include the native EVENT forwarding run. Qwen review completes;
+its metadata/Vec-clone claims are contradicted by identical authorized CBOR inputs
+and the type-enforced Bytes payload. The first GLM writer review times out; a
+narrow arithmetic review completes without a concrete defect. Its alignment
+comment is independently checked: vector header is offset4 modulo8 and data starts
+at offset0 modulo8, as intended. Focused analysis has only the pre-existing
+runtime-test informational lint. Supporting test-fast64699 exits0 but overlaps edits and is not final verification.
+All 79 tooling-script checks pass separately. Fresh bin/verify50035 exits0 at
+/tmp/connectanum-flatbuffers-router-forward-verify.log. All 1,419 product files
+match the frozen hashes at completion. Native/default/ffi-test, tooling, VM,
+router/consumer and Chrome JS/WASM checks pass, ending with 2,673 client WASM
+cases. The router/native stage is ready for commit/push; no full milestone
+completion or new hosted CI result is claimed. External WebSocket wire-peer probes pass both live router
+scenarios, but remain outside canonical CI; add them with the next transport
+stage. A scratch native factory API probe fails first for missing constructors,
+then constructs both transports with the pinned profile; this preparation is not
+product integration. Next-stage paths and the scratch location are in the plan.
+Ordinary factories, WebSocket, complete mixed routing/PPT/E2EE and remaining
+conformance/performance/release gates remain open. The adapter-readiness audit
+also identifies missing public composition/submission of an owned envelope plus
+separately leased application vectors: complete-frame leases and core Rust
+segmented forwarding do not by themselves expose that path to a separate native
+adapter. Existing Dart segmented sends still copy, and Vec adoption must never
+receive foreign database memory. Keep generic mixed-owner composition within
+#96/#97/#100 and validate it with the fake producer before adapter-ready claims.
 
 Verified native dictionary delivery and CI-repair work is committed/pushed as
 dff1fba0. Delivery bin/verify 5336 exits 0 with unchanged product source.

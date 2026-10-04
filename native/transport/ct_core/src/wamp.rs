@@ -23,6 +23,9 @@ mod flatbuffers_wire;
 mod flatbuffers_writer;
 
 pub use flatbuffers_encoder::encode as encode_flatbuffers_message;
+pub use flatbuffers_encoder::encode_segments as encode_flatbuffers_message_segments;
+#[cfg(test)]
+mod flatbuffers_segmented_tests;
 
 use serde_json::value::RawValue;
 

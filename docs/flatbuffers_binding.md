@@ -266,9 +266,20 @@ Contiguous input retains its allocation. Segmented input currently coalesces onc
 The encoder moves the finished FlatBuffers allocation into Bytes without a final
 copy. Constructing embedded vectors still copies their bytes. ABORT/GOODBYE
 application payloads, which have no pinned schema slots, are rejected explicitly.
-Native FFI delivery retains these spans as described below. Routing, transport
-factories and metadata capability negotiation remain subsequent integration work;
-this codec does not advertise their completion.
+`ct_core::encode_flatbuffers_message_segments` builds the same binding while
+retaining the original args, kwargs and transparent Bytes owners. It constructs
+the envelope with the pinned builder, patches only owned vector offsets, then
+appends bounded length/padding headers and the borrowed immutable spans. Empty
+vectors retain presence. The assembled frame is checked by the pinned generated
+verifier and both contiguous/segmented parsers; it is not a new wire format.
+Native EVENT, INVOCATION, RESULT and ERROR forwarding use this writer. EVENT and
+INVOCATION metadata contains only authorized routing fields and validated PPT
+strings; RESULT and ERROR preserve their dictionaries. Allocation identity and
+producer-release tests cover all five forwarding entry points, including the
+CALL-derived RESULT path. This boundary avoids application-vector copies;
+segmented receive coalescing and transport transformations remain separately
+accounted for. Complete mixed-serializer routing and ordinary factories remain
+subsequent integration work.
 
 ## Dart codec and payload retention
 
@@ -365,11 +376,19 @@ and batches buffered during worker cancellation are released; the connection is
 closed. Both native connection APIs check binding version 1 and receive-owner
 support before calling the native connector.
 
-This stage is validated with a real native RawSocket client and an isolated wire
-peer, including anonymous RPC, missing CHALLENGE/WELCOME acknowledgements, and
-tracked/untracked native-owned sending. Router handshake integration and ordinary
-transport factories remain unfinished; this is not a live router or release
-support claim.
+The router now uses the same gate before authentication and session dispatch.
+It commits CHALLENGE/WELCOME transitions only after the real native enqueue
+result, and opens a session only after WELCOME acceptance. A concurrent disconnect
+cannot reopen a session through a late acknowledgement. Pending authentication
+cleanup is idempotent; GOODBYE and draining still close the session if enqueue
+fails. Ordinary established traffic does not incur a new acknowledgement wait.
+
+Real native RawSocket tests cover anonymous and ticket-authenticated router
+sessions with 128 KiB ordinary/opaque RPC and pub/sub, progressive results,
+callee errors and GOODBYE. Separate client wire-peer tests cover missing
+CHALLENGE/WELCOME acknowledgements and tracked/untracked native-owned sending.
+Ordinary factories and WebSocket negotiation remain unfinished. These results
+do not establish complete mixed-serializer, E2EE, performance or release support.
 
 General serializer preference negotiation
 [#44](https://github.com/konsultaner/connectanum-dart/issues/44) and WAMP IDL
@@ -400,6 +419,16 @@ TLS and necessary coalescing can introduce transformation copies. The metadata
 extension and binding do not remove those copies.
 
 ## Ownership and performance requirements
+
+The public native lease API currently accepts a complete encoded frame. The
+core Rust segmented writer retains separately owned application vectors, but
+the public Dart segmented-send API still copies its slices and the legacy
+owned-segment C ABI adopts registered Rust allocations. A future external
+producer supplying only application bytes needs a generic envelope assembly
+and mixed-owner submission API. That composition boundary remains incomplete;
+complete-frame lease tests do not establish it, and foreign database pointers
+must never enter the Vec adoption API. Adapter readiness requires allocation
+identity and exactly-once cleanup evidence for the public composition path.
 
 Generated readers are internal implementation tools, not an untrusted-byte public
 API. Rust verifies before accessing generated tables. Dart must validate bounded

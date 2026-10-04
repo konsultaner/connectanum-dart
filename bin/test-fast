@@ -109,7 +109,11 @@ if ensure_rust_env; then
   if native_runtime_supported; then
     dart test packages/connectanum_router/test/native/native_runtime_test.dart --concurrency=1
   fi
-  dart test packages/connectanum_router/test/router_worker_auth_test.dart
+  dart test packages/connectanum_router/test/router_worker_auth_test.dart \
+    packages/connectanum_router/test/router_flatbuffers_profile_test.dart
+  CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+    dart test packages/connectanum_router/test/router_flatbuffers_native_test.dart \
+      --chain-stack-traces
   CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
     dart test packages/connectanum_router/test/router_worker_session_test.dart \
       --tags zero_copy_publish \

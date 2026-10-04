@@ -1080,3 +1080,117 @@ session send call sites with connection context and test failed CHALLENGE/WELCOM
 cleanup. This is preparatory overlay evidence, not shipped/live-router proof.
 No ordinary factory, routing, PPT/E2EE, performance or release completion is claimed.
 All ten issues and the full milestone remain open.
+
+
+## Router enforcement and segmented native forwarding
+
+2026-10-04: Commit/push the verified client profile stage as 6727a18c. The
+subsequent planning turn verifies the existing milestone but makes no
+implementation progress; resume against the actual dirty worktree. Integrate the
+profile into all actual router handshake and session paths. Native enqueue ACKs
+are produced by the real boss on success and both supported rejection classes.
+Three real-boss receipt tests pass. A disconnect while WELCOME is queued initially
+reopens a ghost session; compare the original profile and phase before committing
+the transition. A rejected GOODBYE initially leaves an open session; close it in
+finally and make draining continue cleanup after an enqueue error. All 142 router
+profile/auth/session tests pass; pending-auth onAbort is exactly once.
+
+The real RawSocket router test reaches registration, then reproduces unsupported
+FlatBuffers CALL-to-INVOCATION forwarding. Add a schema-compatible segmented core
+writer plus native EVENT, INVOCATION, YIELD-derived RESULT, CALL-derived RESULT and
+ERROR paths. A contiguous implementation fails three allocation-identity oracles;
+record /tmp/connectanum-flatbuffers-native-segments-fail-first-final.log. The
+forwarding matrix fails five FlatBuffers cases before implementation; record
+/tmp/connectanum-flatbuffers-forwarding-fail-first-final.log. The segmented writer
+retains original Bytes vectors and patches only owned envelope offsets, with
+bounded append headers/padding and presence-preserving empty vectors. All 21
+focused core tests pass, including every public model under the generated verifier
+and segmented splits. All nine ffi-test forwarding tests pass, including invalid
+PPT metadata, progress/disclosure combinations, opaque allocation identity and
+exactly-once producer release. The first opaque producer test incorrectly mixes
+ordinary/opaque vectors; its final version proves rejection cleanup for mixed
+frames and delayed release for valid opaque frames.
+
+The rebuilt ffi-test native artifact passes both anonymous and ticket router
+sessions with 128 KiB ordinary and opaque RPC/pubsub, progressive results, callee
+ERROR and GOODBYE. Run with CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 to cover native
+EVENT forwarding; include this explicitly in test-fast/test-all. Focused analysis
+has only the existing runtime-test informational lint. Qwen review's metadata and
+Vec-clone concerns are rejected against authorized inputs and the Bytes-only
+payload type. The first GLM writer review times out; narrowed offset/vtable review
+completes without a concrete defect. Independently verify its imprecise alignment
+comment against modulo arithmetic and generated verifier tests. Supporting fast
+64699 overlaps product changes. Do not commit/push or claim final candidate
+verification until a fresh source-frozen bin/verify completes. All ten milestone
+issues remain open; full factories/WebSocket/mixed routing/E2EE/performance/release
+acceptance remains required.
+
+Source-frozen router candidate: /tmp/connectanum-flatbuffers-router-forward-frozen-source.json
+contains 1,419 product-file hashes. Supporting fast64699 exits0, but it overlaps
+edits and cannot replace fresh verification. Canonical verify50035 is live at
+/tmp/connectanum-flatbuffers-router-forward-verify.log. Do not change product
+source until it is terminal. Tooling script checks separately pass all 79 cases.
+
+While frozen, an external wire-peer test at
+/tmp/connectanum-flatbuffers-websocket-probe/websocket_probe_test.dart passes both
+anonymous/ticket scenarios over real WebSocket against the current router. It
+covers the same ordinary/opaque/progressive/error/pubsub behavior. This is actual
+current-router evidence, but the probe is outside canonical CI and must be added
+with the next transport stage. The server already selects wamp.2.flatbuffers;
+native client websocket_subprotocol() still rejects that serializer. The native
+Dart WebSocket helper omits FlatBuffers, all named factories omit it, ordinary
+RawSocket/WebSocket constructors reject it, and browser/native stubs need the same
+public API. Native RawSocket's generic serializer mapping already accepts ID5.
+
+A scratch client package at the path recorded in
+/tmp/connectanum-flatbuffers-factories-stage-path.txt demonstrates the missing
+withFlatBuffersSerializer APIs, then passes construction for both native classes
+using the current pinned core profile and explicit library. The initial package
+runner fetched registry dependencies in that scratch directory, which lack this
+codec; preserve that failure and use probe_package_config.json bound to the actual
+worktree packages for the valid fail-first/pass. These factories remain outside
+product source and do not prove a native WebSocket connection. Apply/review only
+after current verification finishes.
+
+Next transport changes: add ordinary codec selection and native WebSocket mapping
+plus a Rust subprotocol regression, preserving the existing codec capability gate.
+Apply immutable client profile checks to pure RawSocket and VM/browser WebSocket
+send/receive, reset on open, and commit outgoing state only after local acceptance.
+For RawSocket pre-handshake buffering, local queue acceptance is the boundary;
+FlatBuffers uses one complete frame. Check before authentication delivery and
+close rejected ingress through existing error handling. Browser Blob conversion
+must not let an old receive stream mutate a reopened connection's profile; capture
+connection identity/generation around asynchronous decoding. Keep unsupported
+native/browser stubs API-compatible. Native WebSocket file-segment serializer
+mapping currently defaults unknown protocols to JSON; explicitly resolve FlatBuffers
+and its supported/rejected file-segment behavior before advertising that feature.
+These are next-step requirements, not completion evidence or waived milestone scope.
+
+Adapter-readiness audit while source is frozen: NativeBufferTransport currently
+submits one complete NativeOwnedBuffer frame. NativeTransportRuntime.trySendMessageSegments
+still allocates/copies every Uint8List slice, and ct_send_message_segments_owned
+adopts only registered Rust Vec allocations. The new core segmented encoder
+retains borrowed application Bytes, but there is no corresponding public mixed
+owned/leased segment assembly/submission contract for an external producer whose
+buffer is only the application payload. A separately linked adapter cannot assume
+its own ct_core runtime singleton is the ct_ffi runtime instance. Keep #96/#97/#100
+open: add a generic native/FFI assembly and submission path that builds the selected
+WAMP envelope around native-owned or externally leased application vectors,
+retains all owners, preserves empty/presence and offset/alignment rules, and reports
+queue acceptance versus write/release completion. Test identity, rejection,
+fan-out and exactly-once owner-affine cleanup with a fake producer before claiming
+connectanum_objectbox_adapter readiness. Do not transfer foreign pointers through
+the Vec adoption API or treat the existing complete-frame lease tests as proof of
+this missing composition boundary. Actual ObjectBox integration remains outside
+core; the generic composition API is required by the original no-copy scope.
+
+
+Canonical verify50035 exits0 at
+/tmp/connectanum-flatbuffers-router-forward-verify.log. At completion all 1,419
+product-file hashes and the complete file inventory match the frozen snapshot;
+there were no product edits during verification. Native/default/ffi-test, tooling,
+VM, router/consumer and Chrome JS/WASM pass, ending with 2,673 client WASM cases.
+The router VM suite includes 4,805 cases plus separate remote-auth/native EVENT
+runs. This router/profile/segmented forwarding stage is ready for commit/push.
+Keep all ten issues open; carry the external WebSocket/factory probes and generic
+mixed-owner composition gap into subsequent transport/ownership stages.

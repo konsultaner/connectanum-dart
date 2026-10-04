@@ -9,7 +9,15 @@ use std::sync::Arc;
 
 /// Encode the extended, pinned WAMP FlatBuffers binding.
 /// Ordinary argument spans must already be CBOR; transparent spans remain opaque.
+pub fn encode_segments(message: &WampMessage) -> Result<Vec<Bytes>, ParseError> {
+    flatbuffers_writer::write_segments(&fields(message)?)
+}
+
 pub fn encode(message: &WampMessage) -> Result<Bytes, ParseError> {
+    flatbuffers_writer::write(&fields(message)?)
+}
+
+fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
     let mut controls = Fields::new();
     let (name, dictionary, payload): (&str, Option<&ValueMap>, Option<&Payload>) = match message {
         WampMessage::Hello { realm, details } => {
@@ -285,7 +293,7 @@ pub fn encode(message: &WampMessage) -> Result<Bytes, ParseError> {
         flatbuffers_cbor::validate(&metadata, 5, true)?;
         root.insert("metadata", Value::Bytes(Bytes::from(metadata)));
     }
-    flatbuffers_writer::write(&root)
+    Ok(root)
 }
 fn text(fields: &mut Fields, key: &'static str, value: &str) {
     fields.insert(key, Value::Text(Arc::from(value)));

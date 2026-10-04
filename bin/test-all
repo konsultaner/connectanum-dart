@@ -63,6 +63,8 @@ run_router_zero_copy_publish_tests() {
         test/router_integration_native_test.dart \
         --tags zero_copy_publish \
         --chain-stack-traces
+    CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+      dart test test/router_flatbuffers_native_test.dart --chain-stack-traces
   )
 }
 

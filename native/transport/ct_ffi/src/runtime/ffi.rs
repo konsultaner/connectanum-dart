@@ -1324,6 +1324,21 @@ fn encode_event_segments_cbor(
     Ok(segments)
 }
 
+fn encode_forwarded_flatbuffers(message: WampMessage) -> Result<Vec<Bytes>, c_int> {
+    ct_core::encode_flatbuffers_message_segments(&message).map_err(|_| ERR_INVALID_ARGUMENT)
+}
+
+fn flatbuffers_routing_details(
+    mut details: JsonMap<String, JsonValue>,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> Result<std::collections::BTreeMap<SerdeValue, SerdeValue>, c_int> {
+    insert_ppt_details_from_options(&mut details, options)?;
+    match serde_value::to_value(details).map_err(|_| ERR_INVALID_ARGUMENT)? {
+        SerdeValue::Map(details) => Ok(details),
+        _ => Err(ERR_INVALID_ARGUMENT),
+    }
+}
+
 fn encode_event_segments(
     message: &StoredMessage,
     subscription_id: u64,
@@ -1362,6 +1377,21 @@ fn encode_event_segments(
             topic,
             options,
         ),
+        RawSocketSerializer::Flatbuffers => {
+            let mut details = JsonMap::new();
+            if let Some(publisher) = publisher {
+                details.insert("publisher".into(), JsonValue::Number(publisher.into()));
+            }
+            if let Some(topic) = topic {
+                details.insert("topic".into(), JsonValue::String(topic.into()));
+            }
+            encode_forwarded_flatbuffers(WampMessage::Event {
+                subscription_id,
+                publication_id,
+                details: flatbuffers_routing_details(details, options)?,
+                payload: payload.clone(),
+            })
+        }
         _ => Err(ERR_UNSUPPORTED),
     }
 }
@@ -1654,6 +1684,35 @@ fn encode_invocation_segments(
             invocation_progress,
             options,
         ),
+        RawSocketSerializer::Flatbuffers => {
+            let mut details = JsonMap::new();
+            if let Some(caller) = caller {
+                details.insert("caller".into(), JsonValue::Number(caller.into()));
+            }
+            for (key, value) in [
+                ("caller_authid", caller_authid),
+                ("caller_authrole", caller_authrole),
+                ("procedure", procedure),
+            ] {
+                if let Some(value) = value {
+                    details.insert(key.into(), JsonValue::String(value.into()));
+                }
+            }
+            for (key, value) in [
+                ("receive_progress", receive_progress),
+                ("progress", invocation_progress),
+            ] {
+                if let Some(value) = value {
+                    details.insert(key.into(), JsonValue::Bool(value));
+                }
+            }
+            encode_forwarded_flatbuffers(WampMessage::Invocation {
+                request_id: invocation_id,
+                registration_id,
+                details: flatbuffers_routing_details(details, options)?,
+                payload: payload.clone(),
+            })
+        }
         _ => Err(ERR_UNSUPPORTED),
     }
 }
@@ -1807,6 +1866,20 @@ fn encode_result_segments(
                     serde_cbor::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
                 build_result_segments_cbor(payload, request_id, details_cbor)
             }
+            RawSocketSerializer::Flatbuffers => {
+                let mut details = options.clone();
+                if progress {
+                    details.insert(
+                        SerdeValue::String("progress".into()),
+                        SerdeValue::Bool(true),
+                    );
+                }
+                encode_forwarded_flatbuffers(WampMessage::Result {
+                    request_id,
+                    details,
+                    payload: payload.clone(),
+                })
+            }
             _ => Err(ERR_UNSUPPORTED),
         },
         _ => Err(ERR_INVALID_ARGUMENT),
@@ -1839,6 +1912,11 @@ fn encode_result_segments_from_call(
             let details_cbor = serde_cbor::to_vec(&details).map_err(|_| ERR_INVALID_ARGUMENT)?;
             build_result_segments_cbor(payload, request_id, details_cbor)
         }
+        RawSocketSerializer::Flatbuffers => encode_forwarded_flatbuffers(WampMessage::Result {
+            request_id,
+            details,
+            payload: payload.clone(),
+        }),
         _ => Err(ERR_UNSUPPORTED),
     }
 }
@@ -2004,6 +2082,13 @@ fn encode_error_segments(
                     error_cbor,
                 )
             }
+            RawSocketSerializer::Flatbuffers => encode_forwarded_flatbuffers(WampMessage::Error {
+                request_type,
+                request_id,
+                details: details.clone(),
+                error: error.clone(),
+                payload: payload.clone(),
+            }),
             _ => Err(ERR_UNSUPPORTED),
         },
         _ => Err(ERR_INVALID_ARGUMENT),

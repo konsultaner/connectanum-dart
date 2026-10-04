@@ -3,10 +3,11 @@ use ct_core::WampPayload;
 use serde_json::json;
 use std::collections::BTreeMap;
 
-const SERIALIZERS: [RawSocketSerializer; 3] = [
+const SERIALIZERS: [RawSocketSerializer; 4] = [
     RawSocketSerializer::Json,
     RawSocketSerializer::MessagePack,
     RawSocketSerializer::Cbor,
+    RawSocketSerializer::Flatbuffers,
 ];
 const REQUEST: u64 = (1 << 53) - 1;
 const REGISTRATION: u64 = (1 << 32) + 7;
@@ -15,7 +16,9 @@ fn guarded_value(serializer: RawSocketSerializer, value: &JsonValue) -> Bytes {
     let encoded = match serializer {
         RawSocketSerializer::Json => serde_json::to_vec(value).unwrap(),
         RawSocketSerializer::MessagePack => rmp_serde::to_vec(value).unwrap(),
-        RawSocketSerializer::Cbor => serde_cbor::to_vec(value).unwrap(),
+        RawSocketSerializer::Cbor | RawSocketSerializer::Flatbuffers => {
+            serde_cbor::to_vec(value).unwrap()
+        }
         _ => unreachable!(),
     };
     let end = 3 + encoded.len();
@@ -84,12 +87,62 @@ fn assert_frame(
     if payload.kwargs.is_some() {
         fields.push(json!({"key": [false, "\\", 42]}));
     }
+    let flatbuffers_expected = if serializer == RawSocketSerializer::Flatbuffers {
+        let mut message = ct_core::parse_message(
+            RawSocketSerializer::Cbor,
+            Bytes::from(serde_cbor::to_vec(&expected).unwrap()),
+        )
+        .unwrap()
+        .message;
+        // FlatBuffers can distinguish an absent args vector from the empty
+        // positional placeholder required by list-based WAMP encodings.
+        match &mut message {
+            WampMessage::Event {
+                payload: expected, ..
+            }
+            | WampMessage::Invocation {
+                payload: expected, ..
+            }
+            | WampMessage::Result {
+                payload: expected, ..
+            }
+            | WampMessage::Error {
+                payload: expected, ..
+            } => {
+                *expected = WampPayload {
+                    args: payload
+                        .args
+                        .as_ref()
+                        .map(|bytes| Bytes::copy_from_slice(bytes)),
+                    kwargs: payload
+                        .kwargs
+                        .as_ref()
+                        .map(|bytes| Bytes::copy_from_slice(bytes)),
+                    transparent: payload
+                        .transparent
+                        .as_ref()
+                        .map(|bytes| Bytes::copy_from_slice(bytes)),
+                };
+            }
+            _ => unreachable!(),
+        }
+        Some(message)
+    } else {
+        None
+    };
     // Only the outbound segments retain the source allocations at decode time.
     drop(payload);
     let frame: Vec<u8> = segments
         .iter()
         .flat_map(|part| part.iter().copied())
         .collect();
+    if let Some(expected) = flatbuffers_expected {
+        let decoded = ct_core::parse_message(serializer, Bytes::from(frame))
+            .unwrap()
+            .message;
+        assert_eq!(decoded, expected, "{serializer:?}");
+        return;
+    }
     let decoded: Result<JsonValue, String> = match serializer {
         RawSocketSerializer::Json => serde_json::from_slice(&frame).map_err(|e| e.to_string()),
         RawSocketSerializer::MessagePack => {
@@ -385,10 +438,7 @@ fn forwarding_rejects_wrong_message_kinds_without_consuming_payloads() {
 
 #[test]
 fn unsupported_forwarding_serializers_return_errors_for_every_message_kind() {
-    for serializer in [
-        RawSocketSerializer::Ubjson,
-        RawSocketSerializer::Flatbuffers,
-    ] {
+    for serializer in [RawSocketSerializer::Ubjson] {
         let empty = WampPayload {
             args: None,
             kwargs: None,
@@ -544,5 +594,191 @@ fn invalid_external_ranges_and_null_outputs_leave_outputs_untouched() {
         assert!(output.owner.is_null());
         assert_eq!(kind, -7);
         assert_eq!(sentinel, [77]);
+    }
+}
+
+#[test]
+fn flatbuffers_forwarding_retains_opaque_owners_until_the_last_segment_is_released() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    struct Producer {
+        bytes: Vec<u8>,
+        released: Arc<AtomicUsize>,
+    }
+    impl AsRef<[u8]> for Producer {
+        fn as_ref(&self) -> &[u8] {
+            &self.bytes
+        }
+    }
+    impl Drop for Producer {
+        fn drop(&mut self) {
+            self.released.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    for shape in 0..4 {
+        for opaque in [vec![], vec![0xff, 0x00, 0x80], vec![0x53; 128 * 1024]] {
+            for route in 0..5 {
+                let released = Arc::new(AtomicUsize::new(0));
+                let mut original = payload(RawSocketSerializer::Flatbuffers, shape);
+                original.transparent = Some(Bytes::from_owner(Producer {
+                    bytes: opaque.clone(),
+                    released: released.clone(),
+                }));
+                let (source, expected) = match route {
+                    0 => (
+                        WampMessage::Publish {
+                            request_id: 1,
+                            options: BTreeMap::new(),
+                            topic: "private".into(),
+                            payload: original.clone(),
+                        },
+                        WampMessage::Event {
+                            subscription_id: REGISTRATION,
+                            publication_id: REQUEST,
+                            details: BTreeMap::new(),
+                            payload: original.clone(),
+                        },
+                    ),
+                    1 => (
+                        WampMessage::Call {
+                            request_id: 1,
+                            options: BTreeMap::new(),
+                            procedure: "private".into(),
+                            payload: original.clone(),
+                        },
+                        WampMessage::Invocation {
+                            request_id: REQUEST,
+                            registration_id: REGISTRATION,
+                            details: BTreeMap::new(),
+                            payload: original.clone(),
+                        },
+                    ),
+                    2 => (
+                        WampMessage::Yield {
+                            request_id: 1,
+                            options: BTreeMap::new(),
+                            payload: original.clone(),
+                        },
+                        WampMessage::Result {
+                            request_id: REQUEST,
+                            details: BTreeMap::new(),
+                            payload: original.clone(),
+                        },
+                    ),
+                    3 => (
+                        WampMessage::Call {
+                            request_id: 1,
+                            options: BTreeMap::new(),
+                            procedure: "private".into(),
+                            payload: original.clone(),
+                        },
+                        WampMessage::Result {
+                            request_id: REQUEST,
+                            details: BTreeMap::new(),
+                            payload: original.clone(),
+                        },
+                    ),
+                    _ => (
+                        WampMessage::Error {
+                            request_type: 68,
+                            request_id: 1,
+                            details: BTreeMap::new(),
+                            error: "wamp.error.test".into(),
+                            payload: original.clone(),
+                        },
+                        WampMessage::Error {
+                            request_type: 48,
+                            request_id: REQUEST,
+                            details: BTreeMap::new(),
+                            error: "wamp.error.test".into(),
+                            payload: original.clone(),
+                        },
+                    ),
+                };
+                let source = stored(RawSocketSerializer::Flatbuffers, source);
+                let result = match route {
+                    0 => encode_event_segments(&source, REGISTRATION, REQUEST, None, None),
+                    1 => encode_invocation_segments(
+                        &source,
+                        REQUEST,
+                        REGISTRATION,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                    ),
+                    2 => encode_result_segments(&source, REQUEST, false),
+                    3 => encode_result_segments_from_call(&source, REQUEST),
+                    _ => encode_error_segments(&source, 48, REQUEST),
+                };
+                if shape != 0 {
+                    assert_eq!(
+                        result,
+                        Err(ERR_INVALID_ARGUMENT),
+                        "opaque and ordinary vectors cannot mix"
+                    );
+                    drop(source);
+                    drop(original);
+                    drop(expected);
+                    assert_eq!(
+                        released.load(Ordering::SeqCst),
+                        1,
+                        "rejection must not retain the producer"
+                    );
+                    continue;
+                }
+                // Make the comparison model independent of the borrowed producer.
+                let expected_wire = ct_core::encode_flatbuffers_message(&expected).unwrap();
+                drop(expected);
+                let expected =
+                    ct_core::parse_message(RawSocketSerializer::Flatbuffers, expected_wire)
+                        .unwrap()
+                        .message;
+                let segments = successful_segments(result);
+                for bytes in [&original.args, &original.kwargs, &original.transparent]
+                    .into_iter()
+                    .flatten()
+                {
+                    if !bytes.is_empty() {
+                        assert_eq!(
+                            segments
+                                .iter()
+                                .filter(|part| part.as_ptr() == bytes.as_ptr()
+                                    && part.len() == bytes.len())
+                                .count(),
+                            1
+                        );
+                    }
+                }
+                drop(source);
+                drop(original);
+                assert_eq!(
+                    released.load(Ordering::SeqCst),
+                    0,
+                    "producer must survive delayed consumers"
+                );
+                let frame = Bytes::from(
+                    segments
+                        .iter()
+                        .flat_map(|part| part.iter().copied())
+                        .collect::<Vec<_>>(),
+                );
+                assert_eq!(
+                    ct_core::parse_message(RawSocketSerializer::Flatbuffers, frame)
+                        .unwrap()
+                        .message,
+                    expected
+                );
+                drop(segments);
+                assert_eq!(
+                    released.load(Ordering::SeqCst),
+                    1,
+                    "producer must release exactly once after the final segment"
+                );
+            }
+        }
     }
 }
