@@ -48,7 +48,9 @@ class LazyMessagePayload {
     Map<String, dynamic>? argumentsKeywords,
     this.anchor,
     Object? storageAnchor,
+    _DeferredMaterializedPayload? deferred,
   }) : _storageAnchor = storageAnchor ?? anchor,
+       _deferred = deferred,
        _argumentsBytes = argumentsBytes,
        _argumentsKeywordsBytes = argumentsKeywordsBytes,
        _argumentsDecoder = argumentsDecoder,
@@ -135,6 +137,26 @@ class LazyMessagePayload {
     );
   }
 
+  /// Produces application values on first access, sharing the result or failure
+  /// across derived views. The synchronous loader owns any PPT/E2EE processing.
+  /// It runs at most once, including for absent/empty values and thrown errors.
+  /// Recursive access throws [StateError]. Copying with [toOwned] evaluates the
+  /// loader before copying its values; the owned copy retains no loader or anchor.
+  factory LazyMessagePayload.deferred({
+    required MaterializedPayloadView Function() loader,
+    LazyPayloadEncoding? encoding,
+    WampE2eeProvider? e2eeProvider,
+    WampE2eeRuntimeContext? e2eeRuntimeContext,
+    Object? anchor,
+  }) => LazyMessagePayload._(
+    encoding: encoding,
+    pptDecoded: true,
+    e2eeProvider: e2eeProvider,
+    e2eeRuntimeContext: e2eeRuntimeContext,
+    anchor: anchor,
+    deferred: _DeferredMaterializedPayload(loader),
+  );
+
   /// The transparent binary payload carried outside regular WAMP arguments.
   final Uint8List? transparentBinaryPayload;
 
@@ -157,6 +179,7 @@ class LazyMessagePayload {
   // Retain the first storage owner directly rather than growing a chain for
   // every routing or metadata view. Owned copies deliberately omit it.
   final Object? _storageAnchor;
+  final _DeferredMaterializedPayload? _deferred;
 
   Uint8List? _argumentsBytes;
   Uint8List? _argumentsKeywordsBytes;
@@ -187,6 +210,8 @@ class LazyMessagePayload {
 
   /// Positional arguments, decoded on first access when necessary.
   List<dynamic>? get arguments {
+    final deferred = _deferred;
+    if (deferred != null) return deferred.value.arguments;
     _decodePackedPayloadIfNeeded();
     if (_arguments == null &&
         _argumentsBytes != null &&
@@ -198,6 +223,8 @@ class LazyMessagePayload {
 
   /// Keyword arguments, decoded on first access when necessary.
   Map<String, dynamic>? get argumentsKeywords {
+    final deferred = _deferred;
+    if (deferred != null) return deferred.value.argumentsKeywords;
     _decodePackedPayloadIfNeeded();
     if (_argumentsKeywords == null &&
         _argumentsKeywordsBytes != null &&
@@ -207,12 +234,14 @@ class LazyMessagePayload {
     return _argumentsKeywords;
   }
 
-  /// Copies retained buffers and materialized WAMP lists, maps and binary
-  /// values without forcing decoding. Providers, contexts and decoder callbacks
-  /// remain shared; the external storage anchor is not retained.
+  /// Copies retained buffers and materialized WAMP lists, maps and binary values.
+  /// Encoded slices do not need decoding; deferred values are evaluated first.
+  /// Providers, contexts and encoded decoder callbacks remain shared; the external
+  /// storage anchor and deferred loader are not retained.
   LazyMessagePayload toOwned() => _toOwned(_OwnedPayloadCopier());
 
   LazyMessagePayload _toOwned(_OwnedPayloadCopier copier) {
+    final deferred = _deferred?.value;
     return LazyMessagePayload._(
       transparentBinaryPayload:
           copier.copy(transparentBinaryPayload) as Uint8List?,
@@ -227,9 +256,16 @@ class LazyMessagePayload {
       argumentsKeywordsDecoder: _argumentsKeywordsDecoder,
       packedPayloadBytes: copier.copy(_packedPayloadBytes) as Uint8List?,
       packedPayloadDecoder: _packedPayloadDecoder,
-      arguments: copier.copy(_arguments) as List<dynamic>?,
+      arguments:
+          copier.copy(deferred == null ? _arguments : deferred.arguments)
+              as List<dynamic>?,
       argumentsKeywords:
-          copier.copy(_argumentsKeywords) as Map<String, dynamic>?,
+          copier.copy(
+                deferred == null
+                    ? _argumentsKeywords
+                    : deferred.argumentsKeywords,
+              )
+              as Map<String, dynamic>?,
     );
   }
 
@@ -267,6 +303,7 @@ class LazyMessagePayload {
       argumentsKeywords: _argumentsKeywords,
       anchor: anchor,
       storageAnchor: _storageAnchor,
+      deferred: _deferred,
     );
   }
 
@@ -291,6 +328,7 @@ class LazyMessagePayload {
       argumentsKeywords: _argumentsKeywords,
       anchor: anchor,
       storageAnchor: _storageAnchor,
+      deferred: _deferred,
     );
   }
 
@@ -317,7 +355,37 @@ class LazyMessagePayload {
       argumentsKeywords: _argumentsKeywords,
       anchor: anchor,
       storageAnchor: _storageAnchor,
+      deferred: _deferred,
     );
+  }
+}
+
+class _DeferredMaterializedPayload {
+  _DeferredMaterializedPayload(this._loader);
+
+  MaterializedPayloadView Function()? _loader;
+  MaterializedPayloadView? _value;
+  ({Object error, StackTrace stack})? _failure;
+  bool _loading = false;
+
+  MaterializedPayloadView get value {
+    final value = _value;
+    if (value != null) return value;
+    final failure = _failure;
+    if (failure != null) {
+      Error.throwWithStackTrace(failure.error, failure.stack);
+    }
+    if (_loading) throw StateError('Recursive deferred payload access');
+    _loading = true;
+    try {
+      return _value = _loader!();
+    } catch (error, stack) {
+      _failure = (error: error, stack: stack);
+      rethrow;
+    } finally {
+      _loading = false;
+      _loader = null;
+    }
   }
 }
 
@@ -674,6 +742,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   /// Positional arguments, decoded on first access when retained lazily.
   List<dynamic>? get arguments {
+    _materializeDeferredPayloadIfNeeded();
     if (_arguments == null &&
         _encodedArguments != null &&
         _argumentsDecoder != null) {
@@ -683,6 +752,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   }
 
   set arguments(List<dynamic>? value) {
+    _materializeDeferredPayloadIfNeeded();
     _arguments = value;
     _encodedArguments = null;
     _argumentsDecoder = null;
@@ -692,6 +762,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   /// Keyword arguments, decoded on first access when retained lazily.
   Map<String, dynamic>? get argumentsKeywords {
+    _materializeDeferredPayloadIfNeeded();
     if (_argumentsKeywords == null &&
         _encodedArgumentsKeywords != null &&
         _argumentsKeywordsDecoder != null) {
@@ -703,11 +774,20 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   }
 
   set argumentsKeywords(Map<String, dynamic>? value) {
+    _materializeDeferredPayloadIfNeeded();
     _argumentsKeywords = value;
     _encodedArgumentsKeywords = null;
     _argumentsKeywordsDecoder = null;
     _pptPayloadDecoded = false;
     _retainedLazyPayload = null;
+  }
+
+  void _materializeDeferredPayloadIfNeeded() {
+    final deferred = _retainedLazyPayload?._deferred;
+    if (deferred == null) return;
+    final values = deferred.value;
+    _arguments = values.arguments;
+    _argumentsKeywords = values.argumentsKeywords;
   }
 
   /// Whether encoded positional arguments are waiting to be decoded.
@@ -878,6 +958,19 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     final runtimeContext = _e2eeRuntimeContext ?? payload.e2eeRuntimeContext;
     transparentBinaryPayload = payload.transparentBinaryPayload;
     _lazyPayloadEncoding = payload.encoding;
+    if (payload._deferred != null) {
+      _arguments = null;
+      _argumentsKeywords = null;
+      _encodedArguments = null;
+      _encodedArgumentsKeywords = null;
+      _argumentsDecoder = null;
+      _argumentsKeywordsDecoder = null;
+      _pptPayloadDecoded = true;
+      _e2eeProvider = provider;
+      _e2eeRuntimeContext = runtimeContext;
+      retainLazyPayload(payload);
+      return;
+    }
     if (payload.packedPayloadBytes != null) {
       arguments = <dynamic>[payload.packedPayloadBytes!];
       argumentsKeywords = null;

@@ -3,8 +3,7 @@ import 'message_types.dart';
 
 /// The WAMP Error massage
 class Error extends AbstractMessageWithPayload {
-  static const String errorInvocationCanceled =
-      'wamp.error.invocation_canceled';
+  static const String errorInvocationCanceled = 'wamp.error.canceled';
 
   // INTERACTION ERRORS
   static const String errorInvalidUri = 'wamp.error.invalid_uri';

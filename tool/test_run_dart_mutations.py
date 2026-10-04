@@ -628,6 +628,7 @@ class MutationRunnerTests(unittest.TestCase):
             f'{prefix}/test/transport/native/support/native_frame_gc_probe.dart',
             f'{prefix}/test/transport/native/support/deferred_e2ee_message_cases.dart',
             f'{prefix}/test/transport/native/support/deferred_e2ee_gc_probe.dart',
+            f'{prefix}/test/transport/native/support/deferred_session_message_cases.dart',
         ])
         self.assertTrue(target['requiresNativeLibrary'])
         self.assertTrue(target['isolateTestFiles'])

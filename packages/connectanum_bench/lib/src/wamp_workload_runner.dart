@@ -2866,8 +2866,8 @@ class _ClientBackedWampSession implements WampSession, WampFileSession {
       onError: (Object error, StackTrace stackTrace) {
         if (!completion.isCompleted) {
           if (error is wamp_core.Error &&
-              (error.error == 'wamp.error.canceled' ||
-                  error.error == wamp_core.Error.errorInvocationCanceled)) {
+              (error.error == wamp_core.Error.errorInvocationCanceled ||
+                  error.error == 'wamp.error.invocation_canceled')) {
             completion.complete();
           } else {
             completion.completeError(error, stackTrace);

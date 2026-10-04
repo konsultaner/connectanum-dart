@@ -7,6 +7,7 @@ import 'package:connectanum_core/flatbuffers_serializer.dart'
 
 import 'e2ee_file_segment.dart';
 import 'native_transports_io.dart';
+import 'message_binding.dart';
 import 'runtime.dart';
 
 /// Native implementation of the existing version-1 CBOR E2EE profile.
@@ -290,6 +291,16 @@ abstract class _NativeWampE2eeCipherProvider
       operation: 'unpack',
       runtimeContext: runtimeContext,
     );
+    final anchoredMessage = runtimeContext?.payloadAnchor;
+    if (incoming != null &&
+        anchoredMessage is NativeSessionMessage &&
+        anchoredMessage.hasModifiedNativeWirePayload) {
+      throw WampE2eeInvalidPayloadException(
+        'unpack',
+        options: options,
+        reason: 'Native wire payload changed during key selection',
+      );
+    }
     try {
       if (incoming != null) {
         final nativePayload = _runtime.decryptE2eeMessageSingleBinaryArgument(

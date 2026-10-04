@@ -33,8 +33,23 @@ jobs:
       - name: Verify independent upstream interoperability
         run: |
           python3 -m venv "$RUNNER_TEMP/flatbuffers-python"
-          "$RUNNER_TEMP/flatbuffers-python/bin/python" -m pip install flatbuffers==25.9.23
+          "$RUNNER_TEMP/flatbuffers-python/bin/python" -m pip install -r tool/flatbuffers_peer_requirements.txt
           "$RUNNER_TEMP/flatbuffers-python/bin/python" tool/check_wamp_flatbuffers_interop.py --flatc "$RUNNER_TEMP/flatc/flatc"
+      - name: Build native library for independent live peer
+        run: cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi
+      - name: Verify negotiated FlatBuffers live peer
+        run: |
+          "$RUNNER_TEMP/flatbuffers-python/bin/python" tool/check_wamp_flatbuffers_live_peer.py \
+            --flatc "$RUNNER_TEMP/flatc/flatc" \
+            --native-library native/transport/target/debug/libct_ffi.so \
+            --output out/flatbuffers-live-peer
+      - name: Upload live peer evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: flatbuffers-live-peer
+          path: out/flatbuffers-live-peer
+          if-no-files-found: warn
 
   native-memory:
     name: Native Ownership GuardMalloc

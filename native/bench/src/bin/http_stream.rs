@@ -7438,6 +7438,41 @@ mod tests {
     }
 
     #[test]
+    fn serializer_matrix_compares_all_codecs_with_identical_workloads() {
+        let scenario = load_scenario(&format!(
+            "{}/scenarios/wamp_serializer_matrix.toml",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap();
+        assert_eq!(scenario.workloads.len(), 8);
+        for protocol in ["wamp_rawsocket_rpc", "wamp_websocket_rpc"] {
+            for serializer in ["json", "msgpack", "cbor", "flatbuffers"] {
+                let rows: Vec<_> = scenario
+                    .workloads
+                    .iter()
+                    .filter(|row| row.protocol == protocol && row.serializer == serializer)
+                    .collect();
+                assert_eq!(
+                    rows.len(),
+                    1,
+                    "missing or duplicate {protocol}/{serializer}"
+                );
+                let row = rows[0];
+                assert_eq!(row.path, "bench.rpc.echo");
+                assert_eq!(row.iterations, 80);
+                assert_eq!(row.concurrency, 8);
+                assert_eq!(row.in_flight_per_session, 4);
+                assert_eq!(row.request_bytes, 16384);
+                assert!(!row.secure_transport);
+                assert!(row.peer_serializer.is_none());
+                assert!(row.ppt_scheme.is_none());
+                let prepared = PreparedWorkload::from_config(row).unwrap();
+                assert_eq!(prepared.serializer, serializer);
+            }
+        }
+    }
+
+    #[test]
     fn prepared_workload_preserves_wamp_in_flight_setting() {
         let config = WorkloadConfig {
             name: "load".to_string(),

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:core' hide Error;
+import 'dart:core' as core show Error;
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -14,6 +16,8 @@ import 'package:test/test.dart';
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  _deferredSessionStateCases();
+  _deferredBindingContracts();
   test('malformed FlatBuffers frame fails as malformed input', () {
     expect(
       () => bindMessage(
@@ -2002,6 +2006,170 @@ void main() {
   });
 }
 
+void _deferredSessionStateCases() {
+  NativeMessageMetadata metadata() => NativeMessageMetadata(
+    messageCode: MessageTypes.codeInvocation,
+    primaryId: 71,
+    secondaryId: 81,
+    detailNumberA: 0,
+    detailNumberB: 0,
+    flags: NativeMessageMetadata.flagMetadataBind,
+    stringA: 'typed.read',
+    stringB: 'wamp',
+    stringC: 'flatbuffers',
+    stringD: 'aes256gcm',
+  );
+  for (final changeContext in [false, true]) {
+    test(
+      'new deferred Session view refreshes provider context=$changeContext',
+      () {
+        final firstKey = List<int>.filled(32, 7);
+        final secondKey = List<int>.filled(32, 9);
+        final encoder = WampFlatBuffersAes256GcmProvider.single(
+          keyId: 'first',
+          key: firstKey,
+        );
+        final ciphertext =
+            encoder
+                    .packPayload(
+                      [
+                        Uint8List.fromList([1, 2, 3]),
+                      ],
+                      null,
+                      PublishOptions(),
+                    )
+                    .single
+                as Uint8List;
+        final shared = WampFlatBuffersAes256GcmProvider(
+          keys: {'first': firstKey, 'second': secondKey},
+          keySelectionPolicy: (context, _) =>
+              context.realm == 'first' ? 'first' : 'second',
+        );
+        final meta = metadata();
+        final message = NativeSessionMessage.deferred(
+          serializer: NativeMessageSerializer.json,
+          metadata: meta,
+          wireMessage: () => NativeSessionMessage(
+            serializer: NativeMessageSerializer.json,
+            metadata: meta,
+            argsBytes: Uint8List.fromList(
+              utf8.encode(jsonEncode(['\u0000${base64Encode(ciphertext)}'])),
+            ),
+          ),
+        );
+        WampE2eeRuntimeContext context(String realm) => WampE2eeRuntimeContext(
+          direction: WampE2eeDirection.inbound,
+          messageType: WampE2eeMessageType.invocation,
+          realm: realm,
+        );
+        message.attachE2eeProvider(changeContext ? shared : encoder);
+        if (changeContext) message.attachE2eeRuntimeContext(context('first'));
+        final original = message.toLazyPayload();
+        if (changeContext) {
+          message.attachE2eeRuntimeContext(context('second'));
+        } else {
+          message.attachE2eeProvider(
+            WampFlatBuffersAes256GcmProvider.single(
+              keyId: 'second',
+              key: secondKey,
+            ),
+          );
+        }
+        final updated = message.toLazyPayload();
+        expect(
+          () => updated.arguments,
+          throwsA(isA<WampE2eeDecryptionException>()),
+        );
+        expect(original.arguments!.single, orderedEquals([1, 2, 3]));
+        expect(original.arguments!.single, same(original.arguments!.single));
+      },
+    );
+  }
+  test('deferred native wire loader rejects recursive wire access', () {
+    final meta = metadata();
+    late NativeSessionMessage message;
+    message = NativeSessionMessage.deferred(
+      serializer: NativeMessageSerializer.json,
+      metadata: meta,
+      wireMessage: () {
+        message.arguments;
+        return NativeSessionMessage(
+          serializer: NativeMessageSerializer.json,
+          metadata: meta,
+        );
+      },
+    );
+    expect(() => message.arguments, throwsStateError);
+    expect(() => message.materialize(), throwsStateError);
+  });
+  test('deferred native explicit decode loads the wire before unpacking', () {
+    final provider = WampFlatBuffersAes256GcmProvider.single(
+      keyId: 'typed',
+      key: List<int>.filled(32, 7),
+    );
+    final ciphertext =
+        provider
+                .packPayload(
+                  [
+                    Uint8List.fromList([1, 2, 3]),
+                  ],
+                  null,
+                  PublishOptions(),
+                )
+                .single
+            as Uint8List;
+    final meta = metadata();
+    final message = NativeSessionMessage.deferred(
+      serializer: NativeMessageSerializer.json,
+      metadata: meta,
+      wireMessage: () => NativeSessionMessage(
+        serializer: NativeMessageSerializer.json,
+        metadata: meta,
+        argsBytes: Uint8List.fromList(
+          utf8.encode(jsonEncode(['\u0000${base64Encode(ciphertext)}'])),
+        ),
+      ),
+    )..attachE2eeProvider(provider);
+    message.ensureDecodedPayloadView(
+      pptScheme: 'wamp',
+      pptSerializer: 'flatbuffers',
+      pptCipher: 'aes256gcm',
+      pptKeyId: 'typed',
+    );
+    expect(message.arguments!.single, orderedEquals([1, 2, 3]));
+    expect(message.hasDecodedPptPayload, isTrue);
+    expect(message.wireArguments!.single, orderedEquals(ciphertext));
+  });
+  test('deferred native wire loader retains one terminal error and stack', () {
+    var loads = 0;
+    final failure = StateError('wire load rejected');
+    final origin = StackTrace.fromString('native-wire-origin');
+    final message = NativeSessionMessage.deferred(
+      serializer: NativeMessageSerializer.json,
+      metadata: metadata(),
+      wireMessage: () {
+        loads++;
+        core.Error.throwWithStackTrace(failure, origin);
+      },
+    );
+    for (final get in <Object? Function()>[
+      () => message.arguments,
+      () => message.argumentsKeywords,
+      () => message.transparentBinaryPayload,
+      () => message.materialize(),
+    ]) {
+      try {
+        get();
+        fail('Expected cached wire failure');
+      } catch (error, stack) {
+        expect(error, same(failure));
+        expect(stack.toString(), origin.toString());
+      }
+    }
+    expect(loads, 1);
+  });
+}
+
 void _optionalControlFieldContracts() {
   for (final serializer in [
     NativeMessageSerializer.json,
@@ -2836,4 +3004,274 @@ NativeMessageMetadata _metadata({
     stringD: stringD,
     stringE: stringE,
   );
+}
+
+NativeMessageMetadata _typedBindingMetadata(
+  int code, {
+  bool bind = true,
+  String scheme = 'wamp',
+  String serializer = 'flatbuffers',
+  String cipher = 'aes256gcm',
+}) => NativeMessageMetadata(
+  messageCode: code,
+  primaryId: 71,
+  secondaryId: 81,
+  detailNumberA: 0,
+  detailNumberB: 0,
+  flags: bind ? NativeMessageMetadata.flagMetadataBind : 0,
+  stringA: code == MessageTypes.codeResult ? scheme : 'typed.read',
+  stringB: code == MessageTypes.codeResult ? serializer : scheme,
+  stringC: code == MessageTypes.codeResult ? cipher : serializer,
+  stringD: code == MessageTypes.codeResult ? 'typed-key' : cipher,
+  stringE: code == MessageTypes.codeResult ? null : 'typed-key',
+);
+
+Uint8List _bindingCipherFragment(Uint8List ciphertext) => Uint8List.fromList(
+  utf8.encode(jsonEncode(['\u0000${base64Encode(ciphertext)}'])),
+);
+
+class _BindingRuntimeProvider extends WampE2eeProvider
+    implements WampE2eeRuntimePayloadProvider {
+  _BindingRuntimeProvider({this.runtimeSupported = true});
+
+  bool runtimeSupported;
+  final inputs = <List<dynamic>?>[];
+  final contexts = <WampE2eeRuntimeContext?>[];
+  final fields = <(String?, String?, String?, String?)>[];
+  final result = Uint8List.fromList([42]).asUnmodifiableView();
+
+  @override
+  bool canUnpackFromRuntimeContext(WampE2eeRuntimeContext? context) =>
+      runtimeSupported && context?.payloadAnchor != null;
+
+  @override
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) => throw UnsupportedError('The binding fixture only receives payloads');
+
+  @override
+  E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    inputs.add(arguments);
+    contexts.add(runtimeContext);
+    fields.add((
+      options.pptScheme,
+      options.pptSerializer,
+      options.pptCipher,
+      options.pptKeyId,
+    ));
+    return (arguments: [result], argumentsKeywords: null);
+  }
+}
+
+void _deferredBindingContracts() {
+  for (final code in [
+    MessageTypes.codeResult,
+    MessageTypes.codeEvent,
+    MessageTypes.codeInvocation,
+  ]) {
+    test(
+      'deferred binding code=$code rejects unsupported metadata immediately',
+      () {
+        for (final meta in [
+          _typedBindingMetadata(code, bind: false),
+          _typedBindingMetadata(MessageTypes.codeCall),
+          _typedBindingMetadata(code, scheme: 'custom'),
+          _typedBindingMetadata(code, serializer: 'cbor'),
+          _typedBindingMetadata(code, cipher: 'aes128'),
+        ]) {
+          expect(isNativeTypedE2eeSessionMetadata(meta), isFalse);
+          expect(
+            () => NativeSessionMessage.deferred(
+              serializer: NativeMessageSerializer.json,
+              metadata: meta,
+              wireMessage: () =>
+                  throw StateError('Invalid metadata exported wire'),
+            ),
+            throwsArgumentError,
+          );
+        }
+      },
+    );
+    for (final cipher in ['aes256gcm', 'xsalsa20poly1305']) {
+      for (final runtimeSupported in [true, false]) {
+        test(
+          'deferred binding code=$code $cipher runtime=$runtimeSupported memoizes application values',
+          () {
+            final meta = _typedBindingMetadata(code, cipher: cipher);
+            expect(isNativeTypedE2eeSessionMetadata(meta), isTrue);
+            final ciphertext = Uint8List.fromList([1, 2, 3]);
+            final provider = _BindingRuntimeProvider(
+              runtimeSupported: runtimeSupported,
+            );
+            final context = WampE2eeRuntimeContext(
+              direction: WampE2eeDirection.inbound,
+              messageType: code == MessageTypes.codeResult
+                  ? WampE2eeMessageType.result
+                  : code == MessageTypes.codeEvent
+                  ? WampE2eeMessageType.event
+                  : WampE2eeMessageType.invocation,
+              realm: 'binding.realm',
+              payloadAnchor: Object(),
+            );
+            var loads = 0;
+            late NativeSessionMessage message;
+            expect(() {
+              message = NativeSessionMessage.deferred(
+                serializer: NativeMessageSerializer.json,
+                metadata: meta,
+                wireMessage: () {
+                  loads++;
+                  return NativeSessionMessage(
+                    serializer: NativeMessageSerializer.json,
+                    metadata: meta,
+                    argsBytes: _bindingCipherFragment(ciphertext),
+                  );
+                },
+              );
+            }, returnsNormally);
+            message
+              ..attachE2eeProvider(provider)
+              ..attachE2eeRuntimeContext(context);
+            final anchor = Object();
+            final view = message.toLazyPayload(anchor: anchor);
+            expect(view.anchor, same(anchor));
+            expect(message.toLazyPayload().anchor, same(message));
+            expect(message.id, code);
+            expect(message.metadata, same(meta));
+            expect(message.hasModifiedNativeWirePayload, isFalse);
+            expect(loads, 0);
+            expect(provider.inputs, isEmpty);
+            expect(view.arguments!.single, same(provider.result));
+            expect(view.argumentsKeywords, isNull);
+            expect(
+              provider.inputs,
+              runtimeSupported
+                  ? [null]
+                  : [
+                      [ciphertext],
+                    ],
+            );
+            expect(provider.fields, [
+              ('wamp', 'flatbuffers', cipher, 'typed-key'),
+            ]);
+            expect(provider.contexts, [same(context)]);
+            expect(loads, runtimeSupported ? 0 : 1);
+            message.attachE2eeProvider(provider);
+            message.attachE2eeRuntimeContext(context);
+            expect(
+              message.toLazyPayload().arguments!.single,
+              same(provider.result),
+            );
+            expect(provider.inputs, hasLength(1));
+            expect(loads, runtimeSupported ? 0 : 1);
+          },
+        );
+      }
+    }
+  }
+
+  for (final hadContext in [false, true]) {
+    for (final operation in ['arguments', 'encoded', 'restore', 'retain']) {
+      test(
+        'deferred binding $operation replaces wire without reusing its native anchor context=$hadContext',
+        () {
+          final meta = _typedBindingMetadata(MessageTypes.codeInvocation);
+          final provider = _BindingRuntimeProvider();
+          final oldCiphertext = Uint8List.fromList([1, 2, 3]);
+          final replacement = Uint8List.fromList([7, 8, 9]);
+          var loads = 0;
+          final message = NativeSessionMessage.deferred(
+            serializer: NativeMessageSerializer.json,
+            metadata: meta,
+            wireMessage: () {
+              loads++;
+              return NativeSessionMessage(
+                serializer: NativeMessageSerializer.json,
+                metadata: meta,
+                argsBytes: _bindingCipherFragment(oldCiphertext),
+              );
+            },
+          )..attachE2eeProvider(provider);
+          if (hadContext) {
+            message.attachE2eeRuntimeContext(
+              WampE2eeRuntimeContext(
+                direction: WampE2eeDirection.inbound,
+                messageType: WampE2eeMessageType.invocation,
+                realm: 'existing',
+                payloadAnchor: Object(),
+              ),
+            );
+          }
+          final originalView = message.toLazyPayload();
+          expect(provider.inputs, isEmpty);
+          final replacementContext = WampE2eeRuntimeContext(
+            direction: WampE2eeDirection.inbound,
+            messageType: WampE2eeMessageType.invocation,
+            realm: 'replacement',
+            payloadAnchor: Object(),
+          );
+          final replacementView = LazyMessagePayload.materialized(
+            arguments: [replacement],
+            e2eeProvider: provider,
+            e2eeRuntimeContext: replacementContext,
+          );
+          switch (operation) {
+            case 'arguments':
+              message.arguments = [replacement];
+            case 'encoded':
+              message.setLazyPayload(
+                argumentsBytes: Uint8List.fromList([0]),
+                argumentsDecoder: (_) => [replacement],
+              );
+            case 'restore':
+              message.restoreLazyPayload(replacementView);
+            case 'retain':
+              message.retainLazyPayload(replacementView);
+          }
+          expect(loads, 1);
+          expect(message.hasModifiedNativeWirePayload, isTrue);
+          expect(message.toLazyPayload().arguments, [replacement]);
+          expect(
+            message.toLazyPayload().e2eeRuntimeContext?.payloadAnchor,
+            isNull,
+          );
+          expect(originalView.arguments!.single, same(provider.result));
+          expect(provider.inputs, [
+            [replacement],
+          ]);
+          expect(provider.contexts, hasLength(1));
+          expect(provider.contexts.single?.payloadAnchor, isNull);
+          message.attachE2eeRuntimeContext(replacementContext);
+          expect(message.e2eeRuntimeContext!.realm, 'replacement');
+          expect(message.e2eeRuntimeContext!.payloadAnchor, isNull);
+        },
+      );
+    }
+  }
+
+  test('ordinary binding keeps its wire payload and native anchor', () {
+    final meta = _typedBindingMetadata(MessageTypes.codeInvocation);
+    final ciphertext = Uint8List.fromList([1, 2, 3]);
+    final context = WampE2eeRuntimeContext(
+      direction: WampE2eeDirection.inbound,
+      messageType: WampE2eeMessageType.invocation,
+      payloadAnchor: Object(),
+    );
+    final message = NativeSessionMessage(
+      serializer: NativeMessageSerializer.json,
+      metadata: meta,
+      argsBytes: _bindingCipherFragment(ciphertext),
+    )..attachE2eeRuntimeContext(context);
+    expect(message.hasModifiedNativeWirePayload, isFalse);
+    expect(message.toLazyPayload().arguments, [ciphertext]);
+    expect(message.e2eeRuntimeContext, same(context));
+    expect(message.toLazyPayload().hasEncodedArguments, isTrue);
+  });
 }

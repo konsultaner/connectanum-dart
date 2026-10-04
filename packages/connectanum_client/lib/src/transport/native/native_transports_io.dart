@@ -103,6 +103,23 @@ abstract class _NativeTransportBase extends AbstractTransport
   bool _goodbyeReceived = false;
   flatbuffers.FlatBuffersSessionProfile? _flatBuffersProfile;
 
+  bool _consumeTypedE2eePayloads = false;
+
+  /// Allows lazy Session consumers to decrypt typed native E2EE payloads before
+  /// ciphertext export. Set this before opening the transport. An accepted
+  /// consuming decrypt invalidates unexported wire views, including on failure.
+  /// Ordinary wire access exports immutable storage and keeps the copied fallback.
+  bool get consumeTypedE2eePayloads => _consumeTypedE2eePayloads;
+
+  set consumeTypedE2eePayloads(bool value) {
+    if (_opening != null || _connectionId != null) {
+      throw StateError(
+        'Set typed E2EE consumption before opening the transport',
+      );
+    }
+    _consumeTypedE2eePayloads = value;
+  }
+
   ({flatbuffers.FlatBuffersSessionProfile profile, AbstractMessage message})?
   _prepareEncodedSend(NativeOwnedBuffer buffer) {
     final profile = _flatBuffersProfile;
@@ -380,8 +397,11 @@ abstract class _NativeTransportBase extends AbstractTransport
           }
           NativeIncomingMessage? incoming;
           try {
-            incoming = _runtime.materialize(handle);
-            var message = incoming.message;
+            incoming = _runtime.materialize(
+              handle,
+              consumeTypedE2eePayloads: _consumeTypedE2eePayloads,
+            );
+            var message = incoming.sessionMessage;
             if (_flatBuffersProfile case final profile?) {
               // Bootstrap and GOODBYE need their concrete types for the phase
               // gate. Established application traffic can retain native views.

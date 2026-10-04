@@ -3,10 +3,12 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/native_message_bytes.dart';
 import 'package:connectanum_core/connectanum_core.dart'
     show AbstractMessageWithPayload;
 import 'package:ffi/ffi.dart';
+import 'package:meta/meta.dart';
 import 'package:connectanum_client/native_buffers.dart';
 
 import 'external_byte_buffer.dart';
@@ -108,6 +110,11 @@ class NativeIncomingMessage {
   /// Materializes all payload views once. Deferred, unexported views cannot be
   /// accessed after release or consuming decrypt; exported views remain valid.
   Object get message => _materializedPayload.message;
+  Object? _sessionMessage;
+
+  /// Routing-only wrapper for the opt-in typed E2EE Session receive path.
+  /// The ordinary [message] getter retains its original wire-export contract.
+  Object get sessionMessage => _sessionMessage ?? message;
   Uint8List get bytes => _materializedPayload.bytes;
   Uint8List? get argumentsBytes => _materializedPayload.argumentsBytes;
   Uint8List? get argumentsKeywordsBytes =>
@@ -263,6 +270,16 @@ class NativeClientRuntime {
     reference.released = true;
     runtime._bindings.ctExternalByteBufferFree(reference.owner);
     return true;
+  }
+
+  /// Allocation address for ownership identity assertions, without exporting or
+  /// retaining another native reference. Released and Dart-owned views return null.
+  @visibleForTesting
+  static int? debugExternalByteAddress(Uint8List bytes) {
+    final reference = _nativeExternalBytes[bytes];
+    return reference == null || reference.released
+        ? null
+        : reference.pointer.address;
   }
 
   Uint8List _ownExternalBytes(
@@ -605,23 +622,36 @@ class NativeClientRuntime {
           'Native E2EE payload must not contain keyword arguments',
         );
       }
-      var bytes = incoming.singleBinaryArgumentBytes;
-      if (bytes == null) {
+      var binaryLength = incoming.singleBinaryArgumentBytes?.length;
+      if (binaryLength == null) {
         final message = incoming.message;
-        final arguments = message is AbstractMessageWithPayload
-            ? message.arguments
-            : null;
-        if (arguments?.length == 1 && arguments!.single is Uint8List) {
-          bytes = arguments.single as Uint8List;
+        if (message is NativeSessionMessage &&
+            message.serializer == NativeMessageSerializer.cbor) {
+          // CBOR's object conversion returns Uint8Buffer for byte strings.
+          // Preserve the wire kind so numeric arrays are not accepted as bytes.
+          final encoded = incoming.argumentsBytes;
+          final arguments = encoded == null ? null : cbor.cborDecode(encoded);
+          if (arguments is cbor.CborList &&
+              arguments.length == 1 &&
+              arguments.single is cbor.CborBytes) {
+            binaryLength = (arguments.single as cbor.CborBytes).bytes.length;
+          }
+        } else {
+          final arguments = message is AbstractMessageWithPayload
+              ? message.arguments
+              : null;
+          if (arguments?.length == 1 && arguments!.single is Uint8List) {
+            binaryLength = (arguments.single as Uint8List).length;
+          }
         }
       }
-      if (bytes == null) {
+      if (binaryLength == null) {
         _throwForError(
           NativeTransportErrorCode.invalidArgument,
           'Native E2EE payload must be a single binary argument',
         );
       }
-      length = bytes.length;
+      length = binaryLength;
     }
     _checkTypedCiphertextLength(length, minimumLength, maximumLength);
   }
@@ -1509,10 +1539,14 @@ class NativeClientRuntime {
   NativeIncomingMessage materialize(
     int handle, {
     bool deferPayloadExports = false,
+    bool consumeTypedE2eePayloads = false,
   }) {
     ensureStarted();
     try {
-      if (deferPayloadExports) {
+      final deferExports = deferPayloadExports || consumeTypedE2eePayloads;
+      NativeMessageMetadata? sessionMetadata;
+      NativeMessageSerializer? sessionSerializer;
+      if (deferExports) {
         final info = calloc<CtMessageInfo>();
         try {
           final result = _bindings.ctMessagePeek(handle, info);
@@ -1523,6 +1557,20 @@ class NativeClientRuntime {
               NativeMessageSerializer.flatbuffers) {
             _messageBytes.requireFlatbuffersBinding();
           }
+          if (consumeTypedE2eePayloads) {
+            sessionSerializer = NativeMessageSerializer.fromId(
+              info.ref.serializer,
+            );
+            final metadata = _metadataFromFfi(
+              info.ref,
+              handle,
+              _messageBytes,
+              readTransparentPayload: false,
+            );
+            if (isNativeTypedE2eeSessionMetadata(metadata)) {
+              sessionMetadata = metadata;
+            }
+          }
         } finally {
           calloc.free(info);
         }
@@ -1532,11 +1580,20 @@ class NativeClientRuntime {
         runtimeIdentity: this,
         bindings: _bindings,
         messageFinalizer: _messageFinalizer,
-        payload: deferPayloadExports ? null : _readMessagePayload(handle),
-        materializePayload: deferPayloadExports
+        payload: deferExports ? null : _readMessagePayload(handle),
+        materializePayload: deferExports
             ? () => _readMessagePayload(handle)
             : null,
       );
+      if (sessionMetadata != null) {
+        final sessionMessage = NativeSessionMessage.deferred(
+          serializer: sessionSerializer!,
+          metadata: sessionMetadata,
+          wireMessage: () => incoming.message as NativeSessionMessage,
+        );
+        attachSessionMessageAnchor(sessionMessage, incoming);
+        incoming._sessionMessage = sessionMessage;
+      }
       final token = _MessageFinalizerToken(_bindings, handle);
       _messageFinalizer.attach(incoming, token, detach: incoming);
       return incoming;
@@ -1846,12 +1903,14 @@ class NativeClientRuntime {
 NativeMessageMetadata _metadataFromFfi(
   CtMessageInfo info,
   int handle,
-  NativeMessageBytes bytes,
-) {
+  NativeMessageBytes bytes, {
+  bool readTransparentPayload = true,
+}) {
   final flags = info.flags;
   final metadataBind = (flags & NativeMessageMetadata.flagMetadataBind) != 0;
   final transparent =
-      (flags & NativeMessageMetadata.flagTransparentPayload) == 0
+      !readTransparentPayload ||
+          (flags & NativeMessageMetadata.flagTransparentPayload) == 0
       ? null
       : bytes.read(
           handle,

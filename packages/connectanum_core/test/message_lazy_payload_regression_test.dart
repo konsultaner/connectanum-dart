@@ -1,10 +1,13 @@
 import 'dart:collection';
+import 'dart:core' hide Error;
+import 'dart:core' as core show Error;
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:test/test.dart';
 
 void main() {
+  _deferredMaterializedCases();
   for (final hasCustom in [false, true]) {
     test('event views preserve metadata and anchors custom=$hasCustom', () {
       final event = Event(
@@ -1390,4 +1393,238 @@ WampE2eeProvider _provider({bool aes = false}) {
   return aes
       ? WampCborAes256GcmProvider.single(keyId: 'key', key: key)
       : WampCborXsalsa20Poly1305Provider.single(keyId: 'key', key: key);
+}
+
+void _deferredMaterializedCases() {
+  for (final args in <List<dynamic>?>[
+    null,
+    [],
+    ['value'],
+  ]) {
+    for (final keywords in <Map<String, dynamic>?>[
+      null,
+      {},
+      {'key': 7},
+    ]) {
+      for (final keywordsFirst in [false, true]) {
+        test(
+          'deferred values share one evaluation $args $keywords keywordsFirst=$keywordsFirst',
+          () {
+            var loads = 0;
+            final owner = Object();
+            final provider = _provider();
+            final root = LazyMessagePayload.deferred(
+              loader: () {
+                loads++;
+                return (arguments: args, argumentsKeywords: keywords);
+              },
+              encoding: LazyPayloadEncoding.flatbuffers,
+              anchor: owner,
+            );
+            final view = root
+                .withAnchor(Object())
+                .withE2eeProvider(provider)
+                .withE2eeRuntimeContext(_context)
+                .withAnchor(null);
+            expect(loads, 0);
+            expect(view.anchor, isNull);
+            expect(view.e2eeProvider, same(provider));
+            expect(view.e2eeRuntimeContext, same(_context));
+            expect(view.encoding, LazyPayloadEncoding.flatbuffers);
+            expect(view.pptDecoded, isTrue);
+            expect(view.hasEncodedArguments, isFalse);
+            expect(view.hasEncodedArgumentsKeywords, isFalse);
+            expect(view.hasPackedPayloadBytes, isFalse);
+            expect(view.argumentsBytes, isNull);
+            expect(view.argumentsKeywordsBytes, isNull);
+            expect(view.packedPayloadBytes, isNull);
+            expect(view.transparentBinaryPayload, isNull);
+            expect(loads, 0);
+            if (keywordsFirst) {
+              expect(view.argumentsKeywords, same(keywords));
+            } else {
+              expect(view.arguments, same(args));
+            }
+            for (final current in [root, view, view.withAnchor(owner)]) {
+              expect(current.arguments, same(args));
+              expect(current.argumentsKeywords, same(keywords));
+            }
+            expect(loads, 1);
+          },
+        );
+      }
+    }
+  }
+
+  for (final keywordsFirst in [false, true]) {
+    test(
+      'deferred failure and stack are terminal keywordsFirst=$keywordsFirst',
+      () {
+        var loads = 0;
+        final failure = StateError('native consume failed');
+        final origin = StackTrace.fromString('deferred-loader-origin');
+        final root = LazyMessagePayload.deferred(
+          loader: () {
+            loads++;
+            core.Error.throwWithStackTrace(failure, origin);
+          },
+        );
+        final view = root
+            .withAnchor(Object())
+            .withE2eeProvider(_provider())
+            .withE2eeRuntimeContext(_context);
+        expect(loads, 0);
+        final getters = <Object? Function()>[
+          if (keywordsFirst) () => view.argumentsKeywords,
+          () => root.arguments,
+          () => view.arguments,
+          () => root.argumentsKeywords,
+          () => view.toOwned(),
+        ];
+        for (final get in getters) {
+          try {
+            get();
+            fail('Expected cached loader failure');
+          } catch (error, stack) {
+            expect(error, same(failure));
+            expect(stack.toString(), origin.toString());
+          }
+        }
+        expect(loads, 1);
+      },
+    );
+  }
+
+  test('uncaught recursive deferred read is cached across views', () {
+    var loads = 0;
+    late LazyMessagePayload root;
+    late LazyMessagePayload alias;
+    root = LazyMessagePayload.deferred(
+      loader: () {
+        loads++;
+        expect(loads, 1, reason: 'recursive loader must not run twice');
+        return (arguments: alias.arguments, argumentsKeywords: null);
+      },
+    );
+    alias = root.withAnchor(Object());
+    Object? failure;
+    try {
+      root.arguments;
+      fail('Expected recursive read rejection');
+    } catch (error) {
+      failure = error;
+      expect(error, isA<StateError>());
+      expect(error.toString(), contains('Recursive deferred payload access'));
+    }
+    expect(() => alias.argumentsKeywords, throwsA(same(failure)));
+    expect(() => root.arguments, throwsA(same(failure)));
+    expect(loads, 1);
+  });
+
+  test('loader can catch a recursive read and finish once', () {
+    var loads = 0;
+    late LazyMessagePayload root;
+    root = LazyMessagePayload.deferred(
+      loader: () {
+        loads++;
+        expect(loads, 1, reason: 'recursive loader must not run twice');
+        expect(() => root.argumentsKeywords, throwsStateError);
+        return (arguments: ['complete'], argumentsKeywords: {'ready': true});
+      },
+    );
+    expect(root.arguments, ['complete']);
+    expect(root.withAnchor(null).argumentsKeywords, {'ready': true});
+    expect(loads, 1);
+  });
+
+  test('deferred toOwned loads and copies aliased cyclic values', () {
+    final boundedArguments = <dynamic>[];
+    final boundedKeywords = _TraversalBudgetMap();
+    boundedArguments.add(boundedKeywords);
+    boundedKeywords['args'] = boundedArguments;
+    final boundedCopy = LazyMessagePayload.deferred(
+      loader: () => (
+        arguments: boundedArguments,
+        argumentsKeywords: boundedKeywords,
+      ),
+    ).toOwned();
+    expect(boundedCopy.arguments!.single, same(boundedCopy.argumentsKeywords));
+    expect(boundedCopy.argumentsKeywords!['args'], same(boundedCopy.arguments));
+
+    var loads = 0;
+    final bytes = Uint8List.fromList([7, 8]);
+    final cyclic = <dynamic>[bytes];
+    cyclic.add(cyclic);
+    final root = LazyMessagePayload.deferred(
+      loader: () {
+        loads++;
+        return (arguments: [cyclic], argumentsKeywords: {'same': bytes});
+      },
+      anchor: Object(),
+    );
+    expect(loads, 0);
+    final owned = root.withAnchor(null).toOwned();
+    expect(loads, 1);
+    expect(owned.anchor, isNull);
+    final copied = owned.arguments!.single as List<dynamic>;
+    final copiedBytes = copied[0] as Uint8List;
+    expect(copied[1], same(copied));
+    expect(copiedBytes, isNot(same(bytes)));
+    expect(owned.argumentsKeywords!['same'], same(copiedBytes));
+    bytes[0] = 99;
+    expect(copiedBytes, [7, 8]);
+    copiedBytes[1] = 100;
+    expect(bytes, [99, 8]);
+    expect(root.arguments!.single, same(cyclic));
+    expect(owned.withAnchor(Object()).arguments!.single, same(copied));
+    expect(loads, 1);
+  });
+
+  for (final mutation in [
+    'read-args',
+    'read-keywords',
+    'replace-args',
+    'replace-keywords',
+  ]) {
+    test(
+      'restored deferred message preserves lazy values mutation=$mutation',
+      () {
+        var loads = 0;
+        final args = <dynamic>['original'];
+        final keywords = <String, dynamic>{'original': true};
+        final payload = LazyMessagePayload.deferred(
+          loader: () {
+            loads++;
+            return (arguments: args, argumentsKeywords: keywords);
+          },
+        );
+        final message = Result(1, ResultDetails());
+        message.restoreLazyPayload(payload);
+        final alias = message.toLazyPayload().withAnchor(null);
+        expect(loads, 0);
+        expect(message.hasDecodedPptPayload, isTrue);
+        switch (mutation) {
+          case 'read-args':
+            expect(message.arguments, same(args));
+          case 'read-keywords':
+            expect(message.argumentsKeywords, same(keywords));
+          case 'replace-args':
+            message.arguments = ['changed'];
+            expect(message.arguments, ['changed']);
+            expect(message.argumentsKeywords, same(keywords));
+          case 'replace-keywords':
+            message.argumentsKeywords = {'changed': true};
+            expect(message.argumentsKeywords, {'changed': true});
+            expect(message.arguments, same(args));
+        }
+        expect(alias.arguments, same(args));
+        expect(alias.argumentsKeywords, same(keywords));
+        final currentOwned = message.toLazyPayload().toOwned();
+        expect(currentOwned.arguments, message.arguments);
+        expect(currentOwned.argumentsKeywords, message.argumentsKeywords);
+        expect(currentOwned.anchor, isNull);
+        expect(loads, 1);
+      },
+    );
+  }
 }

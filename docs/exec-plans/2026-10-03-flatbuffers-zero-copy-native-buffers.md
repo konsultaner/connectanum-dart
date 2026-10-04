@@ -4,7 +4,7 @@ Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/flatbuffers-zero-copy` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
-released master `3bac4cf5` is integrated. Session checkpoint: `c37c04ee`.
+released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
 ## Objective and scope
@@ -97,29 +97,68 @@ original/logical browser failures remain failed evidence.
 
 ## Immediate work
 
-1. Verify the new native-anchor preflight checkpoint's hosted CI and production
-   artifacts. Canonical fast/full checks and completed source/native/log audit
-   pass on the unchanged 1,453-file snapshot `508a2c0c`. Chrome WASM passes 4,558
-   core and 2,800 client cases (20 explicit native-only skips); VM native suites
-   have no unavailable-library skips. The eight-case fail-first regression proves
-   policy invocation before empty-ciphertext rejection. Optional non-consuming
-   shape/length inspection repairs it; canonical JSON is checked without decoding,
-   binary readers borrow storage, and older ABI materializes safely. Focused
-   verification passes 224 new-library VM cases and 143 older-ABI runtime cases.
-   GuardMalloc passes 58 cases with audited source/executable/loader/count/log and
-   cleanup evidence. A separate eight-case cached-boundary regression is repaired.
-   Preserve the wrong-exception compilation failure and the mistaken segmented
-   fixture assertion separately from successful evidence. Core source is unchanged;
-   its complete mutation evidence does not need rerunning for this IO repair.
-2. Verify exact pushed-head CI, including hosted browser coverage and memory
-   tooling. c37c04ee contains the Session/coverage repair and is queued/running
-   without observed failures. Hosted browser coverage and 57-case/five-control
-   GuardMalloc pass, with uploaded source/LCOV/loader/count/log evidence audited.
-   Other CI jobs remain pending. All five c37 dry-run bundles pass checksum/manifest
-   and source/workflow provenance verification. Its Apple Silicon production
-   library passes 201 VM native/Session cases and the standalone construction
-   consumer with exact c37 sources; four other binaries are verified but not
-   executed. Publication is skipped. These results do not accept the new repair.
+1. Complete fresh canonical fast/verify and the browser/binding mutation gates.
+   Canonical snapshot `12c56f17` passes fast/full verification; all 1,454 product
+   files and protected native/source/log hashes pass independent completed audit.
+   Prefix: `session-deferred-tooling-repaired-canonical-*` under `/tmp`.
+   After applying the new binding assertions and ordinary benchmark rows, fresh
+   fast/full verification runs under `session-deferred-contracts-canonical-*`
+   and full Chrome JS coverage under `session-deferred-browser-coverage-*`.
+   The core VM gate
+   passes all 356 mutations at 95.35714%: 267 assertion-backed kills, 21 survivors,
+   68 compile errors, no timeouts or new exclusions. Regeneration, classifications,
+   selected inputs/native/runner/configuration and 358 logs pass independent audit.
+   Browser also passes all 356 mutations with the same counts/score; selected
+   inputs and every regenerated mutation/classification pass independent audit.
+   Binding completes all 603 but fails at 89.43089% assertion coverage: 440
+   assertion-backed detections, 16 test-error-only detections, 36 survivors and
+   111 compile errors. Preserve that independently audited failure. Isolated
+   24-case contract additions pass a 1,880-case baseline/restored control and
+   detect 20 of 35 observed survivors with assertions; one further detection is
+   test-error-only and 14 survive. Positive metadata/construction assertions
+   also have a passing corrected baseline. A fresh complete 603 campaign has completed
+   under `/tmp/connectanum-flatbuffers-deferred-binding-contracts-*`; those test
+   additions are now applied to the feature tree after the preceding canonical
+   verification passed; the applied file matches the isolated campaign's frozen
+   test hash. No new exclusions or widened deadlines are used. The sole Python
+   expected-inventory test edit is explicitly recorded; preserve any whole-product
+   wrapper rejection separately from the selected-input result. Initial fast
+   analysis and stale-equivalence failures are
+   preserved; repaired runs use the unchanged gates/deadlines and the same eight
+   source-verified exclusions. Prefix: `session-deferred-loop-bound-*` under `/tmp`.
+   Earlier core-lazy evidence predating this change cannot accept the candidate.
+   Focused checks pass 2,227 current-library VM runtime/binding cases,
+   371 older-ABI runtime cases, 115 core cases per VM/JS/WASM platform and 228
+   production-library Session cases. The preceding repaired fast run fails the
+   missing-part support-inventory control, now fixed in both native targets. Its
+   lazy campaigns have three VM timeouts and were stopped as incomplete/failed.
+   A subsequent exact expected-list assertion is also updated to include the new
+   part; both scope controls pass. Six exact assertion-backed VM/JS mutant kills
+   and four restored/baseline controls independently audit the bounded test-oracle repair. Production source
+   and exclusions are unchanged by that repair. Check current browser coverage
+   Fresh browser coverage passes all 4,595 core and 2,820 client cases plus 20
+   native-only skips at unchanged floors. Independent audit verifies the frozen
+   1,454 product bytes, native/log hashes and all 99 coverage artifacts, and
+   regenerates the same summary. Prefix: `session-deferred-browser-coverage-*`.
+   The complete binding campaign passes 603 mutations at 96.13821% assertion
+   coverage: 477 detections (473 assertion-backed), 111 compile errors and 15
+   survivors. Independent audit regenerates all candidates, verifies frozen
+   staged inputs and matching selected feature inputs, hashes all 605 logs, and
+   verifies both 1,880-case controls with no equivalents or changed deadlines.
+   Prefix: `deferred-binding-contracts-client-message-binding-vm-*`.
+   Canonical fast passes; full verify fails nine two-second benchmark worker
+   readiness checks. The failed execution is independently audited and retained.
+   All 36 focused lifecycle cases pass unchanged; exact-setting full benchmark
+   reproduction passes all 1,366 cases. The original failure remains preserved
+   and its cause is unestablished. No readiness budget or lifecycle implementation is
+   changed, and full canonical acceptance remains open.
+2. Finish exact e6fb hosted CI acceptance. Five new production bundles already
+   pass checksum/manifest/source/workflow attestation checks; exact e6fb Apple
+   Silicon sources execute 209 VM native/Session cases and the standalone
+   construction consumer. The other four binaries are verified, not executed.
+   Oracle absence has actual positive controls; typed consume and inspection are
+   present. Publication is skipped. Full CI 37223117459 last had 18 successes and
+   21 pending jobs. This evidence does not accept the new Dart candidate.
 3. Continue the remaining implementation and issue acceptance below. Keep all ten
    issues open until their criteria have been checked; no performance parity or
    all-platform execution is established.
@@ -131,12 +170,16 @@ in project state and the proof artifacts; they are not relabeled as passes.
 
 ## Remaining implementation and acceptance
 
-Accept the candidate's runtime-payload capability and key-ordering fix, then select
-native decryption before opaque payload exports. Eager exports keep native references
-and force the safe copied AES fallback. Opt-in deferred materialization alone is
-insufficient for transport integration: reading `incoming.message` exports all
-parts. Preserve already exported immutable data and forwarding semantics. Existing
-malformed-payload and context-free ordering regressions remain retained evidence.
+The candidate now selects typed native decryption before payload exports in
+opt-in RawSocket/WebSocket Session receives. Metadata wrappers and a generic
+deferred application view preserve lazy values/errors and explicit owned copies.
+Default transport forwarding stays eager. Callback mutation, provider/context
+replacement, recursive wire loading and classic decoding have fail-first repairs.
+The expanded older-ABI matrix also repairs CBOR byte-string shape handling while
+rejecting numeric arrays before policy. Complete verification and coverage remain
+pending. RawSocket AES pointer reuse is observed for the binary serializers;
+WebSocket exercised copied fallbacks. Existing malformed-payload and context-free
+ordering regressions remain retained evidence.
 
 Connect native-owned payload construction through encryption and submission.
 Generic crypto still copies input into native storage and output back to Dart.
@@ -159,6 +202,14 @@ The proposed [performance contract](../flatbuffers_performance_acceptance.md)
 records the comparison groups, primary rows, repetition/noise rules and evidence
 requirements before measurement; runner policy and CPU/memory budgets remain open.
 
+The existing ordinary-value 16 KiB serializer diagnostic matrix now contains
+FlatBuffers rows for both transports with the same settings as its binary
+baselines. A native orchestrator regression proves completeness and serializer
+preservation (six-row fail-first, eight-row pass). No performance measurements
+are accepted from this change. The current typed-provider prototype remains
+incomplete: a typed application schema and worker/iteration validation must
+precede typed workloads, especially pub/sub where keyword containers are invalid.
+
 Finish public consumer and adapter-boundary docs, then audit each issue before
 closing issues and the milestone. Release publication and merging master remain
 outside authorization.
@@ -177,3 +228,46 @@ The [implementation journal](../history/2026-10-04-flatbuffers-implementation-jo
 and [prior state](../history/2026-10-04-project-state-before-flatbuffers-consolidation.md)
 remain byte-preserved historical evidence. Retained failed/superseded attempts and
 freshly corrected compiler/symbol/platform attribution are recorded in current state.
+
+## Live peer follow-up (isolated candidate)
+
+The independent upstream-only live peer fails at HELLO as expected by the strict
+metadata-v1 profile. No public upstream-subset mode exists; do not infer support
+from generated upstream readers. A separate generated-schema Python peer checks
+explicit CHALLENGE and WELCOME acknowledgements and rejects missing/false offers.
+It catches a shared cancellation URI defect and passes both cleartext transports
+with the staged correction, including the exact downloaded production library.
+Keep the legacy failure-control report and the passing 48-case existing regression
+control. The reviewed checker, CI integration and cancellation correction are now applied
+after the unchanged-setting full benchmark reproduction passed. Actual feature
+production-library peer acceptance independently audits all 1,458 source bytes,
+69 regenerated bindings and all protocol/control evidence. Fresh canonical and
+browser coverage runs freeze those 1,458 files under `live-peer-*` prefixes;
+they must complete before commit/push. No full verify or hosted acceptance is
+inferred from the peer proof. Hosted/all-platform evidence and the rest of issue #102 remain open.
+See [the research record](../research/2026-10-04-flatbuffers-live-peer-conformance.md).
+
+The first combined-candidate fast run fails two app-lab supervisor deadlines and
+never reaches full verify. Its failed 1,458-file snapshot and protected/native/log
+hashes independently audit. All 15 focused app-lab tests subsequently pass at the
+same deadlines, so preserve both observations without inventing a root cause.
+Complete and audit the current fresh browser coverage before scheduling another
+full canonical run; avoid simultaneous resource-heavy suites. Do not change
+budgets, exclusions or mark either failed canonical run accepted.
+
+Fresh combined-candidate browser coverage passes both complete cohorts and the
+independent 1,458-source/99-artifact audit, regenerating the same summary and
+preserving unchanged floors. The next complete canonical run is now launched
+sequentially under `live-peer-sequential-canonical-*`. No concurrent large suite,
+new deadline, exclusion or outcome relabeling is used.
+Both canonical phases now pass at exit 0 against the same frozen 1,458-file
+inventory. The independent completed audit verifies all product/protected/native/
+log hashes and equality with the accepted browser coverage product snapshot:
+`/tmp/connectanum-flatbuffers-live-peer-sequential-canonical-completed-audit.json`.
+The next crypto boundary is prepared in the
+[source-backed research](../research/2026-10-04-native-owned-crypto-boundary.md),
+including corrected local test/architecture advice. No new crypto API is applied
+during this canonical run. [Benchmark construction preparation](../research/2026-10-04-flatbuffers-benchmark-construction.md)
+also records the missing echoed application identity check. Commit/push the
+accepted checkpoint and obtain its own hosted evidence before claiming hosted
+acceptance; all ten issue criteria remain under audit.

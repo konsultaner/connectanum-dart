@@ -14,6 +14,9 @@ import 'package:connectanum_client/src/file/file_transfer_digest_io.dart'
     as file_digest;
 import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart';
 import 'package:connectanum_client/src/transport/native/message_protocol.dart';
+import 'package:connectanum_client/src/transport/native/message_binding.dart';
+import 'package:connectanum_client/src/transport/native/ffi_bindings.dart';
+import 'package:ffi/ffi.dart';
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
     show buildNativeFileSegmentPrefix;
 import 'package:connectanum_client/src/transport/native/runtime.dart';
@@ -28,6 +31,7 @@ import '../../test_support/native_runtime_support.dart';
 part 'support/file_digest_cases.dart';
 part 'support/e2ee_message_cases.dart';
 part 'support/deferred_e2ee_message_cases.dart';
+part 'support/deferred_session_message_cases.dart';
 
 final _wireCases = <(NativeMessageSerializer, AbstractSerializer)>[
   (NativeMessageSerializer.json, json.Serializer()),
@@ -57,6 +61,7 @@ void main() {
     _fileDigestCases(() => runtime);
     _consumingE2eeMessageCases(() => runtime);
     _deferredE2eeMessageCases(() => runtime);
+    _deferredSessionMessageCases(() => runtime);
 
     for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
       for (final keyId in [
@@ -705,6 +710,7 @@ String _websocketProtocol(int serializer) => switch (serializer) {
   1 => WebSocketSerialization.serializationJson,
   2 => WebSocketSerialization.serializationMsgpack,
   3 => WebSocketSerialization.serializationCbor,
+  5 => WebSocketSerialization.serializationFlatBuffers,
   _ => throw ArgumentError.value(serializer),
 };
 

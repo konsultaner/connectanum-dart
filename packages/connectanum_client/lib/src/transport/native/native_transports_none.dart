@@ -11,6 +11,10 @@ bool releaseNativeMessagePayload(LazyMessagePayload payload) => false;
 
 class NativeRawSocketTransport extends AbstractTransport
     implements NativeE2eeFileSegmentTransport, DrainableTransport {
+  bool get consumeTypedE2eePayloads => false;
+
+  set consumeTypedE2eePayloads(bool value) =>
+      throw UnsupportedError('Native transports require dart:io.');
   NativeRawSocketTransport(
     String host,
     int port,
@@ -137,6 +141,10 @@ class NativeRawSocketTransport extends AbstractTransport
 
 class NativeWebSocketTransport extends AbstractTransport
     implements NativeE2eeFileSegmentTransport, DrainableTransport {
+  bool get consumeTypedE2eePayloads => false;
+
+  set consumeTypedE2eePayloads(bool value) =>
+      throw UnsupportedError('Native transports require dart:io.');
   NativeWebSocketTransport(
     String url,
     AbstractSerializer serializer,

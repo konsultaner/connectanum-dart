@@ -103,6 +103,13 @@ the owning message/views even after cached encoding is invalidated. `toOwned()`
 copies byte/list/map graphs and omits their storage owner. Providers, contexts and
 decoder callbacks remain shared and can independently retain resources they capture.
 
+`LazyMessagePayload.deferred(loader: ...)` defers already-decoded application
+values without inventing an encoded byte representation. Related views share one
+loader result, including null/empty values, or the original terminal error and
+stack. Recursive loading fails. Previously returned views retain their captured
+provider/context and values when a message is subsequently changed. `toOwned()`
+evaluates the loader and copies the resulting graph.
+
 ## Copy boundaries
 
 | Boundary | Behavior |
@@ -186,7 +193,29 @@ The adapter must expose and measure any fallback copy.
 `NativeClientRuntime.materialize(handle, deferPayloadExports: true)` takes the
 message handle without exporting frame or payload views. The first read of any
 incoming payload getter materializes and memoizes all views. The default stays
-eager; transports and Session retain their existing receive/forwarding behavior.
+eager.
+
+Native RawSocket and WebSocket transports also expose
+`consumeTypedE2eePayloads`, disabled by default. Set it before opening the
+transport or calling `Client.connect()`:
+
+```dart
+transport.consumeTypedE2eePayloads = true;
+```
+
+For RESULT, EVENT and INVOCATION with the exact `wamp` / `flatbuffers` typed
+E2EE metadata, Session receives a metadata wrapper and a deferred application
+payload. Metadata inspection exports no ciphertext. Reading the application
+payload selects consuming native decryption before exporting wire views. Other
+messages retain their ordinary behavior. Enabling this mode permits consumption
+of the original ciphertext; applications that need to forward that wire message
+must materialize it first. Browser native-transport stubs reject this setting.
+
+Provider/context changes affect newly obtained payload views; existing views
+keep their captured processing contract. Wire mutation removes the native anchor
+so the changed ciphertext is decoded normally. A key-policy callback that mutates
+the deferred wire payload is rejected before consuming decryption. Policy-driven
+wire export remains valid and forces the safe copied path.
 
 Advanced consumers can call native consuming decrypt before reading those getters.
 Unique contiguous AES storage can then be reused; shared storage, segmented frames
@@ -197,8 +226,11 @@ also consumes the original handle on authentication failure. Older runtimes with
 the typed format API return no typed native result without consuming the handle;
 the caller can materialize ciphertext and use raw decrypt.
 
-This is an opt-in consumption contract, not a new Session forwarding contract.
+This is an opt-in consumption contract.
 Original ciphertext cannot be read after its unexported storage was consumed.
+The actual Session matrix proves allocation reuse for contiguous RawSocket AES
+receives across the three binary outer serializers. WebSocket exercised copied
+fallbacks; enabling the setting does not guarantee reuse for every receive.
 Native Weak observers and VM-service GC tests verify abandoned incoming finalization,
 retained handles, immutable exported ciphertext and derived plaintext views. Weak
 observers track StoredMessage lifetime; they are not allocation-address or copied-
