@@ -7,15 +7,31 @@ All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/kon
 
 ## Checkout and authorization
 
-The managed worktree uses `codex/flatbuffers-zero-copy`; last pushed commit is
-`d26581c3e1779788cf565437d6cd83588cdba2c7`. It started at `54eafc5f` and
+The managed worktree uses `codex/flatbuffers-zero-copy`; the preceding pushed checkpoint is
+`b07d7b263690b8026c1b1cb160e1f5e22a430862`. It started at `54eafc5f` and
 integrates released master `3bac4cf5`. The primary checkout's independent work
 remains untouched. Feature commits, pushes and draft PR updates are authorized;
 releases, version bumps, publication and merging master are not authorized.
 Actual ObjectBox integration belongs in a separate adapter. Core provides generic
 memory contracts. The earlier coverage/mutation objective is deferred.
 
-## Uncommitted candidate
+## Pushed checkpoint and current candidate
+
+Commit b07d7b26 contains the typed E2EE, deferred exports, benchmark/RPC repairs
+and memory CI tooling below. The verified Session repair preserves runtime
+payload capability through negotiated Session wrapping. Typed providers opt into
+key selection after their existing preflight: explicit key, configured policy,
+negotiated directional key, then provider default. CBOR/custom behavior stays;
+context-free wrapper calls retain their existing directional defaults. Actual
+fail-first regressions cover early policy invocation and the initial candidate's
+context-free default-key regression. No duplicate byte conversion is introduced.
+Focused checks pass 268 client/native VM cases, 120 core VM cases and 66 cases in
+each Chrome JS/WASM cohort; each browser cohort explicitly skips 20 native cases.
+The initial 42 key-selection/capability cases cover portable/native ciphers and
+CBOR, with source/log hashes audited under `session-preflight-final-focused`.
+The registered fixture now has 56 VM cases including constructor, file-wrapper,
+metadata-WELCOME and packed-application behavior; all pass. The change
+does not yet make ordinary Session receive buffers unique or defer their exports.
 
 Portable/native sibling providers implement a Connectanum-local version-2
 `wamp` / `flatbuffers` E2EE profile for XSalsa20-Poly1305 and AES-256-GCM. They
@@ -49,8 +65,10 @@ uses `--locked`. Timeout/interruption logs and owned-process cleanup failures ar
 retained and fail closed. Actual feature-tree execution passes 57 instrumented
 cases, with loader/count/log evidence independently recomputed:
 `/tmp/connectanum-flatbuffers-native-memory-feature-default-repo-completed-audit.json`.
-This is local macOS execution, not hosted, all-platform, ASan/Miri or performance
-acceptance.
+The exact-head hosted job now also passes and its uploaded 57-case loader/count,
+five failure-control, source and dependency/log hashes are independently verified:
+`/tmp/connectanum-flatbuffers-b07-hosted-guardmalloc-completed-audit.json`.
+This is macOS execution, not all-platform, ASan/Miri or performance acceptance.
 
 ## Current verification
 
@@ -71,6 +89,33 @@ bytes are independently audited in `*-completed-audit.json`. Canonical browser
 execution is Chrome WASM on this host.
 The native ffi-test library remains SHA256
 `9884a14303c9036eec642cd55470f105dbfb898e62b3e4cb9ee28ffc179a2a78`.
+
+The initial Session candidate passes combined fast/verify on 1,453 files,
+snapshot `84a26cbab9aaa8c02b86ce39b61f57818df2af64c4e25fd7433e968a26ce717e`.
+Prefix: `/tmp/connectanum-flatbuffers-session-preflight-canonical-*`; all source,
+native/log and preserved-history hashes pass independent completed audit. That
+pre-registration run does not itself execute the new fixture. After applying the
+audited script/56-case fixture repair, final `bin/verify` passes on snapshot
+`c415bf87cca057178fbd8e722182c83ef63200533b758f52d9e632ff2fd8ae36`
+under `/tmp/connectanum-flatbuffers-session-coverage-repaired-canonical-*`.
+All 1,453 source/native/log/history hashes pass independent completed audit:
+`/tmp/connectanum-flatbuffers-session-coverage-repaired-canonical-completed-audit.json`.
+The registered fixture passes all 56 VM cases with the native runtime available;
+the full client Chrome WASM cohort passes 2,800 cases with 20 native-only skips.
+Its core source adds five mutations: both fresh campaigns select all 305 at the
+unchanged 95% gate/deadlines, with no equivalent additions. Independent committed
+VM/browser checkouts use scratch snapshot `464ec8f9`. VM completes all 305: 236
+assertion-backed kills, ten survivors and 59 compile errors at 95.93496%, with no
+timeouts or new equivalents. Independent regeneration/classification and all
+source/test/support/native/log hashes pass audit:
+`/tmp/connectanum-flatbuffers-session-preflight-core-e2ee-vm-completed-audit.json`.
+The Chrome JS campaign also completes all 305 with the same 236/10/59 counts,
+95.93496% assertion score and no timeouts or new equivalents. Independent
+regeneration, classifications, mutant hashes and source/test/support/native/log
+hashes pass audit:
+`/tmp/connectanum-flatbuffers-session-preflight-core-e2ee-web-completed-audit.json`.
+Generated Python/Dart caches are explicitly excluded from wrapper source inventory;
+every tracked product and test/support input still participates in source checks.
 
 Current production native library SHA256
 `01c90d8dbc169e49874e7755f06086e2f57c20fbc56f479961cb68fe678aef9c`
@@ -122,19 +167,58 @@ passes five platform builds with publication skipped. Downloaded source manifest
 checksums and provenance verify. Apple Silicon executes 34 native cases and a
 standalone consumer; other platform binaries are not executed on this host.
 PR #105 now records these completed hosted results. They do not clear the newer
-uncommitted candidate or the new memory CI job.
+candidate.
+
+At b07d7b26, [PR CI 37213443908](https://github.com/konsultaner/connectanum-dart/actions/runs/37213443908)
+is still running and has a Core Browser Coverage failure. All 2,755 browser
+cases pass, but client coverage is 2,857/2,970 (96.195%) against the unchanged
+96.29% gate. Preserve the failed log/report and reproduce the missing coverage
+before accepting a repair. The isolated repair registers the Session suite in
+fast/full verification and VM/browser coverage, with omission controls passing
+among 80 tooling tests. Its first run passes 4,568 core and 2,777 client JS cases
+(20 native skips), then fails reporting because `/tmp` and `/private/tmp` produce
+relative LCOV paths outside scope. The failed wrapper is preserved. Reformatting
+the same raw data under the physical path fixes source attribution but still
+fails the unchanged client gate at 2,874/3,002 (95.736%). Eleven additional
+constructor/native-file delegation cases pass alongside the existing cases
+(53 VM total), but the complete refreshed client gate still fails at 96.086%.
+Three additional metadata-WELCOME/packed-application cases then pass (56 VM
+total). Final complete client coverage passes 2,791 JS cases with 20 native skips,
+reusing only unchanged-source 4,568-case core data whose raw hashes are verified.
+Independent DA counts and every source/raw/report/log hash are audited:
+`/tmp/connectanum-flatbuffers-browser-coverage-final-completed-audit.json`.
+Client is 2,907/3,017 (96.354%); core is 9,089/9,452 (96.160%), at unchanged
+floors and scope. Original failed wrapper and both intermediate gate failures
+remain failed. File probes and metadata peer verify Dart wrapper behavior, not
+native file/network execution. The audited test and five tooling-file repairs
+are now applied; final canonical verify and its completed audit pass. The memory job is accepted
+separately above.
+[Native Artifacts 37213468173](https://github.com/konsultaner/connectanum-dart/actions/runs/37213468173)
+passes five builds with publication skipped. All manifests, checksums and exact
+source/workflow provenance verify. Its Apple Silicon production library (SHA256
+`b346c52ffd1d965f2a951d01935d08f6429044e953bffb363db1d47e4e889324`)
+executes 145 VM native transport/provider/runtime cases plus the standalone
+108-byte/three-segment consumer with direct input/growth copied bytes both zero.
+Actual oracle symbols are absent with ffi-test positive controls, and the typed
+consume-format export exists. Other four binaries are verified but not executed.
+Proofs: `/tmp/connectanum-flatbuffers-b07-platform-artifact-proof.json` and
+`/tmp/connectanum-flatbuffers-b07-artifact-consumer-completed-audit.json`.
 
 ## Next work
 
-Review the verified stage, commit/push, update the draft PR and verify exact-head
-CI/artifact consumers. The canonical checks and complete VM/browser mutation
-gates are audited; the browser wrapper cache discrepancy is explicitly retained.
-Then preserve native payload capability through negotiated Session wrapping and
-choose runtime decryption before opaque exports. Merely setting deferred mode in
-the transport would still export through its `incoming.message` getter. Existing
+Final coverage-repaired canonical verification, the complete local browser
+coverage audit and both 305-mutation VM/browser audits pass. Publish the verified
+Session stage on the feature branch and verify exact-new-head hosted coverage/CI.
+The pushed checkpoint's earlier 300-mutation browser wrapper cache discrepancy
+remains explicitly retained. Choose runtime decryption before opaque exports.
+Merely setting deferred mode in
+the transport would still export through its `incoming.message` getter. Routing
+metadata details already use a temporary export/copy with synchronous owner free;
+they do not themselves leave a shared bulk payload owner alive. Source audit:
+`/tmp/connectanum-flatbuffers-session-routing-metadata-owner-audit.json`. Existing
 immutable ciphertext and forwarding semantics must stay valid. Session defaulting
-also invokes a key policy before underlying typed preflight; reproduce that
-ordering concern before changing it. Source audit:
+previously invoked a key policy before underlying typed preflight; the current
+candidate reproduces and fixes that ordering. Initial source audit:
 `/tmp/connectanum-flatbuffers-session-native-crypto-capability-audit.json`.
 
 Connect native-owned construction through encryption/submission; generic crypto

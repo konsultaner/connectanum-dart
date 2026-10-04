@@ -370,6 +370,14 @@ abstract interface class WampE2eeRuntimePayloadProvider {
   bool canUnpackFromRuntimeContext(WampE2eeRuntimeContext? runtimeContext);
 }
 
+/// Providers may resolve negotiated directional keys after payload validation.
+/// The precedence is explicit key, configured policy, negotiated key, default.
+/// With a runtime context, Session wrappers leave key resolution to this provider.
+/// Context-free calls keep the Session's existing directional defaults.
+abstract interface class WampE2eeNegotiatedKeySelectionProvider {
+  bool get handlesNegotiatedKeySelection;
+}
+
 abstract interface class WampE2eeProfileSupport {
   bool supportsE2eeProfile({
     required int version,
@@ -448,7 +456,10 @@ class WampE2eeDecryptionException extends WampE2eeException {
 }
 
 abstract class _WampE2eeCipherProvider
-    implements WampE2eePolicyAwareProvider, WampE2eeProfileSupport {
+    implements
+        WampE2eePolicyAwareProvider,
+        WampE2eeProfileSupport,
+        WampE2eeNegotiatedKeySelectionProvider {
   _WampE2eeCipherProvider({
     required Map<String, List<int>> keys,
     required String cipher,
@@ -472,6 +483,11 @@ abstract class _WampE2eeCipherProvider
   final String? _defaultKeyId;
   final WampE2eeKeySelectionPolicy? _keySelectionPolicy;
   final String _cipher;
+  static final _negotiatedKeySelectionPolicy =
+      WampE2eeKeySelectionPolicies.negotiated();
+
+  @override
+  bool get handlesNegotiatedKeySelection => _isTyped;
 
   @override
   bool supportsE2eeProfile({
@@ -739,6 +755,9 @@ abstract class _WampE2eeCipherProvider
     final keyId =
         options.pptKeyId ??
         _resolvePolicyKeyId(runtimeContext, options) ??
+        (_isTyped && runtimeContext != null
+            ? _negotiatedKeySelectionPolicy(runtimeContext, options)
+            : null) ??
         _defaultKeyId;
     if (keyId == null) {
       throw WampE2eeKeyNotFoundException(

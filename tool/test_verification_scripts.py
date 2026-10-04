@@ -59,6 +59,22 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_session_key_selection_regressions_run_in_vm_browser_and_coverage(self):
+        filename = "session_e2ee_key_selection_test.dart"
+        for path in (TEST_FAST, TEST_ALL):
+            with self.subTest(script=path.name, runtime="vm"):
+                self.assertIn(f"dart test packages/connectanum_client/test/{filename}", path.read_text())
+        for path in (TEST_ALL, REPO_ROOT / "bin/test-browser-coverage"):
+            with self.subTest(script=path.name, runtime="browser"):
+                self.assert_client_browser_suites_selected(path.read_text())
+                client = path.read_text().split("cd packages/connectanum_client", 1)[1]
+                self.assertIn(f"test/{filename}", client)
+        coverage = (REPO_ROOT / "bin/test-coverage").read_text()
+        self.assertIn(
+            f"run_package_coverage connectanum_client connectanum_client_e2ee_key_selection test/{filename}",
+            coverage,
+        )
+
     def test_portable_file_suites_run_in_vm_and_browser_gates(self):
         for name in ('metadata', 'digest'):
             filename = f'file_transfer_{name}_test.dart'
@@ -1805,6 +1821,7 @@ fi
             "test/client_test.dart",
             "test/meta_state_cache_test.dart",
             "test/session_e2ee_profile_test.dart",
+            "test/session_e2ee_key_selection_test.dart",
             "test/session_lazy_reply_test.dart",
             "test/session_flatbuffers_ppt_test.dart",
             "test/session_progressive_file_test.dart",
@@ -1828,6 +1845,7 @@ fi
                     "test/client_test.dart",
                     "test/meta_state_cache_test.dart",
                     "test/session_e2ee_profile_test.dart",
+                    "test/session_e2ee_key_selection_test.dart",
                     "test/session_lazy_reply_test.dart",
                     "test/session_flatbuffers_ppt_test.dart",
                     "test/session_progressive_file_test.dart",

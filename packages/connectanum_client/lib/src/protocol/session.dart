@@ -2323,7 +2323,10 @@ class NegotiatedSessionE2ee {
 }
 
 class _NegotiatedSessionE2eeProvider
-    implements WampE2eeProvider, NativeE2eeFileSegmentProvider {
+    implements
+        WampE2eeProvider,
+        WampE2eeRuntimePayloadProvider,
+        NativeE2eeFileSegmentProvider {
   _NegotiatedSessionE2eeProvider({
     required this.provider,
     required this.negotiated,
@@ -2335,6 +2338,16 @@ class _NegotiatedSessionE2eeProvider
   final NegotiatedSessionE2ee negotiated;
   final String? realm;
   final WampE2eePartyContext? local;
+
+  @override
+  bool canUnpackFromRuntimeContext(WampE2eeRuntimeContext? runtimeContext) {
+    final runtimeProvider = provider as Object;
+    return runtimeProvider is WampE2eeRuntimePayloadProvider &&
+        runtimeProvider.canUnpackFromRuntimeContext(
+          _mergeRuntimeContext(runtimeContext),
+        );
+  }
+
   late final WampE2eeKeySelectionPolicy _keySelectionPolicy =
       WampE2eeKeySelectionPolicies.firstDefined([
         if (provider case WampE2eePolicyAwareProvider(
@@ -2423,6 +2436,11 @@ class _NegotiatedSessionE2eeProvider
     }
     options.pptSerializer ??= negotiated.serializer;
     options.pptCipher ??= negotiated.cipher;
+    if (provider case WampE2eeNegotiatedKeySelectionProvider(
+      handlesNegotiatedKeySelection: true,
+    ) when runtimeContext != null) {
+      return;
+    }
     options.pptKeyId ??= runtimeContext == null
         ? null
         : _keySelectionPolicy(runtimeContext, options);

@@ -17,6 +17,7 @@ run_client_fast_tests() {
   dart test packages/connectanum_client/test/client_test.dart
   dart test packages/connectanum_client/test/meta_state_cache_test.dart
   dart test packages/connectanum_client/test/session_e2ee_profile_test.dart
+  dart test packages/connectanum_client/test/session_e2ee_key_selection_test.dart
   dart test packages/connectanum_client/test/session_lazy_reply_test.dart
   dart test packages/connectanum_client/test/session_flatbuffers_ppt_test.dart
   dart test packages/connectanum_client/test/session_lazy_payload_lifetime_vm_test.dart --concurrency=1

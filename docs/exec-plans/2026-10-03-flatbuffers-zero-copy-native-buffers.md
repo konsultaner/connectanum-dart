@@ -4,7 +4,7 @@ Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/flatbuffers-zero-copy` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
-released master `3bac4cf5` is integrated. Last pushed commit: `d26581c3`.
+released master `3bac4cf5` is integrated. Preceding pushed checkpoint: `b07d7b26`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
 ## Objective and scope
@@ -37,11 +37,37 @@ acceptance and evidence, not a claim that every feature is unimplemented.
 
 ## Current candidate and evidence
 
-The uncommitted candidate includes explicit local typed E2EE providers, optional
+The pushed b07d7b26 checkpoint includes explicit local typed E2EE providers, optional
 whole-plaintext consuming ABI, retained read-only owners, opt-in deferred runtime
 exports, ordinary benchmark factories and the internal RPC serializer-metadata
 repair. Existing CBOR APIs/framing remain. Actual ObjectBox bindings stay outside
 core. See [current state](../project_state.md) for exact contracts and proof paths.
+
+The verified Session repair preserves negotiated runtime-payload capability
+and moves typed key selection after existing preflight through an optional provider
+contract. Explicit/policy/negotiated/default precedence, CBOR/custom behavior and
+context-free directional defaults are covered by 42 key/capability cases. Focused
+checks pass 268 VM client/native, 120 core and 66 JS/WASM cases each (20 native
+browser skips per cohort). Initial canonical fast/verify passes and all 1,453
+product/native/log/history hashes are audited at snapshot
+`84a26cbab9aaa8c02b86ce39b61f57818df2af64c4e25fd7433e968a26ce717e`.
+After the coverage repair, the registered Session fixture passes 56 VM cases and
+complete client browser coverage passes 2,791 cases plus 20 native skips. Client
+96.354% and core 96.160% pass unchanged floors; raw core source/test hashes are
+verified before reuse. Final canonical verify passes on 1,453-file snapshot
+`c415bf87cca057178fbd8e722182c83ef63200533b758f52d9e632ff2fd8ae36`.
+All product/native/log/history hashes pass completed audit under
+`session-coverage-repaired-canonical-completed-audit.json`. The registered fixture
+passes 56 VM cases; the full client Chrome WASM cohort passes 2,800 cases with 20
+native-only skips.
+Independent VM/browser campaigns select all 305 mutations, including five new
+ones, at unchanged gate/deadlines/equivalents. VM completes 236 kills, ten
+survivors and 59 compile errors at 95.93496%, no timeouts; regeneration, all
+classifications and input/native/log hashes are independently audited. Chrome JS
+also completes all 305 with identical counts/score and no timeouts or new
+equivalents; its independent completed audit verifies regeneration,
+classifications and all frozen source/test/support/native/log hashes under
+`session-preflight-core-e2ee-web-completed-audit.json`.
 
 The preceding 1,450-file candidate passes canonical fast/verify with Chrome WASM
 on macOS. Separate focused JS/WASM Session checks pass 44 cases each. Current
@@ -55,7 +81,8 @@ After the loop-oracle and memory CI additions, fresh canonical fast/verify passe
 Prefix: `/tmp/connectanum-flatbuffers-native-memory-loop-canonical-*`.
 Both exit codes and all source/native/log hashes are independently audited.
 Native ffi-test artifact9884a143 remains unchanged. The new macOS memory CI job retains reports and failure-control logs,
-and Full Verify depends on it; it has not yet executed on the feature commit.
+and Full Verify depends on it. Exact b07d7b26 hosted memory execution passes
+57 cases and five failure controls; source, loader/count and log hashes are audited.
 
 Complete VM mutations pass all 300 unchanged-source mutations at 95.9184%:
 235 assertion-backed kills, ten survivors and 55 compile errors, no timeouts or
@@ -70,19 +97,34 @@ original/logical browser failures remain failed evidence.
 
 ## Immediate work
 
-1. Review the verified source/tests and companion dispositions; commit/push this
+1. Repair exact b07d7b26 Core Browser Coverage: all 2,755 cases pass, but client
+   coverage is 96.195% below 96.29%. Diagnose uploaded LCOV and reproduce in an
+   independent checkout while canonical products stay frozen. The five-file
+   registration repair passes 80 tooling cases. Initial full coverage retains
+   the macOS path-attribution failure; physical-path reformat still fails client
+   coverage at 95.736%. Eleven extra constructor/file-wrapper cases pass (53 VM
+   total); refreshed complete client coverage under
+   `browser-coverage-extended-*` fails at 96.086%. Three metadata-WELCOME/
+   packed-application cases repair the remaining gap (56 VM total). Final complete
+   client coverage passes at 96.354%, core at 96.160%, using verified unchanged
+   core raw data. All counts/artifact/source hashes pass independent audit under
+   `browser-coverage-final-*`. The test/registration repair is applied and final
+   canonical verify and completed audit pass. Then review the
+   verified source/tests and companion dispositions; commit/push this
    stage and update the draft PR. Verify exact-head CI, including real memory-tool
-   execution, artifact provenance and supported consumers.
+execution, artifact provenance and supported consumers. b07d7b26 memory CI already
+passes 57 cases/five failure controls; all five artifact provenances verify and its
+Apple Silicon bundle passes 145 native cases plus the standalone consumer.
 2. Continue the remaining acceptance below; do not close every issue for this stage.
 
 ## Remaining implementation and acceptance
 
-Preserve runtime-payload capability through Session negotiation and select native
-decryption before opaque payload exports. Eager exports keep native references
+Accept the candidate's runtime-payload capability and key-ordering fix, then select
+native decryption before opaque payload exports. Eager exports keep native references
 and force the safe copied AES fallback. Opt-in deferred materialization alone is
 insufficient for transport integration: reading `incoming.message` exports all
-parts. Preserve already exported immutable data and forwarding semantics. Reproduce
-Session key-policy/defaulting before typed preflight before changing that ordering.
+parts. Preserve already exported immutable data and forwarding semantics. Existing
+malformed-payload and context-free ordering regressions remain retained evidence.
 
 Connect native-owned payload construction through encryption and submission.
 Generic crypto still copies input into native storage and output back to Dart.
@@ -101,6 +143,9 @@ Dart/native clients, RPC/pubsub/fan-out/progressive/mixed traffic and relevant
 payload sizes. Record correctness, throughput, latency, CPU, memory/GC, wire size,
 retained allocations and copied bytes. Missing metrics, failed primary rows or
 inconclusive intervals block acceptance. No parity result exists yet.
+The proposed [performance contract](../flatbuffers_performance_acceptance.md)
+records the comparison groups, primary rows, repetition/noise rules and evidence
+requirements before measurement; runner policy and CPU/memory budgets remain open.
 
 Finish public consumer and adapter-boundary docs, then audit each issue before
 closing issues and the milestone. Release publication and merging master remain

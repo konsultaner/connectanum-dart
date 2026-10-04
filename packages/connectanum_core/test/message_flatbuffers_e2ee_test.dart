@@ -64,6 +64,118 @@ void main() {
           );
 
     group(cipher, () {
+      for (final direction in WampE2eeDirection.values) {
+        for (final selection in [
+          'explicit',
+          'policy',
+          'negotiated',
+          'default',
+        ]) {
+          test(
+            'selects $selection key for $direction before provider default',
+            () {
+              var policyCalls = 0;
+              final keys = {
+                for (final (index, name) in [
+                  'explicit',
+                  'policy',
+                  'outbound',
+                  'inbound',
+                  'default',
+                ].indexed)
+                  name: List<int>.filled(32, index + 1),
+              };
+              String? policy(
+                WampE2eeRuntimeContext context,
+                PPTOptions options,
+              ) {
+                policyCalls++;
+                expect(context.direction, direction);
+                return selection == 'policy' ? 'policy' : null;
+              }
+
+              final selectedProvider =
+                  cipher == ConnectanumE2eeProfile.aes256Gcm
+                  ? WampFlatBuffersAes256GcmProvider(
+                      keys: keys,
+                      defaultKeyId: 'default',
+                      keySelectionPolicy: policy,
+                    )
+                  : WampFlatBuffersXsalsa20Poly1305Provider(
+                      keys: keys,
+                      defaultKeyId: 'default',
+                      keySelectionPolicy: policy,
+                    );
+              expect(
+                (selectedProvider as WampE2eeNegotiatedKeySelectionProvider)
+                    .handlesNegotiatedKeySelection,
+                isTrue,
+              );
+              final expectedKey = selection == 'negotiated'
+                  ? direction == WampE2eeDirection.outbound
+                        ? 'outbound'
+                        : 'inbound'
+                  : selection;
+              final context = WampE2eeRuntimeContext(
+                direction: direction,
+                messageType: direction == WampE2eeDirection.outbound
+                    ? WampE2eeMessageType.publish
+                    : WampE2eeMessageType.event,
+                negotiated: selection == 'default'
+                    ? {}
+                    : {
+                        'send_key_id': 'outbound',
+                        'receive_key_id': 'inbound',
+                      },
+              );
+              final bytes = Uint8List.fromList([1, 255]);
+              final options = PublishOptions(
+                pptScheme: 'wamp',
+                pptKeyId: selection == 'explicit' ? 'explicit' : null,
+              );
+              if (direction == WampE2eeDirection.outbound) {
+                final encrypted = selectedProvider.packPayload(
+                  [bytes],
+                  null,
+                  options,
+                  runtimeContext: context,
+                );
+                expect(
+                  selectedProvider
+                      .unpackPayload(
+                        encrypted,
+                        PublishOptions(
+                          pptScheme: 'wamp',
+                          pptKeyId: expectedKey,
+                        ),
+                      )
+                      .arguments,
+                  [bytes],
+                );
+              } else {
+                final encrypted = selectedProvider.packPayload(
+                  [bytes],
+                  null,
+                  PublishOptions(pptScheme: 'wamp', pptKeyId: expectedKey),
+                );
+                expect(
+                  selectedProvider
+                      .unpackPayload(
+                        encrypted,
+                        options,
+                        runtimeContext: context,
+                      )
+                      .arguments,
+                  [bytes],
+                );
+              }
+              expect(options.pptKeyId, expectedKey);
+              expect(policyCalls, selection == 'explicit' ? 0 : 1);
+            },
+          );
+        }
+      }
+
       test('declares only the explicit typed version and cipher', () {
         final support = provider() as WampE2eeProfileSupport;
         for (final (version, scheme, serializer, selectedCipher, accepted) in [

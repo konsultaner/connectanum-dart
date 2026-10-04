@@ -64,6 +64,7 @@ abstract class _NativeWampE2eeCipherProvider
         WampE2eePolicyAwareProvider,
         WampE2eeProfileSupport,
         WampE2eeRuntimePayloadProvider,
+        WampE2eeNegotiatedKeySelectionProvider,
         NativeE2eeFileSegmentProvider {
   _NativeWampE2eeCipherProvider({
     required Map<String, List<int>> keys,
@@ -123,6 +124,11 @@ abstract class _NativeWampE2eeCipherProvider
   final String? _defaultKeyId;
   final WampE2eeKeySelectionPolicy? _keySelectionPolicy;
   final String _cipher;
+  static final _negotiatedKeySelectionPolicy =
+      WampE2eeKeySelectionPolicies.negotiated();
+
+  @override
+  bool get handlesNegotiatedKeySelection => _isTyped;
   late final int _keyringHandle;
   late final int _sessionHandle;
   bool _released = false;
@@ -382,6 +388,9 @@ abstract class _NativeWampE2eeCipherProvider
     final keyId =
         options.pptKeyId ??
         _resolvePolicyKeyId(runtimeContext, options) ??
+        (_isTyped && runtimeContext != null
+            ? _negotiatedKeySelectionPolicy(runtimeContext, options)
+            : null) ??
         _defaultKeyId;
     if (keyId == null) {
       throw WampE2eeKeyNotFoundException(

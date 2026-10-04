@@ -179,6 +179,7 @@ abstract class _UnavailableNativeTypedE2eeProvider
         WampE2eePolicyAwareProvider,
         WampE2eeProfileSupport,
         WampE2eeRuntimePayloadProvider,
+        WampE2eeNegotiatedKeySelectionProvider,
         NativeE2eeFileSegmentProvider {
   _UnavailableNativeTypedE2eeProvider({
     required Map<String, List<int>> keys,
@@ -193,6 +194,9 @@ abstract class _UnavailableNativeTypedE2eeProvider
   }
 
   final String _cipher;
+
+  @override
+  bool get handlesNegotiatedKeySelection => true;
 
   String? get defaultKeyId => null;
 
