@@ -7,6 +7,121 @@ void _consumingE2eeMessageCases(NativeClientRuntime Function() getRuntime) {
   ]) {
     for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
       test(
+        '${wire.name} $cipher native typed preflight precedes policy without exported arguments',
+        () async {
+          final runtime = getRuntime();
+          final peer = await _WirePeer.start(wire);
+          addTearDown(peer.dispose);
+          final connection = _connect(runtime, peer, wire);
+          addTearDown(() => runtime.closeConnection(connection));
+          var policyCalls = 0;
+          String? policy(WampE2eeRuntimeContext _, PPTOptions __) {
+            policyCalls++;
+            throw StateError('policy-before-native-preflight');
+          }
+
+          final keys = {'typed': List<int>.filled(32, 23)};
+          final provider = cipher == 'aes256gcm'
+              ? NativeWampFlatBuffersAes256GcmProvider(
+                  keys: keys,
+                  defaultKeyId: 'typed',
+                  keySelectionPolicy: policy,
+                )
+              : NativeWampFlatBuffersXsalsa20Poly1305Provider(
+                  keys: keys,
+                  defaultKeyId: 'typed',
+                  keySelectionPolicy: policy,
+                );
+          addTearDown(provider.release);
+          final minimumLength = cipher == 'aes256gcm' ? 28 : 40;
+          for (final payload
+              in <({List<dynamic>? arguments, Map<String, dynamic>? keywords})>[
+                (arguments: [Uint8List(0)], keywords: null),
+                (arguments: [Uint8List(minimumLength - 1)], keywords: null),
+                (arguments: null, keywords: null),
+                (arguments: ['not-binary'], keywords: null),
+                (arguments: [Uint8List(1), Uint8List(1)], keywords: null),
+                (arguments: [Uint8List(minimumLength)], keywords: const {}),
+                (
+                  arguments: [Uint8List(minimumLength)],
+                  keywords: const {'invalid': true},
+                ),
+              ]) {
+            peer.control.send(
+              _encode(
+                serializer,
+                Invocation(
+                  71,
+                  81,
+                  InvocationDetails(
+                    91,
+                    'typed.read',
+                    true,
+                    'wamp',
+                    'flatbuffers',
+                    cipher,
+                  ),
+                  arguments: payload.arguments,
+                  argumentsKeywords: payload.keywords,
+                ),
+              ),
+            );
+            final handle = runtime.waitMessageHandle(
+              connection,
+              timeout: const Duration(seconds: 3),
+            );
+            expect(handle, greaterThan(0));
+            final incoming = runtime.materialize(
+              handle,
+              deferPayloadExports: true,
+            );
+            addTearDown(incoming.release);
+            final anchor = Object();
+            attachSessionMessageAnchor(anchor, incoming);
+            final context = WampE2eeRuntimeContext(
+              direction: WampE2eeDirection.inbound,
+              messageType: WampE2eeMessageType.invocation,
+              payloadAnchor: anchor,
+            );
+            final options = PublishOptions(
+              pptScheme: 'wamp',
+              pptSerializer: 'flatbuffers',
+              pptCipher: cipher,
+            );
+            expect(
+              () => provider.unpackPayload(
+                null,
+                options,
+                runtimeContext: context,
+              ),
+              throwsA(isA<WampE2eeInvalidPayloadException>()),
+            );
+            expect(policyCalls, 0);
+            expect(options.pptKeyId, isNull);
+            // Rejection is a non-consuming validation; the same handle still rejects.
+            expect(
+              () => provider.unpackPayload(
+                null,
+                options,
+                runtimeContext: context,
+              ),
+              throwsA(isA<WampE2eeInvalidPayloadException>()),
+            );
+            expect(policyCalls, 0);
+            incoming.release();
+            expect(
+              () => provider.unpackPayload(
+                null,
+                options,
+                runtimeContext: context,
+              ),
+              throwsA(isA<WampE2eeInvalidPayloadException>()),
+            );
+            expect(policyCalls, 0);
+          }
+        },
+      );
+      test(
         '${wire.name} $cipher typed provider selects format1 or raw fallback',
         () async {
           final runtime = getRuntime();
@@ -52,6 +167,7 @@ void _consumingE2eeMessageCases(NativeClientRuntime Function() getRuntime) {
               null,
               options,
             );
+            final ciphertextLength = (encrypted.single as Uint8List).length;
             peer.control.send(
               _encode(
                 serializer,
@@ -76,7 +192,10 @@ void _consumingE2eeMessageCases(NativeClientRuntime Function() getRuntime) {
               timeout: const Duration(seconds: 3),
             );
             expect(handle, greaterThan(0));
-            final incoming = runtime.materialize(handle);
+            final incoming = runtime.materialize(
+              handle,
+              deferPayloadExports: true,
+            );
             addTearDown(incoming.release);
             final anchor = Object();
             attachSessionMessageAnchor(anchor, incoming);
@@ -87,6 +206,32 @@ void _consumingE2eeMessageCases(NativeClientRuntime Function() getRuntime) {
             );
             final consuming =
                 runtime.supportsTypedConsumingE2eeMessagePayloadDecrypt;
+            runtime.preflightTypedE2eeMessageCiphertext(
+              incoming,
+              cipher: cipher,
+              minimumLength: ciphertextLength,
+              maximumLength: ciphertextLength,
+            );
+            for (final bounds in [
+              (ciphertextLength + 1, ciphertextLength + 1),
+              (0, ciphertextLength - 1),
+            ]) {
+              expect(
+                () => runtime.preflightTypedE2eeMessageCiphertext(
+                  incoming,
+                  cipher: cipher,
+                  minimumLength: bounds.$1,
+                  maximumLength: bounds.$2,
+                ),
+                throwsA(
+                  isA<NativeTransportException>().having(
+                    (error) => error.code,
+                    'code',
+                    NativeTransportErrorCode.invalidArgument,
+                  ),
+                ),
+              );
+            }
             expect(provider.canUnpackFromRuntimeContext(context), consuming);
             final outerArguments = consuming
                 ? null
@@ -108,6 +253,13 @@ void _consumingE2eeMessageCases(NativeClientRuntime Function() getRuntime) {
             incoming.release();
             expect(bytes, orderedEquals(application));
             if (consuming) {
+              if (runtime.supportsMessageBinaryArgumentLengthInspection) {
+                expect(() => incoming.message, throwsStateError);
+                expect(
+                  () => incoming.singleBinaryArgumentBytes,
+                  throwsStateError,
+                );
+              }
               expect(
                 provider
                     .unpackPayload(null, options, runtimeContext: context)
@@ -115,6 +267,46 @@ void _consumingE2eeMessageCases(NativeClientRuntime Function() getRuntime) {
                     .single,
                 same(bytes),
               );
+              for (final bounds in [
+                (ciphertextLength + 1, ciphertextLength + 1),
+                (0, ciphertextLength - 1),
+              ]) {
+                expect(
+                  () => runtime.preflightTypedE2eeMessageCiphertext(
+                    incoming,
+                    cipher: cipher,
+                    minimumLength: bounds.$1,
+                    maximumLength: bounds.$2,
+                  ),
+                  throwsA(
+                    isA<NativeTransportException>().having(
+                      (error) => error.code,
+                      'code',
+                      NativeTransportErrorCode.invalidArgument,
+                    ),
+                  ),
+                );
+              }
+              if (bytes.isNotEmpty) {
+                expect(
+                  NativeClientRuntime.releaseOwnedExternalBytes(bytes),
+                  isTrue,
+                );
+                expect(
+                  () => provider.unpackPayload(
+                    null,
+                    options,
+                    runtimeContext: context,
+                  ),
+                  throwsA(isA<WampE2eeInvalidPayloadException>()),
+                );
+              } else {
+                // Empty authenticated output is Dart-owned; its native owner is freed.
+                expect(
+                  NativeClientRuntime.releaseOwnedExternalBytes(bytes),
+                  isFalse,
+                );
+              }
             }
           }
         },

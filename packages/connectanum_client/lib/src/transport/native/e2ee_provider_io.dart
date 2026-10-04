@@ -266,15 +266,31 @@ abstract class _NativeWampE2eeCipherProvider
     final typedCiphertext = _isTyped && arguments != null
         ? _coerceEncryptedPayload(arguments, options)
         : null;
+    final incoming = nativeIncomingMessageForAnchor(
+      runtimeContext?.payloadAnchor,
+    );
+    if (_isTyped && incoming != null) {
+      try {
+        _runtime.preflightTypedE2eeMessageCiphertext(
+          incoming,
+          cipher: _cipher,
+          minimumLength: _cipher == ConnectanumE2eeProfile.aes256Gcm
+              ? ConnectanumE2eeProfile.aes256GcmNonceLength +
+                    ConnectanumE2eeProfile.aes256GcmTagLength
+              : 40,
+          maximumLength:
+              ConnectanumFlatBuffersE2eeProfile.maximumCiphertextBytes,
+        );
+      } on NativeTransportException catch (error) {
+        throw _mapNativeException('unpack', options, error);
+      }
+    }
     final keyId = _resolveKeyId(
       options,
       operation: 'unpack',
       runtimeContext: runtimeContext,
     );
     try {
-      final incoming = nativeIncomingMessageForAnchor(
-        runtimeContext?.payloadAnchor,
-      );
       if (incoming != null) {
         final nativePayload = _runtime.decryptE2eeMessageSingleBinaryArgument(
           _sessionHandle,

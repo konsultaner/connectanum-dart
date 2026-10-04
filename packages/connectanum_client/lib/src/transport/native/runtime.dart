@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_message_bytes.dart';
+import 'package:connectanum_core/connectanum_core.dart'
+    show AbstractMessageWithPayload;
 import 'package:ffi/ffi.dart';
 import 'package:connectanum_client/native_buffers.dart';
 
@@ -530,6 +532,108 @@ class NativeClientRuntime {
 
   bool get supportsTypedConsumingE2eeMessagePayloadDecrypt =>
       _bindings.ctE2eeSessionDecryptMessagePayloadConsumeFormat != null;
+
+  /// Whether native payload shape/length can be checked without byte exports.
+  bool get supportsMessageBinaryArgumentLengthInspection =>
+      _bindings.ctMessageSingleBinaryArgumentLength != null;
+
+  /// Validates typed ciphertext before key-policy callbacks without consuming it.
+  /// New runtimes inspect shape and size without exporting payload storage.
+  /// Older runtimes materialize the wire payload for this validation instead.
+  /// A previously authenticated matching cached payload needs no wire access.
+  void preflightTypedE2eeMessageCiphertext(
+    NativeIncomingMessage incoming, {
+    required String cipher,
+    required int minimumLength,
+    required int maximumLength,
+  }) {
+    ensureStarted();
+    if (!identical(incoming.runtimeIdentity, this)) {
+      _throwForError(
+        NativeTransportErrorCode.invalidArgument,
+        'Native E2EE payload belongs to another runtime',
+      );
+    }
+    final cached = incoming._e2eeDecryptedPayload;
+    if (cached != null) {
+      final request = incoming._e2eeDecryptRequest;
+      final owner = _nativeExternalBytes[cached.bytes];
+      if (request?.cipher != cipher ||
+          request?.plaintextFormat !=
+              NativeE2eePlaintextFormat.typedFlatBuffers ||
+          owner?.released == true) {
+        _throwForError(
+          NativeTransportErrorCode.handleUnavailable,
+          'Native E2EE cached payload is unavailable for this request',
+        );
+      }
+      // Typed format preserves the complete plaintext span. Authenticated
+      // ciphertext adds only the cipher's nonce and authentication tag.
+      _checkTypedCiphertextLength(
+        cached.bytes.length + (cipher == 'aes256gcm' ? 28 : 40),
+        minimumLength,
+        maximumLength,
+      );
+      return;
+    }
+    if (incoming._released) {
+      _throwForError(
+        NativeTransportErrorCode.handleUnavailable,
+        'Native message was released before E2EE preflight',
+      );
+    }
+    final inspect = _bindings.ctMessageSingleBinaryArgumentLength;
+    final int length;
+    if (inspect != null) {
+      final output = calloc<ffi.Size>();
+      try {
+        final code = inspect(incoming.handle, output);
+        if (code != NativeTransportErrorCode.success) {
+          _throwForError(
+            code,
+            'Native E2EE payload must be a single binary argument',
+          );
+        }
+        length = output.value;
+      } finally {
+        calloc.free(output);
+      }
+    } else {
+      if (incoming.argumentsKeywordsBytes != null) {
+        _throwForError(
+          NativeTransportErrorCode.invalidArgument,
+          'Native E2EE payload must not contain keyword arguments',
+        );
+      }
+      var bytes = incoming.singleBinaryArgumentBytes;
+      if (bytes == null) {
+        final message = incoming.message;
+        final arguments = message is AbstractMessageWithPayload
+            ? message.arguments
+            : null;
+        if (arguments?.length == 1 && arguments!.single is Uint8List) {
+          bytes = arguments.single as Uint8List;
+        }
+      }
+      if (bytes == null) {
+        _throwForError(
+          NativeTransportErrorCode.invalidArgument,
+          'Native E2EE payload must be a single binary argument',
+        );
+      }
+      length = bytes.length;
+    }
+    _checkTypedCiphertextLength(length, minimumLength, maximumLength);
+  }
+
+  void _checkTypedCiphertextLength(int length, int minimum, int maximum) {
+    if (length < minimum || length > maximum) {
+      _throwForError(
+        NativeTransportErrorCode.invalidArgument,
+        'Typed E2EE ciphertext length is outside its limits',
+      );
+    }
+  }
 
   bool get supportsBase64NativeE2eeFileSegments =>
       _bindings.ctSendMessageNativeE2eeFileSegmentV2 != null;

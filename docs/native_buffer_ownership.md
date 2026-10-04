@@ -141,6 +141,19 @@ Typed file-prefix/E2EE segment framing is unsupported and rejects explicitly.
 These crypto APIs currently establish byte/lifetime compatibility, not complete
 zero-copy encryption or representative throughput parity.
 
+Typed native providers validate ciphertext shape and length before key-policy
+callbacks. The optional `ct_message_single_binary_argument_length_wide` export
+inspects a live message without exporting, copying or consuming its payload. It
+accepts one binary argument and rejects keyword containers, including an empty
+one. JSON inspection validates the canonical base64 spelling without decoding
+it. The caller must check the return code; the output length is zero on errors.
+Inspection does not authenticate bytes or extend their lifetime. Provider limits
+are 28 bytes minimum for AES, 40 for XSalsa and 64 MiB maximum. Older native
+libraries materialize the wire payload for the same validation, which can retain
+an exported view and force the safe copied decryption path. Cached authenticated
+typed results retain the same length checks; explicitly released native outputs
+cannot be reused. Empty plaintext is Dart-owned and needs no native release.
+
 ## Future ObjectBox adapter
 
 `connectanum_objectbox_adapter` remains a separate package. It owns entity schema,

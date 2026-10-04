@@ -7,8 +7,8 @@ All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/kon
 
 ## Checkout and authorization
 
-The managed worktree uses `codex/flatbuffers-zero-copy`; the preceding pushed checkpoint is
-`b07d7b263690b8026c1b1cb160e1f5e22a430862`. It started at `54eafc5f` and
+The managed worktree uses `codex/flatbuffers-zero-copy`; its Session checkpoint is
+`c37c04ee541cdf19eabe552a10a6629c42d23f6b`. It started at `54eafc5f` and
 integrates released master `3bac4cf5`. The primary checkout's independent work
 remains untouched. Feature commits, pushes and draft PR updates are authorized;
 releases, version bumps, publication and merging master are not authorized.
@@ -207,8 +207,70 @@ Proofs: `/tmp/connectanum-flatbuffers-b07-platform-artifact-proof.json` and
 ## Next work
 
 Final coverage-repaired canonical verification, the complete local browser
-coverage audit and both 305-mutation VM/browser audits pass. Publish the verified
-Session stage on the feature branch and verify exact-new-head hosted coverage/CI.
+coverage audit and both 305-mutation VM/browser audits pass. The Session stage is
+pushed as c37c04ee. [Its CI](https://github.com/konsultaner/connectanum-dart/actions/runs/37218464793)
+is queued/running with no observed failures so far; its [artifact dry-run](https://github.com/konsultaner/connectanum-dart/actions/runs/37218557969)
+passes five builds with publication skipped. All five downloaded bundles pass
+checksum/manifest and exact source/workflow provenance verification under
+`/tmp/connectanum-flatbuffers-c37-platform-artifact-proof.json`. Its Apple Silicon
+production library passes 201 VM native/Session cases and the standalone
+108-byte/three-segment construction consumer using an exact c37 source snapshot:
+`/tmp/connectanum-flatbuffers-c37-artifact-consumer-completed-audit.json`.
+The four test-oracle exports are absent with actual ffi-test positive controls;
+typed consume is present and the new inspection export is absent, as expected for
+c37. Other four binaries are verified but not executed. Hosted browser coverage
+passes 4,568 core and 2,791 client cases (20 native skips), with uploaded LCOV
+independently recomputed at 96.160%/96.354% under unchanged floors:
+`/tmp/connectanum-flatbuffers-c37-hosted-browser-coverage-completed-audit.json`.
+Hosted GuardMalloc passes 57 cases and five failure controls. The PR merge
+checkout has c37 as its parent; all 138 native/schema inputs match c37, and the
+generated lock plus loader/count/log hashes pass audit:
+`/tmp/connectanum-flatbuffers-c37-hosted-guardmalloc-completed-audit.json`.
+Its recorded executable hash cannot be independently rehashed because the
+executable is not uploaded. Remaining CI jobs are pending; these results do not
+accept the new inspection repair.
+
+Before deferred Session receive integration, a real eight-case regression proves
+that typed native decryption with null Dart arguments invokes a key policy before
+rejecting empty ciphertext on all four serializers and both ciphers. Report:
+`/tmp/connectanum-flatbuffers-native-anchor-preflight-repro.json`. The first test
+attempt had an invalid exception type; that compilation failure is not the repro.
+The verified repair adds optional non-consuming native single-binary
+length inspection, validating canonical JSON base64 without decoding and using
+the existing borrowed binary readers. Typed provider preflight checks native
+shape/minimum/64 MiB limit before policy. Older ABI safely materializes instead.
+Focused native/fallback cases cover malformed shapes, keyword containers, length
+boundaries and released/cached owners; updated native inspection tests pass.
+An initial test assumed the existing FlatBuffers fixture was segmented; the
+fixture is contiguous. That failed assertion remains failed evidence, and a
+separate actual segmented-frame case verifies inspection does not flatten it.
+Focused new-library checks pass 224 VM cases (143 runtime, 25 providers and 56
+Session). The older ABI independently passes the same 143 runtime cases, with
+the capability probe observing inspection absent and typed consume present.
+All 1,453 product bytes, both library hashes and every log/count pass audit:
+`/tmp/connectanum-flatbuffers-native-inspection-focused-completed-audit.json`.
+A separate eight-case fail-first regression caught skipped length checks on the
+candidate's authenticated cache; reconstructed ciphertext lengths now preserve
+both bounds without exporting wire bytes. GuardMalloc passes 58 cases, with all
+139 source hashes, executable, loader/count/log and cleanup evidence audited:
+`/tmp/connectanum-flatbuffers-native-inspection-guardmalloc-completed-audit.json`.
+Fresh canonical `bin/test-fast` and `bin/verify` both pass on 1,453-file snapshot
+`508a2c0cbe7142250df7df1100e5b3fe0d63f04ffaf0bfea7c98ba566177694c`.
+All product/native/log/history hashes, all 139 GuardMalloc native/dependency
+inputs and the independently built memory executable still match:
+`/tmp/connectanum-flatbuffers-native-inspection-canonical-completed-audit.json`.
+Native VM cases run without unavailable-library skips. Chrome WASM passes 4,558
+core and 2,800 client cases, with 20 explicitly verified native-only client skips.
+The initial audit mistakenly rejected those browser skips; its corrected scope
+checks VM availability and every browser skip separately. The verification runs
+themselves passed. Canonical scripts rebuild the standard ffi-test library to
+SHA256 `334d3449af8b18723b1f83c09bff080e4256b6c2c05b076a0afc23df9d8dfccf`;
+the prior 9884a143 library remains preserved independently for compatibility checks.
+Companion advice and verified dispositions are recorded under
+`/tmp/connectanum-flatbuffers-native-inspection-companion-dispositions.json`.
+Exact-head hosted checks and new production artifacts remain pending. Existing
+core mutation evidence applies to unchanged core source; this repair changes
+native IO only.
 The pushed checkpoint's earlier 300-mutation browser wrapper cache discrepancy
 remains explicitly retained. Choose runtime decryption before opaque exports.
 Merely setting deferred mode in
@@ -217,8 +279,8 @@ metadata details already use a temporary export/copy with synchronous owner free
 they do not themselves leave a shared bulk payload owner alive. Source audit:
 `/tmp/connectanum-flatbuffers-session-routing-metadata-owner-audit.json`. Existing
 immutable ciphertext and forwarding semantics must stay valid. Session defaulting
-previously invoked a key policy before underlying typed preflight; the current
-candidate reproduces and fixes that ordering. Initial source audit:
+previously invoked a key policy before underlying typed preflight; c37c04ee
+reproduces and fixes that wrapper ordering. Initial source audit:
 `/tmp/connectanum-flatbuffers-session-native-crypto-capability-audit.json`.
 
 Connect native-owned construction through encryption/submission; generic crypto

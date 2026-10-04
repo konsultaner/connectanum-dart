@@ -2,6 +2,33 @@ use super::*;
 use ct_core::{parse_message, WampPayload, WampRawFrame};
 
 #[test]
+fn flatbuffers_binary_argument_length_preserves_unique_storage() {
+    let _guard = crate::tests::test_guard();
+    for opaque in [false, true] {
+        for payload in [Vec::new(), vec![255, 0, 129, 42]] {
+            let message = encrypted_message(&payload, opaque);
+            let handle = super::super::message_handles::insert(message).unwrap();
+            let allocation = super::super::message_handles::retain_allocation(handle).unwrap();
+            let observer = Arc::downgrade(&allocation);
+            drop(allocation);
+            let mut length = usize::MAX;
+            assert_eq!(
+                ct_message_single_binary_argument_length_wide(handle as i64, &mut length),
+                SUCCESS
+            );
+            assert_eq!(length, payload.len());
+            assert_eq!(observer.strong_count(), 1);
+            super::super::message_handles::with_message(handle, |message| {
+                assert!(!message.raw.is_segmented());
+            })
+            .unwrap();
+            ct_message_release_wide(handle as i64);
+            assert_eq!(observer.strong_count(), 0);
+        }
+    }
+}
+
+#[test]
 fn typed_plaintext_does_not_unwrap_cbor_shaped_application_bytes() {
     let application = plaintext(true);
     let result = decrypted_e2ee_message_payload_with_format(
@@ -75,9 +102,16 @@ fn typed_plaintext_format_rejection_and_auth_failure_obey_consumption_contract()
                 let last = ciphertext.len() - 1;
                 ciphertext[last] ^= 1;
             }
-            let handle =
-                super::super::message_handles::insert(encrypted_message(&ciphertext, true))
-                    .unwrap();
+            let message = encrypted_message(&ciphertext, true);
+            let raw = message.raw.as_contiguous().unwrap();
+            let allocation = raw.as_ptr() as usize..raw.as_ptr() as usize + raw.len();
+            let handle = super::super::message_handles::insert(message).unwrap();
+            let mut inspected_length = usize::MAX;
+            assert_eq!(
+                ct_message_single_binary_argument_length_wide(handle as i64, &mut inspected_length),
+                SUCCESS
+            );
+            assert_eq!(inspected_length, ciphertext.len());
             let mut output = CtExternalByteBuffer {
                 ptr: ptr::null_mut(),
                 len: 0,
@@ -117,6 +151,10 @@ fn typed_plaintext_format_rejection_and_auth_failure_obey_consumption_contract()
                 assert_eq!((output.len, kind), (0, 0));
             } else {
                 assert_eq!(status, SUCCESS);
+                if cipher == 2 {
+                    assert!(allocation.contains(&(output.ptr as usize)));
+                    assert!(output.ptr as usize + output.len <= allocation.end);
+                }
                 assert_eq!(kind, CT_E2EE_DECRYPTED_PAYLOAD_DIRECT_BINARY);
                 assert_eq!(
                     unsafe { slice::from_raw_parts(output.ptr, output.len) },

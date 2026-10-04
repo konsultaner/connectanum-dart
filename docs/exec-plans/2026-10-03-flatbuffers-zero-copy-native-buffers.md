@@ -4,7 +4,7 @@ Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/flatbuffers-zero-copy` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
-released master `3bac4cf5` is integrated. Preceding pushed checkpoint: `b07d7b26`.
+released master `3bac4cf5` is integrated. Session checkpoint: `c37c04ee`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
 ## Objective and scope
@@ -97,25 +97,37 @@ original/logical browser failures remain failed evidence.
 
 ## Immediate work
 
-1. Repair exact b07d7b26 Core Browser Coverage: all 2,755 cases pass, but client
-   coverage is 96.195% below 96.29%. Diagnose uploaded LCOV and reproduce in an
-   independent checkout while canonical products stay frozen. The five-file
-   registration repair passes 80 tooling cases. Initial full coverage retains
-   the macOS path-attribution failure; physical-path reformat still fails client
-   coverage at 95.736%. Eleven extra constructor/file-wrapper cases pass (53 VM
-   total); refreshed complete client coverage under
-   `browser-coverage-extended-*` fails at 96.086%. Three metadata-WELCOME/
-   packed-application cases repair the remaining gap (56 VM total). Final complete
-   client coverage passes at 96.354%, core at 96.160%, using verified unchanged
-   core raw data. All counts/artifact/source hashes pass independent audit under
-   `browser-coverage-final-*`. The test/registration repair is applied and final
-   canonical verify and completed audit pass. Then review the
-   verified source/tests and companion dispositions; commit/push this
-   stage and update the draft PR. Verify exact-head CI, including real memory-tool
-execution, artifact provenance and supported consumers. b07d7b26 memory CI already
-passes 57 cases/five failure controls; all five artifact provenances verify and its
-Apple Silicon bundle passes 145 native cases plus the standalone consumer.
-2. Continue the remaining acceptance below; do not close every issue for this stage.
+1. Verify the new native-anchor preflight checkpoint's hosted CI and production
+   artifacts. Canonical fast/full checks and completed source/native/log audit
+   pass on the unchanged 1,453-file snapshot `508a2c0c`. Chrome WASM passes 4,558
+   core and 2,800 client cases (20 explicit native-only skips); VM native suites
+   have no unavailable-library skips. The eight-case fail-first regression proves
+   policy invocation before empty-ciphertext rejection. Optional non-consuming
+   shape/length inspection repairs it; canonical JSON is checked without decoding,
+   binary readers borrow storage, and older ABI materializes safely. Focused
+   verification passes 224 new-library VM cases and 143 older-ABI runtime cases.
+   GuardMalloc passes 58 cases with audited source/executable/loader/count/log and
+   cleanup evidence. A separate eight-case cached-boundary regression is repaired.
+   Preserve the wrong-exception compilation failure and the mistaken segmented
+   fixture assertion separately from successful evidence. Core source is unchanged;
+   its complete mutation evidence does not need rerunning for this IO repair.
+2. Verify exact pushed-head CI, including hosted browser coverage and memory
+   tooling. c37c04ee contains the Session/coverage repair and is queued/running
+   without observed failures. Hosted browser coverage and 57-case/five-control
+   GuardMalloc pass, with uploaded source/LCOV/loader/count/log evidence audited.
+   Other CI jobs remain pending. All five c37 dry-run bundles pass checksum/manifest
+   and source/workflow provenance verification. Its Apple Silicon production
+   library passes 201 VM native/Session cases and the standalone construction
+   consumer with exact c37 sources; four other binaries are verified but not
+   executed. Publication is skipped. These results do not accept the new repair.
+3. Continue the remaining implementation and issue acceptance below. Keep all ten
+   issues open until their criteria have been checked; no performance parity or
+   all-platform execution is established.
+
+The Session fixture/registration stage has passed canonical verification, complete
+local browser coverage at unchanged floors, and both complete 305-mutation gates.
+Its earlier failed coverage wrappers and intermediate gate failures remain retained
+in project state and the proof artifacts; they are not relabeled as passes.
 
 ## Remaining implementation and acceptance
 

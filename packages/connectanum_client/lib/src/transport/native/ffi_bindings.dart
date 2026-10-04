@@ -260,6 +260,11 @@ typedef CtMessageDecodeSingleBinaryArgumentWideNative =
 typedef CtMessageDecodeSingleBinaryArgumentDart =
     int Function(int, ffi.Pointer<CtExternalByteBuffer>);
 
+typedef CtMessageSingleBinaryArgumentLengthWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Pointer<ffi.Size>);
+typedef CtMessageSingleBinaryArgumentLengthDart =
+    int Function(int, ffi.Pointer<ffi.Size>);
+
 typedef CtBase64DecodeCanonicalNative =
     ffi.Int32 Function(
       ffi.Pointer<ffi.Uint8>,
@@ -812,6 +817,13 @@ class CtFfiBindings {
               return (int a0, ffi.Pointer<CtExternalByteBuffer> a1) =>
                   call(checkedLegacyMessageHandle(a0), a1);
             })(),
+      ctMessageSingleBinaryArgumentLength = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtMessageSingleBinaryArgumentLengthWideNative,
+              CtMessageSingleBinaryArgumentLengthDart
+            >('ct_message_single_binary_argument_length_wide'),
+      ),
       ctBase64DecodeCanonical = _tryLookup(
         () =>
             library.lookupFunction<
@@ -985,6 +997,8 @@ class CtFfiBindings {
   final CtMessageRetainDart ctMessageRetain;
   final CtMessageDecodeSingleBinaryArgumentDart
   ctMessageDecodeSingleBinaryArgument;
+  final CtMessageSingleBinaryArgumentLengthDart?
+  ctMessageSingleBinaryArgumentLength;
   final CtBase64DecodeCanonicalDart? ctBase64DecodeCanonical;
   final CtBase64EncodeCanonicalDart? ctBase64EncodeCanonical;
   final CtSha256NewDart ctSha256New;

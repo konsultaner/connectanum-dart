@@ -6365,6 +6365,76 @@ fn decode_canonical_json_single_binary_argument(bytes: &[u8]) -> Option<Vec<u8>>
     Base64Engine.decode(encoded).ok()
 }
 
+fn canonical_json_single_binary_argument_length(bytes: &[u8]) -> Option<usize> {
+    let encoded = bytes.strip_prefix(br#"["\u0000"#)?.strip_suffix(br#""]"#)?;
+    if encoded.is_empty() {
+        return Some(0);
+    }
+    if encoded.len() % 4 != 0 {
+        return None;
+    }
+    let padding = if encoded.ends_with(b"==") {
+        2
+    } else if encoded.ends_with(b"=") {
+        1
+    } else {
+        0
+    };
+    let data = &encoded[..encoded.len() - padding];
+    let mut last = 0;
+    for &byte in data {
+        last = match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            _ => return None,
+        };
+    }
+    if (padding == 1 && last & 3 != 0) || (padding == 2 && last & 15 != 0) {
+        return None;
+    }
+    (encoded.len() / 4).checked_mul(3)?.checked_sub(padding)
+}
+
+/// Inspects a sole binary argument without exporting, copying or consuming storage.
+/// Keyword containers, including an empty one, are not a single binary payload.
+/// This optional wide-handle entry point does not authenticate the payload.
+#[no_mangle]
+pub extern "C" fn ct_message_single_binary_argument_length_wide(
+    message_handle: i64,
+    out_length: *mut usize,
+) -> c_int {
+    if out_length.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe { *out_length = 0 };
+    if message_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match super::message_handles::with_message(message_handle as u64, |message| {
+        if message.kwargs.is_some() {
+            return Err(ERR_UNSUPPORTED);
+        }
+        match message.serializer {
+            RawSocketSerializer::Json => message
+                .args
+                .as_deref()
+                .and_then(canonical_json_single_binary_argument_length)
+                .ok_or(ERR_UNSUPPORTED),
+            _ => borrowed_e2ee_message_ciphertext(message).map(<[u8]>::len),
+        }
+    }) {
+        Some(Ok(length)) => {
+            unsafe { *out_length = length };
+            SUCCESS
+        }
+        Some(Err(code)) => code,
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
 fn write_external_byte_buffer(mut bytes: Vec<u8>, out: *mut CtExternalByteBuffer) -> c_int {
     let bytes_ptr = bytes.as_mut_ptr();
     let bytes_len = bytes.len();
@@ -8315,6 +8385,141 @@ mod tests {
             ct_external_byte_buffer_free(output.owner);
             ct_message_release(handle);
         }
+    }
+
+    #[test]
+    fn message_binary_argument_length_validates_json_without_decoding() {
+        for length in 0..=512 {
+            let bytes: Vec<u8> = (0..length).map(|index| index as u8).collect();
+            let encoded = Base64Engine.encode(&bytes);
+            let args = format!(r#"["\u0000{encoded}"]"#);
+            assert_eq!(
+                canonical_json_single_binary_argument_length(args.as_bytes()),
+                Some(length)
+            );
+            assert_eq!(
+                decode_canonical_json_single_binary_argument(args.as_bytes()),
+                Some(bytes)
+            );
+        }
+        for encoded in [
+            "A", "AA", "AAA", "AAAAA", "AB==", "AAB=", "A===", "====", "AA=A", "AAAA====", "AA== ",
+            "AA-_", "AA\\n", "éAAA",
+        ] {
+            let args = format!(r#"["\u0000{encoded}"]"#);
+            assert_eq!(
+                canonical_json_single_binary_argument_length(args.as_bytes()),
+                None,
+                "{encoded}"
+            );
+            assert!(
+                decode_canonical_json_single_binary_argument(args.as_bytes()).is_none(),
+                "{encoded}"
+            );
+        }
+        for args in [
+            r#"["AQID"]"#,
+            r#"["\u0000AQID",0]"#,
+            r#"[]"#,
+            r#"null"#,
+            r#"["\u0000AQID" ]"#,
+        ] {
+            assert_eq!(
+                canonical_json_single_binary_argument_length(args.as_bytes()),
+                None
+            );
+        }
+    }
+
+    #[test]
+    fn message_binary_argument_length_preserves_handles_storage_and_rejects_shape() {
+        let _guard = test_guard();
+        for (serializer, frame) in [
+            (
+                RawSocketSerializer::Json,
+                br#"[50,77,{},["\u0000AQID"]]"#.to_vec(),
+            ),
+            (
+                RawSocketSerializer::Cbor,
+                vec![0x84, 0x18, 50, 0x18, 77, 0xa0, 0x81, 0x43, 1, 2, 3],
+            ),
+            (
+                RawSocketSerializer::MessagePack,
+                vec![0x94, 50, 77, 0x80, 0x91, 0xc4, 3, 1, 2, 3],
+            ),
+        ] {
+            let handle = wide_test_message(serializer, frame);
+            let allocation =
+                super::super::message_handles::retain_allocation(handle as u64).unwrap();
+            let observer = Arc::downgrade(&allocation);
+            drop(allocation);
+            assert_eq!(observer.strong_count(), 1);
+            let mut length = usize::MAX;
+            assert_eq!(
+                ct_message_single_binary_argument_length_wide(handle, &mut length),
+                SUCCESS
+            );
+            assert_eq!(length, 3);
+            assert_eq!(observer.strong_count(), 1);
+            assert_eq!(
+                ct_message_single_binary_argument_length_wide(handle, ptr::null_mut()),
+                ERR_INVALID_ARGUMENT
+            );
+            assert_eq!(observer.strong_count(), 1);
+            ct_message_release_wide(handle);
+            assert_eq!(observer.strong_count(), 0);
+            assert_eq!(
+                ct_message_single_binary_argument_length_wide(handle, &mut length),
+                ERR_HANDLE_UNAVAILABLE
+            );
+            assert_eq!(length, 0);
+        }
+        for frame in [
+            br#"[50,77,{},[]]"#.as_slice(),
+            br#"[50,77,{},[1]]"#,
+            br#"[50,77,{},["\u0000AQID"],{}]"#,
+            br#"[50,77,{},["\u0000AB=="]]"#,
+        ] {
+            let handle = wide_test_message(RawSocketSerializer::Json, frame.to_vec());
+            let mut length = usize::MAX;
+            assert_eq!(
+                ct_message_single_binary_argument_length_wide(handle, &mut length),
+                ERR_UNSUPPORTED
+            );
+            assert_eq!(length, 0);
+            assert!(super::super::message_handles::with_message(handle as u64, |_| ()).is_some());
+            ct_message_release_wide(handle);
+        }
+        let mut length = usize::MAX;
+        assert_eq!(
+            ct_message_single_binary_argument_length_wide(0, &mut length),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(length, 0);
+    }
+
+    #[test]
+    fn message_binary_argument_length_keeps_segmented_frame_unflattened() {
+        let _guard = test_guard();
+        let frame = Bytes::from_static(&[0x94, 50, 77, 0x80, 0x91, 0xc4, 3, 1, 2, 3]);
+        let parsed = parse_message_segments(
+            RawSocketSerializer::MessagePack,
+            vec![frame.slice(..5), frame.slice(5..)],
+        )
+        .unwrap();
+        let handle = store_parsed_message_wide(parsed);
+        let mut length = usize::MAX;
+        assert_eq!(
+            ct_message_single_binary_argument_length_wide(handle, &mut length),
+            SUCCESS
+        );
+        assert_eq!(length, 3);
+        super::super::message_handles::with_message(handle as u64, |message| {
+            assert!(message.raw.is_segmented());
+            assert!(!message.raw.has_contiguous_cache());
+        })
+        .unwrap();
+        ct_message_release_wide(handle);
     }
 
     #[test]
