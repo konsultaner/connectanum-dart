@@ -224,6 +224,8 @@ above and bind `AuthServerProcedureBinding` on the authentication service; worke
 connections are initialized from that configuration, not from a main-isolate
 registry. Multiple logical routers may share one `NativeTransportRuntime`; do not
 construct a second process-wide native runtime for the authentication listener.
+See [Embedding Multiple Routers](router_embedding.md) for scoped listener
+configuration, TLS reload, and the remaining shared-engine boundaries.
 
 For same-isolate execution, register delegates with stable identifiers:
 

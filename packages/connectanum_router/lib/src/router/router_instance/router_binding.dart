@@ -1014,6 +1014,8 @@ class RouterHttpRequest {
   );
 }
 
+final Object _routerBindingDisposeCleanupKey = Object();
+
 /// Public façade that wires the Dart router to the native transport runtime.
 ///
 /// The binding owns all active listeners, polls for new connections/messages,
@@ -1024,13 +1026,14 @@ class RouterBinding {
   RouterBinding({
     required this.runtime,
     required List<Endpoint> endpoints,
-    required this.configJson,
+    required Uint8List configJson,
     required this.settings,
     this.workerEntryPoint = defaultRouterWorkerEntryPoint,
     this.workerPollInterval = const Duration(milliseconds: 1),
     this.onEvent,
     Map<String, RouterHttpRouteHandler> httpRouteHandlers = const {},
-  }) : _pendingEndpoints = List<Endpoint>.unmodifiable(endpoints),
+  }) : _configJson = Uint8List.fromList(configJson).asUnmodifiableView(),
+       _pendingEndpoints = List<Endpoint>.unmodifiable(endpoints),
        _httpRouteHandlers = Map<String, RouterHttpRouteHandler>.unmodifiable(
          httpRouteHandlers.map((key, value) => MapEntry(key.trim(), value))
            ..removeWhere((key, _) => key.isEmpty),
@@ -1045,7 +1048,8 @@ class RouterBinding {
        );
 
   final NativeRuntime runtime;
-  final Uint8List configJson;
+  Uint8List _configJson;
+  Uint8List get configJson => _configJson;
   final RouterSettings settings;
   final RouterWorkerEntryPoint workerEntryPoint;
   final Duration workerPollInterval;
@@ -1058,6 +1062,7 @@ class RouterBinding {
   final Map<int, _ConnectionState> _connections = {};
   final Set<void Function()> _nativeMessageWatchStops = {};
   final Set<RouterSession> _internalSessions = {};
+  final Set<Future<void>> _internalSessionStarts = {};
   final Map<String, RouterSession> _internalSessionsByRealm = {};
   final Map<String, RouterSession> _internalSessionsByCacheKey = {};
   final Map<String, Future<RouterSession>> _internalSessionCreationsByRealm =
@@ -1080,6 +1085,7 @@ class RouterBinding {
       {};
   final Set<_PendingHttpAuthTransaction> _activeHttpAuthTransactions = {};
   bool _disposed = false;
+  Future<void>? _disposeFuture;
   final Map<String, _HttpAuthTokenRecord> _httpAuthTokens = {};
   final Map<String, _HttpRefreshTokenRecord> _httpRefreshTokens = {};
   final Set<String> _httpRefreshTokensInFlight = {};
@@ -1261,6 +1267,9 @@ class RouterBinding {
   }
 
   void activateListeners() {
+    if (_disposed) {
+      throw StateError('Router binding is disposed');
+    }
     if (_ready) {
       return;
     }
@@ -1272,14 +1281,26 @@ class RouterBinding {
         .map((e) => _endpointKey(e.host, e.port))
         .toList();
     final ambiguous = keys.toSet().length != keys.length;
-    if (ambiguous && runtime is! NativeRuntimeWithConfiguredListeners) {
+    final scoped =
+        runtime is NativeRuntimeWithRouterConfiguration &&
+        (runtime as NativeRuntimeWithRouterConfiguration)
+            .supportsRouterConfiguration;
+    if (ambiguous &&
+        !scoped &&
+        runtime is! NativeRuntimeWithConfiguredListeners) {
       throw UnsupportedError(
         'Runtime cannot distinguish separate port-zero listeners',
       );
     }
     for (var index = 0; index < _pendingEndpoints.length; index++) {
       final endpoint = _pendingEndpoints[index];
-      final listenerId = ambiguous
+      final listenerId = scoped
+          ? (runtime as NativeRuntimeWithRouterConfiguration)
+                .listenRouterEndpoint(
+                  configJson,
+                  index,
+                )
+          : ambiguous
           ? (runtime as NativeRuntimeWithConfiguredListeners)
                 .listenConfiguredEndpoint(
                   endpoint.host,
@@ -1333,12 +1354,41 @@ class RouterBinding {
     _scheduleInternalBootstrap();
   }
 
+  /// Rebuilds TLS identities for this binding's listeners only.
+  /// Pass a native [configuration] snapshot to rotate certificates or TLS policy;
+  /// listener positions and configured addresses must remain unchanged.
+  /// Validation failures leave every listener unchanged. Older native libraries
+  /// cannot isolate reloads and fail closed instead of reloading sibling routers.
+  int reloadTls({Uint8List? configuration}) {
+    if (_disposed || !_ready) {
+      throw StateError('TLS reload requires an active router binding');
+    }
+    final native = runtime;
+    if (native is! NativeRuntimeWithRouterConfiguration ||
+        !native.supportsRouterConfiguration) {
+      throw UnsupportedError(
+        'Router-scoped TLS reload requires an updated runtime',
+      );
+    }
+    final next = configuration == null
+        ? configJson
+        : Uint8List.fromList(configuration).asUnmodifiableView();
+    final count = native.reloadRouterTls(
+      next,
+      _listeners.map((listener) => listener.listenerId).toList(growable: false),
+    );
+    _configJson = next;
+    return count;
+  }
+
   Future<int> _allocateSessionId(SendPort statePort) async {
     final replyPort = ReceivePort();
-    statePort.send(SessionAllocateIdCommand(replyPort: replyPort.sendPort));
-    final id = await replyPort.first as int;
-    replyPort.close();
-    return id;
+    try {
+      statePort.send(SessionAllocateIdCommand(replyPort: replyPort.sendPort));
+      return await replyPort.first as int;
+    } finally {
+      replyPort.close();
+    }
   }
 
   Future<RouterSession> createInternalSession({
@@ -1353,130 +1403,161 @@ class RouterBinding {
     bool authorizationIsInternal = true,
     bool indexByRealm = true,
   }) async {
-    if (!_ready) {
-      activateListeners();
+    if (_disposed) {
+      throw StateError('Router binding is disposed');
     }
-    final boss = _boss;
-    if (boss == null) {
-      throw StateError(
-        'Embedded sessions require native isolate support on this platform.',
-      );
-    }
-    final resolvedProfile = _resolveSessionProfile(sessionProfile);
-    final resolvedRealmUri =
-        (resolvedProfile?.realm != null && resolvedProfile!.realm!.isNotEmpty)
-        ? resolvedProfile.realm!
-        : realmUri;
-    final resolvedAuthId = authId ?? resolvedProfile?.auth.authId;
-    final requestedAuthRole = authRole ?? resolvedProfile?.auth.authRole;
-    final resolvedRoles = <String, Object?>{
-      ...?resolvedProfile?.roles,
-      ...roles,
-    };
-
-    RealmSettings? realmSettings;
-    for (final candidate in settings.realms) {
-      if (candidate.name == resolvedRealmUri) {
-        realmSettings = candidate;
-        break;
+    final startup = Completer<void>();
+    _internalSessionStarts.add(startup.future);
+    try {
+      if (!_ready) {
+        activateListeners();
       }
+      final boss = _boss;
+      if (boss == null) {
+        throw StateError(
+          'Embedded sessions require native isolate support on this platform.',
+        );
+      }
+      final resolvedProfile = _resolveSessionProfile(sessionProfile);
+      final resolvedRealmUri =
+          (resolvedProfile?.realm != null && resolvedProfile!.realm!.isNotEmpty)
+          ? resolvedProfile.realm!
+          : realmUri;
+      final resolvedAuthId = authId ?? resolvedProfile?.auth.authId;
+      final requestedAuthRole = authRole ?? resolvedProfile?.auth.authRole;
+      final resolvedRoles = <String, Object?>{
+        ...?resolvedProfile?.roles,
+        ...roles,
+      };
+
+      RealmSettings? realmSettings;
+      for (final candidate in settings.realms) {
+        if (candidate.name == resolvedRealmUri) {
+          realmSettings = candidate;
+          break;
+        }
+      }
+      if (realmSettings == null) {
+        throw StateError('Realm $resolvedRealmUri is not configured');
+      }
+      final resolvedAuthRole =
+          requestedAuthRole ??
+          (realmSettings.roles.any((role) => role.name == 'anonymous')
+              ? 'anonymous'
+              : null);
+      final statePort = boss.stateCommandPort;
+      final sessionId = await _allocateSessionId(statePort);
+      if (_disposed) {
+        throw StateError('Router binding is disposed');
+      }
+      final controlPort = RawReceivePort();
+      final handshakePort = ReceivePort();
+      ReceivePort? responsePort;
+      Isolate? isolate;
+      var published = false;
+      try {
+        isolate = await Isolate.spawn<_InternalSessionBootstrap>(
+          _routerInternalSessionIsolate,
+          _InternalSessionBootstrap(
+            sessionId: sessionId,
+            realmUri: resolvedRealmUri,
+            authId: resolvedAuthId,
+            authRole: resolvedAuthRole,
+            authMethod: authMethod,
+            authProvider: authProvider,
+            authorizationIsInternal: authorizationIsInternal,
+            roles: resolvedRoles,
+            realmSettings: realmSettings,
+            statePort: statePort,
+            controlPort: controlPort.sendPort,
+            handshakePort: handshakePort.sendPort,
+          ),
+          debugName: 'router-internal-session-$sessionId',
+        );
+        if (_disposed) {
+          throw StateError('Router binding is disposed');
+        }
+        final handshake = await handshakePort.first;
+        if (_disposed) {
+          throw StateError('Router binding is disposed');
+        }
+        if (handshake is! Map ||
+            handshake['commandPort'] is! SendPort ||
+            handshake['invocationPort'] is! SendPort) {
+          throw StateError('Failed to initialize internal session isolate');
+        }
+        final requestPort = handshake['commandPort'] as SendPort;
+        final internalPort = handshake['invocationPort'] as SendPort;
+        final internalEndpoint = Endpoint(
+          host: 'internal',
+          port: 0,
+          tlsMode: TlsMode.disabled,
+          maxRawSocketSizeExponent: 16,
+        );
+        final listenerSettings = _lookupListenerSettings(internalEndpoint);
+        final listener = RouterListener(
+          listenerId: -sessionId,
+          endpoint: internalEndpoint,
+          port: 0,
+          http3Port: 0,
+          settings: listenerSettings,
+        );
+        responsePort = ReceivePort();
+        final session = RouterSession._(
+          binding: this,
+          sessionId: sessionId,
+          realmUri: resolvedRealmUri,
+          authId: resolvedAuthId,
+          authRole: resolvedAuthRole,
+          authMethod: authMethod,
+          authProvider: authProvider,
+          authorizationIsInternal: authorizationIsInternal,
+          cacheKey: cacheKey,
+          roles: resolvedRoles,
+          commandPort: requestPort,
+          controlPort: controlPort,
+          responsePort: responsePort,
+          isolate: isolate,
+        );
+        final record = SessionRecord(
+          id: sessionId,
+          authId: resolvedAuthId,
+          authRole: resolvedAuthRole,
+          authMethod: authMethod,
+          authProvider: authProvider,
+          roles: resolvedRoles,
+          workerId: 0,
+          connectionId: -sessionId,
+          lastActivity: DateTime.now(),
+          listener: listener,
+          protocol:
+              listenerSettings?.primaryProtocol ?? ListenerProtocol.rawsocket,
+          internalSendPort: internalPort,
+        );
+        statePort.send(
+          SessionOpenCommand(realmUri: resolvedRealmUri, session: record),
+        );
+        _internalSessions.add(session);
+        if (indexByRealm) {
+          _internalSessionsByRealm[resolvedRealmUri] = session;
+        }
+        if (cacheKey != null && cacheKey.isNotEmpty) {
+          _internalSessionsByCacheKey[cacheKey] = session;
+        }
+        published = true;
+        return session;
+      } finally {
+        handshakePort.close();
+        if (!published) {
+          controlPort.close();
+          responsePort?.close();
+          isolate?.kill(priority: Isolate.immediate);
+        }
+      }
+    } finally {
+      startup.complete();
+      _internalSessionStarts.remove(startup.future);
     }
-    if (realmSettings == null) {
-      throw StateError('Realm $resolvedRealmUri is not configured');
-    }
-    final resolvedAuthRole =
-        requestedAuthRole ??
-        (realmSettings.roles.any((role) => role.name == 'anonymous')
-            ? 'anonymous'
-            : null);
-    final statePort = boss.stateCommandPort;
-    final sessionId = await _allocateSessionId(statePort);
-    final controlPort = RawReceivePort();
-    final handshakePort = ReceivePort();
-    final isolate = await Isolate.spawn<_InternalSessionBootstrap>(
-      _routerInternalSessionIsolate,
-      _InternalSessionBootstrap(
-        sessionId: sessionId,
-        realmUri: resolvedRealmUri,
-        authId: resolvedAuthId,
-        authRole: resolvedAuthRole,
-        authMethod: authMethod,
-        authProvider: authProvider,
-        authorizationIsInternal: authorizationIsInternal,
-        roles: resolvedRoles,
-        realmSettings: realmSettings,
-        statePort: statePort,
-        controlPort: controlPort.sendPort,
-        handshakePort: handshakePort.sendPort,
-      ),
-      debugName: 'router-internal-session-$sessionId',
-    );
-    final handshake = await handshakePort.first;
-    handshakePort.close();
-    if (handshake is! Map ||
-        handshake['commandPort'] is! SendPort ||
-        handshake['invocationPort'] is! SendPort) {
-      isolate.kill(priority: Isolate.immediate);
-      throw StateError('Failed to initialize internal session isolate');
-    }
-    final requestPort = handshake['commandPort'] as SendPort;
-    final internalPort = handshake['invocationPort'] as SendPort;
-    final internalEndpoint = Endpoint(
-      host: 'internal',
-      port: 0,
-      tlsMode: TlsMode.disabled,
-      maxRawSocketSizeExponent: 16,
-    );
-    final listenerSettings = _lookupListenerSettings(internalEndpoint);
-    final listener = RouterListener(
-      listenerId: -sessionId,
-      endpoint: internalEndpoint,
-      port: 0,
-      http3Port: 0,
-      settings: listenerSettings,
-    );
-    final responsePort = ReceivePort();
-    final session = RouterSession._(
-      binding: this,
-      sessionId: sessionId,
-      realmUri: resolvedRealmUri,
-      authId: resolvedAuthId,
-      authRole: resolvedAuthRole,
-      authMethod: authMethod,
-      authProvider: authProvider,
-      authorizationIsInternal: authorizationIsInternal,
-      cacheKey: cacheKey,
-      roles: resolvedRoles,
-      commandPort: requestPort,
-      controlPort: controlPort,
-      responsePort: responsePort,
-      isolate: isolate,
-    );
-    final record = SessionRecord(
-      id: sessionId,
-      authId: resolvedAuthId,
-      authRole: resolvedAuthRole,
-      authMethod: authMethod,
-      authProvider: authProvider,
-      roles: resolvedRoles,
-      workerId: 0,
-      connectionId: -sessionId,
-      lastActivity: DateTime.now(),
-      listener: listener,
-      protocol: listenerSettings?.primaryProtocol ?? ListenerProtocol.rawsocket,
-      internalSendPort: internalPort,
-    );
-    statePort.send(
-      SessionOpenCommand(realmUri: resolvedRealmUri, session: record),
-    );
-    _internalSessions.add(session);
-    if (indexByRealm) {
-      _internalSessionsByRealm[resolvedRealmUri] = session;
-    }
-    if (cacheKey != null && cacheKey.isNotEmpty) {
-      _internalSessionsByCacheKey[cacheKey] = session;
-    }
-    return session;
   }
 
   /// Polls the native runtime for pending messages and returns them eagerly.
@@ -1797,10 +1878,41 @@ class RouterBinding {
   }
 
   /// Stops the background boss isolate (if running) and releases resources.
-  Future<void> dispose() async {
+  /// Concurrent callers observe the same completed cleanup, including failures.
+  Future<void> dispose() {
+    final existing = _disposeFuture;
+    if (existing != null) {
+      if (identical(Zone.current[_routerBindingDisposeCleanupKey], this)) {
+        return Future<void>.value();
+      }
+      return existing;
+    }
     _disposed = true;
+    final completion = Completer<void>();
+    _disposeFuture = completion.future;
+    completion.complete(
+      runZoned<Future<void>>(
+        _disposeOwnedResources,
+        zoneValues: {_routerBindingDisposeCleanupKey: this},
+      ),
+    );
+    return completion.future;
+  }
+
+  Future<void> _disposeOwnedResources() async {
+    Object? pendingCleanupError;
+    StackTrace? pendingCleanupStack;
+    Future<void> cleanup(FutureOr<void> Function() action) async {
+      try {
+        await action();
+      } catch (error, stack) {
+        pendingCleanupError ??= error;
+        pendingCleanupStack ??= stack;
+      }
+    }
+
     for (final stop in _nativeMessageWatchStops.toList()) {
-      stop();
+      await cleanup(stop);
     }
     for (final pending in {
       ..._pendingHttpAuthTransactions.values,
@@ -1813,8 +1925,6 @@ class RouterBinding {
     _httpAuthTokens.clear();
     _httpRefreshTokens.clear();
     _httpRefreshTokensInFlight.clear();
-    Object? pendingCleanupError;
-    StackTrace? pendingCleanupStack;
     for (final id in _pendingHttpCalls.keys.toList()) {
       try {
         _completeHttpRequest(id);
@@ -1836,21 +1946,25 @@ class RouterBinding {
     try {
       await _closeListenersAndPendingConnections();
     } catch (_) {}
-    await _metricsService?.dispose();
+    // Keep the state store alive until all accepted starts have either published
+    // an owned session or released their ports/isolate after disposal began.
+    await cleanup(() async => await _internalBootstrap);
+    await Future.wait(_internalSessionStarts.toList());
+    await cleanup(() async => await _metricsService?.dispose());
     _metricsService = null;
     for (final endpoint in _mcpEndpoints.values.toList()) {
-      await endpoint.dispose();
+      await cleanup(endpoint.dispose);
     }
     _mcpEndpoints.clear();
     for (final session in _internalSessions.toList()) {
-      await session.close();
+      await cleanup(session.close);
     }
     _internalSessions.clear();
     _internalSessionsByRealm.clear();
     _internalSessionsByCacheKey.clear();
     _listenerConfigById.clear();
-    for (final state in _connections.values) {
-      state.dispose();
+    for (final state in _connections.values.toList()) {
+      await cleanup(state.dispose);
     }
     _connections.clear();
     _internalBootstrap = null;
@@ -1861,7 +1975,7 @@ class RouterBinding {
     } catch (_) {}
     final boss = _boss;
     if (boss != null) {
-      await boss.stop();
+      await cleanup(boss.stop);
     }
     final cleanupError = pendingCleanupError;
     if (cleanupError != null) {
@@ -7511,6 +7625,7 @@ class RouterBinding {
     var metricsConfigured = false;
 
     for (final internal in settings.internalRealms) {
+      if (_disposed) return;
       try {
         final session = await createInternalSession(
           realmUri: internal.name,
@@ -7540,6 +7655,11 @@ class RouterBinding {
           metricsConfigured = true;
         }
       } catch (error, stackTrace) {
+        if (_disposed &&
+            error is StateError &&
+            error.message == 'Router binding is disposed') {
+          return;
+        }
         onEvent?.call({
           'source': 'binding',
           'type': 'internal_realm_bootstrap_error',

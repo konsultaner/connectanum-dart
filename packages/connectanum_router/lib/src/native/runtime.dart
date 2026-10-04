@@ -91,6 +91,17 @@ abstract class NativeRuntimeWithConfiguredListeners implements NativeRuntime {
   });
 }
 
+/// Creates and reloads listeners without replacing process-wide configuration.
+abstract class NativeRuntimeWithRouterConfiguration implements NativeRuntime {
+  bool get supportsRouterConfiguration;
+  int listenRouterEndpoint(
+    Uint8List config,
+    int endpointIndex, {
+    int backlog = 128,
+  });
+  int reloadRouterTls(Uint8List config, List<int> listenerIds);
+}
+
 /// Runtime extension that exposes raw message handles so other isolates can
 /// materialise messages without crossing isolate boundaries.
 abstract class NativeRuntimeWithHandles implements NativeRuntime {
@@ -2159,6 +2170,7 @@ class NativeTransportRuntime
     implements
         NativeRuntimeWithHandles,
         NativeRuntimeWithConfiguredListeners,
+        NativeRuntimeWithRouterConfiguration,
         NativeRuntimeWithInternalCallForwarding {
   /// Loads `ct_ffi` and creates the process-wide native transport runtime.
   factory NativeTransportRuntime({String? libraryPath}) {
@@ -2192,12 +2204,26 @@ class NativeTransportRuntime
       .lookupFunction<CtListenConfiguredNative, CtListenConfiguredDart>(
         'ct_listen_configured',
       );
+  @override
+  late final bool supportsRouterConfiguration =
+      _library.providesSymbol('ct_listen_router_endpoint') &&
+      _library.providesSymbol('ct_reload_router_tls');
+  late final CtListenRouterEndpointDart _listenRouterEndpoint = _library
+      .lookupFunction<CtListenRouterEndpointNative, CtListenRouterEndpointDart>(
+        'ct_listen_router_endpoint',
+      );
+  late final CtReloadRouterTlsDart _reloadRouterTls = _library
+      .lookupFunction<CtReloadRouterTlsNative, CtReloadRouterTlsDart>(
+        'ct_reload_router_tls',
+      );
   final _MessageBindings _messageBindings;
   RandomAccessFile? _runtimeLock;
 
   static NativeTransportRuntime? _instance;
+  // Native state is process-local; file ownership must not block unrelated
+  // processes. The native startup guard enforces same-process engine ownership.
   static final String _runtimeLockPath =
-      '${Directory.systemTemp.path}/connectanum_native_runtime.lock';
+      '${Directory.systemTemp.path}/connectanum_native_runtime-$pid.lock';
   static const Set<int> _runtimeLockRetryErrnos = {
     11, // EAGAIN on Linux
     35, // EWOULDBLOCK on macOS
@@ -2233,22 +2259,27 @@ class NativeTransportRuntime
     final handle = file.openSync(mode: FileMode.write);
     final deadline = DateTime.now().add(const Duration(seconds: 30));
     var backoff = const Duration(milliseconds: 25);
-    while (true) {
-      try {
-        handle.lockSync(FileLock.exclusive);
-        break;
-      } on FileSystemException catch (error) {
-        final errno = error.osError?.errorCode;
-        if (_runtimeLockRetryErrnos.contains(errno) &&
-            DateTime.now().isBefore(deadline)) {
-          sleep(backoff);
-          if (backoff < const Duration(milliseconds: 250)) {
-            backoff *= 2;
+    try {
+      while (true) {
+        try {
+          handle.lockSync(FileLock.exclusive);
+          break;
+        } on FileSystemException catch (error) {
+          final errno = error.osError?.errorCode;
+          if (_runtimeLockRetryErrnos.contains(errno) &&
+              DateTime.now().isBefore(deadline)) {
+            sleep(backoff);
+            if (backoff < const Duration(milliseconds: 250)) {
+              backoff *= 2;
+            }
+            continue;
           }
-          continue;
+          rethrow;
         }
-        rethrow;
       }
+    } catch (_) {
+      handle.closeSync();
+      rethrow;
     }
     _runtimeLock = handle;
   }
@@ -2345,6 +2376,78 @@ class NativeTransportRuntime
       }
       return result;
     });
+  }
+
+  /// Opens a listener from an explicit router configuration snapshot.
+  @override
+  int listenRouterEndpoint(
+    Uint8List config,
+    int endpointIndex, {
+    int backlog = 128,
+  }) {
+    if (config.isEmpty ||
+        config.length > 0x7fffffff ||
+        endpointIndex < 0 ||
+        endpointIndex > 0xffffffff ||
+        backlog <= 0 ||
+        backlog > 0x7fffffff) {
+      throw ArgumentError('Invalid router listener arguments');
+    }
+    _requireRouterConfiguration();
+    return using((arena) {
+      final bytes = arena<ffi.Uint8>(config.length);
+      bytes.asTypedList(config.length).setAll(0, config);
+      final result = _listenRouterEndpoint(
+        bytes,
+        config.length,
+        endpointIndex,
+        backlog,
+      );
+      if (result < 0) {
+        _throwForError(result, 'Failed to create router listener');
+      }
+      return result;
+    });
+  }
+
+  @override
+  int reloadRouterTls(Uint8List config, List<int> listenerIds) {
+    if (config.isEmpty ||
+        config.length > 0x7fffffff ||
+        listenerIds.length > 0x7fffffff ||
+        listenerIds.any((id) => id <= 0 || id > 0x7fffffff) ||
+        listenerIds.toSet().length != listenerIds.length) {
+      throw ArgumentError('Invalid router TLS reload arguments');
+    }
+    _requireRouterConfiguration();
+    return using((arena) {
+      final bytes = arena<ffi.Uint8>(config.length);
+      bytes.asTypedList(config.length).setAll(0, config);
+      final ids = listenerIds.isEmpty
+          ? ffi.nullptr.cast<ffi.Int32>()
+          : arena<ffi.Int32>(listenerIds.length);
+      if (listenerIds.isNotEmpty) {
+        ids.asTypedList(listenerIds.length).setAll(0, listenerIds);
+      }
+      final result = _reloadRouterTls(
+        bytes,
+        config.length,
+        ids,
+        listenerIds.length,
+      );
+      if (result < 0) {
+        _throwForError(result, 'Failed to reload router TLS configuration');
+      }
+      return result;
+    });
+  }
+
+  void _requireRouterConfiguration() {
+    if (!supportsRouterConfiguration) {
+      throw UnsupportedError(
+        'Router-scoped listeners require an updated native transport library',
+      );
+    }
   }
 
   /// Returns the TCP port bound by [listenerId].
@@ -3607,7 +3710,8 @@ class NativeTransportRuntime
     }
   }
 
-  /// Reloads configured TLS identities and returns the reload generation.
+  /// Reloads legacy listeners only and returns the number of updated listeners.
+  /// For listeners owned by a RouterBinding, use that binding's TLS reload.
   @override
   int reloadTls() {
     final result = _bindings.ctReloadTls();

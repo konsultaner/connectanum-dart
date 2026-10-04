@@ -40,14 +40,15 @@ use ct_core::{
     connection_reject_websocket, connection_supports_file_segments,
     connection_take_http2_handshake, connection_take_http3_handshake,
     connection_take_websocket_handshake, connection_websocket_protocol, listen,
-    listen_configured_endpoint, listener_http3_port, local_addr, poll_connection_message,
-    reload_tls, response_stream_channel, send_wamp_base64_file_segment,
-    send_wamp_deferred_segment_with_suffix, send_wamp_file_segment, send_wamp_message,
-    send_wamp_segments, shutdown, start_runtime, wait_connection_message, ConnectionId,
-    ConnectionProtocol, Error as CoreError, FileSegmentMetricsSnapshot, HttpConnectionCloseReason,
-    HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpRequestBodyStreamMetricsSnapshot,
-    HttpResponseBody, HttpResponseDispatch, HttpResponseStreamMetricsSnapshot, ListenerId,
-    RawSocketSerializer, ResponseStreamWriter, WampMessage, RESPONSE_STREAM_BUFFER,
+    listen_configured_endpoint, listen_router_endpoint, listener_http3_port, local_addr,
+    poll_connection_message, reload_router_tls, reload_tls, response_stream_channel,
+    send_wamp_base64_file_segment, send_wamp_deferred_segment_with_suffix, send_wamp_file_segment,
+    send_wamp_message, send_wamp_segments, shutdown, start_runtime, wait_connection_message,
+    ConnectionId, ConnectionProtocol, Error as CoreError, FileSegmentMetricsSnapshot,
+    HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
+    HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
+    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, ResponseStreamWriter,
+    WampMessage, RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -2533,6 +2534,56 @@ pub extern "C" fn ct_apply_router_config(data: *const u8, len: c_int) -> c_int {
 pub extern "C" fn ct_reload_tls() -> c_int {
     match reload_tls() {
         Ok(count) => count as c_int,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_reload_router_tls(
+    data: *const u8,
+    len: c_int,
+    listener_ids: *const c_int,
+    count: c_int,
+) -> c_int {
+    if data.is_null() || len <= 0 || count < 0 || (count > 0 && listener_ids.is_null()) {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(data, len as usize) };
+    let ids = if count == 0 {
+        &[][..]
+    } else {
+        unsafe { std::slice::from_raw_parts(listener_ids, count as usize) }
+    };
+    if ids.iter().any(|id| *id <= 0) {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let ids: Vec<_> = ids.iter().map(|id| ListenerId(*id as u32)).collect();
+    match reload_router_tls(bytes, &ids) {
+        Ok(count) => count as c_int,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_listen_router_endpoint(
+    data: *const u8,
+    len: c_int,
+    endpoint_index: c_uint,
+    backlog: c_int,
+) -> c_int {
+    if data.is_null() || len <= 0 || backlog <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(data, len as usize) };
+    match listen_router_endpoint(bytes, endpoint_index as usize, backlog) {
+        Ok(listener_id) => match accept_channel(listener_id) {
+            Ok(receiver) => {
+                store_channel(listener_id, receiver);
+                invoke_listener_callback(listener_id, SUCCESS);
+                listener_id.0 as c_int
+            }
+            Err(err) => map_error(err),
+        },
         Err(err) => map_error(err),
     }
 }
@@ -7456,6 +7507,44 @@ mod tests {
             ct_listen_configured(invalid_utf8.as_ptr().cast(), 0, 128, 0),
             ERR_INVALID_ARGUMENT
         );
+    }
+
+    #[test]
+    fn router_scoped_ffi_rejects_invalid_arguments() {
+        let _guard = test_guard();
+        let cfg = br#"{"schema":"connectanum.router","version":1,"endpoints":[]}"#;
+        let bytes = cfg.as_ptr();
+        let len = cfg.len() as c_int;
+        for (data, len, backlog) in [
+            (ptr::null(), len, 128),
+            (bytes, -1, 128),
+            (bytes, 0, 128),
+            (bytes, len, 0),
+        ] {
+            assert_eq!(
+                ct_listen_router_endpoint(data, len, 0, backlog),
+                ERR_INVALID_ARGUMENT
+            );
+        }
+        let id = 1;
+        for (data, len, ids, count) in [
+            (ptr::null(), len, &id as *const c_int, 1),
+            (bytes, -1, &id, 1),
+            (bytes, 0, &id, 1),
+            (bytes, len, ptr::null(), 1),
+            (bytes, len, &id, -1),
+        ] {
+            assert_eq!(
+                ct_reload_router_tls(data, len, ids, count),
+                ERR_INVALID_ARGUMENT
+            );
+        }
+        for id in [i32::MIN, -1, 0] {
+            assert_eq!(
+                ct_reload_router_tls(bytes, len, &id, 1),
+                ERR_INVALID_ARGUMENT
+            );
+        }
     }
 
     #[test]

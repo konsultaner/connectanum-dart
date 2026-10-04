@@ -12,7 +12,8 @@ component/runtime and 95% killed viable mutations. Investigate every surviving
 security-critical mutation. These targets are not current achievements.
 
 The operator's explicit 2026-10-02 request authorizes beta.6 publication before
-completion of the full mutation campaign. Apart from that release request, this
+completion of the full mutation campaign. The 2026-10-03 request also authorizes
+beta.7 publication of the router isolation/shutdown fixes. Apart from those release requests, this
 plan takes priority over the incomplete component security audit. Preserve its
 evidence and resume it after this work;
 PR #92 merged on 2026-09-15; publication is outside this coverage goal.
@@ -36,6 +37,154 @@ applications. Report these scopes separately; never treat missing data as 100%.
 There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
+
+### Work399 Beta.7 Publication
+
+The operator authorizes a new synchronized beta for the Work397/398 router
+isolation and shutdown fixes. Keep all seven Dart packages, internal version
+constraints, native crates and public MCP metadata at `3.0.0-beta.7`. Preserve
+historical changelog entries and describe the shared-engine limitation without
+claiming independent runtime contexts. No beta.7 package or native release
+exists at startup. Fast399 is launched before edits; prior Work398 full verify
+passes. The 23 publishing-tool regressions and focused Qwen version/workflow
+review pass; GLM is independently unavailable. Initial strict archives reject
+the dirty package files with pub's checked-in-file warning. Commit the code/config
+candidate and rerun clean-tree archives; do not waive that warning. Fresh full
+verification, strict archives, exact-head hosted deployment
+evidence, protected-master promotion, matching native release/install validation,
+dependency-ordered pub.dev OIDC publication and a fresh hosted consumer check
+remain pending. Do not include unrelated PRs/worktrees or claim mutation-goal
+completion. Record publication results with implementation rather than creating
+a docs-only commit.
+
+### Work398 Shutdown Ownership Regressions
+
+Investigate the consumer's post-cleanup process hang rather than treating the
+minimal Work397 exit test as a lifecycle guarantee. Fast398 is launched before
+implementation and exits 0 in `/tmp/connectanum-shutdown-fast398.log`. The internal-startup
+fail-first test times out waiting for natural exit after cleanup has completed;
+VM service inspection finds 16 remaining internal-session isolates, with two
+live ports on the inspected isolate. Retain that snapshot in
+`/tmp/connectanum-shutdown-vm398.json` and the failure log in
+`/tmp/connectanum-shutdown-repro398.log`. A second fail-first subprocess confirms
+that a session cancellation failure skips cleanup of other sessions/workers;
+its exit deadline fails in `/tmp/connectanum-shutdown-cleanup-repro398.log`.
+
+Track accepted internal-session startup completion while the state store still
+lives. Reject new starts and cancel unpublished late starts after disposal begins;
+close all unpublished handshake/control/response ports and isolates on failure.
+Await internal bootstrap before tearing down its owners. Share disposal's final
+future among callers, permit binding-scoped reentrant owned cleanup, and attempt
+remaining service/session/connection/boss cleanup before rethrowing the first
+cleanup failure. Do not require a forced process exit to pass a regression.
+
+The subprocess suite passes internal startup, later scheduling turns, metrics
+bootstrap, failed owner cleanup, active WebSocket disconnection and shared-TMPDIR
+process isolation in `/tmp/connectanum-shutdown-regressions398.log`. All 15
+focused binding/session ownership tests pass in
+`/tmp/connectanum-shutdown-ownership398.log`, covering concurrent completion,
+new-session rejection, reentrant cancellation, cross-binding cleanup scope and
+failed startup. A further fail-first file-cancellation test exposes self-waiting
+when that callback re-enters disposal outside the cleanup context; move the
+context around the entire disposal body. All 33 focused binding/session/file
+ownership tests pass in `/tmp/connectanum-shutdown-ownership-final398.log`,
+including that callback and exact repeated cleanup-failure identity.
+
+The public router CLI's unused signal subscription survives `Future.any`; its
+forced exit hid the leaked ownership. After removing forced exit, the subprocess
+exit deadline fails in `/tmp/connectanum-cli-shutdown-repro398.log`. Explicitly
+cancel all signal subscriptions and emit readiness only after installation.
+The earlier readiness print permits a fast SIGHUP to terminate the process
+before its handler exists; that failure is retained separately. The CLI also
+must use binding-scoped TLS reload after Work397: the fail-first SIGHUP regression
+gets zero reloads with the legacy global call, retained in
+`/tmp/connectanum-cli-scoped-reload-repro398.log`. Correct the call without a
+global fallback. Both SIGINT/SIGTERM natural-exit and scoped-reload variants pass;
+the expanded process suite now has eight passing cases. Signal cases are POSIX
+only; they do not establish Windows CLI evidence.
+
+The initial full verify in `/tmp/connectanum-shutdown-verify398.log` exits 1
+because seven older controlled-error tests expected repeated disposal to forget
+the original failure. Retain all native/file release assertions and explicitly
+assert the same expected error on repeated disposal/teardown. No broad catch,
+deadline credit or discarded regression is introduced. Those focused tests pass.
+Final `bin/verify` exits 0 in `/tmp/connectanum-shutdown-verify398-final.log`,
+including the complete router suite, remote-auth integration, zero-copy publish
+and Chrome/WASM core/client tests. Final focused formatting and analysis pass.
+Qwen planning/review/triage ran; its proposed post-check publication race
+contradicts the no-await publication block and the awaited startup accounting. GLM is
+independently unreachable. Focused production/process analysis passes.
+The exact consumer shutdown code is unavailable; do not claim its application
+configuration was tested, independent runtime contexts completed, mutation
+completion, a push or a new publication.
+
+### Work397 Router Embedding Isolation
+
+The operator authorizes work on the one-native-runtime/router embedding limit.
+Keep this as a correctness/regression sub-milestone of the active coverage plan,
+not a second active execution plan. Latest complete base-head CI `37062527790`
+and package dry-run `37062527796` pass at `54eafc5f`; Work396's earlier cancelled
+master campaign is no longer the latest branch evidence. Do not infer a mutation
+score or completion without auditing the matching complete report.
+
+Phase 1: isolate listener configuration and TLS reload while retaining one
+shared engine/thread pool. Fast397 exits 0 before implementation in
+`/tmp/connectanum-router-context-fast397.log`. The fail-first real-client test in
+`/tmp/connectanum-router-isolation-repro397.log` rejects deferred router A's
+WebSocket after router B installs RawSocket configuration. Both independently
+use endpoint index zero and the same configured ephemeral address. This is a
+production configuration leak, not a reason to remove the constructor guard.
+
+Add pure native config validation, explicit-snapshot listener activation and
+selected-listener TLS reload through additive lazy FFI symbols. Legacy global
+reload excludes scoped listeners. Validate all IDs/mappings/TLS/QUIC material
+before applying any changes. Snapshot replacement on the Dart binding occurs
+only after native success. Older libraries retain legacy activation and scoped
+operations fail closed when the new ABI is absent.
+
+Focused native and Dart tests cover duplicate/unknown/closed IDs, a bad later
+TLS identity leaving earlier listeners unchanged, valid reload/recovery,
+unrelated legacy/scoped listeners, immutable snapshots and failure retention,
+unsupported capabilities, argument limits, disposed/inactive bindings, real
+WebSocket/RawSocket authentication with separate roles, sibling continuity after
+disposal and router restart. Port-zero health/metrics listener regression passes.
+The old-ABI capability test passes against the pre-change native binary, with
+`nm` confirming both new exports absent. Focused analysis passes. Qwen test
+planning/review ran; speculative race/unchecked-ID findings are contradicted by
+synchronous isolate execution, explicit ID checks and the tested native lookup.
+GLM's independently checked endpoint is unavailable. Initial verification exits
+0 in `/tmp/connectanum-router-verify397.log`; the final candidate including the
+subsequent process-lock fix also exits 0 in
+`/tmp/connectanum-router-verify397-final.log`. The full run includes all new
+router/process regressions, native integration, browser WASM and 64-MiB SCRAM
+worker responsiveness. No new hosted evidence is claimed for this unpushed work.
+
+Phase 2 remains open: independently owned runtime contexts (not simply removing
+the singleton), lifecycle/reference ownership, callback and event-queue dispatch,
+per-router native metrics, failure/partial-start cleanup and stress tests. The
+process-wide engine/lock and constructor guard remain. Document the usable
+shared-engine API and boundaries in `docs/router_embedding.md`; no claim of full
+runtime isolation, mutation-goal completion or a newly published package.
+
+The operator's subsequent beta.6 consumer report identifies a second defect:
+the single temp-directory lock serializes unrelated OS processes, although
+native state is process-local. The fail-first real-process regression times out
+at second-process readiness while the first holds its runtime. Scope the lock to
+PID, retain the native same-process startup guard, and close the lock handle on failed
+acquisition. After the fix, two subprocesses sharing TMPDIR authenticate real
+WAMP sessions on separate ephemeral ports and exit naturally, without `exit(0)`.
+Evidence: `/tmp/connectanum-router-process-repro397.log` fails before the change;
+`/tmp/connectanum-router-process397.log` passes afterward. This reproduces and
+fixes the cross-process lock, not the reported application's shutdown hang.
+The minimal properly awaited shutdown path exits normally; its configuration
+and application-owned resources need investigation if that report persists.
+Fresh full verification after this late lock-scope change passes before handoff.
+An additional listener-only subprocess probe exits naturally even without
+`runtime.dispose()`; do not attribute the reported hang to omission of that call
+without reproducing the actual application path.
+Local Dart SDK documentation confirms POSIX file locks are process-level and do
+not exclude sibling isolates; the PID-scoped file is not claimed as a portable
+isolate mutex. Independent runtime/callback ownership remains phase 2.
 
 ### Work396 Mutation Campaign Resumption
 

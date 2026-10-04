@@ -15,13 +15,66 @@ performance at least matching the better CBOR/MessagePack baseline on declared
 representative workloads. Generic native adapter readiness is in scope; actual
 ObjectBox integration belongs to a separate connectanum_objectbox_adapter package.
 
-The primary checkout follows separate router embedding/shutdown and release work.
-This managed worktree starts from committed HEAD and must not alter or claim that
-checkout's changes.
+The primary checkout remains untouched. This managed worktree now integrates
+committed master3bac4cf5, including its already-released beta.7 router embedding
+and shutdown fixes; that does not authorize another release.
 The previous coverage plan is deferred in this worktree by the explicit new goal;
 its unfinished coverage/mutation targets remain open.
 
-Latest pushed head: `b12667deeca5cd8202bb7c4714b235fbc0efd5d2`.
+
+Master integration checkpoint, 2026-10-04: standalone commit d4f4e833 is
+verified independently of the combined candidate. The prepared master3bac4cf5 merge plus the runner
+ordering correction is a separately frozen 1,441-file product candidate in
+/tmp/connectanum-flatbuffers-master-merged-frozen-source.json (SHA256 d4311f828b49dbac).
+Its rebuilt ffi-test library is 67d8d0e436e6c81d. Combined bin/test-fast now exits 0 with all product hashes/inventory and the
+rebuilt native library unchanged. Its log is
+/tmp/connectanum-flatbuffers-master-merged-fast.log (SHA256 e78a055f6b1b66d7).
+Combined bin/verify now exits 0 on the same frozen product and native artifact.
+It passes Rust/core/FFI/tooling, the VM/native suites, router 4,923 plus isolated
+remote-auth/native forwarding/public PPT integrations, core WASM 4,505 and
+client WASM 2,708. Chrome is available and both browser suites execute. Its log is
+/tmp/connectanum-flatbuffers-master-merged-verify.log (SHA256 2ca60a0f498db917).
+Complete phase, source and native hashes are in
+/tmp/connectanum-flatbuffers-master-merged-verification.json. This is a full local
+combined pass; new exact-head hosted CI and remaining milestone gates are pending.
+
+The ordering regression fails before the correction and passes afterward. The
+complete runner tooling suite passes 92 tests with one existing skip. The real
+bench-remote-auth-native campaign completes all 35 mutations with the same IDs,
+statuses and source/test/support hashes as the failed master campaign: 16 compile
+errors and 19 assertion kills, zero testError kills, adjusted assertion score 100%.
+The configured unit file now precedes integration; both clean/restored baselines
+pass and the native artifact remains unchanged. Threshold 95%, inventories, shared
+deadlines and isolated fail-fast remain unchanged. Proof is in
+/tmp/connectanum-flatbuffers-master-merged-mutation-gate-proof.json. Qwen's
+completed narrow review raised no confirmed defect; its ordering semantics and
+fixture concerns are checked against source and the actual campaign. Dispositions
+are in /tmp/connectanum-flatbuffers-master-merged-mutation-order-review-decisions.json.
+The fresh outside-workspace consumer also passes offline dependency resolution,
+analysis, a dynamic FlatBuffers codec round trip and the native frame example
+against the merged library 67d8d0e436e6c81d. Its three unchanged inputs match the
+standalone checkpoint. The example reports 116 bytes/three segments and zero
+application-input/control-growth copied bytes; this is construction evidence,
+not a routed throughput/copy gate or a released-artifact consumer. Metadata and
+log are /tmp/connectanum-flatbuffers-master-merged-manual-consumer.json and
+/tmp/connectanum-flatbuffers-master-merged-manual-consumer.log.
+
+Order auditing finds 27 targets with reordered explicit paths, including six
+isolated targets: router-http-context-vm, bench-remote-auth-native,
+client-native-transports-vm, client-native-runtime-vm,
+client-native-owned-buffers-vm and router-binding-vm. Directory-only expansion
+stays sorted. Test inventories and hash sets are identical; the other 21 reordered
+targets still run a single complete test command. The full remote-auth campaign
+passes; the remaining exact-head hosted campaigns still need validation. The
+order audit is /tmp/connectanum-flatbuffers-mutation-order-affected-targets.json. A broad GLM
+merge judgment times out and is not completed evidence; its bounded follow-up
+finishes and establishes no defect in the supplied close/dispose ranges. Both
+parent diffs and imported configuration/FFI/cleanup paths are inspected manually.
+The bounded Qwen test-planning follow-up finishes; its overlap/priority cases are
+covered by the main-entry regression. Decisions and limits are in
+/tmp/connectanum-flatbuffers-master-merged-runtime-review-decisions.json.
+
+Previous hosted-verified baseline: `b12667deeca5cd8202bb7c4714b235fbc0efd5d2`.
 Hosted CI: https://github.com/konsultaner/connectanum-dart/actions/runs/37172054047.
 The exact-head hosted CI run is now completed successfully: all 40 jobs,
 including Full Verify111350843850, router binding111346833862, Dart VM Coverage
@@ -137,26 +190,71 @@ terminal phase/hash metadata is in
 This verifies the standalone product checkpoint, not a merge with current master.
 Earlier partial runs are not a handoff pass.
 
-A read-only merge preflight against current master3bac4cf5 finds only a project-state
-document conflict, with 45 product files changing through the automatic merge.
-Finish the frozen standalone checks first, preserve this candidate in a commit,
-then integrate the current master and verify that combined product separately.
-No merge has been performed. GitHub PR105 is still conflicting. Master CI
-37134251410 also has one completed failure: bench-remote-auth-native assertion
-coverage94.7368% against95%; audit and repair any inherited gate failure rather
-than weakening it. The preflight is in
-/tmp/connectanum-flatbuffers-runtime-integration-master-merge-preflight.json.
+The verified standalone candidate is saved in commit d4f4e833; that standalone
+proof is independent of the later master merge. A merge of current master3bac4cf5 is now prepared locally, preserving its
+already-released beta.7 router embedding and shutdown fixes. The only textual
+conflict was this project-state document; both work histories are preserved. The
+automatic merge changes 45 product files. Its combined product is not yet verified,
+and the remote draft PR105 remains conflicting until an updated branch is pushed.
+Master CI37134251410 has one completed failure: bench-remote-auth-native assertion
+coverage94.7368% against95%. An exact-source, outside-workspace probe proves the
+existing supports unit test kills the offending mutation by assertion. The runner
+sorts integration before the configured unit test and stops on its cleanup error,
+masking that assertion. Audit configured-order preservation without changing test
+inventory, fail-fast behavior, deadlines or thresholds. Preflight and probe evidence
+are in /tmp/connectanum-flatbuffers-runtime-integration-master-merge-preflight.json
+and /tmp/connectanum-flatbuffers-remoteauth-existing-unit-probe.json. Rebuild the
+native library and verify the merged code separately from the standalone checkpoint.
 Test-all includes native frame/WebSocket cases, generic Session lifetime cases,
 ordinary FlatBuffers profiles, native forwarding of the public PPT matrix and the
 browser FlatBuffers profile; fast checks include the Session/ordinary VM regressions.
 
-The final candidate product inventory is 1,437 files in
+The standalone checkpoint product inventory is 1,437 files in
 /tmp/connectanum-flatbuffers-runtime-integration-frozen-source.json. Docs/roadmaps
 remain outside that product hash set. Earlier native/client/core/PPT stages stay
-immutable; all ten issues remain open. Combined-tree full verification, new exact-head hosted CI, typed E2EE, native
+immutable; all ten issues remain open. New exact-head hosted CI, typed E2EE, native
 consuming-decrypt parity for the outer FlatBuffers envelope, remaining transport
 coverage, performance/copy gates and platform/consumer/release acceptance are
 still required. No new hosted verification or release is claimed.
+
+An extra macOS baseline-only probe of the reordered HTTP context target exits 1
+at its unchanged 45-second shared deadline while router_runtime_test.dart still
+reports successes. A previous-global-order comparator also times out with equal
+source/test/support and native artifact hashes. This does not establish an order
+regression or a test hang; neither result is completed mutation evidence. The
+current required hosted matrix does not include this target; the broader phase-2
+coverage objective remains open. Comparison is in
+/tmp/connectanum-flatbuffers-master-merged-http-baseline-order-comparison.json.
+The other four reordered isolated targets pass clean and restored baselines
+with the same native artifact and 45-second deadline: client-native-transports-vm,
+client-native-runtime-vm, client-native-owned-buffers-vm and router-binding-vm.
+This is baseline-only evidence, not completed mutant scores; proof is in
+/tmp/connectanum-flatbuffers-master-merged-ordered-baseline-proof.json. No
+threshold or deadline is changed. Qwen's bounded debug output identifies the truncated case; its remaining
+time estimate is rejected against recorded command deadlines and per-file times.
+
+## Preparation for remaining E2EE and performance gates
+
+The merged-library fail-first probe preserves the native outer-FlatBuffers
+consuming-decrypt defect for both version-1 ciphers. The codec stores opaque
+payload vectors separately from ordinary CBOR arguments; extraction must use
+that actual representation. Decrypted typed output needs an explicit format
+selector and cache identity, independently of the outer serializer. Existing
+native byte exports have independent immutable owners: retained receive views
+must continue forcing a copied AES transformation rather than being mutated.
+Version-1 CBOR framing and key-selection behavior must remain compatible; typed
+providers should share cipher/key machinery without inheriting CBOR framing.
+These are implementation preparation, not repaired behavior or a new profile.
+
+Before evaluating #103 parity, declare workloads, budgets/noise handling and raw
+result metadata. Compare equal application data through ordinary Dart values,
+native construction and pre-encoded forwarding separately. Exercise common native
+buffer improvements for CBOR and MessagePack as well as FlatBuffers; do not claim
+codec parity by comparing a FlatBuffers native path only against copying Dart
+baselines. The existing 80-iteration/16-KiB serializer matrix is smoke evidence and
+omits FlatBuffers. Repeated controlled measurements, routing/copy instrumentation,
+small/control-message costs, TLS/masking/transcoding, mixed serializers and hosted
+release budgets remain required. No benchmark parity result is available yet.
 
 ## Preserved external native frame checkpoint
 

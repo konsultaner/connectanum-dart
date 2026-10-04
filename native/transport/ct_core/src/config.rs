@@ -103,6 +103,16 @@ pub enum ClientAuthMode {
 }
 
 pub fn apply_router_config_bytes(bytes: &[u8]) -> Result<(), Error> {
+    let parsed = parse_router_config_bytes(bytes)?;
+    let mut guard = config_lock()
+        .write()
+        .map_err(|_| Error::RouterConfigInvalid("lock poisoned".into()))?;
+    *guard = Some(parsed);
+    Ok(())
+}
+
+/// Validates a configuration without replacing the legacy process-wide default.
+pub fn parse_router_config_bytes(bytes: &[u8]) -> Result<Arc<RouterConfig>, Error> {
     let parsed: RouterConfig =
         serde_json::from_slice(bytes).map_err(|err| Error::RouterConfigInvalid(err.to_string()))?;
     let mut sanctioned_ports: HashSet<(String, u16)> = HashSet::new();
@@ -117,11 +127,7 @@ pub fn apply_router_config_bytes(bytes: &[u8]) -> Result<(), Error> {
             )));
         }
     }
-    let mut guard = config_lock()
-        .write()
-        .map_err(|_| Error::RouterConfigInvalid("lock poisoned".into()))?;
-    *guard = Some(Arc::new(parsed));
-    Ok(())
+    Ok(Arc::new(parsed))
 }
 
 #[allow(dead_code)]
@@ -131,6 +137,10 @@ pub fn current_config() -> Option<Arc<RouterConfig>> {
 
 pub fn find_endpoint(host: &str, port: u16) -> Option<Arc<EndpointConfig>> {
     let cfg = current_config()?;
+    find_endpoint_in(&cfg, host, port)
+}
+
+pub fn find_endpoint_in(cfg: &RouterConfig, host: &str, port: u16) -> Option<Arc<EndpointConfig>> {
     let mut matches = cfg
         .endpoints
         .iter()
@@ -145,6 +155,15 @@ pub fn find_endpoint(host: &str, port: u16) -> Option<Arc<EndpointConfig>> {
 
 pub fn find_endpoint_at(index: usize, host: &str, port: u16) -> Option<Arc<EndpointConfig>> {
     let cfg = current_config()?;
+    find_endpoint_at_in(&cfg, index, host, port)
+}
+
+pub fn find_endpoint_at_in(
+    cfg: &RouterConfig,
+    index: usize,
+    host: &str,
+    port: u16,
+) -> Option<Arc<EndpointConfig>> {
     let endpoint = cfg.endpoints.get(index)?;
     if !endpoint.host.eq_ignore_ascii_case(host) || endpoint.port != port {
         return None;

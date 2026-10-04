@@ -11,7 +11,7 @@ standalone router, and expose WAMP services to AI agents through MCP.
 [![Coverage](https://codecov.io/gh/konsultaner/connectanum-dart/branch/master/graph/badge.svg)](https://app.codecov.io/gh/konsultaner/connectanum-dart)
 [![WAMP Profile Benchmarks](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml)
 [![Package Dry Run](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml)
-[![Version](https://img.shields.io/badge/version-3.0.0--beta.6-f59e0b)](https://github.com/konsultaner/connectanum-dart)
+[![Version](https://img.shields.io/badge/version-3.0.0--beta.7-f59e0b)](https://github.com/konsultaner/connectanum-dart)
 [![Dart](https://img.shields.io/badge/Dart-%5E3.10.0-0175c2?logo=dart&logoColor=white)](https://dart.dev/)
 [![WAMP](https://img.shields.io/badge/WAMP-v2-4b32c3)](https://wamp-proto.org/)
 [![License](https://img.shields.io/badge/license-MIT-0f766e)](LICENSE)
@@ -24,8 +24,7 @@ standalone router, and expose WAMP services to AI agents through MCP.
 </div>
 
 > **3.0 beta:** all Connectanum Dart packages and native Rust crates move
-> together. The synchronized beta.5 packages and matching native assets are
-> public; this source tree prepares the `3.0.0-beta.6` security-hardening beta.
+> together at `3.0.0-beta.7`, including matching native release assets.
 > The beta is intended for integration testing before final `3.0.0`.
 
 ## Why Connectanum?
@@ -193,10 +192,9 @@ coordinated stack.
 | [`connectanum`](packages/connectanum) | Compatibility facade for existing `package:connectanum/...` client imports. |
 | [`connectanum_bench`](packages/connectanum_bench) | Reproducible router, transport, profile, and release-feature benchmark scenarios. |
 
-All seven packages are available at `3.0.0-beta.5` on
-[pub.dev](https://pub.dev/publishers/dart.konsultaner.de/packages), with
-matching native assets. This checkout prepares `3.0.0-beta.6`; keep packages
-and native assets on beta.5 until the coordinated beta.6 publication completes.
+All seven packages share the coordinated `3.0.0-beta.7` version. Install them
+from [pub.dev](https://pub.dev/publishers/dart.konsultaner.de/packages) with
+matching `v3.0.0-beta.7` native assets; do not mix package and native versions.
 
 ## Documentation
 
@@ -214,10 +212,12 @@ Start at the [documentation index](docs/README.md), or jump directly to:
 
 ## Project Status
 
-`3.0.0-beta.6` is the coordinated security-hardening beta candidate. It adds
-authentication admission and lifecycle bounds, native payload and resource
-ownership hardening, HTTP request/response framing fixes, and strict
-cross-serializer WAMP validation. The broader security audit and relative
+`3.0.0-beta.7` is the coordinated router lifecycle beta. It isolates listener
+configuration and TLS reload between embedded router bindings, permits
+independent router processes, and fixes startup/disposal races and CLI shutdown
+leaks. Embedded bindings still share one native engine; see the
+[embedding guide](docs/router_embedding.md) for ownership and shutdown rules.
+The broader security audit, regression/mutation coverage target, and relative
 performance confirmation remain open before final `3.0.0`.
 
 Connectanum is open source under the [MIT License](LICENSE). Issues and

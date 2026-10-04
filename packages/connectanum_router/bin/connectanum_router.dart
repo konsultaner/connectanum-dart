@@ -118,7 +118,6 @@ Future<void> main(List<String> args) async {
       }
     }
 
-    stdout.writeln('Router running. Press Ctrl+C to stop.');
     var shuttingDown = false;
     var reloading = false;
     Future<void> reloadTls() async {
@@ -138,8 +137,7 @@ Future<void> main(List<String> args) async {
           settings: newSettings,
         );
         final nativeConfig = reloadRouter.buildNativeConfigJson(newSettings);
-        runtime.applyRouterConfig(nativeConfig);
-        final count = runtime.reloadTls();
+        final count = binding!.reloadTls(configuration: nativeConfig);
         stdout.writeln('Reloaded TLS configuration for $count listener(s).');
       } catch (error) {
         stderr.writeln('Failed to reload TLS configuration: $error');
@@ -151,12 +149,30 @@ Future<void> main(List<String> args) async {
     final hupSubscription = ProcessSignal.sighup.watch().listen((_) {
       unawaited(reloadTls());
     });
-    await Future.any([
-      ProcessSignal.sigint.watch().first,
-      ProcessSignal.sigterm.watch().first,
-    ]);
-    shuttingDown = true;
-    await hupSubscription.cancel();
+    final shutdownSignal = Completer<void>();
+    void requestShutdown(ProcessSignal _) {
+      if (!shutdownSignal.isCompleted) {
+        shutdownSignal.complete();
+      }
+    }
+
+    final intSubscription = ProcessSignal.sigint.watch().listen(
+      requestShutdown,
+    );
+    final termSubscription = ProcessSignal.sigterm.watch().listen(
+      requestShutdown,
+    );
+    try {
+      stdout.writeln('Router running. Press Ctrl+C to stop.');
+      await shutdownSignal.future;
+    } finally {
+      shuttingDown = true;
+      await Future.wait([
+        hupSubscription.cancel(),
+        intSubscription.cancel(),
+        termSubscription.cancel(),
+      ]);
+    }
   } finally {
     try {
       await binding?.dispose();
@@ -164,7 +180,6 @@ Future<void> main(List<String> args) async {
     runtime.shutdown();
     runtime.dispose();
   }
-  exit(exitCode);
 }
 
 bool _openMetricsHttpEnabled(OpenMetricsSettings? metricsSettings) {

@@ -4,10 +4,80 @@ Last updated: 2026-10-04
 Current branch: `codex/flatbuffers-zero-copy`
 Current milestone: FlatBuffers and zero-copy native buffers (GitHub milestone 1).
 Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.
-Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
-remain separate. The earlier regression/mutation objective remains open.
+Isolated worktree baseline: 54eafc5f. Released master3bac4cf5 router embedding
+and shutdown fixes are being integrated here; the primary checkout remains
+untouched. The earlier regression/mutation objective remains open.
 
-Latest pushed head: `b12667deeca5cd8202bb7c4714b235fbc0efd5d2`.
+
+Master integration checkpoint, 2026-10-04: standalone commit d4f4e833 is
+verified independently of the combined candidate. The prepared master3bac4cf5 merge plus the runner
+ordering correction is a separately frozen 1,441-file product candidate in
+/tmp/connectanum-flatbuffers-master-merged-frozen-source.json (SHA256 d4311f828b49dbac).
+Its rebuilt ffi-test library is 67d8d0e436e6c81d. Combined bin/test-fast now exits 0 with all product hashes/inventory and the
+rebuilt native library unchanged. Its log is
+/tmp/connectanum-flatbuffers-master-merged-fast.log (SHA256 e78a055f6b1b66d7).
+Combined bin/verify now exits 0 on the same frozen product and native artifact.
+It passes Rust/core/FFI/tooling, the VM/native suites, router 4,923 plus isolated
+remote-auth/native forwarding/public PPT integrations, core WASM 4,505 and
+client WASM 2,708. Chrome is available and both browser suites execute. Its log is
+/tmp/connectanum-flatbuffers-master-merged-verify.log (SHA256 2ca60a0f498db917).
+Complete phase, source and native hashes are in
+/tmp/connectanum-flatbuffers-master-merged-verification.json. This is a full local
+combined pass; new exact-head hosted CI and remaining milestone gates are pending.
+
+The ordering regression fails before the correction and passes afterward. The
+complete runner tooling suite passes 92 tests with one existing skip. The real
+bench-remote-auth-native campaign completes all 35 mutations with the same IDs,
+statuses and source/test/support hashes as the failed master campaign: 16 compile
+errors and 19 assertion kills, zero testError kills, adjusted assertion score 100%.
+The configured unit file now precedes integration; both clean/restored baselines
+pass and the native artifact remains unchanged. Threshold 95%, inventories, shared
+deadlines and isolated fail-fast remain unchanged. Proof is in
+/tmp/connectanum-flatbuffers-master-merged-mutation-gate-proof.json. Qwen's
+completed narrow review raised no confirmed defect; its ordering semantics and
+fixture concerns are checked against source and the actual campaign. Dispositions
+are in /tmp/connectanum-flatbuffers-master-merged-mutation-order-review-decisions.json.
+The fresh outside-workspace consumer also passes offline dependency resolution,
+analysis, a dynamic FlatBuffers codec round trip and the native frame example
+against the merged library 67d8d0e436e6c81d. Its three unchanged inputs match the
+standalone checkpoint. The example reports 116 bytes/three segments and zero
+application-input/control-growth copied bytes; this is construction evidence,
+not a routed throughput/copy gate or a released-artifact consumer. Metadata and
+log are /tmp/connectanum-flatbuffers-master-merged-manual-consumer.json and
+/tmp/connectanum-flatbuffers-master-merged-manual-consumer.log.
+
+Order auditing finds 27 targets with reordered explicit paths, including six
+isolated targets: router-http-context-vm, bench-remote-auth-native,
+client-native-transports-vm, client-native-runtime-vm,
+client-native-owned-buffers-vm and router-binding-vm. Directory-only expansion
+stays sorted. Test inventories and hash sets are identical; the other 21 reordered
+targets still run a single complete test command. The full remote-auth campaign
+passes; the remaining exact-head hosted campaigns still need validation. The
+order audit is /tmp/connectanum-flatbuffers-mutation-order-affected-targets.json. A broad GLM
+merge judgment times out and is not completed evidence; its bounded follow-up
+finishes and establishes no defect in the supplied close/dispose ranges. Both
+parent diffs and imported configuration/FFI/cleanup paths are inspected manually.
+The bounded Qwen test-planning follow-up finishes; its overlap/priority cases are
+covered by the main-entry regression. Decisions and limits are in
+/tmp/connectanum-flatbuffers-master-merged-runtime-review-decisions.json.
+
+An extra macOS baseline-only probe of the reordered HTTP context target exits 1
+at its unchanged 45-second shared deadline while router_runtime_test.dart still
+reports successes. A previous-global-order comparator also times out with equal
+source/test/support and native artifact hashes. This does not establish an order
+regression or a test hang; neither result is completed mutation evidence. The
+current required hosted matrix does not include this target; the broader phase-2
+coverage objective remains open. Comparison is in
+/tmp/connectanum-flatbuffers-master-merged-http-baseline-order-comparison.json.
+The other four reordered isolated targets pass clean and restored baselines
+with the same native artifact and 45-second deadline: client-native-transports-vm,
+client-native-runtime-vm, client-native-owned-buffers-vm and router-binding-vm.
+This is baseline-only evidence, not completed mutant scores; proof is in
+/tmp/connectanum-flatbuffers-master-merged-ordered-baseline-proof.json. No
+threshold or deadline is changed. Qwen's bounded debug output identifies the truncated case; its remaining
+time estimate is rejected against recorded command deadlines and per-file times.
+
+Previous hosted-verified baseline: `b12667deeca5cd8202bb7c4714b235fbc0efd5d2`.
 Hosted CI: https://github.com/konsultaner/connectanum-dart/actions/runs/37172054047.
 The exact-head hosted CI run is now completed successfully: all 40 jobs,
 including Full Verify111350843850, router binding111346833862, Dart VM Coverage
@@ -122,23 +192,29 @@ terminal phase/hash metadata is in
 This verifies the standalone product checkpoint, not a merge with current master.
 Earlier partial runs are not a handoff pass.
 
-A read-only merge preflight against current master3bac4cf5 finds only a project-state
-document conflict, with 45 product files changing through the automatic merge.
-Finish the frozen standalone checks first, preserve this candidate in a commit,
-then integrate the current master and verify that combined product separately.
-No merge has been performed. GitHub PR105 is still conflicting. Master CI
-37134251410 also has one completed failure: bench-remote-auth-native assertion
-coverage94.7368% against95%; audit and repair any inherited gate failure rather
-than weakening it. The preflight is in
-/tmp/connectanum-flatbuffers-runtime-integration-master-merge-preflight.json.
+The verified standalone candidate is saved in commit d4f4e833; that standalone
+proof is independent of the later master merge. A merge of current master3bac4cf5 is now prepared locally, preserving its
+already-released beta.7 router embedding and shutdown fixes. The only textual
+conflict was this project-state document; both work histories are preserved. The
+automatic merge changes 45 product files. Its combined product is not yet verified,
+and the remote draft PR105 remains conflicting until an updated branch is pushed.
+Master CI37134251410 has one completed failure: bench-remote-auth-native assertion
+coverage94.7368% against95%. An exact-source, outside-workspace probe proves the
+existing supports unit test kills the offending mutation by assertion. The runner
+sorts integration before the configured unit test and stops on its cleanup error,
+masking that assertion. Audit configured-order preservation without changing test
+inventory, fail-fast behavior, deadlines or thresholds. Preflight and probe evidence
+are in /tmp/connectanum-flatbuffers-runtime-integration-master-merge-preflight.json
+and /tmp/connectanum-flatbuffers-remoteauth-existing-unit-probe.json. Rebuild the
+native library and verify the merged code separately from the standalone checkpoint.
 Test-all includes native frame/WebSocket cases, generic Session lifetime cases,
 ordinary FlatBuffers profiles, native forwarding of the public PPT matrix and the
 browser FlatBuffers profile; fast checks include the Session/ordinary VM regressions.
 
-The final candidate product inventory is 1,437 files in
+The standalone checkpoint product inventory is 1,437 files in
 /tmp/connectanum-flatbuffers-runtime-integration-frozen-source.json. Docs/roadmaps
 remain outside that product hash set. Earlier native/client/core/PPT stages stay
-immutable; all ten issues remain open. Combined-tree full verification, new exact-head hosted CI, typed E2EE, native
+immutable; all ten issues remain open. New exact-head hosted CI, typed E2EE, native
 consuming-decrypt parity for the outer FlatBuffers envelope, remaining transport
 coverage, performance/copy gates and platform/consumer/release acceptance are
 still required. No new hosted verification or release is claimed.
@@ -746,6 +822,95 @@ update is reserved for that next implementation commit.
 All ten issues remain open. Next: complete bounded Dart decoding, the full codecs and
 remaining milestone criteria. No FlatBuffers network codec, E2EE profile,
 benchmark parity, ObjectBox adapter or milestone completion is claimed.
+
+Work399: The operator authorizes deploying the router isolation/shutdown fixes
+as a new beta. Prepare synchronized beta.7 manifests, internal constraints,
+Rust crates, public MCP metadata and release notes for all seven packages,
+including the compatibility facade. Beta.7 is absent from every package on
+pub.dev and no native beta.7 release exists at startup. Fast399 is launched
+before edits in `/tmp/connectanum-beta7-fast399.log`. The 23 publishing-tool
+regressions pass; Qwen's focused version/workflow review finds no concrete
+mismatch, and GLM is independently unavailable. Initial strict archives reject
+dirty package files with pub's checked-in-file warning; commit the implementation
+candidate and repeat the zero-warning gate from a clean tree. Full verification,
+strict archives, protected-master promotion, native assets and dependency-ordered OIDC
+publication remain pending. The coverage objective and independent-runtime
+phase 2 are not completed by publication. Existing unrelated worktrees and PRs
+are outside this release slice. No publication or hosted-green claim yet.
+
+Work398: The operator requests deeper investigation of the consumer shutdown
+hang. Fast398 is launched before implementation and exits 0 in
+`/tmp/connectanum-shutdown-fast398.log`. Two real-process
+fail-first regressions reproduce completed cleanup followed by a process that
+does not exit: internal-session startup racing disposal, and a session-owned
+cancellation callback throwing before the remaining binding owners are closed.
+The VM service snapshot in `/tmp/connectanum-shutdown-vm398.json` shows 16
+surviving internal-session isolates after the first child's cleanup marker;
+an inspected isolate still has two live ports. This establishes package defects,
+not the exact unavailable consumer application's shutdown sequence.
+
+Track accepted internal starts, reject new/late starts after disposal begins,
+release unpublished isolate/port ownership in `finally`, and settle bootstrap
+and starts before closing the state store. Concurrent disposal shares its
+completion/failure, with binding-scoped reentrant owned cleanup. Service/session
+cleanup failures are retained while remaining owners still receive cleanup.
+Focused ownership and real-process regressions pass, including metrics bootstrap,
+later startup turns, an active WebSocket client, cleanup failure, new-session
+rejection, concurrent/reentrant disposal and failed startup. A file cancellation
+callback's reentrant self-wait is reproduced separately and fixed by applying
+the binding-scoped cleanup context to the entire disposal, not just service
+cleanup. All 33 focused binding/session/file ownership tests pass.
+
+The public CLI also retains the losing signal subscription in `Future.any`;
+removing its forced exit exposes another natural-exit deadline failure. Own and
+cancel all signal subscriptions, announce readiness only after installation,
+and return from main without `exit()`. The shared-engine change also requires
+CLI TLS reload to use the binding snapshot: a fail-first SIGHUP test gets zero
+reloaded listeners with the legacy global call. Both SIGINT/SIGTERM natural-exit
+variants and binding-scoped reload pass; all eight process tests pass. Focused
+analysis passes. The initial full verify fails seven controlled-error tests
+whose repeated disposal/teardown assumed the original cleanup failure vanished;
+retain all release checks and explicitly assert that same failure on repeat
+calls instead. These updated file tests pass. Final `bin/verify` exits 0 in
+`/tmp/connectanum-shutdown-verify398-final.log`, including the complete router
+suite, remote-auth integration, zero-copy publish and Chrome/WASM core/client
+tests. Final focused formatting and analysis also pass. No new hosted, release
+or mutation-score claim. Qwen planning/review/triage ran; GLM remains
+independently unreachable.
+
+Work397: Operator-authorized router embedding work starts from `54eafc5f`, whose
+complete CI `37062527790` and package dry-run `37062527796` pass. Do not infer a
+new mutation score without auditing the matching artifact. Fast397 passes.
+A fail-first real-client regression reproduces global native configuration
+leakage: deferred WebSocket router A adopts router B's RawSocket-only config.
+Explicit immutable listener snapshots and selected-listener TLS reload fix that
+path without deleting the singleton guard. TLS reload validates all requested
+listeners/identities before updating any; legacy reload skips scoped listeners.
+Focused Rust/FFI/Dart tests, analysis, real two-router authentication, sibling
+disposal/restart continuity and the port-zero health regression pass. The older
+native ABI loads and rejects scoped operations explicitly. Qwen review/test
+planning ran; GLM is unavailable. Initial and final `bin/verify` exit 0; the final
+candidate is verified in `/tmp/connectanum-router-verify397-final.log`, including
+the process regressions, native integration, browser WASM and 64-MiB SCRAM
+worker responsiveness.
+
+A subsequent consumer report reveals the temp-directory ownership lock also
+serializes unrelated OS processes. A fail-first subprocess test starts one live
+WAMP router, then times out waiting for a second in the same temp directory.
+PID-scoped ownership fixes that defect; both independently authenticate and exit
+naturally after awaited binding/client cleanup and runtime shutdown/disposal.
+This minimal path did not reproduce the reported application-specific exit hang;
+the more demanding Work398 probes above do reproduce package shutdown defects.
+A separate minimal listener-only probe also exits naturally without
+`runtime.dispose()`, so omission of that method is not an established cause.
+Do not mark the application-specific hang resolved or require `exit(0)` as a
+workaround. Fresh full verification after the lock-scope change passes.
+
+This is phase 1, not complete independent native runtimes. Shared runtime
+ownership, callbacks/event queues, metrics, partial-start cleanup and stress
+coverage remain in phase 2. Engine shutdown still stops all bindings, and a
+second `NativeTransportRuntime` constructor remains unsupported. No package
+version change, publication, push or mutation-goal completion is claimed.
 
 Work396: Resume mutation work after beta.6 publication. Master CI `37035848715`
 finishes cancelled: the MCP-library job reaches its 180-minute outer deadline

@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.7
+
+- Consume the synchronized router release with isolated listener configuration
+  and corrected internal-session shutdown ownership.
+
 ## 3.0.0-beta.6
 
 - Validate service credentials before pending authentication state or identity

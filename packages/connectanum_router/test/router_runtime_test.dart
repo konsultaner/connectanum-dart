@@ -3603,10 +3603,11 @@ class _ExistenceFailureFile implements File {
 }
 
 class _DeferredResponseFile implements File {
-  _DeferredResponseFile({this.cancellation, this.openError});
+  _DeferredResponseFile({this.cancellation, this.openError, this.beforeCancel});
 
   final Completer<void>? cancellation;
   final Object? openError;
+  final Future<void> Function()? beforeCancel;
   final checked = Completer<void>();
   final existence = Completer<bool>();
   final reading = Completer<void>();
@@ -3615,6 +3616,9 @@ class _DeferredResponseFile implements File {
     onListen: () => reading.complete(),
     onCancel: () {
       cancelled.complete();
+      if (beforeCancel != null) {
+        return beforeCancel!().then((_) => cancellation?.future);
+      }
       return cancellation?.future;
     },
   );
@@ -3651,6 +3655,9 @@ void _fileResponseCleanupTests() {
             final late = _TrackedHttpHandshake(9602);
             runtime.releases = () => original.releases;
             final cancellation = Completer<void>();
+            final cancellationError = StateError(
+              'admission cancellation failure',
+            );
             final file = _DeferredResponseFile(cancellation: cancellation);
             const path = '/controlled-connectanum-disposal-admission';
             final parentZone = Zone.current;
@@ -3684,7 +3691,16 @@ void _fileResponseCleanupTests() {
               createFile: (name) =>
                   name == path ? file : parentZone.run(() => File(name)),
             );
-            addTearDown(binding.dispose);
+            addTearDown(() async {
+              if (failCancellation) {
+                await expectLater(
+                  binding.dispose(),
+                  throwsA(same(cancellationError)),
+                );
+              } else {
+                await binding.dispose();
+              }
+            });
             final session = await binding.createInternalSession(
               realmUri: 'realm1',
             );
@@ -3717,9 +3733,6 @@ void _fileResponseCleanupTests() {
             final disposal = binding.dispose().then<void>(
               (_) {},
               onError: (Object error) => errors.add(error),
-            );
-            final cancellationError = StateError(
-              'admission cancellation failure',
             );
             try {
               await file.cancelled.future.timeout(const Duration(seconds: 2));
@@ -3826,7 +3839,16 @@ void _fileResponseCleanupTests() {
             }
           },
         );
-        addTearDown(binding.dispose);
+        addTearDown(() async {
+          if (throwObserver) {
+            await expectLater(
+              binding.dispose(),
+              throwsA(same(observerErrors.first)),
+            );
+          } else {
+            await binding.dispose();
+          }
+        });
         final session = await binding.createInternalSession(realmUri: 'realm1');
         final registration = await session.register('com.example.api.stream');
         final contexts = <HttpInvocationContext>[];
@@ -3870,7 +3892,14 @@ void _fileResponseCleanupTests() {
         expect(runtime.finishAttempts, [9501, 9502]);
         expect(finishEvents, hasLength(2));
         expect(runtime.closedListeners, isNotEmpty);
-        await binding.dispose();
+        if (throwObserver) {
+          await expectLater(
+            binding.dispose(),
+            throwsA(same(observerErrors.first)),
+          );
+        } else {
+          await binding.dispose();
+        }
         expect(handshakes.map((handshake) => handshake.releases), [1, 1]);
         expect(runtime.finishAttempts, [9501, 9502]);
       },
@@ -3884,6 +3913,7 @@ void _fileResponseCleanupTests() {
     'delayed-cancel-error',
     'concurrent-cancel',
     'concurrent-cancel-error',
+    'reentrant-cancel',
   ]) {
     test(
       'file response cleanup disposal during $stage cannot restart I/O',
@@ -3894,7 +3924,21 @@ void _fileResponseCleanupTests() {
         final cancellation = stage.contains('cancel')
             ? Completer<void>()
             : null;
-        final file = _DeferredResponseFile(cancellation: cancellation);
+        final cancelError = stage.endsWith('-error')
+            ? StateError('controlled asynchronous file cancellation')
+            : null;
+        late final RouterBinding binding;
+        var reentered = false;
+        final rescue = Completer<void>();
+        final file = _DeferredResponseFile(
+          cancellation: cancellation,
+          beforeCancel: stage == 'reentrant-cancel'
+              ? () => Future.any([
+                  binding.dispose().then((_) => reentered = true),
+                  rescue.future,
+                ])
+              : null,
+        );
         const path = '/controlled-connectanum-file-response';
         final parentZone = Zone.current;
         final events = <Map<String, Object?>>[];
@@ -3912,7 +3956,7 @@ void _fileResponseCleanupTests() {
           ),
           settings: _buildRouterSettingsWithPendingProtocols(),
         );
-        final binding = IOOverrides.runZoned(
+        binding = IOOverrides.runZoned(
           () => router.start(
             runtime,
             onEvent: (event) {
@@ -3922,7 +3966,13 @@ void _fileResponseCleanupTests() {
           createFile: (name) =>
               name == path ? file : parentZone.run(() => File(name)),
         );
-        addTearDown(binding.dispose);
+        addTearDown(() async {
+          if (cancelError != null) {
+            await expectLater(binding.dispose(), throwsA(same(cancelError)));
+          } else {
+            await binding.dispose();
+          }
+        });
         final session = await binding.createInternalSession(realmUri: 'realm1');
         final registration = await session.register('com.example.api.stream');
         registration.onInvoke((invocation) {
@@ -3948,9 +3998,6 @@ void _fileResponseCleanupTests() {
         if (cancellation != null) {
           var finishedDisposals = 0;
           final disposalErrors = <Object>[];
-          final cancelError = stage.endsWith('-error')
-              ? StateError('controlled asynchronous file cancellation')
-              : null;
           Future<void> dispose() => binding.dispose().then(
             (_) => finishedDisposals++,
             onError: (Object error) {
@@ -3970,7 +4017,11 @@ void _fileResponseCleanupTests() {
               0,
               reason: 'Disposal must join asynchronous file-read cancellation.',
             );
+            if (stage == 'reentrant-cancel') {
+              expect(reentered, isTrue);
+            }
           } finally {
+            rescue.complete();
             if (cancelError != null) {
               cancellation.completeError(cancelError);
             } else {

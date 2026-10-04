@@ -1,7 +1,7 @@
 //! Tokio based runtime that backs the connectanum native transport.
 
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     fs::File,
     io::{self, Cursor, Write},
     net::{IpAddr, SocketAddr, ToSocketAddrs},
@@ -1627,6 +1627,7 @@ impl Default for ListenerRegistry {
 }
 
 struct ListenerEntry {
+    router_scoped: bool,
     configured_endpoint_index: Option<usize>,
     addr: SocketAddr,
     receiver: Mutex<Option<mpsc::Receiver<ConnectionId>>>,
@@ -1849,18 +1850,54 @@ impl ListenerRegistry {
     }
 
     fn reload_tls(&self) -> Result<u32, Error> {
+        let cfg = config::current_config();
+        self.reload_tls_selected(None, cfg.as_deref())
+    }
+
+    fn reload_tls_selected(
+        &self,
+        selected: Option<&[ListenerId]>,
+        cfg: Option<&config::RouterConfig>,
+    ) -> Result<u32, Error> {
         let listeners = self
             .listeners
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
-        let mut updated = 0u32;
-        for (listener_id, entry) in listeners.iter() {
-            let current = entry.config_state.endpoint_config();
-            let endpoint_cfg = match entry.configured_endpoint_index {
-                Some(index) => config::find_endpoint_at(index, &current.host, current.port),
-                None => config::find_endpoint(&current.host, current.port),
+        let entries = match selected {
+            Some(ids) => {
+                let mut seen = HashSet::new();
+                let mut entries = Vec::with_capacity(ids.len());
+                for id in ids {
+                    if !seen.insert(*id) {
+                        return Err(Error::RouterConfigInvalid("duplicate listener id".into()));
+                    }
+                    let entry = listeners.get(id).ok_or(Error::ListenerNotFound(*id))?;
+                    if !entry.router_scoped {
+                        return Err(Error::RouterConfigInvalid(
+                            "scoped reload requires router-scoped listeners".into(),
+                        ));
+                    }
+                    entries.push((id, entry));
+                }
+                entries
             }
-            .ok_or_else(|| Error::EndpointNotConfigured(current.host.clone(), current.port))?;
+            None => listeners
+                .iter()
+                .filter(|(_, entry)| !entry.router_scoped)
+                .collect(),
+        };
+        // Build every TLS/QUIC identity before updating any running listener.
+        let mut prepared = Vec::with_capacity(entries.len());
+        for (listener_id, entry) in entries {
+            let current = entry.config_state.endpoint_config();
+            let endpoint_cfg = cfg
+                .and_then(|cfg| match entry.configured_endpoint_index {
+                    Some(index) => {
+                        config::find_endpoint_at_in(cfg, index, &current.host, current.port)
+                    }
+                    None => config::find_endpoint_in(cfg, &current.host, current.port),
+                })
+                .ok_or_else(|| Error::EndpointNotConfigured(current.host.clone(), current.port))?;
             let next = Arc::new(config::EndpointRuntimeConfig::try_from_endpoint(
                 &endpoint_cfg,
             )?);
@@ -1880,8 +1917,7 @@ impl ListenerRegistry {
             }
 
             let tls_acceptor = tls::build_tls_acceptor(&next)?;
-            entry.config_state.update(Arc::clone(&next), tls_acceptor);
-            if current_http3 {
+            let http3 = if current_http3 {
                 let endpoint = entry.http3_endpoint.as_ref().ok_or_else(|| {
                     Error::RouterConfigInvalid(format!(
                         "listener {:?} missing http3 endpoint during reload",
@@ -1889,11 +1925,20 @@ impl ListenerRegistry {
                     ))
                 })?;
                 let server_config = build_http3_server_config(&next)?;
+                Some((endpoint, server_config))
+            } else {
+                None
+            };
+            prepared.push((entry, next, tls_acceptor, http3));
+        }
+        let count = prepared.len() as u32;
+        for (entry, next, tls_acceptor, http3) in prepared {
+            entry.config_state.update(next, tls_acceptor);
+            if let Some((endpoint, server_config)) = http3 {
                 endpoint.set_server_config(Some(server_config));
             }
-            updated += 1;
         }
-        Ok(updated)
+        Ok(count)
     }
 
     fn close_listener(&self, listener_id: ListenerId) -> Result<(), Error> {
@@ -5121,11 +5166,21 @@ pub fn apply_router_config(bytes: &[u8]) -> Result<(), Error> {
     config::apply_router_config_bytes(bytes)
 }
 
-/// Rebuilds TLS configuration for all running listeners using the currently
-/// applied router configuration.
+/// Rebuilds TLS configuration for legacy listeners using the process-wide default.
+/// Router-scoped listeners are unaffected; use `reload_router_tls` for those.
 pub fn reload_tls() -> Result<u32, Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| state.registry.reload_tls())
+}
+
+/// Reloads only the supplied router-scoped listeners, without changing defaults.
+pub fn reload_router_tls(config: &[u8], listener_ids: &[ListenerId]) -> Result<u32, Error> {
+    let config = config::parse_router_config_bytes(config)?;
+    RuntimeManager::global().with_state(|state| {
+        state
+            .registry
+            .reload_tls_selected(Some(listener_ids), Some(&config))
+    })
 }
 
 /// Gracefully shuts down the runtime and aborts all listener tasks.
@@ -5324,7 +5379,7 @@ async fn negotiate_accepted_connection(
 
 /// Starts listening on the provided address and returns the allocated listener id.
 pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> {
-    listen_endpoint(addr, port, backlog, None)
+    listen_endpoint(addr, port, backlog, None, None)
 }
 
 /// Opens a particular configured endpoint, including distinct port-zero listeners.
@@ -5334,7 +5389,27 @@ pub fn listen_configured_endpoint(
     backlog: i32,
     endpoint_index: usize,
 ) -> Result<ListenerId, Error> {
-    listen_endpoint(addr, port, backlog, Some(endpoint_index))
+    listen_endpoint(addr, port, backlog, Some(endpoint_index), None)
+}
+
+/// Opens an endpoint from an explicit router configuration snapshot.
+pub fn listen_router_endpoint(
+    config: &[u8],
+    endpoint_index: usize,
+    backlog: i32,
+) -> Result<ListenerId, Error> {
+    let config = config::parse_router_config_bytes(config)?;
+    let endpoint = config
+        .endpoints
+        .get(endpoint_index)
+        .ok_or_else(|| Error::RouterConfigInvalid("endpoint index out of range".into()))?;
+    listen_endpoint(
+        &endpoint.host,
+        endpoint.port,
+        backlog,
+        Some(endpoint_index),
+        Some(Arc::new(endpoint.clone())),
+    )
 }
 
 fn listen_endpoint(
@@ -5342,6 +5417,7 @@ fn listen_endpoint(
     port: u16,
     backlog: i32,
     endpoint_index: Option<usize>,
+    explicit_config: Option<Arc<config::EndpointConfig>>,
 ) -> Result<ListenerId, Error> {
     if backlog <= 0 {
         return Err(Error::InvalidBacklog);
@@ -5350,11 +5426,13 @@ fn listen_endpoint(
     manager
         .with_state(|view| {
             let socket_addr = resolve_socket_addr(addr, port)?;
-            let endpoint_config = match endpoint_index {
-                Some(index) => config::find_endpoint_at(index, addr, port),
-                None => config::find_endpoint(addr, port),
-            }
-            .ok_or_else(|| Error::EndpointNotConfigured(addr.to_string(), port))?;
+            let router_scoped = explicit_config.is_some();
+            let endpoint_config = explicit_config
+                .or_else(|| match endpoint_index {
+                    Some(index) => config::find_endpoint_at(index, addr, port),
+                    None => config::find_endpoint(addr, port),
+                })
+                .ok_or_else(|| Error::EndpointNotConfigured(addr.to_string(), port))?;
             let runtime_config = Arc::new(config::EndpointRuntimeConfig::try_from_endpoint(
                 &endpoint_config,
             )?);
@@ -5443,6 +5521,7 @@ fn listen_endpoint(
             }
 
             let entry = ListenerEntry {
+                router_scoped,
                 configured_endpoint_index: endpoint_index,
                 addr: local_addr,
                 receiver: Mutex::new(Some(receiver)),
@@ -11289,6 +11368,98 @@ mod tests {
         ));
         // Rejected replacement must leave the previous configuration intact.
         assert!(config::find_endpoint_at(1, "127.0.0.1", 0).is_some());
+    }
+
+    #[test]
+    fn router_scoped_listeners_isolate_config_and_reload_failures() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let tls = generate_tls_material();
+        let endpoint = json!({
+            "host":"127.0.0.1", "port":0, "tls_mode":"native",
+            "protocols":["rawsocket"], "max_rawsocket_size_exponent":16,
+            "sni_certificates":[{
+                "hostname":"localhost",
+                "certificate_chain_pem":tls.server_chain_pem,
+                "private_key_pem":tls.server_key_pem,
+            }],
+        });
+        let mut cfg = json!({
+            "schema":"connectanum.router", "version":1,
+            "endpoints":[endpoint.clone(), endpoint.clone()],
+        });
+        let bytes = serde_json::to_vec(&cfg).unwrap();
+        let sibling_cfg = br#"{"schema":"connectanum.router","version":1,"endpoints":[
+          {"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"]}
+        ]}"#;
+        apply_router_config(sibling_cfg).unwrap();
+        start_runtime().unwrap();
+        let a = listen_router_endpoint(&bytes, 0, 128).unwrap();
+        let a2 = listen_router_endpoint(&bytes, 1, 128).unwrap();
+        let b = listen_router_endpoint(sibling_cfg, 0, 128).unwrap();
+        let legacy = listen("127.0.0.1", 0, 128).unwrap();
+        assert_ne!(local_addr(a).unwrap(), local_addr(b).unwrap());
+        assert_eq!(reload_tls().unwrap(), 1);
+        assert_eq!(reload_router_tls(&bytes, &[a, a2]).unwrap(), 2);
+
+        let assert_config = |first_exponent| {
+            RuntimeManager::global()
+                .with_state(|view| {
+                    let listeners = view.registry.listeners.lock().unwrap();
+                    assert_eq!(
+                        listeners[&a]
+                            .config_state
+                            .endpoint_config()
+                            .max_rawsocket_size_exponent,
+                        first_exponent
+                    );
+                    assert_eq!(
+                        listeners[&a2]
+                            .config_state
+                            .endpoint_config()
+                            .max_rawsocket_size_exponent,
+                        16
+                    );
+                    assert_eq!(
+                        listeners[&b].config_state.endpoint_config().protocols,
+                        vec![TransportProtocol::Websocket]
+                    );
+                    Ok(())
+                })
+                .unwrap();
+        };
+        cfg["endpoints"][0]["max_rawsocket_size_exponent"] = json!(17);
+        cfg["endpoints"][1]["sni_certificates"][0]["private_key_pem"] = json!("invalid key");
+        let invalid = serde_json::to_vec(&cfg).unwrap();
+        assert!(matches!(
+            reload_router_tls(&invalid, &[a, a2]),
+            Err(Error::RouterConfigInvalid(_))
+        ));
+        assert_config(16);
+        cfg["endpoints"][1] = endpoint;
+        let valid = serde_json::to_vec(&cfg).unwrap();
+        for ids in [vec![a, a], vec![a, ListenerId(u32::MAX)], vec![a, legacy]] {
+            assert!(reload_router_tls(&valid, &ids).is_err());
+            assert_config(16);
+        }
+        assert!(reload_router_tls(sibling_cfg, &[a2]).is_err());
+        assert_config(16);
+        assert_eq!(reload_router_tls(&valid, &[a, a2]).unwrap(), 2);
+        assert_config(17);
+        assert_eq!(reload_router_tls(&valid, &[]).unwrap(), 0);
+        assert!(listen_router_endpoint(&valid, 2, 128).is_err());
+        assert!(listen_router_endpoint(&valid, 0, 0).is_err());
+        close_listener(a).unwrap();
+        assert!(matches!(
+            reload_router_tls(&valid, &[a]),
+            Err(Error::ListenerNotFound(_))
+        ));
+        assert_eq!(reload_router_tls(sibling_cfg, &[b]).unwrap(), 1);
+        assert!(config::find_endpoint_at(0, "127.0.0.1", 0)
+            .unwrap()
+            .protocols
+            .contains(&TransportProtocol::Websocket));
+        shutdown().unwrap();
     }
 
     #[test]

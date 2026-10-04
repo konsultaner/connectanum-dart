@@ -5,6 +5,11 @@
 - Report WAMP call error URIs in MCP tool failures without forwarding private
   error details, arguments, or keyword arguments.
 
+## 3.0.0-beta.7
+
+- Synchronize public MCP client metadata and dependencies with the router
+  embedding and shutdown correctness release.
+
 ## 3.0.0-beta.6
 
 - Consume the synchronized serializer, native ownership, authentication, and

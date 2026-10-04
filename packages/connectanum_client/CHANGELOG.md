@@ -1,3 +1,8 @@
+## 3.0.0-beta.7
+
+- Align native build-hook release selection and MCP client version metadata
+  with the synchronized router lifecycle fix release.
+
 ## 3.0.0-beta.6
 
 - Retain native-backed payload views safely beyond routing-handle release and

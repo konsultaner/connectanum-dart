@@ -6,6 +6,22 @@
   collision-resistant identities so distinct credentials do not share a
   delegate and file-backed credential rotation reconnects reliably.
 
+## 3.0.0-beta.7
+
+- Isolate native listener configuration and TLS reload per router binding while
+  retaining one shared native engine per process.
+- Scope runtime ownership locks to the process so independent router processes
+  can share a temporary directory.
+- Cancel internal sessions that finish starting during disposal and release
+  their unpublished isolates and receive ports.
+- Coalesce concurrent disposal, prevent reentrant cleanup deadlocks, and attempt
+  remaining owner cleanup before reporting a cancellation failure.
+- Let the standalone CLI exit naturally by cancelling all signal subscriptions;
+  install handlers before announcing readiness and reload TLS through the
+  binding's scoped listener configuration.
+- Add real-process regressions for startup/disposal races, failed cleanup,
+  independent processes, active clients, and SIGINT/SIGTERM shutdown.
+
 ## 3.0.0-beta.6
 
 - Reject ambiguous HTTP/1 request framing, flush completed and paused streamed

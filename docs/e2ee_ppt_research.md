@@ -48,7 +48,12 @@ matrix using portable providers does not prove native consuming-decrypt parity.
 The fail-first fixture inputs and results are preserved in
 /tmp/connectanum-flatbuffers-native-e2ee-gap-probe.json and
 /tmp/connectanum-flatbuffers-native-e2ee-gap-probe.log. No production fix is
-included in this checkpoint.
+included in this checkpoint. The same two cases also fail against the rebuilt
+master-merge library 67d8d0e436e6c81d, after handshake and materialization, in
+/tmp/connectanum-flatbuffers-master-merged-native-e2ee-gap.json and its log.
+The parser retains the opaque FlatBuffers vector separately from ordinary CBOR
+arguments. Ciphertext extraction must handle that stored representation without
+conflating the outer envelope with the decrypted plaintext contract.
 
 Source inspection confirms that the native single-binary-argument helper currently
 accepts MessagePack and CBOR outer serializers, while consuming decryption dispatches

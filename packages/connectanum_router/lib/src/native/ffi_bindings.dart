@@ -23,6 +23,25 @@ typedef CtListenConfiguredNative =
 typedef CtListenConfiguredDart =
     int Function(ffi.Pointer<ffi.Char>, int, int, int);
 
+typedef CtListenRouterEndpointNative =
+    ffi.Int32 Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+      ffi.Uint32,
+      ffi.Int32,
+    );
+typedef CtListenRouterEndpointDart =
+    int Function(ffi.Pointer<ffi.Uint8>, int, int, int);
+typedef CtReloadRouterTlsNative =
+    ffi.Int32 Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Int32>,
+      ffi.Int32,
+    );
+typedef CtReloadRouterTlsDart =
+    int Function(ffi.Pointer<ffi.Uint8>, int, ffi.Pointer<ffi.Int32>, int);
+
 typedef CtGetLocalPortNative = ffi.Int32 Function(ffi.Int32);
 typedef CtGetLocalPortDart = int Function(int);
 typedef CtListenerHttp3PortNative = ffi.Int32 Function(ffi.Int32);
