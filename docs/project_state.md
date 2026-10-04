@@ -7,6 +7,69 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
+CI repair checkpoint: the complete unchanged router-message-binding-vm campaign
+passes all 699 candidates at 95.76427255985267% adjusted assertion score against
+the existing 95% gate (97.42173112338858% conventional score). There are 156
+compile errors, 529 kills and 14 survivors; kill evidence is 394 assertion-only,
+126 mixed and nine test-error-only results. Both baselines pass, all per-mutant
+logs exist, and source/test/support, runner, configuration and equivalents
+hashes match. Candidate IDs and production source hashes match the preceding
+hosted campaign. The independent saved-log audit confirms every kill classification and changes
+no deadline outcome. No gate or equivalence waiver is changed. Report:
+/tmp/connectanum-flatbuffers-router-binding-full-repair/mutation-report.json.
+
+The repair adds 20 observable FlatBuffers router contracts for metadata resend,
+fallback, optional dictionaries, HEARTBEAT counters, opaque subview identity and
+invalid opaque combinations. All 1,892 focused tests pass. A fail-first diagnostic
+slice turns ten old survivors into assertion kills and adds assertion evidence to
+six prior error-only detections. Fresh canonical bin/verify exits 0 at
+/tmp/connectanum-flatbuffers-router-binding-repair-verify.log; all 1,419 frozen
+product hashes and inventory still match at completion. Native Rust/FFI, tooling,
+VM, router/consumer and Chrome JavaScript/WASM checks pass, ending with 2,699
+client WASM cases. Supporting test-fast passes but overlaps test additions.
+
+Pushed 579f5f48 has hosted Full Verify and client binding gate passes, but its old
+router binding gate fails. The remaining MCP mutation job is still running.
+Push this isolated test repair and require hosted confirmation of the new head
+before integrating runtime transport changes. All ten milestone issues remain
+open; ordinary/native transport, mixed-owner composition, full PPT/E2EE,
+performance/copy budgets and release/adapter documentation remain required.
+
+External transport preparation passes 61 VM tests and the previous unchanged
+30 JavaScript/30 WASM tests. Isolated Rust native WebSocket admission and
+subprotocol mappings build and their unit test passes. With the scratch native
+library, four real FlatBuffers WebSocket cases pass: cleartext/TLS and
+anonymous/ticket authentication, 128 KiB RPC/pubsub, progress/error, client
+fragmented sends and GOODBYE. TLS uses allowInsecure with a self-signed fixture;
+it does not establish certificate validation. Existing native/file regressions
+pass all 122 cases when run serially; the initial combined parallel run races
+the shared runtime's shutdown across test files.
+
+Three minimal public JSON repros against unmodified client/native source prove
+native lifetime defects: close waits for a paused receive subscriber; an older
+close invalidates a reopened connection; closing while open is pending still
+installs the cancelled native connection. Scratch fixes for the first two pass
+the same public repros. Pending-open generation isolation, wrong/missing
+subprotocol rejection, incoming fragmentation and certificate rejection remain
+follow-up work. No runtime implementation source is changed in this repair.
+
+Read-only preparation confirms the ordinary RawSocket browser stub uses String
+serializerType while VM uses int: one public JSON consumer compiles to VM kernel
+and fails JavaScript compilation. Save the minimal external probe/logs in the
+active plan and fix API parity with the next transport stage after CI clearance.
+Product source remains identical to verified/pushed 579f5f48.
+
+A second external fail-first probe proves pre-handshake RawSocket sends throw
+Cannot add to a fixed-length list, because _outboundBuffer is Uint8List and send
+calls addAll. Preserve the reproduction for the transport stage; repair must
+handle negotiated framing and failed/reopened connections, not just swap types.
+An API-only scratch prototype adds existing-pattern FlatBuffers factories,
+WebSocket selection mapping and an explicit file-segment capability exclusion.
+After correcting the enum spelling to NativeMessageSerializer.flatbuffers, VM
+construction and JS/WASM compilation pass. This is preparation only; it lacks
+ordinary-transport profile gates, native Rust WebSocket support and live network
+proof. No product source is changed; all ten issues remain open.
+
 CI-first checkpoint: router/native forwarding is committed/pushed as ab7f6718,
 but hosted CI on preceding 6727a18c has two completed failures in run
 37162280263. Full Verify job 111322014870 exhausts all three native attempts:

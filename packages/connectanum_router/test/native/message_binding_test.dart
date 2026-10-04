@@ -8,12 +8,211 @@ import 'dart:convert';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_router/src/native/message_binding.dart';
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
 import '../../../connectanum_core/test/support/native_role_contract.dart';
+
+void _flatBuffersMetadataContracts() {
+  final codec = flatbuffers.Serializer();
+  Uint8List dictionary(Map<String, Object?> value) => Uint8List.fromList(
+    cbor.cbor.encode(cbor.CborValue(value)),
+  );
+  final unusedFrame = Uint8List.fromList([0xff]);
+  AbstractMessage? metadata(
+    int code, {
+    NativeMessageSerializer serializer = NativeMessageSerializer.flatbuffers,
+    int flags = 17,
+    String? stringA = 'com.target',
+    String? stringB,
+    Uint8List? detailsBytes,
+    Uint8List? opaque,
+  }) => bindMessageFromMetadata(
+    serializer,
+    messageCode: code,
+    primaryId: 17,
+    secondaryId: 29,
+    detailNumberA: 0,
+    flags: flags,
+    stringA: stringA,
+    stringB: stringB,
+    detailsBytes: detailsBytes,
+    transparentPayloadBytes: opaque,
+  );
+
+  test('FlatBuffers router GOODBYE preserves extension metadata on resend', () {
+    final value = _expectMessage<Goodbye>(
+      _validFrame(
+        () => metadata(
+          6,
+          stringA: 'wamp.close.normal',
+          stringB: 'finished',
+          detailsBytes: dictionary({
+            'message': 'finished',
+            '_trace': {'sequence': 17},
+          }),
+        ),
+      ),
+    );
+    expect(value.reason, 'wamp.close.normal');
+    expect(value.message?.message, 'finished');
+    final resent = _expectMessage<Goodbye>(
+      _validFrame(() => codec.deserialize(codec.serialize(value))),
+    );
+    expect(codec.metadataFor(resent), {
+      'message': 'finished',
+      '_trace': {'sequence': 17},
+    });
+  });
+
+  test('FlatBuffers router fallback ignores unpermitted native metadata', () {
+    final frame = codec.serialize(
+      Publish(17, 'com.original')..arguments = [29],
+    );
+    final value = _expectMessage<Publish>(
+      _validFrame(
+        () => bindMessage(
+          NativeMessageSerializer.flatbuffers,
+          frame,
+          metadataMessageCode: MessageTypes.codePublish,
+          metadataPrimaryId: 99,
+          metadataFlags: 0,
+          metadataStringA: 'com.wrong',
+          metadataDetailsBytes: dictionary({'_ignored': true}),
+        ),
+      ),
+    );
+    expect(value.requestId, 17);
+    expect(value.topic, 'com.original');
+    expect(value.arguments, [29]);
+    expect(codec.metadataFor(value), isEmpty);
+  });
+
+  test('FlatBuffers router metadata may omit the dictionary', () {
+    final value = _expectMessage<Publish>(
+      _validFrame(
+        () => bindMessage(
+          NativeMessageSerializer.flatbuffers,
+          unusedFrame,
+          metadataMessageCode: MessageTypes.codePublish,
+          metadataPrimaryId: 17,
+          metadataFlags: 17,
+          metadataStringA: 'com.topic',
+        ),
+      ),
+    );
+    expect(value.requestId, 17);
+    expect(value.topic, 'com.topic');
+    expect(value.options, isNull);
+    expect(value.arguments, isNull);
+    expect(value.argumentsKeywords, isNull);
+  });
+
+  test(
+    'FlatBuffers router HEARTBEAT unwraps counters without retaining wrapper',
+    () {
+      final value = _expectMessage<Heartbeat>(
+        _validFrame(
+          () => metadata(
+            7,
+            flags: 16,
+            detailsBytes: dictionary({
+              'details': {'mode': 'ping'},
+              'ping': 11,
+              'incoming': 12.75,
+              'outgoing': 'unrecognized',
+            }),
+          ),
+        ),
+      );
+      expect(value.details, {'mode': 'ping'});
+      expect(value.ping, 11);
+      expect(value.incoming, 12);
+      expect(value.outgoing, isNull);
+      final resent = _expectMessage<Heartbeat>(
+        _validFrame(() => codec.deserialize(codec.serialize(value))),
+      );
+      expect(resent.details, {'mode': 'ping'});
+      expect(resent.ping, 11);
+      expect(resent.incoming, 12);
+      expect(resent.outgoing, isNull);
+    },
+  );
+
+  for (final code in [8, 16, 48, 70]) {
+    for (final empty in [false, true]) {
+      test(
+        'FlatBuffers router borrows opaque span code=$code empty=$empty',
+        () {
+          final backing = Uint8List.fromList([99, 98, 1, 2, 3, 97]);
+          final bytes = Uint8List.sublistView(backing, 2, empty ? 2 : 5);
+          final value = _expectMessage<AbstractMessageWithPayload>(
+            _validFrame(
+              () => metadata(code, flags: 17 | (1 << 8), opaque: bytes),
+            ),
+          );
+          expect(value.id, code);
+          expect(value.transparentBinaryPayload, same(bytes));
+          expect(
+            value.transparentBinaryPayload?.offsetInBytes,
+            bytes.offsetInBytes,
+          );
+          expect(value.transparentBinaryPayload?.length, empty ? 0 : 3);
+          expect(value.arguments, isNull);
+          expect(value.argumentsKeywords, isNull);
+        },
+      );
+    }
+  }
+  for (final flagged in [false, true]) {
+    test('FlatBuffers router rejects inconsistent opaque flag=$flagged', () {
+      expect(
+        () => metadata(
+          16,
+          flags: 17 | (flagged ? 1 << 8 : 0),
+          opaque: flagged ? null : Uint8List(0),
+        ),
+        throwsArgumentError,
+      );
+    });
+  }
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.ubjson,
+  ]) {
+    test('FlatBuffers router rejects opaque payload for $serializer', () {
+      expect(
+        () => metadata(
+          16,
+          serializer: serializer,
+          flags: 17 | (1 << 8),
+          opaque: Uint8List(0),
+        ),
+        throwsArgumentError,
+      );
+    });
+  }
+  test('FlatBuffers router rejects opaque payload on a non-payload model', () {
+    expect(
+      () => metadata(34, flags: 17 | (1 << 8), opaque: Uint8List(0)),
+      throwsArgumentError,
+    );
+  });
+  test(
+    'unbound native metadata returns null before payload interpretation',
+    () {
+      expect(
+        _validFrame(() => metadata(16, stringA: null, flags: 17 | (1 << 8))),
+        isNull,
+      );
+    },
+  );
+}
 
 void _bindingBoundaryContracts() {
   for (final serializer in [
@@ -449,6 +648,7 @@ void _validFrameContracts() {
 }
 
 void main() {
+  _flatBuffersMetadataContracts();
   test('malformed FlatBuffers frame fails as malformed input', () {
     expect(
       () => bindMessage(

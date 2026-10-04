@@ -20,6 +20,203 @@ worktree starts from committed HEAD and must not alter or claim those changes.
 The previous coverage plan is deferred in this worktree by the explicit new goal;
 its unfinished coverage/mutation targets remain open.
 
+CI repair checkpoint: the complete unchanged router-message-binding-vm campaign
+passes all 699 candidates at 95.76427255985267% adjusted assertion score against
+the existing 95% gate (97.42173112338858% conventional score). There are 156
+compile errors, 529 kills and 14 survivors; kill evidence is 394 assertion-only,
+126 mixed and nine test-error-only results. Both baselines pass, all per-mutant
+logs exist, and source/test/support, runner, configuration and equivalents
+hashes match. Candidate IDs and production source hashes match the preceding
+hosted campaign. The independent saved-log audit confirms every kill classification and changes
+no deadline outcome. No gate or equivalence waiver is changed. Report:
+/tmp/connectanum-flatbuffers-router-binding-full-repair/mutation-report.json.
+
+The repair adds 20 observable FlatBuffers router contracts for metadata resend,
+fallback, optional dictionaries, HEARTBEAT counters, opaque subview identity and
+invalid opaque combinations. All 1,892 focused tests pass. A fail-first diagnostic
+slice turns ten old survivors into assertion kills and adds assertion evidence to
+six prior error-only detections. Fresh canonical bin/verify exits 0 at
+/tmp/connectanum-flatbuffers-router-binding-repair-verify.log; all 1,419 frozen
+product hashes and inventory still match at completion. Native Rust/FFI, tooling,
+VM, router/consumer and Chrome JavaScript/WASM checks pass, ending with 2,699
+client WASM cases. Supporting test-fast passes but overlaps test additions.
+
+Pushed 579f5f48 has hosted Full Verify and client binding gate passes, but its old
+router binding gate fails. The remaining MCP mutation job is still running.
+Push this isolated test repair and require hosted confirmation of the new head
+before integrating runtime transport changes. All ten milestone issues remain
+open; ordinary/native transport, mixed-owner composition, full PPT/E2EE,
+performance/copy budgets and release/adapter documentation remain required.
+
+External transport preparation passes 61 VM tests and the previous unchanged
+30 JavaScript/30 WASM tests. Isolated Rust native WebSocket admission and
+subprotocol mappings build and their unit test passes. With the scratch native
+library, four real FlatBuffers WebSocket cases pass: cleartext/TLS and
+anonymous/ticket authentication, 128 KiB RPC/pubsub, progress/error, client
+fragmented sends and GOODBYE. TLS uses allowInsecure with a self-signed fixture;
+it does not establish certificate validation. Existing native/file regressions
+pass all 122 cases when run serially; the initial combined parallel run races
+the shared runtime's shutdown across test files.
+
+Three minimal public JSON repros against unmodified client/native source prove
+native lifetime defects: close waits for a paused receive subscriber; an older
+close invalidates a reopened connection; closing while open is pending still
+installs the cancelled native connection. Scratch fixes for the first two pass
+the same public repros. Pending-open generation isolation, wrong/missing
+subprotocol rejection, incoming fragmentation and certificate rejection remain
+follow-up work. No runtime implementation source is changed in this repair.
+
+Read-only transport preflight while 579f5f48 CI is live: a minimal consumer of the
+public `connectanum_client/connectanum.dart` export constructs SocketTransport
+with JSON and integer serializer ID1. It compiles to VM kernel, but JavaScript
+compilation rejects int for the browser stub's String parameter. This proves the
+existing stub/VM API mismatch independently of missing FlatBuffers factories.
+Probe: /tmp/connectanum-flatbuffers-transport-contract-preflight/raw_type_parity.dart;
+logs: /tmp/connectanum-flatbuffers-raw-type-vm-before.log and
+/tmp/connectanum-flatbuffers-raw-type-js-before.log. Keep the unified integer
+constructor contract in the next transport stage, including JS/WASM compilation
+and explicit unavailable-platform behavior. No product source is edited while
+hosted CI confirmation is pending.
+
+Qwen's focused advice completes but mistakes serializer ID for the string
+'flatbuffers', confuses the immutable FlatBuffers capability profile with frame
+length negotiation, and proposes testing the empty RawSocket stub stream for
+stale WebSocket Blob delivery. Reject those claims against actual types/profile
+source. The prepared source/compiler regressions remain the authoritative leads.
+
+Additional read-only preparation: the actual JSON RawSocket public consumer in
+/tmp/connectanum-flatbuffers-transport-contract-preflight/raw_queue_before_handshake.dart
+opens a real local socket, leaves negotiation pending and sends HELLO. It exits255
+with Cannot add to a fixed-length list from SocketTransport.send line606.
+Log: /tmp/connectanum-flatbuffers-raw-queue-before.log. The current queue uses
+Uint8List.addAll; a future fix must also preserve negotiated frame-header width,
+failed-send profile transitions, rejection cleanup and reopen isolation.
+
+External transport prototype directory is recorded in
+/tmp/connectanum-flatbuffers-transport-stage-path.txt (current path:
+/var/folders/k1/7cb_79197r7c01tn27rw47g00000gn/T/connectanum-flatbuffers-transport-stage-abx65egq).
+The prototype now includes ordinary RawSocket/VM/browser WebSocket profile gates,
+codec/selection matching, existing-pattern FlatBuffers factories, generation
+isolation, bounded copied pre-handshake payload queues framed after negotiation,
+serializer/upgrade rejection and outbound close independent of incoming EOF.
+Native factories/map and explicit file-segment capability exclusions are prepared;
+Rust native WebSocket support and mixed-owner public composition are incomplete.
+Do not copy the prototype wholesale or claim canonical transport completion.
+
+All57 targeted VM tests,30 JavaScript tests and30 WASM tests pass in the scratch
+package against this worktree's real core/router dependencies. Logs:
+/tmp/connectanum-flatbuffers-stage-transport-all-vm.log,
+/tmp/connectanum-flatbuffers-stage-transport-all-dart2js.log and
+/tmp/connectanum-flatbuffers-stage-transport-all-dart2wasm.log. They cover real
+wire peers, anonymous/ticket negotiation before credential delivery,128KiB
+RPC/pubsub/progress/error traffic, failed HELLO/GOODBYE serialization,4/5-byte
+queued framing, reopening, stale delayed Blob decode and unavailable-platform
+API parity. Relative browser test paths avoid a runner URL-loading error.
+Active RawSocket subscriptions keep network negotiation running while assertion
+iterators pause; WASM fixture message codes normalize num.toInt(). Neither
+fixture change weakens protocol assertions or increases timeouts.
+
+Independent fail-first public RawSocket probes show close without consuming
+receive times out, mismatched serializer reply is accepted, and unsolicited
+5-byte upgrade is accepted. Each unmodified source probe exits255 and prototype
+exits0. Logs: /tmp/connectanum-flatbuffers-raw-close-before.log and after.log;
+/tmp/connectanum-flatbuffers-raw-negotiation-serializer-before.log and after.log;
+/tmp/connectanum-flatbuffers-raw-negotiation-upgrade-before.log and after.log.
+Queue overflow and stale ordinary socket completion remain follow-up test leads.
+
+Browser research: https://websockets.spec.whatwg.org/ (opening handshake and
+close algorithms, checked2026-10-04). A missing requested subprotocol fails
+before onOpen; FlatBuffers onError must preserve an explicit UnsupportedError.
+Browser close permits supplied1000 or3000–4999 only, so protocol1002 cannot be
+passed to the browser close API. The prototype uses close without a code there.
+
+Qwen review and narrowed GLM judgment complete as advisory evidence. Reject
+claims that failed serialization should commit profile state, that copied queue
+buffers can be freed while strongly referenced, or that queue flush runs before
+handshake parsing: actual source and wire tests contradict them. Existing
+_handleError completes handshake failure and calls close; RawSocket's frame
+length limit counts payload bytes excluding header. GLM's proposed header
+reservation and inferred non-close behavior therefore do not apply. The first
+GLM request reaches its token limit and is not a completed review. Product source
+remains identical to verified/pushed579f5f48 while this preparation is external.
+
+External prototype extension: all61 VM tests now pass at
+/tmp/connectanum-flatbuffers-stage-transport-all-vm-expanded-final.log. Four added
+wire contracts cover unsupported serializer reply, unsolicited upgrade, close
+without receive consumption, and oversized queued HELLO rejection followed by a
+successful normal HELLO/profile negotiation. The first queue fixture uses a1KiB
+limit, smaller than Details.forHello's default metadata; the legitimate retry is
+therefore also rejected. Use4KiB and an explicit10KiB oversized realm, assert both
+encoded sizes against that budget, and preserve the5-second deadline and actual
+successful retry. This is a fixture correction, not a product fix or relaxed
+timeout. The prior30 JS/30 WASM passes remain valid because only VM tests changed.
+
+A new public scratch native WebSocket factory consumer starts a real HTTP peer
+and requests FlatBuffers via the currentffi-test release artifact. It exits255
+with NativeTransportException code-11 before HTTP subprotocol negotiation:
+serializer is unsupported by the native runtime. Repro:
+/tmp/connectanum-flatbuffers-transport-contract-preflight/native_websocket_flatbuffers_before.dart;
+log: /tmp/connectanum-flatbuffers-native-websocket-negotiation-before.log.
+Verify both FFI serializer admission and Rust websocket_subprotocol when the
+transport stage is integrated. This proof does not claim current native WebSocket
+support. All1,419 frozen product hashes remain unchanged during preparation.
+
+Native WebSocket preflight confirms two independent admission gaps:
+ct_client_connect_websocket at runtime/ffi.rs2729 accepts only JSON/MessagePack/
+CBOR, returningERR_UNSUPPORTED_SERIALIZER for ID5 before core is called; core
+websocket_subprotocol at ct_core/src/lib.rs6749 also lacks FlatBuffers. The public
+scratch failure proves the first gap; source inspection proves the second.
+Both need supported FlatBuffers mapping plus canonical live secure/fragmented
+regressions. Do not mistake the current-WS-server tests for native-client proof.
+
+Gemma's narrow ownership summary completes at
+/tmp/connectanum-flatbuffers-mixed-owner-api-summary.txt. Actual native allocator
+send/receipt paths consume a frozen single-buffer send reference; existing core
+segmented forwarding alone does not expose a public mixed-owner composition API.
+Keep an immutable segmented-frame handle with retained input references and
+bounded metadata inspection as a proposal for96/97/100, pending lifetime/design
+checks. Never adopt a database pointer asVec. This preparation does not modify
+product source or establish adapter readiness.
+
+GLM's mixed-owner composition preparation request reaches its output token limit
+(session36136, exit1) after consuming supplied ownership boundaries. This is not
+a completed review or architecture approval; the segmented-frame API remains a
+proposal. Narrow the questions around the actual implementation before choosing
+that API. Existing buffer source and fixtures remain authoritative.
+
+CI repair handoff: canonical bin/verify83146 and the full router binding campaign
+88275 both complete with exit 0. The 699-candidate report and frozen 1,419-file
+inventory are audited above. Only the router test and two bookkeeping documents
+are dirty. Commit/push this isolated repair and inspect hosted results before
+integrating runtime prototypes; all ten issues remain open.
+
+External native WebSocket stage is recorded in
+/tmp/connectanum-flatbuffers-native-ws-stage-path.txt (current path:
+/var/folders/k1/7cb_79197r7c01tn27rw47g00000gn/T/connectanum-flatbuffers-native-ws-stage-sy8pugyy).
+It copies140 tracked native/schema/config/certificate files plus the actual local
+Cargo.lock (sha2567ef43174bb6b30e4c246e762244f88dff7c0a5a2f2a11abb7ddc7a96e122df69)
+and uses its own target directory. Initial --locked failure reveals ignored lock
+was absent; preserve the known dependency resolution instead of unlocking. A
+first code compile catches enum spelling FlatBuffers; actual Rust variant is
+Flatbuffers. Both admission mappings then build successfully in ffi-test release.
+The added four-serializer subprotocol unit passes. Logs:
+/tmp/connectanum-flatbuffers-native-ws-stage-build-final.log and
+/tmp/connectanum-flatbuffers-native-ws-stage-core-mapping-test.log.
+
+The isolated native wire suite times out four cases. A bounded classified probe
+completes every anonymous cleartext128KiB RPC/pubsub/progress/error/fragmented-send
+assertion, then times out specifically at close. A separate minimal public JSON
+consumer against unmodified579f5f48 native/client source proves close with a
+paused receive subscriber also times out in5seconds (exit255). Repro:
+/tmp/connectanum-flatbuffers-transport-contract-preflight/native_close_paused_before.dart;
+log /tmp/connectanum-flatbuffers-native-close-paused-before.log. The common
+NativeTransport.close awaits broadcast controller.close before its listener can
+be cancelled. Preserve paused-listener semantics: stop native workers/connections
+and mark transport disconnect independently of the consumer draining buffered
+messages. Only the scratch native Dart close is changed to schedule stream close;
+post-change public repro and complete wire reruns are underway. No product
+runtime source is modified while the CI repair campaign is pending.
+
 ## Work order and completion evidence
 
 - [ ] #95: pinned interoperable binding, schema generation, message/metadata map,
@@ -1295,3 +1492,22 @@ The router VM suite includes 4,805 cases plus separate remote-auth/native EVENT
 runs. This router/profile/segmented forwarding stage is ready for commit/push.
 Keep all ten issues open; carry the external WebSocket/factory probes and generic
 mixed-owner composition gap into subsequent transport/ownership stages.
+
+Native scratch follow-up evidence (2026-10-04):
+- Four native WebSocket wire cases pass after making close independent of paused
+  subscriber drain: /tmp/connectanum-flatbuffers-native-ws-stage-network-after-close-fix.log.
+  The separate public JSON paused-subscription repro passes with scratch Dart
+  source and the original native DLL (session23981 exit0).
+- Capturing the old controller/disconnect owner before close awaits worker
+  disposal fixes the independent public concurrent close/reopen repro. Original
+  source exits255; scratch source exits0. Repro:
+  /tmp/connectanum-flatbuffers-transport-contract-preflight/native_close_reopen_before.dart;
+  logs /tmp/connectanum-flatbuffers-native-close-reopen-before.log and after.log.
+- Closing while open is pending independently fails against unmodified source:
+  /tmp/connectanum-flatbuffers-transport-contract-preflight/native_close_pending_open_before.dart
+  exits255 with Cancelled open retained native connection1. Generation isolation
+  is not yet implemented or verified; preserve the repro before changing it.
+- Existing native transport/file suites pass 122 cases with --concurrency=1:
+  /tmp/connectanum-flatbuffers-native-ws-stage-existing-regressions-serial.log.
+  The initial parallel run races NativeClientRuntime.shutdownShared across files;
+  it is not evidence of a serializer regression.
