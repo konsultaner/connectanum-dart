@@ -7,6 +7,46 @@ inventories, test suites, deadlines or evidence gates.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work401: Production-native timing pilots replace synthetic-only speed evidence.
+Fast401 runs before changes and exits 0. Fresh-only deterministic pilots and a
+raw-evidence timing profiler preserve inventory, workspace tests, assertion
+classification, baseline/restoration and deadlines; they never grant campaign
+completion, a combined mutation score or a gate pass. Reuse, invalid durations,
+tampered provenance and impossible projected concurrency have regressions.
+
+The matched 31-mutant core pilots run all 534 workspace tests: default-debug/four
+workers takes 715.05s, lean-debug/eight takes 453.22s (1.58x measured speedup), with
+identical mutant identities/statuses. Tests consume 92.2% of the default core
+mutation phase time. The final 21-mutant FFI lean-debug/four-worker pilot takes
+470.31s; all initial/restored baselines pass, and native input hashes and baseline
+test identities match core. FFI test phases consume 95.6%. The 1,959 core plus
+1,297 FFI inventory is modeled at 8.99h with the fastest successful configurations
+sequentially, or 12.23h using four workers throughout. These are sampled local
+native estimates, not completed campaigns or an ETA for Dart/browser/Flutter.
+Errors, survivors and timeouts remain unclean evidence, not kill credit.
+
+Default-debug core/eight workers, lean-debug core/sixteen, optimized core/sixteen
+and lean-debug FFI/eight fail unchanged TLS baselines; optimized/sixteen also
+fails HTTP/3 owner cleanup. Keep four workers as the default and retain rejected
+runs, without relaxing deadlines. The first FFI pilot exposes cargo-mutants
+27.1.0 struct-field deletions bypassing regex filters. Field-containing inventories
+now use pinned discovery-order native round-robin shards, with full/listed/executed
+order checks; other inventories retain the original selector. A fail-first real
+Cargo regression now executes all eleven fixture mutations, including both
+field deletions, exactly once with assertion kills and no operator exclusion.
+
+All 43 collector, 12 batch auditor, 30 coordinator and 5 timing-profiler tests
+pass. GLM's actionable fresh-pilot reuse finding is reproduced and fixed. Qwen's
+later contiguous-sharding and duplicate-check suggestions are rejected against
+upstream round-robin source and the exact-inventory regressions. Core reports
+are independently reaudited with their archived byte-exact measured tools;
+do not reuse old tool hashes as current-tool score evidence. Details and artifact
+hashes are in `docs/benchmarks/native-mutation-speed-2026-10-04.md`. Fresh current
+`bin/verify` exits 0 in `/tmp/connectanum-mutation-profile-verify401.log`, including
+native, tooling, package/consumer, router and Chrome/Dart2Wasm core/client checks.
+No candidate has been pushed. Existing hosted remote-auth assertion gate and
+regression/mutation coverage blockers remain open.
+
 Work400: The operator prioritizes mutation-test speed after beta.7 publication.
 Fast400 is launched before implementation and exits 0. Master CI `37134251410` is now
 complete: only the remote-auth native benchmark mutation gate fails; the MCP

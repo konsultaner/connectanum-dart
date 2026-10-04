@@ -16,11 +16,22 @@ import native_mutation_batches
 import run_native_mutations as collector
 
 
-def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1, reuse=()):
+def sample_indices(count, sample_count):
+    if (type(count) is not int or type(sample_count) is not int
+            or not 1 <= sample_count < count):
+        raise ValueError('A timing pilot must select fewer positive batches than the full campaign')
+    return [index * count // sample_count for index in range(sample_count)]
+
+
+def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1, reuse=(),
+                     *, sample_count=None):
     if (target not in collector.WHOLE_COMPONENTS
             or any(type(value) is not int or value < 1 for value in (count, jobs, build_jobs))
             or jobs > min(count, 64)):
         raise ValueError('Require a whole component, positive limits, and jobs <= min(batches, 64)')
+    selected = list(range(count)) if sample_count is None else sample_indices(count, sample_count)
+    if sample_count is not None and reuse:
+        raise ValueError('Timing pilots require fresh batches, not reused timing measurements')
     started = time.monotonic()
     output.mkdir(parents=True, exist_ok=False)
     scope = native_coverage.snapshot(root, native_coverage.ROOTS, analyzer)
@@ -33,6 +44,8 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
                 'jobs': jobs, 'cargoBuildJobs': build_jobs, 'inputHashes': inputs,
                 'toolHashes': tools, 'executionFingerprint': execution,
                 'batches': [], 'maxConcurrentWorkers': 0}
+    if sample_count is not None:
+        manifest.update(timingOnly=True, sampledBatchIndexes=selected)
     manifest_path = output / 'campaign-manifest.json'
 
     def save():
@@ -57,6 +70,8 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
                 raise ValueError('Reused batches differ from the pinned campaign')
             for path, report in zip(reuse, inspected['reports']):
                 index = report['batch']['index']
+                if index not in selected:
+                    raise ValueError('Reused batch outside selected timing pilot')
                 if report['batch']['count'] != count or index in directories:
                     raise ValueError('Duplicate or differently partitioned reused batch')
                 directories[index] = path.resolve()
@@ -90,7 +105,7 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
         errors = []
         try:
             futures = {executor.submit(worker, index): index
-                       for index in range(count) if index not in directories}
+                       for index in selected if index not in directories}
             for future in as_completed(futures):
                 index = futures[future]
                 try:
@@ -119,6 +134,25 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
             raise ValueError('Campaign source inventory changed')
         if native_coverage.digest(output / 'filtered-inventory.json') != manifest['inventorySha256']:
             raise ValueError('Pinned campaign inventory changed')
+        manifest['batches'].sort(key=lambda item: item['index'])
+        if sample_count is not None:
+            inspected = native_mutation_batches.inspect_batches(
+                root, [directories[index] for index in selected], analyzer)
+            if (inspected['inventory'] != full or inspected['inputHashes'] != inputs
+                    or inspected['toolHashes'] != tools
+                    or inspected['executionFingerprint'] != execution):
+                raise ValueError('Timing pilot differs from pinned campaign')
+            pilot = {'timingOnly': True, 'wholeComponentComplete': False,
+                     'generated': len(full), 'sampledBatchIndexes': selected,
+                     'sampledMutants': sum(len(report['results']) for report in inspected['reports']),
+                     'batches': inspected['batches']}
+            with (output / 'pilot.json').open('x') as destination:
+                json.dump(pilot, destination, indent=2)
+                destination.write('\n')
+            manifest.update(pilotComplete=True, pilotSha256=native_coverage.digest(output / 'pilot.json'))
+            save()
+            print(json.dumps(pilot))
+            return 0
         report = native_mutation_batches.audit_batches(
             root, [directories[index] for index in range(count)], analyzer)
         if (report['inputHashes'] != inputs or report['toolHashes'] != tools
@@ -145,6 +179,8 @@ def main():
     parser.add_argument('--jobs', type=int, default=4)
     parser.add_argument('--cargo-jobs', type=int,
                         help='Build threads per worker; defaults to CPU count divided by workers')
+    parser.add_argument('--pilot-batches', type=int,
+                        help='Measure evenly spaced batches only; never create a combined score')
     parser.add_argument('--reuse', type=Path, action='append', default=[],
                         help='Completed immutable batch directory; raw logs are reaudited before reuse')
     args = parser.parse_args()
@@ -158,7 +194,8 @@ def main():
     previous = signal.signal(signal.SIGTERM, interrupt)
     try:
         return collect_campaign(native_coverage.REPO, args.output.resolve(), args.analyzer.resolve(),
-                                args.target, args.batches, args.jobs, build_jobs, args.reuse)
+                                args.target, args.batches, args.jobs, build_jobs, args.reuse,
+                                sample_count=args.pilot_batches)
     except KeyboardInterrupt:
         return 130
     finally:

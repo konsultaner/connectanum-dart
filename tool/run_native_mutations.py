@@ -20,7 +20,7 @@ from run_dart_mutations import run
 FIXTURES = ('native/bench/bench_tls.crt', 'native/bench/bench_tls.key')
 TOOL_INPUTS = ('run_native_mutations.py', 'native_mutations.py',
                'native_coverage.py', 'run_dart_mutations.py', 'native_mutation_batches.py',
-               'run_native_mutation_campaign.py')
+               'run_native_mutation_campaign.py', 'native_mutation_timing.py')
 TARGETS = {
     'core-rawsocket': ('ct_core/src/rawsocket.rs', 'rawsocket::tests'),
     'core-wamp': ('ct_core/src/wamp.rs', 'wamp::'),
@@ -34,6 +34,18 @@ TARGETS = {
 WHOLE_COMPONENTS = frozenset(('core-all', 'ffi-all'))
 
 
+def native_sharding(inventory):
+    # cargo-mutants 27.1.0 StructField discovery bypasses regex filters. Its
+    # post-discovery sharding still assigns each candidate exactly once.
+    return any(item.get('genre') == 'StructField' for item in inventory)
+
+
+def inventory_matches(actual, expected, *, native_order=False):
+    actual_ids = list(map(native_mutations.identity, actual))
+    expected_ids = list(map(native_mutations.identity, expected))
+    return actual_ids == expected_ids if native_order else sorted(actual_ids) == sorted(expected_ids)
+
+
 def select_batch(inventory, index, count):
     if (type(index) is not int or type(count) is not int
             or not 0 <= index < count <= len(inventory)):
@@ -42,7 +54,8 @@ def select_batch(inventory, index, count):
     identities = [native_mutations.identity(item) for item in inventory]
     if len(set(names)) != len(names) or len(set(identities)) != len(identities):
         raise ValueError('Duplicate full inventory name or identity')
-    return sorted(inventory, key=native_mutations.identity)[index::count]
+    ordered = inventory if native_sharding(inventory) else sorted(inventory, key=native_mutations.identity)
+    return ordered[index::count]
 
 
 def partition_inventory(inventory, scope):
@@ -188,8 +201,8 @@ def prepare_inventory(work, output, scope, target):
     filtered_command = campaign[:campaign.index('--')] + ['--list', '--json']
     filtered = subprocess.check_output(filtered_command, cwd=work, text=True, timeout=120)
     (output / 'filtered-inventory.json').write_text(filtered)
-    if sorted(map(native_mutations.identity, json.loads(filtered))) != sorted(
-            map(native_mutations.identity, partition['production'])):
+    if not inventory_matches(json.loads(filtered), partition['production'],
+                             native_order=native_sharding(partition['production'])):
         raise RuntimeError('Filtered inventory differs from pinned production inventory')
     return partition
 
@@ -241,15 +254,19 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
         expected_inventory = partition['production'] if partition else None
         if batch is not None:
             selected = select_batch(expected_inventory, *batch)
-            expression = '^(?:' + '|'.join(re.escape(item['name']) for item in selected) + ')$'
-            campaign[campaign.index('--'):campaign.index('--')] = ['--re', expression]
+            if native_sharding(expected_inventory):
+                selector = ['--shard', f'{batch[0]}/{batch[1]}', '--sharding', 'round-robin']
+            else:
+                expression = '^(?:' + '|'.join(re.escape(item['name']) for item in selected) + ')$'
+                selector = ['--re', expression]
+            campaign[campaign.index('--'):campaign.index('--')] = selector
             listed = subprocess.check_output(
                 campaign[:campaign.index('--')] + ['--list', '--json'],
                 cwd=work, text=True, timeout=120)
             selected_path = output / 'batch-inventory.json'
             selected_path.write_text(listed)
-            if sorted(map(native_mutations.identity, json.loads(listed))) != sorted(
-                    map(native_mutations.identity, selected)):
+            if not inventory_matches(json.loads(listed), selected,
+                                     native_order=native_sharding(expected_inventory)):
                 raise RuntimeError('Selected batch differs from deterministic inventory partition')
             expected_inventory = selected
             manifest.update(batch={'index': batch[0], 'count': batch[1]},

@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import native_coverage
 import native_mutation_batches as batches
+import native_mutation_timing as timing
 import run_native_mutation_campaign as campaign
 import run_native_mutations as collector
 from run_dart_mutations import run
@@ -21,7 +22,7 @@ from test_native_mutation_batches import BatchEvidenceTests
 
 
 class CampaignTests(BatchEvidenceTests):
-    def collect(self, jobs=2, reuse=(), worker=None):
+    def collect(self, jobs=2, reuse=(), worker=None, sample_count=None):
         full = json.loads((self.directories[0] / 'filtered-inventory.json').read_text())
 
         def prepare(work, output, scope, target):
@@ -38,7 +39,36 @@ class CampaignTests(BatchEvidenceTests):
                 patch.object(collector, 'prepare_inventory', side_effect=prepare), \
                 patch.object(collector, 'collect', side_effect=worker or collect):
             return campaign.collect_campaign(self.root, self.root / 'parallel', Path('analyzer'),
-                                             'core-all', 2, jobs, 1, reuse)
+                                             'core-all', 2, jobs, 1, reuse,
+                                             sample_count=sample_count)
+
+    def test_timing_pilot_is_deterministic_and_never_combines_partial_scores(self):
+        self.assertEqual(campaign.sample_indices(16, 4), [0, 4, 8, 12])
+        self.assertEqual(self.collect(jobs=1, sample_count=1), 0)
+        output = self.root / 'parallel'
+        manifest = json.loads((output / 'campaign-manifest.json').read_text())
+        self.assertFalse(manifest['complete'])
+        self.assertTrue(manifest['pilotComplete'])
+        self.assertEqual(manifest['sampledBatchIndexes'], [0])
+        self.assertNotIn('gatePassed', manifest)
+        self.assertFalse((output / 'combined.json').exists())
+        pilot = json.loads((output / 'pilot.json').read_text())
+        self.assertTrue(pilot['timingOnly'])
+        self.assertFalse(pilot['wholeComponentComplete'])
+        self.assertEqual(pilot['sampledMutants'], 2)
+        self.assertNotIn('adjustedCandidateScore', pilot)
+
+    def test_pilot_limits_and_unrequested_reuse_are_rejected(self):
+        for sample in (0, -1, True, 2, 3):
+            with self.subTest(sample=sample), self.assertRaises(ValueError):
+                self.collect(sample_count=sample)
+        with self.assertRaisesRegex(ValueError, 'fresh'):
+            self.collect(sample_count=1, reuse=self.directories[1:])
+
+    def test_pilots_reject_even_valid_reuse_before_creating_output(self):
+        with self.assertRaisesRegex(ValueError, 'fresh'):
+            self.collect(sample_count=1, reuse=self.directories[:1])
+        self.assertFalse((self.root / 'parallel').exists())
 
     def test_two_workers_overlap_and_complete_the_exact_union(self):
         import shutil
@@ -246,6 +276,35 @@ def fixture(root, delay=200, marker=None):
 
 
 class RealCampaignTests(unittest.TestCase):
+    def test_real_struct_field_shards_are_disjoint_exhaustive_and_assertion_killed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / 'repo'
+            fixture(root, delay=1)
+            source = root / 'native/transport/ct_ffi/src/lib.rs'
+            code = source.read_text().replace(
+                '    fn behavior() {',
+                '    fn behavior() {\n        assert!(super::pair().one);\n'
+                '        assert!(super::pair().two);')
+            source.write_text(code + '\n#[derive(Default)]\n'
+                'pub struct Pair { pub one: bool, pub two: bool }\n'
+                'pub fn pair() -> Pair {\n'
+                '    Pair { one: true, two: true, ..Default::default() }\n}\n')
+            output = base / 'struct-fields'
+            self.assertEqual(campaign.collect_campaign(root, output, self.analyzer,
+                                                      'ffi-all', 4, 2, 1), 0)
+            report = json.loads((output / 'combined.json').read_text())
+            fields = [item for item in report['results'] if item['mutant']['genre'] == 'StructField']
+            self.assertEqual(len(fields), 2)
+            self.assertEqual([item['status'] for item in fields], ['killed', 'killed'])
+            self.assertTrue(report['wholeComponentComplete'])
+            self.assertEqual(report['counts'], {'killed': report['generated']})
+            for path in output.glob('batch-*'):
+                manifest = json.loads((path / 'run-manifest.json').read_text())
+                self.assertIn('--shard', manifest['campaignCommand'])
+                self.assertIn('--all-targets', manifest['campaignCommand'])
+                self.assertEqual(manifest['campaignCommand'][-2:], ['--', '--test-threads=1'])
+
     @classmethod
     def setUpClass(cls):
         cls.analyzer = native_coverage.REPO / 'out/rust-coverage-scope-target/debug/connectanum-coverage-scope'
@@ -285,6 +344,30 @@ class RealCampaignTests(unittest.TestCase):
                               'speedup': timings[0]['elapsedSeconds'] / timings[1]['elapsedSeconds'],
                               'fourWorkerSeconds': timings[2]['elapsedSeconds'],
                               'fourWorkerSpeedup': timings[0]['elapsedSeconds'] / timings[2]['elapsedSeconds']}))
+
+    def test_real_pilot_audits_timings_without_a_complete_campaign_or_score(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / 'repo'
+            fixture(root, delay=1)
+            output = base / 'pilot'
+            self.assertEqual(campaign.collect_campaign(root, output, self.analyzer,
+                                                      'core-all', 4, 2, 1, sample_count=2), 0)
+            report = timing.analyze(root, output, self.analyzer, full_batches=4)
+            self.assertEqual(report['generated'], 8)
+            self.assertEqual(report['sampledMutants'], 4)
+            self.assertEqual(len(report['sampleResults']), 4)
+            self.assertTrue(report['sampleEvidenceClean'])
+            self.assertFalse(report['wholeComponentComplete'])
+            self.assertGreater(report['estimatedFullWallSeconds'], 0)
+            self.assertEqual(report['unmeasuredFiles'], [])
+            self.assertFalse((output / 'combined.json').exists())
+            raw = output / 'batch-0000/mutants.out/outcomes.json'
+            evidence = json.loads(raw.read_text())
+            evidence['outcomes'][1]['phase_results'][0]['duration'] = -1
+            raw.write_text(json.dumps(evidence))
+            with self.assertRaises(ValueError):
+                timing.analyze(root, output, self.analyzer, full_batches=4)
 
     def test_sigterm_cancels_real_cargo_groups_without_a_score_or_forced_success(self):
         with tempfile.TemporaryDirectory() as temporary:

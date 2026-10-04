@@ -25,6 +25,21 @@ def inventory(size=7):
 
 
 class BatchSelectionTests(unittest.TestCase):
+    def test_native_order_rejects_permutations_even_without_a_field_in_the_batch(self):
+        candidates = inventory(2)
+        reversed_candidates = list(reversed(candidates))
+        self.assertFalse(collector.inventory_matches(reversed_candidates, candidates, native_order=True))
+        self.assertTrue(collector.inventory_matches(reversed_candidates, candidates))
+
+    def test_struct_field_batches_follow_the_pinned_native_discovery_order(self):
+        candidates = inventory()
+        candidates[1]['genre'] = 'StructField'
+        selected = [collector.select_batch(candidates, index, 3) for index in range(3)]
+        self.assertEqual(selected, [candidates[index::3] for index in range(3)])
+        identities = [native_mutations.identity(item) for group in selected for item in group]
+        self.assertEqual(len(identities), len(set(identities)))
+        self.assertEqual(set(identities), set(map(native_mutations.identity, candidates)))
+
     def test_batches_are_deterministic_disjoint_and_exhaustive(self):
         candidates = inventory()
         selected = [collector.select_batch(candidates, index, 3) for index in range(3)]
@@ -37,9 +52,12 @@ class BatchSelectionTests(unittest.TestCase):
                              selected[index])
 
     def test_invalid_and_empty_batches_fail_closed(self):
-        for index, count in [(-1, 3), (3, 3), (0, 0), (0, 8), (True, 3), (0, 1.5)]:
-            with self.subTest(index=index, count=count), self.assertRaises(ValueError):
-                collector.select_batch(inventory(), index, count)
+        for genre in ('FnValue', 'StructField'):
+            candidates = inventory()
+            candidates[0]['genre'] = genre
+            for index, count in [(-1, 3), (3, 3), (0, 0), (0, 8), (True, 3), (0, 1.5)]:
+                with self.subTest(index=index, count=count, genre=genre), self.assertRaises(ValueError):
+                    collector.select_batch(candidates, index, count)
         with self.assertRaises(ValueError):
             collector.select_batch([], 0, 1)
 

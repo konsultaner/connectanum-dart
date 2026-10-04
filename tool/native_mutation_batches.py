@@ -93,8 +93,8 @@ def inspect_batches(root, directories, analyzer):
         if partition != json.loads((directory / 'inventory-partition.json').read_text()):
             raise ValueError('Batch exclusions differ from AST proof')
         full = json.loads((directory / 'filtered-inventory.json').read_text())
-        if sorted(map(native_mutations.identity, full)) != sorted(
-                map(native_mutations.identity, partition['production'])):
+        native_order = collector.native_sharding(partition['production'])
+        if not collector.inventory_matches(full, partition['production'], native_order=native_order):
             raise ValueError('Full inventory differs from production partition')
         if target is None:
             full_inventory, target = full, manifest['scope']
@@ -104,7 +104,7 @@ def inspect_batches(root, directories, analyzer):
         batch_inventory = json.loads((directory / 'batch-inventory.json').read_text())
         executed = json.loads((directory / 'mutants.out/mutants.json').read_text())
         for items in (batch_inventory, executed):
-            if sorted(map(native_mutations.identity, items)) != sorted(map(native_mutations.identity, selected)):
+            if not collector.inventory_matches(items, selected, native_order=native_order):
                 raise ValueError('Batch selected/executed inventory differs')
         report = native_mutations.audit(directory / 'mutants.out', scope)
         restored = (directory / 'restored-baseline.log').read_text()

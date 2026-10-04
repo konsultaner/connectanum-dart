@@ -109,12 +109,59 @@ reaudited before new workers start. Missing, corrupt, interrupted or differently
 partitioned batches are rejected; never overwrite an old batch. Collector-tool
 changes invalidate reuse rather than silently relabeling older evidence.
 
+Inventories without struct-field deletions retain identity-sorted regex batches.
+In cargo-mutants 27.1.0, [struct-field discovery](https://github.com/sourcefrog/cargo-mutants/blob/v27.1.0/src/visit.rs#L703-L748)
+bypasses those regex filters. Inventories containing that operator instead use
+[post-discovery round-robin shards](https://mutants.rs/shards.html) over the exact
+recorded Cargo discovery-order array. Full, listed and executed inventory order
+is checked for these shards, including batches without a field deletion. Every
+production candidate remains in the whole-inventory union; this is not an
+operator exclusion or mutation waiver. Changed order or helper filtering fails
+closed. A real two-crate regression executes all eleven candidates, including
+both field deletions, with all original tests and assertion-only kills.
+
 The regression benchmark runs the same eight mutants and complete tests in a
 controlled two-crate Cargo fixture with one, two and four workers. It compares
 outcomes and records timings without a flaky speed threshold. Fixture speedups
 are not production ETAs; cold builds, contention and uneven test runtimes affect
 the complete native campaign. Dart/browser campaigns remain serial within each
 target; this acceleration does not claim their speed has changed.
+
+### Production Timing Pilots
+
+Measure evenly spaced deterministic batches without claiming a complete score:
+
+```sh
+bin/collect-native-mutation-campaign --target core-all --batches 512 \
+  --pilot-batches 8 --jobs 8 --cargo-jobs 4 --output out/native-core-pilot
+python3 tool/native_mutation_timing.py out/native-core-pilot \
+  --analyzer out/rust-coverage-scope-target/debug/connectanum-coverage-scope \
+  --full-batches 32 --output out/native-core-timing.json
+```
+
+Use a batch count no larger than the generated component inventory. Pilots
+reject reuse: a cached result is not a fresh timing measurement. Every selected
+batch still runs and audits all normal tests/baselines. `pilotComplete` does not
+set campaign `complete`; no `combined.json`, passing gate or aggregate score is
+produced. The estimator reaudits raw evidence and distinguishes measured pilot
+time from estimated full-native runtime, including per-batch cold build,
+inventory/setup and restored-baseline overhead. It reports unmeasured files and
+sampling/host-contention caveats, not a statistical confidence interval. Compare
+the same inventory, sampled outcomes and baseline tests when tuning concurrency.
+Estimated parallelism is capped by the projected full-batch count as well as
+configured workers and observed overlap.
+
+For a lean-debug experiment, set `CARGO_PROFILE_TEST_DEBUG=0` on **both** commands
+and use new output paths. Keep debug assertions, overflow checks, test scope and
+deadlines unchanged; different build environments cannot reuse one another's
+evidence. Disabling debug information is a documented
+[cargo-mutants performance option](https://mutants.rs/performance.html), controlled
+independently of assertions by [Cargo profile environment settings](https://doc.rust-lang.org/cargo/reference/environment-variables.html).
+Select concurrency from measured speed and available disk/RAM, not CPU count
+alone; each worker owns a private build cache.
+See the [2026-10-04 production timing investigation](benchmarks/native-mutation-speed-2026-10-04.md)
+for measured core/FFI costs, rejected concurrency experiments and the distinction
+between a full-native estimate and unmeasured Dart/browser/Flutter work.
 
 `mutation-report.json` records source/test hashes, the base commit, every generated
 mutation, per-mutation outcomes, clean/restored baselines and completion status.
@@ -125,7 +172,7 @@ fail explicitly on premature operation completion rather than wait indefinitely.
 Only `complete: true` is finished evidence. The operator inventory is explicit:
 binary operators, boolean/condition replacement, negation and null fallback;
 statement deletion, constants and other operators are not yet included. No
-sample is extrapolated to the full codebase.
+sampled mutation score is extrapolated to the full codebase.
 
 The Dart runner changes only an isolated workspace snapshot, executes mutants serially
 and kills timed-out process groups. It currently requires POSIX (Linux/macOS)

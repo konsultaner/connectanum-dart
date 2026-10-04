@@ -38,6 +38,58 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work401 Production Mutation Timing
+
+The operator requests measured optimization potential and the cost of a complete
+campaign, not another synthetic-fixture extrapolation. Fast401 starts before
+implementation. Historical native373 evidence spends about 89% of measured phase
+time in tests. Preserve every workspace test, serial test threads, assertion
+oracle, baseline and deadline. Add deterministic timing pilots that audit raw
+production batches without setting campaign completion or producing a combined
+mutation score. Record full inventory, sample/file coverage, compilation/test
+costs, baseline/setup overhead and observed effective parallelism. Estimate full
+native scope explicitly; do not represent estimates as completed campaigns or
+statistical confidence intervals. Compare identical sampled mutations/outcomes
+at four/eight workers and with lean debug information, retaining environment
+pins. Recheck free disk before increasing private build-cache concurrency.
+Production pilots now retain 31 core and 21 FFI mutations from inventories of
+1,959 and 1,297, running identical 534-test workspace baselines. Matched core
+default-debug/four-worker versus lean-debug/eight-worker elapsed times are
+715.05s and 453.22s (1.58x), with identical outcomes. FFI lean-debug/four-worker
+takes 470.31s, with all clean/restored baselines passing. Testing accounts for
+92.2% of default core and 95.6% of FFI mutation phase time, not compilation.
+At 32 full batches per component, estimated core is 4.92h with eight workers
+or 8.16h with four; FFI is 4.07h with four. Sequential full-native estimates
+are 8.99h for the fastest successful settings or 12.23h at four workers
+throughout. Samples leave four core and two FFI production files unmeasured;
+these are not statistical intervals, full-campaign completion, gate passes or
+an estimate for the 73 configured Dart targets plus file/Flutter work.
+
+Higher-concurrency core and FFI experiments fail unchanged TLS baselines;
+opt-level 1 at sixteen workers also fails HTTP/3 owner cleanup. Retain their
+negative evidence and keep the default at four workers. Do not relax deadlines,
+assertions or overflow checks. FFI sharding first fails closed before mutations:
+cargo-mutants 27.1.0 struct-field discovery bypasses regex filters. Conditional
+native post-discovery round-robin sharding fixes this, using captured inventory
+order and order-sensitive full/listed/executed audits even for a selected batch
+without a field deletion. Non-field inventories retain identity-sorted selection.
+The real Cargo fail-first regression now covers all eleven fixture candidates,
+including both field deletions, with assertion kills and exact whole union.
+
+Ninety collector/batch/coordinator/timing-tool tests pass. Review-driven valid
+cached pilot rejection and projected-batch concurrency-cap failures are
+reproduced before fixes; raw-duration tampering is rejected. Core timing reports
+are reaudited with their archived pinned tools against unchanged native inputs;
+FFI uses final tooling. Never combine their raw results as a current-tool score.
+The [production timing report](../benchmarks/native-mutation-speed-2026-10-04.md)
+records method, accepted/rejected experiments, sample outcomes and artifact hashes.
+Fast401 and fresh `bin/verify` exit 0 in
+`/tmp/connectanum-mutation-profile-fast401.log` and
+`/tmp/connectanum-mutation-profile-verify401.log`. Verification includes native,
+tooling, package/consumer, router and Chrome/Dart2Wasm core/client checks. Hosted
+candidate evidence remains absent because this tooling branch is not pushed.
+Existing coverage and remote-auth assertion gate work remains open.
+
 ### Work400 Native Mutation Speed
 
 The operator's 2026-10-04 request prioritizes mutation-test acceleration. Do not
