@@ -7,6 +7,7 @@ import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/src/transport/native/message_binding.dart';
 import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
@@ -24,6 +25,7 @@ void main() {
   });
 
   _bindingBoundaryContracts();
+  _flatBuffersMetadataContracts();
   _metadataDispatchContracts();
   _validFrameContracts();
   for (final serializer in [
@@ -1998,6 +2000,224 @@ void main() {
   });
 }
 
+void _flatBuffersMetadataContracts() {
+  final codec = flatbuffers.Serializer();
+  Uint8List dictionary(Map<String, Object?> value) => Uint8List.fromList(
+    cbor.cbor.encode(cbor.CborValue(value)),
+  );
+  final unusedFrame = Uint8List.fromList([0xff]);
+
+  test('FlatBuffers native GOODBYE preserves unmodeled metadata on resend', () {
+    final value = _expectMessage<Goodbye>(
+      _validFrame(
+        () => bindMessage(
+          NativeMessageSerializer.flatbuffers,
+          unusedFrame,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeGoodbye,
+            flags: NativeMessageMetadata.flagDirectBind,
+            stringA: 'wamp.close.normal',
+            stringB: 'finished',
+            detailsBytes: dictionary({
+              'message': 'finished',
+              '_trace': {'sequence': 17},
+            }),
+          ),
+        ),
+      ),
+    );
+    expect(value.reason, 'wamp.close.normal');
+    expect(value.message?.message, 'finished');
+    final resent = _expectMessage<Goodbye>(
+      _validFrame(() => codec.deserialize(codec.serialize(value))),
+    );
+    expect(codec.metadataFor(resent), {
+      'message': 'finished',
+      '_trace': {'sequence': 17},
+    });
+  });
+
+  test('FlatBuffers fallback ignores metadata without binding permission', () {
+    final frame = codec.serialize(
+      Result(17, ResultDetails())..arguments = [29],
+    );
+    final value = _expectMessage<Result>(
+      _validFrame(
+        () => bindMessage(
+          NativeMessageSerializer.flatbuffers,
+          frame,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            primaryId: 99,
+            detailsBytes: dictionary({'_ignored': true}),
+          ),
+        ),
+      ),
+    );
+    expect(value.callRequestId, 17);
+    expect(value.arguments, [29]);
+    expect(codec.metadataFor(value), isEmpty);
+  });
+
+  test('FlatBuffers native metadata may omit the dictionary', () {
+    final value = _expectMessage<Published>(
+      _validFrame(
+        () => bindMessage(
+          NativeMessageSerializer.flatbuffers,
+          unusedFrame,
+          metadata: _metadata(
+            messageCode: MessageTypes.codePublished,
+            primaryId: 17,
+            secondaryId: 29,
+            flags: NativeMessageMetadata.flagMetadataBind,
+          ),
+        ),
+      ),
+    );
+    expect(value.publishRequestId, 17);
+    expect(value.publicationId, 29);
+  });
+
+  test(
+    'FlatBuffers native HEARTBEAT unwraps counters without retaining wrapper',
+    () {
+      final value = _expectMessage<Heartbeat>(
+        _validFrame(
+          () => bindMessage(
+            NativeMessageSerializer.flatbuffers,
+            unusedFrame,
+            metadata: _metadata(
+              messageCode: MessageTypes.codeHeartbeat,
+              flags: NativeMessageMetadata.flagMetadataBind,
+              detailsBytes: dictionary({
+                'details': {'mode': 'ping'},
+                'ping': 11,
+                'incoming': 12.75,
+                'outgoing': 'unrecognized',
+              }),
+            ),
+          ),
+        ),
+      );
+      expect(value.details, {'mode': 'ping'});
+      expect(value.ping, 11);
+      expect(value.incoming, 12);
+      expect(value.outgoing, isNull);
+      final resent = _expectMessage<Heartbeat>(
+        _validFrame(() => codec.deserialize(codec.serialize(value))),
+      );
+      expect(resent.details, {'mode': 'ping'});
+      expect(resent.ping, 11);
+      expect(resent.incoming, 12);
+      expect(resent.outgoing, isNull);
+    },
+  );
+
+  for (final code in [8, 16, 36, 48, 50, 68, 70]) {
+    for (final empty in [false, true]) {
+      test(
+        'native FlatBuffers opaque span stays borrowed code=$code empty=$empty',
+        () {
+          final bytes = Uint8List.fromList(empty ? [] : [1, 2, 3]);
+          final value = _validFrame(
+            () => NativeSessionMessage(
+              serializer: NativeMessageSerializer.flatbuffers,
+              metadata: _metadata(
+                messageCode: code,
+                primaryId: 17,
+                secondaryId: 29,
+                flags:
+                    NativeMessageMetadata.flagDirectBind |
+                    NativeMessageMetadata.flagTransparentPayload,
+                transparentPayloadBytes: bytes,
+              ),
+            ),
+          );
+          expect(value.transparentBinaryPayload, same(bytes));
+          expect(value.arguments, isNull);
+          expect(value.argumentsKeywords, isNull);
+          if ([8, 36, 50, 68].contains(code)) {
+            final model = _expectMessage<AbstractMessageWithPayload>(
+              _validFrame(value.materialize),
+            );
+            expect(model.id, code);
+            expect(model.transparentBinaryPayload, same(bytes));
+            expect(model.arguments, isNull);
+            expect(model.argumentsKeywords, isNull);
+          }
+        },
+      );
+    }
+  }
+
+  for (final flagged in [false, true]) {
+    test('native opaque payload rejects inconsistent flag=$flagged', () {
+      expect(
+        () => NativeSessionMessage(
+          serializer: NativeMessageSerializer.flatbuffers,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            flags: flagged ? NativeMessageMetadata.flagTransparentPayload : 0,
+            transparentPayloadBytes: flagged ? null : Uint8List(0),
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+  }
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.ubjson,
+  ]) {
+    test('native opaque payload rejects serializer $serializer', () {
+      expect(
+        () => NativeSessionMessage(
+          serializer: serializer,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            flags: NativeMessageMetadata.flagTransparentPayload,
+            transparentPayloadBytes: Uint8List(0),
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+  }
+  test('native opaque payload rejects an unsupported routing code', () {
+    expect(
+      () => NativeSessionMessage(
+        serializer: NativeMessageSerializer.flatbuffers,
+        metadata: _metadata(
+          messageCode: MessageTypes.codePublished,
+          flags: NativeMessageMetadata.flagTransparentPayload,
+          transparentPayloadBytes: Uint8List(0),
+        ),
+      ),
+      throwsArgumentError,
+    );
+  });
+  test('native opaque payload rejects a non-payload model', () {
+    expect(
+      () => bindMessage(
+        NativeMessageSerializer.flatbuffers,
+        unusedFrame,
+        metadata: _metadata(
+          messageCode: MessageTypes.codePublished,
+          primaryId: 17,
+          secondaryId: 29,
+          flags:
+              NativeMessageMetadata.flagDirectBind |
+              NativeMessageMetadata.flagTransparentPayload,
+          transparentPayloadBytes: Uint8List(0),
+        ),
+      ),
+      throwsArgumentError,
+    );
+  });
+}
+
 void _bindingBoundaryContracts() {
   for (final serializer in [
     NativeMessageSerializer.json,
@@ -2449,6 +2669,7 @@ NativeMessageMetadata _metadata({
   int detailNumberB = 0,
   int flags = 0,
   Uint8List? detailsBytes,
+  Uint8List? transparentPayloadBytes,
   String? stringA,
   String? stringB,
   String? stringC,
@@ -2466,6 +2687,7 @@ NativeMessageMetadata _metadata({
     detailNumberB: detailNumberB,
     flags: normalizedFlags,
     detailsBytes: detailsBytes,
+    transparentPayloadBytes: transparentPayloadBytes,
     stringA: stringA,
     stringB: stringB,
     stringC: stringC,

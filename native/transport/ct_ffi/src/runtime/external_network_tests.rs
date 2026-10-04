@@ -4,7 +4,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use sha1::{Digest, Sha1};
 use std::ffi::{c_void, CString};
 use std::io::{Read, Write};
-use std::net::{Shutdown, TcpListener, TcpStream};
+use std::net::{TcpListener, TcpStream};
 use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc};
@@ -342,11 +342,19 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
                     0,
                     "slow writer must retain the actual loan, not a copied payload"
                 );
-                slow_peer.shutdown(Shutdown::Both).unwrap();
+                // A shutdown leaves the descriptor alive and sends a FIN;
+                // it does not guarantee an interrupted local write. Reset
+                // the unread peer so this case tests actual abandonment.
+                socket2::SockRef::from(&slow_peer)
+                    .set_linger(Some(Duration::ZERO))
+                    .unwrap();
+                drop(slow_peer);
             }
-            until("slow local write abandonment", || {
-                slow_receipt.outcome() == 2
-            });
+            let boundary = format!(
+                "slow local write abandonment (websocket={websocket}, runtime_shutdown={shutdown})"
+            );
+            until(&boundary, || slow_receipt.outcome() != 0);
+            assert_eq!(slow_receipt.outcome(), 2, "{boundary}");
             // Runtime/socket termination leaves the independent exported owner.
             if let Some(view) = view.as_ref() {
                 assert_eq!(producer.statistics.released.load(Ordering::Acquire), 0);

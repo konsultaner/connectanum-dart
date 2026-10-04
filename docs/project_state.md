@@ -7,6 +7,51 @@ Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md
 Isolated worktree baseline: 54eafc5f. Primary-checkout router embedding changes
 remain separate. The earlier regression/mutation objective remains open.
 
+CI-first checkpoint: router/native forwarding is committed/pushed as ab7f6718,
+but hosted CI on preceding 6727a18c has two completed failures in run
+37162280263. Full Verify job 111322014870 exhausts all three native attempts:
+`registered_transaction_fanout_survives_disconnect_and_shutdown` does not reach
+the slow-write abandonment boundary on Linux. The client-message-binding-vm
+mutation job 111318008280 completes all 522 candidates but reaches only
+93.794749% adjusted assertion score against the unchanged 95% gate, with 18
+survivors. Investigate/repair these before the next transport feature stage.
+The two superseded branch runs are cancelled after retaining their failure logs;
+ab7f6718 CI 37165046606 is now in progress and its package dry-run passes.
+Its completed Full Verify job 111329125365 reproduces the same slow-abandonment
+failure on all three attempts (222 other native tests pass each time); save
+/tmp/connectanum-flatbuffers-router-head-hosted-full-verify.log. This confirms
+the unmodified fixture still blocks the latest pushed head.
+Hosted CI success remains unproven. The focused 42-mutant replay confirms all
+18 survivors before repair. Add 26 observable FlatBuffers metadata/opaque-buffer
+contracts; all 1,839 binding tests pass and nine previously surviving candidates
+now become assertion kills. The full unchanged 522-candidate target completes
+with adjusted assertion score 95.942721% and conventional score 97.852029%.
+All 522 candidates run; 103 compile errors, 292 assertion-only kills, 110 mixed
+assertion/test-error kills, eight test-error-only kills and nine survivors.
+Initial/restored baselines, complete kill evidence and
+source/test/support hashes are verified; the 95% gate is unchanged.
+
+The original lifetime fixture passes in local Linux isolation/full ARM64 checks;
+the exact hosted failure cause is still unproven. Its disconnect branch requests
+shutdown while retaining the descriptor, which does not define the reset needed
+for the strict interrupted-write oracle. Close the peer with zero linger instead;
+keep the pending/ownership assertions, 5-second boundary and required Abandoned
+outcome. The focused test passes on macOS, Linux ARM64 and emulated AMD64.
+The emulated AMD64 full run separately reproduces two HTTP/3 fixture races: client
+scope ends before native connection queries, which return ERR_NOT_FOUND. Retain
+the client endpoint/connection/request owners through those queries. All 10 macOS
+and nine Linux AMD64 HTTP/3 cases then pass, with existing sleeps/deadlines intact.
+All 235 emulated Linux AMD64 native ffi-test cases pass after the fixture fixes.
+Fresh bin/verify30914 exits0 at /tmp/connectanum-flatbuffers-ci-repair-verify.log.
+All 1,419 product hashes/inventory remain unchanged throughout and at completion.
+Native/default224/ffi-test236, tooling, VM, router/consumer and Chrome JS/WASM
+checks pass, ending with 2,699 client WASM cases. Supporting test-fast65769 exits0
+but overlaps the edits and is not final verification. The repaired candidate is
+ready for commit/push; hosted confirmation is still required. Qwen's later HTTP/3 review incorrectly
+says the returned tuple bound to `_client_peer` is dropped at block_on return.
+Source and a compiler-checked Drop probe establish that this named local owns the
+returned values until the enclosing scope exits; `_client_peer` is not `_`.
+
 Draft PR #105 contains foundation, package-constraint repair,
 native-owned buffers, producer leases, write completion and native network
 lifetime coverage, structural validation, direct model writing, and the public
@@ -69,7 +114,7 @@ All 79 tooling-script checks pass separately. Fresh bin/verify50035 exits0 at
 /tmp/connectanum-flatbuffers-router-forward-verify.log. All 1,419 product files
 match the frozen hashes at completion. Native/default/ffi-test, tooling, VM,
 router/consumer and Chrome JS/WASM checks pass, ending with 2,673 client WASM
-cases. The router/native stage is ready for commit/push; no full milestone
+cases. The router/native stage is committed/pushed as ab7f6718; no full milestone
 completion or new hosted CI result is claimed. External WebSocket wire-peer probes pass both live router
 scenarios, but remain outside canonical CI; add them with the next transport
 stage. A scratch native factory API probe fails first for missing constructors,

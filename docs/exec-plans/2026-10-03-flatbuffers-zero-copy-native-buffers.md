@@ -49,6 +49,107 @@ successful round trips do not establish complete codec/runtime support.
 
 ## Current checkpoint
 
+CI repair takes priority before the next factory/transport/composition stage.
+The verified router/native stage is committed/pushed as ab7f6718. On preceding
+6727a18c, CI run 37162280263 has two completed failing jobs:
+
+- Full Verify (111322014870): all three native retries time out at the actual
+  slow local write-abandonment boundary in the transaction/fan-out fixture.
+  Downloaded log: /tmp/connectanum-flatbuffers-profile-hosted-full-verify.log.
+  Reproduce Linux socket behavior with the same producer lease and boundary;
+  establish graceful-close versus reset/cancellation semantics rather than
+  weakening the timeout or retry policy.
+- Client message-binding mutation gate (111318008280): all 522 mutants finish,
+  adjusted assertion score 93.794749% versus 95%, 18 survivors. Downloaded log:
+  /tmp/connectanum-flatbuffers-profile-hosted-client-binding.log. Focused replay
+  must identify missing FlatBuffers metadata/transparent-payload assertions;
+  run the full unchanged target after strengthening meaningful contracts.
+
+Run 37165046606 for ab7f6718 is in progress at this checkpoint; its package
+publish dry-run passes. Superseded CI runs 37159768909 and 37162280263 are
+cancelled after retaining the completed failures above. Local frozen-source
+bin/verify remains valid local evidence, not proof of hosted success. All ten
+milestone issues and their complete acceptance scope remain open.
+
+CI-contract repair candidate:
+
+- Before adding tests, the 42-candidate survivor replay reproduces all 18
+  survivors (53.658536% adjusted assertion score). Add 26 real binding contracts
+  for metadata resend/fallback/absence, HEARTBEAT wrapper handling, opaque span
+  identity including empty buffers, and invalid flags/types/codes. The 1,839
+  binding tests pass. The same focused replay now has nine additional assertion
+  kills (75.609756%); this subset is diagnostic, not the full release gate.
+  Full unchanged target: /tmp/connectanum-flatbuffers-binding-full-ci-repair.log,
+  report directory /tmp/connectanum-flatbuffers-binding-full-ci-repair.
+- Original lifetime fixture passes isolated Linux ARM64/AMD64, all 223 Linux
+  ARM64 native cases and 20 repeated emulated AMD64 runs. The exact hosted
+  failure has not been reproduced locally. Inspecting Linux TCP semantics shows
+  shutdown sends FIN and retains the descriptor, whereas zero-linger close
+  invokes reset. Make the intended interrupted-write fixture explicitly reset
+  the peer; preserve actual producer memory, pending ownership, Abandoned=2,
+  exactly-once owner-affine release and the original 5-second boundary. Improved
+  failure context includes WebSocket/runtime-shutdown variant and terminal state.
+  macOS/ARM64/AMD64 focused checks pass. References:
+  https://man7.org/linux/man-pages/man2/shutdown.2.html and
+  https://github.com/torvalds/linux/blob/master/net/ipv4/tcp.c (tcp_shutdown,
+  __tcp_close and tcp_disconnect, inspected 2026-10-04).
+- The emulated AMD64 full native run also reproduces two existing HTTP/3 fixture
+  failures. Both client scopes drop before live native queries; a separately
+  repeated nine-case HTTP/3 run returns ERR_NOT_FOUND at those queries. Retain
+  endpoint/connection/request owners until the assertions and server shutdown.
+  All 10 macOS and nine emulated AMD64 cases pass after that change, with existing
+  sleeps and deadlines unchanged. Preserve initial full/isolated failure logs:
+  /tmp/connectanum-flatbuffers-linux-amd64-full-native.log and
+  /tmp/connectanum-flatbuffers-linux-amd64-http3-isolated.log.
+
+Qwen's reset/outcome and round-trip concerns require source checking: the native
+receipt has only Pending=0, Written=1 and Abandoned=2, and a WriteGuard drops to
+Abandoned for errors/cancellation rather than requiring FIN or timeout. The new
+metadata test reads a newly decoded object after serialization. The first GLM
+request reaches its token limit; a narrowed review completes but incorrectly
+describes receipt 1 as transient and runtime shutdown as merely FIN. Check the
+actual guard/runtime ownership rather than adopting those claims. Keep hosted
+confirmation outstanding. A fresh complete verification must freeze all product
+source after the final candidate edits.
+
+The latest pre-repair ab7f6718 Full Verify job 111329125365 subsequently fails
+the same lifetime boundary on all three native attempts, with 222 other tests
+passing each time. Save /tmp/connectanum-flatbuffers-router-head-hosted-full-verify.log.
+The repair candidate passes all 235 emulated Linux AMD64 ffi-test native cases.
+Canonical bin/verify30914 is running with 1,419 frozen product files, unchanged
+through the latest hash check. Qwen's separate HTTP/3 review claims a named
+underscore-prefixed local drops its returned tuple at block_on return; source and
+the successful /tmp/connectanum-rust-retained-binding-probe.rs compiler probe
+contradict that claim. The named local retains the actual endpoint/connection/
+request owners until enclosing scope exit. Keep this distinction from the `_`
+discard pattern explicit; no product change is required for that review claim.
+
+Final CI-contract repair verification:
+
+- Supporting bin/test-fast65769 exits0 but overlaps edits; it is not final
+  current-source proof.
+- Fresh bin/verify30914 exits0 at
+  /tmp/connectanum-flatbuffers-ci-repair-verify.log. All 1,419 product file hashes
+  and inventory match the frozen snapshot at completion. Native/default224 and
+  ffi-test236, tooling, VM, router/consumer and Chrome JS/WASM checks pass;
+  verification ends with 2,699 client WASM cases.
+- Full unchanged client-message-binding-vm campaign46647 exits0. All 522
+  candidates complete: 103 compile errors, 292 assertion-only kills, 110 mixed
+  assertion/test-error kills, eight test-error-only kills and nine survivors.
+  Adjusted assertion score 95.9427207637%, conventional
+  97.8520286396%, unchanged threshold95%. Initial/restored baselines pass,
+  kill-evidence completeness is true, and source/test/support hashes match this
+  candidate. Report: /tmp/connectanum-flatbuffers-binding-full-ci-repair/mutation-report.json.
+- Independent Linux emulated AMD64 ffi-test suite passes all 235 cases; focused
+  native reset/lifetime and retained-client HTTP/3 regressions pass on macOS
+  and Linux. These remain local evidence; confirm the repaired pushed head in
+  hosted CI before resuming feature implementation.
+
+This candidate is ready for commit/push. No milestone issue is closed, no full
+FlatBuffers performance/support claim is added, and no release/version change is
+authorized. The next mandatory step is exact-head hosted CI confirmation; keep
+factory/WebSocket/mixed-owner composition work behind that CI-first checkpoint.
+
 The worktree and branch are created. Hosted baseline CI 37062527790 and package
 dry-run 37062527796 pass at the exact baseline. Pre-change bin/test-fast exits 0 in
 /tmp/connectanum-flatbuffers-baseline-fast.log.
