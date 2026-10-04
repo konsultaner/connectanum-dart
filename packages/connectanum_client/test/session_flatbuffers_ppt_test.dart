@@ -2,18 +2,59 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/src/transport/native/e2ee_provider_none.dart'
+    as unavailable_native;
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
 import 'package:test/test.dart';
 
 void main() {
-  for (final cipher in <String?>[null, 'xsalsa20poly1305', 'aes256gcm']) {
-    final mode = _PayloadMode(cipher);
+  for (final (name, normal, single)
+      in <(String, void Function(), void Function())>[
+        (
+          'xsalsa20poly1305',
+          () =>
+              unavailable_native.NativeWampFlatBuffersXsalsa20Poly1305Provider(
+                keys: {'kid': List<int>.filled(32, 1)},
+              ),
+          () =>
+              unavailable_native
+                  .NativeWampFlatBuffersXsalsa20Poly1305Provider.single(
+                keyId: 'kid',
+                key: List<int>.filled(32, 1),
+              ),
+        ),
+        (
+          'aes256gcm',
+          () => unavailable_native.NativeWampFlatBuffersAes256GcmProvider(
+            keys: {'kid': List<int>.filled(32, 1)},
+          ),
+          () =>
+              unavailable_native.NativeWampFlatBuffersAes256GcmProvider.single(
+                keyId: 'kid',
+                key: List<int>.filled(32, 1),
+              ),
+        ),
+      ]) {
+    test('unavailable native typed $name constructors reject explicitly', () {
+      expect(normal, throwsUnsupportedError);
+      expect(single, throwsUnsupportedError);
+    });
+  }
+  for (final (cipher, typed) in <(String?, bool)>[
+    (null, false),
+    ('xsalsa20poly1305', false),
+    ('aes256gcm', false),
+    ('xsalsa20poly1305', true),
+    ('aes256gcm', true),
+  ]) {
+    final mode = _PayloadMode(cipher, typed: typed);
     for (final length in [0, 4]) {
       final expected = Uint8List.fromList(
         [0, 255, 37, 1].take(length).toList(),
       );
-      final label = '${cipher ?? 'typed'} $length bytes';
+      final label =
+          '${typed ? 'typed E2EE ' : ''}${cipher ?? 'typed'} $length bytes';
 
       test(
         '$label progressive RPC results retain their opaque wire view',
@@ -156,7 +197,7 @@ void main() {
                 'ppt_scheme': mode.scheme,
                 'ppt_serializer': mode.serializer,
                 if (cipher != null) 'ppt_cipher': cipher,
-                if (mode.keyId != null) 'ppt_keyid': mode.keyId,
+                'ppt_keyid': ?mode.keyId,
               },
               'app.error',
             ),
@@ -167,27 +208,84 @@ void main() {
       });
     }
   }
+
+  for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+    test(
+      'required typed $cipher profile accepts only the matching provider',
+      () {
+        final typed = _PayloadMode(cipher, typed: true);
+        final legacy = _PayloadMode(cipher);
+        final negotiated = NegotiatedSessionE2ee({
+          'required': true,
+          'established': true,
+          'version': 2,
+          'scheme': 'wamp',
+          'serializer': 'flatbuffers',
+          'cipher': cipher,
+          'send_key_id': 'key',
+          'receive_key_id': 'key',
+        });
+        expect(
+          () => negotiated.verifyRequiredProfile(provider: typed.provider),
+          returnsNormally,
+        );
+        expect(
+          () => negotiated.verifyRequiredProfile(provider: legacy.provider),
+          throwsA(isA<SessionE2eeNegotiationException>()),
+        );
+        for (final change in [
+          {'version': 1},
+          {'serializer': 'cbor'},
+          {'cipher': 'unknown'},
+          {'established': false},
+          {'send_key_id': null},
+          {'receive_key_id': null},
+        ]) {
+          expect(
+            () => NegotiatedSessionE2ee({
+              ...negotiated.raw,
+              ...change,
+            }).verifyRequiredProfile(provider: typed.provider),
+            throwsA(isA<SessionE2eeNegotiationException>()),
+          );
+        }
+      },
+    );
+  }
 }
 
 class _PayloadMode {
-  _PayloadMode(this.cipher) {
+  _PayloadMode(this.cipher, {this.typed = false}) {
     final key = List<int>.filled(32, 19);
-    provider = switch (cipher) {
-      'xsalsa20poly1305' => WampCborXsalsa20Poly1305Provider.single(
+    provider = switch ((cipher, typed)) {
+      ('xsalsa20poly1305', true) =>
+        WampFlatBuffersXsalsa20Poly1305Provider.single(
+          keyId: 'key',
+          key: key,
+        ),
+      ('aes256gcm', true) => WampFlatBuffersAes256GcmProvider.single(
         keyId: 'key',
         key: key,
       ),
-      'aes256gcm' => WampCborAes256GcmProvider.single(keyId: 'key', key: key),
+      ('xsalsa20poly1305', false) => WampCborXsalsa20Poly1305Provider.single(
+        keyId: 'key',
+        key: key,
+      ),
+      ('aes256gcm', false) => WampCborAes256GcmProvider.single(
+        keyId: 'key',
+        key: key,
+      ),
       _ => null,
     };
   }
   final String? cipher;
+  final bool typed;
   late final WampE2eeProvider? provider;
   String get scheme => cipher == null ? 'x_app' : 'wamp';
-  String get serializer => cipher == null ? 'flatbuffers' : 'cbor';
+  String get serializer => cipher == null || typed ? 'flatbuffers' : 'cbor';
   String? get keyId => cipher == null ? null : 'key';
   Map<String, dynamic>? get keywords =>
-      cipher == null ? null : {'marker': 'encrypted'};
+      cipher == null || typed ? null : {'marker': 'encrypted'};
 
   T attach<T extends AbstractMessageWithPayload>(T message, Uint8List bytes) {
     message.transparentBinaryPayload = provider == null

@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ffi' as ffi;
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -26,6 +27,7 @@ import '../../test_support/native_runtime_support.dart';
 
 part 'support/file_digest_cases.dart';
 part 'support/e2ee_message_cases.dart';
+part 'support/deferred_e2ee_message_cases.dart';
 
 final _wireCases = <(NativeMessageSerializer, AbstractSerializer)>[
   (NativeMessageSerializer.json, json.Serializer()),
@@ -54,6 +56,7 @@ void main() {
 
     _fileDigestCases(() => runtime);
     _consumingE2eeMessageCases(() => runtime);
+    _deferredE2eeMessageCases(() => runtime);
 
     for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
       for (final keyId in [

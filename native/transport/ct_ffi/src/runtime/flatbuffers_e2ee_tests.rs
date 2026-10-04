@@ -1,6 +1,135 @@
 use super::*;
 use ct_core::{parse_message, WampPayload, WampRawFrame};
 
+#[test]
+fn typed_plaintext_does_not_unwrap_cbor_shaped_application_bytes() {
+    let application = plaintext(true);
+    let result = decrypted_e2ee_message_payload_with_format(
+        application.clone(),
+        0..application.len(),
+        E2eePlaintextFormat::TypedFlatbuffers,
+    )
+    .unwrap();
+    assert_eq!(&result.bytes[result.range], application);
+    assert_eq!(result.kind, CT_E2EE_DECRYPTED_PAYLOAD_DIRECT_BINARY);
+}
+
+#[test]
+fn typed_plaintext_preserves_unique_and_shared_allocations_for_both_ciphers() {
+    let key = [69; 32];
+    for cipher in [1, 2] {
+        for shared in [false, true] {
+            for application in [Vec::new(), plaintext(true), vec![255, 0, 129, 42]] {
+                let ciphertext = if cipher == 1 {
+                    encrypt_e2ee_payload(&key, &application).unwrap()
+                } else {
+                    encrypt_e2ee_aes256_gcm_payload(&key, &application).unwrap()
+                };
+                let message = encrypted_message(&ciphertext, true);
+                let raw = message.raw.as_contiguous().unwrap();
+                let allocation = raw.as_ptr() as usize..raw.as_ptr() as usize + raw.len();
+                let retained = shared.then(|| raw.clone());
+                let original = retained.as_ref().map(|raw| raw.to_vec());
+                let result = decrypt_e2ee_message_payload_owned_with_format(
+                    message,
+                    &key,
+                    cipher,
+                    E2eePlaintextFormat::TypedFlatbuffers,
+                )
+                .unwrap();
+                assert_eq!(result.kind, CT_E2EE_DECRYPTED_PAYLOAD_DIRECT_BINARY);
+                assert_eq!(&result.bytes[result.range.clone()], application);
+                let start = result.bytes.as_ptr() as usize + result.range.start;
+                if cipher == 2 && !shared {
+                    assert!(allocation.contains(&start));
+                    assert!(start + result.range.len() <= allocation.end);
+                }
+                if let Some(retained) = retained {
+                    assert_eq!(retained.as_ref(), original.unwrap());
+                    assert!(!allocation.contains(&start));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn typed_plaintext_format_rejection_and_auth_failure_obey_consumption_contract() {
+    let _guard = crate::tests::test_guard();
+    let key = [79; 32];
+    let keyring = ct_e2ee_keyring_new();
+    assert_eq!(
+        ct_e2ee_keyring_add_key(keyring, b"key".as_ptr().cast(), 3, key.as_ptr(), 32, 1),
+        SUCCESS
+    );
+    let session = ct_e2ee_session_new(keyring, ptr::null(), 0);
+    for cipher in [1, 2] {
+        for tampered in [false, true] {
+            let application = plaintext(true);
+            let mut ciphertext = if cipher == 1 {
+                encrypt_e2ee_payload(&key, &application).unwrap()
+            } else {
+                encrypt_e2ee_aes256_gcm_payload(&key, &application).unwrap()
+            };
+            if tampered {
+                let last = ciphertext.len() - 1;
+                ciphertext[last] ^= 1;
+            }
+            let handle =
+                super::super::message_handles::insert(encrypted_message(&ciphertext, true))
+                    .unwrap();
+            let mut output = CtExternalByteBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+                owner: ptr::null_mut(),
+            };
+            let mut kind = -1;
+            assert_eq!(
+                ct_e2ee_session_decrypt_message_payload_consume_format_wide(
+                    session,
+                    b"key".as_ptr().cast(),
+                    3,
+                    handle as i64,
+                    cipher,
+                    9,
+                    &mut output,
+                    &mut kind,
+                ),
+                ERR_INVALID_ARGUMENT
+            );
+            assert_eq!(kind, 0);
+            assert!(output.owner.is_null());
+            assert!(super::super::message_handles::with_message(handle, |_| ()).is_some());
+            let status = ct_e2ee_session_decrypt_message_payload_consume_format_wide(
+                session,
+                b"key".as_ptr().cast(),
+                3,
+                handle as i64,
+                cipher,
+                1,
+                &mut output,
+                &mut kind,
+            );
+            assert!(super::super::message_handles::with_message(handle, |_| ()).is_none());
+            if tampered {
+                assert_eq!(status, ERR_DECRYPT_FAILED);
+                assert!(output.ptr.is_null() && output.owner.is_null());
+                assert_eq!((output.len, kind), (0, 0));
+            } else {
+                assert_eq!(status, SUCCESS);
+                assert_eq!(kind, CT_E2EE_DECRYPTED_PAYLOAD_DIRECT_BINARY);
+                assert_eq!(
+                    unsafe { slice::from_raw_parts(output.ptr, output.len) },
+                    application
+                );
+                ct_external_byte_buffer_free(output.owner);
+            }
+        }
+    }
+    assert_eq!(ct_e2ee_session_release(session), SUCCESS);
+    assert_eq!(ct_e2ee_keyring_release(keyring), SUCCESS);
+}
+
 fn encrypted_message(ciphertext: &[u8], opaque: bool) -> StoredMessage {
     assert!(ciphertext.len() <= u8::MAX as usize);
     let payload = if opaque {

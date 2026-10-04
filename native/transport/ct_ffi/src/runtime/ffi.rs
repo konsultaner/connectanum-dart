@@ -114,6 +114,20 @@ const E2EE_AES256_GCM_NONCE_LEN: usize = 12;
 const E2EE_AUTH_TAG_LEN: usize = 16;
 const CT_E2EE_DECRYPTED_PAYLOAD_DIRECT_BINARY: c_int = 1;
 const CT_E2EE_DECRYPTED_PAYLOAD_PPT: c_int = 2;
+
+// Instrument only exported owner handles, not every allocation retained by an
+// asynchronous consumer. GC probes use this oracle with no queued consumers.
+#[cfg(feature = "ffi-test")]
+fn test_external_buffer_owners() -> &'static Mutex<std::collections::HashSet<usize>> {
+    static OWNERS: OnceLock<Mutex<std::collections::HashSet<usize>>> = OnceLock::new();
+    OWNERS.get_or_init(|| Mutex::new(std::collections::HashSet::new()))
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum E2eePlaintextFormat {
+    CborPpt,
+    TypedFlatbuffers,
+}
 const SHA256_DIGEST_LEN: usize = 32;
 const ASYNC_SHA256_QUEUE_CAPACITY: usize = 2;
 
@@ -970,11 +984,22 @@ struct DecryptedE2eeMessagePayload {
     kind: c_int,
 }
 
-fn decrypted_e2ee_message_payload(
+fn decrypted_e2ee_message_payload_with_format(
     bytes: Vec<u8>,
     plaintext_range: std::ops::Range<usize>,
+    format: E2eePlaintextFormat,
 ) -> Result<DecryptedE2eeMessagePayload, c_int> {
     let plaintext = bytes.get(plaintext_range.clone()).ok_or(ERR_INTERNAL)?;
+    if format == E2eePlaintextFormat::TypedFlatbuffers {
+        if plaintext.len() > 64 * 1024 * 1024 {
+            return Err(ERR_INVALID_ARGUMENT);
+        }
+        return Ok(DecryptedE2eeMessagePayload {
+            bytes,
+            range: plaintext_range,
+            kind: CT_E2EE_DECRYPTED_PAYLOAD_DIRECT_BINARY,
+        });
+    }
     if let Some(payload) = cbor_ppt_single_binary_argument(plaintext) {
         let payload_offset = payload.as_ptr() as usize - plaintext.as_ptr() as usize;
         let start = plaintext_range
@@ -1009,10 +1034,25 @@ fn borrowed_e2ee_message_ciphertext(message: &StoredMessage) -> Result<&[u8], c_
     single_binary_argument(message.serializer, args).map_err(|_| ERR_UNSUPPORTED)
 }
 
+#[cfg(test)]
 fn decrypt_e2ee_message_payload_copied(
     message: &StoredMessage,
     key: &[u8],
     cipher_code: c_int,
+) -> Result<DecryptedE2eeMessagePayload, c_int> {
+    decrypt_e2ee_message_payload_copied_with_format(
+        message,
+        key,
+        cipher_code,
+        E2eePlaintextFormat::CborPpt,
+    )
+}
+
+fn decrypt_e2ee_message_payload_copied_with_format(
+    message: &StoredMessage,
+    key: &[u8],
+    cipher_code: c_int,
+    format: E2eePlaintextFormat,
 ) -> Result<DecryptedE2eeMessagePayload, c_int> {
     if message.kwargs.is_some() {
         return Err(ERR_UNSUPPORTED);
@@ -1028,13 +1068,16 @@ fn decrypt_e2ee_message_payload_copied(
         Some(ciphertext) => ciphertext,
         None => borrowed_e2ee_message_ciphertext(message)?,
     };
+    if format == E2eePlaintextFormat::TypedFlatbuffers && ciphertext.len() > 64 * 1024 * 1024 {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
     let plaintext = match cipher_code {
         1 => decrypt_e2ee_payload(key, ciphertext),
         2 => decrypt_e2ee_aes256_gcm_payload(key, ciphertext),
         _ => Err(ERR_INVALID_ARGUMENT),
     }?;
     let plaintext_len = plaintext.len();
-    decrypted_e2ee_message_payload(plaintext, 0..plaintext_len)
+    decrypted_e2ee_message_payload_with_format(plaintext, 0..plaintext_len, format)
 }
 
 fn slice_range(container: &[u8], slice: &[u8]) -> Option<std::ops::Range<usize>> {
@@ -1043,20 +1086,38 @@ fn slice_range(container: &[u8], slice: &[u8]) -> Option<std::ops::Range<usize>>
     (end <= container.len()).then_some(start..end)
 }
 
+#[cfg(test)]
 fn decrypt_e2ee_message_payload_owned(
     message: StoredMessage,
     key: &[u8],
     cipher_code: c_int,
 ) -> Result<DecryptedE2eeMessagePayload, c_int> {
+    decrypt_e2ee_message_payload_owned_with_format(
+        message,
+        key,
+        cipher_code,
+        E2eePlaintextFormat::CborPpt,
+    )
+}
+
+fn decrypt_e2ee_message_payload_owned_with_format(
+    message: StoredMessage,
+    key: &[u8],
+    cipher_code: c_int,
+    format: E2eePlaintextFormat,
+) -> Result<DecryptedE2eeMessagePayload, c_int> {
     if cipher_code != 2 || message.serializer == RawSocketSerializer::Json {
-        return decrypt_e2ee_message_payload_copied(&message, key, cipher_code);
+        return decrypt_e2ee_message_payload_copied_with_format(&message, key, cipher_code, format);
     }
     let ciphertext = borrowed_e2ee_message_ciphertext(&message)?;
+    if format == E2eePlaintextFormat::TypedFlatbuffers && ciphertext.len() > 64 * 1024 * 1024 {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
     let Some(raw) = message.raw.as_contiguous() else {
-        return decrypt_e2ee_message_payload_copied(&message, key, cipher_code);
+        return decrypt_e2ee_message_payload_copied_with_format(&message, key, cipher_code, format);
     };
     let Some(ciphertext_range) = slice_range(raw, ciphertext) else {
-        return decrypt_e2ee_message_payload_copied(&message, key, cipher_code);
+        return decrypt_e2ee_message_payload_copied_with_format(&message, key, cipher_code, format);
     };
 
     let StoredMessage {
@@ -1080,12 +1141,12 @@ fn decrypt_e2ee_message_payload_owned(
                 raw.get(ciphertext_range).ok_or(ERR_INTERNAL)?,
             )?;
             let plaintext_len = plaintext.len();
-            return decrypted_e2ee_message_payload(plaintext, 0..plaintext_len);
+            return decrypted_e2ee_message_payload_with_format(plaintext, 0..plaintext_len, format);
         }
     };
     let plaintext_range =
         decrypt_e2ee_aes256_gcm_payload_in_place(key, &mut bytes, ciphertext_range)?;
-    decrypted_e2ee_message_payload(bytes, plaintext_range)
+    decrypted_e2ee_message_payload_with_format(bytes, plaintext_range, format)
 }
 
 fn write_external_byte_buffer_range(
@@ -1102,6 +1163,11 @@ fn write_external_byte_buffer_range(
     let bytes_len = range.len();
     let mut owner = Box::new(bytes);
     let owner_ptr = owner.as_mut() as *mut Vec<u8> as *mut c_void;
+    #[cfg(feature = "ffi-test")]
+    test_external_buffer_owners()
+        .lock()
+        .unwrap()
+        .insert(owner_ptr as usize);
     let _ = Box::into_raw(owner);
     unsafe {
         (*out).ptr = bytes_ptr;
@@ -2136,9 +2202,21 @@ pub extern "C" fn ct_external_byte_buffer_free(owner: *mut c_void) {
     if owner.is_null() {
         return;
     }
+    // Hold the test registry across destruction so allocation-address reuse
+    // cannot remove a newly registered owner on another thread.
+    #[cfg(feature = "ffi-test")]
+    let mut test_owners = test_external_buffer_owners().lock().unwrap();
     unsafe {
         drop(Box::from_raw(owner as *mut Vec<u8>));
     }
+    #[cfg(feature = "ffi-test")]
+    test_owners.remove(&(owner as usize));
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_external_byte_buffer_live_owners() -> usize {
+    test_external_buffer_owners().lock().unwrap().len()
 }
 
 #[no_mangle]
@@ -2477,6 +2555,33 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume_wide(
     out: *mut CtExternalByteBuffer,
     out_kind: *mut c_int,
 ) -> c_int {
+    ct_e2ee_session_decrypt_message_payload_consume_format_wide(
+        session_handle,
+        key_id_ptr,
+        key_id_len,
+        message_handle,
+        cipher_code,
+        0,
+        out,
+        out_kind,
+    )
+}
+
+/// Explicit plaintext format: 0 preserves CBOR PPT unwrapping; 1 returns the
+/// complete authenticated typed FlatBuffers span. Unknown formats preserve the
+/// message handle. Once a valid format consumes the handle, failures consume it
+/// too, matching the existing one-shot ownership contract.
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume_format_wide(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    message_handle: i64,
+    cipher_code: c_int,
+    plaintext_format: c_int,
+    out: *mut CtExternalByteBuffer,
+    out_kind: *mut c_int,
+) -> c_int {
     if message_handle <= 0 || out.is_null() || out_kind.is_null() {
         return ERR_INVALID_ARGUMENT;
     }
@@ -2486,6 +2591,11 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume_wide(
         (*out).owner = ptr::null_mut();
         *out_kind = 0;
     }
+    let format = match plaintext_format {
+        0 => E2eePlaintextFormat::CborPpt,
+        1 => E2eePlaintextFormat::TypedFlatbuffers,
+        _ => return ERR_INVALID_ARGUMENT,
+    };
     let message = match super::message_handles::remove(message_handle as u64) {
         Some(value) => value,
         None => return ERR_HANDLE_UNAVAILABLE,
@@ -2505,10 +2615,18 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume_wide(
         None => return ERR_HANDLE_UNAVAILABLE,
     };
     let decrypted = match Arc::try_unwrap(message) {
-        Ok(message) => decrypt_e2ee_message_payload_owned(message, key.as_ref(), cipher_code),
-        Err(message) => {
-            decrypt_e2ee_message_payload_copied(message.as_ref(), key.as_ref(), cipher_code)
-        }
+        Ok(message) => decrypt_e2ee_message_payload_owned_with_format(
+            message,
+            key.as_ref(),
+            cipher_code,
+            format,
+        ),
+        Err(message) => decrypt_e2ee_message_payload_copied_with_format(
+            message.as_ref(),
+            key.as_ref(),
+            cipher_code,
+            format,
+        ),
     };
     match decrypted {
         Ok(payload) => write_external_byte_buffer_range(
@@ -6252,6 +6370,11 @@ fn write_external_byte_buffer(mut bytes: Vec<u8>, out: *mut CtExternalByteBuffer
     let bytes_len = bytes.len();
     let mut owner = Box::new(bytes);
     let owner_ptr = owner.as_mut() as *mut Vec<u8> as *mut c_void;
+    #[cfg(feature = "ffi-test")]
+    test_external_buffer_owners()
+        .lock()
+        .unwrap()
+        .insert(owner_ptr as usize);
     let _ = Box::into_raw(owner);
     unsafe {
         (*out).ptr = bytes_ptr;
@@ -6475,6 +6598,11 @@ unsafe fn take_owned_external_buffer_slice(
         return Err(ERR_INVALID_ARGUMENT);
     }
     let owner = unsafe { Box::from_raw(owner_ptr as *mut Vec<u8>) };
+    #[cfg(feature = "ffi-test")]
+    test_external_buffer_owners()
+        .lock()
+        .unwrap()
+        .remove(&(owner_ptr as usize));
     if bytes_len < 0 || (bytes_len > 0 && bytes_ptr.is_null()) {
         return Err(ERR_INVALID_ARGUMENT);
     }
@@ -9265,6 +9393,48 @@ mod tests {
             SUCCESS
         );
         assert_eq!(digest.as_slice(), expected.as_ref());
+    }
+
+    #[test]
+    #[cfg(feature = "ffi-test")]
+    fn external_owner_oracle_tracks_free_and_consumption() {
+        let _guard = test_guard();
+        let mut output = CtExternalByteBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+            owner: ptr::null_mut(),
+        };
+        assert_eq!(
+            write_external_byte_buffer(vec![1, 2, 3], &mut output),
+            SUCCESS
+        );
+        assert!(test_external_buffer_owners()
+            .lock()
+            .unwrap()
+            .contains(&(output.owner as usize)));
+        ct_external_byte_buffer_free(output.owner);
+        assert!(!test_external_buffer_owners()
+            .lock()
+            .unwrap()
+            .contains(&(output.owner as usize)));
+
+        let mut kind = 0;
+        assert_eq!(
+            write_external_byte_buffer_range(vec![9, 8, 7, 6], 1..3, 1, &mut output, &mut kind),
+            SUCCESS
+        );
+        assert!(test_external_buffer_owners()
+            .lock()
+            .unwrap()
+            .contains(&(output.owner as usize)));
+        assert_eq!(
+            ct_sha256_update_external_owned_async(0, output.owner, output.ptr, output.len as c_int),
+            ERR_INVALID_ARGUMENT
+        );
+        assert!(!test_external_buffer_owners()
+            .lock()
+            .unwrap()
+            .contains(&(output.owner as usize)));
     }
 
     #[test]

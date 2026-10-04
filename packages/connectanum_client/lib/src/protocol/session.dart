@@ -2266,7 +2266,8 @@ class NegotiatedSessionE2ee {
     if (isRequired != true) {
       return;
     }
-    if (version != ConnectanumE2eeProfile.version) {
+    if (version != ConnectanumE2eeProfile.version &&
+        version != ConnectanumFlatBuffersE2eeProfile.version) {
       _reject(
         'Required E2EE uses unsupported profile version ${version ?? 'null'}',
       );
@@ -2274,10 +2275,13 @@ class NegotiatedSessionE2ee {
     if (established != true) {
       _reject('Required E2EE was not established by the router');
     }
+    final selectedSerializer = version == ConnectanumE2eeProfile.version
+        ? ConnectanumE2eeProfile.serializer
+        : ConnectanumFlatBuffersE2eeProfile.serializer;
     if (scheme != ConnectanumE2eeProfile.scheme ||
-        serializer != ConnectanumE2eeProfile.serializer) {
+        serializer != selectedSerializer) {
       _reject(
-        'Required E2EE must select wamp/cbor, got '
+        'Required E2EE must select wamp/$selectedSerializer, got '
         '${scheme ?? 'null'}/${serializer ?? 'null'}',
       );
     }

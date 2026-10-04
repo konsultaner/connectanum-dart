@@ -145,6 +145,29 @@ typedef CtE2eeSessionDecryptMessagePayloadConsumeDart =
       ffi.Pointer<ffi.Int32>,
     );
 
+typedef CtE2eeSessionDecryptMessagePayloadConsumeFormatWideNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int64,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<CtExternalByteBuffer>,
+      ffi.Pointer<ffi.Int32>,
+    );
+typedef CtE2eeSessionDecryptMessagePayloadConsumeFormatDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      int,
+      int,
+      int,
+      ffi.Pointer<CtExternalByteBuffer>,
+      ffi.Pointer<ffi.Int32>,
+    );
+
 typedef CtClientConnectRawsocketNative =
     ffi.Int32 Function(
       ffi.Pointer<ffi.Char>,
@@ -667,6 +690,18 @@ class CtFfiBindings {
                 );
               })(),
             ),
+      ctE2eeSessionDecryptMessagePayloadConsumeFormat =
+          messageHandleAbi == NativeMessageHandleAbi.wide
+          ? _tryLookup(
+              () =>
+                  library.lookupFunction<
+                    CtE2eeSessionDecryptMessagePayloadConsumeFormatWideNative,
+                    CtE2eeSessionDecryptMessagePayloadConsumeFormatDart
+                  >(
+                    'ct_e2ee_session_decrypt_message_payload_consume_format_wide',
+                  ),
+            )
+          : null,
       ctClientConnectRawsocket = library
           .lookupFunction<
             CtClientConnectRawsocketNative,
@@ -934,6 +969,8 @@ class CtFfiBindings {
   ctE2eeSessionDecryptMessageSingleBinaryArgument;
   final CtE2eeSessionDecryptMessagePayloadConsumeDart?
   ctE2eeSessionDecryptMessagePayloadConsume;
+  final CtE2eeSessionDecryptMessagePayloadConsumeFormatDart?
+  ctE2eeSessionDecryptMessagePayloadConsumeFormat;
   final CtClientConnectRawsocketDart ctClientConnectRawsocket;
   final CtClientConnectWebSocketDart ctClientConnectWebSocket;
   final CtConnectionCloseDart ctConnectionClose;

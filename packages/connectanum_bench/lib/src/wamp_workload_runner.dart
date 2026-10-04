@@ -10,6 +10,8 @@ import 'package:connectanum_client/socket.dart' as wamp_socket;
 import 'package:connectanum_core/authentication.dart' as wamp_auth;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_core/cbor_serializer.dart' as wamp_cbor;
+import 'package:connectanum_core/flatbuffers_serializer.dart'
+    as wamp_flatbuffers;
 import 'package:connectanum_core/json_serializer.dart' as wamp_json;
 import 'package:connectanum_core/msgpack_serializer.dart' as wamp_msgpack;
 import 'package:logging/logging.dart';
@@ -1948,7 +1950,10 @@ class WampWorkloadRunner {
     if (scenario.pptScheme == wamp_core.ConnectanumE2eeProfile.scheme) {
       return wamp_core.ConnectanumE2eeProfile.serializer;
     }
-    return scenario.pptSerializer ?? scenario.serializer.name;
+    return scenario.pptSerializer ??
+        (scenario.serializer == WampSerializer.flatbuffers
+            ? 'cbor'
+            : scenario.serializer.name);
   }
 
   wamp_core.LazyMessagePayload _buildLazyPayload(
@@ -1974,7 +1979,8 @@ class WampWorkloadRunner {
     final encoding = switch (scenario.serializer) {
       WampSerializer.json => wamp_core.LazyPayloadEncoding.json,
       WampSerializer.msgpack => wamp_core.LazyPayloadEncoding.messagePack,
-      WampSerializer.cbor => wamp_core.LazyPayloadEncoding.cbor,
+      WampSerializer.cbor ||
+      WampSerializer.flatbuffers => wamp_core.LazyPayloadEncoding.cbor,
     };
     final immutableArguments = arguments == null
         ? null
@@ -2015,7 +2021,7 @@ class WampWorkloadRunner {
     return switch (serializer) {
       WampSerializer.json => Uint8List.fromList(utf8.encode(jsonEncode(value))),
       WampSerializer.msgpack => msgpack_dart.serialize(value),
-      WampSerializer.cbor => Uint8List.fromList(
+      WampSerializer.cbor || WampSerializer.flatbuffers => Uint8List.fromList(
         cbor.cborEncode(cbor.CborValue(value)),
       ),
     };
@@ -2419,6 +2425,15 @@ class RawSocketWampSessionFactory {
           messageLengthExponent: messageLengthExponent,
           libraryPath: nativeLibraryPath,
         ),
+      WampSerializer.flatbuffers =>
+        wamp_client.NativeRawSocketTransport.withFlatBuffersSerializer(
+          host,
+          port,
+          ssl: ssl,
+          allowInsecureCertificates: allowInsecureCertificates,
+          messageLengthExponent: messageLengthExponent,
+          libraryPath: nativeLibraryPath,
+        ),
     };
   }
 }
@@ -2490,6 +2505,12 @@ class WebSocketWampSessionFactory {
         headers,
         allowInsecureCertificates,
       ),
+      WampSerializer.flatbuffers =>
+        wamp_client.WebSocketTransport.withFlatBuffersSerializer(
+          url,
+          headers,
+          allowInsecureCertificates,
+        ),
     };
   }
 
@@ -2519,6 +2540,14 @@ class WebSocketWampSessionFactory {
           nativeLibraryPath,
           websocketFragmentSize,
         ),
+      WampSerializer.flatbuffers =>
+        wamp_client.NativeWebSocketTransport.withFlatBuffersSerializer(
+          url,
+          headers.cast<String, dynamic>(),
+          allowInsecureCertificates,
+          nativeLibraryPath,
+          websocketFragmentSize,
+        ),
     };
   }
 }
@@ -2539,6 +2568,11 @@ class WebSocketWampSessionFactory {
       return (
         wamp_cbor.Serializer(),
         wamp_socket.SocketHelper.serializationCbor,
+      );
+    case WampSerializer.flatbuffers:
+      return (
+        wamp_flatbuffers.Serializer(),
+        wamp_socket.SocketHelper.serializationFlatBuffers,
       );
   }
 }
@@ -3253,7 +3287,8 @@ enum WampTransport {
 enum WampSerializer {
   json,
   msgpack,
-  cbor;
+  cbor,
+  flatbuffers;
 
   static WampSerializer? tryParse(Object? raw) {
     if (raw == null) {
@@ -3277,6 +3312,8 @@ enum WampSerializer {
         return WampSerializer.msgpack;
       case 'cbor':
         return WampSerializer.cbor;
+      case 'flatbuffers':
+        return WampSerializer.flatbuffers;
       default:
         throw FormatException('Unsupported WAMP serializer "$raw"');
     }

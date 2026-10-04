@@ -50,35 +50,68 @@ typedef NativeDecryptedE2eePayload = ({
   bool directBinary,
 });
 
+enum NativeE2eePlaintextFormat { cborPpt, typedFlatBuffers }
+
 typedef _NativeE2eeDecryptRequest = ({
   int sessionHandle,
   String? keyId,
   String cipher,
+  NativeE2eePlaintextFormat plaintextFormat,
+});
+
+typedef _NativeMessageParts = ({
+  Object message,
+  Uint8List bytes,
+  Uint8List? argumentsBytes,
+  Uint8List? argumentsKeywordsBytes,
+  Uint8List? singleBinaryArgumentBytes,
 });
 
 class NativeIncomingMessage {
   NativeIncomingMessage._({
-    required this.message,
-    required this.bytes,
     required this.handle,
     required this.runtimeIdentity,
     required CtFfiBindings bindings,
     required Finalizer<_MessageFinalizerToken> messageFinalizer,
-    this.argumentsBytes,
-    this.argumentsKeywordsBytes,
-    this.singleBinaryArgumentBytes,
+    _NativeMessageParts? payload,
+    _NativeMessageParts Function()? materializePayload,
   }) : _bindings = bindings,
-       _messageFinalizer = messageFinalizer;
+       _messageFinalizer = messageFinalizer,
+       _payload = payload,
+       _materializePayload = materializePayload;
 
-  final Object message;
-  final Uint8List bytes;
+  _NativeMessageParts? _payload;
+  final _NativeMessageParts Function()? _materializePayload;
   final int handle;
   final Object runtimeIdentity;
-  final Uint8List? argumentsBytes;
-  final Uint8List? argumentsKeywordsBytes;
-  final Uint8List? singleBinaryArgumentBytes;
   final CtFfiBindings _bindings;
   final Finalizer<_MessageFinalizerToken> _messageFinalizer;
+
+  _NativeMessageParts get _materializedPayload {
+    final payload = _payload;
+    if (payload != null) return payload;
+    if (_released) {
+      throw StateError(
+        'Unexported native message payload was released or consumed',
+      );
+    }
+    try {
+      return _payload = _materializePayload!();
+    } catch (_) {
+      release();
+      rethrow;
+    }
+  }
+
+  /// Materializes all payload views once. Deferred, unexported views cannot be
+  /// accessed after release or consuming decrypt; exported views remain valid.
+  Object get message => _materializedPayload.message;
+  Uint8List get bytes => _materializedPayload.bytes;
+  Uint8List? get argumentsBytes => _materializedPayload.argumentsBytes;
+  Uint8List? get argumentsKeywordsBytes =>
+      _materializedPayload.argumentsKeywordsBytes;
+  Uint8List? get singleBinaryArgumentBytes =>
+      _materializedPayload.singleBinaryArgumentBytes;
 
   bool _released = false;
   _NativeE2eeDecryptRequest? _e2eeDecryptRequest;
@@ -209,6 +242,12 @@ class NativeClientRuntime {
       );
   bool _started = false;
 
+  /// Releases the native owner attached to the returned root byte view.
+  ///
+  /// On `true`, [bytes] and every view derived from it must no longer be
+  /// accessed. Dart cannot revoke existing typed-data views. Prefer automatic
+  /// finalization when another consumer still needs a view. Returns `false`
+  /// for Dart-owned bytes, unregistered subviews and an already released owner.
   static bool releaseOwnedExternalBytes(Uint8List bytes) {
     final reference = _nativeExternalBytes[bytes];
     if (reference == null || reference.released) {
@@ -224,8 +263,12 @@ class NativeClientRuntime {
     return true;
   }
 
-  Uint8List _ownExternalBytes(CtExternalByteBuffer output) {
-    final bytes = output.ptr.asTypedList(output.len);
+  Uint8List _ownExternalBytes(
+    CtExternalByteBuffer output, {
+    bool readOnly = false,
+  }) {
+    final backing = output.ptr.asTypedList(output.len);
+    final bytes = readOnly ? backing.asUnmodifiableView() : backing;
     final reference = _NativeExternalBytesReference(
       runtimeIdentity: this,
       pointer: output.ptr,
@@ -239,7 +282,12 @@ class NativeClientRuntime {
         detach: reference,
         externalSize: output.len,
       );
-      // The Expando keeps the finalizer target alive with the returned view.
+      // Derived typed-data views retain the backing external typed data. Keep
+      // its owner there as well as on the returned read-only wrapper, whose
+      // identity is used by explicit release and native ownership transfer.
+      if (!identical(backing, bytes)) {
+        _nativeExternalBytes[backing] = reference;
+      }
       _nativeExternalBytes[bytes] = reference;
       return bytes;
     } catch (_) {
@@ -477,7 +525,11 @@ class NativeClientRuntime {
   }
 
   bool get supportsConsumingE2eeMessagePayloadDecrypt =>
-      _bindings.ctE2eeSessionDecryptMessagePayloadConsume != null;
+      _bindings.ctE2eeSessionDecryptMessagePayloadConsume != null ||
+      _bindings.ctE2eeSessionDecryptMessagePayloadConsumeFormat != null;
+
+  bool get supportsTypedConsumingE2eeMessagePayloadDecrypt =>
+      _bindings.ctE2eeSessionDecryptMessagePayloadConsumeFormat != null;
 
   bool get supportsBase64NativeE2eeFileSegments =>
       _bindings.ctSendMessageNativeE2eeFileSegmentV2 != null;
@@ -487,6 +539,8 @@ class NativeClientRuntime {
     NativeIncomingMessage incoming, {
     String? keyId,
     String cipher = 'xsalsa20poly1305',
+    NativeE2eePlaintextFormat plaintextFormat =
+        NativeE2eePlaintextFormat.cborPpt,
   }) {
     ensureStarted();
     if (!identical(incoming.runtimeIdentity, this)) {
@@ -496,6 +550,7 @@ class NativeClientRuntime {
       sessionHandle: sessionHandle,
       keyId: keyId,
       cipher: cipher,
+      plaintextFormat: plaintextFormat,
     );
     final cached = incoming._e2eeDecryptedPayload;
     if (cached != null) {
@@ -520,6 +575,14 @@ class NativeClientRuntime {
         'Native message was released before E2EE decryption',
       );
     }
+    final formattedConsume =
+        _bindings.ctE2eeSessionDecryptMessagePayloadConsumeFormat;
+    if (plaintextFormat == NativeE2eePlaintextFormat.typedFlatBuffers &&
+        formattedConsume == null) {
+      // A caller can decrypt the complete ciphertext with the generic crypto
+      // API instead. The legacy message API would infer CBOR framing.
+      return null;
+    }
     final cipherCode = switch (cipher) {
       'xsalsa20poly1305' => 1,
       'aes256gcm' => 2,
@@ -535,17 +598,28 @@ class NativeClientRuntime {
     final outputKindPtr = calloc<ffi.Int32>();
     try {
       final consume = _bindings.ctE2eeSessionDecryptMessagePayloadConsume;
-      if (consume != null) {
+      if (consume != null || formattedConsume != null) {
         incoming._markConsumed();
-        final result = consume(
-          sessionHandle,
-          keyIdPtr,
-          keyIdBytes?.length ?? 0,
-          incoming.handle,
-          cipherCode,
-          outputPtr,
-          outputKindPtr,
-        );
+        final result = formattedConsume != null
+            ? formattedConsume(
+                sessionHandle,
+                keyIdPtr,
+                keyIdBytes?.length ?? 0,
+                incoming.handle,
+                cipherCode,
+                plaintextFormat.index,
+                outputPtr,
+                outputKindPtr,
+              )
+            : consume!(
+                sessionHandle,
+                keyIdPtr,
+                keyIdBytes?.length ?? 0,
+                incoming.handle,
+                cipherCode,
+                outputPtr,
+                outputKindPtr,
+              );
         if (result != NativeTransportErrorCode.success) {
           final failedOutput = outputPtr.ref;
           if (failedOutput.owner != ffi.nullptr) {
@@ -557,7 +631,9 @@ class NativeClientRuntime {
           );
         }
         final outputKind = outputKindPtr.value;
-        if (outputKind != 1 && outputKind != 2) {
+        if ((outputKind != 1 && outputKind != 2) ||
+            (plaintextFormat == NativeE2eePlaintextFormat.typedFlatBuffers &&
+                outputKind != 1)) {
           final invalidOutput = outputPtr.ref;
           if (invalidOutput.owner != ffi.nullptr) {
             _bindings.ctExternalByteBufferFree(invalidOutput.owner);
@@ -568,7 +644,11 @@ class NativeClientRuntime {
           );
         }
         final payload = (
-          bytes: _ownDecryptedExternalBytes(outputPtr.ref),
+          bytes: _ownDecryptedExternalBytes(
+            outputPtr.ref,
+            readOnly:
+                plaintextFormat == NativeE2eePlaintextFormat.typedFlatBuffers,
+          ),
           directBinary: outputKind == 1,
         );
         incoming._e2eeDecryptRequest = request;
@@ -608,7 +688,10 @@ class NativeClientRuntime {
     }
   }
 
-  Uint8List _ownDecryptedExternalBytes(CtExternalByteBuffer output) {
+  Uint8List _ownDecryptedExternalBytes(
+    CtExternalByteBuffer output, {
+    bool readOnly = false,
+  }) {
     if (output.owner == ffi.nullptr) {
       throw NativeTransportException(
         NativeTransportErrorCode.handleUnavailable,
@@ -617,7 +700,8 @@ class NativeClientRuntime {
     }
     if (output.len == 0) {
       _bindings.ctExternalByteBufferFree(output.owner);
-      return Uint8List(0);
+      final empty = Uint8List(0);
+      return readOnly ? empty.asUnmodifiableView() : empty;
     }
     if (output.ptr == ffi.nullptr) {
       _bindings.ctExternalByteBufferFree(output.owner);
@@ -626,7 +710,7 @@ class NativeClientRuntime {
         'Native E2EE decrypt returned no external buffer bytes',
       );
     }
-    return _ownExternalBytes(output);
+    return _ownExternalBytes(output, readOnly: readOnly);
   }
 
   int connectWebSocket({
@@ -1310,8 +1394,55 @@ class NativeClientRuntime {
     }
   }
 
-  NativeIncomingMessage materialize(int handle) {
+  /// Takes ownership of [handle]. The default exports payload views eagerly.
+  ///
+  /// With [deferPayloadExports], no frame/argument view is exported until any
+  /// payload getter is read. Advanced consumers can decrypt the handle first;
+  /// native AES may reuse unique contiguous storage. Release or consuming
+  /// decrypt invalidates every unexported getter. Already exported immutable
+  /// views remain valid and force the native copied fallback. This does not
+  /// change transport/Session materialization or forwarding contracts.
+  NativeIncomingMessage materialize(
+    int handle, {
+    bool deferPayloadExports = false,
+  }) {
     ensureStarted();
+    try {
+      if (deferPayloadExports) {
+        final info = calloc<CtMessageInfo>();
+        try {
+          final result = _bindings.ctMessagePeek(handle, info);
+          if (result != NativeTransportErrorCode.success) {
+            _throwForError(result, 'Failed to peek native message');
+          }
+          if (NativeMessageSerializer.fromId(info.ref.serializer) ==
+              NativeMessageSerializer.flatbuffers) {
+            _messageBytes.requireFlatbuffersBinding();
+          }
+        } finally {
+          calloc.free(info);
+        }
+      }
+      final incoming = NativeIncomingMessage._(
+        handle: handle,
+        runtimeIdentity: this,
+        bindings: _bindings,
+        messageFinalizer: _messageFinalizer,
+        payload: deferPayloadExports ? null : _readMessagePayload(handle),
+        materializePayload: deferPayloadExports
+            ? () => _readMessagePayload(handle)
+            : null,
+      );
+      final token = _MessageFinalizerToken(_bindings, handle);
+      _messageFinalizer.attach(incoming, token, detach: incoming);
+      return incoming;
+    } catch (_) {
+      _bindings.ctMessageRelease(handle);
+      rethrow;
+    }
+  }
+
+  _NativeMessageParts _readMessagePayload(int handle) {
     final infoPtr = calloc<CtMessageInfo>();
     try {
       var result = _bindings.ctMessagePeek(handle, infoPtr);
@@ -1388,23 +1519,13 @@ class NativeClientRuntime {
           metadata: metadata,
         );
       }
-      final incoming = NativeIncomingMessage._(
+      return (
         message: message,
         bytes: frame,
-        handle: handle,
-        runtimeIdentity: this,
-        bindings: _bindings,
-        messageFinalizer: _messageFinalizer,
         argumentsBytes: args,
         argumentsKeywordsBytes: kwargs,
         singleBinaryArgumentBytes: singleBinaryArgument,
       );
-      final token = _MessageFinalizerToken(_bindings, handle);
-      _messageFinalizer.attach(incoming, token, detach: incoming);
-      return incoming;
-    } catch (_) {
-      _bindings.ctMessageRelease(handle);
-      rethrow;
     } finally {
       calloc.free(infoPtr);
     }

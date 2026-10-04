@@ -459,15 +459,18 @@ Providers, contexts and decoder callbacks remain shared as documented by that AP
 an application callback that captures its own resource can retain it independently.
 
 
-The public native lease API currently accepts a complete encoded frame. The
-core Rust segmented writer retains separately owned application vectors, but
-the public Dart segmented-send API still copies its slices and the legacy
-owned-segment C ABI adopts registered Rust allocations. A future external
-producer supplying only application bytes needs a generic envelope assembly
-and mixed-owner submission API. That composition boundary remains incomplete;
-complete-frame lease tests do not establish it, and foreign database pointers
-must never enter the Vec adoption API. Adapter readiness requires allocation
-identity and exactly-once cleanup evidence for the public composition path.
+The native lease API accepts complete frames or immutable application buffers.
+`adoptTrustedNativeToken` validates the producer's frozen handle and library
+identity. `composeFlatBufferFrame` retains that buffer beside a native-owned
+control envelope, using CBOR argument/keyword vectors or an opaque application
+span. `sendNativeFrameTracked` reports local write completion independently of
+final producer release. These APIs preserve independently retained inputs and
+reject foreign-library handles; foreign database pointers never enter the Rust
+Vec adoption API. Ordinary Dart segmented sends still copy supplied slices.
+The [ownership guide](native_buffer_ownership.md) describes the public composition
+and producer-thread release contracts. Complete adapter readiness still requires
+the conformance, lifetime and performance acceptance gates; implemented APIs and
+complete-frame lease tests alone do not establish it.
 
 Generated readers are internal implementation tools, not an untrusted-byte public
 API. Rust verifies before accessing generated tables. Dart must validate bounded

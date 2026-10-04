@@ -116,7 +116,9 @@ decoder callbacks remain shared and can independently retain resources they capt
 | Native segmented routing/forwarding | Retains native application spans; mixed encodings may require conversion. |
 | Fragmented incoming frames | Reassembly can allocate/copy; transport chunking alone proves no zero-copy property. |
 | Client WebSocket masking | Transforms outbound bytes; account for its buffer/copy work separately. |
-| TLS and E2EE | Cryptographic transformations have separate allocation/copy costs. |
+| Generic native E2EE | Currently copies Dart input into native storage and copies the encrypted/decrypted result back to Dart. |
+| Native consuming E2EE receive | Returns an owned native plaintext view; unique contiguous AES inputs can reuse storage. Eager exported receive views currently force its safe copied fallback. |
+| TLS | Cryptographic transformations have separate allocation/copy costs. |
 | `toOwned()` | Explicitly copies retained binary/container graphs. |
 | Native typed reader | Requires compatibility with the actual pointer, subrange and reader; alignment fallback may copy. |
 | Database insertion | Depends on writable ID handling, padding and database internals; persistence is not promised copy-free. |
@@ -125,6 +127,19 @@ Construction counters describe their named input-binary and growth copies. They
 are not a total memory-traffic or timing measurement. Performance gates must also
 account for control encoding, transport conversions and transformations, and
 compare the declared workloads with CBOR and MessagePack.
+
+The typed E2EE candidate provides
+`NativeWampFlatBuffersXsalsa20Poly1305Provider` and
+`NativeWampFlatBuffersAes256GcmProvider` beside the portable typed and CBOR
+providers. Its whole-span format selector is independent of the outer WAMP
+serializer, and older native libraries use generic raw decryption. Typed results
+are read-only. Automatic finalization preserves independently derived views;
+when `releaseOwnedExternalBytes` returns true, the root and every derived view
+become unusable immediately. This differs from disposing a `NativeOwnedBuffer`
+wrapper, whose already-exported views hold independent native references.
+Typed file-prefix/E2EE segment framing is unsupported and rejects explicitly.
+These crypto APIs currently establish byte/lifetime compatibility, not complete
+zero-copy encryption or representative throughput parity.
 
 ## Future ObjectBox adapter
 
@@ -152,3 +167,42 @@ alignment](https://flatbuffers.dev/internals/) also requires checking the actual
 native reader and payload pointer, including nonzero-offset views. This is not a
 claim that ObjectBox requires a particular physical eight-byte pointer alignment.
 The adapter must expose and measure any fallback copy.
+
+## Opt-in receive materialization before consuming decryption
+
+`NativeClientRuntime.materialize(handle, deferPayloadExports: true)` takes the
+message handle without exporting frame or payload views. The first read of any
+incoming payload getter materializes and memoizes all views. The default stays
+eager; transports and Session retain their existing receive/forwarding behavior.
+
+Advanced consumers can call native consuming decrypt before reading those getters.
+Unique contiguous AES storage can then be reused; shared storage, segmented frames
+and XSalsa retain the documented safe fallbacks. Explicit release or consuming
+decrypt makes every never-exported getter throw `StateError`. Views exported before
+that terminal action remain valid and force copied decryption. Consuming decryption
+also consumes the original handle on authentication failure. Older runtimes without
+the typed format API return no typed native result without consuming the handle;
+the caller can materialize ciphertext and use raw decrypt.
+
+This is an opt-in consumption contract, not a new Session forwarding contract.
+Original ciphertext cannot be read after its unexported storage was consumed.
+Native Weak observers and VM-service GC tests verify abandoned incoming finalization,
+retained handles, immutable exported ciphertext and derived plaintext views. Weak
+observers track StoredMessage lifetime; they are not allocation-address or copied-
+byte counters. Separate native tests verify unique AES allocation identity.
+
+## Native memory instrumentation
+
+The repeatable native ownership runner is included in the macOS memory CI job. Its local macOS
+GuardMalloc execution currently covers 57 ownership, typed E2EE, frame, lease and
+network cases. This is not ASan/Miri or coverage of every supported platform.
+Each process must report the actual loaded GuardMalloc library and a positive
+Rust test count. Missing instrumentation, empty filters, failed cases or timeouts
+fail the check. The CI job uploads the exact dependency lock, source and
+executable hashes, commands, per-group logs and failure records. If the workspace
+has no Cargo lock, dependency resolution precedes its frozen native inventory;
+the subsequent build uses `--locked`.
+
+The default-repo command passes in the feature tree. Hosted acceptance
+requires the job to execute successfully on the feature commit. Local proof:
+`/tmp/connectanum-flatbuffers-guardmalloc-cli-final-stage-audit.json`.

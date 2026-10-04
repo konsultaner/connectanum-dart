@@ -48,6 +48,55 @@ void main() {
       await harness?.close();
     });
 
+    for (final transport in WampTransport.values) {
+      for (final implementation in WampClientImplementation.values) {
+        for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+          for (final peer in [null, WampSerializer.cbor]) {
+            test(
+              'FlatBuffers benchmark ${transport.name} ${implementation.name} '
+              '${mode.name} peer=${peer?.name ?? 'flatbuffers'}',
+              () async {
+                final scenario = WampScenario(
+                  transport: transport,
+                  clientImplementation: implementation,
+                  serializer: WampSerializer.flatbuffers,
+                  peerSerializer: peer,
+                  mode: mode,
+                  uri: mode == WampMode.rpc
+                      ? 'bench.rpc.echo'
+                      : 'bench.flatbuffers.topic',
+                  iterations: 2,
+                  concurrency: 1,
+                  inFlightPerSession: 2,
+                  peerCount: mode == WampMode.pubsub ? 2 : 1,
+                  payloadBytes: 10 * 1024,
+                );
+                final samples =
+                    implementation == WampClientImplementation.native
+                    ? await harness!.runNative(scenario)
+                    : await harness!.runner.run(scenario);
+                expect(samples, hasLength(2));
+                expect(
+                  samples.every((sample) => sample.requestBytes == 10 * 1024),
+                  isTrue,
+                );
+                final expectedResponse =
+                    10 * 1024 * (mode == WampMode.pubsub ? 2 : 1);
+                expect(
+                  samples.every(
+                    (sample) => sample.responseBytes == expectedResponse,
+                  ),
+                  isTrue,
+                );
+              },
+              skip: skipReason,
+              timeout: const Timeout(Duration(seconds: 45)),
+            );
+          }
+        }
+      }
+    }
+
     for (final webSocket in [false, true]) {
       for (final wireSerializer in ['json', 'msgpack', 'cbor']) {
         test(

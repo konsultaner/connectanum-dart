@@ -6,7 +6,57 @@ The repo already had the right message-layer hook for end-to-end payload
 protection: `ppt_scheme = "wamp"`. This note captured the boundary for the
 first implementation and now records the resulting phase-1 prototype.
 
-## Current FlatBuffers milestone checkpoint, 2026-10-04
+## Working typed profile stage, 2026-10-04
+
+An uncommitted candidate implements the Connectanum-local v2 wamp/flatbuffers
+profile in portable XSalsa20-Poly1305 and AES-256-GCM providers. Cipher/key machinery
+is shared with CBOR-v1 without inheriting its plaintext framing. The typed input
+is exactly one Uint8List, with no keyword container or application-schema/root
+validation; empty and CBOR-shaped bytes remain valid. The ciphertext limit includes
+nonce/tag (40/28 bytes respectively); the outer frame/transport may impose a smaller
+limit. Preflight precedes default/key mutation. Exact required Session profile and
+provider matching is tested. This version is a Connectanum contract, not a claimed
+WAMP-standard E2EE version or authentication of all surrounding profile metadata.
+
+The new optional Rust consume-format-wide API explicitly separates CBOR PPT (0)
+from whole typed plaintext (1). Unknown formats preserve the handle. A valid
+consume is one-shot even on authentication failure, returning no plaintext owner
+on failure. Dart's cache now includes format and rejects a different-format read
+after consumption. Older artifacts preserve CBOR behavior and return no typed
+consuming capability; typed callers must use generic authenticated raw-byte
+decryption instead of the CBOR heuristic. Typed consuming output is read-only,
+with its owner anchored to backing external typed data and its returned wrapper.
+
+Focused core VM 105, client VM 82, core Chrome JS/WASM 22, Session Chrome JS/WASM
+42, Rust ffi-test 260 and native runtime 84 cases pass. The failed root-directory
+browser invocation and initial eight runtime read-only failures are retained.
+The subsequent native checkpoint below adds typed-provider classes, generic
+fallback parity, file-path rejection and focused derived-view/GC evidence.
+Fresh canonical/mutation checks remain required under #101/#102. Existing native encrypt/decrypt generic helpers
+copy input into native storage and copy output back to Dart; those costs still
+need separate transformation/copy accounting under #103. Focused success is not
+a complete performance or milestone result. Evidence/dispositions:
+/tmp/connectanum-flatbuffers-typed-e2ee-companion-decisions.json.
+
+The native `NativeWampFlatBuffersXsalsa20Poly1305Provider` and
+`NativeWampFlatBuffersAes256GcmProvider` are sibling implementations of v2, sharing
+key/cipher logic with CBOR-v1. They bound raw typed input before policy/default
+side effects, explicitly select typed consuming decryption, and fall back to
+generic authenticated whole-byte decryption on older native artifacts. Native
+file-segment framing remains CBOR-v1 and is rejected before mutation by v2.
+
+Frozen focused checks pass Rust/FFI 261, providers 25, runtime 92 and Session 44;
+Session also passes Chrome JS/WASM. The old d26581c3 production artifact passes 24
+provider and eight receive fallback contracts. The excluded production-artifact
+case uses a test-only native owner registry. For both ciphers, that separate-process
+probe collects incoming/provider wrappers, releases abandoned plaintext, preserves
+a nested read-only ByteData view and releases its owner when the final view is gone.
+This proves the tested synchronous-decrypt view lifetime, not asynchronous send
+lifetimes or zero-copy encryption. Explicit owner release makes all derived views
+unusable; callers needing retained views should use automatic finalization.
+Proof: /tmp/connectanum-flatbuffers-typed-native-owner-oracle-verification.json.
+
+## Previous integrated FlatBuffers milestone checkpoint, 2026-10-04
 
 The integrated candidate supports an outer FlatBuffers WAMP envelope and
 unencrypted, single-buffer typed FlatBuffers PPT. Built-in encrypted payload

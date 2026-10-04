@@ -31,7 +31,9 @@
     "testTimeoutSeconds": 30
   },
   "client-session-vm": {
-    "sources": ["packages/connectanum_client/lib/src/protocol/session.dart"],
+    "sources": [
+      "packages/connectanum_client/lib/src/protocol/session.dart"
+    ],
     "tests": [
       "packages/connectanum_client/test/client_test.dart",
       "packages/connectanum_client/test/client_on_transport_io_events_test.dart",
@@ -53,7 +55,9 @@
     "testTimeoutSeconds": 30
   },
   "client-session-web": {
-    "sources": ["packages/connectanum_client/lib/src/protocol/session.dart"],
+    "sources": [
+      "packages/connectanum_client/lib/src/protocol/session.dart"
+    ],
     "tests": [
       "packages/connectanum_client/test/client_test.dart",
       "packages/connectanum_client/test/meta_state_cache_test.dart",
@@ -73,17 +77,27 @@
     "testRoot": "packages/connectanum_client"
   },
   "client-meta-cache-vm": {
-    "sources": ["packages/connectanum_client/lib/src/meta/meta_state_cache.dart"],
-    "tests": ["packages/connectanum_client/test/meta_state_cache_test.dart"]
+    "sources": [
+      "packages/connectanum_client/lib/src/meta/meta_state_cache.dart"
+    ],
+    "tests": [
+      "packages/connectanum_client/test/meta_state_cache_test.dart"
+    ]
   },
   "client-meta-cache-web": {
-    "sources": ["packages/connectanum_client/lib/src/meta/meta_state_cache.dart"],
-    "tests": ["packages/connectanum_client/test/meta_state_cache_test.dart"],
+    "sources": [
+      "packages/connectanum_client/lib/src/meta/meta_state_cache.dart"
+    ],
+    "tests": [
+      "packages/connectanum_client/test/meta_state_cache_test.dart"
+    ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_client"
   },
   "core-scram-worker-web": {
-    "sources": ["packages/connectanum_core/lib/src/authentication/scram_key_derivation_web.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/authentication/scram_key_derivation_web.dart"
+    ],
     "tests": [
       "packages/connectanum_core/test/authentication/scram_worker_boundary_test.dart",
       "packages/connectanum_core/test/authentication/scram_key_derivation_web_test.dart",
@@ -94,29 +108,51 @@
     "testRoot": "packages/connectanum_core"
   },
   "core-scram-request-vm": {
-    "sources": ["packages/connectanum_core/lib/src/authentication/scram_key_derivation.dart"],
-    "tests": ["packages/connectanum_core/test/authentication/scram_key_derivation_request_test.dart"]
+    "sources": [
+      "packages/connectanum_core/lib/src/authentication/scram_key_derivation.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/authentication/scram_key_derivation_request_test.dart"
+    ]
   },
   "core-scram-request-web": {
-    "sources": ["packages/connectanum_core/lib/src/authentication/scram_key_derivation.dart"],
-    "tests": ["packages/connectanum_core/test/authentication/scram_key_derivation_request_test.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/authentication/scram_key_derivation.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/authentication/scram_key_derivation_request_test.dart"
+    ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
   },
   "client-mcp-http-vm": {
-    "sources": ["packages/connectanum_client/lib/src/mcp/streamable_http_client.dart"],
-    "tests": ["packages/connectanum_client/test/mcp"]
+    "sources": [
+      "packages/connectanum_client/lib/src/mcp/streamable_http_client.dart"
+    ],
+    "tests": [
+      "packages/connectanum_client/test/mcp"
+    ]
   },
   "client-mcp-discovery-vm": {
-    "sources": ["packages/connectanum_client/lib/src/mcp/authorization_discovery.dart"],
-    "tests": ["packages/connectanum_client/test/mcp"]
+    "sources": [
+      "packages/connectanum_client/lib/src/mcp/authorization_discovery.dart"
+    ],
+    "tests": [
+      "packages/connectanum_client/test/mcp"
+    ]
   },
   "client-oauth-token-exchange-vm": {
-    "sources": ["packages/connectanum_client/lib/src/mcp/oauth_token_exchange.dart"],
-    "tests": ["packages/connectanum_client/test/mcp"]
+    "sources": [
+      "packages/connectanum_client/lib/src/mcp/oauth_token_exchange.dart"
+    ],
+    "tests": [
+      "packages/connectanum_client/test/mcp"
+    ]
   },
   "router-http-context-vm": {
-    "sources": ["packages/connectanum_router/lib/src/router/http/http_context.dart"],
+    "sources": [
+      "packages/connectanum_router/lib/src/router/http/http_context.dart"
+    ],
     "tests": [
       "packages/connectanum_router/test/http_context_regression_test.dart",
       "packages/connectanum_router/test/native_http_request_body_test.dart",
@@ -151,7 +187,9 @@
     "testTimeoutSeconds": 30
   },
   "router-http-auth-vm": {
-    "sources": ["packages/connectanum_router/lib/src/router/auth/http_auth_provider.dart"],
+    "sources": [
+      "packages/connectanum_router/lib/src/router/auth/http_auth_provider.dart"
+    ],
     "tests": [
       "packages/connectanum_router/test/http_auth_provider_test.dart",
       "packages/connectanum_router/test/http_auth_provider_regression_test.dart",
@@ -163,14 +201,18 @@
     ]
   },
   "router-remote-authenticator-vm": {
-    "sources": ["packages/connectanum_router/lib/src/router/auth/remote_authenticator.dart"],
+    "sources": [
+      "packages/connectanum_router/lib/src/router/auth/remote_authenticator.dart"
+    ],
     "tests": [
       "packages/connectanum_router/test/remote_authenticator_test.dart",
       "packages/connectanum_router/test/router_worker_auth_test.dart"
     ]
   },
   "router-config-loader-vm": {
-    "sources": ["packages/connectanum_router/lib/src/router/config/router_config_loader.dart"],
+    "sources": [
+      "packages/connectanum_router/lib/src/router/config/router_config_loader.dart"
+    ],
     "tests": [
       "packages/connectanum_router/test/router_config_loader_test.dart",
       "packages/connectanum_router/test/router_config_loader_validation_test.dart",
@@ -184,7 +226,9 @@
     ]
   },
   "router-remote-wamp-vm": {
-    "sources": ["packages/connectanum_router/lib/src/router/auth/remote_wamp_delegate.dart"],
+    "sources": [
+      "packages/connectanum_router/lib/src/router/auth/remote_wamp_delegate.dart"
+    ],
     "tests": [
       "packages/connectanum_router/test/remote_wamp_delegate_test.dart",
       "packages/connectanum_router/test/remote_wamp_delegate_wire_test.dart",
@@ -206,7 +250,9 @@
     "testTimeoutSeconds": 30
   },
   "bench-remote-auth-native": {
-    "sources": ["packages/connectanum_bench/lib/src/remote_auth_bench_harness.dart"],
+    "sources": [
+      "packages/connectanum_bench/lib/src/remote_auth_bench_harness.dart"
+    ],
     "tests": [
       "packages/connectanum_bench/test/remote_auth_bench_harness_test.dart",
       "packages/connectanum_bench/test/remote_auth_bench_harness_integration_test.dart"
@@ -224,8 +270,12 @@
     "testTimeoutSeconds": 30
   },
   "bench-wamp-workload-vm": {
-    "sources": ["packages/connectanum_bench/lib/src/wamp_workload_runner.dart"],
-    "tests": ["packages/connectanum_bench/test/support/wamp_workload_mutation_suite.dart"],
+    "sources": [
+      "packages/connectanum_bench/lib/src/wamp_workload_runner.dart"
+    ],
+    "tests": [
+      "packages/connectanum_bench/test/support/wamp_workload_mutation_suite.dart"
+    ],
     "supportFiles": [
       "packages/connectanum_bench/test/wamp_workload_runner_test.dart",
       "packages/connectanum_bench/test/wamp_workload_failure_regression_test.dart",
@@ -254,7 +304,9 @@
     "requiresNativeLibrary": true
   },
   "bench-runner-vm": {
-    "sources": ["packages/connectanum_bench/lib/src/benchmark_runner.dart"],
+    "sources": [
+      "packages/connectanum_bench/lib/src/benchmark_runner.dart"
+    ],
     "tests": [
       "packages/connectanum_bench/test/support/benchmark_runner_mutation_suite.dart",
       "packages/connectanum_bench/test/benchmark_runner_build_test.dart",
@@ -272,7 +324,9 @@
     "testTimeoutSeconds": 10
   },
   "bench-worker-vm": {
-    "sources": ["packages/connectanum_bench/lib/src/native_wamp_worker.dart"],
+    "sources": [
+      "packages/connectanum_bench/lib/src/native_wamp_worker.dart"
+    ],
     "tests": [
       "packages/connectanum_bench/test/native_wamp_worker_test.dart",
       "packages/connectanum_bench/test/native_wamp_worker_lifecycle_test.dart"
@@ -281,7 +335,9 @@
     "testTimeoutSeconds": 10
   },
   "bench-http-auth-vm": {
-    "sources": ["packages/connectanum_bench/lib/src/http_auth_bench_harness.dart"],
+    "sources": [
+      "packages/connectanum_bench/lib/src/http_auth_bench_harness.dart"
+    ],
     "tests": [
       "packages/connectanum_bench/test/http_auth_bench_harness_test.dart",
       "packages/connectanum_bench/test/http_auth_bench_harness_boundaries_test.dart",
@@ -293,7 +349,9 @@
     "testRoot": "packages/connectanum_bench"
   },
   "bench-transport-targets-vm": {
-    "sources": ["packages/connectanum_bench/lib/src/wamp_transport_targets.dart"],
+    "sources": [
+      "packages/connectanum_bench/lib/src/wamp_transport_targets.dart"
+    ],
     "tests": [
       "packages/connectanum_bench/test/wamp_transport_targets_test.dart",
       "packages/connectanum_bench/test/wamp_transport_targets_boundaries_test.dart",
@@ -302,8 +360,12 @@
     "testRoot": "packages/connectanum_bench"
   },
   "bench-http-stream-vm": {
-    "sources": ["packages/connectanum_bench/lib/src/http_stream_handler.dart"],
-    "tests": ["packages/connectanum_bench/test/support/http_stream_mutation_suite.dart"],
+    "sources": [
+      "packages/connectanum_bench/lib/src/http_stream_handler.dart"
+    ],
+    "tests": [
+      "packages/connectanum_bench/test/support/http_stream_mutation_suite.dart"
+    ],
     "supportFiles": [
       "packages/connectanum_bench/test/http_stream_handler_test.dart",
       "packages/connectanum_bench/test/http_stream_diagnostics_regression_test.dart",
@@ -312,19 +374,30 @@
     "testRoot": "packages/connectanum_bench"
   },
   "bench-config": {
-    "sources": ["packages/connectanum_bench/lib/src/benchmark_config.dart"],
+    "sources": [
+      "packages/connectanum_bench/lib/src/benchmark_config.dart"
+    ],
     "tests": [
       "packages/connectanum_bench/test/benchmark_config_test.dart",
       "packages/connectanum_bench/test/benchmark_config_regression_test.dart"
     ]
   },
   "router-authorization": {
-    "sources": ["packages/connectanum_router/lib/src/router/auth/authorization.dart"],
-    "tests": ["packages/connectanum_router/test/authorization_test.dart", "packages/connectanum_router/test/authorization_regression_test.dart"]
+    "sources": [
+      "packages/connectanum_router/lib/src/router/auth/authorization.dart"
+    ],
+    "tests": [
+      "packages/connectanum_router/test/authorization_test.dart",
+      "packages/connectanum_router/test/authorization_regression_test.dart"
+    ]
   },
   "router-settings-vm": {
-    "sources": ["packages/connectanum_router/lib/src/router/config/router_settings.dart"],
-    "supportFiles": ["examples/quickstart/router.yaml"],
+    "sources": [
+      "packages/connectanum_router/lib/src/router/config/router_settings.dart"
+    ],
+    "supportFiles": [
+      "examples/quickstart/router.yaml"
+    ],
     "tests": [
       "packages/connectanum_router/test/router_settings_regression_test.dart",
       "packages/connectanum_router/test/router_settings_open_metrics_regression_test.dart",
@@ -332,8 +405,12 @@
     ]
   },
   "core-base64-vm": {
-    "sources": ["packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"],
-    "tests": ["packages/connectanum_core/test/serializer/json/binary_codec_test.dart"]
+    "sources": [
+      "packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/serializer/json/binary_codec_test.dart"
+    ]
   },
   "core-pem-pkcs8-vm": {
     "sources": [
@@ -344,7 +421,9 @@
       "packages/connectanum_core/test/authentication/cryptosign_authentication_test.dart",
       "packages/connectanum_core/test/authentication/cryptosign/key_file_boundaries_test.dart"
     ],
-    "supportFiles": ["packages/connectanum_core/test/authentication/cryptosign/keys.dart"]
+    "supportFiles": [
+      "packages/connectanum_core/test/authentication/cryptosign/keys.dart"
+    ]
   },
   "core-pem-pkcs8-web": {
     "sources": [
@@ -355,7 +434,9 @@
       "packages/connectanum_core/test/authentication/cryptosign_authentication_test.dart",
       "packages/connectanum_core/test/authentication/cryptosign/key_file_boundaries_test.dart"
     ],
-    "supportFiles": ["packages/connectanum_core/test/authentication/cryptosign/keys.dart"],
+    "supportFiles": [
+      "packages/connectanum_core/test/authentication/cryptosign/keys.dart"
+    ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
   },
@@ -561,15 +642,21 @@
     "testRoot": "packages/connectanum_core"
   },
   "core-mcp-completion-vm": {
-    "sources": ["packages/connectanum_core/lib/src/mcp/completion.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/mcp/completion.dart"
+    ],
     "tests": [
       "packages/connectanum_core/test/mcp_completion_test.dart",
       "packages/connectanum_core/test/mcp_completion_regression_test.dart"
     ]
   },
   "core-mcp-completion-web": {
-    "sources": ["packages/connectanum_core/lib/src/mcp/completion.dart"],
-    "tests": ["packages/connectanum_core/test/support/completion_mutation_suite.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/mcp/completion.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/support/completion_mutation_suite.dart"
+    ],
     "supportFiles": [
       "packages/connectanum_core/test/mcp_completion_test.dart",
       "packages/connectanum_core/test/mcp_completion_regression_test.dart"
@@ -578,11 +665,17 @@
     "testRoot": "packages/connectanum_core"
   },
   "router-metrics-vm": {
-    "sources": ["packages/connectanum_router/lib/src/router/models/router_metrics.dart"],
-    "tests": ["packages/connectanum_router/test/router_metrics_model_test.dart"]
+    "sources": [
+      "packages/connectanum_router/lib/src/router/models/router_metrics.dart"
+    ],
+    "tests": [
+      "packages/connectanum_router/test/router_metrics_model_test.dart"
+    ]
   },
   "router-state-store-vm": {
-    "sources": ["packages/connectanum_router/lib/src/router/state/store.dart"],
+    "sources": [
+      "packages/connectanum_router/lib/src/router/state/store.dart"
+    ],
     "tests": [
       "packages/connectanum_router/test/state/pattern_matching_test.dart",
       "packages/connectanum_router/test/state/retry_deduplication_test.dart",
@@ -591,14 +684,26 @@
     ]
   },
   "client-message-binding-vm": {
-    "sources": ["packages/connectanum_client/lib/src/transport/native/message_binding.dart"],
-    "tests": ["packages/connectanum_client/test/transport/native/message_binding_test.dart"],
-    "supportFiles": ["packages/connectanum_core/test/support/native_role_contract.dart"]
+    "sources": [
+      "packages/connectanum_client/lib/src/transport/native/message_binding.dart"
+    ],
+    "tests": [
+      "packages/connectanum_client/test/transport/native/message_binding_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_core/test/support/native_role_contract.dart"
+    ]
   },
   "router-message-binding-vm": {
-    "sources": ["packages/connectanum_router/lib/src/native/message_binding.dart"],
-    "tests": ["packages/connectanum_router/test/native/message_binding_test.dart"],
-    "supportFiles": ["packages/connectanum_core/test/support/native_role_contract.dart"]
+    "sources": [
+      "packages/connectanum_router/lib/src/native/message_binding.dart"
+    ],
+    "tests": [
+      "packages/connectanum_router/test/native/message_binding_test.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_core/test/support/native_role_contract.dart"
+    ]
   },
   "client-native-transports-vm": {
     "sources": [
@@ -619,7 +724,9 @@
       "packages/connectanum_client/test/transport/native/support/e2ee_message_cases.dart",
       "native/bench/bench_tls.crt",
       "native/bench/bench_tls.key",
-      "packages/connectanum_client/test/transport/native/support/native_frame_gc_probe.dart"
+      "packages/connectanum_client/test/transport/native/support/native_frame_gc_probe.dart",
+      "packages/connectanum_client/test/transport/native/support/deferred_e2ee_message_cases.dart",
+      "packages/connectanum_client/test/transport/native/support/deferred_e2ee_gc_probe.dart"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": true,
@@ -647,12 +754,16 @@
       "packages/connectanum_client/test/transport/native/support/file_digest_cases.dart",
       "packages/connectanum_client/test/transport/native/support/e2ee_message_cases.dart",
       "packages/connectanum_client/test/transport/native/support/owned_buffer_gc_probe.dart",
+      "packages/connectanum_client/test/transport/native/support/typed_e2ee_provider_cases.dart",
+      "packages/connectanum_client/test/transport/native/support/typed_e2ee_gc_probe.dart",
       "packages/connectanum_client/test/transport/native/support/owned_buffer_abi_fixture.c",
       "packages/connectanum_client/test/transport/native/support/external_lease_actor_fixture.c",
       "packages/connectanum_client/test/transport/native/support/external_lease_gc_probe.dart",
       "packages/connectanum_client/test/transport/native/support/write_receipt_gc_probe.dart",
       "native/bench/bench_tls.crt",
-      "native/bench/bench_tls.key"
+      "native/bench/bench_tls.key",
+      "packages/connectanum_client/test/transport/native/support/deferred_e2ee_message_cases.dart",
+      "packages/connectanum_client/test/transport/native/support/deferred_e2ee_gc_probe.dart"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": true,
@@ -683,7 +794,9 @@
     "isolateTestFiles": true
   },
   "router-binding-vm": {
-    "sources": ["packages/connectanum_router/lib/src/router/router_instance/router_binding.dart"],
+    "sources": [
+      "packages/connectanum_router/lib/src/router/router_instance/router_binding.dart"
+    ],
     "tests": [
       "packages/connectanum_router/test/router_runtime_test.dart",
       "packages/connectanum_router/test/router_metrics_service_test.dart"
@@ -709,10 +822,19 @@
     "testTimeoutSeconds": 30
   },
   "router-binding-drain-vm": {
-    "sources": ["packages/connectanum_router/lib/src/router/router_instance/router_binding.dart"],
-    "tests": ["packages/connectanum_router/test/router_runtime_test.dart"],
+    "sources": [
+      "packages/connectanum_router/lib/src/router/router_instance/router_binding.dart"
+    ],
+    "tests": [
+      "packages/connectanum_router/test/router_runtime_test.dart"
+    ],
     "testName": "^Router start drain",
-    "mutationLineRanges": [[1100, 1257]],
+    "mutationLineRanges": [
+      [
+        1100,
+        1257
+      ]
+    ],
     "supportFiles": [
       "packages/connectanum_router/test/support/flatbuffers_worker_ack_cases.dart",
       "packages/connectanum_router/test/support/http_edge_cases.dart",
@@ -734,8 +856,12 @@
     "testTimeoutSeconds": 30
   },
   "core-invocation-vm": {
-    "sources": ["packages/connectanum_core/lib/src/message/invocation.dart"],
-    "tests": ["packages/connectanum_core/test/support/invocation_mutation_suite.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/invocation.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/support/invocation_mutation_suite.dart"
+    ],
     "supportFiles": [
       "packages/connectanum_core/test/message_invocation_test.dart",
       "packages/connectanum_core/test/message_invocation_transcoding_test.dart",
@@ -747,8 +873,12 @@
     "testRoot": "packages/connectanum_core"
   },
   "core-invocation-web": {
-    "sources": ["packages/connectanum_core/lib/src/message/invocation.dart"],
-    "tests": ["packages/connectanum_core/test/support/invocation_mutation_suite.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/invocation.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/support/invocation_mutation_suite.dart"
+    ],
     "supportFiles": [
       "packages/connectanum_core/test/message_invocation_test.dart",
       "packages/connectanum_core/test/message_invocation_transcoding_test.dart",
@@ -761,7 +891,9 @@
     "testRoot": "packages/connectanum_core"
   },
   "core-subscribed-vm": {
-    "sources": ["packages/connectanum_core/lib/src/message/subscribed.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/subscribed.dart"
+    ],
     "tests": [
       "packages/connectanum_core/test/support/subscribed_mutation_suite.dart",
       "packages/connectanum_core/test/message_stream_owner_close_test.dart"
@@ -773,7 +905,9 @@
     "testRoot": "packages/connectanum_core"
   },
   "core-subscribed-web": {
-    "sources": ["packages/connectanum_core/lib/src/message/subscribed.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/subscribed.dart"
+    ],
     "tests": [
       "packages/connectanum_core/test/support/subscribed_mutation_suite.dart",
       "packages/connectanum_core/test/message_stream_owner_close_test.dart"
@@ -790,7 +924,9 @@
       "packages/connectanum_core/lib/src/message/custom_fields.dart",
       "packages/connectanum_core/lib/src/message/details.dart"
     ],
-    "tests": ["packages/connectanum_core/test/support/metadata_mutation_suite.dart"],
+    "tests": [
+      "packages/connectanum_core/test/support/metadata_mutation_suite.dart"
+    ],
     "supportFiles": [
       "packages/connectanum_core/test/custom_fields_test.dart",
       "packages/connectanum_core/test/custom_fields_regression_test.dart",
@@ -805,7 +941,9 @@
       "packages/connectanum_core/lib/src/message/custom_fields.dart",
       "packages/connectanum_core/lib/src/message/details.dart"
     ],
-    "tests": ["packages/connectanum_core/test/support/metadata_mutation_suite.dart"],
+    "tests": [
+      "packages/connectanum_core/test/support/metadata_mutation_suite.dart"
+    ],
     "supportFiles": [
       "packages/connectanum_core/test/custom_fields_test.dart",
       "packages/connectanum_core/test/custom_fields_regression_test.dart",
@@ -817,14 +955,18 @@
     "testRoot": "packages/connectanum_core"
   },
   "core-registered-vm": {
-    "sources": ["packages/connectanum_core/lib/src/message/registered.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/registered.dart"
+    ],
     "tests": [
       "packages/connectanum_core/test/message_registered_regression_test.dart",
       "packages/connectanum_core/test/message_stream_owner_close_test.dart"
     ]
   },
   "core-registered-web": {
-    "sources": ["packages/connectanum_core/lib/src/message/registered.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/registered.dart"
+    ],
     "tests": [
       "packages/connectanum_core/test/message_registered_regression_test.dart",
       "packages/connectanum_core/test/message_stream_owner_close_test.dart"
@@ -833,15 +975,21 @@
     "testRoot": "packages/connectanum_core"
   },
   "core-event-vm": {
-    "sources": ["packages/connectanum_core/lib/src/message/event.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/event.dart"
+    ],
     "tests": [
       "packages/connectanum_core/test/message_lazy_payload_regression_test.dart",
       "packages/connectanum_core/test/message_subscribed_test.dart"
     ]
   },
   "core-lazy-vm": {
-    "sources": ["packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart"],
-    "tests": ["packages/connectanum_core/test/support/lazy_payload_vm_mutation_suite.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/support/lazy_payload_vm_mutation_suite.dart"
+    ],
     "supportFiles": [
       "packages/connectanum_core/test/message_payload_contract_test.dart",
       "packages/connectanum_core/test/message_lazy_payload_regression_test.dart",
@@ -851,8 +999,12 @@
     ]
   },
   "core-lazy-web": {
-    "sources": ["packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart"],
-    "tests": ["packages/connectanum_core/test/support/lazy_payload_mutation_suite.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/support/lazy_payload_mutation_suite.dart"
+    ],
     "supportFiles": [
       "packages/connectanum_core/test/message_payload_contract_test.dart",
       "packages/connectanum_core/test/message_lazy_payload_regression_test.dart",
@@ -864,40 +1016,71 @@
     "testRoot": "packages/connectanum_core"
   },
   "core-e2ee-vm": {
-    "sources": ["packages/connectanum_core/lib/src/message/e2ee_payload.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/e2ee_payload.dart"
+    ],
     "tests": [
       "packages/connectanum_core/test/message_e2ee_payload_test.dart",
-      "packages/connectanum_core/test/message_e2ee_regression_test.dart"
+      "packages/connectanum_core/test/message_e2ee_regression_test.dart",
+      "packages/connectanum_core/test/message_flatbuffers_e2ee_test.dart"
     ],
-    "supportFiles": ["packages/connectanum_core/test/support/e2ee_assertions.dart"]
+    "supportFiles": [
+      "packages/connectanum_core/test/support/e2ee_assertions.dart"
+    ]
   },
   "core-e2ee-web": {
-    "sources": ["packages/connectanum_core/lib/src/message/e2ee_payload.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/message/e2ee_payload.dart"
+    ],
     "tests": [
       "packages/connectanum_core/test/message_e2ee_payload_test.dart",
-      "packages/connectanum_core/test/message_e2ee_regression_test.dart"
+      "packages/connectanum_core/test/message_e2ee_regression_test.dart",
+      "packages/connectanum_core/test/message_flatbuffers_e2ee_test.dart"
     ],
-    "supportFiles": ["packages/connectanum_core/test/support/e2ee_assertions.dart"],
+    "supportFiles": [
+      "packages/connectanum_core/test/support/e2ee_assertions.dart"
+    ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
   },
   "core-base64-web": {
-    "sources": ["packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"],
-    "tests": ["packages/connectanum_core/test/serializer/json/binary_codec_test.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/serializer/json/binary_codec.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/serializer/json/binary_codec_test.dart"
+    ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
   },
   "auth-server": {
-    "sources": ["packages/connectanum_auth_server/bin/auth_server.dart", "packages/connectanum_auth_server/lib/src/auth_server.dart", "packages/connectanum_auth_server/lib/src/pending_transaction.dart", "packages/connectanum_auth_server/lib/src/selection.dart", "packages/connectanum_auth_server/lib/src/wamp_procedures_impl.dart"],
-    "tests": ["packages/connectanum_auth_server/test"]
+    "sources": [
+      "packages/connectanum_auth_server/bin/auth_server.dart",
+      "packages/connectanum_auth_server/lib/src/auth_server.dart",
+      "packages/connectanum_auth_server/lib/src/pending_transaction.dart",
+      "packages/connectanum_auth_server/lib/src/selection.dart",
+      "packages/connectanum_auth_server/lib/src/wamp_procedures_impl.dart"
+    ],
+    "tests": [
+      "packages/connectanum_auth_server/test"
+    ]
   },
   "auth-server-cli": {
-    "sources": ["packages/connectanum_auth_server/bin/auth_server.dart"],
-    "tests": ["packages/connectanum_auth_server/test/auth_server_cli_test.dart"]
+    "sources": [
+      "packages/connectanum_auth_server/bin/auth_server.dart"
+    ],
+    "tests": [
+      "packages/connectanum_auth_server/test/auth_server_cli_test.dart"
+    ]
   },
   "auth-transactions": {
-    "sources": ["packages/connectanum_auth_server/lib/src/pending_transaction.dart", "packages/connectanum_auth_server/lib/src/selection.dart"],
-    "tests": ["packages/connectanum_auth_server/test"]
+    "sources": [
+      "packages/connectanum_auth_server/lib/src/pending_transaction.dart",
+      "packages/connectanum_auth_server/lib/src/selection.dart"
+    ],
+    "tests": [
+      "packages/connectanum_auth_server/test"
+    ]
   },
   "mcp": {
     "sources": [
@@ -916,7 +1099,9 @@
       "packages/connectanum_mcp/lib/src/tools/wamp_tool_delegate.dart",
       "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart"
     ],
-    "tests": ["packages/connectanum_mcp/test"]
+    "tests": [
+      "packages/connectanum_mcp/test"
+    ]
   },
   "mcp-library": {
     "sources": [
@@ -934,28 +1119,40 @@
       "packages/connectanum_mcp/lib/src/tools/wamp_tool_delegate.dart",
       "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart"
     ],
-    "tests": ["packages/connectanum_mcp/test"]
+    "tests": [
+      "packages/connectanum_mcp/test"
+    ]
   },
   "mcp-cli": {
-    "sources": ["packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"],
-    "tests": ["packages/connectanum_mcp/test/cli"]
+    "sources": [
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"
+    ],
+    "tests": [
+      "packages/connectanum_mcp/test/cli"
+    ]
   },
   "client-installer": {
     "sources": [
       "packages/connectanum_client/lib/src/native_release_installer.dart",
       "packages/connectanum_client/tool/install_native.dart"
     ],
-    "tests": ["packages/connectanum_client/test/hook"]
+    "tests": [
+      "packages/connectanum_client/test/hook"
+    ]
   },
   "router-installer": {
     "sources": [
       "packages/connectanum_router/lib/src/native_release_installer.dart",
       "packages/connectanum_router/tool/install_native.dart"
     ],
-    "tests": ["packages/connectanum_router/test/hook"]
+    "tests": [
+      "packages/connectanum_router/test/hook"
+    ]
   },
   "mcp-cli-native": {
-    "sources": ["packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"],
+    "sources": [
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"
+    ],
     "tests": [
       "packages/connectanum_mcp/test/cli",
       "packages/connectanum_router/test/router_hosted_cli_integration_test.dart"
@@ -970,9 +1167,15 @@
     "testTimeoutSeconds": 20
   },
   "core-msgpack-vm": {
-    "sources": ["packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"],
-    "supportFiles": ["packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart"],
-    "tests": ["packages/connectanum_core/test/serializer/msgpack/codec_test.dart"]
+    "sources": [
+      "packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/serializer/msgpack/codec_test.dart"
+    ]
   },
   "app-client-vm": {
     "sources": [
@@ -1066,7 +1269,9 @@
       "examples/wamp_app/shared/lib/src/protocol.dart",
       "examples/wamp_app/shared/lib/src/server_endpoint.dart"
     ],
-    "tests": ["examples/wamp_app/shared/test"],
+    "tests": [
+      "examples/wamp_app/shared/test"
+    ],
     "testRoot": "examples/wamp_app/shared"
   },
   "app-server-push-vm": {
@@ -1095,9 +1300,16 @@
     "testRoot": "examples/wamp_app/server"
   },
   "core-msgpack-web": {
-    "sources": ["packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"],
-    "supportFiles": ["packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart"],
-    "tests": ["packages/connectanum_core/test/serializer/msgpack/codec_test.dart", "packages/connectanum_core/test/serializer/msgpack/codec_fallback_web_test.dart"],
+    "sources": [
+      "packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"
+    ],
+    "supportFiles": [
+      "packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart"
+    ],
+    "tests": [
+      "packages/connectanum_core/test/serializer/msgpack/codec_test.dart",
+      "packages/connectanum_core/test/serializer/msgpack/codec_fallback_web_test.dart"
+    ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
   }

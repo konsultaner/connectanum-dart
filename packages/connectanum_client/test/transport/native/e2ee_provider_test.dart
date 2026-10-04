@@ -1,14 +1,59 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
+import 'package:connectanum_core/cbor_serializer.dart' as cbor;
 import 'package:test/test.dart';
 
 import '../../test_support/native_runtime_support.dart';
 
+part 'support/typed_e2ee_provider_cases.dart';
+
 void main() {
   final nativeClientRuntimeUnavailableReason = nativeClientRuntimeSkipReason();
+
+  _nativeTypedProviderCases(nativeClientRuntimeUnavailableReason);
+
+  test(
+    'typed plaintext owners survive derived views and release after GC',
+    () async {
+      final source = await Isolate.resolvePackageUri(
+        Uri.parse('package:connectanum_client/connectanum.dart'),
+      );
+      final result = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          '--enable-vm-service=0',
+          '--disable-service-auth-codes',
+          'run',
+          source!
+              .resolve(
+                '../test/transport/native/support/typed_e2ee_gc_probe.dart',
+              )
+              .toFilePath(),
+        ],
+        environment: {
+          'CONNECTANUM_NATIVE_LIB':
+              Platform.environment['CONNECTANUM_NATIVE_LIB']!,
+        },
+      );
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+        expect(
+          result.stdout,
+          contains(
+            'native-typed-e2ee-gc: $cipher derived read-only view retained then released storage',
+          ),
+        );
+      }
+    },
+    skip: nativeClientRuntimeUnavailableReason,
+    tags: 'ffi-test-owner-oracle',
+    timeout: const Timeout(Duration(seconds: 40)),
+  );
 
   group(
     'NativeWampCborXsalsa20Poly1305Provider',

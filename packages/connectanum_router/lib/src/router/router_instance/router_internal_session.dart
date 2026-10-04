@@ -411,13 +411,16 @@ class RouterSession {
           final decoder = _nativePayloadDecoder ??= NativeMessageHandleDecoder(
             libraryPath: runtime.libraryPathHint,
           );
-          final serializer = switch ((transferredPayload
-              as Map)[_transferredLazyPayloadEncodingKey]) {
-            'json' => NativeMessageSerializer.json,
-            'messagePack' => NativeMessageSerializer.messagePack,
-            'cbor' => NativeMessageSerializer.cbor,
-            _ => throw StateError('Unknown native CALL payload encoding'),
-          };
+          final nativePayload = transferredPayload as Map;
+          final serializer =
+              switch (nativePayload[_transferredNativeSerializerKey] ??
+              nativePayload[_transferredLazyPayloadEncodingKey]) {
+                'json' => NativeMessageSerializer.json,
+                'messagePack' => NativeMessageSerializer.messagePack,
+                'cbor' => NativeMessageSerializer.cbor,
+                'flatbuffers' => NativeMessageSerializer.flatbuffers,
+                _ => throw StateError('Unknown native CALL payload encoding'),
+              };
           ownedNativePayload = decoder.readRetainedCallPayload(
             _transferredNativeCallHandle(transferredPayload) ?? 0,
             serializer: serializer,
@@ -1070,6 +1073,7 @@ const String _transferredLazyPayloadArgumentsKeywordsKey = 'argumentsKeywords';
 const String _transferredLazyPayloadPptDecodedKey = 'pptDecoded';
 const String _transferredNativeCallPayloadKey = 'retainedNativeCallPayload';
 const String _transferredNativeCallHandleKey = 'nativeCallHandle';
+const String _transferredNativeSerializerKey = 'nativeSerializer';
 const String _transferredNativeArgumentsAddressKey = 'argumentsAddress';
 const String _transferredNativeArgumentsLengthKey = 'argumentsLength';
 const String _transferredNativeArgumentsKeywordsAddressKey =
@@ -1170,6 +1174,7 @@ Object? _buildTransferredNativeCallPayload({
     _transferredLazyPayloadEncodingKey: message.lazyPayloadEncoding!.name,
     _transferredNativeCallPayloadKey: true,
     _transferredNativeCallHandleKey: retainedHandle,
+    _transferredNativeSerializerKey: incomingMessage.serializer.name,
     if (argumentsBytes != null) ...{
       _transferredNativeArgumentsAddressKey: incomingMessage.argumentsAddress,
       _transferredNativeArgumentsLengthKey: argumentsBytes.lengthInBytes,
@@ -1314,9 +1319,12 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   );
   final retainedNativeCallPayload =
       raw[_transferredNativeCallPayloadKey] == true;
+  final nativePayloadEncoding =
+      ownedNativePayload?.serializer == NativeMessageSerializer.flatbuffers
+      ? LazyPayloadEncoding.cbor.name
+      : ownedNativePayload?.serializer.name;
   if (retainedNativeCallPayload &&
-      (ownedNativePayload == null ||
-          ownedNativePayload.serializer.name != encoding?.name)) {
+      (ownedNativePayload == null || nativePayloadEncoding != encoding?.name)) {
     throw StateError('Native payload must be retained before reading');
   }
   final transparentBinaryPayload = retainedNativeCallPayload
