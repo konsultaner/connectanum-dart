@@ -78,6 +78,74 @@ void main() {
       expect(payload.argumentsKeywords, isNull);
       expect(payload.transparentBinaryPayload, same(span));
       expect(payload.pptDecoded, isFalse);
+      final decoded = decodeLazyPayloadView(
+        wire,
+        pptSerializer: 'flatbuffers',
+      );
+      expect(decoded.arguments, isNull);
+      expect(decoded.argumentsKeywords, isNull);
     },
   );
+
+  test('keeping the same anchor preserves the original payload view', () {
+    final owner = Object();
+    final payload = LazyMessagePayload.materialized(anchor: owner);
+    expect(payload.withAnchor(owner), same(payload));
+  });
+
+  for (final representation in [
+    'encoded arguments without decoder',
+    'encoded keywords without decoder',
+    'packed empty payload',
+    'materialized arguments',
+    'materialized keywords',
+  ]) {
+    test('$representation takes precedence over an opaque PPT span', () {
+      final opaque = Uint8List.fromList([1, 2, 3]);
+      final ordinary = Uint8List.fromList([7, 8, 9]);
+      final payload = switch (representation) {
+        'encoded arguments without decoder' => LazyMessagePayload.encoded(
+          transparentBinaryPayload: opaque,
+          encoding: LazyPayloadEncoding.cbor,
+          argumentsBytes: Uint8List.fromList([0x80]),
+        ),
+        'encoded keywords without decoder' => LazyMessagePayload.encoded(
+          transparentBinaryPayload: opaque,
+          encoding: LazyPayloadEncoding.cbor,
+          argumentsKeywordsBytes: Uint8List.fromList([0xa0]),
+        ),
+        'packed empty payload' => LazyMessagePayload.packed(
+          transparentBinaryPayload: opaque,
+          encoding: LazyPayloadEncoding.flatbuffers,
+          packedPayloadBytes: ordinary,
+          packedPayloadDecoder: (_) => (
+            arguments: null,
+            argumentsKeywords: null,
+          ),
+          pptDecoded: false,
+        ),
+        'materialized arguments' => LazyMessagePayload.materialized(
+          transparentBinaryPayload: opaque,
+          arguments: [ordinary],
+        ),
+        _ => LazyMessagePayload.materialized(
+          transparentBinaryPayload: opaque,
+          argumentsKeywords: {'marker': 'ordinary'},
+        ),
+      };
+      final decoded = decodeLazyPayloadView(
+        payload,
+        pptScheme: 'x_app',
+        pptSerializer: 'flatbuffers',
+      );
+      if (representation == 'materialized arguments') {
+        expect(decoded.arguments, hasLength(1));
+        expect(decoded.arguments!.single, same(ordinary));
+      } else {
+        expect(decoded.arguments, isNull);
+      }
+      expect(decoded.argumentsKeywords, isNull);
+      expect(payload.transparentBinaryPayload, same(opaque));
+    });
+  }
 }

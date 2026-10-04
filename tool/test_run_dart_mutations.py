@@ -473,6 +473,7 @@ class MutationRunnerTests(unittest.TestCase):
         suites = [f'{prefix}/test/message_{name}_test.dart' for name in [
             'payload_contract', 'lazy_payload_regression', 'invocation', 'result',
         ]]
+        suites.append(f'{prefix}/test/message_flatbuffers_ppt_view_test.dart')
         for runtime in ['vm', 'web']:
             self.assertEqual(targets[f'core-lazy-{runtime}']['supportFiles'], suites)
         self.assertEqual(targets['core-lazy-vm']['tests'], [
@@ -480,6 +481,10 @@ class MutationRunnerTests(unittest.TestCase):
         ])
         vm_wrapper = (runner.ROOT / targets['core-lazy-vm']['tests'][0]).read_text()
         self.assertIn("group('payload contract', payload_contract.main);", vm_wrapper)
+        for runtime in ['vm', 'web']:
+            wrapper = (runner.ROOT / targets[f'core-lazy-{runtime}']['tests'][0]).read_text()
+            self.assertIn("import '../message_flatbuffers_ppt_view_test.dart'", wrapper)
+            self.assertIn("group('FlatBuffers PPT view', flatbuffers_ppt.main);", wrapper)
         self.assertLess(vm_wrapper.index("group('payload contract'"),
                         vm_wrapper.index("group('lazy payload'"))
         browser = targets['core-lazy-web']
@@ -617,6 +622,7 @@ class MutationRunnerTests(unittest.TestCase):
             f'{prefix}/test/test_support/native_runtime_support_io.dart',
             f'{prefix}/test/test_support/native_runtime_support_stub.dart',
             f'{prefix}/test/transport/native/support/file_digest_cases.dart',
+            f'{prefix}/test/transport/native/support/e2ee_message_cases.dart',
             'native/bench/bench_tls.crt',
             'native/bench/bench_tls.key',
             f'{prefix}/test/transport/native/support/native_frame_gc_probe.dart',

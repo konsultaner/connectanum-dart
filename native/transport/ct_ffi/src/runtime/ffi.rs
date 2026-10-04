@@ -995,6 +995,20 @@ fn decrypted_e2ee_message_payload(
     })
 }
 
+fn borrowed_e2ee_message_ciphertext(message: &StoredMessage) -> Result<&[u8], c_int> {
+    if message.kwargs.is_some() {
+        return Err(ERR_UNSUPPORTED);
+    }
+    if let Some(payload) = extract_transparent_payload(&message.message) {
+        if message.serializer != RawSocketSerializer::Flatbuffers || message.args.is_some() {
+            return Err(ERR_UNSUPPORTED);
+        }
+        return Ok(payload.as_ref());
+    }
+    let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
+    single_binary_argument(message.serializer, args).map_err(|_| ERR_UNSUPPORTED)
+}
+
 fn decrypt_e2ee_message_payload_copied(
     message: &StoredMessage,
     key: &[u8],
@@ -1003,16 +1017,16 @@ fn decrypt_e2ee_message_payload_copied(
     if message.kwargs.is_some() {
         return Err(ERR_UNSUPPORTED);
     }
-    let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
     let decoded_json = match message.serializer {
         RawSocketSerializer::Json => {
+            let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
             Some(decode_canonical_json_single_binary_argument(args).ok_or(ERR_UNSUPPORTED)?)
         }
         _ => None,
     };
     let ciphertext = match decoded_json.as_deref() {
         Some(ciphertext) => ciphertext,
-        None => single_binary_argument(message.serializer, args).map_err(|_| ERR_UNSUPPORTED)?,
+        None => borrowed_e2ee_message_ciphertext(message)?,
     };
     let plaintext = match cipher_code {
         1 => decrypt_e2ee_payload(key, ciphertext),
@@ -1037,12 +1051,7 @@ fn decrypt_e2ee_message_payload_owned(
     if cipher_code != 2 || message.serializer == RawSocketSerializer::Json {
         return decrypt_e2ee_message_payload_copied(&message, key, cipher_code);
     }
-    if message.kwargs.is_some() {
-        return Err(ERR_UNSUPPORTED);
-    }
-    let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
-    let ciphertext =
-        single_binary_argument(message.serializer, args).map_err(|_| ERR_UNSUPPORTED)?;
+    let ciphertext = borrowed_e2ee_message_ciphertext(&message)?;
     let Some(raw) = message.raw.as_contiguous() else {
         return decrypt_e2ee_message_payload_copied(&message, key, cipher_code);
     };
@@ -2388,12 +2397,7 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_single_binary_argument_wide(
         Err(code) => return code,
     };
     let decrypted = super::message_handles::with_message(message_handle as u64, |message| {
-        if message.kwargs.is_some() {
-            return Err(ERR_UNSUPPORTED);
-        }
-        let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
-        let ciphertext =
-            single_binary_argument(message.serializer, args).map_err(|_| ERR_UNSUPPORTED)?;
+        let ciphertext = borrowed_e2ee_message_ciphertext(message)?;
         with_e2ee_session(session_handle as u32, |session| {
             let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
                 return Err(ERR_KEY_NOT_FOUND);
@@ -6229,7 +6233,9 @@ fn single_binary_argument(serializer: RawSocketSerializer, args: &[u8]) -> Resul
         RawSocketSerializer::MessagePack => {
             msgpack_single_binary_argument(args).ok_or(ERR_INVALID_ARGUMENT)
         }
-        RawSocketSerializer::Cbor => cbor_single_binary_argument(args).ok_or(ERR_INVALID_ARGUMENT),
+        RawSocketSerializer::Cbor | RawSocketSerializer::Flatbuffers => {
+            cbor_single_binary_argument(args).ok_or(ERR_INVALID_ARGUMENT)
+        }
         _ => Err(ERR_UNSUPPORTED),
     }
 }
@@ -7457,6 +7463,10 @@ mod flatbuffers_metadata_tests;
 #[cfg(test)]
 #[path = "flatbuffers_opaque_tests.rs"]
 mod flatbuffers_opaque_tests;
+
+#[cfg(test)]
+#[path = "flatbuffers_e2ee_tests.rs"]
+mod flatbuffers_e2ee_tests;
 
 #[cfg(test)]
 mod tests {

@@ -15,6 +15,7 @@ run_client_vm_tests() {
   dart test packages/connectanum_client/test/meta_state_cache_test.dart
   dart test packages/connectanum_client/test/session_e2ee_profile_test.dart
   dart test packages/connectanum_client/test/session_lazy_reply_test.dart
+  dart test packages/connectanum_client/test/session_flatbuffers_ppt_test.dart
   dart test packages/connectanum_client/test/session_lazy_payload_lifetime_vm_test.dart --concurrency=1
   dart test packages/connectanum_client/test/transport/flatbuffers_transport_profile_vm_test.dart --concurrency=1
   dart test packages/connectanum_client/test/session_progressive_file_test.dart
@@ -147,6 +148,7 @@ run_client_browser_websocket_test() {
         test/meta_state_cache_test.dart
         test/session_e2ee_profile_test.dart
         test/session_lazy_reply_test.dart
+        test/session_flatbuffers_ppt_test.dart
         test/session_progressive_file_test.dart
         test/file_transfer_metadata_test.dart
         test/file_transfer_digest_test.dart

@@ -30,38 +30,47 @@ payload. The E2EE section itself remains TBD. New encryption support must docume
 its concrete plaintext/profile contract, preserve CBOR version-1 behavior and
 keep application schema/IDL services outside core requirements.
 
-The native consuming decrypt API currently recognizes a canonical CBOR
+The native consuming decrypt API recognizes a canonical CBOR plaintext
 single-binary-argument envelope and may return only that argument. A typed
 FlatBuffers implementation must not silently use this plaintext heuristic as its
 schema or format contract. Generic crypto accepts plaintext bytes, but any native
 zero-copy adaptation must select the output format explicitly and preserve its
 owner, cache identity and failure/consumption rules. No new profile is claimed here.
 
-### Native outer-envelope parity gap
+### Native outer-envelope parity repair, focused verification
 
 An outside-workspace extension of the existing consuming-decrypt fixture to an
 outer FlatBuffers envelope fails for both existing CBOR ciphers: native code
 returns unsupported (-1) after the RawSocket handshake and message decoding.
 The original JSON/MessagePack/CBOR matrix does not cover that dimension. This
-is a separate #101 gap from typed FlatBuffers encryption; the public Session
-matrix using portable providers does not prove native consuming-decrypt parity.
+is separate from typed FlatBuffers encryption; the public Session matrix using
+portable providers alone does not prove native consuming-decrypt parity.
 The fail-first fixture inputs and results are preserved in
 /tmp/connectanum-flatbuffers-native-e2ee-gap-probe.json and
-/tmp/connectanum-flatbuffers-native-e2ee-gap-probe.log. No production fix is
-included in this checkpoint. The same two cases also fail against the rebuilt
+/tmp/connectanum-flatbuffers-native-e2ee-gap-probe.log. The same two cases also fail against the rebuilt
 master-merge library 67d8d0e436e6c81d, after handshake and materialization, in
 /tmp/connectanum-flatbuffers-master-merged-native-e2ee-gap.json and its log.
 The parser retains the opaque FlatBuffers vector separately from ordinary CBOR
 arguments. Ciphertext extraction must handle that stored representation without
 conflating the outer envelope with the decrypted plaintext contract.
 
-Source inspection confirms that the native single-binary-argument helper currently
-accepts MessagePack and CBOR outer serializers, while consuming decryption dispatches
-through it for the received message. Integration must select ciphertext extraction
-according to the actual stored payload representation as well as select the
-plaintext format explicitly. Do not infer either representation from the serializer
-name alone. The current Dart decrypt cache identifies session handle, key ID and
-cipher; the additive plaintext-format selector must become part of that identity.
+The subsequent repair selects ciphertext from the opaque FlatBuffers vector or
+its ordinary CBOR-encoded binary argument. It preserves CBOR-v1 plaintext framing,
+the existing cipher choices and handle-consumption rules. Six Rust contracts cover
+fresh unique AES receive-allocation reuse, shared ciphertext preservation, segmented
+and independent-allocation fallback, borrowed access and invalid representations.
+The full FFI suite passes 257 tests; isolated Dart runtime/provider suites pass 76
+and eight against native library SHA256 88ee58a790a44db5819efd19d6159fe0a23f49a8535b0b67e86d1d9eb07102dc.
+Fail-first and passing evidence is preserved in
+/tmp/connectanum-flatbuffers-outer-cbor-e2ee-focused-proof.json. This is focused
+local verification; the new frozen candidate's full checks and hosted CI remain
+pending. Allocation reuse is proved for fresh unique receive storage, not every
+backwards-builder slice, shared buffer or pooled WebSocket allocation.
+
+Typed encryption still needs an explicit plaintext-format selector. Do not infer
+that contract from the outer serializer. The current Dart decrypt cache identifies
+session handle, key ID and cipher; the additive plaintext-format selector must
+become part of that identity.
 
 ### Next profile design (proposal, not implemented)
 
@@ -78,6 +87,16 @@ matching cache identity; typed output must not depend on the CBOR-envelope
 heuristic. Document and test directional key selection for the new profile while
 preserving the established version-1 rule. Application schema choice remains
 outside the transport; no registry or IDL service is required.
+
+Source preparation also confirms the existing typed PPT byte contract:
+FlatBuffers Serializer.serializePPTFragments requires exactly one Uint8List and
+no keyword container, returns that same span and bounds its length at 64 MiB.
+deserializePPT returns one byte span and enforces the length limit; neither method
+verifies an application's table schema or requires a nonempty buffer. The typed
+encryption design must preserve that schema-independent behavior, including empty
+spans, while accounting for nonce/tag overhead against the outer wire limits.
+Do not add an inferred root-table minimum or infer plaintext format from CBOR-like
+leading bytes. Native typed-reader and database validation remain adapter concerns.
 
 A bounded GLM judgment supports this direction and flags those contract boundaries.
 This records preparation only: profile negotiation, public provider APIs, native

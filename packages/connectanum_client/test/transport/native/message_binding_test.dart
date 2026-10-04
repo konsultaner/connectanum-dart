@@ -24,6 +24,8 @@ void main() {
     );
   });
 
+  _optionalControlFieldContracts();
+  _flatBuffersSessionDetailContracts();
   _bindingBoundaryContracts();
   _flatBuffersMetadataContracts();
   _metadataDispatchContracts();
@@ -1998,6 +2000,146 @@ void main() {
       ]);
     });
   });
+}
+
+void _optionalControlFieldContracts() {
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+  ]) {
+    test(
+      'valid WELCOME $serializer binds omitted optional fields without throwing',
+      () {
+        final wire = [
+          MessageTypes.codeWelcome,
+          17,
+          {
+            'roles': {'broker': <String, Object?>{}},
+          },
+        ];
+        final frame = switch (serializer) {
+          NativeMessageSerializer.json => Uint8List.fromList(
+            utf8.encode(jsonEncode(wire)),
+          ),
+          NativeMessageSerializer.messagePack => msgpack.serialize(wire),
+          NativeMessageSerializer.cbor => Uint8List.fromList(
+            cbor.cbor.encode(cbor.CborValue(wire)),
+          ),
+          _ => throw StateError('Unexpected test serializer'),
+        };
+        AbstractMessage? value;
+        expect(
+          () => value = bindMessage(serializer, frame),
+          returnsNormally,
+        );
+        expect(value, isA<Welcome>());
+        final details = (value as Welcome).details;
+        expect(details.roles?.broker, isNotNull);
+        expect(details.authmethods, isNull);
+        expect(details.topic, isNull);
+        expect(details.procedure, isNull);
+        expect(details.roles?.dealer, isNull);
+      },
+    );
+  }
+
+  test('native FlatBuffers acknowledgement needs no transparent payload', () {
+    AbstractMessage? value;
+    expect(
+      () => value = bindMessage(
+        NativeMessageSerializer.flatbuffers,
+        Uint8List.fromList([0xff]),
+        metadata: _metadata(
+          messageCode: MessageTypes.codePublished,
+          primaryId: 17,
+          secondaryId: 29,
+          flags: NativeMessageMetadata.flagMetadataBind,
+        ),
+      ),
+      returnsNormally,
+    );
+    expect(value, isA<Published>());
+    final published = value as Published;
+    expect(published.publishRequestId, 17);
+    expect(published.publicationId, 29);
+  });
+}
+
+void _flatBuffersSessionDetailContracts() {
+  Uint8List dictionary(Object? value) => Uint8List.fromList(
+    cbor.cbor.encode(cbor.CborValue(value)),
+  );
+  final unusedFrame = Uint8List.fromList([0xff]);
+  for (final entry in [
+    (MessageTypes.codeResult, <String, Object?>{'progress': true}),
+    (
+      MessageTypes.codeEvent,
+      <String, Object?>{'publisher': 29, 'topic': 'com.topic'},
+    ),
+    (
+      MessageTypes.codeInvocation,
+      <String, Object?>{'caller': 31, 'procedure': 'com.proc'},
+    ),
+  ]) {
+    for (final present in [false, true]) {
+      test(
+        'FlatBuffers session ${entry.$1} custom details present=$present',
+        () {
+          final custom = <String, Object?>{
+            '_custom': [7, 8],
+            '_nested': {'trace': 9},
+          };
+          final bound = bindSessionMessage(
+            NativeMessageSerializer.flatbuffers,
+            unusedFrame,
+            metadata: _metadata(
+              messageCode: entry.$1,
+              primaryId: 17,
+              secondaryId: 19,
+              flags: NativeMessageMetadata.flagMetadataBind,
+              detailsBytes: present
+                  ? dictionary({...entry.$2, ...custom})
+                  : null,
+            ),
+          );
+          expect(bound, isA<NativeSessionMessage>());
+          Map<String, dynamic>? actual;
+          expect(() {
+            final view = (bound as NativeSessionMessage).customDetails;
+            actual = view == null ? null : Map<String, dynamic>.from(view);
+          }, returnsNormally);
+          expect(actual, present ? custom : null);
+        },
+      );
+    }
+  }
+
+  for (final invalid in <Object>[
+    <Object, Object>{1: 'non-string dictionary key'},
+    <Object>[1, 2],
+  ]) {
+    test(
+      'FlatBuffers session rejects malformed custom dictionary $invalid',
+      () {
+        final bound = bindSessionMessage(
+          NativeMessageSerializer.flatbuffers,
+          unusedFrame,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            primaryId: 17,
+            flags: NativeMessageMetadata.flagMetadataBind,
+            detailsBytes: dictionary(invalid),
+          ),
+        );
+        expect(bound, isA<NativeSessionMessage>());
+        expect(
+          () => (bound as NativeSessionMessage).customDetails!['1'],
+          throwsFormatException,
+        );
+      },
+    );
+  }
 }
 
 void _flatBuffersMetadataContracts() {

@@ -1690,7 +1690,8 @@ fi
         )
 
     def test_vm_commands_include_complete_reply_and_progressive_file_suites(self):
-        for suite in ('session_lazy_reply_test.dart', 'session_progressive_file_test.dart',
+        for suite in ('session_lazy_reply_test.dart', 'session_flatbuffers_ppt_test.dart',
+                      'session_progressive_file_test.dart',
                       'session_progressive_call_test.dart',
                       'session_goodbye_test.dart'):
             command = f'dart test packages/connectanum_client/test/{suite}'
@@ -1709,6 +1710,7 @@ fi
         for label, suite in (
             ('e2ee_profile', 'session_e2ee_profile_test.dart'),
             ('lazy_reply', 'session_lazy_reply_test.dart'),
+            ('flatbuffers_ppt', 'session_flatbuffers_ppt_test.dart'),
             ('progressive_file', 'session_progressive_file_test.dart'),
             ('progressive_call', 'session_progressive_call_test.dart'),
             ('goodbye', 'session_goodbye_test.dart'),
@@ -1804,6 +1806,7 @@ fi
             "test/meta_state_cache_test.dart",
             "test/session_e2ee_profile_test.dart",
             "test/session_lazy_reply_test.dart",
+            "test/session_flatbuffers_ppt_test.dart",
             "test/session_progressive_file_test.dart",
             "test/session_progressive_call_test.dart",
             "test/session_goodbye_test.dart",
@@ -1826,6 +1829,7 @@ fi
                     "test/meta_state_cache_test.dart",
                     "test/session_e2ee_profile_test.dart",
                     "test/session_lazy_reply_test.dart",
+                    "test/session_flatbuffers_ppt_test.dart",
                     "test/session_progressive_file_test.dart",
                     "test/session_progressive_call_test.dart",
                     "test/session_goodbye_test.dart",

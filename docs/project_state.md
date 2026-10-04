@@ -5,9 +5,165 @@ Current branch: `codex/flatbuffers-zero-copy`
 Current milestone: FlatBuffers and zero-copy native buffers (GitHub milestone 1).
 Active plan: `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.
 Isolated worktree baseline: 54eafc5f. Released master3bac4cf5 router embedding
-and shutdown fixes are being integrated here; the primary checkout remains
+and shutdown fixes are integrated here; the primary checkout remains
 untouched. The earlier regression/mutation objective remains open.
 
+
+Final local CI/crypto candidate verified, 2026-10-04: canonical bin/test-fast
+and bin/verify both exit 0 on the same frozen 1,444-file product snapshot
+(SHA256 ebb69570e22216ad25b845122e7f0d633b5766770fc84cafae9806ad1b4da051).
+The source inventory and rebuilt native library 88ee58a790a44db5 stay unchanged
+before and after both phases. Verify includes Rust/core/FFI/tooling, VM/native
+contracts, router 4,923 cases plus isolated remote-auth/native forwarding/public
+PPT integrations, bench 1,331 cases, core Chrome/WASM 4,511 and client Chrome/WASM
+2,744. Chrome is available and both browser suites execute. Complete hashes,
+commands and exit metadata:
+/tmp/connectanum-flatbuffers-ci-gates-final-verification.json.
+Fast log SHA256: 896c46114d58381cb9c396b561c439d7c4e86892a7431eddf8865996f6284d71.
+Verify log SHA256: cf6c452f945666cbb37ef8045a1d3ec67a449cd6aee5044837d8cf9cff791314.
+The three complete lazy/binding mutation campaigns and browser coverage gate pass
+locally as detailed below. Exact-head hosted CI and platform artifact checks
+remain pending. All ten issues and the milestone remain open:
+typed v2 encryption, representative performance/copy gates, external conformance,
+platform/consumer and release-readiness acceptance are still required. No release,
+package version, ObjectBox implementation or performance claim is added.
+
+Local client binding CI repair confirmed, 2026-10-04: the complete
+expanded campaign exits 0 after all 528 unchanged mutations and clean/restored
+baselines. It records 417 kills, eight survivors and 103 compile errors, with no
+equivalence exceptions. The strict assertion score improves from the completed
+hosted failure's 94.5882% to 97.4118%, passing the unchanged 95% gate. Seven prior
+survivors become assertion kills; five prior error-only kills now include assertion
+evidence. Three other pure assertion kills become mixed, preserving their assertion
+evidence. Three error-only kills remain excluded from the assertion numerator;
+there are no unknown kills. Full before/after ID/operator/hash comparisons are in
+/tmp/connectanum-flatbuffers-client-binding-expanded-gate-proof.json.
+All twelve new contracts and the unchanged existing cases pass in the 1,851-test
+binding file; analysis passes. Production binding code, the generic exception
+helper, deadlines, thresholds, support files and mutation inventory are unchanged.
+The old failed artifact remains in
+/tmp/connectanum-flatbuffers-6016b3e5-client-message-binding-vm-artifact.
+Qwen's proposed production cast changes are rejected against the existing guards;
+review dispositions and context limits are in
+/tmp/connectanum-flatbuffers-client-binding-companion-decisions.json.
+This is local repaired-gate evidence; exact-head hosted clearance remains pending.
+
+The 1,444-file snapshot 9f5cb41b879ac236 is retained as an interrupted candidate.
+Its fast phase is intentionally terminated before these oracle changes after the
+new hosted failure completes; verify never starts. No full pass is claimed for it.
+Process selection, log and unchanged native artifact proof are retained in
+/tmp/connectanum-flatbuffers-canonical-interruption-selection.json and
+/tmp/connectanum-flatbuffers-outer-cbor-e2ee-canonical-verification.json. Only that
+runner's verified descendant tree is stopped; the primary checkout is untouched.
+A fresh 1,444-file candidate is frozen at
+/tmp/connectanum-flatbuffers-ci-gates-final-frozen-source.json (SHA256
+ebb69570e22216ad25b845122e7f0d633b5766770fc84cafae9806ad1b4da051), with the
+native artifact still 88ee58a790a44db5. Its source/test/support hashes match the
+running binding campaign. Canonical bin/test-fast exits 0 on this frozen candidate (log SHA256
+896c46114d58381cb9c396b561c439d7c4e86892a7431eddf8865996f6284d71), with all
+product files and native library unchanged. Bin/verify subsequently exits 0 as recorded above.
+Metadata and phase logs are in
+/tmp/connectanum-flatbuffers-ci-gates-final-verification.json and corresponding
+-fast.log/-verify.log. The complete binding gate now passes as recorded above. The bounded
+companion reviews establish no confirmed defect after checking deferred validation
+and factory code selection; dispositions and limits are in
+/tmp/connectanum-flatbuffers-client-binding-companion-decisions.json.
+
+Completed local CI repairs, 2026-10-04: the complete VM and Chrome lazy
+campaigns both exit 0 after all 325 identical mutations. Each records clean/restored
+baselines, 258 kills, 20 survivors and 47 compile errors. The unchanged 95% assertion
+gate passes at 95.5556%, with no testError-only or unknown kills. Exactly eight
+existing equivalents are observed survivors on both platforms; only their mapped
+IDs and source hash are updated in tool/mutation_equivalents.json. No exception,
+reason, threshold, deadline or mutation inventory is added or weakened. The seven
+prior representation/identity survivors become assertion kills. Complete proof:
+/tmp/connectanum-flatbuffers-lazy-expanded-gates-proof.json. The prior failed VM
+campaign and intentionally interrupted first browser campaign remain preserved.
+
+Complete bin/test-browser-coverage exits 0 with core 4,521 and selected client
+2,723 Dart2JS/Chrome tests. Client coverage is 96.5283% (2,836/2,938), above the
+unchanged 96.29% threshold; core is 96.1249% (9,054/9,419). No threshold or source
+ignore changes. Proof, lcov and raw reports:
+/tmp/connectanum-flatbuffers-session-ppt-browser-coverage-proof.json and
+/tmp/connectanum-flatbuffers-session-ppt-browser-coverage.
+The new portable Session suite is now selected by bin/test-fast, bin/test-all's
+VM/browser lists and both VM/browser coverage scripts. Its registration regression
+first records four missing-selection failures, then passes all three checks:
+/tmp/connectanum-flatbuffers-session-ppt-canonical-registration-before.log and
+/tmp/connectanum-flatbuffers-session-ppt-canonical-registration-after.log.
+
+The completed bounded portable Session/native/lazy-test companion reviews raise
+no confirmed defect after source inspection. Dispositions are retained in
+/tmp/connectanum-flatbuffers-session-ppt-portable-review-decisions.json,
+/tmp/connectanum-flatbuffers-outer-cbor-e2ee-review-decisions.json and
+/tmp/connectanum-flatbuffers-lazy-regressions-review-decisions.json. Their supplied
+context limits are explicit. The matching repaired native library 88ee58a790a44db5
+is preserved at
+/tmp/connectanum-flatbuffers-outer-cbor-e2ee-native-ffi-test/libct_ffi.dylib.
+The new frozen-source checks pass as recorded above; exact-head hosted checks remain pending. All ten issues and the milestone stay open.
+
+Browser/CI follow-up, 2026-10-04: the completed 6016b3e5 Core Browser
+Coverage job passes all executable tests but fails the unchanged client gate:
+95.473% (2,805/2,938) is below 96.29%. Core passes at 96.103%. Most new uncovered
+client lines are the opaque PPT Session preparation boundary. A portable peer that
+actually serializes/parses FlatBuffers now exercises progressive RPC results,
+subscriptions, invocation replies and errors for typed PPT plus both CBOR-v1
+E2EE ciphers, including empty spans and wire-view preservation. All 24 new VM
+contracts and analysis pass. The test is added to bin/test-browser-coverage;
+the subsequent complete browser coverage pass is recorded above; no threshold or ignore changes.
+
+The first complete VM lazy campaign records all 325 mutants, clean/restored
+baselines and eight observed mapped equivalents, but fails at 92.963%. This is
+retained failure evidence, not an accepted gate. Its survivors guide six additional
+portable contracts: unchanged anchor identity, explicit decode without a PPT scheme,
+and five ordinary/packed representation precedence cases alongside opaque bytes.
+Those eleven focused PPT tests pass. The subsequent complete expanded VM/browser campaigns pass as recorded above. The prior browser campaign is explicitly
+interrupted after observing 113 mutants because the oracle changed; its incomplete
+report is preserved. No new equivalence exception is added. The subsequent update above maps only those original eight product exceptions after complete observed outcomes.
+
+The completed narrow Qwen native review alleges a stale/out-of-range borrowed
+ciphertext reference. Source containment, independent raw ownership, bounded Rust
+slice indexing and existing copying fallback do not establish that finding. A sixth
+Rust contract explicitly verifies separate ciphertext-allocation fallback for both
+representations; the full FFI suite now passes 257 tests. Review dispositions and
+all focused evidence are in
+/tmp/connectanum-flatbuffers-outer-cbor-e2ee-review-decisions.json and
+/tmp/connectanum-flatbuffers-outer-cbor-e2ee-focused-proof.json. Three earlier
+bounded review attempts reach token limits and are not completed evidence.
+
+Native outer-FlatBuffers CBOR-v1 decryption stage, 2026-10-04: the
+new live receive contracts first fail in all four FlatBuffers/cipher cases against
+the immutable 6016b3e5 library. Three focused Rust ownership contracts also fail
+before repair. The repair borrows either the opaque FlatBuffers ciphertext vector
+or its ordinary CBOR binary argument. It preserves existing v1 plaintext framing,
+consuming-handle rules and both ciphers. Six new Rust tests now pass, including
+unique fresh-receive AES allocation reuse, retained ciphertext preservation,
+segmented/copied fallback, borrowed wide-handle access and invalid representations.
+The complete FFI suite passes 257 tests; isolated Dart runtime/provider suites pass
+76 and eight tests against the rebuilt library. Running those Dart files together
+causes process-global native-state interference; the isolated canonical pattern
+passes. A pointer fixture based on the backwards builder's sliced allocation is
+corrected to model a fresh socket receive; no reuse claim covers its unused prefix.
+All failed and passing logs are retained in
+/tmp/connectanum-flatbuffers-outer-cbor-e2ee-focused-proof.json. This is focused
+local evidence; bin/verify, typed v2 E2EE and representative performance remain
+pending. The new Dart test part is added to both mutation support inventories.
+
+Exact-head CI now reports core-lazy-web failure before running a baseline:
+its eight equivalent-mutation records refer to the previous source layout/hash.
+Both package publish dry runs pass. The existing equivalences are mapped to
+identical current source conditions and inspected manually; GLM's bounded judge
+establishes no invalid invariant in its supplied ranges, with call-site limits
+retained. Existing FlatBuffers PPT view tests are added to both lazy mutation
+oracles. Complete VM/browser campaigns use an outside-repository candidate
+justification file; product exceptions are not changed until observed outcomes
+confirm the reasons. Their 95% assertion threshold, full inventories and shared
+deadlines remain unchanged. The all-target equivalence audit also finds stale
+client-websocket-web, router-binding-drain-vm and router-settings-vm entries in
+non-required deferred coverage targets; that broader objective remains open.
+Proof: /tmp/connectanum-flatbuffers-lazy-equivalence-mapping.json and
+/tmp/connectanum-flatbuffers-equivalence-all-target-audit.json. No hosted green,
+issue closure or milestone completion is claimed.
 
 Master integration checkpoint, 2026-10-04: standalone commit d4f4e833 is
 verified independently of the combined candidate. The prepared master3bac4cf5 merge plus the runner
@@ -76,6 +232,22 @@ This is baseline-only evidence, not completed mutant scores; proof is in
 /tmp/connectanum-flatbuffers-master-merged-ordered-baseline-proof.json. No
 threshold or deadline is changed. Qwen's bounded debug output identifies the truncated case; its remaining
 time estimate is rejected against recorded command deadlines and per-file times.
+
+Pushed combined checkpoint 6016b3e51c225d6197f8614de31ad2c4316ae603 is now in
+[PR105](https://github.com/konsultaner/connectanum-dart/pull/105), which remains
+draft/open and is mergeable against master 3bac4cf5. Its committed 1,441 product
+files match the frozen local verification exactly. Both canonical checks pass.
+New exact-head CI runs 37191623350 and 37191621503 are queued; package dry runs
+37191623380 and 37191621500 are in progress. Initial run and PR snapshots are in
+/tmp/connectanum-flatbuffers-6016b3e5-hosted-initial.json and
+/tmp/connectanum-flatbuffers-6016b3e5-pr-state.json. No new hosted passing result,
+issue closure, package version change or publication is claimed. The immutable
+matching native library is preserved at
+/tmp/connectanum-flatbuffers-6016b3e5-native-ffi-test/libct_ffi.dylib.
+The ten milestone issues remain open. The next implementation stage repairs native
+outer-FlatBuffers consuming decryption and completes the explicit typed E2EE path;
+any red required CI takes precedence. This documentation checkpoint is reserved
+for the next implementation commit, avoiding duplicate documentation-only CI runs.
 
 Previous hosted-verified baseline: `b12667deeca5cd8202bb7c4714b235fbc0efd5d2`.
 Hosted CI: https://github.com/konsultaner/connectanum-dart/actions/runs/37172054047.
@@ -193,11 +365,11 @@ This verifies the standalone product checkpoint, not a merge with current master
 Earlier partial runs are not a handoff pass.
 
 The verified standalone candidate is saved in commit d4f4e833; that standalone
-proof is independent of the later master merge. A merge of current master3bac4cf5 is now prepared locally, preserving its
+proof is independent of the later master merge. The verified merge of master3bac4cf5 is committed and pushed as6016b3e5, preserving its
 already-released beta.7 router embedding and shutdown fixes. The only textual
 conflict was this project-state document; both work histories are preserved. The
-automatic merge changes 45 product files. Its combined product is not yet verified,
-and the remote draft PR105 remains conflicting until an updated branch is pushed.
+automatic merge changes 45 product files. Its combined product now passes both canonical checks. PR105 remains draft/open
+and is mergeable against the current master.
 Master CI37134251410 has one completed failure: bench-remote-auth-native assertion
 coverage94.7368% against95%. An exact-source, outside-workspace probe proves the
 existing supports unit test kills the offending mutation by assertion. The runner
