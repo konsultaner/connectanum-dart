@@ -2753,6 +2753,7 @@ pub extern "C" fn ct_client_connect_websocket(
         Ok(RawSocketSerializer::Json) => RawSocketSerializer::Json,
         Ok(RawSocketSerializer::MessagePack) => RawSocketSerializer::MessagePack,
         Ok(RawSocketSerializer::Cbor) => RawSocketSerializer::Cbor,
+        Ok(RawSocketSerializer::Flatbuffers) => RawSocketSerializer::Flatbuffers,
         Ok(_) => return ERR_UNSUPPORTED_SERIALIZER,
         Err(code) => return code,
     };

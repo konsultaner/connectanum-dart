@@ -118,6 +118,13 @@ class WebSocketTestObserver {
     await _observer.sockets.toDart.last.decodeStarted.toDart;
   }
 
+  Future<void> Function() captureReleaseDecode() {
+    final socket = _observer.sockets.toDart.last;
+    return () async {
+      await socket.releaseDecode().toDart;
+    };
+  }
+
   Future<void> releaseDecode() async {
     await _observer.sockets.toDart.last.releaseDecode().toDart;
   }

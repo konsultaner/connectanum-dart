@@ -586,6 +586,18 @@ class MutationRunnerTests(unittest.TestCase):
         })
         self.assertEqual(target['testRoot'], prefix)
 
+    def test_socket_target_includes_profile_and_wire_regressions(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['client-socket-vm']
+        prefix = 'packages/connectanum_client'
+        self.assertEqual(set(target['tests']), {
+            f'{prefix}/test/transport/socket/socket_transport_test.dart',
+            f'{prefix}/test/transport/flatbuffers_transport_profile_vm_test.dart',
+        })
+        self.assertIn(
+            f'{prefix}/test/transport/socket/socket_chunk_boundaries.dart',
+            target['supportFiles'])
+
     def test_native_transports_target_includes_file_wire_regressions(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         target = targets['client-native-transports-vm']
@@ -596,13 +608,39 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(set(target['tests']), {
             f'{prefix}/test/transport/native/native_transports_test.dart',
             f'{prefix}/test/transport/native/runtime_file_segment_test.dart',
+            f'{prefix}/test/transport/native/flatbuffers_profile_test.dart',
+            f'{prefix}/test/transport/native/flatbuffers_websocket_network_test.dart',
+            f'{prefix}/test/transport/native/native_flatbuffer_frame_test.dart',
         })
         self.assertEqual(target['supportFiles'], [
             f'{prefix}/test/test_support/native_runtime_support.dart',
             f'{prefix}/test/test_support/native_runtime_support_io.dart',
             f'{prefix}/test/test_support/native_runtime_support_stub.dart',
             f'{prefix}/test/transport/native/support/file_digest_cases.dart',
+            'native/bench/bench_tls.crt',
+            'native/bench/bench_tls.key',
+            f'{prefix}/test/transport/native/support/native_frame_gc_probe.dart',
         ])
+        self.assertTrue(target['requiresNativeLibrary'])
+        self.assertTrue(target['isolateTestFiles'])
+
+    def test_native_buffer_target_mutates_all_parts_and_keeps_frame_gc_probe(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['client-native-owned-buffers-vm']
+        prefix = 'packages/connectanum_client'
+        library = runner.ROOT / prefix / 'lib/native_buffers.dart'
+        expected_sources = {str(library.relative_to(runner.ROOT))}
+        expected_sources.update(
+            str((library.parent / part).relative_to(runner.ROOT))
+            for part in re.findall(r"^part '([^']+)';", library.read_text(), re.MULTILINE))
+        self.assertEqual(set(target['sources']), expected_sources)
+        self.assertEqual(set(target['tests']), {
+            f'{prefix}/test/transport/native/native_owned_buffer_test.dart',
+            f'{prefix}/test/transport/native/native_flatbuffer_frame_test.dart',
+        })
+        self.assertIn(
+            f'{prefix}/test/transport/native/support/native_frame_gc_probe.dart',
+            target['supportFiles'])
         self.assertTrue(target['requiresNativeLibrary'])
         self.assertTrue(target['isolateTestFiles'])
 

@@ -299,7 +299,7 @@ void main() {
       );
 
       test(
-        'matching encrypted bytes are forwarded without repacking',
+        'matching CBOR encoding still applies outbound encryption policy',
         () async {
           final provider = _RecordingProvider();
           final fixture = await _start(native, provider: provider);
@@ -309,11 +309,7 @@ void main() {
           );
           final packed =
               provider.delegate
-                      .packPayload(
-                        _arguments,
-                        _keywords,
-                        options,
-                      )
+                      .packPayload(_arguments, _keywords, options)
                       .single
                   as Uint8List;
           var decodes = 0;
@@ -330,9 +326,15 @@ void main() {
           );
           expect(fixture.transport.yields, hasLength(1));
           final reply = fixture.transport.yields.single;
-          expect(identical(reply.arguments!.single, packed), isTrue);
-          expect(decodes, 0);
-          expect(provider.contexts, isEmpty);
+          expect(identical(reply.arguments!.single, packed), isFalse);
+          expect(reply.arguments!.single, isNot(equals(packed)));
+          expect(decodes, 1);
+          expect(provider.contexts, hasLength(1));
+          expect(provider.contexts.single?.messageType, _yieldMessageType);
+          expect(
+            provider.contexts.single?.direction,
+            WampE2eeDirection.outbound,
+          );
           final decoded = provider.delegate.unpackPayload(
             reply.arguments,
             options,
@@ -561,10 +563,7 @@ void main() {
             expect(fixture.transport.responses, hasLength(count));
             if (finish != 'disconnect') {
               expect(fixture.invocation.isResponseClosed(), isTrue);
-              expect(
-                () => fixture.invocation.respondWith(),
-                throwsStateError,
-              );
+              expect(() => fixture.invocation.respondWith(), throwsStateError);
             }
           });
         });
@@ -617,10 +616,7 @@ void main() {
               fixture.transport.inbound.add(interrupt);
               await Future<void>.delayed(Duration.zero);
               expect(fixture.transport.responses, hasLength(1));
-              expect(
-                () => fixture.invocation.respondWith(),
-                throwsStateError,
-              );
+              expect(() => fixture.invocation.respondWith(), throwsStateError);
             });
           });
         }
@@ -691,10 +687,7 @@ Iterable<Yield> _wireRoundTrips(Yield reply) sync* {
   if (reply.argumentsKeywords != null) {
     expect(jsonWire[4], reply.argumentsKeywords);
   }
-  for (final serializer in [
-    msgpack.Serializer(),
-    cbor.Serializer(),
-  ]) {
+  for (final serializer in [msgpack.Serializer(), cbor.Serializer()]) {
     final encoded = serializer.serialize(copyForSerialization());
     final bytes = encoded is String
         ? Uint8List.fromList(utf8.encode(encoded))

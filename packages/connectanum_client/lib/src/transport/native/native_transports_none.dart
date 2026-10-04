@@ -51,6 +51,15 @@ class NativeRawSocketTransport extends AbstractTransport
     String? libraryPath,
   }) => throw UnsupportedError('Native transports require dart:io.');
 
+  factory NativeRawSocketTransport.withFlatBuffersSerializer(
+    String host,
+    int port, {
+    bool ssl = false,
+    bool allowInsecureCertificates = false,
+    int messageLengthExponent = 24,
+    String? libraryPath,
+  }) => throw UnsupportedError('Native transports require dart:io.');
+
   @override
   Completer? get onDisconnect => null;
 
@@ -157,6 +166,14 @@ class NativeWebSocketTransport extends AbstractTransport
   ]) => throw UnsupportedError('Native transports require dart:io.');
 
   factory NativeWebSocketTransport.withCborSerializer(
+    String url, [
+    Map<String, dynamic>? headers,
+    bool allowInsecureCertificates = false,
+    String? libraryPath,
+    int? fragmentSize,
+  ]) => throw UnsupportedError('Native transports require dart:io.');
+
+  factory NativeWebSocketTransport.withFlatBuffersSerializer(
     String url, [
     Map<String, dynamic>? headers,
     bool allowInsecureCertificates = false,

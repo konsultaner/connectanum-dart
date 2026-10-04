@@ -5,7 +5,8 @@
       "packages/connectanum_client/lib/src/transport/socket/socket_helper.dart"
     ],
     "tests": [
-      "packages/connectanum_client/test/transport/socket/socket_transport_test.dart"
+      "packages/connectanum_client/test/transport/socket/socket_transport_test.dart",
+      "packages/connectanum_client/test/transport/flatbuffers_transport_profile_vm_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_client/test/transport/socket/socket_chunk_boundaries.dart"
@@ -600,23 +601,33 @@
     "supportFiles": ["packages/connectanum_core/test/support/native_role_contract.dart"]
   },
   "client-native-transports-vm": {
-    "sources": ["packages/connectanum_client/lib/src/transport/native/native_transports_io.dart"],
+    "sources": [
+      "packages/connectanum_client/lib/src/transport/native/native_transports_io.dart"
+    ],
     "tests": [
       "packages/connectanum_client/test/transport/native/native_transports_test.dart",
-      "packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart"
+      "packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart",
+      "packages/connectanum_client/test/transport/native/flatbuffers_profile_test.dart",
+      "packages/connectanum_client/test/transport/native/flatbuffers_websocket_network_test.dart",
+      "packages/connectanum_client/test/transport/native/native_flatbuffer_frame_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_client/test/test_support/native_runtime_support.dart",
       "packages/connectanum_client/test/test_support/native_runtime_support_io.dart",
       "packages/connectanum_client/test/test_support/native_runtime_support_stub.dart",
-      "packages/connectanum_client/test/transport/native/support/file_digest_cases.dart"
+      "packages/connectanum_client/test/transport/native/support/file_digest_cases.dart",
+      "native/bench/bench_tls.crt",
+      "native/bench/bench_tls.key",
+      "packages/connectanum_client/test/transport/native/support/native_frame_gc_probe.dart"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": true,
     "testTimeoutSeconds": 30
   },
   "client-native-runtime-vm": {
-    "sources": ["packages/connectanum_client/lib/src/transport/native/runtime.dart"],
+    "sources": [
+      "packages/connectanum_client/lib/src/transport/native/runtime.dart"
+    ],
     "tests": [
       "packages/connectanum_client/test/transport/native/native_library_loader_test.dart",
       "packages/connectanum_client/test/transport/native/canonical_base64_io_test.dart",
@@ -625,7 +636,8 @@
       "packages/connectanum_client/test/transport/native/e2ee_provider_test.dart",
       "packages/connectanum_client/test/transport/native/resource_restart_test.dart",
       "packages/connectanum_client/test/transport/native/native_transports_test.dart",
-      "packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart"
+      "packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart",
+      "packages/connectanum_client/test/transport/native/flatbuffers_websocket_network_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_client/test/test_support/native_runtime_support.dart",
@@ -636,7 +648,9 @@
       "packages/connectanum_client/test/transport/native/support/owned_buffer_abi_fixture.c",
       "packages/connectanum_client/test/transport/native/support/external_lease_actor_fixture.c",
       "packages/connectanum_client/test/transport/native/support/external_lease_gc_probe.dart",
-      "packages/connectanum_client/test/transport/native/support/write_receipt_gc_probe.dart"
+      "packages/connectanum_client/test/transport/native/support/write_receipt_gc_probe.dart",
+      "native/bench/bench_tls.crt",
+      "native/bench/bench_tls.key"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": true,
@@ -644,21 +658,27 @@
   },
   "client-native-owned-buffers-vm": {
     "sources": [
-      "packages/connectanum_client/lib/native_buffers.dart"
+      "packages/connectanum_client/lib/native_buffers.dart",
+      "packages/connectanum_client/lib/src/transport/native/native_frames.dart"
     ],
     "tests": [
-      "packages/connectanum_client/test/transport/native/native_owned_buffer_test.dart"
+      "packages/connectanum_client/test/transport/native/native_owned_buffer_test.dart",
+      "packages/connectanum_client/test/transport/native/native_flatbuffer_frame_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_client/test/transport/native/support/owned_buffer_gc_probe.dart",
       "packages/connectanum_client/test/transport/native/support/owned_buffer_abi_fixture.c",
       "packages/connectanum_client/test/transport/native/support/external_lease_actor_fixture.c",
       "packages/connectanum_client/test/transport/native/support/external_lease_gc_probe.dart",
-      "packages/connectanum_client/test/transport/native/support/write_receipt_gc_probe.dart"
+      "packages/connectanum_client/test/transport/native/support/write_receipt_gc_probe.dart",
+      "native/bench/bench_tls.crt",
+      "native/bench/bench_tls.key",
+      "packages/connectanum_client/test/transport/native/support/native_frame_gc_probe.dart"
     ],
     "requiresNativeLibrary": true,
     "testRoot": "packages/connectanum_client",
-    "testTimeoutSeconds": 60
+    "testTimeoutSeconds": 60,
+    "isolateTestFiles": true
   },
   "router-binding-vm": {
     "sources": ["packages/connectanum_router/lib/src/router/router_instance/router_binding.dart"],

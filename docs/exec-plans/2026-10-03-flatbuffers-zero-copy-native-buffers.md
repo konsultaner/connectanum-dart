@@ -15,10 +15,475 @@ performance at least matching the better CBOR/MessagePack baseline on declared
 representative workloads. Generic native adapter readiness is in scope; actual
 ObjectBox integration belongs to a separate connectanum_objectbox_adapter package.
 
-The primary checkout has uncommitted router embedding/shutdown work. This managed
-worktree starts from committed HEAD and must not alter or claim those changes.
+The primary checkout follows separate router embedding/shutdown and release work.
+This managed worktree starts from committed HEAD and must not alter or claim that
+checkout's changes.
 The previous coverage plan is deferred in this worktree by the explicit new goal;
 its unfinished coverage/mutation targets remain open.
+
+Latest pushed head: `b12667deeca5cd8202bb7c4714b235fbc0efd5d2`.
+Hosted CI: https://github.com/konsultaner/connectanum-dart/actions/runs/37172054047.
+The exact-head hosted CI run is now completed successfully: all 40 jobs,
+including Full Verify111350843850, router binding111346833862, Dart VM Coverage
+111350843838 and the full MCP mutation gate111346833983, have terminal passing
+results. The package publishing dry run37172054038 also succeeds for b12667de.
+Read-only run snapshots are saved in /tmp/connectanum-flatbuffers-b12667de-hosted-complete.json
+and /tmp/connectanum-flatbuffers-b12667de-publish-dry-run-complete.json. This clears
+the CI prerequisite for integration; it does not verify the staged runtime changes.
+All ten milestone issues remain open. The older pending-job notes below describe
+historical checkpoints and are superseded by these completed exact-head results.
+
+## Canonical runtime integration checkpoint, 2026-10-04
+
+Canonical runtime integration is now a locally verified checkpoint. It incorporates
+30 modified and 13 added product files from the immutable transport/native-frame/
+Session checkpoints. Nineteen new real-GC lifetime cases additionally cover generic
+external owners across reanchoring, restoration, metadata, unwrap, queued responses,
+Session calls/publishes/progress, message mutation and owned detachment. No ObjectBox
+package dependency or database integration is added.
+
+Fail-first proofs show premature finalization in five core derivation cases, four
+queued reply cases, five Session send cases and a mutation probe. Preserve corrected
+behavior logs separately from early fixture/import setup failures. Lazy views now
+retain their original storage owner; mutable messages keep it independently of their
+semantic wire cache. Reused outbound wire views retain their source. Owned copies
+omit that storage owner, while documented shared callbacks/contexts may retain
+resources of their own. The conservative borrowed lease ends with its owning
+message/views, rather than merely clearing an argument field.
+
+The 448-case canonical focused run exits 0; the additional mutated-owned case exits
+0 independently. Final ownership and example analysis are clean. A runnable client
+native frame example prints a 116-byte/three-segment composition with zero reported
+application-input or control-growth copied bytes against the immutable compatible
+native library. This is construction evidence, not a throughput/transport-copy gate.
+The example is under packages/connectanum_client/example/native_flatbuffers_frame.dart.
+The new docs/native_buffer_ownership.md records the ownership/copy matrix and the
+future adapter's C transaction, ID, insertion-padding and reader-alignment boundaries.
+The exact FlatBuffers WebSocket name has no IANA registration as checked2026-10-04;
+registration follow-up is documented in docs/flatbuffers_binding.md without a request.
+
+Canonical test-fast exits 0 before integration. The first bin/verify exits 1 at
+format checking two copied core files; canonical formatting fixes that discrepancy.
+Two subsequent verifies are intentionally terminated (143) before completion:
+one for the newly proved mutation defect and one to register the missing new tests.
+No partial verify is a handoff pass. The registered and targets-final full runs
+both exit 1 at mutation target registration: first an omitted direct-runtime
+regression, then an outdated exact transport-test/fixture expectation. The existing
+targets now include the new regressions, TLS fixtures and frame-GC subprocess.
+A registration guard additionally requires every native_buffers.dart part to be a
+mutation source. Thresholds, source exclusions and time limits are unchanged.
+The complete tooling suite now passes 91 tests (one existing skip), including
+ordinary socket/profile registration and all native buffer parts. The registered
+full run then exits 1 at a native tracked-frame fixture timeout: the receipt could
+complete before the test subscribed to the broadcast WELCOME stream. Capturing
+moveNext before HELLO fixes that race; all eight native profile cases pass in 20
+consecutive process runs, with the existing timeout bounds unchanged.
+
+A real RawSocket defect also rejected no oversized outbound messages after peer
+limit negotiation. Four fail-first network cases cover contiguous and segmented
+payloads plus immediate and queued HELLO. The transport now checks the complete
+payload before writing a header; rejected immediate sends remain retryable.
+The 67-case focused transport run passes. A subsequent fast check exposes a
+non-exhaustive router test helper after adding the typed FlatBuffers encoding.
+The helper keeps its dynamic-shape matrix on JSON/MessagePack/CBOR and adds an
+explicit typed FlatBuffers internal call with preserved PPT metadata. All 28
+internal-call cases pass, and root analysis exits 0 with 22 informational items.
+An outside-workspace consumer with explicit core/client dependencies and a fresh
+pub cache passes analysis, a dynamic FlatBuffers codec round trip and the native
+frame example against the compatible ffi-test library. The example again reports
+116 bytes in three segments, zero application-input copied bytes and zero control
+growth copied bytes. This is manual consumer/construction evidence; hosted artifact
+consumers and benchmark parity remain required. Its input/library hashes and log
+are preserved in /tmp/connectanum-flatbuffers-runtime-integration-consumer.json and
+/tmp/connectanum-flatbuffers-runtime-integration-standalone-consumer.log.
+
+The new canonical bin/test-fast exits 0 on the frozen 1,437-file candidate:
+/tmp/connectanum-flatbuffers-runtime-integration-fast-router-fixed.log.
+Exact product hashes and inventory remain unchanged at completion. The subsequent full bin/verify exits 1 at one router test that expected arbitrary
+bytes labelled as WAMP ciphertext to echo through an application reply without a
+provider. The opaque call fixture now uses a custom PPT scheme. Four added cases
+use both real CBOR ciphers and prove provider-required rejection or fresh,
+decryptable reply ciphertext; incoming routing preserves bytes without invoking
+the original decoder. No production encryption contract is loosened.
+The focused 34 cases and root analysis pass (22 informational items, no warnings
+or errors). A serial complete router suite also passes. Only this router test file
+changes from the preceding frozen candidate; product inventory remains 1,437.
+The fresh canonical bin/test-fast exits 0 after this correction:
+/tmp/connectanum-flatbuffers-runtime-integration-fast-ppt-fixed.log.
+The corresponding full bin/verify exits 1 at the same legacy browser reconnect
+case in both existing attempts: a pending MessagePack Blob delivers null instead
+of Goodbye after reopening. The 1,437 product hashes and inventory are unchanged
+through that failed run; its failure is retained in
+/tmp/connectanum-flatbuffers-runtime-integration-verify-ppt-fixed.log and
+/tmp/connectanum-flatbuffers-runtime-integration-verification-ppt-fixed.json.
+A focused fail-first WASM run independently reproduces the failure. The four
+retired-attempt guards now apply only to the immutable FlatBuffers serializer type.
+Legacy streams continue using their captured socket and close/error state; stale
+FlatBuffers Blob frames cannot reach the decoder or admit a replacement profile.
+Both complete focused browser files pass 44 cases in JavaScript and 44 in WASM,
+including old welcome/malformed FlatBuffers Blob isolation. Focused analysis exits
+0 with one existing informational item, no errors or warnings. Only the browser
+transport source changes; the product inventory remains 1,437. Both fresh canonical bin/test-fast and bin/verify now exit 0 on the frozen
+1,437-file candidate. Product hashes and inventory remain unchanged before and
+after both phases; the compatible ffi-test library hash remains3814d6abba23776b.
+The full run passes Rust/FFI/tooling, VM/core/client/native-frame tests, the complete
+router suite and isolated integrations, coreWASM4505 and clientWASM2708. Chrome is
+available and the browser suites execute. The independent focused browser files
+also pass44 cases in JavaScript and44 in WASM. Logs are
+/tmp/connectanum-flatbuffers-runtime-integration-fast-browser-fixed.log and
+/tmp/connectanum-flatbuffers-runtime-integration-verify-browser-fixed.log;
+terminal phase/hash metadata is in
+/tmp/connectanum-flatbuffers-runtime-integration-verification-browser-fixed.json.
+This verifies the standalone product checkpoint, not a merge with current master.
+Earlier partial runs are not a handoff pass.
+
+A read-only merge preflight against current master3bac4cf5 finds only a project-state
+document conflict, with 45 product files changing through the automatic merge.
+Finish the frozen standalone checks first, preserve this candidate in a commit,
+then integrate the current master and verify that combined product separately.
+No merge has been performed. GitHub PR105 is still conflicting. Master CI
+37134251410 also has one completed failure: bench-remote-auth-native assertion
+coverage94.7368% against95%; audit and repair any inherited gate failure rather
+than weakening it. The preflight is in
+/tmp/connectanum-flatbuffers-runtime-integration-master-merge-preflight.json.
+Test-all includes native frame/WebSocket cases, generic Session lifetime cases,
+ordinary FlatBuffers profiles, native forwarding of the public PPT matrix and the
+browser FlatBuffers profile; fast checks include the Session/ordinary VM regressions.
+
+The final candidate product inventory is 1,437 files in
+/tmp/connectanum-flatbuffers-runtime-integration-frozen-source.json. Docs/roadmaps
+remain outside that product hash set. Earlier native/client/core/PPT stages stay
+immutable; all ten issues remain open. Combined-tree full verification, new exact-head hosted CI, typed E2EE, native
+consuming-decrypt parity for the outer FlatBuffers envelope, remaining transport
+coverage, performance/copy gates and platform/consumer/release acceptance are
+still required. No new hosted verification or release is claimed.
+
+## Preserved external native frame checkpoint
+
+A separate immutable native-frame prototype now composes the pinned control
+binding with separately owned or externally leased application buffers, without
+flattening application vectors. Composition retains each entire allocation,
+including present-empty external spans; it never consumes its input handles.
+Native submission consumes the submitted frame reference on every native success
+or rejection; default Dart sends retain first, while pre-submission Dart validation
+preserves the caller. A header owner retains all frame spans through local writes
+and flush. Existing tracked receipts report local completion, not peer receipt.
+
+The public scratch Dart API exposes native construction, compose/retain/dispose,
+independent read-only control views and tracked or untracked frame sends through
+the existing profile gate. Rust proofs cover all 25 codec cases, exact payload
+pointer/range identity, retained fan-out, thread-affine external release, empty
+spans, rejection and real RawSocket/WebSocket continuation traffic. Full scratch
+workspace tests now pass 361 core, three protocol integration and 250 FFI cases.
+
+New real-network contracts reproduce a native WebSocket close defect before the
+repair: dropping its AbortHandle leaves a blocked writer, receipt and external
+lease pending. The scratch repair preserves queued writes and normal Close1000,
+then aborts the captured writer task on its own runtime after a one-second grace.
+This is a local policy, not a deadline prescribed by RFC6455. Four new contracts
+cover native close, peer reset/shutdown, healthy queued close and queue rejection
+with receipt rollback and retained-frame reuse across both native transports.
+All 14 frame contracts pass; affine release occurs once after the final owner.
+Completion receipts still describe local completion, not peer acknowledgement.
+
+The rebuilt close-repair library passes all 2,074 serial native Dart regressions;
+unchanged Dart sources retain their clean focused formatting/analysis result.
+Added coverage includes a real-process VM-service GC
+probe: abandoned original and retained frames release the payload while an
+independent derived control view keeps its sole allocation alive, then dropping
+that view frees it. Four real composed WebSocket cases cover cleartext/TLS and
+retained/transferred sends, 128-KiB native-built arguments, keywords, frame reuse,
+local write receipts and GOODBYE. TLS positives deliberately allow the self-signed
+fixture; the existing rejection case supplies certificate-rejection evidence.
+Fixture paths now resolve from the package URI rather than an absolute checkout.
+
+The first broad scratch run's four failures are compile/setup failures: a missing
+sibling core support import and three child processes resolving published beta.7
+instead of the staged FlatBuffers core. A private packages/client + packages/core
+layout and path override fix those resolutions. No assertion, test deadline or
+production behavior is weakened. The initial continuation-frame fixture assumption
+and a Result getter spelling in the new test are also corrected in test setup.
+Qwen planning/reviews ran; speculative ownership findings are rejected against
+retained Frozen owners, allocation destruction and successful real sends.
+
+Native source/library and 160 final client source hashes are frozen separately;
+all 180 copied core source hashes and all 1,419 canonical product hashes and the
+exact product inventory remain unchanged. Runtime composition is still external,
+not shipped or integrated. Full PPT/E2EE, representative performance/copy gates,
+platform/consumer CI and release/adapter documentation remain required. No ObjectBox
+dependency, issue completion, release or package-version change is claimed.
+
+## Public Session PPT and encryption boundary checkpoint, 2026-10-04
+
+The new stage at
+`/private/var/folders/k1/7cb_79197r7c01tn27rw47g00000gn/T/connectanum-flatbuffers-ppt-stage-mbphtafq`
+copies the prior immutable client/core prototype and canonical router into a
+separate packages layout. Its original 495-file snapshot is
+`/tmp/connectanum-flatbuffers-ppt-stage-baseline-source.json`. The final 499-file
+snapshot and nine modified/four added/no deleted source audit are
+`/tmp/connectanum-flatbuffers-ppt-stage-frozen-source.json` and
+`/tmp/connectanum-flatbuffers-ppt-stage-source-deviation.json`. Private package
+configs, path overrides, hook/installer support and TLS fixtures are hashed too.
+No earlier stage or canonical product file is changed.
+
+Fail-first real-network proofs reproduce missing application arguments at public
+handlers, missing PPT fields on materialized and native lazy ERROR replies,
+unnecessary FlatBuffers application-message materialization and absent lazy
+custom details. Logs respectively:
+
+- `/tmp/connectanum-flatbuffers-ppt-public-typed-diagnostic.log`
+- `/tmp/connectanum-flatbuffers-ppt-public-error-before.log`
+- `/tmp/connectanum-flatbuffers-ppt-public-native-lazy-error-before.log`
+- `/tmp/connectanum-flatbuffers-ppt-native-lazy-admission-before.log`
+- `/tmp/connectanum-flatbuffers-ppt-native-lazy-custom-diagnostic.log`
+
+The core explicit decode/unwrap helpers treat an otherwise absent argument view's
+transparent span as one packed PPT value, including present-empty spans and
+nonzero subview offsets. Existing encoded/materialized arguments keep their
+precedence. Raw codec and transport APIs remain opaque; the public Session bridge
+opts materialized consumers into application values while retaining the original
+wire source. Lazy consumers defer decode. The new `LazyPayloadEncoding.flatbuffers`
+means typed single-buffer PPT; dynamic fields of the outer FlatBuffers WAMP
+binding remain CBOR. Router fragment decoding explicitly rejects interpreting a
+typed FlatBuffer as a dynamic list or map.
+
+Invocation uses one reply-packing path for YIELD and ERROR. ERROR retains PPT and
+custom fields, provider context uses message type ERROR, and native lazy handlers
+share the same core response lifecycle. Terminal reentry, rejection retry,
+timeout, interrupt and abandonment contracts remain covered. Packed plain replies
+materialize application values; they must not emit a packed wire wrapper without
+PPT metadata. Native session custom details use the same lazy dictionary loader
+and known-field exclusions as materialized binding. The transport only needs
+concrete bootstrap/GOODBYE types for its profile phase gate; admitted application
+messages retain native views, which the real matrix explicitly observes.
+
+A separate fail-first proof identifies an existing encryption bypass: merely
+matching packed CBOR encoding forwards the original bytes under `ppt_scheme=wamp`
+without invoking the provider. It accepts plaintext, another key's ciphertext or
+no provider. Evidence:
+`/tmp/connectanum-flatbuffers-ppt-e2ee-packed-boundary-before-fixed.log` (eight
+failed cases, terminal exit 1). The correction always invokes outbound encryption
+with the selected provider and response context. Ten boundary cases cover both
+ciphers, plaintext/other-key sources, YIELD/ERROR and missing-provider rejection;
+network tests also exercise CALL and PUBLISH. Explicit payload provider overrides
+remain supported, and the existing CBOR v1 scheme, framing and crypto profiles do
+not change. Unencrypted typed PPT still reuses packed spans. Fresh ciphertext is a
+real transformation and must be counted separately in the performance matrix.
+
+Three earlier tests explicitly encoded the unsafe bypass. They now require an
+attached provider, fresh ciphertext, outbound context where observable and an
+authenticated round-trip, rather than accepting plaintext under an encrypted
+label. This is a correction of the proved behavior, not an assertion waiver or a
+weaker gate. Other failures from the first staged changes are preserved:
+`/tmp/connectanum-flatbuffers-ppt-core-full.log` (three precedence regressions),
+`/tmp/connectanum-flatbuffers-ppt-core-plain-packed-before.log` and
+`/tmp/connectanum-flatbuffers-ppt-session-lazy-reply-after-delegation.log` (plain
+packed fallback regressions). The final suites pass after their source repairs.
+
+Completed evidence, every result below has terminal exit 0:
+
+- Public RawSocket Session matrix: 75 in
+  `/tmp/connectanum-flatbuffers-ppt-public-matrix-rekey-final.log`.
+  Seven directed serializer pairs cover materialized/lazy RPC, progressive
+  replies, ERROR, pub/sub, typed application FlatBuffers, both CBOR crypto
+  profiles, custom details and outbound re-encryption. Native publish forwarding
+  adds the two unchanged native router cases: 77 total in
+  `/tmp/connectanum-flatbuffers-ppt-public-native-forwarding-final.log`.
+- Complete VM core: 4,469 in
+  `/tmp/connectanum-flatbuffers-ppt-core-full-final-corrected-contracts.log`.
+- Complete serial VM client: 5,431 in
+  `/tmp/connectanum-flatbuffers-ppt-client-full-terminal.log`.
+- Chrome JavaScript: 43 core and 280 client in
+  `/tmp/connectanum-flatbuffers-ppt-core-javascript-final.log` and
+  `/tmp/connectanum-flatbuffers-ppt-client-javascript-final.log`.
+- Chrome WASM: 43 core and 280 client in
+  `/tmp/connectanum-flatbuffers-ppt-core-wasm-final.log` and
+  `/tmp/connectanum-flatbuffers-ppt-client-wasm-final.log`.
+- Thirteen changed/new Dart files pass focused format/analysis in
+  `/tmp/connectanum-flatbuffers-ppt-stage-final-format-terminal.log` and
+  `/tmp/connectanum-flatbuffers-ppt-stage-final-analysis-terminal.log`.
+
+The first broad client run has ten setup failures, preserved in
+`/tmp/connectanum-flatbuffers-ppt-client-full.log`: five cannot load the same TLS
+certificate; five suites cannot import unchanged hook/installer sources omitted
+from the new stage. Four unchanged support files copied from canonical repair
+those inputs. Qwen's completed triage agrees the certificate failures occur before
+TLS verification. No assertion, deadline, package version or production code is
+changed for setup. The next broad run has only the obsolete bypass expectation;
+its corrected authenticated test passes with the final full inventory.
+
+Qwen's full selected-source review and GLM's bounded encryption judgment complete
+and are saved in the combined evidence. Review suggestions to double-wrap typed
+PPT or treat keyword-only typed payloads as silently accepted are rejected against
+the single-buffer serializer's explicit validation and successful ERROR matrix.
+The native custom-details guard is deliberately restricted to the three payload
+message types used by its callers; speculation about future generic access is
+not a proved defect. GLM's missing-provider concern is checked against the source
+exception and new fail-closed tests. Advisory results are not approval or evidence
+of a defect without a reproducer.
+
+Combined log hashes, terminal statuses, library identity, stage manifests and
+limits are in `/tmp/connectanum-flatbuffers-ppt-evidence.json`. The existing dylib
+SHA256 d9f9237b910d03100f085fbfeb21714c19ed27efffc24c8d06d1e7e2bddda68e
+and older native 144/client 160/core 180 snapshots remain unchanged. All 1,419
+canonical product files and the exact tracked product inventory still match.
+
+The new real-network matrix is cleartext native RawSocket, not a complete
+WebSocket/TLS matrix. Chrome cases prove Dart paths and synthetic native metadata,
+not browser FFI. Typed FlatBuffers-specific E2EE profile negotiation/native parity,
+representative performance/copy gates and full platform/release consumer evidence
+remain unfinished. MCP111346833983 is still live for exact head b12667de. Preserve
+this checkpoint while awaiting the existing CI job; no runtime integration,
+issue closure, release or ObjectBox integration is claimed.
+
+## Native frame cancellation and backpressure checkpoint, 2026-10-04
+
+The fail-first native close test completes its RawSocket case but times out at
+the unchanged five-second receipt-abandonment assertion for WebSocket. Evidence:
+`/tmp/connectanum-flatbuffers-native-frame-local-close-before.log` and
+`/tmp/connectanum-flatbuffers-native-frame-local-close-before-diagnostic.log`
+(both terminal exit 101). Dropping a Tokio AbortHandle does not abort its task.
+The repair retains ordinary graceful channel draining and schedules a one-second
+watchdog using the removed writer's own runtime Handle and AbortHandle. It never
+looks up a later connection by ID. Aborting an already completed task is harmless.
+
+Primary contracts: [Tokio AbortHandle](https://docs.rs/tokio/latest/tokio/task/struct.AbortHandle.html)
+and [RFC6455 section 7.1.1](https://www.rfc-editor.org/rfc/rfc6455#section-7.1.1).
+RFC6455 describes the closing handshake and permits transport closure after a
+reasonable period for an unresponsive server; it specifies no one-second limit.
+Our bound is a documented native local-close policy. Callers await tracked
+receipts or owner drain to observe completion; exported views and thread-affine
+release dispatch remain independent lifetime owners.
+
+Four new real-network tests use nonzero-offset, externally leased 8-MiB CBOR
+payloads and compare exact pointers. Healthy fan-out completes while a slow peer
+retains its owner. Native close, peer reset (SO_LINGER zero) and runtime shutdown
+abandon pending receipts; an independently exported view keeps the lease alive
+until it is released, then its producer-thread callback runs exactly once.
+The queue test takes capacity from the public connection runtime configuration,
+proves receipt rollback on rejection and consumption of only the submitted
+reference, then reuses the caller-retained frame on a fresh healthy connection.
+A separate healthy WebSocket case proves that immediate close writes the entire
+queued frame and Close1000 before a successful receipt. No existing deadline,
+queue budget, assertion or gate is weakened.
+
+Verified identities and results:
+
+- Combined evidence: `/tmp/connectanum-flatbuffers-native-frame-close-evidence.json`.
+- Current native 144-file snapshot:
+  `/tmp/connectanum-flatbuffers-native-frame-frozen-source.json`; previous snapshot:
+  `/tmp/connectanum-flatbuffers-native-frame-frozen-source-before-cancellation-tests.json`.
+- All 14 focused frame tests pass in
+  `/tmp/connectanum-flatbuffers-native-frame-cancellation-queue-tests-final.log`;
+  existing healthy-close regression passes in
+  `/tmp/connectanum-flatbuffers-native-frame-healthy-close-regression.log`.
+- Complete Rust workspace terminal exit 0: 361 core + three integration + 250 FFI
+  in `/tmp/connectanum-flatbuffers-native-frame-close-workspace.log`.
+- Release build terminal exit 0 in
+  `/tmp/connectanum-flatbuffers-native-frame-close-release-build.log`.
+  New dylib SHA256:
+  `d9f9237b910d03100f085fbfeb21714c19ed27efffc24c8d06d1e7e2bddda68e`.
+  The old 610-test checkpoint's dylib is retained as
+  `target/release/libct_ffi.before-websocket-close.dylib` with its original SHA256.
+- All 2,074 serial native Dart regressions pass against the rebuilt library,
+  terminal exit 0, in
+  `/tmp/connectanum-flatbuffers-native-frame-close-dart-native-regressions.log`.
+  Client 160, copied core 180 and canonical product 1,419 source hashes remain
+  unchanged; the canonical exact product inventory also matches.
+- Canonical `bin/test-fast` terminal exit 0 in
+  `/tmp/connectanum-flatbuffers-native-frame-close-fast.log`.
+
+GLM's completed architecture judgment supports the captured-task watchdog.
+Qwen's review suggestions to require unconditional drain beyond the documented
+grace or await a blocked receipt before the peer reads are not adopted: the former
+contradicts bounded close, and the latter would prevent the test peer from draining
+the socket. Existing normal-close and new blocked-close assertions verify both
+behaviors. No speculative finding is counted as a proven defect or an approval.
+
+MCP job111346833983 remains live for exact head b12667de; all completed jobs pass.
+Keep the current jobs and immutable staged candidates intact. Runtime integration,
+canonical verification, complete hosted clearance, routing/PPT/E2EE, performance
+and release consumer evidence remain required. All ten milestone issues stay open.
+
+Independent adapter-boundary research rechecks the
+[ObjectBox C header at d701b03](https://github.com/objectbox/objectbox-c/blob/d701b03ff680b26da219f0cb8961f2ea1fdb3e3c/include/objectbox.h).
+Its put padding mode can introduce a copy if the byte count is not divisible by
+four. Allowing padding requires actual accessible trailing storage, which cannot
+be assumed for an exported receive subview. Read data still requires the active
+top-level transaction and absence of invalidating writes. These are adapter
+policies; Connectanum must not change the application byte range to conceal them.
+[FlatBuffers internals](https://flatbuffers.dev/internals/) describe scalar
+alignment. Before declaring native typed-reader compatibility, document and test
+the particular reader's physical alignment contract for the payload pointer.
+Byte-preserving transport and Dart ByteData decoding alone do not establish it.
+No ObjectBox C insertion, eight-byte ObjectBox alignment requirement or current
+transport defect is inferred from these sources. Issue104 records the conditional
+copy/alignment boundary for future adapter authors.
+
+
+## Mixed-owner frame checkpoint, 2026-10-04
+
+The previous goal turn only re-audited existing issues; it made no implementation
+progress. This turn resolves the scratch package-resolution failures and adds
+verified frame collection and full Dart composed WebSocket behavior. The current
+MCP query is a verified wait on job111346833983, not a reason to restart it.
+Continue independent work; all issue scopes remain unchanged.
+
+Resume paths and immutable evidence:
+
+- Native stage pointer: `/tmp/connectanum-flatbuffers-frame-stage-path.txt`.
+- Client stage pointer: `/tmp/connectanum-flatbuffers-frame-client-stage-path.txt`;
+  client now lives under the native stage's private packages directory.
+- Native snapshot: `/tmp/connectanum-flatbuffers-native-frame-frozen-source-before-cancellation-tests.json`
+  (144 files); workspace log: `/tmp/connectanum-flatbuffers-native-frame-workspace.log`.
+- Client snapshot: `/tmp/connectanum-flatbuffers-frame-client-frozen-source.json`
+  (160 files); copied core snapshot: `/tmp/connectanum-flatbuffers-frame-client-core-frozen-source.json`
+  (180 files). The preceding 2,069-test snapshot is retained with the suffix
+  `before-finalizer-ws-tests`.
+- Final broad log: `/tmp/connectanum-flatbuffers-native-frame-dart-native-regressions-final-clean.log`
+  (terminal exit 0, 2,074 passed); analysis:
+  `/tmp/connectanum-flatbuffers-native-frame-dart-final-analysis-clean.log`
+  (terminal exit 0, no issues).
+- Focused frame finalizer and network logs:
+  `/tmp/connectanum-flatbuffers-native-frame-dart-wrapper-finalizer.log` (six pass),
+  `/tmp/connectanum-flatbuffers-native-frame-dart-websocket-composition-final.log`
+  (21 pass, followed by the clean broad run).
+- Combined identities: `/tmp/connectanum-flatbuffers-native-frame-checkpoint-evidence.json`.
+  Release dylib SHA256:
+  `375ca8966a2b45f4bd1a6489a3024043a59a1aebed14395b82803793687866ec`.
+
+The compose helper verifies existing control bytes, rejects populated or
+non-payload control messages when attaching data, and uses the existing pinned
+segmented encoder. It is not a second schema or an ObjectBox-specific protocol.
+Owner identity checks precede foreign-library submission. Native frame handles
+survive runtime shutdown and never recycle; queue rejection consumes only the
+submitted reference. Caller-retained copies and independent control views survive.
+
+The final two review findings are advisory false positives: Frozen references
+retain args/kwargs after the caller disposes its handles, as proven by pointer and
+real-write tests; the GC control prefix is an immutable scalar oracle backed by
+actual native live-allocation counts. Native storage is not moved by Dart GC.
+No native counter, assertion or deadline is changed to obtain a pass.
+
+Next: inspect the same MCP job when it changes; after complete CI clearance,
+integrate the frozen ordinary/native transport and composition changes with
+portable fixtures, run canonical test-fast/verify, and obtain exact-head hosted
+proof. The later cancellation checkpoint covers generic frame backpressure;
+full routing/PPT/E2EE,
+performance budgets and release consumer documentation remain completion gates.
+
+## Earlier native transport checkpoint
+
+Five new lifetime contracts fail against the original native transport base and
+pass in the prototype. They cover paused subscriber close, close/reopen,
+late-allocation cleanup with cancelled readiness, coalesced pending opens and
+stale error isolation. Two restart cases expose a further boundary: the first
+Dart generation fix can close a recycled connection ID after global restart;
+independently, an already opened original transport can also close a fresh
+connection after restart. The scratch Rust fix uses library-lifetime positive
+connection IDs, never resets or wraps them, and returns a capacity error at the
+positive i32 ABI boundary. Four focused allocation tests and the full workspace
+regressions pass. Keep both before failures and after successes for integration.
 
 CI repair checkpoint: the complete unchanged router-message-binding-vm campaign
 passes all 699 candidates at 95.76427255985267% adjusted assertion score against
@@ -43,8 +508,8 @@ client WASM cases. Supporting test-fast passes but overlaps test additions.
 
 Pushed 579f5f48 has hosted Full Verify and client binding gate passes, but its old
 router binding gate fails. The remaining MCP mutation job is still running.
-Push this isolated test repair and require hosted confirmation of the new head
-before integrating runtime transport changes. All ten milestone issues remain
+The isolated repair is pushed as b12667de; require hosted confirmation of that
+head before integrating runtime transport changes. All ten milestone issues remain
 open; ordinary/native transport, mixed-owner composition, full PPT/E2EE,
 performance/copy budgets and release/adapter documentation remain required.
 
@@ -1511,3 +1976,90 @@ Native scratch follow-up evidence (2026-10-04):
   /tmp/connectanum-flatbuffers-native-ws-stage-existing-regressions-serial.log.
   The initial parallel run races NativeClientRuntime.shutdownShared across files;
   it is not evidence of a serializer regression.
+
+## Native transport preparation handoff after CI repair push
+
+- Canonical repair commit b12667de contains only 20 router binding contracts and
+  bookkeeping. Fresh bin/verify and the complete unchanged 699-mutant gate pass;
+  independent saved-log audit preserves every classification and deadline.
+- Native scratch paths are retained in /tmp/connectanum-flatbuffers-transport-stage-path.txt
+  and /tmp/connectanum-flatbuffers-native-ws-stage-path.txt. Use the current files,
+  not the earlier one-shot editing scripts. Sources and the release dylib are
+  frozen in /tmp/connectanum-flatbuffers-native-lifetime-final-hashes.json.
+- Final 139-case log: /tmp/connectanum-flatbuffers-native-ws-stage-full-regressions-139-final.log.
+  Final analysis: /tmp/connectanum-flatbuffers-native-ws-stage-analyze-139-final.log.
+  Native workspace: /tmp/connectanum-flatbuffers-native-ws-stage-workspace-lifetime-regressions.log.
+  Native build: /tmp/connectanum-flatbuffers-native-ws-stage-lifetime-build.log.
+- The 17 new VM cases include cleartext/TLS, anonymous/ticket, 128 KiB RPC/pubsub,
+  progress/error, fragmented outgoing sends, real incoming continuation frames,
+  invalid protocol selection, missing profile acknowledgements, untrusted TLS
+  rejection, paused shutdown, open/close races and runtime restart isolation.
+  Positive TLS still uses a self-signed fixture with allowInsecure; it proves
+  encryption, not a trusted-certificate positive path.
+- Continuation fixture uses actual RFC6455 binary/continuation opcodes and FIN
+  bits, not just TCP chunking. References checked2026-10-04:
+  https://datatracker.ietf.org/doc/html/rfc6455#section-5.4 and
+  https://api.dart.dev/dart-io/WebSocket/WebSocket.fromUpgradedSocket.html.
+- Original transport base, while retaining the scratch FlatBuffers factory/
+  native admission plumbing, fails all five new lifecycle contracts. Log:
+  /tmp/connectanum-flatbuffers-native-lifecycle-contracts-before.log. The baseline
+  clone path is /tmp/connectanum-flatbuffers-native-lifecycle-before-stage-path.txt.
+  Public JSON repros separately prove defects against unmodified canonical code.
+- Runtime restart public repros:
+  /tmp/connectanum-flatbuffers-transport-contract-preflight/native_pending_cancel_runtime_restart.dart
+  and native_stale_transport_runtime_restart.dart. The first passes the original
+  code but fails the first generation-only prototype; the second fails original
+  code. Logs /tmp/connectanum-flatbuffers-native-runtime-restart-stage.log,
+  /tmp/connectanum-flatbuffers-native-runtime-restart-original.log,
+  /tmp/connectanum-flatbuffers-native-stale-runtime-original.log retain this
+  distinction. Both pass with the rebuilt scratch native library at
+  /tmp/connectanum-flatbuffers-native-runtime-restart-after.log and
+  /tmp/connectanum-flatbuffers-native-stale-runtime-after.log.
+- Scratch connection IDs are allocated from a library-lifetime atomic sequence
+  in core, rather than a per-runtime registry counter. Reject zero, exhausted
+  and nonpositive-ABI ranges without advancing or wrapping. Clients propagate
+  allocation failure; inbound handshakes close/drop on exhaustion. The HTTP3
+  admission unit adapts its private allocator call to Result. Four allocator
+  unit tests cover registry recreation, signed boundary, invalid sequences and
+  concurrent uniqueness. No native ABI or release version is changed.
+- The first combined restart run fails a fixture expectation of false for the
+  C transport's file capability: plaintext native WebSocket reports true. The
+  Dart FlatBuffers transport still excludes file-prefix support. Correct the
+  native capability assertion to true and keep the actual fresh HELLO/WELCOME
+  assertion and five-second deadline; final 139 cases pass. An initial attempted
+  fixture edit fails before writing; the unchanged replay adds no new evidence.
+- Qwen's lifecycle review misses close's captured readiness cancellation and
+  the already shared opening future. Its buffered-handle leak claim is not
+  supported: NativeIncomingMessage registers a finalizer and queued messages
+  retain their anchor until legitimate owners end. Do not prematurely release
+  buffers still reachable by paused subscribers. The generation checks execute
+  synchronously with message processing between awaits.
+- Qwen's native counter review reaches its output token limit and is incomplete.
+  A narrowed GLM review completes at
+  /tmp/connectanum-flatbuffers-native-connection-id-review-completed.txt with no
+  allocator defect. Permanent positive-i32 exhaustion is intentional; the shown
+  sequence has no alternate writer or reset. No unsupported adjacent queue
+  concern is accepted as a proven defect.
+
+Public mixed-owner composition remains pending for96/97/100/103. The concrete
+proposal and completed GLM advisory are saved in
+/tmp/connectanum-flatbuffers-mixed-owner-composition-proposal.md and
+/tmp/connectanum-flatbuffers-mixed-owner-composition-judge.txt. Proposed direction:
+use a distinct immutable reference-counted frame retaining owned/leased input
+segments; reuse the existing pinned native segmented writer and codec. Compose
+with an all-or-nothing staging record, preserving caller handles on error.
+Default send retains one frame reference; transfer consumes the caller handle;
+enqueue rejection drops only the submitted reference. Fanout requires neither
+recomposition nor flattening. External final-release callbacks remain dispatched
+on the producer thread. A control-only opaque template needs its legitimate
+zero-length placeholder, consistent with the existing flag/vector rule.
+
+Do not confuse submit_frozen with rollback on enqueue rejection: it takes the
+reference before invoking submit. GLM's contrary sentence is inaccurate; its
+atomic-staging and fanout questions are clarified in the proposal. Actual public
+frame ABI, metadata limits, native WAMP builder injection preserving53-bit ID
+validation, composition checks, lifetime/error proofs and copy/benchmark gates
+remain unimplemented. Complete these, ordinary/native transport integration,
+full mixed routing/PPT/E2EE, conformance/platform coverage and release/adapter
+docs before the milestone acceptance audit. Do not close issues from this
+scratch transport subset or change the performance requirement.

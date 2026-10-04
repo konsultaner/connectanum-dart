@@ -105,6 +105,17 @@ fn receipts() -> &'static ReceiptStore {
     STORE.get_or_init(|| ReceiptStore::new(MAX_RECEIPTS))
 }
 
+pub(super) fn submit_tracked(submit: impl FnOnce() -> Result<WriteReceipt, ct_core::Error>) -> i32 {
+    let reservation = match receipts().reserve() {
+        Ok(value) => value,
+        Err(error) => return error,
+    };
+    match submit() {
+        Ok(receipt) => reservation.commit(receipt),
+        Err(error) => super::ffi::map_error(error),
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn ct_write_receipt_abi_version() -> u32 {
     1
@@ -122,28 +133,14 @@ pub extern "C" fn ct_test_write_receipt_live_handles() -> usize {
 #[no_mangle]
 pub extern "C" fn ct_owned_buffer_send_tracked(connection: i32, buffer: i32) -> i32 {
     submit_frozen(buffer, |payload| {
-        let reservation = match receipts().reserve() {
-            Ok(value) => value,
-            Err(error) => return error,
-        };
-        match send_wamp_message_tracked(ConnectionId(connection as u32), payload) {
-            Ok(receipt) => reservation.commit(receipt),
-            Err(error) => super::ffi::map_error(error),
-        }
+        submit_tracked(|| send_wamp_message_tracked(ConnectionId(connection as u32), payload))
     })
 }
 
 /// Positive receipt handle for a FIFO flush barrier; no protocol frame emitted.
 #[no_mangle]
 pub extern "C" fn ct_connection_drain_writes(connection: i32) -> i32 {
-    let reservation = match receipts().reserve() {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    match drain_wamp_writes(ConnectionId(connection as u32)) {
-        Ok(receipt) => reservation.commit(receipt),
-        Err(error) => super::ffi::map_error(error),
-    }
+    submit_tracked(|| drain_wamp_writes(ConnectionId(connection as u32)))
 }
 
 /// 0 pending, 1 full frame written and flushed, 2 abandoned; negative error.

@@ -186,5 +186,17 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
   separate CBOR args/kwargs and opaque transparent bytes.
 - `schemas/wamp_flatbuffers/codec_cases.json` and the core codec round-trip tool
   extend `tool/check_wamp_flatbuffers_interop.py` with all 25 native/public-Dart
-  message cases. Transport/profile/router integration remains milestone work,
-  tracked in `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.
+  message cases. `FlatBuffersSessionProfile` gates bootstrap/ordinary traffic in
+  client transports and router sessions; ordinary RawSocket/WebSocket selection
+  and native WebSocket mapping share this binding.
+- `native/transport/ct_ffi/src/runtime/native_frames.rs` exposes immutable segmented
+  frames retaining owned or leased control/application allocations. The Dart
+  `native_buffers.dart` library's `native_frames.dart` part provides composition,
+  retained/transfer sends, views and local completion receipts.
+- Core lazy payloads retain original storage owners across forwarding and mutable
+  message edits. Session and Invocation keep that ownership with reused outbound
+  wire views; encrypted payloads continue through their selected provider.
+- `docs/native_buffer_ownership.md` and the client native frame example describe
+  copy boundaries and the separate ObjectBox adapter contract. Full/mixed routing,
+  typed E2EE, platform/consumer and performance acceptance remain in
+  `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.

@@ -15,6 +15,8 @@ run_client_vm_tests() {
   dart test packages/connectanum_client/test/meta_state_cache_test.dart
   dart test packages/connectanum_client/test/session_e2ee_profile_test.dart
   dart test packages/connectanum_client/test/session_lazy_reply_test.dart
+  dart test packages/connectanum_client/test/session_lazy_payload_lifetime_vm_test.dart --concurrency=1
+  dart test packages/connectanum_client/test/transport/flatbuffers_transport_profile_vm_test.dart --concurrency=1
   dart test packages/connectanum_client/test/session_progressive_file_test.dart
   dart test packages/connectanum_client/test/session_progressive_call_test.dart
   dart test packages/connectanum_client/test/session_goodbye_test.dart
@@ -35,6 +37,8 @@ run_client_vm_tests() {
     dart test packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart
     dart test packages/connectanum_client/test/transport/native/native_owned_buffer_test.dart
     dart test packages/connectanum_client/test/transport/native/flatbuffers_profile_test.dart
+    dart test packages/connectanum_client/test/transport/native/flatbuffers_websocket_network_test.dart --concurrency=1
+    dart test packages/connectanum_client/test/transport/native/native_flatbuffer_frame_test.dart --concurrency=1
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/resource_restart_test.dart --concurrency=1
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
@@ -65,6 +69,8 @@ run_router_zero_copy_publish_tests() {
         --chain-stack-traces
     CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
       dart test test/router_flatbuffers_native_test.dart --chain-stack-traces
+    CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+      dart test test/router_flatbuffers_session_ppt_test.dart --chain-stack-traces
   )
 }
 
@@ -149,6 +155,7 @@ run_client_browser_websocket_test() {
         test/transport/native/message_binding_test.dart
         test/transport/local
         test/transport/websocket/websocket_transport_web_test.dart
+        test/transport/websocket/flatbuffers_transport_profile_web_test.dart
         test/transport/websocket/websocket_browser_lifecycle_test.dart
         test/transport/websocket/websocket_attempt_lifecycle_test.dart
         test/mcp/form_elicitation_regression_test.dart

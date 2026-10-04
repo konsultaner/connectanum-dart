@@ -39,14 +39,14 @@ impl AsRef<[u8]> for Allocation {
 }
 
 #[derive(Clone)]
-struct Frozen {
+pub(super) struct Frozen {
     allocation: Bytes,
     capacity: usize,
     range: Range<usize>,
 }
 
 impl Frozen {
-    fn bytes(&self) -> Bytes {
+    pub(super) fn bytes(&self) -> Bytes {
         self.allocation.slice(self.range.clone())
     }
 }
@@ -259,6 +259,21 @@ pub(super) fn take_frozen(handle: i32) -> Result<Bytes, i32> {
         return Err(ERR_INVALID_ARGUMENT);
     }
     store().take(handle as u32)
+}
+
+/// Retain the entire allocation as well as its encoded range. In particular,
+/// an empty slice must not lose its externally owned allocation lifetime.
+pub(super) fn borrow_frozen(handle: i32) -> Result<Frozen, i32> {
+    if handle <= 0 {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    store().frozen(handle as u32)
+}
+
+pub(super) fn retain_frozen_buffer(buffer: &Frozen) -> Result<i32, i32> {
+    store()
+        .insert(Storage::Frozen(buffer.clone()))
+        .map(|handle| handle as i32)
 }
 
 pub(super) fn submit_frozen(handle: i32, submit: impl FnOnce(Bytes) -> i32) -> i32 {

@@ -70,7 +70,7 @@ abstract class _NativeTransportBase extends AbstractTransport
     implements
         SessionOptimizedTransport,
         DrainableTransport,
-        NativeBufferTransport {
+        NativeFrameTransport {
   _NativeTransportBase(
     this._serializer,
     this._nativeSerializer, {
@@ -95,6 +95,8 @@ abstract class _NativeTransportBase extends AbstractTransport
   Completer<dynamic>? _onDisconnectCompleter;
   int? _connectionId;
   _NativeReceiveWorker? _receiveWorker;
+  int _openGeneration = 0;
+  Future<void>? _opening;
   bool _pumpStarted = false;
   bool _closeRequested = false;
   bool _goodbyeSent = false;
@@ -102,14 +104,17 @@ abstract class _NativeTransportBase extends AbstractTransport
   flatbuffers.FlatBuffersSessionProfile? _flatBuffersProfile;
 
   ({flatbuffers.FlatBuffersSessionProfile profile, AbstractMessage message})?
-  _prepareEncodedSend(
-    NativeOwnedBuffer buffer,
-  ) {
+  _prepareEncodedSend(NativeOwnedBuffer buffer) {
     final profile = _flatBuffersProfile;
     if (profile == null) return null;
-    final message = (_serializer as flatbuffers.Serializer).deserialize(
-      buffer.bytes,
-    )!;
+    return _prepareEncodedBytes(buffer.bytes);
+  }
+
+  ({flatbuffers.FlatBuffersSessionProfile profile, AbstractMessage message})?
+  _prepareEncodedBytes(Uint8List bytes) {
+    final profile = _flatBuffersProfile;
+    if (profile == null) return null;
+    final message = (_serializer as flatbuffers.Serializer).deserialize(bytes)!;
     return (
       profile: profile.prepareOutgoing(message, advertise: false),
       message: message,
@@ -181,6 +186,42 @@ abstract class _NativeTransportBase extends AbstractTransport
     return receipt;
   }
 
+  ({flatbuffers.FlatBuffersSessionProfile profile, AbstractMessage message})?
+  _prepareNativeFrame(NativeFlatBufferFrame frame) {
+    if (_nativeSerializer != NativeMessageSerializer.flatbuffers) {
+      throw UnsupportedError(
+        'Native FlatBuffers frames require a FlatBuffers transport',
+      );
+    }
+    return _prepareEncodedBytes(frame.controlBytes);
+  }
+
+  @override
+  void sendNativeFrame(NativeFlatBufferFrame frame, {bool transfer = false}) {
+    final id = _connectionId;
+    if (id == null) throw StateError('Transport is not connected.');
+    final next = _prepareNativeFrame(frame);
+    nativeBuffers.sendFrame(id, frame, transfer: transfer);
+    _commitSend(next?.profile, next?.message);
+  }
+
+  @override
+  NativeWriteReceipt sendNativeFrameTracked(
+    NativeFlatBufferFrame frame, {
+    bool transfer = false,
+  }) {
+    final id = _connectionId;
+    if (id == null) throw StateError('Transport is not connected.');
+    final next = _prepareNativeFrame(frame);
+    final receipt = nativeBuffers.sendFrameTracked(
+      id,
+      frame,
+      transfer: transfer,
+    );
+    _commitSend(next?.profile, next?.message);
+    return receipt;
+  }
+
   @override
   Future<void> drainWrites() {
     final id = _connectionId;
@@ -190,9 +231,13 @@ abstract class _NativeTransportBase extends AbstractTransport
 
   @override
   Future<void> open({Duration? pingInterval}) async {
-    if (isOpen) {
+    if (isOpen) return;
+    final pending = _opening;
+    if (pending != null) {
+      await pending;
       return;
     }
+    final generation = ++_openGeneration;
     _closeRequested = false;
     _goodbyeSent = false;
     _goodbyeReceived = false;
@@ -202,20 +247,43 @@ abstract class _NativeTransportBase extends AbstractTransport
         : null;
     _pumpStarted = false;
     _messageController = StreamController<Object?>.broadcast();
-    _onReadyCompleter = Completer<void>();
-    _onConnectionLostCompleter = Completer<dynamic>();
+    final ready = _onReadyCompleter = Completer<void>();
+    // Readiness remains observable by callers, including after cancellation.
+    // A caller awaiting open alone must not create an unhandled readiness error.
+    ready.future.ignore();
+    final lost = _onConnectionLostCompleter = Completer<dynamic>();
     _onDisconnectCompleter = Completer<dynamic>();
+    final opening = _finishOpen(generation, ready, lost, pingInterval);
+    _opening = opening;
+    try {
+      await opening;
+    } finally {
+      if (generation == _openGeneration) _opening = null;
+    }
+  }
+
+  Future<void> _finishOpen(
+    int generation,
+    Completer<void> ready,
+    Completer<dynamic> lost,
+    Duration? pingInterval,
+  ) async {
     try {
       final connectionId = await openNativeConnection(pingInterval);
+      if (generation != _openGeneration) {
+        try {
+          _runtime.closeConnection(connectionId);
+        } catch (_) {
+          // Shutdown may already have removed the cancelled connection.
+        }
+        return;
+      }
       _connectionId = connectionId;
-      _onReadyCompleter!.complete();
+      ready.complete();
     } catch (error, stackTrace) {
-      if (!(_onReadyCompleter?.isCompleted ?? true)) {
-        _onReadyCompleter!.completeError(error, stackTrace);
-      }
-      if (!(_onConnectionLostCompleter?.isCompleted ?? true)) {
-        _onConnectionLostCompleter!.complete(error);
-      }
+      if (generation != _openGeneration) return;
+      if (!ready.isCompleted) ready.completeError(error, stackTrace);
+      if (!lost.isCompleted) lost.complete(error);
     }
   }
 
@@ -233,7 +301,7 @@ abstract class _NativeTransportBase extends AbstractTransport
     final connectionId = _connectionId;
     if (!_pumpStarted && connectionId != null) {
       _pumpStarted = true;
-      unawaited(_pumpMessages(connectionId));
+      unawaited(_pumpMessages(connectionId, _openGeneration));
     }
     return controller.stream;
   }
@@ -241,6 +309,14 @@ abstract class _NativeTransportBase extends AbstractTransport
   @override
   Future<void> close({error}) async {
     _closeRequested = true;
+    ++_openGeneration;
+    _opening = null;
+    final ready = _onReadyCompleter;
+    if (ready != null && !ready.isCompleted) {
+      ready.completeError(StateError('Native transport closed before ready.'));
+    }
+    final controller = _messageController;
+    final disconnect = _onDisconnectCompleter;
     final connectionId = _connectionId;
     _connectionId = null;
     if (connectionId != null) {
@@ -251,11 +327,11 @@ abstract class _NativeTransportBase extends AbstractTransport
       }
     }
     await _disposeReceiveWorker();
-    final controller = _messageController;
     if (controller != null && !controller.isClosed) {
-      await controller.close();
+      // A paused consumer may keep its buffered messages after transport close.
+      unawaited(controller.close());
     }
-    complete(_onDisconnectCompleter, error);
+    complete(disconnect, error);
   }
 
   @override
@@ -279,7 +355,10 @@ abstract class _NativeTransportBase extends AbstractTransport
   /// Legacy event-loop yield. Use [drainWrites] to observe native writer flush.
   Future<void> drain() => Future<void>.delayed(Duration.zero);
 
-  Future<void> _pumpMessages(int connectionId) async {
+  bool _isCurrentConnection(int connectionId, int generation) =>
+      _connectionId == connectionId && _openGeneration == generation;
+
+  Future<void> _pumpMessages(int connectionId, int generation) async {
     final controller = _messageController!;
     final connectionLost = _onConnectionLostCompleter!;
     final disconnect = _onDisconnectCompleter!;
@@ -289,24 +368,34 @@ abstract class _NativeTransportBase extends AbstractTransport
         connectionId: connectionId,
         libraryPath: _runtime.libraryPath,
       );
-      if (_connectionId == connectionId) {
-        _receiveWorker = worker;
-      }
+      if (!_isCurrentConnection(connectionId, generation)) return;
+      _receiveWorker = worker;
       await for (final batch in worker.handleBatches) {
         worker.takeBatch(batch);
         for (var index = 0; index < batch.length; index += 1) {
           final handle = batch[index];
-          if (_connectionId != connectionId) {
+          if (!_isCurrentConnection(connectionId, generation)) {
             _runtime.releaseMessageHandle(handle);
             continue;
           }
           NativeIncomingMessage? incoming;
           try {
             incoming = _runtime.materialize(handle);
-            final message = _flatBuffersProfile == null
-                ? incoming.message
-                : _materializePublicMessage(incoming.message)!;
+            var message = incoming.message;
             if (_flatBuffersProfile case final profile?) {
+              // Bootstrap and GOODBYE need their concrete types for the phase
+              // gate. Established application traffic can retain native views.
+              if (message is NativeSessionMessage &&
+                  {
+                    MessageTypes.codeHello,
+                    MessageTypes.codeWelcome,
+                    MessageTypes.codeAbort,
+                    MessageTypes.codeChallenge,
+                    MessageTypes.codeAuthenticate,
+                    MessageTypes.codeGoodbye,
+                  }.contains(message.metadata.messageCode)) {
+                message = _materializePublicMessage(message)!;
+              }
               _flatBuffersProfile = profile.acceptIncoming(
                 message as AbstractMessage,
               );
@@ -340,7 +429,7 @@ abstract class _NativeTransportBase extends AbstractTransport
           }
         }
       }
-      if (_connectionId == connectionId &&
+      if (_isCurrentConnection(connectionId, generation) &&
           !_closeRequested &&
           !_goodbyeSent &&
           !_goodbyeReceived) {
@@ -348,7 +437,7 @@ abstract class _NativeTransportBase extends AbstractTransport
           'Native transport receive worker exited unexpectedly.',
         );
       }
-      if (_connectionId == connectionId) {
+      if (_isCurrentConnection(connectionId, generation)) {
         try {
           _runtime.closeConnection(connectionId);
         } catch (_) {
@@ -359,7 +448,7 @@ abstract class _NativeTransportBase extends AbstractTransport
         complete(disconnect, null);
       }
     } catch (error, stackTrace) {
-      if (_connectionId == connectionId) {
+      if (_isCurrentConnection(connectionId, generation)) {
         try {
           _runtime.closeConnection(connectionId);
         } catch (_) {
@@ -645,6 +734,24 @@ class NativeRawSocketTransport extends _NativeTransportBase
     libraryPath: libraryPath,
   );
 
+  factory NativeRawSocketTransport.withFlatBuffersSerializer(
+    String host,
+    int port, {
+    bool ssl = false,
+    bool allowInsecureCertificates = false,
+    int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+    String? libraryPath,
+  }) => NativeRawSocketTransport(
+    host,
+    port,
+    flatbuffers.Serializer(),
+    SocketHelper.serializationFlatBuffers,
+    ssl: ssl,
+    allowInsecureCertificates: allowInsecureCertificates,
+    messageLengthExponent: messageLengthExponent,
+    libraryPath: libraryPath,
+  );
+
   bool get isUpgradedProtocol => _messageLengthExponent > 24;
 
   int get headerLength => isUpgradedProtocol ? 5 : 4;
@@ -654,7 +761,8 @@ class NativeRawSocketTransport extends _NativeTransportBase
   @override
   bool get supportsFileSegments {
     final connectionId = this.connectionId;
-    return connectionId != null &&
+    return _nativeSerializer != NativeMessageSerializer.flatbuffers &&
+        connectionId != null &&
         _runtime.connectionSupportsFileSegments(connectionId);
   }
 
@@ -819,7 +927,12 @@ class NativeWebSocketTransport extends _NativeTransportBase
     WebSocketSerialization.serializationMsgpack =>
       SocketHelper.serializationMsgpack,
     WebSocketSerialization.serializationCbor => SocketHelper.serializationCbor,
-    _ => SocketHelper.serializationJson,
+    WebSocketSerialization.serializationFlatBuffers =>
+      SocketHelper.serializationFlatBuffers,
+    WebSocketSerialization.serializationJson => SocketHelper.serializationJson,
+    _ => throw ArgumentError(
+      "Unsupported websocket serializer protocol $_serializerType",
+    ),
   };
 
   factory NativeWebSocketTransport.withJsonSerializer(
@@ -870,10 +983,27 @@ class NativeWebSocketTransport extends _NativeTransportBase
     fragmentSize,
   );
 
+  factory NativeWebSocketTransport.withFlatBuffersSerializer(
+    String url, [
+    Map<String, dynamic>? headers,
+    bool allowInsecureCertificates = false,
+    String? libraryPath,
+    int? fragmentSize,
+  ]) => NativeWebSocketTransport(
+    url,
+    flatbuffers.Serializer(),
+    WebSocketSerialization.serializationFlatBuffers,
+    headers,
+    allowInsecureCertificates,
+    libraryPath,
+    fragmentSize,
+  );
+
   @override
   bool get supportsFileSegments {
     final connectionId = this.connectionId;
-    return connectionId != null &&
+    return _nativeSerializer != NativeMessageSerializer.flatbuffers &&
+        connectionId != null &&
         _runtime.connectionSupportsFileSegments(connectionId);
   }
 
@@ -1074,6 +1204,8 @@ NativeMessageSerializer _nativeSerializerForWebSocket(String serializerType) {
     WebSocketSerialization.serializationMsgpack =>
       NativeMessageSerializer.messagePack,
     WebSocketSerialization.serializationCbor => NativeMessageSerializer.cbor,
+    WebSocketSerialization.serializationFlatBuffers =>
+      NativeMessageSerializer.flatbuffers,
     _ => throw ArgumentError(
       'Unsupported websocket serializer protocol $serializerType',
     ),

@@ -1,8 +1,12 @@
 # External native leases and write completion
 
-Status: producer-lease ABI v1 and trusted Dart token adoption implemented for
-milestone issue #97; local write completion is implemented in the uncommitted candidate. Full local bin/verify passes in /tmp/connectanum-external-adoption-verify.log;
-hosted evidence for this candidate is pending.
+Status: producer-lease ABI v1, trusted Dart token adoption and local write
+completion are implemented for milestone issue #97. The current candidate also
+integrates native frame composition and transport/lifetime regressions. Current
+verification and remaining milestone gates are recorded in the active plan;
+earlier adoption-only logs do not verify this candidate. See
+[the ownership and copy guide](native_buffer_ownership.md) for the current public
+boundary and the future ObjectBox adapter scope.
 
 The following design separates native producer ownership from transport progress.
 It must be tested before being advertised as an adapter capability.

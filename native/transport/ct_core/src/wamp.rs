@@ -22,6 +22,7 @@ mod flatbuffers_schema;
 mod flatbuffers_wire;
 mod flatbuffers_writer;
 
+pub use flatbuffers_encoder::compose_segments as compose_flatbuffers_message_segments;
 pub use flatbuffers_encoder::encode as encode_flatbuffers_message;
 pub use flatbuffers_encoder::encode_segments as encode_flatbuffers_message_segments;
 #[cfg(test)]

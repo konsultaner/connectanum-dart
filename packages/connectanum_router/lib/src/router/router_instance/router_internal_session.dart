@@ -1457,6 +1457,7 @@ LazyPayloadEncoding? _lazyPayloadEncodingFromName(String? value) {
     'json' => LazyPayloadEncoding.json,
     'messagePack' => LazyPayloadEncoding.messagePack,
     'cbor' => LazyPayloadEncoding.cbor,
+    'flatbuffers' => LazyPayloadEncoding.flatbuffers,
     _ => null,
   };
 }
@@ -1506,6 +1507,9 @@ Object? _decodePayloadFragment(LazyPayloadEncoding encoding, Uint8List bytes) {
     LazyPayloadEncoding.json => _decodeJsonPayloadFragment(bytes),
     LazyPayloadEncoding.messagePack => msgpack_dart.deserialize(bytes),
     LazyPayloadEncoding.cbor => _decodeCborPayloadFragment(bytes),
+    LazyPayloadEncoding.flatbuffers => throw UnsupportedError(
+      'Typed FlatBuffers payloads are single PPT buffers, not dynamic fragments',
+    ),
   };
 }
 
@@ -1514,6 +1518,7 @@ String? _pptSerializerNameForEncoding(LazyPayloadEncoding? encoding) {
     LazyPayloadEncoding.json => 'json',
     LazyPayloadEncoding.messagePack => 'msgpack',
     LazyPayloadEncoding.cbor => 'cbor',
+    LazyPayloadEncoding.flatbuffers => 'flatbuffers',
     null => null,
   };
 }
@@ -1523,6 +1528,7 @@ LazyPayloadEncoding? _lazyPayloadEncodingFromPptSerializer(String? serializer) {
     'json' => LazyPayloadEncoding.json,
     'msgpack' => LazyPayloadEncoding.messagePack,
     'cbor' => LazyPayloadEncoding.cbor,
+    'flatbuffers' => LazyPayloadEncoding.flatbuffers,
     _ => null,
   };
 }

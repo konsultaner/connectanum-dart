@@ -1,29 +1,42 @@
 # Native-owned encoded buffers
 
-Status: implemented owned-buffer ABI v1. FlatBuffers WAMP transport, external
-borrowed leases and observable local write completion remain milestone work.
+Status: owned-buffer ABI v1 is implemented. The current milestone candidate also
+includes guarded FlatBuffers transports, external leases, local write receipts
+and native frame composition. Complete platform, conformance and performance
+acceptance remains open. See [the current ownership and copy guide](native_buffer_ownership.md)
+for composed frames, external producers and future adapter requirements.
 
 Import `package:connectanum_client/native_buffers.dart` on the Dart VM. Native
 RawSocket and WebSocket transports implement its `NativeBufferTransport`
 capability. Its allocator is paired with the same loaded native library:
 
 ```dart
-final transport = NativeRawSocketTransport.withJsonSerializer(host, port);
-final builder = transport.nativeBuffers.allocate(1024);
-const frame = '[48,42,{},"com.example.proc",[1]]';
-for (var index = 0; index < frame.length; index++) {
-  builder.setUint8(16 + index, frame.codeUnitAt(index));
+// Supply a transport from an established JSON WAMP session.
+void sendOwnedCall(NativeBufferTransport transport) {
+  final builder = transport.nativeBuffers.allocate(1024);
+  NativeOwnedBuffer? encoded;
+  try {
+    const frame = '[48,42,{},"com.example.proc",[1]]';
+    for (var index = 0; index < frame.length; index++) {
+      builder.setUint8(16 + index, frame.codeUnitAt(index));
+    }
+    encoded = builder.freeze(offset: 16, length: frame.length);
+    transport.sendEncodedNativeBuffer(encoded, transfer: true);
+  } finally {
+    encoded?.dispose();
+    builder.dispose();
+  }
 }
-final encoded = builder.freeze(offset: 16, length: frame.length);
-await transport.open();
-await transport.onReady;
-transport.sendEncodedNativeBuffer(encoded, transfer: true);
 ```
 
-The frame must match the negotiated serializer. `nativeBuffers.buildFlatBuffer`
-builds a fresh application/generated ObjectBuilder directly in native storage;
-it does not yet enable a FlatBuffers network session. Use a fresh ObjectBuilder
-for each build because the upstream runtime caches offsets in model instances.
+This low-level ownership example assumes the caller manages the established
+session and request IDs. The frame must match the negotiated serializer; opening
+a transport alone does not complete a WAMP handshake. `nativeBuffers.buildFlatBuffer`
+builds a fresh application/generated ObjectBuilder directly in native storage.
+Select a guarded `.flatbuffers` transport factory for a FlatBuffers network
+session; allocation alone does not negotiate that profile. Use a fresh
+ObjectBuilder for each build because the upstream runtime caches offsets in model
+instances.
 
 ## Storage and ownership
 

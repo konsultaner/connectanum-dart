@@ -3,8 +3,26 @@
 This is the wire contract for milestone [FlatBuffers and zero-copy native
 buffers](https://github.com/konsultaner/connectanum-dart/milestone/1), starting
 with [#95](https://github.com/konsultaner/connectanum-dart/issues/95).
-It defines the implementation target. Checked-in bindings and fixtures currently
-prove schema compatibility; they do not yet enable FlatBuffers transports.
+It defines the wire contract. The current implementation candidate includes Dart
+and Rust codecs, ordinary/native transports and generic native buffers. Milestone
+acceptance, platform artifacts and performance gates remain separate requirements;
+this document does not claim a released FlatBuffers package.
+
+## Transport identifiers and registry status
+
+The binding uses RawSocket serializer ID 5 and the upstream WebSocket convention
+`wamp.2.flatbuffers`. These select the pinned envelope; the metadata feature below
+separately negotiates its compatible extensions. They do not identify an arbitrary
+application or database schema.
+
+On 2026-10-04 the [IANA WebSocket Subprotocol Name Registry](https://www.iana.org/assignments/websocket/websocket.xhtml#subprotocol-name)
+contains `wamp`, but no exact `wamp.2.flatbuffers` registration. Retaining the
+upstream convention does not establish IANA registration or compatibility with
+every historical FlatBuffers implementation. Registration follow-up belongs with
+the WAMP change controller/upstream binding maintainers; coordinate that identifier
+and its specification before claiming registered public interoperability. The
+WAMP specification recommends registration for additional serializers; it is not
+a local implementation prerequisite. No registration request has been submitted.
 
 ## Pinned inputs and generation
 
@@ -278,8 +296,9 @@ strings; RESULT and ERROR preserve their dictionaries. Allocation identity and
 producer-release tests cover all five forwarding entry points, including the
 CALL-derived RESULT path. This boundary avoids application-vector copies;
 segmented receive coalescing and transport transformations remain separately
-accounted for. Complete mixed-serializer routing and ordinary factories remain
-subsequent integration work.
+accounted for. The integrated candidate exposes ordinary factories and public mixed-serializer
+Session tests. Remaining routing/lifetime acceptance and performance gates still
+require complete evidence.
 
 ## Dart codec and payload retention
 
@@ -289,7 +308,9 @@ Import `package:connectanum_core/flatbuffers_serializer.dart`,
 builder, the direct model writer and same-builder byte-vector references.
 `connectanum_client/native_buffers.dart` supplies the optional native-backed
 builder.
-These exports do not yet enable native or browser transport selection.
+The integrated candidate provides `withFlatBuffersSerializer` factories on
+SocketTransport, WebSocketTransport (VM/browser), NativeRawSocketTransport and
+NativeWebSocketTransport. Their negotiated profile guards remain mandatory.
 
 The decoder reconstructs the 25 public WAMP models from validated frames.
 Dictionary-bearing messages require the extended metadata; the five messages
@@ -387,8 +408,11 @@ Real native RawSocket tests cover anonymous and ticket-authenticated router
 sessions with 128 KiB ordinary/opaque RPC and pub/sub, progressive results,
 callee errors and GOODBYE. Separate client wire-peer tests cover missing
 CHALLENGE/WELCOME acknowledgements and tracked/untracked native-owned sending.
-Ordinary factories and WebSocket negotiation remain unfinished. These results
-do not establish complete mixed-serializer, E2EE, performance or release support.
+The current candidate also integrates ordinary RawSocket/WebSocket factories and
+native WebSocket negotiation. Isolated tests cover real native WebSocket sessions,
+fragmentation, TLS encryption with a self-signed fixture, certificate rejection,
+wrong/missing protocol selection and cancelled or restarted connections. These
+results do not establish complete typed E2EE, performance or release support.
 
 General serializer preference negotiation
 [#44](https://github.com/konsultaner/connectanum-dart/issues/44) and WAMP IDL
@@ -419,6 +443,21 @@ TLS and necessary coalescing can introduce transformation copies. The metadata
 extension and binding do not remove those copies.
 
 ## Ownership and performance requirements
+
+The [native ownership guide](native_buffer_ownership.md) defines construction,
+submission, lease release, copy boundaries and the future adapter contract.
+
+Lazy views preserve their original storage owner when the caller anchor is
+changed or cleared. A mutable message keeps that owner when argument changes
+invalidate its cached wire representation: opaque or other binary spans may
+still use the original storage. Independently derived views snapshot the owner
+so subsequent message edits cannot release it prematurely. The conservative
+lease ends with the owning message/views; mutating or clearing fields alone is
+not an explicit lease-release operation. Use `toOwned()` to copy the byte/list/map
+graph and discard borrowed owners when an independently owned payload is needed.
+Providers, contexts and decoder callbacks remain shared as documented by that API;
+an application callback that captures its own resource can retain it independently.
+
 
 The public native lease API currently accepts a complete encoded frame. The
 core Rust segmented writer retains separately owned application vectors, but
@@ -521,5 +560,6 @@ shared Rust storage. Metadata copies remain independently owned Dart buffers.
 Nonempty payload subviews retain native storage after message-handle release and
 runtime shutdown, without an application-payload copy at that receive boundary.
 
-Factories remain disabled pending negotiated profile guards and complete routing.
-No complete native-session or performance-parity claim is made.
+Native factories are enabled in the integrated candidate with negotiated profile
+guards. Component and network tests are recorded in the active milestone plan;
+complete milestone verification and performance parity remain acceptance gates.

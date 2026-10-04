@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 
 import 'package:connectanum_core/connectanum_core.dart';
 import '../../transport/socket/socket_helper.dart';
@@ -21,14 +22,34 @@ class SocketTransport extends AbstractTransport {
     String host,
     int port,
     AbstractSerializer serializer,
-    String serializerType, {
+    int serializerType, {
     ssl = false,
     allowInsecureCertificates = false,
     Object? tlsSecurityContext,
     messageLengthExponent = SocketHelper.maxMessageLengthExponent,
-  });
+  }) {
+    throw UnsupportedError('RawSocket transports require dart:io.');
+  }
 
-  bool get isUpgradedProtocol => true;
+  factory SocketTransport.withFlatBuffersSerializer(
+    String host,
+    int port, {
+    bool ssl = false,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
+    int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+  }) => SocketTransport(
+    host,
+    port,
+    flatbuffers.Serializer(),
+    SocketHelper.serializationFlatBuffers,
+    ssl: ssl,
+    allowInsecureCertificates: allowInsecureCertificates,
+    tlsSecurityContext: tlsSecurityContext,
+    messageLengthExponent: messageLengthExponent,
+  );
+
+  bool get isUpgradedProtocol => false;
 
   int get headerLength => 4;
 
@@ -39,14 +60,15 @@ class SocketTransport extends AbstractTransport {
 
   @override
   bool get isOpen {
-    return true;
+    return false;
   }
 
   @override
-  bool get isReady => true;
+  bool get isReady => false;
 
   @override
-  Future<void> get onReady => Future.value();
+  Future<void> get onReady =>
+      Future.error(UnsupportedError('RawSocket transports require dart:io.'));
 
   set pingInterval(Duration pingInterval) {}
 
@@ -57,10 +79,12 @@ class SocketTransport extends AbstractTransport {
   Completer? get onDisconnect => _onDisconnect;
 
   @override
-  Future<void> open({Duration? pingInterval}) async => Future.value();
+  Future<void> open({Duration? pingInterval}) =>
+      Future.error(UnsupportedError('RawSocket transports require dart:io.'));
 
   @override
-  Stream<AbstractMessage> receive() => Stream.empty();
+  Stream<AbstractMessage> receive() =>
+      Stream.error(UnsupportedError('RawSocket transports require dart:io.'));
 
   /// Send a ping message to keep the connection alive. The returning future will
   /// fail if no pong is received withing the given [timeout]. The default timeout
@@ -68,5 +92,7 @@ class SocketTransport extends AbstractTransport {
   Future<Uint8List?> sendPing({Duration? timeout}) async => Future.value();
 
   @override
-  void send(AbstractMessage message) {}
+  void send(AbstractMessage message) {
+    throw UnsupportedError('RawSocket transports require dart:io.');
+  }
 }

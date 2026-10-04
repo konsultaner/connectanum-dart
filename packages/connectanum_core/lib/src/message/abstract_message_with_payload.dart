@@ -13,9 +13,19 @@ typedef MaterializedPayloadView = ({
   Map<String, dynamic>? argumentsKeywords,
 });
 typedef PackedPayloadDecoder =
-    MaterializedPayloadView Function(Uint8List bytes);
+    MaterializedPayloadView Function(
+      Uint8List bytes,
+    );
 
-enum LazyPayloadEncoding { json, messagePack, cbor }
+enum LazyPayloadEncoding {
+  json,
+  messagePack,
+  cbor,
+
+  /// A single schema-defined application FlatBuffer, carried as a PPT value.
+  /// Dynamic arguments in a FlatBuffers WAMP envelope still use [cbor].
+  flatbuffers,
+}
 
 /// A payload view that delays decoding until an application reads its values.
 ///
@@ -37,7 +47,9 @@ class LazyMessagePayload {
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
     this.anchor,
-  }) : _argumentsBytes = argumentsBytes,
+    Object? storageAnchor,
+  }) : _storageAnchor = storageAnchor ?? anchor,
+       _argumentsBytes = argumentsBytes,
        _argumentsKeywordsBytes = argumentsKeywordsBytes,
        _argumentsDecoder = argumentsDecoder,
        _argumentsKeywordsDecoder = argumentsKeywordsDecoder,
@@ -138,8 +150,13 @@ class LazyMessagePayload {
   /// Runtime context associated with an encoded E2EE payload.
   final WampE2eeRuntimeContext? e2eeRuntimeContext;
 
-  /// Keeps externally owned encoded storage alive for this view's lifetime.
+  /// The current caller anchor. Derived views also retain the original storage
+  /// owner, even when this anchor is replaced or cleared.
   final Object? anchor;
+
+  // Retain the first storage owner directly rather than growing a chain for
+  // every routing or metadata view. Owned copies deliberately omit it.
+  final Object? _storageAnchor;
 
   Uint8List? _argumentsBytes;
   Uint8List? _argumentsKeywordsBytes;
@@ -231,8 +248,9 @@ class LazyMessagePayload {
     _packedPayloadDecoder = null;
   }
 
-  /// Returns an equivalent view that retains [anchor].
+  /// Returns an equivalent view with [anchor], retaining the storage owner.
   LazyMessagePayload withAnchor(Object? anchor) {
+    if (identical(anchor, this.anchor)) return this;
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: encoding,
@@ -248,6 +266,7 @@ class LazyMessagePayload {
       arguments: _arguments,
       argumentsKeywords: _argumentsKeywords,
       anchor: anchor,
+      storageAnchor: _storageAnchor,
     );
   }
 
@@ -271,6 +290,7 @@ class LazyMessagePayload {
       arguments: _arguments,
       argumentsKeywords: _argumentsKeywords,
       anchor: anchor,
+      storageAnchor: _storageAnchor,
     );
   }
 
@@ -296,6 +316,7 @@ class LazyMessagePayload {
       arguments: _arguments,
       argumentsKeywords: _argumentsKeywords,
       anchor: anchor,
+      storageAnchor: _storageAnchor,
     );
   }
 }
@@ -407,16 +428,22 @@ MaterializedPayloadView decodeLazyPayloadView(
     WampE2eeRuntimePayloadProvider provider => provider,
     _ => null,
   };
+  final opaque = pptScheme == null ? null : _transparentPptPayload(payload);
   final canUseRuntimePayload =
       pptScheme == 'wamp' &&
+      opaque == null &&
       (payload.hasEncodedArguments || payload.hasEncodedArgumentsKeywords) &&
       runtimePayloadProvider != null &&
       runtimePayloadProvider.canUnpackFromRuntimeContext(
         resolvedRuntimeContext,
       );
   return decodePayloadView(
-    canUseRuntimePayload ? null : payload.arguments,
-    canUseRuntimePayload ? null : payload.argumentsKeywords,
+    canUseRuntimePayload
+        ? null
+        : opaque != null
+        ? <dynamic>[opaque]
+        : payload.arguments,
+    canUseRuntimePayload || opaque != null ? null : payload.argumentsKeywords,
     pptScheme: pptScheme,
     pptSerializer: pptSerializer,
     pptCipher: pptCipher,
@@ -448,8 +475,10 @@ LazyMessagePayload unwrapLazyPayloadView(
     WampE2eeRuntimePayloadProvider provider => provider,
     _ => null,
   };
+  final opaque = _transparentPptPayload(payload);
   final canUseRuntimePayload =
       pptScheme == 'wamp' &&
+      opaque == null &&
       (payload.hasEncodedArguments || payload.hasEncodedArgumentsKeywords) &&
       runtimePayloadProvider != null &&
       runtimePayloadProvider.canUnpackFromRuntimeContext(
@@ -460,10 +489,12 @@ LazyMessagePayload unwrapLazyPayloadView(
         .withE2eeProvider(resolvedE2eeProvider)
         .withE2eeRuntimeContext(resolvedRuntimeContext);
   }
-  final outerArguments = payload.arguments;
-  final outerArgumentsKeywords = payload.argumentsKeywords;
+  final outerArguments = opaque == null ? payload.arguments : <dynamic>[opaque];
+  final outerArgumentsKeywords = opaque == null
+      ? payload.argumentsKeywords
+      : null;
   if (outerArguments == null || outerArguments.isEmpty) {
-    return LazyMessagePayload.materialized(
+    return LazyMessagePayload._(
       transparentBinaryPayload: payload.transparentBinaryPayload,
       encoding: payload.encoding,
       arguments: const <dynamic>[],
@@ -472,17 +503,18 @@ LazyMessagePayload unwrapLazyPayloadView(
       e2eeProvider: resolvedE2eeProvider,
       e2eeRuntimeContext: resolvedRuntimeContext,
       anchor: payload.anchor,
+      storageAnchor: payload._storageAnchor,
     );
   }
-  final packedPayloadBytes = _extractWrappedPayloadBytes(
-    outerArguments,
-    outerArgumentsKeywords,
-  );
+  final packedPayloadBytes =
+      opaque ??
+      _extractWrappedPayloadBytes(outerArguments, outerArgumentsKeywords);
   if (packedPayloadBytes != null) {
-    return LazyMessagePayload.packed(
+    return LazyMessagePayload._(
       transparentBinaryPayload: payload.transparentBinaryPayload,
       encoding: _lazyEncodingFromPptSerializer(pptSerializer),
       packedPayloadBytes: packedPayloadBytes,
+      pptDecoded: true,
       packedPayloadDecoder: (bytes) {
         final decoded = decodePayloadView(
           <dynamic>[bytes],
@@ -502,6 +534,7 @@ LazyMessagePayload unwrapLazyPayloadView(
       e2eeProvider: resolvedE2eeProvider,
       e2eeRuntimeContext: resolvedRuntimeContext,
       anchor: payload.anchor,
+      storageAnchor: payload._storageAnchor,
     );
   }
   final decoded = decodeLazyPayloadView(
@@ -513,7 +546,7 @@ LazyMessagePayload unwrapLazyPayloadView(
     e2eeProvider: resolvedE2eeProvider,
     runtimeContext: resolvedRuntimeContext,
   );
-  return LazyMessagePayload.materialized(
+  return LazyMessagePayload._(
     transparentBinaryPayload: payload.transparentBinaryPayload,
     encoding: payload.encoding,
     arguments: decoded.arguments,
@@ -522,7 +555,22 @@ LazyMessagePayload unwrapLazyPayloadView(
     e2eeProvider: resolvedE2eeProvider,
     e2eeRuntimeContext: resolvedRuntimeContext,
     anchor: payload.anchor,
+    storageAnchor: payload._storageAnchor,
   );
+}
+
+// Preserve the existing argument representation when present. The transparent
+// vector is the PPT input only for a message whose wire arguments are absent.
+Uint8List? _transparentPptPayload(LazyMessagePayload payload) {
+  if (payload.transparentBinaryPayload == null ||
+      payload.hasEncodedArguments ||
+      payload.hasEncodedArgumentsKeywords ||
+      payload.hasPackedPayloadBytes ||
+      payload.arguments != null ||
+      payload.argumentsKeywords != null) {
+    return null;
+  }
+  return payload.transparentBinaryPayload;
 }
 
 LazyPayloadEncoding? _lazyEncodingFromPptSerializer(String? serializer) {
@@ -530,6 +578,7 @@ LazyPayloadEncoding? _lazyEncodingFromPptSerializer(String? serializer) {
     'json' => LazyPayloadEncoding.json,
     'msgpack' => LazyPayloadEncoding.messagePack,
     'cbor' => LazyPayloadEncoding.cbor,
+    'flatbuffers' => LazyPayloadEncoding.flatbuffers,
     _ => null,
   };
 }
@@ -607,6 +656,10 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   LazyPayloadEncoding? _lazyPayloadEncoding;
   bool _pptPayloadDecoded = false;
   LazyMessagePayload? _retainedLazyPayload;
+
+  // A mutable message remains an owner after its semantic wire cache is
+  // invalidated. Existing opaque/binary spans can still refer to that storage.
+  Object? _payloadStorageOwner;
   WampE2eeProvider? _e2eeProvider;
   WampE2eeRuntimeContext? _e2eeRuntimeContext;
 
@@ -736,7 +789,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
       return retainedLazyPayload.withAnchor(anchor ?? this);
     }
     if (_pptPayloadDecoded) {
-      return LazyMessagePayload.materialized(
+      return LazyMessagePayload._(
         transparentBinaryPayload: transparentBinaryPayload,
         encoding: _lazyPayloadEncoding,
         arguments: arguments,
@@ -745,12 +798,13 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
         e2eeProvider: e2eeProvider,
         e2eeRuntimeContext: e2eeRuntimeContext,
         anchor: anchor ?? this,
+        storageAnchor: _payloadStorageOwner,
       );
     }
     if ((_encodedArguments != null && _argumentsDecoder != null) ||
         (_encodedArgumentsKeywords != null &&
             _argumentsKeywordsDecoder != null)) {
-      return LazyMessagePayload.encoded(
+      return LazyMessagePayload._(
         transparentBinaryPayload: transparentBinaryPayload,
         encoding: _lazyPayloadEncoding,
         argumentsBytes: _encodedArguments,
@@ -764,9 +818,10 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
         e2eeProvider: e2eeProvider,
         e2eeRuntimeContext: e2eeRuntimeContext,
         anchor: anchor ?? this,
+        storageAnchor: _payloadStorageOwner,
       );
     }
-    return LazyMessagePayload.materialized(
+    return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: _lazyPayloadEncoding,
       arguments: _arguments,
@@ -774,6 +829,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
       e2eeProvider: e2eeProvider,
       e2eeRuntimeContext: e2eeRuntimeContext,
       anchor: anchor ?? this,
+      storageAnchor: _payloadStorageOwner,
     );
   }
 
@@ -804,6 +860,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   void retainLazyPayload(LazyMessagePayload payload) {
     final provider = payload.e2eeProvider ?? _e2eeProvider;
     final runtimeContext = _e2eeRuntimeContext ?? payload.e2eeRuntimeContext;
+    _payloadStorageOwner = payload._storageAnchor ?? payload.anchor;
     _e2eeProvider = provider;
     _e2eeRuntimeContext = runtimeContext;
     _retainedLazyPayload = payload
@@ -982,7 +1039,8 @@ bool _payloadLooksPackedForPpt(
   if (pptSerializer == null ||
       (pptSerializer != 'json' &&
           pptSerializer != 'msgpack' &&
-          pptSerializer != 'cbor')) {
+          pptSerializer != 'cbor' &&
+          pptSerializer != 'flatbuffers')) {
     return arguments.length == 1 && first is Map;
   }
   return _isBinaryPayloadValue(first);

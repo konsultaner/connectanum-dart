@@ -1,6 +1,7 @@
 pub mod constants;
 pub mod ffi;
 mod message_handles;
+mod native_frames;
 mod owned_buffers;
 mod resource_handles;
 mod state;
@@ -18,6 +19,7 @@ mod resource_restart_tests;
 pub use constants::*;
 pub use external_lease_ffi::*;
 pub use ffi::*;
+pub use native_frames::*;
 pub use owned_buffers::*;
 pub use write_receipts::*;
 

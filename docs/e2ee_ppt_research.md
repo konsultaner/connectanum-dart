@@ -6,7 +6,80 @@ The repo already had the right message-layer hook for end-to-end payload
 protection: `ppt_scheme = "wamp"`. This note captured the boundary for the
 first implementation and now records the resulting phase-1 prototype.
 
-## Current Repo Baseline
+## Current FlatBuffers milestone checkpoint, 2026-10-04
+
+The integrated candidate supports an outer FlatBuffers WAMP envelope and
+unencrypted, single-buffer typed FlatBuffers PPT. Built-in encrypted payload
+providers still use the existing version-1 CBOR plaintext contract; a typed
+FlatBuffers E2EE profile remains an explicit #101 completion gate. Native CBOR
+cipher parity was implemented after the historical phase-1 baseline below.
+
+The reproduced packed-CBOR send defect is repaired: matching serializer names
+cannot bypass the selected outbound encryption provider. Outbound sends invoke
+that provider for fresh authenticated ciphertext, including inputs decoded from
+another key. Pure router forwarding still preserves ciphertext without decrypting.
+The public mixed-serializer Session matrix proves both existing ciphers through
+RPC, progressive replies, ERROR and pub/sub; it does not prove typed FlatBuffers
+E2EE, application-schema agreement or all transport combinations.
+
+The [WAMP draft](https://wamp-proto.org/wamp_latest_ietf.html#section-14.1)
+(checked 2026-10-04) lists FlatBuffers for PPT and requires one outer binary
+argument. Its generic logical payload packaging and application-typing sections
+must be read together: a typed table represents the application's complete
+payload. The E2EE section itself remains TBD. New encryption support must document
+its concrete plaintext/profile contract, preserve CBOR version-1 behavior and
+keep application schema/IDL services outside core requirements.
+
+The native consuming decrypt API currently recognizes a canonical CBOR
+single-binary-argument envelope and may return only that argument. A typed
+FlatBuffers implementation must not silently use this plaintext heuristic as its
+schema or format contract. Generic crypto accepts plaintext bytes, but any native
+zero-copy adaptation must select the output format explicitly and preserve its
+owner, cache identity and failure/consumption rules. No new profile is claimed here.
+
+### Native outer-envelope parity gap
+
+An outside-workspace extension of the existing consuming-decrypt fixture to an
+outer FlatBuffers envelope fails for both existing CBOR ciphers: native code
+returns unsupported (-1) after the RawSocket handshake and message decoding.
+The original JSON/MessagePack/CBOR matrix does not cover that dimension. This
+is a separate #101 gap from typed FlatBuffers encryption; the public Session
+matrix using portable providers does not prove native consuming-decrypt parity.
+The fail-first fixture inputs and results are preserved in
+/tmp/connectanum-flatbuffers-native-e2ee-gap-probe.json and
+/tmp/connectanum-flatbuffers-native-e2ee-gap-probe.log. No production fix is
+included in this checkpoint.
+
+Source inspection confirms that the native single-binary-argument helper currently
+accepts MessagePack and CBOR outer serializers, while consuming decryption dispatches
+through it for the received message. Integration must select ciphertext extraction
+according to the actual stored payload representation as well as select the
+plaintext format explicitly. Do not infer either representation from the serializer
+name alone. The current Dart decrypt cache identifies session handle, key ID and
+cipher; the additive plaintext-format selector must become part of that identity.
+
+### Next profile design (proposal, not implemented)
+
+An additive Connectanum-local version-2 `wamp/flatbuffers` profile is a candidate
+for the typed single-buffer plaintext contract. A new version is a separation
+choice, not a standardized WAMP E2EE version. Version-1 CBOR bytes, provider names,
+key-selection fallbacks and cipher behavior must remain compatible.
+
+The current CBOR providers hardcode CBOR packing/unpacking, so typed providers
+must share cipher primitives without inheriting that plaintext framing. Required
+session negotiation must check the selected version/serializer/provider together.
+The native consuming decrypt path needs an explicit output-format selector and
+matching cache identity; typed output must not depend on the CBOR-envelope
+heuristic. Document and test directional key selection for the new profile while
+preserving the established version-1 rule. Application schema choice remains
+outside the transport; no registry or IDL service is required.
+
+A bounded GLM judgment supports this direction and flags those contract boundaries.
+This records preparation only: profile negotiation, public provider APIs, native
+parity, malformed/unsupported cases and full Session coverage still need
+implementation and verification under #101.
+
+## Historical phase-1 baseline
 
 - `packages/connectanum_core/lib/src/message/e2ee_payload.dart` now ships the
   provider abstraction, the built-in

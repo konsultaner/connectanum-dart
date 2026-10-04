@@ -17,6 +17,53 @@ pub fn encode(message: &WampMessage) -> Result<Bytes, ParseError> {
     flatbuffers_writer::write(&fields(message)?)
 }
 
+/// Compose a verified control-only envelope with independently owned encoded
+/// application spans. Ordinary spans are CBOR containers; transparent spans
+/// are uninterpreted. No application span is copied or materialized.
+pub fn compose_segments(control: Bytes, supplied: Payload) -> Result<Vec<Bytes>, ParseError> {
+    let mut message =
+        super::parse_message(super::Serializer::Flatbuffers, control.clone())?.message;
+    let supplied_present =
+        supplied.args.is_some() || supplied.kwargs.is_some() || supplied.transparent.is_some();
+    let target = match &mut message {
+        WampMessage::Abort { payload, .. }
+        | WampMessage::Goodbye { payload, .. }
+        | WampMessage::Error { payload, .. }
+        | WampMessage::Publish { payload, .. }
+        | WampMessage::Event { payload, .. }
+        | WampMessage::Call { payload, .. }
+        | WampMessage::Result { payload, .. }
+        | WampMessage::Invocation { payload, .. }
+        | WampMessage::Yield { payload, .. } => Some(payload),
+        _ => None,
+    };
+    if let Some(target) = target {
+        if target.args.is_some()
+            || target.kwargs.is_some()
+            || target
+                .transparent
+                .as_ref()
+                .is_some_and(|bytes| !bytes.is_empty())
+        {
+            return Err(wire::invalid("control envelope contains application data"));
+        }
+        if target.transparent.is_some() && (supplied.args.is_some() || supplied.kwargs.is_some()) {
+            return Err(wire::invalid(
+                "opaque control conflicts with ordinary payload",
+            ));
+        }
+        if supplied_present {
+            *target = supplied;
+        }
+    } else if supplied_present {
+        return Err(wire::invalid("message has no application payload"));
+    }
+    if !supplied_present {
+        return Ok(vec![control]);
+    }
+    encode_segments(&message)
+}
+
 fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
     let mut controls = Fields::new();
     let (name, dictionary, payload): (&str, Option<&ValueMap>, Option<&Payload>) = match message {

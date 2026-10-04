@@ -170,6 +170,9 @@ class _ChunkSocket extends Stream<Uint8List> implements Socket {
   Future<E> drain<E>([E? futureValue]) async => futureValue as E;
 
   @override
+  Future<Socket> close() async => this;
+
+  @override
   void destroy() {
     destroyCount++;
     if (!_done.isCompleted) {

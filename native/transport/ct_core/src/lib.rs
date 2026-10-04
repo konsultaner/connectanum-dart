@@ -94,6 +94,9 @@ type H3ServerRecvStream =
 
 const HTTP_STREAM_IDLE_FALLBACK: Duration = Duration::from_secs(10);
 const HTTP_STREAM_TOTAL_FALLBACK: Duration = Duration::from_secs(40);
+// Preserve a normal WebSocket Close frame without pinning queued/native owners
+// indefinitely when the peer stops reading during local close.
+const WEBSOCKET_CLOSE_GRACE: Duration = Duration::from_secs(1);
 const HTTP_STREAM_TOTAL_MULTIPLIER: u32 = 4;
 const HTTP2_MAX_CONCURRENT_STREAMS: u32 = 1024;
 const HTTP2_INITIAL_STREAM_WINDOW: u32 = 8 * 1024 * 1024;
@@ -1264,9 +1267,10 @@ pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
 pub use protocol::{Http2Handshake, Http3Handshake, HttpHandshake, WebSocketHandshake};
 pub use rawsocket::Serializer as RawSocketSerializer;
 pub use wamp::{
-    encode_flatbuffers_message, encode_flatbuffers_message_segments, parse_message,
-    parse_message_segments, ParseError as WampParseError, ParsedMessage, Payload as WampPayload,
-    RawFrame as WampRawFrame, WampMessage,
+    compose_flatbuffers_message_segments, encode_flatbuffers_message,
+    encode_flatbuffers_message_segments, parse_message, parse_message_segments,
+    ParseError as WampParseError, ParsedMessage, Payload as WampPayload, RawFrame as WampRawFrame,
+    WampMessage,
 };
 
 static RUNTIME_MANAGER: OnceLock<RuntimeManager> = OnceLock::new();
@@ -1587,12 +1591,28 @@ struct RuntimeView {
     registry: Arc<ListenerRegistry>,
 }
 
+// Connection handles can outlive runtime shutdown in pending opens, receive
+// workers and callbacks. Keep their namespace for the lifetime of this library.
+static NEXT_CONNECTION_ID: AtomicU32 = AtomicU32::new(1);
+
+fn allocate_connection_id(sequence: &AtomicU32) -> Result<ConnectionId, Error> {
+    let id = sequence
+        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |next| {
+            if next == 0 || next > i32::MAX as u32 {
+                None
+            } else {
+                Some(next + 1)
+            }
+        })
+        .map_err(|_| Error::Io(io::Error::other("connection identifier capacity exhausted")))?;
+    Ok(ConnectionId(id))
+}
+
 struct ListenerRegistry {
     listeners: Mutex<HashMap<ListenerId, ListenerEntry>>,
     connections: Mutex<HashMap<ConnectionId, ConnectionEntry>>,
     connection_events: Mutex<VecDeque<HttpConnectionEvent>>,
     next_listener_id: AtomicU32,
-    next_connection_id: AtomicU32,
 }
 
 impl Default for ListenerRegistry {
@@ -1602,7 +1622,6 @@ impl Default for ListenerRegistry {
             connections: Mutex::new(HashMap::new()),
             connection_events: Mutex::new(VecDeque::new()),
             next_listener_id: AtomicU32::new(0),
-            next_connection_id: AtomicU32::new(0),
         }
     }
 }
@@ -1703,6 +1722,7 @@ enum ConnectionRecord {
         frames: Arc<Mutex<mpsc::Receiver<wamp::ParsedMessage>>>,
         reader_abort: AbortHandle,
         writer_abort: AbortHandle,
+        writer_runtime: tokio::runtime::Handle,
         heartbeat_abort: Option<AbortHandle>,
         send_tx: mpsc::Sender<OutboundFrame>,
     },
@@ -1789,12 +1809,8 @@ impl ListenerRegistry {
         ListenerId(id + 1)
     }
 
-    fn next_connection_id(&self) -> ConnectionId {
-        let id = self
-            .next_connection_id
-            .fetch_add(1, Ordering::SeqCst)
-            .wrapping_add(1);
-        ConnectionId(id)
+    fn next_connection_id(&self) -> Result<ConnectionId, Error> {
+        allocate_connection_id(&NEXT_CONNECTION_ID)
     }
 
     fn insert(&self, id: ListenerId, entry: ListenerEntry) {
@@ -1980,6 +1996,7 @@ impl ListenerRegistry {
                 writer_abort,
                 heartbeat_abort,
                 send_tx,
+                writer_runtime,
                 ..
             } => {
                 reader_abort.abort();
@@ -1987,7 +2004,13 @@ impl ListenerRegistry {
                     abort.abort();
                 }
                 drop(send_tx);
-                drop(writer_abort);
+                let deadline = time::Instant::now() + WEBSOCKET_CLOSE_GRACE;
+                writer_runtime.spawn(async move {
+                    time::sleep_until(deadline).await;
+                    // Capture this task, never a recyclable connection lookup.
+                    // Aborting an already finished writer is harmless.
+                    writer_abort.abort();
+                });
             }
             ConnectionRecord::WebSocketPending { .. }
             | ConnectionRecord::HttpPending { .. }
@@ -2253,6 +2276,7 @@ impl ListenerRegistry {
                     frames: Arc::new(Mutex::new(frame_rx)),
                     reader_abort,
                     writer_abort,
+                    writer_runtime: handle.clone(),
                     heartbeat_abort,
                     send_tx,
                 },
@@ -2519,6 +2543,24 @@ impl ListenerRegistry {
             .get(&connection_id)
             .map(|entry| entry.protocol)
             .ok_or(Error::ConnectionNotFound(connection_id))
+    }
+
+    fn connection_serializer(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<rawsocket::Serializer, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::RawSocket { _serializer, .. }
+            | ConnectionRecord::WebSocket { _serializer, .. } => Ok(*_serializer),
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
     }
 
     fn connection_websocket_protocol(
@@ -2876,7 +2918,10 @@ fn start_http3_listener(
                         let peer_addr = connection.remote_address();
                         let runtime_for_task = config_for_task.endpoint_config();
                         let handshake = Http3Handshake::from_endpoint(&runtime_for_task);
-                        let connection_id = registry_for_task.next_connection_id();
+                        let Ok(connection_id) = registry_for_task.next_connection_id() else {
+                            connection.close(quinn::VarInt::from_u32(0), b"connection capacity exhausted");
+                            return;
+                        };
                         #[cfg(feature = "ffi-test")]
                         if ffi_test_debug_logs_enabled() {
                             eprintln!(
@@ -5166,7 +5211,9 @@ async fn negotiate_accepted_connection(
 
     match protocol::negotiate_connection(io_stream, endpoint.as_ref()).await {
         Ok(protocol::NegotiatedConnection::RawSocket(negotiated)) => {
-            let connection_id = registry.next_connection_id();
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
             Arc::clone(&registry).register_rawsocket_connection(
                 runtime_handle.clone(),
                 listener_id,
@@ -5178,7 +5225,9 @@ async fn negotiate_accepted_connection(
             let _ = tx.send(connection_id).await;
         }
         Ok(protocol::NegotiatedConnection::WebSocket(handshake)) => {
-            let connection_id = registry.next_connection_id();
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
             registry.register_websocket_connection(
                 listener_id,
                 connection_id,
@@ -5190,7 +5239,9 @@ async fn negotiate_accepted_connection(
         }
         Ok(protocol::NegotiatedConnection::Http2(handshake)) => {
             let (stream, metadata) = handshake.split();
-            let connection_id = registry.next_connection_id();
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
             registry.register_http2_connection(
                 listener_id,
                 connection_id,
@@ -5213,7 +5264,9 @@ async fn negotiate_accepted_connection(
             let _ = tx.send(connection_id).await;
         }
         Ok(protocol::NegotiatedConnection::Http3(handshake)) => {
-            let connection_id = registry.next_connection_id();
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
             registry.register_http3_connection(
                 listener_id,
                 connection_id,
@@ -5225,7 +5278,9 @@ async fn negotiate_accepted_connection(
             let _ = tx.send(connection_id).await;
         }
         Ok(protocol::NegotiatedConnection::Http(handshake)) => {
-            let connection_id = registry.next_connection_id();
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
             registry.register_http_connection(
                 listener_id,
                 connection_id,
@@ -5483,6 +5538,11 @@ pub fn connection_protocol(connection_id: ConnectionId) -> Result<ConnectionProt
     manager.with_state(|state| state.registry.connection_protocol(connection_id))
 }
 
+/// The serializer actually selected by an established WAMP connection.
+pub fn connection_serializer(connection_id: ConnectionId) -> Result<rawsocket::Serializer, Error> {
+    RuntimeManager::global().with_state(|state| state.registry.connection_serializer(connection_id))
+}
+
 /// Returns the negotiated WebSocket subprotocol for a connection, if available.
 pub fn connection_websocket_protocol(connection_id: ConnectionId) -> Result<Option<String>, Error> {
     let manager = RuntimeManager::global();
@@ -5671,7 +5731,12 @@ pub fn wait_connection_message(
     })
 }
 
-/// Forces a connection to close and releases associated resources.
+/// Closes a connection and releases its native consumers.
+///
+/// RawSocket cancels pending writes immediately. WebSocket lets its writer drain
+/// and send Close(1000), then cancels it after one second if the peer is stalled.
+/// Await tracked write receipts or a drain barrier before close when successful
+/// local delivery is required. Independent caller-owned views remain valid.
 pub fn close_connection(connection_id: ConnectionId) -> Result<(), Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| state.registry.close_connection(connection_id))
@@ -5690,7 +5755,7 @@ pub fn connect_rawsocket(
 ) -> Result<ConnectionId, Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| {
-        let connection_id = state.registry.next_connection_id();
+        let connection_id = state.registry.next_connection_id()?;
         let endpoint_config = Arc::new(build_client_endpoint_config(
             host,
             port,
@@ -5741,7 +5806,7 @@ pub fn connect_websocket(
     let manager = RuntimeManager::global();
     manager.with_state(|state| {
         let subprotocol = websocket_subprotocol(serializer)?;
-        let connection_id = state.registry.next_connection_id();
+        let connection_id = state.registry.next_connection_id()?;
         let endpoint_config = Arc::new(build_client_endpoint_config(
             host,
             port,
@@ -5810,6 +5875,17 @@ pub fn send_wamp_message_tracked(
     payload: Bytes,
 ) -> Result<WriteReceipt, Error> {
     let (frame, receipt) = OutboundFrame::message(payload).tracked();
+    RuntimeManager::global()
+        .with_state(|state| state.registry.enqueue_frame(connection_id, frame))?;
+    Ok(receipt)
+}
+
+/// Observe full-frame write and flush without concatenating payload segments.
+pub fn send_wamp_segments_tracked(
+    connection_id: ConnectionId,
+    segments: Vec<Bytes>,
+) -> Result<WriteReceipt, Error> {
+    let (frame, receipt) = OutboundFrame::message_segments(segments).tracked();
     RuntimeManager::global()
         .with_state(|state| state.registry.enqueue_frame(connection_id, frame))?;
     Ok(receipt)
@@ -6751,6 +6827,7 @@ fn websocket_subprotocol(serializer: rawsocket::Serializer) -> Result<&'static s
         rawsocket::Serializer::Json => Ok("wamp.2.json"),
         rawsocket::Serializer::MessagePack => Ok("wamp.2.msgpack"),
         rawsocket::Serializer::Cbor => Ok("wamp.2.cbor"),
+        rawsocket::Serializer::Flatbuffers => Ok("wamp.2.flatbuffers"),
         _ => Err(Error::Io(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("websocket serializer {serializer:?} is unsupported"),
@@ -11236,5 +11313,75 @@ mod tests {
         let err = local_addr(ListenerId(999)).expect_err("missing listener");
         assert!(matches!(err, Error::ListenerNotFound(ListenerId(_))));
         shutdown().unwrap();
+    }
+}
+
+#[cfg(test)]
+mod flatbuffers_websocket_profile_tests {
+    use super::*;
+    #[test]
+    fn websocket_profile_maps_flatbuffers_with_existing_encodings() {
+        for (serializer, expected) in [
+            (rawsocket::Serializer::Json, "wamp.2.json"),
+            (rawsocket::Serializer::MessagePack, "wamp.2.msgpack"),
+            (rawsocket::Serializer::Cbor, "wamp.2.cbor"),
+            (rawsocket::Serializer::Flatbuffers, "wamp.2.flatbuffers"),
+        ] {
+            assert_eq!(websocket_subprotocol(serializer).unwrap(), expected);
+        }
+    }
+}
+
+#[cfg(test)]
+mod connection_id_lifetime_tests {
+    use super::*;
+
+    #[test]
+    fn recreated_registries_cannot_reuse_connection_ids() {
+        let first = ListenerRegistry::default().next_connection_id().unwrap();
+        let second = ListenerRegistry::default().next_connection_id().unwrap();
+        assert!(second.0 > first.0);
+    }
+
+    #[test]
+    fn connection_ids_stop_at_the_positive_ffi_boundary() {
+        let sequence = AtomicU32::new(i32::MAX as u32);
+        assert_eq!(
+            allocate_connection_id(&sequence).unwrap(),
+            ConnectionId(i32::MAX as u32)
+        );
+        assert!(allocate_connection_id(&sequence).is_err());
+        assert!(allocate_connection_id(&sequence).is_err());
+        assert_eq!(sequence.load(Ordering::SeqCst), i32::MAX as u32 + 1);
+    }
+
+    #[test]
+    fn invalid_connection_id_sequences_never_wrap_or_advance() {
+        for value in [0, i32::MAX as u32 + 1, u32::MAX] {
+            let sequence = AtomicU32::new(value);
+            assert!(allocate_connection_id(&sequence).is_err());
+            assert_eq!(sequence.load(Ordering::SeqCst), value);
+        }
+    }
+
+    #[test]
+    fn concurrent_connection_allocations_are_unique() {
+        let sequence = Arc::new(AtomicU32::new(1));
+        let workers: Vec<_> = (0..8)
+            .map(|_| {
+                let sequence = Arc::clone(&sequence);
+                std::thread::spawn(move || {
+                    (0..64)
+                        .map(|_| allocate_connection_id(&sequence).unwrap().0)
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        let mut ids: Vec<_> = workers
+            .into_iter()
+            .flat_map(|worker| worker.join().unwrap())
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(ids, (1..=512).collect::<Vec<_>>());
     }
 }

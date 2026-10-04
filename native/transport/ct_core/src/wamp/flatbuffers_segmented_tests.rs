@@ -159,3 +159,61 @@ fn flatbuffers_segments_cover_all_public_models_with_the_generated_verifier() {
         assert_segments(message, payload);
     }
 }
+
+#[test]
+fn composed_flatbuffers_frames_cover_all_public_models_with_the_generated_verifier() {
+    let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!(
+        "../../../../../schemas/wamp_flatbuffers/codec_cases.json"
+    ))
+    .unwrap();
+    assert_eq!(cases.len(), 25);
+    for case in cases {
+        let expected = parse_message(
+            crate::rawsocket::Serializer::Cbor,
+            Bytes::from(serde_cbor::to_vec(&case["message"]).unwrap()),
+        )
+        .unwrap()
+        .message;
+        let mut control_message = expected.clone();
+        let payload = match &mut control_message {
+            WampMessage::Publish { payload, .. }
+            | WampMessage::Event { payload, .. }
+            | WampMessage::Call { payload, .. }
+            | WampMessage::Result { payload, .. }
+            | WampMessage::Invocation { payload, .. }
+            | WampMessage::Yield { payload, .. }
+            | WampMessage::Error { payload, .. }
+            | WampMessage::Abort { payload, .. }
+            | WampMessage::Goodbye { payload, .. } => std::mem::take(payload),
+            _ => Payload::default(),
+        };
+        let control = encode_flatbuffers_message(&control_message).unwrap();
+        let segments = compose_flatbuffers_message_segments(control, payload.clone()).unwrap();
+        for bytes in [&payload.args, &payload.kwargs, &payload.transparent]
+            .into_iter()
+            .flatten()
+        {
+            assert_eq!(
+                segments
+                    .iter()
+                    .filter(|part| part.as_ptr() == bytes.as_ptr() && part.len() == bytes.len())
+                    .count(),
+                1
+            );
+        }
+        let wire = Bytes::from(
+            segments
+                .iter()
+                .flat_map(|part| part.iter().copied())
+                .collect::<Vec<_>>(),
+        );
+        super::flatbuffers_generated::wamp::proto::root_as_message(&wire)
+            .expect("generated verifier accepts composed frame");
+        assert_eq!(
+            parse_message(crate::rawsocket::Serializer::Flatbuffers, wire)
+                .unwrap()
+                .message,
+            expected
+        );
+    }
+}

@@ -1,5 +1,13 @@
 # Next Session Overview
 
+Active FlatBuffers work uses `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`
+and GitHub milestone 1. The canonical candidate now includes ordinary/native
+transport selection, segmented native frames and public PPT/ownership repairs.
+Complete its verification/CI first, then typed FlatBuffers E2EE profile compatibility,
+remaining mixed transport coverage, conformance/artifacts, performance/copy gates
+and release/adapter documentation. The milestone remains open; the older fresh-state
+notes below do not override the active execution plan.
+
 Fresh state:
 - Native transport heartbeat/ping-pong is enforced (RawSocket + WebSocket), and router sessions can be closed on `session_idle_ms` from the boss; coverage includes Rust `listen_flow` heartbeat + close tests and Dart router runtime idle-session enforcement.
 - Native outbound send queues are bounded (RawSocket + WebSocket); when saturated, `ct_send_message` surfaces a backpressure error instead of growing unbounded memory.

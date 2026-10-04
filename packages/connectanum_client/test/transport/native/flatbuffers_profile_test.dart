@@ -69,13 +69,22 @@ void main() {
       final messages = StreamIterator<AbstractMessage?>(await _open(client));
       try {
         client.send(Hello('realm', Details.forHello()));
-        expect(await messages.moveNext(), isTrue);
+        expect(
+          await messages.moveNext().timeout(const Duration(seconds: 5)),
+          isTrue,
+        );
         expect(messages.current, isA<Welcome>());
         client.send(Call(1, 'com.echo', arguments: ['value']));
-        expect(await messages.moveNext(), isTrue);
+        expect(
+          await messages.moveNext().timeout(const Duration(seconds: 5)),
+          isTrue,
+        );
         expect((messages.current as Result).arguments, ['value']);
         client.send(Goodbye(null, 'wamp.close.normal'));
-        expect(await messages.moveNext(), isTrue);
+        expect(
+          await messages.moveNext().timeout(const Duration(seconds: 5)),
+          isTrue,
+        );
         expect(messages.current, isA<Goodbye>());
         expect(await peer.close(), [1, 48, 6]);
       } finally {
@@ -174,25 +183,33 @@ void main() {
           final offer = Hello('realm', Details.forHello());
           const flat.FlatBuffersSessionProfile.client().prepareOutgoing(offer);
           final encodedOffer = _encodeNative(client, offer);
+          // StreamIterator subscribes lazily; start before awaiting a receipt.
+          final welcome = messages.moveNext();
           if (tracked) {
             final receipt = client.sendEncodedNativeBufferTracked(
               encodedOffer,
               transfer: true,
             );
-            expect(await receipt.wait(), NativeWriteOutcome.written);
+            expect(
+              await receipt.wait(timeout: const Duration(seconds: 5)),
+              NativeWriteOutcome.written,
+            );
             receipt.dispose();
           } else {
             client.sendEncodedNativeBuffer(encodedOffer, transfer: true);
           }
           expect(encodedOffer.isDisposed, isTrue);
-          expect(await messages.moveNext(), isTrue);
+          expect(await welcome.timeout(const Duration(seconds: 5)), isTrue);
           expect(messages.current, isA<Welcome>());
           final encodedCall = _encodeNative(
             client,
             Call(1, 'com.echo', arguments: ['owned']),
           );
           client.sendEncodedNativeBuffer(encodedCall, transfer: true);
-          expect(await messages.moveNext(), isTrue);
+          expect(
+            await messages.moveNext().timeout(const Duration(seconds: 5)),
+            isTrue,
+          );
           expect((messages.current as Result).arguments, ['owned']);
           expect(await peer.close(), [1, 48]);
         } finally {
@@ -202,6 +219,98 @@ void main() {
         }
       },
     );
+    test('native composed sends obey the profile, tracked=$tracked', () async {
+      final peer = await _Peer.start('anonymous');
+      final client = transport(peer);
+      final messages = StreamIterator<AbstractMessage?>(await _open(client));
+      NativeFlatBufferFrame frame(
+        AbstractMessage message, {
+        NativeOwnedBuffer? arguments,
+      }) {
+        final control = _encodeNative(client, message);
+        try {
+          return client.nativeBuffers.composeFlatBufferFrame(
+            control,
+            arguments: arguments,
+          );
+        } finally {
+          control.dispose();
+        }
+      }
+
+      NativeWriteReceipt? send(NativeFlatBufferFrame value) {
+        if (tracked) {
+          return client.sendNativeFrameTracked(value, transfer: true);
+        }
+        client.sendNativeFrame(value, transfer: true);
+        return null;
+      }
+
+      try {
+        for (final message in [
+          Call(1, 'com.echo'),
+          Authenticate(signature: 'secret'),
+        ]) {
+          final value = frame(message);
+          expect(() => send(value), throwsStateError);
+          expect(value.isDisposed, isFalse);
+          value.dispose();
+        }
+        final unoffered = frame(Hello('realm', Details.forHello()));
+        expect(() => send(unoffered), throwsUnsupportedError);
+        expect(unoffered.isDisposed, isFalse);
+        unoffered.dispose();
+        final offer = Hello('realm', Details.forHello());
+        const flat.FlatBuffersSessionProfile.client().prepareOutgoing(offer);
+        final offered = frame(offer);
+        // Listen before the tracked write can yield to a fast WELCOME reply.
+        final welcome = messages.moveNext();
+        final helloReceipt = send(offered);
+        if (helloReceipt != null) {
+          expect(
+            await helloReceipt.wait(timeout: const Duration(seconds: 5)),
+            NativeWriteOutcome.written,
+          );
+          helloReceipt.dispose();
+        }
+        expect(offered.isDisposed, isTrue);
+        expect(await welcome.timeout(const Duration(seconds: 5)), isTrue);
+        expect(messages.current, isA<Welcome>());
+        final builder = client.nativeBuffers.allocate(4);
+        final NativeOwnedBuffer arguments;
+        try {
+          builder.setUint8(0, 0x83);
+          builder.setUint8(1, 1);
+          builder.setUint8(2, 2);
+          builder.setUint8(3, 3);
+          arguments = builder.freeze();
+        } finally {
+          builder.dispose();
+        }
+        expect(arguments.inputCopiedBytes, 0);
+        final invocation = frame(Call(1, 'com.echo'), arguments: arguments);
+        arguments.dispose();
+        final callReceipt = send(invocation);
+        if (callReceipt != null) {
+          expect(
+            await callReceipt.wait(timeout: const Duration(seconds: 5)),
+            NativeWriteOutcome.written,
+          );
+          callReceipt.dispose();
+        }
+        expect(invocation.isDisposed, isTrue);
+        expect(
+          await messages.moveNext().timeout(const Duration(seconds: 5)),
+          isTrue,
+        );
+        expect((messages.current as Result).arguments, [1, 2, 3]);
+        expect(await peer.close(), [1, 48]);
+      } finally {
+        await messages.cancel();
+        await client.close();
+        await peer.dispose();
+      }
+    });
   }
 }
 

@@ -12,6 +12,34 @@ import 'message_protocol.dart';
 const String _jsonBinaryPrefix = '\u0000';
 const String _jsonEscapedBinaryPrefix = '\\u0000';
 
+const _resultDetailKeys = {
+  'progress',
+  'ppt_scheme',
+  'ppt_serializer',
+  'ppt_cipher',
+  'ppt_keyid',
+};
+const _eventDetailKeys = {
+  'publisher',
+  'trustlevel',
+  'topic',
+  'ppt_scheme',
+  'ppt_serializer',
+  'ppt_cipher',
+  'ppt_keyid',
+};
+const _invocationDetailKeys = {
+  'caller',
+  'procedure',
+  'progress',
+  'receive_progress',
+  'timeout',
+  'ppt_scheme',
+  'ppt_serializer',
+  'ppt_cipher',
+  'ppt_keyid',
+};
+
 class NativeSessionMessage extends AbstractMessageWithPayload {
   NativeSessionMessage({
     required this.serializer,
@@ -26,6 +54,25 @@ class NativeSessionMessage extends AbstractMessageWithPayload {
 
   final NativeMessageSerializer serializer;
   final NativeMessageMetadata metadata;
+
+  /// Optional application details decoded only when a lazy handler reads them.
+  /// Standard projected WAMP fields remain on the typed payload view.
+  late final Map<String, dynamic>? customDetails = metadata.detailsBytes == null
+      ? null
+      : _lazyDynamicDetailMap(
+          serializer,
+          metadata.detailsBytes,
+          knownKeys: switch (metadata.messageCode) {
+            final code when code == MessageTypes.codeResult =>
+              _resultDetailKeys,
+            final code when code == MessageTypes.codeEvent => _eventDetailKeys,
+            final code when code == MessageTypes.codeInvocation =>
+              _invocationDetailKeys,
+            _ => throw StateError(
+              'Custom payload details require RESULT, EVENT or INVOCATION',
+            ),
+          },
+        );
 
   AbstractMessage materialize() {
     final boundMessage = _bindFromMetadata(
@@ -265,15 +312,7 @@ AbstractMessage? _bindFromMetadataFields(
         details,
         serializer,
         metadata.detailsBytes,
-        const {
-          'publisher',
-          'trustlevel',
-          'topic',
-          'ppt_scheme',
-          'ppt_serializer',
-          'ppt_cipher',
-          'ppt_keyid',
-        },
+        _eventDetailKeys,
       );
     }
     final message = Event(metadata.primaryId, metadata.secondaryId, details);
@@ -313,13 +352,7 @@ AbstractMessage? _bindFromMetadataFields(
         details,
         serializer,
         metadata.detailsBytes,
-        const {
-          'progress',
-          'ppt_scheme',
-          'ppt_serializer',
-          'ppt_cipher',
-          'ppt_keyid',
-        },
+        _resultDetailKeys,
       );
     }
     final message = Result(metadata.primaryId, details);
@@ -360,17 +393,7 @@ AbstractMessage? _bindFromMetadataFields(
         details,
         serializer,
         metadata.detailsBytes,
-        const {
-          'caller',
-          'procedure',
-          'progress',
-          'receive_progress',
-          'timeout',
-          'ppt_scheme',
-          'ppt_serializer',
-          'ppt_cipher',
-          'ppt_keyid',
-        },
+        _invocationDetailKeys,
       );
     }
     final message = Invocation(

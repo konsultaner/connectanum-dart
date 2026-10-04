@@ -10,6 +10,8 @@ import 'package:flat_buffers/flat_buffers.dart' as fb;
 
 import 'src/transport/native/runtime.dart' show NativeClientRuntime;
 
+part 'src/transport/native/native_frames.dart';
+
 /// Native integration output from `ct_external_buffer_register`.
 /// Publish this initialized structure to exactly one Dart consumer. Its handle
 /// is a resource reference; copying/forging the fields does not retain it.
@@ -149,6 +151,7 @@ void _check(int status) {
 
 /// Resolves the complete owned-buffer ABI; older libraries fail explicitly.
 final class NativeBufferAllocator {
+  _NativeFrameApi? _frames;
   // The finalizer itself must outlive every attachment, including an allocator
   // and all its handles becoming unreachable together. Borrowed custom
   // libraries must stay loaded; retain one finalizer per library, not wrapper.
@@ -198,6 +201,7 @@ final class NativeBufferAllocator {
     _supported = true;
     _loadExternalTokens(library);
     _loadWriteCompletion(library);
+    _frames = _NativeFrameApi.load(this, library);
   }
 
   void _loadExternalTokens(ffi.DynamicLibrary library) {
