@@ -10,8 +10,8 @@ project has 98% coverage or 95% mutation coverage.
 
 Run `bin/test-fast` before substantial changes and `bin/verify` before handoff.
 Both include regression tests for the coverage and mutation tooling.
-Do not overlap full native verification and VM coverage collection on the same
-host: the native test runtime uses a shared lock with a bounded admission wait.
+Do not overlap full native verification and VM coverage collection in the same
+checkout: they rebuild shared native artifacts and instrumentation output.
 
 ```sh
 dart pub global activate coverage 1.15.1
@@ -31,6 +31,11 @@ cargo install cargo-llvm-cov --version 0.9.1 --locked
 CONNECTANUM_NATIVE_COVERAGE_DIR=out/coverage-rust bin/test-native-coverage
 cargo install cargo-mutants --version 27.1.0 --locked
 bin/collect-native-mutations --output out/mutations-rawsocket
+
+# Whole native components: 32 disjoint batches, at most four isolated workers.
+bin/collect-native-mutation-campaign --target core-all --batches 32 --jobs 4 \
+  --output out/native-core-campaign
+# The same command supports --target ffi-all.
 ```
 
 Use fresh output directories. Browser mutation tests require Chrome. The browser
@@ -59,8 +64,8 @@ native component separate. Neither report is merged into the Dart badge.
 Native benchmark-workspace coverage and the remaining client/browser, hooks
 and standalone application scope remain work in the active execution plan.
 
-The native collector currently covers the complete RawSocket candidate inventory,
-not the complete Rust workspace. It copies the transport workspace and sibling
+The native collector supports complete RawSocket/WAMP/config/protocol candidate
+inventories and whole core/FFI production-candidate inventories. It copies the transport workspace and sibling
 public TLS fixtures into a private directory, materializes symlinks and pins
 source, tooling and log hashes. The auditor checks every outcome against the
 inventory, a nonempty clean baseline and an identical restored test inventory.
@@ -69,7 +74,47 @@ Compiler failures, signals, runtime panics, unwrap/expect failures, timeouts and
 infrastructure failures remain separate. `audited-results.json` reports raw and
 adjusted candidate scores (no native equivalence waivers yet) and operator counts.
 Platform-inactive candidates remain visible; these are not platform-active
-production scores. Unresolved survivors or unclean evidence fail the command.
+production scores. A single-batch diagnostic command fails on survivors or
+unclean evidence; the combined whole-component audit requires clean evidence
+and an unchanged >=95% score gate.
+
+### Faster Native Campaigns
+
+`collect-native-mutation-campaign` runs each batch in a separate source and Cargo
+build directory. It limits concurrent workers with `--jobs` and Cargo build
+threads per worker with `--cargo-jobs` (default: CPU count divided by workers).
+The complete workspace test suite, per-mutant deadlines, assertion-only kill
+evidence and source/tool pins are unchanged. Source mutations are still rebuilt;
+this does not patch machine code or bypass Cargo's compilation checks.
+
+`campaign-manifest.json` records elapsed time and actual peak worker count;
+`combined.json` is written only after every batch's raw logs, clean/restored
+baselines and exact inventory union pass audit. Completed collection can still
+have a failing mutation gate. SIGINT/SIGTERM cancels owned Cargo process groups
+and leaves incomplete evidence without a score. An unresolved inherited stdout
+pipe is bounded and reported as an infrastructure failure, never a kill.
+
+Resume into a **fresh** output directory, explicitly selecting completed batches:
+
+```sh
+bin/collect-native-mutation-campaign --target core-all --batches 32 --jobs 4 \
+  --reuse out/native-core-campaign/batch-0000 \
+  --reuse out/native-core-campaign/batch-0001 \
+  --output out/native-core-resumed
+```
+
+Reused evidence must match source/test/tool/AST hashes, the full inventory and
+partition, compiler versions and hashed build configuration. Its raw logs are
+reaudited before new workers start. Missing, corrupt, interrupted or differently
+partitioned batches are rejected; never overwrite an old batch. Collector-tool
+changes invalidate reuse rather than silently relabeling older evidence.
+
+The regression benchmark runs the same eight mutants and complete tests in a
+controlled two-crate Cargo fixture with one, two and four workers. It compares
+outcomes and records timings without a flaky speed threshold. Fixture speedups
+are not production ETAs; cold builds, contention and uneven test runtimes affect
+the complete native campaign. Dart/browser campaigns remain serial within each
+target; this acceleration does not claim their speed has changed.
 
 `mutation-report.json` records source/test hashes, the base commit, every generated
 mutation, per-mutation outcomes, clean/restored baselines and completion status.
@@ -82,7 +127,7 @@ binary operators, boolean/condition replacement, negation and null fallback;
 statement deletion, constants and other operators are not yet included. No
 sample is extrapolated to the full codebase.
 
-The runner changes only an isolated workspace snapshot, executes mutants serially
+The Dart runner changes only an isolated workspace snapshot, executes mutants serially
 and kills timed-out process groups. It currently requires POSIX (Linux/macOS)
 process groups. Compiler errors are unviable, not kills.
 Infrastructure errors and timeouts remain in the score denominator and fail the

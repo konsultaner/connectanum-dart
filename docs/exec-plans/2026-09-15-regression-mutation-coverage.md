@@ -38,24 +38,126 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work400 Native Mutation Speed
+
+The operator's 2026-10-04 request prioritizes mutation-test acceleration. Do not
+reduce candidate inventories, workspace tests, per-mutant deadlines, assertion
+evidence requirements or the >=95% combined gate. The earlier 25.75h estimate
+is an extrapolation from a partial native campaign, not a measured one-test-run
+duration. Master CI `37134251410` completes with the existing remote-auth native
+benchmark assertion gap as its only failing job; its MCP campaign passes.
+
+Use Work384's deterministic disjoint batches in a bounded parallel coordinator.
+Freeze one source snapshot, give each batch a private source/build directory,
+cap worker and Cargo build concurrency, and audit the exact full inventory union
+before writing a combined score. Reuse only independently reaudited completed
+batches with matching source/test/tool/AST/compiler/build configuration and the
+same full inventory/partition. Preserve old and interrupted evidence. Pin
+compiler versions and hash build environment values instead of retaining secrets.
+Expose reproducible elapsed/worker timing, not just theoretical speedup.
+
+Fail-first interface tests require the new coordinator. Scheduler regressions
+cover overlapping/bounded workers, identical whole inventory/test scope, serial
+mode, corrupted/incomplete/duplicate reuse, source drift, failed workers,
+unchanged test/deadline commands, failed gates and environment drift. Real Cargo
+fixtures compare one/two/four workers and reuse; a SIGTERM subprocess must return
+130 with incomplete evidence and no late owned test work. A review identifies
+an inherited escaped stdout-owner cleanup risk: a fail-first probe takes 4.05s
+despite cancellation at 0.3s. Bound post-kill pipe draining and classify unresolved
+ownership as infrastructure failure, never a kill. Preserve raw interrupted logs.
+
+The final current-snapshot controlled two-crate fixture completes the same eight
+mutations and identical workspace tests in 19.92s serial / 11.96s two-worker /
+7.48s four-worker (2.66x), with complete audited union and unchanged outcomes. This
+does not establish a complete production campaign ETA or new mutation score.
+All 43 native collector, 10 batch auditor, 25 coordinator and 79 verification-script
+tests pass in the final `bin/verify`. Fast400 is launched before implementation
+and exits 0 in `/tmp/connectanum-mutation-speed-fast400.log`. Final `bin/verify`
+exits 0 in `/tmp/connectanum-mutation-speed-verify400.log`, including complete
+router, remote-auth/zero-copy and Chrome/Dart2Wasm core/client tests and the
+64-MiB SCRAM responsiveness regression. Qwen test planning and focused GLM
+reviews run; the escaped stdout-owner finding is reproduced and fixed. Remaining
+review leads are checked against source, tests and the
+[Python subprocess contract](https://docs.python.org/3/library/subprocess.html#subprocess.Popen.communicate)
+rather than adopted unverified: retrying `communicate()` after a timeout retains
+output, which the cancellation regression checks. Completed collection is distinct from
+a passing mutation gate. Dart/browser mutation targets remain serial; production
+campaign timing and further build-reuse optimization remain next work. The
+remote-auth assertion gap is retained; no threshold waiver, hosted candidate
+result, goal completion or release is claimed. Bundle Work399's bookkeeping with
+this code/config implementation, not a docs-only commit.
+
 ### Work399 Beta.7 Publication
 
-The operator authorizes a new synchronized beta for the Work397/398 router
-isolation and shutdown fixes. Keep all seven Dart packages, internal version
-constraints, native crates and public MCP metadata at `3.0.0-beta.7`. Preserve
-historical changelog entries and describe the shared-engine limitation without
-claiming independent runtime contexts. No beta.7 package or native release
-exists at startup. Fast399 is launched before edits; prior Work398 full verify
-passes. The 23 publishing-tool regressions and focused Qwen version/workflow
-review pass; GLM is independently unavailable. Initial strict archives reject
-the dirty package files with pub's checked-in-file warning. Commit the code/config
-candidate and rerun clean-tree archives; do not waive that warning. Fresh full
-verification, strict archives, exact-head hosted deployment
-evidence, protected-master promotion, matching native release/install validation,
-dependency-ordered pub.dev OIDC publication and a fresh hosted consumer check
-remain pending. Do not include unrelated PRs/worktrees or claim mutation-goal
-completion. Record publication results with implementation rather than creating
-a docs-only commit.
+Complete: the operator-authorized Work397/398 router fixes and synchronized
+`3.0.0-beta.7` manifests, internal constraints, native crates and public MCP
+metadata are published. Historical changelogs and the shared-engine limitation
+are preserved. All seven packages are indexed under `dart.konsultaner.de`.
+PR #106 merges as `3bac4cf5db3b4cd9d51636f8454e6672722007e2`, mirrored to GitLab.
+The merge tree exactly matches reviewed/tested `e6bde5be`; the ordinary required
+checks pass before sole-maintainer promotion and protection is not weakened.
+Unrelated PRs/worktrees are excluded. Independent runtime contexts and the
+coverage objective are not completed by this release.
+
+Local fast/full verification and strict seven-package archives pass in
+`/tmp/connectanum-beta7-fast399.log`, `/tmp/connectanum-beta7-verify399.log` and
+`/tmp/connectanum-beta7-dry-run399-clean.log`. An earlier dirty-tree archive
+warning is resolved by committing the code/config candidate, not by waiving it.
+All 23 publishing-tool regressions pass; Qwen's focused release review finds no
+concrete mismatch; GLM is independently unavailable. Full local verification
+includes Chrome/WASM and 64-MiB SCRAM worker responsiveness. Candidate hosted CI
+`37130381439` passes Fast Checks, Full Verify, consumer and coverage jobs;
+hosted Full Verify uses JavaScript, not WASM. Exact-head package/native/image
+previews `37130381453`, `37130381223`, `37130383330` and WAMP benchmarks
+`37130429872` pass. The preview audit and protected-master preflight pass.
+
+Native release `v3.0.0-beta.7` is published by `37134269625`: five platform
+bundles, 30 assets and the exact master commit. Installer validation exits 0 in
+`/tmp/connectanum-beta7-native-install399.log` before the first package tag is
+pushed. All release/package tags are mirrored to GitLab. Dependency-ordered
+trusted-publisher workflows pass, with each exact hosted version indexed before
+its dependents are tagged:
+
+| Package | Publish run |
+| --- | --- |
+| connectanum_core | `37135197865` |
+| connectanum_client | `37135539743` |
+| connectanum_mcp | `37135844611` |
+| connectanum_router | `37136638299` |
+| connectanum | `37137294469` |
+| connectanum_auth_server | `37137817497` |
+| connectanum_bench | `37137988651` |
+
+Router image publication `37136846504` runs from the immutable native tag and
+passes multi-architecture publication and live MCP smoke. Master package/image
+previews `37134251432`/`37134271450` and WAMP benchmarks `37134251400` pass.
+Strict post-publication protection/visibility/package/image/WAMP audit exits 0
+in `/tmp/connectanum-beta7-post-publication-audit399.log`; this is not a whole-CI
+or CI-log-clean claim. Actual native publication/install is checked separately.
+
+A fresh isolated pub cache outside the workspace resolves all seven exact
+hosted beta.7 versions, with no path dependencies or native overrides. Public
+API analysis passes. Facade/WebSocket and RawSocket RPC/pub-sub, immutable
+binding profiles, scoped TLS reload, direct JSON and initialized Streamable HTTP
+MCP, sibling-disposal continuity and five shutdown subprocess variants all
+pass in `/tmp/connectanum-beta7-hosted-consumer-smoke399.log`. Every process exits
+naturally without `exit(0)`. Downloaded client/router native manifests identify
+`3bac4cf5`. Public router CLI help also passes. This does not test the exact
+unavailable consumer application's shutdown path or Windows signal behavior.
+
+Master CI `37134251410` has passing Fast Checks, Full Verify, consumer and
+coverage jobs, but its complete remote-auth native mutation gate is red.
+Retained report `/tmp/connectanum-beta7-remote-auth-mutation-artifact399/mutation-report.json`
+matches `3bac4cf5`, has baseline/restored-baseline exit 0 and an unchanged native
+artifact. Its 35 selected candidates comprise 16 compile errors and 19 kills:
+18 assertion kills and one test-error kill. Conventional score is 100%, but
+the assertion lower bound is 94.736842% against the unchanged 95% gate. Candidate
+`55697563aaa584cff9ed` changes `&&` to `||` at remote-auth harness line 148; its
+integration test errors on rebinding an occupied port instead of asserting the
+violated cleanup contract. Investigate and strengthen that assertion next;
+do not grant equivalence or suppress the gate. The MCP campaign remains running
+at handoff. Mutation completion is not claimed. Leave this post-publication
+bookkeeping uncommitted until it can accompany implementation.
 
 ### Work398 Shutdown Ownership Regressions
 

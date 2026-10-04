@@ -1,26 +1,70 @@
 # Project State
 
-Last updated: 2026-10-03
-Current branch: `codex/router-listener-isolation`
-Current milestone: synchronized `3.0.0-beta.7` publication of the verified router
-embedding and shutdown fixes; beta.6 publication completed.
+Last updated: 2026-10-04
+Current branch: `codex/mutation-runner-speed`
+Current milestone: accelerate native mutation campaigns without narrowing
+inventories, test suites, deadlines or evidence gates.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Work399: The operator authorizes deploying the router isolation/shutdown fixes
-as a new beta. Prepare synchronized beta.7 manifests, internal constraints,
-Rust crates, public MCP metadata and release notes for all seven packages,
-including the compatibility facade. Beta.7 is absent from every package on
-pub.dev and no native beta.7 release exists at startup. Fast399 is launched
-before edits in `/tmp/connectanum-beta7-fast399.log`. The 23 publishing-tool
-regressions pass; Qwen's focused version/workflow review finds no concrete
-mismatch, and GLM is independently unavailable. Initial strict archives reject
-dirty package files with pub's checked-in-file warning; commit the implementation
-candidate and repeat the zero-warning gate from a clean tree. Full verification,
-strict archives, protected-master promotion, native assets and dependency-ordered OIDC
-publication remain pending. The coverage objective and independent-runtime
-phase 2 are not completed by publication. Existing unrelated worktrees and PRs
-are outside this release slice. No publication or hosted-green claim yet.
+Work400: The operator prioritizes mutation-test speed after beta.7 publication.
+Fast400 is launched before implementation and exits 0. Master CI `37134251410` is now
+complete: only the remote-auth native benchmark mutation gate fails; the MCP
+campaign passes. The earlier 25.75-hour estimate extrapolated 65 native outcomes
+to a 1,939-mutant inventory, not one normal regression run. Build on Work384's
+deterministic batches with a bounded parallel coordinator, independent snapshots
+and build directories, audited completed-batch reuse and exact whole-inventory
+combination. Pin compiler versions and hashed build configuration for reuse.
+SIGINT/SIGTERM settles owned workers before returning. A fail-first escaped
+stdout-owner probe also reproduces cancellation waiting beyond cleanup; bound
+that drain and retain infrastructure failure, not mutation credit.
+
+The final current-snapshot Cargo fixture compares identical eight-mutant inventories
+and workspace tests: serial 19.92s, two workers 11.96s, four workers 7.48s (2.66x).
+This is controlled-fixture evidence, not a full production ETA. Reuse avoids
+rerunning audited completed batches. All 43 native collector, 10 batch auditor,
+25 coordinator and 79 verification-script tests pass in the final `bin/verify`.
+Fast/full verification exits 0 in `/tmp/connectanum-mutation-speed-fast400.log`
+and `/tmp/connectanum-mutation-speed-verify400.log`, including the complete router,
+remote-auth/zero-copy and Chrome/Dart2Wasm core/client suites. Qwen test planning
+and focused GLM reviews run; the actionable cancellation finding is reproduced
+and fixed. No full production campaign timing, hosted candidate result or new
+mutation score is claimed. Dart/browser mutation targets remain serial. The
+remote-auth assertion gap and coverage objective remain open. Bundle Work399's
+post-publication bookkeeping with this tooling implementation.
+
+Work399: All seven packages, including `connectanum`, are published and indexed
+at `3.0.0-beta.7` under `dart.konsultaner.de`. PR #106 merges the router fixes and
+synchronized versions as master `3bac4cf5`, mirrored to GitLab. Its source tree
+exactly matches reviewed/tested candidate `e6bde5be`; branch protection is
+unchanged. Fast399, fresh `bin/verify`, strict clean-tree seven-package archives
+and all 23 publishing-tool regressions pass. Qwen's focused release review finds
+no concrete mismatch; GLM is independently unavailable. Candidate hosted Fast
+Checks, Full Verify, consumer/coverage jobs, package/native/image previews and
+WAMP profile gates pass. Master Fast Checks and Full Verify also pass.
+
+Native prerelease `v3.0.0-beta.7` publishes five platform bundles and 30 assets
+from the exact master commit; installer validation passes before package tags
+are pushed. All seven dependency-ordered OIDC workflows pass. Native/package
+tags are mirrored to GitLab. The multi-architecture router image publishes at
+`3.0.0-beta.7`, with its live MCP smoke passing. Strict post-publication
+protection/visibility/package/image/WAMP audit passes; actual native publication
+and installer validation are checked separately. A fresh-cache consumer resolves
+all seven exact hosted versions without workspace/native overrides. Public API
+analysis, facade/WebSocket and RawSocket RPC/pub-sub, scoped TLS reload, direct
+JSON and Streamable HTTP MCP, sibling-disposal continuity and five natural-exit
+shutdown subprocess cases pass. Downloaded client/router manifests match
+`3bac4cf5`. Release evidence is detailed in the active plan.
+
+The full master CI workflow `37134251410` is not green: the completed
+`bench-remote-auth-native` mutation gate fails at 94.7368% assertion coverage
+against 95%, although its conventional score is 100%. Audited exact-head
+artifacts have clean/restored baselines, 35 candidates, 16 compile errors,
+18 assertion kills and one test-error kill (port rebind after the `&&` to `||`
+mutation). Fix that assertion gap next; do not waive it or call it an ordinary
+regression failure. The MCP mutation campaign is still running at handoff.
+The coverage objective and independent-runtime phase 2 remain open. Leave this
+post-publication bookkeeping uncommitted until the next implementation commit.
 
 Work398: The operator requests deeper investigation of the consumer shutdown
 hang. Fast398 is launched before implementation and exits 0 in

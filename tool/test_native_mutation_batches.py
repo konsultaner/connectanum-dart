@@ -137,6 +137,7 @@ class BatchEvidenceTests(unittest.TestCase):
                 'total_mutants': len(selected), 'outcomes': outcomes})
             (directory / 'restored-baseline.log').write_text(log())
             manifest = {'complete': True, 'scope': 'core-all',
+                        'executionFingerprint': collector.execution_fingerprint(),
                         'cargoMutantsVersion': 'cargo-mutants 27.1.0',
                         'restoredExitCode': 0, 'campaignExitCode': 0,
                         'inputHashes': inputs, 'toolHashes': tools,
@@ -180,7 +181,8 @@ class BatchEvidenceTests(unittest.TestCase):
         path = self.directories[1] / 'run-manifest.json'
         original = json.loads(path.read_text())
         for key, value in [('complete', False), ('campaignExitCode', None),
-                           ('restoredExitCode', 1), ('inputHashes', {}), ('toolHashes', {})]:
+                           ('restoredExitCode', 1), ('inputHashes', {}), ('toolHashes', {}),
+                           ('executionFingerprint', {})]:
             with self.subTest(key=key):
                 self.write(path, {**original, key: value})
                 with self.assertRaises(ValueError):

@@ -79,8 +79,11 @@ class VerificationScriptsTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "The native collector launcher is a POSIX shell script")
     @unittest.skipUnless(shutil.which('cargo'), "The lockfile fixture requires Cargo")
     def test_native_mutation_launcher_pins_lock_before_snapshot(self):
-        for case in ('fresh-checkout', 'existing-lock', 'generation-fails'):
-            with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
+        cases = [(launcher, case) for launcher in
+                 ('collect-native-mutations', 'collect-native-mutation-campaign')
+                 for case in ('fresh-checkout', 'existing-lock', 'generation-fails')]
+        for launcher, case in cases:
+            with self.subTest(launcher=launcher, case=case), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 scripts = root / 'bin'
                 scripts.mkdir()
@@ -94,7 +97,7 @@ class VerificationScriptsTest(unittest.TestCase):
                 lock = transport / 'Cargo.lock'
                 if case == 'existing-lock':
                     lock.write_text('preserve exact lock contents\n')
-                shutil.copy2(REPO_ROOT / 'bin/collect-native-mutations', scripts)
+                shutil.copy2(REPO_ROOT / 'bin' / launcher, scripts)
                 (scripts / 'common.sh').write_text('''ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd_repo_root() { cd "$ROOT_DIR"; }
 ensure_rust_env() { :; }
@@ -114,7 +117,7 @@ fi
 set -eu
 printf 'snapshot\\n' >> "$TRACE"
 test -s native/transport/Cargo.lock
-[[ "$1" == tool/run_native_mutations.py ]]
+[[ "$1" == "$COLLECTOR" ]]
 ''',
                 }
                 for name, body in commands.items():
@@ -123,9 +126,12 @@ test -s native/transport/Cargo.lock
                     command.chmod(0o755)
                 trace = root / 'trace'
                 result = subprocess.run(
-                    ['bash', str(scripts / 'collect-native-mutations'), '--target', 'core-wamp'],
+                    ['bash', str(scripts / launcher), '--target', 'core-all'],
                     cwd=root, env={**os.environ, 'PATH': f'{scripts}:{os.environ["PATH"]}',
                                    'TRACE': str(trace), 'CASE': case,
+                                   'COLLECTOR': ('tool/run_native_mutation_campaign.py'
+                                                 if launcher.endswith('-campaign') else
+                                                 'tool/run_native_mutations.py'),
                                    'REAL_CARGO': shutil.which('cargo')},
                     capture_output=True, text=True, timeout=10)
                 if case == 'generation-fails':

@@ -9,3 +9,4 @@ if [[ "$(cargo mutants --version 2>/dev/null || true)" != 'cargo-mutants 27.1.0'
 fi
 python3 tool/test_native_mutations.py
 python3 tool/test_native_mutation_batches.py
+python3 tool/test_native_mutation_campaign.py

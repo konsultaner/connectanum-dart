@@ -2,12 +2,15 @@
 """Collect a complete native target inventory in a private source snapshot."""
 
 import argparse
+import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import tempfile
+import time
 
 import native_coverage
 import native_mutations
@@ -16,7 +19,8 @@ from run_dart_mutations import run
 
 FIXTURES = ('native/bench/bench_tls.crt', 'native/bench/bench_tls.key')
 TOOL_INPUTS = ('run_native_mutations.py', 'native_mutations.py',
-               'native_coverage.py', 'run_dart_mutations.py', 'native_mutation_batches.py')
+               'native_coverage.py', 'run_dart_mutations.py', 'native_mutation_batches.py',
+               'run_native_mutation_campaign.py')
 TARGETS = {
     'core-rawsocket': ('ct_core/src/rawsocket.rs', 'rawsocket::tests'),
     'core-wamp': ('ct_core/src/wamp.rs', 'wamp::'),
@@ -106,6 +110,20 @@ def verify_inputs(root, hashes):
             raise ValueError(f'Native snapshot input changed: {relative}')
 
 
+def execution_fingerprint():
+    environment = {key: value for key, value in os.environ.items()
+                   if key.startswith(('CARGO_', 'RUST', 'CC', 'CXX', 'AR', 'LD'))}
+    home = Path(os.environ.get('CARGO_HOME', Path.home() / '.cargo'))
+    configs = {name: native_coverage.digest(home / name)
+               for name in ('config', 'config.toml') if (home / name).is_file()}
+    # Hash build configuration rather than retaining environment values, which
+    # can contain registry credentials. Compiler identity is public metadata.
+    configuration = json.dumps({'environment': environment, 'cargoHomeConfigs': configs}, sort_keys=True)
+    return {'cargo': subprocess.check_output(['cargo', '--version'], text=True, timeout=10).strip(),
+            'rustc': subprocess.check_output(['rustc', '--version', '--verbose'], text=True, timeout=10).strip(),
+            'buildEnvironmentSha256': hashlib.sha256(configuration.encode()).hexdigest()}
+
+
 def copy_inputs(root, work, hashes):
     # Mutation writes must never follow a link back into the source checkout.
     shutil.copytree(root / 'native/transport', work / 'native/transport',
@@ -118,7 +136,9 @@ def copy_inputs(root, work, hashes):
     verify_inputs(root, hashes)
 
 
-def commands(work, output, target='core-rawsocket', exclusions=()):
+def commands(work, output, target='core-rawsocket', exclusions=(), build_jobs=None):
+    if build_jobs is not None and (type(build_jobs) is not int or build_jobs < 1):
+        raise ValueError('Cargo build jobs must be a positive integer')
     source, test_filter = target_options(target)
     whole = target in WHOLE_COMPONENTS
     if exclusions and not whole:
@@ -130,6 +150,8 @@ def commands(work, output, target='core-rawsocket', exclusions=()):
     if whole:
         test_timeout = '180'
     prefix = ['env', f'CARGO_TARGET_DIR={work / "target"}']
+    if build_jobs is not None:
+        prefix.append(f'CARGO_BUILD_JOBS={build_jobs}')
     manifest = str(work / 'native/transport/Cargo.toml')
     campaign = [*prefix, 'cargo', 'mutants', '--no-config', '--in-place',
                 '--manifest-path', manifest, '--package', package,
@@ -172,7 +194,9 @@ def prepare_inventory(work, output, scope, target):
     return partition
 
 
-def collect(root, output, analyzer, target='core-rawsocket', batch=None):
+def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
+            build_jobs=None, cancel_event=None):
+    started = time.monotonic()
     target_options(target)
     if batch is not None and (target not in WHOLE_COMPONENTS or len(batch) != 2
             or any(type(item) is not int for item in batch)
@@ -186,7 +210,7 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None):
     tool_root = Path(__file__).resolve().parent
     tool_hashes = {name: native_coverage.digest(tool_root / name) for name in TOOL_INPUTS}
     manifest = {'complete': False, 'scope': target, 'inputHashes': hashes,
-                'toolHashes': tool_hashes,
+                'toolHashes': tool_hashes, 'executionFingerprint': execution_fingerprint(),
                 'cargoMutantsVersion': subprocess.check_output(
                     ['cargo', 'mutants', '--version'], text=True).strip()}
     if manifest['cargoMutantsVersion'] != 'cargo-mutants 27.1.0':
@@ -195,6 +219,11 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None):
 
     def save():
         manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+
+    def execute(command, timeout):
+        if cancel_event is None:
+            return run(command, work, timeout)
+        return run(command, work, timeout, cancel_event=cancel_event)
 
     save()
     with tempfile.TemporaryDirectory(prefix='connectanum-native-mutations-') as temporary:
@@ -208,7 +237,7 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None):
                             partitionSha256=native_coverage.digest(output / 'inventory-partition.json'),
                             filteredInventorySha256=native_coverage.digest(output / 'filtered-inventory.json'))
         campaign, restored = commands(work, output, target,
-                                      partition['excluded'] if partition else ())
+                                      partition['excluded'] if partition else (), build_jobs)
         expected_inventory = partition['production'] if partition else None
         if batch is not None:
             selected = select_batch(expected_inventory, *batch)
@@ -231,9 +260,11 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None):
         save()
         label = f'batch {batch[0]}/{batch[1]}' if batch is not None else 'complete inventory'
         print(f'Running isolated {target} mutation {label}.', flush=True)
-        code, log = run(campaign, work, campaign_timeout)
+        campaign_started = time.monotonic()
+        code, log = execute(campaign, campaign_timeout)
         (output / 'campaign.log').write_text(log)
         manifest['campaignExitCode'] = code
+        manifest['campaignSeconds'] = time.monotonic() - campaign_started
         save()
         if code is None or 'connectanumInfrastructureError' in log:
             raise RuntimeError('Native campaign timed out or left unresolved process state')
@@ -251,9 +282,11 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None):
                 raise RuntimeError('Pinned batch inventory changed during campaign')
         verify_inputs(work, hashes)
         verify_inputs(root, hashes)
-        code, log = run(restored, work, 180)
+        restored_started = time.monotonic()
+        code, log = execute(restored, 180)
         (output / 'restored-baseline.log').write_text(log)
         manifest['restoredExitCode'] = code
+        manifest['restoredSeconds'] = time.monotonic() - restored_started
         save()
         evidence = {'phase_results': [
             {'phase': 'Build', 'process_status': 'Success'},
@@ -269,13 +302,16 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None):
         verify_inputs(work, hashes)
         verify_inputs(root, hashes)
         verify_inputs(tool_root, tool_hashes)
+        if execution_fingerprint() != manifest['executionFingerprint']:
+            raise RuntimeError('Native execution configuration changed during collection')
         report.update(scopeSha256=native_coverage.digest(output / 'source-scopes.json'),
                       toolHashes=tool_hashes,
                       restoredBaselineLogSha256=native_coverage.digest(output / 'restored-baseline.log'))
         if batch is not None:
             report.update(batch=manifest['batch'], wholeComponentComplete=False)
         (output / 'audited-results.json').write_text(json.dumps(report, indent=2) + '\n')
-        manifest.update(complete=True, evidenceClean=report['evidenceClean'])
+        manifest.update(complete=True, evidenceClean=report['evidenceClean'],
+                        elapsedSeconds=time.monotonic() - started)
         save()
         print(json.dumps({'counts': report['counts'], 'evidenceClean': report['evidenceClean']}))
         # Preserve the diagnostic workflow's fail-on-survivor behavior. No

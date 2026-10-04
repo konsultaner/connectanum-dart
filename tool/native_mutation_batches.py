@@ -56,7 +56,8 @@ def combine_batches(reports, inventory):
             'results': results}
 
 
-def audit_batches(root, directories, analyzer):
+def inspect_batches(root, directories, analyzer):
+    """Reaudit even an incomplete set of completed batches; never assign a score."""
     if not directories or len(set(path.resolve() for path in directories)) != len(directories):
         raise ValueError('Require distinct immutable batch directories')
     scope = native_coverage.snapshot(root, native_coverage.ROOTS, analyzer)
@@ -64,6 +65,7 @@ def audit_batches(root, directories, analyzer):
         name: native_coverage.digest(root / name) for name in collector.FIXTURES}}
     tool_root = Path(__file__).resolve().parent
     tools = {name: native_coverage.digest(tool_root / name) for name in collector.TOOL_INPUTS}
+    execution = collector.execution_fingerprint()
     reports, evidence = [], []
     full_inventory, target = None, None
     for directory in directories:
@@ -76,6 +78,8 @@ def audit_batches(root, directories, analyzer):
             raise ValueError('Batch collection did not complete')
         if manifest['inputHashes'] != inputs or manifest['toolHashes'] != tools:
             raise ValueError('Batch source/test/tool snapshot differs')
+        if manifest.get('executionFingerprint') != execution:
+            raise ValueError('Batch compiler/build environment differs')
         if json.loads((directory / 'source-scopes.json').read_text()) != scope:
             raise ValueError('Batch AST scope differs')
         for key, name in [('rawInventorySha256', 'raw-inventory.json'),
@@ -120,12 +124,22 @@ def audit_batches(root, directories, analyzer):
                          'batch': manifest['batch'],
                          'manifestSha256': native_coverage.digest(directory / 'run-manifest.json'),
                          'reportSha256': native_coverage.digest(directory / 'audited-results.json')})
-    result = combine_batches(reports, full_inventory)
     collector.verify_inputs(root, inputs)
     collector.verify_inputs(tool_root, tools)
     if native_coverage.snapshot(root, native_coverage.ROOTS, analyzer) != scope:
         raise ValueError('Native inventory changed during batch audit')
-    result.update(target=target, inputHashes=inputs, toolHashes=tools, batches=evidence)
+    if collector.execution_fingerprint() != execution:
+        raise ValueError('Batch execution configuration changed during audit')
+    return {'target': target, 'inputHashes': inputs, 'toolHashes': tools,
+            'inventory': full_inventory, 'reports': reports, 'batches': evidence,
+            'wholeComponentComplete': False, 'executionFingerprint': execution}
+
+
+def audit_batches(root, directories, analyzer):
+    inspected = inspect_batches(root, directories, analyzer)
+    result = combine_batches(inspected['reports'], inspected['inventory'])
+    result.update({key: inspected[key] for key in
+                   ('target', 'inputHashes', 'toolHashes', 'batches', 'executionFingerprint')})
     return result
 
 

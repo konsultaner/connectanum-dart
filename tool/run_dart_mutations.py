@@ -36,24 +36,55 @@ def live_process_group_members(group):
     return members
 
 
-def run(command, cwd, timeout):
+def run(command, cwd, timeout, *, cancel_event=None):
+    cancelled = json.dumps({'type': 'connectanumInfrastructureError',
+                            'reason': 'Mutation command cancelled'}) + '\n'
+    if cancel_event is not None and cancel_event.is_set():
+        return None, cancelled
     deadline = time.monotonic() + timeout
     with subprocess.Popen(
         command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, start_new_session=True,
     ) as process:
         try:
-            output, _ = process.communicate(timeout=timeout)
-        except (subprocess.TimeoutExpired, KeyboardInterrupt) as error:
+            if cancel_event is None:
+                output, _ = process.communicate(timeout=timeout)
+            else:
+                while True:
+                    if cancel_event.is_set():
+                        raise InterruptedError('Mutation command cancelled')
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise subprocess.TimeoutExpired(command, timeout)
+                    try:
+                        output, _ = process.communicate(timeout=min(.1, remaining))
+                        break
+                    except subprocess.TimeoutExpired:
+                        continue
+        except (subprocess.TimeoutExpired, KeyboardInterrupt, InterruptedError) as error:
             # Kill descendants as well: an orphaned Dart test can corrupt the
             # next result even when its parent shell has already exited.
-            os.killpg(process.pid, signal.SIGKILL)
-            output, _ = process.communicate()
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                output, _ = process.communicate(timeout=1)
+            except subprocess.TimeoutExpired as drain:
+                raw = drain.output or b''
+                output = raw.decode(errors='replace') if isinstance(raw, bytes) else raw
+                if process.stdout is not None:
+                    process.stdout.close()
+                process.wait(timeout=1)
+                output += '\n' + json.dumps({
+                    'type': 'connectanumInfrastructureError',
+                    'reason': 'Unresolved stdout pipe after process-group cleanup',
+                }) + '\n'
             if process.returncode is None:
                 process.wait()
             if isinstance(error, KeyboardInterrupt):
                 raise
-            return None, output
+            return None, output + (cancelled if isinstance(error, InterruptedError) else '')
         # Linux killpg succeeds for zombie-only groups too. Inspect before
         # signaling so killing a live fixture cannot erase the leak evidence.
         inspection_error = None
