@@ -1,5 +1,244 @@
 part of '../e2ee_provider_test.dart';
 
+({WampE2eeProvider provider, void Function() release}) _nativeCallbackProvider(
+  bool typed,
+  bool aes,
+  Map<String, List<int>> keys,
+  WampE2eeKeySelectionPolicy? policy,
+) {
+  final provider = typed
+      ? _nativeTypedProvider(aes, keys: keys, policy: policy)
+      : aes
+      ? NativeWampCborAes256GcmProvider(
+          keys: keys,
+          defaultKeyId: 'first',
+          keySelectionPolicy: policy,
+        )
+      : NativeWampCborXsalsa20Poly1305Provider(
+          keys: keys,
+          defaultKeyId: 'first',
+          keySelectionPolicy: policy,
+        );
+  return (provider: provider, release: provider.release);
+}
+
+void _nativePolicyCallbackContractCases(String? unavailable) {
+  final keys = <String, List<int>>{
+    'first': List<int>.generate(32, (index) => index + 1),
+    'second': List<int>.generate(32, (index) => index + 65),
+  };
+  final body = <dynamic>[
+    Uint8List.fromList([1, 2, 3]),
+  ];
+  group('native key policy revalidation', () {
+    tearDown(NativeClientRuntime.shutdownShared);
+    for (final typed in [false, true]) {
+      for (final aes in [false, true]) {
+        test('preserves reused options typed=$typed aes=$aes', () {
+          var selection = 'first';
+          var calls = 0;
+          final receiver = _nativeCallbackProvider(typed, aes, keys, (_, _) {
+            calls++;
+            return selection;
+          });
+          final reference = _nativeCallbackProvider(typed, aes, keys, null);
+          addTearDown(receiver.release);
+          addTearDown(reference.release);
+          final options = PublishOptions();
+          void verifyPacked(String expectedKey) {
+            final packed = receiver.provider.packPayload(
+              body,
+              null,
+              options,
+              runtimeContext: const WampE2eeRuntimeContext(
+                direction: WampE2eeDirection.outbound,
+                messageType: WampE2eeMessageType.publish,
+              ),
+            );
+            expect(options.pptKeyId, expectedKey);
+            E2EEPayloadView? decoded;
+            expect(
+              () => decoded = reference.provider.unpackPayload(packed, options),
+              returnsNormally,
+            );
+            expect(decoded?.arguments, body);
+          }
+
+          verifyPacked('first');
+          selection = 'second';
+          verifyPacked('first');
+          expect(calls, 1);
+          options.pptKeyId = null;
+          verifyPacked('second');
+          expect(calls, 2);
+        });
+        for (final unpack in [false, true]) {
+          final context = WampE2eeRuntimeContext(
+            direction: unpack
+                ? WampE2eeDirection.inbound
+                : WampE2eeDirection.outbound,
+            messageType: WampE2eeMessageType.publish,
+          );
+          for (final field in [
+            'scheme',
+            'serializer',
+            'cipher',
+            'unknown-key',
+          ]) {
+            test('typed=$typed aes=$aes unpack=$unpack field=$field', () {
+              var calls = 0;
+              final receiver = _nativeCallbackProvider(
+                typed,
+                aes,
+                keys,
+                (_, options) {
+                  calls++;
+                  switch (field) {
+                    case 'scheme':
+                      options.pptScheme = 'json';
+                    case 'serializer':
+                      options.pptSerializer = typed ? 'cbor' : 'flatbuffers';
+                    case 'cipher':
+                      options.pptCipher = aes
+                          ? 'xsalsa20poly1305'
+                          : 'aes256gcm';
+                    case 'unknown-key':
+                      options.pptKeyId = 'missing';
+                  }
+                  return 'first';
+                },
+              );
+              final reference = _nativeCallbackProvider(typed, aes, keys, null);
+              addTearDown(receiver.release);
+              addTearDown(reference.release);
+              final packed = reference.provider.packPayload(
+                body,
+                null,
+                PublishOptions(pptKeyId: 'first'),
+              );
+              final options = PublishOptions();
+              final failure = switch (field) {
+                'cipher' => throwsA(isA<WampE2eeUnsupportedCipherException>()),
+                'unknown-key' => throwsA(isA<WampE2eeKeyNotFoundException>()),
+                _ => throwsArgumentError,
+              };
+              expect(
+                () => unpack
+                    ? receiver.provider.unpackPayload(
+                        packed,
+                        options,
+                        runtimeContext: context,
+                      )
+                    : receiver.provider.packPayload(
+                        body,
+                        null,
+                        options,
+                        runtimeContext: context,
+                      ),
+                failure,
+              );
+              expect(calls, 1);
+            });
+          }
+          test(
+            'uses current known key typed=$typed aes=$aes unpack=$unpack',
+            () {
+              var calls = 0;
+              final receiver = _nativeCallbackProvider(
+                typed,
+                aes,
+                keys,
+                (_, options) {
+                  calls++;
+                  options.pptKeyId = 'second';
+                  return 'first';
+                },
+              );
+              final reference = _nativeCallbackProvider(typed, aes, keys, null);
+              addTearDown(receiver.release);
+              addTearDown(reference.release);
+              final options = PublishOptions();
+              E2EEPayloadView? decoded;
+              if (unpack) {
+                final packed = reference.provider.packPayload(
+                  body,
+                  null,
+                  PublishOptions(pptKeyId: 'second'),
+                );
+                expect(
+                  () => decoded = receiver.provider.unpackPayload(
+                    packed,
+                    options,
+                    runtimeContext: context,
+                  ),
+                  returnsNormally,
+                );
+              } else {
+                final packed = receiver.provider.packPayload(
+                  body,
+                  null,
+                  options,
+                  runtimeContext: context,
+                );
+                expect(
+                  () => decoded = reference.provider.unpackPayload(
+                    packed,
+                    options,
+                  ),
+                  returnsNormally,
+                );
+              }
+              expect(options.pptKeyId, 'second');
+              expect(decoded?.arguments, body);
+              expect(decoded?.argumentsKeywords, isNull);
+              expect(calls, 1);
+            },
+          );
+          test('policy release typed=$typed aes=$aes unpack=$unpack', () {
+            var calls = 0;
+            late final void Function() release;
+            final receiver = _nativeCallbackProvider(
+              typed,
+              aes,
+              keys,
+              (_, _) {
+                calls++;
+                release();
+                return 'first';
+              },
+            );
+            release = receiver.release;
+            final reference = _nativeCallbackProvider(typed, aes, keys, null);
+            addTearDown(receiver.release);
+            addTearDown(reference.release);
+            final packed = reference.provider.packPayload(
+              body,
+              null,
+              PublishOptions(pptKeyId: 'first'),
+            );
+            expect(
+              () => unpack
+                  ? receiver.provider.unpackPayload(
+                      packed,
+                      PublishOptions(),
+                      runtimeContext: context,
+                    )
+                  : receiver.provider.packPayload(
+                      body,
+                      null,
+                      PublishOptions(),
+                      runtimeContext: context,
+                    ),
+              throwsStateError,
+            );
+            expect(calls, 1);
+          });
+        }
+      }
+    }
+  }, skip: unavailable);
+}
+
 NativeWampFlatBuffersXsalsa20Poly1305Provider _nativeTypedProvider(
   bool aes, {
   required Map<String, List<int>> keys,

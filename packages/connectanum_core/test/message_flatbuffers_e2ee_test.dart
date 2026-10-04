@@ -17,6 +17,7 @@ const _runtimeContext = WampE2eeRuntimeContext(
 );
 
 void main() {
+  _policyCallbackContractCases();
   test('typed WAMP plaintext can select FlatBuffers without CBOR framing', () {
     final options = PublishOptions(
       pptScheme: 'wamp',
@@ -487,6 +488,207 @@ void main() {
       );
     }
   });
+}
+
+WampE2eeProvider _policyCallbackProvider(
+  bool typed,
+  bool aes,
+  Map<String, List<int>> keys, {
+  WampE2eeKeySelectionPolicy? policy,
+}) {
+  if (typed) {
+    return aes
+        ? WampFlatBuffersAes256GcmProvider(
+            keys: keys,
+            defaultKeyId: 'first',
+            keySelectionPolicy: policy,
+          )
+        : WampFlatBuffersXsalsa20Poly1305Provider(
+            keys: keys,
+            defaultKeyId: 'first',
+            keySelectionPolicy: policy,
+          );
+  }
+  return aes
+      ? WampCborAes256GcmProvider(
+          keys: keys,
+          defaultKeyId: 'first',
+          keySelectionPolicy: policy,
+        )
+      : WampCborXsalsa20Poly1305Provider(
+          keys: keys,
+          defaultKeyId: 'first',
+          keySelectionPolicy: policy,
+        );
+}
+
+void _policyCallbackContractCases() {
+  final keys = <String, List<int>>{
+    'first': List<int>.generate(32, (index) => index + 1),
+    'second': List<int>.generate(32, (index) => index + 65),
+  };
+  final body = <dynamic>[
+    Uint8List.fromList([1, 2, 3]),
+  ];
+  for (final typed in [false, true]) {
+    for (final aes in [false, true]) {
+      test(
+        'portable key policy revalidation preserves reused options typed=$typed aes=$aes',
+        () {
+          var selection = 'first';
+          var calls = 0;
+          final provider = _policyCallbackProvider(
+            typed,
+            aes,
+            keys,
+            policy: (_, _) {
+              calls++;
+              return selection;
+            },
+          );
+          final reference = _policyCallbackProvider(typed, aes, keys);
+          final options = PublishOptions();
+          void verifyPacked(String expectedKey) {
+            final packed = provider.packPayload(
+              body,
+              null,
+              options,
+              runtimeContext: _runtimeContext,
+            );
+            expect(options.pptKeyId, expectedKey);
+            E2EEPayloadView? decoded;
+            expect(
+              () => decoded = reference.unpackPayload(packed, options),
+              returnsNormally,
+            );
+            expect(decoded?.arguments, body);
+          }
+
+          verifyPacked('first');
+          selection = 'second';
+          verifyPacked('first');
+          expect(calls, 1);
+          options.pptKeyId = null;
+          verifyPacked('second');
+          expect(calls, 2);
+        },
+      );
+      for (final unpack in [false, true]) {
+        final context = WampE2eeRuntimeContext(
+          direction: unpack
+              ? WampE2eeDirection.inbound
+              : WampE2eeDirection.outbound,
+          messageType: WampE2eeMessageType.publish,
+        );
+        for (final field in ['scheme', 'serializer', 'cipher', 'unknown-key']) {
+          test(
+            'portable key policy revalidation typed=$typed aes=$aes unpack=$unpack field=$field',
+            () {
+              var calls = 0;
+              final provider = _policyCallbackProvider(
+                typed,
+                aes,
+                keys,
+                policy: (_, options) {
+                  calls++;
+                  switch (field) {
+                    case 'scheme':
+                      options.pptScheme = 'json';
+                    case 'serializer':
+                      options.pptSerializer = typed ? 'cbor' : 'flatbuffers';
+                    case 'cipher':
+                      options.pptCipher = aes
+                          ? 'xsalsa20poly1305'
+                          : 'aes256gcm';
+                    case 'unknown-key':
+                      options.pptKeyId = 'missing';
+                  }
+                  return 'first';
+                },
+              );
+              final reference = _policyCallbackProvider(typed, aes, keys);
+              final packed = reference.packPayload(
+                body,
+                null,
+                PublishOptions(),
+              );
+              final options = PublishOptions();
+              final failure = switch (field) {
+                'cipher' => throwsA(isA<WampE2eeUnsupportedCipherException>()),
+                'unknown-key' => throwsA(isA<WampE2eeKeyNotFoundException>()),
+                _ => throwsArgumentError,
+              };
+              expect(
+                () => unpack
+                    ? provider.unpackPayload(
+                        packed,
+                        options,
+                        runtimeContext: context,
+                      )
+                    : provider.packPayload(
+                        body,
+                        null,
+                        options,
+                        runtimeContext: context,
+                      ),
+                failure,
+              );
+              expect(calls, 1);
+            },
+          );
+        }
+        test(
+          'portable key policy revalidation uses current known key typed=$typed aes=$aes unpack=$unpack',
+          () {
+            var calls = 0;
+            final provider = _policyCallbackProvider(
+              typed,
+              aes,
+              keys,
+              policy: (_, options) {
+                calls++;
+                options.pptKeyId = 'second';
+                return 'first';
+              },
+            );
+            final reference = _policyCallbackProvider(typed, aes, keys);
+            final options = PublishOptions();
+            E2EEPayloadView? decoded;
+            if (unpack) {
+              final packed = reference.packPayload(
+                body,
+                null,
+                PublishOptions(pptKeyId: 'second'),
+              );
+              expect(
+                () => decoded = provider.unpackPayload(
+                  packed,
+                  options,
+                  runtimeContext: context,
+                ),
+                returnsNormally,
+              );
+            } else {
+              final packed = provider.packPayload(
+                body,
+                null,
+                options,
+                runtimeContext: context,
+              );
+              expect(
+                () => decoded = reference.unpackPayload(packed, options),
+                returnsNormally,
+              );
+            }
+            expect(options.pptKeyId, 'second');
+            expect(decoded?.arguments, body);
+            expect(decoded?.argumentsKeywords, isNull);
+            expect(calls, 1);
+          },
+        );
+      }
+    }
+  }
 }
 
 // Logical lengths exercise the guard without copying 64 MiB under a mutant.

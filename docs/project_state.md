@@ -1,23 +1,23 @@
 # Project State
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
 ## Checkout and authorization
 
-The managed worktree uses `codex/flatbuffers-zero-copy`; its preceding checkpoint is
-`e6fb28c808644d9ae36604de1f6545cadd2a2260`. It started at `54eafc5f` and
+The managed worktree uses `codex/flatbuffers-zero-copy`; its latest pushed checkpoint is
+`0cf9e65eaceb97a8700dab6b534032becc587738`, following `e6fb28c8`. It started at `54eafc5f` and
 integrates released master `3bac4cf5`. The primary checkout's independent work
 remains untouched. Feature commits, pushes and draft PR updates are authorized;
 releases, version bumps, publication and merging master are not authorized.
 Actual ObjectBox integration belongs in a separate adapter. Core provides generic
 memory contracts. The earlier coverage/mutation objective is deferred.
 
-## Current deferred Session candidate
+## Accepted deferred Session checkpoint (0cf9e65e)
 
-The uncommitted candidate connects opt-in native consuming typed E2EE to actual
+The pushed checkpoint connects opt-in native consuming typed E2EE to actual
 Session receives. Both native transports expose `consumeTypedE2eePayloads`,
 disabled by default and locked once opening starts. Eligible RESULT/EVENT/
 INVOCATION metadata can be read before payload exports; application loading
@@ -25,6 +25,10 @@ selects native decrypt first. Generic `LazyMessagePayload.deferred` shares value
 or terminal error/stack across related views. Ordinary transport behavior stays
 eager. Original unexported ciphertext becomes unavailable after consumption.
 Wire export forces a safe copied fallback; wire mutation clears its native anchor.
+The following detailed records describe successive historical validation attempts;
+the current uncommitted follow-up is the key-policy repair below. The final
+sequential canonical/browser audits accept this checkpoint, while its earlier
+failed attempts remain failed evidence.
 
 Fail-first regressions caught 24 key-policy mutation failures, two stale
 provider/context views, recursive wire loading and explicit classic decoding;
@@ -219,6 +223,56 @@ VM native suites run without unavailable-library skips. The standard ffi-test
 library remains at SHA256 `334d3449af8b18723b1f83c09bff080e4256b6c2c05b076a0afc23df9d8dfccf`.
 Research and evidence boundaries: [live peer findings](research/2026-10-04-flatbuffers-live-peer-conformance.md).
 
+## Current key-policy candidate
+
+The deferred/live-peer checkpoint is now pushed as `0cf9e65e`. Its complete local
+canonical/source audit passes. [Exact-head CI](https://github.com/konsultaner/connectanum-dart/actions/runs/37235293321)
+remains pending; its independently audited negotiated-profile peer and GuardMalloc
+jobs pass. The [five-platform artifact dry-run](https://github.com/konsultaner/connectanum-dart/actions/runs/37235321617)
+and package publish dry-run pass, with publication skipped. All five downloaded
+bundles verify checksum, manifest and exact-source provenance; platform execution
+is separate evidence. Proofs: `/tmp/connectanum-flatbuffers-0cf-platform-artifact-proof.json`
+and `/tmp/connectanum-flatbuffers-0cf-hosted-live-peer-completed-audit.json`.
+The live-peer audit independently regenerates all 69 Python bindings and verifies
+11 checks on each cleartext transport. An initial local auditor omitted generator
+flags; its helper failure is preserved separately from the passing hosted report.
+No TLS/upstream Autobahn, all-platform runtime, copy-count or performance acceptance
+is inferred. Draft PR #105 is updated.
+
+A new issue #101 follow-up has 72 fail-first assertion failures across portable
+and native profile/key-policy callbacks. The uncommitted repair revalidates the
+fixed profile and provider state after callbacks and keeps the effective key
+aligned with metadata. All 88 contracts pass; eight extra controls preserve
+existing reused-options key pinning. Complete focused checks pass 174 core cases
+on VM, Chrome JS and Chrome WASM, plus 2,468 serial client/native cases on each
+current and older library. A parallel native
+test invocation's single unavailable-keyring-handle error is preserved separately.
+Core E2EE inventory regeneration succeeds with 308 selected candidates, without
+new equivalents, exclusions, deadlines or gates. The original canonical runner
+passed `bin/test-fast` but lost its recorded processes while `bin/verify` was in
+progress; its frozen verification record remains nonterminal and its log has no
+terminal summary. Preserve that attempt as incomplete. The already-passing fast
+phase and exact 1,458-file snapshot are independently checked before resuming
+`bin/verify` under `/tmp/connectanum-flatbuffers-policy-revalidation-canonical-resumed-verify-*`.
+The resumed `bin/verify` completes at exit 0; an independent audit reconciles it
+with the prior `bin/test-fast` pass on the same frozen 1,458-file snapshot:
+`/tmp/connectanum-flatbuffers-policy-revalidation-canonical-resumed-completed-audit.json`.
+Fresh browser coverage then passes and verifies all 99 artifacts. Handwritten
+Dart Chrome line coverage is 96.2473% overall (core 96.1862%, client 96.4297%);
+164 library source files are outside this measurement and two generated
+FlatBuffers artifacts are reported separately:
+`/tmp/connectanum-flatbuffers-policy-revalidation-browser-coverage-completed-audit.json`.
+The complete 308-mutant core E2EE VM and Chrome campaigns both pass at
+95.9839% adjusted assertion score against the unchanged 95% gate. Each has 239
+kills, 10 survivors, 59 compile errors, zero equivalents and matching 167-test
+baseline/restored-baseline runs. Independent audits regenerate the inventory
+and verify all input/log hashes:
+`/tmp/connectanum-flatbuffers-policy-revalidation-core-e2ee-vm-completed-audit.json`
+and `/tmp/connectanum-flatbuffers-policy-revalidation-core-e2ee-web-completed-audit.json`.
+These accept this local key-policy candidate only. Exact-head hosted CI and the
+separate throughput/latency/copy-count acceptance in issue #103 remain pending.
+See [key-policy research](research/2026-10-04-e2ee-key-policy-revalidation.md).
+
 ## Earlier checkpoints
 
 Commit b07d7b26 contains the typed E2EE, deferred exports, benchmark/RPC repairs
@@ -274,7 +328,7 @@ five failure-control, source and dependency/log hashes are independently verifie
 `/tmp/connectanum-flatbuffers-b07-hosted-guardmalloc-completed-audit.json`.
 This is macOS execution, not all-platform, ASan/Miri or performance acceptance.
 
-## Current verification
+## Earlier verification checkpoints
 
 The preceding 1,450-file candidate passes both canonical fast/verify on snapshot
 `b77da9a480509729d469e9d7ca91cf3bda5b5fc96132ff2030e4ded92afed1ea`.

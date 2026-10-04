@@ -16,6 +16,7 @@ void main() {
   final nativeClientRuntimeUnavailableReason = nativeClientRuntimeSkipReason();
 
   _nativeTypedProviderCases(nativeClientRuntimeUnavailableReason);
+  _nativePolicyCallbackContractCases(nativeClientRuntimeUnavailableReason);
 
   test(
     'typed plaintext owners survive derived views and release after GC',

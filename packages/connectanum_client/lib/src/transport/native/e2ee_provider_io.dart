@@ -241,6 +241,9 @@ abstract class _NativeWampE2eeCipherProvider
       operation: 'pack',
       runtimeContext: runtimeContext,
     );
+    _ensureOpen();
+    _verifyScheme(options);
+    _verifySerializer(options);
     _resolveCipher(options, operation: 'pack');
     options.pptScheme ??= 'wamp';
     options.pptSerializer ??= _serializerName;
@@ -249,7 +252,7 @@ abstract class _NativeWampE2eeCipherProvider
     return NativeE2eeFileSegmentContext(
       runtimeIdentity: _runtime,
       sessionHandle: _sessionHandle,
-      keyId: options.pptKeyId!,
+      keyId: keyId,
       cipher: _cipher,
     );
   }
@@ -301,6 +304,10 @@ abstract class _NativeWampE2eeCipherProvider
         reason: 'Native wire payload changed during key selection',
       );
     }
+    _ensureOpen();
+    _verifyScheme(options);
+    _verifySerializer(options);
+    _resolveCipher(options, operation: 'unpack');
     try {
       if (incoming != null) {
         final nativePayload = _runtime.decryptE2eeMessageSingleBinaryArgument(
@@ -412,9 +419,14 @@ abstract class _NativeWampE2eeCipherProvider
     required String operation,
     WampE2eeRuntimeContext? runtimeContext,
   }) {
+    final policyKeyId = options.pptKeyId == null
+        ? _resolvePolicyKeyId(runtimeContext, options)
+        : null;
+    // Policy receives mutable options. Use and validate their current key ID
+    // so emitted metadata and the actual cryptographic key cannot diverge.
     final keyId =
         options.pptKeyId ??
-        _resolvePolicyKeyId(runtimeContext, options) ??
+        policyKeyId ??
         (_isTyped && runtimeContext != null
             ? _negotiatedKeySelectionPolicy(runtimeContext, options)
             : null) ??

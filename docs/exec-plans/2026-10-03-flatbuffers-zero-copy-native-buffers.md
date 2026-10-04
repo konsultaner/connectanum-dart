@@ -7,6 +7,17 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Latest accepted/pushed checkpoint: `0cf9e65e`. Its independent negotiated-profile
+live peer and GuardMalloc jobs pass; five-platform artifact and package publish
+dry-runs pass with publication skipped. All five bundles verify checksums,
+manifests and source provenance; platform runtime execution is separate evidence.
+The current uncommitted follow-up fixes profile/key-policy callback revalidation
+after 72 fail-first assertion failures. Fresh canonical fast/full verification,
+whole-package browser coverage and complete VM/Chrome mutation campaigns pass
+on the matching 1,458-file candidate snapshot. Audits are recorded in project
+state and [research](../research/2026-10-04-e2ee-key-policy-revalidation.md).
+Exact-head hosted checks and issue #103's performance comparison remain open.
+
 ## Objective and scope
 
 Complete all ten milestone issues. FlatBuffers is a regular serializer beside
