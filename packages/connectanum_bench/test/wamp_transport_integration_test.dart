@@ -543,51 +543,72 @@ void main() {
       timeout: const Timeout(Duration(seconds: 45)),
     );
 
-    for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
-      test(
-        'encrypted typed worker reports partial $cipher staging metrics',
-        () async {
-          final result = await harness!.nativeWorker.runWithMetrics(
-            WampScenario(
-              transport: WampTransport.rawsocket,
-              clientImplementation: WampClientImplementation.native,
-              serializer: WampSerializer.flatbuffers,
-              peerSerializer: WampSerializer.flatbuffers,
-              mode: WampMode.rpc,
-              uri: 'bench.rpc.echo',
-              iterations: 2,
-              concurrency: 1,
-              payloadBytes: 65536,
-              payloadConstruction: WampPayloadConstruction.nativeBuffer,
-              pptScheme: 'wamp',
-              pptSerializer: 'flatbuffers',
-              pptCipher: cipher,
-              pptKeyId: 'benchmark-key',
-            ),
-          );
-          expect(result.samples, hasLength(2));
-          expect(
-            result.copyMetrics['known_e2ee_staging_copy_bytes'],
-            greaterThan(0),
-          );
-          expect(
-            (result.copyMetrics['e2ee_copy_bytes'] as Map)['status'],
-            'not_measured',
-          );
-          final breakdown = result.copyMetrics['e2ee_copy_breakdown'] as Map;
-          expect(breakdown['coverage'], 'known_staging_only');
-          expect(
-            breakdown['client_process_plaintext_staging_copy_bytes'],
-            greaterThan(0),
-          );
-          expect(
-            breakdown['client_process_ciphertext_staging_copy_bytes'],
-            isA<int>(),
-          );
-        },
-        skip: skipReason,
-        timeout: const Timeout(Duration(seconds: 45)),
-      );
+    for (final implementation in WampClientImplementation.values) {
+      for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+        test(
+          'encrypted typed worker $implementation reports partial $cipher staging metrics',
+          () async {
+            final result = await harness!.nativeWorker.runWithMetrics(
+              WampScenario(
+                transport: WampTransport.rawsocket,
+                clientImplementation: implementation,
+                serializer: WampSerializer.flatbuffers,
+                peerSerializer: WampSerializer.flatbuffers,
+                mode: WampMode.rpc,
+                uri: 'bench.rpc.echo',
+                iterations: 2,
+                concurrency: 1,
+                payloadBytes: 65536,
+                payloadConstruction: WampPayloadConstruction.nativeBuffer,
+                pptScheme: 'wamp',
+                pptSerializer: 'flatbuffers',
+                pptCipher: cipher,
+                pptKeyId: 'benchmark-key',
+              ),
+            );
+            expect(result.samples, hasLength(2));
+            expect(
+              (result.copyMetrics['transcode_copy_bytes'] as Map)['status'],
+              'not_applicable',
+              reason: 'an explicitly identical peer codec is homogeneous',
+            );
+            expect(
+              result.copyMetrics['known_e2ee_staging_copy_bytes'],
+              greaterThanOrEqualTo(0),
+            );
+            expect(
+              (result.copyMetrics['e2ee_copy_bytes'] as Map)['status'],
+              'not_measured',
+            );
+            final breakdown = result.copyMetrics['e2ee_copy_breakdown'] as Map;
+            expect(breakdown['coverage'], 'known_staging_only');
+            expect(
+              breakdown['client_process_plaintext_staging_copy_bytes'],
+              implementation == WampClientImplementation.native
+                  ? greaterThan(0)
+                  : 0,
+            );
+            expect(
+              breakdown['client_process_ciphertext_staging_copy_bytes'],
+              isA<int>(),
+            );
+            final portable =
+                breakdown['client_worker_isolate_portable_provider'] as Map;
+            expect(portable['plaintext_wrapping_copy_bytes'], 0);
+            expect(portable['ciphertext_assembly_copy_bytes'], 0);
+            expect(portable['ciphertext_coercion_copy_bytes'], 0);
+            expect(
+              portable['ciphertext_wrapping_copy_bytes'],
+              implementation == WampClientImplementation.dart &&
+                      cipher == 'xsalsa20poly1305'
+                  ? greaterThan(0)
+                  : 0,
+            );
+          },
+          skip: skipReason,
+          timeout: const Timeout(Duration(seconds: 45)),
+        );
+      }
     }
 
     test(
@@ -620,7 +641,7 @@ void main() {
     test(
       'native mixed-serializer AES-GCM E2EE pubsub runs against a real router',
       () async {
-        final samples = await harness!.runNative(
+        final result = await harness!.nativeWorker.runWithMetrics(
           WampScenario(
             transport: WampTransport.websocket,
             clientImplementation: WampClientImplementation.native,
@@ -638,7 +659,12 @@ void main() {
           ),
         );
 
-        expect(samples, hasLength(1));
+        expect(result.samples, hasLength(1));
+        expect(
+          (result.copyMetrics['transcode_copy_bytes'] as Map)['status'],
+          'not_measured',
+          reason: 'a real CBOR-to-JSON route still needs transcode attribution',
+        );
       },
       skip: skipReason,
       timeout: const Timeout(Duration(seconds: 45)),

@@ -4,6 +4,7 @@ library;
 import 'package:connectanum_bench/src/e2ee_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
+import 'package:connectanum_core/src/message/e2ee_copy_metrics.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -42,6 +43,42 @@ void main() {
     final reset = _metrics(10, 20).deltaFrom(_metrics(30, 40));
     expect(reset.plaintextStagingCopyBytesTotal, 10);
     expect(reset.ciphertextStagingCopyBytesTotal, 20);
+  });
+
+  test(
+    'portable wrapper measurements add to the lower bound with their scope',
+    () {
+      final result = e2eeCopyMetricsFor(
+        _scenario('wamp'),
+        _metrics(10, 20),
+        portableMetrics: const PortableE2eeCopyMetricsSnapshot(
+          plaintextWrappingCopyBytes: 0,
+          ciphertextWrappingCopyBytes: 105,
+          ciphertextAssemblyCopyBytes: 0,
+          ciphertextCoercionCopyBytes: 2,
+        ),
+      );
+      expect(result['known_e2ee_staging_copy_bytes'], 144);
+      expect((result['e2ee_copy_bytes'] as Map)['status'], 'not_measured');
+      final breakdown = result['e2ee_copy_breakdown'] as Map;
+      expect(breakdown['client_worker_isolate_portable_provider'], {
+        'plaintext_wrapping_copy_bytes': 0,
+        'ciphertext_wrapping_copy_bytes': 105,
+        'ciphertext_assembly_copy_bytes': 0,
+        'ciphertext_coercion_copy_bytes': 2,
+      });
+      expect(breakdown['excludes'], contains('crypto dependency internals'));
+    },
+  );
+
+  test('an absent portable window cannot become a measured zero', () {
+    final result = e2eeCopyMetricsFor(_scenario('wamp'), _metrics(0, 0));
+    final breakdown = result['e2ee_copy_breakdown'] as Map;
+    expect(
+      (breakdown['client_worker_isolate_portable_provider'] as Map)['status'],
+      'not_measured',
+    );
+    expect((result['e2ee_copy_bytes'] as Map)['status'], 'not_measured');
   });
 }
 

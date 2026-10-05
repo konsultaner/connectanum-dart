@@ -99,14 +99,44 @@ consuming AES decryption reuses storage. Nonce/tag construction and cipher
 computation are outside these bulk staging counters.
 
 `known_e2ee_staging_copy_bytes` is a lower bound combining process-wide native
-staging and the client worker isolate's explicit crypto FFI copies. The breakdown
-names these scopes individually. Other isolate bridges, Dart crypto, serializer
-and framing transformations remain unmeasured, so encrypted rows keep
-`e2ee_copy_bytes` as `not_measured`. The comparator requires that field, rejects
+staging, the client worker isolate's explicit crypto FFI copies and its portable
+provider wrapper copies. The breakdown names these scopes individually. Other
+isolate bridges/wrappers, crypto dependency internals, native-provider ciphertext
+coercion, serializer and framing transformations remain unmeasured. Encrypted
+rows keep `e2ee_copy_bytes` as `not_measured`. The comparator requires that field, rejects
 an encrypted row marked `not_applicable`, and accepts numeric totals only with
 complete pipeline coverage and no unknown boundaries. ABI v1 requires both its
 version and snapshot symbols; older or unknown versions produce unavailable
 native measurements without reading an incompatible struct.
+
+The portable AES provider writes ciphertext and tag directly into its final
+nonce-prefixed buffer through PointyCastle `processBytes`/`doFinal`. It avoids the
+former whole ciphertext/tag assembly copy and returns a view limited to the
+bytes written. Both portable CBOR providers also avoid the former plaintext and
+outbound ciphertext wrapper clones. These changes preserve the CBOR profile,
+wire layouts, caller inputs and mutable outbound ciphertext behavior.
+
+The portable counters collect only during the worker's workload window. They
+measure the remaining XSalsa `EncryptedMessage`-to-`Uint8List` materialization and
+plain-list ciphertext coercion, including the prefix already copied before an
+invalid byte. XSalsa retains that wrapper copy to preserve mutable output; the
+pinned pinenacl 0.6.0 `ByteList` backing storage is an unmodifiable view. Its
+internal staging/return copies are not instrumented. PointyCastle 4.0.0 also
+uses internal block buffers and copies computed block output; those copies
+remain unmeasured. A zero portable-wrapper count therefore cannot certify a
+zero-copy encryption pipeline. Missing portable snapshots stay unavailable,
+and the aggregate total continues to fail the complete-coverage gate.
+
+Typed XSalsa receive also avoids pinenacl's default 1 MiB
+`EncryptedMessage.fromList` limit. The provider's existing 64 MiB ciphertext
+preflight remains authoritative; it passes the nonce and an explicit-length
+body wrapper to the same authenticated primitive. Tests exercise the old limit,
+the next byte, 2 MiB spans, all truncated nonce/tag lengths and native/portable
+interop in both directions. The legacy CBOR receive wrapper is unchanged.
+
+An explicit peer serializer equal to the client serializer is homogeneous;
+only a different peer codec retains the unmeasured transcode marker.
+Live worker tests cover both classifications, including CBOR-to-JSON encryption.
 
 The benchmark accepts explicit typed FlatBuffers E2EE RPC/pub-sub scenarios and
 selects the matching Dart/native version-2 provider. Its omitted serializer still

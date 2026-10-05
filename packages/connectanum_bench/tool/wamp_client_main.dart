@@ -9,6 +9,8 @@ import 'package:connectanum_bench/src/e2ee_copy_metrics.dart';
 import 'package:connectanum_client/src/transport/dart_transport_copy_metrics.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
+// ignore: implementation_imports
+import 'package:connectanum_core/src/message/e2ee_copy_metrics.dart';
 import 'package:logging/logging.dart';
 
 Future<void> main(List<String> args) async {
@@ -129,11 +131,14 @@ Future<void> main(List<String> args) async {
         final rssBeforeBytes = ProcessInfo.currentRss;
         late final List<WampSample> samples;
         late final DartTransportCopyMetricsSnapshot dartCopyMetrics;
+        late final PortableE2eeCopyMetricsSnapshot portableE2eeMetrics;
         DartTransportCopyMetrics.beginWindow();
+        PortableE2eeCopyMetrics.beginWindow();
         try {
           samples = await runner.run(scenario);
         } finally {
           dartCopyMetrics = DartTransportCopyMetrics.endWindow();
+          portableE2eeMetrics = PortableE2eeCopyMetrics.endWindow();
         }
         final fileMetrics = nativeRuntime
             .fileSegmentMetricsSnapshot()
@@ -163,6 +168,7 @@ Future<void> main(List<String> args) async {
               copyMetrics,
               dartCopyMetrics,
               e2eeMetrics,
+              portableE2eeMetrics,
             ),
             'process_metrics': {
               'pid': pid,
@@ -192,6 +198,7 @@ Map<String, Object?> _copyMetricsFor(
   NativeTransportCopyMetrics nativeCopyMetrics,
   DartTransportCopyMetricsSnapshot dartCopyMetrics,
   NativeE2eeCopyMetrics e2eeMetrics,
+  PortableE2eeCopyMetricsSnapshot portableE2eeMetrics,
 ) {
   Map<String, Object?> notApplicable(String reason) => {
     'status': 'not_applicable',
@@ -275,7 +282,11 @@ Map<String, Object?> _copyMetricsFor(
       'native WebSocket copy counters are unavailable',
   ];
   return {
-    ...e2eeCopyMetricsFor(scenario, e2eeMetrics),
+    ...e2eeCopyMetricsFor(
+      scenario,
+      e2eeMetrics,
+      portableMetrics: portableE2eeMetrics,
+    ),
     // This counter covers only the application payload after the explicit
     // native FlatBuffers owner is frozen and submitted through the owned-view
     // API. Construction copies are reported separately below.
@@ -324,7 +335,9 @@ Map<String, Object?> _copyMetricsFor(
                   'Dart TLS plaintext acceptance is not instrumented',
                 ))
         : notApplicable('workload uses cleartext transport'),
-    'transcode_copy_bytes': scenario.peerSerializer != null
+    'transcode_copy_bytes':
+        scenario.peerSerializer != null &&
+            scenario.peerSerializer != scenario.serializer
         ? {
             'status': 'not_measured',
             'reason':

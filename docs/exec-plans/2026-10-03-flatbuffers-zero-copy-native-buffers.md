@@ -7,10 +7,11 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The candidate builds on pushed `3f53a080`, with CI repair `ecaa43d4` and the
-native crypto staging follow-up below. Full `bin/verify` passes at exit 0;
+The candidate builds on pushed `7cfdc76d`, with CI repair `ecaa43d4`, native
+crypto staging and the portable follow-up below. Full `bin/verify` on that
+checkpoint and the portable follow-up passes at exit 0.
 macOS GuardMalloc passes 66 observed cases with all 141 native/dependency source
-hashes matching. Chrome Dart2Wasm passes 4,632 core and 2,829 client cases, with
+hashes matching. Chrome Dart2Wasm passes 4,675 core and 2,829 client cases, with
 20 native-only skips. Issues #95–#99 are complete. Required hosted CI and publish
 dry-runs for the resulting commit remain pending. Copy counters and the evaluator
 provide partial attribution and fail-closed gates; no paired performance campaign
@@ -55,6 +56,43 @@ acceptance and evidence, not a claim that every feature is unimplemented.
 4. Finish #103 measurement coverage, the paired campaign runner and all declared
    performance rows. SDK/TLS/transcode copy gaps and absent campaign results
    remain blockers; do not weaken the parity or copy gates.
+
+## Portable provider copies and XSalsa limit (2026-10-05)
+
+Portable AES now uses PointyCastle's `processBytes`/`doFinal` to write directly
+after the nonce in the final buffer, returning only the bytes written. The two
+portable CBOR providers avoid redundant plaintext/ciphertext wrapper clones.
+Copy counters first reproduced the extra operations; the same tests pass after
+removal. Windowed core counters expose the remaining mutable XSalsa output
+materialization and ciphertext-list coercion, including a failed operation's
+already copied prefix. Benchmark lower bounds retain their native-process and
+Dart-isolate scopes, unavailable snapshots and incomplete-pipeline markers.
+
+The pinned pinenacl 0.6.0 source exposed a separate contract defect:
+`EncryptedMessage.fromList` caps input at 1 MiB. Authenticated 2 MiB typed XSalsa
+decryption failed despite the advertised 64 MiB profile. Typed receive now uses
+the public explicit-length `ByteList` body wrapper and nonce API with the same
+authentication primitive and existing 64 MiB preflight. The legacy CBOR wrapper
+is unchanged. Old-limit/next-byte/2 MiB, truncated nonce/tag, tampering, sliced
+input and native/portable 2 MiB tests pass. A live reporting regression also
+proved that an explicit identical peer codec was incorrectly called mixed;
+matching peers are now homogeneous and a CBOR-to-JSON route stays unmeasured.
+
+The fresh baseline `bin/test-fast` passed. macOS focused tests and all 82
+native-provider cases pass. Linux arm64 passes 234 focused cases plus five live
+worker scenarios. A fresh full `bin/verify` passes at exit 0, including all 1,456
+benchmark and 4,923 router cases and Chrome/WebAssembly (4,675 core; 2,829 client,
+20 native-only skips). Current-head hosted checks remain queued; the older run
+ended cancelled. The earlier partial local run
+was stopped after finding the size defect and retained as
+`/tmp/connectanum-flatbuffers-portable-crypto-verify-pre-limit.log`.
+Narrow Qwen review claims were checked against the pinned library code and real
+tests: output capacity includes the tag; counters are isolate-local; native and
+portable sites are disjoint; receive views are read synchronously by pure Dart;
+short inputs are wrapped as decryption errors. No added input copy is warranted.
+Crypto dependency internals, native-provider coercion, other-isolate wrappers and
+serializer/framing, SDK/TLS/transcode measurements remain unfinished. #100–#104
+stay open, with no accepted parity campaign or current-head hosted evidence.
 
 ## Native crypto staging and Linux CI repair (2026-10-05)
 

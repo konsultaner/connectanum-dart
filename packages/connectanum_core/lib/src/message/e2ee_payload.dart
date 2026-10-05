@@ -1,12 +1,13 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:pinenacl/api.dart' show EncryptedMessage;
+import 'package:pinenacl/api.dart' show ByteList, EncryptedMessage;
 import 'package:pinenacl/x25519.dart' show SecretBox;
 import 'package:pointycastle/export.dart'
     show AEADParameters, AESEngine, GCMBlockCipher, KeyParameter;
 
 import 'abstract_ppt_options.dart';
+import 'e2ee_copy_metrics.dart';
 import '../message/ppt_payload.dart';
 import '../serializer/cbor/serializer.dart' as cbor_serializer;
 import '../serializer/abstract_serializer.dart';
@@ -535,16 +536,16 @@ abstract class _WampE2eeCipherProvider
 
     final plaintext =
         typedPlaintext ??
-        Uint8List.fromList(
-          _serializer.serializePPT(
-            PPTPayload(
-              arguments: arguments,
-              argumentsKeywords: argumentsKeywords,
-            ),
+        _serializer.serializePPT(
+          PPTPayload(
+            arguments: arguments,
+            argumentsKeywords: argumentsKeywords,
           ),
         );
     final encrypted = _encryptPayload(plaintext, _keys[keyId]!);
-    return <dynamic>[_isTyped ? encrypted : Uint8List.fromList(encrypted)];
+    // Both ciphers produce fresh, mutable ciphertext. The CBOR profile needs
+    // no second plaintext or ciphertext copy around these private operations.
+    return <dynamic>[encrypted];
   }
 
   bool get _isTyped =>
@@ -605,9 +606,12 @@ abstract class _WampE2eeCipherProvider
     final plaintext = (() {
       try {
         return switch (_cipher) {
-          ConnectanumE2eeProfile.xsalsa20Poly1305 => SecretBox(
-            key,
-          ).decrypt(EncryptedMessage.fromList(encryptedBytes)),
+          ConnectanumE2eeProfile.xsalsa20Poly1305 =>
+            _isTyped
+                ? _decryptTypedXsalsa(encryptedBytes, key)
+                : SecretBox(
+                    key,
+                  ).decrypt(EncryptedMessage.fromList(encryptedBytes)),
           ConnectanumE2eeProfile.aes256Gcm => _decryptAes256Gcm(
             encryptedBytes,
             key,
@@ -651,12 +655,32 @@ abstract class _WampE2eeCipherProvider
 
   Uint8List _encryptPayload(Uint8List plaintext, Uint8List key) {
     return switch (_cipher) {
-      ConnectanumE2eeProfile.xsalsa20Poly1305 => Uint8List.fromList(
-        SecretBox(key).encrypt(plaintext),
-      ),
+      ConnectanumE2eeProfile.xsalsa20Poly1305 => _encryptXsalsa(plaintext, key),
       ConnectanumE2eeProfile.aes256Gcm => _encryptAes256Gcm(plaintext, key),
       _ => throw StateError('Unsupported provider cipher $_cipher'),
     };
+  }
+
+  Uint8List _encryptXsalsa(Uint8List plaintext, Uint8List key) {
+    final encrypted = Uint8List.fromList(SecretBox(key).encrypt(plaintext));
+    PortableE2eeCopyMetrics.recordCiphertextWrappingCopy(encrypted.length);
+    return encrypted;
+  }
+
+  Uint8List _decryptTypedXsalsa(Uint8List encrypted, Uint8List key) {
+    const nonceLength = EncryptedMessage.nonceLength;
+    if (encrypted.length < nonceLength) {
+      throw ArgumentError('XSalsa payload is shorter than its nonce');
+    }
+    final nonce = Uint8List.sublistView(encrypted, 0, nonceLength);
+    final body = Uint8List.sublistView(encrypted, nonceLength);
+    // Typed preflight enforces the profile's 64 MiB ciphertext limit. Avoid
+    // EncryptedMessage.fromList's unrelated default 1 MiB cap, using the public
+    // explicit-length wrapper and nonce API. Authentication is unchanged.
+    return SecretBox(key).decrypt(
+      ByteList.withConstraint(body, constraintLength: body.length),
+      nonce: nonce,
+    );
   }
 
   Uint8List _encryptAes256Gcm(Uint8List plaintext, Uint8List key) {
@@ -677,14 +701,21 @@ abstract class _WampE2eeCipherProvider
           Uint8List(0),
         ),
       );
-    final ciphertextAndTag = cipher.process(plaintext);
-    return Uint8List(nonce.length + ciphertextAndTag.length)
-      ..setRange(0, nonce.length, nonce)
-      ..setRange(
-        nonce.length,
-        nonce.length + ciphertextAndTag.length,
-        ciphertextAndTag,
-      );
+    // Write cipher output directly after the nonce rather than copying an
+    // intermediate ciphertext/tag allocation. PointyCastle rounds its output
+    // capacity to a block boundary; expose only the bytes actually written.
+    final encrypted = Uint8List(
+      nonce.length + cipher.getOutputSize(plaintext.length),
+    )..setRange(0, nonce.length, nonce);
+    var written = cipher.processBytes(
+      plaintext,
+      0,
+      plaintext.length,
+      encrypted,
+      nonce.length,
+    );
+    written += cipher.doFinal(encrypted, nonce.length + written);
+    return Uint8List.sublistView(encrypted, 0, nonce.length + written);
   }
 
   Uint8List _decryptAes256Gcm(Uint8List encrypted, Uint8List key) {
@@ -824,16 +855,21 @@ abstract class _WampE2eeCipherProvider
     }
     if (value is List) {
       final bytes = Uint8List(value.length);
-      for (var index = 0; index < bytes.length; index++) {
-        final byte = value[index];
-        if (byte is! int || byte < 0 || byte > 255) {
-          throw WampE2eeInvalidPayloadException(
-            'unpack',
-            options: options,
-            reason: 'WAMP E2EE payload bytes must be integers from 0 to 255',
-          );
+      var copied = 0;
+      try {
+        for (; copied < bytes.length; copied++) {
+          final byte = value[copied];
+          if (byte is! int || byte < 0 || byte > 255) {
+            throw WampE2eeInvalidPayloadException(
+              'unpack',
+              options: options,
+              reason: 'WAMP E2EE payload bytes must be integers from 0 to 255',
+            );
+          }
+          bytes[copied] = byte;
         }
-        bytes[index] = byte;
+      } finally {
+        PortableE2eeCopyMetrics.recordCiphertextCoercionCopy(copied);
       }
       return bytes;
     }

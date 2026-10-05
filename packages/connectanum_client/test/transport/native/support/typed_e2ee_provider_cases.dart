@@ -283,6 +283,9 @@ void _nativeTypedProviderCases(String? unavailable) {
         final root = Uint8List.fromList([99, 98, 255, 0, 129, 37, 97]);
         for (final app in [
           Uint8List(0),
+          Uint8List(2 * 1024 * 1024)
+            ..[0] = 129
+            ..[2 * 1024 * 1024 - 1] = 37,
           Uint8List.sublistView(root, 2, 6),
           cbor.Serializer().serializePPT(
             PPTPayload(

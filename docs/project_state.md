@@ -5,14 +5,44 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The candidate builds on pushed checkpoint `3f53a080` and includes CI repair
-`ecaa43d4` plus the native crypto staging follow-up below. Full `bin/verify`
+The candidate builds on pushed checkpoint `7cfdc76d`, including CI repair
+`ecaa43d4`, native crypto staging and the portable follow-up below. Full `bin/verify`
 passes at exit 0, including Rust, Dart VM, live WAMP/router/consumer checks and
-Chrome Dart2Wasm (core 4,632 passed; client 2,829 passed with 20 native-only skips).
+Chrome Dart2Wasm (core 4,675 passed; client 2,829 passed with 20 native-only skips).
 macOS GuardMalloc passes all 66 observed ownership/crypto cases; all 141 recorded
 native/dependency source hashes still match. Required hosted CI and package
 publish dry-runs for the resulting commit remain pending. No paired performance
 campaign or parity result exists.
+
+## Portable crypto copies and typed XSalsa size repair (2026-10-05)
+
+The portable AES provider writes directly into its final nonce-prefixed output;
+the CBOR providers avoid redundant plaintext and outbound ciphertext clones.
+Optional isolate-local workload windows record explicit portable-provider copies
+separately from native staging and FFI bridges. They include the remaining mutable
+XSalsa output wrapper and successful/partial failed ciphertext-list coercion.
+Crypto dependency internals, native-provider coercion, other isolates and
+serializer/framing copies remain unknown; E2EE totals still fail closed.
+
+An authentic 2 MiB typed XSalsa input exposed pinenacl's implicit 1 MiB receive
+wrapper cap, despite the declared 64 MiB profile. The typed provider now uses the
+public explicit-length body wrapper and nonce API with the same primitive and
+existing profile preflight. Old-limit/next-byte/2 MiB cases, all truncated
+nonce/tag lengths, tampering, sliced inputs and native/portable 2 MiB parity pass.
+The CBOR receive behavior is preserved. Explicitly identical peer codecs now
+report homogeneous routes; genuine CBOR-to-JSON transcodes stay unmeasured.
+
+The fresh baseline `bin/test-fast` passed. macOS focused crypto tests and all 82
+native-provider cases pass; Linux arm64 passes 234 focused cases and five live
+worker scenarios. A full verification started before finding the size defect was
+terminated, with its partial log retained; the final implementation's fresh
+`bin/verify` passes at exit 0, including 1,456 benchmark tests, 4,923 router tests
+and Chrome/WebAssembly (4,675 core; 2,829 client with 20 native-only skips).
+Current-head hosted checks remain queued; the older run ended cancelled.
+Evidence: `/tmp/connectanum-flatbuffers-portable-crypto-`
+`{focused-final,provider-final,linux-focused-final,linux-live,verify}.log`,
+`/tmp/connectanum-flatbuffers-xsalsa-{large-repro,limit-test-repro,limit-final}.log`.
+No additional issue is closed and no parity result is accepted yet.
 
 ## Native crypto staging and typed benchmark profiles (2026-10-05)
 
