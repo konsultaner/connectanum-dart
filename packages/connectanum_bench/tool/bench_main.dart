@@ -787,12 +787,15 @@ class _BenchControlRegistry {
       final serverRssSampler = serverMetricsCollector == null
           ? null
           : DartVmMetricsRssSampler(pid);
+      int? serverCurrentRssAtWindowEnd;
+      DartVmMetricsRssSnapshot? serverRssSnapshot;
       final NativeWampWorkerResult result;
       try {
         // The worker honors the scenario's Dart or native client implementation.
         result = await _nativeWampWorker.runWithMetrics(scenario);
       } finally {
-        await serverRssSampler?.stop();
+        serverCurrentRssAtWindowEnd = ProcessInfo.currentRss;
+        serverRssSnapshot = await serverRssSampler?.stop();
       }
       final serverProcessMetrics =
           serverMetricsCollector == null || serverMetricsWindow == null
@@ -801,7 +804,8 @@ class _BenchControlRegistry {
               serverMetricsCollector,
               serverMetricsWindow,
               rssBeforeBytes: serverRssBeforeBytes,
-              peakRssBytes: serverRssSampler?.peakRssBytes,
+              currentRssAtWindowEnd: serverCurrentRssAtWindowEnd,
+              rssSnapshot: serverRssSnapshot,
             );
       final samples = result.samples;
       final fileSegmentMetrics = result.fileSegmentMetrics;
@@ -857,16 +861,24 @@ class _BenchControlRegistry {
     DartVmMetricsCollector collector,
     DartVmMetricsWindow window, {
     required int rssBeforeBytes,
-    required int? peakRssBytes,
+    required int? currentRssAtWindowEnd,
+    required DartVmMetricsRssSnapshot? rssSnapshot,
   }) async {
     final measured = await collector.endWindow(
       window,
-      peakRssBytes: peakRssBytes,
+      rssSnapshot:
+          rssSnapshot ??
+          const DartVmMetricsRssSnapshot(
+            currentRssBytes: null,
+            peakRssBytes: null,
+          ),
     );
     return {
       'pid': pid,
       'rss_before_bytes': rssBeforeBytes,
-      'current_rss_bytes': ProcessInfo.currentRss,
+      'current_rss_bytes':
+          measured.currentRssBytes ??
+          (!Platform.isLinux ? currentRssAtWindowEnd : null),
       'max_rss_bytes': ProcessInfo.maxRss,
       'cpu_user_us_delta': measured.cpuUserMicros,
       'cpu_system_us_delta': measured.cpuSystemMicros,

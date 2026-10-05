@@ -52,6 +52,36 @@ void main() {
     );
   });
 
+  test(
+    'RSS stop awaits an active read and samples the same end boundary',
+    () async {
+      final activeRead = Completer<int?>();
+      var readCount = 0;
+      final sampler = DartVmMetricsRssSampler(
+        pid,
+        readRssBytes: () {
+          readCount++;
+          return readCount == 1 ? activeRead.future : Future<int?>.value(4096);
+        },
+      );
+
+      expect(readCount, 1);
+      final stop = sampler.stop();
+      expect(identical(stop, sampler.stop()), isTrue);
+      var completed = false;
+      unawaited(stop.then((_) => completed = true));
+      await Future<void>.delayed(Duration.zero);
+      expect(completed, isFalse);
+
+      activeRead.complete(8192);
+      final snapshot = await stop;
+
+      expect(readCount, 2);
+      expect(snapshot.currentRssBytes, 4096);
+      expect(snapshot.peakRssBytes, 8192);
+    },
+  );
+
   test('profiles allocation work across stable application isolates', () async {
     var workspaceDirectory = Directory.current.absolute;
     while (!File(
@@ -113,6 +143,11 @@ void main() {
       );
       expect(result['gc_count_delta'], isA<int>());
       expect(result['gc_pause_us_delta'], isA<int>());
+      expect(result['current_rss_bytes'], greaterThan(0));
+      expect(
+        result['peak_rss_bytes'],
+        greaterThanOrEqualTo(result['current_rss_bytes'] as int),
+      );
     } finally {
       process.kill(ProcessSignal.sigkill);
       await process.exitCode;

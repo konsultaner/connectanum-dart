@@ -19,6 +19,26 @@ producer lease test on `a28e92c4` proves memory remains live through socket
 backpressure and releases once on its owner thread after write completion. It
 advances #97 but does not complete its or the milestone's acceptance criteria.
 
+## WAMP RSS window-boundary correction (2026-10-05)
+
+The benchmark RSS sampler now waits for an in-flight periodic read and takes a
+final sample before returning both current and sampled-peak RSS from that same
+window boundary. Client and server records use that snapshot before VM profiling
+queries can add work outside the measured window. Server diagnostics retain an
+end-of-workload `ProcessInfo` value on non-Linux platforms; Linux rows remain
+missing when `/proc` cannot supply the boundary sample. A deterministic
+delayed-reader test covers the race and idempotent stop. `bin/test-fast` and
+full `bin/verify` pass at exit 0 on the RSS race correction. After the
+non-Linux diagnostic fallback refinement, the focused metrics suite and
+`dart analyze packages/connectanum_bench` also pass. An 8-workload Linux arm64
+smoke over RawSocket/WebSocket and JSON/MessagePack/CBOR/FlatBuffers emits numeric
+client/server RSS with current RSS no higher than sampled peak. It is a short
+wiring smoke (640 samples per workload), not parity evidence. The smoke also
+confirms the existing Dart-managed transport-copy `not_measured` blocker; no
+benchmark rows are accepted and all
+milestone issues remain open. This correction is in the working tree and needs
+a pushed exact-head CI run.
+
 ## Native transport copy-counter follow-up (2026-10-05)
 
 Commit `f7387de0` adds optional C/Dart FFI snapshots for native transport

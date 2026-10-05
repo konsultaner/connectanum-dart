@@ -190,16 +190,18 @@ class NativeWampWorker {
       if (metricsCollector != null &&
           metricsWindow != null &&
           rssSampler != null) {
+        final rssSnapshot = await rssSampler.stop();
         final measured = await metricsCollector.endWindow(
           metricsWindow,
-          peakRssBytes: await rssSampler.stop(),
+          rssSnapshot: rssSnapshot,
         );
         final process = processMetrics;
         if (process != null) {
           processMetrics = NativeWampWorkerProcessMetrics(
             pid: process.pid,
             rssBeforeBytes: process.rssBeforeBytes,
-            currentRssBytes: process.currentRssBytes,
+            currentRssBytes:
+                measured.currentRssBytes ?? process.currentRssBytes,
             maxRssBytes: process.maxRssBytes,
             cpuUserUsDelta: measured.cpuUserMicros,
             cpuSystemUsDelta: measured.cpuSystemMicros,

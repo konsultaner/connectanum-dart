@@ -469,3 +469,23 @@ Linux `/proc` CPU/RSS evidence is unavailable there. No paired measurements
 have run, so issue #103 remains open and milestone parity acceptance is not met.
 Exact-head CI and package publish dry-run workflows are queued for pushed
 commit `f47438d4`.
+
+## RSS sample-window race correction (2026-10-05)
+
+The sampler previously dropped its final `/proc/<pid>/status` read when a 50 ms
+timer read was still in flight. Server current RSS was also read after VM
+profiling RPCs, outside the measured interval. `DartVmMetricsRssSampler.stop`
+now waits for an active read, performs one final read, and returns current and
+peak RSS together; repeated stops share the same result. Both client and server
+process records use this snapshot before VM profiling finishes. A delayed-reader
+test verifies ordering, end-boundary current RSS, maximum peak RSS and idempotent
+stop. The server retains an end-of-workload `ProcessInfo` current-RSS value for
+non-Linux diagnostics, while Linux rows remain missing if `/proc` cannot supply
+the sampled boundary. `bin/test-fast` and `bin/verify` pass with exit 0 on the
+RSS race correction; the final non-Linux diagnostic fallback also passes the
+focused metrics suite and benchmark-package analysis. An 8-workload Linux arm64
+serializer-matrix smoke emits numeric current/peak RSS
+for both processes and all rows satisfy current <= sampled peak. It is a
+640-sample wiring smoke, below the 1,000-sample acceptance floor. The same smoke retains
+`transport_copy_bytes: not_measured` for Dart-managed callers; copy attribution,
+the full campaign, hosted exact-head CI and every issue acceptance remain open.

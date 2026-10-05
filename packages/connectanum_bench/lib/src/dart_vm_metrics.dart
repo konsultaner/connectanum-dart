@@ -76,7 +76,7 @@ class DartVmMetricsCollector {
 
   Future<DartVmMetricsResult> endWindow(
     DartVmMetricsWindow window, {
-    required int? peakRssBytes,
+    required DartVmMetricsRssSnapshot rssSnapshot,
   }) async {
     final isolateIds = await _currentIsolateIds();
     requireStableDartVmMetricIsolates(window.isolateIds, isolateIds);
@@ -122,7 +122,8 @@ class DartVmMetricsCollector {
           systemTicks == null || tickRate == null || systemTicks < 0
           ? null
           : (systemTicks * 1000000 / tickRate).round(),
-      peakRssBytes: peakRssBytes,
+      currentRssBytes: rssSnapshot.currentRssBytes,
+      peakRssBytes: rssSnapshot.peakRssBytes,
     );
   }
 
@@ -255,6 +256,7 @@ class DartVmMetricsResult {
     required this.gcPauseMicros,
     required this.cpuUserMicros,
     required this.cpuSystemMicros,
+    required this.currentRssBytes,
     required this.peakRssBytes,
   });
 
@@ -263,55 +265,92 @@ class DartVmMetricsResult {
   final int? gcPauseMicros;
   final int? cpuUserMicros;
   final int? cpuSystemMicros;
+  final int? currentRssBytes;
+  final int? peakRssBytes;
+}
+
+class DartVmMetricsRssSnapshot {
+  const DartVmMetricsRssSnapshot({
+    required this.currentRssBytes,
+    required this.peakRssBytes,
+  });
+
+  final int? currentRssBytes;
   final int? peakRssBytes;
 }
 
 class DartVmMetricsRssSampler {
-  DartVmMetricsRssSampler(int pid) : _file = File('/proc/$pid/status') {
+  DartVmMetricsRssSampler(int pid, {Future<int?> Function()? readRssBytes})
+    : _readRssBytes = readRssBytes ?? (() => _readLinuxRssBytes(pid)) {
     _timer = Timer.periodic(const Duration(milliseconds: 50), (_) => _sample());
     _sample();
   }
 
-  final File _file;
+  final Future<int?> Function() _readRssBytes;
   late final Timer _timer;
   bool _stopped = false;
-  bool _sampling = false;
+  Future<void>? _sampleInFlight;
+  Future<DartVmMetricsRssSnapshot>? _stopFuture;
+  int? currentRssBytes;
   int? peakRssBytes;
 
   void _sample() {
-    unawaited(_sampleNow());
+    if (_stopped || _sampleInFlight != null) return;
+    unawaited(_startSample());
   }
 
-  Future<void> _sampleNow({bool finalSample = false}) async {
-    if ((_stopped && !finalSample) || _sampling || !Platform.isLinux) return;
-    _sampling = true;
+  Future<void> _startSample() {
+    late final Future<void> sample;
+    sample = _readAndRecordSample().whenComplete(() {
+      if (identical(_sampleInFlight, sample)) _sampleInFlight = null;
+    });
+    _sampleInFlight = sample;
+    return sample;
+  }
+
+  Future<void> _readAndRecordSample() async {
     try {
-      final status = await _file.readAsString();
-      for (final line in status.split('\n')) {
-        if (!line.startsWith('VmRSS:')) continue;
-        final kilobytes = int.tryParse(
-          line.substring('VmRSS:'.length).trim().split(RegExp(r'\s+')).first,
-        );
-        if (kilobytes == null || kilobytes <= 0) return;
-        final bytes = kilobytes * 1024;
-        if (bytes > (peakRssBytes ?? 0)) peakRssBytes = bytes;
-        return;
-      }
+      final bytes = await _readRssBytes();
+      if (bytes == null || bytes <= 0) return;
+      currentRssBytes = bytes;
+      if (bytes > (peakRssBytes ?? 0)) peakRssBytes = bytes;
     } on FileSystemException {
       // The child may have exited between a timer tick and its final sample.
-    } finally {
-      _sampling = false;
     }
   }
 
-  Future<int?> stop() async {
+  Future<DartVmMetricsRssSnapshot> stop() => _stopFuture ??= _stop();
+
+  Future<DartVmMetricsRssSnapshot> _stop() async {
     if (!_stopped) {
       _stopped = true;
       _timer.cancel();
-      await _sampleNow(finalSample: true);
     }
-    return peakRssBytes;
+    final inFlight = _sampleInFlight;
+    if (inFlight != null) await inFlight;
+    await _startSample();
+    return DartVmMetricsRssSnapshot(
+      currentRssBytes: currentRssBytes,
+      peakRssBytes: peakRssBytes,
+    );
   }
+}
+
+Future<int?> _readLinuxRssBytes(int pid) async {
+  if (!Platform.isLinux) return null;
+  try {
+    final status = await File('/proc/$pid/status').readAsString();
+    for (final line in status.split('\n')) {
+      if (!line.startsWith('VmRSS:')) continue;
+      final kilobytes = int.tryParse(
+        line.substring('VmRSS:'.length).trim().split(RegExp(r'\s+')).first,
+      );
+      return kilobytes == null || kilobytes <= 0 ? null : kilobytes * 1024;
+    }
+  } on FileSystemException {
+    // The child may have exited between a timer tick and its final sample.
+  }
+  return null;
 }
 
 class _LinuxCpuTicks {

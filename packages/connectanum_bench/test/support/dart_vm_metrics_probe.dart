@@ -41,15 +41,21 @@ Future<void> main() async {
     final window = await collector.beginWindow();
     workerPort.send('allocate');
     await allocationComplete.future.timeout(const Duration(seconds: 5));
+    final rssBytes = ProcessInfo.currentRss;
     final metrics = await collector.endWindow(
       window,
-      peakRssBytes: ProcessInfo.currentRss,
+      rssSnapshot: DartVmMetricsRssSnapshot(
+        currentRssBytes: rssBytes,
+        peakRssBytes: rssBytes,
+      ),
     );
     stdout.writeln(
       jsonEncode({
         'allocated_bytes_delta': metrics.allocatedBytes,
         'gc_count_delta': metrics.gcCount,
         'gc_pause_us_delta': metrics.gcPauseMicros,
+        'current_rss_bytes': metrics.currentRssBytes,
+        'peak_rss_bytes': metrics.peakRssBytes,
       }),
     );
   } finally {
