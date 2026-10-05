@@ -289,3 +289,10 @@ during this canonical run. [Benchmark construction preparation](../research/2026
 also records the missing echoed application identity check. Commit/push the
 accepted checkpoint and obtain its own hosted evidence before claiming hosted
 acceptance; all ten issue criteria remain under audit.
+
+The initial manual native-owned FlatBuffers E2EE path is committed as `dc33fcc6`
+and pushed to PR #105. Fresh `bin/test-fast` and `bin/verify` pass at exit 0 on
+the code checkpoint; its exact-head hosted checks are pending. The path is
+generic Connectanum ownership infrastructure that a future C-backed ObjectBox
+adapter can consume under an explicit producer lifetime. Issues #96 and #101
+advance but remain open; all ten milestone issues remain under audit.

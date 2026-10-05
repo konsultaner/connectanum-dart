@@ -8,7 +8,8 @@ All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/kon
 ## Checkout and authorization
 
 The managed worktree uses `codex/flatbuffers-zero-copy`; its latest pushed checkpoint is
-`0cf9e65eaceb97a8700dab6b534032becc587738`, following `e6fb28c8`. It started at `54eafc5f` and
+`dc33fcc6ce216469c8818b919ce003543ea74091`, following `3b5927f1`. Exact-head
+hosted checks for this checkpoint are pending. It started at `54eafc5f` and
 integrates released master `3bac4cf5`. The primary checkout's independent work
 remains untouched. Feature commits, pushes and draft PR updates are authorized;
 releases, version bumps, publication and merging master are not authorized.
