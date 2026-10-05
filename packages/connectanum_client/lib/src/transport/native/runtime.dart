@@ -253,6 +253,45 @@ class NativeTransportCopyMetrics {
       current == null || before == null ? null : _counterDelta(current, before);
 }
 
+/// Bulk crypto staging copies in this process plus this runtime's Dart bridge.
+/// Nonce/tag construction and serializer/framing work are excluded. Native
+/// counters are null unless the complete optional metrics ABI v1 is available.
+class NativeE2eeCopyMetrics {
+  const NativeE2eeCopyMetrics({
+    required this.dartToNativeCopiedBytesTotal,
+    required this.nativeToDartCopiedBytesTotal,
+    required this.plaintextStagingCopyBytesTotal,
+    required this.ciphertextStagingCopyBytesTotal,
+  });
+
+  final int dartToNativeCopiedBytesTotal;
+  final int nativeToDartCopiedBytesTotal;
+  final int? plaintextStagingCopyBytesTotal;
+  final int? ciphertextStagingCopyBytesTotal;
+
+  NativeE2eeCopyMetrics deltaFrom(NativeE2eeCopyMetrics before) =>
+      NativeE2eeCopyMetrics(
+        dartToNativeCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
+          dartToNativeCopiedBytesTotal,
+          before.dartToNativeCopiedBytesTotal,
+        ),
+        nativeToDartCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
+          nativeToDartCopiedBytesTotal,
+          before.nativeToDartCopiedBytesTotal,
+        ),
+        plaintextStagingCopyBytesTotal:
+            NativeTransportCopyMetrics._nullableCounterDelta(
+              plaintextStagingCopyBytesTotal,
+              before.plaintextStagingCopyBytesTotal,
+            ),
+        ciphertextStagingCopyBytesTotal:
+            NativeTransportCopyMetrics._nullableCounterDelta(
+              ciphertextStagingCopyBytesTotal,
+              before.ciphertextStagingCopyBytesTotal,
+            ),
+      );
+}
+
 class NativeClientRuntime {
   factory NativeClientRuntime.instance({String? libraryPath}) {
     final current = _instance;
@@ -293,6 +332,8 @@ class NativeClientRuntime {
       );
   bool _started = false;
   int _dartToNativeCopiedBytesTotal = 0;
+  int _e2eeDartToNativeCopiedBytesTotal = 0;
+  int _e2eeNativeToDartCopiedBytesTotal = 0;
 
   /// Releases the native owner attached to the returned root byte view.
   ///
@@ -523,6 +564,7 @@ class NativeClientRuntime {
     final bufferPtr = calloc<CtByteBuffer>();
     try {
       plaintextPtr.asTypedList(plaintext.length).setAll(0, plaintext);
+      _e2eeDartToNativeCopiedBytesTotal += plaintext.length;
       final result = encrypt(
         sessionHandle,
         keyIdPtr,
@@ -534,7 +576,9 @@ class NativeClientRuntime {
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to encrypt native E2EE payload');
       }
-      return _copyAndFreeByteBuffer(bufferPtr.ref);
+      final bytes = _copyAndFreeByteBuffer(bufferPtr.ref);
+      _e2eeNativeToDartCopiedBytesTotal += bytes.length;
+      return bytes;
     } finally {
       if (keyIdPtr != ffi.nullptr) {
         malloc.free(keyIdPtr);
@@ -584,6 +628,7 @@ class NativeClientRuntime {
     final bufferPtr = calloc<CtByteBuffer>();
     try {
       ciphertextPtr.asTypedList(ciphertext.length).setAll(0, ciphertext);
+      _e2eeDartToNativeCopiedBytesTotal += ciphertext.length;
       final result = decrypt(
         sessionHandle,
         keyIdPtr,
@@ -595,7 +640,9 @@ class NativeClientRuntime {
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to decrypt native E2EE payload');
       }
-      return _copyAndFreeByteBuffer(bufferPtr.ref);
+      final bytes = _copyAndFreeByteBuffer(bufferPtr.ref);
+      _e2eeNativeToDartCopiedBytesTotal += bytes.length;
+      return bytes;
     } finally {
       if (keyIdPtr != ffi.nullptr) {
         malloc.free(keyIdPtr);
@@ -1042,6 +1089,31 @@ class NativeClientRuntime {
     } finally {
       calloc.free(info);
     }
+  }
+
+  NativeE2eeCopyMetrics e2eeCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctE2eeCopyMetricsSnapshot;
+    int? plaintext;
+    int? ciphertext;
+    if (snapshot != null && _bindings.ctE2eeCopyMetricsVersion?.call() == 1) {
+      final info = calloc<CtE2eeCopyMetricsInfo>();
+      try {
+        final result = snapshot(info);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(result, 'snapshot E2EE copy metrics');
+        }
+        plaintext = info.ref.plaintextStagingCopyBytesTotal;
+        ciphertext = info.ref.ciphertextStagingCopyBytesTotal;
+      } finally {
+        calloc.free(info);
+      }
+    }
+    return NativeE2eeCopyMetrics(
+      dartToNativeCopiedBytesTotal: _e2eeDartToNativeCopiedBytesTotal,
+      nativeToDartCopiedBytesTotal: _e2eeNativeToDartCopiedBytesTotal,
+      plaintextStagingCopyBytesTotal: plaintext,
+      ciphertextStagingCopyBytesTotal: ciphertext,
+    );
   }
 
   void closeConnection(int connectionId) {

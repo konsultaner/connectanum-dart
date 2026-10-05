@@ -89,6 +89,30 @@ around one benchmark command. Older native libraries without the optional
 snapshot symbol leave affected fields unmeasured, so those rows cannot claim
 complete coverage or establish FlatBuffers parity.
 
+The client worker now snapshots optional native crypto staging counters separately
+from its transport counters. Native XSalsa encryption constructs the existing
+`nonce | tag | ciphertext` layout in one output allocation using detached crypto;
+it avoids the earlier payload shift and second ciphertext output copy. Copied
+decryption stages only the ciphertext body. AES retains its existing wire layout;
+its copied decrypt stages the attached tag as part of the message, while eligible
+consuming AES decryption reuses storage. Nonce/tag construction and cipher
+computation are outside these bulk staging counters.
+
+`known_e2ee_staging_copy_bytes` is a lower bound combining process-wide native
+staging and the client worker isolate's explicit crypto FFI copies. The breakdown
+names these scopes individually. Other isolate bridges, Dart crypto, serializer
+and framing transformations remain unmeasured, so encrypted rows keep
+`e2ee_copy_bytes` as `not_measured`. The comparator requires that field, rejects
+an encrypted row marked `not_applicable`, and accepts numeric totals only with
+complete pipeline coverage and no unknown boundaries. ABI v1 requires both its
+version and snapshot symbols; older or unknown versions produce unavailable
+native measurements without reading an incompatible struct.
+
+The benchmark accepts explicit typed FlatBuffers E2EE RPC/pub-sub scenarios and
+selects the matching Dart/native version-2 provider. Its omitted serializer still
+defaults to the existing CBOR version-1 profile. All three construction modes can
+exercise typed encryption; typed E2EE file transfer remains unsupported.
+
 ## Campaign evaluator status
 
 `tool/wamp_serializer_compare.py` validates a prepared campaign manifest and
@@ -107,8 +131,8 @@ starts. The collector profiles every application isolate present at the window
 start and rejects isolate-set changes or incomplete GC timelines. Process CPU
 ticks and RSS sampling use Linux `/proc`; those fields remain missing on other
 platforms and block acceptance. The machine-readable policy is
-`native/bench/artifact_gate/wamp_flatbuffers_performance.json`; eleven focused
-unit tests pass. The evaluator does not schedule or execute a campaign, and no
+`native/bench/artifact_gate/wamp_flatbuffers_performance.json`. The evaluator
+does not schedule or execute a campaign, and no
 manifest or measured comparison result exists yet. The report must not be used
 to claim parity until the complete primary matrix runs with no missing metrics.
 

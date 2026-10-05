@@ -1337,6 +1337,69 @@ void main() {
       );
     });
 
+    for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+      test(
+        'round-trips an explicit typed FlatBuffers E2EE $cipher scenario',
+        () {
+          final scenario = WampScenario.fromJson({
+            'transport': 'rawsocket',
+            'client_impl': 'dart',
+            'serializer': 'json',
+            'mode': 'rpc',
+            'uri': 'bench.rpc.echo',
+            'ppt_scheme': 'wamp',
+            'ppt_serializer': 'flatbuffers',
+            'ppt_cipher': cipher,
+            'ppt_keyid': 'benchmark-key',
+          });
+          expect(
+            WampScenario.fromJson(scenario.toJson()).pptSerializer,
+            'flatbuffers',
+          );
+          final provider = e2eeProviderFactoryForScenario(scenario)!();
+          final options = wamp_core.PublishOptions(pptScheme: 'wamp');
+          final bytes = Uint8List.fromList([1, 2, 3, 4]);
+          final packed = provider.packPayload([bytes], null, options);
+          final clear = provider.unpackPayload(packed, options);
+          expect(options.pptSerializer, 'flatbuffers');
+          final profile = provider as wamp_core.WampE2eeProfileSupport;
+          expect(
+            profile.supportsE2eeProfile(
+              version: 2,
+              scheme: 'wamp',
+              serializer: 'flatbuffers',
+              cipher: cipher,
+            ),
+            isTrue,
+          );
+          expect(
+            profile.supportsE2eeProfile(
+              version: 1,
+              scheme: 'wamp',
+              serializer: 'flatbuffers',
+              cipher: cipher,
+            ),
+            isFalse,
+          );
+          expect(clear.arguments, [bytes]);
+        },
+      );
+    }
+
+    test('rejects typed FlatBuffers E2EE file scenarios', () {
+      expect(
+        () => WampScenario.fromJson({
+          'mode': 'file_transfer',
+          'uri': 'bench.file.receive',
+          'ppt_scheme': 'wamp',
+          'ppt_serializer': 'flatbuffers',
+          'ppt_cipher': 'aes256gcm',
+          'ppt_keyid': 'benchmark-key',
+        }),
+        throwsFormatException,
+      );
+    });
+
     test('builds a real Dart AES-GCM provider for E2EE scenarios', () {
       final scenario = WampScenario.fromJson({
         'transport': 'rawsocket',

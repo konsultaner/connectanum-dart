@@ -39,6 +39,19 @@ WampE2eeProviderFactory? e2eeProviderFactoryForScenario(
       'WAMP E2EE benchmark scenarios require ppt_cipher and ppt_keyid',
     );
   }
+  final typed =
+      scenario.pptSerializer ==
+      wamp_core.ConnectanumFlatBuffersE2eeProfile.serializer;
+  if (scenario.pptSerializer != null &&
+      scenario.pptSerializer != wamp_core.ConnectanumE2eeProfile.serializer &&
+      !typed) {
+    throw StateError(
+      'Unsupported WAMP E2EE benchmark serializer ${scenario.pptSerializer}',
+    );
+  }
+  if (typed && scenario.mode == WampMode.fileTransfer) {
+    throw StateError('Typed FlatBuffers E2EE file transfer is unsupported');
+  }
   const key = <int>[
     0x63,
     0x6f,
@@ -73,6 +86,45 @@ WampE2eeProviderFactory? e2eeProviderFactoryForScenario(
     0x30,
     0x31,
   ];
+  if (typed) {
+    return switch ((scenario.clientImplementation, cipher)) {
+      (
+        WampClientImplementation.dart,
+        wamp_core.ConnectanumE2eeProfile.xsalsa20Poly1305,
+      ) =>
+        () => wamp_core.WampFlatBuffersXsalsa20Poly1305Provider.single(
+          keyId: keyId,
+          key: key,
+        ),
+      (
+        WampClientImplementation.dart,
+        wamp_core.ConnectanumE2eeProfile.aes256Gcm,
+      ) =>
+        () => wamp_core.WampFlatBuffersAes256GcmProvider.single(
+          keyId: keyId,
+          key: key,
+        ),
+      (
+        WampClientImplementation.native,
+        wamp_core.ConnectanumE2eeProfile.xsalsa20Poly1305,
+      ) =>
+        () => wamp_client.NativeWampFlatBuffersXsalsa20Poly1305Provider.single(
+          keyId: keyId,
+          key: key,
+          libraryPath: nativeLibraryPath,
+        ),
+      (
+        WampClientImplementation.native,
+        wamp_core.ConnectanumE2eeProfile.aes256Gcm,
+      ) =>
+        () => wamp_client.NativeWampFlatBuffersAes256GcmProvider.single(
+          keyId: keyId,
+          key: key,
+          libraryPath: nativeLibraryPath,
+        ),
+      _ => throw StateError('Unsupported WAMP E2EE benchmark cipher $cipher'),
+    };
+  }
   return switch ((scenario.clientImplementation, cipher)) {
     (
       WampClientImplementation.dart,
@@ -181,7 +233,7 @@ class WampWorkloadRunner {
       },
       zoneValues: {
         _eventTimeoutZoneKey: eventTimeout,
-        if (minimumDuration != null) _minimumDurationZoneKey: minimumDuration,
+        _minimumDurationZoneKey: ?minimumDuration,
       },
     );
   }
@@ -1991,7 +2043,11 @@ class WampWorkloadRunner {
   }
 
   bool _isTypedPptBenchmark(WampScenario scenario) =>
-      scenario.pptScheme == 'x_connectanum_bench_typed';
+      scenario.pptScheme == 'x_connectanum_bench_typed' ||
+      (scenario.pptScheme ==
+              wamp_core.ConnectanumFlatBuffersE2eeProfile.scheme &&
+          scenario.pptSerializer ==
+              wamp_core.ConnectanumFlatBuffersE2eeProfile.serializer);
 
   void _validatePayloadConstruction(WampScenario scenario) {
     if (!_isTypedPptBenchmark(scenario)) {
@@ -1999,7 +2055,7 @@ class WampWorkloadRunner {
         throw ArgumentError.value(
           scenario.payloadConstruction.wireName,
           'payloadConstruction',
-          'requires ppt_scheme=x_connectanum_bench_typed',
+          'requires typed benchmark PPT or the typed FlatBuffers E2EE profile',
         );
       }
       return;
@@ -2266,7 +2322,8 @@ class WampWorkloadRunner {
       return null;
     }
     if (scenario.pptScheme == wamp_core.ConnectanumE2eeProfile.scheme) {
-      return wamp_core.ConnectanumE2eeProfile.serializer;
+      return scenario.pptSerializer ??
+          wamp_core.ConnectanumE2eeProfile.serializer;
     }
     return scenario.pptSerializer ??
         (scenario.serializer == WampSerializer.flatbuffers
@@ -3371,8 +3428,19 @@ class WampScenario {
     final pptKeyId = _readOptionalString(json['ppt_keyid']);
     if (pptScheme == wamp_core.ConnectanumE2eeProfile.scheme) {
       if (pptSerializer != null &&
-          pptSerializer != wamp_core.ConnectanumE2eeProfile.serializer) {
-        throw FormatException('WAMP E2EE benchmark serializer must be cbor');
+          pptSerializer != wamp_core.ConnectanumE2eeProfile.serializer &&
+          pptSerializer !=
+              wamp_core.ConnectanumFlatBuffersE2eeProfile.serializer) {
+        throw FormatException(
+          'WAMP E2EE benchmark serializer must be cbor or flatbuffers',
+        );
+      }
+      if (pptSerializer ==
+              wamp_core.ConnectanumFlatBuffersE2eeProfile.serializer &&
+          WampMode.parse(rawMode) == WampMode.fileTransfer) {
+        throw FormatException(
+          'Typed FlatBuffers E2EE file transfer is unsupported',
+        );
       }
       if (pptCipher != wamp_core.ConnectanumE2eeProfile.xsalsa20Poly1305 &&
           pptCipher != wamp_core.ConnectanumE2eeProfile.aes256Gcm) {

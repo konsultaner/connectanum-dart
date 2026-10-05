@@ -76,9 +76,12 @@ use rustls::{ClientConfig as RustlsClientConfig, RootCertStore};
 #[cfg(feature = "ffi-test")]
 use rustls_pemfile::certs as read_pem_certs;
 use xsalsa20poly1305::{
-    aead::{Aead, KeyInit},
-    Key, Nonce, XSalsa20Poly1305,
+    aead::{AeadInPlace, KeyInit},
+    Key, Nonce, Tag, XSalsa20Poly1305,
 };
+
+#[cfg(test)]
+use xsalsa20poly1305::aead::Aead;
 
 use crate::callbacks::{
     invoke_connection_callback, invoke_listener_callback, register_connection_callback,
@@ -890,12 +893,16 @@ fn encrypt_e2ee_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, c_int> 
     let cipher = XSalsa20Poly1305::new(&normalize_key_material(key)?);
     let mut nonce = Nonce::default();
     OsRng.fill_bytes(nonce.as_mut_slice());
-    let ciphertext = cipher
-        .encrypt(&nonce, plaintext)
-        .map_err(|_| ERR_INTERNAL)?;
-    let mut combined = Vec::with_capacity(E2EE_NONCE_LEN + ciphertext.len());
+    let body_start = E2EE_NONCE_LEN + E2EE_AUTH_TAG_LEN;
+    let mut combined = Vec::with_capacity(body_start + plaintext.len());
     combined.extend_from_slice(nonce.as_slice());
-    combined.extend_from_slice(&ciphertext);
+    combined.resize(body_start, 0);
+    combined.extend_from_slice(plaintext);
+    super::crypto_copy_metrics::record_plaintext_copy(plaintext.len());
+    let tag = cipher
+        .encrypt_in_place_detached(&nonce, &[], &mut combined[body_start..])
+        .map_err(|_| ERR_INTERNAL)?;
+    combined[E2EE_NONCE_LEN..body_start].copy_from_slice(tag.as_slice());
     Ok(combined)
 }
 
@@ -906,9 +913,13 @@ fn decrypt_e2ee_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, c_int>
     let cipher = XSalsa20Poly1305::new(&normalize_key_material(key)?);
     let (nonce_bytes, message) = ciphertext.split_at(E2EE_NONCE_LEN);
     let nonce = Nonce::from_slice(nonce_bytes);
+    let tag = Tag::from_slice(message.get(..E2EE_AUTH_TAG_LEN).ok_or(ERR_DECRYPT_FAILED)?);
+    let mut plaintext = message[E2EE_AUTH_TAG_LEN..].to_vec();
+    super::crypto_copy_metrics::record_ciphertext_copy(plaintext.len());
     cipher
-        .decrypt(nonce, message)
-        .map_err(|_| ERR_DECRYPT_FAILED)
+        .decrypt_in_place_detached(nonce, &[], &mut plaintext, tag)
+        .map_err(|_| ERR_DECRYPT_FAILED)?;
+    Ok(plaintext)
 }
 
 fn aes256_gcm_key(key: &[u8]) -> Result<LessSafeKey, c_int> {
@@ -926,6 +937,7 @@ fn encrypt_e2ee_aes256_gcm_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u
         Vec::with_capacity(E2EE_AES256_GCM_NONCE_LEN + plaintext.len() + E2EE_AUTH_TAG_LEN);
     combined.extend_from_slice(&nonce_bytes);
     combined.extend_from_slice(plaintext);
+    super::crypto_copy_metrics::record_plaintext_copy(plaintext.len());
     let tag = cipher
         .seal_in_place_separate_tag(
             RingNonce::assume_unique_for_key(nonce_bytes),
@@ -946,6 +958,7 @@ fn decrypt_e2ee_aes256_gcm_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<
     let nonce_bytes = <[u8; E2EE_AES256_GCM_NONCE_LEN]>::try_from(nonce_bytes)
         .map_err(|_| ERR_INVALID_ARGUMENT)?;
     let mut plaintext = message.to_vec();
+    super::crypto_copy_metrics::record_ciphertext_copy(plaintext.len());
     let plaintext_len = cipher
         .open_in_place(
             RingNonce::assume_unique_for_key(nonce_bytes),
@@ -7784,6 +7797,10 @@ mod flatbuffers_opaque_tests;
 #[cfg(test)]
 #[path = "flatbuffers_e2ee_tests.rs"]
 mod flatbuffers_e2ee_tests;
+
+#[cfg(test)]
+#[path = "crypto_copy_tests.rs"]
+mod crypto_copy_tests;
 
 #[cfg(test)]
 mod tests {

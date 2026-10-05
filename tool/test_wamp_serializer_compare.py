@@ -93,6 +93,10 @@ class WampSerializerCompareTest(unittest.TestCase):
                     "reason": "cleartext row",
                 },
                 "transcode_copy_bytes": 0,
+                "e2ee_copy_bytes": {
+                    "status": "not_applicable",
+                    "reason": "cleartext payload",
+                },
             },
         }
 
@@ -259,6 +263,23 @@ class WampSerializerCompareTest(unittest.TestCase):
         findings = compare._validate_evidence(report, label="missing-server")
 
         self.assertTrue(any("missing server_process_metrics" in f for f in findings))
+
+    def test_rejects_partial_crypto_measurements(self) -> None:
+        for total in ({"status": "not_measured"}, 0):
+            with self.subTest(total=total):
+                report = self._report("case_flatbuffers", "flatbuffers", 0)
+                report["copy_metrics"]["e2ee_copy_bytes"] = total
+                report["copy_metrics"]["e2ee_copy_breakdown"] = {
+                    "coverage": "known_staging_only"
+                }
+                findings = compare._validate_evidence(report, label="partial-crypto")
+                self.assertTrue(any("e2ee_copy_bytes" in f for f in findings))
+
+    def test_rejects_crypto_exemption_for_encrypted_workload(self) -> None:
+        report = self._report("case_flatbuffers", "flatbuffers", 0)
+        report["ppt_scheme"] = "wamp"
+        findings = compare._validate_evidence(report, label="encrypted-exemption")
+        self.assertTrue(any("e2ee_copy_bytes cannot be not_applicable" in f for f in findings))
 
     def test_rejects_transport_copy_total_without_complete_coverage(self) -> None:
         for coverage in (

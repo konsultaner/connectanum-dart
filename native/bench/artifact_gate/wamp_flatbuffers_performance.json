@@ -65,7 +65,8 @@
     "transport_copy_bytes",
     "websocket_mask_copy_bytes",
     "tls_copy_bytes",
-    "transcode_copy_bytes"
+    "transcode_copy_bytes",
+    "e2ee_copy_bytes"
   ],
   "notes": [
     "Campaigns must run on Linux because process CPU ticks and RSS samples use /proc.",

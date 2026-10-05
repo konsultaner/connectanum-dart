@@ -23,6 +23,79 @@ void main() {
   _nativeTypedProviderCases(nativeClientRuntimeUnavailableReason);
   _nativePolicyCallbackContractCases(nativeClientRuntimeUnavailableReason);
 
+  test('crypto staging and Dart bridge counts match actual operations', () async {
+    final source = await Isolate.resolvePackageUri(
+      Uri.parse('package:connectanum_client/connectanum.dart'),
+    );
+    final result = await Process.run(
+      Platform.resolvedExecutable,
+      [
+        'run',
+        source!
+            .resolve(
+              '../test/transport/native/support/crypto_copy_metrics_probe.dart',
+            )
+            .toFilePath(),
+      ],
+      environment: {
+        'CONNECTANUM_NATIVE_LIB': NativeLibraryLoader.resolvePath(),
+      },
+    );
+    expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+    expect(
+      result.stdout,
+      contains('exact native and Dart bridge deltas passed'),
+    );
+  }, skip: nativeClientRuntimeUnavailableReason);
+
+  test(
+    'unknown crypto metrics ABI never calls the snapshot',
+    () async {
+      final source = await Isolate.resolvePackageUri(
+        Uri.parse('package:connectanum_client/connectanum.dart'),
+      );
+      final directory = await Directory.systemTemp.createTemp(
+        'connectanum-crypto-abi-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final library =
+          '${directory.path}/crypto.${Platform.isMacOS ? 'dylib' : 'so'}';
+      final compiled = await Process.run('cc', [
+        Platform.isMacOS ? '-dynamiclib' : '-shared',
+        '-fPIC',
+        '-o',
+        library,
+        source!
+            .resolve(
+              '../test/transport/native/support/crypto_copy_abi_fixture.c',
+            )
+            .toFilePath(),
+        File(NativeLibraryLoader.resolvePath()).absolute.path,
+      ]);
+      expect(
+        compiled.exitCode,
+        0,
+        reason: '${compiled.stdout}\n${compiled.stderr}',
+      );
+      final result = await Process.run(Platform.resolvedExecutable, [
+        'run',
+        source
+            .resolve(
+              '../test/transport/native/support/crypto_copy_metrics_probe.dart',
+            )
+            .toFilePath(),
+        library,
+      ]);
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      expect(result.stdout, contains('unsupported ABI safely unavailable'));
+    },
+    skip:
+        nativeClientRuntimeUnavailableReason ??
+        ((!Platform.isMacOS && !Platform.isLinux)
+            ? 'Requires Unix C shared-library toolchain'
+            : false),
+  );
+
   group(
     'native-owned typed FlatBuffers encryption',
     () {

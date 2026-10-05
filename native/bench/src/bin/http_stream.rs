@@ -1992,11 +1992,21 @@ impl PreparedWorkload {
                     config.name
                 );
             }
-            if config.ppt_scheme.as_deref() != Some("x_connectanum_bench_typed") {
+            let typed_e2ee = config.ppt_scheme.as_deref() == Some("wamp")
+                && config.ppt_serializer.as_deref() == Some("flatbuffers");
+            if config.ppt_scheme.as_deref() != Some("x_connectanum_bench_typed") && !typed_e2ee {
                 bail!(
-                    "workload {} payload_construction requires the typed benchmark PPT scheme",
+                    "workload {} payload_construction requires typed benchmark PPT or typed FlatBuffers E2EE",
                     config.name
                 );
+            }
+            if typed_e2ee
+                && !matches!(
+                    parse_wamp_protocol(&config.protocol),
+                    Some((_, BenchWampMode::Rpc | BenchWampMode::PubSub))
+                )
+            {
+                bail!("typed FlatBuffers E2EE construction supports RPC and pub/sub only");
             }
             if !matches!(
                 config.ppt_serializer.as_deref(),
@@ -7647,6 +7657,37 @@ payload_construction = "native_buffer"
             prepared.payload_construction.as_deref(),
             Some("native_buffer")
         );
+    }
+
+    #[test]
+    fn typed_e2ee_payload_construction_reaches_the_wamp_worker() {
+        let scenario: ScenarioFile = toml::from_str(
+            r#"
+name = "typed_crypto"
+[[workloads]]
+name = "typed_crypto_rpc"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "flatbuffers"
+peer_serializer = "flatbuffers"
+path = "bench.rpc.echo"
+ppt_scheme = "wamp"
+ppt_serializer = "flatbuffers"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+payload_construction = "native_buffer"
+"#,
+        )
+        .unwrap();
+        let mut config = scenario.workloads.into_iter().next().unwrap();
+        for construction in ["values", "native_buffer", "pre_encoded_span"] {
+            config.payload_construction = Some(construction.to_string());
+            let prepared = PreparedWorkload::from_config(&config).unwrap();
+            assert_eq!(prepared.ppt_serializer.as_deref(), Some("flatbuffers"));
+            assert_eq!(prepared.payload_construction.as_deref(), Some(construction));
+        }
+        config.protocol = "wamp_rawsocket_file_transfer".into();
+        assert!(PreparedWorkload::from_config(&config).is_err());
     }
 
     #[test]

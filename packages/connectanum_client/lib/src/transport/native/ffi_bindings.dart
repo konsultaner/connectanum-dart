@@ -228,6 +228,13 @@ typedef CtTransportCopyMetricsSnapshotNative =
 typedef CtTransportCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
 
+typedef CtE2eeCopyMetricsVersionNative = ffi.Uint32 Function();
+typedef CtE2eeCopyMetricsVersionDart = int Function();
+typedef CtE2eeCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtE2eeCopyMetricsInfo>);
+typedef CtE2eeCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtE2eeCopyMetricsInfo>);
+
 typedef CtPollConnectionMessageNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollConnectionMessageWideNative = ffi.Int64 Function(ffi.Int32);
 typedef CtPollConnectionMessageDart = int Function(int);
@@ -496,6 +503,14 @@ final class CtTransportCopyMetricsInfo extends ffi.Struct {
   external int tlsPlaintextAcceptedBytesTotal;
 }
 
+final class CtE2eeCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int plaintextStagingCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int ciphertextStagingCopyBytesTotal;
+}
+
 final class CtHttpHeader extends ffi.Struct {
   external ffi.Pointer<ffi.Uint8> namePtr;
 
@@ -759,6 +774,20 @@ class CtFfiBindings {
               CtTransportCopyMetricsSnapshotDart
             >('ct_transport_copy_metrics_snapshot'),
       ),
+      ctE2eeCopyMetricsVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtE2eeCopyMetricsVersionNative,
+              CtE2eeCopyMetricsVersionDart
+            >('ct_e2ee_copy_metrics_abi_version'),
+      ),
+      ctE2eeCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtE2eeCopyMetricsSnapshotNative,
+              CtE2eeCopyMetricsSnapshotDart
+            >('ct_e2ee_copy_metrics_snapshot'),
+      ),
       ctPollConnectionMessage = messageHandleAbi == NativeMessageHandleAbi.wide
           ? library.lookupFunction<
               CtPollConnectionMessageWideNative,
@@ -1013,6 +1042,8 @@ class CtFfiBindings {
   final CtConnectionSupportsFileSegmentsDart ctConnectionSupportsFileSegments;
   final CtFileSegmentMetricsSnapshotDart ctFileSegmentMetricsSnapshot;
   final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;
+  final CtE2eeCopyMetricsVersionDart? ctE2eeCopyMetricsVersion;
+  final CtE2eeCopyMetricsSnapshotDart? ctE2eeCopyMetricsSnapshot;
   final CtPollConnectionMessageDart ctPollConnectionMessage;
   final CtWaitConnectionMessageDart ctWaitConnectionMessage;
   final CtMessageGetDart ctMessageGet;

@@ -50,6 +50,7 @@ COPY_METRICS = (
     "websocket_mask_copy_bytes",
     "tls_copy_bytes",
     "transcode_copy_bytes",
+    "e2ee_copy_bytes",
 )
 
 
@@ -295,6 +296,8 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
         if isinstance(value, dict) and value.get("status") == "not_applicable":
             if key == "transport_copy_bytes":
                 missing.append(f"{label}: transport_copy_bytes cannot be not_applicable")
+            elif key == "e2ee_copy_bytes" and report.get("ppt_scheme") == "wamp":
+                missing.append(f"{label}: encrypted e2ee_copy_bytes cannot be not_applicable")
             elif not isinstance(value.get("reason"), str) or not value["reason"].strip():
                 missing.append(f"{label}: {key} not-applicable entry needs a reason")
         elif not isinstance(value, (int, float)) or isinstance(value, bool):
@@ -316,6 +319,15 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
             missing.append(
                 f"{label}: complete transport_copy_bytes coverage cannot have unknown boundaries"
             )
+    e2ee_copy_bytes = copy_metrics.get("e2ee_copy_bytes")
+    if isinstance(e2ee_copy_bytes, (int, float)) and not isinstance(e2ee_copy_bytes, bool):
+        breakdown = copy_metrics.get("e2ee_copy_breakdown")
+        if (
+            not isinstance(breakdown, dict)
+            or breakdown.get("coverage") != "complete_pipeline"
+            or breakdown.get("unknown_boundaries") != []
+        ):
+            missing.append(f"{label}: e2ee_copy_bytes requires complete pipeline coverage without unknown boundaries")
     return missing
 
 

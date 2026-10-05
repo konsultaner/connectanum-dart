@@ -5,14 +5,48 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The candidate builds on pushed code checkpoint `43693195` and status checkpoint
-`66908928`. It adds real-network external-loan terminal-path coverage. Fresh
-`bin/test-fast` and full `bin/verify` pass at exit 0, including Rust, Dart VM,
-live WAMP/router/consumer checks and Chrome Dart2Wasm (core 4,632 passed; client
-2,829 passed with 20 native-only skips). The actual macOS GuardMalloc loader
-passes all 62 observed ownership cases, including four external-network tests.
-Required hosted CI and package publish dry-runs for the resulting commit remain
-pending; no paired performance campaign or parity result exists.
+The candidate builds on pushed checkpoint `3f53a080` and includes CI repair
+`ecaa43d4` plus the native crypto staging follow-up below. Full `bin/verify`
+passes at exit 0, including Rust, Dart VM, live WAMP/router/consumer checks and
+Chrome Dart2Wasm (core 4,632 passed; client 2,829 passed with 20 native-only skips).
+macOS GuardMalloc passes all 66 observed ownership/crypto cases; all 141 recorded
+native/dependency source hashes still match. Required hosted CI and package
+publish dry-runs for the resulting commit remain pending. No paired performance
+campaign or parity result exists.
+
+## Native crypto staging and typed benchmark profiles (2026-10-05)
+
+XSalsa now constructs its unchanged nonce/tag/ciphertext wire format with detached
+in-place crypto. It avoids the previous payload shift and second output copy;
+copied decryption stages only the ciphertext body. An independent optional metrics
+ABI v1 records actual native plaintext/ciphertext staging, including authentication
+failures. Dart snapshots also count this runtime isolate's explicit crypto FFI
+copies. Unknown or older metric ABIs leave native fields unavailable safely.
+
+The benchmark worker and Rust orchestrator accept explicit typed FlatBuffers E2EE
+RPC/pub-sub with all three construction modes, select the matching Dart/native
+version-2 provider, and retain the existing CBOR default. Typed E2EE file transfer
+is rejected. Known staging counts remain a lower bound with explicit process and
+isolate scopes; serializer/framing, Dart crypto and other isolate bridges remain
+unmeasured. Encrypted rows retain `e2ee_copy_bytes=not_measured`; the declared
+comparison policy/evaluator rejects incomplete totals or an encrypted exemption.
+
+Four native crypto compatibility/copy-oracle tests pass on macOS and Linux arm64.
+Both platforms pass 82 native-provider tests and the two live 64 KiB encrypted
+typed RPC metric cases. Four benchmark metric tests, 65 runner tests and 15
+comparison tests pass. Full `bin/verify` also passes, including all 1,452 benchmark
+cases. Evidence: `/tmp/connectanum-flatbuffers-crypto-verify.log`,
+`/tmp/connectanum-flatbuffers-crypto-guardmalloc-final/report.json`, and
+`/tmp/connectanum-flatbuffers-crypto-linux-{native,provider,live}.log`.
+
+Earlier Linux CI at `b5ab660c` failed Full Verify and Dart VM Coverage because
+two native benchmark test files ignored the test-enabled artifact under
+`target/ffi-test/release` after the runner cleared `CONNECTANUM_NATIVE_LIB`.
+A clean Linux arm64 fixture reproduces the same five failures. Commit `ecaa43d4`
+resolves the artifact explicitly; all 14 focused cases then pass with no skips.
+The earlier Rust churn failure passed on retry. These are local repair results;
+hosted acceptance still needs the resulting feature head. Issues #100–#104 remain
+open, including SDK/TLS/transcode copy coverage and the missing paired campaign.
 
 ## External-loan terminal-path acceptance (2026-10-05)
 

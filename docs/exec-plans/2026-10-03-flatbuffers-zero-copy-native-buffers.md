@@ -7,13 +7,14 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The candidate builds on pushed code `43693195` and status checkpoint `66908928`
-on PR #105. Its real-network external-loan coverage passes fresh `bin/test-fast`,
-full `bin/verify` and 62 observed macOS GuardMalloc cases. Chrome Dart2Wasm passes
-4,632 core and 2,829 client cases, with 20 native-only skips. Issues #95–#99 are
-complete. Required hosted CI and publish dry-runs for the resulting commit remain
-pending. The existing transport-copy counters/evaluator provide attribution and
-fail-closed gates, but no paired performance campaign or parity result exists.
+The candidate builds on pushed `3f53a080`, with CI repair `ecaa43d4` and the
+native crypto staging follow-up below. Full `bin/verify` passes at exit 0;
+macOS GuardMalloc passes 66 observed cases with all 141 native/dependency source
+hashes matching. Chrome Dart2Wasm passes 4,632 core and 2,829 client cases, with
+20 native-only skips. Issues #95–#99 are complete. Required hosted CI and publish
+dry-runs for the resulting commit remain pending. Copy counters and the evaluator
+provide partial attribution and fail-closed gates; no paired performance campaign
+or parity result exists.
 
 ## Objective and scope
 
@@ -47,13 +48,52 @@ acceptance and evidence, not a claim that every feature is unimplemented.
 
 1. Inspect required hosted CI for the resulting feature commit; fix any failure
    before continuing feature or benchmark work.
-2. Complete #100/#101 acceptance, especially correctly attributed transformation
-   copies and routing/PPT/E2EE lifetime evidence.
+2. Complete #100/#101 acceptance, including crypto/serializer/transcode copies
+   beyond the measured native staging sites and routing/PPT/E2EE lifetime evidence.
 3. Complete #102/#104 hosted conformance, memory, artifact-consumer and release
    dry-run evidence without treating earlier commits as current-head acceptance.
 4. Finish #103 measurement coverage, the paired campaign runner and all declared
    performance rows. SDK/TLS/transcode copy gaps and absent campaign results
    remain blockers; do not weaken the parity or copy gates.
+
+## Native crypto staging and Linux CI repair (2026-10-05)
+
+Detached XSalsa preserves the existing nonce/tag/ciphertext bytes while removing
+the old payload shift and second output copy. Native ABI v1 metrics count the
+actual bulk staging sites separately from transport counters; Dart records the
+runtime isolate's crypto FFI copies. Existing AES wire behavior is unchanged,
+including its eligible consuming decrypt with no crypto staging copy. The report
+names process-wide native and isolate-local bridge scopes explicitly and keeps
+total E2EE coverage unmeasured. Optional symbols plus exact ABI version guard
+prevent calling an incompatible snapshot layout.
+
+Explicit typed FlatBuffers E2EE now reaches benchmark providers, construction
+groups and call/publish options instead of the former CBOR-only rules. Omitted
+serializers retain the CBOR profile; typed file transfer is rejected. Live 64 KiB
+native RPCs for both ciphers emit staging metrics on macOS and Linux arm64.
+Four native oracle/wire/error tests and 82 native-provider cases pass on each
+platform. The metric suite (4), runner suite (65) and comparator suite (15) pass.
+The comparator/policy requires E2EE evidence and rejects partial totals and false
+not-applicable exemptions. These correctness checks do not establish parity.
+
+Linux CI at `b5ab660c` failed five cases across two benchmark test files because
+their default library lookup omitted the CI `target/ffi-test/release` artifact.
+The Linux arm64 repro fails identically before `ecaa43d4` and passes all 14 focused
+cases after it, with no skips. Full local `bin/verify` passes, including 1,452
+benchmark cases and Chrome/Wasm. GuardMalloc passes all 66 cases; 141 recorded
+native/dependency inputs still match. Logs are
+`/tmp/connectanum-flatbuffers-crypto-verify.log`,
+`/tmp/connectanum-flatbuffers-crypto-guardmalloc-final/report.json`,
+`/tmp/connectanum-flatbuffers-crypto-linux-{native,provider,live}.log` and
+`/tmp/connectanum-flatbuffers-bench-native-path-linux-{repro,fixed}.log`.
+
+Narrow Qwen reviews completed; claimed tag-layout, failed-call counting, ABI and
+scope issues were checked against the source and direct tests. Tag insertion is
+explicit, failed calls count copies already performed, unknown versions never call
+the snapshot, and the mixed measurement scopes are labelled as a lower bound.
+The GLM advisory request did not finish and is not review acceptance. Remaining
+crypto/serializer/transcode and SDK/TLS measurement gaps, hosted CI, consumer
+artifacts and the paired performance campaign keep #100–#104 open.
 
 ## External-loan terminal-path acceptance (2026-10-05)
 

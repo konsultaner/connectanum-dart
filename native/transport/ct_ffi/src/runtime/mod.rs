@@ -6,6 +6,7 @@ mod owned_buffers;
 mod resource_handles;
 mod state;
 
+mod crypto_copy_metrics;
 mod external_lease_ffi;
 mod external_leases;
 mod write_receipts;
@@ -17,6 +18,7 @@ mod external_network_tests;
 mod resource_restart_tests;
 
 pub use constants::*;
+pub use crypto_copy_metrics::*;
 pub use external_lease_ffi::*;
 pub use ffi::*;
 pub use native_frames::*;
