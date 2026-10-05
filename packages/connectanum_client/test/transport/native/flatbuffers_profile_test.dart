@@ -14,6 +14,9 @@ import 'package:connectanum_client/src/transport/native/native_transports_io.dar
 import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
 import 'package:connectanum_core/cbor_serializer.dart' as cbor;
+import 'package:connectanum_core/connectanum_core.dart' as core;
+import 'package:connectanum_core/src/serializer/flatbuffers/generated/wamp_wamp.proto_generated.dart'
+    as wire;
 import 'package:test/test.dart';
 
 NativeOwnedBuffer _encodeNative(
@@ -89,6 +92,126 @@ void main() {
         expect(await peer.close(), [1, 48, 6]);
       } finally {
         await messages.cancel();
+        await client.close();
+        await peer.dispose();
+      }
+    },
+  );
+
+  test(
+    'native typed PPT cannot bypass the session profile state check',
+    () async {
+      final peer = await _Peer.start('anonymous');
+      final client = _FrameCountingNativeRawSocketTransport(peer);
+      NativeOwnedBuffer? owner;
+      try {
+        await client.open();
+        await client.onReady.timeout(const Duration(seconds: 5));
+        owner = _typedEntity(client.nativeBuffers, 51);
+        final call = Call(
+          1,
+          'com.entity.read',
+          options: CallOptions(
+            pptScheme: 'x_flatbuffers',
+            pptSerializer: 'flatbuffers',
+          ),
+        )..retainLazyPayload(owner.asFlatBuffersPptPayload());
+
+        expect(() => client.send(call), throwsStateError);
+        expect(client.nativeFrameSends, 0);
+        expect(owner.isDisposed, isFalse);
+      } finally {
+        owner?.dispose();
+        await client.close();
+        await peer.dispose();
+      }
+    },
+  );
+
+  test(
+    'Session sends native-owned typed FlatBuffers PPT as a retained frame',
+    () async {
+      final peer = await _Peer.start('ppt-echo');
+      final client = _FrameCountingNativeRawSocketTransport(peer);
+      NativeOwnedBuffer? typedOwner;
+      NativeOwnedBuffer? fallbackOwner;
+      try {
+        await client.open();
+        await client.onReady.timeout(const Duration(seconds: 5));
+        final session = await Session.start('realm', client);
+        typedOwner = _typedEntity(client.nativeBuffers, 51);
+        final typedBytes = typedOwner.bytes.toList(growable: false);
+        final typedResultFuture = session
+            .callLazyPayload(
+              'com.entity.read',
+              payload: typedOwner.asFlatBuffersPptPayload(),
+              options: CallOptions(
+                pptScheme: 'x_flatbuffers',
+                pptSerializer: 'flatbuffers',
+              ),
+            )
+            .first
+            .timeout(const Duration(seconds: 5));
+        typedOwner.dispose();
+        typedOwner = null;
+        final typedResult = await typedResultFuture;
+        expect(client.nativeFrameSends, 1);
+        expect(typedResult.arguments, [typedBytes]);
+
+        fallbackOwner = _typedEntity(client.nativeBuffers, 52);
+        final nestedBytes = fallbackOwner.bytes.toList(growable: false);
+        var nestedPayload = fallbackOwner.asFlatBuffersPptPayload();
+        for (var depth = 0; depth < 6; depth++) {
+          nestedPayload = core.LazyMessagePayload.packed(
+            encoding: core.LazyPayloadEncoding.flatbuffers,
+            packedPayloadBytes: nestedPayload.packedPayloadBytes!,
+            packedPayloadDecoder: (bytes) => (
+              arguments: <dynamic>[bytes],
+              argumentsKeywords: null,
+            ),
+            anchor: nestedPayload,
+          );
+        }
+        final nestedResultFuture = session
+            .callLazyPayload(
+              'com.entity.read',
+              payload: nestedPayload,
+              options: CallOptions(
+                pptScheme: 'x_flatbuffers',
+                pptSerializer: 'flatbuffers',
+              ),
+            )
+            .first
+            .timeout(const Duration(seconds: 5));
+        fallbackOwner.dispose();
+        fallbackOwner = null;
+        final nestedResult = await nestedResultFuture;
+        expect(client.nativeFrameSends, 2);
+        expect(nestedResult.arguments, [nestedBytes]);
+
+        fallbackOwner = _typedEntity(client.nativeBuffers, 53);
+        final fallbackBytes = fallbackOwner.bytes.toList(growable: false);
+        final fallbackResult = await session
+            .callLazyPayload(
+              'com.entity.read',
+              payload: fallbackOwner.asFlatBuffersPptPayload(),
+              options: CallOptions(
+                pptScheme: 'x_flatbuffers',
+                pptSerializer: 'cbor',
+              ),
+            )
+            .first
+            .timeout(const Duration(seconds: 5));
+        fallbackOwner.dispose();
+        expect(client.nativeFrameSends, 2);
+        expect(fallbackResult.arguments, [fallbackBytes]);
+
+        await session.close();
+        await session.onGoodbye.timeout(const Duration(seconds: 5));
+        expect(await peer.close(), [1, 48, 48, 48, 6]);
+      } finally {
+        typedOwner?.dispose();
+        fallbackOwner?.dispose();
         await client.close();
         await peer.dispose();
       }
@@ -320,6 +443,36 @@ Future<Stream<AbstractMessage?>> _open(NativeRawSocketTransport client) async {
   return client.receive();
 }
 
+NativeOwnedBuffer _typedEntity(NativeBufferAllocator allocator, int request) =>
+    allocator.buildFlatBuffer(
+      wire.MessageObjectBuilder(
+        msgType: wire.AnyMessageTypeId.Call,
+        msg: wire.CallObjectBuilder(
+          request: request,
+          procedure: 'com.example.entity',
+        ),
+      ),
+      initialSize: 128,
+    );
+
+class _FrameCountingNativeRawSocketTransport extends NativeRawSocketTransport {
+  _FrameCountingNativeRawSocketTransport(_Peer peer)
+    : super(
+        '127.0.0.1',
+        peer.port,
+        flat.Serializer(),
+        SocketHelper.serializationFlatBuffers,
+      );
+
+  int nativeFrameSends = 0;
+
+  @override
+  void sendNativeFrame(NativeFlatBufferFrame frame, {bool transfer = false}) {
+    nativeFrameSends++;
+    super.sendNativeFrame(frame, transfer: transfer);
+  }
+}
+
 class _Peer {
   _Peer(
     this.isolate,
@@ -442,7 +595,7 @@ Future<void> _peerMain(Map<String, Object?> config) async {
               profile = profile.acceptIncoming(message);
             }
             if (message is Hello) {
-              if (scenario == 'anonymous') {
+              if (scenario == 'anonymous' || scenario == 'ppt-echo') {
                 write(Welcome(42, Details.forWelcome()));
               } else {
                 write(
@@ -456,13 +609,26 @@ Future<void> _peerMain(Map<String, Object?> config) async {
                 acknowledge: scenario != 'missing-welcome',
               );
             } else if (message is Call) {
-              write(
-                Result(
+              if (scenario == 'ppt-echo') {
+                final result = Result(
                   message.requestId,
-                  ResultDetails(),
+                  ResultDetails(
+                    pptScheme: message.options?.pptScheme,
+                    pptSerializer: message.options?.pptSerializer,
+                  ),
                   arguments: message.arguments,
-                ),
-              );
+                  argumentsKeywords: message.argumentsKeywords,
+                )..transparentBinaryPayload = message.transparentBinaryPayload;
+                write(result);
+              } else {
+                write(
+                  Result(
+                    message.requestId,
+                    ResultDetails(),
+                    arguments: message.arguments,
+                  ),
+                );
+              }
             } else if (message is Goodbye) {
               write(Goodbye(null, 'wamp.close.goodbye_and_out'));
             }

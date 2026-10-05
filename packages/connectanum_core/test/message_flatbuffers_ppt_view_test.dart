@@ -93,6 +93,23 @@ void main() {
     expect(payload.withAnchor(owner), same(payload));
   });
 
+  test('storage owner survives caller-anchor replacement', () {
+    final owner = Object();
+    final callerAnchor = Object();
+    final bytes = Uint8List.fromList([1, 2, 3]);
+    final payload = LazyMessagePayload.packed(
+      encoding: LazyPayloadEncoding.flatbuffers,
+      packedPayloadBytes: bytes,
+      packedPayloadDecoder: (_) => (arguments: null, argumentsKeywords: null),
+      anchor: owner,
+    );
+
+    final reanchored = payload.withAnchor(callerAnchor);
+
+    expect(reanchored.anchor, same(callerAnchor));
+    expect(reanchored.storageOwner, same(owner));
+  });
+
   for (final representation in [
     'encoded arguments without decoder',
     'encoded keywords without decoder',

@@ -5,30 +5,40 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-## Typed FlatBuffers fixture work (2026-10-05)
+## Session native-owned typed FlatBuffers PPT path (2026-10-05)
 
-The current worktree adds a worker/iteration/body schema, deterministic Dart and
-native FlatBuffers builders, and twelve live typed-PPT echo cases across
-RawSocket/WebSocket, Dart/native callers, and CBOR/MessagePack/FlatBuffers WAMP
-envelopes. Native WebSocket callers run in a separate isolate so their handshake
-does not contend with the Dart callee. A pinned generator and CI stale-binding
-check cover the checked-in Dart reader. `bin/test-fast` passes on this worktree;
-package analysis, generated-binding check, codec tests, and the twelve-case live
-matrix pass. The typed fixture is correctness evidence only: benchmark-runner
-construction groups, measured parity, and hosted performance gates are still
-missing, so issue #103 remains open. Full `bin/verify` is pending for this
-worktree.
+`NativeOwnedBuffer.asFlatBuffersPptPayload()` now lets an application pass an
+already encoded typed FlatBuffer to `Session.callLazyPayload` or
+`Session.publishLazyPayload`. On an established native FlatBuffers session, an
+opaque typed PPT CALL/PUBLISH retains the exact frozen payload owner in a
+composed native frame. Profile checks run before the fast path; only the WAMP
+control envelope is rebuilt. The normal path remains for transparent WAMP
+payloads, other serializers, encrypted PPT and ineligible payloads. This keeps
+application payload bytes out of Dart serialization buffers on the eligible
+path; later transport framing, masking, TLS or encryption may still copy.
+
+RawSocket and WebSocket integration tests verify nested lazy-owner anchors,
+session/profile enforcement and immediate disposal of the caller's buffer after
+queueing. Core tests verify control-only FlatBuffers encoding does not read the
+lazy application payload. Both `bin/test-fast` and full `bin/verify` pass on
+this candidate, including Chrome WebAssembly and live WAMP integration. These
+are correctness and ownership results, not end-to-end throughput evidence; no
+FlatBuffers-versus-CBOR/MessagePack parity result is accepted, so issue #103
+remains open. All ten milestone issues remain open pending their acceptance
+evidence.
 
 ## Checkout and authorization
 
-The managed worktree uses `codex/flatbuffers-zero-copy`; its latest pushed checkpoint is
-`dc33fcc6ce216469c8818b919ce003543ea74091`, following `3b5927f1`. Exact-head
-hosted checks for this checkpoint are pending. It started at `54eafc5f` and
-integrates released master `3bac4cf5`. The primary checkout's independent work
-remains untouched. Feature commits, pushes and draft PR updates are authorized;
-releases, version bumps, publication and merging master are not authorized.
-Actual ObjectBox integration belongs in a separate adapter. Core provides generic
-memory contracts. The earlier coverage/mutation objective is deferred.
+The managed worktree uses `codex/flatbuffers-zero-copy`; its latest pushed
+checkpoint is `274df37c`, following `152898d7`. Two exact-head hosted runs report
+Fast Checks failures on that checkpoint while their wider CI runs continue; the
+newer local candidate passes `bin/test-fast` and `bin/verify`, and needs fresh
+hosted evidence after push. It started at `54eafc5f` and integrates released
+master `3bac4cf5`. The primary checkout's independent work remains untouched.
+Feature commits, pushes and draft PR updates are authorized; releases, version
+bumps, publication and merging master are not authorized. Actual ObjectBox
+integration belongs in a separate adapter. Core provides generic memory
+contracts. The earlier coverage/mutation objective is deferred.
 
 ## Accepted deferred Session checkpoint (0cf9e65e)
 

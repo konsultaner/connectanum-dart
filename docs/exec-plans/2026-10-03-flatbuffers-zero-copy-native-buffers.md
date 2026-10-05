@@ -7,14 +7,17 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Latest pushed checkpoint: `152898d7`, following functional checkpoint `dc33fcc6`.
-Independent negotiated-profile peer, GuardMalloc, five-platform artifact and
-package publish dry-runs pass for earlier checkpoints; platform execution and
-publication remain separate evidence. The current uncommitted follow-up adds a
-typed benchmark fixture and pinned generator. Its focused checks and
-`bin/test-fast` pass; `bin/verify` remains pending. This validates the typed
-payload path, not its benchmark-runner construction groups or performance parity.
-Exact-head hosted checks and issue #103's performance comparison remain open.
+Latest pushed checkpoint: `274df37c`, following `152898d7` and functional
+checkpoint `dc33fcc6`. Independent negotiated-profile peer, GuardMalloc,
+five-platform artifact and package publish dry-runs pass for earlier
+checkpoints; platform execution and publication remain separate evidence. The
+current uncommitted follow-up adds a native Session fast path for already
+encoded typed FlatBuffers PPT payloads over RawSocket and WebSocket. Both
+`bin/test-fast` and full `bin/verify` pass locally, including Chrome WebAssembly
+and live WAMP integration. Two hosted Fast Checks jobs failed on the preceding
+`274df37c` head; fresh exact-head hosted checks are needed after this candidate
+is pushed. These results establish correctness and ownership, not measured
+performance parity or issue acceptance.
 
 ## Objective and scope
 
@@ -332,3 +335,29 @@ See [the updated acceptance contract](../flatbuffers_performance_acceptance.md)
 and [bench usage](../../packages/connectanum_bench/README.md). `bin/verify`
 passes at exit 0 on 2026-10-05. No paired campaign, memory/CPU gate or performance
 parity result exists. The runner stage does not accept issue #103 or the milestone.
+
+## Session native-owned typed FlatBuffers PPT path (2026-10-05)
+
+`NativeOwnedBuffer.asFlatBuffersPptPayload()` can be passed to
+`Session.callLazyPayload` or `Session.publishLazyPayload` with matching opaque
+FlatBuffers PPT options. Once a native FlatBuffers session is established, the
+CALL/PUBLISH fast path accepts only a nonempty non-`wamp` PPT scheme, the
+`flatbuffers` application serializer, and no PPT cipher or key ID. It confirms
+that the exact packed byte view still belongs to a frozen `NativeOwnedBuffer`,
+then emits a control-only FlatBuffers envelope and composes the encoded
+application bytes as a retained opaque frame span. `FlatBuffersSessionProfile`
+preflight still runs before fast-path selection; `sendNativeFrame` validates and
+commits the profile through the envelope. Other message shapes use normal
+serialization.
+
+Cycle-safe traversal follows nested `LazyMessagePayload` storage owners and
+anchors. Queueing retains the native allocation through asynchronous native
+frame submission, so tests dispose the caller's owner as soon as Session send
+returns and still receive the correct response. RawSocket and WebSocket session
+integration, a deep nested-anchor case, transparent CBOR fallback, and
+control-only writer behavior pass. Ordinary Dart-backed payloads retain their
+copying serializer path. This avoids passing the application bytes through a
+Dart serialization buffer for eligible messages, but does not claim that later
+WebSocket masking, TLS, encryption or platform output stages avoid copies. No
+benchmark parity is inferred. `bin/test-fast` and `bin/verify` pass at exit 0 on
+this candidate; previous-head hosted failures still need fresh exact-head CI.

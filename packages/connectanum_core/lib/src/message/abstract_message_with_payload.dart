@@ -176,6 +176,13 @@ class LazyMessagePayload {
   /// owner, even when this anchor is replaced or cleared.
   final Object? anchor;
 
+  /// The object whose lifetime keeps the storage backing this view valid.
+  ///
+  /// This can differ from [anchor] when the caller anchor changes but the view
+  /// still refers to the original encoded storage. Native transports use this
+  /// ownership reference when retaining encoded spans for asynchronous work.
+  Object? get storageOwner => _storageAnchor;
+
   // Retain the first storage owner directly rather than growing a chain for
   // every routing or metadata view. Owned copies deliberately omit it.
   final Object? _storageAnchor;

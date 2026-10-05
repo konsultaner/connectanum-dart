@@ -8,10 +8,13 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_buffers.dart';
+import 'package:connectanum_client/connectanum.dart' show Session;
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
     as native;
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
+import 'package:connectanum_core/src/serializer/flatbuffers/generated/wamp_wamp.proto_generated.dart'
+    as wire;
 import 'package:test/test.dart';
 import 'package:crypto/crypto.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
@@ -129,6 +132,7 @@ Future<void> _server(List<Object?> startup) async {
             final scenario = config['scenario'];
             if (message is core.Hello) {
               if (scenario == 'anonymous' ||
+                  scenario == 'ppt-echo' ||
                   scenario == 'fragmented-incoming') {
                 send(core.Welcome(42, core.Details.forWelcome()));
               } else {
@@ -154,6 +158,17 @@ Future<void> _server(List<Object?> startup) async {
                     'wamp.error.no_such_procedure',
                   ),
                 );
+              } else if (scenario == 'ppt-echo') {
+                final result = core.Result(
+                  message.requestId,
+                  core.ResultDetails(
+                    pptScheme: message.options?.pptScheme,
+                    pptSerializer: message.options?.pptSerializer,
+                  ),
+                  arguments: message.arguments,
+                  argumentsKeywords: message.argumentsKeywords,
+                )..transparentBinaryPayload = message.transparentBinaryPayload;
+                send(result);
               } else {
                 if (message.options?.receiveProgress == true) {
                   send(
@@ -365,6 +380,72 @@ void main() {
       );
     }
   }
+  _nativePptSessionTest(library);
+}
+
+void _nativePptSessionTest(String library) {
+  test(
+    'native FlatBuffers WebSocket Session retains a typed PPT frame after caller disposal',
+    () async {
+      final peer = await _Peer.start(false, 'ppt-echo');
+      final channel = _FrameCountingNativeWebSocketTransport(peer, library);
+      NativeOwnedBuffer? earlyOwner;
+      NativeOwnedBuffer? typedOwner;
+      Session? session;
+      try {
+        await channel.open();
+        await channel.onReady.timeout(_deadline);
+        expect(
+          await peer.selected.future.timeout(_deadline),
+          'wamp.2.flatbuffers',
+        );
+
+        earlyOwner = _typedEntity(channel.nativeBuffers, 51);
+        final earlyCall = core.Call(
+          1,
+          'com.entity.read',
+          options: core.CallOptions(
+            pptScheme: 'x_flatbuffers',
+            pptSerializer: 'flatbuffers',
+          ),
+        )..retainLazyPayload(earlyOwner.asFlatBuffersPptPayload());
+        expect(() => channel.send(earlyCall), throwsStateError);
+        expect(channel.nativeFrameSends, 0);
+        earlyOwner.dispose();
+        earlyOwner = null;
+
+        session = await Session.start('realm', channel);
+        typedOwner = _typedEntity(channel.nativeBuffers, 52);
+        final expected = typedOwner.bytes.toList(growable: false);
+        final resultFuture = session
+            .callLazyPayload(
+              'com.entity.read',
+              payload: typedOwner.asFlatBuffersPptPayload(),
+              options: core.CallOptions(
+                pptScheme: 'x_flatbuffers',
+                pptSerializer: 'flatbuffers',
+              ),
+            )
+            .first
+            .timeout(_deadline);
+        typedOwner.dispose();
+        typedOwner = null;
+
+        final result = await resultFuture;
+        expect(channel.nativeFrameSends, 1);
+        expect(result.arguments, [expected]);
+        await session.close();
+        await session.onGoodbye.timeout(_deadline);
+      } finally {
+        earlyOwner?.dispose();
+        typedOwner?.dispose();
+        await channel.close().timeout(_deadline);
+        await peer.dispose();
+      }
+      expect(peer.errors, isEmpty);
+      expect(peer.codes, [1, 48, 6]);
+    },
+  );
 }
 
 void _nativeComposedTests(String library) {
@@ -485,6 +566,18 @@ void _nativeComposedTests(String library) {
   }
 }
 
+NativeOwnedBuffer _typedEntity(NativeBufferAllocator allocator, int request) =>
+    allocator.buildFlatBuffer(
+      wire.MessageObjectBuilder(
+        msgType: wire.AnyMessageTypeId.Call,
+        msg: wire.CallObjectBuilder(
+          request: request,
+          procedure: 'com.example.entity',
+        ),
+      ),
+      initialSize: 128,
+    );
+
 class _GatedTransport extends native.NativeWebSocketTransport {
   _GatedTransport(
     String url,
@@ -513,6 +606,30 @@ class _GatedTransport extends native.NativeWebSocketTransport {
     }
     await gate.future;
     return id ?? await super.openNativeConnection(pingInterval);
+  }
+}
+
+class _FrameCountingNativeWebSocketTransport
+    extends native.NativeWebSocketTransport {
+  _FrameCountingNativeWebSocketTransport(_Peer peer, String library)
+    : super(
+        'ws://127.0.0.1:${peer.port}/ws',
+        flat.Serializer(),
+        'wamp.2.flatbuffers',
+        null,
+        false,
+        library,
+      );
+
+  int nativeFrameSends = 0;
+
+  @override
+  void sendNativeFrame(
+    NativeFlatBufferFrame frame, {
+    bool transfer = false,
+  }) {
+    nativeFrameSends++;
+    super.sendNativeFrame(frame, transfer: transfer);
   }
 }
 

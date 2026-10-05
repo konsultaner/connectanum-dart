@@ -9,6 +9,8 @@ import 'dart:typed_data';
 import 'package:connectanum_client/connectanum.dart';
 import 'package:connectanum_client/native_buffers.dart';
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+import 'package:connectanum_core/src/serializer/flatbuffers/generated/wamp_wamp.proto_generated.dart'
+    as wire;
 import 'package:test/test.dart';
 
 void main() {
@@ -77,6 +79,32 @@ void main() {
     );
     frame.dispose();
   });
+
+  test(
+    'native FlatBuffers PPT view retains the exact native payload owner',
+    () {
+      final owner = allocator.buildFlatBuffer(
+        wire.MessageObjectBuilder(
+          msgType: wire.AnyMessageTypeId.Call,
+          msg: wire.CallObjectBuilder(request: 17, procedure: 'com.entity'),
+        ),
+        initialSize: 128,
+      );
+      final payload = owner.asFlatBuffersPptPayload();
+      final bytes = payload.packedPayloadBytes!;
+      expect(owner.inputCopiedBytes, 0);
+      expect(payload.encoding, LazyPayloadEncoding.flatbuffers);
+      expect(payload.anchor, isA<({Object buffer, Uint8List bytes})>());
+      final anchor = payload.anchor! as ({Object buffer, Uint8List bytes});
+      expect(anchor.buffer, same(owner));
+      expect(anchor.bytes, same(bytes));
+      expect(payload.arguments, hasLength(1));
+      expect(payload.arguments!.single, same(bytes));
+      expect(wire.Message(bytes).msg, isA<wire.Call>());
+      owner.dispose();
+      expect(wire.Message(bytes).msg, isA<wire.Call>());
+    },
+  );
 
   test(
     'native frame finalizers release payload before independent control view',

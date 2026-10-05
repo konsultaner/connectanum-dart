@@ -18,6 +18,7 @@ import '../abstract_transport.dart';
 import '../socket/socket_helper.dart';
 import '../websocket/websocket_transport_serialization.dart';
 import 'e2ee_file_segment.dart';
+import 'flatbuffers_payload_anchor.dart';
 import 'message_binding.dart';
 import 'message_protocol.dart';
 import 'runtime.dart';
@@ -144,6 +145,105 @@ abstract class _NativeTransportBase extends AbstractTransport
   ) {
     _flatBuffersProfile = profile;
     if (message is Goodbye) _goodbyeSent = true;
+  }
+
+  bool _sendNativeFlatBufferPptPayload(
+    AbstractMessage message,
+  ) {
+    if (_nativeSerializer != NativeMessageSerializer.flatbuffers ||
+        !nativeBuffers.supportsFlatBufferFrames ||
+        message is! AbstractMessageWithPayload) {
+      return false;
+    }
+    final (scheme, serializer, cipher, keyId) = switch (message) {
+      Call(:final options) => (
+        options?.pptScheme,
+        options?.pptSerializer,
+        options?.pptCipher,
+        options?.pptKeyId,
+      ),
+      Publish(:final options) => (
+        options?.pptScheme,
+        options?.pptSerializer,
+        options?.pptCipher,
+        options?.pptKeyId,
+      ),
+      _ => (null, null, null, null),
+    };
+    if (scheme == null ||
+        scheme.isEmpty ||
+        scheme == 'wamp' ||
+        serializer != 'flatbuffers' ||
+        cipher != null ||
+        keyId != null) {
+      return false;
+    }
+
+    final payloadOwner = _nativeFlatBufferPayloadOwner(
+      message.toLazyPayload(),
+    );
+    if (payloadOwner == null) {
+      return false;
+    }
+    try {
+      nativeBuffers.validateFrozenBuffer(payloadOwner);
+    } on ArgumentError {
+      return false;
+    } on StateError {
+      return false;
+    } on UnsupportedError {
+      return false;
+    }
+
+    final builder = nativeBuffers.flatBuffers(initialSize: 1024);
+    NativeOwnedBuffer? control;
+    late final NativeFlatBufferFrame frame;
+    try {
+      builder.finish(
+        flatbuffers.writeWampFlatBufferMessage(
+          message,
+          builder,
+          includeApplicationPayload: false,
+        ),
+      );
+      control = builder.freeze();
+      frame = nativeBuffers.composeFlatBufferFrame(
+        control,
+        opaquePayload: payloadOwner,
+      );
+    } finally {
+      builder.dispose();
+      control?.dispose();
+    }
+    try {
+      sendNativeFrame(frame, transfer: true);
+      return true;
+    } finally {
+      frame.dispose();
+    }
+  }
+
+  NativeOwnedBuffer? _nativeFlatBufferPayloadOwner(
+    LazyMessagePayload payload,
+  ) {
+    final seen = HashSet<LazyMessagePayload>.identity();
+    Object? owner = payload.storageOwner ?? payload.anchor;
+    var current = payload;
+    while (seen.add(current)) {
+      final packed = current.packedPayloadBytes;
+      if (current.encoding == LazyPayloadEncoding.flatbuffers &&
+          packed != null) {
+        if (owner is NativeFlatBufferPptOwnerAnchor &&
+            owner.buffer is NativeOwnedBuffer &&
+            identical(packed, owner.bytes)) {
+          return owner.buffer as NativeOwnedBuffer;
+        }
+      }
+      if (owner is! LazyMessagePayload) return null;
+      current = owner;
+      owner = current.storageOwner ?? current.anchor;
+    }
+    return null;
   }
 
   Future<int> openNativeConnection(Duration? pingInterval);
@@ -358,6 +458,7 @@ abstract class _NativeTransportBase extends AbstractTransport
       throw StateError('Transport is not connected.');
     }
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
+    if (_sendNativeFlatBufferPptPayload(message)) return;
     final fragments = _serializer.serializeFragments(message);
     if (fragments != null &&
         _runtime.trySendMessageSegments(connectionId, fragments)) {
@@ -1146,6 +1247,7 @@ class NativeWebSocketTransport extends _NativeTransportBase
       throw StateError('Transport is not connected.');
     }
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
+    if (_sendNativeFlatBufferPptPayload(message)) return;
     final fragments = _serializer.serializeFragments(message);
     if (fragments != null &&
         _runtime.trySendMessageSegments(

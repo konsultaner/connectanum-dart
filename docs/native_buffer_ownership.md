@@ -47,6 +47,25 @@ composition then supplies the external opaque span. A frame has no implicit
 contiguous byte getter. Its control view
 has its own owner, and application spans retain their independent allocations.
 
+For Session sends, call `NativeOwnedBuffer.asFlatBuffersPptPayload()` and pass
+that lazy payload to `Session.callLazyPayload` or
+`Session.publishLazyPayload` with matching opaque FlatBuffers PPT options. An
+established native FlatBuffers transport can then reuse the exact frozen
+application span for eligible CALL/PUBLISH messages, rebuilding only the
+control envelope and retaining the payload in a native frame. The fast path
+requires a nonempty PPT scheme other than the reserved `wamp` transparent mode,
+`pptSerializer: 'flatbuffers'`, and no PPT cipher or key ID. It also validates
+the negotiated session profile before submission. Other payloads continue
+through the regular serializer. The payload schema and its identity remain the
+application's responsibility.
+
+The native frame retains its input owners after queue acceptance and through
+the asynchronous write. The caller may dispose its own buffer handle after the
+Session send call returns; the frame's retained handle remains valid. This path
+avoids materializing the encoded payload in a Dart serialization buffer. It
+does not promise that WebSocket masking, TLS or other lower transport stages
+avoid their own copies.
+
 | Operation | Caller ownership |
 | --- | --- |
 | Freeze a writable buffer | Writes stop; the returned immutable owner holds the allocation. |
@@ -118,6 +137,7 @@ evaluates the loader and copies the resulting graph.
 | Native construction | Writes in native storage; growth copies are reported separately. |
 | Immutable native frame composition | Retains application spans without flattening them; control assembly still writes bytes. |
 | Owned/native frame submission | Transfers or retains ownership without a Dart-to-native application copy. |
+| Session typed FlatBuffers PPT send from a frozen native owner | Reuses the exact application span in a retained native frame; only the FlatBuffers control envelope is rebuilt. |
 | Ordinary Dart native send, including segmented send | Copies each supplied Dart segment into native storage. |
 | Lazy receive/routing metadata access | Keeps encoded application views; reading application values can materialize them. |
 | Native segmented routing/forwarding | Retains native application spans; mixed encodings may require conversion. |

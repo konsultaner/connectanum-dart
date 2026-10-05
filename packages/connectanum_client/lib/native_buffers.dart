@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
+import 'package:connectanum_core/connectanum_core.dart'
+    show LazyMessagePayload, LazyPayloadEncoding;
 import 'package:ffi/ffi.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 
@@ -741,6 +743,29 @@ final class NativeOwnedBuffer implements ffi.Finalizable {
   }
 
   void dispose() => _handle.dispose();
+}
+
+extension NativeOwnedBufferFlatBuffersPpt on NativeOwnedBuffer {
+  /// Makes this already encoded FlatBuffer usable as a typed WAMP PPT payload.
+  ///
+  /// Pass the result to `Session.callLazyPayload` or
+  /// `Session.publishLazyPayload` with matching FlatBuffers PPT options. Native
+  /// transports can then retain this allocation as the opaque payload span;
+  /// other transports use the same read-only bytes through their normal path.
+  /// The application owns schema identity and validation.
+  LazyMessagePayload asFlatBuffersPptPayload() {
+    _handle.check();
+    final bytes = this.bytes;
+    return LazyMessagePayload.packed(
+      encoding: LazyPayloadEncoding.flatbuffers,
+      packedPayloadBytes: bytes,
+      packedPayloadDecoder: (bytes) => (
+        arguments: <dynamic>[bytes],
+        argumentsKeywords: null,
+      ),
+      anchor: (buffer: this, bytes: bytes),
+    );
+  }
 }
 
 /// Writes initialized native memory without exposing mutable typed-data views.

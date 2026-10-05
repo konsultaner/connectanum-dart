@@ -18,6 +18,7 @@ int writeWampFlatBufferMessage(
   FlatBufferByteVectorReference? argumentsVector,
   FlatBufferByteVectorReference? argumentsKeywordsVector,
   FlatBufferByteVectorReference? payloadVector,
+  bool includeApplicationPayload = true,
 }) {
   final projection = projectWampFlatBufferMessage(message);
   final fields = projection.fields;
@@ -30,6 +31,16 @@ int writeWampFlatBufferMessage(
     );
   }
   if (message is AbstractMessageWithPayload) {
+    if (!includeApplicationPayload) {
+      if (argumentsVector != null ||
+          argumentsKeywordsVector != null ||
+          payloadVector != null) {
+        throw ArgumentError(
+          'A control-only message cannot include application vectors',
+        );
+      }
+      return writeWampFlatBufferFields(fields, builder);
+    }
     final lazy = message.toLazyPayload();
     final payload =
         payloadVector ??

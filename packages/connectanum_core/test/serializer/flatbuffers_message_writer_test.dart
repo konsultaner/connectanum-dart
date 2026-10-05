@@ -323,6 +323,44 @@ void main() {
     expect(result.pptSerializer.value, 6);
   });
 
+  test(
+    'control-only writes preserve PPT metadata without reading payloads',
+    () {
+      final call =
+          Call(
+            1,
+            'com.proc',
+            options: CallOptions(
+              pptScheme: 'opaque',
+              pptSerializer: 'flatbuffers',
+            ),
+          )..setLazyPayload(
+            argumentsBytes: Uint8List.fromList([0x80]),
+            argumentsDecoder: (_) =>
+                throw StateError('Unexpected materialization'),
+            encoding: LazyPayloadEncoding.cbor,
+          );
+      final builder = WampFlatBufferBuilder(initialSize: 64);
+      builder.finish(
+        writeWampFlatBufferMessage(
+          call,
+          builder,
+          includeApplicationPayload: false,
+        ),
+      );
+      validateWampFlatBuffer(builder.buffer);
+      final decoded = wire.Message(builder.buffer);
+      final message = decoded.msg as wire.Call;
+      expect(message.args, isNull);
+      expect(message.kwargs, isNull);
+      expect(message.payload, isNull);
+      expect(metadata(decoded), {
+        'ppt_scheme': 'opaque',
+        'ppt_serializer': 'flatbuffers',
+      });
+    },
+  );
+
   test('invalid types, IDs and unsupported messages are rejected', () {
     expect(
       () => encode(
