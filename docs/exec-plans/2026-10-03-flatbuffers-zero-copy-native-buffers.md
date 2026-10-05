@@ -7,19 +7,20 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Latest functional checkpoint: `f569e9b4`, pushed to PR #105 after `274df37c`,
-`152898d7` and functional checkpoint `dc33fcc6`. Independent negotiated-profile
-peer, GuardMalloc, five-platform artifact and package publish dry-runs pass for
-earlier checkpoints; platform execution and publication remain separate
-evidence. This checkpoint adds a native Session fast path for already encoded
-typed FlatBuffers PPT payloads over RawSocket and WebSocket. Both
-`bin/test-fast` and full `bin/verify` pass on that checkpoint, including Chrome
-WebAssembly and live WAMP integration. The current local follow-up connects the
-benchmark runner's `native_buffer` and `pre_encoded_span` FlatBuffers PPT cases
-to that Session path. Its `bin/test-fast` passes; full verification and fresh
-exact-head hosted checks are pending. Two hosted Fast Checks jobs failed on the
-preceding `274df37c` head. These results establish correctness and ownership,
-not measured performance parity or issue acceptance.
+Latest implementation checkpoint: `9620cfbe`, pushed to PR #105 after
+`f569e9b4`, `274df37c`, `152898d7` and `dc33fcc6`. It connects the benchmark
+runner's `native_buffer` and `pre_encoded_span` FlatBuffers PPT cases to the
+native Session span path. Both `bin/test-fast` and full `bin/verify` pass on
+`9620cfbe`, including Chrome WebAssembly, live WAMP integration and consumer
+smoke checks. Fresh exact-head hosted checks for `9620cfbe` were queued at the
+last observation. Earlier independent negotiated-profile, GuardMalloc,
+five-platform artifact and package publish dry-runs remain separate evidence.
+Two hosted Fast Checks jobs failed on the preceding `274df37c` head. A local
+follow-up adds an external C producer's delayed native-send lifetime proof for
+#97. The focused test, `bin/test-fast` and full `bin/verify` pass on the current
+working tree; its fresh exact-head hosted checks remain pending until this
+follow-up is pushed. These results establish correctness and ownership, not
+measured performance parity or issue acceptance.
 
 ## Objective and scope
 
@@ -385,3 +386,16 @@ current candidate, including Chrome WebAssembly and hosted consumer smoke tests.
 Fresh exact-head hosted CI remains pending. This is correctness evidence only:
 no timed comparisons or complete copy, CPU, memory or parity results exist, so
 issue #103 stays open.
+
+## External producer lease through a delayed native send (2026-10-05)
+
+The external C producer fixture now emits a deterministic 15 MiB byte pattern
+from its owner thread. A test peer runs in a separate Dart isolate because the
+native RawSocket connect/handshake call blocks the caller isolate. It completes
+the handshake, pauses reads until the native write receipt is observed pending,
+then resumes and validates the complete RawSocket frame byte-for-byte. The test
+asserts that the producer lease remains live during backpressure and is released
+exactly once on its owner thread after write completion. The focused test passes;
+`bin/test-fast` and full `bin/verify` also pass. Fresh hosted evidence for this
+follow-up is pending. This supplies a real-send lifetime oracle for #97 without
+closing that issue's remaining acceptance criteria.

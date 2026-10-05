@@ -284,6 +284,62 @@ void main() {
   );
 
   test(
+    'C producer lease survives a delayed native write and releases on its owner thread',
+    () async {
+      final source = await Isolate.resolvePackageUri(
+        Uri.parse('package:connectanum_client/native_buffers.dart'),
+      );
+      final support = source!.resolve('../test/transport/native/support/');
+      final directory = await Directory.systemTemp.createTemp(
+        'connectanum-lease-send-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final output =
+          '${directory.path}/actor.${Platform.isMacOS ? 'dylib' : 'so'}';
+      final compiled = await Process.run('cc', [
+        Platform.isMacOS ? '-dynamiclib' : '-shared',
+        '-fPIC',
+        '-pthread',
+        '-Wall',
+        '-Wextra',
+        '-Werror',
+        '-o',
+        output,
+        support.resolve('external_lease_actor_fixture.c').toFilePath(),
+      ]);
+      expect(
+        compiled.exitCode,
+        0,
+        reason: '${compiled.stdout}\n${compiled.stderr}',
+      );
+      final result = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          '--enable-vm-service=0',
+          '--disable-service-auth-codes',
+          'run',
+          support.resolve('external_lease_send_probe.dart').toFilePath(),
+          output,
+        ],
+        environment: {
+          'CONNECTANUM_NATIVE_LIB': NativeClientRuntime.instance().libraryPath,
+        },
+      );
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      expect(
+        result.stdout,
+        contains(
+          'external-lease-send: delayed native write preserved bytes and released once on owner thread',
+        ),
+      );
+    },
+    skip: Platform.isWindows
+        ? 'Native verification uses Unix C toolchains'
+        : false,
+    timeout: const Timeout(Duration(seconds: 75)),
+  );
+
+  test(
     'collected write receipts return capacity without cancelling sends',
     () async {
       final source = await Isolate.resolvePackageUri(

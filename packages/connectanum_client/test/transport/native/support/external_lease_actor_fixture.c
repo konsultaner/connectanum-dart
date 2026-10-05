@@ -24,6 +24,8 @@ typedef struct {
   Register register_buffer;
   BufferToken token;
   uint8_t *bytes;
+  size_t byte_capacity, byte_offset, byte_length;
+  int patterned;
   int ready_flag, error, stop, stopped, released, wrong_thread;
 } Actor;
 
@@ -39,16 +41,29 @@ static void release_resource(void *token) {
 
 static void *produce(void *argument) {
   Actor *actor = argument;
-  int32_t owner = actor->create(5, 1);
+  const uint8_t values[] = {42, 0, 255, 7, 8};
+  if (actor->byte_capacity == 0) {
+    actor->byte_capacity = sizeof(values);
+    actor->byte_offset = 1;
+    actor->byte_length = 3;
+  }
+  int32_t owner = actor->create(actor->byte_capacity, 1);
   int error = owner > 0 ? 0 : owner;
   if (!error) {
-    const uint8_t values[] = {42, 0, 255, 7, 8};
-    actor->bytes = malloc(sizeof(values));
+    actor->bytes = malloc(actor->byte_capacity);
     if (!actor->bytes) error = -7;
-    else {
+    else if (actor->patterned) {
+      for (size_t i = 0; i < actor->byte_capacity; i++) {
+        actor->bytes[i] = (uint8_t)((i * 31 + 7) & 0xff);
+      }
+    } else {
       memcpy(actor->bytes, values, sizeof(values));
-      error = actor->register_buffer(owner, actor->bytes, 5, 1, 3,
-                                     release_resource, actor, &actor->token);
+    }
+    if (!error) {
+      error = actor->register_buffer(owner, actor->bytes,
+                                     actor->byte_capacity, actor->byte_offset,
+                                     actor->byte_length, release_resource,
+                                     actor, &actor->token);
     }
   }
   if (error && owner > 0) {
@@ -79,8 +94,8 @@ static void *produce(void *argument) {
   return NULL;
 }
 
-void *fixture_create(const char *native_library, BufferToken *out) {
-  Actor *actor = calloc(1, sizeof(Actor));
+static void *fixture_start(const char *native_library, Actor *actor,
+                           BufferToken *out) {
   if (!actor) return NULL;
   actor->library = dlopen(native_library, RTLD_NOW | RTLD_LOCAL);
   if (!actor->library) { free(actor); return NULL; }
@@ -113,6 +128,23 @@ void *fixture_create(const char *native_library, BufferToken *out) {
     dlclose(actor->library); free(actor); return NULL;
   }
   return actor;
+}
+
+void *fixture_create(const char *native_library, BufferToken *out) {
+  Actor *actor = calloc(1, sizeof(Actor));
+  return fixture_start(native_library, actor, out);
+}
+
+void *fixture_create_sized(const char *native_library, size_t size,
+                           BufferToken *out) {
+  if (size == 0 || size > 0x00ffffff) return NULL;
+  Actor *actor = calloc(1, sizeof(Actor));
+  if (actor) {
+    actor->byte_capacity = size;
+    actor->byte_length = size;
+    actor->patterned = 1;
+  }
+  return fixture_start(native_library, actor, out);
 }
 
 int32_t fixture_state(void *argument) {

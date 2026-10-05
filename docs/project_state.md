@@ -5,6 +5,16 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+The current branch checkpoint `9620cfbe` passes `bin/test-fast` and full
+`bin/verify`. Its last observed exact-head hosted run had 4 successful checks
+and 76 queued. A local follow-up adds a real delayed native-send test for an
+external C producer lease. The focused test, package analysis, `bin/test-fast`
+and full `bin/verify` pass on the current working tree. Fresh hosted checks for
+this follow-up await its commit and push. The new evidence shows the lease stays
+live through socket backpressure and is released exactly once on the producer
+thread after the complete frame arrives. This advances #97 but does not
+complete its or the milestone's acceptance criteria.
+
 ## Session native-owned typed FlatBuffers PPT path (2026-10-05)
 
 `NativeOwnedBuffer.asFlatBuffersPptPayload()` now lets an application pass an
@@ -36,11 +46,12 @@ evidence.
 
 The managed worktree uses `codex/flatbuffers-zero-copy`; the native Session
 fast-path implementation is committed and pushed as `f569e9b4`, following
-`274df37c` and `152898d7`. The benchmark-runner integration is a local follow-up
-on top of that commit: `bin/test-fast` and full `bin/verify` pass. The updated
-candidate still needs fresh exact-head hosted checks. Two exact-head hosted runs
-reported Fast Checks failures on `274df37c`; hosted checks on the current local
-candidate are still needed. It started at
+`274df37c` and `152898d7`. The benchmark-runner integration is committed and
+pushed as `9620cfbe`; `bin/test-fast` and full `bin/verify` pass at that
+checkpoint. Its exact-head hosted checks were queued at the last observation.
+The current uncommitted external-lease test follow-up passes its focused test,
+analysis, `bin/test-fast` and full `bin/verify`; fresh hosted CI awaits its push.
+Two exact-head hosted runs reported Fast Checks failures on `274df37c`. It started at
 `54eafc5f` and integrates released master `3bac4cf5`. The primary checkout's
 independent work remains untouched.
 Feature commits, pushes and draft PR updates are authorized; releases, version
