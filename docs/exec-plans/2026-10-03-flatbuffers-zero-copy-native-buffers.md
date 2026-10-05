@@ -187,15 +187,22 @@ deferred application view preserve lazy values/errors and explicit owned copies.
 Default transport forwarding stays eager. Callback mutation, provider/context
 replacement, recursive wire loading and classic decoding have fail-first repairs.
 The expanded older-ABI matrix also repairs CBOR byte-string shape handling while
-rejecting numeric arrays before policy. Complete verification and coverage remain
-pending. RawSocket AES pointer reuse is observed for the binary serializers;
+rejecting numeric arrays before policy. Fresh local `bin/test-fast` and full
+`bin/verify` both pass at exit 0; hosted and acceptance evidence remain pending.
+RawSocket AES pointer reuse is observed for the binary serializers;
 WebSocket exercised copied fallbacks. Existing malformed-payload and context-free
 ordering regressions remain retained evidence.
 
-Connect native-owned payload construction through encryption and submission.
-Generic crypto still copies input into native storage and output back to Dart.
-Measure avoidable copies separately from crypto, TLS, masking, coalescing, builder
-growth and transcoding, and make shared optimizations available to binary baselines.
+An initial manual native-owned typed path now connects a frozen FlatBuffers
+application payload to `packNativeTypedPayload`, opaque frame composition and
+`NativeFrameTransport` submission. Optional ABI v1 borrows the input in Rust and
+publishes the cipher's output allocation as a frozen owned buffer. Rust pointer
+oracles verify both cipher allocations; Dart tests verify the independent input
+owner and composed frame. This avoids payload copies through Dart typed data.
+Ordinary Dart-value E2EE retains its existing input/output copies. Full-session
+copy counts and controlled performance parity remain unmeasured; account for
+crypto, TLS, masking, coalescing, builder growth and transcoding, and apply shared
+optimizations to the CBOR/MessagePack baselines too.
 
 Complete external session conformance and malformed-input/fuzz/ownership CI. The
 pinned Autobahn object serializer is not a functioning live peer. Existing

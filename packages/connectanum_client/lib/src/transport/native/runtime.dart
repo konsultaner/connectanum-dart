@@ -501,6 +501,25 @@ class NativeClientRuntime {
     }
   }
 
+  NativeOwnedBuffer encryptE2eeBuffer(
+    int sessionHandle,
+    NativeOwnedBuffer plaintext, {
+    String? keyId,
+    required String cipher,
+  }) {
+    ensureStarted();
+    try {
+      return nativeBuffers.encryptE2eeBuffer(
+        sessionHandle,
+        plaintext,
+        keyId: keyId,
+        cipher: cipher,
+      );
+    } on NativeBufferException catch (error) {
+      _throwForError(error.code, 'Failed to encrypt native E2EE buffer');
+    }
+  }
+
   Uint8List decryptE2ee(
     int sessionHandle,
     Uint8List ciphertext, {

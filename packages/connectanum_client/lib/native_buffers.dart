@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
@@ -59,6 +60,24 @@ typedef _ExportN = ffi.Int32 Function(ffi.Int32, ffi.Pointer<_ByteView>);
 typedef _ExportD = int Function(int, ffi.Pointer<_ByteView>);
 typedef _SendN = ffi.Int32 Function(ffi.Int32, ffi.Int32);
 typedef _SendD = int Function(int, int);
+typedef _OwnedE2eeEncryptN =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<ffi.Int32>,
+    );
+typedef _OwnedE2eeEncryptD =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      int,
+      int,
+      ffi.Pointer<ffi.Int32>,
+    );
 
 /// A native ownership operation failed. Negative codes match the native ABI.
 /// Optional VM-only capability of the native RawSocket/WebSocket transports.
@@ -201,6 +220,7 @@ final class NativeBufferAllocator {
     _supported = true;
     _loadExternalTokens(library);
     _loadWriteCompletion(library);
+    _loadOwnedE2eeEncryption(library);
     _frames = _NativeFrameApi.load(this, library);
   }
 
@@ -258,6 +278,8 @@ final class NativeBufferAllocator {
   bool _supported = false;
   bool _externalSupported = false;
   bool _writeCompletionSupported = false;
+  bool _ownedE2eeEncryptionSupported = false;
+  late final _OwnedE2eeEncryptD _encryptOwnedE2ee;
   late final _SendD _sendTracked;
   late final _ReleaseD _drainWrites;
   late final _ReleaseD _receiptState;
@@ -282,6 +304,25 @@ final class NativeBufferAllocator {
   bool get supportsExternalTokens => _externalSupported;
 
   bool get supportsWriteCompletion => _writeCompletionSupported;
+
+  /// Optional ABI for retaining an immutable native input and returning owned
+  /// ciphertext without copying the payload through Dart typed data.
+  bool get supportsOwnedE2eeEncryption => _ownedE2eeEncryptionSupported;
+
+  void _loadOwnedE2eeEncryption(ffi.DynamicLibrary library) {
+    const symbols = [
+      'ct_e2ee_owned_buffer_abi_version',
+      'ct_e2ee_session_encrypt_owned_buffer',
+    ];
+    if (!symbols.every(library.providesSymbol)) return;
+    final version = library.lookupFunction<_VersionN, _VersionD>(symbols[0]);
+    if (version() != 1) return;
+    _encryptOwnedE2ee = library
+        .lookupFunction<_OwnedE2eeEncryptN, _OwnedE2eeEncryptD>(
+          symbols[1],
+        );
+    _ownedE2eeEncryptionSupported = true;
+  }
 
   void _requireWriteCompletion() {
     _require();
@@ -424,6 +465,102 @@ final class NativeBufferAllocator {
       return builder.freeze();
     } finally {
       builder.dispose();
+    }
+  }
+
+  /// Check that [buffer] is live, immutable and belongs to this native library.
+  /// An optional limit is checked against native storage metadata.
+  void validateFrozenBuffer(
+    NativeOwnedBuffer buffer, {
+    int? maximumLength,
+  }) {
+    _require();
+    buffer._handle.check();
+    if (buffer._handle.api._identity != _identity) {
+      throw ArgumentError('Buffer belongs to a different native library');
+    }
+    final info = _getInfo(buffer._handle);
+    if (info.writable != 0 || info.length != buffer.length) {
+      throw StateError('Buffer is not a matching immutable native view');
+    }
+    if (maximumLength != null && info.length > maximumLength) {
+      throw RangeError.range(info.length, 0, maximumLength, 'buffer.length');
+    }
+  }
+
+  /// Encrypt a retained frozen input handle and return ciphertext in a new
+  /// native-owned buffer. No payload bytes cross the Dart/native boundary.
+  /// The input is never consumed, including when validation or encryption fails.
+  NativeOwnedBuffer encryptE2eeBuffer(
+    int sessionHandle,
+    NativeOwnedBuffer plaintext, {
+    String? keyId,
+    required String cipher,
+  }) {
+    _require();
+    if (!_ownedE2eeEncryptionSupported) {
+      throw UnsupportedError('Native owned-buffer E2EE ABI v1 is unavailable');
+    }
+    RangeError.checkValueInInterval(
+      sessionHandle,
+      1,
+      0x7fffffff,
+      'sessionHandle',
+    );
+    validateFrozenBuffer(plaintext);
+    final cipherCode = switch (cipher) {
+      'xsalsa20poly1305' => 1,
+      'aes256gcm' => 2,
+      _ => throw ArgumentError.value(
+        cipher,
+        'cipher',
+        'Unsupported E2EE cipher',
+      ),
+    };
+    final keyIdBytes = keyId == null ? null : utf8.encode(keyId);
+    if ((keyIdBytes?.length ?? 0) > 0x7fffffff) {
+      throw ArgumentError.value(keyId, 'keyId', 'Key ID is too long');
+    }
+    final keyIdPointer = keyId?.toNativeUtf8().cast<ffi.Char>() ?? ffi.nullptr;
+    final outHandle = calloc<ffi.Int32>();
+    try {
+      final status = _encryptOwnedE2ee(
+        sessionHandle,
+        keyIdPointer,
+        keyIdBytes?.length ?? 0,
+        plaintext._handle.id,
+        cipherCode,
+        outHandle,
+      );
+      if (status != 0) {
+        if (outHandle.value > 0) _release(outHandle.value);
+        _check(status);
+      }
+      final id = outHandle.value;
+      if (id <= 0) throw StateError('Native E2EE returned no output handle');
+      late final ({
+        ffi.Pointer<ffi.Uint8> base,
+        int capacity,
+        int initializedLength,
+        int offset,
+        int length,
+        int writable,
+      })
+      info;
+      try {
+        info = _getInfoId(id);
+        if (info.writable != 0 || info.length == 0) {
+          throw StateError('Native E2EE returned an invalid frozen output');
+        }
+      } catch (_) {
+        _release(id);
+        rethrow;
+      }
+      final handle = _OwnedHandle(this, id, externalSize: info.capacity);
+      return NativeOwnedBuffer._(handle, info.length, 0, 0);
+    } finally {
+      calloc.free(outHandle);
+      if (keyIdPointer != ffi.nullptr) malloc.free(keyIdPointer);
     }
   }
 

@@ -123,7 +123,8 @@ evaluates the loader and copies the resulting graph.
 | Native segmented routing/forwarding | Retains native application spans; mixed encodings may require conversion. |
 | Fragmented incoming frames | Reassembly can allocate/copy; transport chunking alone proves no zero-copy property. |
 | Client WebSocket masking | Transforms outbound bytes; account for its buffer/copy work separately. |
-| Generic native E2EE | Currently copies Dart input into native storage and copies the encrypted/decrypted result back to Dart. |
+| Generic native E2EE with Dart values | Copies Dart input into native storage and copies the encrypted/decrypted result back to Dart. |
+| Native-owned typed FlatBuffers E2EE | Borrows a frozen native input and returns frozen native-owned ciphertext without exporting payload bytes through Dart; encryption allocates the ciphertext. |
 | Native consuming E2EE receive | Returns an owned native plaintext view; unique contiguous AES inputs can reuse storage. Eager exported receive views currently force its safe copied fallback. |
 | TLS | Cryptographic transformations have separate allocation/copy costs. |
 | `toOwned()` | Explicitly copies retained binary/container graphs. |
@@ -145,8 +146,22 @@ when `releaseOwnedExternalBytes` returns true, the root and every derived view
 become unusable immediately. This differs from disposing a `NativeOwnedBuffer`
 wrapper, whose already-exported views hold independent native references.
 Typed file-prefix/E2EE segment framing is unsupported and rejects explicitly.
-These crypto APIs currently establish byte/lifetime compatibility, not complete
-zero-copy encryption or representative throughput parity.
+Both native FlatBuffers providers expose `packNativeTypedPayload` for callers
+that already hold one encoded FlatBuffers application payload in a frozen
+`NativeOwnedBuffer`. The optional owned-buffer E2EE ABI borrows that buffer,
+leaves its owner with the caller, and returns ciphertext in a separate frozen
+native buffer. Callers can pass that result as `opaquePayload` when composing a
+`NativeFlatBufferFrame`, then submit the frame through `NativeFrameTransport`.
+The FFI path copies no payload bytes through Dart typed data; the cipher still
+allocates ciphertext, and ordinary Dart-value E2EE keeps its existing copies.
+This ownership path does not establish full-session copy counts or representative
+throughput parity.
+
+The API has no ObjectBox schema or transaction behavior. A future C adapter may
+present compatible immutable bytes through the generic producer-lease contract.
+It must keep those bytes valid through the synchronous encryption call and release
+the producer-backed input before the database's own lifetime ends; the returned
+ciphertext has an independent native owner.
 
 Typed native providers validate ciphertext shape and length before key-policy
 callbacks. The optional `ct_message_single_binary_argument_length_wide` export

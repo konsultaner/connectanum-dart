@@ -42,6 +42,110 @@ fn typed_plaintext_does_not_unwrap_cbor_shaped_application_bytes() {
 }
 
 #[test]
+fn native_owned_encryption_borrows_slices_and_publishes_the_crypto_allocation() {
+    let _guard = crate::tests::test_guard();
+    let key = [93; 32];
+    let keyring = ct_e2ee_keyring_new();
+    assert_eq!(
+        ct_e2ee_keyring_add_key(
+            keyring,
+            b"owned-key".as_ptr().cast(),
+            9,
+            key.as_ptr(),
+            key.len() as c_int,
+            1,
+        ),
+        SUCCESS
+    );
+    let session = ct_e2ee_session_new(keyring, ptr::null(), 0);
+    let application = plaintext(true);
+    let prefix = 5;
+    let input_handle = super::super::owned_buffers::ct_owned_buffer_allocate(
+        (application.len() + prefix) as c_int,
+    );
+    assert!(input_handle > 0);
+    let mut input_info = super::super::owned_buffers::CtOwnedBufferInfo {
+        base: ptr::null(),
+        capacity: 0,
+        initialized_length: 0,
+        offset: 0,
+        length: 0,
+        writable: 0,
+    };
+    assert_eq!(
+        super::super::owned_buffers::ct_owned_buffer_info(input_handle, &mut input_info),
+        SUCCESS
+    );
+    unsafe {
+        ptr::copy_nonoverlapping(
+            application.as_ptr(),
+            input_info.base.add(prefix) as *mut u8,
+            application.len(),
+        );
+    }
+    assert_eq!(
+        super::super::owned_buffers::ct_owned_buffer_freeze(
+            input_handle,
+            prefix,
+            application.len(),
+        ),
+        SUCCESS
+    );
+    let expected_input_ptr = unsafe { input_info.base.add(prefix) };
+
+    for cipher_code in [1, 2] {
+        let output =
+            encrypt_e2ee_owned_buffer_inner(session, input_handle, Some("owned-key"), cipher_code)
+                .unwrap();
+        let output_handle = output.handle;
+        assert_eq!(output.input_ptr, expected_input_ptr);
+        let mut output_info = super::super::owned_buffers::CtOwnedBufferInfo {
+            base: ptr::null(),
+            capacity: 0,
+            initialized_length: 0,
+            offset: 0,
+            length: 0,
+            writable: 0,
+        };
+        assert_eq!(
+            super::super::owned_buffers::ct_owned_buffer_info(output_handle, &mut output_info,),
+            SUCCESS
+        );
+        assert_eq!(output_info.writable, 0);
+        assert_eq!(output_info.base, output.output_ptr);
+        assert_eq!(
+            output_info.length,
+            application.len() + if cipher_code == 1 { 40 } else { 28 }
+        );
+        let encrypted = super::super::owned_buffers::borrow_frozen(output_handle)
+            .unwrap()
+            .bytes();
+        let decoded = match cipher_code {
+            1 => decrypt_e2ee_payload(&key, &encrypted).unwrap(),
+            2 => decrypt_e2ee_aes256_gcm_payload(&key, &encrypted).unwrap(),
+            _ => unreachable!(),
+        };
+        assert_eq!(decoded, application);
+        assert_eq!(
+            super::super::owned_buffers::ct_owned_buffer_release(output_handle),
+            SUCCESS
+        );
+        // Encryption retains rather than consumes the input handle.
+        assert_eq!(
+            super::super::owned_buffers::ct_owned_buffer_info(input_handle, &mut input_info),
+            SUCCESS
+        );
+    }
+
+    assert_eq!(
+        super::super::owned_buffers::ct_owned_buffer_release(input_handle),
+        SUCCESS
+    );
+    assert_eq!(ct_e2ee_session_release(session), SUCCESS);
+    assert_eq!(ct_e2ee_keyring_release(keyring), SUCCESS);
+}
+
+#[test]
 fn typed_plaintext_preserves_unique_and_shared_allocations_for_both_ciphers() {
     let key = [69; 32];
     for cipher in [1, 2] {

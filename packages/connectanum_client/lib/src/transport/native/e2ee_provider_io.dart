@@ -4,6 +4,7 @@ import 'package:connectanum_core/cbor_serializer.dart' as cbor_serializer;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/flatbuffers_serializer.dart'
     as flatbuffers_serializer;
+import 'package:connectanum_client/native_buffers.dart';
 
 import 'e2ee_file_segment.dart';
 import 'native_transports_io.dart';
@@ -232,6 +233,7 @@ abstract class _NativeWampE2eeCipherProvider
   NativeE2eeFileSegmentContext _prepareEncryption(
     PPTOptions options, {
     WampE2eeRuntimeContext? runtimeContext,
+    void Function()? validateAfterKeySelection,
   }) {
     _ensureOpen();
     _verifyScheme(options);
@@ -245,6 +247,7 @@ abstract class _NativeWampE2eeCipherProvider
     _verifyScheme(options);
     _verifySerializer(options);
     _resolveCipher(options, operation: 'pack');
+    validateAfterKeySelection?.call();
     options.pptScheme ??= 'wamp';
     options.pptSerializer ??= _serializerName;
     options.pptCipher ??= _cipher;
@@ -631,6 +634,51 @@ class NativeWampFlatBuffersXsalsa20Poly1305Provider
          libraryPath: libraryPath,
          runtime: runtime,
        );
+
+  /// Encrypt an already encoded native-owned application payload. This is the
+  /// typed FlatBuffers path for callers composing a native frame themselves;
+  /// [options] receives the same PPT profile metadata as [packPayload]. The
+  /// input remains independently owned, and the result can be supplied as the
+  /// frame's opaque payload without exporting ciphertext to Dart.
+  NativeOwnedBuffer packNativeTypedPayload(
+    NativeOwnedBuffer plaintext,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    _ensureOpen();
+    _verifyScheme(options);
+    _verifySerializer(options);
+    final overhead = _cipher == ConnectanumE2eeProfile.aes256Gcm ? 28 : 40;
+    final maximumPlaintext =
+        ConnectanumFlatBuffersE2eeProfile.maximumCiphertextBytes - overhead;
+    final buffers = _runtime.nativeBuffers;
+    if (!buffers.supportsOwnedE2eeEncryption) {
+      throw UnsupportedError('Native owned-buffer E2EE ABI v1 is unavailable');
+    }
+    buffers.validateFrozenBuffer(
+      plaintext,
+      maximumLength: maximumPlaintext,
+    );
+    final segment = _prepareEncryption(
+      options,
+      runtimeContext: runtimeContext,
+      // Key-selection callbacks are user code and may release the input buffer.
+      validateAfterKeySelection: () => buffers.validateFrozenBuffer(
+        plaintext,
+        maximumLength: maximumPlaintext,
+      ),
+    );
+    try {
+      return _runtime.encryptE2eeBuffer(
+        segment.sessionHandle,
+        plaintext,
+        keyId: segment.keyId,
+        cipher: segment.cipher,
+      );
+    } on NativeTransportException catch (error) {
+      throw _mapNativeException('pack', options, error);
+    }
+  }
 
   static const supportedSerializer =
       ConnectanumFlatBuffersE2eeProfile.serializer;

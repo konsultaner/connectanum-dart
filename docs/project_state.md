@@ -541,9 +541,16 @@ previously invoked a key policy before underlying typed preflight; c37c04ee
 reproduces and fixes that wrapper ordering. Initial source audit:
 `/tmp/connectanum-flatbuffers-session-native-crypto-capability-audit.json`.
 
-Connect native-owned construction through encryption/submission; generic crypto
-still copies input/output. Complete external session conformance, malformed-input/
-fuzz and ownership CI, supported-platform consumers and adapter/release docs.
+The current worktree adds optional owned-buffer E2EE ABI v1 and the public native
+typed `packNativeTypedPayload` path. It borrows frozen native plaintext in Rust,
+returns independent native-owned ciphertext, and composes it as an opaque
+FlatBuffers frame. Rust pointer oracles and Dart ownership/decryption tests cover
+both ciphers; the ordinary Dart-value E2EE path still copies across FFI. This
+advances issues #96 and #101 but does not complete their broader acceptance.
+Fresh `bin/test-fast` and `bin/verify` both pass at exit 0 on this worktree on
+2026-10-05. This is local verification; exact-head hosted checks remain pending.
+Complete external session conformance, malformed-input/fuzz and ownership CI,
+supported-platform consumers and adapter/release docs.
 The source-backed [native-owned crypto preparation](research/2026-10-04-native-owned-crypto-boundary.md)
 records verified API boundaries and corrected local test/architecture advice;
 it introduces no new crypto API. [Benchmark preparation](research/2026-10-04-flatbuffers-benchmark-construction.md)

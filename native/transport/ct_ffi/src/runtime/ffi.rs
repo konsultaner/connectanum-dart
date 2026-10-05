@@ -2401,6 +2401,99 @@ pub extern "C" fn ct_e2ee_session_encrypt_aes256gcm(
     }
 }
 
+/// Versioned optional ABI for encrypting frozen Connectanum-owned buffers.
+#[no_mangle]
+pub extern "C" fn ct_e2ee_owned_buffer_abi_version() -> u32 {
+    1
+}
+
+/// Encrypt a frozen owned-buffer handle without exporting its bytes through
+/// Dart. The input handle is retained and remains valid on every outcome; a
+/// successful call publishes an independent frozen result handle.
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_encrypt_owned_buffer(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    input_handle: c_int,
+    cipher_code: c_int,
+    out_handle: *mut c_int,
+) -> c_int {
+    if out_handle.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe { *out_handle = 0 };
+    if session_handle <= 0 || input_handle <= 0 || !(1..=2).contains(&cipher_code) {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let key_id = match read_optional_str(key_id_ptr, key_id_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    match encrypt_e2ee_owned_buffer_inner(
+        session_handle,
+        input_handle,
+        key_id.as_deref(),
+        cipher_code,
+    ) {
+        Ok(encrypted) => {
+            unsafe { *out_handle = encrypted.handle };
+            SUCCESS
+        }
+        Err(code) => code,
+    }
+}
+
+fn encrypt_e2ee_owned_buffer_inner(
+    session_handle: c_int,
+    input_handle: c_int,
+    key_id: Option<&str>,
+    cipher_code: c_int,
+) -> Result<OwnedE2eeBufferResult, c_int> {
+    if session_handle <= 0 || input_handle <= 0 || !(1..=2).contains(&cipher_code) {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let input = super::owned_buffers::borrow_frozen(input_handle)?;
+    let plaintext = input.bytes();
+    #[cfg(test)]
+    let input_ptr = plaintext.as_ptr();
+    let reservation = super::owned_buffers::reserve_frozen()?;
+    let encrypted = match with_e2ee_session(session_handle as u32, |session| {
+        let Some((key, _)) = session.resolve_key(key_id) else {
+            return Err(ERR_KEY_NOT_FOUND);
+        };
+        match cipher_code {
+            1 => encrypt_e2ee_payload(key.as_ref(), &plaintext),
+            2 => encrypt_e2ee_aes256_gcm_payload(key.as_ref(), &plaintext),
+            _ => Err(ERR_INVALID_ARGUMENT),
+        }
+    }) {
+        Some(Ok(bytes)) => bytes,
+        Some(Err(code)) => return Err(code),
+        None => return Err(ERR_HANDLE_UNAVAILABLE),
+    };
+    #[cfg(test)]
+    let output_ptr = encrypted.as_ptr();
+    let output_len = encrypted.len();
+    let bytes = Bytes::from(encrypted);
+    let handle = reservation.commit(bytes, 0..output_len) as c_int;
+    Ok(OwnedE2eeBufferResult {
+        handle,
+        #[cfg(test)]
+        input_ptr,
+        #[cfg(test)]
+        output_ptr,
+    })
+}
+
+struct OwnedE2eeBufferResult {
+    handle: c_int,
+    #[cfg(test)]
+    input_ptr: *const u8,
+    #[cfg(test)]
+    output_ptr: *const u8,
+}
+
 #[no_mangle]
 pub extern "C" fn ct_e2ee_session_decrypt_aes256gcm(
     session_handle: c_int,

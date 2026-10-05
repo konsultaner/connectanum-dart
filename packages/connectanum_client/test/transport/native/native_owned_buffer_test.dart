@@ -33,6 +33,7 @@ void main() {
       isTrue,
       reason: 'Tests require the owned-buffer native ABI',
     );
+    expect(allocator.supportsOwnedE2eeEncryption, isTrue);
   });
 
   test('older native libraries reject the complete optional ABI', () {
@@ -101,6 +102,7 @@ void main() {
       expect(foreign.isSupported, isTrue);
       expect(foreign.supportsWriteCompletion, isFalse);
       expect(foreign.supportsExternalTokens, isFalse);
+      expect(foreign.supportsOwnedE2eeEncryption, isFalse);
       // Capability rejection must happen before reading even a non-null token.
       expect(
         () => foreign.adoptTrustedNativeToken(Pointer.fromAddress(1)),
