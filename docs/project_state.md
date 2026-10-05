@@ -5,24 +5,22 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The latest pushed branch checkpoint `a28e92c4` adds a real delayed native-send
-test for an external C producer lease. The test proves the lease stays live
-through socket backpressure and releases exactly once on the producer thread
-after the complete frame arrives. Exact-head hosted CI is red: Fast Checks fail
-because the benchmark test process cannot locate the native FFI test library,
-and both `core-lazy` mutation jobs reject stale equivalent-mutation IDs. The
-current working tree fixes the library path and refreshes the source-hashed
-mutation justifications. A fresh `bin/test-fast` passes, and
-`bin/test-mutations --list` passes for both `core-lazy-vm` and `core-lazy-web`.
-The current candidate also passes full `bin/verify`; fresh hosted evidence for
-these corrections awaits their commit and push. The lease test advances #97
-but does not complete its or the milestone's acceptance criteria.
+The latest pushed branch checkpoint `f7387de0` includes native transport copy
+counters, a paired campaign evaluator and repairs for the CI failures on
+`a28e92c4`. That earlier head failed Fast Checks because bench tests could not
+find the native FFI test library; both core-lazy mutation jobs rejected stale
+equivalent-mutation IDs. The fixes pass `bin/test-fast`, full `bin/verify`, the
+seven evaluator tests and source/ID inventory checks for both core-lazy
+targets. Exact-head hosted checks for `f7387de0` are running. The external C
+producer lease test on `a28e92c4` proves memory remains live through socket
+backpressure and releases once on its owner thread after write completion. It
+advances #97 but does not complete its or the milestone's acceptance criteria.
 
 ## Native transport copy-counter follow-up (2026-10-05)
 
-The current uncommitted follow-up adds optional C/Dart FFI snapshots for native
-transport copies, counting explicit Dart-to-native send copies, WebSocket mask
-and coalescing payload copies, and Rustls plaintext accepted bytes. The Rustls
+Commit `f7387de0` adds optional C/Dart FFI snapshots for native transport
+copies, counting explicit Dart-to-native send copies, WebSocket mask and
+coalescing payload copies, and Rustls plaintext accepted bytes. The Rustls
 counter reports accepted input volume, not a measured memory copy. Client and router
 benchmark snapshots use before/after deltas and combine their measured native
 path traffic. Focused Rust tests, client metric-delta tests and package analysis
@@ -72,9 +70,9 @@ pushed as `9620cfbe`; `bin/test-fast` and full `bin/verify` pass at that
 checkpoint. The external-lease test follow-up is committed and pushed as
 `a28e92c4`. Its hosted run exposed the two CI defects described above; local
 corrections now pass `bin/test-fast`, full `bin/verify`, and both mutation
-inventory validations. These corrections remain uncommitted and need fresh
-exact-head hosted checks. Earlier exact-head hosted runs reported Fast Checks
-failures on `274df37c`. It started at
+inventory validations. These corrections are committed in `f7387de0`; fresh
+exact-head hosted checks are running. Earlier exact-head hosted runs reported
+Fast Checks failures on `274df37c`. It started at
 `54eafc5f` and integrates released master `3bac4cf5`. The primary checkout's
 independent work remains untouched.
 Feature commits, pushes and draft PR updates are authorized; releases, version

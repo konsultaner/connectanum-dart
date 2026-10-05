@@ -53,29 +53,37 @@ payload_construction = "native_buffer"
 
 `values` constructs the application value in Dart. `native_buffer` builds a
 FlatBuffer in native-owned memory; for CBOR/MessagePack PPT it stores the binary
-body in native-owned memory before ordinary PPT serialization. `pre_encoded_span`
-serializes the PPT value first, copies those bytes into a frozen native owner, and
-submits them through the lazy packed-payload path. The runner retains that owner
-through the RPC result or all matching pub/sub deliveries, validates the body and
-identity, then disposes it. These paths expose construction choices; they do not
-claim zero copies across the whole codec and transport pipeline. They still use
-the ordinary WAMP Session send path; the native segmented-send path copies its
-submitted fragments into native-owned allocations. A future zero-copy acceptance
-needs a typed Session-to-transport ownership path plus allocation or copy-count
-evidence.
+body in native-owned memory before ordinary PPT serialization.
+`pre_encoded_span` serializes the PPT value first, copies those bytes into a
+frozen native owner, and submits that owner through the lazy packed-payload path.
+The runner retains the owner through the RPC result or all matching pub/sub
+deliveries, validates the body and identity, then disposes it.
+
+For a native caller using a FlatBuffers WAMP envelope and typed FlatBuffers PPT,
+the `native_buffer` and `pre_encoded_span` groups use
+`NativeOwnedBuffer.asFlatBuffersPptPayload()`. Session rebuilds only the WAMP
+control envelope and retains the exact application payload span in the native
+frame. The matching integration test verifies the same view and owner reach the
+Session path and stay live through the response. Dart callers, other WAMP
+envelopes, CBOR/MessagePack PPT and unsupported payload shapes use the ordinary
+serializer path. Later WebSocket masking, TLS, encryption, transcoding or
+coalescing can still copy, so this path does not claim end-to-end zero-copy.
 
 `latency_ms` includes payload preparation and the complete request/result or
 publish/delivery path. `payload_preparation_us` is a separate construction timing;
 for `values` and `native_buffer` with dynamic CBOR/MessagePack PPT, the later PPT
-serialization is outside that field but remains inside `latency_ms`. The two
-`native_builder_*_copied_bytes` counters cover builder input and growth only, not
-all codec, transport, security or receive copies. The current 18-case typed-runner
-matrix checks RawSocket with the Dart caller and CBOR WAMP envelope across
-RPC/pub/sub, all three PPT codecs and construction groups. A separate 12-case
-matrix covers typed FlatBuffers PPT across RawSocket/WebSocket, Dart/native callers
-and outer serializers, without the runner construction groups. Neither is
-performance evidence, and typed runner groups still lack WebSocket, TLS and
-native-caller live coverage. See the
+serialization is outside that field but remains inside `latency_ms`. The
+`native_builder_*_copied_bytes` counters cover builder input and growth only,
+not all codec, transport, security or receive copies. Correctness coverage
+includes an 18-case RawSocket matrix with the Dart caller and CBOR WAMP envelope
+across RPC/pub/sub, all three PPT codecs and construction groups. A separate
+12-case matrix covers typed FlatBuffers PPT across RawSocket/WebSocket,
+Dart/native callers and outer serializers, without the runner construction
+groups. A further 12-case live runner matrix covers native RawSocket RPC/pub-sub
+with FlatBuffers WAMP envelopes, all three PPT serializers, and
+`native_buffer`/`pre_encoded_span`; each case validates two iterations. These
+matrices establish correctness and ownership only, not performance. Typed runner
+groups still lack WebSocket and TLS coverage. See the
 [acceptance contract](../../docs/flatbuffers_performance_acceptance.md) before
 claiming parity.
 

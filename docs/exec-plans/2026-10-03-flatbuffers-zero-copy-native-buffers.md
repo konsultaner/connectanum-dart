@@ -7,20 +7,17 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Latest pushed implementation checkpoint: `a28e92c4`, on PR #105 after
-`9620cfbe`, `f569e9b4`, `274df37c`, `152898d7` and `dc33fcc6`. It adds a real
-delayed-send lifetime proof for an external C producer lease. Its exact-head
-hosted CI is red: Fast Checks cannot find the native test library in the bench
-test process, and both core-lazy mutation jobs reject stale equivalent IDs.
-The current working tree fixes the native-library environment for bench tests
-and refreshes the source-hashed mutation entries. `bin/test-fast`, full
-`bin/verify`, and `bin/test-mutations --list` for both core-lazy targets pass on
-this candidate. Fresh exact-head hosted checks await the correction commit and
-push. The current uncommitted copy counters and paired comparison evaluator
-provide partial instrumentation and gate tooling only; no measured performance
-parity or milestone issue acceptance is established. Earlier independent
-negotiated-profile, GuardMalloc, five-platform artifact and package publish
-dry-runs remain separate evidence.
+Latest pushed implementation checkpoint: `f7387de0`, on PR #105 after
+`a28e92c4`, `9620cfbe`, `f569e9b4`, `274df37c`, `152898d7` and `dc33fcc6`.
+It adds native transport copy counters and a paired campaign evaluator, and
+fixes the exact-head CI failures exposed by `a28e92c4`: missing FFI test-library
+environment in bench tests and stale core-lazy mutation IDs. `bin/test-fast`,
+full `bin/verify`, seven evaluator tests, and `bin/test-mutations --list` for
+both core-lazy targets pass. Fresh exact-head hosted checks for `f7387de0` are
+running. The counters provide partial attribution and the evaluator only checks
+prepared evidence; no measured performance parity or milestone issue
+acceptance is established. Earlier independent negotiated-profile, GuardMalloc,
+five-platform artifact and package publish dry-runs remain separate evidence.
 
 ## Objective and scope
 
@@ -433,6 +430,7 @@ bench tests tried to load `libct_ffi.so` because the CI fast script did not pass
 its just-built FFI test artifact into the package process. The two core-lazy
 jobs stopped before mutation execution because source edits changed the AST
 mutation identifiers while their justifications still named the old IDs. The
-current working-tree fixes pass `bin/test-fast` and the fast source/ID
-inventory checks for both VM and browser targets; complete hosted mutation
-campaigns and the corrected exact-head workflow remain pending.
+The fixes are committed and pushed as `f7387de0`. `bin/test-fast`, full
+`bin/verify`, and source/ID inventory checks for both VM and browser targets
+pass locally. Exact-head hosted CI for `f7387de0` is running; its complete
+mutation campaigns remain acceptance evidence for this correction.
