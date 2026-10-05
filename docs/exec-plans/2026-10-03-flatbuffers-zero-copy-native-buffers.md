@@ -7,17 +7,13 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Latest pushed checkpoint: `e1ee796a` on PR #105, following the native transport
-counter/evaluator checkpoint `f7387de0` and fixes for the exact-head CI failures
-exposed by `a28e92c4`. The `e1ee796a` RSS window correction passed local
-`bin/test-fast` and `bin/verify`; exact-head hosted checks were queued. The
-working-tree Dart transport-copy follow-up passes `bin/test-fast` and full
-`bin/verify`; exact-head hosted checks remain pending. It adds partial Dart-path
-attribution and closes the evaluator's coverage gate, but does not provide a
-measured performance result. Issues #95, #96, #98 and #99 are now complete and
-closed. Earlier
-independent negotiated-profile, GuardMalloc, five-platform artifact and package
-publish dry-runs remain separate evidence.
+The candidate builds on pushed code `43693195` and status checkpoint `66908928`
+on PR #105. Its real-network external-loan coverage passes fresh `bin/test-fast`,
+full `bin/verify` and 62 observed macOS GuardMalloc cases. Chrome Dart2Wasm passes
+4,632 core and 2,829 client cases, with 20 native-only skips. Issues #95–#99 are
+complete. Required hosted CI and publish dry-runs for the resulting commit remain
+pending. The existing transport-copy counters/evaluator provide attribution and
+fail-closed gates, but no paired performance campaign or parity result exists.
 
 ## Objective and scope
 
@@ -35,7 +31,7 @@ and a master merge are not authorized.
 
 - [x] [#95](https://github.com/konsultaner/connectanum-dart/issues/95): pinned binding, reproducible generation, metadata/schema compatibility.
 - [x] [#96](https://github.com/konsultaner/connectanum-dart/issues/96): native builders, freeze/retain/transfer, native inputs throughout submission.
-- [ ] [#97](https://github.com/konsultaner/connectanum-dart/issues/97): generic external leases, producer-thread release, real send completion.
+- [x] [#97](https://github.com/konsultaner/connectanum-dart/issues/97): generic external leases, producer-thread release, real send completion.
 - [x] [#98](https://github.com/konsultaner/connectanum-dart/issues/98): complete public Dart serializer, factories and verified lazy payload behavior.
 - [x] [#99](https://github.com/konsultaner/connectanum-dart/issues/99): native Rust codec, transport negotiation and supported profile guards.
 - [ ] [#100](https://github.com/konsultaner/connectanum-dart/issues/100): homogeneous/mixed routing, delayed/progressive/error flows and lifetime preservation.
@@ -46,6 +42,35 @@ and a master merge are not authorized.
 
 Implementation exists for many of these paths; unchecked items reflect remaining
 acceptance and evidence, not a claim that every feature is unimplemented.
+
+## Next work
+
+1. Inspect required hosted CI for the resulting feature commit; fix any failure
+   before continuing feature or benchmark work.
+2. Complete #100/#101 acceptance, especially correctly attributed transformation
+   copies and routing/PPT/E2EE lifetime evidence.
+3. Complete #102/#104 hosted conformance, memory, artifact-consumer and release
+   dry-run evidence without treating earlier commits as current-head acceptance.
+4. Finish #103 measurement coverage, the paired campaign runner and all declared
+   performance rows. SDK/TLS/transcode copy gaps and absent campaign results
+   remain blockers; do not weaken the parity or copy gates.
+
+## External-loan terminal-path acceptance (2026-10-05)
+
+Four native network tests now cover eleven RawSocket/WebSocket or rejection
+scenarios: unobserved successful writes, actual full-queue rejection, missing
+destinations, and fan-out terminated by peer reset, local close or shutdown.
+Verified payload prefixes prove partial progress before termination. The sole
+writer retains the foreign loan when no caller view/handle remains. A separate
+rejected producer releases while the accepted send stays pending; an exported
+view remains readable across shutdown. Callback count/thread, byte integrity and
+byte/lease quotas are checked. Existing registration and ABI tests cover setup
+rollback and safe capability fallback. GuardMalloc requires all four network
+tests and passes 62 total observed cases; its runner failure-control tests pass.
+Fresh canonical fast/full verification both exit 0. Local logs and the memory
+report are recorded in `docs/project_state.md`; hosted acceptance for the new
+commit remains pending. This completes #97 without adding database integration
+or asserting end-to-end zero-copy/performance parity.
 
 ## Typed benchmark fixture checkpoint (2026-10-05)
 
@@ -61,7 +86,7 @@ generation checks only. `WampWorkloadRunner` does not yet expose the three
 construction groups, and no paired throughput/latency/memory campaign or parity
 result exists. Issue #103 remains open.
 
-## Current candidate and evidence
+## Earlier verification evidence
 
 The pushed b07d7b26 checkpoint includes explicit local typed E2EE providers, optional
 whole-plaintext consuming ABI, retained read-only owners, opt-in deferred runtime
@@ -121,7 +146,7 @@ all original bytes and all classifications against matching feature inputs.
 The original wrapper failure remains preserved, not relabeled as a pass. Earlier
 original/logical browser failures remain failed evidence.
 
-## Immediate work
+## Earlier verification work and outcomes
 
 1. Complete fresh canonical fast/verify and the browser/binding mutation gates.
    Canonical snapshot `12c56f17` passes fast/full verification; all 1,454 product

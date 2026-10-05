@@ -129,6 +129,18 @@ impl Producer {
         );
         unsafe { metrics.assume_init() }
     }
+
+    fn assert_released(&self) {
+        until("owner-affine producer release", || {
+            self.statistics.released.load(Ordering::Acquire) == 1
+        });
+        until("external lease release", || {
+            self.metrics().outstanding_leases == 0
+        });
+        assert_eq!(self.metrics().retained_bytes, 0);
+        assert!(!self.statistics.wrong_thread.load(Ordering::Acquire));
+        assert!(!self.statistics.corrupted.load(Ordering::Acquire));
+    }
 }
 
 impl Drop for Producer {
@@ -266,7 +278,7 @@ fn connect(websocket: bool, slow: bool) -> (i32, TcpStream) {
     (connection, stream)
 }
 
-fn read_payload(stream: &mut TcpStream, websocket: bool) -> Vec<u8> {
+fn read_payload_prefix(stream: &mut TcpStream, websocket: bool) -> (Vec<u8>, Option<[u8; 4]>) {
     let mut mask = None;
     let length = if websocket {
         let mut header = [0; 2];
@@ -286,25 +298,56 @@ fn read_payload(stream: &mut TcpStream, websocket: bool) -> Vec<u8> {
         u32::from_be_bytes(header) as usize
     };
     assert_eq!(length, LENGTH);
-    let mut payload = vec![0; length];
+    let mut payload = vec![0; PREFIX.len()];
     stream.read_exact(&mut payload).unwrap();
     if let Some(mask) = mask {
         for (index, byte) in payload.iter_mut().enumerate() {
             *byte ^= mask[index % 4];
         }
     }
+    assert_eq!(payload, PREFIX);
+    (payload, mask)
+}
+
+fn read_payload_rest(
+    stream: &mut TcpStream,
+    (mut payload, mask): (Vec<u8>, Option<[u8; 4]>),
+) -> Vec<u8> {
+    let received = payload.len();
+    payload.resize(LENGTH, 0);
+    stream.read_exact(&mut payload[received..]).unwrap();
+    if let Some(mask) = mask {
+        for (index, byte) in payload.iter_mut().enumerate().skip(received) {
+            *byte ^= mask[index % 4];
+        }
+    }
     payload
+}
+
+fn read_payload(stream: &mut TcpStream, websocket: bool) -> Vec<u8> {
+    let prefix = read_payload_prefix(stream, websocket);
+    read_payload_rest(stream, prefix)
 }
 
 #[test]
 fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
+    #[derive(Clone, Copy, Debug)]
+    enum Termination {
+        PeerReset,
+        ConnectionClose,
+        RuntimeShutdown,
+    }
     let _guard = test_guard();
     for websocket in [false, true] {
-        for shutdown in [false, true] {
+        for termination in [
+            Termination::PeerReset,
+            Termination::ConnectionClose,
+            Termination::RuntimeShutdown,
+        ] {
             let producer = Producer::new();
             let _runtime = Runtime::new();
             let (fast, mut fast_peer) = connect(websocket, false);
-            let (slow, slow_peer) = connect(websocket, true);
+            let (slow, mut slow_peer) = connect(websocket, true);
             let mut view = Some(View::new(producer.handle));
             assert_eq!(view.as_ref().unwrap().0.ptr as usize, producer.base);
             assert_eq!(view.as_ref().unwrap().0.len, LENGTH);
@@ -323,18 +366,19 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
             });
             let fast_receipt = Receipt::new(fast, copy);
             let slow_receipt = Receipt::new(slow, producer.handle);
+            // Observe actual payload progress before interrupting this write.
+            // The fixed small receive window cannot accept the full 8 MiB body.
+            let _partial_payload = read_payload_prefix(&mut slow_peer, websocket);
             until("fast local write", || fast_receipt.outcome() == 1);
             let (_fast_peer, payload) = reader.join().unwrap();
             assert!(valid_payload(&payload));
-            // The TCP receiver's fixed small window has not consumed the body.
+            // The slow receiver has consumed only the verified payload prefix.
             thread::sleep(Duration::from_millis(30));
             assert_eq!(slow_receipt.outcome(), 0);
             assert_eq!(producer.statistics.released.load(Ordering::Acquire), 0);
             assert_eq!(producer.metrics().retained_bytes, LENGTH);
             assert_eq!(producer.metrics().outstanding_leases, 1);
-            if shutdown {
-                assert_eq!(ct_shutdown(), SUCCESS);
-            } else {
+            if !matches!(termination, Termination::RuntimeShutdown) {
                 drop(view.take());
                 thread::sleep(Duration::from_millis(30));
                 assert_eq!(
@@ -342,17 +386,21 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
                     0,
                     "slow writer must retain the actual loan, not a copied payload"
                 );
-                // A shutdown leaves the descriptor alive and sends a FIN;
-                // it does not guarantee an interrupted local write. Reset
-                // the unread peer so this case tests actual abandonment.
-                socket2::SockRef::from(&slow_peer)
-                    .set_linger(Some(Duration::ZERO))
-                    .unwrap();
-                drop(slow_peer);
             }
-            let boundary = format!(
-                "slow local write abandonment (websocket={websocket}, runtime_shutdown={shutdown})"
-            );
+            match termination {
+                Termination::RuntimeShutdown => assert_eq!(ct_shutdown(), SUCCESS),
+                Termination::ConnectionClose => assert_eq!(ct_connection_close(slow), SUCCESS),
+                Termination::PeerReset => {
+                    // FIN does not guarantee an interrupted local write. Reset
+                    // the partially read peer to exercise actual abandonment.
+                    socket2::SockRef::from(&slow_peer)
+                        .set_linger(Some(Duration::ZERO))
+                        .unwrap();
+                    drop(slow_peer);
+                }
+            }
+            let boundary =
+                format!("slow local write abandonment (websocket={websocket}, {termination:?})");
             until(&boundary, || slow_receipt.outcome() != 0);
             assert_eq!(slow_receipt.outcome(), 2, "{boundary}");
             // Runtime/socket termination leaves the independent exported owner.
@@ -362,15 +410,102 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
                 assert!(valid_payload(bytes));
             }
             drop(view.take());
-            until("owner-affine producer release", || {
-                producer.statistics.released.load(Ordering::Acquire) == 1
-            });
-            until("external lease release", || {
-                producer.metrics().outstanding_leases == 0
-            });
-            assert_eq!(producer.metrics().retained_bytes, 0);
-            assert!(!producer.statistics.wrong_thread.load(Ordering::Acquire));
-            assert!(!producer.statistics.corrupted.load(Ordering::Acquire));
+            producer.assert_released();
         }
     }
+}
+
+#[test]
+fn disposing_receipt_does_not_cancel_borrowed_write_or_release_loan() {
+    let _guard = test_guard();
+    for websocket in [false, true] {
+        let producer = Producer::new();
+        let _runtime = Runtime::new();
+        let (connection, mut peer) = connect(websocket, true);
+        let view = View::new(producer.handle);
+        assert_eq!(view.0.ptr as usize, producer.base);
+        drop(view);
+        let receipt = Receipt::new(connection, producer.handle);
+        let prefix = read_payload_prefix(&mut peer, websocket);
+        assert_eq!(receipt.outcome(), 0);
+        let handle = receipt.0;
+        drop(receipt);
+        assert_eq!(ct_write_receipt_state(handle), ERR_INVALID_ARGUMENT);
+        assert_eq!(producer.statistics.released.load(Ordering::Acquire), 0);
+        assert_eq!(producer.metrics().outstanding_leases, 1);
+        assert_eq!(producer.metrics().retained_bytes, LENGTH);
+        // There are no caller-held views or handles. Only the native writer can
+        // keep the foreign memory live after its receipt observer is disposed.
+        let barrier = ct_connection_drain_writes(connection);
+        assert!(barrier > 0);
+        let barrier = Receipt(barrier);
+        assert_eq!(barrier.outcome(), 0);
+        socket2::SockRef::from(&peer)
+            .set_recv_buffer_size(LENGTH)
+            .unwrap();
+        let payload = read_payload_rest(&mut peer, prefix);
+        assert!(valid_payload(&payload));
+        until("unobserved write and FIFO flush", || barrier.outcome() == 1);
+        producer.assert_released();
+    }
+}
+
+#[test]
+fn full_transport_queue_rejects_foreign_loan_without_releasing_active_send() {
+    let _guard = test_guard();
+    for websocket in [false, true] {
+        let active = Producer::new();
+        let rejected = Producer::new();
+        let _runtime = Runtime::new();
+        let (connection, mut peer) = connect(websocket, true);
+        let receipt = Receipt::new(connection, active.handle);
+        let _partial_payload = read_payload_prefix(&mut peer, websocket);
+        assert_eq!(receipt.outcome(), 0);
+        let mut queue_full = false;
+        for _ in 0..4096 {
+            match ct_core::send_wamp_message(
+                ct_core::ConnectionId(connection as u32),
+                bytes::Bytes::from_static(b"[]"),
+            ) {
+                Ok(()) => {}
+                Err(ct_core::Error::SendQueueFull(_)) => {
+                    queue_full = true;
+                    break;
+                }
+                other => panic!("unexpected queue admission outcome: {other:?}"),
+            }
+        }
+        assert!(queue_full, "stalled native transport queue must be bounded");
+        assert_eq!(
+            ct_owned_buffer_send_tracked(connection, rejected.handle),
+            ERR_SEND_QUEUE_FULL
+        );
+        assert_eq!(
+            ct_owned_buffer_release(rejected.handle),
+            ERR_INVALID_ARGUMENT
+        );
+        rejected.assert_released();
+        assert_eq!(receipt.outcome(), 0);
+        assert_eq!(active.statistics.released.load(Ordering::Acquire), 0);
+        assert_eq!(active.metrics().retained_bytes, LENGTH);
+        assert_eq!(ct_connection_close(connection), SUCCESS);
+        until("active write cancellation", || receipt.outcome() == 2);
+        active.assert_released();
+    }
+}
+
+#[test]
+fn missing_connection_submission_consumes_foreign_handle_and_releases_loan() {
+    let _guard = test_guard();
+    let producer = Producer::new();
+    let _runtime = Runtime::new();
+    assert_eq!(
+        ct_owned_buffer_send_tracked(i32::MAX, producer.handle),
+        ERR_CONNECTION_NOT_FOUND
+    );
+    assert_eq!(
+        ct_owned_buffer_release(producer.handle),
+        ERR_INVALID_ARGUMENT
+    );
+    producer.assert_released();
 }

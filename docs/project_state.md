@@ -3,27 +3,38 @@
 Last updated: 2026-10-05.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete and closed. Issues #97 and #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
+Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The latest pushed code checkpoint `e1ee796a` adds the WAMP benchmark RSS
-window-boundary correction. `bin/test-fast`, full `bin/verify` and the evaluator
-tests passed on this base; its exact-head CI and package publish dry-run runs are
-queued. A working-tree follow-up adds Dart transport-copy counters, client/router
-attribution, and a fail-closed coverage check. Its `bin/test-fast` and full
-`bin/verify` pass; exact-head hosted checks remain pending. The preceding pushed
-code checkpoint `f47438d4` adds WAMP benchmark server-process resource
-attribution. `bin/test-fast`, full `bin/verify` and all eleven
-evaluator tests pass locally on this head. Its exact-head CI and package publish
-dry-run workflows are queued. The preceding code checkpoint `f7387de0` includes
-native transport copy counters, a paired campaign evaluator and repairs for
-the CI failures on `a28e92c4`. That earlier head failed Fast Checks because
-bench tests could not find the native FFI test library; both core-lazy mutation
-jobs rejected stale equivalent-mutation IDs. The fixes pass `bin/test-fast`,
-full `bin/verify`, the evaluator tests and source/ID inventory checks for both
-core-lazy targets. The prior docs-only checkpoint is `36df7443`. The external C
-producer lease test on `a28e92c4` proves memory remains live through socket
-backpressure and releases once on its owner thread after write completion. It
-advances #97 but does not complete its or the milestone's acceptance criteria.
+The candidate builds on pushed code checkpoint `43693195` and status checkpoint
+`66908928`. It adds real-network external-loan terminal-path coverage. Fresh
+`bin/test-fast` and full `bin/verify` pass at exit 0, including Rust, Dart VM,
+live WAMP/router/consumer checks and Chrome Dart2Wasm (core 4,632 passed; client
+2,829 passed with 20 native-only skips). The actual macOS GuardMalloc loader
+passes all 62 observed ownership cases, including four external-network tests.
+Required hosted CI and package publish dry-runs for the resulting commit remain
+pending; no paired performance campaign or parity result exists.
+
+## External-loan terminal-path acceptance (2026-10-05)
+
+The native transaction-like producer now proves release exactly once on its
+registering thread after a successful write whose receipt observer was disposed,
+a real bounded transport queue rejection, missing-destination rejection, and
+fan-out interrupted by peer reset, local connection close or runtime shutdown.
+RawSocket and WebSocket cases consume and verify a payload prefix before
+termination, proving partial progress. No caller-held view masks writer retention
+in the successful unobserved-send and queue/cancellation cases. Shutdown keeps an
+independent exported view readable until its final release. Existing lease and
+ABI tests cover construction-failure rollback, byte/count limits, wrong-thread
+operations and safe rejection by older/incomplete libraries.
+
+The ownership documentation distinguishes legacy event-loop `drain()`, FIFO
+`drainWrites()`, observer disposal and final producer cleanup. The implementation
+is storage-agnostic; ObjectBox integration remains outside core. Local evidence:
+`/tmp/connectanum-flatbuffers-97-{fast,verify,native-network,memory-runner}.log`
+and `/tmp/connectanum-flatbuffers-97-guardmalloc/report.json`. Issue #97 is
+complete; hosted conformance/release acceptance remains under #102/#104, and
+unmeasured SDK/TLS/transcode copies plus missing performance evidence keep #103
+open.
 
 ## WAMP RSS window-boundary correction (2026-10-05)
 

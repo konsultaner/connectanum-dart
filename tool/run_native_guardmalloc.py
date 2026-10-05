@@ -20,7 +20,7 @@ GROUPS = (
     ('runtime::native_frames::tests::', 14),
     ('runtime::external_leases::tests::', 7),
     ('runtime::external_lease_ffi::tests::', 8),
-    ('runtime::external_network_tests::', 1),
+    ('runtime::external_network_tests::', 4),
 )
 
 

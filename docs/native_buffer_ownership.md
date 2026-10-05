@@ -116,6 +116,33 @@ WebSocket close lets accepted writes and the normal Close frame progress, then
 aborts a blocked writer after the local one-second grace; this policy bounds that
 writer's retention and is not a deadline mandated by the WebSocket RFC.
 
+The legacy native transport `drain()` only yields an event-loop turn. Use
+`drainWrites()` for a FIFO local write/flush barrier, and producer release dispatch
+for the final external-resource boundary. Disposing a write receipt stops
+observation; it does not cancel an accepted send or release its buffer.
+
+The [native network tests](../native/transport/ct_ffi/src/runtime/external_network_tests.rs)
+register transaction-like memory on a separate producer thread. They check the
+original pointer, byte integrity, release count, callback thread and retained
+byte/lease budgets. Their terminal-path coverage is:
+
+| Path | Checked boundary |
+| --- | --- |
+| Successful RawSocket/WebSocket write with disposed receipt observer | The sole native writer keeps the loan; the peer receives the complete original payload, then a FIFO barrier completes and the producer releases once. |
+| Full native transport queue | A separate rejected producer handle is consumed and releases once while the stalled accepted send keeps its own loan. |
+| Peer reset after a verified payload prefix | The partially written frame is abandoned; cleanup occurs on the producer thread. |
+| Local connection cancellation after partial progress | RawSocket cancellation or WebSocket's bounded close abandons the stalled frame and releases its loan. |
+| Runtime shutdown with an exported view | The write is abandoned while the view remains readable; dropping the final view permits producer cleanup. |
+| Missing destination | Submission consumes the foreign handle, returns the connection error and releases the loan. |
+
+The [lease FFI tests](../native/transport/ct_ffi/src/runtime/external_lease_ffi.rs)
+also cover handle-construction failure without consuming the producer reference,
+wrong-thread rejection, empty loans, fan-out/slices and pending-release quota.
+The [core writer tests](../native/transport/ct_core/src/write_completion_tests.rs)
+separately check partial-write/flush errors and cancellation of deferred
+preparation. These are ownership and local-completion proofs; transport masking,
+framing or encryption can still copy bytes.
+
 A generic `LazyMessagePayload` also retains its original storage owner across
 anchor replacement, forwarding and message mutation. Borrowed owners remain with
 the owning message/views even after cached encoding is invalidated. `toOwned()`
@@ -274,7 +301,7 @@ byte counters. Separate native tests verify unique AES allocation identity.
 ## Native memory instrumentation
 
 The repeatable native ownership runner is included in the macOS memory CI job. Its local macOS
-GuardMalloc execution currently covers 57 ownership, typed E2EE, frame, lease and
+GuardMalloc execution currently covers 62 ownership, typed E2EE, frame, lease and
 network cases. This is not ASan/Miri or coverage of every supported platform.
 Each process must report the actual loaded GuardMalloc library and a positive
 Rust test count. Missing instrumentation, empty filters, failed cases or timeouts
@@ -283,6 +310,7 @@ executable hashes, commands, per-group logs and failure records. If the workspac
 has no Cargo lock, dependency resolution precedes its frozen native inventory;
 the subsequent build uses `--locked`.
 
-The default-repo command passes in the feature tree. Hosted acceptance
-requires the job to execute successfully on the feature commit. Local proof:
-`/tmp/connectanum-flatbuffers-guardmalloc-cli-final-stage-audit.json`.
+The feature-worktree command passes with all four external network tests included
+under the actual GuardMalloc loader. Hosted acceptance requires the job to execute
+successfully on the feature commit. Current local report:
+`/tmp/connectanum-flatbuffers-97-guardmalloc/report.json`.
