@@ -29,12 +29,13 @@ evidence.
 
 ## Checkout and authorization
 
-The managed worktree uses `codex/flatbuffers-zero-copy`; its latest pushed
-checkpoint is `274df37c`, following `152898d7`. Two exact-head hosted runs report
-Fast Checks failures on that checkpoint while their wider CI runs continue; the
-newer local candidate passes `bin/test-fast` and `bin/verify`, and needs fresh
-hosted evidence after push. It started at `54eafc5f` and integrates released
-master `3bac4cf5`. The primary checkout's independent work remains untouched.
+The managed worktree uses `codex/flatbuffers-zero-copy`; the native Session
+fast-path implementation is committed and pushed as `f569e9b4`, following
+`274df37c` and `152898d7`. Two exact-head hosted runs reported Fast Checks
+failures on `274df37c`; the new implementation passes local `bin/test-fast`
+and `bin/verify`. Fresh hosted acceptance is still required on the current
+branch tip. It started at `54eafc5f` and integrates released master `3bac4cf5`.
+The primary checkout's independent work remains untouched.
 Feature commits, pushes and draft PR updates are authorized; releases, version
 bumps, publication and merging master are not authorized. Actual ObjectBox
 integration belongs in a separate adapter. Core provides generic memory

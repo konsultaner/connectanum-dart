@@ -7,16 +7,16 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Latest pushed checkpoint: `274df37c`, following `152898d7` and functional
-checkpoint `dc33fcc6`. Independent negotiated-profile peer, GuardMalloc,
-five-platform artifact and package publish dry-runs pass for earlier
-checkpoints; platform execution and publication remain separate evidence. The
-current uncommitted follow-up adds a native Session fast path for already
-encoded typed FlatBuffers PPT payloads over RawSocket and WebSocket. Both
+Latest functional checkpoint: `f569e9b4`, pushed to PR #105 after `274df37c`,
+`152898d7` and functional checkpoint `dc33fcc6`. Independent negotiated-profile
+peer, GuardMalloc, five-platform artifact and package publish dry-runs pass for
+earlier checkpoints; platform execution and publication remain separate
+evidence. This checkpoint adds a native Session fast path for already encoded
+typed FlatBuffers PPT payloads over RawSocket and WebSocket. Both
 `bin/test-fast` and full `bin/verify` pass locally, including Chrome WebAssembly
 and live WAMP integration. Two hosted Fast Checks jobs failed on the preceding
-`274df37c` head; fresh exact-head hosted checks are needed after this candidate
-is pushed. These results establish correctness and ownership, not measured
+`274df37c` head; fresh exact-head hosted checks are needed for the current
+branch tip. These results establish correctness and ownership, not measured
 performance parity or issue acceptance.
 
 ## Objective and scope
