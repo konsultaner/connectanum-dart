@@ -7,42 +7,50 @@ import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_client/native_buffers.dart';
 import 'package:test/test.dart';
 
+import 'support/native_library.dart';
+
 void main() {
-  final allocator = NativeBufferAllocator.instance();
+  final nativeLibrary = nativeBenchTestLibrary();
 
   for (final bodyBytes in [0, 1, 1024, 64 * 1024]) {
-    test('Dart and native FlatBuffers match for $bodyBytes body bytes', () {
-      final expectedWorker = 7;
-      final expectedIteration = 19;
-      final dartBytes = BenchPayloadCodec.encodeDart(
-        worker: expectedWorker,
-        iteration: expectedIteration,
-        bodyBytes: bodyBytes,
-      );
-      final native = BenchPayloadCodec.encodeNative(
-        allocator,
-        worker: expectedWorker,
-        iteration: expectedIteration,
-        bodyBytes: bodyBytes,
-        initialSize: 32,
-      );
-      addTearDown(native.dispose);
+    test(
+      'Dart and native FlatBuffers match for $bodyBytes body bytes',
+      () {
+        final expectedWorker = 7;
+        final expectedIteration = 19;
+        final dartBytes = BenchPayloadCodec.encodeDart(
+          worker: expectedWorker,
+          iteration: expectedIteration,
+          bodyBytes: bodyBytes,
+        );
+        final native = BenchPayloadCodec.encodeNative(
+          NativeBufferAllocator.instance(libraryPath: nativeLibrary),
+          worker: expectedWorker,
+          iteration: expectedIteration,
+          bodyBytes: bodyBytes,
+          initialSize: 32,
+        );
+        addTearDown(native.dispose);
 
-      expect(native.bytes, dartBytes);
-      expect(native.inputCopiedBytes, bodyBytes);
-      BenchPayloadCodec.verify(
-        bytes: dartBytes,
-        worker: expectedWorker,
-        iteration: expectedIteration,
-        bodyBytes: bodyBytes,
-      );
-      BenchPayloadCodec.verify(
-        bytes: native.bytes,
-        worker: expectedWorker,
-        iteration: expectedIteration,
-        bodyBytes: bodyBytes,
-      );
-    });
+        expect(native.bytes, dartBytes);
+        expect(native.inputCopiedBytes, bodyBytes);
+        BenchPayloadCodec.verify(
+          bytes: dartBytes,
+          worker: expectedWorker,
+          iteration: expectedIteration,
+          bodyBytes: bodyBytes,
+        );
+        BenchPayloadCodec.verify(
+          bytes: native.bytes,
+          worker: expectedWorker,
+          iteration: expectedIteration,
+          bodyBytes: bodyBytes,
+        );
+      },
+      skip: nativeLibrary == null
+          ? 'Native transport artifact unavailable'
+          : false,
+    );
   }
 
   test('rejects worker, iteration, body and schema mismatches', () {

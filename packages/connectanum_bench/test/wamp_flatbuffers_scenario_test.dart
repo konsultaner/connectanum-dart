@@ -8,7 +8,13 @@ import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
+import 'support/native_library.dart';
+
 void main() {
+  final nativeLibrary = nativeBenchTestLibrary();
+  final skipNative = nativeLibrary == null
+      ? 'Native transport artifact unavailable'
+      : false;
   test('parses outer and peer FlatBuffers independently of PPT', () {
     final scenario = WampScenario.fromJson({
       'transport': 'rawsocket',
@@ -67,7 +73,9 @@ void main() {
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async => session,
         logger: Logger.detached('flatbuffers-native-owner'),
-        nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(),
+        nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(
+          libraryPath: nativeLibrary,
+        ),
       );
 
       final samples = await runner.run(
@@ -91,6 +99,7 @@ void main() {
       expect(owner.isDisposed, isTrue);
       expect(session.closed, isTrue);
     },
+    skip: skipNative,
   );
 
   for (final construction in [
@@ -104,8 +113,9 @@ void main() {
         final runner = WampWorkloadRunner(
           sessionFactory: (_) async => session,
           logger: Logger.detached('flatbuffers-owned-span'),
-          nativeBufferAllocator:
-              native_buffers.NativeBufferAllocator.instance(),
+          nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(
+            libraryPath: nativeLibrary,
+          ),
         );
 
         final samples = await runner.run(
@@ -137,6 +147,7 @@ void main() {
         expect(owner.isDisposed, isTrue);
         expect(session.closed, isTrue);
       },
+      skip: skipNative,
     );
   }
 
@@ -147,7 +158,9 @@ void main() {
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async => session,
         logger: Logger.detached('flatbuffers-owned-span-error'),
-        nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(),
+        nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(
+          libraryPath: nativeLibrary,
+        ),
       );
 
       await expectLater(
@@ -173,6 +186,7 @@ void main() {
       expect(session.requestOwner!.isDisposed, isTrue);
       expect(session.closed, isTrue);
     },
+    skip: skipNative,
   );
 }
 
