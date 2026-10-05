@@ -5,13 +5,14 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The latest pushed branch checkpoint `f7387de0` includes native transport copy
+The latest pushed code checkpoint `f7387de0` includes native transport copy
 counters, a paired campaign evaluator and repairs for the CI failures on
 `a28e92c4`. That earlier head failed Fast Checks because bench tests could not
 find the native FFI test library; both core-lazy mutation jobs rejected stale
 equivalent-mutation IDs. The fixes pass `bin/test-fast`, full `bin/verify`, the
 seven evaluator tests and source/ID inventory checks for both core-lazy
-targets. Exact-head hosted checks for `f7387de0` are running. The external C
+targets. The latest docs-only commit is `36df7443`; its exact-head hosted CI is
+queued. The external C
 producer lease test on `a28e92c4` proves memory remains live through socket
 backpressure and releases once on its owner thread after write completion. It
 advances #97 but does not complete its or the milestone's acceptance criteria.
@@ -27,12 +28,34 @@ path traffic. Focused Rust tests, client metric-delta tests and package analysis
 pass. A fresh `bin/test-fast` passes, including the release FFI build and live
 RawSocket/WebSocket WAMP matrix. Full `bin/verify` also passes, including the
 Chrome WebAssembly, WAMP, consumer and smoke checks. A paired campaign
-evaluator and machine-readable relative parity policy now have seven focused
-unit tests. The evaluator requires complete per-run resource/copy evidence and
-rejects missing rows; it does not execute benchmarks or create a result.
+evaluator and machine-readable relative parity policy now have eleven focused
+unit tests. A working-tree follow-up adds two-process resource accounting and
+matching evaluator tests; it requires client plus benchmark-server evidence and
+rejects missing metrics. The evaluator does not execute benchmarks or create a
+result.
 Dart-managed socket/TLS paths and mixed-serializer transcodes remain
 unmeasured, so this is partial attribution only; issue #103 remains open and
 no FlatBuffers parity or end-to-end zero-copy claim is accepted.
+
+## WAMP benchmark process-resource attribution follow-up (2026-10-05)
+
+The comparison evaluator previously used only the client worker for CPU,
+allocation, GC and peak RSS even though the WAMP server runs in a separate Dart
+process. Its resource ratios now require both `client_process_metrics` and
+`server_process_metrics`, retaining both blocks and comparing combined CPU,
+allocation and GC pause per operation plus summed sampled peak RSS. The server
+block describes the process hosting `RouterBinding` and the HTTP benchmark
+controller. Each workload gets one throwaway warm-up operation before the server
+measurement window so lazy router isolates exist before profiling starts. The
+collector profiles every application isolate present when the window begins
+and fails closed if that set changes or GC timeline evidence is incomplete.
+Process CPU ticks and RSS sampling use Linux `/proc`; missing platform metrics
+block the row. Eleven focused evaluator tests pass, as do the Rust orchestrator
+test target and Dart isolate-selection tests. A live macOS smoke run emits both
+process blocks and allocation/GC metrics, while CPU/RSS remain missing as
+expected. The benchmark campaign still has no generated manifest or measured
+parity result, and the Dart-managed TLS/socket and mixed-codec copy paths remain
+unmeasured.
 
 ## Session native-owned typed FlatBuffers PPT path (2026-10-05)
 
@@ -653,3 +676,15 @@ still pending; do not claim parity or close issue #103. All groups still use the
 ordinary Session send path; native segmented send copies submitted fragments.
 Connecting the typed Session path to verified transport ownership transfer is a
 remaining issue #96/#103 boundary, not established by this runner stage.
+
+## WAMP process-resource attribution verification (2026-10-05)
+
+The server-process resource attribution follow-up passes `bin/test-fast` and
+`bin/verify` at exit 0 on this worktree, including browser/WebAssembly tests,
+live WAMP transport matrices and consumer smoke checks. The comparator's eleven
+unit tests, Dart VM process/isolate tests and Rust `http_stream` tests pass. A
+live macOS one-workload smoke confirms both client/server metric blocks and
+server allocation/GC collection; macOS lacks the Linux `/proc` CPU and RSS
+evidence required by the parity gate. This is correctness evidence only. There
+is no paired FlatBuffers performance campaign, so issue #103 and milestone
+acceptance remain open. Exact-head hosted CI is pending the current commit.

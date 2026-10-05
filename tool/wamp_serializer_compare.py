@@ -24,7 +24,7 @@ RESOURCE_METRICS = (
     "cpu_us_per_operation",
     "allocated_bytes_per_operation",
     "gc_pause_us_per_operation",
-    "peak_rss_bytes",
+    "summed_sampled_peak_rss_bytes",
 )
 ALL_METRICS = METRICS + RESOURCE_METRICS
 PROCESS_METRICS = (
@@ -35,6 +35,12 @@ PROCESS_METRICS = (
     "gc_pause_us_delta",
     "current_rss_bytes",
     "peak_rss_during_bytes",
+)
+PROCESS_IDENTITY_METRICS = (
+    "pid",
+    "rss_before_bytes",
+    "current_rss_bytes",
+    "max_rss_bytes",
 )
 COPY_METRICS = (
     "optimized_payload_copy_bytes",
@@ -91,6 +97,12 @@ def _campaign_findings(manifest: dict[str, Any]) -> list[str]:
             value = platform.get(key)
             if value is None or (isinstance(value, str) and not value.strip()):
                 findings.append(f"metadata.platform.{key} is missing")
+        os_name = platform.get("os")
+        if isinstance(os_name, str) and os_name.strip().lower() != "linux":
+            findings.append(
+                "metadata.platform.os must be Linux because process CPU and RSS "
+                "evidence uses /proc"
+            )
     load_average = metadata.get("load_average")
     if not isinstance(load_average, list) or len(load_average) != 3 or any(
         not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0
@@ -213,23 +225,67 @@ def _resolve_results(base_dir: Path, run: dict[str, Any]) -> tuple[list[dict[str
 
 def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
     missing: list[str] = []
-    process_metrics = report.get("client_process_metrics")
-    if not isinstance(process_metrics, dict):
-        return [f"{label}: missing client_process_metrics"]
-    for key in PROCESS_METRICS:
-        value = process_metrics.get(key)
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
-            missing.append(f"{label}: missing client_process_metrics.{key}")
-        elif not math.isfinite(float(value)) or value < 0:
-            missing.append(f"{label}: invalid client_process_metrics.{key}")
-    if process_metrics.get("current_rss_bytes", 0) <= 0:
-        missing.append(f"{label}: current_rss_bytes must be positive")
-    if process_metrics.get("peak_rss_during_bytes", 0) <= 0:
-        missing.append(f"{label}: peak_rss_during_bytes must be positive")
-    if process_metrics.get("current_rss_bytes", 0) > process_metrics.get(
-        "peak_rss_during_bytes", 0
+    process_sets: dict[str, dict[str, Any]] = {}
+    for process_name in ("client_process_metrics", "server_process_metrics"):
+        process_metrics = report.get(process_name)
+        if not isinstance(process_metrics, dict):
+            missing.append(f"{label}: missing {process_name}")
+            continue
+        process_sets[process_name] = process_metrics
+        for key in PROCESS_IDENTITY_METRICS + PROCESS_METRICS:
+            value = process_metrics.get(key)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                missing.append(f"{label}: missing {process_name}.{key}")
+            elif not math.isfinite(float(value)) or value < 0:
+                missing.append(f"{label}: invalid {process_name}.{key}")
+        for key in ("pid", "rss_before_bytes", "current_rss_bytes", "peak_rss_during_bytes"):
+            value = process_metrics.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and value <= 0:
+                missing.append(f"{label}: {process_name}.{key} must be positive")
+        user_cpu = process_metrics.get("cpu_user_us_delta")
+        system_cpu = process_metrics.get("cpu_system_us_delta")
+        if (
+            isinstance(user_cpu, (int, float))
+            and not isinstance(user_cpu, bool)
+            and isinstance(system_cpu, (int, float))
+            and not isinstance(system_cpu, bool)
+            and user_cpu + system_cpu <= 0
+        ):
+            missing.append(f"{label}: {process_name} CPU delta must be positive")
+        allocated_bytes = process_metrics.get("allocated_bytes_delta")
+        if (
+            isinstance(allocated_bytes, (int, float))
+            and not isinstance(allocated_bytes, bool)
+            and allocated_bytes <= 0
+        ):
+            missing.append(f"{label}: {process_name} allocation delta must be positive")
+        current_rss = process_metrics.get("current_rss_bytes")
+        peak_rss = process_metrics.get("peak_rss_during_bytes")
+        if (
+            isinstance(current_rss, (int, float))
+            and not isinstance(current_rss, bool)
+            and isinstance(peak_rss, (int, float))
+            and not isinstance(peak_rss, bool)
+            and current_rss > peak_rss
+        ):
+            missing.append(f"{label}: {process_name} peak RSS is below final live RSS")
+        max_rss = process_metrics.get("max_rss_bytes")
+        if (
+            isinstance(current_rss, (int, float))
+            and not isinstance(current_rss, bool)
+            and isinstance(max_rss, (int, float))
+            and not isinstance(max_rss, bool)
+            and current_rss > max_rss
+        ):
+            missing.append(f"{label}: {process_name} max RSS is below final live RSS")
+    client_metrics = process_sets.get("client_process_metrics")
+    server_metrics = process_sets.get("server_process_metrics")
+    if (
+        client_metrics is not None
+        and server_metrics is not None
+        and client_metrics.get("pid") == server_metrics.get("pid")
     ):
-        missing.append(f"{label}: peak RSS is below the final live RSS")
+        missing.append(f"{label}: client and server process metrics must use distinct PIDs")
 
     copy_metrics = report.get("copy_metrics")
     if not isinstance(copy_metrics, dict):
@@ -292,20 +348,24 @@ def _summarize_report(
     throughput_mbps = (
         max(request_bytes, response_bytes) * 8.0 / 1_000_000.0
     ) / (elapsed_ms / 1000.0)
-    process_metrics = report.get("client_process_metrics")
-    if not isinstance(process_metrics, dict):
-        process_metrics = {}
+    process_metrics = [
+        report.get("client_process_metrics"),
+        report.get("server_process_metrics"),
+    ]
 
     def process_value(key: str) -> float:
-        value = process_metrics.get(key)
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not math.isfinite(float(value))
-            or value < 0
-        ):
-            return 0.0
-        return float(value)
+        total = 0.0
+        for process in process_metrics:
+            value = process.get(key) if isinstance(process, dict) else None
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(float(value))
+                or value < 0
+            ):
+                return 0.0
+            total += float(value)
+        return total
 
     return (
         {
@@ -326,7 +386,7 @@ def _summarize_report(
             / len(samples),
             "gc_pause_us_per_operation": process_value("gc_pause_us_delta")
             / len(samples),
-            "peak_rss_bytes": process_value("peak_rss_during_bytes"),
+            "summed_sampled_peak_rss_bytes": process_value("peak_rss_during_bytes"),
         },
         findings,
     )
@@ -525,6 +585,12 @@ def evaluate_campaign(
                             "p99": summary["latency_p99_ms"],
                         },
                         "client_process_metrics": report.get("client_process_metrics"),
+                        "server_process_metrics": report.get("server_process_metrics"),
+                        "combined_process_resource_metrics": {
+                            key: summary[key]
+                            for key in RESOURCE_METRICS
+                            if key in summary
+                        },
                         "copy_metrics": report.get("copy_metrics"),
                     }
                 )

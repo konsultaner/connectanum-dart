@@ -10,38 +10,42 @@ import 'package:vm_service/vm_service_io.dart';
 /// isolate/process so profiling RPCs can pause the target without pausing the
 /// observer that must receive their replies.
 class DartVmMetricsCollector {
-  DartVmMetricsCollector._(this._service, this._isolateId, this._pid) {
-    _gcSubscription = _service.onGCEvent.listen((_) => _gcEvents++);
+  DartVmMetricsCollector._(
+    this._service,
+    this._pid, {
+    required bool allIsolates,
+  }) : _allIsolates = allIsolates {
+    _gcSubscription = _service.onGCEvent.listen((_) => _gcEventGeneration++);
   }
 
   final VmService _service;
-  final String _isolateId;
   final int _pid;
+  final bool _allIsolates;
   late final StreamSubscription<Event> _gcSubscription;
-  int _gcEvents = 0;
+  int _gcEventGeneration = 0;
 
   static Future<DartVmMetricsCollector> connect({
     required Uri serviceUri,
     required int pid,
+    bool allIsolates = false,
   }) async {
     final websocketUri = serviceUri.replace(scheme: 'ws').resolve('ws');
     final service = await vmServiceConnectUri(websocketUri.toString());
     try {
       final vm = await service.getVM();
       final isolates = vm.isolates ?? const <IsolateRef>[];
-      IsolateRef? isolate;
-      for (final candidate in isolates) {
-        if (candidate.name == 'main') {
-          isolate = candidate;
-          break;
-        }
+      final isolateIds = selectDartVmMetricIsolateIds(
+        isolates,
+        allIsolates: allIsolates,
+      );
+      if (isolateIds.isEmpty) {
+        throw StateError('Observed WAMP process has no application isolates');
       }
-      isolate ??= isolates.isEmpty ? null : isolates.first;
-      final isolateId = isolate?.id;
-      if (isolateId == null) {
-        throw StateError('Observed WAMP worker has no main isolate');
-      }
-      final collector = DartVmMetricsCollector._(service, isolateId, pid);
+      final collector = DartVmMetricsCollector._(
+        service,
+        pid,
+        allIsolates: allIsolates,
+      );
       await service.streamListen('GC');
       return collector;
     } catch (_) {
@@ -51,13 +55,22 @@ class DartVmMetricsCollector {
   }
 
   Future<DartVmMetricsWindow> beginWindow() async {
+    final isolateIds = await _currentIsolateIds();
+    if (isolateIds.isEmpty) {
+      throw StateError('Observed WAMP process has no application isolates');
+    }
+    await Future.wait(
+      isolateIds.map(
+        (isolateId) => _service.getAllocationProfile(isolateId, reset: true),
+      ),
+    );
+    await _waitForGcEventDrain();
     await _service.clearVMTimeline();
-    await _service.getAllocationProfile(_isolateId, reset: true);
     final cpuTicks = await _readLinuxCpuTicks(_pid);
     return DartVmMetricsWindow(
-      gcEvents: _gcEvents,
       cpuUserTicks: cpuTicks?.user,
       cpuSystemTicks: cpuTicks?.system,
+      isolateIds: isolateIds,
     );
   }
 
@@ -65,10 +78,27 @@ class DartVmMetricsCollector {
     DartVmMetricsWindow window, {
     required int? peakRssBytes,
   }) async {
-    // Let the service event stream deliver collections that ended with the
-    // workload before taking the final counter value.
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-    final allocation = await _service.getAllocationProfile(_isolateId);
+    final isolateIds = await _currentIsolateIds();
+    requireStableDartVmMetricIsolates(window.isolateIds, isolateIds);
+    var allocatedBytes = 0;
+    var allocationComplete = true;
+    for (final isolateId in isolateIds) {
+      final allocation = await _service.getAllocationProfile(isolateId);
+      final members = allocation.members;
+      if (members == null) {
+        allocationComplete = false;
+        continue;
+      }
+      for (final member in members) {
+        final size = member.accumulatedSize;
+        if (size == null || size < 0) {
+          allocationComplete = false;
+          continue;
+        }
+        allocatedBytes = (allocatedBytes + size).clamp(0, 1 << 62).toInt();
+      }
+    }
+    final timelineStable = await _waitForGcEventDrain();
     final timeline = await _service.getVMTimeline();
     final cpuAfter = await _readLinuxCpuTicks(_pid);
     final userTicks = window.cpuUserTicks == null || cpuAfter == null
@@ -80,31 +110,11 @@ class DartVmMetricsCollector {
     final tickRate = userTicks == null || systemTicks == null
         ? null
         : await _linuxClockTicksPerSecond();
-    final allocatedBytes = allocation.members?.fold<int>(
-      0,
-      (sum, member) =>
-          sum + (member.accumulatedSize ?? 0).clamp(0, 1 << 62).toInt(),
-    );
-    var gcPauseMicros = 0;
-    for (final event in timeline.traceEvents ?? const <TimelineEvent>[]) {
-      final json = event.json;
-      if (json == null) continue;
-      final name = json['name'];
-      final duration = json['dur'];
-      final phase = json['ph'];
-      if (name is String &&
-          name.toLowerCase().contains('gc') &&
-          (phase == null || phase == 'X') &&
-          duration is num &&
-          duration.isFinite &&
-          duration > 0) {
-        gcPauseMicros += duration.round();
-      }
-    }
+    final gcMetrics = _gcMetricsFromTimeline(timeline, stable: timelineStable);
     return DartVmMetricsResult(
-      allocatedBytes: allocatedBytes,
-      gcCount: (_gcEvents - window.gcEvents).clamp(0, 1 << 62).toInt(),
-      gcPauseMicros: gcPauseMicros,
+      allocatedBytes: allocationComplete ? allocatedBytes : null,
+      gcCount: gcMetrics?.count,
+      gcPauseMicros: gcMetrics?.pauseMicros,
       cpuUserMicros: userTicks == null || tickRate == null || userTicks < 0
           ? null
           : (userTicks * 1000000 / tickRate).round(),
@@ -116,6 +126,30 @@ class DartVmMetricsCollector {
     );
   }
 
+  Future<List<String>> _currentIsolateIds() async =>
+      selectDartVmMetricIsolateIds(
+        (await _service.getVM()).isolates ?? const <IsolateRef>[],
+        allIsolates: _allIsolates,
+      );
+
+  Future<bool> _waitForGcEventDrain() async {
+    final elapsed = Stopwatch()..start();
+    var previousGeneration = _gcEventGeneration;
+    var lastEventAt = Duration.zero;
+    const quietPeriod = Duration(milliseconds: 50);
+    const maximumWait = Duration(milliseconds: 250);
+    while (elapsed.elapsed < maximumWait) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      final generation = _gcEventGeneration;
+      if (generation != previousGeneration) {
+        previousGeneration = generation;
+        lastEventAt = elapsed.elapsed;
+      }
+      if (elapsed.elapsed - lastEventAt >= quietPeriod) return true;
+    }
+    return false;
+  }
+
   Future<void> close() async {
     await _gcSubscription.cancel();
     await _service.dispose();
@@ -124,14 +158,94 @@ class DartVmMetricsCollector {
 
 class DartVmMetricsWindow {
   const DartVmMetricsWindow({
-    required this.gcEvents,
     required this.cpuUserTicks,
     required this.cpuSystemTicks,
+    required this.isolateIds,
   });
 
-  final int gcEvents;
   final int? cpuUserTicks;
   final int? cpuSystemTicks;
+  final List<String> isolateIds;
+}
+
+class _DartVmGcMetrics {
+  const _DartVmGcMetrics(this.count, this.pauseMicros);
+
+  final int count;
+  final int pauseMicros;
+}
+
+_DartVmGcMetrics? _gcMetricsFromTimeline(
+  Timeline timeline, {
+  required bool stable,
+}) {
+  final events = timeline.traceEvents;
+  if (!stable || events == null) return null;
+  var count = 0;
+  var pauseMicros = 0;
+  var completeDurations = true;
+  for (final event in events) {
+    final json = event.json;
+    if (json == null) continue;
+    final name = json['name'];
+    final phase = json['ph'];
+    if (name is! String ||
+        !name.toLowerCase().contains('gc') ||
+        (phase != null && phase != 'X')) {
+      continue;
+    }
+    count++;
+    final duration = json['dur'];
+    if (duration is num && duration.isFinite && duration >= 0) {
+      pauseMicros += duration.round();
+    } else {
+      completeDurations = false;
+    }
+  }
+  return completeDurations ? _DartVmGcMetrics(count, pauseMicros) : null;
+}
+
+/// Returns the isolate IDs used for allocation profiling in a WAMP process.
+///
+/// The client worker normally profiles only its main isolate. The router
+/// benchmark profiles every live isolate because routing work runs in the
+/// configured worker pool.
+List<String> selectDartVmMetricIsolateIds(
+  List<IsolateRef> isolates, {
+  required bool allIsolates,
+}) {
+  final applicationIsolates = isolates.where(
+    (candidate) => candidate.isSystemIsolate != true,
+  );
+  final candidates = allIsolates
+      ? applicationIsolates
+      : applicationIsolates.where((candidate) => candidate.name == 'main');
+  final ids =
+      candidates
+          .map((candidate) => candidate.id)
+          .whereType<String>()
+          .toSet()
+          .toList()
+        ..sort();
+  if (ids.isNotEmpty || allIsolates || isolates.isEmpty) return ids;
+
+  final fallbackId = applicationIsolates.first.id;
+  return fallbackId == null ? const <String>[] : <String>[fallbackId];
+}
+
+/// Fails closed when a benchmark's profiled isolate set changes mid-window.
+void requireStableDartVmMetricIsolates(
+  List<String> before,
+  List<String> after,
+) {
+  final beforeIds = before.toSet();
+  final afterIds = after.toSet();
+  if (beforeIds.length != afterIds.length || !beforeIds.containsAll(afterIds)) {
+    throw StateError(
+      'Dart VM isolate set changed during metrics window '
+      '(before: ${beforeIds.toList()..sort()}, after: ${afterIds.toList()..sort()})',
+    );
+  }
 }
 
 class DartVmMetricsResult {

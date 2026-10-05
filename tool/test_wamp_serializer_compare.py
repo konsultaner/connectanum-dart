@@ -52,13 +52,28 @@ class WampSerializerCompareTest(unittest.TestCase):
                 for index in range(25)
             ],
             "client_process_metrics": {
-                "cpu_user_us_delta": cpu * 25,
-                "cpu_system_us_delta": 25,
-                "allocated_bytes_delta": allocated * 25,
+                "pid": 1000,
+                "rss_before_bytes": peak * 3 // 5,
+                "current_rss_bytes": peak * 3 // 5,
+                "max_rss_bytes": peak,
+                "cpu_user_us_delta": cpu * 15,
+                "cpu_system_us_delta": cpu * 5,
+                "allocated_bytes_delta": allocated * 20,
                 "gc_count_delta": 1,
-                "gc_pause_us_delta": pause * 25,
-                "current_rss_bytes": peak - 5,
-                "peak_rss_during_bytes": peak,
+                "gc_pause_us_delta": pause * 20,
+                "peak_rss_during_bytes": peak * 3 // 5,
+            },
+            "server_process_metrics": {
+                "pid": 2000,
+                "rss_before_bytes": peak * 2 // 5,
+                "current_rss_bytes": peak * 2 // 5,
+                "max_rss_bytes": peak,
+                "cpu_user_us_delta": cpu * 4,
+                "cpu_system_us_delta": cpu,
+                "allocated_bytes_delta": allocated * 5,
+                "gc_count_delta": 1,
+                "gc_pause_us_delta": pause * 5,
+                "peak_rss_during_bytes": peak * 2 // 5,
             },
             "copy_metrics": {
                 "optimized_payload_copy_bytes": 0 if codec == "flatbuffers" else 512,
@@ -195,6 +210,16 @@ class WampSerializerCompareTest(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertTrue(any("missing flatbuffers" in f for f in result["findings"]))
 
+    def test_rejects_non_linux_campaign_platform(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["metadata"]["platform"]["os"] = "Darwin"
+
+        findings = compare._campaign_findings(manifest)
+
+        self.assertTrue(
+            any("metadata.platform.os must be Linux" in item for item in findings)
+        )
+
     def test_rejects_short_measurement_window(self) -> None:
         manifest = copy.deepcopy(self.manifest)
         run = manifest["measured_runs"][0]
@@ -222,6 +247,46 @@ class WampSerializerCompareTest(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertTrue(any("allocated_bytes_delta" in f for f in result["findings"]))
         self.assertTrue(any("missing copy_metrics" in f for f in result["findings"]))
+
+    def test_rejects_missing_server_process_metrics(self) -> None:
+        report = self._report("case_flatbuffers", "flatbuffers", 0)
+        report.pop("server_process_metrics")
+
+        findings = compare._validate_evidence(report, label="missing-server")
+
+        self.assertTrue(any("missing server_process_metrics" in f for f in findings))
+
+    def test_rejects_unmeasured_zero_process_cpu_and_allocations(self) -> None:
+        report = self._report("case_flatbuffers", "flatbuffers", 0)
+        server = report["server_process_metrics"]
+        server["cpu_user_us_delta"] = 0
+        server["cpu_system_us_delta"] = 0
+        server["allocated_bytes_delta"] = 0
+
+        findings = compare._validate_evidence(report, label="zero-server")
+
+        self.assertTrue(any("CPU delta must be positive" in f for f in findings))
+        self.assertTrue(any("allocation delta must be positive" in f for f in findings))
+
+    def test_resource_metrics_sum_client_and_server_processes(self) -> None:
+        report = self._report("case_flatbuffers", "flatbuffers", 0)
+
+        summary, findings = compare._summarize_report(
+            report,
+            min_duration_ms=10_000,
+            min_samples=25,
+            label="paired-processes",
+        )
+
+        self.assertEqual(findings, [])
+        self.assertEqual(summary["cpu_us_per_operation"], 80.0)
+        self.assertEqual(summary["allocated_bytes_per_operation"], 80.0)
+        self.assertEqual(summary["gc_pause_us_per_operation"], 8.0)
+        self.assertEqual(
+            summary["summed_sampled_peak_rss_bytes"],
+            report["client_process_metrics"]["peak_rss_during_bytes"]
+            + report["server_process_metrics"]["peak_rss_during_bytes"],
+        )
 
     def test_bootstrap_is_deterministic(self) -> None:
         first = compare.evaluate_campaign(self.manifest, self.root, self.policy)

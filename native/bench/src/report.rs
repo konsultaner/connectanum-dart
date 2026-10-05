@@ -366,6 +366,8 @@ pub struct WorkloadReport {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_process_metrics: Option<ClientProcessMetrics>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_process_metrics: Option<ClientProcessMetrics>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub copy_metrics: Option<Value>,
     pub samples: Vec<WorkloadSample>,
 }

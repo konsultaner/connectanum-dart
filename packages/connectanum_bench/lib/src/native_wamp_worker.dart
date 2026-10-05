@@ -284,6 +284,7 @@ class NativeWampWorker {
       [
         if (enableVmMetrics) '--timeline_streams=GC',
         if (enableVmMetrics) '--observe=0/127.0.0.1',
+        if (enableVmMetrics) '--no-pause-isolates-on-exit',
         if (_usesPackageExecutable) 'run',
         if (!usesDirectExecutable) workerScriptPath,
         '--realm',

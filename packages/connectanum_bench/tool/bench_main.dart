@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -10,6 +11,7 @@ import 'package:logging/logging.dart';
 
 import 'package:connectanum_bench/src/http_stream_handler.dart';
 import 'package:connectanum_bench/src/http_auth_bench_harness.dart';
+import 'package:connectanum_bench/src/dart_vm_metrics.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/remote_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
@@ -270,6 +272,9 @@ class _BenchRouterService {
         authId: 'bench-http',
         authRole: 'internal',
       );
+      final serverProcessMetricsCollector = enableWampVmMetrics
+          ? await _connectServerProcessMetricsCollector()
+          : null;
       final control = _BenchControlRegistry(
         binding: binding,
         session: controlSession,
@@ -281,9 +286,10 @@ class _BenchRouterService {
         nativeLibraryPath: nativeLibraryPath,
         workerScriptPath: workerScriptPath ?? _resolveWampWorkerScriptPath(),
         enableVmMetrics: enableWampVmMetrics,
+        serverProcessMetricsCollector: serverProcessMetricsCollector,
       );
-      await control.initialize();
       _controlRegistry = control;
+      await control.initialize();
 
       _listenForStdin();
 
@@ -299,6 +305,21 @@ class _BenchRouterService {
         await _teardown();
       }
     }
+  }
+
+  Future<DartVmMetricsCollector> _connectServerProcessMetricsCollector() async {
+    final serviceUri = (await developer.Service.getInfo()).serverUri;
+    if (serviceUri == null) {
+      throw StateError(
+        'Router process metrics require the Dart VM service; '
+        'launch bench_main with --enable-vm-service',
+      );
+    }
+    return DartVmMetricsCollector.connect(
+      serviceUri: serviceUri,
+      pid: pid,
+      allIsolates: true,
+    );
   }
 
   void _listenForStdin() {
@@ -435,6 +456,7 @@ class _BenchControlRegistry {
     required this.nativeLibraryPath,
     required this.workerScriptPath,
     required this.enableVmMetrics,
+    required this.serverProcessMetricsCollector,
   }) {
     _nativeWampWorker = NativeWampWorker(
       realmUri: realmUri,
@@ -457,6 +479,7 @@ class _BenchControlRegistry {
   final String nativeLibraryPath;
   final String workerScriptPath;
   final bool enableVmMetrics;
+  final DartVmMetricsCollector? serverProcessMetricsCollector;
 
   final _logger = Logger('BenchControlRegistry');
   final List<_BenchRegisteredHandler> _registrations = [];
@@ -496,6 +519,7 @@ class _BenchControlRegistry {
     }
     _registrations.clear();
     await _nativeWampWorker.close();
+    await serverProcessMetricsCollector?.close();
   }
 
   Future<void> _register(
@@ -742,6 +766,12 @@ class _BenchControlRegistry {
     }
     try {
       final scenario = WampScenario.fromJson(payload);
+      if (serverProcessMetricsCollector != null) {
+        // The first real route use can create router isolates lazily. Run one
+        // throwaway operation before opening the measured server VM window so
+        // isolate discovery reflects the warmed workload's stable set.
+        await _nativeWampWorker.runWithMetrics(_serverMetricsWarmup(scenario));
+      }
       Object? baselineMetrics;
       try {
         baselineMetrics = await binding.collectMetrics();
@@ -751,9 +781,28 @@ class _BenchControlRegistry {
       final routerCopyMetricsBefore = _routerTransportCopyMetrics(
         binding.runtime,
       );
-      // Keep client CPU and RSS separate from the router/control process. The
-      // worker honors the scenario's Dart or native client implementation.
-      final result = await _nativeWampWorker.runWithMetrics(scenario);
+      final serverMetricsCollector = serverProcessMetricsCollector;
+      final serverMetricsWindow = await serverMetricsCollector?.beginWindow();
+      final serverRssBeforeBytes = ProcessInfo.currentRss;
+      final serverRssSampler = serverMetricsCollector == null
+          ? null
+          : DartVmMetricsRssSampler(pid);
+      final NativeWampWorkerResult result;
+      try {
+        // The worker honors the scenario's Dart or native client implementation.
+        result = await _nativeWampWorker.runWithMetrics(scenario);
+      } finally {
+        await serverRssSampler?.stop();
+      }
+      final serverProcessMetrics =
+          serverMetricsCollector == null || serverMetricsWindow == null
+          ? null
+          : await _serverProcessMetricsJson(
+              serverMetricsCollector,
+              serverMetricsWindow,
+              rssBeforeBytes: serverRssBeforeBytes,
+              peakRssBytes: serverRssSampler?.peakRssBytes,
+            );
       final samples = result.samples;
       final fileSegmentMetrics = result.fileSegmentMetrics;
       final clientProcessMetrics = result.processMetrics;
@@ -776,6 +825,7 @@ class _BenchControlRegistry {
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
           'file_segment_metrics': fileSegmentMetrics.toJson(),
           'copy_metrics': copyMetrics,
+          'server_process_metrics': serverProcessMetrics,
           if (clientProcessMetrics != null)
             'client_process_metrics': clientProcessMetrics.toJson(),
         },
@@ -801,6 +851,41 @@ class _BenchControlRegistry {
         },
       );
     }
+  }
+
+  Future<Map<String, Object?>> _serverProcessMetricsJson(
+    DartVmMetricsCollector collector,
+    DartVmMetricsWindow window, {
+    required int rssBeforeBytes,
+    required int? peakRssBytes,
+  }) async {
+    final measured = await collector.endWindow(
+      window,
+      peakRssBytes: peakRssBytes,
+    );
+    return {
+      'pid': pid,
+      'rss_before_bytes': rssBeforeBytes,
+      'current_rss_bytes': ProcessInfo.currentRss,
+      'max_rss_bytes': ProcessInfo.maxRss,
+      'cpu_user_us_delta': measured.cpuUserMicros,
+      'cpu_system_us_delta': measured.cpuSystemMicros,
+      'allocated_bytes_delta': measured.allocatedBytes,
+      'gc_count_delta': measured.gcCount,
+      'gc_pause_us_delta': measured.gcPauseMicros,
+      'peak_rss_during_bytes': measured.peakRssBytes,
+    };
+  }
+
+  WampScenario _serverMetricsWarmup(WampScenario scenario) {
+    final warmupPayloadBytes = scenario.payloadBytes > 1024
+        ? 1024
+        : scenario.payloadBytes;
+    final payload = Map<String, Object?>.from(scenario.toJson())
+      ..['iterations'] = 1
+      ..['payload_bytes'] = warmupPayloadBytes
+      ..remove('minimum_duration_ms');
+    return WampScenario.fromJson(payload);
   }
 
   Future<void> _handleRpcEchoLazyInvoke(

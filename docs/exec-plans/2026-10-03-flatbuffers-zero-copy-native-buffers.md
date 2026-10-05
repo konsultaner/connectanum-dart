@@ -434,3 +434,37 @@ The fixes are committed and pushed as `f7387de0`. `bin/test-fast`, full
 `bin/verify`, and source/ID inventory checks for both VM and browser targets
 pass locally. Exact-head hosted CI for `f7387de0` is running; its complete
 mutation campaigns remain acceptance evidence for this correction.
+
+## WAMP process-resource attribution follow-up (2026-10-05)
+
+The comparator previously evaluated CPU, allocations, GC pause and peak RSS
+from the client worker only. A new working-tree change requires both client and
+server process metric blocks, preserves them separately in JSONL and transformed
+artifacts, and calculates resource ratios from the sum per operation. The
+`server_process_metrics` block explicitly describes the Dart process hosting
+RouterBinding and the HTTP benchmark controller, not an isolated router. Each
+workload gets one throwaway warm-up operation before its server measurement
+window so lazy router isolates exist before profiling starts. The collector
+profiles all application isolates present when the window begins and rejects
+isolate-set changes. Linux `/proc` provides process CPU ticks and 50 ms RSS
+samples; those fields remain missing on other platforms, as do GC values when
+the timeline fails to settle. The Rust orchestrator starts VM-service profiling
+on that process when `--collect-wamp-vm-metrics` is requested. Eleven Python
+evaluator tests, the Dart isolate-set tests, the Rust `http_stream` tests and a
+live macOS one-workload smoke pass. The smoke confirms both process blocks and
+server allocation/GC data; macOS lacks the Linux CPU/RSS fields required for
+acceptance. The comparator names its RSS total `summed_sampled_peak_rss_bytes`
+because client and server peaks can occur at different times. No campaign is
+scheduled by the evaluator, and no FlatBuffers parity result exists. The exact
+head after these working-tree changes still needs full local verification and
+hosted CI.
+
+`bin/test-fast` and full `bin/verify` now both exit 0 on 2026-10-05. Full
+verification includes Chrome/WebAssembly serializer and client suites, live
+FlatBuffers WAMP transport workloads, Rust benchmark tests, consumer-package
+smokes and router integration suites. The paired-comparison evaluator has
+eleven passing tests; the Dart VM process/isolate and Rust `http_stream` tests
+also pass. The macOS workload smoke verifies collection wiring only because
+Linux `/proc` CPU/RSS evidence is unavailable there. No paired measurements
+have run, so issue #103 remains open and milestone parity acceptance is not met.
+Fresh exact-head hosted CI remains pending the push of this verified update.

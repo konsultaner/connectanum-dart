@@ -87,10 +87,12 @@ groups still lack WebSocket and TLS coverage. See the
 [acceptance contract](../../docs/flatbuffers_performance_acceptance.md) before
 claiming parity.
 
-## Current Results
+## Existing baseline results (2026-08-24)
 
-The current complete production-gate snapshot covers 78 workloads and passes
-every throughput, lifecycle, transport, and zero-copy policy. Each cell reports
+The 78-workload production-gate snapshot below covers JSON, MessagePack and
+CBOR, without FlatBuffers. It remains regression evidence for those existing
+paths only and does not count toward milestone issue #103 or establish
+FlatBuffers parity. Each cell reports
 **sustained data-window / full-lifecycle throughput** in Gbit/s; lifecycle
 throughput includes connection, session, routing, and teardown costs.
 

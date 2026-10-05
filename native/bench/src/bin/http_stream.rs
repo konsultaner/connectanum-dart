@@ -507,6 +507,12 @@ fn run_bench_suite(
     );
 
     let mut command = Command::new(&args.dart);
+    if args.collect_wamp_vm_metrics {
+        command
+            .arg("--timeline_streams=GC")
+            .arg("--observe=0/127.0.0.1")
+            .arg("--no-pause-isolates-on-exit");
+    }
     command
         .arg("run")
         .arg(&args.bench_main)
@@ -720,6 +726,7 @@ fn run_bench_suite(
                     ),
                     file_segment_metrics: execution.file_segment_metrics.clone(),
                     client_process_metrics: execution.client_process_metrics.clone(),
+                    server_process_metrics: execution.server_process_metrics.clone(),
                     copy_metrics: execution.copy_metrics.clone(),
                     samples: execution.samples,
                 };
@@ -2183,6 +2190,7 @@ struct WorkloadExecution {
     data_window_elapsed_ms: Option<f64>,
     file_segment_metrics: Option<FileSegmentMetricsDelta>,
     client_process_metrics: Option<ClientProcessMetrics>,
+    server_process_metrics: Option<ClientProcessMetrics>,
     copy_metrics: Option<Value>,
 }
 
@@ -2194,6 +2202,7 @@ impl WorkloadExecution {
             data_window_elapsed_ms: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            server_process_metrics: None,
             copy_metrics: None,
         }
     }
@@ -2203,6 +2212,7 @@ impl WorkloadExecution {
         data_window_elapsed_ms: Option<f64>,
         file_segment_metrics: Option<FileSegmentMetricsDelta>,
         client_process_metrics: Option<ClientProcessMetrics>,
+        server_process_metrics: Option<ClientProcessMetrics>,
         copy_metrics: Option<Value>,
     ) -> Self {
         Self {
@@ -2211,6 +2221,7 @@ impl WorkloadExecution {
             data_window_elapsed_ms,
             file_segment_metrics,
             client_process_metrics,
+            server_process_metrics,
             copy_metrics,
         }
     }
@@ -2230,6 +2241,7 @@ impl WorkloadExecution {
             data_window_elapsed_ms: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            server_process_metrics: None,
             copy_metrics: None,
         }
     }
@@ -2349,6 +2361,21 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
             format_bytes(metrics.rss_before_bytes),
             format_bytes(metrics.current_rss_bytes),
             format_bytes(metrics.max_rss_bytes)
+        );
+    }
+    if let Some(metrics) = &report.server_process_metrics {
+        println!(
+            "  Server/control process {} resources: CPU user {} us / system {} us | allocated {} B | GC {} events / {} us | RSS current {} | sampled peak {}",
+            metrics.pid,
+            format_optional_u64(metrics.cpu_user_us_delta),
+            format_optional_u64(metrics.cpu_system_us_delta),
+            format_optional_u64(metrics.allocated_bytes_delta),
+            format_optional_u64(metrics.gc_count_delta),
+            format_optional_u64(metrics.gc_pause_us_delta),
+            format_bytes(metrics.current_rss_bytes),
+            metrics
+                .peak_rss_during_bytes
+                .map_or_else(|| "unavailable".to_string(), format_bytes),
         );
     }
     if let Some(delta) = router_counter_delta(
@@ -2550,6 +2577,10 @@ fn format_bytes(bytes: u64) -> String {
         unit += 1;
     }
     format!("{:.2} {}", value, UNITS[unit])
+}
+
+fn format_optional_u64(value: Option<u64>) -> String {
+    value.map_or_else(|| "unavailable".to_string(), |value| value.to_string())
 }
 
 fn now_millis() -> u128 {
@@ -3392,12 +3423,14 @@ fn run_wamp_workload(
     let data_window_elapsed_ms = parse_wamp_data_window_elapsed_ms(&response);
     let file_segment_metrics = parse_wamp_file_segment_metrics(&response)?;
     let client_process_metrics = parse_wamp_client_process_metrics(&response)?;
+    let server_process_metrics = parse_wamp_server_process_metrics(&response)?;
     let copy_metrics = response.get("copy_metrics").cloned();
     Ok(WorkloadExecution::wamp(
         samples,
         data_window_elapsed_ms,
         file_segment_metrics,
         client_process_metrics,
+        server_process_metrics,
         copy_metrics,
     ))
 }
@@ -3418,6 +3451,16 @@ fn parse_wamp_client_process_metrics(response: &Value) -> Result<Option<ClientPr
         .map(serde_json::from_value)
         .transpose()
         .context("failed to decode WAMP client-process metrics")
+}
+
+fn parse_wamp_server_process_metrics(response: &Value) -> Result<Option<ClientProcessMetrics>> {
+    response
+        .get("server_process_metrics")
+        .filter(|metrics| !metrics.is_null())
+        .cloned()
+        .map(serde_json::from_value)
+        .transpose()
+        .context("failed to decode WAMP server-process metrics")
 }
 
 fn parse_wamp_data_window_elapsed_ms(response: &Value) -> Option<f64> {
@@ -6613,6 +6656,38 @@ mod tests {
         );
     }
 
+    #[test]
+    fn wamp_server_process_metrics_preserve_benchmark_service_metrics() {
+        let metrics = parse_wamp_server_process_metrics(&json!({
+            "server_process_metrics": {
+                "pid": 43,
+                "rss_before_bytes": 134_217_728u64,
+                "current_rss_bytes": 201_326_592u64,
+                "max_rss_bytes": 268_435_456u64,
+                "cpu_user_us_delta": 1_200_000u64,
+                "cpu_system_us_delta": 300_000u64,
+                "allocated_bytes_delta": 8_388_608u64,
+                "gc_count_delta": 2,
+                "gc_pause_us_delta": 5_000u64,
+                "peak_rss_during_bytes": 234_881_024u64,
+            }
+        }))
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(metrics.pid, 43);
+        assert_eq!(metrics.cpu_user_us_delta, Some(1_200_000));
+        assert_eq!(metrics.cpu_system_us_delta, Some(300_000));
+        assert_eq!(metrics.allocated_bytes_delta, Some(8_388_608));
+        assert_eq!(metrics.gc_count_delta, Some(2));
+        assert_eq!(metrics.gc_pause_us_delta, Some(5_000));
+        assert_eq!(metrics.peak_rss_during_bytes, Some(234_881_024));
+        assert_eq!(
+            parse_wamp_server_process_metrics(&json!({"server_process_metrics": null})).unwrap(),
+            None
+        );
+    }
+
     #[tokio::test]
     async fn collect_worker_samples_dries_out_tasks() {
         let mut join_set = JoinSet::new();
@@ -6857,6 +6932,7 @@ mod tests {
             http_phase_timing: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            server_process_metrics: None,
             copy_metrics: None,
             samples: vec![sample(0)],
         };

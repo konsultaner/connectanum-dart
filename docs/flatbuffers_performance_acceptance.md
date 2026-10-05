@@ -85,10 +85,21 @@ complete the required coverage or establish FlatBuffers parity.
 `tool/wamp_serializer_compare.py` validates a prepared campaign manifest and
 its JSONL reports. It checks source/dependency/platform metadata, non-overlap,
 recorded codec order, workload and iteration identity, minimum duration/sample
-counts, resource and copy evidence, paired ratios and deterministic bootstrap
-confidence intervals. The machine-readable policy is
-`native/bench/artifact_gate/wamp_flatbuffers_performance.json`; seven focused
-unit tests pass. This evaluator does not schedule or execute a campaign, and no
+counts, client and server-process resource evidence, copy evidence, paired
+ratios and deterministic bootstrap confidence intervals. The server process
+contains both `RouterBinding` and the HTTP benchmark controller; its metrics are
+not labelled as router-only. Reports retain client and server blocks separately,
+while resource ratios sum CPU, allocations and GC pauses per operation. The
+`summed_sampled_peak_rss_bytes` metric adds each process's highest 50 ms RSS
+sample; it is not simultaneous combined RSS, because the process peaks may occur
+at different times. Each workload runs one throwaway iteration before the
+measurement window so lazy router isolates are present before server profiling
+starts. The collector profiles every application isolate present at the window
+start and rejects isolate-set changes or incomplete GC timelines. Process CPU
+ticks and RSS sampling use Linux `/proc`; those fields remain missing on other
+platforms and block acceptance. The machine-readable policy is
+`native/bench/artifact_gate/wamp_flatbuffers_performance.json`; eleven focused
+unit tests pass. The evaluator does not schedule or execute a campaign, and no
 manifest or measured comparison result exists yet. The report must not be used
 to claim parity until the complete primary matrix runs with no missing metrics.
 
