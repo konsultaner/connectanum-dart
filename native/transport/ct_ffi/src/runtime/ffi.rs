@@ -48,7 +48,7 @@ use ct_core::{
     HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
     HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
     HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, ResponseStreamWriter,
-    WampMessage, RESPONSE_STREAM_BUFFER,
+    TransportCopyMetricsSnapshot, WampMessage, RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -393,6 +393,14 @@ pub struct CtFileSegmentMetricsInfo {
     pub rawsocket_zero_copy_bytes_total: u64,
     pub buffered_file_segment_calls_total: u64,
     pub buffered_file_segment_bytes_total: u64,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct CtTransportCopyMetricsInfo {
+    pub websocket_mask_copy_bytes_total: u64,
+    pub websocket_coalesce_copy_bytes_total: u64,
+    pub tls_plaintext_accepted_bytes_total: u64,
 }
 
 #[repr(C)]
@@ -3392,6 +3400,24 @@ pub extern "C" fn ct_file_segment_metrics_snapshot(info: *mut CtFileSegmentMetri
             rawsocket_zero_copy_bytes_total: snapshot.rawsocket_zero_copy_bytes_total,
             buffered_file_segment_calls_total: snapshot.buffered_file_segment_calls_total,
             buffered_file_segment_bytes_total: snapshot.buffered_file_segment_bytes_total,
+        });
+    }
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_transport_copy_metrics_snapshot(
+    info: *mut CtTransportCopyMetricsInfo,
+) -> c_int {
+    if info.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let snapshot: TransportCopyMetricsSnapshot = ct_core::transport_copy_metrics_snapshot();
+    unsafe {
+        info.write(CtTransportCopyMetricsInfo {
+            websocket_mask_copy_bytes_total: snapshot.websocket_mask_copy_bytes_total,
+            websocket_coalesce_copy_bytes_total: snapshot.websocket_coalesce_copy_bytes_total,
+            tls_plaintext_accepted_bytes_total: snapshot.tls_plaintext_accepted_bytes_total,
         });
     }
     SUCCESS
@@ -10785,6 +10811,25 @@ mod tests {
         );
         assert_eq!(
             ct_file_segment_metrics_snapshot(std::ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[test]
+    fn transport_copy_metrics_snapshot_matches_core_counters() {
+        let _guard = test_guard();
+        let mut ffi = CtTransportCopyMetricsInfo::default();
+
+        assert_eq!(ct_transport_copy_metrics_snapshot(&mut ffi), SUCCESS);
+        let core = ct_core::transport_copy_metrics_snapshot();
+        assert!(ffi.websocket_mask_copy_bytes_total <= core.websocket_mask_copy_bytes_total);
+        assert!(
+            ffi.websocket_coalesce_copy_bytes_total <= core.websocket_coalesce_copy_bytes_total
+        );
+        assert!(ffi.tls_plaintext_accepted_bytes_total <= core.tls_plaintext_accepted_bytes_total);
+        assert_eq!(
+            ct_transport_copy_metrics_snapshot(std::ptr::null_mut()),
             ERR_INVALID_ARGUMENT
         );
     }

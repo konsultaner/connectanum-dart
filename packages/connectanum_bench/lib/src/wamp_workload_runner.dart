@@ -126,6 +126,7 @@ class WampWorkloadRunner {
        _nativeBufferAllocator = nativeBufferAllocator;
 
   static final Object _eventTimeoutZoneKey = Object();
+  static final Object _minimumDurationZoneKey = Object();
 
   final WampSessionFactory _sessionFactory;
   final Logger _logger;
@@ -141,38 +142,68 @@ class WampWorkloadRunner {
     final eventTimeout = scenario.eventTimeoutMs == null
         ? _defaultEventTimeout
         : Duration(milliseconds: scenario.eventTimeoutMs!);
-    return runZoned(() async {
-      _validatePayloadConstruction(scenario);
-      _logger.fine(
-        'Running ${scenario.mode} workload '
-        'uri=${scenario.uri} concurrency=${scenario.concurrency} '
-        'iterations=${scenario.iterations}',
+    final minimumDuration = scenario.minimumDurationMs == null
+        ? null
+        : Duration(milliseconds: scenario.minimumDurationMs!);
+    return runZoned(
+      () async {
+        _validatePayloadConstruction(scenario);
+        _validateMinimumDuration(scenario);
+        _logger.fine(
+          'Running ${scenario.mode} workload '
+          'uri=${scenario.uri} concurrency=${scenario.concurrency} '
+          'iterations=${scenario.iterations}',
+        );
+        switch (scenario.mode) {
+          case WampMode.authenticate:
+            return _runAuthenticateScenario(scenario);
+          case WampMode.pubsub:
+            return _runPubSubScenario(scenario);
+          case WampMode.rpc:
+            return _runRpcScenario(scenario);
+          case WampMode.progressiveRpc:
+            return _runProgressiveRpcScenario(scenario);
+          case WampMode.fileTransfer:
+            return _runFileTransferScenario(scenario);
+          case WampMode.timeoutRpc:
+            return _runTimeoutRpcScenario(scenario);
+          case WampMode.metaApi:
+            return _runMetaApiScenario(scenario);
+          case WampMode.publishAck:
+            return _runPublishAckScenario(scenario);
+          case WampMode.subscribeCycle:
+            return _runSubscribeCycleScenario(scenario);
+          case WampMode.registerCycle:
+            return _runRegisterCycleScenario(scenario);
+          case WampMode.cancelCycle:
+            return _runCancelCycleScenario(scenario);
+        }
+      },
+      zoneValues: {
+        _eventTimeoutZoneKey: eventTimeout,
+        if (minimumDuration != null) _minimumDurationZoneKey: minimumDuration,
+      },
+    );
+  }
+
+  void _validateMinimumDuration(WampScenario scenario) {
+    if (scenario.minimumDurationMs == null) {
+      return;
+    }
+    if (scenario.minimumDurationMs! <= 0) {
+      throw ArgumentError.value(
+        scenario.minimumDurationMs,
+        'minimumDurationMs',
+        'must be positive',
       );
-      switch (scenario.mode) {
-        case WampMode.authenticate:
-          return _runAuthenticateScenario(scenario);
-        case WampMode.pubsub:
-          return _runPubSubScenario(scenario);
-        case WampMode.rpc:
-          return _runRpcScenario(scenario);
-        case WampMode.progressiveRpc:
-          return _runProgressiveRpcScenario(scenario);
-        case WampMode.fileTransfer:
-          return _runFileTransferScenario(scenario);
-        case WampMode.timeoutRpc:
-          return _runTimeoutRpcScenario(scenario);
-        case WampMode.metaApi:
-          return _runMetaApiScenario(scenario);
-        case WampMode.publishAck:
-          return _runPublishAckScenario(scenario);
-        case WampMode.subscribeCycle:
-          return _runSubscribeCycleScenario(scenario);
-        case WampMode.registerCycle:
-          return _runRegisterCycleScenario(scenario);
-        case WampMode.cancelCycle:
-          return _runCancelCycleScenario(scenario);
-      }
-    }, zoneValues: {_eventTimeoutZoneKey: eventTimeout});
+    }
+    if (scenario.mode != WampMode.rpc && scenario.mode != WampMode.pubsub) {
+      throw ArgumentError.value(
+        scenario.mode,
+        'mode',
+        'minimum duration is supported for RPC and pub/sub workloads only',
+      );
+    }
   }
 
   Future<List<WampSample>> _runPubSubScenario(WampScenario scenario) async {
@@ -1918,10 +1949,17 @@ class WampWorkloadRunner {
   }) async {
     final samples = <WampSample>[];
     final pending = <_PendingWampSample>[];
-    final boundedInFlight = maxInFlight.clamp(1, iterations);
+    final minimumDuration = Zone.current[_minimumDurationZoneKey] as Duration?;
+    final timer = Stopwatch()..start();
+    final boundedInFlight = minimumDuration == null
+        ? maxInFlight.clamp(1, iterations)
+        : maxInFlight;
     var nextIteration = 0;
-    while (nextIteration < iterations || pending.isNotEmpty) {
-      while (nextIteration < iterations && pending.length < boundedInFlight) {
+    bool shouldScheduleNext() =>
+        nextIteration < iterations ||
+        (minimumDuration != null && timer.elapsed < minimumDuration);
+    while (shouldScheduleNext() || pending.isNotEmpty) {
+      while (shouldScheduleNext() && pending.length < boundedInFlight) {
         final iteration = nextIteration;
         pending.add(
           _PendingWampSample(
@@ -3252,6 +3290,7 @@ class WampScenario {
     required this.uri,
     required this.iterations,
     required this.concurrency,
+    this.minimumDurationMs,
     this.inFlightPerSession = 1,
     this.peerCount = 1,
     this.payloadConstruction = WampPayloadConstruction.dartValues,
@@ -3280,6 +3319,7 @@ class WampScenario {
   final String uri;
   final int iterations;
   final int concurrency;
+  final int? minimumDurationMs;
   final int inFlightPerSession;
   final int peerCount;
   final WampPayloadConstruction payloadConstruction;
@@ -3313,6 +3353,9 @@ class WampScenario {
     final rawAuthSecret = json['auth_secret'];
     final iterations = _readPositiveInt(json['iterations'], fallback: 1);
     final concurrency = _readPositiveInt(json['concurrency'], fallback: 1);
+    final minimumDurationMs = _readOptionalStrictPositiveInt(
+      json['minimum_duration_ms'],
+    );
     final inFlightPerSession = _readPositiveInt(
       json['in_flight_per_session'],
       fallback: 1,
@@ -3363,6 +3406,7 @@ class WampScenario {
       uri: uri,
       iterations: iterations,
       concurrency: concurrency,
+      minimumDurationMs: minimumDurationMs,
       inFlightPerSession: inFlightPerSession,
       peerCount: peerCount,
       payloadConstruction: payloadConstruction,
@@ -3446,6 +3490,7 @@ class WampScenario {
     'uri': uri,
     'iterations': iterations,
     'concurrency': concurrency,
+    if (minimumDurationMs != null) 'minimum_duration_ms': minimumDurationMs,
     'in_flight_per_session': inFlightPerSession,
     'peer_count': peerCount,
     if (payloadConstruction != WampPayloadConstruction.dartValues)
@@ -3477,6 +3522,7 @@ class WampScenario {
     String? uri,
     int? iterations,
     int? concurrency,
+    int? minimumDurationMs,
     int? inFlightPerSession,
     int? peerCount,
     WampPayloadConstruction? payloadConstruction,
@@ -3511,6 +3557,7 @@ class WampScenario {
       uri: uri ?? this.uri,
       iterations: iterations ?? this.iterations,
       concurrency: concurrency ?? this.concurrency,
+      minimumDurationMs: minimumDurationMs ?? this.minimumDurationMs,
       inFlightPerSession: inFlightPerSession ?? this.inFlightPerSession,
       peerCount: peerCount ?? this.peerCount,
       payloadConstruction: payloadConstruction ?? this.payloadConstruction,

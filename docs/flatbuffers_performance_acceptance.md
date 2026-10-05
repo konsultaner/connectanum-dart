@@ -4,8 +4,9 @@ Status: acceptance contract for milestone issue #103. The runner exposes the
 three construction groups for typed RPC and pub/sub and records payload-preparation
 and native-builder copy counters. Native FlatBuffers callers pass owned typed
 FlatBuffers spans directly into the native FlatBuffers frame path for two
-construction groups. Full-pipeline copy attribution and the paired performance
-campaign are unfinished. No parity result is accepted.
+construction groups. Native-path copy attribution is now partial; complete
+cross-client coverage and the paired performance campaign are unfinished. No
+parity result is accepted.
 
 The runner selects a group with `payload_construction = "values"`,
 `"native_buffer"`, or `"pre_encoded_span"` and requires
@@ -47,9 +48,56 @@ Keep those rows explicit until matching shared ownership/segment optimizations
 and end-to-end copied-byte evidence exist. Issue #96 remains open for supported
 paths and acceptance work still outstanding.
 
-`bin/test-fast` and `bin/verify` pass with the new runner integration on
-2026-10-05. This stage is correctness evidence only; no timed result or parity
-acceptance is inferred.
+The runner integration and current copy-counter follow-up pass `bin/test-fast`
+and full `bin/verify` on 2026-10-05, including Chrome WebAssembly and live WAMP
+coverage. These are correctness checks, not timed results or parity acceptance.
+
+## Copy-counter coverage
+
+The native runtime exposes process-wide deltas for payload bytes copied into
+WebSocket masking scratch buffers, payload bytes copied into unmasked WebSocket
+coalescing buffers, and plaintext bytes accepted by Rustls writers. WebSocket
+headers are excluded from the mask/coalescing counters. The separate Rustls
+counter reports accepted input volume, including any WebSocket framing passed
+through that writer; it is not a measured memory copy. In-place XOR, kernel
+socket writes, and KTLS are not counted. The benchmark also counts explicit
+Dart-to-native `setAll` copies in native client and router send APIs. Owned
+native-buffer submissions do not increment that counter.
+
+`transport_copy_bytes` sums measured copy operations on the active cleartext
+path across the client worker and router process. A payload can be counted again
+at a later layer, so this aggregate is copy traffic, not unique application
+bytes. Builder input/growth and any transcode copies stay separate. TLS rows
+keep `transport_copy_bytes` and `tls_copy_bytes` as `not_measured` because the
+current Rustls counter does not measure copies. The separate
+`tls_plaintext_accepted_bytes` value is a throughput diagnostic. Snapshots use
+before/after deltas around one benchmark command.
+
+Missing active-path counters fail closed. Older native libraries without the
+optional snapshot symbol leave affected fields `not_measured`. Dart-managed
+socket masking, TLS copies and mixed-serializer router transcodes remain
+`not_measured`; those rows cannot pass the copy gate.
+The current counters therefore provide native-path attribution only and do not
+complete the required coverage or establish FlatBuffers parity.
+
+## Campaign evaluator status
+
+`tool/wamp_serializer_compare.py` validates a prepared campaign manifest and
+its JSONL reports. It checks source/dependency/platform metadata, non-overlap,
+recorded codec order, workload and iteration identity, minimum duration/sample
+counts, resource and copy evidence, paired ratios and deterministic bootstrap
+confidence intervals. The machine-readable policy is
+`native/bench/artifact_gate/wamp_flatbuffers_performance.json`; seven focused
+unit tests pass. This evaluator does not schedule or execute a campaign, and no
+manifest or measured comparison result exists yet. The report must not be used
+to claim parity until the complete primary matrix runs with no missing metrics.
+
+The relative gate currently requires no point-estimate regression versus the
+better binary baseline for CPU, allocations, GC pause and peak RSS as well as
+throughput and latency. Separate absolute per-row CPU/memory ceilings are still
+undeclared, and current Dart-managed TLS/socket and mixed-codec transcode copy
+paths are unmeasured. Those rows remain blocked until instrumentation and policy
+are complete.
 
 ## Comparable workloads
 

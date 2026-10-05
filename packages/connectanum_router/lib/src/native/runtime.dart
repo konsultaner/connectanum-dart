@@ -660,6 +660,49 @@ class NativeRouterMetrics {
   }
 }
 
+/// Cumulative transport copy-byte counters for the router process. Native
+/// counters are null when the loaded library predates their instrumentation.
+class NativeRouterTransportCopyMetrics {
+  const NativeRouterTransportCopyMetrics({
+    required this.dartToNativeCopiedBytesTotal,
+    required this.websocketMaskCopyBytesTotal,
+    required this.websocketCoalesceCopyBytesTotal,
+    required this.tlsPlaintextAcceptedBytesTotal,
+  });
+
+  final int dartToNativeCopiedBytesTotal;
+  final int? websocketMaskCopyBytesTotal;
+  final int? websocketCoalesceCopyBytesTotal;
+  final int? tlsPlaintextAcceptedBytesTotal;
+
+  NativeRouterTransportCopyMetrics deltaFrom(
+    NativeRouterTransportCopyMetrics before,
+  ) => NativeRouterTransportCopyMetrics(
+    dartToNativeCopiedBytesTotal: _counterDelta(
+      dartToNativeCopiedBytesTotal,
+      before.dartToNativeCopiedBytesTotal,
+    ),
+    websocketMaskCopyBytesTotal: _nullableCounterDelta(
+      websocketMaskCopyBytesTotal,
+      before.websocketMaskCopyBytesTotal,
+    ),
+    websocketCoalesceCopyBytesTotal: _nullableCounterDelta(
+      websocketCoalesceCopyBytesTotal,
+      before.websocketCoalesceCopyBytesTotal,
+    ),
+    tlsPlaintextAcceptedBytesTotal: _nullableCounterDelta(
+      tlsPlaintextAcceptedBytesTotal,
+      before.tlsPlaintextAcceptedBytesTotal,
+    ),
+  );
+
+  static int _counterDelta(int current, int before) =>
+      current >= before ? current - before : current;
+
+  static int? _nullableCounterDelta(int? current, int? before) =>
+      current == null || before == null ? null : _counterDelta(current, before);
+}
+
 class NativeHttpResponseStreamMetrics {
   const NativeHttpResponseStreamMetrics({
     required this.streamingResponsesTotal,
@@ -2199,6 +2242,7 @@ class NativeTransportRuntime
   final String _libraryPath;
   final ffi.DynamicLibrary _library; // Retain library for runtime lifetime.
   final CtFfiBindings _bindings;
+  int _dartToNativeCopiedBytesTotal = 0;
   // Resolve lazily so older libraries still support unambiguous listeners.
   late final CtListenConfiguredDart _listenConfigured = _library
       .lookupFunction<CtListenConfiguredNative, CtListenConfiguredDart>(
@@ -3535,6 +3579,34 @@ class NativeTransportRuntime
     }
   }
 
+  NativeRouterTransportCopyMetrics transportCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctTransportCopyMetricsSnapshot;
+    if (snapshot == null) {
+      return NativeRouterTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+        websocketMaskCopyBytesTotal: null,
+        websocketCoalesceCopyBytesTotal: null,
+        tlsPlaintextAcceptedBytesTotal: null,
+      );
+    }
+    final info = calloc<CtTransportCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot transport copy metrics');
+      }
+      final value = info.ref;
+      return NativeRouterTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+        websocketMaskCopyBytesTotal: value.websocketMaskCopyBytesTotal,
+        websocketCoalesceCopyBytesTotal: value.websocketCoalesceCopyBytesTotal,
+        tlsPlaintextAcceptedBytesTotal: value.tlsPlaintextAcceptedBytesTotal,
+      );
+    } finally {
+      calloc.free(info);
+    }
+  }
+
   Uint8List _encodeHttpResponseBody(NativeHttpResponseBody body) {
     switch (body.kind) {
       case NativeHttpResponseBodyKind.bytes:
@@ -3631,6 +3703,7 @@ class NativeTransportRuntime
     final ptr = calloc<ffi.Uint8>(payload.length);
     try {
       ptr.asTypedList(payload.length).setAll(0, payload);
+      _dartToNativeCopiedBytesTotal += payload.length;
       final result = _bindings.ctSendMessage(connectionId, ptr, payload.length);
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to send message');

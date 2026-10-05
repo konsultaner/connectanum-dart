@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::report::{
     bench_http_stream_counter_delta, router_counter_delta, transport_counter_after,
@@ -76,6 +77,8 @@ pub struct WorkloadArtifactSummary {
     pub scenario_router_publications_delta: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_process_metrics: Option<ClientProcessMetrics>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub copy_metrics: Option<Value>,
     pub transport: TransportDeltaSummary,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_connection_usage: Option<HttpConnectionUsageSummary>,
@@ -732,6 +735,7 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         )
         .unwrap_or(0),
         client_process_metrics: report.client_process_metrics.clone(),
+        copy_metrics: report.copy_metrics.clone(),
         transport: TransportDeltaSummary {
             rawsocket_zero_copy_calls: transport_counter_delta(
                 &report.metrics_before,
@@ -3615,6 +3619,7 @@ mod tests {
             http_phase_timing: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            copy_metrics: None,
             samples: vec![
                 WorkloadSample {
                     worker: 0,
@@ -4477,6 +4482,12 @@ mod tests {
             rss_before_bytes: 67_108_864,
             current_rss_bytes: 536_870_912,
             max_rss_bytes: 805_306_368,
+            cpu_user_us_delta: Some(10),
+            cpu_system_us_delta: Some(4),
+            allocated_bytes_delta: Some(4096),
+            gc_count_delta: Some(1),
+            gc_pause_us_delta: Some(250),
+            peak_rss_during_bytes: Some(805_306_368),
         });
         report.metrics_before["metrics"]["transport"]["rawsocket_zero_copy_calls_total"] =
             json!(10);
@@ -4548,6 +4559,12 @@ mod tests {
             rss_before_bytes: 67_108_864,
             current_rss_bytes: 536_870_912,
             max_rss_bytes: 805_306_368,
+            cpu_user_us_delta: Some(10),
+            cpu_system_us_delta: Some(4),
+            allocated_bytes_delta: Some(4096),
+            gc_count_delta: Some(1),
+            gc_pause_us_delta: Some(250),
+            peak_rss_during_bytes: Some(805_306_368),
         };
         report.client_process_metrics = Some(expected.clone());
 

@@ -422,6 +422,11 @@ typedef CtRouterMetricsSnapshotNative =
 typedef CtRouterMetricsSnapshotDart =
     int Function(ffi.Pointer<CtRouterMetricsInfo>);
 
+typedef CtTransportCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
+typedef CtTransportCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
+
 typedef CtHttpResponseStreamOpenNative =
     ffi.Int32 Function(
       ffi.Int32,
@@ -923,6 +928,17 @@ final class CtRouterMetricsInfo extends ffi.Struct {
 
   @ffi.Size()
   external int breakdownLen;
+}
+
+final class CtTransportCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int websocketMaskCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int websocketCoalesceCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int tlsPlaintextAcceptedBytesTotal;
 }
 
 final class CtRouterMetricsBreakdownInfo extends ffi.Struct {
@@ -1432,6 +1448,13 @@ class CtFfiBindings {
             CtRouterMetricsSnapshotNative,
             CtRouterMetricsSnapshotDart
           >('ct_router_metrics_snapshot'),
+      ctTransportCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTransportCopyMetricsSnapshotNative,
+              CtTransportCopyMetricsSnapshotDart
+            >('ct_transport_copy_metrics_snapshot'),
+      ),
       ctHttpResponseStreamOpen = library
           .lookupFunction<
             CtHttpResponseStreamOpenNative,
@@ -1573,6 +1596,7 @@ class CtFfiBindings {
   final CtHttpConnectionEventGetDart ctHttpConnectionEventGet;
   final CtHttpConnectionEventReleaseDart ctHttpConnectionEventRelease;
   final CtRouterMetricsSnapshotDart ctRouterMetricsSnapshot;
+  final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;
   final CtHttpResponseStreamOpenDart ctHttpResponseStreamOpen;
   final CtHttpResponseStreamWriteDart ctHttpResponseStreamWrite;
   final CtHttpResponseStreamFinishDart ctHttpResponseStreamFinish;

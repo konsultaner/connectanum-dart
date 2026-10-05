@@ -87,6 +87,8 @@ Future<void> _runBenchMain(List<String> args) async {
     nativeLibraryPath: nativeLibraryPath,
     controlRealm: controlRealm,
     workerScriptPath: results['wamp-worker'] as String?,
+    enableWampVmMetrics:
+        Platform.environment['CONNECTANUM_BENCH_WAMP_VM_METRICS'] == '1',
   );
 
   final sigintSub = ProcessSignal.sigint.watch().listen(
@@ -125,18 +127,88 @@ void _configureLogging({required bool verbose}) {
     });
 }
 
+Map<String, Object?> _copyMetricsWithRouter(
+  Map<String, Object?> clientMetrics, {
+  required WampScenario scenario,
+  required NativeRouterTransportCopyMetrics? before,
+  required NativeRouterTransportCopyMetrics? after,
+}) {
+  final metrics = Map<String, Object?>.from(clientMetrics);
+  Map<String, Object?> notMeasured(String reason) => {
+    'status': 'not_measured',
+    'reason': reason,
+  };
+  final needsWebSocket = scenario.transport == WampTransport.websocket;
+  final needsTls = scenario.secureTransport;
+  if (before == null || after == null) {
+    metrics['transport_copy_bytes'] = notMeasured(
+      'router transport copy snapshot is unavailable',
+    );
+    if (needsTls) {
+      metrics['tls_copy_bytes'] = notMeasured(
+        'TLS copy behavior is not instrumented',
+      );
+      metrics['tls_plaintext_accepted_bytes'] = notMeasured(
+        'router TLS plaintext snapshot is unavailable',
+      );
+    }
+    return metrics;
+  }
+
+  final delta = after.deltaFrom(before);
+  final clientTransport = metrics['transport_copy_bytes'];
+  final serverPathMeasured =
+      !needsWebSocket || delta.websocketCoalesceCopyBytesTotal != null;
+  if (clientTransport is num && serverPathMeasured) {
+    metrics['transport_copy_bytes'] =
+        clientTransport.toInt() +
+        delta.dartToNativeCopiedBytesTotal +
+        (needsWebSocket ? delta.websocketCoalesceCopyBytesTotal! : 0);
+  } else {
+    metrics['transport_copy_bytes'] = notMeasured(
+      'an active router transport copy counter is unavailable',
+    );
+  }
+
+  if (needsTls) {
+    metrics['transport_copy_bytes'] = notMeasured(
+      'TLS copy behavior is not instrumented',
+    );
+    metrics['tls_copy_bytes'] = notMeasured(
+      'TLS accepted-plaintext bytes do not measure memory copies',
+    );
+    final clientTls = metrics['tls_plaintext_accepted_bytes'];
+    final serverTls = delta.tlsPlaintextAcceptedBytesTotal;
+    metrics['tls_plaintext_accepted_bytes'] =
+        clientTls is num && serverTls != null
+        ? clientTls.toInt() + serverTls
+        : notMeasured(
+            'TLS plaintext acceptance is missing on a client or router side',
+          );
+  }
+  return metrics;
+}
+
+NativeRouterTransportCopyMetrics? _routerTransportCopyMetrics(
+  NativeRuntime runtime,
+) => runtime is NativeTransportRuntime
+    ? runtime.transportCopyMetricsSnapshot()
+    : null;
+
 class _BenchRouterService {
   _BenchRouterService({
     required this.routerConfigPath,
     required this.nativeLibraryPath,
     required this.controlRealm,
     this.workerScriptPath,
+    required this.enableWampVmMetrics,
   });
 
   final String routerConfigPath;
   final String nativeLibraryPath;
   final String controlRealm;
   final String? workerScriptPath;
+  final bool enableWampVmMetrics;
 
   final _logger = Logger('BenchRouterService');
   final _shutdownCompleter = Completer<void>();
@@ -208,6 +280,7 @@ class _BenchRouterService {
         secureWampTargets: secureWampTargets,
         nativeLibraryPath: nativeLibraryPath,
         workerScriptPath: workerScriptPath ?? _resolveWampWorkerScriptPath(),
+        enableVmMetrics: enableWampVmMetrics,
       );
       await control.initialize();
       _controlRegistry = control;
@@ -361,6 +434,7 @@ class _BenchControlRegistry {
     required this.secureWampTargets,
     required this.nativeLibraryPath,
     required this.workerScriptPath,
+    required this.enableVmMetrics,
   }) {
     _nativeWampWorker = NativeWampWorker(
       realmUri: realmUri,
@@ -368,6 +442,7 @@ class _BenchControlRegistry {
       secureWampTargets: secureWampTargets,
       nativeLibraryPath: nativeLibraryPath,
       workerScriptPath: workerScriptPath,
+      enableVmMetrics: enableVmMetrics,
       logger: _logger,
     );
   }
@@ -381,6 +456,7 @@ class _BenchControlRegistry {
   final Map<WampTransport, WampTransportTarget> secureWampTargets;
   final String nativeLibraryPath;
   final String workerScriptPath;
+  final bool enableVmMetrics;
 
   final _logger = Logger('BenchControlRegistry');
   final List<_BenchRegisteredHandler> _registrations = [];
@@ -672,6 +748,9 @@ class _BenchControlRegistry {
       } catch (_) {
         baselineMetrics = null;
       }
+      final routerCopyMetricsBefore = _routerTransportCopyMetrics(
+        binding.runtime,
+      );
       // Keep client CPU and RSS separate from the router/control process. The
       // worker honors the scenario's Dart or native client implementation.
       final result = await _nativeWampWorker.runWithMetrics(scenario);
@@ -681,12 +760,22 @@ class _BenchControlRegistry {
       if (baselineMetrics != null) {
         await _awaitRouterQuiescence(baselineMetrics);
       }
+      final routerCopyMetricsAfter = _routerTransportCopyMetrics(
+        binding.runtime,
+      );
+      final copyMetrics = _copyMetricsWithRouter(
+        result.copyMetrics,
+        scenario: scenario,
+        before: routerCopyMetricsBefore,
+        after: routerCopyMetricsAfter,
+      );
       final dataWindow = WampSampleWindow.fromSamples(samples);
       context.sendJson(
         body: {
           'samples': samples.map((sample) => sample.toJson()).toList(),
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
           'file_segment_metrics': fileSegmentMetrics.toJson(),
+          'copy_metrics': copyMetrics,
           if (clientProcessMetrics != null)
             'client_process_metrics': clientProcessMetrics.toJson(),
         },

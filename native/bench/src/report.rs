@@ -308,6 +308,18 @@ pub struct ClientProcessMetrics {
     pub rss_before_bytes: u64,
     pub current_rss_bytes: u64,
     pub max_rss_bytes: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu_user_us_delta: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu_system_us_delta: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allocated_bytes_delta: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gc_count_delta: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gc_pause_us_delta: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peak_rss_during_bytes: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -353,6 +365,8 @@ pub struct WorkloadReport {
     pub file_segment_metrics: Option<FileSegmentMetricsDelta>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_process_metrics: Option<ClientProcessMetrics>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub copy_metrics: Option<Value>,
     pub samples: Vec<WorkloadSample>,
 }
 

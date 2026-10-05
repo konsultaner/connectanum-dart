@@ -286,6 +286,13 @@ struct FileSegmentMetrics {
 }
 
 #[derive(Default)]
+struct TransportCopyMetrics {
+    websocket_mask_copy_bytes_total: AtomicU64,
+    websocket_coalesce_copy_bytes_total: AtomicU64,
+    tls_plaintext_accepted_bytes_total: AtomicU64,
+}
+
+#[derive(Default)]
 struct HttpResponseStreamMetrics {
     streaming_responses_total: AtomicU64,
     stream_open_to_headers_send_samples_total: AtomicU64,
@@ -423,6 +430,19 @@ pub struct FileSegmentMetricsSnapshot {
     pub rawsocket_zero_copy_bytes_total: u64,
     pub buffered_file_segment_calls_total: u64,
     pub buffered_file_segment_bytes_total: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TransportCopyMetricsSnapshot {
+    /// Payload bytes copied into WebSocket masking scratch buffers. In-place
+    /// XOR and subsequent socket writes are not counted as additional copies.
+    pub websocket_mask_copy_bytes_total: u64,
+    /// Payload bytes copied into unmasked WebSocket frame/coalescing buffers.
+    /// Frame headers are excluded.
+    pub websocket_coalesce_copy_bytes_total: u64,
+    /// Plaintext bytes accepted by Rustls writers. This counts input volume,
+    /// not memory copies performed while encrypting or buffering it.
+    pub tls_plaintext_accepted_bytes_total: u64,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -1148,6 +1168,7 @@ impl tokio::io::AsyncWrite for InstrumentedHttp2IoStream {
 
 static HTTP_METRICS: OnceLock<HttpMetricsStore> = OnceLock::new();
 static FILE_SEGMENT_METRICS: OnceLock<FileSegmentMetrics> = OnceLock::new();
+static TRANSPORT_COPY_METRICS: OnceLock<TransportCopyMetrics> = OnceLock::new();
 
 fn http_metrics() -> &'static HttpMetricsStore {
     HTTP_METRICS.get_or_init(HttpMetricsStore::default)
@@ -1155,6 +1176,10 @@ fn http_metrics() -> &'static HttpMetricsStore {
 
 fn file_segment_metrics() -> &'static FileSegmentMetrics {
     FILE_SEGMENT_METRICS.get_or_init(FileSegmentMetrics::default)
+}
+
+fn transport_copy_metrics() -> &'static TransportCopyMetrics {
+    TRANSPORT_COPY_METRICS.get_or_init(TransportCopyMetrics::default)
 }
 
 fn http_response_stream_metrics() -> &'static HttpResponseStreamMetrics {
@@ -1207,6 +1232,45 @@ pub fn file_segment_metrics_snapshot() -> FileSegmentMetricsSnapshot {
         buffered_file_segment_bytes_total: metrics
             .buffered_file_segment_bytes_total
             .load(Ordering::Relaxed),
+    }
+}
+
+pub fn transport_copy_metrics_snapshot() -> TransportCopyMetricsSnapshot {
+    let metrics = transport_copy_metrics();
+    TransportCopyMetricsSnapshot {
+        websocket_mask_copy_bytes_total: metrics
+            .websocket_mask_copy_bytes_total
+            .load(Ordering::Relaxed),
+        websocket_coalesce_copy_bytes_total: metrics
+            .websocket_coalesce_copy_bytes_total
+            .load(Ordering::Relaxed),
+        tls_plaintext_accepted_bytes_total: metrics
+            .tls_plaintext_accepted_bytes_total
+            .load(Ordering::Relaxed),
+    }
+}
+
+pub(crate) fn record_websocket_mask_copy(bytes: usize) {
+    if bytes > 0 {
+        transport_copy_metrics()
+            .websocket_mask_copy_bytes_total
+            .fetch_add(bytes as u64, Ordering::Relaxed);
+    }
+}
+
+pub(crate) fn record_websocket_coalesce_copy(bytes: usize) {
+    if bytes > 0 {
+        transport_copy_metrics()
+            .websocket_coalesce_copy_bytes_total
+            .fetch_add(bytes as u64, Ordering::Relaxed);
+    }
+}
+
+pub(crate) fn record_tls_plaintext_accepted(bytes: usize) {
+    if bytes > 0 {
+        transport_copy_metrics()
+            .tls_plaintext_accepted_bytes_total
+            .fetch_add(bytes as u64, Ordering::Relaxed);
     }
 }
 
@@ -4596,7 +4660,10 @@ async fn write_websocket_continuation_frames<W: AsyncWrite + Unpin>(
         let payload_start = mask_scratch.len();
         mask_scratch.extend_from_slice(segment.as_ref());
         if let Some(mask) = mask.as_ref() {
+            record_websocket_mask_copy(segment.len());
             xor_websocket_mask(&mut mask_scratch[payload_start..], mask, 0);
+        } else {
+            record_websocket_coalesce_copy(segment.len());
         }
     }
     flush_websocket_frame_batch(writer, mask_scratch).await
@@ -4671,6 +4738,7 @@ async fn write_unmasked_websocket_frame<W: AsyncWrite + Unpin>(
         }
         write_scratch[..header.len()].copy_from_slice(header);
         write_scratch[header.len()..frame_len].copy_from_slice(payload);
+        record_websocket_coalesce_copy(payload.len());
         return writer.write_all(&write_scratch[..frame_len]).await;
     }
     writer.write_all(header).await?;
@@ -4697,6 +4765,7 @@ async fn write_masked_websocket_frame<W: AsyncWrite + Unpin>(
     }
     mask_scratch[..header.len()].copy_from_slice(header);
     mask_scratch[header.len()..first_write_len].copy_from_slice(&payload[..first_chunk_len]);
+    record_websocket_mask_copy(first_chunk_len);
     xor_websocket_mask(&mut mask_scratch[header.len()..first_write_len], mask, 0);
     writer.write_all(&mask_scratch[..first_write_len]).await?;
 
@@ -4708,6 +4777,7 @@ async fn write_masked_websocket_frame<W: AsyncWrite + Unpin>(
             mask_scratch.resize(chunk_len, 0);
         }
         mask_scratch[..chunk_len].copy_from_slice(&remaining[..chunk_len]);
+        record_websocket_mask_copy(chunk_len);
         xor_websocket_mask(&mut mask_scratch[..chunk_len], mask, payload_offset);
         writer.write_all(&mask_scratch[..chunk_len]).await?;
         payload_offset += chunk_len;
@@ -4787,6 +4857,7 @@ async fn write_websocket_payload<W: AsyncWrite + Unpin>(
             mask_scratch.resize(chunk_len, 0);
         }
         mask_scratch[..chunk_len].copy_from_slice(&remaining[..chunk_len]);
+        record_websocket_mask_copy(chunk_len);
         xor_websocket_mask(&mut mask_scratch[..chunk_len], mask, *payload_offset);
         writer.write_all(&mask_scratch[..chunk_len]).await?;
         *payload_offset += chunk_len;
@@ -10177,6 +10248,8 @@ mod tests {
         assert_eq!(connected.is_ok(), true, "{connected:?}");
         let client_connection_id = connected.unwrap();
         let server_connection_id = assert_accepted_connection(&mut receiver).await;
+        let tls_plaintext_before =
+            transport_copy_metrics_snapshot().tls_plaintext_accepted_bytes_total;
 
         assert!(connection_supports_file_segments(client_connection_id).unwrap());
         assert!(connection_supports_file_segments(server_connection_id).unwrap());
@@ -10209,6 +10282,12 @@ mod tests {
             }
             other => panic!("unexpected tls server message: {other:?}"),
         }
+        let tls_plaintext_after =
+            transport_copy_metrics_snapshot().tls_plaintext_accepted_bytes_total;
+        assert!(
+            tls_plaintext_after > tls_plaintext_before,
+            "Rustls must report plaintext accepted after the handshake"
+        );
 
         std::fs::remove_file(path).unwrap();
         shutdown().unwrap();
@@ -11071,6 +11150,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn websocket_writer_serializes_segmented_payload() {
+        let before = transport_copy_metrics_snapshot();
         let bytes = write_websocket_frame_to_bytes(
             0x1,
             vec![
@@ -11086,6 +11166,11 @@ mod tests {
                 0x01, 0x05, b'h', b'e', b'l', b'l', b'o', 0x80, 0x06, b'-', b'w', b'o', b'r', b'l',
                 b'd',
             ]
+        );
+        let after = transport_copy_metrics_snapshot();
+        assert!(
+            after.websocket_coalesce_copy_bytes_total - before.websocket_coalesce_copy_bytes_total
+                >= 11
         );
     }
 
@@ -11108,6 +11193,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn websocket_client_writer_serializes_segmented_payload_as_continuations() {
+        let before = transport_copy_metrics_snapshot();
         let bytes = write_websocket_frame_client_to_bytes(
             0x2,
             vec![
@@ -11119,6 +11205,10 @@ mod tests {
         .await;
         let frames = read_websocket_frames_from_bytes_mode(&bytes, true).await;
         assert_eq!(frames.len(), 2);
+        let after = transport_copy_metrics_snapshot();
+        assert!(
+            after.websocket_mask_copy_bytes_total - before.websocket_mask_copy_bytes_total >= 11
+        );
         match &frames[0] {
             WebSocketFrame::Data {
                 opcode,

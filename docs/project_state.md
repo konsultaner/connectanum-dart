@@ -5,15 +5,36 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current branch checkpoint `9620cfbe` passes `bin/test-fast` and full
-`bin/verify`. Its last observed exact-head hosted run had 4 successful checks
-and 76 queued. A local follow-up adds a real delayed native-send test for an
-external C producer lease. The focused test, package analysis, `bin/test-fast`
-and full `bin/verify` pass on the current working tree. Fresh hosted checks for
-this follow-up await its commit and push. The new evidence shows the lease stays
-live through socket backpressure and is released exactly once on the producer
-thread after the complete frame arrives. This advances #97 but does not
-complete its or the milestone's acceptance criteria.
+The latest pushed branch checkpoint `a28e92c4` adds a real delayed native-send
+test for an external C producer lease. The test proves the lease stays live
+through socket backpressure and releases exactly once on the producer thread
+after the complete frame arrives. Exact-head hosted CI is red: Fast Checks fail
+because the benchmark test process cannot locate the native FFI test library,
+and both `core-lazy` mutation jobs reject stale equivalent-mutation IDs. The
+current working tree fixes the library path and refreshes the source-hashed
+mutation justifications. A fresh `bin/test-fast` passes, and
+`bin/test-mutations --list` passes for both `core-lazy-vm` and `core-lazy-web`.
+The current candidate also passes full `bin/verify`; fresh hosted evidence for
+these corrections awaits their commit and push. The lease test advances #97
+but does not complete its or the milestone's acceptance criteria.
+
+## Native transport copy-counter follow-up (2026-10-05)
+
+The current uncommitted follow-up adds optional C/Dart FFI snapshots for native
+transport copies, counting explicit Dart-to-native send copies, WebSocket mask
+and coalescing payload copies, and Rustls plaintext accepted bytes. The Rustls
+counter reports accepted input volume, not a measured memory copy. Client and router
+benchmark snapshots use before/after deltas and combine their measured native
+path traffic. Focused Rust tests, client metric-delta tests and package analysis
+pass. A fresh `bin/test-fast` passes, including the release FFI build and live
+RawSocket/WebSocket WAMP matrix. Full `bin/verify` also passes, including the
+Chrome WebAssembly, WAMP, consumer and smoke checks. A paired campaign
+evaluator and machine-readable relative parity policy now have seven focused
+unit tests. The evaluator requires complete per-run resource/copy evidence and
+rejects missing rows; it does not execute benchmarks or create a result.
+Dart-managed socket/TLS paths and mixed-serializer transcodes remain
+unmeasured, so this is partial attribution only; issue #103 remains open and
+no FlatBuffers parity or end-to-end zero-copy claim is accepted.
 
 ## Session native-owned typed FlatBuffers PPT path (2026-10-05)
 
@@ -48,10 +69,12 @@ The managed worktree uses `codex/flatbuffers-zero-copy`; the native Session
 fast-path implementation is committed and pushed as `f569e9b4`, following
 `274df37c` and `152898d7`. The benchmark-runner integration is committed and
 pushed as `9620cfbe`; `bin/test-fast` and full `bin/verify` pass at that
-checkpoint. Its exact-head hosted checks were queued at the last observation.
-The current uncommitted external-lease test follow-up passes its focused test,
-analysis, `bin/test-fast` and full `bin/verify`; fresh hosted CI awaits its push.
-Two exact-head hosted runs reported Fast Checks failures on `274df37c`. It started at
+checkpoint. The external-lease test follow-up is committed and pushed as
+`a28e92c4`. Its hosted run exposed the two CI defects described above; local
+corrections now pass `bin/test-fast`, full `bin/verify`, and both mutation
+inventory validations. These corrections remain uncommitted and need fresh
+exact-head hosted checks. Earlier exact-head hosted runs reported Fast Checks
+failures on `274df37c`. It started at
 `54eafc5f` and integrates released master `3bac4cf5`. The primary checkout's
 independent work remains untouched.
 Feature commits, pushes and draft PR updates are authorized; releases, version

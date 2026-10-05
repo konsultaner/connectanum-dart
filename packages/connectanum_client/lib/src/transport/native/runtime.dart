@@ -211,6 +211,48 @@ class NativeFileSegmentMetrics {
       current >= before ? current - before : current;
 }
 
+/// Cumulative copy-byte counters for the client process. Native counters may
+/// be null when the loaded library predates transport copy instrumentation.
+class NativeTransportCopyMetrics {
+  const NativeTransportCopyMetrics({
+    required this.dartToNativeCopiedBytesTotal,
+    required this.websocketMaskCopyBytesTotal,
+    required this.websocketCoalesceCopyBytesTotal,
+    required this.tlsPlaintextAcceptedBytesTotal,
+  });
+
+  final int dartToNativeCopiedBytesTotal;
+  final int? websocketMaskCopyBytesTotal;
+  final int? websocketCoalesceCopyBytesTotal;
+  final int? tlsPlaintextAcceptedBytesTotal;
+
+  NativeTransportCopyMetrics deltaFrom(NativeTransportCopyMetrics before) =>
+      NativeTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: _counterDelta(
+          dartToNativeCopiedBytesTotal,
+          before.dartToNativeCopiedBytesTotal,
+        ),
+        websocketMaskCopyBytesTotal: _nullableCounterDelta(
+          websocketMaskCopyBytesTotal,
+          before.websocketMaskCopyBytesTotal,
+        ),
+        websocketCoalesceCopyBytesTotal: _nullableCounterDelta(
+          websocketCoalesceCopyBytesTotal,
+          before.websocketCoalesceCopyBytesTotal,
+        ),
+        tlsPlaintextAcceptedBytesTotal: _nullableCounterDelta(
+          tlsPlaintextAcceptedBytesTotal,
+          before.tlsPlaintextAcceptedBytesTotal,
+        ),
+      );
+
+  static int _counterDelta(int current, int before) =>
+      current >= before ? current - before : current;
+
+  static int? _nullableCounterDelta(int? current, int? before) =>
+      current == null || before == null ? null : _counterDelta(current, before);
+}
+
 class NativeClientRuntime {
   factory NativeClientRuntime.instance({String? libraryPath}) {
     final current = _instance;
@@ -250,6 +292,7 @@ class NativeClientRuntime {
             .cast<ffi.NativeFinalizerFunction>(),
       );
   bool _started = false;
+  int _dartToNativeCopiedBytesTotal = 0;
 
   /// Releases the native owner attached to the returned root byte view.
   ///
@@ -973,6 +1016,34 @@ class NativeClientRuntime {
     }
   }
 
+  NativeTransportCopyMetrics transportCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctTransportCopyMetricsSnapshot;
+    if (snapshot == null) {
+      return NativeTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+        websocketMaskCopyBytesTotal: null,
+        websocketCoalesceCopyBytesTotal: null,
+        tlsPlaintextAcceptedBytesTotal: null,
+      );
+    }
+    final info = calloc<CtTransportCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot transport copy metrics');
+      }
+      final value = info.ref;
+      return NativeTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+        websocketMaskCopyBytesTotal: value.websocketMaskCopyBytesTotal,
+        websocketCoalesceCopyBytesTotal: value.websocketCoalesceCopyBytesTotal,
+        tlsPlaintextAcceptedBytesTotal: value.tlsPlaintextAcceptedBytesTotal,
+      );
+    } finally {
+      calloc.free(info);
+    }
+  }
+
   void closeConnection(int connectionId) {
     ensureStarted();
     final result = _bindings.ctConnectionClose(connectionId);
@@ -994,6 +1065,7 @@ class NativeClientRuntime {
     final dataPtr = malloc<ffi.Uint8>(payload.length);
     try {
       dataPtr.asTypedList(payload.length).setAll(0, payload);
+      _dartToNativeCopiedBytesTotal += payload.length;
       final result = _bindings.ctSendMessage(
         connectionId,
         dataPtr,
@@ -1054,6 +1126,7 @@ class NativeClientRuntime {
     final dataPtr = malloc<ffi.Uint8>(payload.length);
     try {
       dataPtr.asTypedList(payload.length).setAll(0, payload);
+      _dartToNativeCopiedBytesTotal += payload.length;
       final result = _bindings.ctSendMessageFragmented(
         connectionId,
         dataPtr,
@@ -1113,6 +1186,7 @@ class NativeClientRuntime {
         allocated += 1;
         if (segment.isNotEmpty) {
           segmentPtr.asTypedList(segment.length).setAll(0, segment);
+          _dartToNativeCopiedBytesTotal += segment.length;
         }
       }
 
@@ -1167,6 +1241,7 @@ class NativeClientRuntime {
     try {
       if (payload.isNotEmpty) {
         payloadPtr.asTypedList(payload.length).setAll(0, payload);
+        _dartToNativeCopiedBytesTotal += payload.length;
       }
       consumed = true;
       return fragmentSize == null

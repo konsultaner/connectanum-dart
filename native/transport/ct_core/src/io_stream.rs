@@ -183,8 +183,20 @@ impl AsyncWrite for IoStream {
         let me = self.get_mut();
         match &mut me.inner {
             StreamInner::Tcp(stream) => Pin::new(stream).poll_write(cx, buf),
-            StreamInner::TlsServer(stream) => Pin::new(stream).poll_write(cx, buf),
-            StreamInner::TlsClient(stream) => Pin::new(stream).poll_write(cx, buf),
+            StreamInner::TlsServer(stream) => {
+                let result = Pin::new(stream).poll_write(cx, buf);
+                if let Poll::Ready(Ok(written)) = &result {
+                    super::record_tls_plaintext_accepted(*written);
+                }
+                result
+            }
+            StreamInner::TlsClient(stream) => {
+                let result = Pin::new(stream).poll_write(cx, buf);
+                if let Poll::Ready(Ok(written)) = &result {
+                    super::record_tls_plaintext_accepted(*written);
+                }
+                result
+            }
             #[cfg(target_os = "linux")]
             StreamInner::KtlsServer(stream) => Pin::new(stream).poll_write(cx, buf),
         }
@@ -198,8 +210,20 @@ impl AsyncWrite for IoStream {
         let me = self.get_mut();
         match &mut me.inner {
             StreamInner::Tcp(stream) => Pin::new(stream).poll_write_vectored(cx, bufs),
-            StreamInner::TlsServer(stream) => Pin::new(stream).poll_write_vectored(cx, bufs),
-            StreamInner::TlsClient(stream) => Pin::new(stream).poll_write_vectored(cx, bufs),
+            StreamInner::TlsServer(stream) => {
+                let result = Pin::new(stream).poll_write_vectored(cx, bufs);
+                if let Poll::Ready(Ok(written)) = &result {
+                    super::record_tls_plaintext_accepted(*written);
+                }
+                result
+            }
+            StreamInner::TlsClient(stream) => {
+                let result = Pin::new(stream).poll_write_vectored(cx, bufs);
+                if let Poll::Ready(Ok(written)) = &result {
+                    super::record_tls_plaintext_accepted(*written);
+                }
+                result
+            }
             #[cfg(target_os = "linux")]
             StreamInner::KtlsServer(stream) => Pin::new(stream).poll_write_vectored(cx, bufs),
         }

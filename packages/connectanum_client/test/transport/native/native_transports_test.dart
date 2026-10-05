@@ -113,6 +113,27 @@ void main() {
     expect(delta.bufferedFileSegmentBytesTotal, 256);
   });
 
+  test('native transport copy metric deltas preserve unavailable counters', () {
+    const before = NativeTransportCopyMetrics(
+      dartToNativeCopiedBytesTotal: 100,
+      websocketMaskCopyBytesTotal: 30,
+      websocketCoalesceCopyBytesTotal: null,
+      tlsPlaintextAcceptedBytesTotal: 80,
+    );
+    const after = NativeTransportCopyMetrics(
+      dartToNativeCopiedBytesTotal: 140,
+      websocketMaskCopyBytesTotal: 50,
+      websocketCoalesceCopyBytesTotal: 25,
+      tlsPlaintextAcceptedBytesTotal: 20,
+    );
+
+    final delta = after.deltaFrom(before);
+    expect(delta.dartToNativeCopiedBytesTotal, 40);
+    expect(delta.websocketMaskCopyBytesTotal, 20);
+    expect(delta.websocketCoalesceCopyBytesTotal, isNull);
+    expect(delta.tlsPlaintextAcceptedBytesTotal, 20);
+  });
+
   group('native file segment serializer prefix', () {
     for (final serializerCase in _serializers) {
       test('${serializerCase.name} round-trips binary length tiers', () {

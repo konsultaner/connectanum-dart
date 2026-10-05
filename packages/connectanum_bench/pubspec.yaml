@@ -21,6 +21,7 @@ dependencies:
   flat_buffers: '>=25.9.23 <25.10.0'
   logging: ^1.2.0
   msgpack_dart: ^1.0.1
+  vm_service: ^15.3.0
   yaml: ^3.1.2
   connectanum_router: ^3.0.0-beta.7
   connectanum_core: ^3.0.0-beta.7

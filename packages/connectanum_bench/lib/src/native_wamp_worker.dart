@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:logging/logging.dart';
 
+import 'dart_vm_metrics.dart';
 import 'wamp_transport_targets.dart';
 import 'wamp_workload_runner.dart';
 
@@ -47,12 +48,24 @@ class NativeWampWorkerProcessMetrics {
     required this.rssBeforeBytes,
     required this.currentRssBytes,
     required this.maxRssBytes,
+    this.cpuUserUsDelta,
+    this.cpuSystemUsDelta,
+    this.allocatedBytesDelta,
+    this.gcCountDelta,
+    this.gcPauseUsDelta,
+    this.peakRssDuringBytes,
   });
 
   final int pid;
   final int rssBeforeBytes;
   final int currentRssBytes;
   final int maxRssBytes;
+  final int? cpuUserUsDelta;
+  final int? cpuSystemUsDelta;
+  final int? allocatedBytesDelta;
+  final int? gcCountDelta;
+  final int? gcPauseUsDelta;
+  final int? peakRssDuringBytes;
 
   factory NativeWampWorkerProcessMetrics.fromJson(
     Map<String, Object?> json,
@@ -61,6 +74,12 @@ class NativeWampWorkerProcessMetrics {
     rssBeforeBytes: (json['rss_before_bytes'] as num).toInt(),
     currentRssBytes: (json['current_rss_bytes'] as num).toInt(),
     maxRssBytes: (json['max_rss_bytes'] as num).toInt(),
+    cpuUserUsDelta: (json['cpu_user_us_delta'] as num?)?.toInt(),
+    cpuSystemUsDelta: (json['cpu_system_us_delta'] as num?)?.toInt(),
+    allocatedBytesDelta: (json['allocated_bytes_delta'] as num?)?.toInt(),
+    gcCountDelta: (json['gc_count_delta'] as num?)?.toInt(),
+    gcPauseUsDelta: (json['gc_pause_us_delta'] as num?)?.toInt(),
+    peakRssDuringBytes: (json['peak_rss_during_bytes'] as num?)?.toInt(),
   );
 
   Map<String, Object?> toJson() => {
@@ -68,6 +87,13 @@ class NativeWampWorkerProcessMetrics {
     'rss_before_bytes': rssBeforeBytes,
     'current_rss_bytes': currentRssBytes,
     'max_rss_bytes': maxRssBytes,
+    if (cpuUserUsDelta != null) 'cpu_user_us_delta': cpuUserUsDelta,
+    if (cpuSystemUsDelta != null) 'cpu_system_us_delta': cpuSystemUsDelta,
+    if (allocatedBytesDelta != null)
+      'allocated_bytes_delta': allocatedBytesDelta,
+    if (gcCountDelta != null) 'gc_count_delta': gcCountDelta,
+    if (gcPauseUsDelta != null) 'gc_pause_us_delta': gcPauseUsDelta,
+    if (peakRssDuringBytes != null) 'peak_rss_during_bytes': peakRssDuringBytes,
   };
 }
 
@@ -75,11 +101,13 @@ class NativeWampWorkerResult {
   const NativeWampWorkerResult({
     required this.samples,
     required this.fileSegmentMetrics,
+    required this.copyMetrics,
     this.processMetrics,
   });
 
   final List<WampSample> samples;
   final NativeWampWorkerFileSegmentMetrics fileSegmentMetrics;
+  final Map<String, Object?> copyMetrics;
   final NativeWampWorkerProcessMetrics? processMetrics;
 }
 
@@ -90,6 +118,7 @@ class NativeWampWorker {
     this.secureWampTargets = const {},
     required String nativeLibraryPath,
     required String workerScriptPath,
+    this.enableVmMetrics = false,
     String? dartExecutable,
     Duration readyTimeout = const Duration(seconds: 60),
     Logger? logger,
@@ -104,6 +133,7 @@ class NativeWampWorker {
   final Map<WampTransport, WampTransportTarget> secureWampTargets;
   final String nativeLibraryPath;
   final String workerScriptPath;
+  final bool enableVmMetrics;
   final String dartExecutable;
   final Duration _readyTimeout;
   final Logger _logger;
@@ -137,6 +167,13 @@ class NativeWampWorker {
   Future<NativeWampWorkerResult> _runScenario(WampScenario scenario) async {
     final generation = await _ensureStarted();
     final completer = Completer<_WorkerResponse>();
+    final metricsCollector = generation.metricsCollector;
+    final metricsWindow = metricsCollector == null
+        ? null
+        : await metricsCollector.beginWindow();
+    final rssSampler = metricsCollector == null
+        ? null
+        : DartVmMetricsRssSampler(generation.process!.pid);
     generation.response = completer;
     // A child can fail while flush is suspended, before the response is awaited.
     completer.future.ignore();
@@ -149,12 +186,38 @@ class NativeWampWorker {
       if (error != null) {
         throw StateError(error);
       }
+      NativeWampWorkerProcessMetrics? processMetrics = response.processMetrics;
+      if (metricsCollector != null &&
+          metricsWindow != null &&
+          rssSampler != null) {
+        final measured = await metricsCollector.endWindow(
+          metricsWindow,
+          peakRssBytes: await rssSampler.stop(),
+        );
+        final process = processMetrics;
+        if (process != null) {
+          processMetrics = NativeWampWorkerProcessMetrics(
+            pid: process.pid,
+            rssBeforeBytes: process.rssBeforeBytes,
+            currentRssBytes: process.currentRssBytes,
+            maxRssBytes: process.maxRssBytes,
+            cpuUserUsDelta: measured.cpuUserMicros,
+            cpuSystemUsDelta: measured.cpuSystemMicros,
+            allocatedBytesDelta: measured.allocatedBytes,
+            gcCountDelta: measured.gcCount,
+            gcPauseUsDelta: measured.gcPauseMicros,
+            peakRssDuringBytes: measured.peakRssBytes,
+          );
+        }
+      }
       return NativeWampWorkerResult(
         samples: response.samples,
         fileSegmentMetrics: response.fileSegmentMetrics,
-        processMetrics: response.processMetrics,
+        copyMetrics: response.copyMetrics,
+        processMetrics: processMetrics,
       );
     } finally {
+      await rssSampler?.stop();
       // Native cancel-cycle workloads can leave late interrupts/errors in flight.
       // Recycle the helper between scenarios so those messages do not poison the
       // next benchmark command in the same worker isolate.
@@ -171,6 +234,11 @@ class NativeWampWorker {
   }
 
   Future<_WorkerGeneration> _ensureStarted() async {
+    if (enableVmMetrics && _usesDirectExecutable) {
+      throw StateError(
+        'Dart VM metrics require a source WAMP worker, not an AOT executable',
+      );
+    }
     final epoch = _closeEpoch;
     while (_closing != null) {
       await _closing;
@@ -181,6 +249,7 @@ class NativeWampWorker {
     var generation = _generation;
     if (generation == null) {
       generation = _WorkerGeneration();
+      generation.vmServiceUri.future.ignore();
       _generation = generation;
       generation.started = _startGeneration(generation);
     }
@@ -213,6 +282,8 @@ class NativeWampWorker {
     generation.launched = Process.start(
       usesDirectExecutable ? workerScriptPath : dartExecutable,
       [
+        if (enableVmMetrics) '--timeline_streams=GC',
+        if (enableVmMetrics) '--observe=0/127.0.0.1',
         if (_usesPackageExecutable) 'run',
         if (!usesDirectExecutable) workerScriptPath,
         '--realm',
@@ -239,6 +310,7 @@ class NativeWampWorker {
             (line) {
               if (generation.stopping) return;
               final trimmed = line.trim();
+              if (_captureVmServiceUri(generation, trimmed)) return;
               if (!generation.ready.isCompleted &&
                   (trimmed == 'READY' || trimmed.endsWith('...READY'))) {
                 generation.isReady = true;
@@ -277,7 +349,8 @@ class NativeWampWorker {
           .transform(const LineSplitter())
           .listen(
             (line) {
-              if (!generation.stopping) {
+              if (!generation.stopping &&
+                  !_captureVmServiceUri(generation, line.trim())) {
                 _logger.warning('native worker stderr: $line');
               }
             },
@@ -294,6 +367,18 @@ class NativeWampWorker {
         }),
       );
       await ready;
+      if (enableVmMetrics) {
+        final serviceUri = await generation.vmServiceUri.future.timeout(
+          _readyTimeout,
+          onTimeout: () => throw TimeoutException(
+            'Source WAMP worker did not announce its VM service URI',
+          ),
+        );
+        generation.metricsCollector = await DartVmMetricsCollector.connect(
+          serviceUri: serviceUri,
+          pid: process.pid,
+        );
+      }
     } catch (_) {
       await _stop(generation);
       rethrow;
@@ -304,6 +389,9 @@ class NativeWampWorker {
     if (generation.stopping) return;
     if (!generation.ready.isCompleted) {
       generation.ready.completeError(error, stack);
+    }
+    if (!generation.vmServiceUri.isCompleted) {
+      generation.vmServiceUri.completeError(error, stack);
     }
     generation.response?.completeError(error, stack);
     generation.response = null;
@@ -327,6 +415,8 @@ class NativeWampWorker {
     generation.response = null;
     unawaited(() async {
       try {
+        await generation.metricsCollector?.close();
+        generation.metricsCollector = null;
         Process process;
         try {
           process = await generation.launched;
@@ -371,6 +461,7 @@ class NativeWampWorker {
 
 class _WorkerGeneration {
   final ready = Completer<void>();
+  final vmServiceUri = Completer<Uri>();
   late final Future<Process> launched;
   late final Future<void> started;
   Process? process;
@@ -380,6 +471,7 @@ class _WorkerGeneration {
   Future<void>? closed;
   bool isReady = false;
   bool stopping = false;
+  DartVmMetricsCollector? metricsCollector;
 }
 
 String _normalizeWorkerEntrypoint(String workerScriptPath) {
@@ -393,16 +485,34 @@ bool _isPackageExecutable(String value) => RegExp(
   r'^[A-Za-z_][A-Za-z0-9_]*:[A-Za-z0-9_.-]+$',
 ).hasMatch(value);
 
+bool _isVmServiceStartupLine(String line) =>
+    line.startsWith('The Dart VM service is listening on ') ||
+    line.startsWith('The Dart DevTools debugger and profiler is available at ');
+
+bool _captureVmServiceUri(_WorkerGeneration generation, String line) {
+  const prefix = 'The Dart VM service is listening on ';
+  if (line.startsWith(prefix)) {
+    final uri = Uri.tryParse(line.substring(prefix.length).trim());
+    if (uri != null && !generation.vmServiceUri.isCompleted) {
+      generation.vmServiceUri.complete(uri);
+    }
+    return true;
+  }
+  return _isVmServiceStartupLine(line);
+}
+
 class _WorkerResponse {
   _WorkerResponse({
     required this.samples,
     required this.fileSegmentMetrics,
+    required this.copyMetrics,
     this.processMetrics,
     this.error,
   });
 
   final List<WampSample> samples;
   final NativeWampWorkerFileSegmentMetrics fileSegmentMetrics;
+  final Map<String, Object?> copyMetrics;
   final NativeWampWorkerProcessMetrics? processMetrics;
   final String? error;
 
@@ -423,7 +533,11 @@ class _WorkerResponse {
           json['file_segment_metrics'] as Map? ?? const <String, Object?>{},
         ),
       ),
-      processMetrics: switch (json['process_metrics']) {
+      copyMetrics: Map<String, Object?>.from(
+        json['copy_metrics'] as Map? ?? const <String, Object?>{},
+      ),
+      processMetrics: switch (json['client_process_metrics'] ??
+          json['process_metrics']) {
         final Map raw => NativeWampWorkerProcessMetrics.fromJson(
           Map<String, Object?>.from(raw),
         ),

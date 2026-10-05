@@ -202,6 +202,10 @@ struct Args {
     #[arg(long, default_value_t = false)]
     skip_wamp_worker_aot: bool,
 
+    /// Collect Dart VM allocation and GC metrics from the source WAMP worker.
+    #[arg(long, default_value_t = false)]
+    collect_wamp_vm_metrics: bool,
+
     /// Path to router config consumed by bench_main
     #[arg(long, default_value = "native/bench/bench_router.json")]
     router_config: String,
@@ -311,6 +315,12 @@ impl Drop for PreparedWampWorker {
 }
 
 fn prepare_wamp_worker(args: &Args) -> Result<PreparedWampWorker> {
+    if args.collect_wamp_vm_metrics && !args.skip_wamp_worker_aot {
+        bail!("--collect-wamp-vm-metrics requires --skip-wamp-worker-aot");
+    }
+    if args.collect_wamp_vm_metrics && args.wamp_worker_executable.is_some() {
+        bail!("--collect-wamp-vm-metrics cannot use a prebuilt WAMP worker");
+    }
     if let Some(path) = args.wamp_worker_executable.as_deref() {
         let executable = Path::new(path)
             .canonicalize()
@@ -511,6 +521,9 @@ fn run_bench_suite(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
+    if args.collect_wamp_vm_metrics {
+        command.env("CONNECTANUM_BENCH_WAMP_VM_METRICS", "1");
+    }
     configure_bench_child_environment(&mut command, &args.native_lib, native_runtime_threads);
     let mut child_process =
         OwnedBenchProcess(command.spawn().context("failed to spawn bench_main")?);
@@ -639,8 +652,13 @@ fn run_bench_suite(
                 };
                 let started_at = now_millis();
                 let execution = if prepared.is_wamp() {
-                    run_wamp_workload(&http_control, &prepared, workload_timeout)
-                        .with_context(|| format!("workload \"{}\" failed", workload.name))?
+                    run_wamp_workload(
+                        &http_control,
+                        &prepared,
+                        workload.minimum_duration_ms,
+                        workload_timeout,
+                    )
+                    .with_context(|| format!("workload \"{}\" failed", workload.name))?
                 } else if prepared.is_rawsocket_auth_frames() {
                     WorkloadExecution::samples_only(
                         runtime
@@ -702,6 +720,7 @@ fn run_bench_suite(
                     ),
                     file_segment_metrics: execution.file_segment_metrics.clone(),
                     client_process_metrics: execution.client_process_metrics.clone(),
+                    copy_metrics: execution.copy_metrics.clone(),
                     samples: execution.samples,
                 };
                 print_workload_summary(&report, &prepared);
@@ -1532,6 +1551,8 @@ struct WorkloadConfig {
     path: String,
     #[serde(default = "default_iterations")]
     iterations: u32,
+    #[serde(default)]
+    minimum_duration_ms: Option<u64>,
     #[serde(default = "default_concurrency")]
     concurrency: u32,
     #[serde(default = "default_in_flight_per_session")]
@@ -1932,6 +1953,22 @@ impl PreparedWorkload {
             bail!("HTTP/1.1 does not support streams_per_connection > 1");
         }
         let is_wamp = parse_wamp_protocol(&config.protocol).is_some();
+        if let Some(minimum_duration_ms) = config.minimum_duration_ms {
+            if minimum_duration_ms == 0 {
+                bail!(
+                    "workload {} minimum_duration_ms must be positive",
+                    config.name
+                );
+            }
+            let (_, mode) = parse_wamp_protocol(&config.protocol)
+                .ok_or_else(|| anyhow!("minimum_duration_ms is only supported for WAMP"))?;
+            if !matches!(mode, BenchWampMode::Rpc | BenchWampMode::PubSub) {
+                bail!(
+                    "workload {} minimum_duration_ms is supported for RPC and pub/sub only",
+                    config.name
+                );
+            }
+        }
         if let Some(construction) = config.payload_construction.as_deref() {
             if !is_wamp {
                 bail!(
@@ -2146,6 +2183,7 @@ struct WorkloadExecution {
     data_window_elapsed_ms: Option<f64>,
     file_segment_metrics: Option<FileSegmentMetricsDelta>,
     client_process_metrics: Option<ClientProcessMetrics>,
+    copy_metrics: Option<Value>,
 }
 
 impl WorkloadExecution {
@@ -2156,6 +2194,7 @@ impl WorkloadExecution {
             data_window_elapsed_ms: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            copy_metrics: None,
         }
     }
 
@@ -2164,6 +2203,7 @@ impl WorkloadExecution {
         data_window_elapsed_ms: Option<f64>,
         file_segment_metrics: Option<FileSegmentMetricsDelta>,
         client_process_metrics: Option<ClientProcessMetrics>,
+        copy_metrics: Option<Value>,
     ) -> Self {
         Self {
             samples,
@@ -2171,6 +2211,7 @@ impl WorkloadExecution {
             data_window_elapsed_ms,
             file_segment_metrics,
             client_process_metrics,
+            copy_metrics,
         }
     }
 
@@ -2189,6 +2230,7 @@ impl WorkloadExecution {
             data_window_elapsed_ms: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            copy_metrics: None,
         }
     }
 }
@@ -3300,6 +3342,7 @@ fn split_metrics_payload(mut value: Value) -> (Value, Option<String>) {
 fn run_wamp_workload(
     http_control: &BenchHttpClient,
     workload: &PreparedWorkload,
+    minimum_duration_ms: Option<u64>,
     workload_timeout: Duration,
 ) -> Result<WorkloadExecution> {
     let (transport, mode) = parse_wamp_protocol(&workload.protocol)
@@ -3324,6 +3367,7 @@ fn run_wamp_workload(
         "mode": mode.as_str(),
         "uri": workload.path,
         "iterations": workload.iterations,
+        "minimum_duration_ms": minimum_duration_ms,
         "concurrency": workload.concurrency,
         "in_flight_per_session": workload.in_flight_per_session,
         "peer_count": workload.peer_count,
@@ -3348,11 +3392,13 @@ fn run_wamp_workload(
     let data_window_elapsed_ms = parse_wamp_data_window_elapsed_ms(&response);
     let file_segment_metrics = parse_wamp_file_segment_metrics(&response)?;
     let client_process_metrics = parse_wamp_client_process_metrics(&response)?;
+    let copy_metrics = response.get("copy_metrics").cloned();
     Ok(WorkloadExecution::wamp(
         samples,
         data_window_elapsed_ms,
         file_segment_metrics,
         client_process_metrics,
+        copy_metrics,
     ))
 }
 
@@ -6811,6 +6857,7 @@ mod tests {
             http_phase_timing: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            copy_metrics: None,
             samples: vec![sample(0)],
         };
 
@@ -6845,6 +6892,7 @@ mod tests {
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -6878,6 +6926,58 @@ mod tests {
     }
 
     #[test]
+    fn minimum_duration_is_limited_to_positive_rpc_and_pubsub_workloads() {
+        let scenario: ScenarioFile = toml::from_str(
+            r#"
+name = "timed"
+
+[[workloads]]
+name = "rpc"
+protocol = "wamp_rawsocket_rpc"
+path = "bench.rpc.echo"
+iterations = 1
+concurrency = 1
+minimum_duration_ms = 30
+"#,
+        )
+        .unwrap();
+        let prepared = PreparedWorkload::from_config(&scenario.workloads[0]).unwrap();
+        assert!(prepared.is_wamp());
+
+        let zero_duration: ScenarioFile = toml::from_str(
+            r#"
+name = "timed"
+
+[[workloads]]
+name = "rpc"
+protocol = "wamp_rawsocket_rpc"
+minimum_duration_ms = 0
+"#,
+        )
+        .unwrap();
+        let error = PreparedWorkload::from_config(&zero_duration.workloads[0])
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("must be positive"));
+
+        let unsupported_mode: ScenarioFile = toml::from_str(
+            r#"
+name = "timed"
+
+[[workloads]]
+name = "auth"
+protocol = "wamp_rawsocket_auth"
+minimum_duration_ms = 30
+"#,
+        )
+        .unwrap();
+        let error = PreparedWorkload::from_config(&unsupported_mode.workloads[0])
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("RPC and pub/sub only"));
+    }
+
+    #[test]
     fn prepared_workload_rejects_invalid_wamp_client_impl() {
         let config = WorkloadConfig {
             name: "load".to_string(),
@@ -6888,6 +6988,7 @@ mod tests {
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7316,6 +7417,7 @@ mod tests {
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7362,6 +7464,7 @@ mod tests {
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7409,6 +7512,7 @@ mod tests {
             method: default_method(),
             path: "bench.topic".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7480,6 +7584,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7525,6 +7630,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7606,6 +7712,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: 4,
             peer_count: default_peer_count(),
@@ -7647,6 +7754,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: "bench.topic".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: 8,
@@ -7688,6 +7796,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7731,6 +7840,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7774,6 +7884,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7864,6 +7975,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: "/bench/secure-jwt".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7908,6 +8020,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: "/bench/secure-oauth".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7955,6 +8068,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: "/bench/secure".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7999,6 +8113,7 @@ payload_construction = "native_buffer"
             method: default_method(),
             path: "/bench/auth".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),

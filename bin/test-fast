@@ -58,13 +58,22 @@ run_client_fast_tests() {
 }
 
 run_bench_vm_tests() {
+  local bench_native_lib_path=""
+
   printf 'Running bench suite from package root so package-local test config applies on %s.\n' "$(uname -s)"
   if ensure_rust_env && native_runtime_supported; then
     build_native_ffi_test_release
+    bench_native_lib_path="$(native_ffi_test_lib_path)"
   fi
   (
     cd packages/connectanum_bench
-    env -u CONNECTANUM_NATIVE_LIB CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test
+    if [[ -n "$bench_native_lib_path" ]]; then
+      env -u CONNECTANUM_NATIVE_LIB \
+        CONNECTANUM_NATIVE_LIB="$bench_native_lib_path" \
+        CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test
+    else
+      env -u CONNECTANUM_NATIVE_LIB CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test
+    fi
   )
 }
 

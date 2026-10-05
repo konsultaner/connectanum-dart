@@ -7,20 +7,20 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Latest implementation checkpoint: `9620cfbe`, pushed to PR #105 after
-`f569e9b4`, `274df37c`, `152898d7` and `dc33fcc6`. It connects the benchmark
-runner's `native_buffer` and `pre_encoded_span` FlatBuffers PPT cases to the
-native Session span path. Both `bin/test-fast` and full `bin/verify` pass on
-`9620cfbe`, including Chrome WebAssembly, live WAMP integration and consumer
-smoke checks. Fresh exact-head hosted checks for `9620cfbe` were queued at the
-last observation. Earlier independent negotiated-profile, GuardMalloc,
-five-platform artifact and package publish dry-runs remain separate evidence.
-Two hosted Fast Checks jobs failed on the preceding `274df37c` head. A local
-follow-up adds an external C producer's delayed native-send lifetime proof for
-#97. The focused test, `bin/test-fast` and full `bin/verify` pass on the current
-working tree; its fresh exact-head hosted checks remain pending until this
-follow-up is pushed. These results establish correctness and ownership, not
-measured performance parity or issue acceptance.
+Latest pushed implementation checkpoint: `a28e92c4`, on PR #105 after
+`9620cfbe`, `f569e9b4`, `274df37c`, `152898d7` and `dc33fcc6`. It adds a real
+delayed-send lifetime proof for an external C producer lease. Its exact-head
+hosted CI is red: Fast Checks cannot find the native test library in the bench
+test process, and both core-lazy mutation jobs reject stale equivalent IDs.
+The current working tree fixes the native-library environment for bench tests
+and refreshes the source-hashed mutation entries. `bin/test-fast`, full
+`bin/verify`, and `bin/test-mutations --list` for both core-lazy targets pass on
+this candidate. Fresh exact-head hosted checks await the correction commit and
+push. The current uncommitted copy counters and paired comparison evaluator
+provide partial instrumentation and gate tooling only; no measured performance
+parity or milestone issue acceptance is established. Earlier independent
+negotiated-profile, GuardMalloc, five-platform artifact and package publish
+dry-runs remain separate evidence.
 
 ## Objective and scope
 
@@ -217,10 +217,14 @@ application payload to `packNativeTypedPayload`, opaque frame composition and
 publishes the cipher's output allocation as a frozen owned buffer. Rust pointer
 oracles verify both cipher allocations; Dart tests verify the independent input
 owner and composed frame. This avoids payload copies through Dart typed data.
-Ordinary Dart-value E2EE retains its existing input/output copies. Full-session
-copy counts and controlled performance parity remain unmeasured; account for
-crypto, TLS, masking, coalescing, builder growth and transcoding, and apply shared
-optimizations to the CBOR/MessagePack baselines too.
+Ordinary Dart-value E2EE retains its existing input/output copies. Native-path
+transport copy counters now expose explicit Dart-to-native copies and WebSocket
+mask/coalesce copies across client and router snapshots. A separate Rustls
+counter reports accepted plaintext bytes, not memory copies. Dart-managed
+socket/TLS copy paths, mixed-serializer transcodes and other
+end-to-end copy sources remain unmeasured. Controlled performance parity is
+still unmeasured; account for crypto, builder growth and remaining copy paths,
+and apply shared optimizations to the CBOR/MessagePack baselines too.
 
 Complete external session conformance and malformed-input/fuzz/ownership CI. The
 pinned Autobahn object serializer is not a functioning live peer. Existing
@@ -399,3 +403,36 @@ exactly once on its owner thread after write completion. The focused test passes
 `bin/test-fast` and full `bin/verify` also pass. Fresh hosted evidence for this
 follow-up is pending. This supplies a real-send lifetime oracle for #97 without
 closing that issue's remaining acceptance criteria.
+
+## Native transport copy-counter follow-up (2026-10-05)
+
+Optional C/Dart FFI snapshots count explicit Dart-to-native send copies and
+WebSocket mask/coalescing payload copies. A separate Rustls counter reports
+accepted plaintext input volume, not memory copies. The
+benchmark aggregates active client and router process deltas; missing active
+path counters fail closed. Dart-managed socket/TLS paths and mixed-serializer
+transcodes remain unmeasured. Focused tests, `bin/test-fast` and full
+`bin/verify` pass at exit 0, including Chrome WebAssembly, live WAMP integration
+and consumer smoke checks. This is correctness evidence and partial native-path
+attribution only; it establishes neither complete copy coverage nor FlatBuffers
+performance parity, and issue #103 remains open.
+
+## Paired comparison evaluator and hosted CI correction (2026-10-05)
+
+`tool/wamp_serializer_compare.py` now validates campaign metadata, non-overlap,
+workload identity/order, complete sample/resource/copy evidence and the declared
+paired metric gates. The machine-readable policy covers throughput, p95/p99
+latency, CPU, allocation, GC pause, peak RSS and zero avoidable payload copies
+at named optimized boundaries. Seven evaluator unit tests pass. It is an
+analysis/gate tool only: it does not execute or schedule benchmarks, and there
+is no campaign manifest or measured result. Unmeasured Dart-managed socket/TLS
+and mixed-codec transcode paths remain blockers for the required rows.
+
+The exact-head run for `a28e92c4` exposed two reproducible CI defects. Five
+bench tests tried to load `libct_ffi.so` because the CI fast script did not pass
+its just-built FFI test artifact into the package process. The two core-lazy
+jobs stopped before mutation execution because source edits changed the AST
+mutation identifiers while their justifications still named the old IDs. The
+current working-tree fixes pass `bin/test-fast` and the fast source/ID
+inventory checks for both VM and browser targets; complete hosted mutation
+campaigns and the corrected exact-head workflow remain pending.

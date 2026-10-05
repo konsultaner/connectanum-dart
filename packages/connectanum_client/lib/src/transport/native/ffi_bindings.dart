@@ -223,6 +223,11 @@ typedef CtFileSegmentMetricsSnapshotNative =
 typedef CtFileSegmentMetricsSnapshotDart =
     int Function(ffi.Pointer<CtFileSegmentMetricsInfo>);
 
+typedef CtTransportCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
+typedef CtTransportCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
+
 typedef CtPollConnectionMessageNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollConnectionMessageWideNative = ffi.Int64 Function(ffi.Int32);
 typedef CtPollConnectionMessageDart = int Function(int);
@@ -478,6 +483,17 @@ final class CtFileSegmentMetricsInfo extends ffi.Struct {
 
   @ffi.Uint64()
   external int bufferedFileSegmentBytesTotal;
+}
+
+final class CtTransportCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int websocketMaskCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int websocketCoalesceCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int tlsPlaintextAcceptedBytesTotal;
 }
 
 final class CtHttpHeader extends ffi.Struct {
@@ -736,6 +752,13 @@ class CtFfiBindings {
             CtFileSegmentMetricsSnapshotNative,
             CtFileSegmentMetricsSnapshotDart
           >('ct_file_segment_metrics_snapshot'),
+      ctTransportCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTransportCopyMetricsSnapshotNative,
+              CtTransportCopyMetricsSnapshotDart
+            >('ct_transport_copy_metrics_snapshot'),
+      ),
       ctPollConnectionMessage = messageHandleAbi == NativeMessageHandleAbi.wide
           ? library.lookupFunction<
               CtPollConnectionMessageWideNative,
@@ -989,6 +1012,7 @@ class CtFfiBindings {
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionSupportsFileSegmentsDart ctConnectionSupportsFileSegments;
   final CtFileSegmentMetricsSnapshotDart ctFileSegmentMetricsSnapshot;
+  final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;
   final CtPollConnectionMessageDart ctPollConnectionMessage;
   final CtWaitConnectionMessageDart ctWaitConnectionMessage;
   final CtMessageGetDart ctMessageGet;
