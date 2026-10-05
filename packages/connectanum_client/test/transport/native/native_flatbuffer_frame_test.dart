@@ -94,10 +94,15 @@ void main() {
       final bytes = payload.packedPayloadBytes!;
       expect(owner.inputCopiedBytes, 0);
       expect(payload.encoding, LazyPayloadEncoding.flatbuffers);
-      expect(payload.anchor, isA<({Object buffer, Uint8List bytes})>());
-      final anchor = payload.anchor! as ({Object buffer, Uint8List bytes});
-      expect(anchor.buffer, same(owner));
-      expect(anchor.bytes, same(bytes));
+      expect(payload.anchor, same(owner));
+      expect(
+        payload.storageOwner,
+        isA<({Object buffer, Uint8List bytes})>(),
+      );
+      final storageOwner =
+          payload.storageOwner! as ({Object buffer, Uint8List bytes});
+      expect(storageOwner.buffer, same(owner));
+      expect(storageOwner.bytes, same(bytes));
       expect(payload.arguments, hasLength(1));
       expect(payload.arguments!.single, same(bytes));
       expect(wire.Message(bytes).msg, isA<wire.Call>());

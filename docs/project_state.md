@@ -19,10 +19,15 @@ path; later transport framing, masking, TLS or encryption may still copy.
 
 RawSocket and WebSocket integration tests verify nested lazy-owner anchors,
 session/profile enforcement and immediate disposal of the caller's buffer after
-queueing. Core tests verify control-only FlatBuffers encoding does not read the
-lazy application payload. Both `bin/test-fast` and full `bin/verify` pass on
-this candidate, including Chrome WebAssembly and live WAMP integration. These
-are correctness and ownership results, not end-to-end throughput evidence; no
+queueing. The benchmark runner now passes native-buffer and pre-encoded
+FlatBuffers payloads through the same owned-view API. A new 12-case live matrix
+covers native RawSocket RPC/pub-sub, FlatBuffers WAMP envelopes, all three PPT
+serializers and two owned construction modes over two iterations. A runner unit
+test checks exact view/owner identity and cleanup after a rejected call. Core
+tests verify control-only encoding does not read the lazy payload. Both
+`bin/test-fast` and full `bin/verify` pass on the current candidate, including
+Chrome WebAssembly, live WAMP integration and consumer smoke checks. These are
+correctness and ownership results, not end-to-end throughput evidence; no
 FlatBuffers-versus-CBOR/MessagePack parity result is accepted, so issue #103
 remains open. All ten milestone issues remain open pending their acceptance
 evidence.
@@ -31,11 +36,13 @@ evidence.
 
 The managed worktree uses `codex/flatbuffers-zero-copy`; the native Session
 fast-path implementation is committed and pushed as `f569e9b4`, following
-`274df37c` and `152898d7`. Two exact-head hosted runs reported Fast Checks
-failures on `274df37c`; the new implementation passes local `bin/test-fast`
-and `bin/verify`. Fresh hosted acceptance is still required on the current
-branch tip. It started at `54eafc5f` and integrates released master `3bac4cf5`.
-The primary checkout's independent work remains untouched.
+`274df37c` and `152898d7`. The benchmark-runner integration is a local follow-up
+on top of that commit: `bin/test-fast` and full `bin/verify` pass. The updated
+candidate still needs fresh exact-head hosted checks. Two exact-head hosted runs
+reported Fast Checks failures on `274df37c`; hosted checks on the current local
+candidate are still needed. It started at
+`54eafc5f` and integrates released master `3bac4cf5`. The primary checkout's
+independent work remains untouched.
 Feature commits, pushes and draft PR updates are authorized; releases, version
 bumps, publication and merging master are not authorized. Actual ObjectBox
 integration belongs in a separate adapter. Core provides generic memory

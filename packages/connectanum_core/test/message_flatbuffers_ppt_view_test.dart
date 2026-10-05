@@ -110,6 +110,26 @@ void main() {
     expect(reanchored.storageOwner, same(owner));
   });
 
+  test('packed payload can retain storage separately from its anchor', () {
+    final protocolAnchor = Object();
+    final storageOwner = Object();
+    final callerAnchor = Object();
+    final payload = LazyMessagePayload.packed(
+      encoding: LazyPayloadEncoding.flatbuffers,
+      packedPayloadBytes: Uint8List.fromList([1, 2, 3]),
+      packedPayloadDecoder: (_) => (arguments: null, argumentsKeywords: null),
+      anchor: protocolAnchor,
+      storageOwner: storageOwner,
+    );
+
+    final reanchored = payload.withAnchor(callerAnchor);
+
+    expect(payload.anchor, same(protocolAnchor));
+    expect(payload.storageOwner, same(storageOwner));
+    expect(reanchored.anchor, same(callerAnchor));
+    expect(reanchored.storageOwner, same(storageOwner));
+  });
+
   for (final representation in [
     'encoded arguments without decoder',
     'encoded keywords without decoder',

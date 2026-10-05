@@ -1,9 +1,11 @@
 # FlatBuffers performance acceptance contract
 
-Status: acceptance contract for milestone issue #103. The runner now exposes the
+Status: acceptance contract for milestone issue #103. The runner exposes the
 three construction groups for typed RPC and pub/sub and records payload-preparation
-and native-builder copy counters. The full instrumentation and paired performance
-campaign are still unfinished. No parity result is accepted.
+and native-builder copy counters. Native FlatBuffers callers pass owned typed
+FlatBuffers spans directly into the native FlatBuffers frame path for two
+construction groups. Full-pipeline copy attribution and the paired performance
+campaign are unfinished. No parity result is accepted.
 
 The runner selects a group with `payload_construction = "values"`,
 `"native_buffer"`, or `"pre_encoded_span"` and requires
@@ -14,9 +16,13 @@ body. The 18-case live echo matrix establishes this behavior for RPC and pub/sub
 over RawSocket with the Dart caller, CBOR WAMP envelope, all three PPT
 serializers and all three construction groups. A separate 12-case matrix covers
 typed FlatBuffers PPT over RawSocket/WebSocket, Dart/native callers and all three
-outer serializers, but does not exercise these runner construction groups.
-Together these are correctness evidence, not a performance run; typed runner
-groups still lack WebSocket, TLS and native-caller live coverage.
+outer serializers, but does not exercise these runner construction groups. The
+runner now adds 12 live native-caller cases with a FlatBuffers WAMP envelope,
+RPC/pub-sub, all three PPT serializers and both `native_buffer` and
+`pre_encoded_span` groups over two iterations. The FlatBuffers PPT owned groups
+use the retained native span path; CBOR and MessagePack PPT remain serializer
+fallback rows. These matrices are correctness evidence, not a performance run.
+Typed runner groups still lack WebSocket and TLS coverage.
 
 `latency_ms` covers construction, serialization, transport, receive-side decode,
 and response/event validation. `payload_preparation_us` measures runner-side
@@ -28,15 +34,22 @@ measure only FlatBuffers/native-buffer builder input and growth. They do not
 measure codec, transport, TLS, WebSocket, E2EE or receive-side copies and cannot
 by themselves satisfy the copy-evidence gate below.
 
-At this stage, all three groups still submit through the ordinary WAMP Session
-serializer and native transport send path. Native-owned construction and packed
-lazy PPT avoid some intermediate Dart framing work, but neither proves that the
-source allocation reaches the socket without a copy. The native segmented-send
-path currently copies its submitted fragments into native-owned allocations.
-Issue #96's buffer ownership APIs do not yet connect this typed Session path to a
-verified source-buffer-to-transport ownership transfer. Count that as an
-unoptimized or missing row until pointer identity or copied-byte evidence proves
-otherwise.
+For a native caller with a FlatBuffers WAMP envelope and typed FlatBuffers PPT,
+the `native_buffer` and `pre_encoded_span` runner groups now construct a packed
+payload with the exact frozen `NativeOwnedBuffer` view. Session sends that view
+as a retained native frame span and rebuilds only the control envelope. Focused
+ownership tests and the live runner matrix verify that selection and lifetime.
+This proves Dart-side view identity at frame submission; it does not prove that
+WebSocket masking, TLS, coalescing or kernel output avoid copies. All Dart
+callers, other WAMP envelopes, and CBOR/MessagePack PPT rows keep their current
+serializer paths, where ordinary native segmented sends copy Dart fragments.
+Keep those rows explicit until matching shared ownership/segment optimizations
+and end-to-end copied-byte evidence exist. Issue #96 remains open for supported
+paths and acceptance work still outstanding.
+
+`bin/test-fast` and `bin/verify` pass with the new runner integration on
+2026-10-05. This stage is correctness evidence only; no timed result or parity
+acceptance is inferred.
 
 ## Comparable workloads
 

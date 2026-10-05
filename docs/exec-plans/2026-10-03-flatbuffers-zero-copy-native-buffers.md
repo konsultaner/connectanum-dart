@@ -13,11 +13,13 @@ peer, GuardMalloc, five-platform artifact and package publish dry-runs pass for
 earlier checkpoints; platform execution and publication remain separate
 evidence. This checkpoint adds a native Session fast path for already encoded
 typed FlatBuffers PPT payloads over RawSocket and WebSocket. Both
-`bin/test-fast` and full `bin/verify` pass locally, including Chrome WebAssembly
-and live WAMP integration. Two hosted Fast Checks jobs failed on the preceding
-`274df37c` head; fresh exact-head hosted checks are needed for the current
-branch tip. These results establish correctness and ownership, not measured
-performance parity or issue acceptance.
+`bin/test-fast` and full `bin/verify` pass on that checkpoint, including Chrome
+WebAssembly and live WAMP integration. The current local follow-up connects the
+benchmark runner's `native_buffer` and `pre_encoded_span` FlatBuffers PPT cases
+to that Session path. Its `bin/test-fast` passes; full verification and fresh
+exact-head hosted checks are pending. Two hosted Fast Checks jobs failed on the
+preceding `274df37c` head. These results establish correctness and ownership,
+not measured performance parity or issue acceptance.
 
 ## Objective and scope
 
@@ -359,5 +361,27 @@ control-only writer behavior pass. Ordinary Dart-backed payloads retain their
 copying serializer path. This avoids passing the application bytes through a
 Dart serialization buffer for eligible messages, but does not claim that later
 WebSocket masking, TLS, encryption or platform output stages avoid copies. No
-benchmark parity is inferred. `bin/test-fast` and `bin/verify` pass at exit 0 on
-this candidate; previous-head hosted failures still need fresh exact-head CI.
+benchmark parity is inferred. `bin/test-fast` and `bin/verify` pass at exit 0
+on functional checkpoint `f569e9b4`; the benchmark-runner follow-up passes
+`bin/test-fast` and awaits full verification and fresh exact-head hosted CI.
+
+## Native typed benchmark runner integration (2026-10-05)
+
+For typed FlatBuffers PPT with `native_buffer` or `pre_encoded_span` construction,
+the runner now uses `NativeOwnedBuffer.asFlatBuffersPptPayload()`. When the
+caller is the native implementation and the WAMP envelope serializer is
+FlatBuffers, eligible PPT calls use a control-only envelope and retained
+application span. `dartValues`, Dart transports, other outer serializers,
+transparent payloads, other PPT serializers and encrypted PPT keep the existing
+serialization paths.
+
+A live 12-case matrix covers native RawSocket RPC/pub-sub with FlatBuffers WAMP
+envelopes, FlatBuffers/CBOR/MessagePack PPT and both owned construction groups;
+each case runs two validated iterations. Runner tests verify that packed bytes
+and the storage-owner record are the same view, ownership is live during a call,
+and a rejected call still disposes the owner. Focused runner analysis, scenario
+tests and the live matrix pass. Both `bin/test-fast` and `bin/verify` pass on the
+current candidate, including Chrome WebAssembly and hosted consumer smoke tests.
+Fresh exact-head hosted CI remains pending. This is correctness evidence only:
+no timed comparisons or complete copy, CPU, memory or parity results exist, so
+issue #103 stays open.

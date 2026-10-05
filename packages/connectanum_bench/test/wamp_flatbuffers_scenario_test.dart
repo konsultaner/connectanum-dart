@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/native_buffers.dart' as native_buffers;
@@ -91,12 +92,96 @@ void main() {
       expect(session.closed, isTrue);
     },
   );
+
+  for (final construction in [
+    WampPayloadConstruction.nativeBuffer,
+    WampPayloadConstruction.preEncodedSpan,
+  ]) {
+    test(
+      'native FlatBuffers $construction keeps its exact PPT span owner',
+      () async {
+        final session = _RecordingSession();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => session,
+          logger: Logger.detached('flatbuffers-owned-span'),
+          nativeBufferAllocator:
+              native_buffers.NativeBufferAllocator.instance(),
+        );
+
+        final samples = await runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.flatbuffers,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 128,
+            pptScheme: 'x_connectanum_bench_typed',
+            pptSerializer: 'flatbuffers',
+            payloadConstruction: construction,
+          ),
+        );
+
+        expect(samples, hasLength(1));
+        final payload = session.request!;
+        expect(payload.encoding, core.LazyPayloadEncoding.flatbuffers);
+        final anchor = payload.storageOwner;
+        expect(anchor, isA<({Object buffer, Uint8List bytes})>());
+        final ownerAnchor = anchor as ({Object buffer, Uint8List bytes});
+        final owner = ownerAnchor.buffer as native_buffers.NativeOwnedBuffer;
+        expect(session.ownerWasLiveDuringCall, isTrue);
+        expect(session.requestBytes, same(ownerAnchor.bytes));
+        expect(payload.packedPayloadBytes, same(ownerAnchor.bytes));
+        expect(owner.isDisposed, isTrue);
+        expect(session.closed, isTrue);
+      },
+    );
+  }
+
+  test(
+    'native FlatBuffers PPT owner is disposed when a call is rejected',
+    () async {
+      final session = _RecordingSession()..throwOnCall = true;
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => session,
+        logger: Logger.detached('flatbuffers-owned-span-error'),
+        nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(),
+      );
+
+      await expectLater(
+        runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.flatbuffers,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 128,
+            pptScheme: 'x_connectanum_bench_typed',
+            pptSerializer: 'flatbuffers',
+            payloadConstruction: WampPayloadConstruction.nativeBuffer,
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(session.ownerWasLiveDuringCall, isTrue);
+      expect(session.requestOwner!.isDisposed, isTrue);
+      expect(session.closed, isTrue);
+    },
+  );
 }
 
 class _RecordingSession implements WampSession {
   core.LazyMessagePayload? request;
   native_buffers.NativeOwnedBuffer? requestOwner;
+  Uint8List? requestBytes;
   bool ownerWasLiveDuringCall = false;
+  bool throwOnCall = false;
   core.CallOptions? options;
   bool closed = false;
   final _disconnected = Completer<void>();
@@ -114,9 +199,17 @@ class _RecordingSession implements WampSession {
     core.CallOptions? options,
   }) async {
     request = payload;
-    requestOwner = payload.anchor as native_buffers.NativeOwnedBuffer?;
+    if (payload.storageOwner
+        case final ({Object buffer, Uint8List bytes}) storage) {
+      requestOwner = storage.buffer as native_buffers.NativeOwnedBuffer?;
+      requestBytes = storage.bytes;
+    } else {
+      requestOwner = payload.anchor as native_buffers.NativeOwnedBuffer?;
+      requestBytes = payload.packedPayloadBytes;
+    }
     ownerWasLiveDuringCall = requestOwner?.isDisposed == false;
     this.options = options;
+    if (throwOnCall) throw StateError('Simulated Session send rejection');
     return core.LazyResultPayload(
       callRequestId: 1,
       progress: false,

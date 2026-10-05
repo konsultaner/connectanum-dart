@@ -2042,7 +2042,12 @@ class WampWorkloadRunner {
       }
       preparation.stop();
       final payload =
-          scenario.payloadConstruction == WampPayloadConstruction.preEncodedSpan
+          serializer == 'flatbuffers' &&
+              owner != null &&
+              scenario.payloadConstruction != WampPayloadConstruction.dartValues
+          ? owner.asFlatBuffersPptPayload()
+          : scenario.payloadConstruction ==
+                WampPayloadConstruction.preEncodedSpan
           ? wamp_core.LazyMessagePayload.packed(
               encoding: encoding,
               packedPayloadBytes: owner!.bytes,

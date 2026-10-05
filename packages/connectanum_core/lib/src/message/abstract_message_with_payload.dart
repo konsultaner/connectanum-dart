@@ -30,7 +30,8 @@ enum LazyPayloadEncoding {
 /// A payload view that delays decoding until an application reads its values.
 ///
 /// The view can retain encoded argument slices or one packed PPT payload while
-/// preserving the object that owns the underlying storage through [anchor].
+/// preserving the object that owns the underlying storage through [anchor] or
+/// the optional [storageOwner] when it differs from the public anchor.
 class LazyMessagePayload {
   LazyMessagePayload._({
     this.transparentBinaryPayload,
@@ -92,6 +93,9 @@ class LazyMessagePayload {
   }
 
   /// Creates a view backed by one packed Payload Passthru Mode value.
+  ///
+  /// [storageOwner] can retain the encoded bytes' allocation separately from
+  /// [anchor], which remains available for protocol-specific bookkeeping.
   factory LazyMessagePayload.packed({
     Uint8List? transparentBinaryPayload,
     required LazyPayloadEncoding? encoding,
@@ -101,6 +105,7 @@ class LazyMessagePayload {
     WampE2eeProvider? e2eeProvider,
     WampE2eeRuntimeContext? e2eeRuntimeContext,
     Object? anchor,
+    Object? storageOwner,
   }) {
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
@@ -111,6 +116,7 @@ class LazyMessagePayload {
       packedPayloadDecoder: packedPayloadDecoder,
       pptDecoded: pptDecoded,
       anchor: anchor,
+      storageAnchor: storageOwner,
     );
   }
 

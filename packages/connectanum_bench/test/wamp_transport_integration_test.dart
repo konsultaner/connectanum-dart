@@ -288,6 +288,63 @@ void main() {
       }
     }
 
+    for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+      for (final pptSerializer in ['flatbuffers', 'cbor', 'msgpack']) {
+        for (final construction in [
+          WampPayloadConstruction.nativeBuffer,
+          WampPayloadConstruction.preEncodedSpan,
+        ]) {
+          test(
+            'native FlatBuffers-envelope runner ${mode.name} $pptSerializer '
+            '${construction.wireName} preserves payload and owner metrics',
+            () async {
+              const bodyBytes = 1024;
+              final scenario = WampScenario(
+                transport: WampTransport.rawsocket,
+                clientImplementation: WampClientImplementation.native,
+                serializer: WampSerializer.flatbuffers,
+                peerSerializer: WampSerializer.flatbuffers,
+                mode: mode,
+                uri: 'bench.typed.native.${mode.name}',
+                iterations: 2,
+                concurrency: 1,
+                inFlightPerSession: 1,
+                peerCount: mode == WampMode.pubsub ? 2 : 1,
+                payloadConstruction: construction,
+                payloadBytes: bodyBytes,
+                pptScheme: 'x_connectanum_bench_typed',
+                pptSerializer: pptSerializer,
+              );
+              final samples = await harness!.runner.run(scenario);
+
+              expect(samples, hasLength(2));
+              expect(
+                samples.every((sample) => sample.payloadPreparationUs != null),
+                isTrue,
+              );
+              final copiedBytes = samples
+                  .map((sample) => sample.nativeBuilderInputCopiedBytes)
+                  .toList(growable: false);
+              expect(copiedBytes, everyElement(isNotNull));
+              switch (construction) {
+                case WampPayloadConstruction.nativeBuffer:
+                  expect(copiedBytes, everyElement(bodyBytes));
+                case WampPayloadConstruction.preEncodedSpan:
+                  expect(
+                    copiedBytes.every((bytes) => bytes! > bodyBytes),
+                    isTrue,
+                  );
+                case WampPayloadConstruction.dartValues:
+                  fail('The native runner matrix requires owned construction');
+              }
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+    }
+
     for (final webSocket in [false, true]) {
       for (final wireSerializer in ['json', 'msgpack', 'cbor']) {
         test(

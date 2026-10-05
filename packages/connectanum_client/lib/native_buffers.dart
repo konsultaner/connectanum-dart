@@ -763,7 +763,8 @@ extension NativeOwnedBufferFlatBuffersPpt on NativeOwnedBuffer {
         arguments: <dynamic>[bytes],
         argumentsKeywords: null,
       ),
-      anchor: (buffer: this, bytes: bytes),
+      anchor: this,
+      storageOwner: (buffer: this, bytes: bytes),
     );
   }
 }
