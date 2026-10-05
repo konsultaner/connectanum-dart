@@ -4,6 +4,7 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
+from dataclasses import asdict
 import os
 from pathlib import Path
 import signal
@@ -13,6 +14,7 @@ import time
 
 import native_coverage
 import native_mutation_batches
+import native_mutation_resources as resources
 import run_native_mutations as collector
 
 
@@ -24,7 +26,7 @@ def sample_indices(count, sample_count):
 
 
 def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1, reuse=(),
-                     *, sample_count=None):
+                     *, sample_count=None, resource_limits=None):
     if (target not in collector.WHOLE_COMPONENTS
             or any(type(value) is not int or value < 1 for value in (count, jobs, build_jobs))
             or jobs > min(count, 64)):
@@ -44,6 +46,8 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
                 'jobs': jobs, 'cargoBuildJobs': build_jobs, 'inputHashes': inputs,
                 'toolHashes': tools, 'executionFingerprint': execution,
                 'batches': [], 'maxConcurrentWorkers': 0}
+    if resource_limits is not None:
+        manifest['resourceLimits'] = asdict(resource_limits)
     if sample_count is not None:
         manifest.update(timingOnly=True, sampledBatchIndexes=selected)
     manifest_path = output / 'campaign-manifest.json'
@@ -66,7 +70,8 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
             inspected = native_mutation_batches.inspect_batches(root, list(reuse), analyzer)
             if (inspected['target'] != target or inspected['inventory'] != full
                     or inspected['inputHashes'] != inputs or inspected['toolHashes'] != tools
-                    or inspected['executionFingerprint'] != execution):
+                    or inspected['executionFingerprint'] != execution
+                    or inspected.get('resourceLimits') != manifest.get('resourceLimits')):
                 raise ValueError('Reused batches differ from the pinned campaign')
             for path, report in zip(reuse, inspected['reports']):
                 index = report['batch']['index']
@@ -94,7 +99,7 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
             try:
                 code = collector.collect(frozen, directory, analyzer, target,
                                          batch=(index, count), build_jobs=build_jobs,
-                                         cancel_event=cancel)
+                                         cancel_event=cancel, resource_limits=resource_limits)
                 return {'index': index, 'directory': str(directory), 'reused': False,
                         'exitCode': code, 'workerSeconds': time.monotonic() - worker_started}
             finally:
@@ -140,7 +145,8 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
                 root, [directories[index] for index in selected], analyzer)
             if (inspected['inventory'] != full or inspected['inputHashes'] != inputs
                     or inspected['toolHashes'] != tools
-                    or inspected['executionFingerprint'] != execution):
+                    or inspected['executionFingerprint'] != execution
+                    or inspected.get('resourceLimits') != manifest.get('resourceLimits')):
                 raise ValueError('Timing pilot differs from pinned campaign')
             pilot = {'timingOnly': True, 'wholeComponentComplete': False,
                      'generated': len(full), 'sampledBatchIndexes': selected,
@@ -156,7 +162,8 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
         report = native_mutation_batches.audit_batches(
             root, [directories[index] for index in range(count)], analyzer)
         if (report['inputHashes'] != inputs or report['toolHashes'] != tools
-                or report['generated'] != len(full)):
+                or report['generated'] != len(full)
+                or report.get('resourceLimits') != manifest.get('resourceLimits')):
             raise ValueError('Combined evidence differs from pinned campaign')
         with (output / 'combined.json').open('x') as destination:
             json.dump(report, destination, indent=2)
@@ -183,6 +190,7 @@ def main():
                         help='Measure evenly spaced batches only; never create a combined score')
     parser.add_argument('--reuse', type=Path, action='append', default=[],
                         help='Completed immutable batch directory; raw logs are reaudited before reuse')
+    resources.add_arguments(parser)
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error('jobs must be positive')
@@ -195,7 +203,9 @@ def main():
     try:
         return collect_campaign(native_coverage.REPO, args.output.resolve(), args.analyzer.resolve(),
                                 args.target, args.batches, args.jobs, build_jobs, args.reuse,
-                                sample_count=args.pilot_batches)
+                                sample_count=args.pilot_batches,
+                                resource_limits=resources.DiskLimits(
+                                    args.disk_reserve_gib, args.max_cache_gib))
     except KeyboardInterrupt:
         return 130
     finally:

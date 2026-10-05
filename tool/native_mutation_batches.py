@@ -8,6 +8,7 @@ from pathlib import Path
 
 import native_coverage
 import native_mutations
+import native_mutation_resources as resources
 import run_native_mutations as collector
 
 
@@ -67,7 +68,7 @@ def inspect_batches(root, directories, analyzer):
     tools = {name: native_coverage.digest(tool_root / name) for name in collector.TOOL_INPUTS}
     execution = collector.execution_fingerprint()
     reports, evidence = [], []
-    full_inventory, target = None, None
+    full_inventory, target, resource_limits = None, None, None
     for directory in directories:
         manifest = json.loads((directory / 'run-manifest.json').read_text())
         if (manifest.get('complete') is not True or 'batch' not in manifest
@@ -80,6 +81,11 @@ def inspect_batches(root, directories, analyzer):
             raise ValueError('Batch source/test/tool snapshot differs')
         if manifest.get('executionFingerprint') != execution:
             raise ValueError('Batch compiler/build environment differs')
+        resources.validate_evidence(directory, manifest)
+        if target is None:
+            resource_limits = manifest.get('resourceLimits')
+        elif manifest.get('resourceLimits') != resource_limits:
+            raise ValueError('Batch resource policy differs')
         if json.loads((directory / 'source-scopes.json').read_text()) != scope:
             raise ValueError('Batch AST scope differs')
         for key, name in [('rawInventorySha256', 'raw-inventory.json'),
@@ -132,14 +138,16 @@ def inspect_batches(root, directories, analyzer):
         raise ValueError('Batch execution configuration changed during audit')
     return {'target': target, 'inputHashes': inputs, 'toolHashes': tools,
             'inventory': full_inventory, 'reports': reports, 'batches': evidence,
-            'wholeComponentComplete': False, 'executionFingerprint': execution}
+            'wholeComponentComplete': False, 'executionFingerprint': execution,
+            'resourceLimits': resource_limits}
 
 
 def audit_batches(root, directories, analyzer):
     inspected = inspect_batches(root, directories, analyzer)
     result = combine_batches(inspected['reports'], inspected['inventory'])
     result.update({key: inspected[key] for key in
-                   ('target', 'inputHashes', 'toolHashes', 'batches', 'executionFingerprint')})
+                   ('target', 'inputHashes', 'toolHashes', 'batches', 'executionFingerprint',
+                    'resourceLimits')})
     return result
 
 

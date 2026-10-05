@@ -1,11 +1,74 @@
 # Project State
 
-Last updated: 2026-10-04
+Last updated: 2026-10-05
 Current branch: `codex/mutation-runner-speed`
-Current milestone: accelerate native mutation campaigns without narrowing
-inventories, test suites, deadlines or evidence gates.
+Current milestone: bound mutation-runner disk usage and measure complete native
+campaigns without narrowing inventories, test suites, deadlines or evidence gates.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work403: Fast403 exits 0 in `/tmp/connectanum-mutation-disk-fast403.log`.
+Add private-cache logical/allocated and incremental-cache measurements, a
+four-GiB CLI reserve, and a three-GiB per-worker CLI cache limit. Sampling or
+limit failures cancel the shared owned-worker event; interrupted logs remain
+incomplete and cannot earn a score. A final observation precedes completion;
+independent batch audits recheck hashed samples, summary and matching resource
+policies. Measurement never follows cache symlinks or removes unrelated data.
+Fourteen resource tests include actual process cancellation, linked-parent
+rejection, tampered evidence and final-sample exhaustion. A real four-worker
+eight-mutant fixture passes collection/reaudit and rejects mismatched-limit
+reuse; all owned temporary workspaces are gone. The collector/coordinator
+regressions pass. Qwen/GLM reviews supply no independently confirmed additional
+defect; their suggestions are not accepted as proof.
+Fresh `bin/verify` exits 0 in `/tmp/connectanum-mutation-disk-verify403.log`,
+including all 106 mutation-tool checks and Chrome/Dart2Wasm core/client suites.
+Seven local supervisor/report checks reject changed inventories/outcomes,
+oversized caches and incomplete full reports. Freeze the verified code before
+a default-versus-lean production comparison and any new full collection.
+Use 16 fresh batches out of 1,024 for each profile: this preserves the same 31
+sampled mutation positions while reducing control-cache lifetime at about 13.3
+GiB available disk. Both profiles use four workers/four Cargo jobs; full runs
+remain 32 fresh batches covering every candidate. Cargo's documented test profile inherits
+incremental compilation/full debug information; evaluate no-debug/nonincremental
+builds with unchanged assertions, tests and deadlines, not a release profile.
+Do not promote the profile without matching audited sampled identities, test
+inventories and outcomes plus demonstrated cache reduction. The prior full402
+artifacts remain untouched; new evidence belongs under ignored
+`out/native-mutation-disk403/`. Full collection, strict gate passage, actual full
+runtime and overall coverage completion are not yet established. No push or
+publication is authorized.
+
+Work402: The operator authorizes a full measured native run, not another pilot.
+A detached supervisor retains evidence under ignored `out/native-mutation-full402/`.
+Fast402 exits 0 in `/tmp/connectanum-mutation-full-fast402.log`; fresh
+`bin/verify` exits 0 in `out/native-mutation-full402/verify.log` after 1,137.35s.
+Only successful
+full verification permits timed mutation work. The archived `b3da3fbd` source,
+copied analyzer and current native lockfile match all 65 pinned native inputs;
+private snapshots isolate the measurement from later checkout changes.
+Run all 1,959 core candidates with default test debug, then all 1,297 FFI
+candidates with test debug disabled: 32 fresh batches each, four workers and
+four Cargo build jobs per worker. Preserve all tests, deadlines and score gates.
+Ten local operational-supervisor/preflight checks pass. Capture raw phase times,
+batch overhead and 30-second process CPU/RSS/free-disk samples; keep preflight
+outside native timing. A four-GiB reserve stops collection cleanly if exhausted.
+Core starts at 10:29:03 UTC and stops cooperatively at 10:44:50 UTC (946.90s)
+when sampled free disk reaches 3.69 GiB, below the four-GiB reserve. Both
+supervisor/coordinator exit; no complete batch or combined audit exists, and
+FFI never starts. Seventy retained raw mutation outcomes are partial evidence,
+not independently audited kills or a score. Their recorded build/test phase
+totals are 336.96s/2,889.16s (89.6% test time), with median/p95 44.11s/78.81s.
+These are summed parallel phase timings, not complete campaign wall costs.
+All four initial workspace baselines pass; restored baselines are absent.
+The 47 resource samples record initial/minimum/final free disk of
+12.85/3.69/16.74 GiB and peak summed process RSS of 2.32 GiB. Shared-host
+disk use and sampled/shared-page memory prevent precise resource attribution.
+Preserve the interrupted artifacts and stop the heartbeat after this failure.
+Full collection, actual full runtime, new scores and coverage completion remain
+unclaimed. Bound private build-cache disk growth or obtain sufficient headroom
+before a fresh full attempt; do not delete unrelated data or waive the reserve.
+Leave this docs-only measurement bookkeeping uncommitted until implementation can
+be bundled with it. Existing hosted assertion and coverage blockers remain open.
 
 Work401: Production-native timing pilots replace synthetic-only speed evidence.
 Fast401 runs before changes and exits 0. Fresh-only deterministic pilots and a

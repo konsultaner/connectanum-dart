@@ -2,6 +2,8 @@
 """Collect a complete native target inventory in a private source snapshot."""
 
 import argparse
+from contextlib import contextmanager, nullcontext
+from dataclasses import asdict
 import hashlib
 import json
 import os
@@ -10,17 +12,20 @@ import re
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 
 import native_coverage
 import native_mutations
+import native_mutation_resources as resources
 from run_dart_mutations import run
 
 
 FIXTURES = ('native/bench/bench_tls.crt', 'native/bench/bench_tls.key')
 TOOL_INPUTS = ('run_native_mutations.py', 'native_mutations.py',
                'native_coverage.py', 'run_dart_mutations.py', 'native_mutation_batches.py',
-               'run_native_mutation_campaign.py', 'native_mutation_timing.py')
+               'run_native_mutation_campaign.py', 'native_mutation_timing.py',
+               'native_mutation_resources.py')
 TARGETS = {
     'core-rawsocket': ('ct_core/src/rawsocket.rs', 'rawsocket::tests'),
     'core-wamp': ('ct_core/src/wamp.rs', 'wamp::'),
@@ -208,7 +213,7 @@ def prepare_inventory(work, output, scope, target):
 
 
 def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
-            build_jobs=None, cancel_event=None):
+            build_jobs=None, cancel_event=None, resource_limits=None):
     started = time.monotonic()
     target_options(target)
     if batch is not None and (target not in WHOLE_COMPONENTS or len(batch) != 2
@@ -226,6 +231,9 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
                 'toolHashes': tool_hashes, 'executionFingerprint': execution_fingerprint(),
                 'cargoMutantsVersion': subprocess.check_output(
                     ['cargo', 'mutants', '--version'], text=True).strip()}
+    if resource_limits is not None:
+        manifest['resourceLimits'] = asdict(resource_limits)
+        cancel_event = cancel_event if cancel_event is not None else threading.Event()
     if manifest['cargoMutantsVersion'] != 'cargo-mutants 27.1.0':
         raise ValueError('Require cargo-mutants 27.1.0')
     manifest_path = output / 'run-manifest.json'
@@ -234,13 +242,31 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
         manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
 
     def execute(command, timeout):
+        if guard is not None:
+            guard.check()
         if cancel_event is None:
             return run(command, work, timeout)
         return run(command, work, timeout, cancel_event=cancel_event)
 
+    @contextmanager
+    def workspace():
+        with tempfile.TemporaryDirectory(prefix='connectanum-native-mutations-') as temporary:
+            work = Path(temporary)
+            observer = resources.DiskGuard(work, output, cancel_event, resource_limits) \
+                if resource_limits is not None else nullcontext()
+            try:
+                with observer as guard:
+                    yield work, guard
+            finally:
+                if resource_limits is not None:
+                    for key, name in [('resourceSummarySha256', 'resource-summary.json'),
+                                      ('resourceSamplesSha256', 'resources.jsonl')]:
+                        if (output / name).is_file():
+                            manifest[key] = native_coverage.digest(output / name)
+                    save()
+
     save()
-    with tempfile.TemporaryDirectory(prefix='connectanum-native-mutations-') as temporary:
-        work = Path(temporary)
+    with workspace() as (work, guard):
         copy_inputs(root, work, hashes)
         partition = prepare_inventory(work, output, scope, target) if target in WHOLE_COMPONENTS else None
         if partition is not None:
@@ -283,6 +309,8 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
         manifest['campaignExitCode'] = code
         manifest['campaignSeconds'] = time.monotonic() - campaign_started
         save()
+        if guard is not None:
+            guard.check()
         if code is None or 'connectanumInfrastructureError' in log:
             raise RuntimeError('Native campaign timed out or left unresolved process state')
         if partition is not None:
@@ -305,6 +333,8 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
         manifest['restoredExitCode'] = code
         manifest['restoredSeconds'] = time.monotonic() - restored_started
         save()
+        if guard is not None:
+            guard.check()
         evidence = {'phase_results': [
             {'phase': 'Build', 'process_status': 'Success'},
             {'phase': 'Test', 'process_status': 'Success' if code == 0 else {'Failure': code}}]}
@@ -321,6 +351,11 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
         verify_inputs(tool_root, tool_hashes)
         if execution_fingerprint() != manifest['executionFingerprint']:
             raise RuntimeError('Native execution configuration changed during collection')
+        if guard is not None:
+            # Settle the observer before committing completion. A final limit
+            # violation must not leave an apparently reusable audited batch.
+            guard.finish()
+            guard.check()
         report.update(scopeSha256=native_coverage.digest(output / 'source-scopes.json'),
                       toolHashes=tool_hashes,
                       restoredBaselineLogSha256=native_coverage.digest(output / 'restored-baseline.log'))
@@ -343,11 +378,14 @@ def main():
     parser.add_argument('--target', choices=tuple(TARGETS), default='core-rawsocket')
     parser.add_argument('--batch', nargs=2, type=int, metavar=('INDEX', 'COUNT'),
                         help='Zero-based deterministic whole-component batch; retain each output separately')
+    resources.add_arguments(parser)
     args = parser.parse_args()
+    limits = resources.DiskLimits(args.disk_reserve_gib, args.max_cache_gib)
     if args.batch is not None:
         return collect(native_coverage.REPO, args.output.resolve(), args.analyzer.resolve(),
-                       args.target, batch=args.batch)
-    return collect(native_coverage.REPO, args.output.resolve(), args.analyzer.resolve(), args.target)
+                       args.target, batch=args.batch, resource_limits=limits)
+    return collect(native_coverage.REPO, args.output.resolve(), args.analyzer.resolve(), args.target,
+                   resource_limits=limits)
 
 
 if __name__ == '__main__':

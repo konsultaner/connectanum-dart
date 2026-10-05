@@ -803,7 +803,8 @@ class NativeMutationTests(unittest.TestCase):
                     self.assertEqual(collector.main(), 17)
                     collect.assert_called_once_with(
                         collector.native_coverage.REPO, Path('evidence with spaces').resolve(),
-                        Path('analyzer with spaces').resolve(), target or 'core-rawsocket')
+                        Path('analyzer with spaces').resolve(), target or 'core-rawsocket',
+                        resource_limits=collector.resources.DiskLimits(4 * 1024 ** 3, 3 * 1024 ** 3))
         with patch('sys.argv', ['collector', '--output', 'evidence', '--analyzer', 'analyzer',
                                 '--target', 'invalid']), patch('sys.stderr'), \
                 patch.object(collector, 'collect') as collect:
@@ -853,6 +854,40 @@ class NativeMutationTests(unittest.TestCase):
             self.assertFalse(manifest['complete'])
             self.assertIsNone(manifest['campaignExitCode'])
             self.assertEqual((output / 'campaign.log').read_text(), 'partial log')
+            self.assertFalse((output / 'audited-results.json').exists())
+
+    def test_resource_exhaustion_retains_log_and_incomplete_manifest_before_audit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, output = Path(temporary) / 'repo', Path(temporary) / 'evidence'
+            root.mkdir()
+            scope = {**SCOPE, 'inputHashes': {}}
+            owned = []
+
+            def command(arguments, work, timeout, cancel_event=None):
+                owned.append(work)
+                cache = work / 'target'
+                cache.mkdir()
+                (cache / 'object').write_bytes(b'x' * 1024)
+                self.assertTrue(cancel_event.wait(3))
+                return None, 'retained resource-limited raw log'
+
+            with patch.object(collector.native_coverage, 'snapshot', return_value=scope), \
+                    patch.object(collector.native_coverage, 'digest', return_value='hash'), \
+                    patch.object(collector.subprocess, 'check_output', return_value='cargo-mutants 27.1.0\n'), \
+                    patch.object(collector, 'copy_inputs'), \
+                    patch.object(collector, 'run', side_effect=command), \
+                    patch.object(collector.native_mutations, 'audit') as auditor:
+                with self.assertRaisesRegex(RuntimeError, 'cache'):
+                    collector.collect(root, output, Path('analyzer'),
+                                      resource_limits=collector.resources.DiskLimits(1, 16, .01))
+                auditor.assert_not_called()
+            manifest = json.loads((output / 'run-manifest.json').read_text())
+            self.assertFalse(manifest['complete'])
+            self.assertIsNone(manifest['campaignExitCode'])
+            self.assertEqual(manifest['resourceSamplesSha256'], 'hash')
+            self.assertEqual((output / 'campaign.log').read_text(), 'retained resource-limited raw log')
+            self.assertFalse(json.loads((output / 'resource-summary.json').read_text())['withinLimits'])
+            self.assertTrue(all(not path.exists() for path in owned))
             self.assertFalse((output / 'audited-results.json').exists())
 
     def test_collector_never_reuses_an_existing_evidence_directory(self):

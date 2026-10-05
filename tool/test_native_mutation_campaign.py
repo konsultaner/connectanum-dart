@@ -276,6 +276,34 @@ def fixture(root, delay=200, marker=None):
 
 
 class RealCampaignTests(unittest.TestCase):
+    def test_guarded_real_campaign_is_reauditable_and_reuse_requires_matching_limits(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / 'repo'
+            fixture(root, delay=1)
+            output = base / 'guarded'
+            limits = collector.resources.DiskLimits(1, 1024 ** 3, .02)
+            self.assertEqual(campaign.collect_campaign(root, output, self.analyzer,
+                                                      'core-all', 4, 4, 1,
+                                                      resource_limits=limits), 0)
+            directories = sorted(output.glob('batch-*'))
+            report = batches.audit_batches(root, directories, self.analyzer)
+            self.assertEqual(report['counts'], {'killed': 8})
+            self.assertTrue(report['evidenceClean'])
+            self.assertEqual(report['resourceLimits']['reserve_bytes'], 1)
+            for directory in directories:
+                manifest = json.loads((directory / 'run-manifest.json').read_text())
+                collector.resources.validate_evidence(directory, manifest)
+                workspace = json.loads((directory / 'resource-summary.json').read_text())['workspace']
+                self.assertFalse(Path(workspace).exists())
+            self.assertEqual(campaign.collect_campaign(root, base / 'reuse', self.analyzer,
+                                                      'core-all', 4, 4, 1, directories,
+                                                      resource_limits=limits), 0)
+            with self.assertRaisesRegex(ValueError, 'pinned campaign'):
+                campaign.collect_campaign(root, base / 'mismatched-reuse', self.analyzer,
+                                          'core-all', 4, 4, 1, directories,
+                                          resource_limits=collector.resources.DiskLimits(2, 1024 ** 3, .02))
+
     def test_real_struct_field_shards_are_disjoint_exhaustive_and_assertion_killed(self):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
