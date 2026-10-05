@@ -3,7 +3,7 @@
 Last updated: 2026-10-05.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95) and [#96](https://github.com/konsultaner/connectanum-dart/issues/96) are complete and closed. Issues #97–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
+Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete and closed. Issues #97 and #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
 The latest pushed code checkpoint `e1ee796a` adds the WAMP benchmark RSS
 window-boundary correction. `bin/test-fast`, full `bin/verify` and the evaluator
@@ -56,7 +56,7 @@ have complete cleartext coverage. The paired evaluator rejects missing/partial
 coverage, unknown boundaries, and not-applicable transport totals. Focused
 metric/evaluator tests and `bin/test-fast` pass. Dart SDK write/masking
 internals, TLS copies and mixed-serializer transcodes remain unmeasured; no
-parity campaign exists, so issue #103 and issues #97–#104 remain open.
+parity campaign exists, so issue #103 and issues #97, #100–#104 remain open.
 
 ## Native transport copy-counter follow-up (2026-10-05)
 
@@ -732,12 +732,14 @@ acceptance remain open. Exact-head hosted CI is pending the current commit.
 
 ## Issue acceptance audit (2026-10-05)
 
-Issues #95 and #96 are closed as completed. #95's pinned binding, generation
+Issues #95, #96, #98 and #99 are closed as completed. #95's pinned binding, generation
 workflow, metadata/schema policy, negotiation rules, fixture coverage and
 WebSocket identifier registry status are recorded in `flatbuffers_binding.md`
 and checked by the FlatBuffers Binding workflow. #96's Rust-owned builders,
 send/transfer contract, allocation identity, copy counters, error transitions,
 ABI fallback, finalizers and explicit disposal are covered by the native buffer
-API, ownership guide and tests. Issues #97–#104 remain open; #103 still lacks
-the required paired parity campaign and transport-copy coverage for SDK
-masking, TLS and mixed-serializer conversions.
+API, ownership guide and tests. #98's Dart serializer and #99's native codec,
+transport negotiation, auth, fragmentation and TLS paths passed full local
+verification. Issues #97 and #100–#104 remain open; #103 still lacks the paired
+parity campaign and copy coverage for SDK masking, TLS and mixed-serializer
+conversions.

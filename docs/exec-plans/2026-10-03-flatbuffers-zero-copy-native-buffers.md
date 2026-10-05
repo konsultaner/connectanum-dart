@@ -14,7 +14,8 @@ exposed by `a28e92c4`. The `e1ee796a` RSS window correction passed local
 working-tree Dart transport-copy follow-up passes `bin/test-fast` and full
 `bin/verify`; exact-head hosted checks remain pending. It adds partial Dart-path
 attribution and closes the evaluator's coverage gate, but does not provide a
-measured performance result. Issues #95 and #96 are now complete and closed. Earlier
+measured performance result. Issues #95, #96, #98 and #99 are now complete and
+closed. Earlier
 independent negotiated-profile, GuardMalloc, five-platform artifact and package
 publish dry-runs remain separate evidence.
 
@@ -35,8 +36,8 @@ and a master merge are not authorized.
 - [x] [#95](https://github.com/konsultaner/connectanum-dart/issues/95): pinned binding, reproducible generation, metadata/schema compatibility.
 - [x] [#96](https://github.com/konsultaner/connectanum-dart/issues/96): native builders, freeze/retain/transfer, native inputs throughout submission.
 - [ ] [#97](https://github.com/konsultaner/connectanum-dart/issues/97): generic external leases, producer-thread release, real send completion.
-- [ ] [#98](https://github.com/konsultaner/connectanum-dart/issues/98): complete public Dart serializer, factories and verified lazy payload behavior.
-- [ ] [#99](https://github.com/konsultaner/connectanum-dart/issues/99): native Rust codec, transport negotiation and supported profile guards.
+- [x] [#98](https://github.com/konsultaner/connectanum-dart/issues/98): complete public Dart serializer, factories and verified lazy payload behavior.
+- [x] [#99](https://github.com/konsultaner/connectanum-dart/issues/99): native Rust codec, transport negotiation and supported profile guards.
 - [ ] [#100](https://github.com/konsultaner/connectanum-dart/issues/100): homogeneous/mixed routing, delayed/progressive/error flows and lifetime preservation.
 - [ ] [#101](https://github.com/konsultaner/connectanum-dart/issues/101): PPT and explicit typed E2EE profile; unchanged CBOR behavior and unsupported file handling.
 - [ ] [#102](https://github.com/konsultaner/connectanum-dart/issues/102): external conformance, malformed-input/fuzz, memory/ownership CI.
