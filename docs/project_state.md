@@ -7,6 +7,36 @@ campaigns without narrowing inventories, test suites, deadlines or evidence gate
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work404: disk403b finishes all 16 default-profile timing batches and independent
+audit in 943.54s collection plus 8.07s audit. All owned private workspaces and
+processes are gone. Its 31 sampled outcomes are nine assertion kills, six
+survivors, eleven errors, two timeouts and three compile errors; these are not
+a full score or passing strict gate. Per-worker allocated cache peaks at
+1.906 GiB and sampled free disk stays above 5.433 GiB. The supervisor then
+fails its fixed 13-GiB admission check before any lean/full worker starts.
+Preserve the terminal disk403b artifacts and pause its heartbeat. Add a tested
+filesystem-aware startup budget using the actual reserve, worker count, cache
+caps and evidence allowance. It is observation-only and never replaces runtime
+guards or grants completion. Evaluate lean builds under a stricter 1.5-GiB
+per-worker cap with the same four workers, four-GiB reserve and original tests/
+deadlines. A completed, immutable, independently reaudited default pilot may
+serve as the comparison control only when all native/tool/build fingerprints
+still match; never reuse pilot batches as full-campaign evidence. Profile
+promotion and complete core/FFI collection remain unproven. Nothing is pushed
+or published.
+Fast404 exits 0 in `/tmp/connectanum-mutation-admission-fast404.log`.
+Eight admission regressions and eleven fresh operational-supervisor checks pass.
+The latter reproduce and fix a manifest-less child leaving a phase marked
+running, and pin control parsing/digest to the same bytes. Qwen's speculative
+integer-overflow claim is rejected against Python integers and validated frozen
+disk limits; GLM's signal-group suggestion is rejected against the coordinator's
+tested cooperative owned-worker cleanup. A fresh ignored disk404 supervisor
+(PID 12637) is confirmed alive waiting for authoritative fast exit evidence.
+It then runs fresh `bin/verify` before any timed work, reaudits the immutable
+control, and only starts full runs after equivalent bounded lean evidence.
+Its quiet heartbeat is active. Verification remains pending; no full result,
+profile promotion or strict-gate passage is claimed.
+
 Work403: Fast403 exits 0 in `/tmp/connectanum-mutation-disk-fast403.log`.
 Add private-cache logical/allocated and incremental-cache measurements, a
 four-GiB CLI reserve, and a three-GiB per-worker CLI cache limit. Sampling or
@@ -37,6 +67,17 @@ artifacts remain untouched; new evidence belongs under ignored
 `out/native-mutation-disk403/`. Full collection, strict gate passage, actual full
 runtime and overall coverage completion are not yet established. No push or
 publication is authorized.
+The implementation checkpoint is local-only `78df290e`. The first disk403
+supervisor exits before mutation startup on a missing campaign-root scope file;
+preserve that failed setup. Correct the lookup to full402's retained batch scope
+and start fresh ignored `out/native-mutation-disk403b/`. Eight operational checks
+pass. Supervisor PID 60389 is confirmed alive with its exact measurement command;
+coordinator PID 61760 runs the default comparison with four private workers.
+The frozen checkpoint matches all 65 original native input hashes. Per-cache
+telemetry is present, and the existing quiet heartbeat is active with the new
+paths/PID. Complete default/lean audits and cache reduction are prerequisites
+for automatic sequential full core/FFI collection; no new score or full-time
+claim exists. Leave this post-checkpoint bookkeeping uncommitted.
 
 Work402: The operator authorizes a full measured native run, not another pilot.
 A detached supervisor retains evidence under ignored `out/native-mutation-full402/`.

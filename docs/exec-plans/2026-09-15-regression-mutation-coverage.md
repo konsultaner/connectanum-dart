@@ -38,6 +38,45 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work404 Policy-Based Campaign Admission
+
+The disk403b default pilot completes 16 fresh batches, 31 sampled mutations and
+independent audit: 943.54s collection and 8.07s audit. Sampled outcomes retain
+nine assertion kills, six survivors, eleven errors, two timeouts and three
+compile errors without full-score credit. Its largest allocated private cache
+is 1.906 GiB; minimum observed free disk is 5.433 GiB. Temporary workspaces and
+owned processes are gone. The supervisor then stops at a fixed 13-GiB startup
+check, before lean or full collection, despite successful cleanup. Preserve
+all terminal artifacts and pause the old monitor.
+
+Replace that heuristic in a fresh measurement supervisor with independently
+tested filesystem-aware admission: reserve plus concurrent cache caps plus an
+explicit evidence allowance on each affected filesystem. Keep runtime guards,
+all tests/deadlines, original inventories and strict gates unchanged. Measure
+lean builds with four workers and a stricter 1.5-GiB cache cap; no profile is
+promoted before exact audited comparison and cache reduction. Reaudit the
+immutable default control under matching current native/tool/compiler/build
+provenance instead of repeating it solely for startup bookkeeping. This control
+is not full-campaign batch reuse. On equivalent bounded lean results, collect
+fresh complete 32-batch core and FFI inventories sequentially and independently
+audit both. A completed low-score core must still proceed to FFI; incomplete
+infrastructure must preserve evidence and stop. Full timings, strict passage
+and overall coverage completion remain unproven. No push or publication.
+
+Fast404 exits 0 in `/tmp/connectanum-mutation-admission-fast404.log`.
+Eight canonical admission tests and eleven fresh operational checks pass,
+including fail-first manifest-less child status. Parse/digest the immutable
+control from the same bytes. Preserve cooperative coordinator cleanup rather
+than blindly killing its leader before it settles separately owned workers.
+Fresh ignored `out/native-mutation-disk404/` preflight/supervisor PID 12637 is
+confirmed alive. It waits for authoritative fast exit evidence and runs fresh
+`bin/verify` before the reference reaudit or any timed workers. It records the
+actual filesystem budget, enforces the stricter 1.5-GiB runtime cache limit,
+and only promotes matching bounded lean results before fresh sequential full
+core/FFI collection. The existing quiet heartbeat follows this owner. Fresh
+verification, profile equivalence, full collection and strict gates remain
+pending; do not claim them from startup or a passing admission observation.
+
 ### Work403 Bounded Mutation Resources
 
 Fast403 passes before integration changes. Measure private target-cache logical
@@ -74,6 +113,18 @@ Profile reference: [Cargo profiles](https://doc.rust-lang.org/cargo/reference/pr
 documents the inherited test settings and separate debug-information,
 debug-assertion, overflow and incremental controls. No assertion/overflow
 setting, optimization level, candidate operator or test deadline is weakened.
+
+Local-only implementation checkpoint: `78df290e`. Preserve disk403's failed
+setup (wrong old-scope path, no mutation workers started). Corrected disk403b
+uses full402's batch-0000 scope; eight operational checks pass. Its frozen source
+matches all 65 original native input hashes. Supervisor PID 60389 and default
+coordinator PID 61760 are confirmed alive, with four private production workers
+and direct cache telemetry. Resume the existing quiet heartbeat against disk403b;
+do not compete with timed work or mutate its snapshot/scripts/evidence. The
+supervisor only starts full 32-batch core/FFI runs after complete equivalent
+profile samples and measured cache reduction. No complete native collection,
+new strict gate or full-runtime result is yet claimed. Keep post-checkpoint
+docs-only bookkeeping uncommitted until the next implementation bundle.
 
 ### Work402 Full Native Measurement
 
