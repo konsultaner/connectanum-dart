@@ -10,6 +10,10 @@ typedef CtStartRuntimeDart = int Function();
 typedef CtShutdownNative = ffi.Int32 Function();
 typedef CtShutdownDart = int Function();
 
+typedef CtMessageCanForwardToV1Native =
+    ffi.Int32 Function(ffi.Int64, ffi.Int32);
+typedef CtMessageCanForwardToV1Dart = int Function(int, int);
+
 typedef CtListenNative =
     ffi.Int32 Function(ffi.Pointer<ffi.Char>, ffi.Uint32, ffi.Int32);
 typedef CtListenDart = int Function(ffi.Pointer<ffi.Char>, int, int);
@@ -1140,6 +1144,20 @@ class CtFfiBindings {
                   );
               return (int a0) => call(checkedLegacyMessageHandle(a0));
             })(),
+      ctMessageCanForwardToV1 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtMessageCanForwardToV1Native,
+              CtMessageCanForwardToV1Dart
+            >('ct_message_can_forward_to_v1_wide'),
+      ),
+      ctMessageCanForwardToConnectionV1 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtMessageCanForwardToV1Native,
+              CtMessageCanForwardToV1Dart
+            >('ct_message_can_forward_to_connection_v1_wide'),
+      ),
       ctForwardPublishEvent = messageHandleAbi == NativeMessageHandleAbi.wide
           ? library.lookupFunction<
               CtForwardPublishEventWideNative,
@@ -1556,6 +1574,8 @@ class CtFfiBindings {
   final CtMessagePeekDart ctMessagePeek;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;
+  final CtMessageCanForwardToV1Dart? ctMessageCanForwardToV1;
+  final CtMessageCanForwardToV1Dart? ctMessageCanForwardToConnectionV1;
   final CtForwardPublishEventDart ctForwardPublishEvent;
   final CtForwardCallInvocationDart ctForwardCallInvocation;
   final CtForwardCallInvocationV2Dart ctForwardCallInvocationV2;

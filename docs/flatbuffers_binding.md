@@ -427,6 +427,17 @@ vector remains absent; an empty list/map is a present vector containing its CBOR
 encoding. Keep these boundaries when converting existing lazy payload models.
 Label benchmarks using this path **FlatBuffers envelope + CBOR payload**.
 
+Native routing reuses ordinary CBOR argument spans between CBOR and FlatBuffers
+outer envelopes in either direction. The receiver's codec is resolved from its
+negotiated native connection; optional v1 eligibility queries let older libraries
+fall back safely. Destination validation scans encoded containers, preserving
+their allocation identity without constructing application Lists/Maps. PPT and
+transparent payloads keep the existing mixed-codec conversion path. Custom
+INVOCATION metadata also keeps its existing Dart envelope construction. Other
+outer-codec pairs require conversion, including JSON's binary Base64 format.
+See [ownership boundaries](native_buffer_ownership.md#copy-boundaries) for the
+query contract, retained worker handoff and remaining transport costs.
+
 Typed application FlatBuffers are already encoded bytes with a retained owner.
 Carry them through the upstream transparent `payload` vector with explicit PPT
 scheme/serializer metadata. The application chooses the schema; the transport

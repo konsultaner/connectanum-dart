@@ -12,6 +12,230 @@ const SERIALIZERS: [RawSocketSerializer; 4] = [
 const REQUEST: u64 = (1 << 53) - 1;
 const REGISTRATION: u64 = (1 << 32) + 7;
 
+#[test]
+fn cbor_flatbuffers_mixed_envelopes_retain_all_argument_shapes() {
+    for (source, target) in [
+        (RawSocketSerializer::Cbor, RawSocketSerializer::Flatbuffers),
+        (RawSocketSerializer::Flatbuffers, RawSocketSerializer::Cbor),
+    ] {
+        for shape in 0..4 {
+            let original = payload(source, shape);
+            let publish = stored(
+                source,
+                WampMessage::Publish {
+                    request_id: 1,
+                    options: BTreeMap::new(),
+                    topic: "source.topic".into(),
+                    payload: original.clone(),
+                },
+            );
+            assert_eq!(reusable_forwarding_serializer(&publish, target), Ok(target));
+            let segments = successful_segments(encode_event_segments_for_serializer(
+                &publish,
+                target,
+                REGISTRATION,
+                REQUEST,
+                Some(87),
+                Some("matched.topic"),
+            ));
+            drop(publish);
+            assert_frame(
+                target,
+                segments,
+                original.clone(),
+                json!([36, REGISTRATION, REQUEST, {"publisher":87,"topic":"matched.topic"}]),
+            );
+
+            let call = stored(
+                source,
+                WampMessage::Call {
+                    request_id: 1,
+                    options: BTreeMap::new(),
+                    procedure: "source.proc".into(),
+                    payload: original.clone(),
+                },
+            );
+            let invocation = successful_segments(encode_invocation_segments_for_serializer(
+                &call,
+                target,
+                REQUEST,
+                REGISTRATION,
+                Some(87),
+                Some("alice"),
+                Some("user"),
+                Some("matched.proc"),
+                Some(true),
+                Some(false),
+            ));
+            let result = successful_segments(encode_result_segments_from_call_for_serializer(
+                &call, target, REQUEST,
+            ));
+            drop(call);
+            assert_frame(
+                target,
+                invocation,
+                original.clone(),
+                json!([68,REQUEST,REGISTRATION,{
+                    "caller":87,"caller_authid":"alice","caller_authrole":"user",
+                    "procedure":"matched.proc","receive_progress":true,"progress":false
+                }]),
+            );
+            assert_frame(target, result, original.clone(), json!([50, REQUEST, {}]));
+
+            let yielded = stored(
+                source,
+                WampMessage::Yield {
+                    request_id: 1,
+                    options: BTreeMap::new(),
+                    payload: original.clone(),
+                },
+            );
+            let result = successful_segments(encode_result_segments_for_serializer(
+                &yielded, target, REQUEST, true,
+            ));
+            drop(yielded);
+            assert_frame(
+                target,
+                result,
+                original.clone(),
+                json!([50,REQUEST,{"progress":true}]),
+            );
+
+            let error = stored(
+                source,
+                WampMessage::Error {
+                    request_type: 68,
+                    request_id: 1,
+                    details: BTreeMap::new(),
+                    error: "com.failure".into(),
+                    payload: original.clone(),
+                },
+            );
+            let result = successful_segments(encode_error_segments_for_serializer(
+                &error, target, 48, REQUEST,
+            ));
+            drop(error);
+            assert_frame(
+                target,
+                result,
+                original,
+                json!([8, 48, REQUEST, {}, "com.failure"]),
+            );
+        }
+    }
+}
+
+#[test]
+fn mixed_forwarding_query_rejects_incompatible_codecs_and_ppt_without_consuming() {
+    for source in SERIALIZERS {
+        let handle = crate::runtime::message_handles::insert(stored(
+            source,
+            WampMessage::Call {
+                request_id: 1,
+                options: BTreeMap::new(),
+                procedure: "proc".into(),
+                payload: payload(source, 3),
+            },
+        ))
+        .unwrap();
+        for target in SERIALIZERS {
+            let expected = source == target
+                || matches!(
+                    (source, target),
+                    (RawSocketSerializer::Cbor, RawSocketSerializer::Flatbuffers)
+                        | (RawSocketSerializer::Flatbuffers, RawSocketSerializer::Cbor)
+                );
+            assert_eq!(
+                ct_message_can_forward_to_v1_wide(handle as i64, serializer_id(target).into()),
+                i32::from(expected)
+            );
+            assert!(crate::runtime::message_handles::retain_allocation(handle).is_some());
+        }
+        crate::runtime::message_handles::remove(handle).unwrap();
+        assert_eq!(
+            ct_message_can_forward_to_v1_wide(handle as i64, 3),
+            ERR_INVALID_ARGUMENT
+        );
+    }
+    for source in [RawSocketSerializer::Cbor, RawSocketSerializer::Flatbuffers] {
+        let target = if source == RawSocketSerializer::Cbor {
+            RawSocketSerializer::Flatbuffers
+        } else {
+            RawSocketSerializer::Cbor
+        };
+        for options in [
+            ppt_options(),
+            BTreeMap::from([(
+                SerdeValue::String("ppt_scheme".into()),
+                SerdeValue::String("wamp".into()),
+            )]),
+        ] {
+            let message = stored(
+                source,
+                WampMessage::Call {
+                    request_id: 1,
+                    options,
+                    procedure: "proc".into(),
+                    payload: payload(source, 3),
+                },
+            );
+            assert_eq!(
+                reusable_forwarding_serializer(&message, target),
+                Err(ERR_UNSUPPORTED)
+            );
+            assert_eq!(reusable_forwarding_serializer(&message, source), Ok(source));
+        }
+    }
+}
+
+#[test]
+fn mixed_forwarding_validates_flatbuffers_container_limits_and_transparent_mode() {
+    for original in [
+        WampPayload {
+            kwargs: Some(Bytes::from_static(&[0xa1, 0x01, 0x02])),
+            ..Default::default()
+        },
+        WampPayload {
+            kwargs: Some(Bytes::from_static(&[0xa2, 0x61, b'a', 1, 0x61, b'a', 2])),
+            ..Default::default()
+        },
+        WampPayload {
+            args: Some(Bytes::from_static(&[0x80, 0x00])),
+            ..Default::default()
+        },
+        WampPayload {
+            transparent: Some(Bytes::from_static(b"opaque")),
+            ..Default::default()
+        },
+        WampPayload {
+            args: Some(Bytes::from(vec![0x81; 65])),
+            ..Default::default()
+        },
+    ] {
+        let message = stored(
+            RawSocketSerializer::Cbor,
+            WampMessage::Call {
+                request_id: 1,
+                options: BTreeMap::new(),
+                procedure: "proc".into(),
+                payload: original,
+            },
+        );
+        assert_eq!(
+            reusable_forwarding_serializer(&message, RawSocketSerializer::Flatbuffers),
+            Err(ERR_UNSUPPORTED)
+        );
+    }
+    assert_eq!(
+        ct_message_can_forward_to_v1_wide(0, 3),
+        ERR_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        ct_message_can_forward_to_v1_wide(1, 99),
+        ERR_INVALID_ARGUMENT
+    );
+}
+
 fn guarded_value(serializer: RawSocketSerializer, value: &JsonValue) -> Bytes {
     let encoded = match serializer {
         RawSocketSerializer::Json => serde_json::to_vec(value).unwrap(),

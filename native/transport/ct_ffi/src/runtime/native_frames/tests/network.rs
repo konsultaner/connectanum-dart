@@ -43,10 +43,10 @@ fn connect(websocket: bool, serializer: i32) -> (i32, TcpStream) {
 fn connect_with_backpressure(websocket: bool, serializer: i32, slow: bool) -> (i32, TcpStream) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
-    let protocol = if serializer == 5 {
-        "wamp.2.flatbuffers"
-    } else {
-        "wamp.2.json"
+    let protocol = match serializer {
+        5 => "wamp.2.flatbuffers",
+        3 => "wamp.2.cbor",
+        _ => "wamp.2.json",
     };
     let (sender, receiver) = mpsc::channel();
     let peer = thread::spawn(move || {
@@ -122,6 +122,178 @@ fn connect_with_backpressure(websocket: bool, serializer: i32, slow: bool) -> (i
 
 fn read_frame(stream: &mut TcpStream, websocket: bool) -> Vec<u8> {
     read_frame_bounded(stream, websocket, 2 * 1024 * 1024)
+}
+
+#[test]
+fn native_mixed_cbor_flatbuffers_forwarding_uses_actual_connection_and_retains_queued_payload() {
+    use crate::runtime::ffi::{
+        ct_forward_call_invocation_v2_wide, ct_forward_error_from_error_wide,
+        ct_forward_publish_event_wide, ct_forward_result_from_call_wide,
+        ct_forward_result_from_yield_wide, ct_message_can_forward_to_connection_v1_wide,
+        ct_message_can_forward_to_v1_wide,
+    };
+    use crate::runtime::state::{StoredMessage, StoredRawFrame};
+    struct PayloadOwner {
+        bytes: Vec<u8>,
+        released: Arc<AtomicUsize>,
+    }
+    impl AsRef<[u8]> for PayloadOwner {
+        fn as_ref(&self) -> &[u8] {
+            &self.bytes
+        }
+    }
+    impl Drop for PayloadOwner {
+        fn drop(&mut self) {
+            self.released.fetch_add(1, Ordering::AcqRel);
+        }
+    }
+    for websocket in [false, true] {
+        let _guard = test_guard();
+        let _runtime = Runtime::new();
+        for (source, target) in [
+            (RawSocketSerializer::Cbor, RawSocketSerializer::Flatbuffers),
+            (RawSocketSerializer::Flatbuffers, RawSocketSerializer::Cbor),
+        ] {
+            let target_id = if target == RawSocketSerializer::Cbor {
+                3
+            } else {
+                5
+            };
+            let (connection, mut peer) = connect(websocket, target_id);
+            let (incompatible, mut incompatible_peer) = connect(websocket, 1);
+            for kind in 0..5 {
+                let expected =
+                    serde_cbor::to_vec(&vec![serde_value::Value::Bytes(vec![0x37; 128 * 1024])])
+                        .unwrap();
+                let released = Arc::new(AtomicUsize::new(0));
+                let args = Bytes::from_owner(PayloadOwner {
+                    bytes: expected.clone(),
+                    released: released.clone(),
+                });
+                let payload = WampPayload {
+                    args: Some(args),
+                    ..Default::default()
+                };
+                let message = match kind {
+                    0 => WampMessage::Publish {
+                        request_id: 1,
+                        options: Default::default(),
+                        topic: "source.topic".into(),
+                        payload: payload.clone(),
+                    },
+                    1 | 3 => call(payload.clone()),
+                    2 => WampMessage::Yield {
+                        request_id: 1,
+                        options: Default::default(),
+                        payload: payload.clone(),
+                    },
+                    _ => WampMessage::Error {
+                        request_type: 68,
+                        request_id: 1,
+                        details: Default::default(),
+                        error: "com.failure".into(),
+                        payload: payload.clone(),
+                    },
+                };
+                let handle = crate::runtime::message_handles::insert(StoredMessage {
+                    serializer: source,
+                    code: message.code(),
+                    message,
+                    raw: StoredRawFrame::from_bytes(Bytes::new()),
+                    details: None,
+                    args: payload.args.clone(),
+                    kwargs: None,
+                })
+                .unwrap() as i64;
+                drop(payload);
+                assert_eq!(
+                    ct_message_can_forward_to_connection_v1_wide(handle, connection),
+                    1
+                );
+                assert_eq!(
+                    ct_message_can_forward_to_connection_v1_wide(handle, incompatible),
+                    0
+                );
+                assert_eq!(
+                    ct_message_can_forward_to_connection_v1_wide(handle, -1),
+                    ERR_INVALID_ARGUMENT
+                );
+                // An incompatible destination rejects before sending any frame
+                // and leaves the source handle available for ordinary fallback.
+                if kind == 3 {
+                    assert_eq!(
+                        ct_forward_result_from_call_wide(handle, incompatible, 79),
+                        ERR_UNSUPPORTED
+                    );
+                    assert_eq!(ct_message_can_forward_to_v1_wide(handle, target_id), 1);
+                }
+                let result = match kind {
+                    0 => ct_forward_publish_event_wide(
+                        handle,
+                        connection,
+                        77,
+                        78,
+                        0,
+                        0,
+                        ptr::null(),
+                        0,
+                    ),
+                    1 => ct_forward_call_invocation_v2_wide(
+                        handle,
+                        connection,
+                        79,
+                        80,
+                        0,
+                        0,
+                        ptr::null(),
+                        0,
+                        ptr::null(),
+                        0,
+                        ptr::null(),
+                        0,
+                        1,
+                        1,
+                    ),
+                    2 => ct_forward_result_from_yield_wide(handle, connection, 79, 1),
+                    3 => ct_forward_result_from_call_wide(handle, connection, 79),
+                    _ => ct_forward_error_from_error_wide(handle, connection, 48, 79),
+                };
+                assert_eq!(result, SUCCESS);
+                assert_eq!(released.load(Ordering::Acquire), 0);
+                // The writer must retain the payload after the caller's native
+                // message handle has gone, before the delayed peer consumes it.
+                ct_message_release_wide(handle);
+                assert_eq!(
+                    ct_message_can_forward_to_v1_wide(handle, target_id),
+                    ERR_INVALID_ARGUMENT
+                );
+                let received =
+                    ct_core::parse_message(target, Bytes::from(read_frame(&mut peer, websocket)))
+                        .unwrap()
+                        .message;
+                assert_eq!(received.code(), [36, 68, 50, 50, 8][kind]);
+                let received_payload = match received {
+                    WampMessage::Event { payload, .. }
+                    | WampMessage::Invocation { payload, .. }
+                    | WampMessage::Result { payload, .. }
+                    | WampMessage::Error { payload, .. } => payload,
+                    other => panic!("wrong replacement envelope: {other:?}"),
+                };
+                assert_eq!(received_payload.args.as_deref(), Some(expected.as_slice()));
+                assert!(received_payload.kwargs.is_none());
+                assert!(received_payload.transparent.is_none());
+                until(|| released.load(Ordering::Acquire) == 1);
+            }
+            incompatible_peer
+                .set_read_timeout(Some(Duration::from_millis(100)))
+                .unwrap();
+            let mut byte = [0];
+            assert!(matches!(incompatible_peer.read(&mut byte), Err(error)
+                if matches!(error.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock)));
+            assert_eq!(ct_connection_close(connection), SUCCESS);
+            assert_eq!(ct_connection_close(incompatible), SUCCESS);
+        }
+    }
 }
 
 fn read_frame_bounded(stream: &mut TcpStream, websocket: bool, maximum: usize) -> Vec<u8> {

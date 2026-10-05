@@ -1,18 +1,72 @@
 # Project State
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-06.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The candidate builds on pushed checkpoint `7cfdc76d`, including CI repair
-`ecaa43d4`, native crypto staging and the portable follow-up below. Full `bin/verify`
-passes at exit 0, including Rust, Dart VM, live WAMP/router/consumer checks and
-Chrome Dart2Wasm (core 4,675 passed; client 2,829 passed with 20 native-only skips).
-macOS GuardMalloc passes all 66 observed ownership/crypto cases; all 141 recorded
-native/dependency source hashes still match. Required hosted CI and package
-publish dry-runs for the resulting commit remain pending. No paired performance
+The candidate adds ordinary CBOR/FlatBuffers native forwarding to pushed
+checkpoint `d3546c6d`. Routing retains encoded argument allocations, resolves the
+actual negotiated destination and preserves existing fallback behavior for older
+native libraries, PPT and incompatible codecs. JSON serialization no longer
+replaces caller-owned binary entries; shared one-shot transfers are encoded once
+per payload operation. Final full `bin/verify` passes at exit 0 on this follow-up,
+including Rust, VM, consumer smokes and Chrome/Dart2Wasm (4,690 core and 2,829
+client cases, with 20 native-only client skips).
+macOS GuardMalloc passes all 70 observed ownership/crypto cases with all 141
+native/dependency inputs matching. Hosted CI and package publish dry-runs remain
+pending. Two `d3546c6d` mutation jobs received runner shutdown signals before
+completion; their partial results do not accept the gates. No paired performance
 campaign or parity result exists.
+
+## Ordinary CBOR/FlatBuffers routing and JSON input ownership (2026-10-06)
+
+Native envelope replacements for INVOCATION, RESULT, EVENT and ERROR now reuse
+ordinary CBOR arguments and keywords in both CBOR/FlatBuffers directions.
+Optional ABI v1 queries borrow the source message and check destination codec
+eligibility. CBOR-to-FlatBuffers validates the pinned container bounds and shape
+without reconstructing application collections. The send rechecks the actual
+native connection before enqueueing; incompatible attempts preserve the source
+handle and emit no bytes. Cross-worker destinations can now use this path.
+PPT/transparent payloads retain their existing behavior. Custom INVOCATION
+options still select the existing metadata-preserving envelope path; a reproduced
+test failure caught and repaired the overly broad non-progressive fast path.
+
+The live mixed-codec tests exposed JSON's mutation of caller-owned binary List/Map
+entries into Base64 strings. Removing that redundant mutation preserves typed
+and immutable Uint8List containers and allows later FlatBuffers encoding.
+A second fail-first regression found repeated materialization of a transfer
+inside shared container aliases. A payload-local identity cache now shares its
+encoded value across arguments and keywords. TransferableTypedData remains
+one-shot; the cache neither extends its lifetime nor promises subsequent reuse.
+
+macOS passes 87 focused native/routing/PPT cases and 29 JSON ownership regressions.
+Native pointer/subrange oracles cover four argument shapes and five replacement
+envelopes in both directions. GuardMalloc passes 70 observed cases. Linux arm64
+passes all 12 forwarding tests and the real network test's 20 RawSocket and
+masked/fragmented WebSocket scenarios. Linux passes all 116 focused Dart cases,
+including the older-library fallback without missing-native skips.
+The broader Linux runtime attempt was stopped while an unrelated existing slow
+external-lease network test was still running; it is incomplete evidence.
+The initial local full verification was stopped after finding the transfer-alias
+regression. The next run passed VM, native, router and benchmark checks but
+failed 14 browser cases because TransferableTypedData is unavailable there.
+These alias tests now declare `testOn: 'vm'`, matching the existing serializer
+tests; all 15 byte-container regressions pass in Chrome/Dart2Wasm. Fresh full
+verification on that test-platform correction passes at exit 0: 4,682 core VM,
+4,935 router, 1,456 benchmark, 4,690 core browser and 2,829 client browser cases
+(20 native-only client skips). Linux's repeated
+root-level parallel invocation also exposed the native runtime's global singleton
+test conflict; all 116 cases pass with the router's prescribed concurrency 1.
+Evidence: `/tmp/connectanum-flatbuffers-cbor-routing-`
+`{dart-live-final,linux-native-focused,linux-dart-platform-serial,verify-platform-final}.log`,
+`/tmp/connectanum-flatbuffers-json-{immutability-platform-final,immutability-browser-final,ttd-alias-tests-repro}.log`,
+and `/tmp/connectanum-flatbuffers-cbor-routing-guardmalloc/report.json`.
+Companion review findings were checked against source and tests: negotiated
+connection codecs are immutable, native submission revalidates the destination,
+recursive JSON output construction already existed, and transparent wire
+encoding is unchanged. No additional issue is closed. #100 still needs complete
+copy attribution; SDK, masking, TLS and other codec conversions remain unknown.
 
 ## Portable crypto copies and typed XSalsa size repair (2026-10-05)
 
@@ -807,7 +861,7 @@ acceptance remain open. Exact-head hosted CI is pending the current commit.
 
 ## Issue acceptance audit (2026-10-05)
 
-Issues #95, #96, #98 and #99 are closed as completed. #95's pinned binding, generation
+Issues #95–#99 are closed as completed. #95's pinned binding, generation
 workflow, metadata/schema policy, negotiation rules, fixture coverage and
 WebSocket identifier registry status are recorded in `flatbuffers_binding.md`
 and checked by the FlatBuffers Binding workflow. #96's Rust-owned builders,
@@ -815,6 +869,7 @@ send/transfer contract, allocation identity, copy counters, error transitions,
 ABI fallback, finalizers and explicit disposal are covered by the native buffer
 API, ownership guide and tests. #98's Dart serializer and #99's native codec,
 transport negotiation, auth, fragmentation and TLS paths passed full local
-verification. Issues #97 and #100–#104 remain open; #103 still lacks the paired
+verification. #97's producer-thread cleanup and asynchronous terminal paths are
+verified separately above. Issues #100–#104 remain open; #103 still lacks the paired
 parity campaign and copy coverage for SDK masking, TLS and mixed-serializer
 conversions.

@@ -167,7 +167,7 @@ evaluates the loader and copies the resulting graph.
 | Session typed FlatBuffers PPT send from a frozen native owner | Reuses the exact application span in a retained native frame; only the FlatBuffers control envelope is rebuilt. |
 | Ordinary Dart native send, including segmented send | Copies each supplied Dart segment into native storage. |
 | Lazy receive/routing metadata access | Keeps encoded application views; reading application values can materialize them. |
-| Native segmented routing/forwarding | Retains native application spans; mixed encodings may require conversion. |
+| Native segmented routing/forwarding | Retains native application spans for homogeneous routes and eligible ordinary CBOR/FlatBuffers routes; incompatible encodings require conversion. |
 | Fragmented incoming frames | Reassembly can allocate/copy; transport chunking alone proves no zero-copy property. |
 | Client WebSocket masking | Transforms outbound bytes; account for its buffer/copy work separately. |
 | Generic native E2EE with Dart values | Copies Dart input into native storage and copies the encrypted/decrypted result back to Dart. |
@@ -177,6 +177,36 @@ evaluates the loader and copies the resulting graph.
 | `toOwned()` | Explicitly copies retained binary/container graphs. |
 | Native typed reader | Requires compatibility with the actual pointer, subrange and reader; alignment fallback may copy. |
 | Database insertion | Depends on writable ID handling, padding and database internals; persistence is not promised copy-free. |
+
+Ordinary FlatBuffers argument vectors contain CBOR. Native EVENT, INVOCATION,
+RESULT and ERROR replacement envelopes can therefore share the exact argument
+and keyword spans with a CBOR connection in either direction. The optional v1
+eligibility queries return `1` for reusable payload representation, `0` for the
+ordinary conversion path, and a negative status for invalid input or an unavailable
+connection. They borrow the message handle without consuming it. The connection
+query reads the actual negotiated destination and enables a retained-handle
+handoff between router workers without exporting the application vectors.
+Libraries without these optional symbols keep the earlier forwarding behavior.
+
+Mixed PPT/transparent payloads remain on their existing conversion path. A
+CBOR-to-FlatBuffers query checks the destination's bounded argument-container
+rules without reconstructing the application value graph; keyword-key validation
+may allocate temporary keys. Eligibility does not bypass message-kind, routing
+metadata, session/profile, queue or connection checks. Custom INVOCATION details
+still require the ordinary envelope-building path, and submission rechecks the
+destination serializer. Small controls, metadata and validation allocations are
+separate from retaining the original argument spans.
+
+JSON encoding now preserves the caller's binary lists/maps and uses the existing
+recursive encoder to produce its Base64 representation. Typed and immutable
+containers holding Uint8List remain reusable for subsequent binary-codec encoding.
+TransferableTypedData remains one-shot: one payload-local identity cache shares
+its encoded value across aliases in arguments and keywords during serialization,
+without replacing caller-owned entries. It does not permit a second consumption.
+JSON conversion, ordinary Dart submission, framing/masking, coalescing and TLS
+still have their
+documented allocation/copy boundaries; this routing optimization does not provide
+complete end-to-end copy totals.
 
 Construction counters describe their named input-binary and growth copies. They
 are not a total memory-traffic or timing measurement. Performance gates must also

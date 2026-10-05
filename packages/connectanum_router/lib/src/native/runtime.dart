@@ -1610,6 +1610,27 @@ class NativeIncomingMessage {
 
   bool get hasNativeHandle => handle > 0;
 
+  /// Whether native envelope replacement can retain these argument spans for
+  /// [target]. Mixed ordinary CBOR/FlatBuffers containers share their encoding.
+  /// PPT and incompatible codecs use ordinary conversion. Older libraries
+  /// retain the existing homogeneous path through the absent optional query.
+  bool canForwardTo(NativeMessageSerializer target) {
+    if (!hasNativeHandle || _released) return false;
+    if (serializer == target) return true;
+    return _bindings?.ctMessageCanForwardToV1?.call(handle, target.id) == 1;
+  }
+
+  /// Resolves the negotiated native destination without importing its worker's
+  /// state. No application values or frame bytes cross the isolate boundary.
+  bool canForwardToConnection(int connectionId) {
+    if (!hasNativeHandle || _released || connectionId <= 0) return false;
+    return _bindings?.ctMessageCanForwardToConnectionV1?.call(
+          handle,
+          connectionId,
+        ) ==
+        1;
+  }
+
   int takeHandle() {
     if (_released) {
       return 0;

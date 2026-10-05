@@ -730,7 +730,12 @@ Future<void> _handlePublish({
         nativeMessage?.hasNativeHandle == true &&
         message.options?.custom.isNotEmpty != true;
     for (final match in externalMatches) {
-      if (canForwardNative && match.serializerId == sourceSerializer.id) {
+      if (canForwardNative &&
+          (match.serializerId == sourceSerializer.id ||
+              (match.serializerId != null &&
+                  nativeMessage!.canForwardTo(
+                    NativeMessageSerializer.fromId(match.serializerId!),
+                  )))) {
         nativeMatches.add(match);
       } else {
         dartForwardMatches.add(match);
@@ -2698,13 +2703,14 @@ bool _canUseNativeForwardPath({
   }
   final targetState = connectionStates[targetConnectionId];
   if (targetState == null) {
-    return false;
+    return incomingMessage!.canForwardToConnection(targetConnectionId);
   }
   final sourceSerializer =
       sourceState.serializer ?? NativeMessageSerializer.json;
   final targetSerializer =
       targetState.serializer ?? NativeMessageSerializer.json;
-  return sourceSerializer == targetSerializer;
+  return sourceSerializer == targetSerializer ||
+      incomingMessage!.canForwardTo(targetSerializer);
 }
 
 bool _canUseNativeProgressiveInvocationForwarding({
@@ -2712,7 +2718,8 @@ bool _canUseNativeProgressiveInvocationForwarding({
   required call_msg.Call message,
 }) {
   if (!dispatch.progressiveInvocation) {
-    return message.options?.pptScheme != 'wamp';
+    return message.options?.pptScheme != 'wamp' &&
+        _filteredInvocationOptionDetails(dispatch.initiatingOptions).isEmpty;
   }
   final options = message.options;
   return dispatch.initiatingOptions['ppt_scheme'] == options?.pptScheme &&

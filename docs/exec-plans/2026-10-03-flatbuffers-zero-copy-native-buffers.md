@@ -7,15 +7,15 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The candidate builds on pushed `7cfdc76d`, with CI repair `ecaa43d4`, native
-crypto staging and the portable follow-up below. Full `bin/verify` on that
-checkpoint and the portable follow-up passes at exit 0.
-macOS GuardMalloc passes 66 observed cases with all 141 native/dependency source
-hashes matching. Chrome Dart2Wasm passes 4,675 core and 2,829 client cases, with
-20 native-only skips. Issues #95–#99 are complete. Required hosted CI and publish
-dry-runs for the resulting commit remain pending. Copy counters and the evaluator
-provide partial attribution and fail-closed gates; no paired performance campaign
-or parity result exists.
+The candidate builds on pushed `d3546c6d` with ordinary CBOR/FlatBuffers native
+routing and JSON input-ownership repairs. Fresh full verification on this
+follow-up passes at exit 0, including Chrome/Dart2Wasm (4,690 core and 2,829 client
+cases, with 20 native-only client skips). macOS GuardMalloc passes 70 observed cases with all 141
+native/dependency inputs matching. Issues #95–#99 are complete. Required hosted
+CI and publish dry-runs remain pending: two preceding-head mutation jobs were
+interrupted by runner shutdown before their gates completed. Copy counters and
+the evaluator provide partial attribution and fail-closed gates; no paired
+performance campaign or parity result exists.
 
 ## Objective and scope
 
@@ -56,6 +56,55 @@ acceptance and evidence, not a claim that every feature is unimplemented.
 4. Finish #103 measurement coverage, the paired campaign runner and all declared
    performance rows. SDK/TLS/transcode copy gaps and absent campaign results
    remain blockers; do not weaken the parity or copy gates.
+
+## Ordinary encoded routing and JSON ownership (2026-10-06)
+
+The optional native forwarding-query ABI v1 checks ordinary CBOR/FlatBuffers
+argument reuse without consuming the message. CBOR-to-FlatBuffers validates the
+pinned container contract. Native envelope replacement resolves and rechecks the
+actual destination, keeps each original payload allocation once, and rejects
+incompatible output without sending bytes or consuming the source. Worker
+forwarding now uses this eligibility for mixed codecs and cross-worker targets.
+PPT/transparent data retains its prior path. A real regression test caught a
+missing custom INVOCATION-option guard; both progressive and ordinary forwarding
+now preserve custom metadata through the existing envelope-building path.
+
+Mixed-codec tests also exposed JSON's destructive binary-container conversion.
+Typed and immutable Uint8List containers now remain unchanged and reusable.
+Shared TransferableTypedData aliases initially regressed when the redundant
+mutation was removed; 14 fail-first cases reproduce this. One payload-local
+identity cache now encodes each transfer once across arguments and keywords,
+while retaining one-shot consumption and leaving caller containers unchanged.
+
+macOS passes 87 focused native/routing/PPT tests and all 29 JSON regressions.
+GuardMalloc passes 70 observed cases with all 141 native/dependency inputs
+matching. Linux arm64 passes 12 forwarding tests plus a real network test with
+20 transport/direction/envelope scenarios. All 116 focused Linux Dart cases pass,
+including the older-library fallback with no missing-native skips.
+An unnecessarily broad Linux runtime attempt was stopped during an unchanged
+slow external-lease test; no complete Linux runtime-suite pass is claimed.
+The initial full verification was stopped after finding the alias regression;
+the next passed VM, native, router and benchmark checks but failed 14 browser
+alias tests because TransferableTypedData is unsupported there. The alias cases
+now explicitly select the VM, as the existing serializers' transfer tests do;
+all 15 Uint8List-container cases pass in Chrome/Dart2Wasm. Fresh full verification
+on that platform correction passes at exit 0: 4,682 core VM, 4,935 router, 1,456
+benchmark, 4,690 core browser and 2,829 client browser cases (20 native-only client
+skips). A repeated root-level parallel Linux
+invocation exposed conflicting singleton native runtimes; all 116 cases pass
+with the router test configuration's required concurrency 1.
+Two hosted mutation jobs at
+`d3546c6d` ended on runner shutdown signals, without a completed gate result.
+Known copy lower bounds and SDK/TLS/transcode unknowns remain explicit. #100–#104
+stay open; routing correctness is not complete copy or performance acceptance.
+
+Completed companion reviews were advisory. Source inspection and tests confirm
+that destination codecs are immutable and send-time eligibility is rechecked,
+recursive JSON output allocation already existed, and cached immutable strings
+are serialized independently at each alias with one shared transfer consumption.
+The broad follow-up exceeded the helper's context limit; focused Qwen and GLM
+follow-ups timed out. Neither incomplete review is counted as coverage. The
+29 regressions and direct source checks substantiate the JSON repair.
 
 ## Portable provider copies and XSalsa limit (2026-10-05)
 

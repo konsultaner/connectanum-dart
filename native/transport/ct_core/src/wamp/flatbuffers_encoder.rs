@@ -314,18 +314,13 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
     };
     body.extend(controls);
     if let Some(payload) = payload {
-        if payload.transparent.is_some() && (payload.args.is_some() || payload.kwargs.is_some()) {
-            return Err(wire::invalid("mixed transparent and ordinary payload"));
-        }
-        for (key, bytes, major) in [
-            ("args", &payload.args, Some(4)),
-            ("kwargs", &payload.kwargs, Some(5)),
-            ("payload", &payload.transparent, None),
+        super::validate_flatbuffers_payload(payload)?;
+        for (key, bytes) in [
+            ("args", &payload.args),
+            ("kwargs", &payload.kwargs),
+            ("payload", &payload.transparent),
         ] {
             if let Some(bytes) = bytes {
-                if let Some(major) = major {
-                    flatbuffers_cbor::validate(bytes, major, false)?;
-                }
                 body.insert(key, Value::Bytes(bytes.clone()));
             }
         }

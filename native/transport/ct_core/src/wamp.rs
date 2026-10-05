@@ -40,6 +40,22 @@ pub struct Payload {
     pub transparent: Option<Bytes>,
 }
 
+/// Validate ordinary argument containers against the FlatBuffers binding's
+/// structural and size limits without decoding their application values.
+pub fn validate_flatbuffers_payload(payload: &Payload) -> Result<(), ParseError> {
+    if payload.transparent.is_some() && (payload.args.is_some() || payload.kwargs.is_some()) {
+        return Err(flatbuffers_wire::invalid(
+            "mixed transparent and ordinary payload",
+        ));
+    }
+    for (bytes, major) in [(&payload.args, 4), (&payload.kwargs, 5)] {
+        if let Some(bytes) = bytes {
+            flatbuffers_cbor::validate(bytes, major, false)?;
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
     #[error("unsupported serializer for parsing: {0:?}")]

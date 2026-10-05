@@ -206,10 +206,11 @@ class _Peer {
 }
 
 class _Harness {
-  _Harness(this.runtime, this.binding, this.errors);
+  _Harness(this.runtime, this.binding, this.errors, this.forwardedTypes);
   final NativeTransportRuntime runtime;
   final RouterBinding binding;
   final List<Object> errors;
+  final List<String> forwardedTypes;
   final peers = <_Peer>[];
   int get port => binding.listeners.single.port;
 
@@ -240,6 +241,7 @@ class _Harness {
             .build();
     final runtime = NativeTransportRuntime(libraryPath: library)..start();
     final errors = <Object>[];
+    final forwardedTypes = <String>[];
     final binding =
         Router(
           RouterConfig(
@@ -256,12 +258,17 @@ class _Harness {
         ).start(
           runtime,
           onEvent: (event) {
+            if (event is Map &&
+                event['type'] is String &&
+                (event['type'] as String).startsWith('worker_forward_')) {
+              forwardedTypes.add(event['type'] as String);
+            }
             if (event is Map && event['type'] == 'worker_error') {
               errors.add(event);
             }
           },
         );
-    return _Harness(runtime, binding, errors);
+    return _Harness(runtime, binding, errors, forwardedTypes);
   }
 
   Future<_Peer> connect(String serializer, String library, _Mode mode) async {
@@ -285,6 +292,159 @@ class _Harness {
 
 void main() {
   final library = resolveOrBuildNativeLib();
+  for (final pair in _pairs) {
+    test(
+      'ordinary public routing ${pair.$1} -> ${pair.$2} keeps lazy payloads',
+      () async {
+        final harness = _Harness.start(library!);
+        try {
+          final caller = await harness.connect(pair.$1, library, _modes.first);
+          final callee = await harness.connect(pair.$2, library, _modes.first);
+          final bytes = Uint8List.fromList(
+            List.generate(128 * 1024, (i) => i & 255),
+          );
+          final arguments = [
+            bytes,
+            {
+              'nested': [null, true, 17],
+            },
+          ];
+          final keywords = {'label': 'ordinary'};
+          final outbound = core.LazyMessagePayload.materialized(
+            arguments: arguments,
+            argumentsKeywords: keywords,
+          );
+          await callee.session
+              .registerLazyPayloadHandler('com.ordinary.echo', (
+                invocation,
+              ) async {
+                // Do not access application values before forwarding the lazy view.
+
+                await Future<void>.delayed(const Duration(milliseconds: 20));
+                invocation.respondWith(
+                  lazyPayload: invocation.payload,
+                  options: core.YieldOptions(progress: true),
+                );
+                invocation.respondWith(lazyPayload: invocation.payload);
+              })
+              .timeout(_deadline);
+          final results = await caller.session
+              .callLazyPayload(
+                'com.ordinary.echo',
+                payload: outbound,
+                options: core.CallOptions(receiveProgress: true),
+              )
+              .toList()
+              .timeout(_deadline);
+          expect(results, hasLength(2));
+          for (var i = 0; i < results.length; i++) {
+            expect(results[i].isProgressive(), i == 0);
+
+            expect(results[i].arguments, arguments);
+            expect(results[i].argumentsKeywords, keywords);
+          }
+          await callee.session
+              .registerLazyPayloadHandler('com.ordinary.error', (invocation) {
+                invocation.respondWith(
+                  isError: true,
+                  errorUri: 'com.ordinary.failure',
+                  lazyPayload: invocation.payload,
+                );
+              })
+              .timeout(_deadline);
+          try {
+            await caller.session
+                .callSingleLazyPayloadView(
+                  'com.ordinary.error',
+                  payload: outbound,
+                )
+                .timeout(_deadline);
+            fail('Expected a payload-bearing ERROR');
+          } on core.Error catch (error) {
+            expect(error.error, 'com.ordinary.failure');
+            expect(error.arguments, arguments);
+            expect(error.argumentsKeywords, keywords);
+          }
+          final localEvent = Completer<core.LazyEventPayload>();
+          final remoteEvent = Completer<core.LazyEventPayload>();
+          await caller.session
+              .subscribeLazyPayloadHandler(
+                'com.ordinary.topic',
+                localEvent.complete,
+              )
+              .timeout(_deadline);
+          await callee.session
+              .subscribeLazyPayloadHandler(
+                'com.ordinary.topic',
+                remoteEvent.complete,
+              )
+              .timeout(_deadline);
+          await caller.session
+              .publishLazyPayload(
+                'com.ordinary.topic',
+                payload: outbound,
+                options: core.PublishOptions(
+                  acknowledge: true,
+                  excludeMe: false,
+                ),
+              )
+              .timeout(_deadline);
+          final received = await Future.wait([
+            localEvent.future,
+            remoteEvent.future,
+          ]).timeout(_deadline);
+          for (final event in received) {
+            expect(event.arguments, arguments);
+            expect(event.argumentsKeywords, keywords);
+          }
+          final canShare =
+              pair.$1 == pair.$2 ||
+              (pair.$1 == 'flatbuffers' && pair.$2 == 'cbor') ||
+              (pair.$1 == 'cbor' && pair.$2 == 'flatbuffers');
+          if (canShare) {
+            expect(
+              harness.forwardedTypes.where(
+                (type) => type == 'worker_forward_native_invocation',
+              ),
+              hasLength(2),
+            );
+            expect(
+              harness.forwardedTypes.where(
+                (type) => type == 'worker_forward_native_result',
+              ),
+              hasLength(2),
+            );
+            expect(
+              harness.forwardedTypes,
+              contains('worker_forward_native_error'),
+            );
+            expect(
+              harness.forwardedTypes.where(
+                (type) => type == 'worker_forward_native_event',
+              ),
+              hasLength(2),
+            );
+          } else {
+            expect(harness.forwardedTypes, contains('worker_forward_message'));
+          }
+          expect(
+            harness.forwardedTypes.where(
+              (type) =>
+                  type.endsWith('_error_error') ||
+                  type.endsWith('_invocation_error') ||
+                  type.endsWith('_result_error') ||
+                  type.endsWith('_event_error'),
+            ),
+            isEmpty,
+          );
+          expect(harness.errors, isEmpty);
+        } finally {
+          await harness.close();
+        }
+      },
+      skip: library == null ? 'native library unavailable' : false,
+    );
+  }
   for (final mode in _modes.where((mode) => mode.encrypted)) {
     for (final encryptedSource in [false, true]) {
       test(

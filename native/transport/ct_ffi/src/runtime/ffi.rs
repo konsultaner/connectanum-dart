@@ -1436,8 +1436,126 @@ fn flatbuffers_routing_details(
     }
 }
 
+// Ordinary FlatBuffers arguments are CBOR spans. Reuse only the shared
+// representation; PPT/transparent payloads require their existing conversion.
+fn reusable_forwarding_serializer(
+    message: &StoredMessage,
+    target: RawSocketSerializer,
+) -> Result<RawSocketSerializer, c_int> {
+    if message.serializer == target {
+        return Ok(target);
+    }
+    if !matches!(
+        (message.serializer, target),
+        (RawSocketSerializer::Cbor, RawSocketSerializer::Flatbuffers)
+            | (RawSocketSerializer::Flatbuffers, RawSocketSerializer::Cbor)
+    ) {
+        return Err(ERR_UNSUPPORTED);
+    }
+    let (payload, metadata) = match &message.message {
+        WampMessage::Publish {
+            payload, options, ..
+        }
+        | WampMessage::Call {
+            payload, options, ..
+        }
+        | WampMessage::Yield {
+            payload, options, ..
+        } => (payload, options),
+        WampMessage::Error {
+            payload, details, ..
+        } => (payload, details),
+        _ => return Err(ERR_UNSUPPORTED),
+    };
+    if payload.transparent.is_some()
+        || metadata.contains_key(&SerdeValue::String("ppt_scheme".into()))
+    {
+        return Err(ERR_UNSUPPORTED);
+    }
+    if target == RawSocketSerializer::Flatbuffers {
+        // Destination limits differ from an ordinary CBOR connection. Scan
+        // encoded containers without constructing application Lists/Maps.
+        ct_core::validate_flatbuffers_payload(payload).map_err(|_| ERR_UNSUPPORTED)?;
+    }
+    Ok(target)
+}
+
+fn forwarding_serializer_for_connection(
+    message: &StoredMessage,
+    connection_id: c_int,
+) -> Result<RawSocketSerializer, c_int> {
+    if connection_id <= 0 {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let target =
+        ct_core::connection_serializer(ConnectionId(connection_id as u32)).map_err(map_error)?;
+    reusable_forwarding_serializer(message, target)
+}
+
+/// Optional v1 query for shared-payload routing. 1 means eligible, 0 means
+/// use the ordinary conversion path, negative means invalid input/handle.
+/// This query neither consumes the handle nor decodes application values.
+#[cfg(not(all(feature = "ffi-test", connectanum_legacy_message_handles_test)))]
+#[no_mangle]
+pub extern "C" fn ct_message_can_forward_to_v1_wide(handle: i64, serializer_id: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let target = match serializer_from_id(serializer_id) {
+        Ok(target) => target,
+        Err(code) => return code,
+    };
+    super::message_handles::with_message(handle as u64, |message| {
+        i32::from(reusable_forwarding_serializer(message, target).is_ok())
+    })
+    .unwrap_or(ERR_INVALID_ARGUMENT)
+}
+
+/// Like the serializer query, resolving the actual negotiated destination.
+/// Allows router workers to forward handles across isolate boundaries without
+/// importing a destination worker's state or exporting its application bytes.
+#[cfg(not(all(feature = "ffi-test", connectanum_legacy_message_handles_test)))]
+#[no_mangle]
+pub extern "C" fn ct_message_can_forward_to_connection_v1_wide(
+    handle: i64,
+    connection_id: c_int,
+) -> c_int {
+    if handle <= 0 || connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    super::message_handles::with_message(handle as u64, |message| {
+        match forwarding_serializer_for_connection(message, connection_id) {
+            Ok(_) => 1,
+            Err(ERR_UNSUPPORTED) => 0,
+            Err(code) => code,
+        }
+    })
+    .unwrap_or(ERR_INVALID_ARGUMENT)
+}
+
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 fn encode_event_segments(
     message: &StoredMessage,
+    subscription_id: u64,
+    publication_id: u64,
+    publisher: Option<u64>,
+    topic: Option<&str>,
+) -> Result<Vec<Bytes>, c_int> {
+    encode_event_segments_for_serializer(
+        message,
+        message.serializer,
+        subscription_id,
+        publication_id,
+        publisher,
+        topic,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_event_segments_for_serializer(
+    message: &StoredMessage,
+    serializer: RawSocketSerializer,
     subscription_id: u64,
     publication_id: u64,
     publisher: Option<u64>,
@@ -1449,7 +1567,7 @@ fn encode_event_segments(
         } => (payload, options),
         _ => return Err(ERR_INVALID_ARGUMENT),
     };
-    match message.serializer {
+    match serializer {
         RawSocketSerializer::Json => encode_event_segments_json(
             payload,
             subscription_id,
@@ -1727,8 +1845,37 @@ fn encode_invocation_segments_cbor(
     Ok(segments)
 }
 
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 fn encode_invocation_segments(
     message: &StoredMessage,
+    invocation_id: u64,
+    registration_id: u64,
+    caller: Option<u64>,
+    caller_authid: Option<&str>,
+    caller_authrole: Option<&str>,
+    procedure: Option<&str>,
+    receive_progress: Option<bool>,
+    invocation_progress: Option<bool>,
+) -> Result<Vec<Bytes>, c_int> {
+    encode_invocation_segments_for_serializer(
+        message,
+        message.serializer,
+        invocation_id,
+        registration_id,
+        caller,
+        caller_authid,
+        caller_authrole,
+        procedure,
+        receive_progress,
+        invocation_progress,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_invocation_segments_for_serializer(
+    message: &StoredMessage,
+    serializer: RawSocketSerializer,
     invocation_id: u64,
     registration_id: u64,
     caller: Option<u64>,
@@ -1744,7 +1891,7 @@ fn encode_invocation_segments(
         } => (payload, options),
         _ => return Err(ERR_INVALID_ARGUMENT),
     };
-    match message.serializer {
+    match serializer {
         RawSocketSerializer::Json => encode_invocation_segments_json(
             payload,
             invocation_id,
@@ -1914,15 +2061,27 @@ fn build_result_segments_cbor(
     Ok(segments)
 }
 
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 fn encode_result_segments(
     message: &StoredMessage,
+    request_id: u64,
+    progress: bool,
+) -> Result<Vec<Bytes>, c_int> {
+    encode_result_segments_for_serializer(message, message.serializer, request_id, progress)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_result_segments_for_serializer(
+    message: &StoredMessage,
+    serializer: RawSocketSerializer,
     request_id: u64,
     progress: bool,
 ) -> Result<Vec<Bytes>, c_int> {
     match &message.message {
         WampMessage::Yield {
             options, payload, ..
-        } => match message.serializer {
+        } => match serializer {
             RawSocketSerializer::Json => {
                 let mut details_map = options.clone();
                 if progress {
@@ -1983,8 +2142,19 @@ fn encode_result_segments(
     }
 }
 
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 fn encode_result_segments_from_call(
     message: &StoredMessage,
+    request_id: u64,
+) -> Result<Vec<Bytes>, c_int> {
+    encode_result_segments_from_call_for_serializer(message, message.serializer, request_id)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_result_segments_from_call_for_serializer(
+    message: &StoredMessage,
+    serializer: RawSocketSerializer,
     request_id: u64,
 ) -> Result<Vec<Bytes>, c_int> {
     let payload = match &message.message {
@@ -1992,7 +2162,7 @@ fn encode_result_segments_from_call(
         _ => return Err(ERR_INVALID_ARGUMENT),
     };
     let details = std::collections::BTreeMap::<SerdeValue, SerdeValue>::new();
-    match message.serializer {
+    match serializer {
         RawSocketSerializer::Json => {
             let details_json = serde_json::to_vec(&details).map_err(|_| ERR_INVALID_ARGUMENT)?;
             Ok(build_result_segments_json(
@@ -2133,8 +2303,20 @@ fn build_error_segments_cbor(
     Ok(segments)
 }
 
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 fn encode_error_segments(
     message: &StoredMessage,
+    request_type: u64,
+    request_id: u64,
+) -> Result<Vec<Bytes>, c_int> {
+    encode_error_segments_for_serializer(message, message.serializer, request_type, request_id)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_error_segments_for_serializer(
+    message: &StoredMessage,
+    serializer: RawSocketSerializer,
     request_type: u64,
     request_id: u64,
 ) -> Result<Vec<Bytes>, c_int> {
@@ -2144,7 +2326,7 @@ fn encode_error_segments(
             error,
             payload,
             ..
-        } => match message.serializer {
+        } => match serializer {
             RawSocketSerializer::Json => {
                 let details_json = serde_json::to_vec(details).map_err(|_| ERR_INVALID_ARGUMENT)?;
                 let error_json = serde_json::to_string(error).map_err(|_| ERR_INVALID_ARGUMENT)?;
@@ -7436,8 +7618,10 @@ pub extern "C" fn ct_forward_publish_event_wide(
     };
     let handle_u64 = handle as u64;
     let segments = match super::message_handles::with_message(handle_u64, |msg| {
-        encode_event_segments(
+        let serializer = forwarding_serializer_for_connection(msg, connection_id)?;
+        encode_event_segments_for_serializer(
             msg,
+            serializer,
             subscription_id,
             publication_id,
             publisher,
@@ -7641,8 +7825,10 @@ fn forward_call_invocation_impl(
     };
     let handle_u64 = handle as u64;
     let segments = match super::message_handles::with_message(handle_u64, |msg| {
-        encode_invocation_segments(
+        let serializer = forwarding_serializer_for_connection(msg, connection_id)?;
+        encode_invocation_segments_for_serializer(
             msg,
+            serializer,
             invocation_id,
             registration_id,
             caller,
@@ -7687,7 +7873,8 @@ pub extern "C" fn ct_forward_result_from_yield_wide(
     let handle_u64 = handle as u64;
     let progress = progress_flag != 0;
     let segments = match super::message_handles::with_message(handle_u64, |msg| {
-        encode_result_segments(msg, request_id, progress)
+        let serializer = forwarding_serializer_for_connection(msg, connection_id)?;
+        encode_result_segments_for_serializer(msg, serializer, request_id, progress)
     }) {
         Some(Ok(parts)) => parts,
         Some(Err(code)) => return code,
@@ -7720,7 +7907,8 @@ pub extern "C" fn ct_forward_result_from_call_wide(
     }
     let handle_u64 = handle as u64;
     let segments = match super::message_handles::with_message(handle_u64, |msg| {
-        encode_result_segments_from_call(msg, request_id)
+        let serializer = forwarding_serializer_for_connection(msg, connection_id)?;
+        encode_result_segments_from_call_for_serializer(msg, serializer, request_id)
     }) {
         Some(Ok(parts)) => parts,
         Some(Err(code)) => return code,
@@ -7755,7 +7943,8 @@ pub extern "C" fn ct_forward_error_from_error_wide(
     }
     let handle_u64 = handle as u64;
     let segments = match super::message_handles::with_message(handle_u64, |msg| {
-        encode_error_segments(msg, request_type, request_id)
+        let serializer = forwarding_serializer_for_connection(msg, connection_id)?;
+        encode_error_segments_for_serializer(msg, serializer, request_type, request_id)
     }) {
         Some(Ok(parts)) => parts,
         Some(Err(code)) => return code,
