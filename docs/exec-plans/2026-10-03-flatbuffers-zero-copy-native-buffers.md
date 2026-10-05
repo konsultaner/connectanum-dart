@@ -7,15 +7,13 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Latest accepted/pushed checkpoint: `0cf9e65e`. Its independent negotiated-profile
-live peer and GuardMalloc jobs pass; five-platform artifact and package publish
-dry-runs pass with publication skipped. All five bundles verify checksums,
-manifests and source provenance; platform runtime execution is separate evidence.
-The current uncommitted follow-up fixes profile/key-policy callback revalidation
-after 72 fail-first assertion failures. Fresh canonical fast/full verification,
-whole-package browser coverage and complete VM/Chrome mutation campaigns pass
-on the matching 1,458-file candidate snapshot. Audits are recorded in project
-state and [research](../research/2026-10-04-e2ee-key-policy-revalidation.md).
+Latest pushed checkpoint: `152898d7`, following functional checkpoint `dc33fcc6`.
+Independent negotiated-profile peer, GuardMalloc, five-platform artifact and
+package publish dry-runs pass for earlier checkpoints; platform execution and
+publication remain separate evidence. The current uncommitted follow-up adds a
+typed benchmark fixture and pinned generator. Its focused checks and
+`bin/test-fast` pass; `bin/verify` remains pending. This validates the typed
+payload path, not its benchmark-runner construction groups or performance parity.
 Exact-head hosted checks and issue #103's performance comparison remain open.
 
 ## Objective and scope
@@ -45,6 +43,20 @@ and a master merge are not authorized.
 
 Implementation exists for many of these paths; unchecked items reflect remaining
 acceptance and evidence, not a claim that every feature is unimplemented.
+
+## Typed benchmark fixture checkpoint (2026-10-05)
+
+The benchmark package now has a deterministic workload schema with worker and
+iteration identity, equivalent Dart/native FlatBuffers builders, and live echo
+coverage for twelve RawSocket/WebSocket, Dart/native-caller, and outer-serializer
+combinations. Native WebSocket callers use a spawned isolate because a native
+handshake in the same isolate as its Dart callee can fail with native I/O error
+`-7`. The generator uses the compiler version already pinned in the WAMP
+manifest, and CI checks that generated Dart stays current. The fixture avoids an
+extra expected-body allocation during verification. These are correctness and
+generation checks only. `WampWorkloadRunner` does not yet expose the three
+construction groups, and no paired throughput/latency/memory campaign or parity
+result exists. Issue #103 remains open.
 
 ## Current candidate and evidence
 
@@ -296,3 +308,27 @@ the code checkpoint; its exact-head hosted checks are pending. The path is
 generic Connectanum ownership infrastructure that a future C-backed ObjectBox
 adapter can consume under an explicit producer lifetime. Issues #96 and #101
 advance but remain open; all ten milestone issues remain under audit.
+
+## Typed benchmark runner construction groups (2026-10-05)
+
+The typed fixture now drives unique, per-iteration benchmark payloads for RPC and
+pub/sub. TOML `payload_construction` is passed through the Rust orchestrator to
+the Dart runner. `values`, `native_buffer`, and `pre_encoded_span` work with
+FlatBuffers, CBOR and MessagePack PPT under the typed benchmark schema; invalid
+scheme/mode/serializer combinations fail validation. The runner validates every
+RPC result and each pub/sub delivery, retains owners until cleanup and reports
+payload preparation plus native-builder input/growth counters. Eighteen live
+RawSocket cases with the Dart caller and CBOR WAMP envelope pass, and a focused
+RPC test confirms owner disposal follows result consumption. A separate twelve
+case matrix exercises typed FlatBuffers PPT across both transports and caller
+implementations, but not the new runner groups. Rust tests pass 181/181; focused
+Dart tests, package analysis and formatting pass.
+
+Instrumentation is deliberately attributed narrowly: end-to-end `latency_ms`
+includes preparation and response validation, but `payload_preparation_us` for
+dynamic CBOR/MessagePack groups excludes later PPT serialization. Builder copy
+counters exclude codec and transport copies, including TLS, WebSocket and E2EE.
+See [the updated acceptance contract](../flatbuffers_performance_acceptance.md)
+and [bench usage](../../packages/connectanum_bench/README.md). `bin/verify`
+passes at exit 0 on 2026-10-05. No paired campaign, memory/CPU gate or performance
+parity result exists. The runner stage does not accept issue #103 or the milestone.

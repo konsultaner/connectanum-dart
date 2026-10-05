@@ -18,6 +18,7 @@ environment:
 dependencies:
   args: ^2.4.2
   cbor: ^6.3.7
+  flat_buffers: '>=25.9.23 <25.10.0'
   logging: ^1.2.0
   msgpack_dart: ^1.0.1
   yaml: ^3.1.2

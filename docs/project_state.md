@@ -5,6 +5,20 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+## Typed FlatBuffers fixture work (2026-10-05)
+
+The current worktree adds a worker/iteration/body schema, deterministic Dart and
+native FlatBuffers builders, and twelve live typed-PPT echo cases across
+RawSocket/WebSocket, Dart/native callers, and CBOR/MessagePack/FlatBuffers WAMP
+envelopes. Native WebSocket callers run in a separate isolate so their handshake
+does not contend with the Dart callee. A pinned generator and CI stale-binding
+check cover the checked-in Dart reader. `bin/test-fast` passes on this worktree;
+package analysis, generated-binding check, codec tests, and the twelve-case live
+matrix pass. The typed fixture is correctness evidence only: benchmark-runner
+construction groups, measured parity, and hosted performance gates are still
+missing, so issue #103 remains open. Full `bin/verify` is pending for this
+worktree.
+
 ## Checkout and authorization
 
 The managed worktree uses `codex/flatbuffers-zero-copy`; its latest pushed checkpoint is
@@ -568,3 +582,24 @@ full session conformance. Audit every issue before closing this milestone.
 [Prior state](history/2026-10-04-project-state-before-flatbuffers-consolidation.md)
 and [implementation journal](history/2026-10-04-flatbuffers-implementation-journal.md)
 preserve earlier notes byte-for-byte. Their older entries are historical checkpoints.
+
+## Typed benchmark runner groups (2026-10-05)
+
+The current follow-up adds the three typed payload-construction groups to the
+Dart WAMP runner and passes `payload_construction` through the Rust TOML
+orchestrator. Typed RPC/pub-sub samples now retain payload-preparation time and
+native-builder input/growth copy counters. A live correctness matrix passes all
+18 combinations of RPC/pub-sub, FlatBuffers/CBOR/MessagePack PPT, and Dart
+values/native buffer/pre-encoded span, on RawSocket with a Dart caller and CBOR
+WAMP envelope. A separate 12-case integration matrix exercises typed FlatBuffers
+PPT across both transports, callers and outer serializers; it does not use the
+new runner groups. A focused owner test proves that a native payload remains live
+through the RPC result and is disposed during runner cleanup. Rust orchestration/
+report tests pass (181 tests); package analysis and `bin/verify` pass at exit 0.
+These counters cover payload construction only, not total codec/transport copies.
+Paired performance,
+confidence intervals, CPU/memory evidence and exact-head hosted acceptance are
+still pending; do not claim parity or close issue #103. All groups still use the
+ordinary Session send path; native segmented send copies submitted fragments.
+Connecting the typed Session path to verified transport ownership transfer is a
+remaining issue #96/#103 boundary, not established by this runner stage.

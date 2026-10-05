@@ -3622,6 +3622,9 @@ mod tests {
                     latency_ms: 10.0,
                     request_bytes: 100,
                     response_bytes: 200,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 1.0,
@@ -3664,6 +3667,9 @@ mod tests {
                     latency_ms: 20.0,
                     request_bytes: 100,
                     response_bytes: 400,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 3.0,
@@ -3706,6 +3712,9 @@ mod tests {
                     latency_ms: 30.0,
                     request_bytes: 100,
                     response_bytes: 600,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 5.0,

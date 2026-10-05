@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/connectanum.dart' as wamp_client;
+import 'package:connectanum_client/native_buffers.dart' as native_buffers;
 import 'package:connectanum_client/socket.dart' as wamp_socket;
 import 'package:connectanum_core/authentication.dart' as wamp_auth;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
@@ -17,6 +18,7 @@ import 'package:connectanum_core/msgpack_serializer.dart' as wamp_msgpack;
 import 'package:logging/logging.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 
+import 'bench_payload/codec.dart';
 import 'wamp_echo_handler.dart';
 
 typedef WampSessionFactory =
@@ -114,12 +116,14 @@ class WampWorkloadRunner {
     Duration eventTimeout = const Duration(seconds: 30),
     Duration cancelCleanupTimeout = const Duration(seconds: 2),
     bool Function(wamp_core.LazyMessagePayload)? releaseMessagePayload,
+    native_buffers.NativeBufferAllocator? nativeBufferAllocator,
   }) : _sessionFactory = sessionFactory,
        _logger = logger ?? Logger('WampWorkloadRunner'),
        _defaultEventTimeout = eventTimeout,
        _cancelCleanupTimeout = cancelCleanupTimeout,
        _releaseMessagePayload =
-           releaseMessagePayload ?? wamp_client.releaseNativeMessagePayload;
+           releaseMessagePayload ?? wamp_client.releaseNativeMessagePayload,
+       _nativeBufferAllocator = nativeBufferAllocator;
 
   static final Object _eventTimeoutZoneKey = Object();
 
@@ -128,6 +132,7 @@ class WampWorkloadRunner {
   final Duration _defaultEventTimeout;
   final Duration _cancelCleanupTimeout;
   final bool Function(wamp_core.LazyMessagePayload) _releaseMessagePayload;
+  final native_buffers.NativeBufferAllocator? _nativeBufferAllocator;
 
   Duration get _eventTimeout =>
       Zone.current[_eventTimeoutZoneKey] as Duration? ?? _defaultEventTimeout;
@@ -137,6 +142,7 @@ class WampWorkloadRunner {
         ? _defaultEventTimeout
         : Duration(milliseconds: scenario.eventTimeoutMs!);
     return runZoned(() async {
+      _validatePayloadConstruction(scenario);
       _logger.fine(
         'Running ${scenario.mode} workload '
         'uri=${scenario.uri} concurrency=${scenario.concurrency} '
@@ -170,7 +176,9 @@ class WampWorkloadRunner {
   }
 
   Future<List<WampSample>> _runPubSubScenario(WampScenario scenario) async {
-    final payload = _buildPayloadString(scenario.payloadBytes);
+    final payload = _isTypedPptBenchmark(scenario)
+        ? ''
+        : _buildPayloadString(scenario.payloadBytes);
     final workers = List.generate(
       scenario.concurrency,
       (workerId) => _runPubSubWorker(workerId, scenario, payload),
@@ -297,10 +305,10 @@ class WampWorkloadRunner {
         subscriptions.add(subscription);
         eventBuffers.add(eventBuffer);
       }
-      final payloadFactory = _buildLazyPayloadFactory(
-        scenario,
-        arguments: [payload],
-      );
+      final typedPpt = _isTypedPptBenchmark(scenario);
+      final payloadFactory = typedPpt
+          ? null
+          : _buildLazyPayloadFactory(scenario, arguments: [payload]);
       samples.addAll(
         await _runWithInFlightLimit(
           iterations: scenario.iterations,
@@ -358,7 +366,7 @@ class WampWorkloadRunner {
     WampScenario scenario,
     wamp_core.LazyMessagePayload Function([
       Map<String, Object?>? argumentsKeywords,
-    ])
+    ])?
     payloadFactory,
     List<WampEventBuffer> eventBuffers,
     WampSession publisher,
@@ -373,52 +381,104 @@ class WampWorkloadRunner {
     final eventFutures = [
       for (final eventBuffer in eventBuffers)
         eventBuffer
-            .nextWhere((event) => _matches(event, workerId, iteration))
+            .nextWhere(
+              (event) => _matches(
+                event,
+                workerId,
+                iteration,
+                scenario: scenario,
+              ),
+            )
             .timeout(_eventTimeout)
             .then((event) {
-              _releaseMessagePayload(event.payload);
+              try {
+                if (_isTypedPptBenchmark(scenario)) {
+                  _verifyTypedBenchmarkPayload(
+                    event.payload.arguments,
+                    scenario: scenario,
+                    worker: workerId,
+                    iteration: iteration,
+                  );
+                }
+              } finally {
+                _releaseMessagePayload(event.payload);
+              }
             }),
     ];
     final start = DateTime.now();
-    // Observe deliveries and ACK together, including synchronous publish errors.
-    await Future.wait<void>([
-      ...eventFutures,
-      Future<void>.sync(() async {
-        await _runTimedOperation(
-          publisher.publishLazyPayload(
-            scenario.uri,
-            payload: payloadFactory(metadata),
-            options: _buildPublishOptions(scenario),
-          ),
-          timeout: _eventTimeout,
-          timeoutLabel: 'pubsub_publish_timeout',
-          logLabel: 'PUBSUB publish',
-          details: _operationDetails(
-            scenario,
-            workerId: workerId,
-            iteration: iteration,
-          ),
-        );
-        _logger.fine(
-          'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
-        );
-      }),
-    ], eagerError: true);
-    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
-    _logger.fine(
-      'PUBSUB publish done worker=$workerId iteration=$iteration uri=${scenario.uri} '
-      'latency_ms=$latencyMs fanout=${scenario.peerCount}',
-    );
-    return WampSample(
-      worker: workerId,
-      iteration: iteration,
-      latencyMs: latencyMs,
-      requestBytes: scenario.payloadBytes,
-      responseBytes: scenario.payloadBytes * scenario.peerCount,
-    );
+    _PreparedBenchPayload? preparedPayload;
+    try {
+      final requestPayload = payloadFactory == null
+          ? (preparedPayload = _prepareTypedBenchPayload(
+              scenario,
+              worker: workerId,
+              iteration: iteration,
+            )).payload
+          : payloadFactory(metadata);
+      // Observe deliveries and ACK together, including synchronous publish errors.
+      await Future.wait<void>([
+        ...eventFutures,
+        Future<void>.sync(() async {
+          await _runTimedOperation(
+            publisher.publishLazyPayload(
+              scenario.uri,
+              payload: requestPayload,
+              options: _buildPublishOptions(scenario),
+            ),
+            timeout: _eventTimeout,
+            timeoutLabel: 'pubsub_publish_timeout',
+            logLabel: 'PUBSUB publish',
+            details: _operationDetails(
+              scenario,
+              workerId: workerId,
+              iteration: iteration,
+            ),
+          );
+          _logger.fine(
+            'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
+          );
+        }),
+      ], eagerError: true);
+      final latencyMs =
+          DateTime.now().difference(start).inMicroseconds / 1000.0;
+      _logger.fine(
+        'PUBSUB publish done worker=$workerId iteration=$iteration uri=${scenario.uri} '
+        'latency_ms=$latencyMs fanout=${scenario.peerCount}',
+      );
+      return WampSample(
+        worker: workerId,
+        iteration: iteration,
+        latencyMs: latencyMs,
+        requestBytes: scenario.payloadBytes,
+        responseBytes: scenario.payloadBytes * scenario.peerCount,
+        payloadPreparationUs: preparedPayload?.preparationUs,
+        nativeBuilderInputCopiedBytes:
+            preparedPayload?.nativeBuilderInputCopiedBytes,
+        nativeBuilderGrowthCopiedBytes:
+            preparedPayload?.nativeBuilderGrowthCopiedBytes,
+      );
+    } finally {
+      preparedPayload?.dispose();
+    }
   }
 
-  bool _matches(wamp_core.LazyEventPayload event, int workerId, int iteration) {
+  bool _matches(
+    wamp_core.LazyEventPayload event,
+    int workerId,
+    int iteration, {
+    required WampScenario scenario,
+  }) {
+    if (_isTypedPptBenchmark(scenario)) {
+      final arguments = event.arguments;
+      return arguments != null &&
+          arguments.length == 1 &&
+          BenchPayloadCodec.matchesIdentity(
+            arguments.single,
+            serializer: scenario.pptSerializer!,
+            worker: workerId,
+            iteration: iteration,
+          );
+    }
     final keywords = event.argumentsKeywords;
     if (keywords == null) {
       return false;
@@ -639,11 +699,13 @@ class WampWorkloadRunner {
   }
 
   Future<List<WampSample>> _runRpcScenario(WampScenario scenario) async {
-    final payload = _buildPayloadString(scenario.payloadBytes);
-    final payloadFactory = _buildLazyPayloadFactory(
-      scenario,
-      arguments: [payload],
-    );
+    final typedPpt = _isTypedPptBenchmark(scenario);
+    final payloadFactory = typedPpt
+        ? null
+        : _buildLazyPayloadFactory(
+            scenario,
+            arguments: [_buildPayloadString(scenario.payloadBytes)],
+          );
     final workers = List.generate(
       scenario.concurrency,
       (workerId) => _runRpcWorker(workerId, scenario, payloadFactory),
@@ -655,7 +717,7 @@ class WampWorkloadRunner {
   Future<List<WampSample>> _runRpcWorker(
     int workerId,
     WampScenario scenario,
-    wamp_core.LazyMessagePayload Function() payloadFactory,
+    wamp_core.LazyMessagePayload Function()? payloadFactory,
   ) async {
     WampSession? session;
     WampSession? calleeSession;
@@ -753,19 +815,27 @@ class WampWorkloadRunner {
     int iteration,
     WampScenario scenario,
     String procedure,
-    wamp_core.LazyMessagePayload Function() payloadFactory,
+    wamp_core.LazyMessagePayload Function()? payloadFactory,
     WampSession session,
   ) async {
     _logger.fine(
       'RPC call start worker=$workerId iteration=$iteration uri=$procedure',
     );
     final start = DateTime.now();
+    _PreparedBenchPayload? preparedPayload;
     wamp_core.LazyResultPayload? result;
     try {
+      final requestPayload = payloadFactory == null
+          ? (preparedPayload = _prepareTypedBenchPayload(
+              scenario,
+              worker: workerId,
+              iteration: iteration,
+            )).payload
+          : payloadFactory();
       result = await session
           .callSingleWithLazyPayload(
             procedure,
-            payload: payloadFactory(),
+            payload: requestPayload,
             options: _buildCallOptions(scenario),
           )
           .timeout(
@@ -785,6 +855,14 @@ class WampWorkloadRunner {
         decodedArguments = result.arguments;
         decodedArgumentsKeywords = result.argumentsKeywords;
       }
+      if (_isTypedPptBenchmark(scenario)) {
+        _verifyTypedBenchmarkPayload(
+          result.arguments,
+          scenario: scenario,
+          worker: workerId,
+          iteration: iteration,
+        );
+      }
       final latencyMs =
           DateTime.now().difference(start).inMicroseconds / 1000.0;
       _logger.fine(
@@ -801,12 +879,18 @@ class WampWorkloadRunner {
         latencyMs: latencyMs,
         requestBytes: scenario.payloadBytes,
         responseBytes: scenario.payloadBytes,
+        payloadPreparationUs: preparedPayload?.preparationUs,
+        nativeBuilderInputCopiedBytes:
+            preparedPayload?.nativeBuilderInputCopiedBytes,
+        nativeBuilderGrowthCopiedBytes:
+            preparedPayload?.nativeBuilderGrowthCopiedBytes,
       );
     } finally {
       final completedResult = result;
       if (completedResult != null) {
         _releaseMessagePayload(completedResult.payload);
       }
+      preparedPayload?.dispose();
     }
   }
 
@@ -1866,6 +1950,197 @@ class WampWorkloadRunner {
       buffer.writeCharCode(65 + (i % 26));
     }
     return buffer.toString();
+  }
+
+  bool _isTypedPptBenchmark(WampScenario scenario) =>
+      scenario.pptScheme == 'x_connectanum_bench_typed';
+
+  void _validatePayloadConstruction(WampScenario scenario) {
+    if (!_isTypedPptBenchmark(scenario)) {
+      if (scenario.payloadConstruction != WampPayloadConstruction.dartValues) {
+        throw ArgumentError.value(
+          scenario.payloadConstruction.wireName,
+          'payloadConstruction',
+          'requires ppt_scheme=x_connectanum_bench_typed',
+        );
+      }
+      return;
+    }
+    if (scenario.mode != WampMode.rpc && scenario.mode != WampMode.pubsub) {
+      throw ArgumentError.value(
+        scenario.mode,
+        'mode',
+        'typed benchmark PPT supports RPC and pub/sub',
+      );
+    }
+    if (!const {'cbor', 'msgpack', 'flatbuffers'}.contains(
+      scenario.pptSerializer,
+    )) {
+      throw ArgumentError.value(
+        scenario.pptSerializer,
+        'pptSerializer',
+        'typed benchmark PPT requires cbor, msgpack, or flatbuffers',
+      );
+    }
+  }
+
+  _PreparedBenchPayload _prepareTypedBenchPayload(
+    WampScenario scenario, {
+    required int worker,
+    required int iteration,
+  }) {
+    final preparation = Stopwatch()..start();
+    final serializer = scenario.pptSerializer!;
+    final encoding = switch (serializer) {
+      'cbor' => wamp_core.LazyPayloadEncoding.cbor,
+      'msgpack' => wamp_core.LazyPayloadEncoding.messagePack,
+      'flatbuffers' => wamp_core.LazyPayloadEncoding.flatbuffers,
+      _ => throw StateError('Unvalidated benchmark PPT serializer'),
+    };
+    native_buffers.NativeOwnedBuffer? owner;
+    try {
+      late final Object value;
+      switch (scenario.payloadConstruction) {
+        case WampPayloadConstruction.dartValues:
+          value = _buildTypedBenchmarkValue(
+            serializer,
+            worker: worker,
+            iteration: iteration,
+            bodyBytes: scenario.payloadBytes,
+          );
+        case WampPayloadConstruction.nativeBuffer:
+          if (serializer == 'flatbuffers') {
+            owner = BenchPayloadCodec.encodeNative(
+              _nativeBuffers,
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: scenario.payloadBytes,
+            );
+            value = owner.bytes;
+          } else {
+            final body = BenchPayloadCodec.body(
+              worker: worker,
+              iteration: iteration,
+              length: scenario.payloadBytes,
+            );
+            owner = _copyToNative(body);
+            value = {
+              'worker': worker,
+              'iteration': iteration,
+              'body': owner.bytes,
+            };
+          }
+        case WampPayloadConstruction.preEncodedSpan:
+          final valueToEncode = _buildTypedBenchmarkValue(
+            serializer,
+            worker: worker,
+            iteration: iteration,
+            bodyBytes: scenario.payloadBytes,
+          );
+          owner = _copyToNative(_encodePptValue(serializer, valueToEncode));
+          value = valueToEncode;
+      }
+      preparation.stop();
+      final payload =
+          scenario.payloadConstruction == WampPayloadConstruction.preEncodedSpan
+          ? wamp_core.LazyMessagePayload.packed(
+              encoding: encoding,
+              packedPayloadBytes: owner!.bytes,
+              packedPayloadDecoder: (_) => (
+                arguments: [value],
+                argumentsKeywords: null,
+              ),
+              anchor: owner,
+            )
+          : wamp_core.LazyMessagePayload.materialized(
+              encoding: encoding,
+              arguments: [value],
+              anchor: owner,
+            );
+      return _PreparedBenchPayload(
+        payload: payload,
+        owner: owner,
+        preparationUs: preparation.elapsedMicroseconds,
+      );
+    } catch (_) {
+      owner?.dispose();
+      rethrow;
+    }
+  }
+
+  Object _buildTypedBenchmarkValue(
+    String serializer, {
+    required int worker,
+    required int iteration,
+    required int bodyBytes,
+  }) {
+    if (serializer == 'flatbuffers') {
+      return BenchPayloadCodec.encodeDart(
+        worker: worker,
+        iteration: iteration,
+        bodyBytes: bodyBytes,
+      );
+    }
+    return BenchPayloadCodec.dynamicValue(
+      worker: worker,
+      iteration: iteration,
+      bodyBytes: bodyBytes,
+    );
+  }
+
+  Uint8List _encodePptValue(String serializer, Object value) {
+    final payload = wamp_core.PPTPayload(arguments: [value]);
+    return switch (serializer) {
+      'cbor' => wamp_cbor.Serializer().serializePPT(payload),
+      'msgpack' => wamp_msgpack.Serializer().serializePPT(payload),
+      'flatbuffers' => wamp_flatbuffers.Serializer().serializePPT(payload),
+      _ => throw StateError('Unvalidated benchmark PPT serializer'),
+    };
+  }
+
+  native_buffers.NativeOwnedBuffer _copyToNative(Uint8List bytes) {
+    final builder = _nativeBuffers.allocate(bytes.length);
+    try {
+      builder.writeBytes(0, bytes);
+      return builder.freeze();
+    } finally {
+      builder.dispose();
+    }
+  }
+
+  native_buffers.NativeBufferAllocator get _nativeBuffers =>
+      _nativeBufferAllocator ?? native_buffers.NativeBufferAllocator.instance();
+
+  void _verifyTypedBenchmarkPayload(
+    List<dynamic>? arguments, {
+    required WampScenario scenario,
+    required int worker,
+    required int iteration,
+  }) {
+    if (arguments == null || arguments.length != 1) {
+      throw const FormatException(
+        'Typed benchmark payload must contain one application value',
+      );
+    }
+    if (scenario.pptSerializer == 'flatbuffers') {
+      final bytes = arguments.single;
+      if (bytes is! List<int>) {
+        throw const FormatException('Typed FlatBuffers payload is not bytes');
+      }
+      BenchPayloadCodec.verify(
+        bytes: bytes,
+        worker: worker,
+        iteration: iteration,
+        bodyBytes: scenario.payloadBytes,
+      );
+      return;
+    }
+    BenchPayloadCodec.verifyDynamic(
+      value: arguments.single,
+      worker: worker,
+      iteration: iteration,
+      bodyBytes: scenario.payloadBytes,
+    );
   }
 
   wamp_core.PublishOptions _buildPublishOptions(WampScenario scenario) {
@@ -2940,6 +3215,23 @@ class _ClientBackedWampSession implements WampSession, WampFileSession {
   }
 }
 
+class _PreparedBenchPayload {
+  const _PreparedBenchPayload({
+    required this.payload,
+    required this.owner,
+    required this.preparationUs,
+  });
+
+  final wamp_core.LazyMessagePayload payload;
+  final native_buffers.NativeOwnedBuffer? owner;
+  final int preparationUs;
+
+  int get nativeBuilderInputCopiedBytes => owner?.inputCopiedBytes ?? 0;
+  int get nativeBuilderGrowthCopiedBytes => owner?.growthCopiedBytes ?? 0;
+
+  void dispose() => owner?.dispose();
+}
+
 class WampScenario {
   WampScenario({
     this.realmUri = 'bench.control',
@@ -2957,6 +3249,7 @@ class WampScenario {
     required this.concurrency,
     this.inFlightPerSession = 1,
     this.peerCount = 1,
+    this.payloadConstruction = WampPayloadConstruction.dartValues,
     required this.payloadBytes,
     this.websocketFragmentSize,
     this.fileChunkBytes = 4 * 1024 * 1024,
@@ -2984,6 +3277,7 @@ class WampScenario {
   final int concurrency;
   final int inFlightPerSession;
   final int peerCount;
+  final WampPayloadConstruction payloadConstruction;
   final int payloadBytes;
   final int? websocketFragmentSize;
   final int fileChunkBytes;
@@ -3019,6 +3313,9 @@ class WampScenario {
       fallback: 1,
     );
     final peerCount = _readPositiveInt(json['peer_count'], fallback: 1);
+    final payloadConstruction = WampPayloadConstruction.parse(
+      json['payload_construction'],
+    );
     final payloadBytes = _readPositiveInt(json['payload_bytes'], fallback: 0);
     final pptScheme = _readOptionalString(json['ppt_scheme']);
     final pptSerializer = _readOptionalString(json['ppt_serializer']);
@@ -3063,6 +3360,7 @@ class WampScenario {
       concurrency: concurrency,
       inFlightPerSession: inFlightPerSession,
       peerCount: peerCount,
+      payloadConstruction: payloadConstruction,
       payloadBytes: payloadBytes,
       websocketFragmentSize: _readOptionalPositiveInt(
         json['websocket_fragment_size'],
@@ -3145,6 +3443,8 @@ class WampScenario {
     'concurrency': concurrency,
     'in_flight_per_session': inFlightPerSession,
     'peer_count': peerCount,
+    if (payloadConstruction != WampPayloadConstruction.dartValues)
+      'payload_construction': payloadConstruction.wireName,
     'payload_bytes': payloadBytes,
     if (websocketFragmentSize != null)
       'websocket_fragment_size': websocketFragmentSize,
@@ -3174,6 +3474,7 @@ class WampScenario {
     int? concurrency,
     int? inFlightPerSession,
     int? peerCount,
+    WampPayloadConstruction? payloadConstruction,
     int? payloadBytes,
     Object? websocketFragmentSize = _copySentinel,
     int? fileChunkBytes,
@@ -3207,6 +3508,7 @@ class WampScenario {
       concurrency: concurrency ?? this.concurrency,
       inFlightPerSession: inFlightPerSession ?? this.inFlightPerSession,
       peerCount: peerCount ?? this.peerCount,
+      payloadConstruction: payloadConstruction ?? this.payloadConstruction,
       payloadBytes: payloadBytes ?? this.payloadBytes,
       websocketFragmentSize: identical(websocketFragmentSize, _copySentinel)
           ? this.websocketFragmentSize
@@ -3322,6 +3624,27 @@ enum WampSerializer {
 
 const Object _copySentinel = Object();
 
+enum WampPayloadConstruction {
+  dartValues('values'),
+  nativeBuffer('native_buffer'),
+  preEncodedSpan('pre_encoded_span');
+
+  const WampPayloadConstruction(this.wireName);
+
+  final String wireName;
+
+  static WampPayloadConstruction parse(Object? raw) {
+    if (raw == null) return WampPayloadConstruction.dartValues;
+    if (raw is! String) {
+      throw FormatException('Unsupported WAMP payload construction "$raw"');
+    }
+    for (final construction in WampPayloadConstruction.values) {
+      if (construction.wireName == raw.toLowerCase()) return construction;
+    }
+    throw FormatException('Unsupported WAMP payload construction "$raw"');
+  }
+}
+
 enum WampMode {
   authenticate,
   pubsub,
@@ -3406,6 +3729,9 @@ class WampSample {
     required double latencyMs,
     required int requestBytes,
     required int responseBytes,
+    int? payloadPreparationUs,
+    int? nativeBuilderInputCopiedBytes,
+    int? nativeBuilderGrowthCopiedBytes,
   }) {
     final completedAtUs = DateTime.now().microsecondsSinceEpoch;
     final hasValidLatency = latencyMs.isFinite && latencyMs >= 0;
@@ -3415,6 +3741,9 @@ class WampSample {
       latencyMs: latencyMs,
       requestBytes: requestBytes,
       responseBytes: responseBytes,
+      payloadPreparationUs: payloadPreparationUs,
+      nativeBuilderInputCopiedBytes: nativeBuilderInputCopiedBytes,
+      nativeBuilderGrowthCopiedBytes: nativeBuilderGrowthCopiedBytes,
       startedAtUs: hasValidLatency
           ? completedAtUs - (latencyMs * 1000).round()
           : null,
@@ -3428,6 +3757,9 @@ class WampSample {
     required this.latencyMs,
     required this.requestBytes,
     required this.responseBytes,
+    required this.payloadPreparationUs,
+    required this.nativeBuilderInputCopiedBytes,
+    required this.nativeBuilderGrowthCopiedBytes,
     required this.startedAtUs,
     required this.completedAtUs,
   });
@@ -3437,6 +3769,9 @@ class WampSample {
   final double latencyMs;
   final int requestBytes;
   final int responseBytes;
+  final int? payloadPreparationUs;
+  final int? nativeBuilderInputCopiedBytes;
+  final int? nativeBuilderGrowthCopiedBytes;
   final int? startedAtUs;
   final int? completedAtUs;
 
@@ -3447,6 +3782,15 @@ class WampSample {
       latencyMs: _readJsonDouble(json['latency_ms']),
       requestBytes: _readJsonInt(json['request_bytes']),
       responseBytes: _readJsonInt(json['response_bytes']),
+      payloadPreparationUs: _readOptionalJsonInt(
+        json['payload_preparation_us'],
+      ),
+      nativeBuilderInputCopiedBytes: _readOptionalJsonInt(
+        json['native_builder_input_copied_bytes'],
+      ),
+      nativeBuilderGrowthCopiedBytes: _readOptionalJsonInt(
+        json['native_builder_growth_copied_bytes'],
+      ),
       startedAtUs: _readOptionalJsonInt(json['started_at_us']),
       completedAtUs: _readOptionalJsonInt(json['completed_at_us']),
     );
@@ -3458,6 +3802,12 @@ class WampSample {
     'latency_ms': latencyMs,
     'request_bytes': requestBytes,
     'response_bytes': responseBytes,
+    if (payloadPreparationUs != null)
+      'payload_preparation_us': payloadPreparationUs,
+    if (nativeBuilderInputCopiedBytes != null)
+      'native_builder_input_copied_bytes': nativeBuilderInputCopiedBytes,
+    if (nativeBuilderGrowthCopiedBytes != null)
+      'native_builder_growth_copied_bytes': nativeBuilderGrowthCopiedBytes,
     if (startedAtUs != null) 'started_at_us': startedAtUs,
     if (completedAtUs != null) 'completed_at_us': completedAtUs,
   };

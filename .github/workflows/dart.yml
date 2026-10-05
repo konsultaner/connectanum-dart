@@ -30,6 +30,8 @@ jobs:
         run: dart pub get
       - name: Verify generated bindings and fixtures
         run: python3 tool/generate_wamp_flatbuffers.py --check --flatc "$RUNNER_TEMP/flatc/flatc"
+      - name: Verify typed benchmark binding
+        run: python3 tool/generate_bench_flatbuffers.py --check --flatc "$RUNNER_TEMP/flatc/flatc"
       - name: Verify independent upstream interoperability
         run: |
           python3 -m venv "$RUNNER_TEMP/flatbuffers-python"

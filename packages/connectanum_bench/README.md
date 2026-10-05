@@ -14,6 +14,71 @@ to run:
 
 This package is an internal workspace tool, not an end-user runtime package.
 
+## Typed FlatBuffers workload fixture
+
+`schemas/bench_payload/workload_payload.fbs` defines an application payload with
+worker and iteration identity plus a deterministic binary body. Its checked-in
+Dart reader/object builder is generated with the compiler version pinned in
+`schemas/wamp_flatbuffers/manifest.json`:
+
+```bash
+python3 tool/fetch_flatc.py --output /tmp/connectanum-flatc
+python3 tool/generate_bench_flatbuffers.py \
+  --flatc /tmp/connectanum-flatc/flatc
+python3 tool/generate_bench_flatbuffers.py \
+  --flatc /tmp/connectanum-flatc/flatc --check
+```
+
+The fixture codec checks exact identity and body contents and can build the same
+payload in Dart or directly in native-owned storage. These are correctness and
+construction primitives; they do not establish typed-payload performance parity.
+
+Typed RPC and pub/sub workloads can compare the `values`, `native_buffer`, and
+`pre_encoded_span` construction groups. For example:
+
+```toml
+[[workloads]]
+name = "rawsocket_rpc_flatbuffers_native_buffer"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "cbor" # WAMP envelope serializer
+path = "bench.rpc.echo"
+iterations = 1000
+concurrency = 1
+request_bytes = 65536
+ppt_scheme = "x_connectanum_bench_typed"
+ppt_serializer = "flatbuffers"
+payload_construction = "native_buffer"
+```
+
+`values` constructs the application value in Dart. `native_buffer` builds a
+FlatBuffer in native-owned memory; for CBOR/MessagePack PPT it stores the binary
+body in native-owned memory before ordinary PPT serialization. `pre_encoded_span`
+serializes the PPT value first, copies those bytes into a frozen native owner, and
+submits them through the lazy packed-payload path. The runner retains that owner
+through the RPC result or all matching pub/sub deliveries, validates the body and
+identity, then disposes it. These paths expose construction choices; they do not
+claim zero copies across the whole codec and transport pipeline. They still use
+the ordinary WAMP Session send path; the native segmented-send path copies its
+submitted fragments into native-owned allocations. A future zero-copy acceptance
+needs a typed Session-to-transport ownership path plus allocation or copy-count
+evidence.
+
+`latency_ms` includes payload preparation and the complete request/result or
+publish/delivery path. `payload_preparation_us` is a separate construction timing;
+for `values` and `native_buffer` with dynamic CBOR/MessagePack PPT, the later PPT
+serialization is outside that field but remains inside `latency_ms`. The two
+`native_builder_*_copied_bytes` counters cover builder input and growth only, not
+all codec, transport, security or receive copies. The current 18-case typed-runner
+matrix checks RawSocket with the Dart caller and CBOR WAMP envelope across
+RPC/pub/sub, all three PPT codecs and construction groups. A separate 12-case
+matrix covers typed FlatBuffers PPT across RawSocket/WebSocket, Dart/native callers
+and outer serializers, without the runner construction groups. Neither is
+performance evidence, and typed runner groups still lack WebSocket, TLS and
+native-caller live coverage. See the
+[acceptance contract](../../docs/flatbuffers_performance_acceptance.md) before
+claiming parity.
+
 ## Current Results
 
 The current complete production-gate snapshot covers 78 workloads and passes

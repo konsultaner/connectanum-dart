@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
+import 'package:connectanum_client/native_buffers.dart' as native_buffers;
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:logging/logging.dart';
@@ -57,10 +58,45 @@ void main() {
       expect(session.closed, isTrue);
     });
   }
+
+  test(
+    'native typed payload owner lives through the result then is disposed',
+    () async {
+      final session = _RecordingSession();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => session,
+        logger: Logger.detached('flatbuffers-native-owner'),
+        nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(),
+      );
+
+      final samples = await runner.run(
+        WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.cbor,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 128,
+          pptScheme: 'x_connectanum_bench_typed',
+          pptSerializer: 'flatbuffers',
+          payloadConstruction: WampPayloadConstruction.nativeBuffer,
+        ),
+      );
+
+      expect(samples, hasLength(1));
+      final owner = session.requestOwner!;
+      expect(session.ownerWasLiveDuringCall, isTrue);
+      expect(owner.isDisposed, isTrue);
+      expect(session.closed, isTrue);
+    },
+  );
 }
 
 class _RecordingSession implements WampSession {
   core.LazyMessagePayload? request;
+  native_buffers.NativeOwnedBuffer? requestOwner;
+  bool ownerWasLiveDuringCall = false;
   core.CallOptions? options;
   bool closed = false;
   final _disconnected = Completer<void>();
@@ -78,6 +114,8 @@ class _RecordingSession implements WampSession {
     core.CallOptions? options,
   }) async {
     request = payload;
+    requestOwner = payload.anchor as native_buffers.NativeOwnedBuffer?;
+    ownerWasLiveDuringCall = requestOwner?.isDisposed == false;
     this.options = options;
     return core.LazyResultPayload(
       callRequestId: 1,

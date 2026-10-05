@@ -1,7 +1,42 @@
 # FlatBuffers performance acceptance contract
 
-Status: proposed contract for milestone issue #103. The benchmark runner policy
-and complete instrumentation are still unfinished. No parity result is accepted.
+Status: acceptance contract for milestone issue #103. The runner now exposes the
+three construction groups for typed RPC and pub/sub and records payload-preparation
+and native-builder copy counters. The full instrumentation and paired performance
+campaign are still unfinished. No parity result is accepted.
+
+The runner selects a group with `payload_construction = "values"`,
+`"native_buffer"`, or `"pre_encoded_span"` and requires
+`ppt_scheme = "x_connectanum_bench_typed"`. Typed rows are restricted to RPC and
+pub/sub and the CBOR, MessagePack or FlatBuffers PPT serializers. Every operation
+uses a unique worker/iteration identity and validates the returned or delivered
+body. The 18-case live echo matrix establishes this behavior for RPC and pub/sub
+over RawSocket with the Dart caller, CBOR WAMP envelope, all three PPT
+serializers and all three construction groups. A separate 12-case matrix covers
+typed FlatBuffers PPT over RawSocket/WebSocket, Dart/native callers and all three
+outer serializers, but does not exercise these runner construction groups.
+Together these are correctness evidence, not a performance run; typed runner
+groups still lack WebSocket, TLS and native-caller live coverage.
+
+`latency_ms` covers construction, serialization, transport, receive-side decode,
+and response/event validation. `payload_preparation_us` measures runner-side
+construction only. For `values` and `native_buffer` with dynamic CBOR/MessagePack
+PPT, it ends before PPT serialization. For `pre_encoded_span`, it includes PPT
+serialization and copying the resulting bytes into the frozen native owner.
+`native_builder_input_copied_bytes` and `native_builder_growth_copied_bytes`
+measure only FlatBuffers/native-buffer builder input and growth. They do not
+measure codec, transport, TLS, WebSocket, E2EE or receive-side copies and cannot
+by themselves satisfy the copy-evidence gate below.
+
+At this stage, all three groups still submit through the ordinary WAMP Session
+serializer and native transport send path. Native-owned construction and packed
+lazy PPT avoid some intermediate Dart framing work, but neither proves that the
+source allocation reaches the socket without a copy. The native segmented-send
+path currently copies its submitted fragments into native-owned allocations.
+Issue #96's buffer ownership APIs do not yet connect this typed Session path to a
+verified source-buffer-to-transport ownership transfer. Count that as an
+unoptimized or missing row until pointer identity or copied-byte evidence proves
+otherwise.
 
 ## Comparable workloads
 

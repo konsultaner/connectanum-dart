@@ -102,6 +102,7 @@ Future<void> main(List<String> args) async {
       }
     },
     logger: Logger('NativeWampWorker'),
+    nativeBufferAllocator: nativeRuntime.nativeBuffers,
   );
 
   try {

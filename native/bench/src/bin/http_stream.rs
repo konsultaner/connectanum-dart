@@ -1549,6 +1549,8 @@ struct WorkloadConfig {
     #[serde(default)]
     ppt_serializer: Option<String>,
     #[serde(default)]
+    payload_construction: Option<String>,
+    #[serde(default)]
     ppt_cipher: Option<String>,
     #[serde(default)]
     ppt_keyid: Option<String>,
@@ -1874,6 +1876,7 @@ struct PreparedWorkload {
     secure_transport: bool,
     ppt_scheme: Option<String>,
     ppt_serializer: Option<String>,
+    payload_construction: Option<String>,
     ppt_cipher: Option<String>,
     ppt_keyid: Option<String>,
     response_bytes: u64,
@@ -1929,6 +1932,38 @@ impl PreparedWorkload {
             bail!("HTTP/1.1 does not support streams_per_connection > 1");
         }
         let is_wamp = parse_wamp_protocol(&config.protocol).is_some();
+        if let Some(construction) = config.payload_construction.as_deref() {
+            if !is_wamp {
+                bail!(
+                    "workload {} payload_construction is only supported for WAMP",
+                    config.name
+                );
+            }
+            if !matches!(
+                construction,
+                "values" | "native_buffer" | "pre_encoded_span"
+            ) {
+                bail!(
+                    "workload {} has unsupported payload_construction {construction}",
+                    config.name
+                );
+            }
+            if config.ppt_scheme.as_deref() != Some("x_connectanum_bench_typed") {
+                bail!(
+                    "workload {} payload_construction requires the typed benchmark PPT scheme",
+                    config.name
+                );
+            }
+            if !matches!(
+                config.ppt_serializer.as_deref(),
+                Some("flatbuffers" | "cbor" | "msgpack")
+            ) {
+                bail!(
+                    "workload {} typed benchmark PPT requires flatbuffers, cbor, or msgpack",
+                    config.name
+                );
+            }
+        }
         let is_rawsocket_frame = parse_rawsocket_frame_protocol(&config.protocol).is_some();
         let path = if is_wamp || is_rawsocket_frame {
             config.path.clone()
@@ -2021,6 +2056,7 @@ impl PreparedWorkload {
             secure_transport: config.secure_transport,
             ppt_scheme: config.ppt_scheme.clone(),
             ppt_serializer: config.ppt_serializer.clone(),
+            payload_construction: config.payload_construction.clone(),
             ppt_cipher: config.ppt_cipher.clone(),
             ppt_keyid: config.ppt_keyid.clone(),
             response_bytes: config.response_bytes,
@@ -3298,6 +3334,7 @@ fn run_wamp_workload(
         "secure_transport": workload.secure_transport,
         "ppt_scheme": workload.ppt_scheme.clone(),
         "ppt_serializer": workload.ppt_serializer.clone(),
+        "payload_construction": workload.payload_construction.clone(),
         "ppt_cipher": workload.ppt_cipher.clone(),
         "ppt_keyid": workload.ppt_keyid.clone(),
     });
@@ -3429,6 +3466,9 @@ async fn run_rawsocket_auth_frame_iteration(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 });
@@ -3445,6 +3485,9 @@ async fn run_rawsocket_auth_frame_iteration(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 });
@@ -3464,6 +3507,9 @@ async fn run_rawsocket_auth_frame_iteration(
             latency_ms: start.elapsed().as_secs_f64() * 1000.0,
             request_bytes,
             response_bytes,
+            payload_preparation_us: None,
+            native_builder_input_copied_bytes: None,
+            native_builder_growth_copied_bytes: None,
             http_fresh_connection_timing: None,
             http_phase_timing: None,
         });
@@ -3492,6 +3538,9 @@ async fn run_rawsocket_auth_frame_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes,
         response_bytes,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -4184,6 +4233,9 @@ async fn run_h1_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 }
@@ -4283,6 +4335,9 @@ async fn run_h2_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 }
@@ -4390,6 +4445,9 @@ async fn run_h3_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 }
@@ -5109,6 +5167,9 @@ async fn h1_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -5152,6 +5213,9 @@ async fn h2_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -5195,6 +5259,9 @@ async fn h3_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -5765,6 +5832,9 @@ async fn send_h1_request(
         latency_ms,
         request_bytes: sent,
         response_bytes: received,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -5808,6 +5878,9 @@ async fn send_h1_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: sent,
         response_bytes: response.body.len() as u64,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -5896,6 +5969,9 @@ async fn send_h2_request(
         latency_ms,
         request_bytes: workload.request_bytes,
         response_bytes: response_body.received_bytes,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: Some(HttpPhaseTimingSample {
             stream_acquire_wait_ms,
@@ -5999,6 +6075,9 @@ async fn send_h2_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: workload.request_bytes,
         response_bytes: response.body.len() as u64,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -6193,6 +6272,9 @@ async fn send_h3_request(
         latency_ms,
         request_bytes: sent,
         response_bytes: received,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -6305,6 +6387,9 @@ async fn send_h3_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: sent,
         response_bytes: received.len() as u64,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -6402,6 +6487,9 @@ mod tests {
             latency_ms: 0.0,
             request_bytes: 0,
             response_bytes: 0,
+            payload_preparation_us: None,
+            native_builder_input_copied_bytes: None,
+            native_builder_growth_copied_bytes: None,
             http_fresh_connection_timing: None,
             http_phase_timing: None,
         }
@@ -6764,6 +6852,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -6806,6 +6895,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7233,6 +7323,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7278,6 +7369,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7324,6 +7416,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7349,6 +7442,34 @@ mod tests {
     }
 
     #[test]
+    fn prepared_workload_parses_typed_payload_construction_from_toml() {
+        let scenario: ScenarioFile = toml::from_str(
+            r#"
+name = "typed_payload"
+
+[[workloads]]
+name = "rawsocket_rpc_native_buffer"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 2
+concurrency = 1
+request_bytes = 1024
+ppt_scheme = "x_connectanum_bench_typed"
+ppt_serializer = "flatbuffers"
+payload_construction = "native_buffer"
+"#,
+        )
+        .unwrap();
+        let prepared = PreparedWorkload::from_config(&scenario.workloads[0]).unwrap();
+        assert_eq!(
+            prepared.payload_construction.as_deref(),
+            Some("native_buffer")
+        );
+    }
+
+    #[test]
     fn prepared_workload_preserves_secure_wamp_transport_flag() {
         let config = WorkloadConfig {
             name: "load".to_string(),
@@ -7366,6 +7487,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: true,
@@ -7410,6 +7532,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: Some("wamp".to_string()),
             ppt_serializer: Some("cbor".to_string()),
+            payload_construction: None,
             ppt_cipher: Some("aes256gcm".to_string()),
             ppt_keyid: Some("benchmark-key".to_string()),
             secure_transport: false,
@@ -7490,6 +7613,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7530,6 +7654,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7570,6 +7695,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7612,6 +7738,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7654,6 +7781,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7698,6 +7826,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7742,6 +7871,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7785,6 +7915,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7831,6 +7962,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7874,6 +8006,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7917,6 +8050,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7960,6 +8094,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -8015,6 +8150,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -8510,6 +8646,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -8607,6 +8744,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -8646,6 +8784,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -8685,6 +8824,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,

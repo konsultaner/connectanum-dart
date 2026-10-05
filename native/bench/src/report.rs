@@ -9,6 +9,12 @@ pub struct WorkloadSample {
     pub request_bytes: u64,
     pub response_bytes: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payload_preparation_us: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_builder_input_copied_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_builder_growth_copied_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub http_fresh_connection_timing: Option<HttpFreshConnectionTiming>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub http_phase_timing: Option<HttpPhaseTimingSample>,
@@ -626,5 +632,38 @@ mod tests {
         assert_eq!(report.throughput_elapsed_ms(), 1000.0);
         report.data_window_elapsed_ms = Some(f64::NAN);
         assert_eq!(report.throughput_elapsed_ms(), 1000.0);
+    }
+
+    #[test]
+    fn wamp_payload_construction_metrics_survive_sample_report_parsing() {
+        let sample: WorkloadSample = serde_json::from_value(json!({
+            "worker": 2,
+            "iteration": 9,
+            "latency_ms": 1.25,
+            "request_bytes": 1024,
+            "response_bytes": 1024,
+            "payload_preparation_us": 31,
+            "native_builder_input_copied_bytes": 1024,
+            "native_builder_growth_copied_bytes": 512
+        }))
+        .unwrap();
+        assert_eq!(sample.payload_preparation_us, Some(31));
+        assert_eq!(sample.native_builder_input_copied_bytes, Some(1024));
+        assert_eq!(sample.native_builder_growth_copied_bytes, Some(512));
+        let encoded = serde_json::to_value(sample).unwrap();
+        assert_eq!(encoded["payload_preparation_us"], 31);
+        assert_eq!(encoded["native_builder_input_copied_bytes"], 1024);
+        assert_eq!(encoded["native_builder_growth_copied_bytes"], 512);
+
+        let legacy: WorkloadSample = serde_json::from_value(json!({
+            "worker": 0,
+            "iteration": 0,
+            "latency_ms": 1.0,
+            "request_bytes": 1,
+            "response_bytes": 1
+        }))
+        .unwrap();
+        let legacy_json = serde_json::to_value(legacy).unwrap();
+        assert!(legacy_json.get("payload_preparation_us").is_none());
     }
 }
