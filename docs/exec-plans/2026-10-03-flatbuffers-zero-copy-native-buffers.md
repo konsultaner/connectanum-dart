@@ -467,4 +467,5 @@ eleven passing tests; the Dart VM process/isolate and Rust `http_stream` tests
 also pass. The macOS workload smoke verifies collection wiring only because
 Linux `/proc` CPU/RSS evidence is unavailable there. No paired measurements
 have run, so issue #103 remains open and milestone parity acceptance is not met.
-Fresh exact-head hosted CI remains pending the push of this verified update.
+Exact-head CI and package publish dry-run workflows are queued for pushed
+commit `f47438d4`.

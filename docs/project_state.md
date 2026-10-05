@@ -5,14 +5,16 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The latest pushed code checkpoint `f7387de0` includes native transport copy
-counters, a paired campaign evaluator and repairs for the CI failures on
-`a28e92c4`. That earlier head failed Fast Checks because bench tests could not
-find the native FFI test library; both core-lazy mutation jobs rejected stale
-equivalent-mutation IDs. The fixes pass `bin/test-fast`, full `bin/verify`, the
-seven evaluator tests and source/ID inventory checks for both core-lazy
-targets. The latest docs-only commit is `36df7443`; its exact-head hosted CI is
-queued. The external C
+The latest pushed code checkpoint `f47438d4` adds WAMP benchmark server-process
+resource attribution. `bin/test-fast`, full `bin/verify` and all eleven
+evaluator tests pass locally on this head. Its exact-head CI and package publish
+dry-run workflows are queued. The preceding code checkpoint `f7387de0` includes
+native transport copy counters, a paired campaign evaluator and repairs for
+the CI failures on `a28e92c4`. That earlier head failed Fast Checks because
+bench tests could not find the native FFI test library; both core-lazy mutation
+jobs rejected stale equivalent-mutation IDs. The fixes pass `bin/test-fast`,
+full `bin/verify`, the evaluator tests and source/ID inventory checks for both
+core-lazy targets. The prior docs-only checkpoint is `36df7443`. The external C
 producer lease test on `a28e92c4` proves memory remains live through socket
 backpressure and releases once on its owner thread after write completion. It
 advances #97 but does not complete its or the milestone's acceptance criteria.
