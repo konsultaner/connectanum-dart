@@ -127,15 +127,106 @@ class CampaignTests(BatchEvidenceTests):
         self.assertFalse((self.root / 'parallel/combined.json').exists())
         self.assertTrue((self.root / 'parallel/batch-0000/failure.log').exists())
 
+    def test_worker_failure_cancels_queued_batches_before_collector_start(self):
+        started = []
+
+        def fail(root, output, analyzer, target, batch=None, **kwargs):
+            started.append(batch[0])
+            output.mkdir()
+            (output / 'failure.log').write_text('restored baseline failed')
+            raise RuntimeError('restored baseline failed')
+
+        with self.assertRaisesRegex(RuntimeError, 'Incomplete native batches'):
+            self.collect(jobs=1, worker=fail)
+        self.assertEqual(started, [0])
+        manifest = json.loads((self.root / 'parallel/campaign-manifest.json').read_text())
+        self.assertFalse(manifest['complete'])
+        self.assertNotIn('gatePassed', manifest)
+        self.assertFalse((self.root / 'parallel/combined.json').exists())
+        self.assertFalse((self.root / 'parallel/batch-0001').exists())
+        self.assertTrue((self.root / 'parallel/batch-0000/failure.log').exists())
+
+    def test_unexpected_exit_cancels_queued_batches_before_collector_start(self):
+        import shutil
+
+        for code in (2, None, True, False, '1'):
+            with self.subTest(code=code):
+                started = []
+
+                def fail(root, output, analyzer, target, batch=None, **kwargs):
+                    started.append(batch[0])
+                    return code
+
+                with self.assertRaisesRegex(RuntimeError, 'Unexpected batch exit'):
+                    self.collect(jobs=1, worker=fail)
+                self.assertEqual(started, [0])
+                manifest = json.loads((self.root / 'parallel/campaign-manifest.json').read_text())
+                self.assertFalse(manifest['complete'])
+                self.assertNotIn('gatePassed', manifest)
+                self.assertFalse((self.root / 'parallel/combined.json').exists())
+                shutil.rmtree(self.root / 'parallel')
+
+    def test_worker_failure_signals_active_owner_before_snapshot_cleanup(self):
+        ready = threading.Barrier(2)
+        observed = []
+        roots = []
+
+        def worker(root, output, analyzer, target, batch=None, cancel_event=None, **kwargs):
+            roots.append(root)
+            output.mkdir()
+            ready.wait(timeout=5)
+            if batch[0] == 0:
+                raise RuntimeError('restored baseline failed')
+            observed.append((cancel_event.wait(timeout=2), root.exists()))
+            (output / 'cancelled.log').write_text('active owner settled')
+            raise RuntimeError('active owner cancelled')
+
+        with self.assertRaisesRegex(RuntimeError, 'Incomplete native batches'):
+            self.collect(worker=worker)
+        self.assertEqual(observed, [(True, True)])
+        self.assertTrue(all(not root.exists() for root in roots))
+        self.assertTrue((self.root / 'parallel/batch-0001/cancelled.log').exists())
+        self.assertFalse((self.root / 'parallel/combined.json').exists())
+
+    def test_failure_preserves_previously_completed_low_score_batch(self):
+        import shutil
+
+        def worker(root, output, analyzer, target, batch=None, **kwargs):
+            if batch[0] == 0:
+                shutil.copytree(self.directories[0], output)
+                return 1
+            output.mkdir()
+            (output / 'failure.log').write_text('restored baseline failed')
+            raise RuntimeError('restored baseline failed')
+
+        with self.assertRaisesRegex(RuntimeError, 'Incomplete native batches'):
+            self.collect(jobs=1, worker=worker)
+        output = self.root / 'parallel'
+        manifest = json.loads((output / 'campaign-manifest.json').read_text())
+        self.assertEqual([(item['index'], item['exitCode']) for item in manifest['batches']], [(0, 1)])
+        self.assertFalse(manifest['complete'])
+        self.assertNotIn('gatePassed', manifest)
+        self.assertTrue((output / 'batch-0000/audited-results.json').exists())
+        self.assertTrue((output / 'batch-0001/failure.log').exists())
+        self.assertFalse((output / 'combined.json').exists())
+
     def test_completed_low_score_or_unclean_evidence_still_fails_the_gate(self):
+        import shutil
         original = batches.audit_batches
+        started = []
+
+        def worker(root, output, analyzer, target, batch=None, **kwargs):
+            started.append(batch[0])
+            shutil.copytree(self.directories[batch[0]], output)
+            return 1
 
         def unclean(root, directories, analyzer):
             report = original(root, directories, analyzer)
             return {**report, 'evidenceClean': False}
 
         with patch.object(batches, 'audit_batches', side_effect=unclean):
-            self.assertEqual(self.collect(), 1)
+            self.assertEqual(self.collect(jobs=1, worker=worker), 1)
+        self.assertEqual(started, [0, 1])
         manifest = json.loads((self.root / 'parallel/campaign-manifest.json').read_text())
         self.assertTrue(manifest['complete'])
         self.assertFalse(manifest['gatePassed'])

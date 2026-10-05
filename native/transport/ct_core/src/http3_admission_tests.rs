@@ -277,6 +277,116 @@ fn http3_setup_peer_error_is_not_masked_as_graceful() {
 }
 
 #[test]
+fn http3_setup_peer_zero_code_is_graceful() {
+    assert_http3_setup_close(
+        h3::error::Code::from(0),
+        HttpConnectionCloseReason::Graceful,
+    );
+}
+
+#[test]
+fn http3_setup_peer_unknown_codes_are_graceful() {
+    for code in [0x21, 0x40, 0x111, 0x1fff, (1 << 62) - 1] {
+        assert_http3_setup_close(
+            h3::error::Code::from(code),
+            HttpConnectionCloseReason::Graceful,
+        );
+    }
+}
+
+#[test]
+fn http3_setup_peer_defined_errors_are_not_masked_as_graceful() {
+    for code in std::iter::once(h3::error::Code::H3_DATAGRAM_ERROR.value()).chain(0x101..=0x110) {
+        assert_http3_setup_close(
+            h3::error::Code::from(code),
+            HttpConnectionCloseReason::ProtocolError,
+        );
+    }
+}
+
+fn assert_http3_request_close(code: h3::error::Code, expected: HttpConnectionCloseReason) {
+    let runtime = Runtime::new().unwrap();
+    let mut server = TestServer::new(&runtime, Duration::from_secs(30));
+    runtime.block_on(async {
+        time::timeout(TEST_DEADLINE, async {
+            let endpoint = server.client();
+            let connection = endpoint
+                .connect(server.addr, "localhost")
+                .unwrap()
+                .await
+                .unwrap();
+            let (mut driver, mut requests) = h3::client::builder()
+                .build::<_, _, Bytes>(H3QuinnConnection::new(connection.clone()))
+                .await
+                .unwrap();
+            let driver = tokio::spawn(async move {
+                std::future::poll_fn(|cx| driver.poll_close(cx)).await;
+            });
+            let request = HttpRequest::builder()
+                .uri(format!(
+                    "https://localhost:{}/close-code",
+                    server.addr.port()
+                ))
+                .body(())
+                .unwrap();
+            let mut stream = requests.send_request(request).await.unwrap();
+            stream.finish().await.unwrap();
+            assert_eq!(
+                stream.recv_response().await.unwrap().status(),
+                StatusCode::NOT_FOUND
+            );
+            while stream.recv_data().await.unwrap().is_some() {}
+            let id = server.accepted.recv().await.unwrap();
+            connection.close(
+                VarInt::from_u64(code.value()).unwrap(),
+                b"request close test",
+            );
+            driver.abort();
+            let _ = driver.await;
+            let event = loop {
+                if let Some(event) = server.registry.poll_http_connection_event() {
+                    break event;
+                }
+                time::sleep(Duration::from_millis(1)).await;
+            };
+            assert_eq!(event.connection_id, id);
+            assert_eq!(event.protocol, ConnectionProtocol::Http3);
+            assert_eq!(event.reason, expected);
+            assert_eq!(event.request_count, 1);
+            assert_eq!(
+                event.detail.is_none(),
+                expected == HttpConnectionCloseReason::Graceful
+            );
+            assert!(server.registry.connections.lock().unwrap().is_empty());
+            assert!(server.registry.poll_http_connection_event().is_none());
+            endpoint.close(VarInt::from_u32(0), b"test cleanup");
+        })
+        .await
+        .expect("peer close after a complete HTTP/3 request must settle");
+    });
+}
+
+#[test]
+fn http3_request_peer_no_error_and_unknown_codes_are_graceful() {
+    for code in [0, 0x21, 0x100, 0x111] {
+        assert_http3_request_close(
+            h3::error::Code::from(code),
+            HttpConnectionCloseReason::Graceful,
+        );
+    }
+}
+
+#[test]
+fn http3_request_peer_defined_errors_are_not_masked_as_graceful() {
+    for code in [0x33, 0x101, 0x102, 0x110] {
+        assert_http3_request_close(
+            h3::error::Code::from(code),
+            HttpConnectionCloseReason::ProtocolError,
+        );
+    }
+}
+
+#[test]
 fn http3_admission_connection_churn_releases_native_owners() {
     let runtime = Runtime::new().unwrap();
     let mut server = TestServer::new(&runtime, Duration::from_secs(30));

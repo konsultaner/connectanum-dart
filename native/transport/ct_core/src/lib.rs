@@ -7047,6 +7047,28 @@ fn header_has_token(value: &str, needle: &str) -> bool {
         .any(|token| token.eq_ignore_ascii_case(needle))
 }
 
+fn is_graceful_http3_connection_error(
+    error: &h3::error::ConnectionError,
+    connection: &QuinnConnection,
+) -> bool {
+    if error.is_h3_no_error() {
+        return true;
+    }
+    if matches!(error, h3::error::ConnectionError::Local { .. }) {
+        return false;
+    }
+    // h3's remote variant is opaque; inspect the public QUIC close cause instead.
+    let Some(quinn::ConnectionError::ApplicationClosed(close)) = connection.close_reason() else {
+        return false;
+    };
+    use h3::error::Code;
+    let code = close.error_code.into_inner();
+    // RFC 9114 section 8 treats unknown application codes as H3_NO_ERROR.
+    // Preserve the HTTP/3 and datagram errors understood by this backend.
+    !(Code::H3_GENERAL_PROTOCOL_ERROR.value()..=Code::H3_VERSION_FALLBACK.value()).contains(&code)
+        && code != Code::H3_DATAGRAM_ERROR.value()
+}
+
 async fn serve_http3_requests(
     listener_id: ListenerId,
     connection_id: ConnectionId,
@@ -7061,7 +7083,7 @@ async fn serve_http3_requests(
     {
         Ok(conn) => conn,
         Err(err) => {
-            if err.is_h3_no_error() {
+            if is_graceful_http3_connection_error(&err, &connection) {
                 registry.finish_http_connection(
                     connection_id,
                     HttpConnectionCloseReason::Graceful,
@@ -7126,20 +7148,11 @@ async fn serve_http3_requests(
             },
             Ok(None) => break,
             Err(err) => {
-                let h3_no_error = err.is_h3_no_error();
-                let err_description = err.to_string();
-                let mut graceful_close = h3_no_error;
-                if !graceful_close {
-                    if let Some(code_segment) = err_description.rsplit(':').next() {
-                        if code_segment.trim().eq_ignore_ascii_case("0x0") {
-                            graceful_close = true;
-                        }
-                    }
-                }
+                let graceful_close = is_graceful_http3_connection_error(&err, &connection);
                 let error_message = if graceful_close {
                     None
                 } else {
-                    Some(err_description)
+                    Some(err.to_string())
                 };
                 if !graceful_close {
                     if let Some(message) = error_message.as_ref() {

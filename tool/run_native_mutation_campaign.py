@@ -100,8 +100,14 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
                 code = collector.collect(frozen, directory, analyzer, target,
                                          batch=(index, count), build_jobs=build_jobs,
                                          cancel_event=cancel, resource_limits=resource_limits)
+                if type(code) is not int or code not in (0, 1):
+                    raise RuntimeError(f'Unexpected batch exit: {code}')
                 return {'index': index, 'directory': str(directory), 'reused': False,
                         'exitCode': code, 'workerSeconds': time.monotonic() - worker_started}
+            except BaseException:
+                # Signal peers before this pool thread can take a queued batch.
+                cancel.set()
+                raise
             finally:
                 with lock:
                     active -= 1
@@ -120,6 +126,7 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
                     directories[index] = Path(item['directory'])
                     manifest['batches'].append(item)
                 except Exception as error:
+                    cancel.set()
                     errors.append({'index': index, 'error': str(error)})
                     manifest['errors'] = errors
                 save()

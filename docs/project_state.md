@@ -7,6 +7,73 @@ campaigns without narrowing inventories, test suites, deadlines or evidence gate
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work406: full405 is incomplete, not a completed campaign or passing gate. Its
+first batch's restored, unmutated HTTP/3 churn test reports ProtocolError for a
+peer application close code zero. The coordinator records that failure but
+continues queued batches. Send the owned supervisor cooperative SIGTERM;
+supervisor/coordinator and worker processes are confirmed gone, all eight owned
+worker caches removed, and the monitor paused. Preserve every raw artifact.
+Collection stops after 4,326.58s; FFI never starts. Three completed batches are
+independently reinspected against archived native/tool/compiler/build inputs:
+186 candidates, 66 assertion kills, 24 survivors, 52 errors, 15 timeouts and
+29 compile errors, all 534 original workspace tests. These are partial outcomes,
+not a whole-component score. Retained samples show peak worker cache 0.433 GiB
+and minimum shared-host free disk 4.199 GiB; four interrupted resource observers
+remain explicitly cancelled, not successful resource/completion evidence.
+
+Fast406 passes before changes. Three new coordinator tests fail first: queued
+collectors still start and active peers do not receive cancellation. A new
+preclosed-zero HTTP/3 test deterministically reproduces the restored failure.
+Signal cancellation inside the failing pool worker before queue reuse, reject
+unexpected exit types/codes there, and retain normal completed exit-one batches.
+HTTP/3 setup and request acceptance now share typed close classification using
+public Quinn causes, without parsing messages or enabling unstable h3 APIs.
+[RFC 9114 section 8](https://www.rfc-editor.org/rfc/rfc9114.html#section-8)
+requires unknown application codes to be treated as H3_NO_ERROR; preserve known
+HTTP/3/datagram errors and local/transport faults. All 14 focused HTTP/3 tests
+pass, including preclosed and post-request positive/negative close matrices.
+The original churn test passes ten consecutive runs without retries or changed
+deadlines. Fresh `bin/verify` exits 0 in
+`/tmp/connectanum-mutation-fixes-verify406.log`, including all 118 mutation-tool
+checks and Chrome/Dart2Wasm suites. All 943 recorded implementation input hashes
+remain unchanged during verification. Fourteen fresh operational-supervisor
+tests reject failed verification, changed inventories, abnormal coordinator
+exits hidden by complete manifests and incorrect full-report scope. The
+replacement complete measurement and strict mutation passage remain pending.
+Updated native/tool hashes invalidate prior batch/control reuse: freeze verified
+inputs, regenerate exact inventories and obtain matching profile controls before
+any fresh full campaign. Keep the goal active; no push/publication or weakened
+tests, assertions, deadlines, operators, thresholds, or failure kill credit.
+
+Work405: disk404's lean pilot completes in 919.79s and passes independent
+profile comparison: identical 31 sampled mutation identities/outcomes and all
+534 workspace tests, matching native/tool/compiler provenance. Allocated
+per-worker cache peak falls from 1.906 to 0.422 GiB (77.9% lower), incremental
+allocation becomes zero, and measured coordinator time changes from 943.42 to
+919.67s. These are pilot results, not a full score or campaign runtime. Its
+strict sample still retains nine assertion kills, six survivors, eleven errors,
+two timeouts and three compile errors. Owned pilot workspaces/processes are gone.
+Shared-host free disk then falls to 8.77 GiB, below the 11-GiB startup budget;
+disk404 stops before any full worker. Preserve its terminal raw evidence.
+
+Use the measured 0.422-GiB peak to enforce a stricter 0.75-GiB cache cap, with
+unchanged four workers/four Cargo jobs and four-GiB reserve. Fresh ignored
+`out/native-mutation-full405/` reaudits both immutable controls under matching
+recorded environments, reproduces the exact archived promotion proof and
+confirms cleanup. It references the successful fresh Work404 verification;
+all verified implementation and native/worker-tool bytes remain unchanged.
+Twelve fresh operational checks pass, including rejection of source/tool/
+analyzer drift before the lean audit. Supervisor PID 51149 and full-core
+coordinator PID 51742 are confirmed alive: full core starts at 13:27:35 UTC,
+covering all 1,959 candidates in 32 fresh batches. Admission observes 8.20 GiB
+against an eight-GiB reserve/cache/evidence budget. Complete core collection
+automatically continues to all 1,297 FFI candidates in 32 fresh batches even if
+its strict gate fails; infrastructure-incomplete work must stop preserving
+evidence. No pilot batches are reused as full evidence. The quiet monitor now
+follows full405. Do not compete with timed work, modify frozen/raw artifacts,
+push/publish, grant failure kill credit, or claim full results/strict passage.
+The goal remains active and this post-checkpoint bookkeeping uncommitted.
+
 Work404: disk403b finishes all 16 default-profile timing batches and independent
 audit in 943.54s collection plus 8.07s audit. All owned private workspaces and
 processes are gone. Its 31 sampled outcomes are nine assertion kills, six
@@ -36,6 +103,18 @@ It then runs fresh `bin/verify` before any timed work, reaudits the immutable
 control, and only starts full runs after equivalent bounded lean evidence.
 Its quiet heartbeat is active. Verification remains pending; no full result,
 profile promotion or strict-gate passage is claimed.
+Local-only checkpoint `7db092d2` bundles the admission implementation and tests
+with this bookkeeping. Fresh disk404 `bin/verify` exits 0 after 1,178.59s in
+`out/native-mutation-disk404/verify.log`, including all 114 native mutation-tool
+tests and Chrome/Dart2Wasm suites. Supervisor PID 12637 execs the measurement
+runner; lean coordinator PID 74295 is confirmed alive with four workers/four
+Cargo jobs, reserve 4 GiB and cache cap 1.5 GiB. The frozen clean checkpoint
+matches all 65 original native input hashes. A fresh 8.86s control reaudit
+matches the archived original report exactly and verifies prior cleanup.
+Policy admission observes 11.37 GiB free against an 11-GiB startup budget;
+runtime guards remain authoritative. Lean equivalence, full collection and
+strict-gate results are still pending. Leave post-checkpoint verification
+bookkeeping uncommitted and do not compete with timed work.
 
 Work403: Fast403 exits 0 in `/tmp/connectanum-mutation-disk-fast403.log`.
 Add private-cache logical/allocated and incremental-cache measurements, a
