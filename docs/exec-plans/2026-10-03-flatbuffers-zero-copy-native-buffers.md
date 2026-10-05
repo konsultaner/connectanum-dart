@@ -7,17 +7,16 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Latest pushed implementation checkpoint: `f7387de0`, on PR #105 after
-`a28e92c4`, `9620cfbe`, `f569e9b4`, `274df37c`, `152898d7` and `dc33fcc6`.
-It adds native transport copy counters and a paired campaign evaluator, and
-fixes the exact-head CI failures exposed by `a28e92c4`: missing FFI test-library
-environment in bench tests and stale core-lazy mutation IDs. `bin/test-fast`,
-full `bin/verify`, seven evaluator tests, and `bin/test-mutations --list` for
-both core-lazy targets pass. Fresh exact-head hosted checks for `f7387de0` are
-running. The counters provide partial attribution and the evaluator only checks
-prepared evidence; no measured performance parity or milestone issue
-acceptance is established. Earlier independent negotiated-profile, GuardMalloc,
-five-platform artifact and package publish dry-runs remain separate evidence.
+Latest pushed checkpoint: `e1ee796a` on PR #105, following the native transport
+counter/evaluator checkpoint `f7387de0` and fixes for the exact-head CI failures
+exposed by `a28e92c4`. The `e1ee796a` RSS window correction passed local
+`bin/test-fast` and `bin/verify`; exact-head hosted checks were queued. The
+working-tree Dart transport-copy follow-up passes `bin/test-fast` and full
+`bin/verify`; exact-head hosted checks remain pending. It adds partial Dart-path
+attribution and closes the evaluator's coverage gate, but does not provide a
+measured performance result. Issues #95 and #96 are now complete and closed. Earlier
+independent negotiated-profile, GuardMalloc, five-platform artifact and package
+publish dry-runs remain separate evidence.
 
 ## Objective and scope
 
@@ -31,10 +30,10 @@ The primary checkout is independent and remains untouched. Feature commits,
 pushes and draft PR updates are authorized. Release publication, version bumps
 and a master merge are not authorized.
 
-## Issue acceptance remains open
+## Issue acceptance status
 
-- [ ] [#95](https://github.com/konsultaner/connectanum-dart/issues/95): pinned binding, reproducible generation, metadata/schema compatibility.
-- [ ] [#96](https://github.com/konsultaner/connectanum-dart/issues/96): native builders, freeze/retain/transfer, native inputs throughout submission.
+- [x] [#95](https://github.com/konsultaner/connectanum-dart/issues/95): pinned binding, reproducible generation, metadata/schema compatibility.
+- [x] [#96](https://github.com/konsultaner/connectanum-dart/issues/96): native builders, freeze/retain/transfer, native inputs throughout submission.
 - [ ] [#97](https://github.com/konsultaner/connectanum-dart/issues/97): generic external leases, producer-thread release, real send completion.
 - [ ] [#98](https://github.com/konsultaner/connectanum-dart/issues/98): complete public Dart serializer, factories and verified lazy payload behavior.
 - [ ] [#99](https://github.com/konsultaner/connectanum-dart/issues/99): native Rust codec, transport negotiation and supported profile guards.
@@ -185,9 +184,9 @@ original/logical browser failures remain failed evidence.
    Oracle absence has actual positive controls; typed consume and inspection are
    present. Publication is skipped. Full CI 37223117459 last had 18 successes and
    21 pending jobs. This evidence does not accept the new Dart candidate.
-3. Continue the remaining implementation and issue acceptance below. Keep all ten
-   issues open until their criteria have been checked; no performance parity or
-   all-platform execution is established.
+3. Continue the remaining implementation and issue acceptance below. Keep each
+   issue open until its criteria have been checked; #95 and #96 are now closed.
+   No performance parity or all-platform execution is established.
 
 The Session fixture/registration stage has passed canonical verification, complete
 local browser coverage at unchanged floors, and both complete 305-mutation gates.
@@ -307,14 +306,15 @@ including corrected local test/architecture advice. No new crypto API is applied
 during this canonical run. [Benchmark construction preparation](../research/2026-10-04-flatbuffers-benchmark-construction.md)
 also records the missing echoed application identity check. Commit/push the
 accepted checkpoint and obtain its own hosted evidence before claiming hosted
-acceptance; all ten issue criteria remain under audit.
+acceptance. At that checkpoint all ten issue criteria remained under audit.
 
 The initial manual native-owned FlatBuffers E2EE path is committed as `dc33fcc6`
 and pushed to PR #105. Fresh `bin/test-fast` and `bin/verify` pass at exit 0 on
 the code checkpoint; its exact-head hosted checks are pending. The path is
 generic Connectanum ownership infrastructure that a future C-backed ObjectBox
 adapter can consume under an explicit producer lifetime. Issues #96 and #101
-advance but remain open; all ten milestone issues remain under audit.
+advance but remain open at that checkpoint; all ten milestone issues were under
+audit.
 
 ## Typed benchmark runner construction groups (2026-10-05)
 
@@ -413,6 +413,22 @@ transcodes remain unmeasured. Focused tests, `bin/test-fast` and full
 and consumer smoke checks. This is correctness evidence and partial native-path
 attribution only; it establishes neither complete copy coverage nor FlatBuffers
 performance parity, and issue #103 remains open.
+
+## Dart transport-copy attribution follow-up (2026-10-05)
+
+The Dart benchmark worker records synchronous Connectanum-owned RawSocket
+framing, small-fragment coalescing, pre-handshake queue copies, and WebSocket
+fragment coalescing around each workload. Those counters deliberately exclude
+copies inside `dart:io`, SDK WebSocket masking, and TLS. The final report nests
+client/router copy breakdowns, adds router deltas to the known-own lower bound,
+and emits numeric `transport_copy_bytes` only for a complete measured cleartext
+path. The paired evaluator requires the corresponding complete coverage marker
+and an empty unknown-boundary list; it also rejects not-applicable transport
+totals. Focused counter, aggregation, and 13 evaluator tests pass, and
+`bin/test-fast` passes on this working tree. Full `bin/verify` and exact-head
+hosted checks remain pending. This instrumentation does not measure Dart SDK
+writes/masking, TLS or mixed-serializer transcodes and does not establish
+FlatBuffers parity. Issue #103 remains open.
 
 ## Paired comparison evaluator and hosted CI correction (2026-10-05)
 

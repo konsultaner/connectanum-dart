@@ -293,12 +293,29 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
     for key in COPY_METRICS:
         value = copy_metrics.get(key)
         if isinstance(value, dict) and value.get("status") == "not_applicable":
-            if not isinstance(value.get("reason"), str) or not value["reason"].strip():
+            if key == "transport_copy_bytes":
+                missing.append(f"{label}: transport_copy_bytes cannot be not_applicable")
+            elif not isinstance(value.get("reason"), str) or not value["reason"].strip():
                 missing.append(f"{label}: {key} not-applicable entry needs a reason")
         elif not isinstance(value, (int, float)) or isinstance(value, bool):
             missing.append(f"{label}: missing copy_metrics.{key}")
         elif not math.isfinite(float(value)) or value < 0:
             missing.append(f"{label}: invalid copy_metrics.{key}")
+    transport_copy_bytes = copy_metrics.get("transport_copy_bytes")
+    if isinstance(transport_copy_bytes, (int, float)) and not isinstance(
+        transport_copy_bytes, bool
+    ):
+        coverage = copy_metrics.get("coverage")
+        if not isinstance(coverage, dict):
+            missing.append(f"{label}: missing copy_metrics.coverage")
+        elif coverage.get("transport_copy_bytes") != "complete_connectanum_owned_path":
+            missing.append(
+                f"{label}: transport_copy_bytes requires complete Connectanum-owned-path coverage"
+            )
+        elif coverage.get("unknown_boundaries") != []:
+            missing.append(
+                f"{label}: complete transport_copy_bytes coverage cannot have unknown boundaries"
+            )
     return missing
 
 

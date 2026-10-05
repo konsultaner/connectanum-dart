@@ -3,10 +3,16 @@
 Last updated: 2026-10-05.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-All ten issues (#95–#104) remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
+Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95) and [#96](https://github.com/konsultaner/connectanum-dart/issues/96) are complete and closed. Issues #97–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The latest pushed code checkpoint `f47438d4` adds WAMP benchmark server-process
-resource attribution. `bin/test-fast`, full `bin/verify` and all eleven
+The latest pushed code checkpoint `e1ee796a` adds the WAMP benchmark RSS
+window-boundary correction. `bin/test-fast`, full `bin/verify` and the evaluator
+tests passed on this base; its exact-head CI and package publish dry-run runs are
+queued. A working-tree follow-up adds Dart transport-copy counters, client/router
+attribution, and a fail-closed coverage check. Its `bin/test-fast` and full
+`bin/verify` pass; exact-head hosted checks remain pending. The preceding pushed
+code checkpoint `f47438d4` adds WAMP benchmark server-process resource
+attribution. `bin/test-fast`, full `bin/verify` and all eleven
 evaluator tests pass locally on this head. Its exact-head CI and package publish
 dry-run workflows are queued. The preceding code checkpoint `f7387de0` includes
 native transport copy counters, a paired campaign evaluator and repairs for
@@ -35,9 +41,22 @@ smoke over RawSocket/WebSocket and JSON/MessagePack/CBOR/FlatBuffers emits numer
 client/server RSS with current RSS no higher than sampled peak. It is a short
 wiring smoke (640 samples per workload), not parity evidence. The smoke also
 confirms the existing Dart-managed transport-copy `not_measured` blocker; no
-benchmark rows are accepted and all
-milestone issues remain open. This correction is in the working tree and needs
-a pushed exact-head CI run.
+benchmark rows are accepted. At that checkpoint all milestone issues were open.
+This correction is in pushed checkpoint
+`e1ee796a`; exact-head hosted CI evidence remains pending.
+
+## Dart transport-copy attribution follow-up (2026-10-05)
+
+The Dart benchmark worker now records Connectanum-owned RawSocket frame
+assembly, small-fragment coalescing, pre-handshake queue, and WebSocket fragment
+coalescing copies per workload window. The report identifies uninstrumented SDK
+socket writes, WebSocket masking, and TLS copies. `bench_main` merges client and
+router deltas and reports numeric `transport_copy_bytes` only when both sides
+have complete cleartext coverage. The paired evaluator rejects missing/partial
+coverage, unknown boundaries, and not-applicable transport totals. Focused
+metric/evaluator tests and `bin/test-fast` pass. Dart SDK write/masking
+internals, TLS copies and mixed-serializer transcodes remain unmeasured; no
+parity campaign exists, so issue #103 and issues #97–#104 remain open.
 
 ## Native transport copy-counter follow-up (2026-10-05)
 
@@ -103,8 +122,8 @@ tests verify control-only encoding does not read the lazy payload. Both
 Chrome WebAssembly, live WAMP integration and consumer smoke checks. These are
 correctness and ownership results, not end-to-end throughput evidence; no
 FlatBuffers-versus-CBOR/MessagePack parity result is accepted, so issue #103
-remains open. All ten milestone issues remain open pending their acceptance
-evidence.
+remains open. At that checkpoint, all ten milestone issues remained open pending
+their acceptance evidence.
 
 ## Checkout and authorization
 
@@ -692,12 +711,12 @@ new runner groups. A focused owner test proves that a native payload remains liv
 through the RPC result and is disposed during runner cleanup. Rust orchestration/
 report tests pass (181 tests); package analysis and `bin/verify` pass at exit 0.
 These counters cover payload construction only, not total codec/transport copies.
-Paired performance,
-confidence intervals, CPU/memory evidence and exact-head hosted acceptance are
-still pending; do not claim parity or close issue #103. All groups still use the
-ordinary Session send path; native segmented send copies submitted fragments.
-Connecting the typed Session path to verified transport ownership transfer is a
-remaining issue #96/#103 boundary, not established by this runner stage.
+Paired performance, confidence intervals, CPU/memory evidence and exact-head
+hosted acceptance are still pending; do not claim parity or close issue #103.
+Eligible native-buffer and pre-encoded FlatBuffers typed-PPT sends now use the
+Session-owned-view path; other serializers and ineligible payloads keep their
+normal behavior. This closes the #96 implementation boundary. #103 remains
+open pending complete copy coverage and the paired parity campaign.
 
 ## WAMP process-resource attribution verification (2026-10-05)
 
@@ -710,3 +729,15 @@ server allocation/GC collection; macOS lacks the Linux `/proc` CPU and RSS
 evidence required by the parity gate. This is correctness evidence only. There
 is no paired FlatBuffers performance campaign, so issue #103 and milestone
 acceptance remain open. Exact-head hosted CI is pending the current commit.
+
+## Issue acceptance audit (2026-10-05)
+
+Issues #95 and #96 are closed as completed. #95's pinned binding, generation
+workflow, metadata/schema policy, negotiation rules, fixture coverage and
+WebSocket identifier registry status are recorded in `flatbuffers_binding.md`
+and checked by the FlatBuffers Binding workflow. #96's Rust-owned builders,
+send/transfer contract, allocation identity, copy counters, error transitions,
+ABI fallback, finalizers and explicit disposal are covered by the native buffer
+API, ownership guide and tests. Issues #97–#104 remain open; #103 still lacks
+the required paired parity campaign and transport-copy coverage for SDK
+masking, TLS and mixed-serializer conversions.

@@ -14,6 +14,7 @@ import 'package:connectanum_bench/src/http_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/dart_vm_metrics.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/remote_auth_bench_harness.dart';
+import 'package:connectanum_bench/src/transport_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
@@ -127,68 +128,6 @@ void _configureLogging({required bool verbose}) {
         stderr.writeln(record.stackTrace);
       }
     });
-}
-
-Map<String, Object?> _copyMetricsWithRouter(
-  Map<String, Object?> clientMetrics, {
-  required WampScenario scenario,
-  required NativeRouterTransportCopyMetrics? before,
-  required NativeRouterTransportCopyMetrics? after,
-}) {
-  final metrics = Map<String, Object?>.from(clientMetrics);
-  Map<String, Object?> notMeasured(String reason) => {
-    'status': 'not_measured',
-    'reason': reason,
-  };
-  final needsWebSocket = scenario.transport == WampTransport.websocket;
-  final needsTls = scenario.secureTransport;
-  if (before == null || after == null) {
-    metrics['transport_copy_bytes'] = notMeasured(
-      'router transport copy snapshot is unavailable',
-    );
-    if (needsTls) {
-      metrics['tls_copy_bytes'] = notMeasured(
-        'TLS copy behavior is not instrumented',
-      );
-      metrics['tls_plaintext_accepted_bytes'] = notMeasured(
-        'router TLS plaintext snapshot is unavailable',
-      );
-    }
-    return metrics;
-  }
-
-  final delta = after.deltaFrom(before);
-  final clientTransport = metrics['transport_copy_bytes'];
-  final serverPathMeasured =
-      !needsWebSocket || delta.websocketCoalesceCopyBytesTotal != null;
-  if (clientTransport is num && serverPathMeasured) {
-    metrics['transport_copy_bytes'] =
-        clientTransport.toInt() +
-        delta.dartToNativeCopiedBytesTotal +
-        (needsWebSocket ? delta.websocketCoalesceCopyBytesTotal! : 0);
-  } else {
-    metrics['transport_copy_bytes'] = notMeasured(
-      'an active router transport copy counter is unavailable',
-    );
-  }
-
-  if (needsTls) {
-    metrics['transport_copy_bytes'] = notMeasured(
-      'TLS copy behavior is not instrumented',
-    );
-    metrics['tls_copy_bytes'] = notMeasured(
-      'TLS accepted-plaintext bytes do not measure memory copies',
-    );
-    final clientTls = metrics['tls_plaintext_accepted_bytes'];
-    final serverTls = delta.tlsPlaintextAcceptedBytesTotal;
-    metrics['tls_plaintext_accepted_bytes'] =
-        clientTls is num && serverTls != null
-        ? clientTls.toInt() + serverTls
-        : notMeasured(
-            'TLS plaintext acceptance is missing on a client or router side',
-          );
-  }
-  return metrics;
 }
 
 NativeRouterTransportCopyMetrics? _routerTransportCopyMetrics(
@@ -816,7 +755,7 @@ class _BenchControlRegistry {
       final routerCopyMetricsAfter = _routerTransportCopyMetrics(
         binding.runtime,
       );
-      final copyMetrics = _copyMetricsWithRouter(
+      final copyMetrics = mergeRouterTransportCopyMetrics(
         result.copyMetrics,
         scenario: scenario,
         before: routerCopyMetricsBefore,

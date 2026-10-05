@@ -1,14 +1,16 @@
-import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
+
 import '../../transport/socket/socket_helper.dart';
 import '../abstract_transport.dart';
+import '../dart_transport_copy_metrics.dart';
 import '../native/canonical_base64_io.dart';
 import '../native/external_byte_buffer.dart';
 
@@ -658,6 +660,11 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
       for (final fragment in fragments) {
         builder.add(fragment);
       }
+      if (fragments.length > 1) {
+        DartTransportCopyMetrics.recordRawSocketFragmentCoalesceCopy(
+          payloadLength,
+        );
+      }
       fragmentedPayload = builder.takeBytes();
     }
     var serializedMessage = fragmentedPayload ?? _serializer.serialize(message);
@@ -713,7 +720,11 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
         );
       }
       // Match the ordinary framed-send ownership: the queue retains its bytes.
-      queue.add(Uint8List.fromList(serializedMessage));
+      final queuedPayload = Uint8List.fromList(serializedMessage);
+      DartTransportCopyMetrics.recordRawSocketPreHandshakeQueueCopy(
+        queuedPayload.length,
+      );
+      queue.add(queuedPayload);
     } else {
       _send0(_buildWampFrame(serializedMessage as List<int>));
     }
@@ -744,7 +755,9 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
       ),
     );
     builder.add(payload);
-    return builder.takeBytes();
+    final frame = builder.takeBytes();
+    DartTransportCopyMetrics.recordRawSocketFramePayloadCopy(payload.length);
+    return frame;
   }
 
   void _checkOutgoingPayloadLength(int length) {

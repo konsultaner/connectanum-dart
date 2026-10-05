@@ -64,21 +64,30 @@ socket writes, and KTLS are not counted. The benchmark also counts explicit
 Dart-to-native `setAll` copies in native client and router send APIs. Owned
 native-buffer submissions do not increment that counter.
 
-`transport_copy_bytes` sums measured copy operations on the active cleartext
-path across the client worker and router process. A payload can be counted again
-at a later layer, so this aggregate is copy traffic, not unique application
-bytes. Builder input/growth and any transcode copies stay separate. TLS rows
-keep `transport_copy_bytes` and `tls_copy_bytes` as `not_measured` because the
-current Rustls counter does not measure copies. The separate
-`tls_plaintext_accepted_bytes` value is a throughput diagnostic. Snapshots use
-before/after deltas around one benchmark command.
+The Dart benchmark worker also records Connectanum-owned RawSocket frame
+payload copies, small-fragment coalescing, pre-handshake queue copies, and
+WebSocket fragment coalescing. These counters are scoped to one workload
+window. They do not infer copies inside `dart:io`, socket/TLS implementations,
+or WebSocket masking performed by the Dart SDK.
 
-Missing active-path counters fail closed. Older native libraries without the
-optional snapshot symbol leave affected fields `not_measured`. Dart-managed
-socket masking, TLS copies and mixed-serializer router transcodes remain
-`not_measured`; those rows cannot pass the copy gate.
-The current counters therefore provide native-path attribution only and do not
-complete the required coverage or establish FlatBuffers parity.
+`transport_copy_bytes` sums measured copy operations across the client worker
+and router process for the active cleartext path. A payload can be counted
+again at a later layer, so this aggregate is copy traffic, not unique
+application bytes. Builder input/growth and any transcode copies stay
+separate. Each report includes a `known_own_transport_copy_bytes` lower bound
+and a per-path breakdown even when the full transport total cannot be measured.
+The evaluator accepts a numeric transport total only when
+`coverage.transport_copy_bytes` is `complete_connectanum_owned_path` and
+`coverage.unknown_boundaries` is empty. Missing or partial coverage fails the
+campaign gate.
+
+TLS rows keep `transport_copy_bytes` and `tls_copy_bytes` as `not_measured`
+because the current Rustls counter measures accepted plaintext, not copies;
+`tls_plaintext_accepted_bytes` is a throughput diagnostic. Mixed-serializer
+router transcodes are also not measured. Snapshots use before/after deltas
+around one benchmark command. Older native libraries without the optional
+snapshot symbol leave affected fields unmeasured, so those rows cannot claim
+complete coverage or establish FlatBuffers parity.
 
 ## Campaign evaluator status
 

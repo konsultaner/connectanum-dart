@@ -1,17 +1,18 @@
-import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_core/connectanum_core.dart';
-
-import 'websocket_transport_serialization.dart';
-import '../../transport/abstract_transport.dart';
-import '../../transport/native/canonical_base64_io.dart';
 import 'package:connectanum_core/json_serializer.dart' as serializer_json;
 import 'package:connectanum_core/msgpack_serializer.dart' as serializer_msgpack;
 import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
+
+import '../../transport/abstract_transport.dart';
+import '../../transport/native/canonical_base64_io.dart';
+import '../dart_transport_copy_metrics.dart';
+import 'websocket_transport_serialization.dart';
 
 /// This transport type is used to connect via web sockets
 /// in a dart vm environment. A known issue is that this
@@ -238,6 +239,11 @@ class WebSocketTransport extends AbstractTransport {
         builder.add(fragment);
       }
       final serializedMessage = builder.takeBytes();
+      if (fragments.length > 1 && serializedMessage.isNotEmpty) {
+        DartTransportCopyMetrics.recordWebSocketFragmentCoalesceCopy(
+          serializedMessage.length,
+        );
+      }
       if (serializedMessage.isEmpty) {
         _sendSerializedMessage(message);
         return;

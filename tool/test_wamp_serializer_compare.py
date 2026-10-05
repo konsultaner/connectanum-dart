@@ -80,6 +80,10 @@ class WampSerializerCompareTest(unittest.TestCase):
                 "builder_input_copy_bytes": 0,
                 "builder_growth_copy_bytes": 0,
                 "transport_copy_bytes": 512,
+                "coverage": {
+                    "transport_copy_bytes": "complete_connectanum_owned_path",
+                    "unknown_boundaries": [],
+                },
                 "websocket_mask_copy_bytes": {
                     "status": "not_applicable",
                     "reason": "RawSocket row",
@@ -255,6 +259,47 @@ class WampSerializerCompareTest(unittest.TestCase):
         findings = compare._validate_evidence(report, label="missing-server")
 
         self.assertTrue(any("missing server_process_metrics" in f for f in findings))
+
+    def test_rejects_transport_copy_total_without_complete_coverage(self) -> None:
+        for coverage in (
+            None,
+            {"transport_copy_bytes": "partial", "unknown_boundaries": []},
+            {
+                "transport_copy_bytes": "complete_connectanum_owned_path",
+                "unknown_boundaries": ["Dart socket write behavior"],
+            },
+        ):
+            with self.subTest(coverage=coverage):
+                report = self._report("case_flatbuffers", "flatbuffers", 0)
+                if coverage is None:
+                    report["copy_metrics"].pop("coverage")
+                else:
+                    report["copy_metrics"]["coverage"] = coverage
+
+                findings = compare._validate_evidence(
+                    report,
+                    label="incomplete-copy-coverage",
+                )
+
+                self.assertTrue(
+                    any(
+                        "coverage" in finding or "transport_copy_bytes" in finding
+                        for finding in findings
+                    )
+                )
+
+    def test_rejects_not_applicable_transport_copy_total(self) -> None:
+        report = self._report("case_flatbuffers", "flatbuffers", 0)
+        report["copy_metrics"]["transport_copy_bytes"] = {
+            "status": "not_applicable",
+            "reason": "claimed unavailable",
+        }
+
+        findings = compare._validate_evidence(report, label="not-applicable-copy")
+
+        self.assertTrue(
+            any("transport_copy_bytes cannot be not_applicable" in item for item in findings)
+        )
 
     def test_rejects_unmeasured_zero_process_cpu_and_allocations(self) -> None:
         report = self._report("case_flatbuffers", "flatbuffers", 0)

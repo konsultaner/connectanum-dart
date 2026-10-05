@@ -259,9 +259,9 @@ truncation, indefinite-string chunk violations and trailing values before callin
 the materializer. These rules follow the WAMP dictionary contract and RFC 8949.
 See [WAMP dictionary rules](https://wamp-proto.org/wamp_latest_ietf.html) and
 [RFC 8949](https://datatracker.ietf.org/doc/html/rfc8949).
-Public message reconstruction is available through the stateless Dart serializer.
-Transport factories and session negotiation remain pending. Retaining encoded
-vectors does not make mutable input safe to borrow.
+Public message reconstruction is available through the stateless Dart serializer,
+and transport factories use the negotiated session profile described below.
+Retaining encoded vectors does not make mutable input safe to borrow.
 
 ## Native Rust codec
 
