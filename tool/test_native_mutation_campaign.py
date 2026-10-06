@@ -457,6 +457,35 @@ def fixture(root, delay=200, marker=None):
 
 
 class RealCampaignTests(unittest.TestCase):
+    def setUp(self):
+        process_snapshot = patch.object(collector.resources, 'competing_processes', return_value=[])
+        process_snapshot.start()
+        self.addCleanup(process_snapshot.stop)
+
+    def test_real_guarded_campaign_rejects_competing_inference_without_score_or_signal(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / 'repo'
+            fixture(root, delay=1)
+            output = base / 'contended'
+            process = {'pid': 811, 'ppid': 7, 'state': 'S', 'executable': 'Python',
+                       'script': 'ollama_companion.py', 'role': 'review'}
+            limits = collector.resources.DiskLimits(1, 1024 ** 3, .02)
+            with patch.object(collector.resources, 'competing_processes', return_value=[process]), \
+                    patch.object(os, 'kill') as signal_process, \
+                    self.assertRaisesRegex(RuntimeError, 'competing local inference'):
+                campaign.collect_campaign(root, output, self.analyzer,
+                                          'core-all', 1, 1, 1,
+                                          resource_limits=limits)
+            signal_process.assert_not_called()
+            manifest = json.loads((output / 'campaign-manifest.json').read_text())
+            self.assertFalse(manifest['complete'])
+            self.assertNotIn('gatePassed', manifest)
+            self.assertFalse((output / 'combined.json').exists())
+            summary = json.loads((output / 'batch-0000/resource-summary.json').read_text())
+            self.assertEqual(summary['competingProcesses'], [process])
+            self.assertFalse(summary['withinLimits'])
+
     def test_guarded_real_campaign_is_reauditable_and_reuse_requires_matching_limits(self):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
@@ -472,6 +501,7 @@ class RealCampaignTests(unittest.TestCase):
             self.assertEqual(report['counts'], {'killed': 8})
             self.assertTrue(report['evidenceClean'])
             self.assertEqual(report['resourceLimits']['reserve_bytes'], 1)
+            self.assertEqual(report['resourceSchemaVersion'], collector.resources.SCHEMA_VERSION)
             for directory in directories:
                 manifest = json.loads((directory / 'run-manifest.json').read_text())
                 collector.resources.validate_evidence(directory, manifest)

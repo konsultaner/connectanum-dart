@@ -48,6 +48,7 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
                 'batches': [], 'maxConcurrentWorkers': 0}
     if resource_limits is not None:
         manifest['resourceLimits'] = asdict(resource_limits)
+        manifest['resourceSchemaVersion'] = resources.SCHEMA_VERSION
     if sample_count is not None:
         manifest.update(timingOnly=True, sampledBatchIndexes=selected)
     manifest_path = output / 'campaign-manifest.json'
@@ -71,7 +72,8 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
             if (inspected['target'] != target or inspected['inventory'] != full
                     or inspected['inputHashes'] != inputs or inspected['toolHashes'] != tools
                     or inspected['executionFingerprint'] != execution
-                    or inspected.get('resourceLimits') != manifest.get('resourceLimits')):
+                    or inspected.get('resourceLimits') != manifest.get('resourceLimits')
+                    or inspected.get('resourceSchemaVersion') != manifest.get('resourceSchemaVersion')):
                 raise ValueError('Reused batches differ from the pinned campaign')
             for path, report in zip(reuse, inspected['reports']):
                 index = report['batch']['index']
@@ -153,7 +155,8 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
             if (inspected['inventory'] != full or inspected['inputHashes'] != inputs
                     or inspected['toolHashes'] != tools
                     or inspected['executionFingerprint'] != execution
-                    or inspected.get('resourceLimits') != manifest.get('resourceLimits')):
+                    or inspected.get('resourceLimits') != manifest.get('resourceLimits')
+                    or inspected.get('resourceSchemaVersion') != manifest.get('resourceSchemaVersion')):
                 raise ValueError('Timing pilot differs from pinned campaign')
             pilot = {'timingOnly': True, 'wholeComponentComplete': False,
                      'generated': len(full), 'sampledBatchIndexes': selected,
@@ -170,7 +173,8 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
             root, [directories[index] for index in range(count)], analyzer)
         if (report['inputHashes'] != inputs or report['toolHashes'] != tools
                 or report['generated'] != len(full)
-                or report.get('resourceLimits') != manifest.get('resourceLimits')):
+                or report.get('resourceLimits') != manifest.get('resourceLimits')
+                or report.get('resourceSchemaVersion') != manifest.get('resourceSchemaVersion')):
             raise ValueError('Combined evidence differs from pinned campaign')
         with (output / 'combined.json').open('x') as destination:
             json.dump(report, destination, indent=2)

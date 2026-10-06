@@ -246,6 +246,7 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
                     ['cargo', 'mutants', '--version'], text=True).strip()}
     if resource_limits is not None:
         manifest['resourceLimits'] = asdict(resource_limits)
+        manifest['resourceSchemaVersion'] = resources.SCHEMA_VERSION
         cancel_event = cancel_event if cancel_event is not None else threading.Event()
     if manifest['cargoMutantsVersion'] != 'cargo-mutants 27.1.0':
         raise ValueError('Require cargo-mutants 27.1.0')

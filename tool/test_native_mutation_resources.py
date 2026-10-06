@@ -25,10 +25,93 @@ class ResourceTests(unittest.TestCase):
         self.output = self.root / 'evidence'
         self.output.mkdir()
         self.cancel = threading.Event()
+        self.real_competing_processes = resources.competing_processes
+        process_snapshot = patch.object(resources, 'competing_processes', return_value=[])
+        process_snapshot.start()
+        self.addCleanup(process_snapshot.stop)
 
     def guard(self, reserve=1, maximum=1024 * 1024, interval=.01):
         return resources.DiskGuard(self.work, self.output, self.cancel,
                                    resources.DiskLimits(reserve, maximum, interval))
+
+    @staticmethod
+    def companion(pid=101, script='ollama_companion.py', role='review'):
+        return {'pid': pid, 'ppid': 7, 'state': 'S', 'executable': 'Python',
+                'script': script, 'role': role}
+
+    def test_process_parser_detects_only_active_companion_requests(self):
+        processes = '''
+  101   7 501 S  /opt/homebrew/bin/Python /skills/ollama_companion.py review --prompt secret
+  102   7 501 S  /usr/bin/Python /skills/llama_companion.py tests --file source.dart
+  103   1 501 S  /Applications/Ollama/llama-server --model cached.gguf
+  104   7 501 S  /usr/bin/Python -m unittest test_ollama_companion.py
+  105   7 501 S  /bin/zsh -c python3 /skills/ollama_companion.py review
+  106   7 501 Z  /usr/bin/Python /skills/ollama_companion.py review
+  107   7 777 S  /usr/bin/Python /skills/ollama_companion.py review
+  108   7 501 S  rg ollama_companion.py
+'''
+        detected = resources.parse_competing_processes(processes, uid=501)
+        self.assertEqual(detected, [self.companion(),
+                                   self.companion(102, 'llama_companion.py', 'tests')])
+        self.assertNotIn('secret', json.dumps(detected))
+        self.assertNotIn('/skills/', json.dumps(detected))
+
+    def test_detector_uses_a_bounded_process_snapshot(self):
+        completed = type('Completed', (), {'stdout':
+            ' 101 7 501 S /usr/bin/Python /skills/ollama_companion.py review\n'})()
+        with patch.object(resources.subprocess, 'run', return_value=completed) as run:
+            self.assertEqual(self.real_competing_processes(), [self.companion()])
+        run.assert_called_once_with(
+            ['ps', '-ww', '-axo', 'pid=,ppid=,uid=,state=,args='],
+            capture_output=True, text=True, check=True, timeout=5)
+
+    def test_active_companion_blocks_start_without_signalling_foreign_process(self):
+        process = self.companion()
+        with patch.object(resources, 'competing_processes', return_value=[process]), \
+                patch.object(os, 'kill') as signal_process, \
+                self.assertRaisesRegex(RuntimeError, 'competing local inference'):
+            with self.guard():
+                self.fail('Unsafe mutation worker started')
+        signal_process.assert_not_called()
+        self.assertTrue(self.cancel.is_set())
+        summary = json.loads((self.output / 'resource-summary.json').read_text())
+        self.assertFalse(summary['withinLimits'])
+        self.assertEqual(summary['competingProcesses'], [process])
+        self.assertNotIn('complete', summary)
+        self.assertNotIn('gatePassed', summary)
+
+    def test_midrun_companion_cancels_owned_work_without_signalling_foreign_process(self):
+        process = self.companion()
+        snapshots = iter(([], [process], []))
+        with patch.object(resources, 'competing_processes', side_effect=lambda: next(snapshots)), \
+                patch.object(os, 'kill') as signal_process, \
+                self.assertRaisesRegex(RuntimeError, 'competing local inference'):
+            with self.guard(interval=.01) as guard:
+                self.assertTrue(self.cancel.wait(3))
+                guard.check()
+        signal_process.assert_not_called()
+        summary = json.loads((self.output / 'resource-summary.json').read_text())
+        self.assertEqual(summary['competingProcesses'], [process])
+        rows = [json.loads(line) for line in
+                (self.output / 'resources.jsonl').read_text().splitlines()]
+        self.assertTrue(any(row['competingProcesses'] == [process] for row in rows))
+
+    def test_audit_rejects_success_evidence_containing_competing_inference(self):
+        with patch.object(resources, 'competing_processes', return_value=[]):
+            with self.guard():
+                pass
+        process = self.companion()
+        samples = self.output / 'resources.jsonl'
+        rows = [json.loads(line) for line in samples.read_text().splitlines()]
+        rows[-1]['competingProcesses'] = [process]
+        samples.write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
+        summary_path = self.output / 'resource-summary.json'
+        summary = json.loads(summary_path.read_text())
+        summary['competingProcesses'] = [process]
+        summary['peakCompetingProcesses'] = 1
+        summary_path.write_text(json.dumps(summary))
+        with self.assertRaisesRegex(ValueError, 'competing'):
+            resources.validate_evidence(self.output, self.manifest())
 
     def test_payload_growth_cannot_bypass_private_scratch_limit(self):
         temporary = self.work / 'tmp'
@@ -59,7 +142,7 @@ class ResourceTests(unittest.TestCase):
             pass
         path = self.output / 'resource-summary.json'
         summary = json.loads(path.read_text())
-        self.assertEqual(summary['schemaVersion'], 2)
+        self.assertEqual(summary['schemaVersion'], 3)
         self.assertEqual(summary['peakTemporaryLogicalBytes'], 1024)
         self.assertGreater(summary['peakTemporaryAllocatedBytes'], 0)
         resources.validate_evidence(self.output, self.manifest())
@@ -75,7 +158,7 @@ class ResourceTests(unittest.TestCase):
         summary = json.loads(path.read_text())
         summary['schemaVersion'] = 1
         path.write_text(json.dumps(summary))
-        with self.assertRaisesRegex(ValueError, 'schema 2'):
+        with self.assertRaisesRegex(ValueError, 'schema 2 or later'):
             resources.validate_evidence(self.output, {**self.manifest(), 'privateTemporaryDirectory': 'tmp'})
 
     def test_schema_two_rejects_missing_or_invalid_temporary_samples(self):
@@ -120,17 +203,61 @@ class ResourceTests(unittest.TestCase):
         path = self.output / 'resource-summary.json'
         summary = json.loads(path.read_text())
         summary['schemaVersion'] = 1
+        summary.pop('competingProcesses')
+        summary.pop('peakCompetingProcesses')
         path.write_text(json.dumps(summary))
         samples = self.output / 'resources.jsonl'
         rows = [json.loads(line) for line in samples.read_text().splitlines()]
         for row in rows:
             row.pop('temporary')
+            row.pop('competingProcesses')
         samples.write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
-        resources.validate_evidence(self.output, self.manifest())
+        manifest = self.manifest()
+        manifest.pop('resourceSchemaVersion')
+        resources.validate_evidence(self.output, manifest)
         summary['peakCacheAllocatedBytes'] += 1
         path.write_text(json.dumps(summary))
         with self.assertRaisesRegex(ValueError, 'summary'):
             resources.validate_evidence(self.output, self.manifest())
+
+    def test_historical_schema_two_still_requires_matching_temporary_evidence(self):
+        with patch.object(resources, 'competing_processes', return_value=[]):
+            with self.guard():
+                pass
+        summary_path = self.output / 'resource-summary.json'
+        summary = json.loads(summary_path.read_text())
+        summary['schemaVersion'] = 2
+        summary.pop('competingProcesses')
+        summary.pop('peakCompetingProcesses')
+        summary_path.write_text(json.dumps(summary))
+        samples = self.output / 'resources.jsonl'
+        rows = [json.loads(line) for line in samples.read_text().splitlines()]
+        for row in rows:
+            row.pop('competingProcesses')
+        samples.write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
+        manifest = self.manifest()
+        manifest.pop('resourceSchemaVersion')
+        resources.validate_evidence(self.output, manifest)
+
+    def test_current_manifest_cannot_downgrade_competing_process_evidence(self):
+        with self.guard():
+            pass
+        manifest = self.manifest()
+        summary_path = self.output / 'resource-summary.json'
+        summary = json.loads(summary_path.read_text())
+        summary['schemaVersion'] = 2
+        summary.pop('competingProcesses')
+        summary.pop('peakCompetingProcesses')
+        summary_path.write_text(json.dumps(summary))
+        samples = self.output / 'resources.jsonl'
+        rows = [json.loads(line) for line in samples.read_text().splitlines()]
+        for row in rows:
+            row.pop('competingProcesses')
+        samples.write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
+        manifest['resourceSummarySha256'] = hashlib.sha256(summary_path.read_bytes()).hexdigest()
+        manifest['resourceSamplesSha256'] = hashlib.sha256(samples.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(ValueError, 'schema differs'):
+            resources.validate_evidence(self.output, manifest)
 
     def test_tree_counts_logical_and_allocated_bytes_once_without_following_links(self):
         cache = self.work / 'target'
@@ -207,6 +334,18 @@ class ResourceTests(unittest.TestCase):
                     guard.check()
         self.assertFalse(guard.thread.is_alive())
 
+    def test_companion_detection_error_fails_closed_before_worker_start(self):
+        guard = self.guard()
+        with patch.object(resources, 'competing_processes', side_effect=OSError('denied')), \
+                self.assertRaisesRegex(RuntimeError, 'sampling'):
+            with guard:
+                self.fail('Unsafe mutation worker started')
+        self.assertTrue(self.cancel.is_set())
+        self.assertIsNone(guard.thread)
+        summary = json.loads((self.output / 'resource-summary.json').read_text())
+        self.assertFalse(summary['withinLimits'])
+        self.assertIn('OSError: denied', summary['failure'])
+
     def test_post_command_final_sample_can_prevent_false_completion(self):
         with self.assertRaisesRegex(RuntimeError, 'reserve'):
             with self.guard() as guard:
@@ -239,7 +378,9 @@ class ResourceTests(unittest.TestCase):
         self.assertNotIn('gatePassed', summary)
 
     def manifest(self):
-        return {'resourceLimits': json.loads((self.output / 'resource-summary.json').read_text())['limits'],
+        summary = json.loads((self.output / 'resource-summary.json').read_text())
+        return {'resourceLimits': summary['limits'],
+                'resourceSchemaVersion': summary['schemaVersion'],
                 'resourceSummarySha256': hashlib.sha256(
                     (self.output / 'resource-summary.json').read_bytes()).hexdigest(),
                 'resourceSamplesSha256': hashlib.sha256(

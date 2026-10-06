@@ -38,6 +38,42 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work420 Resource Competition Guard And Ownership Retry
+
+Promote native resource evidence to schema three. Observe active same-user
+local companion requests with one bounded process census, retain only sanitized
+PID/state/executable/script/role fields, and cooperatively cancel this campaign
+without signalling or otherwise controlling the foreign process. Detection
+failure, any observed competition, mixed batch schemas and forged successful
+evidence fail closed. Keep historical schema-one/two reports auditable under
+their archived tools; never reinterpret them as matching current evidence.
+
+A real four-worker Core mini-campaign reproduces intermittent restored-baseline
+rejection when macOS ownership inspection receives more than one transient
+`KERN_PROCARGS2` `EIO` during process teardown. Read ownership afresh up to five
+times with 10-ms spacing (40 ms total). Return only an actually observed exact
+owner-token match. Non-`EIO` and persistent failures remain infrastructure
+errors without score credit; identity-bound signalling, tests, assertions,
+operators, deadlines and gates are unchanged. Fail-first and focused checks
+pass: resource suite 29, combined mutation tooling 108, Dart runner 99 with one
+platform skip, and a real eleven-candidate FFI probe killed by assertions across
+four disjoint shards. Twenty consecutive real four-worker Core mini-campaigns
+pass after the retry fix. Fresh canonical `bin/verify` exits zero, including
+actual Chrome and Dart2Wasm suites. No mutation/Cargo owner remains.
+
+The first full-campaign admission observes only 6.4 GiB available against the
+unchanged eleven-GiB startup budget. Hash and preserve every non-generated file
+in the old ignored WAMP-app smoke workspaces, prove no open-file/CWD user, then
+remove only 168 reproducible Flutter caches (`client/build`, `client/.dart_tool`,
+`client/android/.gradle`, and `client/ios/Pods`). All 19,738 retained source,
+state and log hashes match after cleanup; no mutation result or raw evidence is
+removed. Available space reaches 76 GiB. Freeze this verified state in a local-
+only checkpoint, generate a fresh ignored supervisor and run exact complete Core
+then FFI inventories with four workers/four Cargo jobs, the four-GiB reserve,
+unchanged assertion gate and independent archived-tool reaudits. Do not overlap
+timed work with verification, builds, benchmarks, cleanup or model inference.
+Both 95% gates and the detailed actual report remain open; no push/publication.
+
 ### Work419 Iterative MessagePack Scanner And Assertion-Proven Diagnostics
 
 A valid 100,000-level lazy MessagePack payload aborts the pre-change native test

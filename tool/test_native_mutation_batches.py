@@ -211,6 +211,17 @@ class BatchEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'snapshot input changed'):
             self.audit()
 
+    def test_batches_reject_mixed_resource_schema_versions(self):
+        limits = {'reserve_bytes': 1, 'max_cache_bytes': 2, 'interval_seconds': 3}
+        for directory, version in zip(self.directories, (2, 3)):
+            path = directory / 'run-manifest.json'
+            manifest = json.loads(path.read_text())
+            manifest.update(resourceLimits=limits, resourceSchemaVersion=version)
+            self.write(path, manifest)
+        with patch.object(batches.resources, 'validate_evidence'), \
+                self.assertRaisesRegex(ValueError, 'resource policy differs'):
+            self.audit()
+
     def test_changed_inventory_or_restored_baseline_rejected(self):
         directory = self.directories[1]
         path = directory / 'filtered-inventory.json'

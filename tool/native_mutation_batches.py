@@ -68,7 +68,7 @@ def inspect_batches(root, directories, analyzer):
     tools = {name: native_coverage.digest(tool_root / name) for name in collector.TOOL_INPUTS}
     execution = collector.execution_fingerprint()
     reports, evidence = [], []
-    full_inventory, target, resource_limits = None, None, None
+    full_inventory, target, resource_limits, resource_schema = None, None, None, None
     for directory in directories:
         manifest = json.loads((directory / 'run-manifest.json').read_text())
         if (manifest.get('complete') is not True or 'batch' not in manifest
@@ -84,7 +84,9 @@ def inspect_batches(root, directories, analyzer):
         resources.validate_evidence(directory, manifest)
         if target is None:
             resource_limits = manifest.get('resourceLimits')
-        elif manifest.get('resourceLimits') != resource_limits:
+            resource_schema = manifest.get('resourceSchemaVersion')
+        elif (manifest.get('resourceLimits') != resource_limits
+              or manifest.get('resourceSchemaVersion') != resource_schema):
             raise ValueError('Batch resource policy differs')
         if json.loads((directory / 'source-scopes.json').read_text()) != scope:
             raise ValueError('Batch AST scope differs')
@@ -139,7 +141,7 @@ def inspect_batches(root, directories, analyzer):
     return {'target': target, 'inputHashes': inputs, 'toolHashes': tools,
             'inventory': full_inventory, 'reports': reports, 'batches': evidence,
             'wholeComponentComplete': False, 'executionFingerprint': execution,
-            'resourceLimits': resource_limits}
+            'resourceLimits': resource_limits, 'resourceSchemaVersion': resource_schema}
 
 
 def audit_batches(root, directories, analyzer):
@@ -147,7 +149,7 @@ def audit_batches(root, directories, analyzer):
     result = combine_batches(inspected['reports'], inspected['inventory'])
     result.update({key: inspected[key] for key in
                    ('target', 'inputHashes', 'toolHashes', 'batches', 'executionFingerprint',
-                    'resourceLimits')})
+                    'resourceLimits', 'resourceSchemaVersion')})
     return result
 
 

@@ -21,6 +21,7 @@ import time
 
 
 PROCESS_OWNER_VARIABLE = 'CONNECTANUM_MUTATION_COMMAND_OWNER'
+MAC_OWNERSHIP_ATTEMPTS = 5
 
 
 def mac_environment_has_owner(raw, owner):
@@ -46,14 +47,16 @@ def process_has_owner(pid, token):
         return owner in Path(f'/proc/{pid}/environ').read_bytes().split(b'\0')
     if sys.platform != 'darwin':
         raise OSError('Mutation process ownership requires Linux or macOS')
-    # A process map can change between sysctl reads. Retry once, never infer
-    # disappearance or ownership from EIO, and preserve persistent failures.
-    for attempt in range(2):
+    # A process map can change repeatedly during parallel Cargo teardown. Use
+    # bounded fresh reads, never infer disappearance or ownership from EIO, and
+    # preserve persistent failures as infrastructure errors.
+    for attempt in range(MAC_OWNERSHIP_ATTEMPTS):
         try:
             return mac_process_has_owner(pid, owner)
         except OSError as error:
-            if error.errno != errno.EIO or attempt:
+            if error.errno != errno.EIO or attempt == MAC_OWNERSHIP_ATTEMPTS - 1:
                 raise
+            time.sleep(.01)
 
 
 def mac_process_has_owner(pid, owner):

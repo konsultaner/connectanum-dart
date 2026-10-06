@@ -1046,6 +1046,7 @@ class NativeMutationTests(unittest.TestCase):
             with patch.object(collector.native_coverage, 'snapshot', return_value=scope), \
                     patch.object(collector.native_coverage, 'digest', return_value='hash'), \
                     patch.object(collector.subprocess, 'check_output', return_value='cargo-mutants 27.1.0\n'), \
+                    patch.object(collector.resources, 'competing_processes', return_value=[]), \
                     patch.object(collector, 'copy_inputs'), \
                     patch.object(collector, 'run', side_effect=command), \
                     patch.object(collector.native_mutations, 'audit') as auditor:

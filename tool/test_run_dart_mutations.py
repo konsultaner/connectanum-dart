@@ -782,8 +782,32 @@ class MutationRunnerTests(unittest.TestCase):
                         self.assertEqual(buffer.raw, b'\0' * len(buffer))
         self.assertEqual(dict(os.environ), original_environment)
 
+    def test_mac_ownership_retries_a_bounded_transient_eio_burst(self):
+        owner = b'CONNECTANUM_MUTATION_COMMAND_OWNER=fixture-owner'
+        raw = ((1).to_bytes(4, sys.byteorder, signed=True)
+               + b'/bin/fixture\0\0fixture\0' + owner + b'\0')
+        calls = []
+
+        def query(mib, count, buffer, size, new, length):
+            calls.append('size' if buffer is None else 'data')
+            if len(calls) <= 4:
+                ctypes.set_errno(errno.EIO)
+                return -1
+            size._obj.value = len(raw)
+            if buffer is not None:
+                ctypes.memmove(buffer, raw, len(raw))
+            return 0
+
+        with patch.object(runner.sys, 'platform', 'darwin'), \
+                patch.object(runner.ctypes, 'CDLL', return_value=SimpleNamespace(sysctl=query)), \
+                patch.object(runner.time, 'sleep') as sleep:
+            self.assertTrue(runner.process_has_owner(12345, 'fixture-owner'))
+        self.assertEqual(calls, ['size', 'size', 'size', 'size', 'size', 'data'])
+        self.assertEqual(sleep.call_count, 4)
+
     def test_mac_ownership_persistent_eio_and_other_errors_fail_closed(self):
-        for error, expected_calls in ((errno.EIO, 2), (errno.EACCES, 1),
+        for error, expected_calls in ((errno.EIO, runner.MAC_OWNERSHIP_ATTEMPTS),
+                                      (errno.EACCES, 1),
                                       (errno.EPERM, 1), (errno.ENOMEM, 1)):
             with self.subTest(error=error):
                 calls = []

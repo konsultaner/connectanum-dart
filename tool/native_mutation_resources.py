@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Observe only private mutation caches; exhaustion cancels, never earns kills."""
+"""Observe private mutation resources and host contention without kill credit."""
 
 import argparse
 from dataclasses import asdict, dataclass
@@ -10,8 +10,14 @@ import math
 import os
 from pathlib import Path
 import stat
+import subprocess
 import threading
 import time
+
+
+COMPANION_SCRIPTS = frozenset(('ollama_companion.py', 'llama_companion.py'))
+COMPANION_ROLES = frozenset(('ask', 'debug', 'judge', 'review', 'summarize', 'tests'))
+SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -48,6 +54,43 @@ def add_arguments(parser):
 def available_bytes(path):
     disk = os.statvfs(path)
     return disk.f_bavail * disk.f_frsize
+
+
+def parse_competing_processes(output, uid=None):
+    """Return sanitized identities for active local companion requests."""
+    expected_uid = os.getuid() if uid is None else uid
+    detected = {}
+    for line in output.splitlines():
+        fields = line.split(maxsplit=4)
+        if len(fields) != 5:
+            continue
+        pid, ppid, owner, state, command = fields
+        try:
+            pid, ppid, owner = int(pid), int(ppid), int(owner)
+        except ValueError:
+            continue
+        if owner != expected_uid or pid <= 0 or ppid < 0 or not state or state[0] in ('Z', 'X'):
+            continue
+        arguments = command.split()
+        if len(arguments) < 3:
+            continue
+        executable = Path(arguments[0]).name
+        script = Path(arguments[1]).name
+        role = arguments[2]
+        if (not executable.lower().startswith(('python', 'pypy'))
+                or script not in COMPANION_SCRIPTS or role not in COMPANION_ROLES):
+            continue
+        detected[pid] = {'pid': pid, 'ppid': ppid, 'state': state,
+                         'executable': executable, 'script': script, 'role': role}
+    return [detected[pid] for pid in sorted(detected)]
+
+
+def competing_processes():
+    result = subprocess.run(
+        ['ps', '-ww', '-axo', 'pid=,ppid=,uid=,state=,args='],
+        capture_output=True, text=True, check=True, timeout=5,
+    )
+    return parse_competing_processes(result.stdout)
 
 
 def tree_usage(path, children=()):
@@ -115,14 +158,20 @@ def validate_evidence(directory, manifest):
     summary = json.loads(documents['resource-summary.json'])
     rows = [json.loads(line) for line in documents['resources.jsonl'].splitlines()]
     version = summary.get('schemaVersion')
-    if (type(version) is not int or version not in (1, 2) or summary.get('withinLimits') is not True
+    if (type(version) is not int or version not in (1, 2, 3) or summary.get('withinLimits') is not True
             or summary.get('failure') is not None or summary.get('limits') != limits
             or type(summary.get('samples')) is not int
             or summary.get('samples') != len(rows) or len(rows) < 2):
         raise ValueError('Resource observation did not finish within limits')
-    if manifest.get('privateTemporaryDirectory') is not None and version != 2:
-        raise ValueError('Private temporary observation requires resource schema 2')
+    expected_version = manifest.get('resourceSchemaVersion')
+    if ((expected_version is not None and expected_version != version)
+            or (version == SCHEMA_VERSION and expected_version != SCHEMA_VERSION)):
+        raise ValueError('Resource evidence schema differs from its manifest')
+    if manifest.get('privateTemporaryDirectory') is not None and version < 2:
+        raise ValueError('Private temporary observation requires resource schema 2 or later')
     elapsed = -1
+    observed_competition = {}
+    peak_competition = 0
     for row in rows:
         for value in (row['elapsedSeconds'], row['samplingSeconds']):
             if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
@@ -131,7 +180,7 @@ def validate_evidence(directory, manifest):
             raise ValueError('Resource sampling order differs')
         elapsed = row['elapsedSeconds']
         values = [row['availableBytes'], *row['cache'].values()]
-        temporary = row.get('temporary') if version == 2 else {'logicalBytes': 0, 'allocatedBytes': 0}
+        temporary = row.get('temporary') if version >= 2 else {'logicalBytes': 0, 'allocatedBytes': 0}
         if not isinstance(temporary, dict) or not {'logicalBytes', 'allocatedBytes'} <= temporary.keys():
             raise ValueError('Missing private temporary resource observation')
         values.extend(temporary.values())
@@ -142,6 +191,22 @@ def validate_evidence(directory, manifest):
                        row['cache']['allocatedBytes'] + temporary['allocatedBytes'])
                 > policy.max_cache_bytes):
             raise ValueError('Resource samples exceed limits')
+        competition = row.get('competingProcesses') if version == 3 else []
+        if not isinstance(competition, list):
+            raise ValueError('Invalid competing-process evidence')
+        for process in competition:
+            if (not isinstance(process, dict)
+                    or set(process) != {'pid', 'ppid', 'state', 'executable', 'script', 'role'}
+                    or type(process['pid']) is not int or process['pid'] <= 0
+                    or type(process['ppid']) is not int or process['ppid'] < 0
+                    or not isinstance(process['state'], str) or not process['state']
+                    or not isinstance(process['executable'], str) or not process['executable']
+                    or '/' in process['executable']
+                    or process['script'] not in COMPANION_SCRIPTS
+                    or process['role'] not in COMPANION_ROLES):
+                raise ValueError('Invalid competing-process evidence')
+            observed_competition[(process['pid'], process['script'], process['role'])] = process
+        peak_competition = max(peak_competition, len(competition))
     peaks = {
         'minimumAvailableBytes': min(row['availableBytes'] for row in rows),
         'peakCacheLogicalBytes': max(row['cache']['logicalBytes'] for row in rows),
@@ -149,7 +214,7 @@ def validate_evidence(directory, manifest):
     }
     if any(type(summary.get(key)) is not int or summary[key] != value for key, value in peaks.items()):
         raise ValueError('Resource summary differs from samples')
-    if version == 2:
+    if version >= 2:
         peaks = {
             'peakTemporaryLogicalBytes': max(row['temporary']['logicalBytes'] for row in rows),
             'peakTemporaryAllocatedBytes': max(row['temporary']['allocatedBytes'] for row in rows),
@@ -158,6 +223,14 @@ def validate_evidence(directory, manifest):
         }
         if any(type(summary.get(key)) is not int or summary[key] != value for key, value in peaks.items()):
             raise ValueError('Temporary resource summary differs from samples')
+    if version == 3:
+        competition = [observed_competition[key] for key in sorted(observed_competition)]
+        if (summary.get('competingProcesses') != competition
+                or type(summary.get('peakCompetingProcesses')) is not int
+                or summary['peakCompetingProcesses'] != peak_competition):
+            raise ValueError('Competing-process summary differs from samples')
+        if competition:
+            raise ValueError('Resource samples contain competing local inference')
 
 
 class DiskGuard:
@@ -175,6 +248,8 @@ class DiskGuard:
         self.peak_logical = self.peak_allocated = 0
         self.peak_temporary_logical = self.peak_temporary_allocated = 0
         self.peak_scratch_logical = self.peak_scratch_allocated = 0
+        self.peak_competing = 0
+        self.competing = {}
 
     def fail(self, message):
         self.failure = self.failure or message
@@ -186,6 +261,7 @@ class DiskGuard:
             cache = tree_usage(self.work / 'target')
             incremental = tree_usage(self.work / 'target', ('debug', 'incremental'))
             temporary = tree_usage(self.work / 'tmp')
+            competition = competing_processes()
             free = min(available_bytes(self.work), available_bytes(self.output))
             self.minimum_free = free if self.minimum_free is None else min(self.minimum_free, free)
             self.peak_logical = max(self.peak_logical, cache['logicalBytes'])
@@ -196,10 +272,14 @@ class DiskGuard:
             self.peak_temporary_allocated = max(self.peak_temporary_allocated, temporary['allocatedBytes'])
             self.peak_scratch_logical = max(self.peak_scratch_logical, scratch_logical)
             self.peak_scratch_allocated = max(self.peak_scratch_allocated, scratch_allocated)
+            self.peak_competing = max(self.peak_competing, len(competition))
+            for process in competition:
+                self.competing[(process['pid'], process['script'], process['role'])] = process
             row = {'utc': datetime.now(timezone.utc).isoformat(),
                    'elapsedSeconds': time.monotonic() - self.started,
                    'availableBytes': free, 'cache': cache, 'incremental': incremental,
                    'temporary': temporary,
+                   'competingProcesses': competition,
                    'samplingSeconds': time.monotonic() - started}
             self.stream.write(json.dumps(row) + '\n')
             self.stream.flush()
@@ -210,6 +290,10 @@ class DiskGuard:
                 self.fail('Private mutation cache exceeded limit')
             if max(scratch_logical, scratch_allocated) > self.limits.max_cache_bytes:
                 self.fail('Private mutation scratch exceeded limit')
+            if competition:
+                identities = ', '.join(
+                    f"PID {item['pid']} {item['script']} {item['role']}" for item in competition)
+                self.fail(f'competing local inference detected: {identities}')
         except Exception as error:
             self.fail(f'Mutation resource sampling failed: {type(error).__name__}: {error}')
 
@@ -250,7 +334,8 @@ class DiskGuard:
             self.stream.close()
         if self.cancel.is_set() and not self.failure:
             self.fail('Mutation resource observation cancelled')
-        self.summary = {'schemaVersion': 2, 'limits': asdict(self.limits),
+        competition = [self.competing[key] for key in sorted(self.competing)]
+        self.summary = {'schemaVersion': SCHEMA_VERSION, 'limits': asdict(self.limits),
                         'workspace': str(self.work), 'samples': self.samples,
                         'minimumAvailableBytes': self.minimum_free,
                         'peakCacheLogicalBytes': self.peak_logical,
@@ -259,6 +344,8 @@ class DiskGuard:
                         'peakTemporaryAllocatedBytes': self.peak_temporary_allocated,
                         'peakScratchLogicalBytes': self.peak_scratch_logical,
                         'peakScratchAllocatedBytes': self.peak_scratch_allocated,
+                        'peakCompetingProcesses': self.peak_competing,
+                        'competingProcesses': competition,
                         'failure': self.failure, 'withinLimits': self.failure is None,
                         'elapsedSeconds': time.monotonic() - self.started,
                         'limitations': ['Periodic samples may miss brief peaks or overshoot a limit',

@@ -1,11 +1,36 @@
 # Project State
 
-Last updated: 2026-10-06
+Last updated: 2026-10-07
 Current branch: `codex/mutation-runner-speed`
 Current milestone: bound mutation-runner disk usage and measure complete native
 campaigns without narrowing inventories, test suites, deadlines or evidence gates.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work420: mutation resource evidence is now schema three and fails closed when
+another local companion request is active. Detection is same-user, bounded and
+sanitized; campaign cancellation remains cooperative and never signals the
+foreign process. Mixed schemas and forged successful evidence are rejected,
+while archived schema-one/two evidence remains independently auditable. A real
+four-worker Core mini-campaign exposed transient macOS `KERN_PROCARGS2` `EIO`
+bursts during restored-baseline teardown. Ownership inspection now performs up
+to five complete fresh reads across 40 ms; non-`EIO` and persistent failures
+remain uncredited infrastructure errors. Twenty consecutive real four-worker
+mini-campaigns pass after the fix. Resource checks (29), all mutation tooling
+checks (108), Dart runner checks (99 pass, one platform skip), and an eleven-
+candidate disjoint FFI probe pass. Fresh canonical `bin/verify` exits zero,
+including actual Chrome and Dart2Wasm suites. No mutation/Cargo owner remains.
+
+Full collection was initially inadmissible at 6.4 GiB available against the
+unchanged eleven-GiB startup budget. After proving no live file/CWD user, remove
+only 168 generated Flutter cache directories (`client/build`, `.dart_tool`,
+Android `.gradle`, and iOS `Pods`) from old ignored WAMP-app smoke workspaces.
+All 19,738 retained source, state and log file hashes match before/after; no
+mutation evidence is removed. Available space is now 76 GiB. Freeze a local-only
+checkpoint and start fresh exact full Core/FFI campaigns with the unchanged
+four-GiB reserve, tests, assertions, operators, deadlines and 95% gates. Neither
+native gate nor the requested full measurement report is complete. No
+push/publication.
 
 Work419: a valid 100,000-level MessagePack lazy payload reproduced a native
 stack overflow before the fix. The value scanner is now iterative and fails
