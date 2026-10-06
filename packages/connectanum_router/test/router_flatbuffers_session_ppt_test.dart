@@ -26,6 +26,8 @@ const _pairs = [
   ('cbor', 'flatbuffers'),
   ('flatbuffers', 'msgpack'),
   ('msgpack', 'flatbuffers'),
+  ('cbor', 'msgpack'),
+  ('msgpack', 'cbor'),
   ('flatbuffers', 'json'),
   ('json', 'flatbuffers'),
 ];
@@ -817,6 +819,31 @@ void main() {
                 expect(
                   caller.nativeCodes,
                   contains(core.MessageTypes.codeEvent),
+                );
+              }
+              if (pair.$1 != 'json' && pair.$2 != 'json') {
+                expect(
+                  harness.forwardedTypes,
+                  contains('worker_forward_native_invocation'),
+                );
+                expect(
+                  harness.forwardedTypes,
+                  contains(
+                    isError
+                        ? 'worker_forward_native_error'
+                        : 'worker_forward_native_result',
+                  ),
+                );
+                if (!isError) {
+                  expect(
+                    harness.forwardedTypes,
+                    contains('worker_forward_native_event'),
+                  );
+                }
+                expect(
+                  harness.forwardedTypes,
+                  isNot(contains('worker_forward_message')),
+                  reason: 'Binary PPT bodies must use native forwarding',
                 );
               }
               expect(harness.errors, isEmpty);

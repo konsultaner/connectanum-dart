@@ -236,6 +236,393 @@ fn mixed_forwarding_validates_flatbuffers_container_limits_and_transparent_mode(
     );
 }
 
+macro_rules! binary_ppt_direction_test {
+    ($name:ident, $source:ident, $target:ident) => {
+        #[test]
+        fn $name() {
+            let _guard = crate::tests::test_guard();
+            assert_binary_ppt_forwarding(
+                RawSocketSerializer::$source,
+                RawSocketSerializer::$target,
+            );
+        }
+    };
+}
+
+binary_ppt_direction_test!(binary_ppt_cbor_to_msgpack, Cbor, MessagePack);
+binary_ppt_direction_test!(binary_ppt_cbor_to_flatbuffers, Cbor, Flatbuffers);
+binary_ppt_direction_test!(binary_ppt_msgpack_to_cbor, MessagePack, Cbor);
+binary_ppt_direction_test!(binary_ppt_msgpack_to_flatbuffers, MessagePack, Flatbuffers);
+binary_ppt_direction_test!(binary_ppt_flatbuffers_to_cbor, Flatbuffers, Cbor);
+binary_ppt_direction_test!(binary_ppt_flatbuffers_to_msgpack, Flatbuffers, MessagePack);
+binary_ppt_direction_test!(binary_ppt_cbor_control, Cbor, Cbor);
+binary_ppt_direction_test!(binary_ppt_msgpack_control, MessagePack, MessagePack);
+binary_ppt_direction_test!(binary_ppt_flatbuffers_control, Flatbuffers, Flatbuffers);
+
+#[test]
+fn binary_ppt_rejected_shapes_keep_the_source_handle() {
+    let _guard = crate::tests::test_guard();
+    for source in [
+        RawSocketSerializer::Cbor,
+        RawSocketSerializer::MessagePack,
+        RawSocketSerializer::Flatbuffers,
+    ] {
+        let valid = if source == RawSocketSerializer::Flatbuffers {
+            WampPayload {
+                transparent: Some(Bytes::from_static(b"opaque")),
+                ..Default::default()
+            }
+        } else {
+            let value = SerdeValue::Seq(vec![SerdeValue::Bytes(b"opaque".to_vec())]);
+            let encoded = if source == RawSocketSerializer::Cbor {
+                serde_cbor::to_vec(&value).unwrap()
+            } else {
+                rmp_serde::to_vec(&value).unwrap()
+            };
+            WampPayload {
+                args: Some(Bytes::from(encoded)),
+                ..Default::default()
+            }
+        };
+        let valid_metadata = ppt_options();
+        let mut cases = Vec::new();
+        for key in ["ppt_scheme", "ppt_serializer", "ppt_cipher", "ppt_keyid"] {
+            let mut metadata = valid_metadata.clone();
+            metadata.insert(SerdeValue::String(key.into()), SerdeValue::Bool(true));
+            cases.push((valid.clone(), metadata));
+        }
+        for scheme in [None, Some(SerdeValue::String(String::new()))] {
+            let mut metadata = valid_metadata.clone();
+            let key = SerdeValue::String("ppt_scheme".into());
+            metadata.remove(&key);
+            if let Some(scheme) = scheme {
+                metadata.insert(key, scheme);
+            }
+            // Without a scheme, an encoded CBOR argument list is ordinary
+            // payload and may still share the CBOR/FlatBuffers representation.
+            // A raw FlatBuffers transparent body has no such interpretation.
+            if source != RawSocketSerializer::Flatbuffers
+                && !metadata.contains_key(&SerdeValue::String("ppt_scheme".into()))
+            {
+                continue;
+            }
+            cases.push((valid.clone(), metadata));
+        }
+        for empty in [true, false] {
+            let value = if empty {
+                SerdeValue::Map(BTreeMap::new())
+            } else {
+                SerdeValue::Map(BTreeMap::from([(
+                    SerdeValue::String("x".into()),
+                    SerdeValue::U8(1),
+                )]))
+            };
+            let encoded = if source == RawSocketSerializer::MessagePack {
+                rmp_serde::to_vec(&value).unwrap()
+            } else {
+                serde_cbor::to_vec(&value).unwrap()
+            };
+            let mut payload = valid.clone();
+            payload.kwargs = Some(Bytes::from(encoded));
+            cases.push((payload, valid_metadata.clone()));
+        }
+        let malformed: &[&[u8]] = if source == RawSocketSerializer::MessagePack {
+            &[
+                &[0x90],
+                &[0x91, 1],
+                &[0x92, 0xc4, 0, 0xc4, 0],
+                &[0x91, 0xc6, 0xff, 0xff, 0xff, 0xff],
+                &[0x91, 0xc4, 0, 0],
+            ]
+        } else {
+            &[
+                &[0x80],
+                &[0x81, 1],
+                &[0x82, 0x40, 0x40],
+                &[0x81, 0x5a, 0xff, 0xff, 0xff, 0xff],
+                &[0x81, 0x40, 0],
+                &[0x9f, 0x40, 0xff],
+                &[0x81, 0x5f, 0xff],
+            ]
+        };
+        for args in malformed {
+            cases.push((
+                WampPayload {
+                    args: Some(Bytes::copy_from_slice(args)),
+                    ..Default::default()
+                },
+                valid_metadata.clone(),
+            ));
+        }
+        if source == RawSocketSerializer::Flatbuffers {
+            let mut mixed = valid.clone();
+            mixed.args = Some(Bytes::from_static(&[0x80]));
+            cases.push((mixed, valid_metadata.clone()));
+        }
+        for (payload, metadata) in cases {
+            let handle = crate::runtime::message_handles::insert(stored(
+                source,
+                WampMessage::Call {
+                    request_id: 1,
+                    procedure: "private".into(),
+                    options: metadata,
+                    payload,
+                },
+            ))
+            .unwrap();
+            for target in SERIALIZERS.into_iter().filter(|target| *target != source) {
+                assert_eq!(
+                    ct_message_can_forward_to_v1_wide(handle as i64, serializer_id(target).into()),
+                    0,
+                    "invalid PPT must use fallback: {source:?} -> {target:?}"
+                );
+                assert!(crate::runtime::message_handles::retain_allocation(handle).is_some());
+            }
+            crate::runtime::message_handles::remove(handle).unwrap();
+        }
+        let handle = crate::runtime::message_handles::insert(stored(
+            source,
+            WampMessage::Call {
+                request_id: 1,
+                procedure: "private".into(),
+                options: valid_metadata,
+                payload: valid,
+            },
+        ))
+        .unwrap();
+        assert_eq!(
+            ct_message_can_forward_to_v1_wide(
+                handle as i64,
+                serializer_id(RawSocketSerializer::Json).into()
+            ),
+            0,
+            "JSON still requires its binary conversion"
+        );
+        crate::runtime::message_handles::remove(handle).unwrap();
+    }
+}
+
+fn assert_binary_ppt_forwarding(source: RawSocketSerializer, target: RawSocketSerializer) {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct Producer {
+        bytes: Vec<u8>,
+        released: Arc<AtomicUsize>,
+    }
+    impl AsRef<[u8]> for Producer {
+        fn as_ref(&self) -> &[u8] {
+            &self.bytes
+        }
+    }
+    impl Drop for Producer {
+        fn drop(&mut self) {
+            self.released.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    for size in [0, 1, 23, 24, 255, 256, 65_535, 65_536, 128 * 1024] {
+        let body: Vec<u8> = (0..size).map(|i| [0xff, 0, 0x80, 37][i % 4]).collect();
+        for route in 0..5 {
+            let released = Arc::new(AtomicUsize::new(0));
+            let value = SerdeValue::Seq(vec![SerdeValue::Bytes(body.clone())]);
+            let encoded = match source {
+                RawSocketSerializer::Cbor => serde_cbor::to_vec(&value).unwrap(),
+                RawSocketSerializer::MessagePack => rmp_serde::to_vec(&value).unwrap(),
+                RawSocketSerializer::Flatbuffers => body.clone(),
+                _ => unreachable!(),
+            };
+            let encoded = Bytes::from_owner(Producer {
+                bytes: encoded,
+                released: released.clone(),
+            });
+            let body_ptr = if source == RawSocketSerializer::Flatbuffers {
+                encoded.as_ptr()
+            } else {
+                single_binary_argument(source, &encoded).unwrap().as_ptr()
+            } as usize;
+            let payload = if source == RawSocketSerializer::Flatbuffers {
+                WampPayload {
+                    transparent: Some(encoded),
+                    ..Default::default()
+                }
+            } else {
+                WampPayload {
+                    args: Some(encoded),
+                    ..Default::default()
+                }
+            };
+            let ppt: BTreeMap<SerdeValue, SerdeValue> = ppt_options()
+                .into_iter()
+                .filter(|(key, _)| serde_key_str(key).is_some_and(|key| key.starts_with("ppt_")))
+                .collect();
+            let message = match route {
+                0 => WampMessage::Publish {
+                    request_id: 1,
+                    options: ppt.clone(),
+                    topic: "private".into(),
+                    payload,
+                },
+                1 | 3 => WampMessage::Call {
+                    request_id: 1,
+                    options: ppt.clone(),
+                    procedure: "private".into(),
+                    payload,
+                },
+                2 => WampMessage::Yield {
+                    request_id: 1,
+                    options: ppt.clone(),
+                    payload,
+                },
+                _ => WampMessage::Error {
+                    request_type: 68,
+                    request_id: 1,
+                    details: ppt.clone(),
+                    error: "wamp.error.test".into(),
+                    payload,
+                },
+            };
+            let handle = crate::runtime::message_handles::insert(stored(source, message)).unwrap();
+            assert_eq!(
+                ct_message_can_forward_to_v1_wide(handle as i64, serializer_id(target).into()),
+                1,
+                "binary PPT must be eligible: {source:?} -> {target:?}, route {route}"
+            );
+            let message = crate::runtime::message_handles::retain_allocation(handle).unwrap();
+            let segments = successful_segments(match route {
+                0 => encode_event_segments_for_serializer(
+                    &message,
+                    target,
+                    REGISTRATION,
+                    REQUEST,
+                    None,
+                    None,
+                ),
+                1 => encode_invocation_segments_for_serializer(
+                    &message,
+                    target,
+                    REQUEST,
+                    REGISTRATION,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(true),
+                    Some(false),
+                ),
+                2 => encode_result_segments_for_serializer(&message, target, REQUEST, true),
+                3 => encode_result_segments_from_call_for_serializer(&message, target, REQUEST),
+                _ => encode_error_segments_for_serializer(&message, target, 48, REQUEST),
+            });
+            if !body.is_empty() {
+                assert!(
+                    segments.iter().any(|part| {
+                        let start = part.as_ptr() as usize;
+                        body_ptr >= start && body_ptr + body.len() <= start + part.len()
+                    }),
+                    "body allocation must be retained without copying"
+                );
+            }
+            drop(message);
+            crate::runtime::message_handles::remove(handle).unwrap();
+            assert_eq!(
+                released.load(Ordering::SeqCst),
+                0,
+                "source producer must survive delayed consumers, including empty bodies"
+            );
+            let wire = Bytes::from(
+                segments
+                    .iter()
+                    .flat_map(|part| part.iter().copied())
+                    .collect::<Vec<_>>(),
+            );
+            let parsed = ct_core::parse_message(target, wire).unwrap().message;
+            let (details, decoded) = match &parsed {
+                WampMessage::Event {
+                    subscription_id,
+                    publication_id,
+                    details,
+                    payload,
+                } => {
+                    assert_eq!((*subscription_id, *publication_id), (REGISTRATION, REQUEST));
+                    (details, payload)
+                }
+                WampMessage::Invocation {
+                    request_id,
+                    registration_id,
+                    details,
+                    payload,
+                } => {
+                    assert_eq!((*request_id, *registration_id), (REQUEST, REGISTRATION));
+                    (details, payload)
+                }
+                WampMessage::Result {
+                    request_id,
+                    details,
+                    payload,
+                } => {
+                    assert_eq!(*request_id, REQUEST);
+                    (details, payload)
+                }
+                WampMessage::Error {
+                    request_type,
+                    request_id,
+                    error,
+                    details,
+                    payload,
+                } => {
+                    assert_eq!((*request_type, *request_id), (48, REQUEST));
+                    assert_eq!(error, "wamp.error.test");
+                    (details, payload)
+                }
+                _ => panic!("wrong forwarding message kind"),
+            };
+            let mut expected_details = ppt;
+            if route == 1 {
+                expected_details.insert(
+                    SerdeValue::String("receive_progress".into()),
+                    SerdeValue::Bool(true),
+                );
+                expected_details.insert(
+                    SerdeValue::String("progress".into()),
+                    SerdeValue::Bool(false),
+                );
+            } else if route == 2 {
+                expected_details.insert(
+                    SerdeValue::String("progress".into()),
+                    SerdeValue::Bool(true),
+                );
+            }
+            assert_eq!(
+                *details, expected_details,
+                "PPT metadata and routing flags must survive"
+            );
+            assert!(decoded.kwargs.is_none());
+            if target == RawSocketSerializer::Flatbuffers {
+                assert_eq!(decoded.transparent.as_deref(), Some(body.as_slice()));
+                assert!(decoded.args.is_none());
+            } else {
+                assert_eq!(
+                    single_binary_argument(target, decoded.args.as_ref().unwrap()).unwrap(),
+                    body
+                );
+                assert!(decoded.transparent.is_none());
+            }
+            let delayed = segments.clone();
+            drop(segments);
+            assert_eq!(
+                released.load(Ordering::SeqCst),
+                0,
+                "fan-out retains the producer for its final consumer"
+            );
+            drop(delayed);
+            assert_eq!(
+                released.load(Ordering::SeqCst),
+                1,
+                "producer is released exactly once"
+            );
+        }
+    }
+}
+
 fn guarded_value(serializer: RawSocketSerializer, value: &JsonValue) -> Bytes {
     let encoded = match serializer {
         RawSocketSerializer::Json => serde_json::to_vec(value).unwrap(),

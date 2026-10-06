@@ -5,7 +5,75 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up repairs a root-analyzer regression at `8df5c9b3`.
+Current follow-up: native reuse of opaque PPT bodies between CBOR, MessagePack
+and FlatBuffers. Nine new regressions fail before implementation: six mixed
+directions report ineligible, and three homogeneous controls lose PPT metadata
+on raw echo replies. Empty, binary and 128 KiB bodies exercise five forwarding
+kinds, producer lifetime and fan-out. Evidence:
+`/tmp/connectanum-native-ppt-routing-before.{log,exit}` (exit 101).
+The separate virtual-workspace formatter invocation failed before these tests;
+the test file was subsequently formatted directly with rustfmt.
+Research: [mixed binary PPT forwarding](research/2026-10-06-native-mixed-ppt-forwarding.md).
+All 22 segmented tests now pass, including 405 body/direction/route combinations.
+The live native-path assertions reproduce six failures against the preceding
+production library. They also expose 28 explicit reserved-`wamp` RPC fallbacks
+before the Dart repair. Removing those exclusions yields 109 passing public
+PPT/E2EE/mixed-eligibility cases, including ordinary routes, progress, ERROR,
+custom details, JSON fallback and legacy-library controls. Current canonical
+`bin/test-fast` passes at exit 0, including all 1,563 benchmark cases and live
+consumer smokes. GuardMalloc passes all 83 observed ownership cases, including
+the 22 segmented-forwarding tests, with confirmed loader interposition. Full
+`bin/verify` fails at exit 1 on the worker-session case `dispatches calls across
+workers and returns result to caller`, after 4,956 other router cases pass.
+The failure is an obsolete reserved-scheme native-exclusion assertion. The
+test now runs both paths: unavailable native handle preserves all prior
+ciphertext/serialization assertions; a native CBOR handle verifies transfer,
+routing IDs and no application decoding. Both cases and all 204 worker/live
+cases pass together. The local companion's suggested state-leak explanation
+was disproved by the exact taken-handle assertion and source. Its test review
+cannot observe a real deserialized native result in the mock boss-port unit
+fixture; the existing Rust wire and public live checks supply that evidence.
+Fresh root analysis and the corrected full `bin/verify` pass at exit 0, including
+Rust, VM, consumer/live checks, 1,563 benchmark, 4,958 router, 4,690 core
+Chrome/Dart2Wasm and 2,829 client browser cases (20 declared native-only skips).
+Browser verification did not run in the earlier failed attempt. Evidence:
+`/tmp/connectanum-native-ppt-routing-worker-and-live.{log,exit}`,
+`/tmp/connectanum-native-ppt-routing-verify-fixed.{log,exit}` and the earlier
+failed `/tmp/connectanum-native-ppt-routing-verify.{log,exit}`.
+The preceding
+`7d7fab90` fast/full pass is the baseline. Implementation/test hashes are recorded
+and unchanged. Evidence: `/tmp/connectanum-native-ppt-routing-fast.{log,exit}`.
+GuardMalloc evidence: `/tmp/connectanum-native-ppt-routing-guardmalloc/report.json`.
+Hosted coverage blocker: job `112370303567` on `7d7fab90` is explicitly
+cancelled at the 45-minute maximum. Library coverage reports and gates are
+written at 17:05:38 UTC; cancellation at 17:15:10 interrupts the separate
+packaging formatter. These partial results are not complete hosted acceptance.
+Only the aggregate VM coverage budget becomes 90 minutes, allowing both
+formatter phases and uploads. Every other workflow byte, collection script and
+coverage policy is unchanged. All 80 existing verification-tool checks pass;
+hosted completion with the new budget remains pending. Evidence:
+`/tmp/connectanum-native-ppt-routing-coverage-budget-proof.json` and
+`/tmp/connectanum-native-ppt-routing-workflow-tests-final.{log,exit}`.
+Research: [GitHub job timeout behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idtimeout-minutes).
+Evidence: `/tmp/connectanum-native-ppt-routing-segmented-complete.{log,exit}` and
+`/tmp/connectanum-native-ppt-routing-public-fixed.{log,exit}`. A temporary local
+refactor accidentally omitted following FFI functions and failed compilation;
+they were restored before the passing runs, with the public ABI inventory
+unchanged. The failed compile log is retained separately and is not behavioral
+evidence. Local Qwen review/debug completed; source and lifetime tests resolve
+its mixed-vector and zero-length owner concerns and its inaccurate suggestion
+that the live tests should accept the fallback.
+
+Native Artifacts `37489961393` passes all five builds and its dry-run preview at
+`7d7fab90`. All fifteen attestations verify, all thirty preview assets match, and
+the notes exactly match the renderer. Resulting-body-bridge artifacts remain
+pending; no release is published. Evidence:
+`/tmp/connectanum-7d7fab90-platform-provenance.json` and
+`/tmp/connectanum-7d7fab90-preview-proof.json`.
+Both freshly fetched master refs remain `3bac4cf5`, already ancestors of this
+branch; no merge is needed. All unresolved milestone criteria remain open.
+
+The preceding follow-up repairs a root-analyzer regression at `8df5c9b3`.
 Fresh `bin/test-fast` fails at exit 3 on four `undefined_named_parameter`
 errors: the new benchmark test helper passes VM-only `runtime:` parameters
 through the public conditional-export API. The helper now uses the public

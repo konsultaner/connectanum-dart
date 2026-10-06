@@ -174,7 +174,7 @@ evaluates the loader and copies the resulting graph.
 | Session typed FlatBuffers PPT send from a frozen native owner | Reuses the exact application span in a retained native frame; only the FlatBuffers control envelope is rebuilt. |
 | Ordinary Dart native send, including segmented send | Copies each supplied Dart segment into native storage. |
 | Lazy receive/routing metadata access | Keeps encoded application views; reading application values can materialize them. |
-| Native segmented routing/forwarding | Retains native application spans for homogeneous routes and eligible ordinary CBOR/FlatBuffers routes; incompatible encodings require conversion. |
+| Native segmented routing/forwarding | Retains native application spans for homogeneous routes, eligible ordinary CBOR/FlatBuffers routes and valid opaque PPT between CBOR/MessagePack/FlatBuffers; other encodings require conversion. |
 | Fragmented incoming frames | Reassembly can allocate/copy; transport chunking alone proves no zero-copy property. |
 | Client WebSocket masking | Transforms outbound bytes; account for its buffer/copy work separately. |
 | Generic native E2EE with Dart values | Copies Dart input into native storage and copies the encrypted/decrypted result back to Dart. |
@@ -195,8 +195,18 @@ query reads the actual negotiated destination and enables a retained-handle
 handoff between router workers without exporting the application vectors.
 Libraries without these optional symbols keep the earlier forwarding behavior.
 
-Mixed PPT/transparent payloads remain on their existing conversion path. A
-CBOR-to-FlatBuffers query checks the destination's bounded argument-container
+For PPT between CBOR, MessagePack and FlatBuffers, the native path retains the
+single binary body and rebuilds only the outer list/bin wrapper or FlatBuffers
+control envelope. It requires a nonempty string `ppt_scheme`, string-valued
+optional serializer/cipher/key metadata, and absent outer kwargs. Application
+schemes and encrypted bytes stay opaque; the reserved `wamp` scheme also uses
+native RPC forwarding. Empty bodies remain present and retain their producer
+until the last send segment is released. Native echo replies retain the four PPT
+metadata fields without copying CALL routing options. JSON and unsupported PPT
+shapes keep their conversion path; this boundary alone proves no whole-pipeline
+copy count or benchmark parity.
+
+An ordinary CBOR-to-FlatBuffers query checks the destination's bounded argument-container
 rules without reconstructing the application value graph; keyword-key validation
 may allocate temporary keys. Eligibility does not bypass message-kind, routing
 metadata, session/profile, queue or connection checks. Custom INVOCATION details

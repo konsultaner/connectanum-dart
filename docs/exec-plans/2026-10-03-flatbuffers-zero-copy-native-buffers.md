@@ -7,7 +7,43 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `8df5c9b3`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up repairs a root-analyzer regression at `8df5c9b3`.
+Current follow-up: native opaque-PPT body reuse between the three binary codecs.
+The nine fail-first regressions report six mixed eligibility failures and three
+homogeneous echo metadata failures, exit 101. The passing `7d7fab90` canonical
+checks are the baseline. Producer lifetime, empty bodies, routing metadata and
+fallback rejection must be verified before publishing this change; whole-path
+copy accounting and benchmark parity remain unresolved. All 22 Rust segmented
+cases and 109 public live/eligibility cases now pass. The latter exposed and
+reproduced 28 explicit `wamp`-scheme RPC fallbacks before removing those Dart
+exclusions; custom-detail and other existing routing guards remain intact.
+The predecessor's five-platform dry run, fifteen attestations and thirty preview
+assets verify at `7d7fab90`; the body bridge's resulting-head artifacts and
+hosted acceptance remain pending. Current `bin/test-fast` passes at
+exit 0; GuardMalloc observes and passes 83 ownership cases, including all 22
+segmented-forwarding tests. Final implementation/test hashes are unchanged.
+The first full verification fails on an old worker-session assertion excluding
+encrypted native forwarding. The repaired test preserves all ciphertext checks
+in a fallback control and adds a native transfer/no-decoding control. Both and
+all 204 worker/live cases pass. No product code changed for this test repair.
+Fresh root analysis and corrected full `bin/verify` pass at exit 0, including
+Rust, VM, consumer/live checks, 1,563 benchmark, 4,958 router, 4,690 core
+Chrome/Dart2Wasm and 2,829 client browser cases (20 declared native-only skips).
+Evidence: `/tmp/connectanum-native-ppt-routing-verify-fixed.{log,exit}`.
+The fast run precedes the test-only worker repair; full verification covers it.
+All six recorded final verification inputs and 141 GuardMalloc native/schema
+inputs remain unchanged.
+Hosted VM coverage on `7d7fab90` passes its library gates, then hits the explicit
+45-minute job maximum during packaging formatting. Only this aggregate budget
+becomes 90 minutes. All other workflow bytes, collection scripts and coverage
+policy are unchanged; all 80 existing verification-tool checks pass. Hosted
+completion remains pending. Evidence:
+`/tmp/connectanum-native-ppt-routing-coverage-budget-proof.json`.
+Research: [GitHub job timeout behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idtimeout-minutes).
+Evidence:
+`/tmp/connectanum-native-ppt-routing-before.{log,exit}`. Freshly fetched master
+remains `3bac4cf5`, already integrated; no merge is needed.
+
+The preceding follow-up repairs a root-analyzer regression at `8df5c9b3`.
 Fresh `bin/test-fast` fails at exit 3 on four `undefined_named_parameter`
 errors: the new benchmark test helper passes VM-only `runtime:` parameters
 through the public conditional-export API. The helper now uses the public
@@ -230,6 +266,15 @@ Implementation exists for many of these paths; unchecked items reflect remaining
 acceptance and evidence, not a claim that every feature is unimplemented.
 
 ## Next work
+
+The next routing candidate is [mixed binary PPT body reuse](../research/2026-10-06-native-mixed-ppt-forwarding.md).
+Baseline `7d7fab90` has passing sequential fast/full verification and a clean
+feature worktree before this research change. Hosted CI and its artifact dry run
+remain active; no failure has been observed. The candidate is not implemented or
+accepted. First reproduce its missing eligibility and retain/release behavior,
+then add the bridge with explicit malformed-shape and metadata guards. Keep JSON
+and unsupported shapes on their existing conversion path, and preserve every
+original milestone criterion.
 
 1. Inspect required hosted CI for the resulting feature commit; fix any failure
    before continuing feature or benchmark work.

@@ -221,7 +221,8 @@ jobs:
   coverage:
     name: Dart VM Coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Includes library and packaging coverage formatting on cold hosted runners.
+    timeout-minutes: 90
     needs: [fast, wamp-app]
     permissions:
       contents: read

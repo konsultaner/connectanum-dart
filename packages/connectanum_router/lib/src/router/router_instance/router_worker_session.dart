@@ -2450,13 +2450,12 @@ Future<void> _handleYield({
     }
 
     var usedZeroCopy = false;
-    if (message.options?.pptScheme != 'wamp' &&
-        _canUseNativeForwardPath(
-          connectionStates: connectionStates,
-          sourceState: state,
-          targetConnectionId: callerConnectionId,
-          incomingMessage: incomingMessage,
-        )) {
+    if (_canUseNativeForwardPath(
+      connectionStates: connectionStates,
+      sourceState: state,
+      targetConnectionId: callerConnectionId,
+      incomingMessage: incomingMessage,
+    )) {
       final transferredHandle = incomingMessage!.takeHandle();
       if (transferredHandle > 0) {
         final command = {
@@ -2718,8 +2717,7 @@ bool _canUseNativeProgressiveInvocationForwarding({
   required call_msg.Call message,
 }) {
   if (!dispatch.progressiveInvocation) {
-    return message.options?.pptScheme != 'wamp' &&
-        _filteredInvocationOptionDetails(dispatch.initiatingOptions).isEmpty;
+    return _filteredInvocationOptionDetails(dispatch.initiatingOptions).isEmpty;
   }
   final options = message.options;
   return dispatch.initiatingOptions['ppt_scheme'] == options?.pptScheme &&
