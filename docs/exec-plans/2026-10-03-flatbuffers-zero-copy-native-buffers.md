@@ -7,7 +7,18 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up builds on pushed `dbeda203` with benchmark metric
+The current follow-up fixes the benchmark test runtime leak at pushed `1aafa099`.
+Hosted Fast Checks failed eight cases after native E2EE factory tests left the
+process-wide client runtime running. The Linux reproducer fails six accounting
+cases; the factory-test runtime teardown repairs all 39 related cases with no
+native skips. All 1,498 full Linux benchmark cases now pass with no native skips.
+The fresh repository baseline and full `bin/verify` pass at exit 0, including
+Rust, VM, consumers, 1,498 benchmark, 4,935 router, 4,690 core browser and 2,829
+client browser cases (20 declared native-only client skips).
+Campaign-runner implementation follows publication of this CI repair;
+the candidate and nine passing process/schedule tests remain outside the repo.
+
+The preceding follow-up builds on pushed `dbeda203` with benchmark metric
 validation, VM isolate fallback and coverage repairs. Fresh baseline verification
 and 60 focused tests pass on macOS and Linux arm64. Linux benchmark coverage is
 98.219% against its unchanged 98% target; full browser coverage passes both gates.
@@ -62,6 +73,29 @@ acceptance and evidence, not a claim that every feature is unimplemented.
 4. Finish #103 measurement coverage, the paired campaign runner and all declared
    performance rows. SDK/TLS/transcode copy gaps and absent campaign results
    remain blockers; do not weaken the parity or copy gates.
+
+## Shared-runtime test teardown (2026-10-06)
+
+- [x] Inspect the exact-head Fast Checks failure at `1aafa099`: eight benchmark
+  cases fail after the new native E2EE provider factory tests.
+- [x] Reproduce six accounting failures in one Linux test process with the
+  factory file preceding the accounting file. Provider disposal leaves the
+  shared native runtime alive, preventing a later router runtime start.
+- [x] Add the runtime shutdown teardown already used by the other factory
+  regression tests. All 39 related Linux cases pass with no native skips.
+- [x] Pass all 1,498 full Linux benchmark cases with no native skips.
+- [x] Complete the fresh `bin/test-fast` repository baseline at exit 0.
+- [x] Pass fresh full `bin/verify` at exit 0 with Rust, VM, consumer, benchmark,
+  router and full browser suites. Focused formatting and analysis also pass.
+- [ ] Push the repair and accept required hosted checks on its exact head.
+
+Evidence: `/tmp/connectanum-flatbuffers-ci-1aafa-fast-job.log`,
+`/tmp/connectanum-flatbuffers-ci-1aafa-runtime-leak-{repro,fixed}.{log,exit}`.
+Full suite evidence: `/tmp/connectanum-flatbuffers-ci-1aafa-linux-bench-fixed.{log,exit}`,
+`/tmp/connectanum-flatbuffers-campaign-baseline.{log,exit}` and
+`/tmp/connectanum-flatbuffers-ci-runtime-teardown-verify.{log,exit}`.
+The strict seven-package publish dry-run on `1aafa099` reports zero warnings;
+this is that checkpoint's package evidence, not acceptance of the pending repair.
 
 ## Coverage repairs and master synchronization (2026-10-06)
 

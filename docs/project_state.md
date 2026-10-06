@@ -5,7 +5,37 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up repairs benchmark copy-report validation and missing VM
+The current follow-up fixes the Linux benchmark test runtime leak at `1aafa099`.
+Its hosted Fast Checks job failed eight cases after the new native E2EE factory
+tests left the process-wide client runtime running. Provider release frees keys
+and sessions; it does not shut down that shared runtime. A same-process Linux
+reproducer fails six accounting cases. Adding the existing factory-test
+`NativeClientRuntime.shutdownShared` teardown makes all 39 factory, accounting,
+router-config and remote-auth cases pass, with no native skips. All 1,498 full
+Linux benchmark cases now pass, also without native skips. The fresh repository
+baseline and full `bin/verify` pass at exit 0. Verification includes Rust, VM,
+consumer smokes, 1,498 macOS benchmark, 4,935 router, 4,690 core browser and
+2,829 client browser cases (20 declared native-only client skips).
+Focused formatting and analysis pass. Companion teardown-order concerns were
+checked against the test engine and runtime sources: per-test cleanup finishes
+before group cleanup, provider release is synchronous, and construction failures
+release partial handles. Campaign-runner work follows the CI repair. Its candidate and
+nine passing process/schedule tests remain outside the repository under `/tmp`.
+
+Both `1aafa099` hosted browser coverage jobs pass. The downloaded push artifact
+is retained at `/tmp/connectanum-flatbuffers-ci-1aafa-browser-artifact`.
+Both hosted Fast Checks jobs fail the same eight runtime-lifecycle cases;
+their logs are retained separately. Seven strict package publish dry-runs pass
+with zero warnings on that head. Required hosted acceptance of the teardown
+repair remains pending; no additional milestone issue is closed.
+Evidence: `/tmp/connectanum-flatbuffers-campaign-baseline.{log,exit}`,
+`/tmp/connectanum-flatbuffers-ci-1aafa-runtime-leak-{repro,fixed}.{log,exit}`,
+`/tmp/connectanum-flatbuffers-ci-1aafa-linux-bench-fixed.{log,exit}` and
+`/tmp/connectanum-flatbuffers-ci-runtime-teardown-verify.{log,exit}`.
+
+## Metric-validation checkpoint (2026-10-06)
+
+The preceding follow-up repairs benchmark copy-report validation and missing VM
 isolate handling on top of pushed checkpoint `dbeda203`. Fresh `bin/test-fast`
 passes; all 60 focused cases and six fail-first regressions pass after the repair.
 Linux benchmark coverage passes its unchanged 98% target at 98.219%; fresh

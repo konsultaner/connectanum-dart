@@ -4,6 +4,8 @@ library;
 import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/connectanum.dart' as client;
+import 'package:connectanum_client/src/transport/native/runtime.dart'
+    show NativeClientRuntime;
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:test/test.dart';
 
@@ -11,6 +13,7 @@ import 'support/native_library.dart';
 
 void main() {
   final libraryPath = nativeBenchTestLibrary();
+  tearDownAll(NativeClientRuntime.shutdownShared);
   group('benchmark E2EE provider factory', () {
     test('ordinary scenarios do not create an encryption provider', () {
       expect(e2eeProviderFactoryForScenario(_scenario(scheme: null)), isNull);
