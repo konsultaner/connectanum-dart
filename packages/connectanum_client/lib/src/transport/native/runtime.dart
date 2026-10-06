@@ -253,7 +253,8 @@ class NativeTransportCopyMetrics {
       current == null || before == null ? null : _counterDelta(current, before);
 }
 
-/// Bulk crypto staging copies in this process plus this runtime's Dart bridge.
+/// Bulk crypto staging copies in this process plus this runtime's Dart bridge
+/// and native-provider ciphertext coercion in the current isolate.
 /// Nonce/tag construction and serializer/framing work are excluded. Native
 /// counters are null unless the complete optional metrics ABI v1 is available.
 class NativeE2eeCopyMetrics {
@@ -262,12 +263,14 @@ class NativeE2eeCopyMetrics {
     required this.nativeToDartCopiedBytesTotal,
     required this.plaintextStagingCopyBytesTotal,
     required this.ciphertextStagingCopyBytesTotal,
+    this.ciphertextCoercionCopyBytesTotal = 0,
   });
 
   final int dartToNativeCopiedBytesTotal;
   final int nativeToDartCopiedBytesTotal;
   final int? plaintextStagingCopyBytesTotal;
   final int? ciphertextStagingCopyBytesTotal;
+  final int ciphertextCoercionCopyBytesTotal;
 
   NativeE2eeCopyMetrics deltaFrom(NativeE2eeCopyMetrics before) =>
       NativeE2eeCopyMetrics(
@@ -288,6 +291,11 @@ class NativeE2eeCopyMetrics {
             NativeTransportCopyMetrics._nullableCounterDelta(
               ciphertextStagingCopyBytesTotal,
               before.ciphertextStagingCopyBytesTotal,
+            ),
+        ciphertextCoercionCopyBytesTotal:
+            NativeTransportCopyMetrics._counterDelta(
+              ciphertextCoercionCopyBytesTotal,
+              before.ciphertextCoercionCopyBytesTotal,
             ),
       );
 }
@@ -334,6 +342,7 @@ class NativeClientRuntime {
   int _dartToNativeCopiedBytesTotal = 0;
   int _e2eeDartToNativeCopiedBytesTotal = 0;
   int _e2eeNativeToDartCopiedBytesTotal = 0;
+  int _e2eeCiphertextCoercionCopyBytesTotal = 0;
 
   /// Releases the native owner attached to the returned root byte view.
   ///
@@ -1100,6 +1109,14 @@ class NativeClientRuntime {
     _dartToNativeCopiedBytesTotal += bytes;
   }
 
+  /// Record bytes copied by the native provider before the crypto FFI bridge.
+  /// Existing Uint8List views require no coercion and never call this method.
+  @internal
+  void recordE2eeCiphertextCoercionCopy(int bytes) {
+    RangeError.checkNotNegative(bytes, 'bytes');
+    _e2eeCiphertextCoercionCopyBytesTotal += bytes;
+  }
+
   NativeE2eeCopyMetrics e2eeCopyMetricsSnapshot() {
     final snapshot = _bindings.ctE2eeCopyMetricsSnapshot;
     int? plaintext;
@@ -1122,6 +1139,7 @@ class NativeClientRuntime {
       nativeToDartCopiedBytesTotal: _e2eeNativeToDartCopiedBytesTotal,
       plaintextStagingCopyBytesTotal: plaintext,
       ciphertextStagingCopyBytesTotal: ciphertext,
+      ciphertextCoercionCopyBytesTotal: _e2eeCiphertextCoercionCopyBytesTotal,
     );
   }
 

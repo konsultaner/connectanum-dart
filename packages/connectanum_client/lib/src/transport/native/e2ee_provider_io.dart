@@ -486,16 +486,22 @@ abstract class _NativeWampE2eeCipherProvider
     }
     if (_isTyped && value is List && value is! Uint8List) {
       final bytes = Uint8List(value.length);
-      for (var index = 0; index < bytes.length; index++) {
-        final byte = value[index];
-        if (byte is! int || byte < 0 || byte > 255) {
-          throw WampE2eeInvalidPayloadException(
-            'unpack',
-            options: options,
-            reason: 'WAMP E2EE payload bytes must be integers from 0 to 255',
-          );
+      var copied = 0;
+      try {
+        for (var index = 0; index < bytes.length; index++) {
+          final byte = value[index];
+          if (byte is! int || byte < 0 || byte > 255) {
+            throw WampE2eeInvalidPayloadException(
+              'unpack',
+              options: options,
+              reason: 'WAMP E2EE payload bytes must be integers from 0 to 255',
+            );
+          }
+          bytes[index] = byte;
+          copied++;
         }
-        bytes[index] = byte;
+      } finally {
+        _runtime.recordE2eeCiphertextCoercionCopy(copied);
       }
       return bytes;
     }
@@ -503,10 +509,14 @@ abstract class _NativeWampE2eeCipherProvider
       return value;
     }
     if (value is List<int>) {
-      return Uint8List.fromList(value);
+      final bytes = Uint8List.fromList(value);
+      _runtime.recordE2eeCiphertextCoercionCopy(bytes.length);
+      return bytes;
     }
     if (value is List) {
-      return Uint8List.fromList(value.cast<int>());
+      final bytes = Uint8List.fromList(value.cast<int>());
+      _runtime.recordE2eeCiphertextCoercionCopy(bytes.length);
+      return bytes;
     }
     throw WampE2eeInvalidPayloadException(
       'unpack',

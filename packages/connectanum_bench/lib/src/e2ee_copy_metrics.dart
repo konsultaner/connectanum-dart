@@ -36,6 +36,7 @@ Map<String, Object?> e2eeCopyMetricsFor(
     'known_e2ee_staging_copy_bytes':
         metrics.dartToNativeCopiedBytesTotal +
         metrics.nativeToDartCopiedBytesTotal +
+        metrics.ciphertextCoercionCopyBytesTotal +
         (metrics.plaintextStagingCopyBytesTotal ?? 0) +
         (metrics.ciphertextStagingCopyBytesTotal ?? 0) +
         (portableMetrics?.knownOwnCopyBytes ?? 0),
@@ -44,6 +45,8 @@ Map<String, Object?> e2eeCopyMetricsFor(
           metrics.dartToNativeCopiedBytesTotal,
       'client_worker_isolate_native_to_dart_copy_bytes':
           metrics.nativeToDartCopiedBytesTotal,
+      'client_worker_isolate_native_provider_ciphertext_coercion_copy_bytes':
+          metrics.ciphertextCoercionCopyBytesTotal,
       'client_process_plaintext_staging_copy_bytes':
           metrics.plaintextStagingCopyBytesTotal ?? unavailable(),
       'client_process_ciphertext_staging_copy_bytes':
@@ -60,7 +63,8 @@ Map<String, Object?> e2eeCopyMetricsFor(
         'cipher computation',
         'serializer/framing',
         'crypto dependency internals',
-        'native provider ciphertext coercion',
+        'failed legacy CBOR ciphertext coercion',
+        'other isolate native provider ciphertext coercion',
         'other isolate portable provider copies',
         'other isolate Dart bridges',
       ],

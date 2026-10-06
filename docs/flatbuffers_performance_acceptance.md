@@ -134,10 +134,15 @@ consuming AES decryption reuses storage. Nonce/tag construction and cipher
 computation are outside these bulk staging counters.
 
 `known_e2ee_staging_copy_bytes` is a lower bound combining process-wide native
-staging, the client worker isolate's explicit crypto FFI copies and its portable
-provider wrapper copies. The breakdown names these scopes individually. Other
-isolate bridges/wrappers, crypto dependency internals, native-provider ciphertext
-coercion, serializer and framing transformations remain unmeasured. Encrypted
+staging, the client worker isolate's explicit crypto FFI copies, native-provider
+ciphertext coercion and portable-provider wrapper copies. The breakdown names
+these scopes individually. Native-provider coercion counts completed CBOR byte-list
+conversions and the exact prefix copied by typed FlatBuffers validation, including
+a prefix copied before rejection. Existing `Uint8List` and bounded subviews are
+reused and report zero coercion bytes. This isolate-local Dart counter is available
+independently of the optional native staging ABI. Failed legacy CBOR conversions,
+other isolate bridges/wrappers, crypto dependency internals, serializer and framing
+transformations remain unmeasured. Encrypted
 rows keep `e2ee_copy_bytes` as `not_measured`. The comparator requires that field, rejects
 an encrypted row marked `not_applicable`, and accepts numeric totals only with
 complete pipeline coverage and no unknown boundaries. ABI v1 requires both its

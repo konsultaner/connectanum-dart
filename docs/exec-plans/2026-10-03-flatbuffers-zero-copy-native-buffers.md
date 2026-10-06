@@ -4,10 +4,38 @@ Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/flatbuffers-zero-copy` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
-released master `3bac4cf5` is integrated. Preceding checkpoint: `62f99ebb`.
+released master `3bac4cf5` is integrated. Preceding checkpoint: `8feb80c1`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up repairs WampApp's encrypted-vault privacy-test oracle.
+The current follow-up measures native-provider ciphertext byte-list coercion.
+The fail-first matrix passes four Uint8List decrypt cases and fails all eight
+ordinary-list cases because their conversions are omitted from the lower bound.
+The runtime now counts that isolate-local boundary separately from FFI and native
+staging, without changing the native ABI or wire representation. All 28 focused
+cases pass, including both ciphers/profiles, immutable bounded subviews, exact
+prefix counts on typed rejection, absent staging ABI and counter reset/deltas.
+Failed legacy CBOR coercion remains explicitly excluded. The total E2EE pipeline
+stays `not_measured`; no parity or complete-copy claim is added.
+Baseline `bin/test-fast` passes at exit 0 before this change. All 178 native and
+Session provider/profile/key-selection cases pass with the explicit ffi-test
+library. Fresh canonical `bin/verify` passes at exit 0, including Rust, VM,
+consumers, 1,563 benchmark, 4,935 router, 4,690 core browser and 2,829 client
+browser cases (20 declared native-only client skips). The final Dart source/test
+hashes are unchanged. Evidence: `/tmp/connectanum-e2ee-wrapper-verify.{log,exit}`.
+Earlier focused evidence:
+`/tmp/connectanum-e2ee-wrapper-{baseline-fast,regression-before-valid,focused}.{log,exit}`.
+The initial regression command used a wrong package-relative path and is not the
+fail-first evidence. An initial provider command also named a nonexistent test
+and selected a library without the required owned-crypto/staging ABI; its failed
+result is retained; the corrected run passes with the explicit ffi-test library.
+Evidence: `/tmp/connectanum-e2ee-wrapper-providers-corrected.{log,exit}`.
+Hosted push CI `37473576179` on `8feb80c1` now passes WampApp Consumer and
+Fast Checks. Complete hosted acceptance remains pending. The superseded PR run
+`37464701287`, which failed the old privacy oracle and skipped Full Verify, was
+cancelled; its successful older push run and both new-head runs were preserved.
+
+
+The preceding follow-up repairs WampApp's encrypted-vault privacy-test oracle.
 Hosted Consumer job `112272706961` on `62f99ebb` passes 409 cases and fails one
 because randomized Base64 ciphertext contains `bob`. The captured envelope has
 only public metadata; the bare-string predicate is not a plaintext-leak oracle.
