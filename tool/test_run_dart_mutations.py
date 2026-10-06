@@ -1,3 +1,5 @@
+import ctypes
+import errno
 import json
 import os
 import re
@@ -8,6 +10,7 @@ import sys
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import run_dart_mutations as runner
@@ -744,6 +747,71 @@ class MutationRunnerTests(unittest.TestCase):
         for raw in (b'', header, header + b'/bin/fixture\0one-unterminated-argument'):
             with self.subTest(raw=raw), self.assertRaises(ValueError):
                 runner.mac_environment_has_owner(raw, token)
+
+    def test_mac_ownership_retries_one_fresh_read_and_wipes_both_buffers(self):
+        original_environment = dict(os.environ)
+        owner = b'CONNECTANUM_MUTATION_COMMAND_OWNER=fixture-owner'
+        for phase in ('size', 'data'):
+            for owned in (False, True):
+                with self.subTest(phase=phase, owned=owned):
+                    raw = (1).to_bytes(4, sys.byteorder, signed=True) + b'/bin/fixture\0\0fixture\0'
+                    raw += (owner if owned else b'UNRELATED=fixture') + b'\0'
+                    calls, buffers = [], []
+                    failed = False
+
+                    def query(mib, count, buffer, size, new, length):
+                        nonlocal failed
+                        current = 'size' if buffer is None else 'data'
+                        calls.append(current)
+                        size._obj.value = len(raw)
+                        if buffer is not None:
+                            buffers.append(buffer)
+                            ctypes.memmove(buffer, raw, len(raw))
+                        if current == phase and not failed:
+                            failed = True
+                            ctypes.set_errno(errno.EIO)
+                            return -1
+                        return 0
+
+                    with patch.object(runner.sys, 'platform', 'darwin'), \
+                            patch.object(runner.ctypes, 'CDLL', return_value=SimpleNamespace(sysctl=query)):
+                        self.assertIs(runner.process_has_owner(12345, 'fixture-owner'), owned)
+                    self.assertEqual(calls, ['size', 'size', 'data'] if phase == 'size'
+                                     else ['size', 'data', 'size', 'data'])
+                    for buffer in buffers:
+                        self.assertEqual(buffer.raw, b'\0' * len(buffer))
+        self.assertEqual(dict(os.environ), original_environment)
+
+    def test_mac_ownership_persistent_eio_and_other_errors_fail_closed(self):
+        for error, expected_calls in ((errno.EIO, 2), (errno.EACCES, 1),
+                                      (errno.EPERM, 1), (errno.ENOMEM, 1)):
+            with self.subTest(error=error):
+                calls = []
+
+                def query(*args):
+                    calls.append(True)
+                    ctypes.set_errno(error)
+                    return -1
+
+                with patch.object(runner.sys, 'platform', 'darwin'), \
+                        patch.object(runner.ctypes, 'CDLL', return_value=SimpleNamespace(sysctl=query)), \
+                        self.assertRaises(OSError) as failure:
+                    runner.process_has_owner(12345, 'fixture-owner')
+                self.assertNotIsInstance(failure.exception, ProcessLookupError)
+                self.assertEqual(failure.exception.errno, error)
+                self.assertEqual(len(calls), expected_calls)
+
+    def test_mac_ownership_retry_requires_observed_disappearance(self):
+        errors = iter((errno.EIO, errno.ESRCH))
+
+        def query(*args):
+            ctypes.set_errno(next(errors))
+            return -1
+
+        with patch.object(runner.sys, 'platform', 'darwin'), \
+                patch.object(runner.ctypes, 'CDLL', return_value=SimpleNamespace(sysctl=query)), \
+                self.assertRaises(ProcessLookupError):
+            runner.process_has_owner(12345, 'fixture-owner')
 
     def test_recycled_pid_is_not_signalled_using_cached_ownership(self):
         with patch.object(runner, 'process_has_owner', return_value=False) as inspect, \

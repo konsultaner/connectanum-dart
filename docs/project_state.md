@@ -7,6 +7,55 @@ campaigns without narrowing inventories, test suites, deadlines or evidence gate
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work411: native commands now scope `TMPDIR`, `TMP` and `TEMP` to each owned
+workspace's private `tmp` directory, without changing the parent environment.
+Schema-two resource evidence measures private payloads and combined cache/tmp
+scratch against the existing per-worker limit; independent audits recompute
+peaks and reject missing samples, schema downgrade and non-integer counts.
+Fail-first isolation/resource tests pass after the fix. All original tests,
+assertions, candidate/operator scope, deadlines, reserve and score gates remain.
+
+Retained toy-campaign evidence reproduces passed Rust baselines invalidated by
+macOS ownership-inspection `EIO`. Apple's
+[XNU process-argument reader](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_sysctl.c)
+can return `EIO` while copying process memory; that error alone does not prove
+disappearance. Retry one complete fresh query immediately, wipe buffers on
+every path, and retain persistent/other failures as infrastructure errors.
+Identity-bound signalling is unchanged. Fail-first tests verify successful
+fresh reads, missing ownership, persistent errors and observed disappearance.
+
+Clean Fast411b exits zero before this additional ownership/audit hardening.
+The earlier Fast411 attempt hits disk exhaustion after an overbroad diagnostic
+capture; remove only the accidental duplicate, preserve originals/archives and
+retain the failed log. Four more unused historical Android intermediate caches
+are removed only with matching protected source/artifact/evidence hashes.
+Shared free-space observations do not establish uniquely reclaimed capacity.
+Updated native-tool checks (132) and Dart-runner tests (98; one platform skip)
+pass. Fresh `bin/verify` exits zero in
+`/tmp/connectanum-native-private-temp-verify411.log`, including actual Chrome
+and Dart2Wasm suites. All 1,055 implementation/config/test hashes captured
+before startup match at completion; no such inputs change during verification.
+Obtain fresh matching profile controls and complete core/FFI collection only
+after scratch/evidence admission succeeds. No current full native campaign or
+passing gate is claimed, and no push/publication occurs.
+
+Work410: full409 stops incomplete after 19,584.92s of core collection when
+batch 27 observes 4,274,241,536 available bytes, below the four-GiB reserve.
+Active peers cancel; FFI never starts. Supervisor/coordinator are gone and
+command plus deleted/aliased cwd inspection finds no live campaign workers.
+Pause the terminal-run heartbeat and preserve all raw evidence. Independent
+archived-tool inspection under the matching lean environment reaudits 24
+completed batches and 1,475 outcomes: 469 assertion kills, 178 survivors,
+513 errors, 80 timeouts and 235 compile errors. All 539 original baseline
+tests remain intact. This is partial evidence, not a whole-component score.
+Private cache peaks in the cancelled batches remain below 454 MB. A birth-time
+scan finds 407 shared-temp payload files created during collection, allocating
+about 1.83 GiB; timestamps alone do not prove exclusive campaign ownership or
+explain the whole host disk decrease. Tests remove these files only after
+assertions, allowing failure paths to bypass cleanup. Reproduce this leakage
+inside sandbox fixtures before isolating native test temporary directories;
+never delete the untagged shared files or change score/deadline/test scope.
+
 Work408: full407 stops incomplete after 6,571.84s of FFI collection. Batch 13
 loses its private `.cargo/config.toml` before restoration; batches 14-16 cancel
 and later batches never start. Supervisor/coordinator exit and the heartbeat is
@@ -54,7 +103,33 @@ components are required before a complete report. Historical full406 diagnostic
 triage retains 548 mixed assertion/non-assertion error candidates without score
 adjustments. Verified-unused generated caches may be reclaimed with preservation
 hashes before admission; never delete raw evidence or unrelated host files.
-Fresh complete collection has not yet started. No full-runtime or gate claim.
+Local-only checkpoint `18a84ccd` bundles the verified runner fixes/regressions
+with their material verification bookkeeping. No push/publication occurs.
+After verification and proof that generated caches have no live users, Cargo
+cleans only native debug/test targets. Eight historical Android intermediate
+caches are then removed; every other historical source/artifact/evidence byte
+and mode retains its recorded hash. Release libraries, pinned analyzers and
+benchmark release binaries retain checksums. Observe shared-headroom recovery,
+not a claim that allocation equals unique free capacity; unrelated host usage
+and APFS sharing still affect these observations. Stop cleanup at 16.7 GiB,
+above the unchanged fifteen-GiB default-control admission budget.
+
+Twenty-three fresh operational checks pass. Ignored full409 freezes the clean
+verified checkpoint and regenerates exact inventories: 1,963 core and 1,297 FFI
+candidates. Supervisor PID 52432 and default-control coordinator PID 52572 are
+confirmed alive with exact commands; default control starts at 02:35:25 UTC.
+It obtains matching fresh default/lean controls, then automatically runs both
+complete inventories sequentially in 32 fresh batches each. Keep four workers,
+four Cargo jobs, original tests/assertions/deadlines/operators and strict gates.
+Default cache cap remains 2.5 GiB; lean promotion requires matching audited
+outcomes/provenance and bounded cache before using debug-zero/incremental-zero
+with a 0.75-GiB cap. The four-GiB reserve is unchanged. No prior batch/control
+reuse or tool-fingerprint waiver. Final independent exact reaudits of both full
+components and canonical cwd/process cleanup are required before reporting.
+The quiet heartbeat follows this live owner. Do not compete with timed work or
+modify frozen/raw inputs. Leave this post-checkpoint bookkeeping uncommitted;
+full native measurement, strict passage and the overall coverage goal remain
+open. No full-runtime/gate claim, push or publication.
 
 Work407: full406 core completes all 1,963 candidates in 32 fresh batches and
 25,862.88s (7h11m collection wall), with all 539 original workspace tests.

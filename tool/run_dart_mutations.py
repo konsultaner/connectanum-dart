@@ -46,6 +46,17 @@ def process_has_owner(pid, token):
         return owner in Path(f'/proc/{pid}/environ').read_bytes().split(b'\0')
     if sys.platform != 'darwin':
         raise OSError('Mutation process ownership requires Linux or macOS')
+    # A process map can change between sysctl reads. Retry once, never infer
+    # disappearance or ownership from EIO, and preserve persistent failures.
+    for attempt in range(2):
+        try:
+            return mac_process_has_owner(pid, owner)
+        except OSError as error:
+            if error.errno != errno.EIO or attempt:
+                raise
+
+
+def mac_process_has_owner(pid, owner):
     # Read the kernel environment, not ps command lines (which can contain
     # a lookalike token). Never retain or log argv or environment contents.
     libc = ctypes.CDLL(None, use_errno=True)

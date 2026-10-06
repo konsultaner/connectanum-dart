@@ -30,6 +30,108 @@ class ResourceTests(unittest.TestCase):
         return resources.DiskGuard(self.work, self.output, self.cancel,
                                    resources.DiskLimits(reserve, maximum, interval))
 
+    def test_payload_growth_cannot_bypass_private_scratch_limit(self):
+        temporary = self.work / 'tmp'
+        temporary.mkdir()
+        with self.assertRaisesRegex(RuntimeError, 'scratch'):
+            with self.guard(maximum=512) as guard:
+                (temporary / 'payload').write_bytes(b'x' * 1024)
+                self.assertTrue(self.cancel.wait(3))
+                guard.check()
+        self.assertFalse(json.loads((self.output / 'resource-summary.json').read_text())['withinLimits'])
+
+    def test_cache_and_payload_share_the_existing_private_budget(self):
+        for name in ('target', 'tmp'):
+            path = self.work / name
+            path.mkdir()
+            (path / 'data').write_bytes(b'x' * 1024)
+        usage = resources.tree_usage(self.work / 'target')
+        maximum = max(usage['logicalBytes'], usage['allocatedBytes'])
+        with self.assertRaisesRegex(RuntimeError, 'scratch'):
+            with self.guard(maximum=maximum):
+                pass
+
+    def test_temporary_usage_is_measured_and_independently_reaudited(self):
+        temporary = self.work / 'tmp'
+        temporary.mkdir()
+        (temporary / 'payload').write_bytes(b'x' * 1024)
+        with self.guard():
+            pass
+        path = self.output / 'resource-summary.json'
+        summary = json.loads(path.read_text())
+        self.assertEqual(summary['schemaVersion'], 2)
+        self.assertEqual(summary['peakTemporaryLogicalBytes'], 1024)
+        self.assertGreater(summary['peakTemporaryAllocatedBytes'], 0)
+        resources.validate_evidence(self.output, self.manifest())
+        summary['peakTemporaryLogicalBytes'] += 1
+        path.write_text(json.dumps(summary))
+        with self.assertRaisesRegex(ValueError, 'summary'):
+            resources.validate_evidence(self.output, self.manifest())
+
+    def test_private_temporary_manifest_cannot_downgrade_to_legacy_schema(self):
+        with self.guard():
+            pass
+        path = self.output / 'resource-summary.json'
+        summary = json.loads(path.read_text())
+        summary['schemaVersion'] = 1
+        path.write_text(json.dumps(summary))
+        with self.assertRaisesRegex(ValueError, 'schema 2'):
+            resources.validate_evidence(self.output, {**self.manifest(), 'privateTemporaryDirectory': 'tmp'})
+
+    def test_schema_two_rejects_missing_or_invalid_temporary_samples(self):
+        with self.guard():
+            pass
+        path = self.output / 'resources.jsonl'
+        original = path.read_text()
+        for temporary in (None, [], {}, {'logicalBytes': 0},
+                          {'logicalBytes': False, 'allocatedBytes': 0},
+                          {'logicalBytes': 0, 'allocatedBytes': -1}):
+            with self.subTest(temporary=temporary):
+                rows = [json.loads(line) for line in original.splitlines()]
+                if temporary is None:
+                    rows[-1].pop('temporary')
+                else:
+                    rows[-1]['temporary'] = temporary
+                path.write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
+                with self.assertRaisesRegex(ValueError, 'temporary|byte count'):
+                    resources.validate_evidence(self.output, self.manifest())
+
+    def test_audit_summary_byte_counts_and_samples_require_integers(self):
+        with self.guard():
+            pass
+        path = self.output / 'resource-summary.json'
+        original = json.loads(path.read_text())
+        names = ('minimumAvailableBytes', 'peakCacheLogicalBytes', 'peakCacheAllocatedBytes',
+                 'peakTemporaryLogicalBytes', 'peakTemporaryAllocatedBytes',
+                 'peakScratchLogicalBytes', 'peakScratchAllocatedBytes', 'samples')
+        for name in names:
+            values = [float(original[name])]
+            if original[name] == 0:
+                values.append(False)
+            for value in values:
+                with self.subTest(name=name, value=value):
+                    path.write_text(json.dumps({**original, name: value}))
+                    with self.assertRaises(ValueError):
+                        resources.validate_evidence(self.output, self.manifest())
+
+    def test_historical_schema_one_still_requires_matching_cache_evidence(self):
+        with self.guard():
+            pass
+        path = self.output / 'resource-summary.json'
+        summary = json.loads(path.read_text())
+        summary['schemaVersion'] = 1
+        path.write_text(json.dumps(summary))
+        samples = self.output / 'resources.jsonl'
+        rows = [json.loads(line) for line in samples.read_text().splitlines()]
+        for row in rows:
+            row.pop('temporary')
+        samples.write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
+        resources.validate_evidence(self.output, self.manifest())
+        summary['peakCacheAllocatedBytes'] += 1
+        path.write_text(json.dumps(summary))
+        with self.assertRaisesRegex(ValueError, 'summary'):
+            resources.validate_evidence(self.output, self.manifest())
+
     def test_tree_counts_logical_and_allocated_bytes_once_without_following_links(self):
         cache = self.work / 'target'
         cache.mkdir()

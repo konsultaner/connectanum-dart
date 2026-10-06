@@ -177,7 +177,9 @@ def commands(work, output, target='core-rawsocket', exclusions=(), build_jobs=No
     test_timeout = '90' if target == 'core-protocol' else '30'
     if whole:
         test_timeout = '180'
-    prefix = ['env', f'CARGO_TARGET_DIR={work / "target"}']
+    # Failed assertions and aborted workers can bypass test fixture cleanup.
+    prefix = ['env', f'CARGO_TARGET_DIR={work / "target"}',
+              *[f'{name}={work / "tmp"}' for name in ('TMPDIR', 'TMP', 'TEMP')]]
     if build_jobs is not None:
         prefix.append(f'CARGO_BUILD_JOBS={build_jobs}')
     manifest = str(work / 'native/transport/Cargo.toml')
@@ -238,6 +240,7 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
     tool_root = Path(__file__).resolve().parent
     tool_hashes = {name: native_coverage.digest(tool_root / name) for name in TOOL_INPUTS}
     manifest = {'complete': False, 'scope': target, 'inputHashes': hashes,
+                'privateTemporaryDirectory': 'tmp',
                 'toolHashes': tool_hashes, 'executionFingerprint': execution_fingerprint(),
                 'cargoMutantsVersion': subprocess.check_output(
                     ['cargo', 'mutants', '--version'], text=True).strip()}
@@ -262,6 +265,7 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None, *,
     def workspace():
         with tempfile.TemporaryDirectory(prefix='connectanum-native-mutations-') as temporary:
             work = Path(temporary)
+            (work / 'tmp').mkdir(mode=0o700)
             observer = resources.DiskGuard(work, output, cancel_event, resource_limits) \
                 if resource_limits is not None else nullcontext()
             try:

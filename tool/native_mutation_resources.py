@@ -114,10 +114,14 @@ def validate_evidence(directory, manifest):
         documents[name] = raw
     summary = json.loads(documents['resource-summary.json'])
     rows = [json.loads(line) for line in documents['resources.jsonl'].splitlines()]
-    if (summary.get('schemaVersion') != 1 or summary.get('withinLimits') is not True
+    version = summary.get('schemaVersion')
+    if (type(version) is not int or version not in (1, 2) or summary.get('withinLimits') is not True
             or summary.get('failure') is not None or summary.get('limits') != limits
+            or type(summary.get('samples')) is not int
             or summary.get('samples') != len(rows) or len(rows) < 2):
         raise ValueError('Resource observation did not finish within limits')
+    if manifest.get('privateTemporaryDirectory') is not None and version != 2:
+        raise ValueError('Private temporary observation requires resource schema 2')
     elapsed = -1
     for row in rows:
         for value in (row['elapsedSeconds'], row['samplingSeconds']):
@@ -127,16 +131,33 @@ def validate_evidence(directory, manifest):
             raise ValueError('Resource sampling order differs')
         elapsed = row['elapsedSeconds']
         values = [row['availableBytes'], *row['cache'].values()]
+        temporary = row.get('temporary') if version == 2 else {'logicalBytes': 0, 'allocatedBytes': 0}
+        if not isinstance(temporary, dict) or not {'logicalBytes', 'allocatedBytes'} <= temporary.keys():
+            raise ValueError('Missing private temporary resource observation')
+        values.extend(temporary.values())
         if any(type(value) is not int or value < 0 for value in values):
             raise ValueError('Invalid resource byte count')
         if (row['availableBytes'] < policy.reserve_bytes
-                or max(row['cache']['logicalBytes'], row['cache']['allocatedBytes'])
+                or max(row['cache']['logicalBytes'] + temporary['logicalBytes'],
+                       row['cache']['allocatedBytes'] + temporary['allocatedBytes'])
                 > policy.max_cache_bytes):
             raise ValueError('Resource samples exceed limits')
-    if (summary['minimumAvailableBytes'] != min(row['availableBytes'] for row in rows)
-            or summary['peakCacheLogicalBytes'] != max(row['cache']['logicalBytes'] for row in rows)
-            or summary['peakCacheAllocatedBytes'] != max(row['cache']['allocatedBytes'] for row in rows)):
+    peaks = {
+        'minimumAvailableBytes': min(row['availableBytes'] for row in rows),
+        'peakCacheLogicalBytes': max(row['cache']['logicalBytes'] for row in rows),
+        'peakCacheAllocatedBytes': max(row['cache']['allocatedBytes'] for row in rows),
+    }
+    if any(type(summary.get(key)) is not int or summary[key] != value for key, value in peaks.items()):
         raise ValueError('Resource summary differs from samples')
+    if version == 2:
+        peaks = {
+            'peakTemporaryLogicalBytes': max(row['temporary']['logicalBytes'] for row in rows),
+            'peakTemporaryAllocatedBytes': max(row['temporary']['allocatedBytes'] for row in rows),
+            'peakScratchLogicalBytes': max(row['cache']['logicalBytes'] + row['temporary']['logicalBytes'] for row in rows),
+            'peakScratchAllocatedBytes': max(row['cache']['allocatedBytes'] + row['temporary']['allocatedBytes'] for row in rows),
+        }
+        if any(type(summary.get(key)) is not int or summary[key] != value for key, value in peaks.items()):
+            raise ValueError('Temporary resource summary differs from samples')
 
 
 class DiskGuard:
@@ -152,6 +173,8 @@ class DiskGuard:
         self.samples = 0
         self.minimum_free = None
         self.peak_logical = self.peak_allocated = 0
+        self.peak_temporary_logical = self.peak_temporary_allocated = 0
+        self.peak_scratch_logical = self.peak_scratch_allocated = 0
 
     def fail(self, message):
         self.failure = self.failure or message
@@ -162,13 +185,21 @@ class DiskGuard:
             started = time.monotonic()
             cache = tree_usage(self.work / 'target')
             incremental = tree_usage(self.work / 'target', ('debug', 'incremental'))
+            temporary = tree_usage(self.work / 'tmp')
             free = min(available_bytes(self.work), available_bytes(self.output))
             self.minimum_free = free if self.minimum_free is None else min(self.minimum_free, free)
             self.peak_logical = max(self.peak_logical, cache['logicalBytes'])
             self.peak_allocated = max(self.peak_allocated, cache['allocatedBytes'])
+            scratch_logical = cache['logicalBytes'] + temporary['logicalBytes']
+            scratch_allocated = cache['allocatedBytes'] + temporary['allocatedBytes']
+            self.peak_temporary_logical = max(self.peak_temporary_logical, temporary['logicalBytes'])
+            self.peak_temporary_allocated = max(self.peak_temporary_allocated, temporary['allocatedBytes'])
+            self.peak_scratch_logical = max(self.peak_scratch_logical, scratch_logical)
+            self.peak_scratch_allocated = max(self.peak_scratch_allocated, scratch_allocated)
             row = {'utc': datetime.now(timezone.utc).isoformat(),
                    'elapsedSeconds': time.monotonic() - self.started,
                    'availableBytes': free, 'cache': cache, 'incremental': incremental,
+                   'temporary': temporary,
                    'samplingSeconds': time.monotonic() - started}
             self.stream.write(json.dumps(row) + '\n')
             self.stream.flush()
@@ -177,6 +208,8 @@ class DiskGuard:
                 self.fail('Free disk below mutation reserve')
             if max(cache['logicalBytes'], cache['allocatedBytes']) > self.limits.max_cache_bytes:
                 self.fail('Private mutation cache exceeded limit')
+            if max(scratch_logical, scratch_allocated) > self.limits.max_cache_bytes:
+                self.fail('Private mutation scratch exceeded limit')
         except Exception as error:
             self.fail(f'Mutation resource sampling failed: {type(error).__name__}: {error}')
 
@@ -217,11 +250,15 @@ class DiskGuard:
             self.stream.close()
         if self.cancel.is_set() and not self.failure:
             self.fail('Mutation resource observation cancelled')
-        self.summary = {'schemaVersion': 1, 'limits': asdict(self.limits),
+        self.summary = {'schemaVersion': 2, 'limits': asdict(self.limits),
                         'workspace': str(self.work), 'samples': self.samples,
                         'minimumAvailableBytes': self.minimum_free,
                         'peakCacheLogicalBytes': self.peak_logical,
                         'peakCacheAllocatedBytes': self.peak_allocated,
+                        'peakTemporaryLogicalBytes': self.peak_temporary_logical,
+                        'peakTemporaryAllocatedBytes': self.peak_temporary_allocated,
+                        'peakScratchLogicalBytes': self.peak_scratch_logical,
+                        'peakScratchAllocatedBytes': self.peak_scratch_allocated,
                         'failure': self.failure, 'withinLimits': self.failure is None,
                         'elapsedSeconds': time.monotonic() - self.started,
                         'limitations': ['Periodic samples may miss brief peaks or overshoot a limit',

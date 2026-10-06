@@ -38,6 +38,61 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work411 Private Scratch And Ownership Inspection
+
+Private `tmp` directories now own the native command's `TMPDIR`, `TMP` and
+`TEMP` settings. Preserve parent environments and all original tests,
+assertions, operators, inventories, deadlines, reserve and score gates.
+Resource schema two records temporary and combined cache/tmp scratch peaks;
+the original per-worker budget covers both. Reaudit raw samples, strict integer
+counts and exact peaks; reject missing temporary observations and schema
+downgrade while retaining matching historical schema-one audits.
+
+Toy-campaign logs reproduce successful baselines rejected by macOS ownership
+`EIO`. The [XNU process-argument reader](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_sysctl.c)
+returns that error for process-memory copying failures, not proof of exit.
+Allow one immediate complete fresh read; clear each buffer and keep persistent
+or other inspection failures uncredited. Identity-bound signalling is unchanged.
+Fail-first regressions cover size/data reads, both ownership results, wiped
+buffers, persistent failures and subsequently observed disappearance.
+
+Clean Fast411b passes before the ownership/audit hardening; earlier Fast411
+fails after an overbroad diagnostic capture exhausts disk. Only the accidental
+duplicate is removed; originals, campaign archives and failure logs remain.
+Four additional unused historical Android intermediate caches have unchanged
+protected hashes. Do not equate allocation/deletion with unique APFS recovery.
+Updated native-tool checks (132) and Dart-runner tests (98, one platform skip)
+pass. Fresh `bin/verify` exits zero in
+`/tmp/connectanum-native-private-temp-verify411.log`, including actual Chrome
+and Dart2Wasm tests; all 1,055 pre-start implementation/config/test hashes match
+at completion, with those inputs unchanged throughout verification.
+Next: matching controls and complete core/FFI collection with temporary/scratch
+metrics and sufficient raw-evidence headroom.
+Historical collection cannot certify changed fingerprints. Gates remain open;
+no push/publication or docs-only commit.
+
+### Work410 Shared Test Payload Leakage
+
+Full409 stops at the unchanged four-GiB reserve after 19,584.92s of core
+collection; FFI never starts. Preserve the immutable failed run. Independent
+archived-tool, matching-environment inspection reaudits 24 completed batches,
+1,475 outcomes and all 539 original baseline tests: 469 assertion kills,
+178 survivors, 513 errors, 80 timeouts and 235 compile errors. No full score
+or gate claim is valid. Exact supervisor/coordinator commands are gone; command
+and deleted/aliased cwd inspection finds no live campaign workers. Pause only
+the terminal-run heartbeat, not the active goal.
+
+Cancelled-batch private cache peaks stay below 454 MB, but file-transfer tests
+write to shared OS temporary storage and remove payloads only after assertions.
+A birth-time scan finds 407 matching payload files created during collection,
+allocating about 1.83 GiB. This proves retained files, not exclusive ownership
+or the cause of the entire host disk decrease. Never remove untagged shared
+files. Reproduce leakage using fixture-only shared storage, then scope native
+temporary-file environment variables to private workspaces. Preserve original
+commands/tests/assertions/deadlines/operators/gates and raw evidence; verify
+timeout/crash cleanup, concurrent isolation, and unrelated-file preservation.
+Changed tools require fresh matching controls and exact full evidence.
+
 ### Work408 Stale Scratch Inputs And Identity-Bound Cleanup
 
 Full407 stops incomplete after 6,571.84s of FFI collection: batch 13 cannot
@@ -87,7 +142,30 @@ deadlines/operators and strict gates. Historical diagnostic triage finds 548
 mixed assertion/non-assertion error candidates; keep their zero kill credit and
 use them to prioritize subsequent genuine regression improvements. Reclaim only
 proven-unused generated caches with protected artifact/evidence hashes before
-admission. Full collection has not yet started; no measured full-runtime claim.
+admission. Local-only checkpoint `18a84ccd` bundles the verified implementation,
+regressions and verification bookkeeping; it is not pushed/published.
+After live-user checks and preserved hashes, reclaim only native debug/test
+targets and eight historical Android intermediate caches. Every other
+historical source/artifact/evidence byte/mode and release/analyzer binary retains
+its hash. Shared headroom reaches 16.7 GiB against unchanged fifteen-GiB default
+admission; allocation/deletion totals are not uniquely freed APFS capacity.
+
+Twenty-three separate operational checks pass. Fresh ignored full409 freezes
+the clean verified checkpoint and regenerates all 1,963 core and 1,297 FFI
+candidates. Supervisor PID 52432 and default-control coordinator PID 52572 are
+confirmed alive with exact commands; control starts at 02:35:25 UTC. It obtains
+matching fresh default/lean controls before automatically running complete
+core then FFI, 32 fresh batches each, four workers/four Cargo jobs. Keep default
+2.5-GiB/lean 0.75-GiB cache caps, four-GiB reserve, and all original tests,
+assertions, deadlines, operators and strict gates. Lean debug-zero/incremental-
+zero promotion requires independently matched outcomes/tests/provenance and
+bounded measured cache. No old tool hashes, pilots or incomplete batches are
+reused as full evidence. Final independent exact full reaudits and canonical
+deleted/aliased cwd/process cleanup precede completion/reporting. The quiet
+heartbeat follows this owner; no competing verification/benchmark/inference
+or frozen/raw input edits. Leave post-checkpoint bookkeeping uncommitted. Full
+collection, detailed actual reporting and strict passage remain pending;
+the goal stays active. No measured full-runtime claim or push/publication.
 
 ### Work407 Complete Core And Audited FFI Continuation
 

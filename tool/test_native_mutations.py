@@ -630,9 +630,104 @@ class NativeMutationTests(unittest.TestCase):
                 self.assertIn('--cargo-arg=--locked', campaign)
                 self.assertIn('--locked', restored)
 
+    def test_native_commands_scope_all_temporary_environment_variables(self):
+        work = Path('/private/test work')
+        inherited = dict(os.environ)
+        for target in collector.TARGETS:
+            for command in collector.commands(work, Path('/evidence'), target):
+                with self.subTest(target=target, command=command[command.index('cargo') + 1]):
+                    for name in ('TMPDIR', 'TMP', 'TEMP'):
+                        self.assertIn(f'{name}={work / "tmp"}', command[:command.index('cargo')])
+        self.assertEqual(dict(os.environ), inherited)
+
+    def test_failed_child_payloads_are_private_and_cleanup_preserves_shared_files(self):
+        import sys
+
+        actual_run = collector.run
+        for mode in ('timeout', 'abort'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                repo, output, shared = root / 'repo', root / 'evidence', root / 'shared'
+                repo.mkdir()
+                shared.mkdir()
+                sentinel = shared / 'unrelated.bin'
+                sentinel.write_bytes(b'preserve shared data')
+                owned, payloads = [], []
+
+                def command(arguments, work, timeout):
+                    owned.append(work)
+                    self.assertEqual(timeout, 14400)
+                    script = ('import os,tempfile,time; from pathlib import Path; '
+                              'p=Path(tempfile.gettempdir())/"failed-transfer.bin"; '
+                              'p.write_bytes(b"x"*524288); print(str(p),flush=True); '
+                              + ('time.sleep(10)' if mode == 'timeout' else 'os._exit(17)'))
+                    prefix = arguments[:arguments.index('cargo')]
+                    code, log = actual_run([*prefix, sys.executable, '-c', script], work,
+                                           .5 if mode == 'timeout' else 3)
+                    payloads.append(Path(log.splitlines()[0]))
+                    (output / 'fixture-child.log').write_text(log)
+                    if mode == 'abort':
+                        self.assertEqual(code, 17)
+                        raise RuntimeError('fixture worker abort')
+                    self.assertIsNone(code)
+                    return code, log
+
+                with patch.dict(os.environ, {name: str(shared) for name in ('TMPDIR', 'TMP', 'TEMP')}), \
+                        patch.object(collector.native_coverage, 'snapshot', return_value={**SCOPE, 'inputHashes': {}}), \
+                        patch.object(collector.native_coverage, 'digest', return_value='hash'), \
+                        patch.object(collector.subprocess, 'check_output', return_value='cargo-mutants 27.1.0\n'), \
+                        patch.object(collector, 'copy_inputs'), \
+                        patch.object(collector, 'run', side_effect=command), \
+                        patch.object(collector.native_mutations, 'audit') as auditor:
+                    inherited = dict(os.environ)
+                    with self.assertRaisesRegex(RuntimeError, 'timed out|fixture worker abort'):
+                        collector.collect(repo, output, Path('analyzer'))
+                    self.assertEqual(dict(os.environ), inherited)
+                    auditor.assert_not_called()
+                self.assertEqual(payloads[0].parent.resolve(), (owned[0] / 'tmp').resolve())
+                self.assertFalse(owned[0].exists())
+                self.assertEqual(list(shared.iterdir()), [sentinel])
+                self.assertEqual(sentinel.read_bytes(), b'preserve shared data')
+                self.assertTrue((output / 'fixture-child.log').is_file())
+                self.assertFalse(json.loads((output / 'run-manifest.json').read_text())['complete'])
+                self.assertFalse((output / 'audited-results.json').exists())
+
+    def test_concurrent_native_commands_keep_temporary_payloads_separate(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import sys
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            shared = root / 'shared'
+            shared.mkdir()
+            works = [root / name for name in ('first', 'second')]
+            for work in works:
+                (work / 'tmp').mkdir(parents=True)
+            def child(work):
+                command, _ = collector.commands(work, root / 'evidence')
+                script = ('import tempfile,time; from pathlib import Path; '
+                          'p=Path(tempfile.gettempdir())/"concurrent-transfer.bin"; '
+                          'p.write_text(str(Path.cwd())); time.sleep(.1); '
+                          'print(str(p)); print(p.read_text())')
+                return subprocess.run([*command[:command.index('cargo')], sys.executable, '-c', script],
+                                      cwd=work, capture_output=True, text=True, timeout=5)
+
+            with patch.dict(os.environ, {name: str(shared) for name in ('TMPDIR', 'TMP', 'TEMP')}):
+                inherited = dict(os.environ)
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    results = list(pool.map(child, works))
+                self.assertEqual(dict(os.environ), inherited)
+            for work, result in zip(works, results):
+                self.assertEqual(result.returncode, 0, result.stderr)
+                path, content = result.stdout.splitlines()
+                self.assertEqual(Path(path).resolve(), (work / 'tmp/concurrent-transfer.bin').resolve())
+                self.assertEqual(Path(content).resolve(), work.resolve())
+            self.assertEqual(list(shared.iterdir()), [])
+
     def test_real_campaign_baseline_and_mutants_use_the_same_workspace(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = Path(temporary)
+            (work / 'tmp').mkdir()
             root = work / 'native/transport'
             root.mkdir(parents=True)
             (root / 'Cargo.toml').write_text(
