@@ -1,0 +1,167 @@
+{
+  "status": "passed",
+  "recordedUtc": "2026-10-06T19:19:12.227567+00:00",
+  "sdk": "3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_arm64\"",
+  "sdkCommit": "04bcd1036cdc799ac6564988f159ee454d42c822",
+  "scope": "libc write arguments; no SDK/TLS total-copy claim",
+  "inputOwner": "calloc; not Rust/database memory",
+  "sourceSha256": {
+    "tool/sdk_socket_copy_probe.c": "09b866d67fea343f70da4c2ad2378be11503a00fefcb2dd81ec0c5db09cbd229",
+    "packages/connectanum_client/tool/sdk_socket_copy_probe.dart": "86c79f2e42a6b6ead126702090916a7f5f6488be487d7c8e8a9e94d7c96ebf81"
+  },
+  "cases": [
+    {
+      "shape": "control",
+      "forcedRetries": false,
+      "directControl": true,
+      "inputBytes": 9,
+      "backingBytes": 256,
+      "viewOffset": 0,
+      "payloadEqual": true,
+      "writeCalls": 1,
+      "acceptedBytes": 9,
+      "matchingInputAddresses": 1,
+      "interruptedCalls": 0
+    },
+    {
+      "shape": "ignored-port-control",
+      "ignoredPortControl": true,
+      "payloadEqual": true,
+      "writes": 0
+    },
+    {
+      "shape": "full",
+      "forcedRetries": false,
+      "directControl": false,
+      "inputBytes": 256,
+      "backingBytes": 256,
+      "viewOffset": 0,
+      "payloadEqual": true,
+      "writeCalls": 1,
+      "acceptedBytes": 256,
+      "matchingInputAddresses": 1,
+      "interruptedCalls": 0
+    },
+    {
+      "shape": "full-readonly",
+      "forcedRetries": false,
+      "directControl": false,
+      "inputBytes": 256,
+      "backingBytes": 256,
+      "viewOffset": 0,
+      "payloadEqual": true,
+      "writeCalls": 1,
+      "acceptedBytes": 256,
+      "matchingInputAddresses": 1,
+      "interruptedCalls": 0
+    },
+    {
+      "shape": "partial",
+      "forcedRetries": false,
+      "directControl": false,
+      "inputBytes": 96,
+      "backingBytes": 256,
+      "viewOffset": 32,
+      "payloadEqual": true,
+      "writeCalls": 1,
+      "acceptedBytes": 96,
+      "matchingInputAddresses": 0,
+      "interruptedCalls": 0
+    },
+    {
+      "shape": "partial-readonly",
+      "forcedRetries": false,
+      "directControl": false,
+      "inputBytes": 96,
+      "backingBytes": 256,
+      "viewOffset": 32,
+      "payloadEqual": true,
+      "writeCalls": 1,
+      "acceptedBytes": 96,
+      "matchingInputAddresses": 0,
+      "interruptedCalls": 0
+    },
+    {
+      "shape": "full",
+      "forcedRetries": true,
+      "directControl": false,
+      "inputBytes": 256,
+      "backingBytes": 256,
+      "viewOffset": 0,
+      "payloadEqual": true,
+      "writeCalls": 10,
+      "acceptedBytes": 256,
+      "matchingInputAddresses": 10,
+      "interruptedCalls": 1
+    },
+    {
+      "shape": "full-readonly",
+      "forcedRetries": true,
+      "directControl": false,
+      "inputBytes": 256,
+      "backingBytes": 256,
+      "viewOffset": 0,
+      "payloadEqual": true,
+      "writeCalls": 10,
+      "acceptedBytes": 256,
+      "matchingInputAddresses": 10,
+      "interruptedCalls": 1
+    },
+    {
+      "shape": "partial",
+      "forcedRetries": true,
+      "directControl": false,
+      "inputBytes": 96,
+      "backingBytes": 256,
+      "viewOffset": 32,
+      "payloadEqual": true,
+      "writeCalls": 5,
+      "acceptedBytes": 96,
+      "matchingInputAddresses": 0,
+      "interruptedCalls": 1
+    },
+    {
+      "shape": "partial-readonly",
+      "forcedRetries": true,
+      "directControl": false,
+      "inputBytes": 96,
+      "backingBytes": 256,
+      "viewOffset": 32,
+      "payloadEqual": true,
+      "writeCalls": 5,
+      "acceptedBytes": 96,
+      "matchingInputAddresses": 0,
+      "interruptedCalls": 1
+    }
+  ],
+  "missingPreloadControl": {
+    "exitCode": 255,
+    "requiredSymbol": "probe_reset",
+    "lookupFailed": true
+  },
+  "rawObservationsSha256": "fa9994620692eeda1253ac0f2edef87da4accfa8ddee58a9c637afdfed993f00",
+  "performanceAcceptance": false,
+  "completeCopyCoverage": false,
+  "workflowStep": {
+    "localExitCode": 0,
+    "hostedStatus": "pending",
+    "commandSha256": "d93088ff036e44e74160ffdddfa2b9c9285d70169dc637b9b0d238e798690d8c",
+    "logSha256": "7c9027b23fb2dd38625ffb4014b0d7a0d4ac17172472d3c0b905da185c9f0dd9",
+    "initialAttemptExitCode": 127,
+    "initialFailure": "minimal container does not have rg; fixed control uses Python",
+    "workflowRegressionCases": 80,
+    "workflowRegressionExitCode": 0
+  },
+  "canonicalVerification": {
+    "fastExitCode": 0,
+    "verifyExitCode": 0,
+    "fastLogSha256": "d44e1f0a8d1e74cac236e36f5d72a6ac8b8a81aaad7bfcc17e395038b0ad7d1c",
+    "verifyLogSha256": "6d0c14ddb4b2ee50867970533e650bdb2e907b5cb5f9febcdfd9d839265f67f9",
+    "benchmarkCases": 1563,
+    "routerCases": 4958,
+    "coreBrowserCases": 4690,
+    "clientBrowserCases": 2829,
+    "clientNativeOnlyBrowserSkips": 20,
+    "productionNativeSchemaSourcesChanged": false
+  }
+}

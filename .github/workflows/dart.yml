@@ -34,6 +34,33 @@ jobs:
         run: python3 tool/fetch_flatc.py --output "$RUNNER_TEMP/flatc"
       - name: Bootstrap workspace
         run: dart pub get
+      - name: Verify Dart SDK socket pointer boundary
+        run: |
+          set -euo pipefail
+          mkdir -p out/sdk-socket-pointer
+          probe_output="$PWD/out/sdk-socket-pointer"
+          cc -shared -fPIC -Wall -Wextra -Werror \
+            -o "$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            tool/sdk_socket_copy_probe.c -ldl -pthread
+          cd packages/connectanum_client
+          CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            dart run tool/sdk_socket_copy_probe.dart | tee "$probe_output/observations.jsonl"
+          if env -u LD_PRELOAD CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            dart run tool/sdk_socket_copy_probe.dart \
+            > "$probe_output/missing-interposer.log" 2>&1; then
+            echo 'Socket pointer probe incorrectly passed without its interposer' >&2
+            exit 1
+          fi
+          python3 -c 'from pathlib import Path; import sys; sys.exit("undefined symbol: probe_reset" not in Path(sys.argv[1]).read_text())' \
+            "$probe_output/missing-interposer.log"
+      - name: Upload SDK socket pointer evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sdk-socket-pointer
+          path: out/sdk-socket-pointer
+          if-no-files-found: error
       - name: Verify generated bindings and fixtures
         run: python3 tool/generate_wamp_flatbuffers.py --check --flatc "$RUNNER_TEMP/flatc/flatc"
       - name: Verify typed benchmark binding

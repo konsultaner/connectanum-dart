@@ -5,7 +5,27 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Current follow-up: native PPT body reuse with empty outer CBOR/MessagePack
+Current follow-up: reproducible Linux socket pointer diagnostics. The C
+interposer and Dart tool verify external full/read-only view reuse, partial-view
+copies, real short writes and EINTR, payload equality, port filtering and an
+independent C positive control. The absent-interposer run fails as required.
+All eight SDK cases and both controls pass on Dart 3.13.5 Linux arm64. Tool
+analysis and strict C compilation pass. The FlatBuffers CI job now runs the
+probe and its missing-interposer control and uploads the observations. Its exact
+step passes in the isolated Linux container; all 80 workflow regressions pass.
+The first step attempt failed only because that minimal image lacks `rg`; the
+control now uses Python and passes, with the failed evidence retained.
+This remains a boundary diagnostic;
+total SDK/TLS/crypto copies and performance acceptance are unfinished.
+Fresh `bin/test-fast` and full `bin/verify` both pass at exit 0, including
+Rust, VM, consumer/live checks, 1,563 benchmark, 4,958 router, 4,690 core
+Chrome/Dart2Wasm and 2,829 client browser cases (20 declared native-only skips).
+The final 80 workflow regressions also pass. Probe hashes still match the exact
+executed sources. Production native/schema sources are unchanged from `b8096fd6`.
+Both local companion reviews are complete and have no confirmed defect.
+Evidence: `/tmp/connectanum-sdk-socket-probe-{fast,verify}.{log,exit}`.
+
+Preceding follow-up: native PPT body reuse with empty outer CBOR/MessagePack
 keyword maps. The preceding implementation rejected these valid WAMP maps.
 Fresh baseline fast checks pass; four new mixed-direction regressions fail
 before the repair. All 26 segmented tests now pass, including 810 additional
@@ -22,27 +42,34 @@ are unchanged. Evidence: `/tmp/connectanum-empty-ppt-kwargs-verify.{log,exit}`.
 Local Qwen review completed; source and regression evidence disprove its
 logic-inversion, indefinite-map and wrong-kind hypotheses.
 
-Pushed `9b28c61c` hosted CI remains active without an observed failure.
-[Native Artifacts 37508275182](https://github.com/konsultaner/connectanum-dart/actions/runs/37508275182)
-passes all five builds and its preview. Fifteen attestations, thirty assets and
-exact rendered notes verify. Fresh commit-pinned Apple Silicon and Linux arm64
-production consumers each pass all four serializers, native construction, ten
-segment cases, sixteen live owned-PPT cases and 104 public mixed-PPT cases.
-Their source archives match. Production exports contain no test oracles, with
-an eighteen-symbol ffi-test positive control on macOS. Four mock enqueue cases
-in the initial macOS batch failed because they require test-only exports;
-the failed attempt is preserved separately, and the real consumer cases pass.
+Production checkpoint `b8096fd6` [Native Artifacts 37515940631](https://github.com/konsultaner/connectanum-dart/actions/runs/37515940631)
+passes all five builds and its preview. Fifteen attestations, thirty assets,
+archive/library checksums and exact rendered notes verify. Fresh commit-pinned
+Apple Silicon and Linux arm64 production consumers each pass all four serializers,
+native construction, ten segment cases, sixteen live owned-PPT cases and 104
+public mixed-PPT cases. Their source archives match. Both production libraries
+exclude test oracles, with an eighteen-symbol ffi-test positive control on macOS.
 The other three platforms have build/provenance evidence only. This is runtime
 correctness, not performance acceptance. Evidence:
-`/tmp/connectanum-9b28c61c-production-consumers-fixed-proof.json` and
-`/tmp/connectanum-9b28c61c-linux-production-consumers-proof.json`.
+`/tmp/connectanum-b8096fd6-platform-provenance.json`,
+`/tmp/connectanum-b8096fd6-preview-proof.json`,
+`/tmp/connectanum-b8096fd6-production-consumers-proof.json` and
+`/tmp/connectanum-b8096fd6-linux-production-consumers-proof.json`.
+Hosted FlatBuffers Binding and GuardMalloc pass in PR run 37515806715. The
+RawSocket/WebSocket independent-peer inputs match `b8096fd6`; the memory report
+passes 87 cases/eight groups, with all 140 tracked sources matching and the
+generated lock hash verified. Its synthetic PR merge has `b8096fd6` as a parent.
+Uploaded group-log hashes match. Hosted PR Fast Checks also passes. Remaining
+required hosted CI is still running without an observed failure. Evidence:
+`/tmp/connectanum-b8096fd6-hosted-conformance-proof.json`.
 
 Independent [SDK copy research](research/2026-10-06-dart-sdk-copy-boundaries.md)
 identifies conditional partial-view copies before socket writes and binary
 masking/ring-buffer copies. A 15-case ordinary serializer diagnostic shows
 all five FlatBuffers frames use partial backing views, unlike the ten
-CBOR/MessagePack frames. SDK retries, internal buffering and TLS totals remain
-unmeasured. This is a source/layout finding, not parity or a complete-copy claim.
+CBOR/MessagePack frames. The checked-in Linux pointer probe now confirms the full/partial-view boundary
+through actual libc writes and retries. Internal buffering, TLS and total-copy
+volumes remain unmeasured. This is not parity or a complete-copy claim.
 Complete hosted acceptance and all unresolved milestone criteria remain pending.
 
 Preceding follow-up: native reuse of opaque PPT bodies between CBOR, MessagePack
