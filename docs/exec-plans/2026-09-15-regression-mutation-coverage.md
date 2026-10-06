@@ -38,6 +38,39 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work416-418 External Assertion Provenance And Fixture Contracts
+
+Fast416 passes before changes. Four added regressions and strengthened existing
+polling, metadata, wire-fixture and lazy-export checks preserve the original
+tests/deadlines. Fresh selected probes416/417 each retain five uncredited mixed
+errors, 550 passing original/restored tests and the exact 1,963 production
+candidates. Independent archived-tool/matching-environment audits reproduce
+both reports; do not relabel their failures. Separate-checkout verification
+overlaps probe417, preventing a controlled-performance timing claim.
+
+Real compiled libtest evidence reproduces rejection of standard integration-test
+assertions: these files were hash-pinned but omitted from the AST assertion map.
+Separate external assertion evidence preserves the production denominator and
+candidate scope. Only pinned, AST-proven test assertions qualify; missing/wrong
+hashes, ordinary helper lines, unknown paths, panics, overlaps, unknown scopes,
+wrong classifications and invalid lines remain errors. First Verify418 exposes
+an intentionally invalid external `.rs` fixture; preserve its failure log and
+retain non-Rust input fixtures as pinned but unclassified/uncreditable evidence.
+Production AST parsing remains fail-closed. Focused tooling checks pass
+(73 tests, one platform skip). Fresh probe418 and its independent archived-tool,
+matching-environment reaudit retain three pure assertion kills and two uncredited
+mixed errors. The production bounds panic and remaining unwraps/live deadlines
+are not hidden or credited. All 550 original/restored tests and 1,963 production
+identities remain. Exact owners are gone, no cwd users remain, and sampled scratch
+stays within the unchanged cap/reserve (436,744,192-byte peak). Preserve old
+416/417 evidence. Fresh Verify418b exits zero in
+`/tmp/connectanum-native-assertion-verify418b.log`, including actual Chrome and
+Dart2Wasm suites. All 1,896 tracked-file hashes captured before startup match
+completion, before verification-only documentation updates; no tracked inputs
+change during verification. Require fresh exact full campaigns: selected outcomes
+and timings cannot certify full gates or a full runtime estimate. Full core/FFI
+collection, both 95% gates and the actual report remain open. No push/publication.
+
 ### Work414/415 Native Wire And TLS Regression Oracles
 
 Fast413 passes before adding seven native regressions. Exercise actual applied

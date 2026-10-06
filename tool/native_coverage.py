@@ -134,11 +134,35 @@ def snapshot(repo: Path, roots: dict[str, str], analyzer: Path, *, entrypoints=(
     entries = checked_entrypoints(roots, inventory, entrypoints)
     inputs = tracked_inputs(repo, inventory, roots)
     before = {source: digest(repo / source) for source in inputs}
+    assertion_inputs = sorted(source for source in inputs
+                              if source.endswith('.rs') and source not in inventory)
     raw = json.loads(subprocess.check_output(
         [str(analyzer.resolve()), *inventory], cwd=repo, text=True,
     ))
     if set(raw) != set(inventory):
         raise ValueError("Analyzer source inventory mismatch")
+    # Hash-pinned external test assertions are evidence, never production lines
+    # or extra mutation candidates. Only their AST-proven test scopes qualify.
+    assertions = {}
+    for source in assertion_inputs:
+        parsed = subprocess.run([str(analyzer.resolve()), source], cwd=repo,
+                                capture_output=True, text=True)
+        if parsed.returncode == 0:
+            evidence = json.loads(parsed.stdout)
+            if set(evidence) != {source}:
+                raise ValueError('External assertion analyzer inventory mismatch')
+            info = evidence[source]
+        elif parsed.returncode == 1 and parsed.stderr.startswith(f'{source}: '):
+            # Hashed .rs files may also be input fixtures, not compilable tests.
+            # Preserve their identity, but never infer assertion proof from them.
+            info = {'fileTestOnly': False, 'excludedLines': [],
+                    'problems': ['external input is not parseable Rust']}
+        else:
+            raise subprocess.CalledProcessError(parsed.returncode, parsed.args,
+                                                parsed.stdout, parsed.stderr)
+        info.update(classification='assertion-evidence', inputSha256=before[source],
+                    lineCount=len((repo / source).read_text().splitlines()))
+        assertions[source] = info
     kinds = classify(repo, roots, raw, entrypoints=entries)
     for source, scope in raw.items():
         scope.update(component=inventory[source], classification=kinds[source],
@@ -147,6 +171,7 @@ def snapshot(repo: Path, roots: dict[str, str], analyzer: Path, *, entrypoints=(
         "schemaVersion": 1, "policy": POLICY, "roots": roots,
         "host": {"system": platform.system(), "machine": platform.machine()},
         "analyzerSha256": digest(analyzer), "inputHashes": before, "sources": raw,
+        "assertionSources": assertions,
         "metric": "executable production-candidate lines; no function/branch percentage",
     }
     if entries:
@@ -167,6 +192,16 @@ def validate_snapshot(repo: Path, scope: dict) -> None:
     for source, expected in scope["inputHashes"].items():
         if digest(repo / source) != expected:
             raise ValueError(f"Stale coverage source: {source}")
+    expected_assertions = {source for source in scope['inputHashes']
+                           if source.endswith('.rs') and source not in inventory}
+    assertions = scope.get('assertionSources', {})
+    if set(assertions) != expected_assertions:
+        raise ValueError('External assertion inventory changed since snapshot')
+    for source, info in assertions.items():
+        if (info.get('classification') != 'assertion-evidence'
+                or info.get('inputSha256') != scope['inputHashes'][source]
+                or info.get('lineCount') != len((repo / source).read_text().splitlines())):
+            raise ValueError(f'External assertion provenance differs: {source}')
 
 
 def read_lcov(repo: Path, raw: str, scope: dict) -> tuple[dict, list[str]]:

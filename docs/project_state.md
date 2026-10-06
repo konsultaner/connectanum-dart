@@ -7,6 +7,39 @@ campaigns without narrowing inventories, test suites, deadlines or evidence gate
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work416-418: four added regressions and stronger polling/fixture assertions
+check pending/delivered ownership, expected WAMP identity, original wire bytes,
+metadata payloads and lazy exports. Fast416 passes before changes. Fresh probes
+416/417 retain five uncredited mixed errors each, with passing 550-test original
+and restored baselines and the exact 1,963-candidate core inventory intact.
+Independent archived-tool/matching-environment reaudits reproduce both reports;
+preserve the raw failures. A separate-checkout verification overlaps probe417,
+so its timing is not controlled performance evidence.
+
+A fail-first, real-libtest regression identifies a runner defect: integration
+tests are input-hashed but absent from the assertion AST map. Record separate
+hash-pinned external assertion sources without expanding production coverage or
+mutation candidates. Require AST-proven test scope, matching input hash and
+valid locations; reject unknown/helper/panic/ambiguous evidence. First Verify418
+rejects an intentionally invalid external `.rs` fixture; preserve that failed
+log. Such hash inputs now retain unclassified, uncreditable evidence, while
+production AST parsing remains fail-closed. Focused tooling checks pass
+(73 tests, one platform skip). Never reinterpret old reports using the changed
+tools. Fresh probe418 with the changed tools retains three pure assertion kills
+and two uncredited mixed errors (a mutated bounds panic and remaining unwraps/
+live-transport deadlines). Independent archived-tool/matching-environment
+reaudit reproduces its exact outcomes, 550 original/restored tests and all
+1,963 production identities. Exact owners are gone and cwd inspection finds
+no probe users. Sampled scratch peaks at 436,744,192 bytes, with unchanged limits;
+sampled host free space remains above the four-GiB reserve. This is diagnostic
+evidence, not either full gate or a new full-campaign runtime estimate.
+Fresh Verify418b exits zero in
+`/tmp/connectanum-native-assertion-verify418b.log`, including actual Chrome and
+Dart2Wasm suites. All 1,896 tracked-file hashes captured before startup match
+completion, before this verification-only documentation update; no tracked
+inputs change during verification. Both full native gates and the measurement
+report stay open. No push/publication.
+
 Work414/415: seven native regressions now check applied TCP ALPN configuration,
 HTTP delimiter/chunk boundaries and buffered tail ordering, EOF/timeout/size
 errors, and literal WebSocket length/masking headers. Production behavior is

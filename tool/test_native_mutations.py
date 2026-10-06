@@ -76,6 +76,50 @@ class NativeMutationTests(unittest.TestCase):
         self.assertEqual([block[1] for block in audit.FAILURE.finditer(failed)], names)
         self.assertEqual(audit.classify(outcome({'Failure': 101}), failed, SCOPE, MUTANT), 'killed')
 
+    def test_real_external_test_assertions_require_pinned_ast_proof(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory).resolve()
+            (repo / 'core/src').mkdir(parents=True)
+            (repo / 'core/tests').mkdir()
+            (repo / 'core/src/lib.rs').write_text('pub fn production() {}\n')
+            (repo / 'core/Cargo.toml').write_text('[package]\n')
+            source = 'core/tests/wire.rs'
+            (repo / source).write_text(
+                'fn helper() { assert_eq!(1, 2); }\n'
+                '#[test]\nfn expected() { assert_eq!(1, 2); }\n')
+            scope = native_coverage.snapshot(repo, {'core': 'core/src/lib.rs'}, self.analyzer)
+            binary = repo / 'wire-test'
+            subprocess.run(['rustc', '--test', source, '-o', str(binary)], cwd=repo, check=True,
+                           capture_output=True, text=True)
+            result = subprocess.run([str(binary), '--test-threads=1'], cwd=repo,
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 101)
+            failed = outcome({'Failure': 101})
+            self.assertEqual(audit.classify(failed, result.stdout, scope, MUTANT), 'killed')
+            for variant in ('missing-hash', 'wrong-hash', 'helper', 'unknown-source', 'panic',
+                            'overlap', 'unclassified', 'wrong-classification', 'outside'):
+                changed, text = copy.deepcopy(scope), result.stdout
+                if variant == 'missing-hash':
+                    del changed['inputHashes'][source]
+                elif variant == 'wrong-hash':
+                    changed['inputHashes'][source] = '0' * 64
+                elif variant == 'helper':
+                    text = text.replace('wire.rs:3:', 'wire.rs:1:')
+                elif variant == 'unknown-source':
+                    text = text.replace('wire.rs:', 'unknown.rs:')
+                elif variant == 'panic':
+                    text = text.replace('assertion `left == right` failed', 'runtime panic')
+                elif variant == 'overlap':
+                    changed['sources'][source] = changed['assertionSources'][source]
+                elif variant == 'unclassified':
+                    changed['assertionSources'][source]['problems'] = ['unknown AST scope']
+                elif variant == 'wrong-classification':
+                    changed['assertionSources'][source]['classification'] = 'test-only'
+                else:
+                    text = text.replace('wire.rs:3:', 'wire.rs:99:')
+                with self.subTest(variant=variant):
+                    self.assertEqual(audit.classify(failed, text, changed, MUTANT), 'error')
+
     def test_extra_failure_header_cannot_be_hidden_in_assertion_output(self):
         for name in ('tests::unreported', 'tests::expected'):
             with self.subTest(extra_header=name):

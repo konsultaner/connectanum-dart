@@ -10553,7 +10553,9 @@ mod tests {
 
         let mut attempts = 0;
         let parsed = loop {
-            if let Some(msg) = poll_connection_message(connection_id).expect("poll succeeds") {
+            if let Some(msg) =
+                assert_live_connection_poll(poll_connection_message(connection_id), connection_id)
+            {
                 break msg;
             }
             attempts += 1;
@@ -10563,6 +10565,7 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(10)).await;
         };
 
+        assert_eq!(parsed.message.code(), 1);
         match parsed.message {
             WampMessage::Hello { realm, .. } => assert_eq!(realm, "realm"),
             other => panic!("unexpected message: {:?}", other),
@@ -10595,10 +10598,56 @@ mod tests {
         shutdown().unwrap();
     }
 
+    fn assert_live_connection_poll(
+        result: Result<Option<super::ParsedMessage>, Error>,
+        connection_id: ConnectionId,
+    ) -> Option<super::ParsedMessage> {
+        assert_eq!(
+            result.as_ref().err().map(|error| format!("{error:?}")),
+            None,
+            "polling the registered connection {connection_id:?} must succeed"
+        );
+        result.unwrap()
+    }
+
+    #[test]
+    fn live_connection_poll_preserves_pending_state() {
+        assert!(assert_live_connection_poll(Ok(None), ConnectionId(41)).is_none());
+    }
+
+    #[test]
+    fn live_connection_poll_preserves_message_and_frame_ownership() {
+        let bytes = Bytes::from_static(b"[17,41,62]");
+        let pointer = bytes.as_ptr();
+        let expected = WampMessage::Published {
+            request_id: 41,
+            publication_id: 62,
+        };
+        let message = super::ParsedMessage {
+            message: expected.clone(),
+            raw: wamp::RawFrame::Contiguous(bytes.clone()),
+            serializer: RawSocketSerializer::Json,
+        };
+        let actual = assert_live_connection_poll(Ok(Some(message)), ConnectionId(41)).unwrap();
+        assert_eq!(actual.message, expected);
+        assert_eq!(actual.serializer, RawSocketSerializer::Json);
+        assert_eq!(actual.raw.as_contiguous(), Some(&bytes));
+        let actual_bytes = actual.raw.as_contiguous().unwrap();
+        assert_eq!(actual_bytes.as_ptr(), pointer);
+    }
+
+    #[test]
+    #[should_panic(expected = "polling the registered connection ConnectionId(41) must succeed")]
+    fn live_connection_poll_rejects_a_lost_registered_connection() {
+        let connection_id = ConnectionId(41);
+        assert_live_connection_poll(Err(Error::ConnectionNotFound(connection_id)), connection_id);
+    }
+
     async fn wait_for_polled_message(connection_id: ConnectionId) -> super::ParsedMessage {
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
-            match poll_connection_message(connection_id).unwrap() {
+            match assert_live_connection_poll(poll_connection_message(connection_id), connection_id)
+            {
                 Some(message) => return message,
                 None if Instant::now() < deadline => {
                     tokio::time::sleep(Duration::from_millis(10)).await;

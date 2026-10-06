@@ -56,9 +56,21 @@ fn message(serializer: RawSocketSerializer, code: u64, details: &JsonValue) -> S
         35 | 49 | 69 => json!([code, 41, details]),
         _ => panic!("unexpected test message code"),
     };
-    let parsed = ct_core::parse_message(serializer, encoded(serializer, &wire));
+    let frame = encoded(serializer, &wire);
+    let parsed = ct_core::parse_message(serializer, frame.clone());
+    assert_eq!(
+        parsed
+            .as_ref()
+            .map(|message| (message.message.code(), message.serializer))
+            .map_err(|error| format!("{error:?}")),
+        Ok((code, serializer)),
+        "the independently encoded fixture must retain its WAMP identity"
+    );
     assert!(parsed.is_ok(), "valid WAMP frame must parse: {parsed:?}");
-    parsed_message_value(parsed.unwrap())
+    let parsed = parsed.unwrap();
+    assert_eq!(parsed.raw.as_contiguous(), Some(&frame));
+    assert_eq!(parsed.raw.as_contiguous().unwrap().as_ptr(), frame.as_ptr());
+    parsed_message_value(parsed)
 }
 
 fn assert_metadata(msg: &StoredMessage, expected: &JsonValue, direct: bool) -> CtMessageInfo {
@@ -98,6 +110,23 @@ fn assert_metadata(msg: &StoredMessage, expected: &JsonValue, direct: bool) -> C
         }
     }
     info
+}
+
+#[test]
+fn valid_metadata_fixtures_preserve_nontrivial_payloads_in_every_serializer() {
+    let details = json!({"custom": [null, false, 0, "Gr\u{00fc}\u{00df}e"]});
+    for serializer in SERIALIZERS {
+        for code in [8, 16, 36, 48, 50, 68, 70] {
+            let msg = message(serializer, code, &details);
+            assert_eq!((msg.code, msg.serializer), (code, serializer));
+            assert_metadata(&msg, &details, true);
+            assert_eq!(decoded(serializer, msg.args.as_ref().unwrap()), json!([17]));
+            assert_eq!(
+                decoded(serializer, msg.kwargs.as_ref().unwrap()),
+                json!({"key": "value"})
+            );
+        }
+    }
 }
 
 #[test]

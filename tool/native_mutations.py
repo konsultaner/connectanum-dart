@@ -44,9 +44,21 @@ def test_assertion(body: str, scope: dict, mutant: dict | None) -> bool:
     if len(panics) != 1 or not ASSERTION.match(body[panics[0].end():]):
         return False
     panic = panics[0]
-    source = source_for(panic[1], scope)
+    assertions = scope.get('assertionSources', {})
+    if set(assertions) & set(scope['sources']):
+        return False
+    source = source_for(panic[1], {'sources': {**scope['sources'], **assertions}})
     if source is None:
         return False
+    external = source in assertions
+    info = assertions[source] if external else scope['sources'][source]
+    if external:
+        expected = scope.get('inputHashes', {}).get(source)
+        if (not isinstance(expected, str) or not re.fullmatch(r'[0-9a-f]{64}', expected)
+                or info.get('inputSha256') != expected
+                or info.get('classification') != 'assertion-evidence'
+                or info.get('problems')):
+            return False
     line = int(panic[2])
     if mutant and source == source_for(mutant['file'], scope):
         start, end = mutant['span']['start']['line'], mutant['span']['end']['line']
@@ -56,9 +68,9 @@ def test_assertion(body: str, scope: dict, mutant: dict | None) -> bool:
             return False
         if line > start + inserted:
             line += end - start - inserted
-    info = scope['sources'][source]
     return 0 < line <= info['lineCount'] and (
-        info['classification'] == 'test-only' or line in info['excludedLines'])
+        info['classification'] == 'test-only' or line in info['excludedLines']
+        or (external and info['fileTestOnly']))
 
 
 def classify(outcome: dict, log: str, scope: dict, mutant: dict | None) -> str:

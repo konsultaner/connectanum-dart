@@ -61,6 +61,35 @@ class NativeCoverageTests(unittest.TestCase):
         scope = self.capture()
         self.assertEqual(scope["sources"]["core/src/shared.rs"]["classification"], "production-candidate")
 
+    def test_external_assertion_evidence_does_not_expand_production_scope(self):
+        self.write("core/src/lib.rs", "pub fn production() {}\n")
+        self.write("core/Cargo.toml", "[package]\n")
+        source = "core/tests/wire.rs"
+        self.write(source, "fn helper() {}\n#[test]\nfn wire() {\n    assert_eq!(1, 2);\n}\n")
+        scope = self.capture()
+        self.assertEqual(set(scope["sources"]), {"core/src/lib.rs"})
+        evidence = scope["assertionSources"][source]
+        self.assertEqual(evidence["classification"], "assertion-evidence")
+        self.assertEqual(evidence["inputSha256"], scope["inputHashes"][source])
+        self.assertIn(4, evidence["excludedLines"])
+        self.assertNotIn(1, evidence["excludedLines"])
+        self.write(source, "#[test]\nfn changed() {}\n")
+        with self.assertRaisesRegex(ValueError, "Stale coverage source"):
+            filter_lcov(self.repo, scope, "SF:core/src/lib.rs\nDA:1,1\nend_of_record\n")
+
+    def test_non_rust_external_fixture_is_pinned_but_never_assertion_proof(self):
+        self.write("core/src/lib.rs", "pub fn production() {}\n")
+        self.write("core/Cargo.toml", "[package]\n")
+        source = "core/tests/fixture.rs"
+        self.write(source, "not Rust input data\n")
+        scope = self.capture()
+        evidence = scope["assertionSources"][source]
+        self.assertEqual(evidence["inputSha256"], scope["inputHashes"][source])
+        self.assertEqual(evidence["excludedLines"], [])
+        self.assertFalse(evidence["fileTestOnly"])
+        self.assertTrue(evidence["problems"])
+        self.assertEqual(set(scope["sources"]), {"core/src/lib.rs"})
+
     def test_nested_inline_and_external_directories(self):
         self.write("core/src/lib.rs", 'mod outer { mod inner; }\n')
         self.write("core/src/outer/inner.rs", 'mod child { #[path="custom.rs"] mod leaf; }\n')

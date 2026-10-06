@@ -7711,8 +7711,31 @@ mod tests {
         assert_ne!(ERR_HANDLE_UNAVAILABLE, ERR_INVALID_ARGUMENT);
     }
 
-    fn wide_test_message(serializer: RawSocketSerializer, frame: Vec<u8>) -> i64 {
-        let parsed = ct_core::parse_message(serializer, Bytes::from(frame)).unwrap();
+    fn assert_fixture_message(
+        result: Result<ct_core::ParsedMessage, ct_core::WampParseError>,
+        serializer: RawSocketSerializer,
+        code: u64,
+    ) -> ct_core::ParsedMessage {
+        assert_eq!(
+            result
+                .as_ref()
+                .map(|message| (message.message.code(), message.serializer))
+                .map_err(|error| format!("{error:?}")),
+            Ok((code, serializer)),
+            "the independently encoded fixture must retain its expected WAMP identity"
+        );
+        result.unwrap()
+    }
+
+    fn wide_test_message(serializer: RawSocketSerializer, code: u64, frame: Vec<u8>) -> i64 {
+        let frame = Bytes::from(frame);
+        let parsed = assert_fixture_message(
+            ct_core::parse_message(serializer, frame.clone()),
+            serializer,
+            code,
+        );
+        assert_eq!(parsed.raw.as_contiguous(), Some(&frame));
+        assert_eq!(parsed.raw.as_contiguous().unwrap().as_ptr(), frame.as_ptr());
         let handle = store_parsed_message_wide(parsed);
         assert!(handle > u32::MAX as i64);
         handle
@@ -7734,7 +7757,8 @@ mod tests {
                 RawSocketSerializer::Cbor => serde_cbor::to_vec(&value).unwrap(),
                 _ => unreachable!(),
             };
-            let handle = wide_test_message(serializer, frame);
+            let expected_frame = frame.clone();
+            let handle = wide_test_message(serializer, 50, frame);
             let allocation =
                 super::super::message_handles::retain_allocation(handle as u64).unwrap();
             let observer = Arc::downgrade(&allocation);
@@ -7743,6 +7767,12 @@ mod tests {
             assert_eq!(ct_message_get_wide(handle, &mut info), SUCCESS);
             assert_eq!(info.message_code, 50);
             assert_eq!(info.primary_id, 77);
+            assert!(!info.frame_ptr.is_null());
+            assert_eq!(info.frame_len, expected_frame.len());
+            assert_eq!(
+                unsafe { slice::from_raw_parts(info.frame_ptr, info.frame_len) },
+                expected_frame.as_slice()
+            );
             assert_eq!(ct_message_peek_wide(handle, &mut info), SUCCESS);
             assert_eq!(info.message_code, 50);
             // Peek intentionally does not flatten/export the complete frame.
@@ -7786,6 +7816,7 @@ mod tests {
             );
             let next = wide_test_message(
                 serializer,
+                50,
                 match serializer {
                     RawSocketSerializer::Json => serde_json::to_vec(&value).unwrap(),
                     RawSocketSerializer::MessagePack => to_msgpack(&value).unwrap(),
@@ -7889,6 +7920,7 @@ mod tests {
         let _guard = test_guard();
         let json = wide_test_message(
             RawSocketSerializer::Json,
+            68,
             br#"[68,1,2,{},["\u0000YWJj"]]"#.to_vec(),
         );
         let mut output = CtExternalByteBuffer {
@@ -7908,6 +7940,7 @@ mod tests {
         ct_message_release_wide(json);
         let handle = wide_test_message(
             RawSocketSerializer::Cbor,
+            68,
             vec![0x85, 0x18, 68, 1, 2, 0xa0, 0x81, 0x43, b'a', b'b', b'c'],
         );
         let sha = ct_sha256_new();
@@ -9692,7 +9725,13 @@ mod tests {
                 RawSocketSerializer::Cbor => serde_cbor::to_vec(&value).unwrap(),
                 _ => unreachable!(),
             };
-            let parsed = ct_core::parse_message(serializer, Bytes::from(encoded)).unwrap();
+            let encoded = Bytes::from(encoded);
+            let parsed = assert_fixture_message(
+                ct_core::parse_message(serializer, encoded.clone()),
+                serializer,
+                50,
+            );
+            assert_eq!(parsed.raw.as_contiguous(), Some(&encoded));
             let handle = store_parsed_message(parsed);
             let allocation = super::super::state::retain_message_allocation(handle as u32).unwrap();
             let observer = Arc::downgrade(&allocation);
@@ -9782,11 +9821,14 @@ mod tests {
         let value = json!([50, 77, {}, ["payload"], {"flag": true}]);
         let encoded = Bytes::from(to_msgpack(&value).unwrap());
         let split = encoded.len() / 2;
-        let parsed = parse_message_segments(
+        let parsed = assert_fixture_message(
+            parse_message_segments(
+                RawSocketSerializer::MessagePack,
+                vec![encoded.slice(..split), encoded.slice(split..)],
+            ),
             RawSocketSerializer::MessagePack,
-            vec![encoded.slice(..split), encoded.slice(split..)],
-        )
-        .unwrap();
+            50,
+        );
         let handle = store_parsed_message(parsed);
         let allocation = super::super::state::retain_message_allocation(handle as u32).unwrap();
         let observer = Arc::downgrade(&allocation);
@@ -9896,11 +9938,14 @@ mod tests {
         let value = json!([50, 77, {}, ["payload"], {"flag": true}]);
         let encoded = Bytes::from(to_msgpack(&value).unwrap());
         let split = encoded.len() / 2;
-        let parsed = parse_message_segments(
+        let parsed = assert_fixture_message(
+            parse_message_segments(
+                RawSocketSerializer::MessagePack,
+                vec![encoded.slice(0..split), encoded.slice(split..encoded.len())],
+            ),
             RawSocketSerializer::MessagePack,
-            vec![encoded.slice(0..split), encoded.slice(split..encoded.len())],
-        )
-        .expect("segmented msgpack parse");
+            50,
+        );
         assert!(matches!(parsed.raw, WampRawFrame::Segmented { .. }));
 
         let handle = store_parsed_message(parsed) as u32;
@@ -9930,11 +9975,14 @@ mod tests {
         let value = json!([50, 77, {}, ["payload"], {"flag": true}]);
         let encoded = Bytes::from(to_msgpack(&value).unwrap());
         let split = encoded.len() / 2;
-        let parsed = parse_message_segments(
+        let parsed = assert_fixture_message(
+            parse_message_segments(
+                RawSocketSerializer::MessagePack,
+                vec![encoded.slice(0..split), encoded.slice(split..encoded.len())],
+            ),
             RawSocketSerializer::MessagePack,
-            vec![encoded.slice(0..split), encoded.slice(split..encoded.len())],
-        )
-        .expect("segmented msgpack parse");
+            50,
+        );
         assert!(matches!(parsed.raw, WampRawFrame::Segmented { .. }));
 
         let handle = store_parsed_message(parsed) as u32;
