@@ -1,9 +1,26 @@
 # Project State
 
-Last updated: 2026-10-06.
+Last updated: 2026-10-07.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
+
+Current diagnostic follow-up (2026-10-07): real Dart SDK backpressure.
+The four 16 MiB full/read-only/partial/read-only-partial cases require genuine
+EAGAIN, pending flush, positive writes after receiver resumption and exact
+received/accepted bytes. Full views retain allocation identity; partial views
+use SDK copies. The exact updated Linux CI step passes all three probes and its
+absence control; source hashes match. Root analysis and the new tool's explicit
+missing-interposer rejection pass. Fresh quiet `bin/verify` passes at exit 0,
+including all 1,563 benchmark, 4,958 router, 4,751 core Chrome/Dart2Wasm and
+2,829 client browser cases with 20 declared native-only skips. Evidence:
+`/tmp/connectanum-sdk-backpressure-verify.{log,exit}`. Final sequential
+`bin/test-fast` also passes at exit 0, including all 1,563 benchmark cases and
+the unchanged readiness regression. Evidence:
+`/tmp/connectanum-sdk-backpressure-final-fast.{log,exit}`. The preceding local
+commit `d4d91317` passed both canonical commands and independent interop. Its push is held while preceding
+`a9907161` CI's MCP mutation gates remain active. No total-copy, TLS or parity
+acceptance follows from this pointer diagnostic. Research: [backpressure](research/2026-10-07-dart-sdk-backpressure.md).
 
 Current follow-up: Dart FlatBuffers fragments and one-copy small RawSocket frames.
 The ordinary fragment API preserves encoded CBOR args/kwargs and opaque body
@@ -51,8 +68,8 @@ Coverage pass; PR Full Verify also completes with no observed failure. Both
 current CI runs remain live for the MCP mutation gate. Do not push another
 checkpoint while those checks are still running. Preceding `b8096fd6` CI runs
 were cancelled by that newer push, so their successful individual jobs do not
-constitute complete hosted acceptance. This follow-up is prepared for a local
-commit; publication awaits the existing hosted mutation run. Full performance
+constitute complete hosted acceptance. This follow-up is committed locally as
+`d4d91317`; publication awaits the existing hosted mutation run. Full performance
 and remaining milestone acceptance stay open.
 
 Preceding follow-up: native PPT body reuse with empty outer CBOR/MessagePack

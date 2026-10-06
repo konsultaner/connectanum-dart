@@ -140,3 +140,11 @@ checks the actual RawSocket pipeline separately. Large FlatBuffers opaque bodies
 can be retained as send fragments; partial views still cross the pinned SDK's
 copy boundary. Small fragments are joined directly into their framed buffer once.
 None of these diagnostics establishes total SDK/TLS copies or benchmark parity.
+
+
+The [real backpressure follow-up](2026-10-07-dart-sdk-backpressure.md) now
+observes genuine EAGAIN, pending flush and later Dart socket resumption in all
+four 16 MiB view cases. Full views retain original storage across resumed
+writes; partial views use copied storage. This separately supplies the event-loop
+boundary that forced native short writes/EINTR did not establish. It remains a
+pointer diagnostic, with total SDK/TLS/transcode/crypto copies and parity open.
