@@ -727,6 +727,78 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertIn('Could not inspect remaining test processes', output)
         self.assertIn('ps unavailable', output)
 
+    def test_detached_process_inspection_failure_cannot_receive_kill_credit(self):
+        with patch.object(runner, 'owned_processes', side_effect=OSError('ownership unavailable')):
+            code, output = run([sys.executable, '-c', 'print("finished")'], runner.ROOT, 5)
+        self.assertEqual(code, 0)
+        self.assertEqual(classify(code, output), 'error')
+        self.assertIn('ownership unavailable', output)
+
+    def test_mac_ownership_parser_distinguishes_environment_from_argv(self):
+        token = b'CONNECTANUM_MUTATION_COMMAND_OWNER=example'
+        header = (2).to_bytes(4, sys.byteorder, signed=True)
+        argv = b'/bin/fixture\0\0\0fixture\0' + token + b'\0'
+        self.assertFalse(runner.mac_environment_has_owner(header + argv + b'UNRELATED=yes\0', token))
+        self.assertTrue(runner.mac_environment_has_owner(header + argv + token + b'\0', token))
+        self.assertFalse(runner.mac_environment_has_owner(header + argv + token + b'-different\0', token))
+        for raw in (b'', header, header + b'/bin/fixture\0one-unterminated-argument'):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                runner.mac_environment_has_owner(raw, token)
+
+    def test_recycled_pid_is_not_signalled_using_cached_ownership(self):
+        with patch.object(runner, 'process_has_owner', return_value=False) as inspect, \
+                patch.object(runner.os, 'kill') as kill, \
+                patch.object(runner.signal, 'pidfd_send_signal', create=True) as pinned_signal:
+            runner.kill_owned_process(os.getpid(), 'not-the-current-process-owner')
+        inspect.assert_called_once_with(os.getpid(), 'not-the-current-process-owner')
+        kill.assert_not_called()
+        pinned_signal.assert_not_called()
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS identity-bound signals')
+    def test_mac_cleanup_never_signals_by_a_recycled_pid(self):
+        identity = object()
+        order = []
+        with patch.object(runner, 'mac_process_audit_token', create=True,
+                          side_effect=lambda pid: order.append('identity') or identity), \
+                patch.object(runner, 'process_has_owner',
+                             side_effect=lambda pid, token: order.append('owner') or True), \
+                patch.object(runner, 'mac_signal_process', create=True) as pinned_signal, \
+                patch.object(runner.os, 'kill') as kill:
+            runner.kill_owned_process(123456, 'example-owner')
+        self.assertEqual(order, ['identity', 'owner'])
+        pinned_signal.assert_called_once_with(identity, signal.SIGKILL)
+        kill.assert_not_called()
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS audit token kernel contract')
+    def test_mac_kernel_rejects_wrong_process_version(self):
+        with runner.subprocess.Popen([sys.executable, '-c', 'import time;time.sleep(60)']) as child:
+            try:
+                identity = runner.mac_process_audit_token(child.pid)
+                runner.mac_signal_process(identity, signal.SIGCONT)
+                identity[7] += 1
+                with self.assertRaises(ProcessLookupError):
+                    runner.mac_signal_process(identity, signal.SIGCONT)
+                self.assertIsNone(child.poll())
+            finally:
+                child.kill()
+                child.wait(timeout=5)
+
+    def test_linux_cleanup_pins_identity_before_reading_ownership(self):
+        order = []
+        with patch.object(runner.sys, 'platform', 'linux'), \
+                patch.object(runner.os, 'pidfd_open', create=True,
+                             side_effect=lambda pid: order.append('identity') or 42), \
+                patch.object(runner, 'process_has_owner',
+                             side_effect=lambda pid, token: order.append('owner') or True), \
+                patch.object(runner.signal, 'pidfd_send_signal', create=True) as pinned_signal, \
+                patch.object(runner.os, 'close') as close, \
+                patch.object(runner.os, 'kill') as kill:
+            runner.kill_owned_process(123456, 'example-owner')
+        self.assertEqual(order, ['identity', 'owner'])
+        pinned_signal.assert_called_once_with(42, signal.SIGKILL)
+        close.assert_called_once_with(42)
+        kill.assert_not_called()
+
     def test_short_lived_teardown_child_must_exit_before_result_is_accepted(self):
         passed = events({'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
                         {'type': 'testDone', 'testID': 1, 'result': 'success'},

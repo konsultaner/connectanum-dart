@@ -1,11 +1,109 @@
 # Project State
 
-Last updated: 2026-10-05
+Last updated: 2026-10-06
 Current branch: `codex/mutation-runner-speed`
 Current milestone: bound mutation-runner disk usage and measure complete native
 campaigns without narrowing inventories, test suites, deadlines or evidence gates.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work408: full407 stops incomplete after 6,571.84s of FFI collection. Batch 13
+loses its private `.cargo/config.toml` before restoration; batches 14-16 cancel
+and later batches never start. Supervisor/coordinator exit and the heartbeat is
+paused. Cwd inspection proves that one cancelled Cargo/test group remains alive
+in a deleted workspace; stop only that verified group. Preserve all full407 raw
+evidence. An independent archived-tool, matching-lean-environment audit of the
+13 completed FFI batches reproduces 533 outcomes: 285 assertion kills, 85
+survivors, 129 errors, four timeouts and 30 compile errors. These are partial
+outcomes, not a full FFI/native score or a passing gate. No errors receive kills.
+
+System logs confirm macOS `dirhelper` starts age-based temp cleanup at 03:35:05,
+immediately before the failure. Its installed launchd configuration schedules
+03:35 with a three-day cutoff; the copied config retains August timestamps.
+This strongly identifies the same scratch-file vulnerability addressed by
+[cargo-mutants' upstream copy-time fix](https://github.com/sourcefrog/cargo-mutants/pull/613),
+although the system log does not identify individual unlinks. Fail-first tests
+reproduce stale-input loss using a fixture-only age-based reaper. Refresh times
+only on newly copied private inputs, preserving bytes, modes, source hashes,
+the checkout and immutable archived evidence. Never invoke the host cleaner.
+
+Fail-first regressions also reproduce escaped workers after cancellation,
+timeout and normal parent exit. Give each command an isolated inherited owner
+token, read actual OS environments rather than argv lookalikes, and inspect
+reparented/deleted-cwd workers across groups. Capture Linux pidfds or macOS Mach
+audit identities before checking ownership; signal those identities, never a
+cached PID. The macOS kernel test rejects a wrong PID version without disturbing
+the child. Keep infrastructure failures uncredited and original deadlines intact.
+Focused regressions pass on macOS and ten Linux process tests pass in an isolated
+Python 3.11 container, including concurrent ownership isolation and zombies.
+Fast408 exits zero; fresh `bin/verify` exits zero in
+`/tmp/connectanum-mutation-cleanup-verify408.log`, including 122 native-tool
+checks, 95 Dart runner tests and actual Chrome/Dart2Wasm suites. All 943 recorded
+implementation hashes match at completion. Changed implementation files predate
+verification startup; no production/test edits occur during that verification.
+Obtain matching fresh profile controls and restart exact complete core/FFI
+collection only after their evidence is verified. Old native source
+inventories are historical evidence, not matching current tool-provenance reuse.
+The full measured campaign and strict gates remain open. No push/publication.
+
+Work409 prepares a fresh ignored measurement supervisor with twenty operational
+checks passing. It preserves original control/full inventories, four workers,
+four Cargo jobs, assertions, deadlines and resource/gate limits. Deleted/aliased
+cwd checks supplement command checks; final independent exact reaudits of both
+components are required before a complete report. Historical full406 diagnostic
+triage retains 548 mixed assertion/non-assertion error candidates without score
+adjustments. Verified-unused generated caches may be reclaimed with preservation
+hashes before admission; never delete raw evidence or unrelated host files.
+Fresh complete collection has not yet started. No full-runtime or gate claim.
+
+Work407: full406 core completes all 1,963 candidates in 32 fresh batches and
+25,862.88s (7h11m collection wall), with all 539 original workspace tests.
+A fresh external archived-tool audit exactly reproduces the retained combined
+report under matching compiler/build inputs: 651 assertion kills, 225 survivors,
+670 errors, 111 timeouts and 306 compile errors; candidate score 39.29%, strict
+gate false. Errors/timeouts/compile failures receive no kill credit. The original
+supervisor then safely refuses FFI admission at 6.07 GiB available against the
+unchanged eight-GiB startup budget. FFI never starts in full406. Preserve its
+terminal status and raw artifacts; this is completed core collection, not a
+complete native measurement, passing mutation gate or overall coverage result.
+
+Working-directory inspection discovers two orphaned processes from cancelled
+full405 batch six, despite its deleted private workspace: Cargo and its FFI test
+child form a separate process group. Verify both exact workspace identities,
+including `/var` versus `/private/var` aliases, then terminate only their owned
+group. A fresh cwd census finds no processes in any of the 72 full405/full406
+workspaces. A tracked cross-process-group cancellation regression/fix remains
+required after the frozen measurement; do not mistake manual cleanup or absent
+directories for proof that the underlying defect is fixed.
+
+Fresh Fast407 exits zero in `/tmp/connectanum-native-continuation-fast407.log`.
+Reclaim only unused generated `ffi-test` and legacy-handle Cargo targets, then
+the native benchmark crate's debug profile after checking for live users and raw
+profiling/campaign evidence. Preserve the release library, both pinned analyzers,
+benchmark release binaries, coverage data and all mutation evidence by checksum.
+APFS frees only about 0.75 GiB from the test targets despite larger deleted-byte
+totals; the unused benchmark debug profile restores about 9.1 GiB of shared free
+space. Startup observes 14.77 GiB against eight GiB; runtime reserve guards remain
+unchanged. Allocation/deletion sizes are not guaranteed unique free capacity.
+
+Ignored `out/native-mutation-full407/` contains a separately tested continuation:
+17 operational checks pass for exact reuse, fingerprint drift, abnormal exits,
+cancelled audits, aliased/deleted cwd cleanup and false full-report prevention.
+Original full406 snapshot, supervisor, tools and evidence remain unchanged.
+Confirm supervisor PID 56915 with its exact `continue.py` command: it freshly
+reaudits complete immutable core, then collects all 1,297 FFI candidates in 32
+fresh batches with four workers/four Cargo jobs, debug-zero/incremental-zero,
+0.75-GiB cache cap and four-GiB reserve. It reaudits core again after FFI and
+excludes admission/cleanup/reaudit gaps from collection wall time. The full
+native measurement and strict passage remain pending. Do not compete with timed
+work, push/publish, or claim completion. Leave this material bookkeeping
+uncommitted; the goal remains active.
+The continuation's fresh core reaudit finishes in 121.57s and exactly matches
+the immutable original report. Full FFI starts at 23:46:04 UTC on 2026-10-05;
+coordinator PID 57315 and supervisor PID 56915 are confirmed alive with their
+exact commands. The quiet heartbeat now follows full407. FFI/native completion,
+strict passage, the tracked cancellation fix and post-measurement verification
+remain pending; do not run competing work.
 
 Work406: full405 is incomplete, not a completed campaign or passing gate. Its
 first batch's restored, unmutated HTTP/3 churn test reports ProtocolError for a
@@ -44,6 +142,39 @@ Updated native/tool hashes invalidate prior batch/control reuse: freeze verified
 inputs, regenerate exact inventories and obtain matching profile controls before
 any fresh full campaign. Keep the goal active; no push/publication or weakened
 tests, assertions, deadlines, operators, thresholds, or failure kill credit.
+
+Local-only checkpoint `0e3c03ba` bundles these fixes, regressions and verification
+bookkeeping. Cargo removes only this checkout's generated native debug cache;
+release-library and pinned-analyzer checksums remain unchanged. Shared disk
+headroom recovers by about ten GiB; no raw evidence or unrelated files are removed.
+Fresh ignored `out/native-mutation-full406/` freezes the clean verified checkpoint
+and regenerates exact inventories: 1,963 core and 1,297 FFI candidates. Supervisor
+PID 41893 and default-control coordinator PID 42013 are confirmed alive with
+their exact commands. It collects fresh default/lean controls before automatically
+proceeding to sequential complete core/FFI campaigns, 32 fresh batches each;
+controls cannot substitute for full evidence. Four workers/four Cargo jobs and
+the four-GiB reserve remain unchanged. Default cache cap is 2.5 GiB, based on the
+previous 1.906-GiB observed peak; lean cap remains 0.75 GiB. Admission observes
+16.35 GiB against a fifteen-GiB default budget. Profile equivalence, replacement
+full collection and strict passage are pending. The quiet heartbeat follows the
+new owner. Do not compete with timed work or modify its frozen/raw inputs; leave
+this post-checkpoint bookkeeping uncommitted. No push/publication; goal active.
+
+Both fresh full406 controls complete and independently audit: the same 31
+mutation identities/outcomes and all 539 workspace tests, matching native/tool
+hashes and compiler identities in their recorded default/lean environments.
+Recorded coordinator times are 850.19s default and 815.48s lean. Peak allocated
+private cache falls from 1.896 to 0.401 GiB (78.83% lower), with zero incremental
+allocation in lean. Ten assertion kills, six survivors, ten errors and five
+compile errors remain sample outcomes, never full-score or passing-gate credit.
+The supervisor promotes only that matching bounded profile and starts complete
+core collection at 16:06:43 UTC: coordinator PID 8175 and supervisor PID 41893
+are confirmed alive with exact commands. It covers all 1,963 core candidates
+in 32 fresh batches before all 1,297 FFI candidates, retaining four workers,
+four Cargo jobs, unchanged tests/deadlines, 0.75-GiB private-cache cap and four-GiB
+reserve. No control batches are reused as full evidence. Complete native wall
+time and strict passage remain unproven; do not compete with timed work or
+change frozen/raw artifacts. Leave this material bookkeeping uncommitted.
 
 Work405: disk404's lean pilot completes in 919.79s and passes independent
 profile comparison: identical 31 sampled mutation identities/outcomes and all

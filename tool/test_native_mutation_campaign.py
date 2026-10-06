@@ -18,6 +18,7 @@ import native_mutation_timing as timing
 import run_native_mutation_campaign as campaign
 import run_native_mutations as collector
 from run_dart_mutations import run
+import run_dart_mutations as runner
 from test_native_mutation_batches import BatchEvidenceTests
 
 
@@ -306,7 +307,8 @@ class CancellationTests(unittest.TestCase):
         try:
             self.assertIsNone(code)
             self.assertLess(time.monotonic() - started, 3)
-            self.assertIn('stdout pipe', log)
+            self.assertNotIn('Unresolved stdout pipe', log)
+            self.assertEqual(runner.live_process_group_members(escaped), [])
         finally:
             try:
                 os.kill(escaped, 9)
@@ -337,6 +339,94 @@ class CancellationTests(unittest.TestCase):
         self.assertIsNone(code)
         self.assertIn('cancelled', log)
         start.assert_not_called()
+
+    def test_detached_workers_are_cleaned_on_cancel_timeout_and_normal_exit(self):
+        for mode in ('cancel', 'timeout', 'exit'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                cancel = threading.Event() if mode == 'cancel' else None
+                timer = threading.Timer(.4, cancel.set) if cancel is not None else None
+                if timer is not None:
+                    self.addCleanup(timer.cancel)
+                    timer.start()
+                child = 'import time;time.sleep(60)'
+                parent = ('import subprocess,sys,time;'
+                          f'p=subprocess.Popen([sys.executable,"-c",{child!r}],'
+                          'start_new_session=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);'
+                          'print(p.pid,flush=True);' +
+                          ('time.sleep(10)' if mode != 'exit' else ''))
+                # The unrelated process even shares the same working directory.
+                with subprocess.Popen([sys.executable, '-c', child], cwd=directory,
+                                      start_new_session=True) as unrelated:
+                    try:
+                        code, output = run([sys.executable, '-c', parent], directory,
+                                           .6 if mode == 'timeout' else 5,
+                                           cancel_event=cancel)
+                        escaped = int(output.splitlines()[0])
+                        try:
+                            self.assertEqual(code, 0 if mode == 'exit' else None)
+                            if mode == 'exit':
+                                self.assertIn('connectanumInfrastructureError', output)
+                            self.assertIsNone(unrelated.poll())
+                            deadline = time.monotonic() + 1
+                            while runner.live_process_group_members(escaped) and time.monotonic() < deadline:
+                                time.sleep(.02)
+                            self.assertEqual(runner.live_process_group_members(escaped), [], output)
+                        finally:
+                            try:
+                                os.kill(escaped, 9)
+                            except ProcessLookupError:
+                                pass
+                    finally:
+                        unrelated.kill()
+                        unrelated.wait(timeout=5)
+
+    def test_reparented_worker_in_deleted_cwd_is_still_owned(self):
+        with tempfile.TemporaryDirectory() as directory:
+            private = Path(directory) / 'private'
+            private.mkdir()
+            child = 'import os,time;print(os.getpid(),flush=True);time.sleep(60)'
+            parent = ('import os,subprocess,sys;'
+                      f'p=subprocess.Popen([sys.executable,"-c",{child!r}],'
+                      f'cwd={str(private)!r},start_new_session=True,'
+                      'stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True);'
+                      'pid=int(p.stdout.readline());p.stdout.close();'
+                      f'os.rmdir({str(private)!r});print(pid,flush=True)')
+            code, output = run([sys.executable, '-c', parent], directory, 5)
+            escaped = int(output.splitlines()[0])
+            try:
+                self.assertEqual(code, 0)
+                self.assertIn('connectanumInfrastructureError', output)
+                self.assertEqual(runner.live_process_group_members(escaped), [])
+                self.assertFalse(private.exists())
+            finally:
+                try:
+                    os.kill(escaped, 9)
+                except ProcessLookupError:
+                    pass
+
+    def test_concurrent_command_ownership_does_not_cross_attempts(self):
+        from concurrent.futures import ThreadPoolExecutor
+
+        cancel = threading.Event()
+        timer = threading.Timer(.4, cancel.set)
+        self.addCleanup(timer.cancel)
+        child = 'import time;time.sleep(1)'
+        parent = ('import subprocess,sys;'
+                  f'p=subprocess.Popen([sys.executable,"-c",{child!r}],'
+                  'start_new_session=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);'
+                  'print(p.pid,flush=True);code=p.wait();print("child_exit="+str(code),flush=True)')
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            timer.start()
+            interrupted = pool.submit(run, [sys.executable, '-c', parent], '.', 5,
+                                      cancel_event=cancel)
+            completed = pool.submit(run, [sys.executable, '-c', parent], '.', 5)
+            code, output = interrupted.result(timeout=10)
+            self.assertIsNone(code)
+            self.assertIn('cancelled', output)
+            code, output = completed.result(timeout=10)
+            self.assertEqual(code, 0, output)
+            self.assertIn('child_exit=0', output)
+            self.assertNotIn('connectanumInfrastructureError', output)
 
 
 def fixture(root, delay=200, marker=None):

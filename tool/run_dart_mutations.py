@@ -3,17 +3,149 @@
 
 import argparse
 import collections
+import ctypes
+import errno
 import hashlib
 import json
 import math
 import os
 from pathlib import Path
 import re
+import secrets
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
+
+
+PROCESS_OWNER_VARIABLE = 'CONNECTANUM_MUTATION_COMMAND_OWNER'
+
+
+def mac_environment_has_owner(raw, owner):
+    # KERN_PROCARGS2: argc, executable path, padding, argc NUL-terminated
+    # arguments, then environment. An ownership token in argv proves nothing.
+    width = ctypes.sizeof(ctypes.c_int)
+    if len(raw) < width:
+        raise ValueError('Truncated process environment header')
+    argc = int.from_bytes(raw[:width], sys.byteorder, signed=True)
+    if not 0 <= argc <= len(raw):
+        raise ValueError('Invalid process argument count')
+    position = raw.index(b'\0', width) + 1
+    while position < len(raw) and raw[position] == 0:
+        position += 1
+    for _ in range(argc):
+        position = raw.index(b'\0', position) + 1
+    return owner in raw[position:].split(b'\0')
+
+
+def process_has_owner(pid, token):
+    owner = f'{PROCESS_OWNER_VARIABLE}={token}'.encode()
+    if sys.platform == 'linux':
+        return owner in Path(f'/proc/{pid}/environ').read_bytes().split(b'\0')
+    if sys.platform != 'darwin':
+        raise OSError('Mutation process ownership requires Linux or macOS')
+    # Read the kernel environment, not ps command lines (which can contain
+    # a lookalike token). Never retain or log argv or environment contents.
+    libc = ctypes.CDLL(None, use_errno=True)
+    mib = (ctypes.c_int * 3)(1, 49, pid)  # CTL_KERN, KERN_PROCARGS2
+    size = ctypes.c_size_t()
+    if libc.sysctl(mib, 3, None, ctypes.byref(size), None, 0) != 0:
+        error = ctypes.get_errno()
+        if error in (errno.ESRCH, errno.ENOENT, errno.EINVAL):
+            raise ProcessLookupError(error, 'Process disappeared during ownership inspection')
+        raise OSError(error, 'Could not inspect process ownership')
+    if not 0 < size.value <= 4 * 1024 ** 2:
+        raise ValueError('Invalid process environment size')
+    buffer = ctypes.create_string_buffer(size.value)
+    try:
+        if libc.sysctl(mib, 3, buffer, ctypes.byref(size), None, 0) != 0:
+            error = ctypes.get_errno()
+            if error in (errno.ESRCH, errno.ENOENT, errno.EINVAL):
+                raise ProcessLookupError(error, 'Process disappeared during ownership inspection')
+            raise OSError(error, 'Could not inspect process ownership')
+        return mac_environment_has_owner(buffer.raw[:size.value], owner)
+    finally:
+        ctypes.memset(buffer, 0, len(buffer))
+
+
+def owned_processes(token):
+    result = subprocess.run(
+        ['ps', '-eo', 'pid=,uid=,stat=,comm='], capture_output=True,
+        text=True, check=True, timeout=5,
+    )
+    members = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        pid, uid, state, executable = line.split(maxsplit=3)
+        if int(uid) != os.getuid() or state[0] in ('Z', 'X'):
+            continue
+        try:
+            owned = process_has_owner(int(pid), token)
+        except (ProcessLookupError, FileNotFoundError):
+            continue
+        if owned:
+            members.append({'pid': int(pid), 'state': state, 'executable': executable})
+    return members
+
+
+def mac_process_audit_token(pid):
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.mach_task_self.restype = ctypes.c_uint
+    task = libc.mach_task_self()
+    port = ctypes.c_uint()
+    identity = (ctypes.c_uint * 8)()
+    count = ctypes.c_uint(8)
+    status = libc.task_name_for_pid(task, pid, ctypes.byref(port))
+    if status:
+        # Disappearance is benign; a live but inaccessible task is not proof
+        # of cleanup. Signal zero only probes existence, never terminates it.
+        os.kill(pid, 0)
+        raise OSError(f'Could not acquire mutation process identity: Mach status {status}')
+    try:
+        status = libc.task_info(port.value, 15, identity, ctypes.byref(count))  # TASK_AUDIT_TOKEN
+        if status in (16, 37):  # KERN_INVALID_TASK, KERN_TERMINATED
+            raise ProcessLookupError('Mutation process exited during identity inspection')
+        if status or count.value != 8 or identity[5] != pid:
+            raise OSError('Could not read mutation process audit identity')
+        return identity
+    finally:
+        libc.mach_port_deallocate(task, port.value)
+
+
+def mac_signal_process(identity, sig):
+    api = ctypes.CDLL('/usr/lib/libproc.dylib', use_errno=True)
+    # The kernel checks PID *and* PID version in the audit token atomically.
+    status = api.proc_signal_with_audittoken(ctypes.byref(identity), sig)
+    if status == errno.ESRCH:
+        raise ProcessLookupError('Mutation process identity no longer exists')
+    if status:
+        raise OSError(status, 'Could not signal owned mutation process identity')
+
+
+def kill_owned_process(pid, token):
+    # Capture a non-recyclable identity BEFORE reading ownership: a PID-only
+    # signal after an environment check still has a PID reuse race.
+    descriptor = None
+    try:
+        if sys.platform == 'darwin':
+            identity = mac_process_audit_token(pid)
+        elif sys.platform == 'linux' and hasattr(os, 'pidfd_open') and hasattr(signal, 'pidfd_send_signal'):
+            descriptor = os.pidfd_open(pid)
+        else:
+            raise OSError('Mutation cleanup requires identity-bound process signals')
+        if process_has_owner(pid, token):
+            if descriptor is None:
+                mac_signal_process(identity, signal.SIGKILL)
+            else:
+                signal.pidfd_send_signal(descriptor, signal.SIGKILL)
+    except (ProcessLookupError, FileNotFoundError):
+        pass
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,10 +174,32 @@ def run(command, cwd, timeout, *, cancel_event=None):
     if cancel_event is not None and cancel_event.is_set():
         return None, cancelled
     deadline = time.monotonic() + timeout
+    token = secrets.token_hex(32)
     with subprocess.Popen(
         command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, start_new_session=True,
+        env={**os.environ, PROCESS_OWNER_VARIABLE: token},
     ) as process:
+        def cleanup():
+            # The unreaped root still owns this session ID. Cargo-mutants starts
+            # separate Cargo groups; inherited ownership also finds those after
+            # reparenting or a cwd change/deletion, without touching other runs.
+            if process.returncode is None:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            cleanup_deadline = time.monotonic() + 1
+            while True:
+                members = owned_processes(token)
+                for member in members:
+                    kill_owned_process(member['pid'], token)
+                if not members:
+                    return
+                if time.monotonic() >= cleanup_deadline:
+                    raise OSError('Owned mutation processes did not settle after cleanup')
+                time.sleep(.02)
+
         try:
             if cancel_event is None:
                 output, _ = process.communicate(timeout=timeout)
@@ -64,10 +218,11 @@ def run(command, cwd, timeout, *, cancel_event=None):
         except (subprocess.TimeoutExpired, KeyboardInterrupt, InterruptedError) as error:
             # Kill descendants as well: an orphaned Dart test can corrupt the
             # next result even when its parent shell has already exited.
+            cleanup_error = None
             try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+                cleanup()
+            except (OSError, subprocess.SubprocessError, ValueError) as failure:
+                cleanup_error = str(failure)
             try:
                 output, _ = process.communicate(timeout=1)
             except subprocess.TimeoutExpired as drain:
@@ -82,6 +237,12 @@ def run(command, cwd, timeout, *, cancel_event=None):
                 }) + '\n'
             if process.returncode is None:
                 process.wait()
+            if cleanup_error is not None:
+                output += '\n' + json.dumps({
+                    'type': 'connectanumInfrastructureError',
+                    'reason': 'Could not clean owned mutation processes',
+                    'inspectionError': cleanup_error,
+                }) + '\n'
             if isinstance(error, KeyboardInterrupt):
                 raise
             return None, output + (cancelled if isinstance(error, InterruptedError) else '')
@@ -90,20 +251,25 @@ def run(command, cwd, timeout, *, cancel_event=None):
         inspection_error = None
         members = []
         try:
-            members = live_process_group_members(process.pid)
+            def remaining():
+                group = live_process_group_members(process.pid)
+                owned = owned_processes(token)
+                return list({item['pid']: item for item in [*group, *owned]}.values())
+
+            members = remaining()
             # Flutter's web compiler can finish a few milliseconds after the
             # driver exits. Wait for natural teardown within the same deadline;
             # persistent children are still killed and invalidate the result.
             cleanup_deadline = min(deadline, time.monotonic() + 0.5)
             while members and time.monotonic() < cleanup_deadline:
                 time.sleep(min(0.02, max(0, cleanup_deadline - time.monotonic())))
-                members = live_process_group_members(process.pid)
+                members = remaining()
         except (OSError, subprocess.SubprocessError, ValueError) as error:
             inspection_error = str(error)
         try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+            cleanup()
+        except (OSError, subprocess.SubprocessError, ValueError) as error:
+            inspection_error = inspection_error or str(error)
         if members or inspection_error is not None:
             output += '\n' + json.dumps({
                 'type': 'connectanumInfrastructureError',

@@ -142,14 +142,24 @@ def execution_fingerprint():
             'buildEnvironmentSha256': hashlib.sha256(configuration.encode()).hexdigest()}
 
 
+def copy_private_input(source, destination):
+    shutil.copy2(source, destination)
+    # copy2/clonefile preserve stale times, making active scratch inputs eligible
+    # for macOS dirhelper (and other age-based temp reapers). Keep bytes/mode,
+    # not the source's age. Never touch the checkout or archived evidence.
+    os.utime(destination, None)
+    return destination
+
+
 def copy_inputs(root, work, hashes):
     # Mutation writes must never follow a link back into the source checkout.
     shutil.copytree(root / 'native/transport', work / 'native/transport',
-                    ignore=shutil.ignore_patterns('target', 'mutants.out*'), symlinks=False)
+                    ignore=shutil.ignore_patterns('target', 'mutants.out*'), symlinks=False,
+                    copy_function=copy_private_input)
     for relative in hashes:
         destination = work / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(root / relative, destination)
+        copy_private_input(root / relative, destination)
     verify_inputs(work, hashes)
     verify_inputs(root, hashes)
 

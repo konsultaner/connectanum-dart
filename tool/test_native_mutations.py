@@ -542,6 +542,39 @@ class NativeMutationTests(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 collector.verify_inputs(root, hashes)
 
+    def test_private_snapshot_refreshes_stale_times_without_changing_inputs(self):
+        import os
+        import time
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root, work = Path(temporary) / 'repo', Path(temporary) / 'private'
+            paths = ['native/transport/ct_core/src/lib.rs',
+                     'native/transport/ct_core/support.dat', '.cargo/config.toml',
+                     *collector.FIXTURES]
+            stale = time.time() - 7 * 86400
+            for relative in paths:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('original input')
+                os.utime(path, (stale, stale))
+            hashes = {relative: collector.native_coverage.digest(root / relative)
+                      for relative in paths if not relative.endswith('.dat')}
+            copied_at = time.time()
+            collector.copy_inputs(root, work, hashes)
+            # Simulate an age-based temp reaper, never invoke the host cleaner.
+            cutoff = copied_at - 3 * 86400
+            for path in work.rglob('*'):
+                if path.is_file() and path.stat().st_mtime < cutoff:
+                    path.unlink()
+            for relative in paths:
+                with self.subTest(input=relative):
+                    self.assertTrue((work / relative).is_file())
+                    self.assertGreaterEqual((work / relative).stat().st_mtime, copied_at)
+                    self.assertEqual((work / relative).read_text(), 'original input')
+                    self.assertEqual((root / relative).stat().st_mtime, stale)
+            collector.verify_inputs(root, hashes)
+            collector.verify_inputs(work, hashes)
+
     def test_snapshot_materializes_symlinks_without_mutating_their_targets(self):
         with tempfile.TemporaryDirectory() as temporary:
             root, work = Path(temporary) / 'repo', Path(temporary) / 'private'
