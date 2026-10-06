@@ -360,9 +360,10 @@ byte counters. Separate native tests verify unique AES allocation identity.
 
 ## Native memory instrumentation
 
-The repeatable native ownership runner is included in the macOS memory CI job. Its local macOS
-GuardMalloc execution currently covers 62 ownership, typed E2EE, frame, lease and
-network cases. This is not ASan/Miri or coverage of every supported platform.
+The repeatable native ownership runner is included in the macOS memory CI job.
+GuardMalloc exercises the selected ownership, typed E2EE, frame, lease and network
+cases; each report records the executed case count and exact source inventory.
+This is not ASan/Miri or coverage of every supported platform.
 Each process must report the actual loaded GuardMalloc library and a positive
 Rust test count. Missing instrumentation, empty filters, failed cases or timeouts
 fail the check. The CI job uploads the exact dependency lock, source and
@@ -370,7 +371,7 @@ executable hashes, commands, per-group logs and failure records. If the workspac
 has no Cargo lock, dependency resolution precedes its frozen native inventory;
 the subsequent build uses `--locked`.
 
-The feature-worktree command passes with all four external network tests included
-under the actual GuardMalloc loader. Hosted acceptance requires the job to execute
-successfully on the feature commit. Current local report:
-`/tmp/connectanum-flatbuffers-97-guardmalloc/report.json`.
+Run `python3 tool/run_native_guardmalloc.py --output out/native-guardmalloc` on
+macOS to generate `out/native-guardmalloc/report.json` and the per-group logs.
+The CI job publishes these records as the `native-ownership-guardmalloc` artifact.
+Hosted acceptance requires a successful execution on the feature commit.

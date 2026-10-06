@@ -31,7 +31,12 @@ void main() {
                 libraryPath: nativeLibrary,
               );
               final key = List<int>.generate(32, (index) => index + 1);
-              final provider = _nativeProvider(serializer, aes, key, runtime);
+              final provider = _nativeProvider(
+                serializer,
+                aes,
+                key,
+                nativeLibrary,
+              );
               addTearDown(provider.release);
               final application = Uint8List.fromList([0, 255, 128, 37]);
               final options = PublishOptions();
@@ -94,7 +99,7 @@ void main() {
               'flatbuffers',
               aes,
               List<int>.generate(32, (index) => index + 1),
-              runtime,
+              nativeLibrary,
             );
             addTearDown(provider.release);
             for (final prefix in [
@@ -242,27 +247,27 @@ DisposableWampE2eeProvider _nativeProvider(
   String serializer,
   bool aes,
   List<int> key,
-  NativeClientRuntime runtime,
+  String? libraryPath,
 ) => switch ((serializer, aes)) {
   ('flatbuffers', true) => NativeWampFlatBuffersAes256GcmProvider.single(
     keyId: 'metrics',
     key: key,
-    runtime: runtime,
+    libraryPath: libraryPath,
   ),
   ('flatbuffers', false) =>
     NativeWampFlatBuffersXsalsa20Poly1305Provider.single(
       keyId: 'metrics',
       key: key,
-      runtime: runtime,
+      libraryPath: libraryPath,
     ),
   (_, true) => NativeWampCborAes256GcmProvider.single(
     keyId: 'metrics',
     key: key,
-    runtime: runtime,
+    libraryPath: libraryPath,
   ),
   (_, false) => NativeWampCborXsalsa20Poly1305Provider.single(
     keyId: 'metrics',
     key: key,
-    runtime: runtime,
+    libraryPath: libraryPath,
   ),
 };

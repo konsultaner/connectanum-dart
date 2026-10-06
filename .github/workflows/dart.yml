@@ -7,6 +7,12 @@ on:
     branches: [master]
   workflow_dispatch:
 
+# Supersede automated codex branch runs within each event/ref only. Unique
+# run-id groups preserve master, tags, manual runs and other branch histories.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && github.ref_type == 'branch' && startsWith(github.head_ref || github.ref_name, 'codex/') && github.ref || github.run_id }}
+  cancel-in-progress: ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && github.ref_type == 'branch' && startsWith(github.head_ref || github.ref_name, 'codex/') }}
+
 permissions:
   contents: read
 

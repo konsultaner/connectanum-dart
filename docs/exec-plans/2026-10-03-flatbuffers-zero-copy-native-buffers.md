@@ -4,10 +4,56 @@ Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/flatbuffers-zero-copy` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
-released master `3bac4cf5` is integrated. Preceding checkpoint: `8feb80c1`.
+released master `3bac4cf5` is integrated. Preceding checkpoint: `8df5c9b3`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up measures native-provider ciphertext byte-list coercion.
+The current follow-up repairs a root-analyzer regression at `8df5c9b3`.
+Fresh `bin/test-fast` fails at exit 3 on four `undefined_named_parameter`
+errors: the new benchmark test helper passes VM-only `runtime:` parameters
+through the public conditional-export API. The helper now uses the public
+`libraryPath:` parameter; its prior singleton initialization keeps the metrics
+collector and provider on the same native runtime. Production code is unchanged.
+Root `dart analyze` and all 28 focused counter cases pass at exit 0. The corrected
+`bin/test-fast` and fresh `bin/verify` pass at exit 0, including Rust, VM,
+consumer/live WAMP and browser suites (20 declared native-only client skips).
+Final Dart/YAML input hashes are unchanged. Hosted acceptance remains pending.
+The earlier full `bin/verify` pass did not include root analysis and therefore
+did not detect this regression. Evidence:
+`/tmp/connectanum-e2ee-pipeline-baseline-fast.{log,exit}` and
+`/tmp/connectanum-e2ee-public-helper-{analyze,focused,fast,verify}.{log,exit}`.
+
+The CI workflow now groups automated `codex/` branch runs by workflow, event and
+ref, cancelling superseded runs within each group. Master, tags, manual dispatch
+and other branches use unique run IDs, avoiding cancellation of pending runs as
+well as active runs. Push and PR groups remain separate. Thirteen event/ref
+boundary scenarios plus workflow separation pass with the official
+`@actions/expressions` evaluator 0.3.61; all 80 verification-tool cases pass.
+Every existing job body is byte-identical, including commands, gates and deadlines.
+The ownership guide replaces its stale fixed case count and temporary report path
+with the reproducible runner command and per-run source/count evidence.
+Research: [GitHub concurrency semantics](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#concurrency)
+and [official expression evaluator](https://github.com/actions/languageservices/tree/main/expressions).
+Hosted cancellation behavior remains unverified. Local GLM judgment and Qwen
+review completed; the evaluator/source checks resolve their inaccurate PR-ref
+details. Initial bounded companion requests exhausted output limits and are not
+completed reviews. Evidence: `/tmp/connectanum-ci-concurrency-evaluation.json`,
+`/tmp/connectanum-ci-concurrency-job-proof.json` and
+`/tmp/connectanum-ci-concurrency-tool-tests.log`.
+
+[Native Artifacts 37480119838](https://github.com/konsultaner/connectanum-dart/actions/runs/37480119838)
+passes all five builds and its dry-run preview at `8df5c9b3`. All fifteen
+source/branch/workflow attestations verify; thirty preview assets match and the
+notes exactly match the renderer. A fresh pinned-source standalone consumer
+passes all four serializers and the public native API with the Apple Silicon
+production library; ten shared-segment and sixteen live owned-PPT cases also
+pass. Direct scalar input/growth copies are zero and independently owned
+read-only views survive disposal. Production exports contain no `ct_test_*`
+oracles; the ffi-test positive control contains eighteen. Other platforms have
+build/provenance evidence only. No release is published. Evidence: `/tmp/connectanum-8df5c9b3-platform-provenance.json` and
+`/tmp/connectanum-8df5c9b3-preview-proof.json` and
+`/tmp/connectanum-8df5c9b3-production-consumers-proof.json`.
+
+The preceding follow-up measures native-provider ciphertext byte-list coercion.
 The fail-first matrix passes four Uint8List decrypt cases and fails all eight
 ordinary-list cases because their conversions are omitted from the lower bound.
 The runtime now counts that isolate-local boundary separately from FFI and native
