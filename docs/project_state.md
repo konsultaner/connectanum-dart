@@ -7,6 +7,61 @@ campaigns without narrowing inventories, test suites, deadlines or evidence gate
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work414/415: seven native regressions now check applied TCP ALPN configuration,
+HTTP delimiter/chunk boundaries and buffered tail ordering, EOF/timeout/size
+errors, and literal WebSocket length/masking headers. Production behavior is
+unchanged. Fast413 passes before edits. An isolated nine-mutation probe retains
+six assertion kills, two survivors and one uncredited custom-message failure;
+preserve that evidence. Compare actual I/O error kinds using standard equality
+assertions, without changing the auditor. A fresh probe and archived-tool,
+matching-environment reaudit then retain seven assertion kills/two survivors,
+no errors/timeouts, clean original/restored baselines and 546 tests. All 539
+original tests and the exact 1,963-candidate production inventory remain.
+The two survivors remain unwaived; selected diagnostics are not either full
+native gate. Evidence lives in `out/native-survivor-regressions414/` and `415/`.
+Exact owners are gone and cwd inspection finds no probe users. Fresh Verify415
+exits zero in `/tmp/connectanum-native-wire-regression-verify415.log`, including
+actual Chrome/Dart2Wasm suites. All 1,896 tracked-file hashes captured before
+startup match completion, before this verification-only documentation update;
+no source/test/tool edits overlap verification. Do not attribute old full406
+scores to these changed fingerprints. Next investigate high-fanout transport/FFI
+test-helper failure oracles using retained logs, never catching production panic
+or crediting mixed failures. Full native collection, both 95% gates and the actual
+measurement report remain open. No push/publication.
+
+Work413: full412 stops during the lean control after 734.82s when batch 832
+observes 4,134,055,936 free bytes, below the unchanged four-GiB reserve.
+Default control takes 862.87s; neither full component starts. Exact supervisor
+and coordinator are gone. All 32 control workspaces are absent, with no command
+or deleted/aliased cwd users; pause only this run's heartbeat, not the goal.
+Fresh archived-tool/matching-environment reaudit reproduces the default control
+exactly (31 samples, 539 baseline tests), and independently inspects 12 complete
+lean batches: 24 outcomes, eight assertion kills, three survivors, ten errors
+and three compile errors. No full score, profile promotion or gate claim.
+Lean sampled private scratch remains below 454 MB per worker. Shared free space
+drops sharply and later recovers; a separate checkout verification overlaps
+after startup, but this does not prove the source of all disk pressure or rule
+out unsampled peaks. Preserve all failed/control raw evidence. Continue genuine
+survivor/regression work outside timed collection before a fresh admitted run;
+never lower limits or resume only failed shards as full measurement evidence.
+
+Work412: local-only `36cb122d` contains the verified private-scratch and ownership
+fixes. The fresh supervisor in `out/native-mutation-full412/` has 31 operational
+checks passing. It requires audited schema-two temporary/combined scratch peaks
+for profile comparison and reporting, and conservatively admits six GiB of
+raw-evidence headroom per full phase rather than the prior one-GiB allowance.
+Worker caps, reserve, original tests/assertions/operators/deadlines/gates remain.
+Five unused historical Android intermediate caches and the unused local Cargo
+debug cache have unchanged protected source/artifact/evidence hashes; release
+and analyzer binaries remain. Do not infer unique APFS recovery from shared
+free-space deltas or delete untagged shared files. Supervisor PID `78932` is
+confirmed alive with its exact `full412/measure.py` command, starting fresh
+default/lean controls before sequential complete core/FFI inventories (1,963
+and 1,297 candidates; 32 fresh batches each, four workers/four Cargo jobs).
+The quiet heartbeat follows this exact owner. No competing own tests/builds,
+inference or cleanup during timing. Collection and strict gates remain open;
+no push/publication. This docs-only continuation bookkeeping stays uncommitted.
+
 Work411: native commands now scope `TMPDIR`, `TMP` and `TEMP` to each owned
 workspace's private `tmp` directory, without changing the parent environment.
 Schema-two resource evidence measures private payloads and combined cache/tmp

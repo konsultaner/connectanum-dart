@@ -38,6 +38,76 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work414/415 Native Wire And TLS Regression Oracles
+
+Fast413 passes before adding seven native regressions. Exercise actual applied
+TCP ALPN settings, explicit-token order and QUIC filtering, each TCP protocol's
+fallback, HTTP delimiter/chunk boundaries and preserved buffered/socket tail
+ordering, exact size/EOF/timeout error kinds, and literal WebSocket length/mask
+headers. Preserve production behavior and every original test/operator/deadline.
+
+Selected probe414 preserves six assertion kills, two survivors and one failure
+whose custom assertion message does not satisfy the strict evidence format.
+Keep it uncredited. Standard error-kind equality assertions generate genuine
+assertion diagnostics, without changing classification/scoring. Fresh probe415
+and independent archived-tool/matching-environment reaudit retain seven pure
+assertion kills, two unwaived survivors and no errors/timeouts. Original/restored
+baselines pass all 546 tests; all 539 original tests and the exact complete
+1,963-candidate inventory remain intact. Preserve both ignored probe archives.
+Exact owners and their cwd users are gone. Fresh Verify415 exits zero in
+`/tmp/connectanum-native-wire-regression-verify415.log`, including actual Chrome
+and Dart2Wasm suites. All 1,896 tracked-file hashes captured before startup match
+completion, before verification-only documentation updates. No source/test/tool
+edits occur during verification. Selected diagnostics and old full406 evidence
+cannot certify current full gates. Next investigate retained high-fanout
+transport/FFI test-helper failures, asserting returned behavioral contracts
+without catching production panic, changing original tests/deadlines, or
+crediting mixed failures. Complete core/FFI collection, both 95% gates and the
+actual measurement report remain required. No push/publication or gate waiver.
+
+### Work413 Control Reserve Failure And Survivor Follow-Up
+
+Full412 stops before either full component: default control completes in
+862.87s; lean control stops after 734.82s when batch 832 observes 4,134,055,936
+free bytes, below the unchanged four-GiB reserve. Preserve all raw evidence.
+Exact supervisor/coordinator are gone; all 32 owned scratch directories and
+their command/deleted-or-aliased cwd users are absent. Pause only the terminal
+heartbeat and keep the goal active. Fresh archived-tool/matching-environment
+reaudit reproduces the default control (31 samples, 539 baseline tests) exactly.
+Independent partial lean inspection retains 12 batches/24 outcomes: eight
+assertion kills, three survivors, ten errors and three compile errors, without
+full score, profile promotion or gate credit. Private scratch sampled below
+454 MB per worker. Shared disk pressure and overlapping separate-checkout
+verification are observed, not proof of sole cause or absence of missed peaks.
+
+Strengthen genuine regression assertions using preserved survivor leads while
+no timed campaign is alive. Reproduce before editing behavior, preserve original
+scope/operators/tests/deadlines/gates and obtain fresh verification/evidence for
+changed fingerprints. Improve admission/quiet-window readiness without deleting
+raw evidence or weakening limits. Complete native collection, both 95% gates
+and the actual measurement report remain required. No push/publication.
+
+### Work412 Fresh Scratch-Aware Measurement
+
+Verified implementation is local-only `36cb122d`. The ignored fresh supervisor
+in `out/native-mutation-full412/` passes 31 operational checks, including strict
+schema-two raw resource audits, temporary/combined scratch reporting, preserved
+profile-outcome equivalence, six-GiB full raw-evidence admission and guarded
+cache cleanup. Preserve original worker caps, reserve, tests, assertions,
+inventories, operators, deadlines and score gates. Six unused generated caches
+have matching protected hashes; native release/analyzer binaries and all raw
+evidence remain intact. Shared disk deltas do not prove unique APFS recovery.
+
+Exact supervisor PID `78932` starts matching fresh controls, then complete
+core/FFI inventories (1,963/1,297 candidates), 32 fresh batches each, four workers
+and four Cargo jobs per worker. Quiet heartbeat follows its exact live command.
+Do not modify frozen tools/inputs/evidence, start duplicate workers or overlap
+timing with own verification, builds, benchmarks, inference or cleanup.
+Independently audit both full inventories and final audit bytes under matching
+environments; verify owned cleanup and the detailed actual report before any
+completion claim. Native collection and both strict gates remain open. No
+push/publication; docs-only continuation bookkeeping remains uncommitted.
+
 ### Work411 Private Scratch And Ownership Inspection
 
 Private `tmp` directories now own the native command's `TMPDIR`, `TMP` and

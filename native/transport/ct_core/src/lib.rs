@@ -10653,6 +10653,133 @@ mod tests {
         }
     }
 
+    async fn http_header_stream_from_buffered(input: &[u8]) -> (IoStream, tokio::net::TcpStream) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (client, server) =
+            tokio::join!(tokio::net::TcpStream::connect(addr), listener.accept());
+        let mut stream = IoStream::plain(server.unwrap().0);
+        stream.buffer_front(input);
+        (stream, client.unwrap())
+    }
+
+    #[tokio::test]
+    async fn http_header_block_preserves_exact_delimiter_and_pipelined_bytes() {
+        for header_len in [32, 1023, 1024, 1025, 2048] {
+            let mut header = b"HTTP/1.1 101 OK\r\nX: ".to_vec();
+            header.resize(header_len - 4, b'x');
+            header.extend_from_slice(b"\r\n\r\n");
+            let buffered_tail: Vec<u8> = (0..2309).map(|i| (i % 251) as u8).collect();
+            let mut input = header.clone();
+            input.extend_from_slice(&buffered_tail);
+            let (mut stream, mut client) = http_header_stream_from_buffered(&input).await;
+            client.write_all(b"socket-tail").await.unwrap();
+            client.shutdown().await.unwrap();
+
+            let actual = read_http_header_block(&mut stream, Duration::from_secs(1)).await;
+            assert_eq!(actual.as_ref().ok(), Some(&header), "length={header_len}");
+
+            let mut remaining = Vec::new();
+            let read = stream.read_to_end(&mut remaining).await;
+            let mut expected_tail = buffered_tail;
+            expected_tail.extend_from_slice(b"socket-tail");
+            assert_eq!(
+                read.as_ref().ok(),
+                Some(&expected_tail.len()),
+                "reading preserved tail: {read:?}"
+            );
+            assert_eq!(remaining, expected_tail, "length={header_len}");
+        }
+    }
+
+    #[tokio::test]
+    async fn http_header_block_distinguishes_incomplete_headers_from_size_limit() {
+        for (length, kind) in [
+            (65535, io::ErrorKind::UnexpectedEof),
+            (65536, io::ErrorKind::InvalidData),
+        ] {
+            let input = vec![b'x'; length];
+            let (mut stream, client) = http_header_stream_from_buffered(&input).await;
+            drop(client);
+
+            let result = read_http_header_block(&mut stream, Duration::from_secs(1)).await;
+
+            let actual_kind = match &result {
+                Err(Error::Io(error)) => Some(error.kind()),
+                _ => None,
+            };
+            assert_eq!(
+                actual_kind,
+                Some(kind),
+                "length={length}, expected={kind:?}, result={result:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn http_header_block_rejects_eof_before_complete_delimiter() {
+        for input in [
+            b"".as_slice(),
+            b"HTTP/1.1 101 OK\r\n",
+            b"HTTP/1.1 101 OK\r\n\r",
+        ] {
+            let (mut stream, client) = http_header_stream_from_buffered(input).await;
+            drop(client);
+
+            let result = read_http_header_block(&mut stream, Duration::from_secs(1)).await;
+
+            let actual_kind = match &result {
+                Err(Error::Io(error)) => Some(error.kind()),
+                _ => None,
+            };
+            assert_eq!(
+                actual_kind,
+                Some(io::ErrorKind::UnexpectedEof),
+                "input={input:?}, result={result:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn http_header_block_times_out_when_peer_keeps_partial_headers_open() {
+        let (mut stream, _client) = http_header_stream_from_buffered(b"HTTP/1.1 101 OK\r").await;
+        time::pause();
+
+        let result = read_http_header_block(&mut stream, Duration::from_millis(25)).await;
+
+        let actual_kind = match &result {
+            Err(Error::Io(error)) => Some(error.kind()),
+            _ => None,
+        };
+        assert_eq!(
+            actual_kind,
+            Some(io::ErrorKind::TimedOut),
+            "result={result:?}"
+        );
+    }
+
+    #[test]
+    fn websocket_frame_header_uses_exact_wire_lengths_at_encoding_boundaries() {
+        for (length, expected) in [
+            (0, vec![0x82, 0]),
+            (125, vec![0x82, 125]),
+            (126, vec![0x82, 126, 0, 126]),
+            (65535, vec![0x82, 126, 0xff, 0xff]),
+            (65536, vec![0x82, 127, 0, 0, 0, 0, 0, 1, 0, 0]),
+        ] {
+            let (header, mask) = websocket_frame_header(0x2, true, length, false);
+            assert_eq!(header, expected, "unmasked length={length}");
+            assert!(mask.is_none());
+
+            let (header, mask) = websocket_frame_header(0x2, true, length, true);
+            assert!(mask.is_some());
+            let mut expected_masked = expected;
+            expected_masked[1] |= 0x80;
+            expected_masked.extend_from_slice(&mask.unwrap());
+            assert_eq!(header, expected_masked, "masked length={length}");
+        }
+    }
+
     async fn read_websocket_frame_from_bytes(
         frame: &[u8],
     ) -> Result<WebSocketFrame, WebSocketFrameError> {

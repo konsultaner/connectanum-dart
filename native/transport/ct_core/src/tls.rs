@@ -324,7 +324,9 @@ fn parse_identity(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{EndpointRuntimeConfig, SniCertificate, TlsMode, TransportProtocol};
+    use crate::config::{
+        EndpointRuntimeConfig, HttpEndpointRuntime, SniCertificate, TlsMode, TransportProtocol,
+    };
     use std::time::Duration;
 
     fn configuration_error<T>(result: Result<T, Error>, expected: &str) {
@@ -494,6 +496,76 @@ mod tests {
         assert!(!config.enable_secret_extraction);
         assert_eq!(config.send_tls13_tickets, default_ticket_count);
         assert_eq!(config.alpn_protocols, vec![b"h2".to_vec()]);
+    }
+
+    #[test]
+    fn tcp_alpn_filters_quic_tokens_without_reordering_explicit_protocols() {
+        let mut endpoint = test_endpoint_config();
+        endpoint.http = Some(HttpEndpointRuntime {
+            alpn: ["h3", "http/1.1", "H3", "h3-29", "h2", "consumer-v1"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+            http3: None,
+            options: Default::default(),
+        });
+        let mut config = test_server_config(&endpoint);
+
+        apply_server_tls_runtime_settings(&mut config, &endpoint, false);
+
+        assert_eq!(
+            config.alpn_protocols,
+            vec![
+                b"http/1.1".to_vec(),
+                b"h2".to_vec(),
+                b"consumer-v1".to_vec(),
+            ]
+        );
+    }
+
+    #[test]
+    fn tcp_alpn_fallback_follows_each_enabled_tcp_protocol() {
+        for (protocols, expected) in [
+            (vec![TransportProtocol::Http], vec![b"http/1.1".to_vec()]),
+            (
+                vec![TransportProtocol::Websocket],
+                vec![b"http/1.1".to_vec()],
+            ),
+            (vec![TransportProtocol::Http2], vec![b"h2".to_vec()]),
+            (
+                vec![TransportProtocol::Http2, TransportProtocol::Http],
+                vec![b"h2".to_vec(), b"http/1.1".to_vec()],
+            ),
+            (
+                vec![TransportProtocol::Http2, TransportProtocol::Websocket],
+                vec![b"h2".to_vec(), b"http/1.1".to_vec()],
+            ),
+            (
+                vec![TransportProtocol::Http, TransportProtocol::Websocket],
+                vec![b"http/1.1".to_vec()],
+            ),
+            (vec![TransportProtocol::Rawsocket], vec![]),
+            (vec![TransportProtocol::Http3], vec![]),
+        ] {
+            for alpn in [None, Some(vec![]), Some(vec!["h3", "H3", "h3-29"])] {
+                let mut endpoint = test_endpoint_config();
+                endpoint.protocols = protocols.clone();
+                endpoint.http = alpn.map(|tokens| HttpEndpointRuntime {
+                    alpn: tokens.into_iter().map(str::to_owned).collect(),
+                    http3: None,
+                    options: Default::default(),
+                });
+                let mut config = test_server_config(&endpoint);
+
+                apply_server_tls_runtime_settings(&mut config, &endpoint, false);
+
+                assert_eq!(
+                    config.alpn_protocols, expected,
+                    "protocols={protocols:?}, settings={:?}",
+                    endpoint.http
+                );
+            }
+        }
     }
 
     fn test_server_config(endpoint: &EndpointRuntimeConfig) -> RustlsServerConfig {
