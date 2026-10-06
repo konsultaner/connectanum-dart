@@ -176,7 +176,9 @@ jobs:
   verify:
     name: Full Verify
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Hosted LLVM builds and VM/consumer checks used 41 minutes before browsers.
+    # Allow the bounded 15-minute core and two 7-minute client browser attempts.
+    timeout-minutes: 90
     needs: [fast, wamp-app, flatbuffers-binding, native-memory]
 
     steps:

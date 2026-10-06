@@ -5,7 +5,23 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up addresses complete native construction of the benchmark
+The current CI follow-up repairs the aggregate Full Verify job budget. Hosted
+run `37437589411` on `c3dbc9cb` reaches core browser tests after 40m51s and
+continues passing cases until 0.665s before GitHub's 45-minute cancellation.
+The annotation explicitly reports the maximum job execution time. The observed
+setup/VM/consumer time plus the existing bounded browser commands needs about
+70 minutes. Only this job's aggregate budget becomes 90 minutes; suite selection,
+LLVM checks, browser command deadlines, per-test deadlines and gates are unchanged.
+All 80 verification-tool regressions pass. Fresh `bin/verify` passes at exit 0,
+including Rust, VM, consumers, 1,541 benchmark, 4,935 router, 4,690 core browser
+and 2,829 client browser cases (20 declared native-only client skips). The
+preceding sequential fast result remains the baseline for unchanged product
+inputs. Hosted acceptance and current-platform artifacts remain pending.
+Evidence: `/tmp/connectanum-full-verify-budget-repro.json` and
+`/tmp/connectanum-c3-full-verify-{job,annotations}.json`, plus
+`/tmp/connectanum-full-verify-budget-canonical.{log,exit}`.
+
+The preceding follow-up addresses complete native construction of the benchmark
 CBOR/MessagePack PPT fixture. Its `native_buffer` group previously held only the
 body in native memory and later serialized a Dart map. The constructor now writes
 the complete existing PPT shape in native storage, counts the single body input
@@ -28,7 +44,8 @@ unchanged case passes five focused repeats, full verify and a fresh sequential
 `bin/test-fast` at exit 0. Failed runs remain failed evidence; no timeout or
 cancellation assertion changes. Evidence:
 `/tmp/connectanum-native-construction-{verify-final,fast-sequential}.{log,exit}`.
-Complete copy instrumentation and parity remain open.
+Complete copy instrumentation and parity remain open. This constructor
+checkpoint is pushed to both remotes as `8937a5d4` in draft PR #105.
 
 The preceding follow-up adds shared encoded native-segment submission for CBOR
 and MessagePack. The optional ABI retains frozen input handles on all outcomes

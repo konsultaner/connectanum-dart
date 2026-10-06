@@ -4,10 +4,17 @@ Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/flatbuffers-zero-copy` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
-released master `3bac4cf5` is integrated. Preceding checkpoint: `425c9e62`.
+released master `3bac4cf5` is integrated. Preceding checkpoint: `8937a5d4`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up implements complete native construction of the benchmark
+The current follow-up repairs the hosted Full Verify aggregate job budget.
+Its preceding `c3dbc9cb` run reaches browser tests after 40m51s and hits GitHub's
+45-minute ceiling while cases still pass. The aggregate budget becomes 90 minutes
+to contain the observed preceding work and the existing bounded browser commands.
+The annotation/timestamp reproducer, all 80 verification-tool checks and fresh
+canonical verification pass. No command deadline or gate changes.
+
+The preceding follow-up implements complete native construction of the benchmark
 CBOR/MessagePack PPT fixture on top of pushed `425c9e62`. The baseline suites
 finish before production edits; its recording wrapper fails afterward. The
 `native_buffer` group previously held only a native body and subsequently
@@ -100,6 +107,35 @@ acceptance and evidence, not a claim that every feature is unimplemented.
 4. Finish #103 measurement coverage, the paired campaign runner and all declared
    performance rows. SDK/TLS/transcode copy gaps and absent campaign results
    remain blockers; do not weaken the parity or copy gates.
+
+## Hosted Full Verify aggregate budget (2026-10-06)
+
+- [x] Inspect job `112200071473` in run `37437589411`, including annotations and
+  the actual completed job log while the enclosing mutation run remains live.
+  GitHub reports its 45-minute ceiling; core Dart2Js cases pass until 0.665s
+  before cancellation. No stalled test is established by this evidence.
+- [x] Calculate the observed pre-browser window (40m51s), preserving the existing
+  900-second core and two 420-second client command allowances. The combined
+  window is 69.861 minutes, exceeding the previous aggregate budget.
+- [x] Change only Full Verify's aggregate job limit to 90 minutes. Retain all
+  suites, LLVM verification, command/per-test bounds, thresholds and required jobs.
+- [x] Pass all 80 verification-tool regression cases. The local debug companion's
+  speculative hang/leak hypotheses are not established: timestamped passing
+  cases continue immediately before GitHub's explicit deadline cancellation.
+- [x] Finish fresh canonical verification before publishing this repair:
+  `bin/verify` exits 0, including Rust, VM, consumers, 1,541 benchmark, 4,935
+  router, 4,690 core browser and 2,829 client browser cases (20 declared
+  native-only client skips). Product inputs remain unchanged from the preceding
+  sequential fast check; only the CI budget and its documentation change.
+- [ ] Inspect exact-head hosted verification and signed platform artifacts;
+  validate the production consumer and release preview without publishing a release.
+
+Evidence: `/tmp/connectanum-full-verify-budget-repro.json`,
+`/tmp/connectanum-c3-full-verify-hosted.log`,
+`/tmp/connectanum-c3-full-verify-{job,annotations}.json`,
+`/tmp/connectanum-full-verify-budget-tools.{log,exit}` and
+`/tmp/connectanum-c3-full-verify-timeout-debug.txt`, plus
+`/tmp/connectanum-full-verify-budget-canonical.{log,exit}`.
 
 ## Complete native benchmark PPT construction (2026-10-06)
 
