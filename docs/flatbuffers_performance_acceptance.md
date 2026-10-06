@@ -6,9 +6,11 @@ three construction groups for typed RPC and pub/sub and records payload-preparat
 and native-builder copy counters. Native FlatBuffers callers pass owned typed
 FlatBuffers spans directly into the native FlatBuffers frame path for two
 construction groups. Native CBOR/MessagePack callers now retain owned
-`pre_encoded_span` PPT bytes through the shared segmented native submission ABI;
-small serialized header copies remain counted. Dynamic CBOR/MessagePack
-`native_buffer` rows still serialize their body through the regular PPT path.
+`native_buffer` and `pre_encoded_span` PPT bytes through the shared segmented
+native submission ABI; small serialized header copies remain counted. The
+fixed CBOR/MessagePack native fixture now writes the complete existing PPT
+structure directly in native storage. Its body input copy remains counted;
+it does not build a Dart map or serialize the full payload again at send time.
 Native-path copy attribution is now partial; complete
 cross-client coverage and the paired performance campaign are unfinished. No
 parity result is accepted.
@@ -28,15 +30,18 @@ RPC/pub-sub, all three PPT serializers and both `native_buffer` and
 `pre_encoded_span` groups over two iterations. The FlatBuffers PPT owned groups
 use the retained native span path. CBOR/MessagePack PPT with a FlatBuffers
 outer envelope remains a serializer fallback in that matrix; CBOR/MessagePack
-outer envelopes now have their own retained pre-encoded native PPT path. These
+outer envelopes now retain both owned construction groups through native PPT.
+The expanded native Session matrix covers both groups, RPC/pub-sub and
+RawSocket/WebSocket with CBOR/MessagePack envelopes. These
 matrices are correctness evidence, not a performance run.
 The campaign diagnostic adds typed construction-group coverage for WebSocket
 and TLS, as described below; the complete primary matrix remains unaccepted.
 
 `latency_ms` covers construction, serialization, transport, receive-side decode,
 and response/event validation. `payload_preparation_us` measures runner-side
-construction only. For `values` and `native_buffer` with dynamic CBOR/MessagePack
-PPT, it ends before PPT serialization. For `pre_encoded_span`, it includes PPT
+construction only. For `values` with dynamic CBOR/MessagePack PPT, it ends before
+PPT serialization. For `native_buffer`, it includes complete model/PPT encoding
+in native storage and the single body input copy. For `pre_encoded_span`, it includes PPT
 serialization and copying the resulting bytes into the frozen native owner.
 `native_builder_input_copied_bytes` and `native_builder_growth_copied_bytes`
 measure only FlatBuffers/native-buffer builder input and growth. They do not
@@ -50,11 +55,33 @@ as a retained native frame span and rebuilds only the control envelope. Focused
 ownership tests and the live runner matrix verify that selection and lifetime.
 This proves Dart-side view identity at frame submission; it does not prove that
 WebSocket masking, TLS, coalescing or kernel output avoid copies. All Dart
-callers, other WAMP envelopes, and CBOR/MessagePack PPT rows keep their current
-serializer paths, where ordinary native segmented sends copy Dart fragments.
-Keep those rows explicit until matching shared ownership/segment optimizations
-and end-to-end copied-byte evidence exist. Issue #96's supported native-buffer
+callers use their normal serializer/transport paths. Native CBOR/MessagePack
+envelopes with matching PPT reuse exact owned spans in both construction groups;
+the newly encoded control fragments still get copied and counted. Other native
+envelope/PPT combinations keep their regular serializer paths, where ordinary
+native segmented sends copy Dart fragments. Full SDK/socket/TLS/transcode copy
+evidence remains incomplete. Issue #96's supported native-buffer
 contract is complete; the cross-codec benchmark requirement remains under #103.
+
+The native dynamic fixture supports the existing uint32 identity fields,
+fixed ASCII field names and binary body up to 64 MiB. It emits the same
+`{args: [{worker, iteration, body}], kwargs: null}` shape as the regular
+serializers. Integer and binary-length headers follow
+[RFC 8949 section 3](https://www.rfc-editor.org/rfc/rfc8949.html#section-3) and
+the [MessagePack specification](https://github.com/msgpack/msgpack/blob/master/spec.md).
+Exact native bytes, independent regular decoding, body input-copy counts and
+exported-view lifetime are checked against 140 boundary vectors. This is an
+encoder for the benchmark model; the public serializers remain unchanged.
+The packed payload has an explicit lazy decoder for application access.
+
+The native-construction follow-up passes fresh `bin/test-fast` and `bin/verify`
+on 2026-10-06. All 1,541 Linux benchmark cases pass without native skips; targeted
+benchmark coverage is 2,981/3,033 lines (98.286%), above the unchanged 98% gate,
+with no benchmark findings. The codec is 122/122 lines. This targeted report
+leaves other packages unmeasured and does not accept whole-repository coverage.
+Both existing typed ciphers, mixed-serializer encrypted pub/sub and native CBOR
+encrypted file transfer also pass; the new constructors use the unencrypted
+custom typed scheme. Full crypto copy attribution remains incomplete.
 
 The runner integration and current copy-counter follow-up pass `bin/test-fast`
 and full `bin/verify` on 2026-10-05, including Chrome WebAssembly and live WAMP

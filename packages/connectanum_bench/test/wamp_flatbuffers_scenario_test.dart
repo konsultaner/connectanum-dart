@@ -112,7 +112,7 @@ void main() {
     ('msgpack', WampSerializer.msgpack, core.LazyPayloadEncoding.messagePack),
   ]) {
     for (final construction in [
-      if (codec.$1 == 'flatbuffers') WampPayloadConstruction.nativeBuffer,
+      WampPayloadConstruction.nativeBuffer,
       WampPayloadConstruction.preEncodedSpan,
     ]) {
       test(
@@ -162,43 +162,51 @@ void main() {
     }
   }
 
-  test(
-    'native FlatBuffers PPT owner is disposed when a call is rejected',
-    () async {
-      final session = _RecordingSession()..throwOnCall = true;
-      final runner = WampWorkloadRunner(
-        sessionFactory: (_) async => session,
-        logger: Logger.detached('flatbuffers-owned-span-error'),
-        nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(
-          libraryPath: nativeLibrary,
-        ),
-      );
-
-      await expectLater(
-        runner.run(
-          WampScenario(
-            transport: WampTransport.rawsocket,
-            clientImplementation: WampClientImplementation.native,
-            serializer: WampSerializer.flatbuffers,
-            mode: WampMode.rpc,
-            uri: 'bench.rpc.echo',
-            iterations: 1,
-            concurrency: 1,
-            payloadBytes: 128,
-            pptScheme: 'x_connectanum_bench_typed',
-            pptSerializer: 'flatbuffers',
-            payloadConstruction: WampPayloadConstruction.nativeBuffer,
+  for (final codec in [
+    ('FlatBuffers', WampSerializer.flatbuffers),
+    ('cbor', WampSerializer.cbor),
+    ('msgpack', WampSerializer.msgpack),
+  ]) {
+    test(
+      'native ${codec.$1} PPT owner is disposed when a call is rejected',
+      () async {
+        final session = _RecordingSession()..throwOnCall = true;
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => session,
+          logger: Logger.detached('flatbuffers-owned-span-error'),
+          nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(
+            libraryPath: nativeLibrary,
           ),
-        ),
-        throwsA(isA<StateError>()),
-      );
+        );
 
-      expect(session.ownerWasLiveDuringCall, isTrue);
-      expect(session.requestOwner!.isDisposed, isTrue);
-      expect(session.closed, isTrue);
-    },
-    skip: skipNative,
-  );
+        await expectLater(
+          runner.run(
+            WampScenario(
+              transport: WampTransport.rawsocket,
+              clientImplementation: WampClientImplementation.native,
+              serializer: codec.$2,
+              mode: WampMode.rpc,
+              uri: 'bench.rpc.echo',
+              iterations: 1,
+              concurrency: 1,
+              payloadBytes: 128,
+              pptScheme: 'x_connectanum_bench_typed',
+              pptSerializer: codec.$1 == 'FlatBuffers'
+                  ? 'flatbuffers'
+                  : codec.$1,
+              payloadConstruction: WampPayloadConstruction.nativeBuffer,
+            ),
+          ),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(session.ownerWasLiveDuringCall, isTrue);
+        expect(session.requestOwner!.isDisposed, isTrue);
+        expect(session.closed, isTrue);
+      },
+      skip: skipNative,
+    );
+  }
 }
 
 class _RecordingSession implements WampSession {

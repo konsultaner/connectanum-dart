@@ -4,10 +4,25 @@ Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/flatbuffers-zero-copy` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
-released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
+released master `3bac4cf5` is integrated. Preceding checkpoint: `425c9e62`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up adds shared encoded native submission for CBOR and
+The current follow-up implements complete native construction of the benchmark
+CBOR/MessagePack PPT fixture on top of pushed `425c9e62`. The baseline suites
+finish before production edits; its recording wrapper fails afterward. The
+`native_buffer` group previously held only a native body and subsequently
+serialized a Dart map. The constructor now writes the same complete PPT bytes
+directly in native storage and retains that span. Focused/live tests and all
+1,541 Linux benchmark cases pass; fresh full canonical verify and sequential
+fast checks both exit 0. Linux
+benchmark coverage is 2,981/3,033 lines (98.286%), above the unchanged 98% gate,
+and the codec is 122/122 lines. Other packages are unmeasured in this targeted
+report; whole-repository coverage is not accepted by it.
+The regular serializers are the byte-for-byte reference, including integer and
+binary-length boundaries. The single body input copy stays counted, just as in
+the FlatBuffers native fixture. No original copy/parity gate is relaxed.
+
+The preceding follow-up adds shared encoded native submission for CBOR and
 MessagePack on top of pushed campaign checkpoint `c3dbc9cb`. Frozen buffers stay
 owned through queued write/flush; generic lazy owned PPT preserves the exact
 allocation and counts small metadata copies. API/version/identity guards retain
@@ -85,6 +100,81 @@ acceptance and evidence, not a claim that every feature is unimplemented.
 4. Finish #103 measurement coverage, the paired campaign runner and all declared
    performance rows. SDK/TLS/transcode copy gaps and absent campaign results
    remain blockers; do not weaken the parity or copy gates.
+
+## Complete native benchmark PPT construction (2026-10-06)
+
+- [x] Finish the fresh baseline without changing production sources. All suite
+  cases finish without test failure; the outer exit-recording command then
+  fails because `status` is a reserved zsh variable. Do not claim that wrapper
+  exited 0 or invent its missing exit file. The preceding pushed checkpoint's
+  canonical fast/full results remain valid; final checks use `task_exit`.
+- [x] Reproduce missing exact owned PPT spans for CBOR/MessagePack
+  `native_buffer` construction with the existing recording Session tests.
+- [x] Build complete fixture PPT directly in native storage, preserving the
+  regular wire shape, uint32 identities and binary body, with one counted body
+  input copy and no grow/concatenate copy.
+- [x] Preserve lazy application decoding, exact owner identity and release
+  on successful or rejected Session sends.
+- [x] Compare byte-for-byte with the regular serializers at all relevant integer
+  and binary-length boundaries and validate decoded application identity/body.
+- [x] Exercise both owned construction groups over native RawSocket/WebSocket
+  RPC/pub-sub, including FlatBuffers envelope/other PPT fallback semantics.
+- [x] Confirm existing encryption coverage in the complete benchmark suite:
+  Dart/native typed FlatBuffers with both ciphers, native mixed-serializer
+  encrypted pub/sub, and native CBOR encrypted file transfer all pass on Linux.
+  The new CBOR/MessagePack native constructors use the unencrypted custom typed
+  benchmark scheme. Existing encrypted CBOR uses its ordinary value path;
+  MessagePack is not an E2EE profile. No new encrypted constructor coverage or
+  complete crypto copy attribution is claimed.
+- [x] Include the codec/owner tests in the workload mutation inputs and suite.
+  All 596 focused/aggregate cases and 46 live matrix cases pass. All 93 runner
+  regression cases pass with one declared skip and unchanged thresholds.
+  The prototype and actual-diff reviews raise source-disproved concerns:
+  frozen builder disposal is a no-op, MessagePack binary headers never have
+  width 1, and FlatBuffers payloads select their own decoder before the dynamic
+  decoder branch. Fixed internal keys are ASCII and body() returns the validated
+  requested length. No concrete companion blocker remains.
+  The first canonical runs fail the stale exact mutation-inventory assertion.
+  Its source, imported-test and fixture sets now include the constructor and its
+  tests; exact equality and all thresholds remain enforced. Fresh canonical
+  verify passes after that repair.
+  The repaired fast run fails one existing close-after-READY worker case at the
+  unchanged two-second readiness timeout while fast/full checks overlap. The
+  unchanged case then passes five focused repeats and the full verify run's
+  1,541-case benchmark suite. Do not accept the failed fast run as green or
+  infer a proven root cause. Fresh sequential `bin/test-fast` now exits 0,
+  with the unchanged case and all 1,541 benchmark cases passing.
+  Full `bin/verify` exits 0, including Rust, VM, consumers, 1,541 benchmark,
+  4,935 router, 4,690 core browser and 2,829 client browser cases (20 declared
+  native-only client skips). Evidence:
+  `/tmp/connectanum-native-construction-verify-final.{log,exit}`,
+  `/tmp/connectanum-native-construction-startup-repeat.{log,exit}` and
+  `/tmp/connectanum-native-construction-fast-sequential.{log,exit}`.
+- [x] Complete focused review, fresh fast/full verification and unchanged Linux
+  benchmark coverage before publishing the next checkpoint.
+- [ ] Obtain exact-head hosted acceptance. Complete SDK/TLS/transcode/E2EE copy
+  instrumentation, resource budgets and primary parity under the original gates.
+
+The constructor is specific to the existing benchmark application model; it
+does not replace the public CBOR/MessagePack serializers. Field names, PPT map
+structure and map ordering follow the checked-in serializers. Integer and byte
+string headers follow [RFC 8949 section 3](https://www.rfc-editor.org/rfc/rfc8949.html#section-3)
+and the [MessagePack specification](https://github.com/msgpack/msgpack/blob/master/spec.md).
+Only uint32 identities and the existing 64 MiB fixture body limit are supported.
+
+Evidence: `/tmp/connectanum-native-construction-{owner-repro,owner-fixed,prototype,focused,live,inventory}.{log,exit}`,
+`/tmp/connectanum-native-construction-{context,test-ideas-narrow,review}.txt`,
+`/tmp/connectanum-native-construction-linux-coverage.{log,exit}`,
+`/tmp/connectanum-native-construction-linux-{lcov.info,summary.json}`.
+The coverage checker exits 1 for 204 findings in unmeasured other packages and
+scopes; there are no benchmark findings. The fixture overlays these Dart/tool
+changes on the existing Linux clone and retains the unchanged native binary;
+it is explicitly dirty functional evidence, not a clean-head timing campaign.
+The Linux daemon was unavailable; starting the existing Docker service/container
+restores the retained fixture. Its native frame source matches the host's
+unchanged source hash `519a466e30580aab98db61b920d0288d6e82ed6bc85b360768f6c22ef85f899d`.
+Eight changed Dart/tool inputs are overlaid; it remains explicitly a dirty
+functional/coverage fixture, not controlled timing or clean-head acceptance.
 
 ## Shared encoded native submission (2026-10-06)
 

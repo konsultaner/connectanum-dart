@@ -78,6 +78,109 @@ abstract final class BenchPayloadCodec {
     }
   }
 
+  static int _uintWidth(int value, bool cbor) => value <= (cbor ? 23 : 127)
+      ? 1
+      : value <= 0xff
+      ? 2
+      : value <= 0xffff
+      ? 3
+      : 5;
+  static int _binaryWidth(int length, bool cbor) => cbor
+      ? _uintWidth(length, true)
+      : length <= 0xff
+      ? 2
+      : length <= 0xffff
+      ? 3
+      : 5;
+
+  /// Encodes the fixed CBOR/MessagePack benchmark PPT model in native storage.
+  /// Header/scalar fields are written directly; only the body input is copied.
+  /// Other serializers continue to use their regular public codecs.
+  static NativeOwnedBuffer encodeNativePpt(
+    NativeBufferAllocator allocator, {
+    required String serializer,
+    required int worker,
+    required int iteration,
+    required int bodyBytes,
+  }) {
+    final cbor = switch (serializer) {
+      'cbor' => true,
+      'msgpack' => false,
+      _ => throw ArgumentError.value(serializer, 'serializer'),
+    };
+    final data = body(
+      worker: worker,
+      iteration: iteration,
+      length: bodyBytes,
+    );
+    // Two maps, one array, five short ASCII keys, and the null keyword value.
+    final length =
+        38 +
+        _uintWidth(worker, cbor) +
+        _uintWidth(iteration, cbor) +
+        _binaryWidth(bodyBytes, cbor) +
+        bodyBytes;
+    final builder = allocator.allocate(length);
+    var offset = 0;
+    void byte(int value) => builder.setUint8(offset++, value);
+    void key(String value) {
+      byte((cbor ? 0x60 : 0xa0) | value.length);
+      for (final unit in value.codeUnits) {
+        byte(unit);
+      }
+    }
+
+    void unsigned(int value, {bool binary = false}) {
+      final width = binary
+          ? _binaryWidth(value, cbor)
+          : _uintWidth(value, cbor);
+      if (width == 1) {
+        byte((binary ? 0x40 : 0) | value);
+        return;
+      }
+      final extension = width == 2
+          ? 0
+          : width == 3
+          ? 1
+          : 2;
+      byte(
+        cbor
+            ? (binary ? 0x40 : 0) | (24 + extension)
+            : (binary ? 0xc4 : 0xcc) + extension,
+      );
+      if (width == 2) {
+        byte(value);
+      } else if (width == 3) {
+        byte(value >> 8);
+        byte(value & 0xff);
+      } else {
+        builder.setUint32(offset, value, Endian.big);
+        offset += 4;
+      }
+    }
+
+    try {
+      byte(cbor ? 0xa2 : 0x82);
+      key('args');
+      byte(cbor ? 0x81 : 0x91);
+      byte(cbor ? 0xa3 : 0x83);
+      key('worker');
+      unsigned(worker);
+      key('iteration');
+      unsigned(iteration);
+      key('body');
+      unsigned(bodyBytes, binary: true);
+      builder.writeBytes(offset, data);
+      offset += data.length;
+      key('kwargs');
+      byte(cbor ? 0xf6 : 0xc0);
+      if (offset != length) throw StateError('Invalid native PPT fixture size');
+      return builder.freeze();
+    } finally {
+      builder.dispose();
+    }
+  }
+
   static schema.WorkloadPayload decode(List<int> bytes) {
     _checkFileIdentifier(bytes);
     return schema.WorkloadPayload(bytes);

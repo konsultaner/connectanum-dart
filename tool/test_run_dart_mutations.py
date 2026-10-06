@@ -111,6 +111,28 @@ class MutationRunnerTests(unittest.TestCase):
         )
         self.assertIn('workload_diagnostics.main', suite.read_text())
 
+    def test_workload_native_ppt_constructor_inputs_are_registered(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['bench-wamp-workload-vm']
+        self.assertIn('packages/connectanum_bench/lib/src/bench_payload/codec.dart',
+                      target['sources'])
+        for path in (
+            'test/bench_payload_codec_test.dart',
+            'test/wamp_flatbuffers_scenario_test.dart',
+            'test/support/native_library.dart',
+            'lib/src/bench_payload/generated/workload_payload_connectanum.bench_generated.dart',
+        ):
+            self.assertIn(f'packages/connectanum_bench/{path}', target['supportFiles'])
+        self.assertIn('schemas/bench_payload/workload_payload.fbs', target['supportFiles'])
+        suite = (runner.ROOT / target['tests'][0]).read_text()
+        for filename, alias in (
+            ('bench_payload_codec_test', 'payload_codec'),
+            ('wamp_flatbuffers_scenario_test', 'owned_payloads'),
+        ):
+            self.assertIn(f"import '../{filename}.dart' as {alias};", suite)
+            self.assertIn(f'{alias}.main', suite)
+        self.assertNotIn('threshold', target)
+
     def test_mcp_discovery_target_includes_full_source_and_consumer_tests(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         self.assertIn('client-mcp-discovery-vm', targets)

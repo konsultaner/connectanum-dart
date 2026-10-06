@@ -5,12 +5,147 @@ import 'dart:typed_data';
 
 import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_client/native_buffers.dart';
+import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/cbor_serializer.dart' as cbor;
+import 'package:connectanum_core/msgpack_serializer.dart' as msgpack;
 import 'package:test/test.dart';
 
 import 'support/native_library.dart';
 
 void main() {
   final nativeLibrary = nativeBenchTestLibrary();
+
+  for (final codec in [
+    ('cbor', cbor.Serializer()),
+    ('msgpack', msgpack.Serializer()),
+  ]) {
+    for (final bodyBytes in [0, 23, 24, 255, 256, 65535, 65536]) {
+      test(
+        'native ${codec.$1} PPT matches regular bytes at body length $bodyBytes',
+        () {
+          final allocator = NativeBufferAllocator.instance(
+            libraryPath: nativeLibrary,
+          );
+          for (final worker in [
+            0,
+            23,
+            24,
+            127,
+            128,
+            255,
+            256,
+            65535,
+            65536,
+            0xffffffff,
+          ]) {
+            final iteration = 0xffffffff - worker;
+            final expected = codec.$2.serializePPT(
+              PPTPayload(
+                arguments: [
+                  BenchPayloadCodec.dynamicValue(
+                    worker: worker,
+                    iteration: iteration,
+                    bodyBytes: bodyBytes,
+                  ),
+                ],
+              ),
+            );
+            final native = BenchPayloadCodec.encodeNativePpt(
+              allocator,
+              serializer: codec.$1,
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: bodyBytes,
+            );
+            late Uint8List bytes;
+            try {
+              bytes = native.bytes;
+              expect(bytes, expected);
+              expect(native.inputCopiedBytes, bodyBytes);
+              expect(native.growthCopiedBytes, 0);
+              final decoded = codec.$2.deserializePPT(bytes)!;
+              expect(decoded.arguments, hasLength(1));
+              expect(decoded.argumentsKeywords, isNull);
+              BenchPayloadCodec.verifyDynamic(
+                value: decoded.arguments!.single,
+                worker: worker,
+                iteration: iteration,
+                bodyBytes: bodyBytes,
+              );
+            } finally {
+              native.dispose();
+            }
+            // The exported SDK view retains the frozen allocation independently.
+            expect(bytes, expected);
+          }
+        },
+        skip: nativeLibrary == null
+            ? 'Native transport artifact unavailable'
+            : false,
+      );
+    }
+
+    test(
+      'native ${codec.$1} PPT rejects invalid application bounds',
+      () {
+        final allocator = NativeBufferAllocator.instance(
+          libraryPath: nativeLibrary,
+        );
+        for (final input in [
+          (-1, 0, 0),
+          (0x100000000, 0, 0),
+          (0, -1, 0),
+          (0, 0x100000000, 0),
+          (0, 0, -1),
+          (0, 0, 64 * 1024 * 1024 + 1),
+        ]) {
+          expect(
+            () => BenchPayloadCodec.encodeNativePpt(
+              allocator,
+              serializer: codec.$1,
+              worker: input.$1,
+              iteration: input.$2,
+              bodyBytes: input.$3,
+            ),
+            throwsRangeError,
+          );
+        }
+      },
+      skip: nativeLibrary == null
+          ? 'Native transport artifact unavailable'
+          : false,
+    );
+  }
+
+  test(
+    'native dynamic PPT rejects unsupported serializers',
+    () {
+      final allocator = NativeBufferAllocator.instance(
+        libraryPath: nativeLibrary,
+      );
+      for (final serializer in ['flatbuffers', 'json', 'CBOR', '']) {
+        expect(
+          () => BenchPayloadCodec.encodeNativePpt(
+            allocator,
+            serializer: serializer,
+            worker: 0,
+            iteration: 0,
+            bodyBytes: 0,
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (error) => error.name,
+              'name',
+              'serializer',
+            ),
+          ),
+        );
+      }
+    },
+    skip: nativeLibrary == null
+        ? 'Native transport artifact unavailable'
+        : false,
+  );
 
   for (final bodyBytes in [0, 1, 1024, 64 * 1024]) {
     test(

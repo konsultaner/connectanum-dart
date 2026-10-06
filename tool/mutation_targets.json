@@ -271,7 +271,8 @@
   },
   "bench-wamp-workload-vm": {
     "sources": [
-      "packages/connectanum_bench/lib/src/wamp_workload_runner.dart"
+      "packages/connectanum_bench/lib/src/wamp_workload_runner.dart",
+      "packages/connectanum_bench/lib/src/bench_payload/codec.dart"
     ],
     "tests": [
       "packages/connectanum_bench/test/support/wamp_workload_mutation_suite.dart"
@@ -298,7 +299,12 @@
       "packages/connectanum_bench/test/wamp_transport_targets_ranking_test.dart",
       "native/bench/bench_tls.crt",
       "native/bench/bench_tls.key",
-      "packages/connectanum_bench/test/wamp_workload_diagnostics_regression_test.dart"
+      "packages/connectanum_bench/test/wamp_workload_diagnostics_regression_test.dart",
+      "packages/connectanum_bench/test/bench_payload_codec_test.dart",
+      "packages/connectanum_bench/test/wamp_flatbuffers_scenario_test.dart",
+      "packages/connectanum_bench/test/support/native_library.dart",
+      "packages/connectanum_bench/lib/src/bench_payload/generated/workload_payload_connectanum.bench_generated.dart",
+      "schemas/bench_payload/workload_payload.fbs"
     ],
     "testRoot": "packages/connectanum_bench",
     "requiresNativeLibrary": true

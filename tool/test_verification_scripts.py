@@ -426,10 +426,12 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         root = REPO_ROOT / 'packages/connectanum_bench'
         entrypoint = root / 'test/support/wamp_workload_mutation_suite.dart'
         self.assertEqual(target['sources'], [
-            'packages/connectanum_bench/lib/src/wamp_workload_runner.dart'])
+            'packages/connectanum_bench/lib/src/wamp_workload_runner.dart',
+            'packages/connectanum_bench/lib/src/bench_payload/codec.dart'])
         self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
         self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
         expected = {root / 'test' / name for name in [
+            'bench_payload_codec_test.dart', 'wamp_flatbuffers_scenario_test.dart',
             'wamp_workload_runner_test.dart', 'wamp_session_wire_regression_test.dart',
             'wamp_workload_failure_regression_test.dart',
             'wamp_workload_timing_test.dart',
@@ -446,7 +448,12 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
             'wamp_transport_targets_boundaries_test.dart',
             'wamp_transport_targets_ranking_test.dart',
         ]}
-        fixtures = {'native/bench/bench_tls.crt', 'native/bench/bench_tls.key'}
+        fixtures = {
+            'native/bench/bench_tls.crt', 'native/bench/bench_tls.key',
+            'packages/connectanum_bench/test/support/native_library.dart',
+            'packages/connectanum_bench/lib/src/bench_payload/generated/workload_payload_connectanum.bench_generated.dart',
+            'schemas/bench_payload/workload_payload.fbs',
+        }
         self.assertEqual(set(target['supportFiles']), fixtures | {
             path.relative_to(REPO_ROOT).as_posix() for path in expected})
         source = entrypoint.read_text()

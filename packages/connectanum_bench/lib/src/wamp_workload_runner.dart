@@ -2093,7 +2093,7 @@ class WampWorkloadRunner {
     };
     native_buffers.NativeOwnedBuffer? owner;
     try {
-      late final Object value;
+      Object? value;
       switch (scenario.payloadConstruction) {
         case WampPayloadConstruction.dartValues:
           value = _buildTypedBenchmarkValue(
@@ -2103,27 +2103,20 @@ class WampWorkloadRunner {
             bodyBytes: scenario.payloadBytes,
           );
         case WampPayloadConstruction.nativeBuffer:
-          if (serializer == 'flatbuffers') {
-            owner = BenchPayloadCodec.encodeNative(
-              _nativeBuffers,
-              worker: worker,
-              iteration: iteration,
-              bodyBytes: scenario.payloadBytes,
-            );
-            value = owner.bytes;
-          } else {
-            final body = BenchPayloadCodec.body(
-              worker: worker,
-              iteration: iteration,
-              length: scenario.payloadBytes,
-            );
-            owner = _copyToNative(body);
-            value = {
-              'worker': worker,
-              'iteration': iteration,
-              'body': owner.bytes,
-            };
-          }
+          owner = serializer == 'flatbuffers'
+              ? BenchPayloadCodec.encodeNative(
+                  _nativeBuffers,
+                  worker: worker,
+                  iteration: iteration,
+                  bodyBytes: scenario.payloadBytes,
+                )
+              : BenchPayloadCodec.encodeNativePpt(
+                  _nativeBuffers,
+                  serializer: serializer,
+                  worker: worker,
+                  iteration: iteration,
+                  bodyBytes: scenario.payloadBytes,
+                );
         case WampPayloadConstruction.preEncodedSpan:
           final valueToEncode = _buildTypedBenchmarkValue(
             serializer,
@@ -2132,27 +2125,31 @@ class WampWorkloadRunner {
             bodyBytes: scenario.payloadBytes,
           );
           owner = _copyToNative(_encodePptValue(serializer, valueToEncode));
-          value = valueToEncode;
       }
       preparation.stop();
-      final payload =
-          serializer == 'flatbuffers' &&
-              owner != null &&
-              scenario.payloadConstruction != WampPayloadConstruction.dartValues
-          ? owner.asFlatBuffersPptPayload()
-          : scenario.payloadConstruction ==
-                WampPayloadConstruction.preEncodedSpan
-          ? owner!.asPptPayload(
-              encoding: encoding,
-              packedPayloadDecoder: (_) => (
-                arguments: [value],
-                argumentsKeywords: null,
-              ),
-            )
+      final payload = owner != null
+          ? serializer == 'flatbuffers'
+                ? owner.asFlatBuffersPptPayload()
+                : owner.asPptPayload(
+                    encoding: encoding,
+                    packedPayloadDecoder: (bytes) {
+                      final decoded = serializer == 'cbor'
+                          ? wamp_cbor.Serializer().deserializePPT(bytes)
+                          : wamp_msgpack.Serializer().deserializePPT(bytes);
+                      if (decoded == null) {
+                        throw const FormatException(
+                          'Invalid benchmark PPT payload',
+                        );
+                      }
+                      return (
+                        arguments: decoded.arguments,
+                        argumentsKeywords: decoded.argumentsKeywords,
+                      );
+                    },
+                  )
           : wamp_core.LazyMessagePayload.materialized(
               encoding: encoding,
               arguments: [value],
-              anchor: owner,
             );
       return _PreparedBenchPayload(
         payload: payload,

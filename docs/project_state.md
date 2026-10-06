@@ -5,7 +5,32 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up adds shared encoded native-segment submission for CBOR
+The current follow-up addresses complete native construction of the benchmark
+CBOR/MessagePack PPT fixture. Its `native_buffer` group previously held only the
+body in native memory and later serialized a Dart map. The constructor now writes
+the complete existing PPT shape in native storage, counts the single body input
+copy and retains the frozen span through the shared submission path. Two owner
+cases first fail and then pass. All 140 reference vectors, 596 focused/aggregate
+cases and 46 live matrix cases pass; 93 mutation-runner checks pass with one
+declared skip. Frozen views survive caller disposal and rejected Session calls
+release their owners. All 1,541 Linux benchmark cases pass without native skips.
+Targeted coverage is 2,981/3,033 lines (98.286%), above the unchanged 98% gate;
+the codec is 122/122 lines. There are no benchmark findings; the other unmeasured
+packages prevent whole-repository coverage acceptance. Existing typed and CBOR
+encryption cases also pass; the new constructors use the unencrypted custom
+typed scheme. First canonical runs fail a stale exact mutation-input assertion;
+the exact source/test/fixture inventory is repaired without relaxing thresholds.
+Fresh full `bin/verify` passes at exit 0, including Rust, VM, consumers, 1,541
+benchmark, 4,935 router, 4,690 core browser and 2,829 client browser cases
+(20 declared native-only client skips). The repaired fast run hits an existing
+two-second worker-readiness timeout while fast/full checks overlap. That
+unchanged case passes five focused repeats, full verify and a fresh sequential
+`bin/test-fast` at exit 0. Failed runs remain failed evidence; no timeout or
+cancellation assertion changes. Evidence:
+`/tmp/connectanum-native-construction-{verify-final,fast-sequential}.{log,exit}`.
+Complete copy instrumentation and parity remain open.
+
+The preceding follow-up adds shared encoded native-segment submission for CBOR
 and MessagePack. The optional ABI retains frozen input handles on all outcomes
 and keeps empty producers alive through write/flush. Dart has capability probes,
 tracked submission, a Finalizable input holder and generic lazy owned PPT.
@@ -32,9 +57,11 @@ compilation and benchmark temporary-directory creation. Only this worktree's
 disposable Rust incremental caches were cleared (about 6 GiB); the failed runs
 are retained and are not accepted as clean verification. An earlier baseline
 attempt overlapped implementation and caught a transient switch-type
-compilation error; that attempt is not claimed as a clean baseline. Dynamic
-CBOR/MessagePack native construction and complete copy/parity evidence remain
-open. Publication and exact-head hosted acceptance follow these local checks.
+compilation error; that attempt is not claimed as a clean baseline. At that
+checkpoint, dynamic native construction and complete copy/parity evidence were
+pending; the constructor is now implemented above. Shared submission is pushed
+to both remotes as `425c9e62`; at the last inspection both package-publish
+dry-runs pass and its two hosted CI runs are queued.
 
 The preceding follow-up implements the paired serializer campaign executor on top
 of pushed runtime repair `87688b8c`. It generates the 48-case primary matrix,
