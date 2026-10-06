@@ -5,19 +5,75 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The candidate adds ordinary CBOR/FlatBuffers native forwarding to pushed
-checkpoint `d3546c6d`. Routing retains encoded argument allocations, resolves the
-actual negotiated destination and preserves existing fallback behavior for older
-native libraries, PPT and incompatible codecs. JSON serialization no longer
-replaces caller-owned binary entries; shared one-shot transfers are encoded once
-per payload operation. Final full `bin/verify` passes at exit 0 on this follow-up,
-including Rust, VM, consumer smokes and Chrome/Dart2Wasm (4,690 core and 2,829
-client cases, with 20 native-only client skips).
-macOS GuardMalloc passes all 70 observed ownership/crypto cases with all 141
-native/dependency inputs matching. Hosted CI and package publish dry-runs remain
-pending. Two `d3546c6d` mutation jobs received runner shutdown signals before
-completion; their partial results do not accept the gates. No paired performance
-campaign or parity result exists.
+The current follow-up repairs benchmark copy-report validation and missing VM
+isolate handling on top of pushed checkpoint `dbeda203`. Fresh `bin/test-fast`
+passes; all 60 focused cases and six fail-first regressions pass after the repair.
+Linux benchmark coverage passes its unchanged 98% target at 98.219%; fresh
+browser coverage passes both gates. Fresh full `bin/verify` passes at exit 0,
+including Rust, VM, consumers, 1,498 benchmark, 4,935 router, 4,690 core browser
+and 2,829 client browser cases (20 declared native-only client skips).
+The unchanged native implementation retains the 70-case GuardMalloc evidence
+from the ordinary-routing checkpoint below.
+Hosted CI at `dbeda203` failed both VM coverage jobs because benchmark coverage
+was 97.404% against its unchanged 98% gate. One browser job exceeded its 900-second
+command limit; the same-head PR browser job passed all coverage gates. These are
+different failures from the preceding-head runner shutdowns. Package publish
+dry-runs remain pending. No paired performance campaign or parity result exists.
+
+## Coverage repairs and master synchronization (2026-10-06)
+
+Both remotes resolve current `master` to `3bac4cf5`, already an ancestor of the
+working branch. The user-requested merge check reports `Already up to date`.
+
+The [push coverage run](https://github.com/konsultaner/connectanum-dart/actions/runs/37382280300)
+and [PR coverage run](https://github.com/konsultaner/connectanum-dart/actions/runs/37382287625)
+agree on the benchmark VM coverage shortfall. The PR browser artifact passes
+core 96.136% and client 96.430%; the push job continued completing crypto tests
+until the whole-suite deadline expired. The core command now has a bounded
+1,200-second limit, with a 30-minute job budget for both suites and report upload.
+Per-test deadlines, full suite selection and coverage policies are unchanged.
+
+A separate six-case reproducer proves that missing boundary metadata can claim
+complete copies, negative/fractional counts can be accepted, NaN/infinity can
+crash aggregation, and a system-only VM process can throw on an empty application
+isolate list. Reports now require explicit valid boundary metadata and exact,
+finite, nonnegative byte counts. Invalid counts stay unmeasured; known router
+copies remain a lower bound. Isolate fallback safely returns no application ID.
+The reproducer now passes. Sixty focused tests pass, including native/Dart typed
+E2EE factory interoperability, direct profile/construction rejection before any
+session opens, malformed payload correlation and incomplete/TLS metric reports.
+Focused analysis and all 80 verification-script tests pass. Companion review
+claims were checked against source: nonempty application fallback is unchanged,
+native tests resolve the test-enabled artifact and did not skip, malformed
+identity tests explicitly assert false, and missing TLS totals remain unmeasured.
+Evidence: `/tmp/connectanum-flatbuffers-db-ci-baseline.{log,exit}`,
+`/tmp/connectanum-flatbuffers-metrics-{fail-first,regressions-fixed}.{log,exit}`,
+`/tmp/connectanum-flatbuffers-ci-{focused-tests,script-tests}.log`.
+Fresh macOS benchmark coverage collects all 1,498 passing cases. Its 97.043%
+report leaves Linux process-stat paths unexecuted. Linux arm64 passes all 60
+focused cases and 1,496 full-suite cases plus the two router-config cases after
+repairing the isolated fixture. The initial fixture contained AppleDouble files
+that the Dart test loader tried to decode; removing those generated files repaired
+discovery. The full Linux attempt then found the missing `bench_router.json`;
+restoring the checked-in config and rerunning those two cases passes. These
+fixture failures are preserved separately from implementation evidence.
+The combined Linux benchmark report covers 2,923/2,976 lines (98.219%) with no
+benchmark-specific policy failure. The unchanged whole-repository policy rejects
+missing non-benchmark data in these benchmark-only reports; this is a targeted
+benchmark measurement, not acceptance of the full VM coverage job.
+Fresh `bin/test-browser-coverage` passes at exit 0: core 96.136% and client 96.430%,
+with the full suites, existing thresholds and 20 declared native-only client
+skips. Evidence: `/tmp/connectanum-flatbuffers-ci-bench-coverage.log`,
+`/tmp/connectanum-flatbuffers-ci-linux-bench-coverage-clean.log`,
+`/tmp/connectanum-flatbuffers-ci-linux-bench-fixture-repair.log`,
+`/tmp/connectanum-flatbuffers-ci-linux-bench-{lcov.info,summary.json}` and
+`/tmp/connectanum-flatbuffers-ci-browser-coverage.{log,exit}`.
+Fresh full `bin/verify` also passes at exit 0, including 4,682 core VM, 4,935
+router, 1,498 benchmark, 4,690 core Chrome/Dart2Wasm and 2,829 client browser cases
+(20 declared native-only client skips).
+Evidence: `/tmp/connectanum-flatbuffers-ci-verify.{log,exit}`.
+No additional milestone issue is closed; hosted acceptance for this follow-up
+remains pending.
 
 ## Ordinary CBOR/FlatBuffers routing and JSON input ownership (2026-10-06)
 

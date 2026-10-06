@@ -7,15 +7,19 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The candidate builds on pushed `d3546c6d` with ordinary CBOR/FlatBuffers native
-routing and JSON input-ownership repairs. Fresh full verification on this
-follow-up passes at exit 0, including Chrome/Dart2Wasm (4,690 core and 2,829 client
-cases, with 20 native-only client skips). macOS GuardMalloc passes 70 observed cases with all 141
-native/dependency inputs matching. Issues #95–#99 are complete. Required hosted
-CI and publish dry-runs remain pending: two preceding-head mutation jobs were
-interrupted by runner shutdown before their gates completed. Copy counters and
-the evaluator provide partial attribution and fail-closed gates; no paired
-performance campaign or parity result exists.
+The current follow-up builds on pushed `dbeda203` with benchmark metric
+validation, VM isolate fallback and coverage repairs. Fresh baseline verification
+and 60 focused tests pass on macOS and Linux arm64. Linux benchmark coverage is
+98.219% against its unchanged 98% target; full browser coverage passes both gates.
+Fresh full `bin/verify` passes at exit 0, including 1,498 benchmark, 4,935 router,
+4,690 core browser and 2,829 client browser cases (20 declared native-only client
+skips). The unchanged native implementation retains the ordinary-routing
+GuardMalloc evidence: 70 cases and all 141 native/dependency inputs matching.
+Issues #95–#99 are complete. Hosted VM coverage at `dbeda203` failed at 97.404%
+against the unchanged 98% benchmark gate; one browser job timed out while the
+same-head PR browser job passed. Required hosted acceptance and publish dry-runs
+remain pending. Copy counters and the evaluator provide partial attribution and
+fail-closed gates; no paired performance campaign or parity result exists.
 
 ## Objective and scope
 
@@ -26,8 +30,10 @@ performance at least matching the better binary baseline on declared workloads.
 ObjectBox integration itself belongs to a separate adapter package.
 
 The primary checkout is independent and remains untouched. Feature commits,
-pushes and draft PR updates are authorized. Release publication, version bumps
-and a master merge are not authorized.
+pushes and draft PR updates are authorized. The user requested merging current
+master into this working branch on 2026-10-06; both remotes are already integrated.
+Release publication, version bumps and merging the feature into master remain
+outside the authorized scope.
 
 ## Issue acceptance status
 
@@ -56,6 +62,41 @@ acceptance and evidence, not a claim that every feature is unimplemented.
 4. Finish #103 measurement coverage, the paired campaign runner and all declared
    performance rows. SDK/TLS/transcode copy gaps and absent campaign results
    remain blockers; do not weaken the parity or copy gates.
+
+## Coverage repairs and master synchronization (2026-10-06)
+
+- [x] Fetch both remotes and confirm `master` at `3bac4cf5` is already integrated;
+  the merge command reports `Already up to date`.
+- [x] Inspect both hosted coverage artifacts. Both VM jobs fail the benchmark
+  98% gate at 97.404%. The same-head PR browser report passes core 96.136% and
+  client 96.430%; the push job reaches its whole-suite 900-second deadline while
+  still completing tests.
+- [x] Complete the fresh `bin/test-fast` baseline at exit 0.
+- [x] Reproduce six reporting/isolate defects before changing behavior; all six
+  pass after the fixes. Incomplete boundary metadata and invalid byte counts now
+  fail closed. System-only VM processes have no application fallback.
+- [x] Pass all 60 focused metric, malformed-correlation, direct workload/profile
+  validation and native/Dart typed E2EE factory tests with no native skips.
+- [x] Pass focused analysis and all 80 verification-script tests. Check companion
+  findings against source and test evidence; none establishes a remaining defect.
+- [x] Pass all 1,498 macOS benchmark cases under coverage collection. Pass all
+  Linux cases across the full suite and the two-case fixture repair; Linux
+  benchmark coverage is 98.219% (2,923/2,976 lines) with no benchmark policy
+  failures. macOS leaves Linux-only process-stat paths unexecuted at 97.043%.
+  Benchmark-only input does not accept the whole-repository VM coverage job.
+- [x] Pass fresh `bin/test-browser-coverage` at exit 0: core 96.136%, client
+  96.430%, with 20 declared native-only client skips and unchanged thresholds.
+- [x] Complete fresh `bin/verify` at exit 0: Rust, VM, consumer smokes, 1,498
+  benchmark, 4,935 router, 4,690 core Chrome/Dart2Wasm and 2,829 client browser
+  cases (20 declared native-only client skips).
+- [ ] Push the resulting checkpoint and accept required hosted checks on it.
+
+The bounded core browser deadline is 1,200 seconds and the whole job has 30
+minutes for both suites and artifact upload. Per-test deadlines, suite selection
+and coverage thresholds are unchanged. Known copy counts remain lower bounds;
+these reporting repairs do not measure the outstanding SDK/TLS/transcode sites.
+No additional issue is closed and no performance parity result is accepted.
+Evidence is recorded in `docs/project_state.md`.
 
 ## Ordinary encoded routing and JSON ownership (2026-10-06)
 

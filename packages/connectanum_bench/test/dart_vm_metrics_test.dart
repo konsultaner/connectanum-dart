@@ -8,6 +8,47 @@ import 'package:vm_service/vm_service.dart';
 
 void main() {
   group('selectDartVmMetricIsolateIds', () {
+    test(
+      'falls back to a renamed application isolate, never a system isolate',
+      () {
+        expect(
+          selectDartVmMetricIsolateIds([
+            IsolateRef(
+              id: 'service',
+              name: 'vm-service',
+              isSystemIsolate: true,
+            ),
+            IsolateRef(id: 'worker', name: 'renamed-main'),
+          ], allIsolates: false),
+          ['worker'],
+        );
+      },
+    );
+
+    test(
+      'missing application IDs and system-only processes have no fallback',
+      () {
+        for (final isolates in <List<IsolateRef>>[
+          [],
+          [IsolateRef(name: 'renamed-main')],
+          [
+            IsolateRef(
+              id: 'service',
+              name: 'vm-service',
+              isSystemIsolate: true,
+            ),
+          ],
+        ]) {
+          for (final allIsolates in [false, true]) {
+            expect(
+              selectDartVmMetricIsolateIds(isolates, allIsolates: allIsolates),
+              isEmpty,
+            );
+          }
+        }
+      },
+    );
+
     test('profiles all application isolates and skips VM service isolates', () {
       final isolates = [
         IsolateRef(id: 'worker-2', name: 'router-worker-2'),

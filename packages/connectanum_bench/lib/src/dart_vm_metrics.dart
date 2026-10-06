@@ -228,7 +228,7 @@ List<String> selectDartVmMetricIsolateIds(
           .toSet()
           .toList()
         ..sort();
-  if (ids.isNotEmpty || allIsolates || isolates.isEmpty) return ids;
+  if (ids.isNotEmpty || allIsolates || applicationIsolates.isEmpty) return ids;
 
   final fallbackId = applicationIsolates.first.id;
   return fallbackId == null ? const <String>[] : <String>[fallbackId];

@@ -126,6 +126,41 @@ void main() {
     expect(decoded.iteration, 0xffffffff);
   });
 
+  test(
+    'identity matching ignores malformed FlatBuffers instead of throwing',
+    () {
+      final valid = BenchPayloadCodec.encodeDart(
+        worker: 2,
+        iteration: 3,
+        bodyBytes: 16,
+      );
+      for (final invalid in [
+        valid.sublist(0, 7),
+        valid.sublist(0, 8),
+        Uint8List.fromList(valid)..[4] ^= 0xff,
+      ]) {
+        expect(
+          BenchPayloadCodec.matchesIdentity(
+            invalid,
+            serializer: 'flatbuffers',
+            worker: 2,
+            iteration: 3,
+          ),
+          isFalse,
+        );
+      }
+      expect(
+        BenchPayloadCodec.matchesIdentity(
+          valid,
+          serializer: 'flatbuffers',
+          worker: 2,
+          iteration: 3,
+        ),
+        isTrue,
+      );
+    },
+  );
+
   test('validates dynamic CBOR and MessagePack record values', () {
     final value = BenchPayloadCodec.dynamicValue(
       worker: 7,

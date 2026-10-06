@@ -26,23 +26,24 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
       : null;
   final routerWebSocketMeasured =
       !needsWebSocket || routerDelta?.websocketCoalesceCopyBytesTotal != null;
-  final clientTransport = metrics['transport_copy_bytes'];
+  final clientTransport = _copyByteCount(metrics['transport_copy_bytes']);
   final coverageValue = metrics['coverage'];
   final clientCoverage = coverageValue is Map
       ? Map<String, Object?>.from(coverageValue)
       : <String, Object?>{};
-  final clientUnknownBoundaries =
-      switch (clientCoverage['unknown_boundaries']) {
-        final List<Object?> values => values.whereType<String>().toList(),
-        _ => <String>[],
-      };
+  final clientBoundaryValue = clientCoverage['unknown_boundaries'];
+  final clientUnknownBoundaries = clientBoundaryValue is List
+      ? clientBoundaryValue.whereType<String>().toList()
+      : <String>[];
   final clientCoverageComplete =
       clientCoverage['transport_copy_bytes'] ==
-      'complete_client_connectanum_path';
+          'complete_client_connectanum_path' &&
+      clientBoundaryValue is List &&
+      clientBoundaryValue.every((value) => value is String);
   final completePath =
       clientCoverageComplete &&
       clientUnknownBoundaries.isEmpty &&
-      clientTransport is num &&
+      clientTransport != null &&
       routerDelta != null &&
       routerWebSocketMeasured &&
       !needsTls;
@@ -55,6 +56,11 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   if (!clientCoverageComplete) {
     addUnknownBoundary('client transport copy coverage is incomplete');
   }
+  if (clientTransport == null) {
+    addUnknownBoundary(
+      'client transport copy counter is invalid or unavailable',
+    );
+  }
   if (routerDelta == null) {
     addUnknownBoundary('router transport copy snapshots are unavailable');
   } else if (!routerWebSocketMeasured) {
@@ -66,7 +72,9 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
     addUnknownBoundary('TLS memory-copy behavior is not measured');
   }
 
-  final clientKnownOwnBytes = metrics['known_own_transport_copy_bytes'];
+  final clientKnownOwnBytes = _copyByteCount(
+    metrics['known_own_transport_copy_bytes'],
+  );
   final routerKnownOwnBytes = routerDelta == null
       ? 0
       : routerDelta.dartToNativeCopiedBytesTotal +
@@ -74,8 +82,7 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
                 ? (routerDelta.websocketCoalesceCopyBytesTotal ?? 0)
                 : 0);
   metrics['known_own_transport_copy_bytes'] =
-      (clientKnownOwnBytes is num ? clientKnownOwnBytes.toInt() : 0) +
-      routerKnownOwnBytes;
+      (clientKnownOwnBytes ?? 0) + routerKnownOwnBytes;
 
   final breakdownValue = metrics['known_own_copy_breakdown'];
   final breakdown = breakdownValue is Map
@@ -101,13 +108,13 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   metrics['known_own_copy_breakdown'] = breakdown;
 
   metrics['transport_copy_bytes'] = completePath
-      ? clientTransport.toInt() +
+      ? clientTransport +
             routerDelta.dartToNativeCopiedBytesTotal +
             (needsWebSocket ? routerDelta.websocketCoalesceCopyBytesTotal! : 0)
       : notMeasured(
           needsTls
               ? 'TLS copy behavior is not instrumented'
-              : !clientCoverageComplete || clientTransport is! num
+              : !clientCoverageComplete || clientTransport == null
               ? 'client transport copy coverage is incomplete'
               : routerDelta == null
               ? 'router transport copy snapshots are unavailable'
@@ -124,14 +131,27 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
     metrics['tls_copy_bytes'] = notMeasured(
       'TLS accepted-plaintext bytes do not measure memory copies',
     );
-    final clientTls = metrics['tls_plaintext_accepted_bytes'];
+    final clientTls = _copyByteCount(metrics['tls_plaintext_accepted_bytes']);
     final routerTls = routerDelta?.tlsPlaintextAcceptedBytesTotal;
     metrics['tls_plaintext_accepted_bytes'] =
-        clientTls is num && routerTls != null
-        ? clientTls.toInt() + routerTls
+        clientTls != null && routerTls != null
+        ? clientTls + routerTls
         : notMeasured(
             'TLS plaintext acceptance is missing on a client or router side',
           );
   }
   return metrics;
+}
+
+// A fractional, non-finite or imprecise JSON number cannot measure byte counts.
+int? _copyByteCount(Object? value) {
+  if (value is int) return value >= 0 ? value : null;
+  if (value is double &&
+      value.isFinite &&
+      value >= 0 &&
+      value <= 9007199254740991 &&
+      value == value.truncateToDouble()) {
+    return value.toInt();
+  }
+  return null;
 }
