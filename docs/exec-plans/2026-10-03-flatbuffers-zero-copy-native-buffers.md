@@ -7,6 +7,16 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current production checkpoint `8503f31c`: [Native Artifacts 37546766311](https://github.com/konsultaner/connectanum-dart/actions/runs/37546766311)
+passes five builds and its signed dry-run preview. All fifteen pinned
+attestations, thirty preview assets and rendered notes verify. Fresh source-pinned
+Apple Silicon and Linux arm64 production consumers pass eight steps each,
+including twenty provenance, ten segment, sixteen owned-PPT and 104 mixed-PPT
+cases. Both libraries exclude test oracles; source archive and log hashes match.
+The other platforms have build/provenance evidence only. No release or performance
+acceptance follows; required current-head CI is live. Research: [production
+checkpoint](../research/2026-10-07-native-production-checkpoint.md).
+
 Current follow-up (2026-10-07): native external-buffer allocation provenance.
 Six fail-first regressions show that matching bounds allowed a foreign anchor
 to redirect a native read, including an incorrect SHA-256 digest. The resolver

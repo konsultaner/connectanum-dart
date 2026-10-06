@@ -5,6 +5,16 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current production checkpoint `8503f31c`: [Native Artifacts 37546766311](https://github.com/konsultaner/connectanum-dart/actions/runs/37546766311)
+passes five builds and its signed dry-run preview. All fifteen pinned
+attestations, thirty preview assets and rendered notes verify. Fresh source-pinned
+Apple Silicon and Linux arm64 production consumers pass eight steps each,
+including twenty provenance, ten segment, sixteen owned-PPT and 104 mixed-PPT
+cases. Both libraries exclude test oracles; source archive and log hashes match.
+The other platforms have build/provenance evidence only. No release or performance
+acceptance follows; required current-head CI is live. Research: [production
+checkpoint](research/2026-10-07-native-production-checkpoint.md).
+
 Current follow-up (2026-10-07): native external-buffer allocation provenance.
 Six fail-first regressions show that matching bounds allowed a foreign anchor
 to redirect a native read, including an incorrect SHA-256 digest. The resolver
