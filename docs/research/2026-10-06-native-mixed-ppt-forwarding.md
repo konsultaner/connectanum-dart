@@ -25,9 +25,9 @@ and keyword vectors. This allows retaining the body while
 rebuilding only the outer wrapper.
 
 The bridge covers CBOR, MessagePack and FlatBuffers in both directions.
-It requires explicit valid PPT metadata, one binary body and absent outer kwargs.
-Other shapes retain the existing fallback, including empty kwargs until their
-cross-profile semantics have been verified. Ordinary routing stays unchanged.
+The initial checkpoint requires explicit valid PPT metadata, one binary body
+and absent outer kwargs. The subsequent [empty-keyword optimization](2026-10-06-native-empty-ppt-keywords.md) verifies and retains valid empty
+CBOR/MessagePack outer maps too; nonempty and malformed shapes retain fallback. Ordinary routing stays unchanged.
 The bridge must preserve scheme/serializer/cipher/key metadata and progressive
 and error-routing fields. It must not infer an application schema or restrict
 valid opaque bytes to a particular cipher or application scheme.

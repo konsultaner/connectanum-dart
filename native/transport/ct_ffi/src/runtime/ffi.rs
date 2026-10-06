@@ -1461,13 +1461,18 @@ fn flatbuffers_routing_details(
 }
 
 // Borrow a valid PPT body without interpreting its application encoding. Outer
-// kwargs, malformed wrappers and non-string metadata retain the Dart fallback.
+// Nonempty kwargs, malformed wrappers and non-string metadata retain the fallback.
 fn binary_ppt_body<'a>(
     source: RawSocketSerializer,
     payload: &'a ct_core::WampPayload,
     metadata: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Option<(&'a Bytes, usize)> {
-    if !is_binary_forwarding_serializer(source) || payload.kwargs.is_some() {
+    if !is_binary_forwarding_serializer(source)
+        || payload
+            .kwargs
+            .as_ref()
+            .is_some_and(|kwargs| !empty_ppt_keyword_map(source, kwargs))
+    {
         return None;
     }
     let scheme = metadata.get(&SerdeValue::String("ppt_scheme".into()))?;
@@ -1486,6 +1491,23 @@ fn binary_ppt_body<'a>(
     let args = payload.args.as_ref()?;
     let body = single_binary_argument(source, args).ok()?;
     Some((args, args.len() - body.len()))
+}
+
+fn empty_ppt_keyword_map(source: RawSocketSerializer, bytes: &[u8]) -> bool {
+    match source {
+        RawSocketSerializer::Cbor => {
+            if bytes == [0xbf, 0xff] {
+                return true;
+            }
+            let mut offset = 0;
+            read_cbor_length(bytes, &mut offset, 5) == Some(0) && offset == bytes.len()
+        }
+        RawSocketSerializer::MessagePack => {
+            matches!(bytes, [0x80] | [0xde, 0, 0] | [0xdf, 0, 0, 0, 0])
+        }
+        // FlatBuffers transparent bodies cannot have keyword vectors.
+        _ => false,
+    }
 }
 
 fn is_binary_forwarding_serializer(serializer: RawSocketSerializer) -> bool {

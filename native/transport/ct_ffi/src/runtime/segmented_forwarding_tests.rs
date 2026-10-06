@@ -259,6 +259,94 @@ binary_ppt_direction_test!(binary_ppt_cbor_control, Cbor, Cbor);
 binary_ppt_direction_test!(binary_ppt_msgpack_control, MessagePack, MessagePack);
 binary_ppt_direction_test!(binary_ppt_flatbuffers_control, Flatbuffers, Flatbuffers);
 
+const EMPTY_CBOR_MAPS: &[&[u8]] = &[
+    &[0xa0],
+    &[0xb8, 0],
+    &[0xb9, 0, 0],
+    &[0xba, 0, 0, 0, 0],
+    &[0xbb, 0, 0, 0, 0, 0, 0, 0, 0],
+    &[0xbf, 0xff],
+];
+const EMPTY_MSGPACK_MAPS: &[&[u8]] = &[&[0x80], &[0xde, 0, 0], &[0xdf, 0, 0, 0, 0]];
+
+macro_rules! empty_ppt_kwargs_direction_test {
+    ($name:ident, $source:ident, $target:ident, $maps:ident) => {
+        #[test]
+        fn $name() {
+            let _guard = crate::tests::test_guard();
+            for kwargs in $maps {
+                assert_empty_ppt_keywords_parse(RawSocketSerializer::$source, kwargs);
+                assert_binary_ppt_forwarding_with_kwargs(
+                    RawSocketSerializer::$source,
+                    RawSocketSerializer::$target,
+                    Some(kwargs),
+                );
+            }
+        }
+    };
+}
+
+fn assert_empty_ppt_keywords_parse(source: RawSocketSerializer, kwargs: &[u8]) {
+    let value = SerdeValue::Seq(vec![
+        SerdeValue::U8(48),
+        SerdeValue::U8(1),
+        SerdeValue::Map(ppt_options()),
+        SerdeValue::String("private".into()),
+        SerdeValue::Seq(vec![SerdeValue::Bytes(b"opaque".to_vec())]),
+        SerdeValue::Map(BTreeMap::new()),
+    ]);
+    let mut frame = if source == RawSocketSerializer::Cbor {
+        serde_cbor::to_vec(&value).unwrap()
+    } else {
+        rmp_serde::to_vec(&value).unwrap()
+    };
+    assert_eq!(
+        frame.pop(),
+        Some(if source == RawSocketSerializer::Cbor {
+            0xa0
+        } else {
+            0x80
+        })
+    );
+    frame.extend_from_slice(kwargs);
+    let parsed = ct_core::parse_message(source, Bytes::from(frame))
+        .unwrap()
+        .message;
+    let WampMessage::Call { payload, .. } = parsed else {
+        panic!("expected CALL")
+    };
+    assert_eq!(payload.kwargs.as_deref(), Some(kwargs));
+    assert_eq!(
+        single_binary_argument(source, payload.args.as_ref().unwrap()).unwrap(),
+        b"opaque"
+    );
+}
+
+empty_ppt_kwargs_direction_test!(
+    empty_ppt_kwargs_cbor_to_msgpack,
+    Cbor,
+    MessagePack,
+    EMPTY_CBOR_MAPS
+);
+empty_ppt_kwargs_direction_test!(
+    empty_ppt_kwargs_cbor_to_flatbuffers,
+    Cbor,
+    Flatbuffers,
+    EMPTY_CBOR_MAPS
+);
+empty_ppt_kwargs_direction_test!(
+    empty_ppt_kwargs_msgpack_to_cbor,
+    MessagePack,
+    Cbor,
+    EMPTY_MSGPACK_MAPS
+);
+empty_ppt_kwargs_direction_test!(
+    empty_ppt_kwargs_msgpack_to_flatbuffers,
+    MessagePack,
+    Flatbuffers,
+    EMPTY_MSGPACK_MAPS
+);
+
 #[test]
 fn binary_ppt_rejected_shapes_keep_the_source_handle() {
     let _guard = crate::tests::test_guard();
@@ -309,6 +397,9 @@ fn binary_ppt_rejected_shapes_keep_the_source_handle() {
             cases.push((valid.clone(), metadata));
         }
         for empty in [true, false] {
+            if empty && source != RawSocketSerializer::Flatbuffers {
+                continue;
+            }
             let value = if empty {
                 SerdeValue::Map(BTreeMap::new())
             } else {
@@ -324,6 +415,39 @@ fn binary_ppt_rejected_shapes_keep_the_source_handle() {
             };
             let mut payload = valid.clone();
             payload.kwargs = Some(Bytes::from(encoded));
+            cases.push((payload, valid_metadata.clone()));
+        }
+        let malformed_kwargs: &[&[u8]] = if source == RawSocketSerializer::MessagePack {
+            &[
+                &[],
+                &[0x80, 0],
+                &[0xde],
+                &[0xde, 0],
+                &[0xde, 0, 1],
+                &[0xdf, 0, 0, 0],
+                &[0xdf, 0, 0, 0, 0, 0],
+                &[0x90],
+                &[0xa0],
+                &[0xc0],
+            ]
+        } else {
+            &[
+                &[],
+                &[0xa0, 0],
+                &[0xb8],
+                &[0xb8, 1],
+                &[0xb9, 0],
+                &[0xba, 0, 0, 0],
+                &[0xbb, 0, 0, 0, 0, 0, 0, 0],
+                &[0xbf],
+                &[0xbf, 0xff, 0],
+                &[0x80],
+                &[0xf6],
+            ]
+        };
+        for kwargs in malformed_kwargs {
+            let mut payload = valid.clone();
+            payload.kwargs = Some(Bytes::copy_from_slice(kwargs));
             cases.push((payload, valid_metadata.clone()));
         }
         let malformed: &[&[u8]] = if source == RawSocketSerializer::MessagePack {
@@ -403,6 +527,14 @@ fn binary_ppt_rejected_shapes_keep_the_source_handle() {
 }
 
 fn assert_binary_ppt_forwarding(source: RawSocketSerializer, target: RawSocketSerializer) {
+    assert_binary_ppt_forwarding_with_kwargs(source, target, None);
+}
+
+fn assert_binary_ppt_forwarding_with_kwargs(
+    source: RawSocketSerializer,
+    target: RawSocketSerializer,
+    kwargs: Option<&[u8]>,
+) {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     struct Producer {
@@ -447,6 +579,7 @@ fn assert_binary_ppt_forwarding(source: RawSocketSerializer, target: RawSocketSe
             } else {
                 WampPayload {
                     args: Some(encoded),
+                    kwargs: kwargs.map(Bytes::copy_from_slice),
                     ..Default::default()
                 }
             };

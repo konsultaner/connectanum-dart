@@ -5,7 +5,47 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Current follow-up: native reuse of opaque PPT bodies between CBOR, MessagePack
+Current follow-up: native PPT body reuse with empty outer CBOR/MessagePack
+keyword maps. The preceding implementation rejected these valid WAMP maps.
+Fresh baseline fast checks pass; four new mixed-direction regressions fail
+before the repair. All 26 segmented tests now pass, including 810 additional
+body/header/direction/route combinations and native input parsing of every
+tested header form. They verify body identity, empty-body producer lifetime,
+metadata and final fan-out release. Malformed/nonempty maps and invalid
+FlatBuffers mixed vectors retain fallback. Research:
+[empty PPT keywords](research/2026-10-06-native-empty-ppt-keywords.md).
+GuardMalloc passes 87 observed ownership cases with all 141 native/schema
+inputs unchanged. Final `bin/test-fast` passes. Fresh `bin/verify` passes at exit 0, including Rust, VM, consumer/live
+checks, 1,563 benchmark, 4,958 router, 4,690 core Chrome/Dart2Wasm and 2,829
+client browser cases (20 declared native-only skips). Final native input hashes
+are unchanged. Evidence: `/tmp/connectanum-empty-ppt-kwargs-verify.{log,exit}`.
+Local Qwen review completed; source and regression evidence disprove its
+logic-inversion, indefinite-map and wrong-kind hypotheses.
+
+Pushed `9b28c61c` hosted CI remains active without an observed failure.
+[Native Artifacts 37508275182](https://github.com/konsultaner/connectanum-dart/actions/runs/37508275182)
+passes all five builds and its preview. Fifteen attestations, thirty assets and
+exact rendered notes verify. Fresh commit-pinned Apple Silicon and Linux arm64
+production consumers each pass all four serializers, native construction, ten
+segment cases, sixteen live owned-PPT cases and 104 public mixed-PPT cases.
+Their source archives match. Production exports contain no test oracles, with
+an eighteen-symbol ffi-test positive control on macOS. Four mock enqueue cases
+in the initial macOS batch failed because they require test-only exports;
+the failed attempt is preserved separately, and the real consumer cases pass.
+The other three platforms have build/provenance evidence only. This is runtime
+correctness, not performance acceptance. Evidence:
+`/tmp/connectanum-9b28c61c-production-consumers-fixed-proof.json` and
+`/tmp/connectanum-9b28c61c-linux-production-consumers-proof.json`.
+
+Independent [SDK copy research](research/2026-10-06-dart-sdk-copy-boundaries.md)
+identifies conditional partial-view copies before socket writes and binary
+masking/ring-buffer copies. A 15-case ordinary serializer diagnostic shows
+all five FlatBuffers frames use partial backing views, unlike the ten
+CBOR/MessagePack frames. SDK retries, internal buffering and TLS totals remain
+unmeasured. This is a source/layout finding, not parity or a complete-copy claim.
+Complete hosted acceptance and all unresolved milestone criteria remain pending.
+
+Preceding follow-up: native reuse of opaque PPT bodies between CBOR, MessagePack
 and FlatBuffers. Nine new regressions fail before implementation: six mixed
 directions report ineligible, and three homogeneous controls lose PPT metadata
 on raw echo replies. Empty, binary and 128 KiB bodies exercise five forwarding

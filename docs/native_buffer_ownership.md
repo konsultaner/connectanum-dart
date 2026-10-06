@@ -198,7 +198,10 @@ Libraries without these optional symbols keep the earlier forwarding behavior.
 For PPT between CBOR, MessagePack and FlatBuffers, the native path retains the
 single binary body and rebuilds only the outer list/bin wrapper or FlatBuffers
 control envelope. It requires a nonempty string `ppt_scheme`, string-valued
-optional serializer/cipher/key metadata, and absent outer kwargs. Application
+optional serializer/cipher/key metadata, and absent or valid empty outer CBOR/
+MessagePack keyword maps. Complete empty-map spans are recognized without
+allocating a map and normalized to absent for mixed binary envelopes. FlatBuffers
+transparent bodies still exclude keyword vectors. Application
 schemes and encrypted bytes stay opaque; the reserved `wamp` scheme also uses
 native RPC forwarding. Empty bodies remain present and retain their producer
 until the last send segment is released. Native echo replies retain the four PPT
