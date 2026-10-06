@@ -102,53 +102,64 @@ void main() {
     skip: skipNative,
   );
 
-  for (final construction in [
-    WampPayloadConstruction.nativeBuffer,
-    WampPayloadConstruction.preEncodedSpan,
+  for (final codec in [
+    (
+      'flatbuffers',
+      WampSerializer.flatbuffers,
+      core.LazyPayloadEncoding.flatbuffers,
+    ),
+    ('cbor', WampSerializer.cbor, core.LazyPayloadEncoding.cbor),
+    ('msgpack', WampSerializer.msgpack, core.LazyPayloadEncoding.messagePack),
   ]) {
-    test(
-      'native FlatBuffers $construction keeps its exact PPT span owner',
-      () async {
-        final session = _RecordingSession();
-        final runner = WampWorkloadRunner(
-          sessionFactory: (_) async => session,
-          logger: Logger.detached('flatbuffers-owned-span'),
-          nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(
-            libraryPath: nativeLibrary,
-          ),
-        );
+    for (final construction in [
+      if (codec.$1 == 'flatbuffers') WampPayloadConstruction.nativeBuffer,
+      WampPayloadConstruction.preEncodedSpan,
+    ]) {
+      test(
+        'native ${codec.$1} $construction keeps its exact PPT span owner',
+        () async {
+          final session = _RecordingSession();
+          final runner = WampWorkloadRunner(
+            sessionFactory: (_) async => session,
+            logger: Logger.detached('flatbuffers-owned-span'),
+            nativeBufferAllocator:
+                native_buffers.NativeBufferAllocator.instance(
+                  libraryPath: nativeLibrary,
+                ),
+          );
 
-        final samples = await runner.run(
-          WampScenario(
-            transport: WampTransport.rawsocket,
-            clientImplementation: WampClientImplementation.native,
-            serializer: WampSerializer.flatbuffers,
-            mode: WampMode.rpc,
-            uri: 'bench.rpc.echo',
-            iterations: 1,
-            concurrency: 1,
-            payloadBytes: 128,
-            pptScheme: 'x_connectanum_bench_typed',
-            pptSerializer: 'flatbuffers',
-            payloadConstruction: construction,
-          ),
-        );
+          final samples = await runner.run(
+            WampScenario(
+              transport: WampTransport.rawsocket,
+              clientImplementation: WampClientImplementation.native,
+              serializer: codec.$2,
+              mode: WampMode.rpc,
+              uri: 'bench.rpc.echo',
+              iterations: 1,
+              concurrency: 1,
+              payloadBytes: 128,
+              pptScheme: 'x_connectanum_bench_typed',
+              pptSerializer: codec.$1,
+              payloadConstruction: construction,
+            ),
+          );
 
-        expect(samples, hasLength(1));
-        final payload = session.request!;
-        expect(payload.encoding, core.LazyPayloadEncoding.flatbuffers);
-        final anchor = payload.storageOwner;
-        expect(anchor, isA<({Object buffer, Uint8List bytes})>());
-        final ownerAnchor = anchor as ({Object buffer, Uint8List bytes});
-        final owner = ownerAnchor.buffer as native_buffers.NativeOwnedBuffer;
-        expect(session.ownerWasLiveDuringCall, isTrue);
-        expect(session.requestBytes, same(ownerAnchor.bytes));
-        expect(payload.packedPayloadBytes, same(ownerAnchor.bytes));
-        expect(owner.isDisposed, isTrue);
-        expect(session.closed, isTrue);
-      },
-      skip: skipNative,
-    );
+          expect(samples, hasLength(1));
+          final payload = session.request!;
+          expect(payload.encoding, codec.$3);
+          final anchor = payload.storageOwner;
+          expect(anchor, isA<({Object buffer, Uint8List bytes})>());
+          final ownerAnchor = anchor as ({Object buffer, Uint8List bytes});
+          final owner = ownerAnchor.buffer as native_buffers.NativeOwnedBuffer;
+          expect(session.ownerWasLiveDuringCall, isTrue);
+          expect(session.requestBytes, same(ownerAnchor.bytes));
+          expect(payload.packedPayloadBytes, same(ownerAnchor.bytes));
+          expect(owner.isDisposed, isTrue);
+          expect(session.closed, isTrue);
+        },
+        skip: skipNative,
+      );
+    }
   }
 
   test(

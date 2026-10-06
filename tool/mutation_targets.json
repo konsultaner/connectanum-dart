@@ -714,7 +714,8 @@
       "packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart",
       "packages/connectanum_client/test/transport/native/flatbuffers_profile_test.dart",
       "packages/connectanum_client/test/transport/native/flatbuffers_websocket_network_test.dart",
-      "packages/connectanum_client/test/transport/native/native_flatbuffer_frame_test.dart"
+      "packages/connectanum_client/test/transport/native/native_flatbuffer_frame_test.dart",
+      "packages/connectanum_client/test/transport/native/native_owned_segments_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_client/test/test_support/native_runtime_support.dart",
@@ -727,7 +728,8 @@
       "packages/connectanum_client/test/transport/native/support/native_frame_gc_probe.dart",
       "packages/connectanum_client/test/transport/native/support/deferred_e2ee_message_cases.dart",
       "packages/connectanum_client/test/transport/native/support/deferred_e2ee_gc_probe.dart",
-      "packages/connectanum_client/test/transport/native/support/deferred_session_message_cases.dart"
+      "packages/connectanum_client/test/transport/native/support/deferred_session_message_cases.dart",
+      "packages/connectanum_client/test/transport/native/support/owned_buffer_abi_fixture.c"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": true,
@@ -746,7 +748,8 @@
       "packages/connectanum_client/test/transport/native/resource_restart_test.dart",
       "packages/connectanum_client/test/transport/native/native_transports_test.dart",
       "packages/connectanum_client/test/transport/native/runtime_file_segment_test.dart",
-      "packages/connectanum_client/test/transport/native/flatbuffers_websocket_network_test.dart"
+      "packages/connectanum_client/test/transport/native/flatbuffers_websocket_network_test.dart",
+      "packages/connectanum_client/test/transport/native/native_owned_segments_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_client/test/test_support/native_runtime_support.dart",
@@ -774,11 +777,13 @@
   "client-native-owned-buffers-vm": {
     "sources": [
       "packages/connectanum_client/lib/native_buffers.dart",
-      "packages/connectanum_client/lib/src/transport/native/native_frames.dart"
+      "packages/connectanum_client/lib/src/transport/native/native_frames.dart",
+      "packages/connectanum_client/lib/src/transport/native/native_owned_segments.dart"
     ],
     "tests": [
       "packages/connectanum_client/test/transport/native/native_owned_buffer_test.dart",
-      "packages/connectanum_client/test/transport/native/native_flatbuffer_frame_test.dart"
+      "packages/connectanum_client/test/transport/native/native_flatbuffer_frame_test.dart",
+      "packages/connectanum_client/test/transport/native/native_owned_segments_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_client/test/transport/native/support/owned_buffer_gc_probe.dart",

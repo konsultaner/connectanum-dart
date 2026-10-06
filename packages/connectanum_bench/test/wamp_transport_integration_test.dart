@@ -288,6 +288,48 @@ void main() {
       }
     }
 
+    for (final transport in WampTransport.values) {
+      for (final serializer in [WampSerializer.cbor, WampSerializer.msgpack]) {
+        for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+          test(
+            'native owned PPT runner ${transport.name} ${serializer.name} ${mode.name}',
+            () async {
+              const bodyBytes = 1024;
+              final samples = await harness!.runNative(
+                WampScenario(
+                  transport: transport,
+                  clientImplementation: WampClientImplementation.native,
+                  serializer: serializer,
+                  peerSerializer: serializer,
+                  mode: mode,
+                  uri: 'bench.typed.owned.${serializer.name}.${mode.name}',
+                  iterations: 2,
+                  concurrency: 1,
+                  inFlightPerSession: 1,
+                  peerCount: mode == WampMode.pubsub ? 2 : 1,
+                  payloadConstruction: WampPayloadConstruction.preEncodedSpan,
+                  payloadBytes: bodyBytes,
+                  pptScheme: 'x_connectanum_bench_typed',
+                  pptSerializer: serializer.name,
+                ),
+              );
+              expect(samples, hasLength(2));
+              expect(
+                samples.map((sample) => sample.payloadPreparationUs),
+                everyElement(isNotNull),
+              );
+              expect(
+                samples.map((sample) => sample.nativeBuilderInputCopiedBytes),
+                everyElement(greaterThan(bodyBytes)),
+              );
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+    }
+
     for (final mode in [WampMode.rpc, WampMode.pubsub]) {
       for (final pptSerializer in ['flatbuffers', 'cbor', 'msgpack']) {
         for (final construction in [

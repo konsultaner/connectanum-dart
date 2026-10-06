@@ -45,6 +45,104 @@ fn compose_frame(control: i32, args: i32, kwargs: i32, opaque: i32) -> i32 {
     handle
 }
 
+#[test]
+fn owned_segments_keep_exact_native_ranges_and_empty_producer_owners() {
+    let (empty_owner, empty, empty_released, empty_wrong_thread) = producer(0);
+    let (owner, body, released, wrong_thread) =
+        producer_span(vec![0x37; 128 * 1024 + 6], 3, 128 * 1024);
+    let prefix = frozen(b"header");
+    let inputs = [empty, prefix, body, empty];
+    let pointers: Vec<_> = inputs
+        .iter()
+        .map(|&handle| {
+            let info = buffer_info(handle);
+            (unsafe { info.base.add(info.offset) }, info.length)
+        })
+        .collect();
+    let frame = compose_owned_segments(store_identity(), &inputs).unwrap();
+    let submitted = frame.submission();
+    for (part, (pointer, length)) in submitted.iter().zip(pointers) {
+        assert_eq!(part.len(), length);
+        if length != 0 {
+            assert_eq!(
+                part.as_ptr(),
+                pointer,
+                "submission must retain the exact native span"
+            );
+        }
+    }
+    for handle in [empty, prefix, body] {
+        assert_eq!(ct_owned_buffer_release(handle), SUCCESS);
+    }
+    for producer in [owner, empty_owner] {
+        assert_eq!(ct_external_owner_dispatch(producer, 8), 0);
+    }
+    // Keep only the nonempty anchor: it retains even the empty producers and
+    // application segments whose individual Bytes references have been dropped.
+    let anchor = submitted[1].clone();
+    drop(submitted);
+    assert_eq!(ct_external_owner_dispatch(owner, 8), 0);
+    assert_eq!(ct_external_owner_dispatch(empty_owner, 8), 0);
+    drop(anchor);
+    for (producer, released, wrong_thread) in [
+        (owner, released, wrong_thread),
+        (empty_owner, empty_released, empty_wrong_thread),
+    ] {
+        assert_eq!(ct_external_owner_dispatch(producer, 8), 1);
+        assert_eq!(released.load(Ordering::Acquire), 1);
+        assert!(!wrong_thread.load(Ordering::Acquire));
+        assert_eq!(ct_external_owner_destroy(producer), SUCCESS);
+    }
+}
+
+#[test]
+fn owned_segments_validate_arrays_and_preserve_inputs_on_every_rejection() {
+    let _guard = crate::tests::test_guard();
+    let frozen_handle = frozen(b"wire");
+    let mutable = ct_owned_buffer_allocate(1);
+    let empty = frozen(&[]);
+    let before = buffer_info(frozen_handle);
+    for handles in [
+        vec![],
+        vec![frozen_handle; 65],
+        vec![mutable],
+        vec![empty],
+        vec![frozen_handle, -1],
+    ] {
+        assert!(compose_owned_segments(store_identity(), &handles).is_err());
+    }
+    assert!(compose_owned_segments(ptr::null(), &[frozen_handle]).is_err());
+    assert!(compose_owned_segments(store_identity(), &[frozen_handle; 64]).is_ok());
+    let handles = [frozen_handle];
+    for tracked in [false, true] {
+        for (identity, connection, pointer, count) in [
+            (ptr::null(), 1, handles.as_ptr(), 1),
+            (store_identity(), 0, handles.as_ptr(), 1),
+            (store_identity(), 1, ptr::null(), 1),
+            (store_identity(), 1, handles.as_ptr(), 0),
+            (store_identity(), 1, handles.as_ptr(), 65),
+        ] {
+            assert_eq!(
+                unsafe { submit_owned_segments(identity, connection, pointer, count, tracked) },
+                ERR_INVALID_ARGUMENT
+            );
+        }
+        assert!(
+            unsafe {
+                submit_owned_segments(store_identity(), i32::MAX, handles.as_ptr(), 1, tracked)
+            } < 0
+        );
+        let after = buffer_info(frozen_handle);
+        assert_eq!(
+            (after.base, after.offset, after.length),
+            (before.base, before.offset, before.length)
+        );
+    }
+    for handle in [frozen_handle, mutable, empty] {
+        assert_eq!(ct_owned_buffer_release(handle), SUCCESS);
+    }
+}
+
 fn decode(handle: i32) -> WampMessage {
     let frame = frames().get(handle).unwrap();
     let wire: Vec<u8> = frame

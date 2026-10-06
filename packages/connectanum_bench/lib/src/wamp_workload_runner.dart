@@ -2142,14 +2142,12 @@ class WampWorkloadRunner {
           ? owner.asFlatBuffersPptPayload()
           : scenario.payloadConstruction ==
                 WampPayloadConstruction.preEncodedSpan
-          ? wamp_core.LazyMessagePayload.packed(
+          ? owner!.asPptPayload(
               encoding: encoding,
-              packedPayloadBytes: owner!.bytes,
               packedPayloadDecoder: (_) => (
                 arguments: [value],
                 argumentsKeywords: null,
               ),
-              anchor: owner,
             )
           : wamp_core.LazyMessagePayload.materialized(
               encoding: encoding,

@@ -59,6 +59,13 @@ the negotiated session profile before submission. Other payloads continue
 through the regular serializer. The payload schema and its identity remain the
 application's responsibility.
 
+`NativeOwnedBuffer.asPptPayload` also retains encoded CBOR/MessagePack PPT with
+an explicit lazy decoder. Native CBOR/MessagePack CALL/PUBLISH paths now reuse
+that exact span through the optional owned-segment ABI. Only newly serialized
+metadata fragments are copied at submission; copied/replaced payload views
+continue through the serializer. See [encoded native segments](native_owned_buffers.md#encoded-native-segments)
+for the capability, bounds, compatibility and receipt contract.
+
 The native frame retains its input owners after queue acceptance and through
 the asynchronous write. The caller may dispose its own buffer handle after the
 Session send call returns; the frame's retained handle remains valid. This path

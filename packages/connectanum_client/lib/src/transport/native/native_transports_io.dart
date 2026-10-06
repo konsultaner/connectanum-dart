@@ -71,6 +71,7 @@ abstract class _NativeTransportBase extends AbstractTransport
     implements
         SessionOptimizedTransport,
         DrainableTransport,
+        NativeSegmentedBufferTransport,
         NativeFrameTransport {
   _NativeTransportBase(
     this._serializer,
@@ -225,18 +226,25 @@ abstract class _NativeTransportBase extends AbstractTransport
 
   NativeOwnedBuffer? _nativeFlatBufferPayloadOwner(
     LazyMessagePayload payload,
-  ) {
+  ) => _nativePptPayloadOwner(payload, flatBuffersOnly: true)?.buffer;
+
+  ({NativeOwnedBuffer buffer, Uint8List bytes})? _nativePptPayloadOwner(
+    LazyMessagePayload payload, {
+    bool flatBuffersOnly = false,
+  }) {
     final seen = HashSet<LazyMessagePayload>.identity();
     Object? owner = payload.storageOwner ?? payload.anchor;
     var current = payload;
     while (seen.add(current)) {
       final packed = current.packedPayloadBytes;
-      if (current.encoding == LazyPayloadEncoding.flatbuffers &&
+      if ((!flatBuffersOnly ||
+              current.encoding == LazyPayloadEncoding.flatbuffers) &&
           packed != null) {
         if (owner is NativeFlatBufferPptOwnerAnchor &&
             owner.buffer is NativeOwnedBuffer &&
-            identical(packed, owner.bytes)) {
-          return owner.buffer as NativeOwnedBuffer;
+            identical(packed, owner.bytes) &&
+            (owner.buffer as NativeOwnedBuffer).ownsPptPayloadBytes(packed)) {
+          return (buffer: owner.buffer as NativeOwnedBuffer, bytes: packed);
         }
       }
       if (owner is! LazyMessagePayload) return null;
@@ -244,6 +252,82 @@ abstract class _NativeTransportBase extends AbstractTransport
       owner = current.storageOwner ?? current.anchor;
     }
     return null;
+  }
+
+  bool _sendNativeEncodedPptPayload(AbstractMessage message) {
+    if (!nativeBuffers.supportsSegmentedBuffers ||
+        !((_nativeSerializer == NativeMessageSerializer.cbor &&
+                _serializer is serializer_cbor.Serializer) ||
+            (_nativeSerializer == NativeMessageSerializer.messagePack &&
+                _serializer is serializer_msgpack.Serializer)) ||
+        message is! AbstractMessageWithPayload) {
+      return false;
+    }
+    final (scheme, serializer, cipher, keyId) = switch (message) {
+      Call(:final options) => (
+        options?.pptScheme,
+        options?.pptSerializer,
+        options?.pptCipher,
+        options?.pptKeyId,
+      ),
+      Publish(:final options) => (
+        options?.pptScheme,
+        options?.pptSerializer,
+        options?.pptCipher,
+        options?.pptKeyId,
+      ),
+      _ => (null, null, null, null),
+    };
+    if (scheme == null ||
+        scheme.isEmpty ||
+        scheme == 'wamp' ||
+        serializer == null ||
+        cipher != null ||
+        keyId != null) {
+      return false;
+    }
+    final payload = _nativePptPayloadOwner(message.toLazyPayload());
+    if (payload == null) return false;
+    try {
+      nativeBuffers.validateFrozenBuffer(payload.buffer);
+    } on ArgumentError {
+      return false;
+    } on StateError {
+      return false;
+    } on UnsupportedError {
+      return false;
+    }
+    final fragments = _serializer.serializeFragments(message);
+    if (fragments == null ||
+        !fragments.any((fragment) => identical(fragment, payload.bytes))) {
+      return false;
+    }
+    final temporary = <NativeOwnedBuffer>[];
+    final segments = <NativeOwnedBuffer>[];
+    try {
+      for (final fragment in fragments) {
+        if (identical(fragment, payload.bytes)) {
+          segments.add(payload.buffer);
+        } else {
+          final builder = nativeBuffers.allocate(fragment.length);
+          try {
+            builder.writeBytes(0, fragment);
+            _runtime.recordOwnedSegmentHeaderCopy(fragment.length);
+            final segment = builder.freeze();
+            temporary.add(segment);
+            segments.add(segment);
+          } finally {
+            builder.dispose();
+          }
+        }
+      }
+      sendEncodedNativeBufferSegments(segments);
+      return true;
+    } finally {
+      for (final segment in temporary) {
+        segment.dispose();
+      }
+    }
   }
 
   Future<int> openNativeConnection(Duration? pingInterval);
@@ -302,6 +386,24 @@ abstract class _NativeTransportBase extends AbstractTransport
     _commitSend(nextProfile?.profile, nextProfile?.message);
     return receipt;
   }
+
+  int _prepareNativeSegments() {
+    final id = _connectionId;
+    if (id == null) throw StateError('Transport is not connected.');
+    if (_nativeSerializer == NativeMessageSerializer.flatbuffers) {
+      throw UnsupportedError('Use NativeFrameTransport for FlatBuffers frames');
+    }
+    return id;
+  }
+
+  @override
+  void sendEncodedNativeBufferSegments(List<NativeOwnedBuffer> segments) =>
+      nativeBuffers.sendSegments(_prepareNativeSegments(), segments);
+
+  @override
+  NativeWriteReceipt sendEncodedNativeBufferSegmentsTracked(
+    List<NativeOwnedBuffer> segments,
+  ) => nativeBuffers.sendSegmentsTracked(_prepareNativeSegments(), segments);
 
   ({flatbuffers.FlatBuffersSessionProfile profile, AbstractMessage message})?
   _prepareNativeFrame(NativeFlatBufferFrame frame) {
@@ -459,6 +561,10 @@ abstract class _NativeTransportBase extends AbstractTransport
     }
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
     if (_sendNativeFlatBufferPptPayload(message)) return;
+    if (_sendNativeEncodedPptPayload(message)) {
+      _commitSend(nextProfile, message);
+      return;
+    }
     final fragments = _serializer.serializeFragments(message);
     if (fragments != null &&
         _runtime.trySendMessageSegments(connectionId, fragments)) {
@@ -1248,6 +1354,10 @@ class NativeWebSocketTransport extends _NativeTransportBase
     }
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
     if (_sendNativeFlatBufferPptPayload(message)) return;
+    if ((_fragmentSize ?? 0) == 0 && _sendNativeEncodedPptPayload(message)) {
+      _commitSend(nextProfile, message);
+      return;
+    }
     final fragments = _serializer.serializeFragments(message);
     if (fragments != null &&
         _runtime.trySendMessageSegments(

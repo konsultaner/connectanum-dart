@@ -5,7 +5,38 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up implements the paired serializer campaign executor on top
+The current follow-up adds shared encoded native-segment submission for CBOR
+and MessagePack. The optional ABI retains frozen input handles on all outcomes
+and keeps empty producers alive through write/flush. Dart has capability probes,
+tracked submission, a Finalizable input holder and generic lazy owned PPT.
+Eligible CBOR/MessagePack CALL/PUBLISH sends retain exact payload spans, count
+small metadata copies and reject forged/replaced owner views. Benchmark
+pre-encoded spans now keep that exact owner anchor for all three codecs.
+All 18 native ownership/network cases, 10 new Dart transport/API cases and 131
+focused benchmark/live cases pass. All 17 combined new API/existing frame
+cases also pass on Linux arm64. All 73 GuardMalloc cases pass with 141 matching
+native/dependency/schema inputs. The complete 281-case native FFI suite passes.
+Eight live native Session cases also pass for CBOR/MessagePack RPC/pub-sub over
+both transports on macOS and Linux. Linux benchmark coverage includes all 1,504
+prior cases, the eight new Session cases and child-process build probes: it is
+2,926/2,978 lines (98.254%), above the unchanged 98% gate with no benchmark
+finding. This targeted report does not accept whole-repository coverage.
+Mutation inventories include the new part/test/support file and all 92 inventory
+checks pass with one declared skip. Fresh canonical `bin/test-fast` and
+`bin/verify` pass at exit 0, including Rust, VM, consumers, 1,512 benchmark,
+4,935 router, 4,690 core browser and 2,829 client browser cases (20 declared
+native-only client skips). Evidence:
+`/tmp/connectanum-shared-codec-{fast,verify}-recovered.{log,exit}`.
+The first canonical runs exhausted the host filesystem during browser
+compilation and benchmark temporary-directory creation. Only this worktree's
+disposable Rust incremental caches were cleared (about 6 GiB); the failed runs
+are retained and are not accepted as clean verification. An earlier baseline
+attempt overlapped implementation and caught a transient switch-type
+compilation error; that attempt is not claimed as a clean baseline. Dynamic
+CBOR/MessagePack native construction and complete copy/parity evidence remain
+open. Publication and exact-head hosted acceptance follow these local checks.
+
+The preceding follow-up implements the paired serializer campaign executor on top
 of pushed runtime repair `87688b8c`. It generates the 48-case primary matrix,
 balanced interleaved codec order, three warmup and seven measured passes. One
 driver/worker remains alive across all passes; flushed JSONL avoids rebuilding
@@ -18,7 +49,8 @@ completes all 120 reports with stable client/server PIDs and driver exit 0. All
 input hashes match and per-pass JSONL exactly reproduces the raw driver stream.
 The comparison correctly exits 1 with short/diagnostic and missing-copy findings;
 no primary parity evidence is accepted. SDK/TLS/transcode copy
-coverage and shared CBOR/MessagePack owned submission remain open under #103.
+coverage remains open under #103; shared CBOR/MessagePack submission is now
+implemented in the follow-up above.
 Full `bin/verify` passes at exit 0, including Rust, VM, consumers, all 1,502
 macOS benchmark cases, 4,935 router, 4,690 core browser and 2,829 client browser
 cases (20 declared native-only skips). The final report-metadata predicate uses

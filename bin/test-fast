@@ -46,6 +46,7 @@ run_client_fast_tests() {
   if [[ "$native_client_runtime_ready" -eq 0 ]]; then
     dart test packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart
     dart test packages/connectanum_client/test/transport/native/native_owned_buffer_test.dart
+    dart test packages/connectanum_client/test/transport/native/native_owned_segments_test.dart
     dart test packages/connectanum_client/test/transport/native/flatbuffers_profile_test.dart
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/resource_restart_test.dart --concurrency=1

@@ -46,6 +46,7 @@ fn connect_with_backpressure(websocket: bool, serializer: i32, slow: bool) -> (i
     let protocol = match serializer {
         5 => "wamp.2.flatbuffers",
         3 => "wamp.2.cbor",
+        2 => "wamp.2.msgpack",
         _ => "wamp.2.json",
     };
     let (sender, receiver) = mpsc::channel();
@@ -122,6 +123,73 @@ fn connect_with_backpressure(websocket: bool, serializer: i32, slow: bool) -> (i
 
 fn read_frame(stream: &mut TcpStream, websocket: bool) -> Vec<u8> {
     read_frame_bounded(stream, websocket, 2 * 1024 * 1024)
+}
+
+#[test]
+fn owned_segments_send_cbor_and_msgpack_on_rawsocket_and_websocket() {
+    let _guard = test_guard();
+    let _runtime = Runtime::new();
+    for websocket in [false, true] {
+        for (serializer, codec) in [
+            (3, RawSocketSerializer::Cbor),
+            (2, RawSocketSerializer::MessagePack),
+        ] {
+            let (connection, mut peer) = connect(websocket, serializer);
+            let length = 128 * 1024;
+            let mut prefix = if serializer == 3 {
+                vec![0x85, 0x18, 48, 7, 0xa0, 0x68]
+            } else {
+                vec![0x95, 48, 7, 0x80, 0xa8]
+            };
+            prefix.extend_from_slice(b"com.echo");
+            prefix.extend_from_slice(if serializer == 3 {
+                &[0x81, 0x5a]
+            } else {
+                &[0x91, 0xc6]
+            });
+            prefix.extend_from_slice(&(length as u32).to_be_bytes());
+            let prefix_handle = frozen(&prefix);
+            let (owner, body, released, wrong_thread) =
+                producer_span(vec![0x37; length + 6], 3, length);
+            let (empty_owner, empty, empty_released, empty_wrong_thread) = producer(0);
+            let handles = [empty, prefix_handle, body, empty];
+            let receipt = unsafe {
+                ct_owned_buffer_send_segments_tracked(
+                    store_identity(),
+                    connection,
+                    handles.as_ptr(),
+                    handles.len(),
+                )
+            };
+            assert!(receipt > 0, "shared native submission failed: {receipt}");
+            for handle in [empty, prefix_handle, body] {
+                assert_eq!(ct_owned_buffer_release(handle), SUCCESS);
+            }
+            let wire = read_frame(&mut peer, websocket);
+            assert_eq!(&wire[..prefix.len()], &prefix);
+            assert!(wire[prefix.len()..].iter().all(|&byte| byte == 0x37));
+            assert_eq!(wire.len(), prefix.len() + length);
+            assert!(matches!(
+                ct_core::parse_message(codec, Bytes::from(wire))
+                    .unwrap()
+                    .message,
+                WampMessage::Call { request_id: 7, .. }
+            ));
+            until(|| ct_write_receipt_state(receipt) != 0);
+            assert_eq!(ct_write_receipt_state(receipt), 1);
+            for (producer, released, wrong_thread) in [
+                (owner, released, wrong_thread),
+                (empty_owner, empty_released, empty_wrong_thread),
+            ] {
+                until(|| ct_external_owner_dispatch(producer, 8) > 0);
+                assert_eq!(released.load(Ordering::Acquire), 1);
+                assert!(!wrong_thread.load(Ordering::Acquire));
+                assert_eq!(ct_external_owner_destroy(producer), SUCCESS);
+            }
+            assert_eq!(ct_write_receipt_release(receipt), SUCCESS);
+            assert_eq!(ct_connection_close(connection), SUCCESS);
+        }
+    }
 }
 
 #[test]

@@ -616,6 +616,7 @@ class MutationRunnerTests(unittest.TestCase):
             f'{prefix}/test/transport/native/flatbuffers_profile_test.dart',
             f'{prefix}/test/transport/native/flatbuffers_websocket_network_test.dart',
             f'{prefix}/test/transport/native/native_flatbuffer_frame_test.dart',
+            f'{prefix}/test/transport/native/native_owned_segments_test.dart',
         })
         self.assertEqual(target['supportFiles'], [
             f'{prefix}/test/test_support/native_runtime_support.dart',
@@ -629,6 +630,7 @@ class MutationRunnerTests(unittest.TestCase):
             f'{prefix}/test/transport/native/support/deferred_e2ee_message_cases.dart',
             f'{prefix}/test/transport/native/support/deferred_e2ee_gc_probe.dart',
             f'{prefix}/test/transport/native/support/deferred_session_message_cases.dart',
+            f'{prefix}/test/transport/native/support/owned_buffer_abi_fixture.c',
         ])
         self.assertTrue(target['requiresNativeLibrary'])
         self.assertTrue(target['isolateTestFiles'])
@@ -646,6 +648,7 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(set(target['tests']), {
             f'{prefix}/test/transport/native/native_owned_buffer_test.dart',
             f'{prefix}/test/transport/native/native_flatbuffer_frame_test.dart',
+            f'{prefix}/test/transport/native/native_owned_segments_test.dart',
         })
         self.assertIn(
             f'{prefix}/test/transport/native/support/native_frame_gc_probe.dart',

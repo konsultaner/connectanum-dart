@@ -7,14 +7,17 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up implements the paired campaign executor on top of pushed
-runtime repair `87688b8c`. Scheduling, streamed reports, input hashes and partial
-failure/cancellation teardown have focused regression coverage. Real reports now
-retain actual WAMP codec/TLS/PPT/construction settings, and the evaluator rejects
-misattributed codecs and repeated primary matrix dimensions. A real Linux
-diagnostic completes all 120 reports and full `bin/verify` passes at exit 0.
-No parity is accepted;
-shared CBOR/MessagePack owned submission and complete copy metrics remain open.
+The current follow-up adds shared encoded native submission for CBOR and
+MessagePack on top of pushed campaign checkpoint `c3dbc9cb`. Frozen buffers stay
+owned through queued write/flush; generic lazy owned PPT preserves the exact
+allocation and counts small metadata copies. API/version/identity guards retain
+compatibility and the FlatBuffers session profile. Native, Dart, live Session,
+Linux coverage and GuardMalloc checks pass. Fresh canonical fast/full
+verification passes after clearing disposable caches following host filesystem
+exhaustion; no failed run is accepted as clean.
+Dynamic CBOR/MessagePack native construction, complete copy metrics and primary
+parity remain open. The preceding executor's 120-row diagnostic is correctness
+evidence, not primary performance acceptance.
 
 The preceding follow-up fixes the benchmark test runtime leak at pushed `1aafa099`.
 Hosted Fast Checks failed eight cases after native E2EE factory tests left the
@@ -83,6 +86,70 @@ acceptance and evidence, not a claim that every feature is unimplemented.
    performance rows. SDK/TLS/transcode copy gaps and absent campaign results
    remain blockers; do not weaken the parity or copy gates.
 
+## Shared encoded native submission (2026-10-06)
+
+- [x] Reproduce the missing shared ABI and two missing CBOR/MessagePack exact
+  owner anchors before implementing their paths.
+- [x] Add optional owned-segment ABI v1, retaining 1–64 frozen handles with no
+  input consumption on success/rejection and no payload concatenation/copy.
+- [x] Keep every empty producer owner alive through a nonempty segment anchor;
+  verify exact allocation pointers and producer-thread final release.
+- [x] Add Dart capability probes, tracked/untracked submission and a Finalizable
+  input holder; preserve the FlatBuffers session-profile guard.
+- [x] Add generic lazy owned PPT and eligible CBOR/MessagePack CALL/PUBLISH
+  submission; count only newly serialized metadata copies at this boundary.
+- [x] Reject forged/replaced owner views and retain regular serializer semantics.
+- [x] Use the owned anchor for CBOR/MessagePack benchmark pre-encoded spans.
+- [x] Pass 18 native ownership/network cases, 10 new Dart API/transport cases,
+  existing FlatBuffers frame cases and all 131 focused benchmark/live cases.
+  All 17 combined new API/existing frame cases also pass on Linux arm64.
+- [x] Pass all 73 GuardMalloc ownership cases; 141 native/dependency/schema
+  inputs match before/after the instrumented checks.
+- [x] Complete a focused companion review. Its Finalizable-registration concern
+  is disproved by the SDK marker-interface contract: the local holder keeps the
+  entire list/handle graph reachable until synchronous native retention returns.
+  Queued writes then own independent Frozen references. GLM judge attempts
+  reach their deadlines without a substantive response, so no judge verdict is
+  claimed.
+- [x] Repair mutation inventories for the new part and test: all 92 runner
+  regression cases pass, with their single declared skip and unchanged gates.
+- [x] Pass all 281 native FFI cases after the test's runtime-rejection path uses
+  the global runtime-test lock; memory instrumentation is refreshed afterward.
+- [x] Add/pass eight live native Session RPC/pub-sub cases across CBOR/MessagePack
+  and RawSocket/WebSocket on macOS and Linux. Use the existing worker process
+  for native WebSocket handshakes so the router's Dart isolate can serve them.
+- [x] Pass all 1,504 original-plus-owner-anchor Linux benchmark cases and the
+  eight added Session cases, with no native skips. Targeted coverage including
+  the existing child-process build probes is 2,926/2,978 lines (98.254%), above
+  the unchanged 98% gate with no benchmark-specific finding. The first manual
+  collection omitted the existing child-coverage environment variable and was
+  rejected at 97.851%; no source fix or relaxed threshold is involved.
+- [x] Pass fresh canonical fast/full verification. The first runs fail on host
+  filesystem exhaustion, during browser compilation and benchmark temporary
+  directory creation. Clear only this worktree's disposable Rust incremental
+  caches (about 6 GiB), retaining release libraries, binaries and all evidence;
+  rerun both commands successfully. Full verification includes Rust, VM,
+  consumers, 1,512 benchmark, 4,935 router, 4,690 core browser and 2,829 client
+  browser cases (20 declared native-only skips). Do not accept the failed runs.
+- [x] Complete the final source/contract review and prepare the checkpoint for
+  publication to both remotes and the existing draft PR.
+- [ ] Obtain exact-head hosted acceptance after publishing the checkpoint.
+- [ ] Complete dynamic CBOR/MessagePack native construction, full SDK/TLS/
+  transcode copy metrics, primary timing and parity under unchanged #103 gates.
+
+Evidence: `/tmp/connectanum-shared-codec-{rust-tests,dart-final-tests,bench-tests,linux-client-tests}.{log,exit}`,
+`/tmp/connectanum-shared-codec-guardmalloc-final/report.json` and
+`/tmp/connectanum-shared-codec-review-final.txt`,
+`/tmp/connectanum-shared-codec-{fast,verify}-recovered.{log,exit}` and
+`/tmp/connectanum-shared-codec-linux-bench-{lcov.info,summary.json}`.
+The first attempted fresh baseline overlapped implementation and caught a
+transient Dart switch-type compilation error introduced in this follow-up. It
+was repaired before the focused suites; that attempt is not a passing baseline.
+A subsequent check also detected missing mutation-inventory registrations;
+those sources/tests/support files are now included and all 92 checks pass.
+Fresh `bin/test-fast` and `bin/verify` pass at exit 0. No issue is closed or primary
+performance claim accepted.
+
 ## Campaign executor (2026-10-06)
 
 - [x] Implement all 48 primary cases and deterministic balanced codec schedules,
@@ -111,7 +178,8 @@ acceptance and evidence, not a claim that every feature is unimplemented.
   browser suites. Fresh Rust benchmark tests cover the final metadata alias fix.
 - [x] Review the critical lifecycle/report guards and verify companion concerns
   against the actual sequential driver, input hashes and idempotent sampler.
-- [ ] Commit and push this follow-up; accept exact-head hosted checks separately.
+- [x] Commit and push the campaign follow-up as `c3dbc9cb`; exact-head hosted
+  checks remain pending.
 - [ ] Complete copy coverage, shared binary-codec ownership paths, hosted
   campaign publication and all primary performance gates for #103.
 

@@ -7,13 +7,14 @@ import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
-    show LazyMessagePayload, LazyPayloadEncoding;
+    show LazyMessagePayload, LazyPayloadEncoding, PackedPayloadDecoder;
 import 'package:ffi/ffi.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 
 import 'src/transport/native/runtime.dart' show NativeClientRuntime;
 
 part 'src/transport/native/native_frames.dart';
+part 'src/transport/native/native_owned_segments.dart';
 
 /// Native integration output from `ct_external_buffer_register`.
 /// Publish this initialized structure to exactly one Dart consumer. Its handle
@@ -173,6 +174,7 @@ void _check(int status) {
 /// Resolves the complete owned-buffer ABI; older libraries fail explicitly.
 final class NativeBufferAllocator {
   _NativeFrameApi? _frames;
+  _NativeOwnedSegmentsApi? _segments;
   // The finalizer itself must outlive every attachment, including an allocator
   // and all its handles becoming unreachable together. Borrowed custom
   // libraries must stay loaded; retain one finalizer per library, not wrapper.
@@ -224,6 +226,7 @@ final class NativeBufferAllocator {
     _loadWriteCompletion(library);
     _loadOwnedE2eeEncryption(library);
     _frames = _NativeFrameApi.load(this, library);
+    _segments = _NativeOwnedSegmentsApi.load(this, library);
   }
 
   void _loadExternalTokens(ffi.DynamicLibrary library) {
@@ -714,6 +717,8 @@ final class NativeOwnedBuffer implements ffi.Finalizable {
     this.inputCopiedBytes,
   );
   final _OwnedHandle _handle;
+  static final _pptViews = Expando<Object>();
+  late final Object _pptViewIdentity = Object();
   final int length;
   final int growthCopiedBytes;
 
@@ -725,6 +730,12 @@ final class NativeOwnedBuffer implements ffi.Finalizable {
   /// Each exported view owns a native reference independently of this wrapper.
   /// The list, its ByteBuffer and derived views are read-only.
   Uint8List get bytes => _handle.api._bytes(_handle);
+
+  /// Whether this exact packed PPT view was exported by this live wrapper.
+  /// Copied/replaced lists and independently derived views are not eligible
+  /// for retaining this handle during native payload submission.
+  bool ownsPptPayloadBytes(Uint8List bytes) =>
+      !isDisposed && identical(_pptViews[bytes], _pptViewIdentity);
 
   NativeOwnedBuffer retain() => slice(0, length);
 
@@ -753,16 +764,30 @@ extension NativeOwnedBufferFlatBuffersPpt on NativeOwnedBuffer {
   /// transports can then retain this allocation as the opaque payload span;
   /// other transports use the same read-only bytes through their normal path.
   /// The application owns schema identity and validation.
-  LazyMessagePayload asFlatBuffersPptPayload() {
+  LazyMessagePayload asFlatBuffersPptPayload() => asPptPayload(
+    encoding: LazyPayloadEncoding.flatbuffers,
+    packedPayloadDecoder: (bytes) => (
+      arguments: <dynamic>[bytes],
+      argumentsKeywords: null,
+    ),
+  );
+}
+
+extension NativeOwnedBufferPpt on NativeOwnedBuffer {
+  /// Retains already encoded PPT bytes and their native owner without decoding.
+  /// Use matching PPT options with Session's lazy call/publish APIs. The decoder
+  /// runs only on application access; it must interpret this encoding/schema.
+  LazyMessagePayload asPptPayload({
+    required LazyPayloadEncoding encoding,
+    required PackedPayloadDecoder packedPayloadDecoder,
+  }) {
     _handle.check();
     final bytes = this.bytes;
+    NativeOwnedBuffer._pptViews[bytes] = _pptViewIdentity;
     return LazyMessagePayload.packed(
-      encoding: LazyPayloadEncoding.flatbuffers,
+      encoding: encoding,
       packedPayloadBytes: bytes,
-      packedPayloadDecoder: (bytes) => (
-        arguments: <dynamic>[bytes],
-        argumentsKeywords: null,
-      ),
+      packedPayloadDecoder: packedPayloadDecoder,
       anchor: this,
       storageOwner: (buffer: this, bytes: bytes),
     );

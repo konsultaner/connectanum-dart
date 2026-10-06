@@ -1091,6 +1091,15 @@ class NativeClientRuntime {
     }
   }
 
+  /// Records copied header bytes in the native-owned segmented send path.
+  /// Payload construction has its own builder counters; this adds only bytes
+  /// copied while submitting a message, alongside the legacy send counters.
+  @internal
+  void recordOwnedSegmentHeaderCopy(int bytes) {
+    RangeError.checkNotNegative(bytes, 'bytes');
+    _dartToNativeCopiedBytesTotal += bytes;
+  }
+
   NativeE2eeCopyMetrics e2eeCopyMetricsSnapshot() {
     final snapshot = _bindings.ctE2eeCopyMetricsSnapshot;
     int? plaintext;

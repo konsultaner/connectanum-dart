@@ -5,7 +5,11 @@ implemented and has completed a Linux diagnostic run. The workload runner expose
 three construction groups for typed RPC and pub/sub and records payload-preparation
 and native-builder copy counters. Native FlatBuffers callers pass owned typed
 FlatBuffers spans directly into the native FlatBuffers frame path for two
-construction groups. Native-path copy attribution is now partial; complete
+construction groups. Native CBOR/MessagePack callers now retain owned
+`pre_encoded_span` PPT bytes through the shared segmented native submission ABI;
+small serialized header copies remain counted. Dynamic CBOR/MessagePack
+`native_buffer` rows still serialize their body through the regular PPT path.
+Native-path copy attribution is now partial; complete
 cross-client coverage and the paired performance campaign are unfinished. No
 parity result is accepted.
 
@@ -22,8 +26,10 @@ outer serializers, but does not exercise these runner construction groups. The
 runner now adds 12 live native-caller cases with a FlatBuffers WAMP envelope,
 RPC/pub-sub, all three PPT serializers and both `native_buffer` and
 `pre_encoded_span` groups over two iterations. The FlatBuffers PPT owned groups
-use the retained native span path; CBOR and MessagePack PPT remain serializer
-fallback rows. These matrices are correctness evidence, not a performance run.
+use the retained native span path. CBOR/MessagePack PPT with a FlatBuffers
+outer envelope remains a serializer fallback in that matrix; CBOR/MessagePack
+outer envelopes now have their own retained pre-encoded native PPT path. These
+matrices are correctness evidence, not a performance run.
 The campaign diagnostic adds typed construction-group coverage for WebSocket
 and TLS, as described below; the complete primary matrix remains unaccepted.
 

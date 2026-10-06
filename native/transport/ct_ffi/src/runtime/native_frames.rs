@@ -22,11 +22,11 @@ struct Frame {
     length: usize,
 }
 
-struct FrameHeader(Arc<Frame>);
+struct FrameHeader(Arc<Frame>, usize);
 
 impl AsRef<[u8]> for FrameHeader {
     fn as_ref(&self) -> &[u8] {
-        &self.0.segments[0]
+        &self.0.segments[self.1]
     }
 }
 
@@ -35,7 +35,10 @@ impl Frame {
         let mut segments = self.segments.clone();
         // The writer borrows the complete segment vector through write/flush.
         // This owner also retains the original control and empty producer spans.
-        segments[0] = Bytes::from_owner(FrameHeader(self));
+        // An empty Bytes may discard its owner. Anchor every allocation on a
+        // nonempty segment, even when the caller starts with an empty span.
+        let index = segments.iter().position(|part| !part.is_empty()).unwrap();
+        segments[index] = Bytes::from_owner(FrameHeader(self, index));
         segments
     }
 }
@@ -263,6 +266,103 @@ pub extern "C" fn ct_native_frame_send(connection: i32, frame: i32) -> i32 {
 #[no_mangle]
 pub extern "C" fn ct_native_frame_send_tracked(connection: i32, frame: i32) -> i32 {
     submit(connection, frame, true)
+}
+
+const MAX_OWNED_SEGMENTS: usize = 64;
+
+fn compose_owned_segments(identity: *const c_void, handles: &[i32]) -> Result<Arc<Frame>, i32> {
+    if identity != store_identity() || handles.is_empty() || handles.len() > MAX_OWNED_SEGMENTS {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let mut owners = handles
+        .iter()
+        .map(|&handle| borrow_frozen(handle))
+        .collect::<Result<Vec<_>, _>>()?;
+    let segments: Vec<_> = owners.iter().map(Frozen::bytes).collect();
+    let length = segments
+        .iter()
+        .try_fold(0usize, |sum, part| sum.checked_add(part.len()))
+        .filter(|&length| length > 0)
+        .ok_or(ERR_INVALID_ARGUMENT)?;
+    let control = owners.remove(0);
+    Ok(Arc::new(Frame {
+        control,
+        _application_owners: owners,
+        segments,
+        length,
+    }))
+}
+
+unsafe fn submit_owned_segments(
+    identity: *const c_void,
+    connection: i32,
+    handles: *const i32,
+    count: usize,
+    tracked: bool,
+) -> i32 {
+    // Check all scalar arguments before reading the caller's handle array.
+    if identity != store_identity()
+        || connection <= 0
+        || handles.is_null()
+        || count == 0
+        || count > MAX_OWNED_SEGMENTS
+    {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let frame = match compose_owned_segments(identity, unsafe {
+        std::slice::from_raw_parts(handles, count)
+    }) {
+        Ok(frame) => frame,
+        Err(error) => return error,
+    };
+    let connection = ConnectionId(connection as u32);
+    if tracked {
+        submit_tracked(|| ct_core::send_wamp_segments_tracked(connection, frame.submission()))
+    } else {
+        ct_core::send_wamp_segments(connection, frame.submission())
+            .map(|_| SUCCESS)
+            .unwrap_or_else(super::ffi::map_error)
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_owned_buffer_segments_abi_version() -> u32 {
+    1
+}
+
+/// Queues a complete, already encoded WAMP frame from 1–64 frozen native
+/// buffers in this store, with at least one nonempty segment. Retains every
+/// allocation through write/flush, including empty producer spans. No input
+/// handle is consumed on success or error; no byte allocation is adopted or
+/// copied. The caller chooses the encoding matching the connection.
+///
+/// # Safety
+/// For a valid identity, connection and count, handles must point to count
+/// initialized, aligned, readable i32 values for the duration of this call.
+#[no_mangle]
+pub unsafe extern "C" fn ct_owned_buffer_send_segments(
+    identity: *const c_void,
+    connection: i32,
+    handles: *const i32,
+    count: usize,
+) -> i32 {
+    unsafe { submit_owned_segments(identity, connection, handles, count, false) }
+}
+
+/// Like ct_owned_buffer_send_segments, returning a bounded local write receipt.
+/// Written means complete write and flush, not peer delivery or release of
+/// caller-retained handles/views. Inputs remain valid on every result.
+///
+/// # Safety
+/// Same readable handle-array requirements as ct_owned_buffer_send_segments.
+#[no_mangle]
+pub unsafe extern "C" fn ct_owned_buffer_send_segments_tracked(
+    identity: *const c_void,
+    connection: i32,
+    handles: *const i32,
+    count: usize,
+) -> i32 {
+    unsafe { submit_owned_segments(identity, connection, handles, count, true) }
 }
 
 #[cfg(test)]

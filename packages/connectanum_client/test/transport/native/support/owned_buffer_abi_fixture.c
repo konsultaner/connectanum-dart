@@ -29,6 +29,18 @@ int32_t ct_owned_buffer_export(int32_t id, void *out) { (void)id; (void)out; ret
 void ct_owned_buffer_view_finalizer(void *token) { (void)token; }
 int32_t ct_owned_buffer_send(int32_t connection, int32_t id) { (void)connection; (void)id; return -4; }
 
+#ifdef OWNED_SEGMENTS_VERSION
+uint32_t ct_owned_buffer_segments_abi_version(void) { return OWNED_SEGMENTS_VERSION; }
+int32_t ct_owned_buffer_send_segments(const void *identity, int32_t connection, const int32_t *ids, size_t count) {
+  (void)identity; (void)connection; (void)ids; (void)count; return -4;
+}
+#ifndef OMIT_SEGMENTS_TRACKED
+int32_t ct_owned_buffer_send_segments_tracked(const void *identity, int32_t connection, const int32_t *ids, size_t count) {
+  (void)identity; (void)connection; (void)ids; (void)count; return -4;
+}
+#endif
+#endif
+
 #ifdef EXTERNAL_LEASE_VERSION
 uint32_t ct_external_lease_abi_version(void) { return EXTERNAL_LEASE_VERSION; }
 const void *ct_external_buffer_store_identity(void) { return (const void *)&ct_owned_buffer_abi_version; }

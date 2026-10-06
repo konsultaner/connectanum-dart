@@ -76,6 +76,45 @@ handles preserve ownership; exporting an empty list needs no native backing
 memory. The native registry is independent of runtime startup/shutdown and does
 not recycle IDs.
 
+## Encoded native segments
+
+Native RawSocket and WebSocket transports also expose the optional
+`NativeSegmentedBufferTransport` capability. Use
+`sendEncodedNativeBufferSegments` or its `Tracked` variant to submit a complete
+already encoded CBOR/MessagePack/JSON frame from 1–64 frozen native buffers.
+The allocator's lower-level `sendSegments` and `sendSegmentsTracked` take a
+connection ID. Check `supportsSegmentedBuffers` when loading older libraries.
+The separate owned-segment ABI v1 is optional; the existing owned-buffer and
+FlatBuffers frame ABI versions remain unchanged.
+
+Every input handle stays valid on both success and rejection. The writer retains
+all allocations, including empty producer spans, until local write/flush or
+abandonment. At least one segment must be nonempty. The caller may release its
+handles after queue acceptance. A written receipt does not imply peer delivery or
+release of separately retained handles/views. Native segments are neither
+concatenated nor adopted as Rust vectors. Raw submission does not validate or
+transcode the wire bytes; they must match the selected connection encoding.
+FlatBuffers transport submission uses `NativeFrameTransport` to retain its
+existing session-profile validation.
+
+For already encoded PPT, call `buffer.asPptPayload(encoding: ...,
+packedPayloadDecoder: ...)`. The decoder describes the application encoding and
+runs only when the payload is accessed. Pass the result to Session's lazy
+call/publish methods with matching typed PPT options. Eligible native CBOR and
+MessagePack transports retain the exact native payload span and copy only the
+newly serialized metadata fragments; those header copies appear in the normal
+Dart-to-native submission counter. The optimized path requires a nonempty PPT
+scheme other than `wamp`, a serializer, and no cipher/key ID. Explicit WebSocket
+fragment sizing continues through the regular fragment-size path.
+
+Copied/replaced lists and untagged derived views use their supplied bytes through
+the regular serializer. A forged owner record cannot substitute an unrelated
+native allocation. The identity tag selects an optimization; it is not the
+memory-lifetime mechanism. SDK exported views still own their native references.
+A private `Finalizable` holder keeps every segment wrapper alive during the
+borrowed-handle FFI call, following the
+[Dart local-variable lifetime guarantee](https://api.dart.dev/dart-ffi/Finalizable-class.html).
+
 ## Views and garbage collection
 
 `buffer.bytes` is read-only, including its ByteBuffer, ByteData and derived
