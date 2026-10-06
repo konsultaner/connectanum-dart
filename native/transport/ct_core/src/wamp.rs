@@ -1560,89 +1560,68 @@ fn msgpack_read_value_range(
 }
 
 fn msgpack_skip_value(data: &RawFrame, offset: &mut usize) -> Result<(), ParseError> {
+    let mut pending = 1u64;
+    while pending != 0 {
+        pending -= 1;
+        let previous_offset = *offset;
+        let children = msgpack_skip_value_body(data, offset)?;
+        if *offset == previous_offset {
+            return Err(ParseError::Deserialize(
+                "MessagePack value scanner made no progress".into(),
+            ));
+        }
+        pending = pending.checked_add(children).ok_or_else(|| {
+            ParseError::Deserialize("MessagePack nested value count overflow".into())
+        })?;
+    }
+    Ok(())
+}
+
+fn msgpack_skip_value_body(data: &RawFrame, offset: &mut usize) -> Result<u64, ParseError> {
     let marker = read_u8(data, offset)?;
     match marker {
-        0x00..=0x7f | 0xe0..=0xff | 0xc0 | 0xc2 | 0xc3 => Ok(()),
-        0xcc => skip_bytes(data, offset, 1),
-        0xcd => skip_bytes(data, offset, 2),
-        0xce => skip_bytes(data, offset, 4),
-        0xcf => skip_bytes(data, offset, 8),
-        0xd0 => skip_bytes(data, offset, 1),
-        0xd1 => skip_bytes(data, offset, 2),
-        0xd2 => skip_bytes(data, offset, 4),
-        0xd3 => skip_bytes(data, offset, 8),
-        0xca => skip_bytes(data, offset, 4),
-        0xcb => skip_bytes(data, offset, 8),
-        0xa0..=0xbf => skip_bytes(data, offset, (marker & 0x1f) as usize),
+        0x00..=0x7f | 0xe0..=0xff | 0xc0 | 0xc2 | 0xc3 => Ok(0),
+        0xcc => skip_value_bytes(data, offset, 1),
+        0xcd => skip_value_bytes(data, offset, 2),
+        0xce => skip_value_bytes(data, offset, 4),
+        0xcf => skip_value_bytes(data, offset, 8),
+        0xd0 => skip_value_bytes(data, offset, 1),
+        0xd1 => skip_value_bytes(data, offset, 2),
+        0xd2 => skip_value_bytes(data, offset, 4),
+        0xd3 => skip_value_bytes(data, offset, 8),
+        0xca => skip_value_bytes(data, offset, 4),
+        0xcb => skip_value_bytes(data, offset, 8),
+        0xa0..=0xbf => skip_value_bytes(data, offset, (marker & 0x1f) as usize),
         0xd9 => {
             let len = read_u8(data, offset)? as usize;
-            skip_bytes(data, offset, len)
+            skip_value_bytes(data, offset, len)
         }
         0xda => {
             let len = read_u16(data, offset)? as usize;
-            skip_bytes(data, offset, len)
+            skip_value_bytes(data, offset, len)
         }
         0xdb => {
             let len = u32_to_usize(read_u32(data, offset)?)?;
-            skip_bytes(data, offset, len)
+            skip_value_bytes(data, offset, len)
         }
         0xc4 => {
             let len = read_u8(data, offset)? as usize;
-            skip_bytes(data, offset, len)
+            skip_value_bytes(data, offset, len)
         }
         0xc5 => {
             let len = read_u16(data, offset)? as usize;
-            skip_bytes(data, offset, len)
+            skip_value_bytes(data, offset, len)
         }
         0xc6 => {
             let len = u32_to_usize(read_u32(data, offset)?)?;
-            skip_bytes(data, offset, len)
+            skip_value_bytes(data, offset, len)
         }
-        0x90..=0x9f => {
-            let len = (marker & 0x0f) as usize;
-            for _ in 0..len {
-                msgpack_skip_value(data, offset)?;
-            }
-            Ok(())
-        }
-        0xdc => {
-            let len = read_u16(data, offset)? as usize;
-            for _ in 0..len {
-                msgpack_skip_value(data, offset)?;
-            }
-            Ok(())
-        }
-        0xdd => {
-            let len = u32_to_usize(read_u32(data, offset)?)?;
-            for _ in 0..len {
-                msgpack_skip_value(data, offset)?;
-            }
-            Ok(())
-        }
-        0x80..=0x8f => {
-            let len = (marker & 0x0f) as usize;
-            for _ in 0..len {
-                msgpack_skip_value(data, offset)?;
-                msgpack_skip_value(data, offset)?;
-            }
-            Ok(())
-        }
-        0xde => {
-            let len = read_u16(data, offset)? as usize;
-            for _ in 0..len {
-                msgpack_skip_value(data, offset)?;
-                msgpack_skip_value(data, offset)?;
-            }
-            Ok(())
-        }
-        0xdf => {
-            let len = u32_to_usize(read_u32(data, offset)?)?;
-            for _ in 0..len {
-                msgpack_skip_value(data, offset)?;
-                msgpack_skip_value(data, offset)?;
-            }
-            Ok(())
-        }
+        0x90..=0x9f => Ok(u64::from(marker & 0x0f)),
+        0xdc => Ok(u64::from(read_u16(data, offset)?)),
+        0xdd => Ok(u64::from(read_u32(data, offset)?)),
+        0x80..=0x8f => Ok(u64::from(marker & 0x0f) * 2),
+        0xde => Ok(u64::from(read_u16(data, offset)?) * 2),
+        0xdf => Ok(u64::from(read_u32(data, offset)?) * 2),
         0xd4 => skip_ext(data, offset, 1),
         0xd5 => skip_ext(data, offset, 2),
         0xd6 => skip_ext(data, offset, 4),
@@ -1650,15 +1629,15 @@ fn msgpack_skip_value(data: &RawFrame, offset: &mut usize) -> Result<(), ParseEr
         0xd8 => skip_ext(data, offset, 16),
         0xc7 => {
             let len = read_u8(data, offset)? as usize;
-            skip_bytes(data, offset, 1 + len)
+            skip_ext(data, offset, len)
         }
         0xc8 => {
             let len = read_u16(data, offset)? as usize;
-            skip_bytes(data, offset, 1 + len)
+            skip_ext(data, offset, len)
         }
         0xc9 => {
             let len = u32_to_usize(read_u32(data, offset)?)?;
-            skip_bytes(data, offset, 1 + len)
+            skip_ext(data, offset, len)
         }
         0xc1 => Err(ParseError::Deserialize(
             "encountered reserved MessagePack marker 0xc1".into(),
@@ -1666,8 +1645,16 @@ fn msgpack_skip_value(data: &RawFrame, offset: &mut usize) -> Result<(), ParseEr
     }
 }
 
-fn skip_ext(data: &RawFrame, offset: &mut usize, ext_len: usize) -> Result<(), ParseError> {
-    skip_bytes(data, offset, 1 + ext_len)
+fn skip_value_bytes(data: &RawFrame, offset: &mut usize, len: usize) -> Result<u64, ParseError> {
+    skip_bytes(data, offset, len)?;
+    Ok(0)
+}
+
+fn skip_ext(data: &RawFrame, offset: &mut usize, ext_len: usize) -> Result<u64, ParseError> {
+    let len = ext_len.checked_add(1).ok_or_else(|| {
+        ParseError::Deserialize("MessagePack extension length exceeds supported size".into())
+    })?;
+    skip_value_bytes(data, offset, len)
 }
 
 fn read_u8(data: &RawFrame, offset: &mut usize) -> Result<u8, ParseError> {

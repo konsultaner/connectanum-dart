@@ -38,6 +38,36 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work419 Iterative MessagePack Scanner And Assertion-Proven Diagnostics
+
+A valid 100,000-level lazy MessagePack payload aborts the pre-change native test
+process through recursive scanner exhaustion. Replace recursion with a pending
+value count and reject any scanner iteration that consumes no bytes. Keep valid
+wire behavior and raw lazy slices unchanged. Mixed nested siblings, all segment
+boundaries, maximum-width truncated array/map/extension headers, and 100,000
+nested arrays/maps provide behavioral oracles. Run the deep cases in a bounded
+child with null output streams so large failure diagnostics cannot fill a pipe;
+kill on timeout/status-inspection failure and retain those paths as uncredited
+infrastructure failures rather than assertion kills.
+
+Full ct_core (348 tests) and ct_ffi (204 tests) suites pass. Diagnostic 419b
+retains seven kills, fourteen errors and one timeout and remains historical raw
+evidence. Diagnostic 419c proves 23 kills before a final child-cleanup hardening;
+do not use it for the changed fingerprint. Preserve reserve-failed 419d as an
+incomplete, unscored run. Fresh 419e uses the matching lean environment and all
+23 current mutations in `msgpack_skip_value`, `msgpack_skip_value_body`,
+`skip_value_bytes` and `skip_ext`: all are assertion-killed, both original and
+restored baselines pass 552 tests, and the complete background Core inventory is
+1,970 candidates. Independent archived-tool reaudit reproduces the exact source,
+tests, tools, compiler/build fingerprint, inventory, outcomes and resource
+evidence. Collection takes 1,059.94s and restoration 45.27s. Across 223 samples,
+scratch peaks at 493,903,872 bytes and available space remains at least
+8,118,890,496 bytes; periodic-sampling/APFS/host-activity limitations remain.
+No owners or cwd users survive. Fresh `bin/verify` passes, including actual
+Chrome and Dart2Wasm suites. This is a selected diagnostic, not either full 95%
+component gate or the requested full-campaign report. Preserve all raw evidence;
+no push/publication or threshold change.
+
 ### Work416-418 External Assertion Provenance And Fixture Contracts
 
 Fast416 passes before changes. Four added regressions and strengthened existing

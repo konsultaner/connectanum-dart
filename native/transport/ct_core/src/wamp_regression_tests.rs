@@ -762,6 +762,147 @@ fn msgpack_marker_widths_preserve_lazy_payload_ranges_and_reject_every_truncatio
 }
 
 #[test]
+fn msgpack_iterative_scanner_preserves_nested_siblings_and_rejects_huge_truncation() {
+    let nested = Bytes::from_static(&[0x92, 0x81, 0xa1, b'k', 0x92, 0x01, 0x02, 0x03, 0x7f]);
+    for split in 0..=nested.len() {
+        let data = RawFrame::from_segments(fragments(&nested, split));
+        let mut offset = 0;
+        assert_eq!(
+            msgpack_read_value_range(&data, &mut offset).assert_success(),
+            0..8,
+            "split={split}"
+        );
+        assert_eq!(offset, 8, "split={split}");
+        assert_eq!(read_u8(&data, &mut offset).assert_success(), 0x7f);
+        assert_eq!(offset, nested.len());
+    }
+
+    for value in [
+        Bytes::from_static(&[0xdd, 0xff, 0xff, 0xff, 0xff]),
+        Bytes::from_static(&[0xdf, 0xff, 0xff, 0xff, 0xff]),
+        Bytes::from_static(&[0xc9, 0xff, 0xff, 0xff, 0xff]),
+    ] {
+        for split in 0..=value.len() {
+            let data = RawFrame::from_segments(fragments(&value, split));
+            let mut offset = 0;
+            assert_condition!(
+                matches!(
+                    msgpack_read_value_range(&data, &mut offset),
+                    Err(ParseError::Deserialize(_))
+                ),
+                "marker={:x} split={split}",
+                value[0]
+            );
+            assert_eq!(offset, value.len(), "marker={:x} split={split}", value[0]);
+        }
+    }
+}
+
+fn run_current_test_child_with_timeout(
+    test_name: &str,
+    child_env: &str,
+    timeout: std::time::Duration,
+) -> std::process::ExitStatus {
+    let mut child = std::process::Command::new(std::env::current_exe().assert_success())
+        .args(["--exact", test_name, "--nocapture"])
+        .env(child_env, "1")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .assert_success();
+    let deadline = std::time::Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return status,
+            Ok(None) => {}
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                panic!(
+                    "failed to observe child test status: {error}; infrastructure failures are not assertion-kill evidence"
+                );
+            }
+        }
+        if std::time::Instant::now() >= deadline {
+            let _ = child.kill();
+            let status = child.wait().assert_success();
+            panic!(
+                "child test exceeded {timeout:?}; timeout is not assertion-kill evidence (status={status})"
+            );
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
+#[test]
+fn msgpack_deeply_nested_lazy_payload_is_stack_safe() {
+    const CHILD_ENV: &str = "CONNECTANUM_MSGPACK_DEEP_NESTING_CHILD";
+    const TEST_NAME: &str =
+        "wamp::regression_tests::msgpack_deeply_nested_lazy_payload_is_stack_safe";
+    const DEPTH: usize = 100_000;
+
+    if std::env::var_os(CHILD_ENV).is_some() {
+        let mut nested_arrays = vec![0x91; DEPTH];
+        nested_arrays.push(0xc0);
+        let mut nested_maps = Vec::with_capacity(DEPTH * 3 + 2);
+        nested_maps.push(0x91);
+        for _ in 0..DEPTH {
+            nested_maps.extend_from_slice(&[0x81, 0xa1, b'k']);
+        }
+        nested_maps.push(0xc0);
+
+        for (label, payload) in [("arrays", nested_arrays), ("maps", nested_maps)] {
+            let mut bytes = Vec::with_capacity(payload.len() + 6);
+            bytes.extend_from_slice(&[0x95, 48, 1, 0x80, 0xa1, b'p']);
+            bytes.extend_from_slice(&payload);
+            let raw = Bytes::from(bytes);
+            let parsed = parse_message(Serializer::MessagePack, raw.clone()).assert_success();
+            assert_condition!(
+                parsed
+                    .raw
+                    .as_contiguous()
+                    .is_some_and(|actual| actual == &raw),
+                "{label} raw frame changed"
+            );
+            let expected_args = raw.slice(6..);
+            match parsed.message {
+                WampMessage::Call {
+                    request_id,
+                    options,
+                    procedure,
+                    payload,
+                } => {
+                    assert_eq!(request_id, 1, "{label}");
+                    assert_condition!(options.is_empty(), "{label} options changed");
+                    assert_eq!(procedure, "p", "{label}");
+                    assert_condition!(
+                        payload
+                            .args
+                            .as_ref()
+                            .is_some_and(|args| args == &expected_args),
+                        "{label} lazy positional payload changed"
+                    );
+                    assert_condition!(payload.kwargs.is_none(), "{label} kwargs changed");
+                }
+                _ => assert_condition!(false, "{label} parsed as the wrong message variant"),
+            }
+        }
+        return;
+    }
+
+    let status = run_current_test_child_with_timeout(
+        TEST_NAME,
+        CHILD_ENV,
+        std::time::Duration::from_secs(10),
+    );
+    assert_eq!(
+        status.code(),
+        Some(0),
+        "deeply nested MessagePack payload must not abort or fail"
+    );
+}
+
+#[test]
 fn binary_array_headers_decode_all_widths_and_reject_truncation() {
     for (serializer, headers, body) in [
         (

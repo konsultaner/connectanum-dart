@@ -7,6 +7,26 @@ campaigns without narrowing inventories, test suites, deadlines or evidence gate
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work419: a valid 100,000-level MessagePack lazy payload reproduced a native
+stack overflow before the fix. The value scanner is now iterative and fails
+closed if an iteration consumes no input, preventing both recursive exhaustion
+and no-progress loops. Regressions cover deeply nested arrays/maps in a bounded
+child, exact raw lazy bytes, mixed nested siblings, every segment boundary and
+truncated maximum-width collection/extension headers. Child output is discarded
+to avoid pipe deadlock and huge nested diagnostics; timeout, crash and status
+inspection failures remain uncredited infrastructure failures. Full ct_core
+(348 tests) and ct_ffi (204 tests) suites pass. Fresh diagnostic 419e selects
+all 23 current scanner-function mutations from the complete 1,970-candidate
+Core inventory: all 23 are assertion-killed, both 552-test baselines pass, and
+an independent archived-tool/matching-environment reaudit reproduces clean
+evidence. Collection takes 1,059.94s plus 45.27s restoration; sampled scratch
+peaks at 493,903,872 bytes and free space stays at least 8,118,890,496 bytes.
+Preserve successful 419c, reserve-failed/unscored 419d and final 419e evidence.
+Fresh `bin/verify` exits zero in `/tmp/connectanum-msgpack-verify419e.log`,
+including actual Chrome and Dart2Wasm suites. No campaign or cwd owner remains.
+This selected diagnostic is not a complete component score: both 95% native
+gates and the full measured report remain open. No push/publication.
+
 Work416-418: four added regressions and stronger polling/fixture assertions
 check pending/delivered ownership, expected WAMP identity, original wire bytes,
 metadata payloads and lazy exports. Fast416 passes before changes. Fresh probes
