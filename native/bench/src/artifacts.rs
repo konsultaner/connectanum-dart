@@ -3302,6 +3302,7 @@ mod tests {
             workload: "load".to_string(),
             protocol: "h2".to_string(),
             client_impl: "n/a".to_string(),
+            wamp_configuration: None,
             router_workers: 3,
             native_runtime_threads: 4,
             iterations: 4,

@@ -119,6 +119,7 @@ class NativeWampWorker {
     required String nativeLibraryPath,
     required String workerScriptPath,
     this.enableVmMetrics = false,
+    this.reuseSuccessfulWorkers = false,
     String? dartExecutable,
     Duration readyTimeout = const Duration(seconds: 60),
     Logger? logger,
@@ -134,6 +135,10 @@ class NativeWampWorker {
   final String nativeLibraryPath;
   final String workerScriptPath;
   final bool enableVmMetrics;
+
+  /// Preserve JIT warmup for successful RPC/pub-sub campaigns. Other modes and
+  /// failures still recycle the helper to isolate late cancellation messages.
+  final bool reuseSuccessfulWorkers;
   final String dartExecutable;
   final Duration _readyTimeout;
   final Logger _logger;
@@ -168,16 +173,18 @@ class NativeWampWorker {
     final generation = await _ensureStarted();
     final completer = Completer<_WorkerResponse>();
     final metricsCollector = generation.metricsCollector;
-    final metricsWindow = metricsCollector == null
-        ? null
-        : await metricsCollector.beginWindow();
-    final rssSampler = metricsCollector == null
-        ? null
-        : DartVmMetricsRssSampler(generation.process!.pid);
-    generation.response = completer;
-    // A child can fail while flush is suspended, before the response is awaited.
-    completer.future.ignore();
+    DartVmMetricsRssSampler? rssSampler;
+    var succeeded = false;
     try {
+      final metricsWindow = metricsCollector == null
+          ? null
+          : await metricsCollector.beginWindow();
+      rssSampler = metricsCollector == null
+          ? null
+          : DartVmMetricsRssSampler(generation.process!.pid);
+      generation.response = completer;
+      // A child can fail while flush is suspended, before the response is awaited.
+      completer.future.ignore();
       final stdin = generation.process!.stdin;
       stdin.writeln(jsonEncode(scenario.toJson()));
       await stdin.flush();
@@ -212,6 +219,7 @@ class NativeWampWorker {
           );
         }
       }
+      succeeded = true;
       return NativeWampWorkerResult(
         samples: response.samples,
         fileSegmentMetrics: response.fileSegmentMetrics,
@@ -219,11 +227,20 @@ class NativeWampWorker {
         processMetrics: processMetrics,
       );
     } finally {
-      await rssSampler?.stop();
+      try {
+        await rssSampler?.stop();
+      } catch (_) {
+        await _stop(generation);
+        rethrow;
+      }
       // Native cancel-cycle workloads can leave late interrupts/errors in flight.
       // Recycle the helper between scenarios so those messages do not poison the
       // next benchmark command in the same worker isolate.
-      await _stop(generation);
+      if (!succeeded ||
+          !reuseSuccessfulWorkers ||
+          (scenario.mode != WampMode.rpc && scenario.mode != WampMode.pubsub)) {
+        await _stop(generation);
+      }
     }
   }
 

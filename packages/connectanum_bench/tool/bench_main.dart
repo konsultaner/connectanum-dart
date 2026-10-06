@@ -404,6 +404,8 @@ class _BenchControlRegistry {
       nativeLibraryPath: nativeLibraryPath,
       workerScriptPath: workerScriptPath,
       enableVmMetrics: enableVmMetrics,
+      reuseSuccessfulWorkers:
+          Platform.environment['CONNECTANUM_BENCH_WAMP_REUSE_WORKER'] == '1',
       logger: _logger,
     );
   }

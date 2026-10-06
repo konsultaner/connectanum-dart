@@ -244,6 +244,10 @@ struct Args {
     #[arg(long)]
     artifact_dir: Option<String>,
 
+    /// Stream flushed JSONL only, without retaining/rebuilding aggregate history.
+    #[arg(long, default_value_t = false, conflicts_with = "artifact_dir")]
+    results_only: bool,
+
     /// Timeout per workload in milliseconds (guards against hung tests).
     #[arg(long, default_value = "300000")]
     workload_timeout_ms: u64,
@@ -702,6 +706,20 @@ fn run_bench_suite(
                     workload: workload.name.clone(),
                     protocol: workload.protocol.clone(),
                     client_impl: prepared.client_impl.clone(),
+                    wamp_configuration: parse_wamp_protocol(&prepared.protocol).map(|_| {
+                        json!({
+                            "serializer": prepared.serializer,
+                            "peer_serializer": prepared.peer_serializer,
+                            "secure_transport": prepared.secure_transport,
+                            "peer_count": prepared.peer_count,
+                            "in_flight_per_session": prepared.in_flight_per_session,
+                            "ppt_scheme": prepared.ppt_scheme,
+                            "ppt_serializer": prepared.ppt_serializer,
+                            "payload_construction": prepared.payload_construction,
+                            "ppt_cipher": prepared.ppt_cipher,
+                            "ppt_keyid": prepared.ppt_keyid,
+                        })
+                    }),
                     router_workers,
                     native_runtime_threads,
                     iterations: workload.iterations,
@@ -731,14 +749,13 @@ fn run_bench_suite(
                     samples: execution.samples,
                 };
                 print_workload_summary(&report, &prepared);
-                results_writer.write(&report)?;
-                reports.push(report);
-                write_artifact_bundle(reports, results_path, artifact_dir).with_context(|| {
-                    format!(
-                        "failed to write transformed artifact bundle next to {}",
-                        args.results
-                    )
-                })?;
+                results_writer.write_and_collect(
+                    report,
+                    reports,
+                    results_path,
+                    artifact_dir,
+                    args.results_only,
+                )?;
             }
         }
         Ok(())
@@ -2287,6 +2304,27 @@ impl ResultsWriter {
         self.file.write_all(line.as_bytes())?;
         self.file.write_all(b"\n")?;
         self.file.flush()?;
+        Ok(())
+    }
+
+    fn write_and_collect(
+        &mut self,
+        report: WorkloadReport,
+        reports: &mut Vec<WorkloadReport>,
+        results_path: &Path,
+        artifact_dir: Option<&Path>,
+        results_only: bool,
+    ) -> Result<()> {
+        self.write(&report)?;
+        if !results_only {
+            reports.push(report);
+            write_artifact_bundle(reports, results_path, artifact_dir).with_context(|| {
+                format!(
+                    "failed to write transformed artifact bundle next to {}",
+                    results_path.display()
+                )
+            })?;
+        }
         Ok(())
     }
 }
@@ -6921,6 +6959,7 @@ mod tests {
             workload: "workload".to_string(),
             protocol: "h2".to_string(),
             client_impl: "n/a".to_string(),
+            wamp_configuration: None,
             router_workers: 2,
             native_runtime_threads: 4,
             iterations: 1,
@@ -6954,7 +6993,45 @@ mod tests {
         assert!(written.contains("\"scenario\":\"scenario\""));
         assert!(written.ends_with('\n'));
 
+        let stream_path = temp_dir.join("stream.jsonl");
+        let mut stream_writer = ResultsWriter::create(stream_path.to_str().unwrap()).unwrap();
+        let mut history = Vec::new();
+        for _ in 0..10 {
+            stream_writer
+                .write_and_collect(report.clone(), &mut history, &stream_path, None, true)
+                .unwrap();
+            assert!(history.is_empty());
+        }
+        assert_eq!(
+            fs::read_to_string(&stream_path).unwrap().lines().count(),
+            10
+        );
+        assert_eq!(fs::read_dir(&temp_dir).unwrap().count(), 2);
+
+        writer
+            .write_and_collect(report, &mut history, &path, None, false)
+            .unwrap();
+        assert_eq!(history.len(), 1);
+
         fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn results_only_conflicts_with_aggregate_artifact_output() {
+        assert!(
+            Args::try_parse_from(["http_stream", "--native-lib", "library", "--results-only"])
+                .unwrap()
+                .results_only
+        );
+        assert!(Args::try_parse_from([
+            "http_stream",
+            "--native-lib",
+            "library",
+            "--results-only",
+            "--artifact-dir",
+            "out"
+        ])
+        .is_err());
     }
 
     #[test]

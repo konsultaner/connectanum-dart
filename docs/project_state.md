@@ -5,7 +5,64 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up fixes the Linux benchmark test runtime leak at `1aafa099`.
+The current follow-up implements the paired serializer campaign executor on top
+of pushed runtime repair `87688b8c`. It generates the 48-case primary matrix,
+balanced interleaved codec order, three warmup and seven measured passes. One
+driver/worker remains alive across all passes; flushed JSONL avoids rebuilding
+aggregate history. The executor retains partial/cancelled evidence, checks input
+hashes before/after and confirms process-group teardown. The evaluator rejects
+diagnostics, incomplete execution and duplicate matrix dimensions. Real reports
+now retain the actual WAMP codec/TLS/PPT/construction settings for attribution.
+Focused Python, Rust and benchmark-config checks pass. The real Linux diagnostic
+completes all 120 reports with stable client/server PIDs and driver exit 0. All
+input hashes match and per-pass JSONL exactly reproduces the raw driver stream.
+The comparison correctly exits 1 with short/diagnostic and missing-copy findings;
+no primary parity evidence is accepted. SDK/TLS/transcode copy
+coverage and shared CBOR/MessagePack owned submission remain open under #103.
+Full `bin/verify` passes at exit 0, including Rust, VM, consumers, all 1,502
+macOS benchmark cases, 4,935 router, 4,690 core browser and 2,829 client browser
+cases (20 declared native-only skips). The final report-metadata predicate uses
+the existing WAMP parser so uppercase aliases also retain configuration; a fresh
+complete Rust benchmark suite passes after that small correction. Evidence:
+`/tmp/connectanum-flatbuffers-campaign-verify.{log,exit}` and
+`/tmp/connectanum-flatbuffers-campaign-rust-final-tests.{log,exit}`.
+
+The complete Linux benchmark suite passes all 1,502 cases with no native skips.
+Fresh benchmark library coverage is 2,925/2,979 lines (98.187%), above its
+unchanged 98% gate, with no benchmark-specific file/package/component finding.
+This targeted report does not accept the full repository's coverage job: other
+packages are intentionally unmeasured. Evidence:
+`/tmp/connectanum-flatbuffers-campaign-linux-bench-coverage.{log,exit}` and
+`/tmp/connectanum-flatbuffers-campaign-linux-bench-coverage/{lcov.info,summary.json}`.
+
+The first Linux diagnostic was interrupted and retained after revealing that the
+client helper recycled after every workload: all 31 reports use distinct client
+PIDs while the server PID stays constant. Reuse is now explicit for successful
+RPC/pub-sub rows; default, cancellation and failed workloads still recycle.
+Process identity is checked across all warmup/measured reports. All 48 focused
+lifecycle/worker tests, 23 comparator tests and 11 executor tests pass. The
+corrected diagnostic covers four codec-paired cases with RawSocket/WebSocket,
+Dart/native, clear/TLS and all three construction groups. It completes three
+warmup and seven measured passes, 40 reports per codec. Source is explicitly
+dirty/diagnostic and windows are below policy; the 370 comparison findings remain
+failures. Rust driver/native builds precede execution; no build/test/mutation/model
+job overlaps the measured run. Evidence: `/tmp/connectanum-flatbuffers-campaign-diagnostic-02`,
+`/tmp/connectanum-flatbuffers-campaign-worker-reuse-tests.{log,exit}` and
+`/tmp/connectanum-flatbuffers-campaign-rust-tests.{log,exit}`. The complete default
+schedule is prepared in the isolated Linux fixture: 48 cases and 1,440 rows,
+without claiming execution of that primary matrix. Companion review's duplicate
+RSS-stop concern is disproved by the cached stop future and its identity test;
+the GLM judge finds no blocker once stable PID attribution is confirmed.
+
+Both hosted Fast Checks on `87688b8c` pass, confirming the runtime repair. PR
+consumer/browser coverage, package publish dry-runs, FlatBuffers binding,
+GuardMalloc and several mutation gates also pass. Other required jobs are still
+running or queued. Hosted checks for the campaign commit remain pending;
+no new milestone issue is closed.
+
+## Shared-runtime test teardown (2026-10-06)
+
+The preceding follow-up fixes the Linux benchmark test runtime leak at `1aafa099`.
 Its hosted Fast Checks job failed eight cases after the new native E2EE factory
 tests left the process-wide client runtime running. Provider release frees keys
 and sessions; it does not shut down that shared runtime. A same-process Linux
@@ -19,8 +76,7 @@ consumer smokes, 1,498 macOS benchmark, 4,935 router, 4,690 core browser and
 Focused formatting and analysis pass. Companion teardown-order concerns were
 checked against the test engine and runtime sources: per-test cleanup finishes
 before group cleanup, provider release is synchronous, and construction failures
-release partial handles. Campaign-runner work follows the CI repair. Its candidate and
-nine passing process/schedule tests remain outside the repository under `/tmp`.
+release partial handles. The repair is pushed to both remotes as `87688b8c`.
 
 Both `1aafa099` hosted browser coverage jobs pass. The downloaded push artifact
 is retained at `/tmp/connectanum-flatbuffers-ci-1aafa-browser-artifact`.

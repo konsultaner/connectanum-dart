@@ -228,6 +228,108 @@ class WampSerializerCompareTest(unittest.TestCase):
             any("metadata.platform.os must be Linux" in item for item in findings)
         )
 
+    def test_rejects_diagnostic_or_incomplete_runner_evidence(self) -> None:
+        for execution in (
+            {"status": "planned", "driver_exit_code": 0, "process_group_stopped": True},
+            {"status": "failed", "driver_exit_code": 7, "process_group_stopped": True},
+            {"status": "completed", "driver_exit_code": 0, "process_group_stopped": False},
+        ):
+            with self.subTest(execution=execution):
+                manifest = copy.deepcopy(self.manifest)
+                manifest["execution"] = execution
+                findings = compare._campaign_findings(manifest)
+                self.assertTrue(any("execution" in item for item in findings))
+        manifest = copy.deepcopy(self.manifest)
+        manifest["metadata"]["campaign_kind"] = "diagnostic"
+        manifest["metadata"]["inputs_unchanged"] = False
+        findings = compare._campaign_findings(manifest)
+        self.assertTrue(any("diagnostic" in item for item in findings))
+        self.assertTrue(any("inputs" in item for item in findings))
+
+    def test_rejects_duplicate_report_instead_of_overwriting_observations(self) -> None:
+        run = copy.deepcopy(self.manifest["measured_runs"][0])
+        path = self.root / run["results"]
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        rows.append(copy.deepcopy(rows[0]))
+        path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+        run["order"].append(rows[0]["workload"])
+        with self.assertRaisesRegex(compare.CampaignError, "duplicate"):
+            compare._resolve_results(self.root, run)
+
+    def test_completed_runner_metadata_is_required_before_scoring(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest['execution'] = {
+            'status': 'completed', 'driver_exit_code': 0, 'process_group_stopped': True,
+        }
+        manifest['metadata']['inputs_unchanged'] = True
+        for run in [*manifest['warmup_runs'], *manifest['measured_runs']]:
+            run.update(status='completed', rows_completed=len(run['order']))
+        self.assertEqual(compare.evaluate_campaign(manifest, self.root, self.policy)['status'], 'passed')
+        manifest['metadata']['campaign_kind'] = 'diagnostic'
+        result = compare.evaluate_campaign(manifest, self.root, self.policy)
+        self.assertEqual(result['status'], 'failed')
+        self.assertTrue(any('diagnostic' in finding for finding in result['findings']))
+
+    def test_primary_matrix_cannot_repeat_one_case_48_times(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["metadata"]["campaign_kind"] = "primary"
+        manifest["cases"] *= 48
+        self.assertTrue(any("matrix" in finding for finding in compare._campaign_findings(manifest)))
+
+    def test_nested_encrypted_configuration_cannot_exempt_crypto_copies(self) -> None:
+        report = self._report("case_flatbuffers", "flatbuffers", 0)
+        report["wamp_configuration"] = {"ppt_scheme": "wamp"}
+        findings = compare._validate_evidence(report, label="actual-encrypted-report")
+        self.assertTrue(any("e2ee_copy_bytes cannot be not_applicable" in f for f in findings))
+
+    def test_reported_codec_must_match_the_compared_workload(self) -> None:
+        for run in self.manifest["measured_runs"]:
+            path = self.root / run["results"]
+            reports = [json.loads(line) for line in path.read_text().splitlines()]
+            for report in reports:
+                report["wamp_configuration"] = {"serializer": "json"}
+            path.write_text("".join(json.dumps(row) + "\n" for row in reports))
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+        self.assertEqual(result["status"], "failed")
+        self.assertTrue(any("serializer" in finding for finding in result["findings"]))
+
+    def test_actual_profile_transport_and_construction_are_verified(self) -> None:
+        case = {"transport": "rawsocket", "mode": "rpc", "client_impl": "dart",
+                "secure_transport": False, "construction": "native_buffer"}
+        report = self._report("case_flatbuffers", "flatbuffers", 0)
+        report["wamp_configuration"] = {
+            "serializer": "flatbuffers", "peer_serializer": None, "peer_count": 1,
+            "secure_transport": False, "ppt_scheme": "x_connectanum_bench_typed",
+            "ppt_serializer": "flatbuffers", "payload_construction": "native_buffer",
+            "ppt_cipher": None, "ppt_keyid": None,
+        }
+        self.assertEqual(compare._configuration_findings(
+            report, case, "flatbuffers", label="fixture", required=True), [])
+        for field, value in (("secure_transport", True), ("ppt_serializer", "cbor"),
+                             ("payload_construction", "values"), ("peer_count", True)):
+            changed = copy.deepcopy(report)
+            changed["wamp_configuration"][field] = value
+            self.assertTrue(any(field in f for f in compare._configuration_findings(
+                changed, case, "flatbuffers", label="fixture", required=True)))
+        report["request_chunk_bytes"] = 1024
+        self.assertTrue(any("request_chunk_bytes" in f for f in compare._configuration_findings(
+            report, case, "flatbuffers", label="fixture", required=True)))
+
+    def test_warmup_restart_is_rejected_independently_of_execution_claim(self) -> None:
+        manifest = self.manifest
+        manifest["metadata"]["campaign_kind"] = "diagnostic"
+        manifest["execution"] = {
+            "status": "completed", "driver_exit_code": 0, "process_group_stopped": True,
+            "observed_process_pids": {"client_process_metrics": 1000, "server_process_metrics": 2000},
+        }
+        manifest["cases"][0].update(mode="rpc", transport="rawsocket", client_impl="dart", secure_transport=False)
+        path = self.root / manifest["warmup_runs"][0]["results"]
+        reports = [json.loads(line) for line in path.read_text().splitlines()]
+        reports[0]["client_process_metrics"]["pid"] = 999
+        path.write_text("".join(json.dumps(row) + "\n" for row in reports))
+        result = compare.evaluate_campaign(manifest, self.root, self.policy)
+        self.assertTrue(any("pid must remain stable" in f for f in result["findings"]))
+
     def test_rejects_short_measurement_window(self) -> None:
         manifest = copy.deepcopy(self.manifest)
         run = manifest["measured_runs"][0]

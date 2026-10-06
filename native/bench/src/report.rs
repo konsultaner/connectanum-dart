@@ -329,6 +329,9 @@ pub struct WorkloadReport {
     pub protocol: String,
     #[serde(default = "default_client_impl")]
     pub client_impl: String,
+    /// Actual prepared WAMP settings; omitted for non-WAMP and legacy reports.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wamp_configuration: Option<Value>,
     #[serde(default = "default_router_workers")]
     pub router_workers: u32,
     #[serde(default = "default_native_runtime_threads")]

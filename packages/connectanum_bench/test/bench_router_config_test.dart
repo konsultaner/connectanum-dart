@@ -32,6 +32,15 @@ void main() {
             .whereType<int>()
             .toList(growable: false);
 
+        final webSocketSettings = settings.listeners
+            .map((listener) => listener.websocket)
+            .whereType<WebSocketListenerSettings>()
+            .toList(growable: false);
+        expect(webSocketSettings, hasLength(2));
+        for (final listener in webSocketSettings) {
+          expect(listener.subprotocols, contains('wamp.2.flatbuffers'));
+        }
+
         expect(sniHosts.where((host) => host == 'localhost'), hasLength(2));
         expect(rawSocketExponents, everyElement(30));
         expect(

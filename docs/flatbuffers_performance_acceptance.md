@@ -1,6 +1,7 @@
 # FlatBuffers performance acceptance contract
 
-Status: acceptance contract for milestone issue #103. The runner exposes the
+Status: acceptance contract for milestone issue #103. The campaign executor is
+implemented and has completed a Linux diagnostic run. The workload runner exposes the
 three construction groups for typed RPC and pub/sub and records payload-preparation
 and native-builder copy counters. Native FlatBuffers callers pass owned typed
 FlatBuffers spans directly into the native FlatBuffers frame path for two
@@ -23,7 +24,8 @@ RPC/pub-sub, all three PPT serializers and both `native_buffer` and
 `pre_encoded_span` groups over two iterations. The FlatBuffers PPT owned groups
 use the retained native span path; CBOR and MessagePack PPT remain serializer
 fallback rows. These matrices are correctness evidence, not a performance run.
-Typed runner groups still lack WebSocket and TLS coverage.
+The campaign diagnostic adds typed construction-group coverage for WebSocket
+and TLS, as described below; the complete primary matrix remains unaccepted.
 
 `latency_ms` covers construction, serialization, transport, receive-side decode,
 and response/event validation. `payload_preparation_us` measures runner-side
@@ -45,8 +47,8 @@ WebSocket masking, TLS, coalescing or kernel output avoid copies. All Dart
 callers, other WAMP envelopes, and CBOR/MessagePack PPT rows keep their current
 serializer paths, where ordinary native segmented sends copy Dart fragments.
 Keep those rows explicit until matching shared ownership/segment optimizations
-and end-to-end copied-byte evidence exist. Issue #96 remains open for supported
-paths and acceptance work still outstanding.
+and end-to-end copied-byte evidence exist. Issue #96's supported native-buffer
+contract is complete; the cross-codec benchmark requirement remains under #103.
 
 The runner integration and current copy-counter follow-up pass `bin/test-fast`
 and full `bin/verify` on 2026-10-05, including Chrome WebAssembly and live WAMP
@@ -161,9 +163,9 @@ starts. The collector profiles every application isolate present at the window
 start and rejects isolate-set changes or incomplete GC timelines. Process CPU
 ticks and RSS sampling use Linux `/proc`; those fields remain missing on other
 platforms and block acceptance. The machine-readable policy is
-`native/bench/artifact_gate/wamp_flatbuffers_performance.json`. The evaluator
-does not schedule or execute a campaign, and no
-manifest or measured comparison result exists yet. The report must not be used
+`native/bench/artifact_gate/wamp_flatbuffers_performance.json`. Scheduling and
+execution are provided by `tool/run_wamp_serializer_campaign.py`. No complete
+primary comparison result exists yet. The report must not be used
 to claim parity until the complete primary matrix runs with no missing metrics.
 
 The relative gate currently requires no point-estimate regression versus the
@@ -172,6 +174,68 @@ throughput and latency. Separate absolute per-row CPU/memory ceilings are still
 undeclared, and current Dart-managed TLS/socket and mixed-codec transcode copy
 paths are unmeasured. Those rows remain blocked until instrumentation and policy
 are complete.
+
+## Executing a campaign
+
+Build the release Rust `http_stream` driver and the matching native library, and
+resolve Dart dependencies before execution. On a quiet Linux runner with a clean
+checkout, use:
+
+```sh
+python3 tool/run_wamp_serializer_campaign.py \
+  --output /tmp/connectanum-wamp-campaign \
+  --driver native/bench/target/release/http_stream \
+  --native-lib "$CONNECTANUM_NATIVE_LIB" \
+  --runner-image '<exact runner image identifier>'
+```
+
+The output directory must be new. Defaults generate all 48 cases, three warmup
+passes and seven measured passes, with 10-second windows and at least 1,000
+observations per row. The minimum data-window time is four hours, before startup
+and metric collection. Codec order varies deterministically in balanced blocks;
+the three codecs for each case run consecutively. One driver and one source-mode
+Dart worker remain alive across every pass. Source VM mode is required by the
+allocation/GC collector; release driver/native builds precede execution and JIT
+warmup uses the recorded warmup passes.
+
+The executor records real workload timestamps, validates ordered attribution,
+and retains flushed raw JSONL, per-pass reports, scenarios, dependency locks,
+configuration, policy, logs and an atomically updated manifest. Reports include
+the actual prepared codec, TLS, PPT and construction configuration. The evaluator
+checks these settings against the declared case and requires all 48 distinct
+primary matrix dimensions. Driver/native-library, source, lock, configuration,
+policy and scenario hashes are checked again after execution. `--results-only`
+avoids retaining and rewriting the driver's growing aggregate report history.
+
+Known build/test/mutation processes visible through Linux `/proc` are rejected
+before and during execution. A file lock prevents another executor in the same
+filesystem context. These safeguards do not prove an exclusive physical host or
+detect all workloads outside a container's process namespace. Primary evidence
+still requires a controlled runner and inspection of recorded host state.
+Cancellation, timeout and partial failure retain evidence and terminate the
+driver's process group; completion requires successful exit, every planned row
+and confirmed process teardown.
+
+`--prepare-only` emits inputs without running benchmarks. `--diagnostic` permits
+short windows, a dirty checkout and exact `--case` subsets. Diagnostics always
+fail primary acceptance, even if numerical ratios look favorable. Missing metrics
+and incomplete execution also fail; the checked-in performance policy is
+unchanged. Both canonical verification scripts run the executor and comparator
+regression suites.
+
+The Linux arm64 diagnostic completes 120 real reports: four cases, all three
+codecs, three warmup and seven measured passes. It covers Dart/RawSocket RPC
+values, native/TLS RawSocket RPC pre-encoded spans, Dart/WebSocket pub-sub
+pre-encoded spans, and native/TLS WebSocket pub-sub native buffers. Each codec
+has 40 reports. All reports use one client PID and one server PID, input hashes
+stay unchanged, and concatenated pass files exactly match the raw driver JSONL.
+The driver exits 0 and process teardown completes. Its 200 ms/10-minimum-sample
+windows deliberately fall below policy; the real comparison exits 1 with 370
+findings, including diagnostic/dirty-source status, insufficient duration/sample
+counts and missing transport/TLS/SDK copy evidence. No parity is accepted.
+Evidence is retained under `/tmp/connectanum-flatbuffers-campaign-diagnostic-02`.
+The first diagnostic is retained separately as `diagnostic-01`: interruption after
+31 reports exposed the per-workload helper restart and motivated explicit reuse.
 
 ## Comparable workloads
 

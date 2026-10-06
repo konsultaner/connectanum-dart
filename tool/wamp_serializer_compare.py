@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import math
 import random
@@ -68,6 +69,59 @@ def _campaign_findings(manifest: dict[str, Any]) -> list[str]:
         findings.append("metadata.source_revision must be a full Git commit hash")
     if metadata.get("working_tree_clean") is not True:
         findings.append("metadata must affirm a clean working tree")
+    kind = metadata.get("campaign_kind")
+    if kind == "diagnostic":
+        findings.append("diagnostic campaigns cannot establish primary acceptance")
+    elif kind is not None and kind != "primary":
+        findings.append("metadata.campaign_kind is unsupported")
+    if metadata.get("inputs_unchanged") is False or (
+        kind == "primary" and metadata.get("inputs_unchanged") is not True
+    ):
+        findings.append("campaign inputs must remain unchanged throughout execution")
+    execution = manifest.get("execution")
+    if execution is not None or kind is not None:
+        if not isinstance(execution, dict):
+            findings.append("campaign execution metadata is missing")
+        else:
+            if execution.get("status") != "completed":
+                findings.append("campaign execution did not complete")
+            exit_code = execution.get("driver_exit_code")
+            if isinstance(exit_code, bool) or not isinstance(exit_code, int) or exit_code != 0:
+                findings.append("campaign execution driver did not exit successfully")
+            if execution.get("process_group_stopped") is not True:
+                findings.append("campaign execution did not confirm process teardown")
+            for run in [*manifest.get("warmup_runs", []), *manifest.get("measured_runs", [])]:
+                if not isinstance(run, dict) or run.get("status") != "completed":
+                    findings.append("campaign execution contains an incomplete pass")
+                    break
+                order, completed = run.get("order"), run.get("rows_completed")
+                if not isinstance(order, list) or isinstance(completed, bool) or (
+                    not isinstance(completed, int) or completed != len(order)
+                ):
+                    findings.append("campaign execution pass has an incomplete report count")
+                    break
+    if kind == "primary":
+        cases = manifest.get("cases")
+        expected = set(itertools.product(
+            ("rpc", "pubsub"), ("rawsocket", "websocket"), (False, True),
+            ("dart", "native"), ("values", "native_buffer", "pre_encoded_span"),
+        ))
+        fields = ("mode", "transport", "secure_transport", "client_impl", "construction")
+        actual = [tuple(case.get(field) for field in fields) for case in cases
+                  if isinstance(case, dict)] if isinstance(cases, list) else []
+        valid_types = all(type(item[2]) is bool and all(
+            isinstance(item[index], str) for index in (0, 1, 3, 4)
+        ) for item in actual)
+        if len(actual) != 48 or not valid_types or set(actual) != expected:
+            findings.append("primary campaign matrix must contain all 48 distinct declared cases")
+        for key in ("router_config_sha256", "policy_sha256"):
+            if not isinstance(metadata.get(key), str) or not re.fullmatch(r"[0-9a-f]{64}", metadata[key]):
+                findings.append(f"primary metadata.{key} must be a SHA-256 hash")
+        artifacts = metadata.get("artifacts_sha256")
+        for key in ("driver", "native_library"):
+            digest = artifacts.get(key) if isinstance(artifacts, dict) else None
+            if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                findings.append(f"primary metadata.artifacts_sha256.{key} must be a SHA-256 hash")
     for key in ("scenario_sha256",):
         if not isinstance(metadata.get(key), str) or not re.fullmatch(
             r"[0-9a-f]{64}", metadata[key]
@@ -296,7 +350,11 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
         if isinstance(value, dict) and value.get("status") == "not_applicable":
             if key == "transport_copy_bytes":
                 missing.append(f"{label}: transport_copy_bytes cannot be not_applicable")
-            elif key == "e2ee_copy_bytes" and report.get("ppt_scheme") == "wamp":
+            elif key == "e2ee_copy_bytes" and (
+                report.get("ppt_scheme") == "wamp"
+                or isinstance(report.get("wamp_configuration"), dict)
+                and report["wamp_configuration"].get("ppt_scheme") == "wamp"
+            ):
                 missing.append(f"{label}: encrypted e2ee_copy_bytes cannot be not_applicable")
             elif not isinstance(value.get("reason"), str) or not value["reason"].strip():
                 missing.append(f"{label}: {key} not-applicable entry needs a reason")
@@ -329,6 +387,34 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
         ):
             missing.append(f"{label}: e2ee_copy_bytes requires complete pipeline coverage without unknown boundaries")
     return missing
+
+
+def _configuration_findings(report: dict[str, Any], case: dict[str, Any], codec: str,
+                            *, label: str, required: bool) -> list[str]:
+    configuration = report.get("wamp_configuration")
+    if not isinstance(configuration, dict):
+        return [f"{label}: missing actual WAMP configuration"] if required else []
+    expected = {"serializer": codec}
+    findings = []
+    if required:
+        expected.update({
+            "peer_serializer": None, "peer_count": 1,
+            "secure_transport": case.get("secure_transport"),
+            "ppt_scheme": "x_connectanum_bench_typed", "ppt_serializer": codec,
+            "payload_construction": case.get("construction"),
+            "ppt_cipher": None, "ppt_keyid": None,
+        })
+        for field, value in {
+            "protocol": f'wamp_{case.get("transport")}_{case.get("mode")}',
+            "client_impl": case.get("client_impl"),
+            "request_chunk_bytes": 65536, "response_chunk_bytes": 65536,
+        }.items():
+            if report.get(field) != value:
+                findings.append(f"{label}: reported {field} does not match the declared case")
+    for field, value in expected.items():
+        if field not in configuration or type(configuration[field]) is not type(value) or configuration[field] != value:
+            findings.append(f"{label}: actual WAMP {field} does not match the declared case")
+    return findings
 
 
 def _summarize_report(
@@ -481,6 +567,8 @@ def evaluate_campaign(
         raise CampaignError("manifest must record a non-zero deterministic order_seed")
 
     findings: list[str] = _campaign_findings(manifest)
+    metadata = manifest.get("metadata")
+    configuration_required = isinstance(metadata, dict) and metadata.get("campaign_kind") is not None
     loaded_warmups: list[dict[str, dict[str, Any]]] = []
     for run in warmups:
         _, by_name = _resolve_results(base_dir, run)
@@ -491,6 +579,21 @@ def evaluate_campaign(
             raise CampaignError("measured run indices must be consecutive and start at 1")
         _, by_name = _resolve_results(base_dir, run)
         loaded_runs.append(by_name)
+
+    if configuration_required:
+        execution = manifest.get("execution")
+        observed = execution.get("observed_process_pids") if isinstance(execution, dict) else None
+        for process_name in ("client_process_metrics", "server_process_metrics"):
+            pids = []
+            for by_name in [*loaded_warmups, *loaded_runs]:
+                for report in by_name.values():
+                    process = report.get(process_name)
+                    pid = process.get("pid") if isinstance(process, dict) else None
+                    pids.append(pid)
+            if not all(type(pid) is int and pid > 0 for pid in pids) or len(set(pids)) != 1:
+                findings.append(f"campaign {process_name}.pid must remain stable across warmup and measurement")
+            elif not isinstance(observed, dict) or observed.get(process_name) != pids[0]:
+                findings.append(f"campaign {process_name}.pid does not match execution attribution")
 
     results: list[dict[str, Any]] = []
     for case in cases:
@@ -515,6 +618,13 @@ def evaluate_campaign(
                     f"{case_id} warm-up {warmup_index}: missing workloads "
                     + ", ".join(missing_warmup_rows)
                 )
+            for codec, name in rows.items():
+                if name in warmup:
+                    findings.extend(_configuration_findings(
+                        warmup[name], case, codec,
+                        label=f"{case_id} warm-up {warmup_index} {codec}",
+                        required=configuration_required,
+                    ))
 
         case_reports: dict[str, list[dict[str, Any]]] = {codec: [] for codec in CODECS}
         for run_index, by_name in enumerate(loaded_runs, start=1):
@@ -555,6 +665,9 @@ def evaluate_campaign(
         for codec in CODECS:
             for run_index, report in enumerate(case_reports[codec], start=1):
                 label = f"{case_id} repetition {run_index} {codec}"
+                findings.extend(_configuration_findings(
+                    report, case, codec, label=label, required=configuration_required,
+                ))
                 summary, evidence_findings = _summarize_report(
                     report,
                     min_duration_ms=min_duration_ms,
@@ -621,6 +734,7 @@ def evaluate_campaign(
                             if key in summary
                         },
                         "copy_metrics": report.get("copy_metrics"),
+                        "wamp_configuration": report.get("wamp_configuration"),
                     }
                 )
         for metric in ALL_METRICS:

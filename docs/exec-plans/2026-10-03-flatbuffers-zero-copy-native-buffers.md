@@ -7,7 +7,16 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `e6fb28c8`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up fixes the benchmark test runtime leak at pushed `1aafa099`.
+The current follow-up implements the paired campaign executor on top of pushed
+runtime repair `87688b8c`. Scheduling, streamed reports, input hashes and partial
+failure/cancellation teardown have focused regression coverage. Real reports now
+retain actual WAMP codec/TLS/PPT/construction settings, and the evaluator rejects
+misattributed codecs and repeated primary matrix dimensions. A real Linux
+diagnostic completes all 120 reports and full `bin/verify` passes at exit 0.
+No parity is accepted;
+shared CBOR/MessagePack owned submission and complete copy metrics remain open.
+
+The preceding follow-up fixes the benchmark test runtime leak at pushed `1aafa099`.
 Hosted Fast Checks failed eight cases after native E2EE factory tests left the
 process-wide client runtime running. The Linux reproducer fails six accounting
 cases; the factory-test runtime teardown repairs all 39 related cases with no
@@ -15,8 +24,8 @@ native skips. All 1,498 full Linux benchmark cases now pass with no native skips
 The fresh repository baseline and full `bin/verify` pass at exit 0, including
 Rust, VM, consumers, 1,498 benchmark, 4,935 router, 4,690 core browser and 2,829
 client browser cases (20 declared native-only client skips).
-Campaign-runner implementation follows publication of this CI repair;
-the candidate and nine passing process/schedule tests remain outside the repo.
+The repair is pushed to both remotes as `87688b8c`; exact-head hosted CI remains
+in progress. Both package publish dry-runs, binding and GuardMalloc checks pass.
 
 The preceding follow-up builds on pushed `dbeda203` with benchmark metric
 validation, VM isolate fallback and coverage repairs. Fresh baseline verification
@@ -74,6 +83,41 @@ acceptance and evidence, not a claim that every feature is unimplemented.
    performance rows. SDK/TLS/transcode copy gaps and absent campaign results
    remain blockers; do not weaken the parity or copy gates.
 
+## Campaign executor (2026-10-06)
+
+- [x] Implement all 48 primary cases and deterministic balanced codec schedules,
+  retaining one driver/worker through warmup and measured passes.
+- [x] Stream flushed JSONL without rebuilding aggregate report history.
+- [x] Preserve partial/cancelled evidence and verify process-group cleanup.
+- [x] Reject busy hosts, changed inputs, incomplete execution and diagnostics
+  as primary acceptance; keep the checked-in numeric policy unchanged.
+- [x] Retain actual WAMP configuration and reject codec/profile misattribution
+  and repeated primary matrix dimensions. Fail-first regressions are preserved.
+- [x] Run focused Python, Rust and benchmark-router configuration checks.
+- [x] Preserve the first interrupted Linux diagnostic: 31 distinct client PIDs
+  exposed that helpers recycled after every row. Add explicit successful RPC/
+  pub-sub reuse and stable client/server PID checks; preserve default, failed and
+  cancellation-workload recycling and test close/recovery lifetimes.
+- [x] Exercise real Linux codec/transport/TLS/construction rows and inspect
+  actual process metrics, raw reports and teardown.
+- [x] Complete three warmup and seven measured passes for four paired cases:
+  40 reports per codec, one client PID, one server PID, unchanged inputs,
+  exact raw/per-pass JSONL equality and driver exit 0. The short diagnostic
+  comparison fails at exit 1 with 370 findings; no primary acceptance is claimed.
+- [x] Pass all 1,502 Linux benchmark cases with no native skips. Targeted library
+  coverage passes the unchanged 98% gate at 2,925/2,979 lines (98.187%) with no
+  benchmark-specific policy finding; the full repository report remains separate.
+- [x] Pass full `bin/verify`, including all VM, consumer, benchmark, router and
+  browser suites. Fresh Rust benchmark tests cover the final metadata alias fix.
+- [x] Review the critical lifecycle/report guards and verify companion concerns
+  against the actual sequential driver, input hashes and idempotent sampler.
+- [ ] Commit and push this follow-up; accept exact-head hosted checks separately.
+- [ ] Complete copy coverage, shared binary-codec ownership paths, hosted
+  campaign publication and all primary performance gates for #103.
+
+See [campaign contract](../flatbuffers_performance_acceptance.md) for execution
+commands and limitations. A short diagnostic cannot satisfy primary acceptance.
+
 ## Shared-runtime test teardown (2026-10-06)
 
 - [x] Inspect the exact-head Fast Checks failure at `1aafa099`: eight benchmark
@@ -87,7 +131,8 @@ acceptance and evidence, not a claim that every feature is unimplemented.
 - [x] Complete the fresh `bin/test-fast` repository baseline at exit 0.
 - [x] Pass fresh full `bin/verify` at exit 0 with Rust, VM, consumer, benchmark,
   router and full browser suites. Focused formatting and analysis also pass.
-- [ ] Push the repair and accept required hosted checks on its exact head.
+- [x] Push the repair to both remotes as `87688b8c`.
+- [ ] Accept required hosted checks on that exact head.
 
 Evidence: `/tmp/connectanum-flatbuffers-ci-1aafa-fast-job.log`,
 `/tmp/connectanum-flatbuffers-ci-1aafa-runtime-leak-{repro,fixed}.{log,exit}`.
