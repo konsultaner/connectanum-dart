@@ -2,6 +2,8 @@
 library;
 
 import 'dart:ffi';
+import 'dart:io';
+import 'dart:isolate';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -56,6 +58,109 @@ void main() {
     expect(nativeExternalByteSlice(bytes), isNull);
     expect(nativeExternalByteSlice(Uint8List.sublistView(bytes, 1, 3)), isNull);
   });
+
+  for (final shape in ['full', 'readonly', 'partial']) {
+    test('rejects anchored Dart-owned $shape storage with matching bounds', () {
+      final root = allocateNativeExternalBytes(256)..fillRange(0, 256, 42);
+      final anchor = Object();
+      retainNativeExternalBytes(anchor, root);
+      final foreign = Uint8List(256)..fillRange(0, 256, 227);
+      final input = switch (shape) {
+        'readonly' => foreign.asUnmodifiableView(),
+        'partial' => Uint8List.sublistView(foreign, 17, 81),
+        _ => foreign,
+      };
+      expect(nativeExternalByteSlice(input, anchor: anchor), isNull);
+      expect(input.first, 227);
+    });
+  }
+
+  for (final readonly in [false, true]) {
+    test(
+      'rejects an anchor from another native allocation readonly=$readonly',
+      () {
+        final root = allocateNativeExternalBytes(256)..fillRange(0, 256, 42);
+        final foreign = allocateNativeExternalBytes(256)
+          ..fillRange(0, 256, 119);
+        final anchor = Object();
+        retainNativeExternalBytes(anchor, root);
+        final view = Uint8List.sublistView(foreign, 17, 81);
+        final input = readonly ? view.asUnmodifiableView() : view;
+        expect(nativeExternalByteSlice(input, anchor: anchor), isNull);
+        expect(input.first, 119);
+        expect(nativeExternalByteSlice(foreign)!.pointer.value, 119);
+      },
+    );
+  }
+
+  for (final native in [false, true]) {
+    test(
+      'rejects identical contents in a foreign allocation native=$native',
+      () {
+        final root = allocateNativeExternalBytes(64)..fillRange(0, 64, 42);
+        final anchor = Object();
+        retainNativeExternalBytes(anchor, root);
+        final foreign = native
+            ? allocateNativeExternalBytes(64)
+            : Uint8List(64);
+        foreign.fillRange(0, 64, 42);
+        expect(foreign, orderedEquals(root));
+        expect(nativeExternalByteSlice(foreign, anchor: anchor), isNull);
+      },
+    );
+  }
+
+  test(
+    'resolves legitimate read-only nested views with the same allocation',
+    () {
+      final root = allocateNativeExternalBytes(256)..fillRange(0, 256, 73);
+      final anchor = Object();
+      retainNativeExternalBytes(anchor, root);
+      final first = Uint8List.sublistView(root, 17, 193).asUnmodifiableView();
+      final nested = Uint8List.sublistView(first, 13, 89).asUnmodifiableView();
+      final slice = nativeExternalByteSlice(nested, anchor: anchor);
+      expect(slice, isNotNull);
+      expect(slice!.length, nested.length);
+      expect(slice.pointer.asTypedList(slice.length), orderedEquals(nested));
+    },
+  );
+
+  test(
+    'native SHA-256 hashes the requested bytes when its anchor is foreign',
+    () {
+      final root = allocateNativeExternalBytes(32)..fillRange(0, 32, 42);
+      final anchor = Object();
+      retainNativeExternalBytes(anchor, root);
+      final input = Uint8List(32)..fillRange(0, 32, 227);
+      final runtime = NativeClientRuntime.instance();
+      final handle = runtime.createSha256State();
+      expect(runtime.updateSha256(handle, input, anchor: anchor), input.length);
+      final actual = runtime.finalizeSha256State(handle);
+      expect(actual, orderedEquals(sha256.convert(input).bytes));
+      expect(actual, isNot(orderedEquals(sha256.convert(root).bytes)));
+    },
+    skip: _nativeShaRuntimeSkipReason(),
+  );
+
+  test(
+    'actual GC retains allocation until its final anchor is dropped',
+    () async {
+      final package = await Isolate.resolvePackageUri(
+        Uri.parse('package:connectanum_client/connectanum.dart'),
+      );
+      final root = File.fromUri(package!).parent.parent;
+      final config = (await Isolate.packageConfig)!;
+      final result = await Process.run(Platform.resolvedExecutable, [
+        '--enable-vm-service=0',
+        '--disable-service-auth-codes',
+        '--packages=${config.toFilePath()}',
+        '${root.path}/test/transport/support/external_byte_buffer_gc_probe.dart',
+      ]);
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      expect(result.stdout, contains('EXTERNAL_PROVENANCE_GC_OK'));
+    },
+    timeout: const Timeout(Duration(seconds: 45)),
+  );
 
   test('validates allocation lengths', () {
     expect(() => allocateNativeExternalBytes(-1), throwsRangeError);

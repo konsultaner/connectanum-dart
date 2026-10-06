@@ -778,7 +778,8 @@
       "native/bench/bench_tls.key",
       "packages/connectanum_client/test/transport/native/support/deferred_e2ee_message_cases.dart",
       "packages/connectanum_client/test/transport/native/support/deferred_e2ee_gc_probe.dart",
-      "packages/connectanum_client/test/transport/native/support/deferred_session_message_cases.dart"
+      "packages/connectanum_client/test/transport/native/support/deferred_session_message_cases.dart",
+      "packages/connectanum_client/test/transport/support/external_byte_buffer_gc_probe.dart"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": true,

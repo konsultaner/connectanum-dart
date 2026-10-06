@@ -7,6 +7,24 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): native external-buffer allocation provenance.
+Six fail-first regressions show that matching bounds allowed a foreign anchor
+to redirect a native read, including an incorrect SHA-256 digest. The resolver
+now verifies backing-buffer equality and retains that buffer with its anchor.
+The final 20-case suite passes without skips on macOS and Linux arm64, including
+equal-content foreign-allocation controls and actual GC retention/collection.
+The malloc finalizer and existing copying fallback are unchanged. Fresh quiet
+`bin/verify` passes at exit 0, including Rust/VM/consumers, 1,563 benchmark,
+4,958 router, 4,751 browser core and 2,829 browser client tests with the unchanged
+20 native-only skips. Evidence: `/tmp/connectanum-external-provenance-verify.{log,exit}`.
+No total-copy or performance acceptance follows. Both preceding `a9907161`
+hosted CI runs now pass all 41 jobs: [push](https://github.com/konsultaner/connectanum-dart/actions/runs/37523093121)
+and [PR](https://github.com/konsultaner/connectanum-dart/actions/runs/37523101879).
+The publication hold is released; resulting-head hosted checks remain pending.
+Master `3bac4cf5` was fetched from both remotes and is already integrated;
+`git merge github/master` reports Already up to date. Research: [allocation
+provenance](../research/2026-10-07-native-external-buffer-provenance.md).
+
 Current diagnostic follow-up (2026-10-07): real Dart SDK backpressure.
 The four 16 MiB full/read-only/partial/read-only-partial cases require genuine
 EAGAIN, pending flush, positive writes after receiver resumption and exact

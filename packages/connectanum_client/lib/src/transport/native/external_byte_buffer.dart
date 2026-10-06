@@ -13,11 +13,13 @@ final _externalAnchors = Expando<_NativeExternalByteBuffer>(
 final class _NativeExternalByteBuffer {
   const _NativeExternalByteBuffer(
     this.pointer,
+    this.buffer,
     this.baseOffsetInBytes,
     this.lengthInBytes,
   );
 
   final ffi.Pointer<ffi.Uint8> pointer;
+  final ByteBuffer buffer;
   final int baseOffsetInBytes;
   final int lengthInBytes;
 }
@@ -62,6 +64,7 @@ Uint8List allocateNativeExternalBytes(int length) {
   }
   final owner = _NativeExternalByteBuffer(
     pointer,
+    bytes.buffer,
     bytes.offsetInBytes,
     bytes.lengthInBytes,
   );
@@ -90,7 +93,9 @@ NativeExternalByteSlice? nativeExternalByteSlice(
       (anchor == null ? null : _externalAnchors[anchor]) ??
       _externalAnchors[bytes] ??
       _externalRoots[bytes];
-  if (owner == null) {
+  // Buffer getters can return distinct wrappers for the same allocation.
+  // Their equality checks backing storage, including read-only/nested views.
+  if (owner == null || bytes.buffer != owner.buffer) {
     return null;
   }
   final start = bytes.offsetInBytes;

@@ -1,0 +1,44 @@
+{
+  "status": "focused macOS/Linux tests and full bin/verify passed; publication and hosted current-head checks pending",
+  "source_sha256": {
+    "packages/connectanum_client/lib/src/transport/native/external_byte_buffer.dart": "8fdba059dc23e2b16a6c545792b4ea6d8e6b37f52d92c00ffdfcf4125e7c3c46",
+    "packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart": "3814134b69627c38456376dca4c23f9918074653ed55f1318f664db594eb58e7",
+    "packages/connectanum_client/test/transport/support/external_byte_buffer_gc_probe.dart": "8014c5a2abdd2893a402f26d3dd89718090d8bfa137c11612b3b14872ea4bc68"
+  },
+  "evidence": {
+    "fail_first": {
+      "log": "/tmp/connectanum-external-provenance-before.log",
+      "log_sha256": "75339c4bb5ae003b40050a13fe8fafb521496c09fb5c3474187237befbd4c681",
+      "exit_code": 1
+    },
+    "macos_final_20": {
+      "log": "/tmp/connectanum-external-provenance-content-controls-mac.log",
+      "log_sha256": "7c982c0b958f0b22dc169b30a2c9cef708d1f29f18ec1c62b036a38682a5e52e",
+      "exit_code": 0
+    },
+    "linux_final_20": {
+      "log": "/tmp/connectanum-external-provenance-content-controls-linux.log",
+      "log_sha256": "7c982c0b958f0b22dc169b30a2c9cef708d1f29f18ec1c62b036a38682a5e52e",
+      "exit_code": 0
+    },
+    "canonical_verify": {
+      "log": "/tmp/connectanum-external-provenance-verify.log",
+      "log_sha256": "8deb15eafb595528d378759b3b050aee7ba0e0ff1f37aa6b28b19779de90e9cd",
+      "exit_code": 0,
+      "benchmark_tests": 1563,
+      "router_tests": 4958,
+      "core_browser_tests": 4751,
+      "client_browser_tests": 2829,
+      "client_browser_native_only_skips": 20
+    }
+  },
+  "linux_executed_sources_match": true,
+  "platforms": {
+    "macos_final_20": "Dart 3.13.1 macos_arm64",
+    "linux_final_20": "Dart 3.13.5 linux_arm64"
+  },
+  "linux_production_library": {
+    "source_commit": "b8096fd6e963d620317238e1db7be5cc744f87b2",
+    "sha256": "ba03ba1d774b52a18270c26a7ec6d4cd9d61ea6858905e0b8021995ce4ca7bfb"
+  }
+}
