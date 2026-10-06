@@ -163,5 +163,6 @@
     "clientBrowserCases": 2829,
     "clientNativeOnlyBrowserSkips": 20,
     "productionNativeSchemaSourcesChanged": false
-  }
+  },
+  "retryBoundary": "native SocketBase::Write loop; forced short writes/EINTR do not establish Dart-level EAGAIN resumption"
 }

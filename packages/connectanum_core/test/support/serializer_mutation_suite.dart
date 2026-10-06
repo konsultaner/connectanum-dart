@@ -15,6 +15,7 @@ import '../serializer/flatbuffers_message_writer_test.dart'
 import '../serializer/flatbuffers_cbor_validation_test.dart'
     as flatbuffers_cbor_validation;
 import '../serializer/flatbuffers_frame_test.dart' as flatbuffers_frame;
+import '../serializer/flatbuffers_fragments_test.dart' as flatbuffers_fragments;
 import '../serializer/flatbuffers_message_reader_test.dart'
     as flatbuffers_message_reader;
 import '../serializer/flatbuffers_metadata_roundtrip_test.dart'
@@ -62,6 +63,7 @@ void main() {
   group('FlatBuffers message writer', flatbuffers_message_writer.main);
   group('FlatBuffers CBOR validation', flatbuffers_cbor_validation.main);
   group('FlatBuffers frame', flatbuffers_frame.main);
+  group('flatbuffers fragments', flatbuffers_fragments.main);
   group('FlatBuffers message reader', flatbuffers_message_reader.main);
   group('FlatBuffers metadata roundtrip', flatbuffers_metadata_roundtrip.main);
   group('FlatBuffers metadata access', flatbuffers_metadata_access.main);

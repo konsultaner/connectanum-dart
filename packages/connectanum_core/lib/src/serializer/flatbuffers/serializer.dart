@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../../message/abstract_message.dart';
+import '../../message/abstract_message_with_payload.dart';
 import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
 import 'message_reader.dart';
@@ -10,6 +11,7 @@ import 'cbor_validation.dart';
 import 'dictionary_retention.dart';
 import 'message_writer.dart';
 import 'runtime.dart';
+import 'wire_writer.dart';
 
 /// The pinned Connectanum WAMP FlatBuffers binding.
 ///
@@ -27,6 +29,24 @@ class Serializer extends AbstractSerializer {
       throw ArgumentError('FlatBuffers frame exceeds the byte limit');
     }
     return bytes;
+  }
+
+  /// Encode one WAMP frame while retaining its encoded application byte views.
+  /// Concatenate the fragments in order; each fragment is part of that frame.
+  /// Keep their backing owners and contents valid until transmission completes.
+  /// Ordinary Dart arguments still require CBOR encoding before composition.
+  @override
+  List<Uint8List>? serializeFragments(AbstractMessage message) {
+    if (message is! AbstractMessageWithPayload) return null;
+    final builder = WampFlatBufferBuilder();
+    final vectors = <DeferredFlatBufferVector>[];
+    final root = writeWampFlatBufferMessage(
+      message,
+      builder,
+      deferredVectors: vectors,
+    );
+    if (vectors.isEmpty) return null;
+    return finishWampFlatBufferFragments(builder, root, vectors);
   }
 
   @override

@@ -423,14 +423,16 @@ mod tests {
             if let Ok(directory) = std::env::var("CONNECTANUM_FLATBUFFERS_CODEC_DIR") {
                 let directory = std::path::Path::new(&directory);
                 std::fs::write(directory.join(format!("rust_codec_{name}.bin")), &frame).unwrap();
-                let dart_path = directory.join(format!("dart_codec_{name}.bin"));
-                if dart_path.exists() {
-                    let dart = parse_message(
-                        Serializer::Flatbuffers,
-                        Bytes::from(std::fs::read(dart_path).unwrap()),
-                    )
-                    .unwrap();
-                    assert_eq!(dart.message, original.message, "Dart {name}");
+                for language in ["dart", "dart_segments"] {
+                    let dart_path = directory.join(format!("{language}_codec_{name}.bin"));
+                    if dart_path.exists() {
+                        let dart = parse_message(
+                            Serializer::Flatbuffers,
+                            Bytes::from(std::fs::read(dart_path).unwrap()),
+                        )
+                        .unwrap();
+                        assert_eq!(dart.message, original.message, "{language} {name}");
+                    }
                 }
             }
         }

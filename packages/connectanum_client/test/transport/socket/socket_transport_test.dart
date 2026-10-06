@@ -19,10 +19,16 @@ import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_client/src/transport/socket/socket_transport.dart';
 import 'package:test/test.dart';
 
+import 'package:connectanum_core/flatbuffers_serializer.dart'
+    as flatbuffers_serializer;
+import 'package:connectanum_core/src/serializer/flatbuffers/session_profile.dart';
+import 'package:connectanum_client/src/transport/dart_transport_copy_metrics.dart';
+
 part 'socket_chunk_boundaries.dart';
 
 void main() {
   _controlledSocketChunks();
+  _segmentedSocketSends();
   group('Socket open and close', () {
     test('initial close', () async {
       final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);

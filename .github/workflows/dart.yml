@@ -46,6 +46,9 @@ jobs:
           CONNECTANUM_SKIP_NATIVE_BUILD=1 \
             LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
             dart run tool/sdk_socket_copy_probe.dart | tee "$probe_output/observations.jsonl"
+          CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            dart run tool/rawsocket_copy_probe.dart | tee "$probe_output/rawsocket-ppt.jsonl"
           if env -u LD_PRELOAD CONNECTANUM_SKIP_NATIVE_BUILD=1 \
             dart run tool/sdk_socket_copy_probe.dart \
             > "$probe_output/missing-interposer.log" 2>&1; then

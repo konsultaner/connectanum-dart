@@ -47,9 +47,18 @@ void main(List<String> arguments) {
     File('${directory.path}/dart_codec_$name.bin').writeAsBytesSync(
       codec.serialize(actual),
     );
+    final fragments =
+        codec.serializeFragments(actual) ?? [codec.serialize(actual)];
+    final builder = BytesBuilder(copy: false);
+    for (final fragment in fragments) {
+      builder.add(fragment);
+    }
+    File('${directory.path}/dart_segments_codec_$name.bin').writeAsBytesSync(
+      builder.takeBytes(),
+    );
   }
   stdout.writeln(
-    'Public Dart codec preserved all ${cases.length} native messages',
+    'Public Dart codec preserved all ${cases.length} native messages in contiguous and segmented output',
   );
 }
 

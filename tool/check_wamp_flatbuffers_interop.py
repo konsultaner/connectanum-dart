@@ -151,12 +151,12 @@ def main():
         canonical = {case["name"]: case for case in cases}
         for case in codec_cases:
             pinned = canonical[case["name"]]
-            for language in ["rust", "dart"]:
+            for language in ["rust", "dart", "dart_segments"]:
                 read_message((emitted / f"{language}_codec_{case['name']}.bin").read_bytes(),
                              pinned["wire"]["msg_type"], pinned["union_tag"], {})
         print(f"Unmodified upstream readers accepted {len(upstream_cases)} fixtures; "
               f"extended readers accepted {len(cases)} fixtures and Dart/Rust extension output; "
-              f"Python/Dart/Rust bidirectional Call conformance and all {len(codec_cases)} public codec messages passed.")
+              f"Python/Dart/Rust bidirectional Call conformance and contiguous/segmented Dart output for all {len(codec_cases)} public codec messages passed.")
 
 
 if __name__ == "__main__":

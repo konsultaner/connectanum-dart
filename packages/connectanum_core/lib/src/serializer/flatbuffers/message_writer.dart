@@ -19,6 +19,7 @@ int writeWampFlatBufferMessage(
   FlatBufferByteVectorReference? argumentsKeywordsVector,
   FlatBufferByteVectorReference? payloadVector,
   bool includeApplicationPayload = true,
+  List<DeferredFlatBufferVector>? deferredVectors,
 }) {
   final projection = projectWampFlatBufferMessage(message);
   final fields = projection.fields;
@@ -39,7 +40,11 @@ int writeWampFlatBufferMessage(
           'A control-only message cannot include application vectors',
         );
       }
-      return writeWampFlatBufferFields(fields, builder);
+      return writeWampFlatBufferFields(
+        fields,
+        builder,
+        deferredVectors: deferredVectors,
+      );
     }
     final lazy = message.toLazyPayload();
     final payload =
@@ -53,7 +58,11 @@ int writeWampFlatBufferMessage(
         );
       }
       body['payload'] = payload;
-      return writeWampFlatBufferFields(fields, builder);
+      return writeWampFlatBufferFields(
+        fields,
+        builder,
+        deferredVectors: deferredVectors,
+      );
     }
     if (argumentsVector != null) {
       body['args'] = argumentsVector;
@@ -86,5 +95,9 @@ int writeWampFlatBufferMessage(
       rootStringDictionaryKeys: true,
     );
   }
-  return writeWampFlatBufferFields(fields, builder);
+  return writeWampFlatBufferFields(
+    fields,
+    builder,
+    deferredVectors: deferredVectors,
+  );
 }

@@ -634,7 +634,6 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     final fragments = _handshakeCompleter.isCompleted
         ? _serializer.serializeFragments(message)
         : null;
-    Uint8List? fragmentedPayload;
     if (fragments != null) {
       var payloadLength = 0;
       for (final fragment in fragments) {
@@ -656,18 +655,10 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
         }
         return;
       }
-      final builder = BytesBuilder(copy: false);
-      for (final fragment in fragments) {
-        builder.add(fragment);
-      }
-      if (fragments.length > 1) {
-        DartTransportCopyMetrics.recordRawSocketFragmentCoalesceCopy(
-          payloadLength,
-        );
-      }
-      fragmentedPayload = builder.takeBytes();
+      _send0(_buildWampFrameFragments(fragments, payloadLength));
+      return;
     }
-    var serializedMessage = fragmentedPayload ?? _serializer.serialize(message);
+    var serializedMessage = _serializer.serialize(message);
     if (serializedMessage is String) {
       serializedMessage = utf8.encoder.convert(serializedMessage);
     }
@@ -757,6 +748,27 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     builder.add(payload);
     final frame = builder.takeBytes();
     DartTransportCopyMetrics.recordRawSocketFramePayloadCopy(payload.length);
+    return frame;
+  }
+
+  Uint8List _buildWampFrameFragments(
+    List<Uint8List> fragments,
+    int payloadLength,
+  ) {
+    _checkOutgoingPayloadLength(payloadLength);
+    final header = SocketHelper.buildMessageHeader(
+      SocketHelper.messageWamp,
+      payloadLength,
+      isUpgradedProtocol,
+    );
+    final frame = Uint8List(header.length + payloadLength);
+    frame.setRange(0, header.length, header);
+    var offset = header.length;
+    for (final fragment in fragments) {
+      frame.setRange(offset, offset + fragment.length, fragment);
+      offset += fragment.length;
+    }
+    DartTransportCopyMetrics.recordRawSocketFramePayloadCopy(payloadLength);
     return frame;
   }
 

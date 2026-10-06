@@ -140,6 +140,7 @@ class _ChunkSocket extends Stream<Uint8List> implements Socket {
   final _incoming = StreamController<Uint8List>(sync: true);
   final _done = Completer<void>();
   final writes = <List<int>>[];
+  final submitted = <List<int>>[];
   var destroyCount = 0;
 
   void feed(List<int> bytes) => _incoming.add(Uint8List.fromList(bytes));
@@ -158,7 +159,10 @@ class _ChunkSocket extends Stream<Uint8List> implements Socket {
   );
 
   @override
-  void add(List<int> bytes) => writes.add(List.of(bytes));
+  void add(List<int> bytes) {
+    submitted.add(bytes);
+    writes.add(List.of(bytes));
+  }
 
   @override
   bool setOption(SocketOption option, bool enabled) => true;
@@ -183,4 +187,141 @@ class _ChunkSocket extends Stream<Uint8List> implements Socket {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+void _segmentedSocketSends() {
+  for (final (name, serializer, serializerType)
+      in <(String, AbstractSerializer, int)>[
+        ('cbor', cbor_serializer.Serializer(), SocketHelper.serializationCbor),
+        (
+          'msgpack',
+          msgpack_serializer.Serializer(),
+          SocketHelper.serializationMsgpack,
+        ),
+        (
+          'flatbuffers',
+          flatbuffers_serializer.Serializer(),
+          SocketHelper.serializationFlatBuffers,
+        ),
+      ]) {
+    for (final length in [23, 65536]) {
+      test(
+        '$name sends segmented $length-byte body with one small-frame copy',
+        () async {
+          final socket = _ChunkSocket();
+          final transport = SocketTransport(
+            'localhost',
+            12345,
+            serializer,
+            serializerType,
+          );
+          addTearDown(transport.close);
+          await IOOverrides.runZoned(
+            transport.open,
+            socketConnect:
+                (
+                  host,
+                  port, {
+                  sourceAddress,
+                  int sourcePort = 0,
+                  timeout,
+                }) async => socket,
+          );
+          final subscription = transport.receive().listen((_) {});
+          addTearDown(subscription.cancel);
+          socket.feed(
+            SocketHelper.getInitialHandshake(
+              SocketHelper.maxMessageLengthExponent,
+              serializerType,
+            ),
+          );
+          await transport.onReady;
+          if (name == 'flatbuffers') {
+            final hello = Hello('realm', Details.forHello());
+            transport.send(hello);
+            final profile = const FlatBuffersSessionProfile.router()
+                .acceptIncoming(hello);
+            final welcome = Welcome(9, Details.forWelcome());
+            profile.prepareOutgoing(welcome);
+            final bytes = serializer.serialize(welcome) as Uint8List;
+            socket.feed(
+              (BytesBuilder(copy: false)
+                    ..add(
+                      SocketHelper.buildMessageHeader(
+                        SocketHelper.messageWamp,
+                        bytes.length,
+                        false,
+                      ),
+                    )
+                    ..add(bytes))
+                  .takeBytes(),
+            );
+          }
+          socket.writes.clear();
+          socket.submitted.clear();
+          final body = Uint8List(length);
+          final message = name == 'flatbuffers'
+              ? (Call(
+                  42,
+                  'com.probe',
+                  options: CallOptions(
+                    pptScheme: 'opaque',
+                    pptSerializer: 'flatbuffers',
+                  ),
+                )..transparentBinaryPayload = body)
+              : Call(42, 'com.probe', arguments: [body]);
+          final fragments = serializer.serializeFragments(message)!;
+          final payload = (BytesBuilder(
+            copy: false,
+          )..addAllFragments(fragments)).takeBytes();
+          DartTransportCopyMetrics.beginWindow();
+          late DartTransportCopyMetricsSnapshot copies;
+          try {
+            transport.send(message);
+          } finally {
+            copies = DartTransportCopyMetrics.endWindow();
+          }
+          final wire = (BytesBuilder(
+            copy: false,
+          )..addAllFragments(socket.writes)).takeBytes();
+          expect(
+            SocketHelper.getPayloadLength(Uint8List.sublistView(wire, 0, 4), 4),
+            payload.length,
+          );
+          expect(Uint8List.sublistView(wire, 4), payload);
+          final decoded =
+              serializer.deserialize(Uint8List.sublistView(wire, 4)) as Call;
+          expect(decoded.requestId, 42);
+          expect(decoded.procedure, 'com.probe');
+          expect(
+            name == 'flatbuffers'
+                ? decoded.transparentBinaryPayload
+                : decoded.arguments!.single,
+            body,
+          );
+          if (length == 23) {
+            expect(socket.submitted, hasLength(1));
+            expect(copies.rawSocketFramePayloadCopiedBytes, payload.length);
+            expect(copies.rawSocketFragmentCoalesceCopiedBytes, 0);
+            expect(copies.knownOwnCopyBytes, payload.length);
+          } else {
+            expect(
+              socket.submitted,
+              hasLength(1 + fragments.where((p) => p.isNotEmpty).length),
+            );
+            expect(socket.submitted.any((p) => identical(p, body)), true);
+            expect(copies.knownOwnCopyBytes, 0);
+          }
+        },
+      );
+    }
+  }
+}
+
+extension on BytesBuilder {
+  void addAllFragments(Iterable<List<int>> fragments) {
+    for (final fragment in fragments) {
+      add(fragment);
+    }
+  }
 }

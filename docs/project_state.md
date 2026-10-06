@@ -5,25 +5,55 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Current follow-up: reproducible Linux socket pointer diagnostics. The C
-interposer and Dart tool verify external full/read-only view reuse, partial-view
-copies, real short writes and EINTR, payload equality, port filtering and an
-independent C positive control. The absent-interposer run fails as required.
-All eight SDK cases and both controls pass on Dart 3.13.5 Linux arm64. Tool
-analysis and strict C compilation pass. The FlatBuffers CI job now runs the
-probe and its missing-interposer control and uploads the observations. Its exact
-step passes in the isolated Linux container; all 80 workflow regressions pass.
-The first step attempt failed only because that minimal image lacks `rg`; the
-control now uses Python and passes, with the failed evidence retained.
-This remains a boundary diagnostic;
-total SDK/TLS/crypto copies and performance acceptance are unfinished.
-Fresh `bin/test-fast` and full `bin/verify` both pass at exit 0, including
-Rust, VM, consumer/live checks, 1,563 benchmark, 4,958 router, 4,690 core
-Chrome/Dart2Wasm and 2,829 client browser cases (20 declared native-only skips).
-The final 80 workflow regressions also pass. Probe hashes still match the exact
-executed sources. Production native/schema sources are unchanged from `b8096fd6`.
-Both local companion reviews are complete and have no confirmed defect.
-Evidence: `/tmp/connectanum-sdk-socket-probe-{fast,verify}.{log,exit}`.
+Current follow-up: Dart FlatBuffers fragments and one-copy small RawSocket frames.
+The ordinary fragment API preserves encoded CBOR args/kwargs and opaque body
+views through valid forward-offset vector layout. Normal serialization and the
+wire schema are unchanged. Two public regressions fail before the writer; all
+61 focused core cases pass across seven payload-bearing message families.
+Three small-frame copy regressions fail before the shared transport repair;
+all 43 RawSocket tests then pass, including six codec/size copy/identity cases.
+The Linux developer probe now exercises real negotiated RawSocket PPT traffic,
+and CI uploads it beside the SDK boundary probe. The source audit corrects the
+forced short-write/EINTR boundary to the native SocketBase::Write loop; it does
+not establish Dart-level EAGAIN resumption. Partial SDK views, total SDK/TLS/
+crypto copies and the full strict parity campaign remain unfinished. Research:
+[segmented Dart sending](research/2026-10-06-dart-flatbuffers-segmented-send.md).
+The final 36-case real Linux PPT pointer probe passes with exact source hashes;
+Rust/Python readers accept contiguous and segmented output for all 25 messages.
+The first canonical fast attempt failed the new-test inventory. All four
+VM/browser inventories and their shared suite now include that test; all 80
+workflow regressions pass with unchanged thresholds. The next fast attempt
+failed the existing HELLO/GOODBYE rejection tests because controls used the
+fragment writer. Controls and absent-vector messages now return null to retain
+the normal serialize path. All 22 unchanged negotiation/rejection tests and
+61 core fragment cases pass. The exact Linux CI step also passes both probes
+and its missing-interposer control with final source hashes. A fresh canonical
+fast run passes the changed paths and then hits the unchanged two-second
+worker exit-before-READY deadline in the 1,563-case benchmark suite. Five
+isolated repeats pass without code/deadline changes. The failed full fast log
+is retained; timing sensitivity is not accepted as proof of a clean suite.
+Fresh quiet `bin/verify` now passes at exit 0, including Rust, VM,
+consumer/live checks, all 1,563 benchmark and 4,958 router cases, 4,751 core
+Chrome/Dart2Wasm cases and 2,829 client browser cases (20 declared native-only
+skips). The unchanged worker-readiness case passes in the complete benchmark
+suite without deadline or assertion changes. The final independent interop run
+also passes after the control fallback repair: 33 upstream fixtures, 42 extended
+fixtures and all 25 public messages in contiguous and segmented Dart output.
+Fresh sequential final `bin/test-fast` also passes at exit 0, including all
+1,563 benchmark cases and the unchanged readiness regression. Evidence:
+`/tmp/connectanum-flatbuffers-fragments-verify.{log,exit}`,
+`/tmp/connectanum-flatbuffers-fragments-final-interop.{log,exit}` and
+`/tmp/connectanum-flatbuffers-fragments-final-fast.{log,exit}`. Earlier failed
+logs remain failed evidence. The focused local GLM selector review completed without a concrete
+defect; two Qwen attempts reached output limits and are not review evidence.
+At preceding published checkpoint `a9907161`, hosted push Full Verify and VM
+Coverage pass; PR Full Verify also completes with no observed failure. Both
+current CI runs remain live for the MCP mutation gate. Do not push another
+checkpoint while those checks are still running. Preceding `b8096fd6` CI runs
+were cancelled by that newer push, so their successful individual jobs do not
+constitute complete hosted acceptance. This follow-up is prepared for a local
+commit; publication awaits the existing hosted mutation run. Full performance
+and remaining milestone acceptance stay open.
 
 Preceding follow-up: native PPT body reuse with empty outer CBOR/MessagePack
 keyword maps. The preceding implementation rejected these valid WAMP maps.

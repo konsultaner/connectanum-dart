@@ -105,6 +105,15 @@ WebSocket fragment coalescing. These counters are scoped to one workload
 window. They do not infer copies inside `dart:io`, socket/TLS implementations,
 or WebSocket masking performed by the Dart SDK.
 
+Small RawSocket fragments now go directly into the framed buffer in one payload
+copy, so their intermediate fragment-coalescing counter stays zero. FlatBuffers
+also implements the ordinary fragment API for encoded args/kwargs and opaque
+bodies. The [actual socket diagnostic](research/2026-10-06-dart-flatbuffers-segmented-send.md)
+observes full external body reuse and partial-view SDK copies separately; it does
+not turn the known-own lower bound into complete transport coverage or accept a
+timing campaign. Contiguous and segmented codec output are checked independently
+with Rust/Python readers.
+
 `transport_copy_bytes` sums measured copy operations across the client worker
 and router process for the active cleartext path. A payload can be counted
 again at a later layer, so this aggregate is copy traffic, not unique

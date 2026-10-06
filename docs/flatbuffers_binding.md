@@ -96,6 +96,21 @@ FlatBuffer rooted at `wamp.proto.Message`, without a file identifier. RawSocket
 framing supplies its network-order frame length separately. Batched FlatBuffers
 and alternative schema revisions are not implicitly supported.
 
+The Dart serializer supports both ordinary contiguous `serialize` output and
+`serializeFragments`, which retains existing encoded CBOR args/kwargs and opaque
+application byte views. Concatenate those fragments in order into one WAMP frame;
+they are not separate messages. The layouts can differ while using the same
+pinned binding. Keep backing owners and immutable contents valid until the
+transport completes its local write. Ordinary Dart arguments still require CBOR
+encoding, and an external database lease needs the adapter's own lifetime policy.
+
+The ordinary RawSocket transport frames small fragments in one payload copy and
+submits large fragments separately. Linux pointer checks verify that full/read-only
+external FlatBuffers PPT bodies can reach libc using their original storage;
+partial backing views still get copied by the pinned Dart SDK. See the
+[source and diagnostic scope](research/2026-10-06-dart-flatbuffers-segmented-send.md).
+These boundaries do not establish total SDK/TLS copies or performance parity.
+
 The root's slots are: union discriminator at vtable offset 4, union table at 6,
 and optional extension metadata at 8. A union discriminator is **not** a WAMP
 message ID. Use the following exact map:

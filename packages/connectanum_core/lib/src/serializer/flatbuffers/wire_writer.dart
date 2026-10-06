@@ -24,12 +24,14 @@ class FlatBufferByteVectorReference {
 /// application objects. The caller finishes/freezes the returned root offset.
 int writeWampFlatBufferFields(
   Map<String, Object?> fields,
-  fb.Builder builder,
-) => _Writer(builder).table(wampRootTable, fields);
+  fb.Builder builder, {
+  List<DeferredFlatBufferVector>? deferredVectors,
+}) => _Writer(builder, deferredVectors).table(wampRootTable, fields);
 
 class _Writer {
-  _Writer(this.builder);
+  _Writer(this.builder, this.deferredVectors);
   final fb.Builder builder;
+  final List<DeferredFlatBufferVector>? deferredVectors;
 
   static final enums = <String, Map<String, int>>{
     'msg_type': {
@@ -119,6 +121,7 @@ class _Writer {
     if (fields.keys.any((key) => !names.contains(key))) invalid();
     final offsets = <int, int>{};
     final scalars = <int, int>{};
+    final borrowed = <int, Uint8List>{};
     for (var slot = 0; slot < spec.fields.length; slot++) {
       final field = spec.fields[slot];
       final value = fields[field.name];
@@ -150,7 +153,16 @@ class _Writer {
         case FlatBufferFieldKind.scalarVector:
         case FlatBufferFieldKind.stringVector:
         case FlatBufferFieldKind.tableVector:
-          offsets[slot] = vector(field, value);
+          if (deferredVectors != null &&
+              field.kind == FlatBufferFieldKind.scalarVector &&
+              field.width == 1 &&
+              {'args', 'kwargs', 'payload'}.contains(field.name) &&
+              value is Uint8List) {
+            offsets[slot] = builder.writeListUint8(const <int>[]);
+            borrowed[slot] = value;
+          } else {
+            offsets[slot] = vector(field, value);
+          }
       }
     }
     builder.startTable(spec.fields.length);
@@ -169,7 +181,13 @@ class _Writer {
           builder.addUint64(entry.key, entry.value);
       }
     }
-    return builder.endTable();
+    final offset = builder.endTable();
+    for (final entry in borrowed.entries) {
+      deferredVectors!.add(
+        DeferredFlatBufferVector(offset, entry.key, entry.value),
+      );
+    }
+    return offset;
   }
 
   int vector(FlatBufferFieldSpec field, Object value) {
@@ -215,4 +233,65 @@ class _Writer {
         invalid();
     }
   }
+}
+
+/// A byte vector appended after the owned routing envelope has been finished.
+class DeferredFlatBufferVector {
+  DeferredFlatBufferVector(this.tableOffset, this.slot, this.bytes);
+  final int tableOffset;
+  final int slot;
+  final Uint8List bytes;
+}
+
+/// Patch forward offsets into the envelope and retain the exact body views.
+/// Only the small vector length/alignment headers are allocated here.
+List<Uint8List> finishWampFlatBufferFragments(
+  fb.Builder builder,
+  int root,
+  List<DeferredFlatBufferVector> vectors,
+) {
+  builder.finish(root);
+  final control = builder.buffer;
+  final data = ByteData.sublistView(control);
+  final fragments = <Uint8List>[control];
+  var length = control.length;
+  const maximumBytes = 64 * 1024 * 1024;
+  if (length > maximumBytes) {
+    throw ArgumentError('FlatBuffers frame exceeds the byte limit');
+  }
+  for (final vector in vectors) {
+    final table = control.length - vector.tableOffset;
+    if (table < 0 || table > control.length - 4 || vector.slot < 0) {
+      throw StateError('Invalid deferred FlatBuffers table');
+    }
+    final vtable = table - data.getInt32(table, Endian.little);
+    if (vtable < 0 || vtable > control.length - 4) {
+      throw StateError('Invalid deferred FlatBuffers vtable');
+    }
+    final slot = 4 + vector.slot * 2;
+    final vtableLength = data.getUint16(vtable, Endian.little);
+    if (slot + 2 > vtableLength || vtable + vtableLength > control.length) {
+      throw StateError('Invalid deferred FlatBuffers slot');
+    }
+    final fieldOffset = data.getUint16(vtable + slot, Endian.little);
+    final field = table + fieldOffset;
+    if (fieldOffset == 0 || field > control.length - 4) {
+      throw StateError('Absent deferred FlatBuffers field');
+    }
+    final padding = (12 - length % 8) % 8;
+    final target = length + padding;
+    final nextLength = target + 4 + vector.bytes.length;
+    if (nextLength > maximumBytes) {
+      throw ArgumentError('FlatBuffers frame exceeds the byte limit');
+    }
+    data.setUint32(field, target - field, Endian.little);
+    final header = Uint8List(padding + 4);
+    ByteData.sublistView(
+      header,
+    ).setUint32(padding, vector.bytes.length, Endian.little);
+    fragments.add(header);
+    fragments.add(vector.bytes);
+    length = nextLength;
+  }
+  return fragments;
 }
