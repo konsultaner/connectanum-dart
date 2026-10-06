@@ -4,10 +4,37 @@ Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/flatbuffers-zero-copy` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
-released master `3bac4cf5` is integrated. Preceding checkpoint: `5f1afae9`.
+released master `3bac4cf5` is integrated. Preceding checkpoint: `62f99ebb`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up repairs the separate Fast Checks aggregate job budget
+The current follow-up repairs WampApp's encrypted-vault privacy-test oracle.
+Hosted Consumer job `112272706961` on `62f99ebb` passes 409 cases and fails one
+because randomized Base64 ciphertext contains `bob`. The captured envelope has
+only public metadata; the bare-string predicate is not a plaintext-leak oracle.
+The test now allows only the exact public vault/backup metadata fields and checks
+quoted JSON tokens. Production crypto is unchanged. The captured old oracle
+fails, the repaired oracle passes, injected plaintext contacts fail, and all 22
+vault cases pass. Full `bin/test-wamp-app` passes at exit 0, including VM/JS/Wasm
+tests, mutation controls and the web build. Fresh canonical `bin/verify` passes
+at exit 0, including Rust, VM, consumers, 1,541 benchmark, 4,935 router, 4,690 core
+browser and 2,829 client browser cases (20 declared native-only client skips).
+Evidence: `/tmp/connectanum-vault-oracle-verify.{log,exit}`. Current hosted CI
+remains unaccepted; original issue criteria stay intact.
+The repaired Fast Checks budget is confirmed by its passing hosted job; the
+old WampApp privacy assertion still blocks that PR run's downstream checks.
+
+Native Artifacts `37464710421` passes at exact `62f99ebb`, including all five
+platform builds and the release preview. All fifteen attestations independently
+verify; all thirty assets match and the notes exactly match the repaired renderer.
+Its fresh standalone consumer, ten segment cases and sixteen live owned-PPT
+cases pass with the production Apple Silicon library. No release is published;
+other platforms have build/provenance evidence only. Package dry run passes.
+Three superseded CI runs with cancelled Fast Checks were cancelled to free
+runners; both resulting-head CI runs remain active. Evidence:
+`/tmp/connectanum-62f99ebb-platform-provenance.json` and
+`/tmp/connectanum-vault-oracle-control-proof.json`.
+
+The preceding follow-up repairs the separate Fast Checks aggregate job budget
 and missing release-preview evidence links. On `5f1afae9`, hosted Fast Checks
 passes a live consumer smoke at 20m12.701s and is cancelled 1.937s later at
 GitHub's explicit 20-minute ceiling. The aggregate budget becomes 45 minutes;

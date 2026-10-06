@@ -5,7 +5,42 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up repairs the separate Fast Checks aggregate budget and
+The current follow-up repairs a WampApp privacy-test false positive exposed by
+the new CI run on `62f99ebb`. Consumer job `112272706961` passes 409 cases and
+fails the contact-vault assertion because randomized Base64 ciphertext happens
+to contain `bob`. The recorded JSON contains only public encrypted-envelope
+metadata; its decoded ciphertext bytes do not contain the plaintext marker.
+The repaired test checks the exact public metadata keys and quoted JSON tokens,
+while keeping reopen, wrong-password, tamper and account-binding coverage.
+Production vault/crypto code is unchanged. The captured old oracle fails, the
+new oracle passes, and injected plaintext contacts still fail. All 22 vault
+cases pass. Full `bin/test-wamp-app` passes at exit 0, including VM/JS/Wasm tests,
+mutation controls and the web build. Fresh canonical `bin/verify` passes at
+exit 0, including Rust, VM, consumers, 1,541 benchmark, 4,935 router, 4,690 core
+browser and 2,829 client browser cases (20 declared native-only client skips).
+Evidence: `/tmp/connectanum-vault-oracle-verify.{log,exit}`.
+Evidence: `/tmp/connectanum-vault-oracle-control-proof.json` and
+`/tmp/connectanum-vault-oracle-{baseline,focused}.{log,exit}`. The current hosted
+run is not accepted as complete CI, and all remaining milestone issues stay open.
+Its Fast Checks job now passes with the corrected aggregate budget; WampApp's
+old test failure still prevents that PR run's Full Verify and VM coverage.
+
+The preceding `62f99ebb` artifact checkpoint is complete:
+[Native Artifacts 37464710421](https://github.com/konsultaner/connectanum-dart/actions/runs/37464710421)
+passes all five builds and the dry-run preview. All fifteen source/branch/workflow
+attestations verify, the thirty preview assets match, and the rendered notes
+exactly match the current renderer with commit-pinned evidence links. A fresh
+source archive's standalone public consumer, ten segment tests and sixteen live
+owned-PPT cases pass with the Apple Silicon production artifact. All four public
+serializers round-trip; direct scalar input/growth copies are zero and retained
+read-only views survive disposal. The production library has no `ct_test_*`
+exports, with an eighteen-symbol ffi-test positive control. Other platforms have
+build/provenance evidence only. The package publish dry run passes. Three
+superseded feature CI runs with cancelled Fast Checks were cancelled; current
+head CI runs remain active. No release is published. Evidence:
+`/tmp/connectanum-62f99ebb-platform-provenance.json`.
+
+The preceding follow-up repairs the separate Fast Checks aggregate budget and
 release-preview evidence links. Exact-head PR run `37457588251` on `5f1afae9`
 hits GitHub's 20-minute Fast Checks ceiling; its preceding live consumer smoke
 finishes at 20m12.701s, 1.937s before cancellation. Only this job's aggregate
