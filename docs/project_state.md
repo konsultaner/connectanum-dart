@@ -5,7 +5,48 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current CI follow-up repairs the aggregate Full Verify job budget. Hosted
+The current follow-up repairs the separate Fast Checks aggregate budget and
+release-preview evidence links. Exact-head PR run `37457588251` on `5f1afae9`
+hits GitHub's 20-minute Fast Checks ceiling; its preceding live consumer smoke
+finishes at 20m12.701s, 1.937s before cancellation. Only this job's aggregate
+budget becomes 45 minutes. Commands, suites, test deadlines and gates stay
+unchanged. All 80 verification-tool checks pass. The release-note regression
+first fails both missing-link cases and then passes all three tests; conformance,
+benchmark and ownership links use the chosen repository/server and exact commit.
+The ownership guide now compares pinned Dart entity reconstruction with a C
+producer-thread transaction/lease policy and explicit copy fallback. All eight
+workspace manifests remain free of ObjectBox dependencies.
+No parity or complete copy-coverage claim is added. Fresh canonical `bin/verify`
+passes at exit 0, including Rust, VM, consumers, 1,541 benchmark, 4,935 router,
+4,690 core browser and 2,829 client browser cases (20 declared native-only client
+skips). Evidence: `/tmp/connectanum-release-readiness-verify.{log,exit}`.
+Hosted acceptance and the resulting commit's release preview remain pending.
+
+[Native Artifacts 37457831556](https://github.com/konsultaner/connectanum-dart/actions/runs/37457831556)
+passes on `5f1afae9`: all five platform builds and the release-preview job.
+All 15 archive/checksum/manifest attestations independently verify against that
+exact source, branch and workflow; every checksum and manifest source matches.
+The fresh standalone consumer passes ordinary JSON/CBOR/MessagePack/FlatBuffers
+round trips. Its native public-API check uses the downloaded Apple Silicon
+production library, which also passes ten shared-segment ABI/lifetime cases and
+all sixteen owned
+CBOR/MessagePack RPC/pub-sub runner cases over RawSocket/WebSocket. Direct scalar
+construction reports zero input/growth copies, and retained read-only control
+views survive caller/frame disposal. The production library exports no
+`ct_test_*` symbols; the ffi-test positive control exports eighteen. The other
+four artifacts have provenance/build evidence, not runtime execution evidence.
+The preview contains all thirty expected assets but lacks the required evidence
+links; the renderer repair above addresses that gap. The tag is preview metadata;
+no release is published. Full Verify and VM coverage in the PR run are skipped
+after the Fast Checks cancellation; binding, browser coverage, GuardMalloc and
+WampApp consumer checks pass. Issues #100–#104 remain open.
+Evidence: `/tmp/connectanum-fast-budget-repro.json`,
+`/tmp/connectanum-current-platform-provenance.json`,
+`/tmp/connectanum-current-production-oracle-proof.json`,
+`/tmp/connectanum-current-public-consumer-run.{log,exit}` and
+`/tmp/connectanum-current-production-owned-{segments,ppt}.{log,exit}`.
+
+The preceding CI follow-up repairs the aggregate Full Verify job budget. Hosted
 run `37437589411` on `c3dbc9cb` reaches core browser tests after 40m51s and
 continues passing cases until 0.665s before GitHub's 45-minute cancellation.
 The annotation explicitly reports the maximum job execution time. The observed
@@ -16,7 +57,8 @@ All 80 verification-tool regressions pass. Fresh `bin/verify` passes at exit 0,
 including Rust, VM, consumers, 1,541 benchmark, 4,935 router, 4,690 core browser
 and 2,829 client browser cases (20 declared native-only client skips). The
 preceding sequential fast result remains the baseline for unchanged product
-inputs. Hosted acceptance and current-platform artifacts remain pending.
+inputs. Hosted acceptance remains pending; the current-platform artifact
+checkpoint is recorded above.
 Evidence: `/tmp/connectanum-full-verify-budget-repro.json` and
 `/tmp/connectanum-c3-full-verify-{job,annotations}.json`, plus
 `/tmp/connectanum-full-verify-budget-canonical.{log,exit}`.

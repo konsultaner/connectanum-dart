@@ -80,7 +80,9 @@ jobs:
   fast:
     name: Fast Checks
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Cold tooling/builds and the full regression/consumer set exceed 20 minutes.
+    # Preserve every suite and its deadline within a larger aggregate budget.
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v5

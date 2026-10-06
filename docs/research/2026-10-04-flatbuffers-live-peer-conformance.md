@@ -70,3 +70,27 @@ all 1,458 frozen source files and 69 freshly regenerated binding files. Fresh
 canonical and browser coverage runs remain pending before commit/push.
 Hosted execution, other release platforms, secure transports, fuzzing and complete
 milestone conformance acceptance remain unproven. No issue is closed by this probe.
+
+## Hosted checkpoint (2026-10-06)
+
+[PR CI run 37457588251](https://github.com/konsultaner/connectanum-dart/actions/runs/37457588251)
+for feature source `5f1afae9` passes FlatBuffers Binding, including fresh upstream
+reader/writer interoperability and the independent negotiated-profile live peer.
+The [live peer report](https://github.com/konsultaner/connectanum-dart/actions/runs/37457588251/artifacts/11411135812)
+records passing cleartext RawSocket and WebSocket flows: credential rejection,
+distinct sessions, empty/small/fragmented RPC, wide IDs, binary/UTF-8/kwargs,
+progressive/final results, errors, cancellation, acknowledged pub/sub, cleanup
+and goodbye. It also passes the upstream-only negative control. This is the
+generated-schema metadata-v1 peer, not an Autobahn session implementation.
+
+The same run's [GuardMalloc evidence](https://github.com/konsultaner/connectanum-dart/actions/runs/37457588251/artifacts/11409896508)
+passes 73 instrumented native cases. Its checkout is GitHub's PR merge commit
+`2363f6e5`; all 140 source/configuration/schema hashes match the feature tree.
+The report's retained Cargo lock and log hashes independently verify. Its
+resolved dependency lock differs from the local lock, so the hosted result is
+evidence for that recorded build, not an identical local native executable.
+
+Fast Checks hits the separate 20-minute aggregate job limit, which skips Full
+Verify and VM coverage. Their acceptance is still pending. These hosted probes
+do not establish TLS, all-platform session conformance, complete malformed-input
+coverage, full copy totals or serializer performance parity.

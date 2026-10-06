@@ -267,12 +267,33 @@ property IDs, defaults/evolution, entity identity, relations and synchronization
 Neither core, client nor router depends on ObjectBox or interprets its entity
 schema.
 
+The Dart path is different from borrowing stored bytes. In ObjectBox Dart
+[`Box.get`](https://github.com/objectbox/objectbox-dart/blob/d189611e638e192594baee0b99e4bd78a3ef8b61/objectbox/lib/src/native/box.dart)
+reads inside a transaction; the
+[generated reader](https://github.com/objectbox/objectbox-dart/blob/d189611e638e192594baee0b99e4bd78a3ef8b61/generator/lib/src/code_chunks.dart)
+constructs an entity and populates its fields. Sending that entity through a
+normal serializer re-encodes application values. A C adapter can instead borrow
+the stored FlatBuffer and avoid this entity reconstruction/re-encoding boundary.
+The Dart
+[transaction wrapper](https://github.com/objectbox/objectbox-dart/blob/d189611e638e192594baee0b99e4bd78a3ef8b61/objectbox/lib/src/native/transaction.dart)
+is thread-bound and cannot remain open across `await`; running work on a background
+isolate does not turn returned Dart entities into retained raw database memory.
+
 The [ObjectBox C header at d701b03](https://github.com/objectbox/objectbox-c/blob/d701b03ff680b26da219f0cb8961f2ea1fdb3e3c/include/objectbox.h)
 limits `obx_box_get` bytes to the active top-level transaction before invalidating
 writes. A C adapter can manage that lifetime natively, retaining the transaction
 through every transport consumer and closing it on the proper native thread.
 Using C does not remove the lifetime constraint. It avoids relying on the
 synchronous Dart transaction wrapper for an asynchronous send.
+
+The adapter's borrowing policy is therefore a producer-thread read transaction
+plus an external lease. Register the immutable byte range, keep the transaction
+open while any submitted frame or exported byte view retains the lease, and close it
+only when final cleanup is dispatched on the producer thread. The fake producer
+and native network fixtures above demonstrate this ownership sequence without
+ObjectBox. If retaining that transaction is disallowed, exceeds the adapter's
+backpressure budget or conflicts with required writes, copy into a Connectanum
+owned buffer before closing it. Expose that fallback copy explicitly.
 
 `obx_box_put_object4` accepts writable storage and can update a new entity's ID.
 An immutable receive view is not that writable input. The const-data `obx_box_put5`
@@ -285,7 +306,9 @@ storage. A receive slice has no assumed writable slack. [FlatBuffers scalar
 alignment](https://flatbuffers.dev/internals/) also requires checking the actual
 native reader and payload pointer, including nonzero-offset views. This is not a
 claim that ObjectBox requires a particular physical eight-byte pointer alignment.
-The adapter must expose and measure any fallback copy.
+Borrow a range only when the actual native reader accepts its pointer and bounds;
+otherwise use an explicit alignment fallback. The adapter must expose and measure
+any fallback copy.
 
 ## Opt-in receive materialization before consuming decryption
 

@@ -4,10 +4,42 @@ Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/flatbuffers-zero-copy` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
-released master `3bac4cf5` is integrated. Preceding checkpoint: `8937a5d4`.
+released master `3bac4cf5` is integrated. Preceding checkpoint: `5f1afae9`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-The current follow-up repairs the hosted Full Verify aggregate job budget.
+The current follow-up repairs the separate Fast Checks aggregate job budget
+and missing release-preview evidence links. On `5f1afae9`, hosted Fast Checks
+passes a live consumer smoke at 20m12.701s and is cancelled 1.937s later at
+GitHub's explicit 20-minute ceiling. The aggregate budget becomes 45 minutes;
+all commands, test deadlines and gates stay unchanged. All eighty verification
+tool checks pass. Two release-note link regressions first fail, then all three
+renderer tests pass with commit-pinned repository/server-correct conformance,
+benchmark and ownership links. The ownership guide explicitly compares pinned
+Dart entity reconstruction with the C producer-thread transaction/lease policy
+and measured copy fallback; no ObjectBox dependency is added.
+Parity and complete copy coverage stay unaccepted.
+Fresh canonical `bin/verify` passes at exit 0, including Rust, VM, consumers,
+1,541 benchmark, 4,935 router, 4,690 core browser and 2,829 client browser cases
+(20 declared native-only client skips). Evidence:
+`/tmp/connectanum-release-readiness-verify.{log,exit}`. Hosted acceptance and the
+resulting head's release preview remain pending.
+
+Native Artifacts run `37457831556` passes all five builds and the dry-run release
+preview at exact source `5f1afae9`. All fifteen archive/checksum/manifest
+attestations independently verify against that source/branch/workflow; checksums
+and manifest source fields match. The Apple Silicon production artifact passes
+a standalone public consumer, ten shared-segment cases and sixteen live owned
+CBOR/MessagePack runner cases. The consumer also round-trips ordinary values
+through all four public serializers. Its direct scalar payload has zero input/growth
+copies and its derived read-only control view retains independent ownership.
+Production exports contain no `ct_test_*` oracle; the ffi-test positive control
+contains eighteen. Other platforms have build/provenance evidence only. The
+preview has thirty expected assets but lacks conformance/benchmark evidence
+links, motivating the renderer repair. No release is published. Fast Checks
+cancellation skips Full Verify and VM coverage; binding, browser coverage,
+GuardMalloc and WampApp consumers pass. Original acceptance remains open.
+
+The preceding follow-up repairs the hosted Full Verify aggregate job budget.
 Its preceding `c3dbc9cb` run reaches browser tests after 40m51s and hits GitHub's
 45-minute ceiling while cases still pass. The aggregate budget becomes 90 minutes
 to contain the observed preceding work and the existing bounded browser commands.
