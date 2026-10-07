@@ -9,6 +9,10 @@ import 'dart:typed_data';
 import 'package:connectanum_client/connectanum.dart'
     hide NativeRawSocketTransport;
 import 'package:connectanum_client/native_buffers.dart';
+import 'package:connectanum_client/src/transport/native/flatbuffers_payload_anchor.dart'
+    show
+        nativeFlatBufferPptSubmissionSnapshot,
+        observeNativeFlatBufferPptSubmissions;
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
     show NativeRawSocketTransport;
 import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
@@ -108,6 +112,7 @@ void main() {
         await client.open();
         await client.onReady.timeout(const Duration(seconds: 5));
         owner = _typedEntity(client.nativeBuffers, 51);
+        observeNativeFlatBufferPptSubmissions(owner);
         final call = Call(
           1,
           'com.entity.read',
@@ -119,6 +124,7 @@ void main() {
 
         expect(() => client.send(call), throwsStateError);
         expect(client.nativeFrameSends, 0);
+        expect(nativeFlatBufferPptSubmissionSnapshot(owner).submissions, 0);
         expect(owner.isDisposed, isFalse);
       } finally {
         owner?.dispose();
@@ -140,6 +146,7 @@ void main() {
         await client.onReady.timeout(const Duration(seconds: 5));
         final session = await Session.start('realm', client);
         typedOwner = _typedEntity(client.nativeBuffers, 51);
+        observeNativeFlatBufferPptSubmissions(typedOwner);
         final typedBytes = typedOwner.bytes.toList(growable: false);
         final typedResultFuture = session
             .callLazyPayload(
@@ -152,13 +159,19 @@ void main() {
             )
             .first
             .timeout(const Duration(seconds: 5));
+        final measuredTypedOwner = typedOwner;
         typedOwner.dispose();
         typedOwner = null;
         final typedResult = await typedResultFuture;
+        expect(nativeFlatBufferPptSubmissionSnapshot(measuredTypedOwner), (
+          submissions: 1,
+          reusedBytes: measuredTypedOwner.length,
+        ));
         expect(client.nativeFrameSends, 1);
         expect(typedResult.arguments, [typedBytes]);
 
         fallbackOwner = _typedEntity(client.nativeBuffers, 52);
+        observeNativeFlatBufferPptSubmissions(fallbackOwner);
         final nestedBytes = fallbackOwner.bytes.toList(growable: false);
         var nestedPayload = fallbackOwner.asFlatBuffersPptPayload();
         for (var depth = 0; depth < 6; depth++) {
@@ -183,13 +196,19 @@ void main() {
             )
             .first
             .timeout(const Duration(seconds: 5));
+        final measuredNestedOwner = fallbackOwner;
         fallbackOwner.dispose();
         fallbackOwner = null;
         final nestedResult = await nestedResultFuture;
+        expect(nativeFlatBufferPptSubmissionSnapshot(measuredNestedOwner), (
+          submissions: 1,
+          reusedBytes: measuredNestedOwner.length,
+        ));
         expect(client.nativeFrameSends, 2);
         expect(nestedResult.arguments, [nestedBytes]);
 
         fallbackOwner = _typedEntity(client.nativeBuffers, 53);
+        observeNativeFlatBufferPptSubmissions(fallbackOwner);
         final fallbackBytes = fallbackOwner.bytes.toList(growable: false);
         final fallbackResult = await session
             .callLazyPayload(
@@ -203,6 +222,10 @@ void main() {
             .first
             .timeout(const Duration(seconds: 5));
         fallbackOwner.dispose();
+        expect(nativeFlatBufferPptSubmissionSnapshot(fallbackOwner), (
+          submissions: 0,
+          reusedBytes: 0,
+        ));
         expect(client.nativeFrameSends, 2);
         expect(fallbackResult.arguments, [fallbackBytes]);
 

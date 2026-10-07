@@ -53,6 +53,53 @@ void main() {
     });
 
     for (final transport in WampTransport.values) {
+      for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+        for (final construction in [
+          WampPayloadConstruction.nativeBuffer,
+          WampPayloadConstruction.preEncodedSpan,
+        ]) {
+          test(
+            'owned PPT worker observations stay per owner ${transport.name} ${mode.name} '
+            '${construction.wireName}',
+            () async {
+              final result = await harness!.nativeWorker.runWithMetrics(
+                WampScenario(
+                  transport: transport,
+                  clientImplementation: WampClientImplementation.native,
+                  serializer: WampSerializer.flatbuffers,
+                  peerSerializer: WampSerializer.flatbuffers,
+                  mode: mode,
+                  uri: 'bench.typed.observed.${mode.name}',
+                  iterations: 2,
+                  concurrency: 2,
+                  inFlightPerSession: 2,
+                  payloadBytes: 1024,
+                  payloadConstruction: construction,
+                  pptScheme: 'x_connectanum_bench_typed',
+                  pptSerializer: 'flatbuffers',
+                ),
+              );
+              expect(result.samples, hasLength(4));
+              expect(result.samples.map((sample) => sample.worker).toSet(), {
+                0,
+                1,
+              });
+              for (final sample in result.samples) {
+                expect(sample.nativePptFrameSubmissions, 1);
+                expect(sample.nativePptPayloadBytes, greaterThan(1024));
+                expect(
+                  sample.nativePptPayloadReusedBytes,
+                  sample.nativePptPayloadBytes,
+                );
+              }
+              expect(result.copyMetrics['optimized_payload_copy_bytes'], 0);
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+
       for (final implementation in WampClientImplementation.values) {
         for (final mode in [WampMode.rpc, WampMode.pubsub]) {
           for (final peer in [null, WampSerializer.cbor]) {
@@ -371,6 +418,19 @@ void main() {
                 samples.every((sample) => sample.payloadPreparationUs != null),
                 isTrue,
               );
+              if (pptSerializer == 'flatbuffers') {
+                expect(
+                  samples.map((sample) => sample.nativePptFrameSubmissions),
+                  everyElement(1),
+                );
+                for (final sample in samples) {
+                  expect(sample.nativePptPayloadBytes, greaterThan(bodyBytes));
+                  expect(
+                    sample.nativePptPayloadReusedBytes,
+                    sample.nativePptPayloadBytes,
+                  );
+                }
+              }
               final copiedBytes = samples
                   .map((sample) => sample.nativeBuilderInputCopiedBytes)
                   .toList(growable: false);

@@ -1,6 +1,27 @@
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 
+/// Payload copies after a frozen native FlatBuffers owner is submitted.
+/// The worker invokes this only for its native-owned typed payload workloads.
+Object ownedFlatBuffersPayloadCopyBytes(List<WampSample> samples) {
+  if (samples.isNotEmpty &&
+      samples.every((sample) {
+        final length = sample.nativePptPayloadBytes;
+        return sample.nativePptFrameSubmissions == 1 &&
+            length != null &&
+            length >= 0 &&
+            sample.nativePptPayloadReusedBytes == length;
+      })) {
+    return 0;
+  }
+  return <String, Object?>{
+    'status': 'not_measured',
+    'reason':
+        'every owner must have one measured native PPT frame submission '
+        'retaining its complete encoded payload',
+  };
+}
+
 /// Adds router-process transport counters to one WAMP client's copy metrics.
 ///
 /// A numeric transport total is emitted only when the client already reports

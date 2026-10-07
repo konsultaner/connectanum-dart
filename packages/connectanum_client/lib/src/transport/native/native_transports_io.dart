@@ -218,6 +218,7 @@ abstract class _NativeTransportBase extends AbstractTransport
     }
     try {
       sendNativeFrame(frame, transfer: true);
+      recordNativeFlatBufferPptSubmission(payloadOwner, payloadOwner.length);
       return true;
     } finally {
       frame.dispose();

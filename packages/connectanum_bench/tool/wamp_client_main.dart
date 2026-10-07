@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
+import 'package:connectanum_bench/src/transport_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_bench/src/e2ee_copy_metrics.dart';
 import 'package:connectanum_client/src/transport/dart_transport_copy_metrics.dart';
@@ -291,7 +292,7 @@ Map<String, Object?> _copyMetricsFor(
     // native FlatBuffers owner is frozen and submitted through the owned-view
     // API. Construction copies are reported separately below.
     'optimized_payload_copy_bytes': ownsFlatBuffersPayload
-        ? 0
+        ? ownedFlatBuffersPayloadCopyBytes(samples)
         : notApplicable('workload does not use native-owned typed FlatBuffers'),
     'builder_input_copy_bytes': builderMeasurementsAvailable
         ? inputCopies

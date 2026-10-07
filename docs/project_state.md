@@ -5,6 +5,20 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): observed native PPT submission metrics.
+Thirty-six fail-first cases expose zero-copy values inferred only from settings
+and permissive observation parsing. Each sample now requires its own observed
+native frame submission and complete encoded-owner reuse. Missing/fallback/
+repeated/mismatched observations remain unmeasured. All 121 focused, 32 native
+and 20 live benchmark cases pass on macOS/Linux, with matched Linux inputs.
+Tracking is opt-in; no ownership/ABI/fallback or acceptance gate changes.
+Baseline fast and full `bin/verify` pass at exit zero, including 1,609 benchmark,
+4,958 router, 4,751 core browser and 2,829 client browser cases with 20 unchanged
+native-only skips. Evidence: `/tmp/connectanum-observed-owned-copy-verify.{log,exit}`.
+Resulting-head hosted verification remains pending. Final local review is blocked by
+the active native mutation resource lease; direct review and focused checks
+complete. Research: [observed submissions](research/2026-10-07-observed-native-ppt-copy-boundary.md).
+
 Current follow-up (2026-10-07): measured RawSocket input normalization.
 Twenty-seven fail-first assertions reproduce partial-input retries and omitted
 header accounting. Full arrays and validated native ranges retain their storage;

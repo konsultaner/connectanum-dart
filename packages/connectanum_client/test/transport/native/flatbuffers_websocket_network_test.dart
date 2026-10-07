@@ -8,6 +8,10 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_buffers.dart';
+import 'package:connectanum_client/src/transport/native/flatbuffers_payload_anchor.dart'
+    show
+        nativeFlatBufferPptSubmissionSnapshot,
+        observeNativeFlatBufferPptSubmissions;
 import 'package:connectanum_client/connectanum.dart' show Session;
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
     as native;
@@ -401,6 +405,7 @@ void _nativePptSessionTest(String library) {
         );
 
         earlyOwner = _typedEntity(channel.nativeBuffers, 51);
+        observeNativeFlatBufferPptSubmissions(earlyOwner);
         final earlyCall = core.Call(
           1,
           'com.entity.read',
@@ -411,11 +416,16 @@ void _nativePptSessionTest(String library) {
         )..retainLazyPayload(earlyOwner.asFlatBuffersPptPayload());
         expect(() => channel.send(earlyCall), throwsStateError);
         expect(channel.nativeFrameSends, 0);
+        expect(
+          nativeFlatBufferPptSubmissionSnapshot(earlyOwner).submissions,
+          0,
+        );
         earlyOwner.dispose();
         earlyOwner = null;
 
         session = await Session.start('realm', channel);
         typedOwner = _typedEntity(channel.nativeBuffers, 52);
+        observeNativeFlatBufferPptSubmissions(typedOwner);
         final expected = typedOwner.bytes.toList(growable: false);
         final resultFuture = session
             .callLazyPayload(
@@ -428,10 +438,15 @@ void _nativePptSessionTest(String library) {
             )
             .first
             .timeout(_deadline);
+        final measuredTypedOwner = typedOwner;
         typedOwner.dispose();
         typedOwner = null;
 
         final result = await resultFuture;
+        expect(nativeFlatBufferPptSubmissionSnapshot(measuredTypedOwner), (
+          submissions: 1,
+          reusedBytes: measuredTypedOwner.length,
+        ));
         expect(channel.nativeFrameSends, 1);
         expect(result.arguments, [expected]);
         await session.close();

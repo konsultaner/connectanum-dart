@@ -7,6 +7,12 @@ import 'dart:typed_data';
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/connectanum.dart' as wamp_client;
 import 'package:connectanum_client/native_buffers.dart' as native_buffers;
+// Benchmark-only observation of the internal native submission boundary.
+// ignore: implementation_imports
+import 'package:connectanum_client/src/transport/native/flatbuffers_payload_anchor.dart'
+    show
+        nativeFlatBufferPptSubmissionSnapshot,
+        observeNativeFlatBufferPptSubmissions;
 import 'package:connectanum_client/socket.dart' as wamp_socket;
 import 'package:connectanum_core/authentication.dart' as wamp_auth;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
@@ -539,6 +545,10 @@ class WampWorkloadRunner {
             preparedPayload?.nativeBuilderInputCopiedBytes,
         nativeBuilderGrowthCopiedBytes:
             preparedPayload?.nativeBuilderGrowthCopiedBytes,
+        nativePptFrameSubmissions: preparedPayload?.nativePptFrameSubmissions,
+        nativePptPayloadBytes: preparedPayload?.nativePptPayloadBytes,
+        nativePptPayloadReusedBytes:
+            preparedPayload?.nativePptPayloadReusedBytes,
       );
     } finally {
       preparedPayload?.dispose();
@@ -967,6 +977,10 @@ class WampWorkloadRunner {
             preparedPayload?.nativeBuilderInputCopiedBytes,
         nativeBuilderGrowthCopiedBytes:
             preparedPayload?.nativeBuilderGrowthCopiedBytes,
+        nativePptFrameSubmissions: preparedPayload?.nativePptFrameSubmissions,
+        nativePptPayloadBytes: preparedPayload?.nativePptPayloadBytes,
+        nativePptPayloadReusedBytes:
+            preparedPayload?.nativePptPayloadReusedBytes,
       );
     } finally {
       final completedResult = result;
@@ -2151,6 +2165,7 @@ class WampWorkloadRunner {
               encoding: encoding,
               arguments: [value],
             );
+      if (owner != null) observeNativeFlatBufferPptSubmissions(owner);
       return _PreparedBenchPayload(
         payload: payload,
         owner: owner,
@@ -3323,6 +3338,13 @@ class _PreparedBenchPayload {
 
   int get nativeBuilderInputCopiedBytes => owner?.inputCopiedBytes ?? 0;
   int get nativeBuilderGrowthCopiedBytes => owner?.growthCopiedBytes ?? 0;
+  int? get nativePptPayloadBytes => owner?.length;
+  int? get nativePptFrameSubmissions => owner == null
+      ? null
+      : nativeFlatBufferPptSubmissionSnapshot(owner!).submissions;
+  int? get nativePptPayloadReusedBytes => owner == null
+      ? null
+      : nativeFlatBufferPptSubmissionSnapshot(owner!).reusedBytes;
 
   void dispose() => owner?.dispose();
 }
@@ -3847,6 +3869,9 @@ class WampSample {
     int? payloadPreparationUs,
     int? nativeBuilderInputCopiedBytes,
     int? nativeBuilderGrowthCopiedBytes,
+    int? nativePptFrameSubmissions,
+    int? nativePptPayloadBytes,
+    int? nativePptPayloadReusedBytes,
   }) {
     final completedAtUs = DateTime.now().microsecondsSinceEpoch;
     final hasValidLatency = latencyMs.isFinite && latencyMs >= 0;
@@ -3859,6 +3884,9 @@ class WampSample {
       payloadPreparationUs: payloadPreparationUs,
       nativeBuilderInputCopiedBytes: nativeBuilderInputCopiedBytes,
       nativeBuilderGrowthCopiedBytes: nativeBuilderGrowthCopiedBytes,
+      nativePptFrameSubmissions: nativePptFrameSubmissions,
+      nativePptPayloadBytes: nativePptPayloadBytes,
+      nativePptPayloadReusedBytes: nativePptPayloadReusedBytes,
       startedAtUs: hasValidLatency
           ? completedAtUs - (latencyMs * 1000).round()
           : null,
@@ -3875,6 +3903,9 @@ class WampSample {
     required this.payloadPreparationUs,
     required this.nativeBuilderInputCopiedBytes,
     required this.nativeBuilderGrowthCopiedBytes,
+    required this.nativePptFrameSubmissions,
+    required this.nativePptPayloadBytes,
+    required this.nativePptPayloadReusedBytes,
     required this.startedAtUs,
     required this.completedAtUs,
   });
@@ -3887,6 +3918,9 @@ class WampSample {
   final int? payloadPreparationUs;
   final int? nativeBuilderInputCopiedBytes;
   final int? nativeBuilderGrowthCopiedBytes;
+  final int? nativePptFrameSubmissions;
+  final int? nativePptPayloadBytes;
+  final int? nativePptPayloadReusedBytes;
   final int? startedAtUs;
   final int? completedAtUs;
 
@@ -3906,6 +3940,15 @@ class WampSample {
       nativeBuilderGrowthCopiedBytes: _readOptionalJsonInt(
         json['native_builder_growth_copied_bytes'],
       ),
+      nativePptFrameSubmissions: _readOptionalCopyCount(
+        json['native_ppt_frame_submissions'],
+      ),
+      nativePptPayloadBytes: _readOptionalCopyCount(
+        json['native_ppt_payload_bytes'],
+      ),
+      nativePptPayloadReusedBytes: _readOptionalCopyCount(
+        json['native_ppt_payload_reused_bytes'],
+      ),
       startedAtUs: _readOptionalJsonInt(json['started_at_us']),
       completedAtUs: _readOptionalJsonInt(json['completed_at_us']),
     );
@@ -3923,6 +3966,12 @@ class WampSample {
       'native_builder_input_copied_bytes': nativeBuilderInputCopiedBytes,
     if (nativeBuilderGrowthCopiedBytes != null)
       'native_builder_growth_copied_bytes': nativeBuilderGrowthCopiedBytes,
+    if (nativePptFrameSubmissions != null)
+      'native_ppt_frame_submissions': nativePptFrameSubmissions,
+    if (nativePptPayloadBytes != null)
+      'native_ppt_payload_bytes': nativePptPayloadBytes,
+    if (nativePptPayloadReusedBytes != null)
+      'native_ppt_payload_reused_bytes': nativePptPayloadReusedBytes,
     if (startedAtUs != null) 'started_at_us': startedAtUs,
     if (completedAtUs != null) 'completed_at_us': completedAtUs,
   };
@@ -3990,6 +4039,20 @@ double _readJsonDouble(Object? value) {
     return value.toDouble();
   }
   throw FormatException('Expected number, got $value');
+}
+
+// These observations support a zero-copy gate and cannot be rounded/coerced.
+int? _readOptionalCopyCount(Object? value) {
+  if (value == null) return null;
+  if (value is int && value >= 0) return value;
+  if (value is double &&
+      value.isFinite &&
+      value >= 0 &&
+      value <= 9007199254740991 &&
+      value == value.truncateToDouble()) {
+    return value.toInt();
+  }
+  throw FormatException('Expected exact nonnegative copy count, got $value');
 }
 
 int? _readOptionalJsonInt(Object? value) {
