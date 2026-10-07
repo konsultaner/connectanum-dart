@@ -12,4 +12,5 @@ python3 tool/test_native_mutation_batches.py
 python3 tool/test_native_mutation_campaign.py
 python3 tool/test_native_mutation_timing.py
 python3 tool/test_native_mutation_resources.py
+python3 tool/test_native_mutation_coordination.py
 python3 tool/test_native_mutation_admission.py

@@ -8,11 +8,13 @@ from dataclasses import asdict
 import os
 from pathlib import Path
 import signal
+import sys
 import tempfile
 import threading
 import time
 
 import native_coverage
+import native_mutation_coordination as coordination
 import native_mutation_batches
 import native_mutation_resources as resources
 import run_native_mutations as collector
@@ -189,6 +191,16 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
 
 
 def main():
+    try:
+        lease = coordination.acquire_resource_lease(exclusive=True)
+    except coordination.ResourceLeaseError as error:
+        print(error, file=sys.stderr)
+        return 2
+    with lease:
+        return _run_main()
+
+
+def _run_main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--analyzer', type=Path, required=True)

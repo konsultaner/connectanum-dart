@@ -25,7 +25,7 @@ FIXTURES = ('native/bench/bench_tls.crt', 'native/bench/bench_tls.key')
 TOOL_INPUTS = ('run_native_mutations.py', 'native_mutations.py',
                'native_coverage.py', 'run_dart_mutations.py', 'native_mutation_batches.py',
                'run_native_mutation_campaign.py', 'native_mutation_timing.py',
-               'native_mutation_resources.py')
+               'native_mutation_resources.py', 'native_mutation_coordination.py')
 TARGETS = {
     'core-rawsocket': ('ct_core/src/rawsocket.rs', 'rawsocket::tests'),
     'core-wamp': ('ct_core/src/wamp.rs', 'wamp::'),

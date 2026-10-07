@@ -7,6 +7,33 @@ campaigns without narrowing inventories, test suites, deadlines or evidence gate
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work424: full423 is terminal and unscored. Its default Core pilot froze the
+exact 1,970-candidate inventory and planned 16 fresh sample batches, but a
+same-user local-companion request started during collection. Schema-three
+resource evidence detected that competitor and failed closed: four batches
+completed, four retained cancelled/failed evidence, and later batches never
+started. The supervisor, coordinator and workers are gone; preserve all 246 MB
+of raw full423 evidence. This is neither a valid pilot nor a full collection or
+gate result.
+
+A private per-user machine lease now coordinates native mutation work with
+local inference. Companion requests take shared leases from their first action
+through output; mutation campaigns take an exclusive lease before argument
+parsing. The fresh full424 supervisor holds that exclusive lease across freeze,
+profile controls, complete Core/FFI collection and final reaudits, passing the
+same descriptor to campaign children. Secure path/owner/mode/inode checks,
+failure/cancellation release, real companion exclusion and concurrent campaign
+rejection are regression-tested; the existing same-user process census remains
+a second fail-closed guard. All 155 tracked mutation-tool checks, 28 companion
+checks and 36 full424 operational checks pass. Fresh `bin/verify` exits zero,
+including actual Chrome and Dart2Wasm suites (log SHA-256
+`6c2b1668d64183047c89dd7862048fd6da5b5ef7598f32e535fe8b0ca1cf9d62`).
+A separate-worktree verify started after this run began, so retain this as
+functional evidence but create a new concurrency-free post-commit preflight.
+The changed tool fingerprint then requires a fresh snapshot and exact
+inventories before starting full424. Both 95% gates and the measured report
+remain open; no push/publication.
+
 Work420: mutation resource evidence is now schema three and fails closed when
 another local companion request is active. Detection is same-user, bounded and
 sanitized; campaign cancellation remains cooperative and never signals the

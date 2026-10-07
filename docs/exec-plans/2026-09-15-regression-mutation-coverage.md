@@ -38,6 +38,47 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work424 Machine-Wide Mutation/Inference Lease
+
+Treat full423 as terminal partial evidence only. It froze the exact 1,970-Core-
+candidate inventory and selected 16 fresh pilot batches, but a same-user local
+companion started during the pilot. Schema-three resource monitoring correctly
+failed closed. Four batches completed, four retained cancellation/failure
+evidence, and the remaining batches never started. No pilot comparison, full
+component score or gate is valid. Preserve its 246 MB of raw evidence; exact
+supervisor/coordinator/worker owners are gone.
+
+Coordinate accidental future overlap with a private per-user machine-wide
+advisory lease under `${CODEX_HOME:-~/.codex}/runlocks`. Local companions hold a
+shared lease from their first action through inference and output. A native
+campaign holds an exclusive lease before argument parsing; the full424
+supervisor owns it across freeze, controls, complete Core/FFI runs and final
+reaudits, and passes the same open descriptor only to campaign children. Verify
+the user-owned 0700 directory, regular 0600 file, no symlinks, and descriptor/
+path device-inode identity. Release on normal exit, failure and cancellation.
+Keep the existing live-process detector as an independent fail-closed guard.
+
+Fail-first coverage now proves shared coexistence, shared/exclusive exclusion,
+normal/crash release, identity and permission drift rejection, inherited-FD
+reuse, campaign-before-argument-parser acquisition and concurrent campaign
+rejection. The external companion suite passes 28 tests. All seven tracked
+mutation-tool suites pass 155 tests, including real Cargo fixtures. The fresh
+full424 templates pass 36 operational checks covering supervisor acquisition
+order, child FD/environment inheritance, real companion rejection before
+parsing, and release after failure/cancellation. Local review findings about
+closing the parent FD or losing the lock when a child exits are inapplicable:
+the parent must intentionally retain the shared open-file description, and the
+outer context releases it on every `BaseException` path. A changed tool
+fingerprint passes fresh canonical `bin/verify`, including actual Chrome and
+Dart2Wasm suites (log SHA-256
+`6c2b1668d64183047c89dd7862048fd6da5b5ef7598f32e535fe8b0ca1cf9d62`).
+A separate-worktree verify began after this verification was underway, so use
+it as functional evidence only. Create a clean local commit, then obtain a new
+concurrency-free matching preflight before freezing the snapshot and exact
+inventories. Do not reuse full423 inputs or results. Full424 has not started;
+both strict gates and the detailed measurement report remain open. No
+push/publication.
+
 ### Work420 Resource Competition Guard And Ownership Retry
 
 Promote native resource evidence to schema three. Observe active same-user
