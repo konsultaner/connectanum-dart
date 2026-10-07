@@ -52,6 +52,16 @@ jobs:
           CONNECTANUM_SKIP_NATIVE_BUILD=1 \
             LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
             dart run tool/sdk_socket_backpressure_probe.dart | tee "$probe_output/backpressure.jsonl"
+          CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            dart --enable-vm-service=0 --disable-service-auth-codes \
+              run tool/native_external_byte_view_probe.dart | tee "$probe_output/native-bounded.jsonl"
+          CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            dart compile aot-snapshot tool/native_external_byte_view_probe.dart \
+              -o "$probe_output/native-bounded.aot"
+          LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            dartaotruntime "$probe_output/native-bounded.aot" --allocation-pressure \
+              | tee "$probe_output/native-bounded-aot.jsonl"
           if env -u LD_PRELOAD CONNECTANUM_SKIP_NATIVE_BUILD=1 \
             dart run tool/sdk_socket_copy_probe.dart \
             > "$probe_output/missing-interposer.log" 2>&1; then
@@ -60,6 +70,15 @@ jobs:
           fi
           python3 -c 'from pathlib import Path; import sys; sys.exit("undefined symbol: probe_reset" not in Path(sys.argv[1]).read_text())' \
             "$probe_output/missing-interposer.log"
+          if env -u LD_PRELOAD CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            dart --enable-vm-service=0 --disable-service-auth-codes \
+              run tool/native_external_byte_view_probe.dart \
+            > "$probe_output/native-bounded-missing-interposer.log" 2>&1; then
+            echo 'Native bounded-view probe incorrectly passed without its interposer' >&2
+            exit 1
+          fi
+          python3 -c 'from pathlib import Path; import sys; sys.exit("undefined symbol: probe_watch_free" not in Path(sys.argv[1]).read_text())' \
+            "$probe_output/native-bounded-missing-interposer.log"
       - name: Upload SDK socket pointer evidence
         if: always()
         uses: actions/upload-artifact@v7

@@ -29,6 +29,7 @@ part 'socket_chunk_boundaries.dart';
 void main() {
   _controlledSocketChunks();
   _segmentedSocketSends();
+  _nativeRangeSocketSends();
   group('Socket open and close', () {
     test('initial close', () async {
       final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);

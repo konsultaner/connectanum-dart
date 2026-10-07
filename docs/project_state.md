@@ -5,6 +5,21 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): bounded native socket views. Twelve fail-first
+transport cases reproduce the SDK partial-view copy. Validated malloc-owned
+ranges now retain their original allocation through bounded read-only aliases;
+a Dart finalization token retains the source through the backing root. An
+interim unread metadata field passed VM tests but failed a compiled lifetime
+check; the repair passes all 83 focused tests on macOS and Linux arm64. Four
+real 16 MiB backpressure cases pass in both VM and compiled AOT modes, retaining
+original write addresses through collection and observing final native release.
+The exact CI step and its missing-interposer controls pass. Baseline fast,
+focused analysis and bounded review pass. Restarted `bin/verify` passes at exit 0:
+Rust/VM/consumers, 1,563 benchmark, 4,958 router, 4,751 core browser and 2,829
+client browser cases, with the unchanged 20 native-only skips. Evidence:
+`/tmp/connectanum-bounded-native-alias-token-verify.{log,exit}`. Resulting-head
+hosted acceptance remains pending; no total-copy or parity acceptance follows. Research: [bounded native views](research/2026-10-07-bounded-native-socket-views.md).
+
 Current production checkpoint `8503f31c`: [Native Artifacts 37546766311](https://github.com/konsultaner/connectanum-dart/actions/runs/37546766311)
 passes five builds and its signed dry-run preview. All fifteen pinned
 attestations, thirty preview assets and rendered notes verify. Fresh source-pinned

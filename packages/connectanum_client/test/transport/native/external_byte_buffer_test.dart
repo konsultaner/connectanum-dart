@@ -162,6 +162,110 @@ void main() {
     timeout: const Timeout(Duration(seconds: 45)),
   );
 
+  for (final mode in ['alias', 'derived', 'empty']) {
+    test(
+      'actual GC retains bounded native $mode views until last owner',
+      () async {
+        final package = await Isolate.resolvePackageUri(
+          Uri.parse('package:connectanum_client/connectanum.dart'),
+        );
+        final root = File.fromUri(package!).parent.parent;
+        final config = (await Isolate.packageConfig)!;
+        final result = await Process.run(Platform.resolvedExecutable, [
+          '--enable-vm-service=0',
+          '--disable-service-auth-codes',
+          '--packages=${config.toFilePath()}',
+          '${root.path}/test/transport/support/external_byte_buffer_gc_probe.dart',
+          mode,
+        ]);
+        expect(
+          result.exitCode,
+          0,
+          reason: '${result.stdout}\n${result.stderr}',
+        );
+        expect(result.stdout, contains('EXTERNAL_PROVENANCE_GC_OK'));
+      },
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+  }
+
+  test('bounded native views preserve existing full storage', () {
+    final root = allocateNativeExternalBytes(64);
+    final anchor = Object();
+    retainNativeExternalBytes(anchor, root);
+    expect(nativeExternalByteView(root), same(root));
+    final readonly = root.asUnmodifiableView();
+    expect(nativeExternalByteView(readonly, anchor: anchor), same(readonly));
+  });
+
+  for (final readonly in [false, true]) {
+    test(
+      'bounded native aliases retain offsets and nested views readonly=$readonly',
+      () {
+        final root = allocateNativeExternalBytes(256);
+        for (var i = 0; i < root.length; i++) {
+          root[i] = i;
+        }
+        final anchor = Object();
+        retainNativeExternalBytes(anchor, root);
+        var source = Uint8List.sublistView(root, 17, 193);
+        if (readonly) source = source.asUnmodifiableView();
+        final alias = nativeExternalByteView(source, anchor: anchor)!;
+        expect(alias.length, 176);
+        expect(alias.buffer.lengthInBytes, 176);
+        expect(alias.offsetInBytes, 0);
+        expect(alias, orderedEquals(source));
+        expect(() => alias[0] = 0, throwsUnsupportedError);
+        expect(
+          nativeExternalByteSlice(alias)!.pointer.address,
+          nativeExternalByteSlice(root)!.pointer.address + 17,
+        );
+        final nestedAnchor = Object();
+        retainNativeExternalBytes(nestedAnchor, alias);
+        final nested = Uint8List.sublistView(
+          alias,
+          13,
+          89,
+        ).asUnmodifiableView();
+        final slice = nativeExternalByteSlice(nested, anchor: nestedAnchor)!;
+        expect(
+          slice.pointer.address,
+          nativeExternalByteSlice(root)!.pointer.address + 30,
+        );
+        expect(slice.length, 76);
+        expect(slice.pointer.asTypedList(slice.length), orderedEquals(nested));
+      },
+    );
+  }
+
+  test('bounded native views reject foreign storage and unanchored ranges', () {
+    final root = allocateNativeExternalBytes(256);
+    final anchor = Object();
+    retainNativeExternalBytes(anchor, root);
+    expect(nativeExternalByteView(Uint8List(256), anchor: anchor), isNull);
+    expect(
+      nativeExternalByteView(allocateNativeExternalBytes(256), anchor: anchor),
+      isNull,
+    );
+    expect(nativeExternalByteView(Uint8List.sublistView(root, 17, 81)), isNull);
+  });
+
+  test('bounded empty native views retain a valid zero-length range', () {
+    final root = allocateNativeExternalBytes(64);
+    final anchor = Object();
+    retainNativeExternalBytes(anchor, root);
+    final source = Uint8List.sublistView(root, 64, 64);
+    final alias = nativeExternalByteView(source, anchor: anchor)!;
+    expect(alias, isEmpty);
+    expect(alias.buffer.lengthInBytes, 0);
+    final slice = nativeExternalByteSlice(alias)!;
+    expect(slice.length, 0);
+    expect(
+      slice.pointer.address,
+      nativeExternalByteSlice(root)!.pointer.address + 64,
+    );
+  });
+
   test('validates allocation lengths', () {
     expect(() => allocateNativeExternalBytes(-1), throwsRangeError);
     expect(allocateNativeExternalBytes(0), isEmpty);

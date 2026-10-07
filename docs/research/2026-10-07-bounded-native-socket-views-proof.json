@@ -1,0 +1,738 @@
+{
+  "baseCommit": "d4a00595a48576fabaf58646461998f21a0860a7",
+  "scope": "Dart bounded aliases for validated malloc-owned external storage; Linux/glibc socket/native-free diagnostics",
+  "sourceSha256": {
+    "packages/connectanum_client/lib/src/transport/native/external_byte_buffer.dart": "4c3cbf67912c1d2e812e08c711d273d91c228c7ae0f0e309617ea3012d1222d7",
+    "packages/connectanum_client/lib/src/transport/socket/socket_transport.dart": "3daa5ea08c2c39d8b348dd8f17044f5ad0542383224d1ec7f1fca51e66d04ebb",
+    "packages/connectanum_client/tool/native_external_byte_view_probe.dart": "7f606929a6ef6b49882e5643b5dd717f6cf0c7681190e289a8986106d179b6fc",
+    "tool/sdk_socket_copy_probe.c": "1e40dcb6b2f63a5f9935734a5fbab6afa6be5f17683e1a030559041f0a22527b",
+    ".github/workflows/dart.yml": "3bf48d04f558a7faee8cccc2d0f5c9ae2f311cf91f0b6ae8056bb15b9105b8e5"
+  },
+  "logSha256": {
+    "/tmp/connectanum-bounded-native-alias-baseline-fast.log": "1aa5a8473261c30d7f211a94506b73a8cefd369b6da5d1697a54dc11ebc3f97c",
+    "/tmp/connectanum-bounded-native-alias-transport-before.log": "ded882261cffad699242fc20aabc95da0fc574317ba21ee9337530446315c19c",
+    "/tmp/connectanum-bounded-native-alias-transport-final.log": "e1cbe062137441f48647fc6b10d4601ac9f63be5f9cb29398890887c3a4dd431",
+    "/tmp/connectanum-bounded-native-alias-unit-gc-mac.log": "d71f1f978fbe7f0ad7264d643ed1afb30a6f66791a2c6a31341dc643bd070139",
+    "/tmp/connectanum-bounded-native-alias-linux-focused-final.log": "00b6ad32911001f47e10464f64344d347ed5753bb1e99f2d145fc768810d5ae0",
+    "/tmp/connectanum-bounded-native-alias-exact-ci-reuse-control.log": "08a65b0c43802351b813e93d8e680d290ffc63169aeb778c71b3a94c54f666a8",
+    "/tmp/connectanum-bounded-native-alias-socket-gc-observed.log": "5a829326457fdcf24199db90d1b654305d275cfaba91b7d44cd56a08549d2375",
+    "/tmp/connectanum-bounded-native-alias-token-mac-focused.log": "adb9344d4c063b8bf8c92b5296fa3e9c21e173730a141f4ae45bfc416d20e540",
+    "/tmp/connectanum-bounded-native-alias-token-linux-focused.log": "00b6ad32911001f47e10464f64344d347ed5753bb1e99f2d145fc768810d5ae0",
+    "/tmp/connectanum-bounded-native-alias-token-exact-ci.log": "003a1bd82952d38ea93163b5b365a49ce8b16b2028f20e16cdd3bb4f32dcf8da",
+    "/tmp/connectanum-bounded-native-alias-aot-pressure.log": "87a79362d8fcc35554e2b53dec7e6eebd4b227fe07146fe859e925b074f514ee",
+    "/tmp/connectanum-bounded-native-alias-aot-pressure-fixed.log": "b9979df33d73f12f51cf085f061d7580520ed7c5bd87507a03da8f98a14a2dc2",
+    "/tmp/connectanum-bounded-native-alias-exact-ci-aot.log": "1bf0d9575e4c3ee12898da69090e1d216c9c3f134dd0f772bc0f3193e7fe9b73",
+    "/tmp/connectanum-bounded-native-alias-token-review.txt": "fcbb7cc0a55daea9d34924fc3a5002855dfc6ea736e381a93d86c1f3e8eaed45",
+    "/tmp/connectanum-bounded-native-alias-verify.log": "5f7c185be4126a23a7221080c1253c9f8c513f072696cd9ac959b99fe6c90804"
+  },
+  "focusedTests": {
+    "macCombined": 83,
+    "linuxCombined": 83
+  },
+  "failFirstTransportCases": 12,
+  "nativeQueuedCases": [
+    {
+      "readonlySource": false,
+      "nestedSource": false,
+      "inputBytes": 16777216,
+      "nativeInputAddress": 281473012068400,
+      "offsetInOriginalAllocation": 32,
+      "kernelEagainCount": 4,
+      "flushWasPending": true,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "parentFacadeCollectedBeforeDrain": false,
+      "retainedThroughActualGc": true,
+      "collectionMethod": "vm-service",
+      "nativeFreeCount": 1,
+      "originalStorageAtEveryWrite": true,
+      "payloadEqual": true,
+      "observations": [
+        {
+          "address": 281473012068400,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "offset": 0
+        },
+        {
+          "address": 281473014693595,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 2625195
+        },
+        {
+          "address": 281473014693595,
+          "requested": 14152021,
+          "accepted": 3994463,
+          "errno": 0,
+          "offset": 2625195
+        },
+        {
+          "address": 281473018688058,
+          "requested": 10157558,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 6619658
+        },
+        {
+          "address": 281473018688058,
+          "requested": 10157558,
+          "accepted": 4387361,
+          "errno": 0,
+          "offset": 6619658
+        },
+        {
+          "address": 281473023075419,
+          "requested": 5770197,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 11007019
+        },
+        {
+          "address": 281473023075419,
+          "requested": 5770197,
+          "accepted": 4256395,
+          "errno": 0,
+          "offset": 11007019
+        },
+        {
+          "address": 281473027331814,
+          "requested": 1513802,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 15263414
+        },
+        {
+          "address": 281473027331814,
+          "requested": 1513802,
+          "accepted": 1513802,
+          "errno": 0,
+          "offset": 15263414
+        }
+      ]
+    },
+    {
+      "readonlySource": false,
+      "nestedSource": true,
+      "inputBytes": 16777216,
+      "nativeInputAddress": 281472699152045,
+      "offsetInOriginalAllocation": 45,
+      "kernelEagainCount": 4,
+      "flushWasPending": true,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "parentFacadeCollectedBeforeDrain": true,
+      "retainedThroughActualGc": true,
+      "collectionMethod": "vm-service",
+      "nativeFreeCount": 1,
+      "originalStorageAtEveryWrite": true,
+      "payloadEqual": true,
+      "observations": [
+        {
+          "address": 281472699152045,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "offset": 0
+        },
+        {
+          "address": 281472701777240,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 2625195
+        },
+        {
+          "address": 281472701777240,
+          "requested": 14152021,
+          "accepted": 3928980,
+          "errno": 0,
+          "offset": 2625195
+        },
+        {
+          "address": 281472705706220,
+          "requested": 10223041,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 6554175
+        },
+        {
+          "address": 281472705706220,
+          "requested": 10223041,
+          "accepted": 4387361,
+          "errno": 0,
+          "offset": 6554175
+        },
+        {
+          "address": 281472710093581,
+          "requested": 5835680,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 10941536
+        },
+        {
+          "address": 281472710093581,
+          "requested": 5835680,
+          "accepted": 5173157,
+          "errno": 0,
+          "offset": 10941536
+        },
+        {
+          "address": 281472715266738,
+          "requested": 662523,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 16114693
+        },
+        {
+          "address": 281472715266738,
+          "requested": 662523,
+          "accepted": 662523,
+          "errno": 0,
+          "offset": 16114693
+        }
+      ]
+    },
+    {
+      "readonlySource": true,
+      "nestedSource": false,
+      "inputBytes": 16777216,
+      "nativeInputAddress": 281472699912528,
+      "offsetInOriginalAllocation": 32,
+      "kernelEagainCount": 4,
+      "flushWasPending": true,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "parentFacadeCollectedBeforeDrain": false,
+      "retainedThroughActualGc": true,
+      "collectionMethod": "vm-service",
+      "nativeFreeCount": 1,
+      "originalStorageAtEveryWrite": true,
+      "payloadEqual": true,
+      "observations": [
+        {
+          "address": 281472699912528,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "offset": 0
+        },
+        {
+          "address": 281472702537723,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 2625195
+        },
+        {
+          "address": 281472702537723,
+          "requested": 14152021,
+          "accepted": 3994463,
+          "errno": 0,
+          "offset": 2625195
+        },
+        {
+          "address": 281472706532186,
+          "requested": 10157558,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 6619658
+        },
+        {
+          "address": 281472706532186,
+          "requested": 10157558,
+          "accepted": 4387361,
+          "errno": 0,
+          "offset": 6619658
+        },
+        {
+          "address": 281472710919547,
+          "requested": 5770197,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 11007019
+        },
+        {
+          "address": 281472710919547,
+          "requested": 5770197,
+          "accepted": 4256395,
+          "errno": 0,
+          "offset": 11007019
+        },
+        {
+          "address": 281472715175942,
+          "requested": 1513802,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 15263414
+        },
+        {
+          "address": 281472715175942,
+          "requested": 1513802,
+          "accepted": 1513802,
+          "errno": 0,
+          "offset": 15263414
+        }
+      ]
+    },
+    {
+      "readonlySource": true,
+      "nestedSource": true,
+      "inputBytes": 16777216,
+      "nativeInputAddress": 281472701248221,
+      "offsetInOriginalAllocation": 45,
+      "kernelEagainCount": 4,
+      "flushWasPending": true,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "parentFacadeCollectedBeforeDrain": true,
+      "retainedThroughActualGc": true,
+      "collectionMethod": "vm-service",
+      "nativeFreeCount": 1,
+      "originalStorageAtEveryWrite": true,
+      "payloadEqual": true,
+      "observations": [
+        {
+          "address": 281472701248221,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "offset": 0
+        },
+        {
+          "address": 281472703873416,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 2625195
+        },
+        {
+          "address": 281472703873416,
+          "requested": 14152021,
+          "accepted": 3928980,
+          "errno": 0,
+          "offset": 2625195
+        },
+        {
+          "address": 281472707802396,
+          "requested": 10223041,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 6554175
+        },
+        {
+          "address": 281472707802396,
+          "requested": 10223041,
+          "accepted": 4387361,
+          "errno": 0,
+          "offset": 6554175
+        },
+        {
+          "address": 281472712189757,
+          "requested": 5835680,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 10941536
+        },
+        {
+          "address": 281472712189757,
+          "requested": 5835680,
+          "accepted": 4256395,
+          "errno": 0,
+          "offset": 10941536
+        },
+        {
+          "address": 281472716446152,
+          "requested": 1579285,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 15197931
+        },
+        {
+          "address": 281472716446152,
+          "requested": 1579285,
+          "accepted": 1579285,
+          "errno": 0,
+          "offset": 15197931
+        }
+      ]
+    },
+    {
+      "readonlySource": false,
+      "nestedSource": false,
+      "inputBytes": 16777216,
+      "nativeInputAddress": 281472937685040,
+      "offsetInOriginalAllocation": 32,
+      "kernelEagainCount": 4,
+      "flushWasPending": true,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "parentFacadeCollectedBeforeDrain": false,
+      "retainedThroughActualGc": true,
+      "collectionMethod": "allocation-pressure",
+      "nativeFreeCount": 1,
+      "originalStorageAtEveryWrite": true,
+      "payloadEqual": true,
+      "observations": [
+        {
+          "address": 281472937685040,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "offset": 0
+        },
+        {
+          "address": 281472940310235,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 2625195
+        },
+        {
+          "address": 281472940310235,
+          "requested": 14152021,
+          "accepted": 3994463,
+          "errno": 0,
+          "offset": 2625195
+        },
+        {
+          "address": 281472944304698,
+          "requested": 10157558,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 6619658
+        },
+        {
+          "address": 281472944304698,
+          "requested": 10157558,
+          "accepted": 4387361,
+          "errno": 0,
+          "offset": 6619658
+        },
+        {
+          "address": 281472948692059,
+          "requested": 5770197,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 11007019
+        },
+        {
+          "address": 281472948692059,
+          "requested": 5770197,
+          "accepted": 4256395,
+          "errno": 0,
+          "offset": 11007019
+        },
+        {
+          "address": 281472952948454,
+          "requested": 1513802,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 15263414
+        },
+        {
+          "address": 281472952948454,
+          "requested": 1513802,
+          "accepted": 1513802,
+          "errno": 0,
+          "offset": 15263414
+        }
+      ]
+    },
+    {
+      "readonlySource": false,
+      "nestedSource": true,
+      "inputBytes": 16777216,
+      "nativeInputAddress": 281472696432029,
+      "offsetInOriginalAllocation": 45,
+      "kernelEagainCount": 4,
+      "flushWasPending": true,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "parentFacadeCollectedBeforeDrain": true,
+      "retainedThroughActualGc": true,
+      "collectionMethod": "allocation-pressure",
+      "nativeFreeCount": 1,
+      "originalStorageAtEveryWrite": true,
+      "payloadEqual": true,
+      "observations": [
+        {
+          "address": 281472696432029,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "offset": 0
+        },
+        {
+          "address": 281472699057224,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 2625195
+        },
+        {
+          "address": 281472699057224,
+          "requested": 14152021,
+          "accepted": 3928980,
+          "errno": 0,
+          "offset": 2625195
+        },
+        {
+          "address": 281472702986204,
+          "requested": 10223041,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 6554175
+        },
+        {
+          "address": 281472702986204,
+          "requested": 10223041,
+          "accepted": 4387361,
+          "errno": 0,
+          "offset": 6554175
+        },
+        {
+          "address": 281472707373565,
+          "requested": 5835680,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 10941536
+        },
+        {
+          "address": 281472707373565,
+          "requested": 5835680,
+          "accepted": 4256395,
+          "errno": 0,
+          "offset": 10941536
+        },
+        {
+          "address": 281472711629960,
+          "requested": 1579285,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 15197931
+        },
+        {
+          "address": 281472711629960,
+          "requested": 1579285,
+          "accepted": 1579285,
+          "errno": 0,
+          "offset": 15197931
+        }
+      ]
+    },
+    {
+      "readonlySource": true,
+      "nestedSource": false,
+      "inputBytes": 16777216,
+      "nativeInputAddress": 281472696432016,
+      "offsetInOriginalAllocation": 32,
+      "kernelEagainCount": 4,
+      "flushWasPending": true,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "parentFacadeCollectedBeforeDrain": false,
+      "retainedThroughActualGc": true,
+      "collectionMethod": "allocation-pressure",
+      "nativeFreeCount": 1,
+      "originalStorageAtEveryWrite": true,
+      "payloadEqual": true,
+      "observations": [
+        {
+          "address": 281472696432016,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "offset": 0
+        },
+        {
+          "address": 281472699057211,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 2625195
+        },
+        {
+          "address": 281472699057211,
+          "requested": 14152021,
+          "accepted": 3928980,
+          "errno": 0,
+          "offset": 2625195
+        },
+        {
+          "address": 281472702986191,
+          "requested": 10223041,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 6554175
+        },
+        {
+          "address": 281472702986191,
+          "requested": 10223041,
+          "accepted": 4387361,
+          "errno": 0,
+          "offset": 6554175
+        },
+        {
+          "address": 281472707373552,
+          "requested": 5835680,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 10941536
+        },
+        {
+          "address": 281472707373552,
+          "requested": 5835680,
+          "accepted": 4256395,
+          "errno": 0,
+          "offset": 10941536
+        },
+        {
+          "address": 281472711629947,
+          "requested": 1579285,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 15197931
+        },
+        {
+          "address": 281472711629947,
+          "requested": 1579285,
+          "accepted": 1579285,
+          "errno": 0,
+          "offset": 15197931
+        }
+      ]
+    },
+    {
+      "readonlySource": true,
+      "nestedSource": true,
+      "inputBytes": 16777216,
+      "nativeInputAddress": 281472696432029,
+      "offsetInOriginalAllocation": 45,
+      "kernelEagainCount": 4,
+      "flushWasPending": true,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "parentFacadeCollectedBeforeDrain": true,
+      "retainedThroughActualGc": true,
+      "collectionMethod": "allocation-pressure",
+      "nativeFreeCount": 1,
+      "originalStorageAtEveryWrite": true,
+      "payloadEqual": true,
+      "observations": [
+        {
+          "address": 281472696432029,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "offset": 0
+        },
+        {
+          "address": 281472699057224,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 2625195
+        },
+        {
+          "address": 281472699057224,
+          "requested": 14152021,
+          "accepted": 3994463,
+          "errno": 0,
+          "offset": 2625195
+        },
+        {
+          "address": 281472703051687,
+          "requested": 10157558,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 6619658
+        },
+        {
+          "address": 281472703051687,
+          "requested": 10157558,
+          "accepted": 4387361,
+          "errno": 0,
+          "offset": 6619658
+        },
+        {
+          "address": 281472707439048,
+          "requested": 5770197,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 11007019
+        },
+        {
+          "address": 281472707439048,
+          "requested": 5770197,
+          "accepted": 4256395,
+          "errno": 0,
+          "offset": 11007019
+        },
+        {
+          "address": 281472711695443,
+          "requested": 1513802,
+          "accepted": -1,
+          "errno": 11,
+          "offset": 15263414
+        },
+        {
+          "address": 281472711695443,
+          "requested": 1513802,
+          "accepted": 1513802,
+          "errno": 0,
+          "offset": 15263414
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "nativeFreePositiveControl": true,
+      "nativeFreeAddressReuseControl": true,
+      "collectionMethod": "vm-service"
+    },
+    {
+      "nativeFreePositiveControl": true,
+      "nativeFreeAddressReuseControl": true,
+      "collectionMethod": "allocation-pressure"
+    }
+  ],
+  "limits": [
+    "First-free watch disarms before address reuse; this is not a double-free count oracle.",
+    "No foreign native pointer adoption or ObjectBox integration.",
+    "No SDK/TLS total-copy or strict paired performance acceptance.",
+    "Current source hosted CI remains pending; complete local verification passes."
+  ],
+  "compiledLifetimeRegression": {
+    "beforeExit": 255,
+    "beforeFailure": "early free rootAlive=false nativeFrees=1; no view dereference after failure",
+    "afterExit": 0,
+    "inputSha256": "6849af2e36e806f300a1eb9d8eeaf58fea86403fa0355d7d246c1edda1c6ed78",
+    "repair": "static Finalizer<Object> attaches backing root with source finalization token; original malloc finalizer remains sole releaser",
+    "beforeHelperSha256": "ee77640516e9078860a15e7aad863cbe26a2bd89d0a3525dcd07fd0296fdfae5",
+    "beforeHelperPath": "/tmp/connectanum-bounded-native-alias-aot-before-helper.dart"
+  },
+  "review": {
+    "path": "/tmp/connectanum-bounded-native-alias-token-review.txt",
+    "status": "completed, advisory only",
+    "verifiedDisposition": "No concrete lifetime flaw; derived-parent retention and Expando eviction advice rejected by source/GC evidence."
+  },
+  "supersededVerification": {
+    "exit": 143,
+    "reason": "Stopped feature-worktree verification after compiled lifetime failure; primary checkout verification untouched."
+  },
+  "verification": {
+    "command": "bin/verify",
+    "exitCode": 0,
+    "logPath": "/tmp/connectanum-bounded-native-alias-token-verify.log",
+    "logSha256": "99d1f9cbd5f2318f30f4b61eba2f9d082bef0b53717e4dd7cc8b1da0818e310c",
+    "benchmarkCases": 1563,
+    "routerCases": 4958,
+    "coreBrowserCases": 4751,
+    "clientBrowserCases": 2829,
+    "clientBrowserNativeOnlySkips": 20
+  }
+}

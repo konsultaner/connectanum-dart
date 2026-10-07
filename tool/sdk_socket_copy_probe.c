@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <stdatomic.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -95,4 +97,45 @@ ssize_t probe_control(uint16_t port, const void *buffer, size_t count) {
   ssize_t result = write(fd, buffer, count);
   close(fd);
   return result;
+}
+
+// GNU/Linux-only allocation oracle. Watch one explicitly selected live block.
+// Disarm at its first free so address reuse cannot count unrelated allocations.
+// The allocation's existing free callback remains the only releaser.
+#if !defined(__GLIBC__)
+#error "Native-free diagnostic requires glibc"
+#endif
+extern void __libc_free(void *);
+static _Atomic(uintptr_t) watched_free_address;
+static _Atomic(size_t) watched_free_count;
+void probe_watch_free(uintptr_t address) {
+  atomic_store(&watched_free_count, 0);
+  atomic_store(&watched_free_address, address);
+}
+size_t probe_free_count(void) { return atomic_load(&watched_free_count); }
+void free(void *pointer) {
+  uintptr_t expected = (uintptr_t)pointer;
+  if (pointer && atomic_compare_exchange_strong(
+      &watched_free_address, &expected, 0)) {
+    atomic_fetch_add(&watched_free_count, 1);
+  }
+  __libc_free(pointer);
+}
+
+// Keep both allocations on one native call/thread, without intervening Dart
+// allocations that could consume the freed tcache entry.
+int probe_free_reuse_control(void) {
+  void *original = malloc(64);
+  if (!original) return 0;
+  uintptr_t address = (uintptr_t)original;
+  probe_watch_free(address);
+  int started_zero = probe_free_count() == 0;
+  free(original);
+  int first_release = probe_free_count() == 1;
+  void *other = malloc(64);
+  int reused = other && (uintptr_t)other == address;
+  free(other);
+  int still_one = probe_free_count() == 1;
+  probe_watch_free(0);
+  return started_zero && first_release && reused && still_one;
 }

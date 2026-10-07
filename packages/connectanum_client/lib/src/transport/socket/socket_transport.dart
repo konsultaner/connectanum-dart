@@ -650,7 +650,7 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
         );
         for (final fragment in fragments) {
           if (fragment.isNotEmpty) {
-            _send0(fragment);
+            _send0(fragment, anchor: message);
           }
         }
         return;
@@ -721,8 +721,12 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     }
   }
 
-  void _send0(List<int> data) {
-    _socket!.add(data);
+  void _send0(List<int> data, {Object? anchor}) {
+    final bounded =
+        data is Uint8List && data.buffer.lengthInBytes != data.lengthInBytes
+        ? nativeExternalByteView(data, anchor: anchor)
+        : null;
+    _socket!.add(bounded ?? data);
   }
 
   @override
