@@ -5,6 +5,18 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): hosted full FlatBuffers campaign.
+The registered profile workflow gains an explicit manual primary choice with
+all 1,440 rows and unchanged gates. Production release binaries, locks and raw
+failure evidence are archived. The 38 campaign/comparator tests and verified
+Actionlint pass; four synthetic summary fixtures preserve failure status.
+Final companion review is blocked by the active native mutation resource lease.
+Baseline `bin/test-fast` and full `bin/verify` pass at exit 0, including
+1,609 benchmark, 4,958 router, 4,751 core browser and 2,829 client browser
+cases with the unchanged 20 native-only skips. Evidence:
+`/tmp/connectanum-hosted-primary-verify.{log,exit}`. Hosted execution remains
+pending; no performance acceptance follows. Research: [hosted full campaign](research/2026-10-07-hosted-flatbuffers-primary-campaign.md).
+
 Current follow-up (2026-10-07): observed native PPT submission metrics.
 Thirty-six fail-first cases expose zero-copy values inferred only from settings
 and permissive observation parsing. Each sample now requires its own observed

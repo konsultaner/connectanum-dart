@@ -209,6 +209,74 @@ with (root / 'driver-results.jsonl').open('wb') as stream:
                 self.assertEqual(campaign.main(self.cli_args(output) + ['--campaign-timeout-seconds=' + value]), 2)
                 self.assertFalse(output.exists())
 
+    def primary_cli_args(self, output):
+        return [arg for arg in self.cli_args(output) if arg != '--diagnostic']
+
+    def test_primary_cli_rejects_each_reduced_acceptance_floor_before_launch(self):
+        for option, value in (('--warmups', '2'), ('--repetitions', '6'),
+                              ('--duration-ms', '9999'), ('--samples', '999')):
+            with self.subTest(option=option):
+                output = self.root / option.removeprefix('--')
+                with mock.patch.object(campaign.platform, 'system', return_value='Linux'):
+                    with mock.patch.object(campaign, 'execute') as execute:
+                        self.assertEqual(campaign.main(self.primary_cli_args(output) + [option, value]), 2)
+                        execute.assert_not_called()
+                self.assertFalse(output.exists())
+
+    def test_primary_cli_rejects_subset_and_invalid_environment_before_launch(self):
+        output = self.root / 'output'
+        args = self.primary_cli_args(output)
+        with mock.patch.object(campaign, 'execute') as execute:
+            self.assertEqual(campaign.main(args + ['--case', campaign.primary_cases()[0]['id']]), 2)
+            with mock.patch.object(campaign.platform, 'system', return_value='Darwin'):
+                self.assertEqual(campaign.main(args), 2)
+            with mock.patch.object(campaign.platform, 'system', return_value='Linux'):
+                changed_policy = self.root / 'changed-policy.json'
+                original = json.loads(campaign.POLICY.read_text())
+                original['minimum_samples_per_run'] = 999
+                changed_policy.write_text(json.dumps(original))
+                self.assertEqual(campaign.main(args + ['--policy', str(changed_policy)]), 2)
+                with mock.patch.object(campaign, 'command_output', return_value=' M tracked.dart'):
+                    self.assertEqual(campaign.main(args), 2)
+            execute.assert_not_called()
+        self.assertFalse(output.exists())
+
+    def test_primary_prepare_keeps_all_1440_rows_and_policy_inputs(self):
+        output = self.root / 'output'
+        with mock.patch.object(campaign.platform, 'system', return_value='Linux'):
+            with mock.patch.object(campaign, 'command_output', return_value=''):
+                with mock.patch.object(campaign, 'LOCK', self.root / 'lock'):
+                    with mock.patch.object(campaign, 'execute') as execute:
+                        self.assertEqual(campaign.main(self.primary_cli_args(output)), 0)
+                        execute.assert_not_called()
+        # This is preparation with synthetic platform metadata, never timing evidence.
+        manifest = json.loads((output / 'manifest.json').read_text())
+        self.assertEqual(manifest['execution']['status'], 'planned')
+        self.assertEqual(manifest['metadata']['campaign_kind'], 'primary')
+        self.assertEqual(len(manifest['cases']), 48)
+        self.assertEqual(len(manifest['warmup_runs']), 3)
+        self.assertEqual(len(manifest['measured_runs']), 7)
+        runs = manifest['warmup_runs'] + manifest['measured_runs']
+        self.assertEqual(sum(len(run['order']) for run in runs), 1440)
+        for path in (output / 'scenarios').glob('*.toml'):
+            workloads = tomllib.loads(path.read_text())['workloads']
+            self.assertEqual(len(workloads), 144)
+            for workload in workloads:
+                self.assertEqual(workload['minimum_duration_ms'], 10000)
+                self.assertEqual(workload['iterations'], 1000)
+        self.assertEqual((output / 'inputs/policy.json').read_bytes(), campaign.POLICY.read_bytes())
+        self.assertFalse((output / 'comparison.json').exists())
+
+    def test_deadline_stops_real_descendant_and_retains_failed_manifest(self):
+        command = self.fake_driver('hang')
+        with self.assertRaisesRegex(campaign.compare.CampaignError, 'deadline exceeded'):
+            campaign.execute(self.root, self.manifest, self.runs, command, self.root, 0.3)
+        execution = json.loads((self.root / 'manifest.json').read_text())['execution']
+        self.assertEqual(execution['status'], 'failed')
+        self.assertTrue(execution['process_group_stopped'])
+        self.assertTrue((self.root / 'child.pid').exists())
+        self.assertFalse(campaign.group_alive(execution['pid']))
+
 
 if __name__ == '__main__':
     unittest.main()

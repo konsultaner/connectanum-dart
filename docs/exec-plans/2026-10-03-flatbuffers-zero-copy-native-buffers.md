@@ -7,6 +7,18 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): hosted full FlatBuffers campaign.
+The registered profile workflow gains an explicit manual primary choice with
+all 1,440 rows and unchanged gates. Production release binaries, locks and raw
+failure evidence are archived. The 38 campaign/comparator tests and verified
+Actionlint pass; four synthetic summary fixtures preserve failure status.
+Final companion review is blocked by the active native mutation resource lease.
+Baseline `bin/test-fast` and full `bin/verify` pass at exit 0, including
+1,609 benchmark, 4,958 router, 4,751 core browser and 2,829 client browser
+cases with the unchanged 20 native-only skips. Evidence:
+`/tmp/connectanum-hosted-primary-verify.{log,exit}`. Hosted execution remains
+pending; no performance acceptance follows. Research: [hosted full campaign](../research/2026-10-07-hosted-flatbuffers-primary-campaign.md).
+
 Current follow-up (2026-10-07): observed native PPT submission metrics.
 Thirty-six fail-first cases expose zero-copy values inferred only from settings
 and permissive observation parsing. Each sample now requires its own observed
@@ -1070,7 +1082,9 @@ retained allocations and copied bytes. Missing metrics, failed primary rows or
 inconclusive intervals block acceptance. No parity result exists yet.
 The proposed [performance contract](../flatbuffers_performance_acceptance.md)
 records the comparison groups, primary rows, repetition/noise rules and evidence
-requirements before measurement; runner policy and CPU/memory budgets remain open.
+requirements before measurement. Relative CPU/allocation/GC/RSS budgets are now
+encoded in the checked-in policy (point ratio at most 1.0, confidence upper bound
+at most 1.05); actual controlled results and complete copy evidence remain open.
 
 The existing ordinary-value 16 KiB serializer diagnostic matrix now contains
 FlatBuffers rows for both transports with the same settings as its binary

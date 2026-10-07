@@ -87,6 +87,13 @@ The runner integration and current copy-counter follow-up pass `bin/test-fast`
 and full `bin/verify` on 2026-10-05, including Chrome WebAssembly and live WAMP
 coverage. These are correctness checks, not timed results or parity acceptance.
 
+The registered WAMP Profile Benchmarks workflow also has an explicit manual
+`flatbuffers_primary` choice for the unchanged full 1,440-row campaign. It
+retains production binaries, source/lock/policy hashes and failed reports on a
+hosted Linux runner. The six-hour job budget includes a 330-minute executor
+deadline; incomplete execution remains failed evidence. Local workflow checks
+are not hosted timing acceptance. See [hosted campaign usage and limits](research/2026-10-07-hosted-flatbuffers-primary-campaign.md).
+
 ## Copy-counter coverage
 
 The native runtime exposes process-wide deltas for payload bytes copied into
@@ -217,10 +224,11 @@ to claim parity until the complete primary matrix runs with no missing metrics.
 
 The relative gate currently requires no point-estimate regression versus the
 better binary baseline for CPU, allocations, GC pause and peak RSS as well as
-throughput and latency. Separate absolute per-row CPU/memory ceilings are still
-undeclared, and current Dart-managed TLS/socket and mixed-codec transcode copy
-paths are unmeasured. Those rows remain blocked until instrumentation and policy
-are complete.
+throughput and latency. The declared resource budgets require point ratios at
+most 1.0 and 95% confidence upper bounds at most 1.05, as encoded in the policy.
+The policy has no separate absolute CPU/memory ceilings. Current Dart-managed
+TLS/socket and mixed-codec transcode copy paths are unmeasured; those rows remain
+blocked until instrumentation and the controlled comparison are complete.
 
 ## Executing a campaign
 
@@ -333,8 +341,9 @@ using pointer/allocation identity or independently checked copied-byte counters.
 Report builder growth, cryptography, TLS, masking, coalescing and transcoding
 separately. A retained frame owner or fragment count alone is not copy evidence.
 Report CPU, allocations/GC, live and peak retained bytes, wire bytes and latency
-distributions. Missing metrics cannot pass. CPU/memory regressions need explicit,
-measured budgets before release acceptance; those budgets remain undeclared.
+distributions. Missing metrics cannot pass. CPU/memory point-estimate
+regressions fail the declared relative budgets; the 5% confidence-bound allowance
+does not waive a regression.
 
 Every repetition must validate payload and sequence identity, drain consumers and
 prove final buffer release. Keep failed results, teardown evidence and complete
