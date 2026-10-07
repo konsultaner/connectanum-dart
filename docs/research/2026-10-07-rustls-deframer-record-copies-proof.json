@@ -1,0 +1,159 @@
+{
+  "status": "verified_partial_named_sites",
+  "base_commit": "a5c6aaf9a475ac983ca2397a063646d600f3ba1f",
+  "complete_tls_copy_coverage": false,
+  "performance_acceptance": false,
+  "pinned_sources_and_fixtures": 841,
+  "modified_upstream_files": 5,
+  "mac_enabled_cases": 238,
+  "mac_disabled_cases": 232,
+  "linux_enabled_cases": 239,
+  "linux_disabled_cases": 233,
+  "linux_frozen_inputs": 860,
+  "source_sha256": {
+    "native/transport/ct_core/src/lib.rs": "dc1eb86c8cf6d30d6433cadcdc9c21baf40c6b851a35ccc8cdd8866df1132010",
+    "native/transport/vendor/README.md": "2eafcfdee78692985ea3ae858898575c4d153adabea5e378c164504c9d289ecd",
+    "native/transport/vendor/rustls-source-manifest.json": "1290cd9d4212ce92d263d998caf5ea7e31dbdd1ced023ce2e6af02569876ec0d",
+    "native/transport/vendor/rustls/src/copy_observer.rs": "a31cd08f735c975e892d07dddb33d2dba31f1a3426a39ddda3ddb42644547445",
+    "native/transport/vendor/rustls/src/msgs/deframer/buffers.rs": "2ba8716d92d3bfe1f098f9de3cd70525c50b08e98ed6c444fcf7766adce5a426",
+    "native/transport/vendor/rustls/src/msgs/message/outbound.rs": "f0e833437979f1b2aabfb8935cf88a6447b0bbdb1a36670e791588a5470f2e0f",
+    "tool/test_run_wamp_serializer_campaign.py": "929bb87301fd253e012af2cd3e05d195fa29d1333ed1e8aa4393ec5d8d1dff41",
+    ".gitattributes": "5f0dd02b77934d1b185c13f4c298e39ad9f2981ceeea5bdc9ed2bdb40c593be0"
+  },
+  "snapshot_sha256": "f837a8ae6e2e33c89317355fd89b3c8c0f3a60828e4dd10733e56cf3dc15a219",
+  "checks": {
+    "deframer-fail-first": {
+      "exit": 101,
+      "log": "/tmp/connectanum-rustls-deframer-fail-first.log",
+      "log_sha256": "04a731df50a2cb7753ad364f074be9d1a060961315af731100a6d5033cf0ab82"
+    },
+    "record-fail-first": {
+      "exit": 101,
+      "log": "/tmp/connectanum-rustls-record-fail-first.log",
+      "log_sha256": "1e5e0eb47d621ad19170a741d4e6be96675c99980ed9e85d2c67af868521b311"
+    },
+    "record-upstream": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-record-upstream.log",
+      "log_sha256": "899d61b48ac8c910c64ad6b6280024ffd15e5ea9df19c6830fb11e0a79f53f26"
+    },
+    "deframer-record-disabled": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-deframer-record-disabled.log",
+      "log_sha256": "ca363f4970065f2ebe8ee543c6d40f98a77b34b8bcb202568f1e82e5bd513bd5"
+    },
+    "deframer-record-live-observations": {
+      "exit": 101,
+      "log": "/tmp/connectanum-rustls-deframer-record-live-observations.log",
+      "log_sha256": "9f89efedd444fdd180d873276d61cf43a64c1e3933f74b04b84ca05f290c7f53"
+    },
+    "deframer-record-live-observations-final": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-deframer-record-live-observations-final.log",
+      "log_sha256": "fcdcb95fdaeea25e4edcde84cda249c0d5728af21999dabc857a1059a5388a30"
+    },
+    "deframer-record-linux-inputs": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-deframer-record-linux-inputs.log",
+      "log_sha256": "39eefcf53f1822a8169b12c7c11b0655083011a006aeb5ab99d8b167fe901c04"
+    },
+    "deframer-record-linux-upstream": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-deframer-record-linux-upstream.log",
+      "log_sha256": "7814ff057dee2d2a515e00296f7678d4d336b478f38b806a05f9373f93473b33"
+    },
+    "deframer-record-linux-disabled": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-deframer-record-linux-disabled.log",
+      "log_sha256": "b2ea16d8430237626e003321c5f4d4199a478c6ca5307d79fd84fbd050c60601"
+    },
+    "deframer-record-linux-live": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-deframer-record-linux-live.log",
+      "log_sha256": "6bedd6efce4bb52899e47cde0ed64deb27902e3ac61607ccdc270052098b5dab"
+    },
+    "deframer-record-hooks-review": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-deframer-record-hooks-review.log",
+      "log_sha256": "9ef8e9ece10556040c8667545dd9d2f886d7080980541997b789ca600e00d012"
+    },
+    "fast": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-deframer-record-fast.log",
+      "log_sha256": "60b4941ddfd4e598d580324998217f380c5d0a91d6cbcde6155f2a636a138c2f"
+    },
+    "git-source-controls": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-deframer-record-git-source-controls.log",
+      "log_sha256": "ec3547675230e3ad9edc577ea777804b38f1e7499fd08d132846281cd59b5532"
+    },
+    "six-counter-review": {
+      "exit": 1,
+      "log": "/tmp/connectanum-rustls-six-counter-review.log",
+      "reason": "local resource lease unavailable: native mutation campaign is active; prior hook review completed"
+    },
+    "verify": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-deframer-record-verify.log",
+      "log_sha256": "54af7ae123d3ae0aba4771538a33fba5278133af432653bc3a81d49e2311fe23"
+    },
+    "six-counter-review-final": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-six-counter-review-final.log",
+      "log_sha256": "1d41c386d6fd00d6331e39e7ceae1782ff5f1bba8581b26aa720171c0521cb70",
+      "assessment": "Completed after the lease is free. Its tuple/public-snapshot concern does not apply: exact tests assert LOCAL; real native tests assert global snapshots. No claim covers all copy sites. Direct inspection confirms all six atomic/local index pairs."
+    }
+  },
+  "remaining_gaps": [
+    "buffer growth and initial header initialization",
+    "remaining record and crypto sites",
+    "Tokio-Rustls plaintext extraction",
+    "Dart SDK TLS",
+    "mixed-serializer transformations",
+    "whole-crypto accounting",
+    "full primary parity and original supplemental scope",
+    "resulting-head hosted and platform acceptance"
+  ],
+  "windows_notice_control": {
+    "before": "/tmp/connectanum-rustls-notice-crlf-fail-first.json",
+    "before_byte_identical": false,
+    "after_exact_blobs": 843,
+    "resulting_source_windows_package": "pending"
+  },
+  "published_a5_artifacts": {
+    "source": "a5c6aaf9a475ac983ca2397a063646d600f3ba1f",
+    "run": 37582546475,
+    "verified_platform_manifests": 5,
+    "source_workflow_pinned_attestations": 15,
+    "preview_assets": 30,
+    "rendered_notes_match": true,
+    "notice_files_exact": 23,
+    "windows_crlf_differences": 2,
+    "production_mac_test_oracles": false,
+    "old_and_v2_snapshots": true,
+    "provenance_log": "/tmp/connectanum-a5c6aaf9-verify-artifacts.log",
+    "notice_and_preview_proof": "/tmp/connectanum-a5c6aaf9-native-notice-preview-proof.json",
+    "runtime_validation": {
+      "macos_arm64_cases": 34,
+      "linux_arm64_cases": 34,
+      "macos_proof": "/tmp/connectanum-a5c6aaf9-production-profiles-isolated.json",
+      "linux_proof": "/tmp/connectanum-a5c6aaf9-linux-production-profiles-isolated.json",
+      "other_three_platforms": "build and provenance only"
+    }
+  },
+  "canonical_results": {
+    "benchmark_cases": 1616,
+    "router_cases": 4958,
+    "core_browser_cases": 4751,
+    "client_browser_cases": 2829,
+    "unchanged_native_only_browser_skips": 20
+  },
+  "ci_fixture_repair": {
+    "fail_first_exit": 1,
+    "fail_first_log": "/tmp/connectanum-primary-prepare-clean-root-fail-first.log",
+    "after_exit": 0,
+    "after_log": "/tmp/connectanum-primary-prepare-lock-fixtures.log",
+    "cases": 15,
+    "policy_changed": false
+  }
+}

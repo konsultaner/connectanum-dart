@@ -81,7 +81,11 @@ impl<'b> Coalescer<'b> {
         debug_assert!(from.len() == to.len());
         debug_assert!(self.slice.get(from.clone()).is_some());
         debug_assert!(self.slice.get(to.clone()).is_some());
+        #[cfg(feature = "connectanum-copy-observer")]
+        let moved = if from.start == to.start { 0 } else { from.len() };
         self.slice.copy_within(from, to.start);
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::deframer_move_copy(moved);
     }
 
     #[inline]
@@ -178,6 +182,10 @@ impl DeframerVecBuffer {
 
             self.buf
                 .copy_within(taken..self.used, 0);
+            #[cfg(feature = "connectanum-copy-observer")]
+            if taken > 0 {
+                crate::copy_observer::deframer_move_copy(self.used - taken);
+            }
             self.used -= taken;
         } else if taken >= self.used {
             self.used = 0;
@@ -262,6 +270,8 @@ impl DeframerVecBuffer {
             self.buf.resize(end, 0);
         }
         self.buf[start..end].copy_from_slice(bytes);
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::deframer_append_copy(len);
         self.used += len;
         Range { start, end }
     }

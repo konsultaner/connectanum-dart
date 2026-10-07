@@ -5,6 +5,33 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): deframer and record copy observations.
+Four new fail-first tests expose omitted deframer appends/moves and record
+clones/appends. All 238 enabled and 232 disabled upstream library cases pass;
+the source gate and five failure controls pass. Named counters remain partial.
+A live receive assertion exposes that buffered Rustls reads directly into
+its deframer, bypassing `extend`; accepted input is not counted as an assumed
+copy. That invalid new assertion is removed, preserving existing coverage.
+The live record-append check passes on macOS and Linux. Linux passes 239 enabled
+and 233 disabled cases with all 860 frozen source/lock inputs matched.
+Canonical `bin/test-fast` and full `bin/verify` pass at exit 0: Rust/VM/consumers,
+1,616 benchmark, 4,958 router, 4,751 core browser and 2,829 client browser cases,
+with 20 unchanged native-only skips.
+Growth, remaining record/crypto and Tokio-Rustls/SDK extraction still prevent
+whole-copy acceptance. The published `a5c6aaf9` full primary remains live;
+native and package dry runs finish successfully. Both resulting-source CI fast
+jobs fail a campaign unit fixture's missing generated Cargo lockfile. An
+isolated temporary source root reproduces it; explicit synthetic locks and
+hash/archive assertions pass all 15 campaign cases without changing policy.
+All 15 a5 artifact attestations and 30 preview assets verify. Windows converts
+the bundled notice and source manifest to CRLF; their new `-text` attributes
+prevent that byte drift; all 843 source/fixture/notice/manifest filter controls
+pass. The unchanged release-note renderer reproduces the
+preview with the exact workflow reference. All 34 production profile cases
+pass against both hosted macOS arm64 and Linux arm64 libraries; other three
+platforms have build/provenance evidence. No release or parity claim follows.
+#100–#104 remain open.
+
 Current follow-up (2026-10-07): source-observed Rustls copies.
 Rustls 0.23.45 is pinned with original licenses and an 841-file digest manifest,
 including exact upstream test fixtures. Two fail-first cases expose omitted
@@ -47,8 +74,11 @@ Final full `bin/verify` passes at exit 0: Rust/VM/consumers, 1,616 benchmark,
 20 native-only skips. Evidence: `/tmp/connectanum-native-io-copy-verify-final.{log,exit}`.
 Companion debug/review/test advice is verified; no accepted source defect remains.
 Preceding `0ec8df06` PR run 37565054707 completes all 41 jobs successfully.
-Push run 37565051795 remains at 40/41 with its MCP mutation gate active.
-New publication is held to preserve the remaining run. Resulting-head
+Push run 37565051795 also completes all 41 jobs successfully. The four verified
+commits through `a5c6aaf9` are now published to both remotes. Resulting-source
+CI runs 37582506753 (push) and 37582511052 (PR), full primary campaign
+37582544124, native dry run 37582546475 and package dry run 37582549630
+are dispatched; acceptance remains pending. Resulting-head
 hosted acceptance and performance parity remain pending; no issue closure follows. Research: [prefetched input copies](research/2026-10-07-native-prefetched-input-copies.md).
 
 Current follow-up (2026-10-07): hosted full FlatBuffers campaign.

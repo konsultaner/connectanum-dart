@@ -209,16 +209,29 @@ impl OutboundOpaqueMessage {
     /// This should only be used for messages that are known to be in plaintext. Otherwise, the
     /// `OutboundOpaqueMessage` should be decrypted into a `PlainMessage` using a `MessageDecrypter`.
     pub fn into_plain_message(self) -> PlainMessage {
+        let payload = self.payload.as_ref().to_vec();
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_buffer_copy(payload.len());
         PlainMessage {
             version: self.version,
             typ: self.typ,
-            payload: Payload::Owned(self.payload.as_ref().to_vec()),
+            payload: Payload::Owned(payload),
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[cfg_attr(not(feature = "connectanum-copy-observer"), derive(Clone))]
 pub struct PrefixedPayload(Vec<u8>);
+
+#[cfg(feature = "connectanum-copy-observer")]
+impl Clone for PrefixedPayload {
+    fn clone(&self) -> Self {
+        let payload = self.0.clone();
+        crate::copy_observer::record_buffer_copy(payload.len());
+        Self(payload)
+    }
+}
 
 impl PrefixedPayload {
     pub fn with_capacity(capacity: usize) -> Self {
@@ -228,7 +241,9 @@ impl PrefixedPayload {
     }
 
     pub fn extend_from_slice(&mut self, slice: &[u8]) {
-        self.0.extend_from_slice(slice)
+        self.0.extend_from_slice(slice);
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_append_copy(slice.len());
     }
 
     pub fn extend_from_chunks(&mut self, chunks: &OutboundChunks<'_>) {
@@ -258,7 +273,11 @@ impl AsMut<[u8]> for PrefixedPayload {
 
 impl<'a> Extend<&'a u8> for PrefixedPayload {
     fn extend<T: IntoIterator<Item = &'a u8>>(&mut self, iter: T) {
-        self.0.extend(iter)
+        #[cfg(feature = "connectanum-copy-observer")]
+        let before = self.0.len();
+        self.0.extend(iter);
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_append_copy(self.0.len() - before);
     }
 }
 
@@ -267,6 +286,8 @@ impl From<&[u8]> for PrefixedPayload {
         let mut payload = Vec::with_capacity(HEADER_SIZE + content.len());
         payload.extend(&[0u8; HEADER_SIZE]);
         payload.extend(content);
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_append_copy(content.len());
         Self(payload)
     }
 }

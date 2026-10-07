@@ -8,6 +8,7 @@
   "modified_upstream_files": [
     "rustls/Cargo.toml",
     "rustls/src/lib.rs",
+    "rustls/src/msgs/deframer/buffers.rs",
     "rustls/src/msgs/message/outbound.rs",
     "rustls/src/vecbuf.rs"
   ],
@@ -2134,7 +2135,7 @@
     },
     "rustls/src/copy_observer.rs": {
       "upstream_sha256": null,
-      "sha256": "006436e5bcef88d5da63f912a16a82aced5ce6cc94df18d3f7a3113e1b89bf0f"
+      "sha256": "a31cd08f735c975e892d07dddb33d2dba31f1a3426a39ddda3ddb42644547445"
     },
     "rustls/src/crypto/aws_lc_rs/hpke.rs": {
       "upstream_sha256": "3ebd35dbd22cf7914288565ab6946be7b243e6c61f079e18cb0f13075a368d68",
@@ -2318,7 +2319,7 @@
     },
     "rustls/src/msgs/deframer/buffers.rs": {
       "upstream_sha256": "48bb18eff4e5859ec56aba8910488a791457afabc79feba0b09375e11bcca459",
-      "sha256": "48bb18eff4e5859ec56aba8910488a791457afabc79feba0b09375e11bcca459"
+      "sha256": "2ba8716d92d3bfe1f098f9de3cd70525c50b08e98ed6c444fcf7766adce5a426"
     },
     "rustls/src/msgs/deframer/handshake.rs": {
       "upstream_sha256": "8b72e2864ef0de161b47c23c1c7bd50d4d39c2354813be920af66f13139b638d",
@@ -2362,7 +2363,7 @@
     },
     "rustls/src/msgs/message/outbound.rs": {
       "upstream_sha256": "fb214090aff53ea7228519feeac4444fa4b0f389c9af6dc062bf6efbe6c8a8ff",
-      "sha256": "d05e1c4b937d7c144408a512e1b722b8799b7f9c2ddd8fee9361b45641d11254"
+      "sha256": "f0e833437979f1b2aabfb8935cf88a6447b0bbdb1a36670e791588a5470f2e0f"
     },
     "rustls/src/msgs/message_test.rs": {
       "upstream_sha256": "4113f501bfae1ea42f300a6ae7bc3f8541c87d185482aa2b9abb735275f5b267",

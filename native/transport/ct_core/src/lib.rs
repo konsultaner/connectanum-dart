@@ -10316,6 +10316,11 @@ mod tests {
                 > rustls_copies_before.outbound_chunk_copy_bytes,
             "the real native TLS send must observe outbound chunk copies"
         );
+        assert!(
+            rustls_copies_after.record_append_copy_bytes
+                > rustls_copies_before.record_append_copy_bytes,
+            "the real native TLS records must observe appended bytes"
+        );
 
         std::fs::remove_file(path).unwrap();
         shutdown().unwrap();
