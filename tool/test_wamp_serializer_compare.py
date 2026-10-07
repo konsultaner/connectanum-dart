@@ -80,6 +80,12 @@ class WampSerializerCompareTest(unittest.TestCase):
                 "builder_input_copy_bytes": 0,
                 "builder_growth_copy_bytes": 0,
                 "transport_copy_bytes": 512,
+                "known_own_copy_breakdown": {
+                    "router": {
+                        "io_buffer_front_copy_bytes": 0,
+                        "io_buffered_read_copy_bytes": 0,
+                    },
+                },
                 "coverage": {
                     "transport_copy_bytes": "complete_connectanum_owned_path",
                     "unknown_boundaries": [],
@@ -410,6 +416,25 @@ class WampSerializerCompareTest(unittest.TestCase):
                         for finding in findings
                     )
                 )
+
+    def test_rejects_missing_native_input_copy_breakdown(self) -> None:
+        for process in ("router", "client"):
+            for field in ("io_buffer_front_copy_bytes", "io_buffered_read_copy_bytes"):
+                for invalid in (None, True, -1, float("inf"), {"status": "not_measured"}):
+                    with self.subTest(process=process, field=field, invalid=invalid):
+                        report = self._report("case_flatbuffers", "flatbuffers", 0)
+                        report["client_impl"] = "native"
+                        breakdown = report["copy_metrics"]["known_own_copy_breakdown"]
+                        breakdown["client"] = {
+                            "io_buffer_front_copy_bytes": 0,
+                            "io_buffered_read_copy_bytes": 0,
+                        }
+                        if invalid is None:
+                            breakdown[process].pop(field)
+                        else:
+                            breakdown[process][field] = invalid
+                        findings = compare._validate_evidence(report, label="old-native-input")
+                        self.assertTrue(any(f"{process}.{field}" in item for item in findings))
 
     def test_rejects_not_applicable_transport_copy_total(self) -> None:
         report = self._report("case_flatbuffers", "flatbuffers", 0)

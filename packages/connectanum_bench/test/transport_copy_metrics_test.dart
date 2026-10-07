@@ -5,6 +5,75 @@ import 'package:test/test.dart';
 
 void main() {
   group('mergeRouterTransportCopyMetrics', () {
+    test(
+      'native prefetched staging and replay add their actual router deltas',
+      () {
+        final metrics = mergeRouterTransportCopyMetrics(
+          _clientMetrics(),
+          scenario: _scenario(),
+          before: _routerMetrics(dartToNative: 10, ioFront: 5, ioRead: 7),
+          after: _routerMetrics(dartToNative: 16, ioFront: 8, ioRead: 12),
+        );
+        expect(metrics['transport_copy_bytes'], 54);
+        expect(metrics['known_own_transport_copy_bytes'], 54);
+        final router =
+            (metrics['known_own_copy_breakdown'] as Map)['router'] as Map;
+        expect(router['io_buffer_front_copy_bytes'], 3);
+        expect(router['io_buffered_read_copy_bytes'], 5);
+      },
+    );
+
+    for (final unavailableFront in [true, false]) {
+      for (final missingBefore in [true, false]) {
+        test(
+          'missing router input counter front=$unavailableFront before=$missingBefore fails closed',
+          () {
+            final unavailable = _routerMetrics(
+              ioFront: unavailableFront ? null : 0,
+              ioRead: unavailableFront ? 0 : null,
+            );
+            final metrics = mergeRouterTransportCopyMetrics(
+              _clientMetrics(),
+              scenario: _scenario(),
+              before: missingBefore ? unavailable : _routerMetrics(),
+              after: missingBefore ? _routerMetrics() : unavailable,
+            );
+            expect(metrics['transport_copy_bytes'], isA<Map>());
+            expect(
+              (metrics['coverage'] as Map)['transport_copy_bytes'],
+              'partial',
+            );
+            expect(
+              (metrics['coverage'] as Map)['unknown_boundaries'],
+              contains('router prefetched input copy counters are unavailable'),
+            );
+          },
+        );
+      }
+    }
+
+    test(
+      'legacy client without input counter evidence cannot claim complete coverage',
+      () {
+        final client = _clientMetrics();
+        ((client['known_own_copy_breakdown'] as Map)['client'] as Map).remove(
+          'io_buffer_front_copy_bytes',
+        );
+        final metrics = mergeRouterTransportCopyMetrics(
+          client,
+          scenario: _scenario(),
+          before: _routerMetrics(),
+          after: _routerMetrics(),
+        );
+        expect(metrics['transport_copy_bytes'], isA<Map>());
+        expect((metrics['coverage'] as Map)['transport_copy_bytes'], 'partial');
+        expect(
+          (metrics['coverage'] as Map)['unknown_boundaries'],
+          contains('client prefetched input copy counters are unavailable'),
+        );
+      },
+    );
+
     for (final boundaries in [
       null,
       'opaque',
@@ -295,6 +364,7 @@ WampScenario _scenario({
   transport: transport,
   secureTransport: secureTransport,
   serializer: WampSerializer.flatbuffers,
+  clientImplementation: WampClientImplementation.native,
   mode: WampMode.rpc,
   uri: 'bench.rpc.echo',
   iterations: 1,
@@ -309,7 +379,11 @@ Map<String, Object?> _clientMetrics({
   'transport_copy_bytes': transportCopyBytes,
   'known_own_transport_copy_bytes': 40,
   'known_own_copy_breakdown': <String, Object?>{
-    'client': <String, Object?>{'dart_to_native_copy_bytes': 40},
+    'client': <String, Object?>{
+      'dart_to_native_copy_bytes': 40,
+      'io_buffer_front_copy_bytes': 0,
+      'io_buffered_read_copy_bytes': 0,
+    },
   },
   'coverage': <String, Object?>{
     'transport_copy_bytes': 'complete_client_connectanum_path',
@@ -323,9 +397,13 @@ NativeRouterTransportCopyMetrics _routerMetrics({
   int dartToNative = 0,
   int? websocketCoalesce = 0,
   int? tlsPlaintext = 0,
+  int? ioFront = 0,
+  int? ioRead = 0,
 }) => NativeRouterTransportCopyMetrics(
   dartToNativeCopiedBytesTotal: dartToNative,
   websocketMaskCopyBytesTotal: 0,
   websocketCoalesceCopyBytesTotal: websocketCoalesce,
   tlsPlaintextAcceptedBytesTotal: tlsPlaintext,
+  ioBufferFrontCopyBytesTotal: ioFront,
+  ioBufferedReadCopyBytesTotal: ioRead,
 );

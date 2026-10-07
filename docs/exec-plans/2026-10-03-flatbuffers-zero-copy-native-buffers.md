@@ -7,6 +7,28 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): native prefetched input copies.
+Two real TCP-pair regressions expose uncounted staging/replay copies; an
+intermediate observation identifies the duplicate unread-buffer copy, now
+removed. The old 24-byte snapshot remains unchanged beside a new optional
+40-byte ABI. Both Dart runtimes retain null for absent counters. The 30 merge,
+39 comparator/campaign and eight live worker cases pass; new test-library and
+old production-library snapshot tests pass. Complete transport reports require the new input
+counter evidence. Initial fast-check warnings and an omitted direct test
+dependency are corrected; Linux locked-snapshot setup was repaired without
+relaxing dependency locking. Final Linux arm64 native/FFI, 31 Dart and eight
+live worker cases pass with all 18 source/lock hashes matched. Fresh
+`bin/test-fast` passes at exit 0, including all 1,616 benchmark cases.
+Full verify first exposes a test-only stale-debug library selection; the exact
+repro fails before and passes after using the existing canonical test resolver.
+Final full `bin/verify` passes at exit 0: Rust/VM/consumers, 1,616 benchmark,
+4,958 router, 4,751 core browser and 2,829 client browser cases, with the same
+20 native-only skips. Evidence: `/tmp/connectanum-native-io-copy-verify-final.{log,exit}`.
+Companion debug/review/test advice is verified; no accepted source defect remains.
+Both preceding `0ec8df06` hosted runs pass 40/41 jobs; only MCP mutation gates
+remain active. New publication is held to preserve those runs. Resulting-head
+hosted acceptance and performance parity remain pending; no issue closure follows. Research: [prefetched input copies](../research/2026-10-07-native-prefetched-input-copies.md).
+
 Current follow-up (2026-10-07): hosted full FlatBuffers campaign.
 The registered profile workflow gains an explicit manual primary choice with
 all 1,440 rows and unchanged gates. Production release binaries, locks and raw

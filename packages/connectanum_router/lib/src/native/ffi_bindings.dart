@@ -431,6 +431,11 @@ typedef CtTransportCopyMetricsSnapshotNative =
 typedef CtTransportCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
 
+typedef CtTransportCopyMetricsSnapshotV2Native =
+    ffi.Int32 Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
+typedef CtTransportCopyMetricsSnapshotV2Dart =
+    int Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
+
 typedef CtHttpResponseStreamOpenNative =
     ffi.Int32 Function(
       ffi.Int32,
@@ -943,6 +948,16 @@ final class CtTransportCopyMetricsInfo extends ffi.Struct {
 
   @ffi.Uint64()
   external int tlsPlaintextAcceptedBytesTotal;
+}
+
+final class CtTransportCopyMetricsInfoV2 extends ffi.Struct {
+  external CtTransportCopyMetricsInfo legacy;
+
+  @ffi.Uint64()
+  external int ioBufferFrontCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int ioBufferedReadCopyBytesTotal;
 }
 
 final class CtRouterMetricsBreakdownInfo extends ffi.Struct {
@@ -1466,6 +1481,13 @@ class CtFfiBindings {
             CtRouterMetricsSnapshotNative,
             CtRouterMetricsSnapshotDart
           >('ct_router_metrics_snapshot'),
+      ctTransportCopyMetricsSnapshotV2 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTransportCopyMetricsSnapshotV2Native,
+              CtTransportCopyMetricsSnapshotV2Dart
+            >('ct_transport_copy_metrics_snapshot_v2'),
+      ),
       ctTransportCopyMetricsSnapshot = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1616,6 +1638,7 @@ class CtFfiBindings {
   final CtHttpConnectionEventGetDart ctHttpConnectionEventGet;
   final CtHttpConnectionEventReleaseDart ctHttpConnectionEventRelease;
   final CtRouterMetricsSnapshotDart ctRouterMetricsSnapshot;
+  final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;
   final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;
   final CtHttpResponseStreamOpenDart ctHttpResponseStreamOpen;
   final CtHttpResponseStreamWriteDart ctHttpResponseStreamWrite;

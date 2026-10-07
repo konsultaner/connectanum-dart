@@ -61,12 +61,35 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
           'complete_client_connectanum_path' &&
       clientBoundaryValue is List &&
       clientBoundaryValue.every((value) => value is String);
+  final breakdownValue = metrics['known_own_copy_breakdown'];
+  final breakdown = breakdownValue is Map
+      ? Map<String, Object?>.from(breakdownValue)
+      : <String, Object?>{};
+  final clientBreakdownValue = breakdown['client'];
+  final clientBreakdown = clientBreakdownValue is Map
+      ? Map<String, Object?>.from(clientBreakdownValue)
+      : <String, Object?>{};
+  final clientInputMeasured =
+      scenario.clientImplementation != WampClientImplementation.native ||
+      (_copyByteCount(clientBreakdown['io_buffer_front_copy_bytes']) != null &&
+          _copyByteCount(clientBreakdown['io_buffered_read_copy_bytes']) !=
+              null);
+  final routerFrontCopies = _copyByteCount(
+    routerDelta?.ioBufferFrontCopyBytesTotal,
+  );
+  final routerReplayCopies = _copyByteCount(
+    routerDelta?.ioBufferedReadCopyBytesTotal,
+  );
+  final routerInputMeasured =
+      routerFrontCopies != null && routerReplayCopies != null;
   final completePath =
       clientCoverageComplete &&
+      clientInputMeasured &&
       clientUnknownBoundaries.isEmpty &&
       clientTransport != null &&
       routerDelta != null &&
       routerWebSocketMeasured &&
+      routerInputMeasured &&
       !needsTls;
 
   final unknownBoundaries = clientUnknownBoundaries;
@@ -82,12 +105,18 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
       'client transport copy counter is invalid or unavailable',
     );
   }
+  if (!clientInputMeasured) {
+    addUnknownBoundary('client prefetched input copy counters are unavailable');
+  }
   if (routerDelta == null) {
     addUnknownBoundary('router transport copy snapshots are unavailable');
   } else if (!routerWebSocketMeasured) {
     addUnknownBoundary(
       'router WebSocket coalescing copy counter is unavailable',
     );
+  }
+  if (routerDelta != null && !routerInputMeasured) {
+    addUnknownBoundary('router prefetched input copy counters are unavailable');
   }
   if (needsTls) {
     addUnknownBoundary('TLS memory-copy behavior is not measured');
@@ -101,19 +130,21 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
       : routerDelta.dartToNativeCopiedBytesTotal +
             (needsWebSocket
                 ? (routerDelta.websocketCoalesceCopyBytesTotal ?? 0)
-                : 0);
+                : 0) +
+            (routerFrontCopies ?? 0) +
+            (routerReplayCopies ?? 0);
   metrics['known_own_transport_copy_bytes'] =
       (clientKnownOwnBytes ?? 0) + routerKnownOwnBytes;
 
-  final breakdownValue = metrics['known_own_copy_breakdown'];
-  final breakdown = breakdownValue is Map
-      ? Map<String, Object?>.from(breakdownValue)
-      : <String, Object?>{};
-  final clientBreakdownValue = breakdown['client'];
-  final clientBreakdown = clientBreakdownValue is Map
-      ? Map<String, Object?>.from(clientBreakdownValue)
-      : <String, Object?>{};
   final routerBreakdown = <String, Object?>{};
+  routerBreakdown['io_buffer_front_copy_bytes'] =
+      routerFrontCopies ??
+      notMeasured(
+        'router prefetched input staging copy counter is unavailable',
+      );
+  routerBreakdown['io_buffered_read_copy_bytes'] =
+      routerReplayCopies ??
+      notMeasured('router prefetched input replay copy counter is unavailable');
   routerBreakdown['dart_to_native_copy_bytes'] = routerDelta == null
       ? notMeasured('router transport copy snapshots are unavailable')
       : routerDelta.dartToNativeCopiedBytesTotal;
@@ -131,14 +162,22 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   metrics['transport_copy_bytes'] = completePath
       ? clientTransport +
             routerDelta.dartToNativeCopiedBytesTotal +
-            (needsWebSocket ? routerDelta.websocketCoalesceCopyBytesTotal! : 0)
+            (needsWebSocket
+                ? routerDelta.websocketCoalesceCopyBytesTotal!
+                : 0) +
+            routerFrontCopies +
+            routerReplayCopies
       : notMeasured(
           needsTls
               ? 'TLS copy behavior is not instrumented'
               : !clientCoverageComplete || clientTransport == null
               ? 'client transport copy coverage is incomplete'
+              : !clientInputMeasured
+              ? 'client prefetched input copy counters are unavailable'
               : routerDelta == null
               ? 'router transport copy snapshots are unavailable'
+              : !routerInputMeasured
+              ? 'router prefetched input copy counters are unavailable'
               : 'an active router transport copy counter is unavailable',
         );
 

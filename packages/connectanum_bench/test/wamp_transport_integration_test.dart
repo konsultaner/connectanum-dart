@@ -93,6 +93,31 @@ void main() {
                 );
               }
               expect(result.copyMetrics['optimized_payload_copy_bytes'], 0);
+              final copyBreakdown =
+                  (result.copyMetrics['known_own_copy_breakdown']
+                          as Map)['client']
+                      as Map;
+              for (final field in [
+                'io_buffer_front_copy_bytes',
+                'io_buffered_read_copy_bytes',
+              ]) {
+                expect(copyBreakdown[field], isNonNegative);
+              }
+              final measuredCopies =
+                  [
+                    'dart_to_native_copy_bytes',
+                    'websocket_mask_copy_bytes',
+                    'websocket_coalesce_copy_bytes',
+                    'io_buffer_front_copy_bytes',
+                    'io_buffered_read_copy_bytes',
+                  ].fold<int>(
+                    0,
+                    (sum, field) => sum + (copyBreakdown[field] as int),
+                  );
+              expect(
+                result.copyMetrics['transport_copy_bytes'],
+                measuredCopies,
+              );
             },
             skip: skipReason,
             timeout: const Timeout(Duration(seconds: 45)),

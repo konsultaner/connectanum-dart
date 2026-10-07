@@ -219,12 +219,16 @@ class NativeTransportCopyMetrics {
     required this.websocketMaskCopyBytesTotal,
     required this.websocketCoalesceCopyBytesTotal,
     required this.tlsPlaintextAcceptedBytesTotal,
+    this.ioBufferFrontCopyBytesTotal,
+    this.ioBufferedReadCopyBytesTotal,
   });
 
   final int dartToNativeCopiedBytesTotal;
   final int? websocketMaskCopyBytesTotal;
   final int? websocketCoalesceCopyBytesTotal;
   final int? tlsPlaintextAcceptedBytesTotal;
+  final int? ioBufferFrontCopyBytesTotal;
+  final int? ioBufferedReadCopyBytesTotal;
 
   NativeTransportCopyMetrics deltaFrom(NativeTransportCopyMetrics before) =>
       NativeTransportCopyMetrics(
@@ -243,6 +247,14 @@ class NativeTransportCopyMetrics {
         tlsPlaintextAcceptedBytesTotal: _nullableCounterDelta(
           tlsPlaintextAcceptedBytesTotal,
           before.tlsPlaintextAcceptedBytesTotal,
+        ),
+        ioBufferFrontCopyBytesTotal: _nullableCounterDelta(
+          ioBufferFrontCopyBytesTotal,
+          before.ioBufferFrontCopyBytesTotal,
+        ),
+        ioBufferedReadCopyBytesTotal: _nullableCounterDelta(
+          ioBufferedReadCopyBytesTotal,
+          before.ioBufferedReadCopyBytesTotal,
         ),
       );
 
@@ -1073,6 +1085,29 @@ class NativeClientRuntime {
   }
 
   NativeTransportCopyMetrics transportCopyMetricsSnapshot() {
+    final snapshotV2 = _bindings.ctTransportCopyMetricsSnapshotV2;
+    if (snapshotV2 != null) {
+      final info = calloc<CtTransportCopyMetricsInfoV2>();
+      try {
+        final result = snapshotV2(info);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(result, 'snapshot transport copy metrics v2');
+        }
+        final value = info.ref;
+        return NativeTransportCopyMetrics(
+          dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+          websocketMaskCopyBytesTotal: value.legacy.websocketMaskCopyBytesTotal,
+          websocketCoalesceCopyBytesTotal:
+              value.legacy.websocketCoalesceCopyBytesTotal,
+          tlsPlaintextAcceptedBytesTotal:
+              value.legacy.tlsPlaintextAcceptedBytesTotal,
+          ioBufferFrontCopyBytesTotal: value.ioBufferFrontCopyBytesTotal,
+          ioBufferedReadCopyBytesTotal: value.ioBufferedReadCopyBytesTotal,
+        );
+      } finally {
+        calloc.free(info);
+      }
+    }
     final snapshot = _bindings.ctTransportCopyMetricsSnapshot;
     if (snapshot == null) {
       return NativeTransportCopyMetrics(

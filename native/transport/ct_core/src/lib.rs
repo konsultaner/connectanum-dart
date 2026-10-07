@@ -290,6 +290,8 @@ struct TransportCopyMetrics {
     websocket_mask_copy_bytes_total: AtomicU64,
     websocket_coalesce_copy_bytes_total: AtomicU64,
     tls_plaintext_accepted_bytes_total: AtomicU64,
+    io_buffer_front_copy_bytes_total: AtomicU64,
+    io_buffered_read_copy_bytes_total: AtomicU64,
 }
 
 #[derive(Default)]
@@ -443,6 +445,10 @@ pub struct TransportCopyMetricsSnapshot {
     /// Plaintext bytes accepted by Rustls writers. This counts input volume,
     /// not memory copies performed while encrypting or buffering it.
     pub tls_plaintext_accepted_bytes_total: u64,
+    /// Bytes copied while staging/rebuilding prefetched transport input.
+    pub io_buffer_front_copy_bytes_total: u64,
+    /// Prefetched bytes copied into the caller's read buffer.
+    pub io_buffered_read_copy_bytes_total: u64,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -1246,6 +1252,12 @@ pub fn transport_copy_metrics_snapshot() -> TransportCopyMetricsSnapshot {
             .load(Ordering::Relaxed),
         tls_plaintext_accepted_bytes_total: metrics
             .tls_plaintext_accepted_bytes_total
+            .load(Ordering::Relaxed),
+        io_buffer_front_copy_bytes_total: metrics
+            .io_buffer_front_copy_bytes_total
+            .load(Ordering::Relaxed),
+        io_buffered_read_copy_bytes_total: metrics
+            .io_buffered_read_copy_bytes_total
             .load(Ordering::Relaxed),
     }
 }

@@ -228,6 +228,11 @@ typedef CtTransportCopyMetricsSnapshotNative =
 typedef CtTransportCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
 
+typedef CtTransportCopyMetricsSnapshotV2Native =
+    ffi.Int32 Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
+typedef CtTransportCopyMetricsSnapshotV2Dart =
+    int Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
+
 typedef CtE2eeCopyMetricsVersionNative = ffi.Uint32 Function();
 typedef CtE2eeCopyMetricsVersionDart = int Function();
 typedef CtE2eeCopyMetricsSnapshotNative =
@@ -503,6 +508,16 @@ final class CtTransportCopyMetricsInfo extends ffi.Struct {
   external int tlsPlaintextAcceptedBytesTotal;
 }
 
+final class CtTransportCopyMetricsInfoV2 extends ffi.Struct {
+  external CtTransportCopyMetricsInfo legacy;
+
+  @ffi.Uint64()
+  external int ioBufferFrontCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int ioBufferedReadCopyBytesTotal;
+}
+
 final class CtE2eeCopyMetricsInfo extends ffi.Struct {
   @ffi.Uint64()
   external int plaintextStagingCopyBytesTotal;
@@ -767,6 +782,13 @@ class CtFfiBindings {
             CtFileSegmentMetricsSnapshotNative,
             CtFileSegmentMetricsSnapshotDart
           >('ct_file_segment_metrics_snapshot'),
+      ctTransportCopyMetricsSnapshotV2 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTransportCopyMetricsSnapshotV2Native,
+              CtTransportCopyMetricsSnapshotV2Dart
+            >('ct_transport_copy_metrics_snapshot_v2'),
+      ),
       ctTransportCopyMetricsSnapshot = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1041,6 +1063,7 @@ class CtFfiBindings {
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionSupportsFileSegmentsDart ctConnectionSupportsFileSegments;
   final CtFileSegmentMetricsSnapshotDart ctFileSegmentMetricsSnapshot;
+  final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;
   final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;
   final CtE2eeCopyMetricsVersionDart? ctE2eeCopyMetricsVersion;
   final CtE2eeCopyMetricsSnapshotDart? ctE2eeCopyMetricsSnapshot;

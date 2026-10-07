@@ -121,6 +121,15 @@ not turn the known-own lower bound into complete transport coverage or accept a
 timing campaign. Contiguous and segmented codec output are checked independently
 with Rust/Python readers.
 
+Native prefetched input staging and replay now have separate observed counters.
+The optional `ct_transport_copy_metrics_snapshot_v2` supplies them without
+changing the old 24-byte snapshot ABI. Missing counters remain unavailable.
+Reports claiming complete transport coverage must retain numeric nonnegative
+router input counters, and native callers must retain their own input counters.
+The comparator rejects older complete-coverage labels without this evidence.
+The prepend path copies an unread remainder once instead of twice; this does
+not establish performance parity. See [source and checks](research/2026-10-07-native-prefetched-input-copies.md).
+
 `transport_copy_bytes` sums measured copy operations across the client worker
 and router process for the active cleartext path. A payload can be counted
 again at a later layer, so this aggregate is copy traffic, not unique

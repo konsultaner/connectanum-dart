@@ -406,6 +406,15 @@ pub struct CtTransportCopyMetricsInfo {
     pub tls_plaintext_accepted_bytes_total: u64,
 }
 
+/// Separately named snapshot ABI; the original 24-byte struct stays unchanged.
+#[repr(C)]
+#[derive(Default)]
+pub struct CtTransportCopyMetricsInfoV2 {
+    pub legacy: CtTransportCopyMetricsInfo,
+    pub io_buffer_front_copy_bytes_total: u64,
+    pub io_buffered_read_copy_bytes_total: u64,
+}
+
 #[repr(C)]
 pub struct CtRouterMetricsInfo {
     pub total_events: u64,
@@ -3695,6 +3704,28 @@ pub extern "C" fn ct_transport_copy_metrics_snapshot(
             websocket_mask_copy_bytes_total: snapshot.websocket_mask_copy_bytes_total,
             websocket_coalesce_copy_bytes_total: snapshot.websocket_coalesce_copy_bytes_total,
             tls_plaintext_accepted_bytes_total: snapshot.tls_plaintext_accepted_bytes_total,
+        });
+    }
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_transport_copy_metrics_snapshot_v2(
+    info: *mut CtTransportCopyMetricsInfoV2,
+) -> c_int {
+    if info.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let snapshot = ct_core::transport_copy_metrics_snapshot();
+    unsafe {
+        info.write(CtTransportCopyMetricsInfoV2 {
+            legacy: CtTransportCopyMetricsInfo {
+                websocket_mask_copy_bytes_total: snapshot.websocket_mask_copy_bytes_total,
+                websocket_coalesce_copy_bytes_total: snapshot.websocket_coalesce_copy_bytes_total,
+                tls_plaintext_accepted_bytes_total: snapshot.tls_plaintext_accepted_bytes_total,
+            },
+            io_buffer_front_copy_bytes_total: snapshot.io_buffer_front_copy_bytes_total,
+            io_buffered_read_copy_bytes_total: snapshot.io_buffered_read_copy_bytes_total,
         });
     }
     SUCCESS
@@ -11118,6 +11149,36 @@ mod tests {
         assert!(ffi.tls_plaintext_accepted_bytes_total <= core.tls_plaintext_accepted_bytes_total);
         assert_eq!(
             ct_transport_copy_metrics_snapshot(std::ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[test]
+    fn transport_copy_metrics_v2_preserves_v1_size_and_reports_input_copies() {
+        let _guard = test_guard();
+        #[repr(C)]
+        struct GuardedV1 {
+            info: CtTransportCopyMetricsInfo,
+            sentinel: u64,
+        }
+        assert_eq!(std::mem::size_of::<CtTransportCopyMetricsInfo>(), 24);
+        assert_eq!(std::mem::size_of::<CtTransportCopyMetricsInfoV2>(), 40);
+        let mut old = GuardedV1 {
+            info: CtTransportCopyMetricsInfo::default(),
+            sentinel: 0xfedc_ba98_7654_3210,
+        };
+        assert_eq!(ct_transport_copy_metrics_snapshot(&mut old.info), SUCCESS);
+        assert_eq!(old.sentinel, 0xfedc_ba98_7654_3210);
+        let mut current = CtTransportCopyMetricsInfoV2::default();
+        assert_eq!(ct_transport_copy_metrics_snapshot_v2(&mut current), SUCCESS);
+        let core = ct_core::transport_copy_metrics_snapshot();
+        assert!(current.io_buffer_front_copy_bytes_total <= core.io_buffer_front_copy_bytes_total);
+        assert!(
+            current.io_buffered_read_copy_bytes_total <= core.io_buffered_read_copy_bytes_total
+        );
+        assert_eq!(
+            ct_transport_copy_metrics_snapshot_v2(std::ptr::null_mut()),
             ERR_INVALID_ARGUMENT
         );
     }

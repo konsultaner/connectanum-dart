@@ -28,6 +28,7 @@ dependencies:
   connectanum_client: ^3.0.0-beta.7
   connectanum_auth_server: ^3.0.0-beta.7
 dev_dependencies:
+  ffi: ^2.1.0
   coverage: ^1.15.1
   fake_async: ^1.3.0
   lints: ^6.0.0

@@ -377,6 +377,21 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
             missing.append(
                 f"{label}: complete transport_copy_bytes coverage cannot have unknown boundaries"
             )
+        breakdown = copy_metrics.get("known_own_copy_breakdown")
+        processes = ("router", "client") if report.get("client_impl") == "native" else ("router",)
+        for process in processes:
+            counters = breakdown.get(process) if isinstance(breakdown, dict) else None
+            for field in ("io_buffer_front_copy_bytes", "io_buffered_read_copy_bytes"):
+                value = counters.get(field) if isinstance(counters, dict) else None
+                if (
+                    not isinstance(value, (int, float))
+                    or isinstance(value, bool)
+                    or not math.isfinite(float(value))
+                    or value < 0
+                ):
+                    missing.append(
+                        f"{label}: complete transport coverage requires measured {process}.{field}"
+                    )
     e2ee_copy_bytes = copy_metrics.get("e2ee_copy_bytes")
     if isinstance(e2ee_copy_bytes, (int, float)) and not isinstance(e2ee_copy_bytes, bool):
         breakdown = copy_metrics.get("e2ee_copy_breakdown")

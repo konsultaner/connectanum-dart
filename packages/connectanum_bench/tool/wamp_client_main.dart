@@ -235,10 +235,17 @@ Map<String, Object?> _copyMetricsFor(
   final websocketCountersAvailable =
       nativeCopyMetrics.websocketMaskCopyBytesTotal != null &&
       nativeCopyMetrics.websocketCoalesceCopyBytesTotal != null;
+  final inputCountersAvailable =
+      nativeCopyMetrics.ioBufferFrontCopyBytesTotal != null &&
+      nativeCopyMetrics.ioBufferedReadCopyBytesTotal != null;
   final transportCountersAvailable =
-      nativeClient && (!websocket || websocketCountersAvailable);
+      nativeClient &&
+      inputCountersAvailable &&
+      (!websocket || websocketCountersAvailable);
   final measuredTransportCopyBytes = transportCountersAvailable
       ? nativeCopyMetrics.dartToNativeCopiedBytesTotal +
+            nativeCopyMetrics.ioBufferFrontCopyBytesTotal! +
+            nativeCopyMetrics.ioBufferedReadCopyBytesTotal! +
             (websocket
                 ? nativeCopyMetrics.websocketMaskCopyBytesTotal! +
                       nativeCopyMetrics.websocketCoalesceCopyBytesTotal!
@@ -246,6 +253,7 @@ Map<String, Object?> _copyMetricsFor(
       : null;
   final clientTransportCopyCoverage =
       nativeClient &&
+      inputCountersAvailable &&
       !scenario.secureTransport &&
       (!websocket || websocketCountersAvailable);
   final transportCopyBytes = !clientTransportCopyCoverage
@@ -253,6 +261,8 @@ Map<String, Object?> _copyMetricsFor(
       : measuredTransportCopyBytes;
   final knownOwnTransportCopyBytes = nativeClient
       ? nativeCopyMetrics.dartToNativeCopiedBytesTotal +
+            (nativeCopyMetrics.ioBufferFrontCopyBytesTotal ?? 0) +
+            (nativeCopyMetrics.ioBufferedReadCopyBytesTotal ?? 0) +
             (websocket
                 ? (nativeCopyMetrics.websocketMaskCopyBytesTotal ?? 0) +
                       (nativeCopyMetrics.websocketCoalesceCopyBytesTotal ?? 0)
@@ -262,6 +272,10 @@ Map<String, Object?> _copyMetricsFor(
       ? <String, Object?>{
           'dart_to_native_copy_bytes':
               nativeCopyMetrics.dartToNativeCopiedBytesTotal,
+          'io_buffer_front_copy_bytes':
+              nativeCopyMetrics.ioBufferFrontCopyBytesTotal,
+          'io_buffered_read_copy_bytes':
+              nativeCopyMetrics.ioBufferedReadCopyBytesTotal,
           'websocket_mask_copy_bytes': websocket
               ? nativeCopyMetrics.websocketMaskCopyBytesTotal
               : 0,
@@ -271,6 +285,8 @@ Map<String, Object?> _copyMetricsFor(
         }
       : dartCopyMetrics.toJson();
   final unknownTransportCopyBoundaries = <String>[
+    if (nativeClient && !inputCountersAvailable)
+      'native prefetched input copy counters are unavailable',
     if (!nativeClient)
       'Dart socket/WebSocket SDK write and framing behavior is not instrumented',
     if (websocket && !nativeClient)

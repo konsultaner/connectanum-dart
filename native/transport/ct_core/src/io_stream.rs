@@ -20,6 +20,37 @@ type ServerKtlsStream = ktls_stream::Stream<TcpStream, ServerKtlsSession>;
 pub(crate) type IoReadHalf = tokio::io::ReadHalf<IoStream>;
 pub(crate) type IoWriteHalf = tokio::io::WriteHalf<IoStream>;
 
+#[cfg(test)]
+thread_local! {
+    // Test-local observation keeps exact assertions independent of other
+    // connections' process-wide counters on parallel test threads.
+    static TEST_INPUT_COPIES: std::cell::Cell<(u64, u64)> = const {
+        std::cell::Cell::new((0, 0))
+    };
+}
+
+fn record_front_copy(bytes: usize) {
+    super::transport_copy_metrics()
+        .io_buffer_front_copy_bytes_total
+        .fetch_add(bytes as u64, std::sync::atomic::Ordering::Relaxed);
+    #[cfg(test)]
+    TEST_INPUT_COPIES.with(|value| {
+        let (front, read) = value.get();
+        value.set((front + bytes as u64, read));
+    });
+}
+
+fn record_replay_copy(bytes: usize) {
+    super::transport_copy_metrics()
+        .io_buffered_read_copy_bytes_total
+        .fetch_add(bytes as u64, std::sync::atomic::Ordering::Relaxed);
+    #[cfg(test)]
+    TEST_INPUT_COPIES.with(|value| {
+        let (front, read) = value.get();
+        value.set((front, read + bytes as u64));
+    });
+}
+
 pub(crate) enum StreamInner {
     Tcp(TcpStream),
     TlsServer(ServerTlsStream<TcpStream>),
@@ -133,13 +164,17 @@ impl IoStream {
             return;
         }
         if self.buffered_offset < self.buffered.len() {
-            let remaining = self.buffered[self.buffered_offset..].to_vec();
-            self.buffered.clear();
-            self.buffered.extend_from_slice(bytes);
-            self.buffered.extend_from_slice(&remaining);
+            let remaining = &self.buffered[self.buffered_offset..];
+            let mut combined = BytesMut::with_capacity(bytes.len() + remaining.len());
+            combined.extend_from_slice(bytes);
+            record_front_copy(bytes.len());
+            combined.extend_from_slice(remaining);
+            record_front_copy(remaining.len());
+            self.buffered = combined;
         } else {
             self.buffered.clear();
             self.buffered.extend_from_slice(bytes);
+            record_front_copy(bytes.len());
         }
         self.buffered_offset = 0;
     }
@@ -156,6 +191,7 @@ impl AsyncRead for IoStream {
             let remaining = &me.buffered[me.buffered_offset..];
             let to_copy = remaining.len().min(buf.remaining());
             buf.put_slice(&remaining[..to_copy]);
+            record_replay_copy(to_copy);
             me.buffered_offset += to_copy;
             if me.buffered_offset >= me.buffered.len() {
                 me.buffered.clear();
@@ -259,5 +295,59 @@ impl AsyncWrite for IoStream {
             #[cfg(target_os = "linux")]
             StreamInner::KtlsServer(stream) => Pin::new(stream).poll_shutdown(cx),
         }
+    }
+}
+
+#[cfg(test)]
+mod copy_tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    async fn pair() -> (IoStream, TcpStream) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (client, server) = tokio::join!(TcpStream::connect(address), listener.accept());
+        (IoStream::plain(server.unwrap().0), client.unwrap())
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn prefetched_input_counts_each_staging_and_replay_copy_once() {
+        let (mut stream, mut peer) = pair().await;
+        TEST_INPUT_COPIES.with(|value| value.set((0, 0)));
+        let before = super::super::transport_copy_metrics_snapshot();
+        stream.buffer_front(b"abc");
+        let mut first = [0; 1];
+        stream.read_exact(&mut first).await.unwrap();
+        assert_eq!(&first, b"a");
+        stream.buffer_front(b"de");
+        peer.write_all(b"fg").await.unwrap();
+        let mut rest = [0; 6];
+        stream.read_exact(&mut rest).await.unwrap();
+        assert_eq!(&rest, b"debcfg");
+        // Three initial bytes, then two new bytes plus two unread bytes.
+        assert_eq!(TEST_INPUT_COPIES.with(|value| value.get()), (7, 5));
+        let after = super::super::transport_copy_metrics_snapshot();
+        assert!(
+            after.io_buffer_front_copy_bytes_total - before.io_buffer_front_copy_bytes_total >= 7
+        );
+        assert!(
+            after.io_buffered_read_copy_bytes_total - before.io_buffered_read_copy_bytes_total >= 5
+        );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn empty_prefetch_and_zero_capacity_read_do_not_copy() {
+        let (mut stream, _peer) = pair().await;
+        TEST_INPUT_COPIES.with(|value| value.set((0, 0)));
+        stream.buffer_front(b"");
+        stream.buffer_front(b"abc");
+        stream.buffer_front(b"");
+        assert_eq!(stream.read(&mut []).await.unwrap(), 0);
+        assert_eq!(TEST_INPUT_COPIES.with(|value| value.get()), (3, 0));
+        let mut bytes = [0; 3];
+        stream.read_exact(&mut bytes).await.unwrap();
+        assert_eq!(&bytes, b"abc");
+        assert_eq!(TEST_INPUT_COPIES.with(|value| value.get()), (3, 3));
     }
 }
