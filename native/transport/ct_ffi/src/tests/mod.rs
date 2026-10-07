@@ -27,10 +27,10 @@ mod ffi_completion;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod listen_flow;
 mod router_config;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 mod runtime_lifecycle;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod wide_message_handles;
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 mod unsupported;

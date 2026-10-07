@@ -7,6 +7,24 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): Windows native runtime admission.
+Published `4a7ac185` native run 37622772557 passes four Linux/macOS platforms;
+Windows now launches tests and passes the 48-byte ABI guard, then rejects
+runtime startup because its platform selector chooses the unsupported stub.
+Windows now uses the existing shared supported handle. Other hosts retain
+explicit rejection. The packaged verifier exercises actual start, duplicate
+start, shutdown and restart before running all 34 profiles. All 20 verifier
+methods and local constructor/lifecycle/unsupported controls pass. A fresh
+macOS production candidate passes the runtime audit, ABI guard and all 34
+public profiles. Bounded review is checked against source; GLM identifies no
+definite defect. Candidate canonical fast/full checks pass at exit 0. Hosted
+Windows acceptance remains pending. The preceding `4a7ac185` PR VM coverage
+job 112825887695 fails one MCP last-owner cleanup assertion (expected empty,
+observed `[1]`); source-level cause and repair remain pending and are the next
+CI priority. Both remote masters remain at integrated `3bac4cf5`; no new merge
+is needed. The five-platform gate and all benchmark budgets are unchanged.
+Evidence: [runtime scope and proof](../research/2026-10-07-windows-runtime-admission.md).
+
 Current follow-up (2026-10-07): Windows packaged consumer launcher.
 Verified source checkpoint `736b6454` contains the Tokio-Rustls observer,
 fast ownership-oracle selection fix and packaged 48-byte ABI guard.

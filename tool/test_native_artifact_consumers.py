@@ -106,6 +106,29 @@ class RustlsAbiEvidenceTest(unittest.TestCase):
                 self.check(behavior)
 
 
+class RuntimeLifecycleEvidenceTest(unittest.TestCase):
+    def check(self, starts=(0, -2, 0), shutdowns=(0, 0)):
+        library = SimpleNamespace(ct_start_runtime=mock.Mock(side_effect=starts),
+                                  ct_shutdown=mock.Mock(side_effect=shutdowns))
+        with mock.patch.object(consumers.ctypes, "CDLL", return_value=library):
+            return consumers.audit_runtime_lifecycle(Path("packaged-library"))
+
+    def test_production_runtime_starts_rejects_duplicate_and_restarts(self):
+        self.assertEqual(self.check(), {"start": 0, "duplicate_start": -2,
+                                       "shutdown": 0, "restart": 0, "final_shutdown": 0})
+
+    def test_unsupported_start_or_failed_restart_is_rejected(self):
+        for starts in ((-1,), (0, -2, -1)):
+            with self.subTest(starts=starts), self.assertRaisesRegex(ValueError, "start"):
+                self.check(starts=starts)
+
+    def test_duplicate_start_and_shutdown_statuses_are_checked(self):
+        for starts, shutdowns in (((0, 0), (0,)), ((0, -2), (-5,)),
+                                 ((0, -2, 0), (0, -5))):
+            with self.subTest(starts=starts, shutdowns=shutdowns), self.assertRaises(ValueError):
+                self.check(starts=starts, shutdowns=shutdowns)
+
+
 class BundleEvidenceTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="native bundle with spaces ")
@@ -194,6 +217,7 @@ class DartLauncherEvidenceTest(unittest.TestCase):
                  mock.patch.object(consumers, "unpack_library", return_value=({}, library)), \
                  mock.patch.object(consumers, "audit_production_library", return_value=18), \
                  mock.patch.object(consumers, "audit_rustls_snapshot_abi", return_value={}), \
+                 mock.patch.object(consumers, "audit_runtime_lifecycle", return_value={}), \
                  mock.patch.object(consumers, "profile_results", return_value={}), \
                  mock.patch.object(consumers.Path, "is_file", return_value=executable_exists), \
                  mock.patch.object(consumers.subprocess, "run", side_effect=run), \

@@ -13,3 +13,13 @@ impl Runtime {
         Err(UnsupportedPlatform)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_new_rejects_unsupported_hosts() {
+        assert!(matches!(Runtime::new(), Err(UnsupportedPlatform)));
+    }
+}

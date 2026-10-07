@@ -160,6 +160,32 @@ def audit_rustls_snapshot_abi(library: Path) -> dict:
             "head_tail_unchanged": True, "initial_counters": counters}
 
 
+def audit_runtime_lifecycle(library: Path) -> dict:
+    """Require actual production runtime admission, shutdown and reuse."""
+    loaded = ctypes.CDLL(str(library))
+    start = loaded.ct_start_runtime
+    shutdown = loaded.ct_shutdown
+    for call in (start, shutdown):
+        call.argtypes = []
+        call.restype = ctypes.c_int32
+    statuses = {}
+    for phase in ("start", "restart"):
+        statuses[phase] = start()
+        if statuses[phase] != 0:
+            raise ValueError(f"production runtime {phase} failed: {statuses[phase]}")
+        try:
+            if phase == "start":
+                statuses["duplicate_start"] = start()
+                if statuses["duplicate_start"] != -2:
+                    raise ValueError("production runtime must reject duplicate start")
+        finally:
+            key = "shutdown" if phase == "start" else "final_shutdown"
+            statuses[key] = shutdown()
+            if statuses[key] != 0:
+                raise ValueError(f"production runtime {key} failed: {statuses[key]}")
+    return statuses
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, required=True)
@@ -179,6 +205,7 @@ def main() -> int:
                        "library_sha256": sha256(library), "library": str(library),
                        "absent_test_oracles": audit_production_library(library)})
         report["partial_rustls_snapshot_abi"] = audit_rustls_snapshot_abi(library)
+        report["runtime_lifecycle"] = audit_runtime_lifecycle(library)
         dart = shutil.which("dart")
         if not dart:
             raise ValueError("Dart executable unavailable")
