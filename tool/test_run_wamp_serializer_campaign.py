@@ -243,12 +243,19 @@ with (root / 'driver-results.jsonl').open('wb') as stream:
 
     def test_primary_prepare_keeps_all_1440_rows_and_policy_inputs(self):
         output = self.root / 'output'
-        with mock.patch.object(campaign.platform, 'system', return_value='Linux'):
-            with mock.patch.object(campaign, 'command_output', return_value=''):
-                with mock.patch.object(campaign, 'LOCK', self.root / 'lock'):
-                    with mock.patch.object(campaign, 'execute') as execute:
-                        self.assertEqual(campaign.main(self.primary_cli_args(output)), 0)
-                        execute.assert_not_called()
+        source_root = self.root / 'source'
+        lockfiles = ('pubspec.lock', 'native/bench/Cargo.lock', 'native/transport/Cargo.lock')
+        for name in lockfiles:
+            path = source_root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(('synthetic lock fixture: ' + name + '\n').encode())
+        with (mock.patch.object(campaign.platform, 'system', return_value='Linux'),
+              mock.patch.object(campaign, 'command_output', return_value=''),
+              mock.patch.object(campaign, 'ROOT', source_root),
+              mock.patch.object(campaign, 'LOCK', self.root / 'lock'),
+              mock.patch.object(campaign, 'execute') as execute):
+            self.assertEqual(campaign.main(self.primary_cli_args(output)), 0)
+            execute.assert_not_called()
         # This is preparation with synthetic platform metadata, never timing evidence.
         manifest = json.loads((output / 'manifest.json').read_text())
         self.assertEqual(manifest['execution']['status'], 'planned')
@@ -265,6 +272,10 @@ with (root / 'driver-results.jsonl').open('wb') as stream:
                 self.assertEqual(workload['minimum_duration_ms'], 10000)
                 self.assertEqual(workload['iterations'], 1000)
         self.assertEqual((output / 'inputs/policy.json').read_bytes(), campaign.POLICY.read_bytes())
+        self.assertEqual(set(manifest['metadata']['lockfiles_sha256']), set(lockfiles))
+        for name in lockfiles:
+            self.assertEqual((output / 'inputs' / name).read_bytes(), (source_root / name).read_bytes())
+            self.assertEqual(manifest['metadata']['lockfiles_sha256'][name], campaign.sha256(source_root / name))
         self.assertFalse((output / 'comparison.json').exists())
 
     def test_deadline_stops_real_descendant_and_retains_failed_manifest(self):
