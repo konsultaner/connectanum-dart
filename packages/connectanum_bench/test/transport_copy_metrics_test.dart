@@ -5,6 +5,90 @@ import 'package:test/test.dart';
 
 void main() {
   group('mergeRouterTransportCopyMetrics', () {
+    test('invalid partial source byte counts remain unmeasured', () {
+      final metrics = mergeRouterTransportCopyMetrics(
+        _clientMetrics(),
+        scenario: _scenario(secureTransport: true),
+        before: _routerSourceMetrics(0),
+        after: _routerSourceMetrics(-1),
+      );
+      final router =
+          (metrics['known_own_copy_breakdown'] as Map)['router'] as Map;
+      for (final field in [
+        'rustls_outbound_chunk_copy_bytes',
+        'rustls_queue_read_copy_bytes',
+        'rustls_deframer_append_copy_bytes',
+        'rustls_deframer_move_copy_bytes',
+        'rustls_record_buffer_copy_bytes',
+        'rustls_record_append_copy_bytes',
+      ]) {
+        expect(router[field], isA<Map>());
+        expect((router[field] as Map)['status'], 'not_measured');
+      }
+      expect((metrics['tls_copy_bytes'] as Map)['status'], 'not_measured');
+    });
+
+    test(
+      'observed partial Rustls deltas remain separate from total TLS copies',
+      () {
+        final metrics = mergeRouterTransportCopyMetrics(
+          _clientMetrics(),
+          scenario: _scenario(secureTransport: true),
+          before: _routerSourceMetrics(4),
+          after: _routerSourceMetrics(9),
+        );
+        final router =
+            (metrics['known_own_copy_breakdown'] as Map)['router'] as Map;
+        expect(router['rustls_outbound_chunk_copy_bytes'], 5);
+        expect(router['rustls_queue_read_copy_bytes'], 10);
+        expect(router['rustls_deframer_append_copy_bytes'], 15);
+        expect(router['rustls_deframer_move_copy_bytes'], 20);
+        expect(router['rustls_record_buffer_copy_bytes'], 25);
+        expect(router['rustls_record_append_copy_bytes'], 30);
+        expect((metrics['tls_copy_bytes'] as Map)['status'], 'not_measured');
+        expect(
+          (metrics['transport_copy_bytes'] as Map)['status'],
+          'not_measured',
+        );
+        expect((metrics['coverage'] as Map)['transport_copy_bytes'], 'partial');
+      },
+    );
+
+    for (final transport in WampTransport.values) {
+      for (final field in [
+        'rustls_outbound_chunk_copy_bytes',
+        'rustls_queue_read_copy_bytes',
+        'rustls_deframer_append_copy_bytes',
+        'rustls_deframer_move_copy_bytes',
+        'rustls_record_buffer_copy_bytes',
+        'rustls_record_append_copy_bytes',
+      ]) {
+        test(
+          'missing partial Rustls counter $field on $transport stays unknown',
+          () {
+            final metrics = mergeRouterTransportCopyMetrics(
+              _clientMetrics(),
+              scenario: _scenario(transport: transport, secureTransport: true),
+              before: _routerMetrics(),
+              after: _routerMetrics(),
+            );
+            final router =
+                (metrics['known_own_copy_breakdown'] as Map)['router'] as Map;
+            expect(router[field], isA<Map>());
+            expect((router[field] as Map)['status'], 'not_measured');
+            expect(
+              (metrics['tls_copy_bytes'] as Map)['status'],
+              'not_measured',
+            );
+            expect(
+              (metrics['transport_copy_bytes'] as Map)['status'],
+              'not_measured',
+            );
+          },
+        );
+      }
+    }
+
     test(
       'native prefetched staging and replay add their actual router deltas',
       () {
@@ -407,3 +491,19 @@ NativeRouterTransportCopyMetrics _routerMetrics({
   ioBufferFrontCopyBytesTotal: ioFront,
   ioBufferedReadCopyBytesTotal: ioRead,
 );
+
+NativeRouterTransportCopyMetrics _routerSourceMetrics(int value) =>
+    NativeRouterTransportCopyMetrics(
+      dartToNativeCopiedBytesTotal: 0,
+      websocketMaskCopyBytesTotal: 0,
+      websocketCoalesceCopyBytesTotal: 0,
+      tlsPlaintextAcceptedBytesTotal: 0,
+      ioBufferFrontCopyBytesTotal: 0,
+      ioBufferedReadCopyBytesTotal: 0,
+      rustlsOutboundChunkCopyBytesTotal: value * 1,
+      rustlsQueueReadCopyBytesTotal: value * 2,
+      rustlsDeframerAppendCopyBytesTotal: value * 3,
+      rustlsDeframerMoveCopyBytesTotal: value * 4,
+      rustlsRecordBufferCopyBytesTotal: value * 5,
+      rustlsRecordAppendCopyBytesTotal: value * 6,
+    );

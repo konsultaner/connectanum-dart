@@ -142,12 +142,19 @@ The evaluator accepts a numeric transport total only when
 campaign gate.
 
 TLS rows keep `transport_copy_bytes` and `tls_copy_bytes` as `not_measured`
-because the current Rustls counter measures accepted plaintext, not copies;
-`tls_plaintext_accepted_bytes` is a throughput diagnostic. Mixed-serializer
+because complete Rustls/Tokio-Rustls and SDK copy coverage remains missing;
+`tls_plaintext_accepted_bytes` measures acceptance and remains a throughput
+diagnostic. Mixed-serializer
 router transcodes are also not measured. Snapshots use before/after deltas
 around one benchmark command. Older native libraries without the optional
 snapshot symbol leave affected fields unmeasured, so those rows cannot claim
 complete coverage or establish FlatBuffers parity.
+
+The six `rustls_*_copy_bytes` client/router breakdown entries are partial source
+observations from the optional Rustls snapshot ABI. Missing symbols/snapshots
+remain null or explicitly unmeasured; the entries do not replace any of the
+eight mandatory copy fields, certify whole TLS coverage, or change acceptance
+budgets. See [the bridge scope and proof](research/2026-10-07-rustls-metrics-bridge.md).
 
 The client worker now snapshots optional native crypto staging counters separately
 from its transport counters. Native XSalsa encryption constructs the existing

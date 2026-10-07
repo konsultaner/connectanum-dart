@@ -40,5 +40,7 @@ behavior remains subject to the hosted Windows gate.
 Canonical candidate `bin/test-fast` passes at exit 0, including all 1,616
 benchmark cases and public consumer smokes. Application/native source remains
 unchanged from the `0ce3c364` full-verification checkpoint; candidate full
-entrypoint/workflow and all-five hosted runtime acceptance remain pending. No release, performance, total TLS/crypto-copy or
+entrypoint/workflow full verification now passes together with the metrics bridge
+(1,642 benchmark, 4,958 router, 4,751 core browser, 2,829 client browser and
+20 unchanged native-only skips). All-five hosted runtime acceptance remains pending. No release, performance, total TLS/crypto-copy or
 milestone acceptance follows from these scoped consumer checks.

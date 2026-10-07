@@ -66,6 +66,9 @@ void _probe() {
   _equal(ffi.sizeOf<client_ffi.CtTransportCopyMetricsInfoV2>(), 40);
   _equal(ffi.sizeOf<router_ffi.CtTransportCopyMetricsInfoV2>(), 40);
 
+  _equal(ffi.sizeOf<client_ffi.CtRustlsCopyMetricsInfo>(), 48);
+  _equal(ffi.sizeOf<router_ffi.CtRustlsCopyMetricsInfo>(), 48);
+
   final path = client.NativeLibraryLoader.resolvePath();
   final library = ffi.DynamicLibrary.open(path);
   final nativeClient = client.NativeClientRuntime.instance(
@@ -77,6 +80,137 @@ void _probe() {
   try {
     final clientMetrics = nativeClient.transportCopyMetricsSnapshot();
     final routerMetrics = nativeRouter.transportCopyMetricsSnapshot();
+
+    if (library.providesSymbol('ct_rustls_copy_metrics_snapshot')) {
+      final info = calloc<client_ffi.CtRustlsCopyMetricsInfo>();
+      try {
+        final snapshot = library
+            .lookupFunction<
+              client_ffi.CtRustlsCopyMetricsSnapshotNative,
+              client_ffi.CtRustlsCopyMetricsSnapshotDart
+            >('ct_rustls_copy_metrics_snapshot');
+        _equal(snapshot(info), 0);
+        _equal(
+          clientMetrics.rustlsOutboundChunkCopyBytesTotal,
+          info.ref.outboundChunkCopyBytesTotal,
+        );
+        _equal(
+          routerMetrics.rustlsOutboundChunkCopyBytesTotal,
+          info.ref.outboundChunkCopyBytesTotal,
+        );
+        _equal(
+          clientMetrics.rustlsQueueReadCopyBytesTotal,
+          info.ref.queueReadCopyBytesTotal,
+        );
+        _equal(
+          routerMetrics.rustlsQueueReadCopyBytesTotal,
+          info.ref.queueReadCopyBytesTotal,
+        );
+        _equal(
+          clientMetrics.rustlsDeframerAppendCopyBytesTotal,
+          info.ref.deframerAppendCopyBytesTotal,
+        );
+        _equal(
+          routerMetrics.rustlsDeframerAppendCopyBytesTotal,
+          info.ref.deframerAppendCopyBytesTotal,
+        );
+        _equal(
+          clientMetrics.rustlsDeframerMoveCopyBytesTotal,
+          info.ref.deframerMoveCopyBytesTotal,
+        );
+        _equal(
+          routerMetrics.rustlsDeframerMoveCopyBytesTotal,
+          info.ref.deframerMoveCopyBytesTotal,
+        );
+        _equal(
+          clientMetrics.rustlsRecordBufferCopyBytesTotal,
+          info.ref.recordBufferCopyBytesTotal,
+        );
+        _equal(
+          routerMetrics.rustlsRecordBufferCopyBytesTotal,
+          info.ref.recordBufferCopyBytesTotal,
+        );
+        _equal(
+          clientMetrics.rustlsRecordAppendCopyBytesTotal,
+          info.ref.recordAppendCopyBytesTotal,
+        );
+        _equal(
+          routerMetrics.rustlsRecordAppendCopyBytesTotal,
+          info.ref.recordAppendCopyBytesTotal,
+        );
+      } finally {
+        calloc.free(info);
+      }
+    } else {
+      _equal(clientMetrics.rustlsOutboundChunkCopyBytesTotal, null);
+      _equal(routerMetrics.rustlsOutboundChunkCopyBytesTotal, null);
+      _equal(
+        clientMetrics
+            .deltaFrom(clientMetrics)
+            .rustlsOutboundChunkCopyBytesTotal,
+        null,
+      );
+      _equal(
+        routerMetrics
+            .deltaFrom(routerMetrics)
+            .rustlsOutboundChunkCopyBytesTotal,
+        null,
+      );
+      _equal(clientMetrics.rustlsQueueReadCopyBytesTotal, null);
+      _equal(routerMetrics.rustlsQueueReadCopyBytesTotal, null);
+      _equal(
+        clientMetrics.deltaFrom(clientMetrics).rustlsQueueReadCopyBytesTotal,
+        null,
+      );
+      _equal(
+        routerMetrics.deltaFrom(routerMetrics).rustlsQueueReadCopyBytesTotal,
+        null,
+      );
+      _equal(clientMetrics.rustlsDeframerAppendCopyBytesTotal, null);
+      _equal(routerMetrics.rustlsDeframerAppendCopyBytesTotal, null);
+      _equal(
+        clientMetrics
+            .deltaFrom(clientMetrics)
+            .rustlsDeframerAppendCopyBytesTotal,
+        null,
+      );
+      _equal(
+        routerMetrics
+            .deltaFrom(routerMetrics)
+            .rustlsDeframerAppendCopyBytesTotal,
+        null,
+      );
+      _equal(clientMetrics.rustlsDeframerMoveCopyBytesTotal, null);
+      _equal(routerMetrics.rustlsDeframerMoveCopyBytesTotal, null);
+      _equal(
+        clientMetrics.deltaFrom(clientMetrics).rustlsDeframerMoveCopyBytesTotal,
+        null,
+      );
+      _equal(
+        routerMetrics.deltaFrom(routerMetrics).rustlsDeframerMoveCopyBytesTotal,
+        null,
+      );
+      _equal(clientMetrics.rustlsRecordBufferCopyBytesTotal, null);
+      _equal(routerMetrics.rustlsRecordBufferCopyBytesTotal, null);
+      _equal(
+        clientMetrics.deltaFrom(clientMetrics).rustlsRecordBufferCopyBytesTotal,
+        null,
+      );
+      _equal(
+        routerMetrics.deltaFrom(routerMetrics).rustlsRecordBufferCopyBytesTotal,
+        null,
+      );
+      _equal(clientMetrics.rustlsRecordAppendCopyBytesTotal, null);
+      _equal(routerMetrics.rustlsRecordAppendCopyBytesTotal, null);
+      _equal(
+        clientMetrics.deltaFrom(clientMetrics).rustlsRecordAppendCopyBytesTotal,
+        null,
+      );
+      _equal(
+        routerMetrics.deltaFrom(routerMetrics).rustlsRecordAppendCopyBytesTotal,
+        null,
+      );
+    }
 
     final legacy = calloc<client_ffi.CtTransportCopyMetricsInfo>();
     try {

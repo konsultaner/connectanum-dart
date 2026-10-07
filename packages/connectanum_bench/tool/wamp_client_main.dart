@@ -272,6 +272,18 @@ Map<String, Object?> _copyMetricsFor(
       ? <String, Object?>{
           'dart_to_native_copy_bytes':
               nativeCopyMetrics.dartToNativeCopiedBytesTotal,
+          'rustls_outbound_chunk_copy_bytes':
+              nativeCopyMetrics.rustlsOutboundChunkCopyBytesTotal,
+          'rustls_queue_read_copy_bytes':
+              nativeCopyMetrics.rustlsQueueReadCopyBytesTotal,
+          'rustls_deframer_append_copy_bytes':
+              nativeCopyMetrics.rustlsDeframerAppendCopyBytesTotal,
+          'rustls_deframer_move_copy_bytes':
+              nativeCopyMetrics.rustlsDeframerMoveCopyBytesTotal,
+          'rustls_record_buffer_copy_bytes':
+              nativeCopyMetrics.rustlsRecordBufferCopyBytesTotal,
+          'rustls_record_append_copy_bytes':
+              nativeCopyMetrics.rustlsRecordAppendCopyBytesTotal,
           'io_buffer_front_copy_bytes':
               nativeCopyMetrics.ioBufferFrontCopyBytesTotal,
           'io_buffered_read_copy_bytes':

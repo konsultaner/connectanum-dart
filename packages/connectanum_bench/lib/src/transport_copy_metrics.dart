@@ -145,6 +145,25 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   routerBreakdown['io_buffered_read_copy_bytes'] =
       routerReplayCopies ??
       notMeasured('router prefetched input replay copy counter is unavailable');
+  // Named source counters remain partial and never certify total TLS copies.
+  routerBreakdown['rustls_outbound_chunk_copy_bytes'] =
+      _copyByteCount(routerDelta?.rustlsOutboundChunkCopyBytesTotal) ??
+      notMeasured('router partial Rustls source counter is unavailable');
+  routerBreakdown['rustls_queue_read_copy_bytes'] =
+      _copyByteCount(routerDelta?.rustlsQueueReadCopyBytesTotal) ??
+      notMeasured('router partial Rustls source counter is unavailable');
+  routerBreakdown['rustls_deframer_append_copy_bytes'] =
+      _copyByteCount(routerDelta?.rustlsDeframerAppendCopyBytesTotal) ??
+      notMeasured('router partial Rustls source counter is unavailable');
+  routerBreakdown['rustls_deframer_move_copy_bytes'] =
+      _copyByteCount(routerDelta?.rustlsDeframerMoveCopyBytesTotal) ??
+      notMeasured('router partial Rustls source counter is unavailable');
+  routerBreakdown['rustls_record_buffer_copy_bytes'] =
+      _copyByteCount(routerDelta?.rustlsRecordBufferCopyBytesTotal) ??
+      notMeasured('router partial Rustls source counter is unavailable');
+  routerBreakdown['rustls_record_append_copy_bytes'] =
+      _copyByteCount(routerDelta?.rustlsRecordAppendCopyBytesTotal) ??
+      notMeasured('router partial Rustls source counter is unavailable');
   routerBreakdown['dart_to_native_copy_bytes'] = routerDelta == null
       ? notMeasured('router transport copy snapshots are unavailable')
       : routerDelta.dartToNativeCopiedBytesTotal;

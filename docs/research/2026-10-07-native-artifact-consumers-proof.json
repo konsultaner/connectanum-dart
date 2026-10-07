@@ -196,5 +196,11 @@
       "log": "/tmp/connectanum-native-consumers-public-proof-repair.log",
       "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
+  },
+  "combined_candidate_full": {
+    "exit": 0,
+    "log": "/tmp/connectanum-rustls-metrics-bridge-verify.log",
+    "log_sha256": "cdaa95510d8740315d9fc4a95363b79bd223f328062eea84d4850d3b9942f146",
+    "all_platform_runtime_acceptance": false
   }
 }

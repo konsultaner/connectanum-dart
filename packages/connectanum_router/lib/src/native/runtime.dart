@@ -660,8 +660,18 @@ class NativeRouterMetrics {
   }
 }
 
+typedef _RustlsCopyMetricsSnapshot = ({
+  int outboundChunkCopyBytesTotal,
+  int queueReadCopyBytesTotal,
+  int deframerAppendCopyBytesTotal,
+  int deframerMoveCopyBytesTotal,
+  int recordBufferCopyBytesTotal,
+  int recordAppendCopyBytesTotal,
+});
+
 /// Cumulative transport copy-byte counters for the router process. Native
 /// counters are null when the loaded library predates their instrumentation.
+
 class NativeRouterTransportCopyMetrics {
   const NativeRouterTransportCopyMetrics({
     required this.dartToNativeCopiedBytesTotal,
@@ -670,6 +680,12 @@ class NativeRouterTransportCopyMetrics {
     required this.tlsPlaintextAcceptedBytesTotal,
     this.ioBufferFrontCopyBytesTotal,
     this.ioBufferedReadCopyBytesTotal,
+    this.rustlsOutboundChunkCopyBytesTotal,
+    this.rustlsQueueReadCopyBytesTotal,
+    this.rustlsDeframerAppendCopyBytesTotal,
+    this.rustlsDeframerMoveCopyBytesTotal,
+    this.rustlsRecordBufferCopyBytesTotal,
+    this.rustlsRecordAppendCopyBytesTotal,
   });
 
   final int dartToNativeCopiedBytesTotal;
@@ -678,6 +694,14 @@ class NativeRouterTransportCopyMetrics {
   final int? tlsPlaintextAcceptedBytesTotal;
   final int? ioBufferFrontCopyBytesTotal;
   final int? ioBufferedReadCopyBytesTotal;
+
+  /// Partial source observations; null means the library lacks the optional ABI.
+  final int? rustlsOutboundChunkCopyBytesTotal;
+  final int? rustlsQueueReadCopyBytesTotal;
+  final int? rustlsDeframerAppendCopyBytesTotal;
+  final int? rustlsDeframerMoveCopyBytesTotal;
+  final int? rustlsRecordBufferCopyBytesTotal;
+  final int? rustlsRecordAppendCopyBytesTotal;
 
   NativeRouterTransportCopyMetrics deltaFrom(
     NativeRouterTransportCopyMetrics before,
@@ -705,6 +729,30 @@ class NativeRouterTransportCopyMetrics {
     ioBufferedReadCopyBytesTotal: _nullableCounterDelta(
       ioBufferedReadCopyBytesTotal,
       before.ioBufferedReadCopyBytesTotal,
+    ),
+    rustlsOutboundChunkCopyBytesTotal: _nullableCounterDelta(
+      rustlsOutboundChunkCopyBytesTotal,
+      before.rustlsOutboundChunkCopyBytesTotal,
+    ),
+    rustlsQueueReadCopyBytesTotal: _nullableCounterDelta(
+      rustlsQueueReadCopyBytesTotal,
+      before.rustlsQueueReadCopyBytesTotal,
+    ),
+    rustlsDeframerAppendCopyBytesTotal: _nullableCounterDelta(
+      rustlsDeframerAppendCopyBytesTotal,
+      before.rustlsDeframerAppendCopyBytesTotal,
+    ),
+    rustlsDeframerMoveCopyBytesTotal: _nullableCounterDelta(
+      rustlsDeframerMoveCopyBytesTotal,
+      before.rustlsDeframerMoveCopyBytesTotal,
+    ),
+    rustlsRecordBufferCopyBytesTotal: _nullableCounterDelta(
+      rustlsRecordBufferCopyBytesTotal,
+      before.rustlsRecordBufferCopyBytesTotal,
+    ),
+    rustlsRecordAppendCopyBytesTotal: _nullableCounterDelta(
+      rustlsRecordAppendCopyBytesTotal,
+      before.rustlsRecordAppendCopyBytesTotal,
     ),
   );
 
@@ -3612,7 +3660,31 @@ class NativeTransportRuntime
     }
   }
 
+  _RustlsCopyMetricsSnapshot? _rustlsCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctRustlsCopyMetricsSnapshot;
+    if (snapshot == null) return null;
+    final info = calloc<CtRustlsCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot partial Rustls copy metrics');
+      }
+      final value = info.ref;
+      return (
+        outboundChunkCopyBytesTotal: value.outboundChunkCopyBytesTotal,
+        queueReadCopyBytesTotal: value.queueReadCopyBytesTotal,
+        deframerAppendCopyBytesTotal: value.deframerAppendCopyBytesTotal,
+        deframerMoveCopyBytesTotal: value.deframerMoveCopyBytesTotal,
+        recordBufferCopyBytesTotal: value.recordBufferCopyBytesTotal,
+        recordAppendCopyBytesTotal: value.recordAppendCopyBytesTotal,
+      );
+    } finally {
+      calloc.free(info);
+    }
+  }
+
   NativeRouterTransportCopyMetrics transportCopyMetricsSnapshot() {
+    final rustls = _rustlsCopyMetricsSnapshot();
     final snapshotV2 = _bindings.ctTransportCopyMetricsSnapshotV2;
     if (snapshotV2 != null) {
       final info = calloc<CtTransportCopyMetricsInfoV2>();
@@ -3624,6 +3696,15 @@ class NativeTransportRuntime
         final value = info.ref;
         return NativeRouterTransportCopyMetrics(
           dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+          rustlsOutboundChunkCopyBytesTotal:
+              rustls?.outboundChunkCopyBytesTotal,
+          rustlsQueueReadCopyBytesTotal: rustls?.queueReadCopyBytesTotal,
+          rustlsDeframerAppendCopyBytesTotal:
+              rustls?.deframerAppendCopyBytesTotal,
+          rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
+          rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
+          rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+
           websocketMaskCopyBytesTotal: value.legacy.websocketMaskCopyBytesTotal,
           websocketCoalesceCopyBytesTotal:
               value.legacy.websocketCoalesceCopyBytesTotal,
@@ -3640,6 +3721,14 @@ class NativeTransportRuntime
     if (snapshot == null) {
       return NativeRouterTransportCopyMetrics(
         dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+        rustlsOutboundChunkCopyBytesTotal: rustls?.outboundChunkCopyBytesTotal,
+        rustlsQueueReadCopyBytesTotal: rustls?.queueReadCopyBytesTotal,
+        rustlsDeframerAppendCopyBytesTotal:
+            rustls?.deframerAppendCopyBytesTotal,
+        rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
+        rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
+        rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+
         websocketMaskCopyBytesTotal: null,
         websocketCoalesceCopyBytesTotal: null,
         tlsPlaintextAcceptedBytesTotal: null,
@@ -3654,6 +3743,14 @@ class NativeTransportRuntime
       final value = info.ref;
       return NativeRouterTransportCopyMetrics(
         dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+        rustlsOutboundChunkCopyBytesTotal: rustls?.outboundChunkCopyBytesTotal,
+        rustlsQueueReadCopyBytesTotal: rustls?.queueReadCopyBytesTotal,
+        rustlsDeframerAppendCopyBytesTotal:
+            rustls?.deframerAppendCopyBytesTotal,
+        rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
+        rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
+        rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+
         websocketMaskCopyBytesTotal: value.websocketMaskCopyBytesTotal,
         websocketCoalesceCopyBytesTotal: value.websocketCoalesceCopyBytesTotal,
         tlsPlaintextAcceptedBytesTotal: value.tlsPlaintextAcceptedBytesTotal,

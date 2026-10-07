@@ -7,6 +7,29 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): optional Rustls source metrics bridge.
+Twelve fail-first cases reproduce omitted partial-counter metadata on both
+transports. A separate 48-byte C snapshot exposes all six actual Rustls source
+counters; legacy 24-byte and V2 40-byte transport snapshots remain unchanged.
+Client/router optional lookup and nullable deltas retain null with old libraries.
+Benchmark client/router breakdowns retain the named partial observations while
+complete TLS/transport gates remain unchanged. MacOS passes the native layout/
+null/tail guard, 56 merge/delta cases and old/new ABI probes. Linux matches all
+2,996 final frozen source/lock inputs and passes its native guard, 56 merge/delta
+cases and both new/published-old ABI probes. A separate fail-first negative
+counter test now preserves unmeasured metadata for invalid values. Completed companion
+test advice is checked; final review is blocked by the active native-mutation
+resource lease. The candidate fast check exposes a local SDK path in the published artifact
+proof. Command paths are now normalized to `dart`, retaining raw report hashes;
+the public-reference gate passes. Fresh canonical `bin/test-fast` and full
+`bin/verify` pass at exit 0: Rust/VM/consumers, 1,642 benchmark, 4,958 router,
+4,751 core browser and 2,829 client browser cases with 20 unchanged native-only
+skips. Crate formatting and the final Linux native/new-ABI replay pass with
+all 2,996 formatted inputs matched. Narrowed review remains lease-blocked. Both cde
+hosted CI runs pass all completed jobs and retain only their MCP mutation jobs;
+the frozen full primary remains independent. No complete-copy, parity or
+milestone acceptance follows.
+
 Current follow-up (2026-10-07): packaged production runtime consumers.
 Source checkpoint `0ce3c364` commits the payload observer after canonical fast
 and full verification passed. The new Native Artifacts gate verifies the
@@ -17,8 +40,9 @@ cases, errors and unfinished starts even with a success summary. Per-platform
 proofs and logs upload on failure. Nine failure controls pass on macOS/Linux, and Actionlint passes. The actual
 gate passes all 34 cases against each frozen published `cde9fbed` arm64 bundle;
 completed companion advice is checked against source and actual timeout
-behavior. Canonical candidate `bin/test-fast` passes at exit 0; final full verification
-and hosted runtime proof for all five resulting-source platforms remain pending. No release, whole-copy or
+behavior. Canonical candidate `bin/test-fast` and full verification pass at exit 0
+together with the metrics bridge. Hosted runtime proof for all five
+resulting-source platforms remains pending. No release, whole-copy or
 performance acceptance follows.
 
 Current follow-up (2026-10-07): payload copy observations.

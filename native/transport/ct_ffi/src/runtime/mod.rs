@@ -9,6 +9,7 @@ mod state;
 mod crypto_copy_metrics;
 mod external_lease_ffi;
 mod external_leases;
+mod rustls_copy_metrics;
 mod write_receipts;
 
 #[cfg(all(test, any(target_os = "linux", target_os = "macos")))]
@@ -23,6 +24,7 @@ pub use external_lease_ffi::*;
 pub use ffi::*;
 pub use native_frames::*;
 pub use owned_buffers::*;
+pub use rustls_copy_metrics::*;
 pub use write_receipts::*;
 
 #[cfg(test)]

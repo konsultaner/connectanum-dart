@@ -37,9 +37,13 @@ graph LR
 
 The transport workspace pins a vendored Rustls 0.23.45 source in
 `native/transport/vendor/rustls`, with original licenses and an audited digest
-manifest. An optional observer reports actual outbound-chunk and queue-read
-copies. This is partial coverage; Tokio-Rustls extraction and remaining TLS
-copy sites keep total-copy gates unmeasured. See
+manifest. An optional observer reports actual outbound-chunk, queue-read,
+deframer append/move and record-buffer/content copies, including payload
+ownership conversions. A separate 48-byte `ct_rustls_copy_metrics_snapshot` ABI
+and optional client/router Dart bindings expose the six named partial counters
+to benchmark breakdowns; old libraries retain null. The 24-/40-byte transport
+snapshots stay unchanged. Tokio-Rustls extraction and remaining TLS copy sites
+keep total-copy gates unmeasured. See
 [the source and fixture policy](native/transport/vendor/README.md).
 
 - **Tokio runtime & ListenerRegistry (`ct_core/src/lib.rs`)**  
