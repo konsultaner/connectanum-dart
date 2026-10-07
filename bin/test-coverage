@@ -104,7 +104,15 @@ run_package_coverage \
   connectanum_router \
   connectanum_router \
   test \
-  --exclude-tags zero_copy_publish
+  --exclude-tags 'zero_copy_publish || remote_auth_integration'
+
+# Remote authentication owns the process-wide native runtime. Keep its complete
+# suite in a separate Dart process, matching the normal regression runner.
+run_package_coverage \
+  connectanum_router \
+  connectanum_router_remote_auth \
+  test/remote_auth_integration_test.dart \
+  --chain-stack-traces
 
 printf 'Collecting zero-copy Dart VM coverage for connectanum_router.\n'
 (

@@ -1,0 +1,99 @@
+{
+  "base_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+  "hosted_failure": {
+    "source": "4a7ac18583e859a304ff4651fb5d3d4791225e21",
+    "run": 37622673258,
+    "job": 112825887695,
+    "failed_test": "MCP active last owner cleanup phase=resource observer=false",
+    "expected": "empty",
+    "actual": [
+      1
+    ],
+    "source_location": "packages/connectanum_router/test/router_integration_native_test.dart:7199",
+    "job_log_sha256": "52c5c844d2f4e03b0475673ad207b2b1c1f9c6c6f0a4aa93148f67b240ea3a2c",
+    "excerpt_sha256": "7b307500141a99b7523b0c748b10646d4ca549805ce5be52a773f7cad210abcb",
+    "root_cause": "not yet established; async cleanup inspected; local minimal reproduction pending",
+    "repair_applied": false
+  },
+  "combined_failure": {
+    "exit": 134,
+    "runtime_error": "runtime already started",
+    "vm_abort": "Cannot invoke native callback from a different isolate.",
+    "excerpt_sha256": "faa7991246a551e64e8233f19d16d634097e2992a6a95fa30960a31e0c6b2cb7"
+  },
+  "scope": "Retain complete router and remote-auth suites in separate sequential coverage processes and raw directories; no production or test assertions changed",
+  "checks": {
+    "combined_actual_failure": {
+      "exit": 134,
+      "log_sha256": "ef6ca13d3adfc28078d68855313b80a8d21f5d3d78f6e1e6fda86c4887e38cdb"
+    },
+    "isolated_mcp_four": {
+      "exit": 0,
+      "log_sha256": "d9798fe214decc3a2877353c9d9d4c79c7fa614113a79a9feab1ed2d336a9b3d"
+    },
+    "isolated_remote_auth_thirteen": {
+      "exit": 0,
+      "log_sha256": "f5754e8746b4375a4320db9a711a45bdd47c3dc2d68df7a4ba28906ed55ebda0"
+    },
+    "runner_fail_first": {
+      "exit": 1,
+      "log_sha256": "b7b68da2fe2709b25ce4a0bead1e5127a982fcae25be893a2939fce1d7698548"
+    },
+    "runner_regressions": {
+      "exit": 0,
+      "log_sha256": "ff048382f3adb9a1ffc6bfae2bb78c996cf908d9a6137314a35074970c8980ee"
+    },
+    "verification_scripts_85_methods": {
+      "exit": 0,
+      "log_sha256": "e51b944178aa6a4521e0e5219362727c2e328ac332cdf47ad9318f426912c341"
+    },
+    "bounded_review": {
+      "exit": 0,
+      "log_sha256": "0198631b52ff8cf8e32840f76c0d9c95c7856d2160117ea00a0a74b8cf63a73a"
+    }
+  },
+  "source_sha256": {
+    "bin/test-coverage": "755f60b0cbf665ff0ee0bab93f333216eb5daada1d26e959a9e6c0a8c4190ed9",
+    "tool/test_verification_scripts.py": "592f35002b45f2f792df2894b228f25a001560dcf7a3655198a89f491ba3de28"
+  },
+  "canonical_candidate_checks": {
+    "fast": {
+      "exit": 0,
+      "log_sha256": "8ea93f94cc38fd3cdc0e1a54fd9e5a065e7a371bf8454edecc513a637b629068"
+    },
+    "verify": {
+      "exit": 0,
+      "log_sha256": "e67caf82fdaabfee835d9145acf6c4fee97bbec3ef1b19db892440533175d416"
+    }
+  },
+  "original_hosted_subscription_assertion_root_cause": "not established; mixed runtime ownership defect reproduced independently",
+  "review_verification": "Bounded review identifies no concrete finding; speculation about overlapping raw paths and env leakage rejected against separate output labels, sequential execution and subshell scoping.",
+  "hosted_runner_acquisition_failure": {
+    "source": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+    "run": 37641408851,
+    "job": 112861357204,
+    "runner_name": "",
+    "steps": [],
+    "conclusion": "failure",
+    "annotation": "The job was not started because it repeatedly failed to be acquired (5 attempts).",
+    "annotations_sha256": "da3744a68e16aeef3f6573da57efbe55a269a437e6206201ba650fcd52846235",
+    "job_sha256": "cd437515da4d9d6753b579d61013ec48d2d73ebbdc7df52dbfa8ede49aeccf56"
+  },
+  "hosted_attestation_failure": {
+    "run": 37641389501,
+    "job": 112861004738,
+    "platform": "macOS Intel",
+    "error": "Failed to persist attestation",
+    "consumer_profiles_passed": 34,
+    "failed_job_rerun_attempts": 2,
+    "rerun_http_status": 500,
+    "log_sha256": "1ba8adaad21c4047c827f771a344404f816fae4979a8a349616320f114bf9e78",
+    "root_cause": "unknown",
+    "triage_companion": "blocked by active native mutation resource lease; no bypass"
+  },
+  "master_recheck": {
+    "github": "3bac4cf5db3b4cd9d51636f8454e6672722007e2",
+    "origin": "3bac4cf5db3b4cd9d51636f8454e6672722007e2",
+    "already_integrated": true
+  }
+}

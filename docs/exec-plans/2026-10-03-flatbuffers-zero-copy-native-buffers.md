@@ -7,6 +7,25 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): coverage runtime ownership isolation.
+The normal runner isolates remote-auth integration; the coverage runner omitted
+that separation. A focused combined actual run aborts at exit 134 with runtime
+already started and a native callback from the wrong isolate. Four MCP and
+thirteen remote-auth cases pass when separated. Coverage now retains both full
+suites in sequential processes with separate raw reports; formatting continues
+to merge the whole raw root. Two fail-first runner methods and failure controls
+pass; all 85 script regressions pass. Bounded review identifies no concrete
+finding. Candidate canonical fast/full checks pass at exit 0, including both
+browser suites with the same 20 native-only skips. Hosted acceptance is pending.
+The previous Linux MCP subscription assertion's specific cause remains unknown.
+The `df1a9ad5` native run provides verified 34-case reports on all five platforms
+(170 total, no skips), including Windows lifecycle and 48-byte ABI guards. Its
+package dry run passes. The overall native run fails afterward on macOS Intel
+attestation persistence; two rerun requests return HTTP 500. Sampled hosted PR
+jobs fail without acquiring a runner (five attempts, no steps). These external
+failures remain recorded; gates are not skipped.
+Evidence: [coverage scope/proof](../research/2026-10-07-coverage-runtime-isolation.md).
+
 Current follow-up (2026-10-07): Windows native runtime admission.
 Published `4a7ac185` native run 37622772557 passes four Linux/macOS platforms;
 Windows now launches tests and passes the 48-byte ABI guard, then rejects

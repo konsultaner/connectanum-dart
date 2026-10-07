@@ -25,8 +25,12 @@ source and artifact hashes preserve that distinction in the proof.
 
 Bounded Qwen review completes; its claim that the current cfg excludes Windows
 is rejected against the literal source. Bounded GLM review finds no definite
-defect. Actual tests establish the local behavior. Hosted Windows acceptance
-is pending and the five-platform, 34-profile gate remains unchanged.
+defect. Actual tests establish the local behavior. The `df1a9ad5` hosted run provides 34 passing profile cases, no skips, passing
+lifecycle and ABI guards on each of all five platforms, including Windows.
+Downloaded report and profile-log digests verify. Its package dry run passes;
+the overall native run fails afterward on macOS Intel archive attestation
+persistence. Two failed-job rerun requests return HTTP 500. The five-platform, 34-profile
+gate remains unchanged.
 Canonical candidate `bin/test-fast` and `bin/verify` pass at exit 0, including
 Rust, VM, public consumers and both browser suites with 20 unchanged native-only
 skips. The preceding `4a7ac185` PR coverage job separately fails one MCP last-owner

@@ -59,6 +59,66 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def run_router_coverage_probe(self, *, script: str | None = None,
+                                 shared_exit: int = 0, isolated_exit: int = 0):
+        source = script or (REPO_ROOT / "bin/test-coverage").read_text()
+        package_function = "run_package_coverage() {" + source.split(
+            "run_package_coverage() {", 1
+        )[1].split("\n}", 1)[0] + "\n}"
+        marker = "run_package_coverage \\\n  connectanum_router \\\n"
+        commands = marker + source.split(marker, 1)[1].split(
+            "printf 'Collecting zero-copy Dart VM coverage", 1
+        )[0]
+        with tempfile.TemporaryDirectory(prefix="router coverage process ") as temp:
+            root = Path(temp)
+            fake = root / "dart"
+            fake.write_text("#!/usr/bin/env python3\n" + textwrap.dedent("""\
+                import json, os, sys
+                args = sys.argv[1:]
+                with open(os.environ['TASK_COVERAGE_LOG'], 'a') as output:
+                    output.write(json.dumps({'pid': os.getpid(), 'args': args,
+                                             'cwd': os.getcwd()}) + '\\n')
+                if 'test/remote_auth_integration_test.dart' in args:
+                    sys.exit(int(os.environ['TASK_ISOLATED_EXIT']))
+                if '--exclude-tags' not in args or 'remote_auth_integration' not in args[args.index('--exclude-tags') + 1]:
+                    sys.exit(79)
+                sys.exit(int(os.environ['TASK_SHARED_EXIT']))
+                """))
+            fake.chmod(0o755)
+            log = root / "commands.jsonl"
+            environment = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
+                               TASK_COVERAGE_LOG=str(log), TASK_SHARED_EXIT=str(shared_exit),
+                               TASK_ISOLATED_EXIT=str(isolated_exit), TASK_COVERAGE_ROOT=str(root))
+            result = subprocess.run(["bash", "-c", 'set -euo pipefail\n'
+                + 'ROOT_DIR="$TASK_REPO_ROOT"\ncoverage_root="$TASK_COVERAGE_ROOT"\n'
+                + package_function + '\n' + commands],
+                env=dict(environment, TASK_REPO_ROOT=str(REPO_ROOT)),
+                text=True, capture_output=True, timeout=20)
+            rows = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+            return result, rows
+
+    def test_router_coverage_isolates_runtime_owner_and_retains_both_raw_reports(self):
+        result, rows = self.run_router_coverage_probe()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(rows), 2)
+        self.assertNotEqual(rows[0]['pid'], rows[1]['pid'])
+        self.assertIn('test', rows[0]['args'])
+        self.assertIn('zero_copy_publish || remote_auth_integration', rows[0]['args'])
+        self.assertIn('test/remote_auth_integration_test.dart', rows[1]['args'])
+        self.assertNotIn('--name', rows[1]['args'])
+        self.assertNotIn('--exclude-tags', rows[1]['args'])
+        reports = [next(arg for arg in row['args'] if arg.startswith('--coverage=')) for row in rows]
+        self.assertTrue(reports[0].endswith('/raw/connectanum_router'))
+        self.assertTrue(reports[1].endswith('/raw/connectanum_router_remote_auth'))
+        self.assertEqual([row['cwd'] for row in rows], [str(REPO_ROOT / 'packages/connectanum_router')] * 2)
+
+    def test_router_coverage_does_not_hide_shared_or_isolated_failure(self):
+        for shared, isolated, calls in ((71, 0, 1), (0, 72, 2)):
+            with self.subTest(shared=shared, isolated=isolated):
+                result, rows = self.run_router_coverage_probe(shared_exit=shared, isolated_exit=isolated)
+                self.assertEqual(result.returncode, shared or isolated)
+                self.assertEqual(len(rows), calls)
+
     def run_fast_client_runtime_probe(self, *, explicit: bool, supported: bool = True,
                                       build_exit: int = 0) -> subprocess.CompletedProcess:
         function = "run_client_fast_tests() {" + TEST_FAST.read_text().split(

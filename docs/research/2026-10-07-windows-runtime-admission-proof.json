@@ -103,7 +103,7 @@
     }
   },
   "review_verification": "Qwen mistaken cfg claim rejected against literal source; bounded GLM found no definite defect. Lifecycle behavior verified by actual library audit, not advisory approval.",
-  "hosted_windows_candidate_acceptance": "pending",
+  "hosted_windows_candidate_acceptance": "passed at df1a9ad5",
   "canonical_candidate_checks": {
     "fast": {
       "exit": 0,
@@ -134,5 +134,175 @@
     "excerpt_sha256": "7b307500141a99b7523b0c748b10646d4ca549805ce5be52a773f7cad210abcb",
     "root_cause": "not yet established; async cleanup inspected; local minimal reproduction pending",
     "repair_applied": false
+  },
+  "hosted_five_platform_consumers": [
+    {
+      "platform": "native-consumers-aarch64-apple-darwin",
+      "expected_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+      "runtime_acceptance": true,
+      "cases": 34,
+      "lifecycle": {
+        "start": 0,
+        "duplicate_start": -2,
+        "shutdown": 0,
+        "restart": 0,
+        "final_shutdown": 0
+      },
+      "snapshot_abi": {
+        "bytes": 48,
+        "alignment": 8,
+        "null_result": -4,
+        "head_tail_unchanged": true,
+        "initial_counters": {
+          "outbound_chunk_copy_bytes_total": 0,
+          "queue_read_copy_bytes_total": 0,
+          "deframer_append_copy_bytes_total": 0,
+          "deframer_move_copy_bytes_total": 0,
+          "record_buffer_copy_bytes_total": 0,
+          "record_append_copy_bytes_total": 0
+        }
+      },
+      "archive_sha256": "557a695ebdafa5f29456df3a4c29d544786cbc3f22d1778e2b4fe608cab1ac36",
+      "library_sha256": "5b33599a7390a6f4e684654fb94428195441e19b65ea74acc6a5d24b7d6e84af",
+      "proof_sha256": "d1b0c6174cd0f7790ff12a6837165f0d509bd459f2d891a09de415cdfa9a808a",
+      "profile_logs_verified": true
+    },
+    {
+      "platform": "native-consumers-aarch64-unknown-linux-gnu",
+      "expected_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+      "runtime_acceptance": true,
+      "cases": 34,
+      "lifecycle": {
+        "start": 0,
+        "duplicate_start": -2,
+        "shutdown": 0,
+        "restart": 0,
+        "final_shutdown": 0
+      },
+      "snapshot_abi": {
+        "bytes": 48,
+        "alignment": 8,
+        "null_result": -4,
+        "head_tail_unchanged": true,
+        "initial_counters": {
+          "outbound_chunk_copy_bytes_total": 0,
+          "queue_read_copy_bytes_total": 0,
+          "deframer_append_copy_bytes_total": 0,
+          "deframer_move_copy_bytes_total": 0,
+          "record_buffer_copy_bytes_total": 0,
+          "record_append_copy_bytes_total": 0
+        }
+      },
+      "archive_sha256": "441fd26bac230cb01a5521dbaa70ec3ddb9d4b51db58aedcde7fdc14108e417d",
+      "library_sha256": "a46fdb79b9298cef2337f3612a37ea5ce3c8f3e5ba033f35d5db8661521adbab",
+      "proof_sha256": "dbebc879490d05e40b8c2ba7c0b17e1299282878507ac2f1505c40be57d40fab",
+      "profile_logs_verified": true
+    },
+    {
+      "platform": "native-consumers-x86_64-apple-darwin",
+      "expected_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+      "runtime_acceptance": true,
+      "cases": 34,
+      "lifecycle": {
+        "start": 0,
+        "duplicate_start": -2,
+        "shutdown": 0,
+        "restart": 0,
+        "final_shutdown": 0
+      },
+      "snapshot_abi": {
+        "bytes": 48,
+        "alignment": 8,
+        "null_result": -4,
+        "head_tail_unchanged": true,
+        "initial_counters": {
+          "outbound_chunk_copy_bytes_total": 0,
+          "queue_read_copy_bytes_total": 0,
+          "deframer_append_copy_bytes_total": 0,
+          "deframer_move_copy_bytes_total": 0,
+          "record_buffer_copy_bytes_total": 0,
+          "record_append_copy_bytes_total": 0
+        }
+      },
+      "archive_sha256": "f06ad4b5a22719357e189ac71a927b8302c13a174f819c686e298cd1fd779c3e",
+      "library_sha256": "2531f51f9b2a37ce461006c5bf29ef5fb1d724ea3dbb636289819602a696cc49",
+      "proof_sha256": "15d90d4c7684f491dada0afcd336dc10192a44333ef1133e6b68121b6c121d5e",
+      "profile_logs_verified": true
+    },
+    {
+      "platform": "native-consumers-x86_64-pc-windows-msvc",
+      "expected_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+      "runtime_acceptance": true,
+      "cases": 34,
+      "lifecycle": {
+        "start": 0,
+        "duplicate_start": -2,
+        "shutdown": 0,
+        "restart": 0,
+        "final_shutdown": 0
+      },
+      "snapshot_abi": {
+        "bytes": 48,
+        "alignment": 8,
+        "null_result": -4,
+        "head_tail_unchanged": true,
+        "initial_counters": {
+          "outbound_chunk_copy_bytes_total": 0,
+          "queue_read_copy_bytes_total": 0,
+          "deframer_append_copy_bytes_total": 0,
+          "deframer_move_copy_bytes_total": 0,
+          "record_buffer_copy_bytes_total": 0,
+          "record_append_copy_bytes_total": 0
+        }
+      },
+      "archive_sha256": "526dd78c429f2bf2297621df0559a054f2898171444144210db4a7ea467e07a1",
+      "library_sha256": "3d1cf0f257fb5414c5d99e0f7f5bf8dd7c9d8d2db1eb9da58b9b31a5314b86fe",
+      "proof_sha256": "46d9578054497d69d4555b66a3920e8ba9b8803e4f1af31a1d8a5f751395274a",
+      "profile_logs_verified": true
+    },
+    {
+      "platform": "native-consumers-x86_64-unknown-linux-gnu",
+      "expected_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+      "runtime_acceptance": true,
+      "cases": 34,
+      "lifecycle": {
+        "start": 0,
+        "duplicate_start": -2,
+        "shutdown": 0,
+        "restart": 0,
+        "final_shutdown": 0
+      },
+      "snapshot_abi": {
+        "bytes": 48,
+        "alignment": 8,
+        "null_result": -4,
+        "head_tail_unchanged": true,
+        "initial_counters": {
+          "outbound_chunk_copy_bytes_total": 0,
+          "queue_read_copy_bytes_total": 0,
+          "deframer_append_copy_bytes_total": 0,
+          "deframer_move_copy_bytes_total": 0,
+          "record_buffer_copy_bytes_total": 0,
+          "record_append_copy_bytes_total": 0
+        }
+      },
+      "archive_sha256": "9d7e7370f31cc7accee019ff27a7b0d1eaa67f8f04026aeba15ab8f61c2dc83c",
+      "library_sha256": "bff0a9d372fd8b4f292db751e9cf128be1962c476f910e08b10d378e5a3dc9f8",
+      "proof_sha256": "d9777a18e65b58d2b6b2931bf90634a2015dfad3ff57c9d20f910ae47c7d601e",
+      "profile_logs_verified": true
+    }
+  ],
+  "hosted_native_run": 37641389501,
+  "hosted_native_release_preview": {
+    "conclusion": "failure",
+    "failed_job": 112861004738,
+    "failed_step": "Generate archive attestation",
+    "error": "Failed to persist attestation",
+    "consumer_profiles_passed_all_five": true,
+    "failed_job_rerun_http_status": 500
+  },
+  "hosted_package_dry_run": {
+    "run": 37641396308,
+    "conclusion": "success"
   }
 }
