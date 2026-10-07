@@ -104,3 +104,18 @@ TLS 1.3 Ring `extend_from_chunks` reaches the existing outbound observation;
 adding another observation at that wrapper would double-count the same copy.
 `seal_in_place_append_tag` transforms data in place and produces authentication
 bytes; output length alone is not evidence of another payload copy.
+
+## Clean source package checkpoint
+
+Clean source commit `3b2517892a5f43460d0f925635dacca265bbeefd` is packaged again
+without code changes. Its library matches the previously verified candidate
+SHA-256 `7d4de1c98139253bc6143e4472cb8fbdf8456f9a9febbc96aa7cfbc966d1bd10`.
+The source manifest, modification notice and three original licenses match;
+production test oracles remain absent. All 34 FlatBuffers client, transport and
+router production profile cases pass when each file has its own process.
+The initial combined probe passes 32 client/transport cases but its router
+files see an already-started process-native runtime. This probe orchestration
+failure and the fresh isolated results are recorded separately. No assertions
+or timeouts change. See [clean package evidence](2026-10-07-rustls-production-package-proof.json).
+This is macOS arm64 package/consumer evidence. Resulting-head hosted and other
+platform checks, complete copy coverage and unchanged performance gates remain.

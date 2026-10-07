@@ -22,8 +22,10 @@ benchmark, 4,958 router, 4,751 core browser and 2,829 client browser cases,
 with 20 unchanged native-only skips. The narrowed GLM judgment completes
 with no confirmed native defect. Real macOS arm64 packaging passes: all five
 Rustls notice/manifest files match and the library excludes test oracles.
-This is a local packaging check of the frozen candidate, not resulting-head
-release acceptance. #100–#104 and all gates remain
+Clean source commit `3b251789` packaging then matches the verified library,
+notices and source manifest. All 34 production profile cases pass in separate
+processes; an initial combined probe finds an already-started shared runtime.
+This scoped macOS check does not provide multi-platform release acceptance. #100–#104 and all gates remain
 open. Research: [Rustls copy observer](research/2026-10-07-rustls-copy-observer.md).
 
 Current follow-up (2026-10-07): native prefetched input copies.
