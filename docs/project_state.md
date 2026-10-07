@@ -5,6 +5,28 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): payload copy observations.
+Published source `cde9fbed` passes canonical fast/full checks. Push CI fast
+checks now pass; remaining resulting-source jobs are live. Native dry run
+37588514671 passes all five builds; package dry run 37588518168 passes.
+All 15 pinned attestations, 25 exact notices/manifests (including Windows),
+30 preview assets and rendered notes verify. Both hosted arm64 production
+libraries pass 34 profile cases; other platforms have build/provenance evidence.
+The independent full primary 37582544124 remains live on frozen `a5c6aaf9`.
+Four new fail-first tests expose omitted 7/8/10/9-byte payload copy observations.
+Hooks cover owned clones, borrowed ownership conversion, bounded U8/U16 reads
+and content/certificate encodes while preserving borrowed reads and owned
+moves. A targeted U24 test confirms inner clone delegation counts once.
+All 243/232 macOS and 244/233 Linux enabled/disabled cases pass; both real TLS
+checks pass with all 860 frozen Linux inputs matched. The source gate and five
+failure controls pass. Initial companion findings are disproved by source and the targeted regression.
+The follow-up is initially blocked by the native-mutation resource lease; its
+post-verification retry completes and confirms the clone/borrow semantics. Canonical candidate `bin/test-fast` and full `bin/verify` pass at exit 0:
+Rust/VM/consumers, 1,616 benchmark, 4,958 router, 4,751 core browser and 2,829
+client browser cases, with 20 unchanged native-only skips. No whole TLS or
+parity acceptance follows; #100–#104 remain open. Evidence:
+[scoped payload proof](research/2026-10-07-rustls-payload-copies-proof.json).
+
 Current follow-up (2026-10-07): deframer and record copy observations.
 Four new fail-first tests expose omitted deframer appends/moves and record
 clones/appends. All 238 enabled and 232 disabled upstream library cases pass;

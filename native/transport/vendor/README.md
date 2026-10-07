@@ -8,9 +8,9 @@ The upstream repository is https://github.com/rustls/rustls, commit
 
 The original Apache-2.0, ISC and MIT license files are retained. The published
 crate's 118 files are recorded in `rustls-source-manifest.json`, with both the
-original and current SHA-256 values. Five existing files change: the optional
+original and current SHA-256 values. Six existing files change: the optional
 feature, public observer module, outbound record/chunk observations, deframer
-observations and queue read observations. `src/copy_observer.rs` is the only
+observations, payload storage/encoding observations and queue read observations. `src/copy_observer.rs` is the only
 new Rustls source module.
 
 Upstream unit tests require omitted `rustls/src/testdata/`, sibling `test-ca/`
@@ -26,10 +26,13 @@ upstream changes and the exact instrumentation diff before refreshing digests.
 `connectanum-copy-observer` is disabled by default upstream and enabled by
 `ct_core`. Its counters measure only named actual byte-copy sites, process-wide.
 The six fields cover outbound chunks, queue reads, deframer appends/moves,
-record buffer clones/plaintext conversion and record slice/iterator appends.
+record/payload clones, borrowed ownership conversion and record/payload/certificate
+content appends.
 Record clones include the five-byte prefix; plaintext conversion excludes it.
-Moving an owned record buffer and cloning a borrowed reference add no copy.
-They exclude buffer growth, initial header initialization, remaining record
+Moving an owned record/payload buffer and cloning a borrowed reference add no
+copy. U24 wrapper clones delegate to their inner payload and count once.
+Length-prefixed U8/U16 reads count only successful content copies.
+They exclude buffer growth, generated length prefixes, initial header initialization, remaining record
 and crypto operations and copies in Tokio-Rustls. In particular, Tokio-Rustls receives plaintext through
 `Reader::into_first_chunk()` followed by `ReadBuf::put_slice()`, bypassing the
 instrumented queue read. These observations cannot certify total TLS copies.
@@ -38,6 +41,6 @@ is observed. The separate native benchmark orchestrator retains its registry
 Rustls dependency; it does not consume these transport counters.
 
 The canonical full test script runs all 232 upstream Ring/std/TLS 1.2
-library tests and six observer tests with the observer enabled. The source checker runs in both fast
+library tests and eleven observer tests with the observer enabled. The source checker runs in both fast
 and full verification. No protocol, cipher, allocation or buffer ownership
 behavior is changed by the observer hooks.

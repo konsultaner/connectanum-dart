@@ -10,15 +10,32 @@ use crate::msgs::codec;
 use crate::msgs::codec::{Codec, Reader};
 
 /// An externally length'd payload
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
+#[cfg_attr(not(feature = "connectanum-copy-observer"), derive(Clone))]
 pub enum Payload<'a> {
     Borrowed(&'a [u8]),
     Owned(Vec<u8>),
 }
 
+#[cfg(feature = "connectanum-copy-observer")]
+impl Clone for Payload<'_> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Borrowed(bytes) => Self::Borrowed(bytes),
+            Self::Owned(bytes) => {
+                let copied = bytes.clone();
+                crate::copy_observer::record_buffer_copy(copied.len());
+                Self::Owned(copied)
+            }
+        }
+    }
+}
+
 impl<'a> Codec<'a> for Payload<'a> {
     fn encode(&self, bytes: &mut Vec<u8>) {
         bytes.extend_from_slice(self.bytes());
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_append_copy(self.bytes().len());
     }
 
     fn read(r: &mut Reader<'a>) -> Result<Self, InvalidMessage> {
@@ -40,7 +57,12 @@ impl<'a> Payload<'a> {
 
     pub fn into_vec(self) -> Vec<u8> {
         match self {
-            Self::Borrowed(bytes) => bytes.to_vec(),
+            Self::Borrowed(bytes) => {
+                let copied = bytes.to_vec();
+                #[cfg(feature = "connectanum-copy-observer")]
+                crate::copy_observer::record_buffer_copy(copied.len());
+                copied
+            }
             Self::Owned(bytes) => bytes,
         }
     }
@@ -64,6 +86,8 @@ impl<'a> Codec<'a> for CertificateDer<'a> {
     fn encode(&self, bytes: &mut Vec<u8>) {
         codec::u24(self.as_ref().len() as u32).encode(bytes);
         bytes.extend(self.as_ref());
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_append_copy(self.as_ref().len());
     }
 
     fn read(r: &mut Reader<'a>) -> Result<Self, InvalidMessage> {
@@ -99,6 +123,8 @@ impl<'a, C: Cardinality> Codec<'a> for PayloadU24<'a, C> {
         debug_assert!(inner.len() >= C::MIN);
         codec::u24(inner.len() as u32).encode(bytes);
         bytes.extend_from_slice(inner);
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_append_copy(inner.len());
     }
 
     fn read(r: &mut Reader<'a>) -> Result<Self, InvalidMessage> {
@@ -134,8 +160,18 @@ impl<C: Cardinality> fmt::Debug for PayloadU24<'_, C> {
 ///
 /// The `C` type parameter controls whether decoded values may
 /// be empty.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
+#[cfg_attr(not(feature = "connectanum-copy-observer"), derive(Clone))]
 pub struct PayloadU16<C: Cardinality = MaybeEmpty>(pub(crate) Vec<u8>, PhantomData<C>);
+
+#[cfg(feature = "connectanum-copy-observer")]
+impl<C: Cardinality> Clone for PayloadU16<C> {
+    fn clone(&self) -> Self {
+        let copied = self.0.clone();
+        crate::copy_observer::record_buffer_copy(copied.len());
+        Self(copied, PhantomData)
+    }
+}
 
 impl<C: Cardinality> PayloadU16<C> {
     pub fn new(bytes: Vec<u8>) -> Self {
@@ -155,6 +191,8 @@ impl<C: Cardinality> Codec<'_> for PayloadU16<C> {
         debug_assert!(self.0.len() >= C::MIN);
         (self.0.len() as u16).encode(bytes);
         bytes.extend_from_slice(&self.0);
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_append_copy(self.0.len());
     }
 
     fn read(r: &mut Reader<'_>) -> Result<Self, InvalidMessage> {
@@ -164,6 +202,8 @@ impl<C: Cardinality> Codec<'_> for PayloadU16<C> {
         }
         let mut sub = r.sub(len)?;
         let body = sub.rest().to_vec();
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_buffer_copy(body.len());
         Ok(Self(body, PhantomData))
     }
 }
@@ -177,13 +217,25 @@ impl<C: Cardinality> fmt::Debug for PayloadU16<C> {
 /// An arbitrary, unknown-content, u8-length-prefixed payload
 ///
 /// `C` controls the minimum length accepted when decoding.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
+#[cfg_attr(not(feature = "connectanum-copy-observer"), derive(Clone))]
 pub(crate) struct PayloadU8<C: Cardinality = MaybeEmpty>(pub(crate) Vec<u8>, PhantomData<C>);
+
+#[cfg(feature = "connectanum-copy-observer")]
+impl<C: Cardinality> Clone for PayloadU8<C> {
+    fn clone(&self) -> Self {
+        let copied = self.0.clone();
+        crate::copy_observer::record_buffer_copy(copied.len());
+        Self(copied, PhantomData)
+    }
+}
 
 impl<C: Cardinality> PayloadU8<C> {
     pub(crate) fn encode_slice(slice: &[u8], bytes: &mut Vec<u8>) {
         (slice.len() as u8).encode(bytes);
         bytes.extend_from_slice(slice);
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_append_copy(slice.len());
     }
 
     pub(crate) fn new(bytes: Vec<u8>) -> Self {
@@ -203,6 +255,8 @@ impl<C: Cardinality> Codec<'_> for PayloadU8<C> {
         debug_assert!(self.0.len() >= C::MIN);
         (self.0.len() as u8).encode(bytes);
         bytes.extend_from_slice(&self.0);
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_append_copy(self.0.len());
     }
 
     fn read(r: &mut Reader<'_>) -> Result<Self, InvalidMessage> {
@@ -212,6 +266,8 @@ impl<C: Cardinality> Codec<'_> for PayloadU8<C> {
         }
         let mut sub = r.sub(len)?;
         let body = sub.rest().to_vec();
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::record_buffer_copy(body.len());
         Ok(Self(body, PhantomData))
     }
 }

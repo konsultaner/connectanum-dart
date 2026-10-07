@@ -7,6 +7,42 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): payload copy observations.
+Published source `cde9fbed` passes canonical fast/full checks. Push CI fast
+checks now pass; remaining resulting-source jobs are live. Native dry run
+37588514671 passes all five builds; package dry run 37588518168 passes.
+All 15 pinned attestations, 25 exact notices/manifests (including Windows),
+30 preview assets and rendered notes verify. Both hosted arm64 production
+libraries pass 34 profile cases; other platforms have build/provenance evidence.
+The independent full primary 37582544124 remains live on frozen `a5c6aaf9`.
+Four new fail-first tests expose omitted 7/8/10/9-byte payload copy observations.
+Hooks cover owned clones, borrowed ownership conversion, bounded U8/U16 reads
+and content/certificate encodes while preserving borrowed reads and owned
+moves. A targeted U24 test confirms inner clone delegation counts once.
+All 243/232 macOS and 244/233 Linux enabled/disabled cases pass; both real TLS
+checks pass with all 860 frozen Linux inputs matched. The source gate and five
+failure controls pass. Initial companion findings are disproved by source and the targeted regression.
+The follow-up is initially blocked by the native-mutation resource lease; its
+post-verification retry completes and confirms the clone/borrow semantics. Canonical candidate `bin/test-fast` and full `bin/verify` pass at exit 0:
+Rust/VM/consumers, 1,616 benchmark, 4,958 router, 4,751 core browser and 2,829
+client browser cases, with 20 unchanged native-only skips. No whole TLS or
+parity acceptance follows; #100–#104 remain open. Evidence:
+[scoped payload proof](../research/2026-10-07-rustls-payload-copies-proof.json).
+
+Next required work after this source verification:
+1. Keep resulting-source CI clean and verify public profile runtime consumers
+   on the remaining Linux x64, macOS Intel and Windows x64 artifact runners.
+   Their current build/provenance evidence does not exercise runtime behavior.
+2. Expose named partial source observations through an optional C/Dart metrics
+   path so benchmark reports can use actual source counters; preserve old ABI
+   and unavailable-counter fallback. Complete TLS fields remain unknown until
+   their entire declared scope is measured.
+3. Observe Tokio-Rustls plaintext extraction, remaining Rustls/SDK growth,
+   record/crypto and mixed-serializer boundaries without replacing the existing
+   buffered TLS engine or substituting accepted byte volume for copy counts.
+4. Finish the full primary and original supplemental campaigns with unchanged
+   parity/resource/copy gates, then audit every original #100–#104 criterion.
+
 Current follow-up (2026-10-07): deframer and record copy observations.
 Four new fail-first tests expose omitted deframer appends/moves and record
 clones/appends. All 238 enabled and 232 disabled upstream library cases pass;

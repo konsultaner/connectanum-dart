@@ -147,11 +147,111 @@ pub(crate) fn record_append_copy(bytes: usize) {
 mod tests {
     use super::*;
     use crate::enums::{ContentType, ProtocolVersion};
+    use crate::msgs::base::{NonEmpty, Payload, PayloadU16, PayloadU24, PayloadU8};
+    use crate::msgs::codec::{Codec, Reader};
     use crate::msgs::deframer::buffers::{Coalescer, DeframerVecBuffer};
     use crate::msgs::message::OutboundChunks;
     use crate::msgs::message::{OutboundOpaqueMessage, PrefixedPayload, HEADER_SIZE};
     use crate::vecbuf::ChunkVecBuffer;
     use alloc::{vec, vec::Vec};
+    use pki_types::CertificateDer;
+
+    #[test]
+    fn observer_counts_u24_owned_clone_once_and_keeps_reads_borrowed() {
+        LOCAL.with(|value| value.set((0, 0, 0, 0, 0, 0)));
+        let source = *b"abc";
+        let borrowed = Payload::read(&mut Reader::init(&source));
+        assert_eq!(borrowed.bytes().as_ptr(), source.as_ptr());
+        let borrowed_prefix: PayloadU24 = borrowed.into();
+        let borrowed_clone = borrowed_prefix.clone();
+        assert_eq!(borrowed_clone.as_ref().as_ptr(), source.as_ptr());
+        assert_eq!(LOCAL.with(|value| value.get()), (0, 0, 0, 0, 0, 0));
+
+        let owned_prefix: PayloadU24 = Payload::Owned(vec![1, 2, 3]).into();
+        let address = owned_prefix.as_ref().as_ptr();
+        let owned_clone = owned_prefix.clone();
+        assert_eq!(owned_clone.as_ref(), &[1, 2, 3]);
+        assert_ne!(owned_clone.as_ref().as_ptr(), address);
+        assert_eq!(owned_prefix.into_owned().as_ref().as_ptr(), address);
+        assert_eq!(LOCAL.with(|value| value.get()), (0, 0, 0, 0, 3, 0));
+    }
+
+    #[test]
+    fn observer_counts_prefixed_payload_reads_and_clones_after_validation() {
+        LOCAL.with(|value| value.set((0, 0, 0, 0, 0, 0)));
+        let narrow: PayloadU8 = PayloadU8::read(&mut Reader::init(b"\x03abc")).unwrap();
+        let wide: PayloadU16 = PayloadU16::read(&mut Reader::init(b"\0\x02\x01\x02")).unwrap();
+        let narrow_clone = narrow.clone();
+        let wide_clone = wide.clone();
+        assert_eq!(&narrow_clone.0, b"abc");
+        assert_eq!(&wide_clone.0, &[1, 2]);
+        assert_ne!(narrow_clone.0.as_ptr(), narrow.0.as_ptr());
+        assert_ne!(wide_clone.0.as_ptr(), wide.0.as_ptr());
+        assert_eq!(LOCAL.with(|value| value.get()), (0, 0, 0, 0, 10, 0));
+
+        assert!(PayloadU8::<NonEmpty>::read(&mut Reader::init(b"\0")).is_err());
+        assert!(PayloadU16::<NonEmpty>::read(&mut Reader::init(b"\0\0")).is_err());
+        assert!(PayloadU16::<NonEmpty>::read(&mut Reader::init(b"\0\x04ab")).is_err());
+        let empty: PayloadU8 = PayloadU8::read(&mut Reader::init(b"\0")).unwrap();
+        assert!(empty.clone().0.is_empty());
+        assert_eq!(LOCAL.with(|value| value.get()), (0, 0, 0, 0, 10, 0));
+    }
+
+    #[test]
+    fn observer_counts_prefixed_payload_and_certificate_content_appends() {
+        LOCAL.with(|value| value.set((0, 0, 0, 0, 0, 0)));
+        let narrow: PayloadU8 = PayloadU8::new(vec![1, 2, 3]);
+        let wide: PayloadU16 = PayloadU16::new(vec![4, 5]);
+        let mut encoded = Vec::new();
+        narrow.encode(&mut encoded);
+        wide.encode(&mut encoded);
+        PayloadU8::<NonEmpty>::encode_slice(b"ab", &mut encoded);
+        CertificateDer::from(&b"xy"[..]).encode(&mut encoded);
+        assert_eq!(&encoded, b"\x03\x01\x02\x03\0\x02\x04\x05\x02ab\0\0\x02xy");
+        assert_eq!(LOCAL.with(|value| value.get()), (0, 0, 0, 0, 0, 9));
+    }
+
+    #[test]
+    fn observer_distinguishes_payload_copies_from_borrows_and_owned_moves() {
+        LOCAL.with(|value| value.set((0, 0, 0, 0, 0, 0)));
+        let source = *b"abcd";
+        let borrowed = Payload::Borrowed(&source[1..]);
+        let borrowed_clone = borrowed.clone();
+        assert_eq!(borrowed_clone.bytes().as_ptr(), source[1..].as_ptr());
+        assert_eq!(LOCAL.with(|value| value.get()), (0, 0, 0, 0, 0, 0));
+
+        let owned = Payload::Owned(vec![1, 2, 3, 4]);
+        let original_address = owned.bytes().as_ptr();
+        let owned_clone = owned.clone();
+        assert_eq!(owned_clone.bytes(), &[1, 2, 3, 4]);
+        assert_ne!(owned_clone.bytes().as_ptr(), original_address);
+        let moved = owned.into_owned().into_vec();
+        assert_eq!(moved.as_ptr(), original_address);
+        assert_eq!(&moved, &[1, 2, 3, 4]);
+        let copied = borrowed.into_owned().into_vec();
+        assert_eq!(&copied, b"bcd");
+        assert_ne!(copied.as_ptr(), source[1..].as_ptr());
+        assert_eq!(LOCAL.with(|value| value.get()), (0, 0, 0, 0, 7, 0));
+
+        assert!(Payload::empty().clone().into_vec().is_empty());
+        assert_eq!(LOCAL.with(|value| value.get()), (0, 0, 0, 0, 7, 0));
+    }
+
+    #[test]
+    fn observer_counts_payload_encoding_without_recounting_prefix_generation() {
+        LOCAL.with(|value| value.set((0, 0, 0, 0, 0, 0)));
+        let borrowed = Payload::Borrowed(b"bcd");
+        let owned = Payload::Owned(vec![5, 6]);
+        let mut encoded = vec![42];
+        borrowed.encode(&mut encoded);
+        owned.encode(&mut encoded);
+        let prefixed: PayloadU24 = PayloadU24::from(borrowed);
+        prefixed.encode(&mut encoded);
+        assert_eq!(&encoded, b"*bcd\x05\x06\0\0\x03bcd");
+        assert_eq!(LOCAL.with(|value| value.get()), (0, 0, 0, 0, 0, 8));
+        Payload::empty().encode(&mut encoded);
+        assert_eq!(LOCAL.with(|value| value.get()), (0, 0, 0, 0, 0, 8));
+    }
 
     #[test]
     fn observer_counts_partial_queue_appends_and_reads() {
