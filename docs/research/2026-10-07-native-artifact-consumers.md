@@ -26,7 +26,8 @@ loader accounting, skipped/omitted/unfinished tests and late errors. Actionlint
 passes. The actual gate passes all 34 cases against each published `cde9fbed`
 macOS arm64 and Linux arm64 production bundle. This verifies the new runner
 against those frozen libraries; it is not a resulting-source five-platform run.
-See [scoped proof](2026-10-07-native-artifact-consumers-proof.json).
+See [scoped proof](2026-10-07-native-artifact-consumers-proof.json). Published command paths are normalized to `dart`; the exact raw report digest
+retains provenance without embedding a local SDK directory.
 
 The first companion test request reaches its token limit; a narrowed retry
 completes. Its useful suggestions are checksum/source and skip/unfinished

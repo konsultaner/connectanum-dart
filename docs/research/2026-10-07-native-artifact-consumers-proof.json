@@ -21,7 +21,7 @@
           "package": "connectanum_client",
           "file": "test/transport/native/flatbuffers_profile_test.dart",
           "command": [
-            "/Users/konsultaner/flutter/flutter/bin/dart",
+            "dart",
             "test",
             "--reporter=json",
             "--exclude-tags=ffi-owner-oracles",
@@ -38,7 +38,7 @@
           "package": "connectanum_client",
           "file": "test/transport/flatbuffers_transport_profile_vm_test.dart",
           "command": [
-            "/Users/konsultaner/flutter/flutter/bin/dart",
+            "dart",
             "test",
             "--reporter=json",
             "--exclude-tags=ffi-owner-oracles",
@@ -55,7 +55,7 @@
           "package": "connectanum_router",
           "file": "test/router_flatbuffers_native_test.dart",
           "command": [
-            "/Users/konsultaner/flutter/flutter/bin/dart",
+            "dart",
             "test",
             "--reporter=json",
             "--exclude-tags=ffi-owner-oracles",
@@ -83,7 +83,9 @@
       "archive_sha256": "6923ba0e7e320f46af5fed075c3b659bd5e14c904bed65bce80c96a5b48d3b92",
       "library_sha256": "3a02979da6cb5a3252778ed660b3c534698c05ebe2c60d98e85218e1289037b5",
       "library": "/private/tmp/connectanum mac artifact consumer gate/library-ojtocdtv/libct_ffi.dylib",
-      "absent_test_oracles": 18
+      "absent_test_oracles": 18,
+      "raw_report_sha256": "9d66edb944b35bb28cab3ede183fa9f197331acded0242da1af1fd6579762860",
+      "published_command_path_normalized": true
     },
     "linux-arm64": {
       "schema_version": 1,
@@ -94,7 +96,7 @@
           "package": "connectanum_client",
           "file": "test/transport/native/flatbuffers_profile_test.dart",
           "command": [
-            "/usr/lib/dart/bin/dart",
+            "dart",
             "test",
             "--reporter=json",
             "--exclude-tags=ffi-owner-oracles",
@@ -111,7 +113,7 @@
           "package": "connectanum_client",
           "file": "test/transport/flatbuffers_transport_profile_vm_test.dart",
           "command": [
-            "/usr/lib/dart/bin/dart",
+            "dart",
             "test",
             "--reporter=json",
             "--exclude-tags=ffi-owner-oracles",
@@ -128,7 +130,7 @@
           "package": "connectanum_router",
           "file": "test/router_flatbuffers_native_test.dart",
           "command": [
-            "/usr/lib/dart/bin/dart",
+            "dart",
             "test",
             "--reporter=json",
             "--exclude-tags=ffi-owner-oracles",
@@ -156,7 +158,9 @@
       "archive_sha256": "212a8a101a2578392907d49bdfca44b478f783f04bba056e2eebbdeb926366e0",
       "library_sha256": "e93874a254e1cf749d410bc875b18a86469ad8d92dcf62df6986d665e50025db",
       "library": "/tmp/connectanum linux artifact consumer gate/library-ewszhvzy/libct_ffi.so",
-      "absent_test_oracles": 18
+      "absent_test_oracles": 18,
+      "raw_report_sha256": "169a3cd43e2445819fa4e992c0a82905dac2933b309ce9f2d62e37aab2d44505",
+      "published_command_path_normalized": true
     }
   },
   "failure_controls": {
@@ -179,5 +183,18 @@
     "exit": 0,
     "log": "/tmp/connectanum-rustls-all-payload-verify.log",
     "scope": "all native/Dart application source unchanged by consumer-gate follow-up; candidate full entrypoint/workflow verification remains pending"
+  },
+  "published_proof_repair": {
+    "reason": "local Dart executable path removed from published command metadata; raw report hashes retained",
+    "candidate_fast_failure": {
+      "exit": 1,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-fast.log",
+      "log_sha256": "c798fdf3ed944100ae5c8eaad141190bfa04d9f36fa9d3845cde8e4717e7f285"
+    },
+    "public_reference_gate": {
+      "exit": 0,
+      "log": "/tmp/connectanum-native-consumers-public-proof-repair.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
   }
 }
