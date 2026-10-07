@@ -173,5 +173,64 @@ class BundleEvidenceTest(unittest.TestCase):
         self.assertEqual(list(self.output.iterdir()), [])
 
 
+class DartLauncherEvidenceTest(unittest.TestCase):
+    def run_consumer(self, launcher, platform="win32", executable_exists=True):
+        with tempfile.TemporaryDirectory(prefix="consumer launcher with spaces ") as temporary:
+            output = Path(temporary)
+            library = output / "packaged-library"
+            library.write_bytes(b"controlled library")
+            commands = []
+
+            def run(command, **kwargs):
+                commands.append((command, kwargs))
+                return SimpleNamespace(returncode=0, stdout="controlled profile output")
+
+            arguments = ["consumer", "--archive", str(library), "--checksum", str(library),
+                         "--manifest", str(library), "--expected-commit", "1" * 40,
+                         "--output-dir", str(output)]
+            with mock.patch.object(consumers.sys, "argv", arguments), \
+                 mock.patch.object(consumers.sys, "platform", platform), \
+                 mock.patch.object(consumers.shutil, "which", return_value=launcher), \
+                 mock.patch.object(consumers, "unpack_library", return_value=({}, library)), \
+                 mock.patch.object(consumers, "audit_production_library", return_value=18), \
+                 mock.patch.object(consumers, "audit_rustls_snapshot_abi", return_value={}), \
+                 mock.patch.object(consumers, "profile_results", return_value={}), \
+                 mock.patch.object(consumers.Path, "is_file", return_value=executable_exists), \
+                 mock.patch.object(consumers.subprocess, "run", side_effect=run), \
+                 mock.patch("sys.stdout", new_callable=io.StringIO), \
+                 mock.patch("sys.stderr", new_callable=io.StringIO):
+                status = consumers.main()
+            report = json.loads((output / "consumer-proof.json").read_text())
+            return status, commands, report
+
+    def test_windows_executable_suffix_and_wrappers_launch_all_profiles(self):
+        for suffix in (".EXE", ".exe", ".BAT", ".cmd"):
+            with self.subTest(suffix=suffix):
+                status, commands, report = self.run_consumer("C:/Dart SDK/bin/dart" + suffix)
+                self.assertEqual(status, 0)
+                self.assertTrue(report["runtime_acceptance"])
+                self.assertEqual(len(commands), len(consumers.PROFILES))
+                for command, kwargs in commands:
+                    self.assertEqual(command[0], "C:/Dart SDK/bin/dart.exe")
+                    self.assertIn("--exclude-tags=ffi-owner-oracles", command)
+                    self.assertEqual(kwargs["env"]["CONNECTANUM_SKIP_NATIVE_BUILD"], "true")
+                    self.assertEqual(kwargs["env"]["CONNECTANUM_FORWARD_NATIVE_PUBLISH"], "1")
+
+    def test_missing_dart_or_windows_executable_fails_before_starting_profiles(self):
+        for launcher in (None, "C:/Dart SDK/bin/dart.EXE", "C:/Dart SDK/bin/dart.cmd"):
+            with self.subTest(launcher=launcher):
+                status, commands, report = self.run_consumer(launcher, executable_exists=False)
+                self.assertEqual(status, 1)
+                self.assertEqual(commands, [])
+                self.assertFalse(report["runtime_acceptance"])
+                self.assertIn("executable unavailable", report["error"])
+
+    def test_posix_launcher_is_preserved(self):
+        status, commands, report = self.run_consumer("/Dart SDK/bin/dart", platform="darwin")
+        self.assertEqual(status, 0)
+        self.assertTrue(report["runtime_acceptance"])
+        self.assertEqual({command[0] for command, _ in commands}, {"/Dart SDK/bin/dart"})
+
+
 if __name__ == "__main__":
     unittest.main()

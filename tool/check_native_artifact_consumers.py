@@ -182,8 +182,8 @@ def main() -> int:
         dart = shutil.which("dart")
         if not dart:
             raise ValueError("Dart executable unavailable")
-        # Windows must launch the executable rather than a shell wrapper.
-        if sys.platform == "win32" and Path(dart).suffix.lower() in (".bat", ".cmd"):
+        # Normalize Windows PATHEXT suffixes and replace shell wrappers.
+        if sys.platform == "win32" and Path(dart).suffix.lower() in (".bat", ".cmd", ".exe"):
             dart = str(Path(dart).with_suffix(".exe"))
             if not Path(dart).is_file():
                 raise ValueError("Dart Windows executable unavailable")

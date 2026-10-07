@@ -1,0 +1,67 @@
+{
+  "published_source": "2bfff9431de161e0cc47b14ad46d0fe2ae3e55d0",
+  "native_run": 37614965856,
+  "windows_failed_job": 112770991855,
+  "failure": "dart.EXE.exe: hook compile exit1, profile process exit65",
+  "successful_hosted_platforms": 4,
+  "successful_cases_per_platform": 34,
+  "local_reproduction": "Current actual main passes uppercase .EXE unchanged; two regression controls fail.",
+  "companion_advice": "Completed; POSIX/wrapper cases retained. Advice to preserve .EXE rejected by the actual Windows hook failure.",
+  "logs": {
+    "connectanum-windows-launcher-fail-first": {
+      "exit": 1,
+      "log_sha256": "cac6c3c429dce430dd30c5587b8eb5bf91e484a0afe024ddd0ed9d082b164f61"
+    },
+    "connectanum-windows-launcher-controls-fail-first": {
+      "exit": 1,
+      "log_sha256": "975ec8b685ea5759f712b10ac7590d594260e1dd929405a52e3f1f12083204ec"
+    },
+    "connectanum-windows-launcher-test-advice": {
+      "exit": 0,
+      "log_sha256": "63e14d89082f904b76622ba56d9468080a52e0a3e628be73d735f6dd30dbbb59"
+    },
+    "connectanum-2bfff943-windows-native-debug-focused": {
+      "exit": 0,
+      "log_sha256": "f0dd9967182fcacc90ae1bbe1addab90a8e4a5ed06b2ea1206dacb616cd9496c"
+    }
+  },
+  "status": "local_regressions_production_consumer_and_canonical_checks_passed_hosted_windows_pending",
+  "fix": "Normalize Windows .exe/.EXE and .bat/.cmd paths to lowercase .exe and require the executable file before starting profiles. POSIX path preserved.",
+  "verifier_unit_methods": 17,
+  "new_launcher_unit_methods": 3,
+  "fail_first_cases": 2,
+  "checks": {
+    "units": {
+      "exit": 0,
+      "log_sha256": "837075977bcb1b6c115c621296c75d898d5a9d4c21f4316b80fa8af2bbe05dae"
+    },
+    "review": {
+      "exit": 0,
+      "log_sha256": "02b0c8014353bf88d09160c6b1a800911668a310b92960cd423e6b0c4b01f486"
+    },
+    "mac_production_consumers": {
+      "exit": 0,
+      "log_sha256": "1395acacb09d9ec4bdb8c19edaa9866b4f352dbaa12121a5632115a125bb6692",
+      "proof_sha256": "7fe69a242467b3bdfa96e32163f3c048ae0343d5e7de6f2d7f7b6c361ec3bee4",
+      "passed_cases": 34,
+      "snapshot_bytes": 48
+    },
+    "canonical_fast": {
+      "exit": 0,
+      "log_sha256": "520fe89a25b42e3ea053e1b29d5e64b9e7a3bd56eec7de27a3ab8d09d0f269a7"
+    },
+    "canonical_full": {
+      "exit": 0,
+      "log_sha256": "464b590bcbfeb5b2854c0e327fa6cbcf72135f8f297a8e396b475fef9f885070"
+    }
+  },
+  "preceding_verified_commit": "736b6454",
+  "final_canonical": "bin/test-fast and bin/verify exit0; Rust/VM/public consumers, 1642 benchmark, 4958 router, 4751 core browser, 2829 client browser, 20 unchanged native-only skips",
+  "hosted_windows_acceptance": false,
+  "sdk_version_changed": false,
+  "profile_gate_relaxed": false,
+  "final_source_files_sha256": {
+    "tool/check_native_artifact_consumers.py": "8b00e0dca638873c9a4e758513a26eaedb91e89f753c620e455809610f82714e",
+    "tool/test_native_artifact_consumers.py": "53b3cfa4366ee248b145b6dbb38fb8b2aec548546ac22fe54f8ffb8b4d86e8be"
+  }
+}

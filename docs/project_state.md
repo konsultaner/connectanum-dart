@@ -5,6 +5,33 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): Windows packaged consumer launcher.
+Verified source checkpoint `736b6454` contains the Tokio-Rustls observer,
+fast ownership-oracle selection fix and packaged 48-byte ABI guard.
+Published `2bfff943` native dry run 37614965856 passes four platforms but
+Windows hook compilation tries `dart.EXE.exe` before any profile tests.
+Two execution regressions fail first. Windows `.EXE`/`.exe` and shell wrappers
+now normalize to lowercase `.exe` and require the executable file.
+All 17 verifier methods pass; POSIX paths, SDK and profile requirements remain
+unchanged. Bounded local review completes without a definite error.
+The corrected macOS production consumer passes the 48-byte ABI guard and all
+34 public profile cases. Final `bin/test-fast` and `bin/verify` pass at exit 0,
+including Rust/VM/public consumers and both browser suites (20 unchanged
+native-only skips). Hosted Windows runtime acceptance remains pending. Evidence:
+[Windows launcher scope and proof](research/2026-10-07-windows-consumer-launcher.md).
+
+Current follow-up (2026-10-07): first full hosted primary result.
+Frozen `a5c6aaf9` completes all 1,440 rows (48 cases, three codecs, three warmup
+and seven measured passes); driver exit0 and cleanup, policy/executable hashes
+and exact local comparison replay verify. The comparator fails with 2,129
+findings, including 276 parity failures: throughput, latency, CPU and allocation
+gates each fail in all 48 cases; RSS fails in 36. Missing copy fields, zero GC
+baselines and five windows below 10,000ms remain blockers. A forced-GC probe
+emits real `GC` category B/E collection spans while the existing collector reports
+zero; a positive regression fails. No collector repair is included yet.
+Every original supplement, normative copy field and budget remains mandatory.
+Evidence: [hosted result and GC repro](research/2026-10-07-hosted-primary-result.md).
+
 Current follow-up (2026-10-07): actual Tokio-Rustls plaintext extraction.
 The workspace pins published Tokio-Rustls 0.26.6, both original licenses,
 its unchanged published lockfile and four restored upstream test fixtures.
