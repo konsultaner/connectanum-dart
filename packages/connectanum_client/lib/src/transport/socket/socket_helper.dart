@@ -44,7 +44,7 @@ class SocketHelper {
         ((max(0, min(15, messageLengthExponent - 9)) << 4) | serializerType);
     initialHandShake[2] = 0;
     initialHandShake[3] = 0;
-    return initialHandShake.toList(growable: false);
+    return initialHandShake;
   }
 
   /// Sends an upgrade handshake of the morphology
@@ -55,7 +55,7 @@ class SocketHelper {
     var upgradeHandShake = Uint8List(2);
     upgradeHandShake[0] = SocketHelper._upgradeHeader;
     upgradeHandShake[1] = max(0, min(15, messageLengthExponent - 25));
-    return upgradeHandShake.toList(growable: false);
+    return upgradeHandShake;
   }
 
   static List<int> getError(int errorCode) {
@@ -64,7 +64,7 @@ class SocketHelper {
     errorHandShake[1] = (errorCode << 4);
     errorHandShake[2] = 0;
     errorHandShake[3] = 0;
-    return errorHandShake.toList(growable: false);
+    return errorHandShake;
   }
 
   /// Get a pong message with a given [pingLength]. If the [isUpgradedProtocol]
@@ -110,7 +110,7 @@ class SocketHelper {
       messageHeader[2] = ((messageLength >> 16) & 0xFF);
       messageHeader[3] = ((messageLength >> 8) & 0xFF);
       messageHeader[4] = (messageLength & 0xFF);
-      return messageHeader.toList(growable: false);
+      return messageHeader;
     } else {
       if (messageLength > maxMessageLength) {
         throw Exception(
@@ -122,7 +122,7 @@ class SocketHelper {
       messageHeader[1] = ((messageLength >> 16) & 0xFF);
       messageHeader[2] = ((messageLength >> 8) & 0xFF);
       messageHeader[3] = (messageLength & 0xFF);
-      return messageHeader.toList(growable: false);
+      return messageHeader;
     }
   }
 

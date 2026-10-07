@@ -1,6 +1,6 @@
-# Full paired campaign started at `8af2c337`
+# Failed primary campaign at `8af2c337`
 
-The first full primary campaign is running from an isolated, clean Linux
+The first full primary campaign ran from an isolated, clean Linux
 checkout of `8af2c337e5633ab77fef7e6e0c2298db388e6754`. A Git bundle preserves
 the exact source history. The three dependency locks from the verified workspace
 were copied before `dart pub get --enforce-lockfile` and locked release builds.
@@ -21,8 +21,8 @@ processes are runner 17154, driver 17178, server 17179 and client 17267 inside
 `connectanum-flatbuffers-linux-bench`. The execution tool session is 79116.
 Results live at `/tmp/connectanum-8af2c337-primary-campaign-01` in that container;
 the host captures output at `/tmp/connectanum-8af2c337-primary-campaign.log`.
-These identifiers locate running work; only current process/session inspection
-proves continued liveness. Do not restart on an observation timeout.
+These identifiers locate the failed execution. The driver, runner and client
+are gone; the former server is a zombie process, not a running workload.
 
 The first three warm-up rows contain 3,802, 4,113 and 4,640 samples with windows
 of 10,000.285, 10,004.161 and 10,000.987 ms. Their client/server identities agree.
@@ -47,6 +47,10 @@ do not themselves copy the payload. Local summary advice incorrectly labelled
 those operations as copies and was rejected after source inspection. Encryption
 and deframer internals need separate accounting; no complete-TLS claim follows.
 
-The run is incomplete. Keep #100–#104 and the milestone open. Retain raw reports,
-failed comparisons and hardware limitations, verify full execution and unchanged
-inputs at completion, then use measured regressions to guide the remaining work.
+The run failed at `2026-10-07T01:25:48.179655+00:00`, after 124 partial warm-up
+rows. A diagnostic Dart job (PID 19839) overlapped the campaign; the unchanged
+runner guard rejected the run and terminated the driver process group. The
+runner exited 2 and the driver exited -15. This was our execution error. The
+failed manifest and raw rows are retained. No warm-up pass completed and no
+measured pass ran. Keep #100–#104 and the milestone open; finish all build/test
+work before starting a fresh frozen campaign. Do not weaken the overlap guard.

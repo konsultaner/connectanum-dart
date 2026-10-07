@@ -7,13 +7,25 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
-Current primary campaign (2026-10-07): the full unchanged 48-case, three-codec,
-three-warm-up/seven-measured matrix is running from isolated clean `8af2c337`.
-The release driver/native library and three dependency locks are pinned. Initial
-rows meet ten seconds and 1,000 samples with stable client/server identities.
-The run is incomplete; TLS/SDK copy gaps and guest CPU model limitations remain
-explicit and fail acceptance. Preserve the live execution; do not restart on
-observation timeouts. Research: [full campaign start](../research/2026-10-07-primary-flatbuffers-campaign.md).
+Current follow-up (2026-10-07): measured RawSocket input normalization.
+Twenty-seven fail-first assertions reproduce partial-input retries and omitted
+header accounting. Full arrays and validated native ranges retain their storage;
+other inputs make one measured copy before queueing. All 81 socket/metrics cases
+pass on macOS and Linux arm64, and the exact Linux diagnostic CI step passes.
+Baseline fast and bounded GLM review pass. First verify fails an unchanged
+FastCGI closure fixture; isolated repro and five unchanged repeats pass. Fresh
+full `bin/verify` passes at exit 0: Rust/VM/consumers, 1,563 benchmark,
+4,958 router, 4,751 core browser and 2,829 client browser cases, with 20
+unchanged native-only skips. No assertions or timeouts changed. Evidence:
+`/tmp/connectanum-socket-normalization-final-verify.{log,exit}`. SDK/TLS
+and performance acceptance remain open. Research: [input normalization](../research/2026-10-07-rawsocket-input-normalization.md).
+
+Current primary campaign (2026-10-07): the unchanged full matrix failed at
+124 partial warm-up rows. An overlapping diagnostic Dart job triggered the
+existing guard, which stopped the driver process group at 01:25:48 UTC. The
+run provides no performance acceptance; all gates and #100–#104 remain open.
+Finish builds and tests before starting a new frozen campaign. Research:
+[failed primary campaign](../research/2026-10-07-primary-flatbuffers-campaign.md).
 
 Current follow-up (2026-10-07): bounded native socket views. Twelve fail-first
 transport cases reproduce the SDK partial-view copy. Validated malloc-owned

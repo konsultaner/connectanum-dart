@@ -232,9 +232,14 @@ Future<void> run(
     }
     final segmented = keepsBody && length == 65536;
     final bodyShouldBeReused = segmented && !partial;
+    final inputCopyBytes = segmented
+        ? fragments!.first.length + (partial ? length : 0)
+        : 0;
     check(
       ownCopies.rawSocketFramePayloadCopiedBytes ==
               (segmented ? 0 : payload.length) &&
+          ownCopies.rawSocketFrameHeaderCopiedBytes == (segmented ? 0 : 4) &&
+          ownCopies.rawSocketInputCopiedBytes == inputCopyBytes &&
           ownCopies.rawSocketFragmentCoalesceCopiedBytes == 0 &&
           ownCopies.rawSocketPreHandshakeQueueCopiedBytes == 0 &&
           ownCopies.webSocketFragmentCoalesceCopiedBytes == 0,

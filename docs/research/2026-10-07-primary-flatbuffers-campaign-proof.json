@@ -1,5 +1,5 @@
 {
-  "status": "started, incomplete",
+  "status": "failed: overlapping diagnostic job; no acceptance",
   "metadata": {
     "artifacts_sha256": {
       "driver": "203379324a1a01adfa908604bee8be2b0526a33a13a14524430ec9e586393e95",
@@ -65,6 +65,7 @@
   "hostEvidenceSha256": "fdb3049d7880413f0185c77f9d3cc6d5ba229c8f5c6085e3ac8f647fea0db4ed",
   "preflightManifestSha256": "07e5e1e4e4e0e8776251969fd05f2abdafb153fb8ac41bc48d179965ada9f20a",
   "limits": [
+    "The overlap guard rejected this run; 124 partial warm-up rows are not acceptance evidence.",
     "No completed timing or copy acceptance.",
     "Guest CPU model unavailable; additional host/guest evidence retained.",
     "TLS/Dart SDK copy fields remain not_measured and must fail acceptance."
@@ -94,5 +95,57 @@
     "300000"
   ],
   "observedManifestSha256": "7d2e8aa9799d7cd9166da1f4480dd1c594d8c1b33143a6d8463215b1bf4d5422",
-  "rowsCompletedAtSnapshot": 17
+  "rowsCompletedAtSnapshot": 17,
+  "finalExecution": {
+    "command": [
+      "/tmp/connectanum-8af2c337-primary-artifacts/http_stream",
+      "--dart",
+      "dart",
+      "--native-lib",
+      "/tmp/connectanum-8af2c337-primary-artifacts/libct_ffi.so",
+      "--router-config",
+      "/tmp/connectanum-8af2c337-primary-source/native/bench/bench_router.json",
+      "--control-base",
+      "https://127.0.0.1:8080/bench",
+      "--scenario",
+      "/tmp/connectanum-8af2c337-primary-campaign-01/scenarios",
+      "--results",
+      "/tmp/connectanum-8af2c337-primary-campaign-01/driver-results.jsonl",
+      "--results-only",
+      "--skip-wamp-worker-aot",
+      "--collect-wamp-vm-metrics",
+      "--router-worker-counts",
+      "1",
+      "--native-runtime-thread-counts",
+      "1",
+      "--workload-timeout-ms",
+      "300000"
+    ],
+    "completed_at_utc": "2026-10-07T01:25:48.179655+00:00",
+    "driver_exit_code": -15,
+    "error": "build, test or mutation job overlapped the campaign",
+    "interfering_jobs": [
+      {
+        "pid": 19839,
+        "program": "dart"
+      }
+    ],
+    "observed_process_pids": {
+      "client_process_metrics": 17267,
+      "server_process_metrics": 17179
+    },
+    "pid": 17178,
+    "process_group_stopped": true,
+    "started_at_utc": "2026-10-07T01:00:22.701439+00:00",
+    "status": "failed"
+  },
+  "completedRows": 124,
+  "failedManifestSha256": "6d616a780a34b787f647d470ab918c95e7263a1d93aad0186651b871c0a86ecd",
+  "failedRowsSha256": "8c702c3c5eaa8387f5cf1b372fd43495beecd63fc7d859ae957440c71ffc7afe",
+  "processStateAfterFailure": {
+    "runner": "gone",
+    "driver": "gone",
+    "client": "gone",
+    "formerServer": "zombie; no running workload"
+  }
 }

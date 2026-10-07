@@ -303,14 +303,18 @@ void _segmentedSocketSends() {
             expect(socket.submitted, hasLength(1));
             expect(copies.rawSocketFramePayloadCopiedBytes, payload.length);
             expect(copies.rawSocketFragmentCoalesceCopiedBytes, 0);
-            expect(copies.knownOwnCopyBytes, payload.length);
+            expect(copies.knownOwnCopyBytes, payload.length + 4);
           } else {
             expect(
               socket.submitted,
               hasLength(1 + fragments.where((p) => p.isNotEmpty).length),
             );
             expect(socket.submitted.any((p) => identical(p, body)), true);
-            expect(copies.knownOwnCopyBytes, 0);
+            final metadataBytes = name == 'flatbuffers'
+                ? fragments.first.length
+                : 0;
+            expect(copies.rawSocketInputCopiedBytes, metadataBytes);
+            expect(copies.knownOwnCopyBytes, metadataBytes);
           }
         },
       );
@@ -343,123 +347,148 @@ void _nativeRangeSocketSends() {
       ]) {
     for (final offset in [17, 37]) {
       for (final readonly in [false, true]) {
-        test(
-          '$name sends bounded native range offset=$offset readonly=$readonly',
-          () async {
-            const length = 65536;
-            final root = allocateNativeExternalBytes(length + 96);
-            for (var i = 0; i < root.length; i++) {
-              root[i] = (i * 37 + 11) & 255;
-            }
-            var body = Uint8List.sublistView(root, offset, offset + length);
-            if (readonly) body = body.asUnmodifiableView();
-            final expectedAddress =
-                nativeExternalByteSlice(root)!.pointer.address + offset;
-            final socket = _ChunkSocket();
-            final transport = SocketTransport(
-              'localhost',
-              12345,
-              serializer,
-              serializerType,
-            );
-            addTearDown(transport.close);
-            await IOOverrides.runZoned(
-              transport.open,
-              socketConnect:
-                  (
-                    host,
-                    port, {
-                    sourceAddress,
-                    int sourcePort = 0,
-                    timeout,
-                  }) async => socket,
-            );
-            final subscription = transport.receive().listen((_) {});
-            addTearDown(subscription.cancel);
-            socket.feed(
-              SocketHelper.getInitialHandshake(
-                SocketHelper.maxMessageLengthExponent,
+        for (final storage in [
+          'registered-native',
+          'unanchored-native',
+          'dart',
+        ]) {
+          test(
+            '$name sends bounded $storage range offset=$offset readonly=$readonly',
+            () async {
+              const length = 65536;
+              final root = storage == 'dart'
+                  ? Uint8List(length + 96)
+                  : allocateNativeExternalBytes(length + 96);
+              for (var i = 0; i < root.length; i++) {
+                root[i] = (i * 37 + 11) & 255;
+              }
+              var body = Uint8List.sublistView(root, offset, offset + length);
+              if (readonly) body = body.asUnmodifiableView();
+              final expectedAddress = storage == 'registered-native'
+                  ? nativeExternalByteSlice(root)!.pointer.address + offset
+                  : null;
+              final socket = _ChunkSocket();
+              final transport = SocketTransport(
+                'localhost',
+                12345,
+                serializer,
                 serializerType,
-              ),
-            );
-            await transport.onReady;
-            if (name == 'flatbuffers') {
-              final hello = Hello('realm', Details.forHello());
-              transport.send(hello);
-              final profile = const FlatBuffersSessionProfile.router()
-                  .acceptIncoming(hello);
-              final welcome = Welcome(9, Details.forWelcome());
-              profile.prepareOutgoing(welcome);
-              final encoded = serializer.serialize(welcome) as Uint8List;
-              socket.feed(
-                (BytesBuilder(copy: false)
-                      ..add(
-                        SocketHelper.buildMessageHeader(
-                          SocketHelper.messageWamp,
-                          encoded.length,
-                          false,
-                        ),
-                      )
-                      ..add(encoded))
-                    .takeBytes(),
               );
-            }
-            socket.submitted.clear();
-            socket.writes.clear();
-            final message = name == 'flatbuffers'
-                ? (Call(
-                    42,
-                    'com.native.range',
-                    options: CallOptions(
-                      pptScheme: 'opaque',
-                      pptSerializer: 'flatbuffers',
-                    ),
-                  )..transparentBinaryPayload = body)
-                : Call(42, 'com.native.range', arguments: [body]);
-            retainNativeExternalBytes(message, root);
-            final expected = serializer.serialize(message) as Uint8List;
-            DartTransportCopyMetrics.beginWindow();
-            late DartTransportCopyMetricsSnapshot copies;
-            try {
-              transport.send(message);
-            } finally {
-              copies = DartTransportCopyMetrics.endWindow();
-            }
-            final submitted =
-                socket.submitted.singleWhere((p) => p.length == length)
-                    as Uint8List;
-            expect(
-              submitted.buffer.lengthInBytes,
-              length,
-              reason:
-                  'A bounded external buffer must avoid the SDK partial-view copy',
-            );
-            expect(submitted.offsetInBytes, 0);
-            expect(submitted, orderedEquals(body));
-            final native = nativeExternalByteSlice(submitted);
-            expect(native, isNotNull);
-            expect(native!.pointer.address, expectedAddress);
-            expect(native.length, length);
-            final wire = (BytesBuilder(
-              copy: false,
-            )..addAllFragments(socket.writes)).takeBytes();
-            final payload = Uint8List.sublistView(wire, 4);
-            if (name != 'flatbuffers') {
-              expect(payload, orderedEquals(expected));
-            }
-            final parsed = serializer.deserialize(payload) as Call;
-            expect(parsed.requestId, 42);
-            expect(parsed.procedure, 'com.native.range');
-            if (name == 'flatbuffers') {
-              expect(parsed.transparentBinaryPayload, orderedEquals(body));
-              expect(parsed.options!.pptScheme, 'opaque');
-              expect(parsed.options!.pptSerializer, 'flatbuffers');
-            } else {
-              expect(parsed.arguments!.single, orderedEquals(body));
-            }
-            expect(copies.knownOwnCopyBytes, 0);
-          },
-        );
+              addTearDown(transport.close);
+              await IOOverrides.runZoned(
+                transport.open,
+                socketConnect:
+                    (
+                      host,
+                      port, {
+                      sourceAddress,
+                      int sourcePort = 0,
+                      timeout,
+                    }) async => socket,
+              );
+              final subscription = transport.receive().listen((_) {});
+              addTearDown(subscription.cancel);
+              socket.feed(
+                SocketHelper.getInitialHandshake(
+                  SocketHelper.maxMessageLengthExponent,
+                  serializerType,
+                ),
+              );
+              await transport.onReady;
+              if (name == 'flatbuffers') {
+                final hello = Hello('realm', Details.forHello());
+                transport.send(hello);
+                final profile = const FlatBuffersSessionProfile.router()
+                    .acceptIncoming(hello);
+                final welcome = Welcome(9, Details.forWelcome());
+                profile.prepareOutgoing(welcome);
+                final encoded = serializer.serialize(welcome) as Uint8List;
+                socket.feed(
+                  (BytesBuilder(copy: false)
+                        ..add(
+                          SocketHelper.buildMessageHeader(
+                            SocketHelper.messageWamp,
+                            encoded.length,
+                            false,
+                          ),
+                        )
+                        ..add(encoded))
+                      .takeBytes(),
+                );
+              }
+              socket.submitted.clear();
+              socket.writes.clear();
+              final message = name == 'flatbuffers'
+                  ? (Call(
+                      42,
+                      'com.native.range',
+                      options: CallOptions(
+                        pptScheme: 'opaque',
+                        pptSerializer: 'flatbuffers',
+                      ),
+                    )..transparentBinaryPayload = body)
+                  : Call(42, 'com.native.range', arguments: [body]);
+              if (storage == 'registered-native') {
+                retainNativeExternalBytes(message, root);
+              }
+              final expected = serializer.serialize(message) as Uint8List;
+              final fragments = serializer.serializeFragments(message)!;
+              DartTransportCopyMetrics.beginWindow();
+              late DartTransportCopyMetricsSnapshot copies;
+              try {
+                transport.send(message);
+              } finally {
+                copies = DartTransportCopyMetrics.endWindow();
+              }
+              final submitted =
+                  socket.submitted.singleWhere((p) => p.length == length)
+                      as Uint8List;
+              expect(
+                submitted.buffer.lengthInBytes,
+                length,
+                reason:
+                    'A bounded external buffer must avoid the SDK partial-view copy',
+              );
+              expect(submitted.offsetInBytes, 0);
+              expect(submitted, orderedEquals(body));
+              final native = nativeExternalByteSlice(submitted);
+              if (storage == 'registered-native') {
+                expect(native, isNotNull);
+                expect(native!.pointer.address, expectedAddress);
+                expect(native.length, length);
+              } else {
+                expect(native, isNull);
+                expect(submitted, isNot(same(body)));
+              }
+              final wire = (BytesBuilder(
+                copy: false,
+              )..addAllFragments(socket.writes)).takeBytes();
+              final payload = Uint8List.sublistView(wire, 4);
+              if (name != 'flatbuffers') {
+                expect(payload, orderedEquals(expected));
+              }
+              final parsed = serializer.deserialize(payload) as Call;
+              expect(parsed.requestId, 42);
+              expect(parsed.procedure, 'com.native.range');
+              if (name == 'flatbuffers') {
+                expect(parsed.transparentBinaryPayload, orderedEquals(body));
+                expect(parsed.options!.pptScheme, 'opaque');
+                expect(parsed.options!.pptSerializer, 'flatbuffers');
+              } else {
+                expect(parsed.arguments!.single, orderedEquals(body));
+              }
+              expect(
+                copies.knownOwnCopyBytes,
+                (name == 'flatbuffers' ? fragments.first.length : 0) +
+                    (storage == 'registered-native' ? 0 : length),
+              );
+              expect(
+                copies.rawSocketInputCopiedBytes,
+                copies.knownOwnCopyBytes,
+              );
+            },
+          );
+        }
       }
     }
   }

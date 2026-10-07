@@ -722,11 +722,23 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
   }
 
   void _send0(List<int> data, {Object? anchor}) {
-    final bounded =
-        data is Uint8List && data.buffer.lengthInBytes != data.lengthInBytes
-        ? nativeExternalByteView(data, anchor: anchor)
-        : null;
-    _socket!.add(bounded ?? data);
+    if (data is Uint8List) {
+      if (data.offsetInBytes == 0 &&
+          data.buffer.lengthInBytes == data.lengthInBytes) {
+        _socket!.add(data);
+        return;
+      }
+      final bounded = nativeExternalByteView(data, anchor: anchor);
+      if (bounded != null) {
+        _socket!.add(bounded);
+        return;
+      }
+    }
+    // Give the SDK full backing storage so retries reuse this one measured
+    // copy instead of copying the remaining subview on every write attempt.
+    final copied = Uint8List.fromList(data);
+    DartTransportCopyMetrics.recordRawSocketInputCopy(copied.length);
+    _socket!.add(copied);
   }
 
   @override
@@ -742,16 +754,16 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
   Uint8List _buildWampFrame(List<int> payload) {
     _checkOutgoingPayloadLength(payload.length);
     final builder = BytesBuilder(copy: false);
-    builder.add(
-      SocketHelper.buildMessageHeader(
-        SocketHelper.messageWamp,
-        payload.length,
-        isUpgradedProtocol,
-      ),
+    final header = SocketHelper.buildMessageHeader(
+      SocketHelper.messageWamp,
+      payload.length,
+      isUpgradedProtocol,
     );
+    builder.add(header);
     builder.add(payload);
     final frame = builder.takeBytes();
     DartTransportCopyMetrics.recordRawSocketFramePayloadCopy(payload.length);
+    DartTransportCopyMetrics.recordRawSocketFrameHeaderCopy(header.length);
     return frame;
   }
 
@@ -773,6 +785,7 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
       offset += fragment.length;
     }
     DartTransportCopyMetrics.recordRawSocketFramePayloadCopy(payloadLength);
+    DartTransportCopyMetrics.recordRawSocketFrameHeaderCopy(header.length);
     return frame;
   }
 
