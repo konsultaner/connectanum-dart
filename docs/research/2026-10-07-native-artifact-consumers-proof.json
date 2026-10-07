@@ -1,0 +1,183 @@
+{
+  "status": "two_platform_runner_gate_verified_hosted_matrix_pending",
+  "base_commit": "0ce3c364",
+  "artifact_source_commit": "cde9fbedfd3c6b5608ce383062d99c8d12d1c375",
+  "all_platform_runtime_acceptance": false,
+  "performance_acceptance": false,
+  "source_sha256": {
+    "tool/check_native_artifact_consumers.py": "9c72f87cf12bfa79c9504a311c32382f7f315720263aaaee6e60fd820943e786",
+    "tool/test_native_artifact_consumers.py": "167babac2fcd789bfa342054aa157950b741ab2e74427f6b48acb38948e76df0",
+    ".github/workflows/native-artifacts.yml": "72599cd04736d26481efa58a99f64c8a2915f779846a741ea53532999e257164",
+    "bin/test-fast": "443877f935f1060f1391d81accdb8d1dc46d22c8b87970556f96569b3666e9d2",
+    "bin/test-all": "5102b9e73427b92bbcb0136c217d0967aacd44e06a930e1aacf0d3922b902611"
+  },
+  "platforms": {
+    "macos-arm64": {
+      "schema_version": 1,
+      "expected_commit": "cde9fbedfd3c6b5608ce383062d99c8d12d1c375",
+      "runtime_acceptance": true,
+      "profiles": [
+        {
+          "package": "connectanum_client",
+          "file": "test/transport/native/flatbuffers_profile_test.dart",
+          "command": [
+            "/Users/konsultaner/flutter/flutter/bin/dart",
+            "test",
+            "--reporter=json",
+            "--exclude-tags=ffi-owner-oracles",
+            "test/transport/native/flatbuffers_profile_test.dart"
+          ],
+          "exit": 0,
+          "log": "profile-1.jsonl",
+          "log_sha256": "a6541da1f15272703ed7f4be03f98ebd102064b0bd5e2df21d86025877e66587",
+          "passed_cases": 10,
+          "skipped_cases": 0,
+          "runner_success": true
+        },
+        {
+          "package": "connectanum_client",
+          "file": "test/transport/flatbuffers_transport_profile_vm_test.dart",
+          "command": [
+            "/Users/konsultaner/flutter/flutter/bin/dart",
+            "test",
+            "--reporter=json",
+            "--exclude-tags=ffi-owner-oracles",
+            "test/transport/flatbuffers_transport_profile_vm_test.dart"
+          ],
+          "exit": 0,
+          "log": "profile-2.jsonl",
+          "log_sha256": "a1cb6841141397a2744666aacc56f2169fd107433c9719ec5b4e4c4f98f6393c",
+          "passed_cases": 22,
+          "skipped_cases": 0,
+          "runner_success": true
+        },
+        {
+          "package": "connectanum_router",
+          "file": "test/router_flatbuffers_native_test.dart",
+          "command": [
+            "/Users/konsultaner/flutter/flutter/bin/dart",
+            "test",
+            "--reporter=json",
+            "--exclude-tags=ffi-owner-oracles",
+            "test/router_flatbuffers_native_test.dart"
+          ],
+          "exit": 0,
+          "log": "profile-3.jsonl",
+          "log_sha256": "88da22fa101720d04a56d44383440d4667eda02bdd737539019434e56a522648",
+          "passed_cases": 2,
+          "skipped_cases": 0,
+          "runner_success": true
+        }
+      ],
+      "manifest": {
+        "schema_version": 1,
+        "artifact": "ct-ffi-aarch64-apple-darwin",
+        "crate": "ct_ffi",
+        "library_file": "libct_ffi.dylib",
+        "host_os": "macos",
+        "host_arch": "arm64",
+        "host_triple": "aarch64-apple-darwin",
+        "git_commit": "cde9fbedfd3c6b5608ce383062d99c8d12d1c375",
+        "built_at_utc": "2026-10-07T07:41:33Z"
+      },
+      "archive_sha256": "6923ba0e7e320f46af5fed075c3b659bd5e14c904bed65bce80c96a5b48d3b92",
+      "library_sha256": "3a02979da6cb5a3252778ed660b3c534698c05ebe2c60d98e85218e1289037b5",
+      "library": "/private/tmp/connectanum mac artifact consumer gate/library-ojtocdtv/libct_ffi.dylib",
+      "absent_test_oracles": 18
+    },
+    "linux-arm64": {
+      "schema_version": 1,
+      "expected_commit": "cde9fbedfd3c6b5608ce383062d99c8d12d1c375",
+      "runtime_acceptance": true,
+      "profiles": [
+        {
+          "package": "connectanum_client",
+          "file": "test/transport/native/flatbuffers_profile_test.dart",
+          "command": [
+            "/usr/lib/dart/bin/dart",
+            "test",
+            "--reporter=json",
+            "--exclude-tags=ffi-owner-oracles",
+            "test/transport/native/flatbuffers_profile_test.dart"
+          ],
+          "exit": 0,
+          "log": "profile-1.jsonl",
+          "log_sha256": "0b968f9a44d255ff91930b9a9aa1fa9f67bb38a074e82c651e3693b327ecc021",
+          "passed_cases": 10,
+          "skipped_cases": 0,
+          "runner_success": true
+        },
+        {
+          "package": "connectanum_client",
+          "file": "test/transport/flatbuffers_transport_profile_vm_test.dart",
+          "command": [
+            "/usr/lib/dart/bin/dart",
+            "test",
+            "--reporter=json",
+            "--exclude-tags=ffi-owner-oracles",
+            "test/transport/flatbuffers_transport_profile_vm_test.dart"
+          ],
+          "exit": 0,
+          "log": "profile-2.jsonl",
+          "log_sha256": "372d594fd139bf44db57fbb78f62af42eecf3d5f8779ca2e805389f37e72987a",
+          "passed_cases": 22,
+          "skipped_cases": 0,
+          "runner_success": true
+        },
+        {
+          "package": "connectanum_router",
+          "file": "test/router_flatbuffers_native_test.dart",
+          "command": [
+            "/usr/lib/dart/bin/dart",
+            "test",
+            "--reporter=json",
+            "--exclude-tags=ffi-owner-oracles",
+            "test/router_flatbuffers_native_test.dart"
+          ],
+          "exit": 0,
+          "log": "profile-3.jsonl",
+          "log_sha256": "74766e4a1513f92a5dc93983fa3934ec5ca5ff45346616b1fbceacd8a59bc4fe",
+          "passed_cases": 2,
+          "skipped_cases": 0,
+          "runner_success": true
+        }
+      ],
+      "manifest": {
+        "schema_version": 1,
+        "artifact": "ct-ffi-aarch64-unknown-linux-gnu",
+        "crate": "ct_ffi",
+        "library_file": "libct_ffi.so",
+        "host_os": "linux",
+        "host_arch": "arm64",
+        "host_triple": "aarch64-unknown-linux-gnu",
+        "git_commit": "cde9fbedfd3c6b5608ce383062d99c8d12d1c375",
+        "built_at_utc": "2026-10-07T07:39:33Z"
+      },
+      "archive_sha256": "212a8a101a2578392907d49bdfca44b478f783f04bba056e2eebbdeb926366e0",
+      "library_sha256": "e93874a254e1cf749d410bc875b18a86469ad8d92dcf62df6986d665e50025db",
+      "library": "/tmp/connectanum linux artifact consumer gate/library-ewszhvzy/libct_ffi.so",
+      "absent_test_oracles": 18
+    }
+  },
+  "failure_controls": {
+    "cases": 9,
+    "exit": 0,
+    "log_sha256": "5684d13977a1f6829bcd5f644c72b35ab6f8d42951d571a5f230c4cc35a359f3"
+  },
+  "companion": {
+    "tests_exit": 0,
+    "review_exit": 0,
+    "review_assessment": "Completed Qwen review has no confirmed patch defect. Actual subprocess timeout reproduction proves TimeoutExpired.stdout aliases output and preserves bytes; the bytes/str guard and finally persist evidence. The parser checks every started/completed ID, every hidden and public outcome, exact public case count and terminal success; hidden failures/skips cannot bypass it. Test paths are fixed safe constants, not user inputs. mkdtemp gives unique library directories. A missing Windows executable or unsupported/multiline JSON fails closed rather than certifying or selecting fallback. Nine failure controls and actual 34-case macOS/Linux production runs pass. Windows runner execution remains pending."
+  },
+  "canonical_fast": {
+    "exit": 0,
+    "log": "/tmp/connectanum-native-consumers-fast.log",
+    "log_sha256": "e93e19cefab160e5632dd27e9319e8ec79b2a557832a22403f64e30fc7bab944"
+  },
+  "last_canonical_full": {
+    "source": "0ce3c364",
+    "exit": 0,
+    "log": "/tmp/connectanum-rustls-all-payload-verify.log",
+    "scope": "all native/Dart application source unchanged by consumer-gate follow-up; candidate full entrypoint/workflow verification remains pending"
+  }
+}

@@ -5,6 +5,20 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): packaged production runtime consumers.
+Source checkpoint `0ce3c364` commits the payload observer after canonical fast
+and full verification passed. The new Native Artifacts gate verifies the
+archive checksum, detached/embedded source manifest and production ABI/oracle
+inventory, then runs all 34 public profile cases in three separate Dart
+processes against the extracted library. JSON evidence rejects skips, missing
+cases, errors and unfinished starts even with a success summary. Per-platform
+proofs and logs upload on failure. Nine failure controls pass on macOS/Linux, and Actionlint passes. The actual
+gate passes all 34 cases against each frozen published `cde9fbed` arm64 bundle;
+completed companion advice is checked against source and actual timeout
+behavior. Canonical candidate `bin/test-fast` passes at exit 0; final full verification
+and hosted runtime proof for all five resulting-source platforms remain pending. No release, whole-copy or
+performance acceptance follows.
+
 Current follow-up (2026-10-07): payload copy observations.
 Published source `cde9fbed` passes canonical fast/full checks. Push CI fast
 checks now pass; remaining resulting-source jobs are live. Native dry run
