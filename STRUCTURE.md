@@ -42,8 +42,11 @@ deframer append/move and record-buffer/content copies, including payload
 ownership conversions. A separate 48-byte `ct_rustls_copy_metrics_snapshot` ABI
 and optional client/router Dart bindings expose the six named partial counters
 to benchmark breakdowns; old libraries retain null. The 24-/40-byte transport
-snapshots stay unchanged. Tokio-Rustls extraction and remaining TLS copy sites
-keep total-copy gates unmeasured. See
+snapshots stay unchanged. Vendored Tokio-Rustls 0.26.6 separately observes its
+actual plaintext extraction copy after `ReadBuf::put_slice()`; borrowed views
+and consumption retain their storage. Its published lockfile, licenses and
+source digests are audited. Remaining TLS copy sites keep total-copy gates
+unmeasured; the Tokio observation is not yet exposed through C/Dart metrics. See
 [the source and fixture policy](native/transport/vendor/README.md).
 
 - **Tokio runtime & ListenerRegistry (`ct_core/src/lib.rs`)**  

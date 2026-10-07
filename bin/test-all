@@ -199,6 +199,11 @@ if native_runtime_supported; then
     --no-default-features \
     --features std,ring,tls12,connectanum-copy-observer \
     --lib
+  cargo_with_retry test \
+    --manifest-path native/transport/vendor/tokio-rustls/Cargo.toml \
+    --locked --no-default-features \
+    --features ring,logging,tls12,connectanum-copy-observer \
+    --lib
   cargo_with_retry test --manifest-path native/transport/Cargo.toml -p ct_core
   cargo_with_retry test --manifest-path native/transport/Cargo.toml -p ct_ffi
   cargo_with_retry test \

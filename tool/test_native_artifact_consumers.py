@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import io
+import ctypes
 import json
 from pathlib import Path
 import sys
 import tarfile
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 import check_native_artifact_consumers as consumers
 
@@ -52,6 +55,55 @@ class ProfileEvidenceTest(unittest.TestCase):
     def test_error_is_not_overridden_by_success_summary(self):
         with self.assertRaises(ValueError):
             consumers.profile_results(profile_log(error=True), 1)
+
+
+class RustlsAbiEvidenceTest(unittest.TestCase):
+    def check(self, behavior="valid"):
+        class SnapshotCall:
+            def __call__(self, pointer):
+                if pointer is None:
+                    return 0 if behavior == "wrong-null" else -4
+                if behavior == "failed-write":
+                    return -4
+                if behavior != "no-write":
+                    ctypes.memset(pointer, 0, 56 if behavior == "overwrite-tail" else 48)
+                if behavior == "overwrite-head":
+                    ctypes.memset(ctypes.cast(pointer, ctypes.c_void_p).value - 8, 0, 8)
+                return 0
+
+        library = SimpleNamespace(ct_rustls_copy_metrics_snapshot=SnapshotCall())
+        with mock.patch.object(consumers.ctypes, "CDLL", return_value=library):
+            return consumers.audit_rustls_snapshot_abi(Path("packaged-library"))
+
+    def test_snapshot_checks_layout_null_and_surrounding_guards(self):
+        result = self.check()
+        self.assertEqual(result["bytes"], 48)
+        self.assertEqual(result["alignment"], 8)
+        self.assertEqual(result["null_result"], -4)
+        self.assertTrue(result["head_tail_unchanged"])
+        self.assertEqual(len(result["initial_counters"]), 6)
+        self.assertEqual(set(result["initial_counters"].values()), {0})
+
+    def test_missing_snapshot_export_is_rejected(self):
+        old_library = SimpleNamespace(ct_transport_copy_metrics_snapshot=object(),
+                                      ct_transport_copy_metrics_snapshot_v2=object())
+        with mock.patch.object(consumers.ctypes, "CDLL", return_value=old_library):
+            with self.assertRaises(AttributeError):
+                consumers.audit_production_library(Path("old-library"))
+
+    def test_null_success_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.check("wrong-null")
+
+    def test_failed_or_omitted_snapshot_write_is_rejected(self):
+        for behavior in ("failed-write", "no-write"):
+            with self.subTest(behavior=behavior), self.assertRaises(ValueError):
+                self.check(behavior)
+
+    def test_surrounding_guard_overwrite_is_rejected(self):
+        for behavior in ("overwrite-head", "overwrite-tail"):
+            with self.subTest(behavior=behavior), self.assertRaises(ValueError):
+                self.check(behavior)
 
 
 class BundleEvidenceTest(unittest.TestCase):

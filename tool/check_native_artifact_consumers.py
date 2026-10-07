@@ -108,7 +108,8 @@ def profile_results(log: str, expected_cases: int) -> dict:
 
 def audit_production_library(library: Path) -> int:
     loaded = ctypes.CDLL(str(library))
-    for symbol in ("ct_transport_copy_metrics_snapshot", "ct_transport_copy_metrics_snapshot_v2"):
+    for symbol in ("ct_transport_copy_metrics_snapshot", "ct_transport_copy_metrics_snapshot_v2",
+                   "ct_rustls_copy_metrics_snapshot"):
         getattr(loaded, symbol)
     test_symbols = set()
     for source in (ROOT / "native/transport/ct_ffi/src").rglob("*.rs"):
@@ -119,6 +120,44 @@ def audit_production_library(library: Path) -> int:
         if hasattr(loaded, symbol):
             raise ValueError(f"production bundle exports test oracle {symbol}")
     return len(test_symbols)
+
+
+def audit_rustls_snapshot_abi(library: Path) -> dict:
+    """Exercise the partial snapshot ABI before this fresh process starts TLS."""
+    fields = ("outbound_chunk_copy_bytes_total", "queue_read_copy_bytes_total",
+              "deframer_append_copy_bytes_total", "deframer_move_copy_bytes_total",
+              "record_buffer_copy_bytes_total", "record_append_copy_bytes_total")
+
+    class Snapshot(ctypes.Structure):
+        _fields_ = [(name, ctypes.c_uint64) for name in fields]
+
+    class Guarded(ctypes.Structure):
+        _fields_ = [("head", ctypes.c_uint64), ("snapshot", Snapshot),
+                    ("tail", ctypes.c_uint64)]
+
+    if (ctypes.sizeof(Snapshot) != 48 or ctypes.alignment(Snapshot) != 8
+            or Guarded.snapshot.offset != 8 or Guarded.tail.offset != 56):
+        raise ValueError("partial Rustls snapshot layout differs from its native ABI")
+    loaded = ctypes.CDLL(str(library))
+    snapshot = loaded.ct_rustls_copy_metrics_snapshot
+    snapshot.argtypes = [ctypes.POINTER(Snapshot)]
+    snapshot.restype = ctypes.c_int32
+    null_result = snapshot(None)
+    if null_result != -4:
+        raise ValueError("partial Rustls snapshot must reject a null output")
+    guarded = Guarded()
+    guarded.head = 0x123456789abcdef0
+    guarded.tail = 0xfedcba9876543210
+    ctypes.memset(ctypes.byref(guarded, Guarded.snapshot.offset), 0xa5, 48)
+    if snapshot(ctypes.byref(guarded.snapshot)) != 0:
+        raise ValueError("partial Rustls snapshot call failed")
+    if guarded.head != 0x123456789abcdef0 or guarded.tail != 0xfedcba9876543210:
+        raise ValueError("partial Rustls snapshot overwrote its surrounding guards")
+    counters = {name: getattr(guarded.snapshot, name) for name in fields}
+    if any(counters.values()):
+        raise ValueError("fresh-process partial Rustls counters were not written as zero")
+    return {"bytes": 48, "alignment": 8, "null_result": null_result,
+            "head_tail_unchanged": True, "initial_counters": counters}
 
 
 def main() -> int:
@@ -139,6 +178,7 @@ def main() -> int:
         report.update({"manifest": manifest, "archive_sha256": sha256(args.archive),
                        "library_sha256": sha256(library), "library": str(library),
                        "absent_test_oracles": audit_production_library(library)})
+        report["partial_rustls_snapshot_abi"] = audit_rustls_snapshot_abi(library)
         dart = shutil.which("dart")
         if not dart:
             raise ValueError("Dart executable unavailable")

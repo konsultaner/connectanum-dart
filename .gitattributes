@@ -7,3 +7,5 @@ native/transport/vendor/README.md -text
 native/transport/vendor/rustls-source-manifest.json -text
 native/transport/vendor/test-ca/** -text
 native/transport/vendor/fuzz/** binary
+native/transport/vendor/tokio-rustls/** -text
+native/transport/vendor/tokio-rustls-source-manifest.json -text

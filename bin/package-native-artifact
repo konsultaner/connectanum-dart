@@ -77,6 +77,14 @@ done
 cp native/transport/vendor/README.md "${bundle_dir}/licenses/rustls/README.md"
 cp native/transport/vendor/rustls-source-manifest.json \
   "${bundle_dir}/licenses/rustls/source-manifest.json"
+mkdir -p "${bundle_dir}/licenses/tokio-rustls"
+for native_license_name in LICENSE-APACHE LICENSE-MIT; do
+  cp "native/transport/vendor/tokio-rustls/${native_license_name}" \
+    "${bundle_dir}/licenses/tokio-rustls/${native_license_name}"
+done
+cp native/transport/vendor/README.md "${bundle_dir}/licenses/tokio-rustls/README.md"
+cp native/transport/vendor/tokio-rustls-source-manifest.json \
+  "${bundle_dir}/licenses/tokio-rustls/source-manifest.json"
 
 commit_sha="unknown"
 if command -v git >/dev/null 2>&1; then
@@ -103,6 +111,7 @@ This archive contains the prebuilt \`ct_ffi\` native library for
 - \`manifest.json\` - machine-readable build metadata
 - \`LICENSE\`
 - \`licenses/rustls/\` - pinned Rustls licenses, modification notice and source digests
+- \`licenses/tokio-rustls/\` - pinned Tokio-Rustls licenses, modification notice and source digests
 
 ## How to use it
 

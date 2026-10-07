@@ -10,7 +10,8 @@ dart_workspace_bootstrap
 run_client_fast_tests() {
   local native_client_runtime_ready=1
 
-  if ensure_native_client_test_runtime; then
+  if native_runtime_supported && ensure_rust_env; then
+    build_native_ffi_test_release
     native_client_runtime_ready=0
   fi
 

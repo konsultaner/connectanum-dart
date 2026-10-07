@@ -1,0 +1,228 @@
+{
+  "status": "source_and_scoped_production_abi_and_canonical_checks_passed_hosted_acceptance_pending",
+  "base_commit": "2bfff9431de161e0cc47b14ad46d0fe2ae3e55d0",
+  "source_archive_sha256": "f3de29ce7f0eb41c2e9c3aa139442b4a39eb6cb5f6cb92d84d76911dc215108b",
+  "linux_matched_frozen_inputs": 3017,
+  "package": "tokio-rustls",
+  "version": "0.26.6",
+  "manifest_files": 21,
+  "modified_upstream_files": 4,
+  "enabled_cases_each_platform": 14,
+  "disabled_cases_each_platform": 11,
+  "source_gate_failure_controls": 12,
+  "new_tokio_source_failure_controls": 7,
+  "actual_observation": "successful Stream::poll_read ReadBuf::put_slice amount",
+  "borrowing_and_consume_copy_bytes": 0,
+  "mac_public_consumer_cases": 34,
+  "linux_public_consumer_cases": 34,
+  "mac_exact_packaged_notices_and_manifests": 9,
+  "linux_exact_packaged_notices_and_manifests": 9,
+  "candidate_packages_are_hosted_provenance": false,
+  "linux_candidate_git_manifest": "unknown; all source inputs separately matched to frozen digest inventory",
+  "complete_tls_copy_coverage": false,
+  "performance_acceptance": false,
+  "c_dart_tokio_counter_bridge": false,
+  "local_companion_review": "bounded retry completed; no actionable finding. Speculative cautions disproved: thread-local with initializes then adds; build follows successful env setup and failure test exits37; ct_core explicitly enables observer.",
+  "canonical_fast": "exit0 after added packaged ABI gate and cache cleanup",
+  "canonical_full": "exit0 after cache cleanup; preceding exit255 OS28 retained in checks",
+  "checks": {
+    "fail_first": {
+      "exit": 101,
+      "log": "/tmp/connectanum-tokio-copy-fail-first-final.log",
+      "log_sha256": "ab7b5bc7085940019e25c876b11395a625510b5b7a0f940c2c141d66b11083c2"
+    },
+    "mac_enabled": {
+      "exit": 0,
+      "log": "/tmp/connectanum-tokio-copy-enabled.log",
+      "log_sha256": "c8c625373724f1a824c7305b060bad0ccf59d6c0ecb55df1e11a234a7762234a"
+    },
+    "mac_disabled": {
+      "exit": 0,
+      "log": "/tmp/connectanum-tokio-copy-disabled.log",
+      "log_sha256": "9bf7db27725a780b8f0c84da27f3df3fb01ce3392a14533462f7c024ab17dfe0"
+    },
+    "linux_source": {
+      "exit": 0,
+      "log": "/tmp/connectanum-tokio-copy-linux.log",
+      "log_sha256": "1e99882e3fcb8bcafc3b5445b2ceb6fa8b85a16e57f5e83f1a03dc8ee991f3a1"
+    },
+    "mac_package": {
+      "exit": 0,
+      "log": "/tmp/connectanum-tokio-copy-package.log",
+      "log_sha256": "dacc9b47852d290787c63bbee46fc976c5133149fe5f59c21bfcdfe9effe29c2"
+    },
+    "mac_consumers": {
+      "exit": 0,
+      "log": "/tmp/connectanum-tokio-copy-consumers-final.log",
+      "log_sha256": "1395acacb09d9ec4bdb8c19edaa9866b4f352dbaa12121a5632115a125bb6692"
+    },
+    "linux_package_consumers": {
+      "exit": 0,
+      "log": "/tmp/connectanum-tokio-copy-linux-package.log",
+      "log_sha256": "87942a613eb8d7f37486a3d52b4e0581fcac26bd0c903a80a18a431b8a5673ed"
+    },
+    "review": {
+      "exit": 1,
+      "log": "/tmp/connectanum-tokio-copy-review.log",
+      "log_sha256": "8717718d0fd56cdbbace43d10f3081603101efe2ef6d1fd672c66a4639dd1091"
+    },
+    "initial_canonical_fast": {
+      "exit": 1,
+      "log": "/tmp/connectanum-tokio-copy-fast.log",
+      "log_sha256": "35bcb6ea45fe4dc62ef988be33ba1f703fea4b5322948b0b4b1d41e8566149f3"
+    },
+    "fast_runtime_fail_first": {
+      "exit": 1,
+      "log": "/tmp/connectanum-fast-ffi-test-fail-first.log",
+      "log_sha256": "a7dc730b03ee30e5901aa7b8b3d00de8cf78a8c5c47dbcea2aa34afd82d89dfe"
+    },
+    "fast_runtime_mac": {
+      "exit": 0,
+      "log": "/tmp/connectanum-fast-ffi-test-focused.log",
+      "log_sha256": "65b6ad8b0703d718db215035d5adee1d8ed9c4d37af7f7fc7145bbc733112fec"
+    },
+    "fast_runtime_linux": {
+      "exit": 0,
+      "log": "/tmp/connectanum-fast-ffi-test-linux.log",
+      "log_sha256": "34ff82c9bce649d67e370e561160edc2f3775cac5ecd696672dbfe5e853e07e8"
+    },
+    "fast_runtime_test_advice": {
+      "exit": 0,
+      "log": "/tmp/connectanum-fast-ffi-test-ideas.log",
+      "log_sha256": "b780ad57252365e4e7ce61773f9aeac9e0fe7b735413747c2c602e6abf65f1ec"
+    },
+    "final_review_attempt": {
+      "exit": 1,
+      "log": "/tmp/connectanum-tokio-copy-review-final.log",
+      "log_sha256": "94c4b1661d41c97f3ea29e4acbec161219ec3ddb74963f97d6cc93bbcd6a5ea8"
+    },
+    "bounded_review": {
+      "exit": 0,
+      "log": "/tmp/connectanum-tokio-copy-review-bounded.log",
+      "log_sha256": "74d077b459de8d44abcd3c40a39324e859584dfd89364bb6d32026c0c9308b4e"
+    },
+    "canonical_fast_before_abi_gate": {
+      "exit": 0,
+      "log": "/tmp/connectanum-tokio-copy-fast-final.log",
+      "log_sha256": "eceb2e72dabbfc2363e40fcbb83d48d5c481834036d1000cf0139280bc424e5f"
+    },
+    "initial_canonical_full_disk_failure": {
+      "exit": 255,
+      "log": "/tmp/connectanum-tokio-copy-verify.log",
+      "log_sha256": "e8c9055e0ef28472425644877e7585edf23aad024baf9dba45fa1b6db5c1b94a"
+    },
+    "production_rustls_abi_units": {
+      "exit": 0,
+      "log": "/tmp/connectanum-packaged-rustls-abi-unit-final.log",
+      "log_sha256": "f196bef0973ff999dcbcf679ca035393cbb4be84e582dd7f9d09005e1f656ac4"
+    },
+    "missing_production_export_fail_first": {
+      "exit": 1,
+      "log": "/tmp/connectanum-packaged-rustls-abi-missing-export-fail-first.log",
+      "log_sha256": "901c71d2e58a2c16db2a22e323646cd012b57e4e4b14690bc8b5f19f4daf135f"
+    },
+    "mac_production_abi_consumers": {
+      "exit": 0,
+      "log": "/tmp/connectanum-packaged-rustls-abi-mac.log",
+      "log_sha256": "1395acacb09d9ec4bdb8c19edaa9866b4f352dbaa12121a5632115a125bb6692"
+    },
+    "bounded_abi_review": {
+      "exit": 0,
+      "log": "/tmp/connectanum-packaged-rustls-abi-review-bounded.log",
+      "log_sha256": "0584e4160c47d9b2f77ca619a3b710d9a4d8bf8480ba55c8c3b54e0c5f8a53e9"
+    },
+    "feature_debug_cache_cleanup": {
+      "exit": 0,
+      "log": "/tmp/connectanum-feature-debug-cache-clean.log",
+      "log_sha256": "7d832dc080f4b8d2616a9fae4ab7248c80f7872eaa970a4eafe25aaababfe3ea"
+    },
+    "canonical_fast_final": {
+      "exit": 0,
+      "log": "/tmp/connectanum-tokio-copy-fast-complete.log",
+      "log_sha256": "b0f01911e312e62cf410614e492d7bf89d819b33d9be31f80ed857ce51f5daba"
+    },
+    "canonical_full_final": {
+      "exit": 0,
+      "log": "/tmp/connectanum-tokio-copy-verify-complete.log",
+      "log_sha256": "04e0855fd00d6ceeea1e8bf15f7b89efd9d1c7f9d49002df3d27b6a2a5ddbafd"
+    }
+  },
+  "fast_runtime_fix": "Owner-oracle suite explicitly builds ffi-test even after production packaging. Three execution cases pass on macOS/Linux; explicit and automatic production selection fail first.",
+  "local_companion_test_advice": "Completed: build and failure controls verified; advice to preserve production for oracle tests rejected by actual symbol errors.",
+  "verification_script_inputs_sha256": {
+    "bin/test-fast": "49464fd0539488878d553aed016633620480584ccac46276a967c514df5c2366",
+    "tool/test_verification_scripts.py": "0af7cd6000a720bb250d81694278be36c995d4f5aa7f3203fae2c2883d44d715"
+  },
+  "production_partial_rustls_abi": {
+    "bytes": 48,
+    "alignment": 8,
+    "null_result": -4,
+    "guards_preserved": true,
+    "mac_candidate_profile_cases": 34,
+    "verifier_unit_methods": 14,
+    "new_failure_controls": [
+      "missing_export",
+      "wrong_null_status",
+      "failed_write",
+      "omitted_write",
+      "head_overwrite",
+      "tail_overwrite"
+    ],
+    "hosted_all_platform_acceptance": false
+  },
+  "linux_new_abi_gate": "pending: Docker API _ping times out; original direct probe session66548 still live; no engine/container restart",
+  "abi_review": "bounded GLM retry completes with no definite error; earlier larger review times out and test-advice attempt receives no output",
+  "published_hosted_consumers": {
+    "source": "2bfff9431de161e0cc47b14ad46d0fe2ae3e55d0",
+    "run": 37614965856,
+    "platform_results": [
+      {
+        "platform": "native-consumers-aarch64-apple-darwin",
+        "source": "2bfff9431de161e0cc47b14ad46d0fe2ae3e55d0",
+        "runtime_acceptance": true,
+        "passed_cases": 34,
+        "absent_test_oracles": 18,
+        "error": null,
+        "proof_sha256": "7e06f5710b24e900f9b5b2ea5ce6fec986ce46f3d446f11cfdc6b3f93949a21a"
+      },
+      {
+        "platform": "native-consumers-aarch64-unknown-linux-gnu",
+        "source": "2bfff9431de161e0cc47b14ad46d0fe2ae3e55d0",
+        "runtime_acceptance": true,
+        "passed_cases": 34,
+        "absent_test_oracles": 18,
+        "error": null,
+        "proof_sha256": "03747ee1058855816da332b9b431bd18b915c75067abfbe88b8a25df14bb9370"
+      },
+      {
+        "platform": "native-consumers-x86_64-apple-darwin",
+        "source": "2bfff9431de161e0cc47b14ad46d0fe2ae3e55d0",
+        "runtime_acceptance": true,
+        "passed_cases": 34,
+        "absent_test_oracles": 18,
+        "error": null,
+        "proof_sha256": "3a5cc946648f284396221e0f7953c4450e41290353e792628fd32b847d417d33"
+      },
+      {
+        "platform": "native-consumers-x86_64-pc-windows-msvc",
+        "source": "2bfff9431de161e0cc47b14ad46d0fe2ae3e55d0",
+        "runtime_acceptance": false,
+        "passed_cases": 0,
+        "absent_test_oracles": 18,
+        "error": "connectanum_client/test/transport/native/flatbuffers_profile_test.dart exits 65",
+        "proof_sha256": "e530081a65420023cb3aedfb0c440c6711770943bef81121be82e467a842101d"
+      },
+      {
+        "platform": "native-consumers-x86_64-unknown-linux-gnu",
+        "source": "2bfff9431de161e0cc47b14ad46d0fe2ae3e55d0",
+        "runtime_acceptance": true,
+        "passed_cases": 34,
+        "absent_test_oracles": 18,
+        "error": null,
+        "proof_sha256": "00b7230d5d40b104a8bc260a76437deb7947deb31392534d23f3ec6d41dec40a"
+      }
+    ],
+    "all_platform_acceptance": false,
+    "windows_failure": "dart.EXE.exe during hook compilation; profile process exits65 before tests"
+  }
+}

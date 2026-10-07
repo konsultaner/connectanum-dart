@@ -59,6 +59,60 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def run_fast_client_runtime_probe(self, *, explicit: bool, supported: bool = True,
+                                      build_exit: int = 0) -> subprocess.CompletedProcess:
+        function = "run_client_fast_tests() {" + TEST_FAST.read_text().split(
+            "run_client_fast_tests() {", 1
+        )[1].split("run_bench_vm_tests() {", 1)[0]
+        script = f'''
+set -euo pipefail
+source "{COMMON}"
+native_runtime_supported() {{ return {0 if supported else 1}; }}
+ensure_rust_env() {{ return 0; }}
+ensure_native_lib_env() {{ export CONNECTANUM_NATIVE_LIB="production-library"; }}
+build_native_ffi_test_release() {{
+  printf 'ffi-test-build\\n'
+  if [[ {build_exit} -ne 0 ]]; then return {build_exit}; fi
+  export CONNECTANUM_NATIVE_LIB="oracle-library"
+}}
+dart() {{
+  if [[ "$*" == *native_owned_buffer_test.dart* ]]; then
+    printf 'owner-oracles=%s\\n' "${{CONNECTANUM_NATIVE_LIB:-unset}}"
+    [[ "${{CONNECTANUM_NATIVE_LIB:-}}" == "oracle-library" ]] || return 79
+  fi
+}}
+{function}
+run_client_fast_tests
+'''
+        environment = dict(os.environ)
+        environment.pop("CONNECTANUM_NATIVE_LIB", None)
+        if explicit:
+            environment["CONNECTANUM_NATIVE_LIB"] = "production-library"
+        return subprocess.run(["bash", "-c", script], cwd=REPO_ROOT, env=environment,
+                              text=True, capture_output=True, timeout=30)
+
+    @unittest.skipIf(os.name == "nt", "The verification launcher requires Bash")
+    def test_fast_owner_oracles_prepare_test_library_after_production_package(self):
+        for explicit in (False, True):
+            with self.subTest(explicit=explicit):
+                result = self.run_fast_client_runtime_probe(explicit=explicit)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout.count("ffi-test-build"), 1, result.stdout)
+                self.assertIn("owner-oracles=oracle-library", result.stdout)
+
+    @unittest.skipIf(os.name == "nt", "The verification launcher requires Bash")
+    def test_fast_test_library_build_failure_is_not_a_native_skip(self):
+        result = self.run_fast_client_runtime_probe(explicit=True, build_exit=37)
+        self.assertEqual(result.returncode, 37, result.stdout + result.stderr)
+        self.assertNotIn("owner-oracles=", result.stdout)
+
+    @unittest.skipIf(os.name == "nt", "The verification launcher requires Bash")
+    def test_fast_unsupported_platform_keeps_native_skip(self):
+        result = self.run_fast_client_runtime_probe(explicit=True, supported=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("ffi-test-build", result.stdout)
+        self.assertNotIn("owner-oracles=", result.stdout)
+
     def test_session_key_selection_regressions_run_in_vm_browser_and_coverage(self):
         filename = "session_e2ee_key_selection_test.dart"
         for path in (TEST_FAST, TEST_ALL):

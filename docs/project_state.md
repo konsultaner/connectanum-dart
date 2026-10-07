@@ -5,6 +5,47 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): actual Tokio-Rustls plaintext extraction.
+The workspace pins published Tokio-Rustls 0.26.6, both original licenses,
+its unchanged published lockfile and four restored upstream test fixtures.
+The source hook counts only successful `ReadBuf::put_slice()` bytes;
+borrowed views and consumption preserve the storage pointer and count zero.
+Two fail-first copy cases and a pending/malformed-input control pass after
+instrumentation. Both macOS/Linux pass all 14 enabled and 11 disabled cases;
+Linux matches all 3,017 frozen inputs and passes a real TLS connection test.
+Both candidate production bundles pass 34 public profile cases and nine exact
+license/notice/manifest checks each. The source gate passes all twelve controls.
+Initial companion attempts are lease-blocked; later test advice completes.
+The first canonical fast check loads the just-packaged production library and
+fails three owner-oracle cases because test symbols are intentionally absent.
+The fast client suite now explicitly prepares `ffi-test`, matching full
+verification. Three execution controls pass on macOS/Linux after reproducing
+both production-selection failures; a failed test build stops verification.
+A larger review reaches its token limit; a bounded retry completes without an
+actionable finding. Its speculative cautions are disproved by initialization,
+feature selection and execution tests. Canonical fast verification passes.
+Full verification terminates at exit 255 on Dart kernel-copy OS error 28:
+the host disk is full. Rebuildable feature-worktree compiler/debug caches are
+removed, restoring 21 GiB free while retaining source, release libraries and
+proof artifacts. The production-consumer audit also exposes missing coverage
+of the new 48-byte Rustls snapshot. It now requires the export and checks its
+null status, writes and surrounding guards in a fresh process. All 14 verifier
+methods pass, including six new failure controls; the macOS packaged library
+passes the ABI guard and all 34 profile cases. A bounded GLM review completes
+without a definite error. Docker's API is unresponsive after the disk event;
+its original Linux direct-probe session remains live and is not restarted.
+Both published cde CI runs are green. Final canonical `bin/test-fast` and
+`bin/verify` pass at exit 0 after cache cleanup, including Rust/VM/consumers,
+1,642 benchmark, 4,958 router, 4,751 core browser and 2,829 client browser
+cases with 20 unchanged native-only skips. Published `2bfff943` native dry
+run 37614965856 passes all 34 public cases on four Linux/macOS platforms;
+Windows fails before testing because hooks launch `dart.EXE.exe`. Two
+execution controls reproduce uppercase suffix propagation and omitted
+executable validation; a narrow launcher correction is the next CI priority.
+This source-only Tokio observation does not extend the Rustls ABI or close
+complete-copy/performance criteria. Evidence:
+[extraction scope and proof](research/2026-10-07-tokio-rustls-extraction.md).
+
 Current follow-up (2026-10-07): optional Rustls source metrics bridge.
 Twelve fail-first cases reproduce omitted partial-counter metadata on both
 transports. A separate 48-byte C snapshot exposes all six actual Rustls source

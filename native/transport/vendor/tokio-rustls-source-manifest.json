@@ -1,0 +1,99 @@
+{
+  "files": {
+    "tokio-rustls/.cargo/config.toml": {
+      "sha256": "a076f415957a499932c714773d5ca17fbea2bb4be9154f0dcf9dcb493f97c19d",
+      "upstream_sha256": "a076f415957a499932c714773d5ca17fbea2bb4be9154f0dcf9dcb493f97c19d"
+    },
+    "tokio-rustls/.cargo_vcs_info.json": {
+      "sha256": "1a2510305052249313eee4645c6c474e6f2e46abab02911c4c13b82da8574688",
+      "upstream_sha256": "1a2510305052249313eee4645c6c474e6f2e46abab02911c4c13b82da8574688"
+    },
+    "tokio-rustls/.gitignore": {
+      "sha256": "0bbfd8bcc250c1871b4a715c0704789e9243e898834d4691f5998118da1a9a45",
+      "upstream_sha256": "0bbfd8bcc250c1871b4a715c0704789e9243e898834d4691f5998118da1a9a45"
+    },
+    "tokio-rustls/.rustfmt.unstable.toml": {
+      "sha256": "7013409a97916b396bc939aeadb0d33c3aa8900b2bcc0e6b1cf5ee45948f4919",
+      "upstream_sha256": "7013409a97916b396bc939aeadb0d33c3aa8900b2bcc0e6b1cf5ee45948f4919"
+    },
+    "tokio-rustls/Cargo.lock": {
+      "sha256": "bb77d19f9aae6fc41cbee98c18dbe022330f2ca84fef4ecdbe250796832e6df2",
+      "upstream_sha256": "bb77d19f9aae6fc41cbee98c18dbe022330f2ca84fef4ecdbe250796832e6df2"
+    },
+    "tokio-rustls/Cargo.toml": {
+      "sha256": "ebdafb54855e4bacae21a0f603c163fbcab52046e5f4b298c3f461b68f7d8b87",
+      "upstream_sha256": "ad124b109caa4315c0a45dabb5211f272bf913462914ddeedb4c9aa9f6e19e41"
+    },
+    "tokio-rustls/Cargo.toml.orig": {
+      "sha256": "48fe38d0ae71835f9ebc3630a6b89c7085e6a67534a2bcf54e0d998d83be289f",
+      "upstream_sha256": "48fe38d0ae71835f9ebc3630a6b89c7085e6a67534a2bcf54e0d998d83be289f"
+    },
+    "tokio-rustls/LICENSE-APACHE": {
+      "sha256": "cc117d90b498b32b11a886f279b359da16a73c3b01efbb2f5cc004b20262334e",
+      "upstream_sha256": "cc117d90b498b32b11a886f279b359da16a73c3b01efbb2f5cc004b20262334e"
+    },
+    "tokio-rustls/LICENSE-MIT": {
+      "sha256": "e20fa2b8e0a2565f24a792b94b4bf4b6c2b9d36f781d8a9516e218a036e6677a",
+      "upstream_sha256": "e20fa2b8e0a2565f24a792b94b4bf4b6c2b9d36f781d8a9516e218a036e6677a"
+    },
+    "tokio-rustls/README.md": {
+      "sha256": "08397ee5ac2ad1cf6f35ab72f3a7f57cacba5d026dcb58a96a2ba8f62314730e",
+      "upstream_sha256": "08397ee5ac2ad1cf6f35ab72f3a7f57cacba5d026dcb58a96a2ba8f62314730e"
+    },
+    "tokio-rustls/src/client.rs": {
+      "sha256": "99c21fc31cd2a7e9b10e6802a41598a3e42bf1b17e6007c4c7f59257e1e77293",
+      "upstream_sha256": "99c21fc31cd2a7e9b10e6802a41598a3e42bf1b17e6007c4c7f59257e1e77293"
+    },
+    "tokio-rustls/src/common/handshake.rs": {
+      "sha256": "ddda50c649b261afc37f740a1d85372ca731bbf27e26c26ad0d2bf71434a6415",
+      "upstream_sha256": "ddda50c649b261afc37f740a1d85372ca731bbf27e26c26ad0d2bf71434a6415"
+    },
+    "tokio-rustls/src/common/mod.rs": {
+      "sha256": "6883a8d619a0a0bba80628c116df6bca073206754f92fc0275b48ea81b6d0946",
+      "upstream_sha256": "7cc0944f8b864248120594378a3c04594b83c934467319be4147783f365b1e6b"
+    },
+    "tokio-rustls/src/common/test_stream.rs": {
+      "sha256": "105d8eeb44981f339e8b43de7500ead296b0df4db347b0624f81f715c030b990",
+      "upstream_sha256": "7d0de9018053a3169b5280a5cd8ce2869796c082c25a425960db6bb14804d36e"
+    },
+    "tokio-rustls/src/copy_observer.rs": {
+      "sha256": "3b8e78f466eb5fe3b24def5474ac69d09704c8e58498fdfce2a44a1eba641739",
+      "upstream_sha256": null
+    },
+    "tokio-rustls/src/lib.rs": {
+      "sha256": "63d5d973e42a23a5fb545cbfbd3738f70427c83d51c1230852cb63a4bee32056",
+      "upstream_sha256": "6e434e1c2b43c12ce50cf1d296bbf924c21b47c84414b05b36bd558f11d0d7a1"
+    },
+    "tokio-rustls/src/server.rs": {
+      "sha256": "c1c3e997c730c0ed0e9825b2043aff241f8e5680e29b7ce57a9a07ce5e483a57",
+      "upstream_sha256": "c1c3e997c730c0ed0e9825b2043aff241f8e5680e29b7ce57a9a07ce5e483a57"
+    },
+    "tokio-rustls/tests/certs/chain.pem": {
+      "sha256": "cd455d0ea93c204c4ec1b569a59a51407e0f5969b53a2102ea519dedf9de2854",
+      "upstream_sha256": "cd455d0ea93c204c4ec1b569a59a51407e0f5969b53a2102ea519dedf9de2854"
+    },
+    "tokio-rustls/tests/certs/end.key": {
+      "sha256": "5137467345dd24a91915c17cac20e66f6ac83cd8e0a0ca7aece5eb26e20ad739",
+      "upstream_sha256": "5137467345dd24a91915c17cac20e66f6ac83cd8e0a0ca7aece5eb26e20ad739"
+    },
+    "tokio-rustls/tests/certs/root.pem": {
+      "sha256": "0896dc570d53e0ee054003b5b5b753d7640422d412935e92d005512afd5e0944",
+      "upstream_sha256": "0896dc570d53e0ee054003b5b5b753d7640422d412935e92d005512afd5e0944"
+    },
+    "tokio-rustls/tests/utils.rs": {
+      "sha256": "d85db91fe732757b01861d50f60bf43f7a6e6a585f114b15f8dc4d74f81c4ce0",
+      "upstream_sha256": "d85db91fe732757b01861d50f60bf43f7a6e6a585f114b15f8dc4d74f81c4ce0"
+    }
+  },
+  "modified_upstream_files": [
+    "tokio-rustls/Cargo.toml",
+    "tokio-rustls/src/common/mod.rs",
+    "tokio-rustls/src/common/test_stream.rs",
+    "tokio-rustls/src/lib.rs"
+  ],
+  "package": "tokio-rustls",
+  "registry_archive_sha256": "c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db",
+  "upstream_commit": "8aebb7c9556ea8024c1b974b84a4a6f2e306889a",
+  "upstream_repository": "https://github.com/rustls/tokio-rustls",
+  "version": "0.26.6"
+}

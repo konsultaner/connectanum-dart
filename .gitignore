@@ -28,3 +28,6 @@ bench_results.jsonl
 /native/bench/artifacts/bench_results.summary.json
 /native/bench/artifacts/bench_results.gate.json
 /native/bench/artifacts/bench_results.gate.md
+
+/native/transport/vendor/tokio-rustls/target/
+!/native/transport/vendor/tokio-rustls/Cargo.lock
