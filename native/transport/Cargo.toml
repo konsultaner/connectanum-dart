@@ -1,3 +1,7 @@
 [workspace]
 members = ["ct_core", "ct_ffi"]
+exclude = ["vendor/rustls"]
 resolver = "2"
+
+[patch.crates-io]
+rustls = { path = "vendor/rustls" }

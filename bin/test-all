@@ -192,6 +192,13 @@ run_client_browser_websocket_test() {
 }
 
 if native_runtime_supported; then
+  python3 tool/check_rustls_source.py
+  python3 tool/test_check_rustls_source.py
+  cargo_with_retry test \
+    --manifest-path native/transport/vendor/rustls/Cargo.toml \
+    --no-default-features \
+    --features std,ring,tls12,connectanum-copy-observer \
+    --lib
   cargo_with_retry test --manifest-path native/transport/Cargo.toml -p ct_core
   cargo_with_retry test --manifest-path native/transport/Cargo.toml -p ct_ffi
   cargo_with_retry test \

@@ -5,6 +5,27 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-07): source-observed Rustls copies.
+Rustls 0.23.45 is pinned with original licenses and an 841-file digest manifest,
+including exact upstream test fixtures. Two fail-first cases expose omitted
+actual chunk/queue copies; observations make all 234 library cases
+pass. A feature-disabled build and real native TLS outbound observation pass.
+The live receive probe exposes a separate Tokio-Rustls copy site; total TLS
+coverage remains unknown. The dependency lock changes only Rustls source at the
+same version. Five source-integrity failure controls and fresh `bin/test-fast` pass.
+All 841 source blobs remain exact with Windows newline conversion enabled.
+Native bundle packaging retains Rustls licenses and source digests. Final
+`bin/verify` fails the unchanged FastCGI cumulative stdout-limit fixture
+with a peer reset; its isolated unchanged repro and five unchanged repeats
+pass. Fresh full `bin/verify` passes at exit 0: Rust/VM/consumers, 1,616
+benchmark, 4,958 router, 4,751 core browser and 2,829 client browser cases,
+with 20 unchanged native-only skips. The narrowed GLM judgment completes
+with no confirmed native defect. Real macOS arm64 packaging passes: all five
+Rustls notice/manifest files match and the library excludes test oracles.
+This is a local packaging check of the frozen candidate, not resulting-head
+release acceptance. #100–#104 and all gates remain
+open. Research: [Rustls copy observer](research/2026-10-07-rustls-copy-observer.md).
+
 Current follow-up (2026-10-07): native prefetched input copies.
 Two real TCP-pair regressions expose uncounted staging/replay copies; an
 intermediate observation identifies the duplicate unread-buffer copy, now
@@ -23,8 +44,9 @@ Final full `bin/verify` passes at exit 0: Rust/VM/consumers, 1,616 benchmark,
 4,958 router, 4,751 core browser and 2,829 client browser cases, with the same
 20 native-only skips. Evidence: `/tmp/connectanum-native-io-copy-verify-final.{log,exit}`.
 Companion debug/review/test advice is verified; no accepted source defect remains.
-Both preceding `0ec8df06` hosted runs pass 40/41 jobs; only MCP mutation gates
-remain active. New publication is held to preserve those runs. Resulting-head
+Preceding `0ec8df06` PR run 37565054707 completes all 41 jobs successfully.
+Push run 37565051795 remains at 40/41 with its MCP mutation gate active.
+New publication is held to preserve the remaining run. Resulting-head
 hosted acceptance and performance parity remain pending; no issue closure follows. Research: [prefetched input copies](research/2026-10-07-native-prefetched-input-copies.md).
 
 Current follow-up (2026-10-07): hosted full FlatBuffers campaign.

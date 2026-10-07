@@ -7,6 +7,9 @@ Complete its verification/CI first, then typed FlatBuffers E2EE profile compatib
 remaining mixed transport coverage, conformance/artifacts, performance/copy gates
 and release/adapter documentation. The milestone remains open; the older fresh-state
 notes below do not override the active execution plan.
+The native transport now pins Rustls 0.23.45 for audited source-site copy
+observations. These counters remain partial; Tokio-Rustls extraction and other
+TLS sites must be observed before whole-copy acceptance.
 
 Fresh state:
 - Native transport heartbeat/ping-pong is enforced (RawSocket + WebSocket), and router sessions can be closed on `session_idle_ms` from the boss; coverage includes Rust `listen_flow` heartbeat + close tests and Dart router runtime idle-session enforcement.

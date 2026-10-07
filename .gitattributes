@@ -1,2 +1,7 @@
 # Preserve the exact checksummed upstream schema bytes, including its EOF padding.
 schemas/wamp_flatbuffers/upstream/*.fbs whitespace=-blank-at-eof
+
+# Preserve the exact audited upstream crate and fixture bytes on every platform.
+native/transport/vendor/rustls/** -text
+native/transport/vendor/test-ca/** -text
+native/transport/vendor/fuzz/** binary

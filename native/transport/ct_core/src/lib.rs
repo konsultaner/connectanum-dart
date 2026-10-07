@@ -451,6 +451,15 @@ pub struct TransportCopyMetricsSnapshot {
     pub io_buffered_read_copy_bytes_total: u64,
 }
 
+/// Process-wide observations at two audited Rustls byte-copy sites.
+///
+/// This is partial TLS coverage. Record assembly, deframer movement, capacity
+/// growth and crypto-wrapper copies are not included. Concurrent TLS sessions
+/// contribute to these counters; deltas are not per-connection measurements.
+pub fn rustls_copy_metrics_snapshot() -> rustls::copy_observer::Snapshot {
+    rustls::copy_observer::snapshot()
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct HttpResponseStreamMetricsSnapshot {
     pub streaming_responses_total: u64,
@@ -10262,6 +10271,7 @@ mod tests {
         let server_connection_id = assert_accepted_connection(&mut receiver).await;
         let tls_plaintext_before =
             transport_copy_metrics_snapshot().tls_plaintext_accepted_bytes_total;
+        let rustls_copies_before = rustls_copy_metrics_snapshot();
 
         assert!(connection_supports_file_segments(client_connection_id).unwrap());
         assert!(connection_supports_file_segments(server_connection_id).unwrap());
@@ -10299,6 +10309,12 @@ mod tests {
         assert!(
             tls_plaintext_after > tls_plaintext_before,
             "Rustls must report plaintext accepted after the handshake"
+        );
+        let rustls_copies_after = rustls_copy_metrics_snapshot();
+        assert!(
+            rustls_copies_after.outbound_chunk_copy_bytes
+                > rustls_copies_before.outbound_chunk_copy_bytes,
+            "the real native TLS send must observe outbound chunk copies"
         );
 
         std::fs::remove_file(path).unwrap();

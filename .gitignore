@@ -13,6 +13,7 @@ pubspec.lock
 coverage
 /out/
 /native/transport/target/
+/native/transport/vendor/rustls/target/
 Cargo.lock
 !/tool/rust_coverage_scope/Cargo.lock
 /tool/rust_coverage_scope/target/

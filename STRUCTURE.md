@@ -35,6 +35,13 @@ graph LR
 
 ### Current Responsibilities
 
+The transport workspace pins a vendored Rustls 0.23.45 source in
+`native/transport/vendor/rustls`, with original licenses and an audited digest
+manifest. An optional observer reports actual outbound-chunk and queue-read
+copies. This is partial coverage; Tokio-Rustls extraction and remaining TLS
+copy sites keep total-copy gates unmeasured. See
+[the source and fixture policy](native/transport/vendor/README.md).
+
 - **Tokio runtime & ListenerRegistry (`ct_core/src/lib.rs`)**  
   Binds sockets, negotiates protocols, and spawns per-protocol tasks (RawSocket, WebSocket, HTTP/1.1 handshakes, HTTP/2 via `h2`, HTTP/3 via `quinn + h3`). RawSocket/WebSocket connections run a heartbeat monitor (PING/PONG), use bounded inbound/outbound queues (backpressure), and can be closed explicitly via FFI; every HTTP connection gets a `HttpConnectionStats` instance that records idle/body timeouts, GOAWAY, and backpressure depth; HTTP/3 body timeouts close the QUIC connection to avoid `h3-quinn` stop-sending races. The HTTP/2 server path now applies explicit `h2` flow-control and stream/window limits, and the HTTP/3 server path applies explicit QUIC transport tuning (larger stream/connection windows, send window, datagram buffers, keep-alive) instead of pure library defaults tuned for a much lower-bandwidth link.
   Listeners can be closed independently via `close_listener` (exposed as `ct_listener_close`) so deployments can stop accepting new connections while existing sessions drain.
