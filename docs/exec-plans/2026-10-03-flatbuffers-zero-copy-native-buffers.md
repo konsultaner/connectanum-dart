@@ -7,6 +7,14 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current primary campaign (2026-10-07): the full unchanged 48-case, three-codec,
+three-warm-up/seven-measured matrix is running from isolated clean `8af2c337`.
+The release driver/native library and three dependency locks are pinned. Initial
+rows meet ten seconds and 1,000 samples with stable client/server identities.
+The run is incomplete; TLS/SDK copy gaps and guest CPU model limitations remain
+explicit and fail acceptance. Preserve the live execution; do not restart on
+observation timeouts. Research: [full campaign start](../research/2026-10-07-primary-flatbuffers-campaign.md).
+
 Current follow-up (2026-10-07): bounded native socket views. Twelve fail-first
 transport cases reproduce the SDK partial-view copy. Validated malloc-owned
 ranges now retain their original allocation through bounded read-only aliases;
