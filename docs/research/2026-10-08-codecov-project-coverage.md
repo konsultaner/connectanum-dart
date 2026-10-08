@@ -45,6 +45,17 @@ and exit 73 propagation. The scope test enforces equality with the existing
 verified generated-file set. Existing provenance and handwritten-source guards
 remain in place.
 
-Fresh unchanged baseline `bin/test-fast` passes at exit 0. Candidate full
-verification and hosted Codecov acceptance are pending. This correction does
-not close the remaining performance milestone issues or claim benchmark parity.
+Fresh unchanged baseline `bin/test-fast` and candidate `bin/verify` pass at
+exit 0. Full verification includes Rust, VM, package consumers, router tests and
+both browser suites (4,751 core and 2,829 client tests, with 20 unchanged
+native-only skips). All 110 coverage-policy/runner methods pass. The public
+Codecov YAML validator returns HTTP 200 with exactly the two intended ignore
+patterns. A bounded local review's failure-propagation concern is contradicted
+by actual launcher probes returning exit 73 for both selected failures; no
+failure handling is bypassed. The scope regression assumes the checked-in
+quoted-list format; the external validator also checks the actual YAML.
+
+The functional fix is published as `7bf7dd4f`. Current hosted acceptance is
+reported by [PR #105 checks](https://github.com/konsultaner/connectanum-dart/pull/105/checks).
+This correction does not close the remaining performance milestone issues or
+claim benchmark parity.

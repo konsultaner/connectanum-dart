@@ -16,8 +16,12 @@ including native owned segments, FlatBuffers frames/profiles, copy metrics and
 router forwarding variants. Actual added-suite runs pass and contribute 171
 handwritten VM line hits; the merged hosted-report estimate is 93.913%.
 Three fail-first regression methods reproduce the omissions and scope mismatch.
-Fresh baseline `bin/test-fast` passes. Candidate full verification and hosted
-Codecov acceptance are pending.
+Fresh baseline `bin/test-fast` and candidate `bin/verify` pass at exit 0,
+including Rust/VM/consumer/router checks and both browser suites (4,751 core,
+2,829 client; 20 unchanged native-only skips). All 110 coverage-policy/runner
+methods pass. Codecov's public validator accepts the exact generated-file scope.
+The functional fix is published as `7bf7dd4f`; current hosted acceptance is
+reported by [PR #105 checks](https://github.com/konsultaner/connectanum-dart/pull/105/checks).
 Evidence: [coverage scope/proof](research/2026-10-08-codecov-project-coverage.md).
 
 Current follow-up (2026-10-07): coverage runtime ownership isolation.
