@@ -5,6 +5,21 @@ Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-08): CI execution sharing.
+Approved implementation proceeds in `codex/ci-execution-sharing` from merged
+master `0e585405`; the beta.8 release branch/head remains preserved separately.
+Remove duplicate event runs, share test/coverage execution, cache tooling and
+verify reusable ffi-test artifacts, and group/shard all mutation gates without
+reducing inventories or thresholds. Keep the existing required status names.
+Baseline `bin/test-fast`, the new `bin/test-ci-fast` and focused tooling checks
+pass. Eleven fail-first/execution contracts, a real six-shard 12-mutant campaign
+and 35 shared-library ownership cases pass. The complete MCP inventory remains
+1,101 (six shards of 184/184/184/183/183/183); its full hosted execution is pending.
+Canonical `bin/verify` passes at exit 0, including Rust, VM, consumers and
+Chrome/Dart2Wasm (4,751 core, 2,829 client; the same 20 native-only skips).
+All coverage policies/floors remain unchanged. Hosted acceptance and timing are
+pending on the separate ready-for-review CI PR. Local companions are resource-lease blocked. Scope, measured baseline and steps: [CI plan](research/2026-10-08-ci-execution-sharing.md).
+
 Current follow-up (2026-10-08): PR #105 Codecov project regression.
 At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;
 Codecov project coverage fails at 88.693% against master's 93.896%.

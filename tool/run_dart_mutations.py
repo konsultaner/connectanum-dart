@@ -247,7 +247,8 @@ def run_test_commands(commands, cwd, timeout):
             return code, output, status
         logs.append(json.dumps({'type': 'connectanumTestCommand',
                                 'command': command, 'timeoutSeconds': remaining,
-                                'exitCode': code, 'status': status}))
+                                'exitCode': code,
+                           'logSha256': hashlib.sha256(output.encode()).hexdigest(), 'status': status}))
         logs.append(output)
         if status != 'survived':
             return code, '\n'.join(logs), status
@@ -265,6 +266,16 @@ def apply_mutation(source, mutation):
 
 def mutation_id(mutation):
     return hashlib.sha256(json.dumps(mutation, sort_keys=True).encode()).hexdigest()[:20]
+
+
+def partition_mutations(mutations, index, count):
+    """Deterministic, balanced, disjoint slices of the complete inventory."""
+    if type(index) is not int or type(count) is not int or count < 1 or not 0 <= index < count:
+        raise ValueError('Invalid mutation shard index/count')
+    keyed = sorted((mutation_id(mutation), mutation) for mutation in mutations)
+    if len({key for key, _ in keyed}) != len(keyed):
+        raise ValueError('Duplicate mutation IDs in full inventory')
+    return [mutation for _, mutation in keyed[index::count]]
 
 
 def validate_sources(sources):
@@ -490,6 +501,8 @@ def main():
     parser.add_argument('--target', action='append')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--timeout', type=float, default=45)
+    parser.add_argument('--shard-index', type=int)
+    parser.add_argument('--shard-count', type=int)
     parser.add_argument('--threshold', type=float, default=95,
                         help='minimum adjusted assertion-based mutation score (default: 95)')
     mode = parser.add_mutually_exclusive_group()
@@ -497,6 +510,14 @@ def main():
     mode.add_argument('--baseline-only', action='store_true',
                       help='inventory all mutations and verify clean/restored tests without scoring')
     args = parser.parse_args()
+    sharded = args.shard_index is not None or args.shard_count is not None
+    if sharded:
+        try:
+            partition_mutations([], args.shard_index, args.shard_count)
+        except ValueError as error:
+            parser.error(str(error))
+        if args.list or args.baseline_only:
+            parser.error('Shards must execute mutations, not inventory/baseline-only modes')
     if not 0 <= args.threshold <= 100 or args.timeout <= 0:
         parser.error('threshold must be 0..100 and timeout must be positive')
     try:
@@ -510,6 +531,9 @@ def main():
     unknown = set(selected) - config.keys()
     if unknown:
         parser.error(f'Unknown targets: {sorted(unknown)}')
+    if sharded and (len(selected) != 1 or config[selected[0]].get('requiresNativeLibrary')
+                    or config[selected[0]].get('testRunner', 'dart') != 'dart'):
+        parser.error('Sharding requires one non-native Dart target')
     if not args.list and any(config[name].get('requiresNativeLibrary') for name in selected):
         native_artifact()
     if args.output.exists():
@@ -517,6 +541,7 @@ def main():
     args.output.mkdir(parents=True)
     report = {'schemaVersion': 1, 'scope': selected, 'targets': {}, 'complete': False,
               'baselineOnly': args.baseline_only,
+              'executionTimeoutSeconds': args.timeout,
               'killEvidenceVersion': 1,
               'scoreDefinition': 'Completed test detection, including caught test errors',
               'gate': {'metric': 'adjustedAssertionScoreLowerBound',
@@ -526,6 +551,9 @@ def main():
               'equivalentsSha256': hashlib.sha256(args.equivalents.read_bytes()).hexdigest(),
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'operatorScope': ['binary', 'nullFallback', 'boolean', 'negation', 'condition']}
+    if sharded:
+        report['shard'] = {'index': args.shard_index, 'count': args.shard_count}
+        report['shardComplete'] = False
     report_path = args.output / 'mutation-report.json'
 
     def save():
@@ -636,12 +664,13 @@ def main():
             result['supportHashes'] = {path: hashlib.sha256((work / path).read_bytes()).hexdigest()
                                        for path in support_files}
             report['targets'][name] = result
-            if args.list or args.baseline_only:
+            result['equivalenceReasons'] = justified
+            if args.list or args.baseline_only or sharded:
                 result['inventory'] = mutations
-            if args.list:
-                save()
-                continue
-            artifact = native_artifact() if target.get('requiresNativeLibrary') else None
+            if sharded:
+                mutations = partition_mutations(mutations, args.shard_index, args.shard_count)
+                result['assigned'] = len(mutations)
+            artifact = native_artifact() if target.get('requiresNativeLibrary') and not args.list else None
             if artifact:
                 result['nativeArtifact'] = artifact
             test_timeout = target.get('testTimeoutSeconds', 5)
@@ -666,10 +695,14 @@ def main():
             result['testCommands'] = commands
             if len(commands) == 1:
                 result['testCommand'] = commands[0]
+            if args.list:
+                save()
+                continue
             code, output, status = run_test_commands(commands, test_cwd, args.timeout)
             result['baseline'] = status
             result['baselineExitCode'] = code
             (args.output / f'{name}-baseline.log').write_text(output)
+            result['baselineLogSha256'] = hashlib.sha256(output.encode()).hexdigest()
             if result['baseline'] != 'survived':
                 save()
                 raise RuntimeError(f'{name}: unmutated baseline did not pass ({result["baseline"]})')
@@ -697,6 +730,7 @@ def main():
                 log_name = f'{hashlib.sha256(name.encode()).hexdigest()}-{identifier}.log'
                 outcome = {**mutation, 'id': identifier, 'status': status, 'log': log_name,
                            'exitCode': code,
+                           'logSha256': hashlib.sha256(output.encode()).hexdigest(),
                            'mutationInputUnchanged': mutation_unchanged,
                            'mutatedSourceSha256': hashlib.sha256(mutated.encode()).hexdigest(),
                            'seconds': round(time.monotonic() - started, 3)}
@@ -717,6 +751,7 @@ def main():
             result['restoredBaseline'] = status
             result['restoredBaselineExitCode'] = code
             (args.output / f'{name}-restored-baseline.log').write_text(output)
+            result['restoredBaselineLogSha256'] = hashlib.sha256(output.encode()).hexdigest()
             if engine == 'flutter':
                 result['applicationInputsUnchanged'] = inputs_match(
                     work, {**application_hashes, **dependency_hashes, **result['flutterReporterHashes']})
@@ -731,6 +766,13 @@ def main():
             if result['restoredBaseline'] != 'survived':
                 save()
                 raise RuntimeError(f'{name}: restored baseline failed')
+    if sharded:
+        report['shardComplete'] = True
+        save()
+        # Scoring belongs to the complete union; never apply a per-shard floor.
+        return 0 if all(not target.get('counts', {}).get(status)
+                        for target in report['targets'].values()
+                        for status in ('error', 'timeout')) else 1
     report['complete'] = not (args.list or args.baseline_only)
     if report['complete']:
         for name, target in report['targets'].items():

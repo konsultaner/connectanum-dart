@@ -40,6 +40,7 @@ mkdir -p "$coverage_root"
     test/transport/native/message_binding_test.dart \
     test/transport/local \
     test/transport/websocket/websocket_transport_web_test.dart \
+    test/transport/websocket/flatbuffers_transport_profile_web_test.dart \
     test/transport/websocket/websocket_browser_lifecycle_test.dart \
     test/transport/websocket/websocket_attempt_lifecycle_test.dart \
     test/mcp/form_elicitation_regression_test.dart \

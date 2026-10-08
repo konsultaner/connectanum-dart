@@ -1,0 +1,66 @@
+name: CI toolchain and dependencies
+description: Share version-checked tooling and public dependency caches
+inputs:
+  rust:
+    description: Install the Rust toolchain
+    default: 'false'
+  native-tools:
+    description: Install the pinned coverage and mutation tools
+    default: 'false'
+  chrome:
+    description: Install Chrome for browser tests
+    default: 'false'
+outputs:
+  chrome-path:
+    description: Chrome executable
+    value: ${{ steps.chrome.outputs.chrome-path }}
+runs:
+  using: composite
+  steps:
+    - uses: dart-lang/setup-dart@v1
+      with:
+        sdk: 3.13.1
+    - uses: actions/cache@v5
+      with:
+        path: ~/.pub-cache
+        key: pub-${{ runner.os }}-${{ runner.arch }}-dart-3.13.1-${{ hashFiles('pubspec.lock', '**/pubspec.yaml') }}
+        restore-keys: pub-${{ runner.os }}-${{ runner.arch }}-dart-3.13.1-
+    - uses: dtolnay/rust-toolchain@stable
+      if: inputs.rust == 'true'
+      with:
+        components: rustfmt, clippy, llvm-tools-preview
+    - id: rust
+      if: inputs.rust == 'true'
+      shell: bash
+      run: echo "identity=$(rustc -Vv | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v5
+      if: inputs.rust == 'true'
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.identity }}-${{ hashFiles('native/**/Cargo.toml', 'native/**/Cargo.lock', 'tool/**/Cargo.lock') }}
+        restore-keys: cargo-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.identity }}-
+    - uses: actions/cache@v5
+      if: inputs.native-tools == 'true'
+      with:
+        path: |
+          ~/.cargo/bin/cargo-llvm-cov
+          ~/.cargo/bin/cargo-mutants
+        key: native-tools-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.identity }}-llvm-cov-0.9.1-mutants-27.1.0
+    - name: Verify or install pinned native tooling
+      if: inputs.native-tools == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ "$(cargo llvm-cov --version 2>/dev/null || true)" != 'cargo-llvm-cov 0.9.1' ]]; then
+          cargo install cargo-llvm-cov --locked --version 0.9.1 --force
+        fi
+        if [[ "$(cargo mutants --version 2>/dev/null || true)" != 'cargo-mutants 27.1.0' ]]; then
+          cargo install cargo-mutants --locked --version 27.1.0 --force
+        fi
+        test "$(cargo llvm-cov --version)" = 'cargo-llvm-cov 0.9.1'
+        test "$(cargo mutants --version)" = 'cargo-mutants 27.1.0'
+    - id: chrome
+      if: inputs.chrome == 'true'
+      uses: browser-actions/setup-chrome@v2
