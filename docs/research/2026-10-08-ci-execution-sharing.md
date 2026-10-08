@@ -90,3 +90,31 @@ acceptance and measured CI timing remain pending. The new graph has 36 jobs
 per workflow run, rather than 41 duplicated across PR and feature-push events. Debug build caches in this managed worktree are cleared with Cargo's
 profile-specific clean command to recover disk space, retaining source, release
 libraries and saved proofs.
+
+## Hosted setup failure and correction
+
+The first CI [run 37810552592](https://github.com/konsultaner/connectanum-dart/actions/runs/37810552592)
+at `163699a0` fails in every shared-setup lane before tests execute. The strict
+package [dry run 37810552616](https://github.com/konsultaner/connectanum-dart/actions/runs/37810552616)
+fails identically. Dart 3.13.1 installs successfully, but setup-dart emits an
+`add-matcher` command pointing to `.github/actions/setup-ci/dart-analyzer.json`,
+which belongs to setup-dart and does not exist in the parent composite.
+Dependent skipped jobs, missing artifact uploads and the failed Full Verify
+aggregate follow from this setup failure.
+
+[Upstream issue #198](https://github.com/dart-lang/setup-dart/issues/198) reports
+the same composite-path error. The exact fetched v1 implementation
+[`6afc89df` lines 144–151](https://github.com/dart-lang/setup-dart/blob/6afc89df92d6eb3834022f73cd65adc8cdfcb92d/lib/main.dart#L144-L151)
+confirms it prefers the inherited `GITHUB_ACTION_PATH`; its documented
+[`problem-matcher` input](https://github.com/dart-lang/setup-dart/blob/6afc89df92d6eb3834022f73cd65adc8cdfcb92d/action.yml)
+allows opting out. The shared action now sets this input to the string `false`.
+This removes automatic analyzer annotations only: analyzer exit statuses,
+tests, inventories, artifact verification and every coverage/mutation floor
+stay enforced.
+
+A regression fails on the original action and passes with the explicit opt-out;
+it also guards the pinned SDK and strict analyzer execution. All 12 CI execution
+contracts pass and actionlint accepts both affected workflows. Fresh canonical
+verification and hosted acceptance of the correction are pending. Debug, test
+advice and review companion attempts are blocked by the active native mutation
+resource lease; no backend availability is inferred from that lease.

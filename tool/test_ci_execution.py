@@ -19,6 +19,21 @@ import run_dart_mutations as runner
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class CompositeSetupTests(unittest.TestCase):
+    def test_nested_dart_setup_does_not_register_a_matcher_from_the_parent_path(self):
+        action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()
+        dart_step = action.split('uses: dart-lang/setup-dart@v1', 1)[1].split(
+            '    - ', 1)[0]
+        # setup-dart defaults to true and resolves dart-analyzer.json relative to
+        # the parent composite's GITHUB_ACTION_PATH, where it does not exist.
+        # Explicitly opting out prevents a runner error before any checks run.
+        self.assertRegex(dart_step, r"(?m)^\s+problem-matcher:\s*'false'\s*$")
+        self.assertIn('sdk: 3.13.1', dart_step)
+        fast = (ROOT / 'bin/test-ci-fast').read_text()
+        self.assertIn('dart analyze', fast)
+        self.assertIn('set -euo pipefail', fast)
+
+
 class ShardingTests(unittest.TestCase):
     def inventory(self, count=23):
         return [{'file': 'packages/fixture/lib/a.dart', 'offset': index,

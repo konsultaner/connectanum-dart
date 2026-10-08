@@ -22,8 +22,15 @@ and 35 shared-library ownership cases pass. The complete MCP inventory remains
 1,101 (six shards of 184/184/184/183/183/183); its full hosted execution is pending.
 Canonical `bin/verify` passes at exit 0, including Rust, VM, consumers and
 Chrome/Dart2Wasm (4,751 core, 2,829 client; the same 20 native-only skips).
-All coverage policies/floors remain unchanged. Hosted acceptance and timing are
-pending on the separate ready-for-review CI PR. Local companions are resource-lease blocked. Scope, measured baseline and steps: [CI plan](../research/2026-10-08-ci-execution-sharing.md).
+All coverage policies/floors remain unchanged. The first hosted run on
+[PR #108](https://github.com/konsultaner/connectanum-dart/pull/108) fails
+during shared setup: setup-dart registers its matcher using the parent
+composite path, where `dart-analyzer.json` is absent. Package dry runs have
+the same cause; skipped verification/mutations and missing artifacts are
+consequences. Disable this optional registration, retaining strict analyzer
+exit-status enforcement. A fail-first regression and all 12 CI execution
+contracts pass after the fix. Fresh canonical and hosted verification are
+pending. Local companions remain blocked by the native mutation resource lease. Scope, measured baseline and steps: [CI plan](../research/2026-10-08-ci-execution-sharing.md).
 
 Current follow-up (2026-10-08): PR #105 Codecov project regression.
 At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;
