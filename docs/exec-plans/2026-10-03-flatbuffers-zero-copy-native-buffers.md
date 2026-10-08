@@ -10,27 +10,35 @@ released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Merged PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105), master `0e585405`.
 Pending release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107).
 
-Current follow-up (2026-10-08): CI execution sharing.
-Approved implementation proceeds in `codex/ci-execution-sharing` from merged
-master `0e585405`; the beta.8 release branch/head remains preserved separately.
-Remove duplicate event runs, share test/coverage execution, cache tooling and
-verify reusable ffi-test artifacts, and group/shard all mutation gates without
-reducing inventories or thresholds. Keep the existing required status names.
-Baseline `bin/test-fast`, the new `bin/test-ci-fast` and focused tooling checks
-pass. Eleven fail-first/execution contracts, a real six-shard 12-mutant campaign
-and 35 shared-library ownership cases pass. The complete MCP inventory remains
-1,101 (six shards of 184/184/184/183/183/183); its full hosted execution is pending.
-Canonical `bin/verify` passes at exit 0, including Rust, VM, consumers and
-Chrome/Dart2Wasm (4,751 core, 2,829 client; the same 20 native-only skips).
-All coverage policies/floors remain unchanged. The first hosted run on
-[PR #108](https://github.com/konsultaner/connectanum-dart/pull/108) fails
-during shared setup: setup-dart registers its matcher using the parent
-composite path, where `dart-analyzer.json` is absent. Package dry runs have
-the same cause; skipped verification/mutations and missing artifacts are
-consequences. Disable this optional registration, retaining strict analyzer
-exit-status enforcement. A fail-first regression and all 12 CI execution
-contracts pass after the fix. Fresh canonical and hosted verification are
-pending. Local companions remain blocked by the native mutation resource lease. Scope, measured baseline and steps: [CI plan](../research/2026-10-08-ci-execution-sharing.md).
+Current follow-up (2026-10-09): CI repair for [PR #108](https://github.com/konsultaner/connectanum-dart/pull/108).
+Branch `codex/ci-execution-sharing` starts from merged master `0e585405`;
+the beta.8 release branch/head remains preserved separately. The first run at
+`163699a0` fails before tests because setup-dart registers its matcher from the
+parent composite path. The explicit matcher opt-out at `15bbac7f` fixes shared
+setup; hosted Fast Checks, package dry runs, browser coverage, shared native
+build and completed mutation gates pass. Fresh local `bin/test-fast` and
+canonical `bin/verify` also pass (Rust, VM, consumers, Chrome/Dart2Wasm; 4,751
+core, 2,829 client, 20 unchanged native-only skips).
+
+The replacement [run 37850365570](https://github.com/konsultaner/connectanum-dart/actions/runs/37850365570)
+then exposes missing native benchmark coverage: its process intentionally
+clears `CONNECTANUM_NATIVE_LIB`, while the shared library only exists under
+`out/ci-native`. One ABI test fails and 230 native cases skip. Prepare now
+installs and verifies the same artifact at the conventional ffi-test location,
+using atomic replacement; dependency, source, toolchain, profile and digest
+checks remain enforced. The real Dart discovery regression fails before the
+fix and passes after it. All 14 CI execution contracts pass; the actual native
+copy ABI case passes with the override unset and no skips. Fresh verification
+of this artifact-path correction and replacement hosted acceptance are pending.
+
+All six hosted MCP shards and independently regenerated aggregation complete
+all 1,101 mutants; the adjusted assertion score is 97.37783075089392%, above
+the original 95% gate. This evidence is for `15bbac7f`. The separate macOS
+artifact job initially cannot acquire a runner; its targeted retry passes on
+unchanged artifact head `163699a0` (run 37810537255, attempt 2). Inventories,
+coverage scopes/floors and deadlines stay unchanged. Local companion attempts
+remain blocked by the active native mutation resource lease. Scope and proof:
+[CI plan](../research/2026-10-08-ci-execution-sharing.md).
 
 Current follow-up (2026-10-08): PR #105 Codecov project regression.
 At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;

@@ -8,6 +8,7 @@ import platform
 import os
 import shutil
 import subprocess
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -57,6 +58,25 @@ def verify(directory, *, prepare=False):
         if not prepare:
             raise ValueError('Prepare the shared native dependency lock before reuse')
         shutil.copy2(directory / 'Cargo.lock', lock)
+    if prepare:
+        # Benchmarks deliberately clear CONNECTANUM_NATIVE_LIB and discover the
+        # canonical test-enabled build. Preserve that process isolation contract.
+        name = {'Linux': 'libct_ffi.so', 'Darwin': 'libct_ffi.dylib',
+                'Windows': 'ct_ffi.dll'}[expected['system']]
+        destination = ROOT / 'native/transport/target/ffi-test/release' / name
+        if not destination.is_file() or sha256(destination) != expected['librarySha256']:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(dir=destination.parent,
+                    prefix=f'.{name}.', delete=False) as handle:
+                staged = Path(handle.name)
+            try:
+                shutil.copy2(directory / 'libct_ffi.so', staged)
+                if sha256(staged) != expected['librarySha256']:
+                    raise ValueError('Prepared native library digest differs from the artifact')
+                staged.replace(destination)
+            finally:
+                staged.unlink(missing_ok=True)
+        return destination.resolve()
     return (directory / 'libct_ffi.so').resolve()
 
 

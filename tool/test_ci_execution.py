@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import shutil
 import re
+import platform
 import unittest
 from unittest.mock import patch
 
@@ -312,6 +313,63 @@ run_command_with_timeout() { shift 2; "$@"; }
 
 
 class NativeArtifactTests(unittest.TestCase):
+    def test_prepare_replaces_stale_platform_library_only_from_a_valid_artifact(self):
+        for system, filename in (('Linux', 'libct_ffi.so'), ('Darwin', 'libct_ffi.dylib'),
+                                 ('Windows', 'ct_ffi.dll')):
+            with self.subTest(system=system), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                library = root / 'built-library'; library.write_bytes(b'ffi-test')
+                lock = root / 'native/transport/Cargo.lock'
+                lock.parent.mkdir(parents=True); lock.write_text('resolved dependencies')
+                with patch.object(ci_native_artifact, 'ROOT', root), \
+                     patch.object(ci_native_artifact, 'identity', return_value={
+                         'system': system, 'commit': 'fixture'}):
+                    ci_native_artifact.record(root / 'artifact', library)
+                    installed = root / 'native/transport/target/ffi-test/release' / filename
+                    ci_native_artifact.verify(root / 'artifact')
+                    self.assertFalse(installed.exists())  # verify stays read-only
+                    self.assertEqual(ci_native_artifact.verify(root / 'artifact', prepare=True),
+                                     installed.resolve())
+                    self.assertEqual(installed.read_bytes(), b'ffi-test')
+                    installed.write_bytes(b'stale build')
+                    ci_native_artifact.verify(root / 'artifact', prepare=True)
+                    self.assertEqual(installed.read_bytes(), b'ffi-test')
+                    installed.write_bytes(b'leave untouched on invalid input')
+                    (root / 'artifact/libct_ffi.so').write_bytes(b'corrupt')
+                    with self.assertRaises(ValueError):
+                        ci_native_artifact.verify(root / 'artifact', prepare=True)
+                    self.assertEqual(installed.read_bytes(), b'leave untouched on invalid input')
+                    self.assertEqual(list(installed.parent.glob(f'.{filename}.*')), [])
+
+    @unittest.skipUnless(shutil.which('dart') and platform.system() in ('Linux', 'Darwin'),
+                         'requires Dart and a supported native benchmark platform')
+    def test_prepared_artifact_is_discovered_when_benchmarks_remove_the_override(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package = root / 'packages/connectanum_bench'
+            package.mkdir(parents=True)
+            shutil.copy2(ROOT / 'packages/connectanum_bench/test/support/native_library.dart',
+                         package / 'native_library.dart')
+            probe = package / 'probe.dart'
+            probe.write_text("import 'native_library.dart';\n"
+                             "void main() { final path = nativeBenchTestLibrary();\n"
+                             "  if (path == null) throw StateError('Native library missing');\n"
+                             "  print(path); }\n")
+            library = root / 'built-library'; library.write_bytes(b'ffi-test')
+            lock = root / 'native/transport/Cargo.lock'
+            lock.parent.mkdir(parents=True); lock.write_text('resolved dependencies')
+            with patch.object(ci_native_artifact, 'ROOT', root), \
+                 patch.object(ci_native_artifact, 'identity', return_value={
+                     'system': platform.system(), 'commit': 'fixture'}):
+                ci_native_artifact.record(root / 'artifact', library)
+                ci_native_artifact.verify(root / 'artifact', prepare=True)
+            env = dict(os.environ)
+            env.pop('CONNECTANUM_NATIVE_LIB', None)
+            result = subprocess.run(['dart', str(probe)], cwd=package, env=env,
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(Path(result.stdout.strip()).read_bytes(), b'ffi-test')
+
     def test_reuse_rejects_different_source_flags_commit_toolchain_or_binary(self):
         identity = {'commit': 'head', 'sourceHashes': {'native.rs': 'source'},
                     'rustc': 'rust fixture', 'features': ['ffi-test'], 'profile': 'release',

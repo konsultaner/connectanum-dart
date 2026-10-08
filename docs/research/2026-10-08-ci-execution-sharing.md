@@ -118,3 +118,39 @@ contracts pass and actionlint accepts both affected workflows. Fresh canonical
 verification and hosted acceptance of the correction are pending. Debug, test
 advice and review companion attempts are blocked by the active native mutation
 resource lease; no backend availability is inferred from that lease.
+
+## Native artifact discovery correction (2026-10-09)
+
+At `15bbac7f`, shared setup succeeds and Fast Checks finishes in 4.2 minutes
+(the earlier 22.4-minute baseline included duplicate full tests). Strict package
+dry runs, browser coverage and shared-library native mutation checks pass.
+All six MCP shards complete all 1,101 mutants; independent aggregation passes
+the unchanged 95% gate with a 97.37783075089392% adjusted assertion score.
+Fresh local canonical fast/full verification passes.
+
+Hosted VM coverage then fails its native copy ABI case: 1,411 benchmark tests
+pass, one fails and 230 skip because the native library is absent from default
+discovery paths. The benchmark runner deliberately unsets the library override
+for process isolation. Leaving the verified shared artifact under `out/ci-native`
+therefore differs from a normal build at `native/transport/target/ffi-test/release`.
+
+Preparation now places the fully verified artifact in that conventional path
+with the platform's library filename and returns that path. Stale files are
+replaced atomically only after copied-byte digest verification; invalid source,
+lock, build identity or digest leaves the installed library unchanged. The
+common ffi-test entry point prepares it before reuse. Read-only verification
+continues to validate the artifact without installing anything. The benchmark
+process still clears the override; no isolation or coverage policy is weakened.
+
+An isolated execution of the real Dart native benchmark discovery helper
+reproduces the missing-library exception before the correction and finds the
+prepared file after it. Platform, stale replacement and corrupt-input controls
+pass for Linux, macOS and Windows filenames. All 14 CI execution contracts pass.
+The actual native copy ABI test passes with the override removed and no skips.
+Fresh verification and hosted acceptance of this second correction are pending.
+Companion debug, test and review attempts remain resource-lease blocked.
+
+The separate macOS WampApp job's annotations report hosted runner acquisition
+failure before any build step. A targeted retry succeeds on unchanged
+`163699a0` in run 37810537255, attempt 2; the other platform bundles already
+passed. This is a capacity recovery, distinct from either CI code correction.
