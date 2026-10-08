@@ -19,7 +19,7 @@ Dart/native graph. Preserve all unfinished milestone and performance criteria.
 - [x] Run fresh baseline `bin/test-fast` at exit 0 before version edits.
 - [x] Advance seven package manifests/constraints, three crate versions,
   runtime identities, hook fixtures, changelogs and current installation docs.
-- [ ] Pass release-planner/tag/hook checks, seven zero-warning strict package
+- [x] Pass release-planner/tag/hook checks, seven zero-warning strict package
   dry runs, manual review and full `bin/verify`.
 - [ ] Promote the release PR through protected master with required review and
   passing hosted checks; do not bypass branch protection.
@@ -31,10 +31,21 @@ Dart/native graph. Preserve all unfinished milestone and performance criteria.
 No ObjectBox adapter, stable-release claim, performance parity acceptance or
 milestone closure is included in this beta checkpoint.
 
-All 37 planner/tag/note/intent tests pass. The initial uncommitted-tree archive
-attempt stops on pub's dirty-file warning; repeat after committing the candidate.
+All 37 planner/tag/note/intent tests and seven exact tag validators pass.
+The initial uncommitted-tree archive attempt stops on pub's dirty-file warning;
+the clean `7ca882c6` candidate passes all seven strict archives with zero warnings.
+Full `bin/verify` passes at exit 0, including Rust, VM/native, consumers, router
+and Chrome/Dart2Wasm (4,751 core and 2,829 client; 20 native-only skips).
 Companion review is attempted but blocked by the active native mutation resource
-lease. Preserve the campaign and rely on manual review and automated checks.
+lease; manual review is complete and the campaign remains untouched.
+[PR #107](https://github.com/konsultaner/connectanum-dart/pull/107) is ready for
+review. Hosted CI is in progress with no observed failures; required review
+and protected-master promotion are pending. The
+[five-platform native dry run](https://github.com/konsultaner/connectanum-dart/actions/runs/37799443111)
+passes its builds, consumers and release preview with publication skipped.
+Downloaded reports independently verify the exact `7ca882c6` commit, all 170
+profile cases with zero skips, log hashes, lifecycle and 48-byte ABI guards.
+Final measurement notes remain local to avoid restarting CI on the frozen head.
 
 Current follow-up (2026-10-08): PR #105 Codecov project regression.
 At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;

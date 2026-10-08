@@ -12,12 +12,20 @@ is not yet published. The release branch starts from merged master `0e585405`
 and synchronizes seven Dart manifests, their hosted constraints, three Rust
 crate versions, MCP runtime identities, hook fixtures and changelogs.
 Fresh baseline `bin/test-fast` passes at exit 0 before the version edits.
-All 37 release planner/tag/note/intent tests pass. The first package dry run
-stops on pub's uncommitted-files warning; commit the candidate before repeating
-the zero-warning archive gate. Companion review is blocked by the active native
-mutation campaign's resource lease; manual review and automated checks continue.
-Candidate clean-tree package dry runs and full verification are pending. Protected-master
-promotion requires one code-owner approval and passing Fast Checks/Full Verify.
+All 37 release planner/tag/note/intent tests and all seven exact publish-tag
+checks pass. After committing the candidate, all seven strict archive dry runs
+report zero warnings. Full `bin/verify` passes at exit 0 on pushed `7ca882c6`,
+including Rust, VM, native, consumers, router and Chrome/Dart2Wasm (4,751 core,
+2,829 client; the same 20 native-only skips). Companion review is blocked by the
+active native mutation resource lease; manual diff review is complete.
+Ready-for-review [release PR #107](https://github.com/konsultaner/connectanum-dart/pull/107)
+requires one approving review and passing hosted Fast Checks/Full Verify.
+[Native dry run 37799443111](https://github.com/konsultaner/connectanum-dart/actions/runs/37799443111)
+passes all five platforms and the release preview, with publication skipped.
+Downloaded reports independently confirm commit `7ca882c6`, 170 passing public
+profile cases, zero skips, matching log hashes, lifecycle and 48-byte ABI guards.
+Hosted CI is still running with no observed failures. Final evidence notes remain
+local to preserve the immutable head being validated; PR #107 carries the proof.
 Publish matching `v3.0.0-beta.8` native assets first, validate installation, then
 publish core, client, MCP, router, facade, auth server and benchmark package tags
 in dependency order and confirm every hosted version. Existing external-app
