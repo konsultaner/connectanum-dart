@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 3.0.0-beta.8
 
+- Synchronize public MCP metadata and dependencies with the beta.8 release.
 - Report WAMP call error URIs in MCP tool failures without forwarding private
   error details, arguments, or keyword arguments.
 

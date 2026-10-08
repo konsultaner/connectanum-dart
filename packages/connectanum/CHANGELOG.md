@@ -1,3 +1,8 @@
+## 3.0.0-beta.8
+
+- Export the FlatBuffers serializer entrypoint through the compatibility facade
+  and align with the beta.8 client and matching native release assets.
+
 ## 3.0.0-beta.7
 
 - Keep the compatibility facade aligned with the beta.7 client and matching

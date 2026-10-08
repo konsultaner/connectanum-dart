@@ -3,7 +3,26 @@
 Last updated: 2026-10-08.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
+Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
+
+Current follow-up (2026-10-08): coordinated `3.0.0-beta.8` publication.
+The user authorizes another synchronized version bump and pub.dev deployment.
+All seven beta.7 packages are confirmed through the live pub.dev API; beta.8
+is not yet published. The release branch starts from merged master `0e585405`
+and synchronizes seven Dart manifests, their hosted constraints, three Rust
+crate versions, MCP runtime identities, hook fixtures and changelogs.
+Fresh baseline `bin/test-fast` passes at exit 0 before the version edits.
+All 37 release planner/tag/note/intent tests pass. The first package dry run
+stops on pub's uncommitted-files warning; commit the candidate before repeating
+the zero-warning archive gate. Companion review is blocked by the active native
+mutation campaign's resource lease; manual review and automated checks continue.
+Candidate clean-tree package dry runs and full verification are pending. Protected-master
+promotion requires one code-owner approval and passing Fast Checks/Full Verify.
+Publish matching `v3.0.0-beta.8` native assets first, validate installation, then
+publish core, client, MCP, router, facade, auth server and benchmark package tags
+in dependency order and confirm every hosted version. Existing external-app
+pins remain unchanged until the new graph is published. Issues #100–#104 and
+performance/copy acceptance remain open; this is a beta release checkpoint.
 
 Current follow-up (2026-10-08): PR #105 Codecov project regression.
 At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;
@@ -20,8 +39,11 @@ Fresh baseline `bin/test-fast` and candidate `bin/verify` pass at exit 0,
 including Rust/VM/consumer/router checks and both browser suites (4,751 core,
 2,829 client; 20 unchanged native-only skips). All 110 coverage-policy/runner
 methods pass. Codecov's public validator accepts the exact generated-file scope.
-The functional fix is published as `7bf7dd4f`; current hosted acceptance is
-reported by [PR #105 checks](https://github.com/konsultaner/connectanum-dart/pull/105/checks).
+The functional fix is published as `7bf7dd4f`, followed by `ec675d59`.
+All 85 PR checks pass: Codecov project is 93.90% (+0.01 percentage points
+versus master), and Codecov patch, Full Verify and mutation checks pass.
+The verified PR is marked ready and merged at `0e585405`.
+Hosted acceptance: [PR #105 checks](https://github.com/konsultaner/connectanum-dart/pull/105/checks).
 Evidence: [coverage scope/proof](research/2026-10-08-codecov-project-coverage.md).
 
 Current follow-up (2026-10-07): coverage runtime ownership isolation.

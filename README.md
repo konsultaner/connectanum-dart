@@ -24,7 +24,7 @@ standalone router, and expose WAMP services to AI agents through MCP.
 </div>
 
 > **3.0 beta:** all Connectanum Dart packages and native Rust crates move
-> together at `3.0.0-beta.7`, including matching native release assets.
+> together at `3.0.0-beta.8`, including matching native release assets.
 > The beta is intended for integration testing before final `3.0.0`.
 
 ## Why Connectanum?
@@ -192,9 +192,9 @@ coordinated stack.
 | [`connectanum`](packages/connectanum) | Compatibility facade for existing `package:connectanum/...` client imports. |
 | [`connectanum_bench`](packages/connectanum_bench) | Reproducible router, transport, profile, and release-feature benchmark scenarios. |
 
-All seven packages share the coordinated `3.0.0-beta.7` version. Install them
+All seven packages share the coordinated `3.0.0-beta.8` version. Install them
 from [pub.dev](https://pub.dev/publishers/dart.konsultaner.de/packages) with
-matching `v3.0.0-beta.7` native assets; do not mix package and native versions.
+matching `v3.0.0-beta.8` native assets; do not mix package and native versions.
 
 ## Documentation
 
@@ -212,11 +212,12 @@ Start at the [documentation index](docs/README.md), or jump directly to:
 
 ## Project Status
 
-`3.0.0-beta.7` is the coordinated router lifecycle beta. It isolates listener
-configuration and TLS reload between embedded router bindings, permits
-independent router processes, and fixes startup/disposal races and CLI shutdown
-leaks. Embedded bindings still share one native engine; see the
-[embedding guide](docs/router_embedding.md) for ownership and shutdown rules.
+`3.0.0-beta.8` adds FlatBuffers as a protocol encoding and exposes native-owned
+buffers and external producer leases with explicit lifetime management. See the
+[FlatBuffers binding](docs/flatbuffers_binding.md) and
+[buffer ownership guide](docs/native_buffer_ownership.md) for supported profiles
+and copy boundaries. ObjectBox integration belongs in a separate adapter;
+FlatBuffers performance parity and complete copy coverage remain unaccepted.
 The broader security audit, regression/mutation coverage target, and relative
 performance confirmation remain open before final `3.0.0`.
 

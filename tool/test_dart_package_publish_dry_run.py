@@ -27,7 +27,7 @@ BENCH_CHANGELOG = (
 BENCH_README = REPO_ROOT / "packages" / "connectanum_bench" / "README.md"
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
-EXPECTED_PACKAGE_VERSION = "3.0.0-beta.7"
+EXPECTED_PACKAGE_VERSION = "3.0.0-beta.8"
 NATIVE_PACKAGE_MANIFESTS = (
     REPO_ROOT / "native" / "bench" / "Cargo.toml",
     REPO_ROOT / "native" / "transport" / "ct_core" / "Cargo.toml",
@@ -293,7 +293,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         result = self._run_tag_validator(
             "connectanum_core",
             "packages/connectanum_core",
-            "connectanum_client-v3.0.0-beta.7",
+            "connectanum_client-v3.0.0-beta.8",
         )
 
         self.assertEqual(result.returncode, 65, result.stdout)

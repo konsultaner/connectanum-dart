@@ -2,10 +2,39 @@
 
 Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
-Branch: `codex/flatbuffers-zero-copy` in the managed FlatBuffers worktree.
+Branch: `codex/release-3.0.0-beta.8` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
-Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
+Merged PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105) at `0e585405`.
+
+## Coordinated beta.8 release checkpoint (2026-10-08)
+
+The user requests another version bump and pub.dev deployment after PR #105
+is merged at master `0e585405`. This supersedes the earlier publication hold.
+All seven beta.7 packages are live; beta.8 is available for the next synchronized
+Dart/native graph. Preserve all unfinished milestone and performance criteria.
+
+- [x] Start `codex/release-3.0.0-beta.8` from merged master, preserving the primary
+  mutation-runner checkout and the feature branch's local evidence commit.
+- [x] Run fresh baseline `bin/test-fast` at exit 0 before version edits.
+- [x] Advance seven package manifests/constraints, three crate versions,
+  runtime identities, hook fixtures, changelogs and current installation docs.
+- [ ] Pass release-planner/tag/hook checks, seven zero-warning strict package
+  dry runs, manual review and full `bin/verify`.
+- [ ] Promote the release PR through protected master with required review and
+  passing hosted checks; do not bypass branch protection.
+- [ ] Publish `v3.0.0-beta.8` native assets and pass production consumers on all
+  five supported build platforms, then validate fresh native installation.
+- [ ] Publish all seven package tags in dependency order, confirm exact hosted
+  versions, and validate an isolated hosted-package consumer.
+
+No ObjectBox adapter, stable-release claim, performance parity acceptance or
+milestone closure is included in this beta checkpoint.
+
+All 37 planner/tag/note/intent tests pass. The initial uncommitted-tree archive
+attempt stops on pub's dirty-file warning; repeat after committing the candidate.
+Companion review is attempted but blocked by the active native mutation resource
+lease. Preserve the campaign and rely on manual review and automated checks.
 
 Current follow-up (2026-10-08): PR #105 Codecov project regression.
 At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;
@@ -22,8 +51,11 @@ Fresh baseline `bin/test-fast` and candidate `bin/verify` pass at exit 0,
 including Rust/VM/consumer/router checks and both browser suites (4,751 core,
 2,829 client; 20 unchanged native-only skips). All 110 coverage-policy/runner
 methods pass. Codecov's public validator accepts the exact generated-file scope.
-The functional fix is published as `7bf7dd4f`; current hosted acceptance is
-reported by [PR #105 checks](https://github.com/konsultaner/connectanum-dart/pull/105/checks).
+The functional fix is published as `7bf7dd4f`, followed by `ec675d59`.
+All 85 PR checks pass: Codecov project is 93.90% (+0.01 percentage points
+versus master), and Codecov patch, Full Verify and mutation checks pass.
+The verified PR is marked ready and merged at `0e585405`.
+Hosted acceptance: [PR #105 checks](https://github.com/konsultaner/connectanum-dart/pull/105/checks).
 Evidence: [coverage scope/proof](../research/2026-10-08-codecov-project-coverage.md).
 
 Current follow-up (2026-10-07): coverage runtime ownership isolation.
@@ -723,8 +755,8 @@ ObjectBox integration itself belongs to a separate adapter package.
 The primary checkout is independent and remains untouched. Feature commits,
 pushes and draft PR updates are authorized. The user requested merging current
 master into this working branch on 2026-10-06; both remotes are already integrated.
-Release publication, version bumps and merging the feature into master remain
-outside the authorized scope.
+The earlier release/publication hold is superseded by the user's 2026-10-08
+request for a synchronized beta.8 release, recorded in the checkpoint above.
 
 ## Issue acceptance status
 
@@ -1369,8 +1401,8 @@ incomplete: a typed application schema and worker/iteration validation must
 precede typed workloads, especially pub/sub where keyword containers are invalid.
 
 Finish public consumer and adapter-boundary docs, then audit each issue before
-closing issues and the milestone. Release publication and merging master remain
-outside authorization.
+closing issues and the milestone. The beta.8 release checkpoint above records
+the user's subsequent publication authorization without closing those criteria.
 
 ## Pushed checkpoint and research
 
