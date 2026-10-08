@@ -20,6 +20,7 @@ fn cbor_all_payload_messages_retain_original_encoding_and_allocation() {
         *expected_payload = Payload {
             args: Some(args.clone()),
             kwargs: Some(kwargs.clone()),
+            transparent: None,
         };
         let mut data = wire(Serializer::Cbor, &template).to_vec();
         assert_condition!((0x80..=0x97).contains(&data[0]));
@@ -159,6 +160,7 @@ fn msgpack_payload_collection_headers_preserve_wire_bytes_at_all_widths() {
                     payload: Payload {
                         args: Some(Bytes::from(args.clone())),
                         kwargs: Some(Bytes::from(kwargs.clone())),
+                        transparent: None,
                     },
                 };
                 assert_eq!(

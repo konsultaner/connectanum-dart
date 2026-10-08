@@ -5,13 +5,17 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_bench/connectanum_bench.dart';
+import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
+import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/connectanum.dart' as client;
+import 'package:connectanum_client/native_buffers.dart' as native_buffers;
 import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart'
     as native_e2ee;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
@@ -47,6 +51,433 @@ void main() {
     tearDownAll(() async {
       await harness?.close();
     });
+
+    for (final transport in WampTransport.values) {
+      for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+        for (final construction in [
+          WampPayloadConstruction.nativeBuffer,
+          WampPayloadConstruction.preEncodedSpan,
+        ]) {
+          test(
+            'owned PPT worker observations stay per owner ${transport.name} ${mode.name} '
+            '${construction.wireName}',
+            () async {
+              final result = await harness!.nativeWorker.runWithMetrics(
+                WampScenario(
+                  transport: transport,
+                  clientImplementation: WampClientImplementation.native,
+                  serializer: WampSerializer.flatbuffers,
+                  peerSerializer: WampSerializer.flatbuffers,
+                  mode: mode,
+                  uri: 'bench.typed.observed.${mode.name}',
+                  iterations: 2,
+                  concurrency: 2,
+                  inFlightPerSession: 2,
+                  payloadBytes: 1024,
+                  payloadConstruction: construction,
+                  pptScheme: 'x_connectanum_bench_typed',
+                  pptSerializer: 'flatbuffers',
+                ),
+              );
+              expect(result.samples, hasLength(4));
+              expect(result.samples.map((sample) => sample.worker).toSet(), {
+                0,
+                1,
+              });
+              for (final sample in result.samples) {
+                expect(sample.nativePptFrameSubmissions, 1);
+                expect(sample.nativePptPayloadBytes, greaterThan(1024));
+                expect(
+                  sample.nativePptPayloadReusedBytes,
+                  sample.nativePptPayloadBytes,
+                );
+              }
+              expect(result.copyMetrics['optimized_payload_copy_bytes'], 0);
+              final copyBreakdown =
+                  (result.copyMetrics['known_own_copy_breakdown']
+                          as Map)['client']
+                      as Map;
+              for (final field in [
+                'io_buffer_front_copy_bytes',
+                'io_buffered_read_copy_bytes',
+              ]) {
+                expect(copyBreakdown[field], isNonNegative);
+              }
+              final measuredCopies =
+                  [
+                    'dart_to_native_copy_bytes',
+                    'websocket_mask_copy_bytes',
+                    'websocket_coalesce_copy_bytes',
+                    'io_buffer_front_copy_bytes',
+                    'io_buffered_read_copy_bytes',
+                  ].fold<int>(
+                    0,
+                    (sum, field) => sum + (copyBreakdown[field] as int),
+                  );
+              expect(
+                result.copyMetrics['transport_copy_bytes'],
+                measuredCopies,
+              );
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+
+      for (final implementation in WampClientImplementation.values) {
+        for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+          for (final peer in [null, WampSerializer.cbor]) {
+            test(
+              'FlatBuffers benchmark ${transport.name} ${implementation.name} '
+              '${mode.name} peer=${peer?.name ?? 'flatbuffers'}',
+              () async {
+                final scenario = WampScenario(
+                  transport: transport,
+                  clientImplementation: implementation,
+                  serializer: WampSerializer.flatbuffers,
+                  peerSerializer: peer,
+                  mode: mode,
+                  uri: mode == WampMode.rpc
+                      ? 'bench.rpc.echo'
+                      : 'bench.flatbuffers.topic',
+                  iterations: 2,
+                  concurrency: 1,
+                  inFlightPerSession: 2,
+                  peerCount: mode == WampMode.pubsub ? 2 : 1,
+                  payloadBytes: 10 * 1024,
+                );
+                final samples =
+                    implementation == WampClientImplementation.native
+                    ? await harness!.runNative(scenario)
+                    : await harness!.runner.run(scenario);
+                expect(samples, hasLength(2));
+                expect(
+                  samples.every((sample) => sample.requestBytes == 10 * 1024),
+                  isTrue,
+                );
+                final expectedResponse =
+                    10 * 1024 * (mode == WampMode.pubsub ? 2 : 1);
+                expect(
+                  samples.every(
+                    (sample) => sample.responseBytes == expectedResponse,
+                  ),
+                  isTrue,
+                );
+              },
+              skip: skipReason,
+              timeout: const Timeout(Duration(seconds: 45)),
+            );
+          }
+        }
+      }
+    }
+
+    for (final transport in WampTransport.values) {
+      for (final implementation in WampClientImplementation.values) {
+        for (final serializer in [
+          WampSerializer.cbor,
+          WampSerializer.msgpack,
+          WampSerializer.flatbuffers,
+        ]) {
+          test(
+            'typed FlatBuffers PPT ${transport.name} '
+            '${implementation.name} outer=${serializer.name} preserves identity',
+            () async {
+              final listeners = harness!.binding.listeners;
+              final port = listeners
+                  .firstWhere(
+                    (listener) =>
+                        listener.settings?.protocols.contains(
+                          transport == WampTransport.rawsocket
+                              ? ListenerProtocol.rawsocket
+                              : ListenerProtocol.websocket,
+                        ) ??
+                        false,
+                  )
+                  .port;
+              const realm = 'bench.control';
+              final endpoint = transport == WampTransport.websocket
+                  ? 'ws://127.0.0.1:$port/wamp'
+                  : null;
+              Future<WampSession> openSession(
+                WampClientImplementation clientImplementation,
+              ) async {
+                try {
+                  return await switch (transport) {
+                    WampTransport.rawsocket => RawSocketWampSessionFactory(
+                      host: '127.0.0.1',
+                      port: port,
+                      realmUri: realm,
+                      serializer: serializer,
+                      clientImplementation: clientImplementation,
+                      nativeLibraryPath: nativeLib,
+                    ).call(),
+                    WampTransport.websocket => WebSocketWampSessionFactory(
+                      url: endpoint!,
+                      realmUri: realm,
+                      serializer: serializer,
+                      clientImplementation: clientImplementation,
+                      headers: const {'x-connectanum-bench': '1'},
+                      nativeLibraryPath: nativeLib,
+                    ).call(),
+                  };
+                } on wamp_core.Abort catch (error) {
+                  throw StateError(
+                    'Typed benchmark session aborted: ${error.reason}; '
+                    'details=${error.details}',
+                  );
+                }
+              }
+
+              final procedure =
+                  'bench.typed.${transport.name}.${implementation.name}.'
+                  '${serializer.name}';
+              final callee = await openSession(WampClientImplementation.dart);
+              WampRegistration? registration;
+              WampSession? caller;
+              native_buffers.NativeOwnedBuffer? input;
+              wamp_core.LazyResultPayload? result;
+              try {
+                registration = await callee.registerLazyPayloadHandler(
+                  procedure,
+                  respondEchoLazyInvocation,
+                );
+                if (transport == WampTransport.websocket &&
+                    implementation == WampClientImplementation.native) {
+                  await _runNativeTypedWebSocketCaller(
+                    url: endpoint!,
+                    realm: realm,
+                    serializer: serializer,
+                    procedure: procedure,
+                    nativeLibraryPath: nativeLib!,
+                  );
+                } else {
+                  caller = await openSession(implementation);
+                  input = BenchPayloadCodec.encodeNative(
+                    native_buffers.NativeBufferAllocator.instance(
+                      libraryPath: nativeLib,
+                    ),
+                    worker: 7,
+                    iteration: 19,
+                    bodyBytes: 1024,
+                  );
+                  result = await caller.callSingleWithLazyPayload(
+                    procedure,
+                    payload: wamp_core.LazyMessagePayload.materialized(
+                      encoding: wamp_core.LazyPayloadEncoding.cbor,
+                      arguments: [input.bytes],
+                    ),
+                    options: wamp_core.CallOptions(
+                      pptScheme: 'x_connectanum_bench_typed',
+                      pptSerializer: 'flatbuffers',
+                    ),
+                  );
+                  expect(result.arguments, hasLength(1));
+                  final returned = result.arguments!.single;
+                  expect(returned, isA<Uint8List>());
+                  BenchPayloadCodec.verify(
+                    bytes: returned as Uint8List,
+                    worker: 7,
+                    iteration: 19,
+                    bodyBytes: 1024,
+                  );
+                }
+              } finally {
+                final completed = result;
+                if (completed != null) {
+                  client.releaseNativeMessagePayload(completed.payload);
+                }
+                input?.dispose();
+                final currentCaller = caller;
+                if (currentCaller != null) await currentCaller.close();
+                await registration?.cancel();
+                await callee.close();
+              }
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+    }
+
+    for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+      for (final pptSerializer in ['flatbuffers', 'cbor', 'msgpack']) {
+        for (final construction in [
+          WampPayloadConstruction.dartValues,
+          WampPayloadConstruction.nativeBuffer,
+          WampPayloadConstruction.preEncodedSpan,
+        ]) {
+          test(
+            'typed runner ${mode.name} $pptSerializer '
+            '${construction.wireName} preserves payload and owner metrics',
+            () async {
+              const bodyBytes = 1024;
+              final scenario = WampScenario(
+                transport: WampTransport.rawsocket,
+                clientImplementation: WampClientImplementation.dart,
+                serializer: WampSerializer.cbor,
+                peerSerializer: WampSerializer.cbor,
+                mode: mode,
+                uri: 'bench.typed.runner.${mode.name}',
+                iterations: 2,
+                concurrency: 1,
+                inFlightPerSession: 1,
+                peerCount: mode == WampMode.pubsub ? 2 : 1,
+                payloadConstruction: construction,
+                payloadBytes: bodyBytes,
+                pptScheme: 'x_connectanum_bench_typed',
+                pptSerializer: pptSerializer,
+              );
+              final samples = await harness!.runner.run(scenario);
+
+              expect(samples, hasLength(2));
+              expect(
+                samples.every((sample) => sample.payloadPreparationUs != null),
+                isTrue,
+              );
+              final copiedBytes = samples
+                  .map((sample) => sample.nativeBuilderInputCopiedBytes)
+                  .toList(growable: false);
+              expect(copiedBytes, everyElement(isNotNull));
+              switch (construction) {
+                case WampPayloadConstruction.dartValues:
+                  expect(copiedBytes, everyElement(0));
+                case WampPayloadConstruction.nativeBuffer:
+                  expect(copiedBytes, everyElement(bodyBytes));
+                case WampPayloadConstruction.preEncodedSpan:
+                  expect(
+                    copiedBytes.every((bytes) => bytes! > bodyBytes),
+                    isTrue,
+                  );
+              }
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+    }
+
+    for (final transport in WampTransport.values) {
+      for (final serializer in [WampSerializer.cbor, WampSerializer.msgpack]) {
+        for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+          for (final construction in [
+            WampPayloadConstruction.nativeBuffer,
+            WampPayloadConstruction.preEncodedSpan,
+          ]) {
+            test(
+              'native owned PPT runner ${transport.name} ${serializer.name} ${mode.name} ${construction.wireName}',
+              () async {
+                const bodyBytes = 1024;
+                final samples = await harness!.runNative(
+                  WampScenario(
+                    transport: transport,
+                    clientImplementation: WampClientImplementation.native,
+                    serializer: serializer,
+                    peerSerializer: serializer,
+                    mode: mode,
+                    uri: 'bench.typed.owned.${serializer.name}.${mode.name}',
+                    iterations: 2,
+                    concurrency: 1,
+                    inFlightPerSession: 1,
+                    peerCount: mode == WampMode.pubsub ? 2 : 1,
+                    payloadConstruction: construction,
+                    payloadBytes: bodyBytes,
+                    pptScheme: 'x_connectanum_bench_typed',
+                    pptSerializer: serializer.name,
+                  ),
+                );
+                expect(samples, hasLength(2));
+                expect(
+                  samples.map((sample) => sample.payloadPreparationUs),
+                  everyElement(isNotNull),
+                );
+                expect(
+                  samples.map((sample) => sample.nativeBuilderInputCopiedBytes),
+                  construction == WampPayloadConstruction.nativeBuffer
+                      ? everyElement(bodyBytes)
+                      : everyElement(greaterThan(bodyBytes)),
+                );
+              },
+              skip: skipReason,
+              timeout: const Timeout(Duration(seconds: 45)),
+            );
+          }
+        }
+      }
+    }
+
+    for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+      for (final pptSerializer in ['flatbuffers', 'cbor', 'msgpack']) {
+        for (final construction in [
+          WampPayloadConstruction.nativeBuffer,
+          WampPayloadConstruction.preEncodedSpan,
+        ]) {
+          test(
+            'native FlatBuffers-envelope runner ${mode.name} $pptSerializer '
+            '${construction.wireName} preserves payload and owner metrics',
+            () async {
+              const bodyBytes = 1024;
+              final scenario = WampScenario(
+                transport: WampTransport.rawsocket,
+                clientImplementation: WampClientImplementation.native,
+                serializer: WampSerializer.flatbuffers,
+                peerSerializer: WampSerializer.flatbuffers,
+                mode: mode,
+                uri: 'bench.typed.native.${mode.name}',
+                iterations: 2,
+                concurrency: 1,
+                inFlightPerSession: 1,
+                peerCount: mode == WampMode.pubsub ? 2 : 1,
+                payloadConstruction: construction,
+                payloadBytes: bodyBytes,
+                pptScheme: 'x_connectanum_bench_typed',
+                pptSerializer: pptSerializer,
+              );
+              final samples = await harness!.runner.run(scenario);
+
+              expect(samples, hasLength(2));
+              expect(
+                samples.every((sample) => sample.payloadPreparationUs != null),
+                isTrue,
+              );
+              if (pptSerializer == 'flatbuffers') {
+                expect(
+                  samples.map((sample) => sample.nativePptFrameSubmissions),
+                  everyElement(1),
+                );
+                for (final sample in samples) {
+                  expect(sample.nativePptPayloadBytes, greaterThan(bodyBytes));
+                  expect(
+                    sample.nativePptPayloadReusedBytes,
+                    sample.nativePptPayloadBytes,
+                  );
+                }
+              }
+              final copiedBytes = samples
+                  .map((sample) => sample.nativeBuilderInputCopiedBytes)
+                  .toList(growable: false);
+              expect(copiedBytes, everyElement(isNotNull));
+              switch (construction) {
+                case WampPayloadConstruction.nativeBuffer:
+                  expect(copiedBytes, everyElement(bodyBytes));
+                case WampPayloadConstruction.preEncodedSpan:
+                  expect(
+                    copiedBytes.every((bytes) => bytes! > bodyBytes),
+                    isTrue,
+                  );
+                case WampPayloadConstruction.dartValues:
+                  fail('The native runner matrix requires owned construction');
+              }
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+    }
 
     for (final webSocket in [false, true]) {
       for (final wireSerializer in ['json', 'msgpack', 'cbor']) {
@@ -246,6 +677,74 @@ void main() {
       timeout: const Timeout(Duration(seconds: 45)),
     );
 
+    for (final implementation in WampClientImplementation.values) {
+      for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+        test(
+          'encrypted typed worker $implementation reports partial $cipher staging metrics',
+          () async {
+            final result = await harness!.nativeWorker.runWithMetrics(
+              WampScenario(
+                transport: WampTransport.rawsocket,
+                clientImplementation: implementation,
+                serializer: WampSerializer.flatbuffers,
+                peerSerializer: WampSerializer.flatbuffers,
+                mode: WampMode.rpc,
+                uri: 'bench.rpc.echo',
+                iterations: 2,
+                concurrency: 1,
+                payloadBytes: 65536,
+                payloadConstruction: WampPayloadConstruction.nativeBuffer,
+                pptScheme: 'wamp',
+                pptSerializer: 'flatbuffers',
+                pptCipher: cipher,
+                pptKeyId: 'benchmark-key',
+              ),
+            );
+            expect(result.samples, hasLength(2));
+            expect(
+              (result.copyMetrics['transcode_copy_bytes'] as Map)['status'],
+              'not_applicable',
+              reason: 'an explicitly identical peer codec is homogeneous',
+            );
+            expect(
+              result.copyMetrics['known_e2ee_staging_copy_bytes'],
+              greaterThanOrEqualTo(0),
+            );
+            expect(
+              (result.copyMetrics['e2ee_copy_bytes'] as Map)['status'],
+              'not_measured',
+            );
+            final breakdown = result.copyMetrics['e2ee_copy_breakdown'] as Map;
+            expect(breakdown['coverage'], 'known_staging_only');
+            expect(
+              breakdown['client_process_plaintext_staging_copy_bytes'],
+              implementation == WampClientImplementation.native
+                  ? greaterThan(0)
+                  : 0,
+            );
+            expect(
+              breakdown['client_process_ciphertext_staging_copy_bytes'],
+              isA<int>(),
+            );
+            final portable =
+                breakdown['client_worker_isolate_portable_provider'] as Map;
+            expect(portable['plaintext_wrapping_copy_bytes'], 0);
+            expect(portable['ciphertext_assembly_copy_bytes'], 0);
+            expect(portable['ciphertext_coercion_copy_bytes'], 0);
+            expect(
+              portable['ciphertext_wrapping_copy_bytes'],
+              implementation == WampClientImplementation.dart &&
+                      cipher == 'xsalsa20poly1305'
+                  ? greaterThan(0)
+                  : 0,
+            );
+          },
+          skip: skipReason,
+          timeout: const Timeout(Duration(seconds: 45)),
+        );
+      }
+    }
+
     test(
       'native mixed-serializer XSalsa E2EE pubsub runs against a real router',
       () async {
@@ -276,7 +775,7 @@ void main() {
     test(
       'native mixed-serializer AES-GCM E2EE pubsub runs against a real router',
       () async {
-        final samples = await harness!.runNative(
+        final result = await harness!.nativeWorker.runWithMetrics(
           WampScenario(
             transport: WampTransport.websocket,
             clientImplementation: WampClientImplementation.native,
@@ -294,7 +793,12 @@ void main() {
           ),
         );
 
-        expect(samples, hasLength(1));
+        expect(result.samples, hasLength(1));
+        expect(
+          (result.copyMetrics['transcode_copy_bytes'] as Map)['status'],
+          'not_measured',
+          reason: 'a real CBOR-to-JSON route still needs transcode attribution',
+        );
       },
       skip: skipReason,
       timeout: const Timeout(Duration(seconds: 45)),
@@ -1305,6 +1809,131 @@ benchmarks:
   });
 }
 
+Future<void> _runNativeTypedWebSocketCaller({
+  required String url,
+  required String realm,
+  required WampSerializer serializer,
+  required String procedure,
+  required String nativeLibraryPath,
+}) async {
+  final responses = ReceivePort();
+  final completed = Completer<Object?>();
+  final subscription = responses.listen((message) {
+    if (completed.isCompleted) return;
+    if (message is Map) {
+      completed.complete(message);
+    } else if (message is List && message.isNotEmpty) {
+      completed.completeError(
+        StateError('Native typed caller isolate failed: ${message.first}'),
+      );
+    } else if (message == null) {
+      completed.completeError(
+        StateError('Native typed caller isolate exited without a result'),
+      );
+    } else {
+      completed.completeError(
+        StateError('Unexpected native typed caller response: $message'),
+      );
+    }
+  });
+  Isolate? isolate;
+  try {
+    isolate = await Isolate.spawn<Map<String, Object?>>(
+      _runNativeTypedWebSocketCallerInIsolate,
+      {
+        'response': responses.sendPort,
+        'url': url,
+        'realm': realm,
+        'serializer': serializer.name,
+        'procedure': procedure,
+        'nativeLibraryPath': nativeLibraryPath,
+      },
+      onError: responses.sendPort,
+      onExit: responses.sendPort,
+    );
+    final response = await completed.future.timeout(
+      const Duration(seconds: 30),
+    );
+    if (response is! Map || response['verified'] != true) {
+      throw StateError(
+        'Native typed caller did not verify its result: '
+        '${response is Map ? response['error'] : response}',
+      );
+    }
+  } finally {
+    isolate?.kill(priority: Isolate.immediate);
+    await subscription.cancel();
+    responses.close();
+  }
+}
+
+Future<void> _runNativeTypedWebSocketCallerInIsolate(
+  Map<String, Object?> config,
+) async {
+  final responsePort = config['response']! as SendPort;
+  WampSession? caller;
+  native_buffers.NativeOwnedBuffer? input;
+  wamp_core.LazyResultPayload? result;
+  Map<String, Object?> response;
+  try {
+    final url = config['url']! as String;
+    final realm = config['realm']! as String;
+    final serializer = WampSerializer.parse(config['serializer']);
+    final procedure = config['procedure']! as String;
+    final nativeLibraryPath = config['nativeLibraryPath']! as String;
+    caller = await WebSocketWampSessionFactory(
+      url: url,
+      realmUri: realm,
+      serializer: serializer,
+      clientImplementation: WampClientImplementation.native,
+      headers: const {'x-connectanum-bench': '1'},
+      nativeLibraryPath: nativeLibraryPath,
+    ).call();
+    input = BenchPayloadCodec.encodeNative(
+      native_buffers.NativeBufferAllocator.instance(
+        libraryPath: nativeLibraryPath,
+      ),
+      worker: 7,
+      iteration: 19,
+      bodyBytes: 1024,
+    );
+    result = await caller.callSingleWithLazyPayload(
+      procedure,
+      payload: wamp_core.LazyMessagePayload.materialized(
+        encoding: wamp_core.LazyPayloadEncoding.cbor,
+        arguments: [input.bytes],
+      ),
+      options: wamp_core.CallOptions(
+        pptScheme: 'x_connectanum_bench_typed',
+        pptSerializer: 'flatbuffers',
+      ),
+    );
+    final arguments = result.arguments;
+    if (arguments == null ||
+        arguments.length != 1 ||
+        arguments.single is! Uint8List) {
+      throw StateError('Typed FlatBuffers result was not one binary argument');
+    }
+    BenchPayloadCodec.verify(
+      bytes: arguments.single as Uint8List,
+      worker: 7,
+      iteration: 19,
+      bodyBytes: 1024,
+    );
+    response = {'verified': true};
+  } catch (error, stackTrace) {
+    response = {'error': '$error\n$stackTrace'};
+  } finally {
+    final completed = result;
+    if (completed != null) {
+      client.releaseNativeMessagePayload(completed.payload);
+    }
+    input?.dispose();
+    await caller?.close();
+  }
+  responsePort.send(response);
+}
+
 String _benchmarkRunnerRouterConfig(
   int rawSocketPort, {
   WampTransport transport = WampTransport.rawsocket,
@@ -1562,6 +2191,9 @@ class _WampTransportHarness {
       },
       logger: Logger.detached('wamp_transport_integration'),
       eventTimeout: const Duration(seconds: 5),
+      nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(
+        libraryPath: nativeLib,
+      ),
     );
 
     final nativeWorker = NativeWampWorker(

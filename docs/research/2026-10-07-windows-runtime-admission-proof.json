@@ -1,0 +1,308 @@
+{
+  "source": "4a7ac18583e859a304ff4651fb5d3d4791225e21",
+  "run": 37622772557,
+  "failed_job": 112796909085,
+  "launcher": "lowercase dart.exe; hooks compile and actual tests start",
+  "snapshot_abi": {
+    "bytes": 48,
+    "alignment": 8,
+    "null_result": -4,
+    "head_tail_unchanged": true,
+    "initial_counters": {
+      "outbound_chunk_copy_bytes_total": 0,
+      "queue_read_copy_bytes_total": 0,
+      "deframer_append_copy_bytes_total": 0,
+      "deframer_move_copy_bytes_total": 0,
+      "record_buffer_copy_bytes_total": 0,
+      "record_append_copy_bytes_total": 0
+    }
+  },
+  "runtime_acceptance": false,
+  "profile_error": "connectanum_client/test/transport/native/flatbuffers_profile_test.dart exits 1",
+  "root_cause": "ct_core platform/mod.rs selects unsupported stub for Windows; start_runtime rejects via PlatformRuntime::new before creating Tokio runtime",
+  "native_runtime_fix_applied": true,
+  "gate_changed": false,
+  "proof_sha256": "1e8c9721541aa0ed7ec31c1a42555b2aef41d5305980ebcb16b73aa0fb1ecf67",
+  "profile_log_sha256": "3cb8d306d7683a4aa2b0c323170610db654b4385af4b1822ad4c90fe9bd65733",
+  "baseline_platform_source_sha256": {
+    "native/transport/ct_core/src/platform/mod.rs": "cbc51ed4dbcd5b49f1f2f8b133afffa9cc364b9e33e4811a47cceba53aeaae64",
+    "native/transport/ct_core/src/platform/linux.rs": "457e0cdac982e124a8d0ef49ffea6a82ac9a668681466d1984d10cd60b608299",
+    "native/transport/ct_core/src/platform/unsupported.rs": "d00b22946b2493613323b07f06b3be256543144f20bfc2da776aba2a453e6e89",
+    "native/transport/ct_ffi/src/tests/mod.rs": "aa6e277235c619eca10414e7be172ed8e9dd4f2ad2c809efc2fa0583fb02a910"
+  },
+  "baseline_fast": "exit0 /tmp/connectanum-windows-launcher-fast-final.log",
+  "baseline_verify": "exit0 /tmp/connectanum-windows-launcher-verify-final.log",
+  "fix_scope": "Admit Windows through existing shared empty platform handle; networking, Tokio, allocators and codec gates unchanged",
+  "candidate_base_commit": "4a7ac18583e859a304ff4651fb5d3d4791225e21",
+  "candidate_provenance": "Uncommitted candidate based on 4a7ac185; local bundle manifest names base commit and does not establish hosted source provenance",
+  "candidate_source_sha256": {
+    "native/transport/ct_core/src/platform/mod.rs": "489dad024e618c4573f78dd285616fd4f8e01307c77da6f4d18477ee9d590c49",
+    "native/transport/ct_core/src/platform/supported.rs": "4cc1889c5aabf75f5cea35dc107204fc0ee35f562660cd1e5b87978e098ee72d",
+    "native/transport/ct_core/src/platform/unsupported.rs": "408b651896f9c8617c33e6e50b48bd09781875fa0bb46d04c97154176a1d7ef1",
+    "native/transport/ct_ffi/src/tests/mod.rs": "1fe7db66e9040cac6a2eda21ddbab3b9168df02c2f9770c9bad84f4ba8575eac",
+    "tool/check_native_artifact_consumers.py": "2f35e8405e33879f18072601ca80b61b06b1cdfe231b2011d60374924427d0e9",
+    "tool/test_native_artifact_consumers.py": "f5e1a6ba83a288b2ffa3bb677328ad15c093b80d01f5b81f3114e14eda8eb7a0"
+  },
+  "local_mac_production": {
+    "runtime_acceptance": true,
+    "runtime_lifecycle": {
+      "start": 0,
+      "duplicate_start": -2,
+      "shutdown": 0,
+      "restart": 0,
+      "final_shutdown": 0
+    },
+    "passed_profile_cases": 34,
+    "profile_exit_codes": [
+      0,
+      0,
+      0
+    ],
+    "archive_sha256": "58b101d7f023ef46bd2890980e9c19f7a044f0382c7f3d1510e0f90142243418",
+    "library_sha256": "d2f670ab2c59112b9681d67a3bc31192b15d73aeb86e48281c2ee1de3bda7128",
+    "raw_proof_sha256": "d790071f539bca7670d493861c38b9ce4a2a29029fbb8db7db0ae0b64eaec0c7",
+    "partial_rustls_snapshot_abi": {
+      "bytes": 48,
+      "alignment": 8,
+      "null_result": -4,
+      "head_tail_unchanged": true,
+      "initial_counters": {
+        "outbound_chunk_copy_bytes_total": 0,
+        "queue_read_copy_bytes_total": 0,
+        "deframer_append_copy_bytes_total": 0,
+        "deframer_move_copy_bytes_total": 0,
+        "record_buffer_copy_bytes_total": 0,
+        "record_append_copy_bytes_total": 0
+      }
+    }
+  },
+  "local_checks": {
+    "constructor": {
+      "exit": 0,
+      "log_sha256": "348e009678660c91b0b81dac57709a0e10627c23ec80bc3b6ca73b3187b3089d"
+    },
+    "lifecycle": {
+      "exit": 0,
+      "log_sha256": "7985dc9067bedc9e4904823593775153d82f592d3222828ac84bb3822e2d6f85"
+    },
+    "unsupported_host": {
+      "exit": 0,
+      "log_sha256": "9bd651ca53e5757a7766b994add265aa7c138bfe1fa473810d622d45c02e49f1"
+    },
+    "consumer_verifier_20_methods": {
+      "exit": 0,
+      "log_sha256": "1e5831a32e9da3669c367186c193165d13d875774c94f6bbaf565c174bb4da35"
+    },
+    "bounded_review": {
+      "exit": 0,
+      "log_sha256": "615c3c7c7f991394a5b589f573c842176108083fb8efc20b53b22116072a9cbc"
+    },
+    "bounded_judge": {
+      "exit": 0,
+      "log_sha256": "e9de797615751c20f336c8d20489cfc2e23273740e6b48e3efeee7b7ff3f3b59"
+    }
+  },
+  "review_verification": "Qwen mistaken cfg claim rejected against literal source; bounded GLM found no definite defect. Lifecycle behavior verified by actual library audit, not advisory approval.",
+  "hosted_windows_candidate_acceptance": "passed at df1a9ad5",
+  "canonical_candidate_checks": {
+    "fast": {
+      "exit": 0,
+      "log_sha256": "2bd41a2a79dfc380061a6c96e9483ab76623ffc249fc122d4f259182bd08f70b"
+    },
+    "verify": {
+      "exit": 0,
+      "log_sha256": "f6c469cec9ac3a3a5f946a288af25028d1479dd8461fe6d0209f5b8a9872b28e"
+    }
+  },
+  "master_integration": {
+    "github_master": "3bac4cf5db3b4cd9d51636f8454e6672722007e2",
+    "origin_master": "3bac4cf5db3b4cd9d51636f8454e6672722007e2",
+    "already_ancestor": true,
+    "new_merge_required": false
+  },
+  "known_hosted_ci_failure": {
+    "source": "4a7ac18583e859a304ff4651fb5d3d4791225e21",
+    "run": 37622673258,
+    "job": 112825887695,
+    "failed_test": "MCP active last owner cleanup phase=resource observer=false",
+    "expected": "empty",
+    "actual": [
+      1
+    ],
+    "source_location": "packages/connectanum_router/test/router_integration_native_test.dart:7199",
+    "job_log_sha256": "52c5c844d2f4e03b0475673ad207b2b1c1f9c6c6f0a4aa93148f67b240ea3a2c",
+    "excerpt_sha256": "7b307500141a99b7523b0c748b10646d4ca549805ce5be52a773f7cad210abcb",
+    "root_cause": "not yet established; async cleanup inspected; local minimal reproduction pending",
+    "repair_applied": false
+  },
+  "hosted_five_platform_consumers": [
+    {
+      "platform": "native-consumers-aarch64-apple-darwin",
+      "expected_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+      "runtime_acceptance": true,
+      "cases": 34,
+      "lifecycle": {
+        "start": 0,
+        "duplicate_start": -2,
+        "shutdown": 0,
+        "restart": 0,
+        "final_shutdown": 0
+      },
+      "snapshot_abi": {
+        "bytes": 48,
+        "alignment": 8,
+        "null_result": -4,
+        "head_tail_unchanged": true,
+        "initial_counters": {
+          "outbound_chunk_copy_bytes_total": 0,
+          "queue_read_copy_bytes_total": 0,
+          "deframer_append_copy_bytes_total": 0,
+          "deframer_move_copy_bytes_total": 0,
+          "record_buffer_copy_bytes_total": 0,
+          "record_append_copy_bytes_total": 0
+        }
+      },
+      "archive_sha256": "557a695ebdafa5f29456df3a4c29d544786cbc3f22d1778e2b4fe608cab1ac36",
+      "library_sha256": "5b33599a7390a6f4e684654fb94428195441e19b65ea74acc6a5d24b7d6e84af",
+      "proof_sha256": "d1b0c6174cd0f7790ff12a6837165f0d509bd459f2d891a09de415cdfa9a808a",
+      "profile_logs_verified": true
+    },
+    {
+      "platform": "native-consumers-aarch64-unknown-linux-gnu",
+      "expected_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+      "runtime_acceptance": true,
+      "cases": 34,
+      "lifecycle": {
+        "start": 0,
+        "duplicate_start": -2,
+        "shutdown": 0,
+        "restart": 0,
+        "final_shutdown": 0
+      },
+      "snapshot_abi": {
+        "bytes": 48,
+        "alignment": 8,
+        "null_result": -4,
+        "head_tail_unchanged": true,
+        "initial_counters": {
+          "outbound_chunk_copy_bytes_total": 0,
+          "queue_read_copy_bytes_total": 0,
+          "deframer_append_copy_bytes_total": 0,
+          "deframer_move_copy_bytes_total": 0,
+          "record_buffer_copy_bytes_total": 0,
+          "record_append_copy_bytes_total": 0
+        }
+      },
+      "archive_sha256": "441fd26bac230cb01a5521dbaa70ec3ddb9d4b51db58aedcde7fdc14108e417d",
+      "library_sha256": "a46fdb79b9298cef2337f3612a37ea5ce3c8f3e5ba033f35d5db8661521adbab",
+      "proof_sha256": "dbebc879490d05e40b8c2ba7c0b17e1299282878507ac2f1505c40be57d40fab",
+      "profile_logs_verified": true
+    },
+    {
+      "platform": "native-consumers-x86_64-apple-darwin",
+      "expected_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+      "runtime_acceptance": true,
+      "cases": 34,
+      "lifecycle": {
+        "start": 0,
+        "duplicate_start": -2,
+        "shutdown": 0,
+        "restart": 0,
+        "final_shutdown": 0
+      },
+      "snapshot_abi": {
+        "bytes": 48,
+        "alignment": 8,
+        "null_result": -4,
+        "head_tail_unchanged": true,
+        "initial_counters": {
+          "outbound_chunk_copy_bytes_total": 0,
+          "queue_read_copy_bytes_total": 0,
+          "deframer_append_copy_bytes_total": 0,
+          "deframer_move_copy_bytes_total": 0,
+          "record_buffer_copy_bytes_total": 0,
+          "record_append_copy_bytes_total": 0
+        }
+      },
+      "archive_sha256": "f06ad4b5a22719357e189ac71a927b8302c13a174f819c686e298cd1fd779c3e",
+      "library_sha256": "2531f51f9b2a37ce461006c5bf29ef5fb1d724ea3dbb636289819602a696cc49",
+      "proof_sha256": "15d90d4c7684f491dada0afcd336dc10192a44333ef1133e6b68121b6c121d5e",
+      "profile_logs_verified": true
+    },
+    {
+      "platform": "native-consumers-x86_64-pc-windows-msvc",
+      "expected_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+      "runtime_acceptance": true,
+      "cases": 34,
+      "lifecycle": {
+        "start": 0,
+        "duplicate_start": -2,
+        "shutdown": 0,
+        "restart": 0,
+        "final_shutdown": 0
+      },
+      "snapshot_abi": {
+        "bytes": 48,
+        "alignment": 8,
+        "null_result": -4,
+        "head_tail_unchanged": true,
+        "initial_counters": {
+          "outbound_chunk_copy_bytes_total": 0,
+          "queue_read_copy_bytes_total": 0,
+          "deframer_append_copy_bytes_total": 0,
+          "deframer_move_copy_bytes_total": 0,
+          "record_buffer_copy_bytes_total": 0,
+          "record_append_copy_bytes_total": 0
+        }
+      },
+      "archive_sha256": "526dd78c429f2bf2297621df0559a054f2898171444144210db4a7ea467e07a1",
+      "library_sha256": "3d1cf0f257fb5414c5d99e0f7f5bf8dd7c9d8d2db1eb9da58b9b31a5314b86fe",
+      "proof_sha256": "46d9578054497d69d4555b66a3920e8ba9b8803e4f1af31a1d8a5f751395274a",
+      "profile_logs_verified": true
+    },
+    {
+      "platform": "native-consumers-x86_64-unknown-linux-gnu",
+      "expected_commit": "df1a9ad545368c3e6097d0ecac2d07a75834335e",
+      "runtime_acceptance": true,
+      "cases": 34,
+      "lifecycle": {
+        "start": 0,
+        "duplicate_start": -2,
+        "shutdown": 0,
+        "restart": 0,
+        "final_shutdown": 0
+      },
+      "snapshot_abi": {
+        "bytes": 48,
+        "alignment": 8,
+        "null_result": -4,
+        "head_tail_unchanged": true,
+        "initial_counters": {
+          "outbound_chunk_copy_bytes_total": 0,
+          "queue_read_copy_bytes_total": 0,
+          "deframer_append_copy_bytes_total": 0,
+          "deframer_move_copy_bytes_total": 0,
+          "record_buffer_copy_bytes_total": 0,
+          "record_append_copy_bytes_total": 0
+        }
+      },
+      "archive_sha256": "9d7e7370f31cc7accee019ff27a7b0d1eaa67f8f04026aeba15ab8f61c2dc83c",
+      "library_sha256": "bff0a9d372fd8b4f292db751e9cf128be1962c476f910e08b10d378e5a3dc9f8",
+      "proof_sha256": "d9777a18e65b58d2b6b2931bf90634a2015dfad3ff57c9d20f910ae47c7d601e",
+      "profile_logs_verified": true
+    }
+  ],
+  "hosted_native_run": 37641389501,
+  "hosted_native_release_preview": {
+    "conclusion": "failure",
+    "failed_job": 112861004738,
+    "failed_step": "Generate archive attestation",
+    "error": "Failed to persist attestation",
+    "consumer_profiles_passed_all_five": true,
+    "failed_job_rerun_http_status": 500
+  },
+  "hosted_package_dry_run": {
+    "run": 37641396308,
+    "conclusion": "success"
+  }
+}

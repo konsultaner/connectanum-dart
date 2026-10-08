@@ -345,7 +345,16 @@ pub fn message_to_json(message: &WampMessage, serializer: RawSocketSerializer) -
             request_id,
             registration_id,
         } => json!([66, request_id, registration_id]),
-        WampMessage::Unregistered { request_id } => json!([67, request_id]),
+        WampMessage::Unregistered {
+            request_id,
+            details,
+        } => {
+            if details.is_empty() {
+                json!([67, request_id])
+            } else {
+                json!([67, request_id, map_to_json(details)])
+            }
+        }
         WampMessage::Invocation {
             request_id,
             registration_id,

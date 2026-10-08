@@ -1,0 +1,1517 @@
+// Derived from pinned upstream schemas; regenerate with tool/generate_wamp_flatbuffers.py.
+
+//////////////////////////////////////////////////////////////////////////////
+//
+//   FlatBuffers schema for WAMP v2 messages
+//   Copyright (c) typedef int GmbH and contributors
+//   Licensed under the MIT License (MIT)
+//
+//////////////////////////////////////////////////////////////////////////////
+
+/// Define custom attributes to hint a string subtypes:
+attribute "uri";
+attribute "uri_pattern";
+attribute "principal";
+attribute "hex";
+attribute "base64";
+
+/// WAMP Payload Passthru (PPT) encryption key id. The value can be a hex-encoded string, URI, DNS name, Ethereum address, UUID identifier - any meaningful value which allows the target peer to choose a private key without guessing. The format of the value may depend on the ppt_scheme attribute.
+attribute "ppt_keyid";
+
+
+/// Namespace for WAMP.
+namespace wamp;
+
+
+/// Simple mapping, from string keys to string values.
+table Map {
+    /// Key, which must match the regular expression `[A-Za-z_][A-Za-z0-9_]*`. That
+    /// makes keys a valid identified in FlatBuffers (and most programming languages)
+    key: string (required, key);
+
+    /// Value, which may be any (UTF8 encoded Unicode) string.
+    value: string;
+}
+
+/// Void type (table based) for use with services.
+table Void
+{
+    /// nothing here!
+}
+
+
+/// Namespace for WAMP protocol.
+namespace wamp.proto;
+
+
+/// WAMP message type IDs organized by message categories:
+/// - Category 1: Neither Payload nor Forwarding (12 messages)
+/// - Category 2: Payload Only (0 messages) - architecturally empty
+/// - Category 3: Forwarding Only (3 messages)
+/// - Category 4: Both Payload and Forwarding (7 messages)
+enum MessageType: uint16
+{
+    /// No valid message type
+    NULL = 0,
+
+    /// [Category 1] Session opening, authentication and closing
+    HELLO = 1,
+    WELCOME = 2,
+    ABORT = 3,
+    CHALLENGE = 4,
+    AUTHENTICATE = 5,
+    GOODBYE = 6,
+
+    /// [Category 4] Used in both PubSub and RPC
+    ERROR = 8,
+
+    /// Publish & Subscribe (PubSub)
+    PUBLISH = 16,          // [Category 4] Publisher sends event with application payload
+    PUBLISHED = 17,        // [Category 1] Router acknowledges publication
+    SUBSCRIBE = 32,        // [Category 1] Client subscribes to topic
+    SUBSCRIBED = 33,       // [Category 1] Router acknowledges subscription
+    UNSUBSCRIBE = 34,      // [Category 1] Client unsubscribes from topic
+    UNSUBSCRIBED = 35,     // [Category 1] Router acknowledges unsubscription
+    EVENT = 36,            // [Category 4] Router dispatches event with application payload
+    EVENT_RECEIVED = 37,   // [Category 3] Subscriber acknowledges event reception (QoS level 2)
+
+    /// Remote Procedure Calls (RPC)
+    CALL = 48,             // [Category 4] Caller invokes procedure with application payload
+    CANCEL = 49,           // [Category 3] Caller cancels pending call
+    RESULT = 50,           // [Category 4] Callee returns result with application payload
+    REGISTER = 64,         // [Category 1] Callee registers procedure
+    REGISTERED = 65,       // [Category 1] Router acknowledges registration
+    UNREGISTER = 66,       // [Category 1] Callee unregisters procedure
+    UNREGISTERED = 67,     // [Category 1] Router acknowledges unregistration
+    INVOCATION = 68,       // [Category 4] Router invokes procedure with application payload
+    INTERRUPT = 69,        // [Category 3] Router interrupts pending invocation
+    YIELD = 70             // [Category 4] Callee yields result with application payload
+}
+
+
+/// WAMP session identity information.
+table Principal
+{
+    /// WAMP session ID.
+    session: uint64;
+
+    /// WAMP session authentication ID.
+    authid: string (principal);
+
+    /// WAMP session authentication role.
+    authrole: string (principal);
+}
+
+
+/// WAMP Payload Passthru (PPT) scheme (renamed from `Payload`).
+enum PPTScheme: uint8
+{
+    /// Unset (plain WAMP application payload)
+    NONE = 0,
+
+    /// WAMP-cryptobox end-to-end encrypted application payload
+    CRYPTOBOX = 1,
+
+    /// MQTT passthrough-mode application payload
+    MQTT = 2,
+
+    /// XBR end-to-end encrypted and Ethereum anchored application payload
+    XBR = 3,
+
+    /// Raw pass-through of app payload, uninterpreted in any way.
+    OPAQUE = 4
+}
+
+
+/// WAMP Payload Passthru (PPT) application payload serializer (renamed from `Serializer`).
+enum PPTSerializer: uint8
+{
+    /// Use same serializer (dynamically or statically typed) for the application payload as used on the transport for the WAMP message envelope.
+    TRANSPORT = 0,
+
+    /// Use JSON serializer for dynamically typed application payload.
+    JSON = 1,
+
+    /// Use MsgPack serializer for dynamically typed application payload.
+    MSGPACK = 2,
+
+    /// Use CBOR serializer for dynamically typed application payload.
+    CBOR = 3,
+
+    /// Use UBJSON serializer for dynamically typed application payload.
+    UBJSON = 4,
+
+    /// Raw pass-through of application payload, uninterpreted in any way.
+    OPAQUE = 5,
+
+    /// Use FlatBuffers serializer for statically typed application payload (https://google.github.io/flatbuffers/index.html).
+    FLATBUFFERS = 6,
+
+    /// Use FlexBuffers serializer dynamically typed application payload (https://google.github.io/flatbuffers/flexbuffers.html).
+    FLEXBUFFERS = 7
+}
+
+
+/// WAMP Payload Passthru (PPT) application payload cipher (NEW!).
+enum PPTCipher: uint8
+{
+    /// No valid cipher (unfilled)
+    NULL = 0,
+
+    /// Particular combination of Salsa20 and Poly1305 specified in Daniel J. Bernstein, "Cryptography in NaCl" (https://cr.yp.to/highspeed/naclcrypto-20090310.pdf), see NaCl (https://nacl.cr.yp.to/) "crypto_secretbox_xsalsa20poly1305" (aka WAMP "cryptobox").
+    XSALSA20POLY1305 = 1,
+
+    /// Galois/Counter Mode (GCM), see https://en.wikipedia.org/wiki/Galois/Counter_Mode.
+    AES256GCM = 2
+}
+
+
+/// Subscription topic matching method.
+enum Match: uint8
+{
+    /// Match URI exact.
+    EXACT = 0,
+
+    /// Match URI by prefix.
+    PREFIX = 1,
+
+    /// Match URI by wildcard.
+    WILDCARD = 2
+}
+
+
+/// Remote procedure invocation policy, for use with shared registrations.
+enum InvocationPolicy: uint8
+{
+    /// Standard invocation policy: a procedure may only be registered by at most
+    /// one callee at a time. This is the default.
+    SINGLE = 0,
+
+    /// First callee invocation policy: all calls to a procedure are forwarded to
+    /// the callee that first registered. Should that callee unregister, calls
+    /// are forwarded to the callee that registered next after the former.
+    FIRST = 1,
+
+    /// Last callee invocation policy: all calls to a procedure are forwwrded to
+    /// the callee that last registered. Should that callee unregister, calls
+    /// are forwarded to the callee that registered next before the former.
+    LAST = 2,
+
+    /// Round-robin invocation policy: calls are forward to all registered callees
+    /// in a round-robin fashion. Callees that unregister are removed from the
+    /// round-robin list, and new callees registering will get calls immediately
+    /// in the next dispatching round.
+    ROUNDROBIN = 3,
+
+    /// Random invocation policy: calls are forwarded to all registered callees
+    /// in a random fashion. Callees that unregister are removed from the set
+    /// of callees randomly drawn from to dispatch incoming calls.
+    RANDOM = 4
+}
+
+
+/// Call cancel mode.
+enum CancelMode: uint8
+{
+    /// Skip running invocation call.
+    SKIP = 0,
+
+    /// Kill running invocation and call.
+    KILL = 1,
+
+    /// Kill running invocation and call without waiting.
+    KILLNOWAIT = 2
+}
+
+
+/// WAMP transport channel type (`channel_type`). WAMP can run over any Transport which is message-based (requiring no WAMP transport channel framing) or stream-based (requiring WAMP transport channel framing), and bidirectional, reliable and ordered.
+enum TransportChannelType: uint8
+{
+    /// Not set or applicable.
+    NULL = 0,
+
+    /// Host language native function call transport, e.g. inherently message-based already (function call).
+    FUNCTION = 1,
+
+    /// Host run-time / OS level in-memory transport, e.g. (unframed / stream-based) memory buffer.
+    MEMORY = 2,
+
+    /// Serial (UART) based transport (unframed / stream-based).
+    SERIAL = 3,
+
+    /// TCP (non-TLS) based transport (unframed / stream-based).
+    TCP = 4,
+
+    /// TLS (over TCP) based transport (unframed / stream-based).
+    TLS = 5
+
+    /// FUTURE (?):
+    /// - add WireGuard (over UDP) based transport.
+    /// - add QUIC (over UDP; using TLS 1.3 handshake messages; WebTransport browser API) based transport.
+    /// - add WebRTC data channels (SCTP over DTLS; RTCDataChannel browser API) based transport.
+    /// - add VirtIO (in-memory queues) based transport.
+}
+
+
+/// WAMP transport channel framing (`channel_framing`).
+enum TransportChannelFraming: uint8
+{
+    /// Not set.
+    NULL = 0,
+
+    /// Raw transport itself is inherently message-based already (e.g. FUNCTION or VIRTIO).
+    NATIVE = 1,
+
+    /// Raw transport itself (e.g. TCP) is stream-based and channel framing applied is WebSocket (RFC6455).
+    WEBSOCKET = 2,
+
+    /// Raw transport itself (e.g. TCP) is stream-based and channel framing applied is RawSocket (WAMP).
+    RAWSOCKET = 3
+}
+
+
+/// WAMP transport channel serializer (`channel_serializer`).
+enum TransportChannelSerializer: uint8
+{
+    /// Not set or applicable.
+    NULL = 0,
+
+    /// Use JSON serializer (for dynamically typed app payload).
+    JSON = 1,
+
+    /// Use MsgPack serializer (for dynamically typed app payload).
+    MSGPACK = 2,
+
+    /// Use CBOR serializer (for dynamically typed app payload).
+    CBOR = 3,
+
+    /// Use UBJSON serializer (for dynamically typed app payload).
+    UBJSON = 4,
+
+    /// Raw pass-through of app payload, uninterpreted in any way.
+    OPAQUE = 5,
+
+    /// Use FlatBuffers serialized (statically typed) payload (https://google.github.io/flatbuffers/index.html).
+    FLATBUFFERS = 6,
+
+    /// Use FlexBuffers serialized (dynamically typed) payload (https://google.github.io/flatbuffers/flexbuffers.html).
+    FLEXBUFFERS = 7
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+//   FlatBuffers schema for WAMP v2 messages
+//   Copyright (c) typedef int GmbH and contributors
+//   Licensed under the MIT License (MIT)
+//
+//////////////////////////////////////////////////////////////////////////////
+
+
+namespace wamp.proto;
+
+
+// Features from the WAMP advanced profile a **Broker** might support.
+table BrokerFeatures
+{
+    publisher_identification: bool;
+    publisher_exclusion: bool;
+    subscriber_blackwhite_listing: bool;
+    pattern_based_subscription: bool;
+    publication_trustlevels: bool;
+    subscription_revocation: bool;
+    session_meta_api: bool;
+    subscription_meta_api: bool;
+    event_retention: bool;
+    event_history: bool;
+    acknowledge_event_received: bool;
+    acknowledge_subscriber_received: bool;
+    payload_transparency: bool;
+    payload_encryption_cryptobox: bool;
+}
+
+
+// Features from the WAMP advanced profile a **Publisher** might support.
+// Note: this is a subset of the feature brokers can support.
+table PublisherFeatures
+{
+    publisher_identification: bool;
+    publisher_exclusion: bool;
+    subscriber_blackwhite_listing: bool;
+    acknowledge_event_received: bool;
+    payload_transparency: bool;
+    payload_encryption_cryptobox: bool;
+}
+
+
+// Features from the WAMP advanced profile a **Subscriber** might support.
+// Note: this is a subset of the feature brokers can support.
+table SubscriberFeatures
+{
+    publisher_identification: bool;
+    pattern_based_subscription: bool;
+    publication_trustlevels: bool;
+    subscription_revocation: bool;
+    event_history: bool;
+    acknowledge_subscriber_received: bool;
+    payload_transparency: bool;
+    payload_encryption_cryptobox: bool;
+}
+
+
+// Features from the WAMP advanced profile a **Dealer** might support.
+table DealerFeatures
+{
+    caller_identification: bool;
+    call_trustlevels: bool;
+    call_timeout: bool;
+    call_canceling: bool;
+    progressive_call_results: bool;
+    registration_revocation: bool;
+    pattern_based_registration: bool;
+    shared_registration: bool;
+    session_meta_api: bool;
+    registration_meta_api: bool;
+    testament_meta_api: bool;
+    payload_transparency: bool;
+    payload_encryption_cryptobox: bool;
+}
+
+
+// Features from the WAMP advanced profile a **Caller** might support.
+// Note: this is a subset of the feature dealers can support.
+table CallerFeatures
+{
+    caller_identification: bool;
+    call_timeout: bool;
+    call_canceling: bool;
+    progressive_call_results: bool;
+    payload_transparency: bool;
+    payload_encryption_cryptobox : bool;
+}
+
+
+// Features from the WAMP advanced profile a **Callee** might support.
+// Note: this is a subset of the feature dealers can support.
+table CalleeFeatures
+{
+    caller_identification: bool;
+    call_trustlevels: bool;
+    call_timeout: bool;
+    call_canceling: bool;
+    progressive_call_results: bool;
+    registration_revocation: bool;
+    pattern_based_registration: bool;
+    shared_registration: bool;
+    payload_transparency: bool;
+    payload_encryption_cryptobox: bool;
+}
+
+
+// WAMP roles a **Client** might support (it must support at least one).
+table ClientRoles
+{
+    publisher: PublisherFeatures;
+    subscriber: SubscriberFeatures;
+    caller: CallerFeatures;
+    callee: CalleeFeatures;
+}
+
+
+// WAMP roles a **Router** might support (it must support at least one).
+table RouterRoles
+{
+    broker: BrokerFeatures;
+    dealer: DealerFeatures;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+//   FlatBuffers schema for WAMP v2 messages
+//   Copyright (c) typedef int GmbH and contributors
+//   Licensed under the MIT License (MIT)
+//
+//////////////////////////////////////////////////////////////////////////////
+
+
+namespace wamp.proto;
+
+
+/// WAMP authentication method (see: WAMP protocol spec, "13. Authentication Methods").
+enum AuthMethod: uint8
+{
+    /// Not set / not authenticated: `anonymous`.
+    NULL = 0,
+
+    /// WAMP Ticket authentication: `ticket` (see: WAMP protocol spec, "13.1. Ticket-based Authentication").
+    TICKET = 1,
+
+    /// WAMP Challenge-Response authentication: `wampcra` (see: WAMP protocol spec, "13.2. Challenge Response Authentication").
+    CRA = 2,
+
+    /// WAMP Salted Challenge Response authentication: `wamp-scram` (see: WAMP protocol spec, "13.3. Salted Challenge Response Authentication").
+    SCRAM = 3,
+
+    /// WAMP Cryptosign authentication: `cryptosign` (see: WAMP protocol spec, "13.4. Cryptosign-based Authentication").
+    CRYPTOSIGN = 4
+}
+
+
+/// TLS channel binding type (see: RFC5929 https://www.rfc-editor.org/rfc/rfc5929 and RFC9266 https://www.rfc-editor.org/rfc/rfc9266).
+enum TLSChannelBinding: uint8
+{
+    /// Not set / no channel binding.
+    NULL = 0,
+
+    // RFC 5929 `tls-unique`. Available for TLS connections; historically used as the default for many SASL/SCRAM uses over TLS ≤ 1.2. Care needed with renegotiation and with TLS versions where the triple-handshake / EMS issues apply (see RFCs).
+    TLS_UNIQUE = 1,
+
+    /// RFC 5929 `tls-unique-for-telnet`. Only relevant to TELNET / TELNET AUTH usage. See RFC 5929 for details and applicability guidance.
+    TLS_UNIQUE_TELNET = 2,
+
+    /// RFC 5929 `tls-server-end-point`. Only available when a server certificate is used (i.e., cipher suites that include the Certificate handshake message / PKIX). Not applicable to OpenPGP server certificates. Recommended for situations where server-side proxies must interoperate without changes.
+    TLS_SERVER_ENDPOINT = 3,
+
+    /// RFC 9266 `tls-exporter`. Defined to address TLS 1.3 (where the older tls-unique semantics are not reliably available). RFC 9266 updates defaults for TLS ≥ 1.3: when channel bindings are used for TLS 1.3, tls-exporter is the mandatory/expected mechanism. Not defined for connections where TLS renegotiation is enabled.
+    TLS_EXPORTER = 4
+}
+
+
+/// Key Derivation Functions, e.g. WAMP SCRAM uses a password-based key derivation function (KDF) to hash user passwords. WAMP-SCRAM supports both Argon2 and PBKDF2 as the KDF (see: WAMP protocol specification, "SCRAM Algorithms").
+enum KDF: uint8
+{
+    /// Not set / no TLS channel binding.
+    NULL = 0,
+
+    /// Argon2id variant of Argon2, version 1.3 - `argon2id13`.
+    ARGON2ID13 = 1,
+
+    /// PBKDF2 - `pbkdf2`.
+    PBKDF2 = 2
+}
+
+
+
+//
+// WAMP-Ticket Authentication
+//
+
+table AuthTicketRequest
+{
+}
+
+table AuthTicketChallenge
+{
+}
+
+table AuthTicketWelcome
+{
+}
+
+
+//
+// WAMP-CRA Authentication
+//
+
+table AuthCraRequest
+{
+    // nothing here
+}
+
+table AuthCraChallenge
+{
+    // The challenge sent by the router.
+    challenge: string (required);
+
+    // If using PBKDF2 password salting with WAMP-CRA, the user salt.
+    salt: string;
+
+    // If using PBKDF2 password salting, the iterations in the salting.
+    iterations: uint32 = 1000;
+
+    // If using PBKDF2 password salting, the keylen in the salting.
+    keylen: uint8 = 32;
+}
+
+table AuthCraWelcome
+{
+    // nothing here
+}
+
+
+//
+// WAMP-SCRAM Authentication
+//
+
+table AuthScramRequest
+{
+    // A base64-encoded sequence of random octets, generated by the client.
+    nonce: string (required, base64);
+
+    // Optional requested channel binding type.
+    channel_binding: TLSChannelBinding;
+}
+
+table AuthScramChallenge
+{
+    // A server-generatated nonce that is appended to the client-generated
+    // nonce sent in the previous HELLO message.
+    nonce: string (required, base64);
+
+    // The base64-encoded salt for this user, to be passed to the key
+    // derivation function. This value is stored with each user record in
+    // the authentication database.
+    salt: string (required, base64);
+
+    // The key derivation function (KDF) used to hash the password. This
+    // value is stored with each user record in the authentication database.
+    kdf: KDF = ARGON2ID13;
+
+    // The execution time cost factor to use for generating the
+    // SaltedPassword hash. This value is stored with each user record in
+    // the authentication database.
+    iterations: uint32;
+
+    // The memory cost factor to use for generating the SaltedPassword hash.
+    // This is only used by the Argon2 key derivation function, where it is
+    // stored with each user record in the authentication database.
+    memory: uint32;
+
+    // Channel binding type, if channel binding was requested and is actually used.
+    channel_binding: TLSChannelBinding;
+}
+
+table AuthScramWelcome
+{
+    // The base64-encoded ServerSignature, computed as described in the
+    // SCRAM Algorithms section.
+    verifier: string;
+}
+
+
+//
+// WAMP-Cryptosign Authentication
+//
+
+table AuthCryptosignRequest
+{
+    pubkey: string (required, hex);
+
+    // Optional requested channel binding type.
+    channel_binding: TLSChannelBinding;
+}
+
+
+table AuthCryptosignChallenge
+{
+    // Channel binding type, if channel binding was requested and is actually used.
+    channel_binding: TLSChannelBinding;
+}
+
+table AuthCryptosignWelcome
+{
+}
+
+
+// Any authentication factor usable in HELLO.
+union AuthFactor
+{
+    AuthTicketRequest,
+    AuthCraRequest,
+    AuthScramRequest,
+    AuthCryptosignRequest
+}
+
+
+// When more than one authentication factor slot in the HELLO message
+// is filled, determines how the factor are to be combined. With FIRST,
+// the client hints the router to choose the first authentication factor
+// from the list that is acceptable. With MULTIFACTOR, the router will
+// challenge the client for _all_ authentication factors filled.
+enum AuthMode: uint8
+{
+    // Let router choose first (filled) acceptable authentication factor.
+    FIRST = 0,
+
+    // Router will challenge for multi-factor authentication for all
+    // factors, and sequentially using multiple CHALLENGE and AUTHENTICATE
+    // message roundtrips.
+    MULTIFACTOR = 1,
+}
+
+
+table HelloNew
+{
+    // Supported client roles and features.
+    roles: ClientRoles (required);
+
+    // Realm requested to join.
+    realm: string (uri);
+
+    // Client authentication ID requested.
+    authid: string (principal);
+
+    // Client authentication role requested.
+    authrole: string (principal);
+
+    // Requested authentication level.
+    authmode: AuthMode;
+
+    // First authentication factor.
+    authfactor1: AuthFactor;
+
+    // Second authentication factor.
+    authfactor2: AuthFactor;
+
+    // Third authentication factor.
+    authfactor3: AuthFactor;
+
+    // Whether the client wants this to be a session that can be
+    // later resumed (HELLO.Details.resumable).
+    resumable: bool;
+
+    // The session the client would like to resume (HELLO.Details.resume_session).
+    resume_session: uint64;
+
+    // The secure authorisation token to resume the session (HELLO.Details.resume_token).
+    resume_token: string;
+}
+
+
+
+//////////////////////////////////////////////////////////////////////////////
+//
+//   FlatBuffers schema for WAMP v2 messages
+//   Copyright (c) typedef int GmbH and contributors
+//   Licensed under the MIT License (MIT)
+//
+//////////////////////////////////////////////////////////////////////////////
+
+
+namespace wamp.proto;
+
+
+// [Category 1: Neither Payload nor Forwarding] HELLO message (message_type = 1): Client initiates session.
+table Hello
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP session roles and client library features to announce.
+    roles: ClientRoles (required);
+
+    // The URI of the WAMP realm the client wants to join.
+    realm: string (uri);
+
+    // The authentication methods to announce.
+    authmethods: [AuthMethod];
+
+    // The (client) authentication ID to announce.
+    authid: string (principal);
+
+    // The (client) authentication role to announce.
+    authrole: string (principal);
+
+    // authmethod specific extra data to be forwarded to the client.
+    authextra: Map;
+
+    // Whether the client wants this to be a session that can be
+    // later resumed (HELLO.Details.resumable).
+    resumable: bool;
+
+    // The session the client would like to resume (HELLO.Details.resume_session).
+    resume_session: uint64;
+
+    // The secure authorisation token to resume the session (HELLO.Details.resume_token).
+    resume_token: string;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] WELCOME message (message_type = 2): Router accepts session.
+table Welcome
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP roles to announce.
+    roles: RouterRoles (required);
+
+    // The effective realm the session is joined on.
+    realm: string (required, uri);
+
+    // The authentication ID assigned.
+    authid: string (required, principal);
+
+    // The authentication method in use.
+    authrole: string (required, principal);
+
+    // The authentication method in use.
+    authmethod: AuthMethod;
+
+    // The authentication provided in use.
+    authprovider: string;
+
+    // Application-specific "extra data" to be forwarded to the client.
+    authextra: Map;
+
+    // Whether the session is a resumed one.
+    resumed: bool;
+
+    // Whether this session can be resumed later.
+    resumable: bool;
+
+    // The secure authorisation token to resume the session.
+    resume_token: string;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] ABORT message (message_type = 3): Session aborted during handshake.
+table Abort
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // WAMP or application error URI for aborting reason.
+    reason: string (required, uri);
+
+    // Optional human-readable closing message, e.g. for logging purposes.
+    message: string;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] CHALLENGE message (message_type = 4): Router sends authentication challenge.
+table Challenge
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The challenge method.
+    method: AuthMethod;
+
+    // Challenge method specific information.
+    extra: Map;
+
+    // Custom method name; requires negotiated metadata capability.
+    method_name: string;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] AUTHENTICATE message (message_type = 5): Client responds to authentication challenge.
+table Authenticate
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The signature for the authentication challenge.
+    signature: string (required);
+
+    // Authentication method specific information.
+    extra: Map;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] GOODBYE message (message_type = 6): Session closed gracefully.
+table Goodbye
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // Optional WAMP or application error URI for closing reason.
+    reason: string (required, uri);
+
+    // Optional human-readable closing message, e.g. for logging purposes.
+    message: string;
+
+    // From the server: Whether the session is able to be resumed (true) or destroyed (false). From the client: Whether it should be resumable (true) or destroyed (false).
+    resumable: bool;
+}
+
+
+// [Category 4: Both Payload and Forwarding] ERROR message (message_type = 8): Error response with optional application payload.
+table Error
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP message type code for the original request.
+    request_type: MessageType;
+
+    // The WAMP request ID of the original request (CALL, SUBSCRIBE, ...) this error occurred for.
+    request: uint64 (key);
+
+    // The WAMP or application error URI for the error that occurred.
+    error: string (required, uri);
+
+    /// Positional values for application-defined error details.
+    args: [uint8];
+
+    /// Keyword values for application-defined error details.
+    kwargs: [uint8];
+
+    /// Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
+    payload: [uint8];
+
+    /// The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
+    ppt_scheme: PPTScheme;
+
+    /// The specific serializer encoding the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_serializer: PPTSerializer;
+
+    /// The cryptographic algorithm ("cipher") encrypting the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_cipher: PPTCipher;
+
+    /// The identifier or reference to the encryption key that was used to encrypt the payload with the Payload Passthru (PPT) scheme and cipher in use.
+    ppt_keyid: string (ppt_keyid);
+
+    // R2R-link message forwarding route that was taken.
+    forward_for: [Principal];
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+//   FlatBuffers schema for WAMP v2 messages
+//   Copyright (c) typedef int GmbH and contributors
+//   Licensed under the MIT License (MIT)
+//
+//////////////////////////////////////////////////////////////////////////////
+
+
+namespace wamp.proto;
+
+
+// [Category 1: Neither Payload nor Forwarding] SUBSCRIBE message (message_type = 32): Client subscribes to a topic.
+table Subscribe
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP request ID of this request.
+    request: uint64 (key);
+
+    // The WAMP or application URI of the PubSub topic the event should be published to.
+    topic: string (required, uri_pattern);
+
+    // The topic matching method to be used for the subscription.
+    match: Match = EXACT;
+
+    // Whether the client wants the retained message we may have along with the subscription.
+    get_retained: bool;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] SUBSCRIBED message (message_type = 33): Router acknowledges subscription.
+table Subscribed
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The request ID of the original SUBSCRIBE request.
+    request: uint64 (key);
+
+    // The subscription ID for the subscribed topic (or topic pattern).
+    subscription: uint64;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] UNSUBSCRIBE message (message_type = 34): Client unsubscribes from a topic.
+table Unsubscribe
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP request ID of this request.
+    request: uint64 (key);
+
+    // The subscription ID for the subscription to unsubscribe from.
+    subscription: uint64;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] UNSUBSCRIBED message (message_type = 35): Router acknowledges unsubscription.
+table Unsubscribed
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The request ID of the original UNSUBSCRIBE request or 0 if the router triggered the unsubscribe ("router subscription revocation signaling").
+    request: uint64 (key);
+
+    // If unsubscribe was actively triggered by router, the ID of the subscription revoked.
+    subscription: uint64;
+
+    // The reason (an URI) for an active (router initiated) revocation.
+    reason: string (uri);
+}
+
+
+// [Category 4: Both Payload and Forwarding] PUBLISH message (message_type = 16): Client publishes an event with application payload.
+table Publish
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP request ID of this request.
+    request: uint64 (key);
+
+    // The WAMP or application URI of the PubSub topic the event should be published to.
+    topic: string (required, uri);
+
+    /// Positional values for application-defined event payload.
+    args: [uint8];
+
+    /// Keyword values for application-defined event payload.
+    kwargs: [uint8];
+
+    /// Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
+    payload: [uint8];
+
+    /// The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
+    ppt_scheme: PPTScheme;
+
+    /// The specific serializer encoding the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_serializer: PPTSerializer;
+
+    /// The cryptographic algorithm ("cipher") encrypting the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_cipher: PPTCipher;
+
+    /// The identifier or reference to the encryption key that was used to encrypt the payload with the Payload Passthru (PPT) scheme and cipher in use.
+    ppt_keyid: string (ppt_keyid);
+
+    // If true, acknowledge the publication with a success or error response.
+    acknowledge: bool;
+
+    // If true, exclude the publisher from receiving the event, even if he is subscribed (and eligible).
+    exclude_me: bool = true;
+
+    // List of WAMP session IDs to exclude from receiving this event.
+    exclude: [uint64];
+
+    // List of WAMP authids to exclude from receiving this event.
+    exclude_authid: [string] (principal);
+
+    // List of WAMP authroles to exclude from receiving this event.
+    exclude_authrole: [string] (principal);
+
+    // List of WAMP session IDs eligible to receive this event.
+    eligible: [uint64];
+
+    // List of WAMP authids eligible to receive this event.
+    eligible_authid: [string] (principal);
+
+    // List of WAMP authroles eligible to receive this event.
+    eligible_authrole: [string] (principal);
+
+    // If true, request the broker retain this event.
+    retain: bool;
+
+    // Application provided transaction hash for router-side throttle/deduplicate.
+    transaction_hash: string;
+
+    // When this message is forwarded in router-to-router traffic, the route of the message in tuples of (session, authid, authrole) beginning with the publisher session followed by a series of router-link sessions.
+    forward_for: [Principal];
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] PUBLISHED message (message_type = 17): Router acknowledges publication.
+table Published
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The request ID of the original PUBLISH request.
+    request: uint64 (key);
+
+    // The publication ID for the published event.
+    publication: uint64;
+}
+
+
+// [Category 4: Both Payload and Forwarding] EVENT message (message_type = 36): Router dispatches event to subscriber with application payload.
+table Event
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The subscription ID this event is dispatched under.
+    subscription: uint64;
+
+    // The publication ID of the dispatched event.
+    publication: uint64;
+
+    /// Positional values for application-defined event payload.
+    args: [uint8];
+
+    /// Keyword values for application-defined event payload.
+    kwargs: [uint8];
+
+    /// Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
+    payload: [uint8];
+
+    /// The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
+    ppt_scheme: PPTScheme;
+
+    /// The specific serializer encoding the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_serializer: PPTSerializer;
+
+    /// The cryptographic algorithm ("cipher") encrypting the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_cipher: PPTCipher;
+
+    /// The identifier or reference to the encryption key that was used to encrypt the payload with the Payload Passthru (PPT) scheme and cipher in use.
+    ppt_keyid: string (ppt_keyid);
+
+    // The WAMP session ID of the pubisher. Only filled when the publisher is disclosed.
+    publisher: uint64;
+
+    // The WAMP authrole of the publisher. Only filled when publisher is disclosed.
+    publisher_authid: string (principal);
+
+    // The WAMP authrole of the publisher. Only filled when publisher is disclosed.
+    publisher_authrole: string (principal);
+
+    // For pattern-based subscriptions, the event MUST contain the actual topic published to.
+    topic: string (uri);
+
+    // Whether the message was retained by the broker on the topic, rather than just published.
+    retained: bool;
+
+    // Application provided transaction hash for router-side throttle/deduplicate.
+    transaction_hash: string;
+
+    // Hint to request acknowledgement of the reception of this Event by a subscriber.
+    acknowledge: bool;
+
+    // When this message is forwarded in router-to-router traffic, the route of the message in tuples of (session, authid, authrole) beginning with the publisher session followed by a series of router-link sessions.
+    forward_for: [Principal];
+}
+
+
+// [Category 3: Forwarding Only] EVENT_RECEIVED message (message_type = 37): Acknowledgment from subscriber to publisher for QoS level 2 ("exactly once delivery") and survey mode.
+table EventReceived
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The publication ID of the event that was received, and that is acknowledged.
+    publication: uint64;
+
+    // When this message is forwarded in router-to-router traffic, the route of the acknowledgment message. This is the reversed forward_for from the originating EVENT message, so the acknowledgment travels back through the same router mesh path.
+    forward_for: [Principal];
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+//   FlatBuffers schema for WAMP v2 messages
+//   Copyright (c) typedef int GmbH and contributors
+//   Licensed under the MIT License (MIT)
+//
+//////////////////////////////////////////////////////////////////////////////
+
+
+namespace wamp.proto;
+
+
+// [Category 4: Both Payload and Forwarding] CALL message (message_type = 48): Client calls a procedure with application payload.
+table Call
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP request ID of this request.
+    request: uint64 (key);
+
+    // The WAMP or application URI of the procedure which should be called.
+    procedure: string (required, uri);
+
+    /// Positional values for application-defined call arguments.
+    args: [uint8];
+
+    /// Keyword values for application-defined call arguments.
+    kwargs: [uint8];
+
+    /// Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
+    payload: [uint8];
+
+    /// The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
+    ppt_scheme: PPTScheme;
+
+    /// The specific serializer encoding the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_serializer: PPTSerializer;
+
+    /// The cryptographic algorithm ("cipher") encrypting the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_cipher: PPTCipher;
+
+    /// The identifier or reference to the encryption key that was used to encrypt the payload with the Payload Passthru (PPT) scheme and cipher in use.
+    ppt_keyid: string (ppt_keyid);
+
+    // If present, cancel the call after this duration in ms.
+    timeout: uint32;
+
+    // When set, indicates that the caller wants to receive progressive call results.
+    receive_progress: bool;
+
+    // Application provided transaction hash for router-side throttle/deduplicate.
+    transaction_hash: string;
+
+    // Caller WAMP session ID (optional).
+    caller: uint64;
+
+    // Caller WAMP session authentication ID (optional).
+    caller_authid: string (principal);
+
+    // Caller WAMP session authentication role (optional).
+    caller_authrole: string (principal);
+
+    // R2R-link message forwarding route that was taken.
+    forward_for: [Principal];
+}
+
+
+// [Category 3: Forwarding Only] CANCEL message (message_type = 49): Client cancels a pending call.
+table Cancel
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The request ID of the original CALL request.
+    request: uint64 (key);
+
+    // Specifies how to cancel the call.
+    mode: CancelMode = SKIP;
+
+    // R2R-link message forwarding route that was taken.
+    forward_for: [Principal];
+}
+
+
+// [Category 4: Both Payload and Forwarding] RESULT message (message_type = 50): Callee returns call result with application payload.
+table Result
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The request ID of the original CALL request.
+    request: uint64 (key);
+
+    /// Positional values for application-defined call result.
+    args: [uint8];
+
+    /// Keyword values for application-defined call result.
+    kwargs: [uint8];
+
+    /// Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
+    payload: [uint8];
+
+    /// The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
+    ppt_scheme: PPTScheme;
+
+    /// The specific serializer encoding the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_serializer: PPTSerializer;
+
+    /// The cryptographic algorithm ("cipher") encrypting the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_cipher: PPTCipher;
+
+    /// The identifier or reference to the encryption key that was used to encrypt the payload with the Payload Passthru (PPT) scheme and cipher in use.
+    ppt_keyid: string (ppt_keyid);
+
+    // If true, this result is a progressive call result, and subsequent results (or a final error) will follow.
+    progress: bool;
+
+    // Callee WAMP session ID (optional).
+    callee: uint64;
+
+    // Callee WAMP session authentication ID (optional).
+    callee_authid: string (principal);
+
+    // Callee WAMP session authentication role (optional).
+    callee_authrole: string (principal);
+
+    // R2R-link message forwarding route that was taken.
+    forward_for: [Principal];
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] REGISTER message (message_type = 64): Callee registers a procedure.
+table Register
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP request ID of this request.
+    request: uint64 (key);
+
+    // The WAMP or application URI of the RPC endpoint provided.
+    procedure: string (required, uri_pattern);
+
+    // The procedure matching policy to be used for the registration.
+    match: Match = EXACT;
+
+    // The procedure invocation policy to be used for the registration.
+    invoke: InvocationPolicy;
+
+    // The (maximum) concurrency to be used for the registration.
+    concurrency: uint16;
+
+    // Force registration of procedure (kicking any existing registration).
+    force_reregister: bool;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] REGISTERED message (message_type = 65): Router acknowledges registration.
+table Registered
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The request ID of the original ``REGISTER`` request.
+    request: uint64 (key);
+
+    // The registration ID for the registered procedure (or procedure pattern).
+    registration: uint64;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] UNREGISTER message (message_type = 66): Callee unregisters a procedure.
+table Unregister
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The request ID of the original ``REGISTER`` request.
+    request: uint64 (key);
+
+    // The registration ID for the registration to unregister.
+    registration: uint64;
+}
+
+
+// [Category 1: Neither Payload nor Forwarding] UNREGISTERED message (message_type = 67): Router acknowledges unregistration.
+table Unregistered
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The request ID of the original UNREGISTER request.
+    request: uint64 (key);
+
+    // If unregister was actively triggered by router, the ID of the registration revoked.
+    registration: uint64;
+
+    // The reason (an URI) for revocation.
+    reason: string (uri);
+}
+
+
+// [Category 4: Both Payload and Forwarding] INVOCATION message (message_type = 68): Router invokes registered procedure with application payload.
+table Invocation
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP request ID of this request.
+    request: uint64 (key);
+
+    // The registration ID of the endpoint to be invoked.
+    registration: uint64;
+
+    /// Positional values for application-defined call arguments.
+    args: [uint8];
+
+    /// Keyword values for application-defined call arguments.
+    kwargs: [uint8];
+
+    /// Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
+    payload: [uint8];
+
+    /// The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
+    ppt_scheme: PPTScheme;
+
+    /// The specific serializer encoding the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_serializer: PPTSerializer;
+
+    /// The cryptographic algorithm ("cipher") encrypting the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_cipher: PPTCipher;
+
+    /// The identifier or reference to the encryption key that was used to encrypt the payload with the Payload Passthru (PPT) scheme and cipher in use.
+    ppt_keyid: string (ppt_keyid);
+
+    // For pattern-based registrations (not for exact matching registrations, the invocation MUST include the actual procedure being called.
+    procedure: string (uri);
+
+    // If present, let the callee automatically cancels the invocation after this ms.
+    timeout: uint32;
+
+    // Indicates if the callee should produce progressive results.
+    receive_progress: bool;
+
+    // Application provided transaction hash for router-side throttle/deduplicate.
+    transaction_hash: string;
+
+    // The WAMP session ID of the caller. Only filled if caller is disclosed.
+    caller: uint64;
+
+    // The WAMP authid of the caller. Only filled if caller is disclosed.
+    caller_authid: string (principal);
+
+    // The WAMP authrole of the caller. Only filled if caller is disclosed.
+    caller_authrole: string (principal);
+
+    // R2R-link message forwarding route that was taken.
+    forward_for: [Principal];
+}
+
+
+// [Category 3: Forwarding Only] INTERRUPT message (message_type = 69): Router interrupts a pending invocation.
+table Interrupt
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP request ID of this request.
+    request: uint64 (key);
+
+    // Specifies how to interrupt the invocation.
+    mode: CancelMode = KILL;
+
+    // The reason (an URI) for the invocation interrupt.
+    reason: string (uri);
+
+    // R2R-link message forwarding route that was taken.
+    forward_for: [Principal];
+}
+
+
+// [Category 4: Both Payload and Forwarding] YIELD message (message_type = 70): Callee yields invocation result with application payload.
+table Yield
+{
+    // The WAMP session ID on the node this session is (directly) attached to.
+    session: uint64;
+
+    // The WAMP request ID of this request.
+    request: uint64 (key);
+
+    /// Positional values for application-defined invocation result.
+    args: [uint8];
+
+    /// Keyword values for application-defined invocation result.
+    kwargs: [uint8];
+
+    /// Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
+    payload: [uint8];
+
+    /// The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
+    ppt_scheme: PPTScheme;
+
+    /// The specific serializer encoding the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_serializer: PPTSerializer;
+
+    /// The cryptographic algorithm ("cipher") encrypting the application payload with the Payload Passthru (PPT) scheme in use.
+    ppt_cipher: PPTCipher;
+
+    /// The identifier or reference to the encryption key that was used to encrypt the payload with the Payload Passthru (PPT) scheme and cipher in use.
+    ppt_keyid: string (ppt_keyid);
+
+    // If true, this result is a progressive invocation result, and subsequent results (or a final error) will follow.
+    progress: bool;
+
+    // Callee WAMP session ID (optional).
+    callee: uint64;
+
+    // Callee WAMP session authentication ID (optional).
+    callee_authid: string (principal);
+
+    // Callee WAMP session authentication role (optional).
+    callee_authrole: string (principal);
+
+    // R2R-link message forwarding route that was taken.
+    forward_for: [Principal];
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+//   FlatBuffers schema for WAMP v2 messages
+//   Copyright (c) typedef int GmbH and contributors
+//   Licensed under the MIT License (MIT)
+//
+//////////////////////////////////////////////////////////////////////////////
+
+
+
+// Web Application Message Protocol (WAMP) namespace.
+//
+// WAMP at the application level exposes 4 roles:
+//
+// - Caller and Callee
+// - Publisher and Subscriber
+//
+// To decouple each pair of roles (or actors), WAMP uses an intermediary
+// that may implement two additional roles:
+//
+// - Dealer, to forward calls from Callers to Callees
+// - Broker, to dispatch events from Publishers to Subscribers
+//
+// WAMP is then defined in terms of message flow between those 6 roles.
+// There 26 WAMP messages at the wire level, and these are defined
+// (structurally) using FlatBuffers in this namespace.
+namespace wamp.proto;
+
+
+// A WAMP message is of exactly one of the following 26 concrete message types.
+union AnyMessage
+{
+    // Session
+    Hello,
+    Welcome,
+    Abort,
+    Challenge,
+    Authenticate,
+    Goodbye,
+
+    // Common
+    Error,
+
+    // PubSub
+    Publish,
+    Published,
+    Subscribe,
+    Subscribed,
+    Unsubscribe,
+    Unsubscribed,
+    Event,
+    EventReceived,          // NEW
+
+    // RPC
+    Call,
+    Cancel,
+    Result,
+    Register,
+    Registered,
+    Unregister,
+    Unregistered,
+    Invocation,
+    Interrupt,
+    Yield,
+    Heartbeat
+}
+
+
+// A WAMP message container.
+table Message
+{
+    // The WAMP message, one of the 26 different message types.
+    msg: AnyMessage (required);
+
+    // Optional CBOR options/details metadata; requires negotiated support.
+    metadata: [ubyte];
+}
+
+
+// The FlatBuffers root type is our WAMP message container type.
+root_type Message;
+
+// Connectanum HEARTBEAT extension (requires metadata capability).
+table Heartbeat {
+    ping: uint64;
+    incoming: uint64;
+    outgoing: uint64;
+    // Bits 1/2/4 distinguish absent controls from explicit zero.
+    presence: ubyte = 7;
+}

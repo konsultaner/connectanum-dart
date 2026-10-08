@@ -7,6 +7,12 @@ on:
     branches: [master]
   workflow_dispatch:
 
+# Supersede automated codex branch runs within each event/ref only. Unique
+# run-id groups preserve master, tags, manual runs and other branch histories.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && github.ref_type == 'branch' && startsWith(github.head_ref || github.ref_name, 'codex/') && github.ref || github.run_id }}
+  cancel-in-progress: ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && github.ref_type == 'branch' && startsWith(github.head_ref || github.ref_name, 'codex/') }}
+
 permissions:
   contents: read
 
@@ -14,10 +20,127 @@ env:
   CI: true
 
 jobs:
+  flatbuffers-binding:
+    name: FlatBuffers Binding
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Fetch checksum-pinned compiler
+        run: python3 tool/fetch_flatc.py --output "$RUNNER_TEMP/flatc"
+      - name: Bootstrap workspace
+        run: dart pub get
+      - name: Verify Dart SDK socket pointer boundary
+        run: |
+          set -euo pipefail
+          mkdir -p out/sdk-socket-pointer
+          probe_output="$PWD/out/sdk-socket-pointer"
+          cc -shared -fPIC -Wall -Wextra -Werror \
+            -o "$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            tool/sdk_socket_copy_probe.c -ldl -pthread
+          cd packages/connectanum_client
+          CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            dart run tool/sdk_socket_copy_probe.dart | tee "$probe_output/observations.jsonl"
+          CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            dart run tool/rawsocket_copy_probe.dart | tee "$probe_output/rawsocket-ppt.jsonl"
+          CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            dart run tool/sdk_socket_backpressure_probe.dart | tee "$probe_output/backpressure.jsonl"
+          CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            dart --enable-vm-service=0 --disable-service-auth-codes \
+              run tool/native_external_byte_view_probe.dart | tee "$probe_output/native-bounded.jsonl"
+          CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            dart compile aot-snapshot tool/native_external_byte_view_probe.dart \
+              -o "$probe_output/native-bounded.aot"
+          LD_PRELOAD="$RUNNER_TEMP/sdk_socket_copy_probe.so" \
+            dartaotruntime "$probe_output/native-bounded.aot" --allocation-pressure \
+              | tee "$probe_output/native-bounded-aot.jsonl"
+          if env -u LD_PRELOAD CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            dart run tool/sdk_socket_copy_probe.dart \
+            > "$probe_output/missing-interposer.log" 2>&1; then
+            echo 'Socket pointer probe incorrectly passed without its interposer' >&2
+            exit 1
+          fi
+          python3 -c 'from pathlib import Path; import sys; sys.exit("undefined symbol: probe_reset" not in Path(sys.argv[1]).read_text())' \
+            "$probe_output/missing-interposer.log"
+          if env -u LD_PRELOAD CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+            dart --enable-vm-service=0 --disable-service-auth-codes \
+              run tool/native_external_byte_view_probe.dart \
+            > "$probe_output/native-bounded-missing-interposer.log" 2>&1; then
+            echo 'Native bounded-view probe incorrectly passed without its interposer' >&2
+            exit 1
+          fi
+          python3 -c 'from pathlib import Path; import sys; sys.exit("undefined symbol: probe_watch_free" not in Path(sys.argv[1]).read_text())' \
+            "$probe_output/native-bounded-missing-interposer.log"
+      - name: Upload SDK socket pointer evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sdk-socket-pointer
+          path: out/sdk-socket-pointer
+          if-no-files-found: error
+      - name: Verify generated bindings and fixtures
+        run: python3 tool/generate_wamp_flatbuffers.py --check --flatc "$RUNNER_TEMP/flatc/flatc"
+      - name: Verify typed benchmark binding
+        run: python3 tool/generate_bench_flatbuffers.py --check --flatc "$RUNNER_TEMP/flatc/flatc"
+      - name: Verify independent upstream interoperability
+        run: |
+          python3 -m venv "$RUNNER_TEMP/flatbuffers-python"
+          "$RUNNER_TEMP/flatbuffers-python/bin/python" -m pip install -r tool/flatbuffers_peer_requirements.txt
+          "$RUNNER_TEMP/flatbuffers-python/bin/python" tool/check_wamp_flatbuffers_interop.py --flatc "$RUNNER_TEMP/flatc/flatc"
+      - name: Build native library for independent live peer
+        run: cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi
+      - name: Verify negotiated FlatBuffers live peer
+        run: |
+          "$RUNNER_TEMP/flatbuffers-python/bin/python" tool/check_wamp_flatbuffers_live_peer.py \
+            --flatc "$RUNNER_TEMP/flatc/flatc" \
+            --native-library native/transport/target/debug/libct_ffi.so \
+            --output out/flatbuffers-live-peer
+      - name: Upload live peer evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: flatbuffers-live-peer
+          path: out/flatbuffers-live-peer
+          if-no-files-found: warn
+
+  native-memory:
+    name: Native Ownership GuardMalloc
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify memory-gate failure controls
+        run: |
+          set -euo pipefail
+          mkdir -p out/native-memory-controls
+          python3 tool/test_run_native_guardmalloc.py 2>&1 | tee out/native-memory-controls/tests.log
+      - name: Run instrumented native ownership checks
+        run: python3 tool/run_native_guardmalloc.py --output out/native-guardmalloc
+      - name: Upload native memory evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-ownership-guardmalloc
+          path: |
+            out/native-guardmalloc
+            out/native-memory-controls
+          if-no-files-found: error
+
   fast:
     name: Fast Checks
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Cold tooling/builds and the full regression/consumer set exceed 20 minutes.
+    # Preserve every suite and its deadline within a larger aggregate budget.
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v5
@@ -113,8 +236,10 @@ jobs:
   verify:
     name: Full Verify
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    needs: [fast, wamp-app]
+    # Hosted LLVM builds and VM/consumer checks used 41 minutes before browsers.
+    # Allow the bounded 15-minute core and two 7-minute client browser attempts.
+    timeout-minutes: 90
+    needs: [fast, wamp-app, flatbuffers-binding, native-memory]
 
     steps:
       - uses: actions/checkout@v5
@@ -148,7 +273,8 @@ jobs:
   coverage:
     name: Dart VM Coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Includes library and packaging coverage formatting on cold hosted runners.
+    timeout-minutes: 90
     needs: [fast, wamp-app]
     permissions:
       contents: read
@@ -264,7 +390,7 @@ jobs:
   browser-coverage:
     name: Core Browser Coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1

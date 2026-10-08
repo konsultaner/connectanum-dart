@@ -110,6 +110,7 @@ fn payload_replacement_preserves_every_non_payload_message() {
             Payload {
                 args: Some(Bytes::from_static(b"[true]")),
                 kwargs: Some(Bytes::from_static(b"{\"flag\":false}")),
+                transparent: None,
             },
         );
         assert_eq!(actual, expected);

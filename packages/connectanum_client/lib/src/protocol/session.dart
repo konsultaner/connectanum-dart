@@ -529,12 +529,65 @@ class Session {
     }
     if (message is NativeSessionMessage) {
       _attachSessionE2eeState(message);
-      return message.materialize();
+      return _prepareTransparentApplicationMessage(message.materialize());
     }
     if (message is AbstractMessageWithPayload) {
       _attachSessionE2eeState(message);
     }
-    return message as AbstractMessage?;
+    return _prepareTransparentApplicationMessage(message as AbstractMessage);
+  }
+
+  T _prepareTransparentApplicationMessage<T extends AbstractMessage>(
+    T message,
+  ) {
+    if (message is! AbstractMessageWithPayload ||
+        message.transparentBinaryPayload == null ||
+        message.hasDecodedPptPayload) {
+      return message;
+    }
+    final (scheme, serializer, cipher, keyId) = switch (message) {
+      Result(:final details) => (
+        details.pptScheme,
+        details.pptSerializer,
+        details.pptCipher,
+        details.pptKeyId,
+      ),
+      Event(:final details) => (
+        details.pptScheme,
+        details.pptSerializer,
+        details.pptCipher,
+        details.pptKeyId,
+      ),
+      Invocation(:final details) => (
+        details.pptScheme,
+        details.pptSerializer,
+        details.pptCipher,
+        details.pptKeyId,
+      ),
+      Error(:final details) => (
+        details['ppt_scheme'] as String?,
+        details['ppt_serializer'] as String?,
+        details['ppt_cipher'] as String?,
+        details['ppt_keyid'] as String?,
+      ),
+      _ => (null, null, null, null),
+    };
+    if (scheme == null) return message;
+    // Application consumers need values; the original opaque wire view and its
+    // owner must remain available for forwarding and byte-preserving re-encoding.
+    final wire = message.toLazyPayload(anchor: message);
+    final application = unwrapLazyPayloadView(
+      wire,
+      pptScheme: scheme,
+      pptSerializer: serializer,
+      pptCipher: cipher,
+      pptKeyId: keyId,
+    );
+    message.arguments = application.arguments;
+    message.argumentsKeywords = application.argumentsKeywords;
+    message.markPptPayloadDecoded();
+    message.retainLazyPayload(wire);
+    return message;
   }
 
   void _attachSessionE2eeState(AbstractMessageWithPayload message) {
@@ -1262,17 +1315,12 @@ class Session {
 
   /// Sends a goodbye message and closes the transport after a given [timeout].
   /// If no timeout is set, the client waits for the server to close the transport forever.
-  Future<void> close({
-    String message = 'Regular closing',
-    Duration? timeout,
-  }) {
+  Future<void> close({String message = 'Regular closing', Duration? timeout}) {
     if (_goodbyeSent) {
       return Future<void>.value();
     }
     _goodbyeSent = true;
-    _transport.send(
-      Goodbye(GoodbyeMessage(message), Goodbye.reasonNormal),
-    );
+    _transport.send(Goodbye(GoodbyeMessage(message), Goodbye.reasonNormal));
     if (timeout != null) {
       return Future.delayed(timeout, () => _transport.close());
     }
@@ -1304,6 +1352,9 @@ class Session {
     if (message is NativeSessionMessage) {
       _handleNativeSessionMessage(message);
       return;
+    }
+    if (message is AbstractMessage) {
+      _prepareTransparentApplicationMessage(message);
     }
     if (message is Result) {
       _handleResult(message);
@@ -1468,7 +1519,9 @@ class Session {
       }
       return;
     }
-    _handleResult(message.materialize() as Result);
+    _handleResult(
+      _prepareTransparentApplicationMessage(message.materialize()) as Result,
+    );
   }
 
   void _handleNativeEvent(NativeSessionMessage message) {
@@ -1481,7 +1534,8 @@ class Session {
     if (handlers.any(
       (subscribed) => subscribed.hasMaterializedEventConsumers,
     )) {
-      final event = message.materialize() as Event;
+      final event =
+          _prepareTransparentApplicationMessage(message.materialize()) as Event;
       for (final subscribed in handlers) {
         subscribed.addEvent(event);
       }
@@ -1512,7 +1566,9 @@ class Session {
       return;
     }
     if (registered.hasMaterializedInvocationConsumers) {
-      final invocation = message.materialize() as Invocation;
+      final invocation =
+          _prepareTransparentApplicationMessage(message.materialize())
+              as Invocation;
       invocation.onResponse((response) {
         if (!_sendInvocationResponse(message.metadata.primaryId, response)) {
           invocation.closeResponse();
@@ -1652,7 +1708,7 @@ class Session {
       pptSerializer: message.metadata.stringB,
       pptCipher: message.metadata.stringC,
       pptKeyId: message.metadata.stringD,
-      customDetails: null,
+      customDetails: message.customDetails,
       payload: unwrapLazyPayloadView(
         message.toLazyPayload(anchor: message),
         pptScheme: message.metadata.stringA,
@@ -1685,7 +1741,7 @@ class Session {
       pptSerializer: message.metadata.stringC,
       pptCipher: message.metadata.stringD,
       pptKeyId: message.metadata.stringE,
-      customDetails: null,
+      customDetails: message.customDetails,
       payload: unwrapLazyPayloadView(
         message.toLazyPayload(anchor: message),
         pptScheme: message.metadata.stringB,
@@ -1700,69 +1756,21 @@ class Session {
   LazyInvocationPayload _lazyInvocationPayloadFromNative(
     NativeSessionMessage message,
   ) {
-    var responseClosed = false;
-    final yieldRuntimeContext = message.e2eeRuntimeContext?.copyWith(
-      direction: WampE2eeDirection.outbound,
-      messageType: WampE2eeMessageType.yield,
-      uri: message.metadata.stringA ?? message.e2eeRuntimeContext?.uri,
-    );
-
-    void respondWith({
-      LazyMessagePayload? lazyPayload,
-      List<dynamic>? arguments,
-      Map<String, dynamic>? argumentsKeywords,
-      bool isError = false,
-      String? errorUri,
-      YieldOptions? options,
-    }) {
-      if (responseClosed) {
-        throw StateError('Invocation response handler already completed');
-      }
-      if (isError) {
-        _sendInvocationResponse(
-          message.metadata.primaryId,
-          Error(
-            MessageTypes.codeInvocation,
+    // Use the same response packing, metadata and completion contract as classic
+    // Invocation handlers without materializing the incoming application payload.
+    final responseHandler =
+        Invocation(
             message.metadata.primaryId,
-            {},
-            errorUri,
-            arguments: arguments,
-            argumentsKeywords: argumentsKeywords,
-          ),
-        );
-        responseClosed = true;
-        return;
+            message.metadata.secondaryId,
+            InvocationDetails(null, message.metadata.stringA, null),
+          )
+          ..attachE2eeProvider(message.e2eeProvider)
+          ..attachE2eeRuntimeContext(message.e2eeRuntimeContext);
+    responseHandler.onResponse((response) {
+      if (!_sendInvocationResponse(message.metadata.primaryId, response)) {
+        responseHandler.closeResponse();
       }
-      final yieldMessage = Yield(
-        message.metadata.primaryId,
-        options: options,
-        arguments: arguments,
-        argumentsKeywords: argumentsKeywords,
-      );
-      yieldMessage.attachE2eeRuntimeContext(yieldRuntimeContext);
-      if (lazyPayload != null || options?.pptScheme != null) {
-        _applyOutboundLazyPayload(
-          yieldMessage,
-          lazyPayload ??
-              LazyMessagePayload.materialized(
-                arguments: arguments,
-                argumentsKeywords: argumentsKeywords,
-              ),
-          options,
-          fallbackArguments: arguments,
-          fallbackArgumentsKeywords: argumentsKeywords,
-        );
-      } else {
-        yieldMessage.attachE2eeProvider(_resolveRuntimeE2eeProvider());
-      }
-      final sent = _sendInvocationResponse(
-        message.metadata.primaryId,
-        yieldMessage,
-      );
-      if (!sent || options?.progress != true) {
-        responseClosed = true;
-      }
-    }
+    });
 
     final invocation = LazyInvocationPayload(
       requestId: message.metadata.primaryId,
@@ -1790,7 +1798,7 @@ class Session {
       pptSerializer: message.metadata.stringC,
       pptCipher: message.metadata.stringD,
       pptKeyId: message.metadata.stringE,
-      customDetails: null,
+      customDetails: message.customDetails,
       respondWith:
           ({
             LazyMessagePayload? lazyPayload,
@@ -1800,7 +1808,7 @@ class Session {
             String? errorUri,
             YieldOptions? options,
           }) {
-            respondWith(
+            responseHandler.respondWith(
               lazyPayload: lazyPayload,
               arguments: arguments,
               argumentsKeywords: argumentsKeywords,
@@ -1809,7 +1817,7 @@ class Session {
               options: options,
             );
           },
-      isResponseClosed: () => responseClosed,
+      isResponseClosed: () => responseHandler.responseClosed,
       payload: unwrapLazyPayloadView(
         message.toLazyPayload(anchor: message),
         pptScheme: message.metadata.stringB,
@@ -1820,22 +1828,22 @@ class Session {
       ),
     );
     final responder = _PendingInvocationResponder(
-      isClosed: () => responseClosed,
+      isClosed: () => responseHandler.responseClosed,
       cancel: (mode) {
-        if (responseClosed) {
+        if (responseHandler.responseClosed) {
           return;
         }
-        respondWith(
+        responseHandler.respondWith(
           isError: true,
           errorUri: Error.errorInvocationCanceled,
           arguments: mode == null ? null : [mode],
         );
       },
       timeout: () {
-        if (responseClosed) {
+        if (responseHandler.responseClosed) {
           return;
         }
-        respondWith(
+        responseHandler.respondWith(
           isError: true,
           errorUri: Error.timeout,
           arguments: const ['Call timed out'],
@@ -2060,26 +2068,25 @@ class Session {
       payload.e2eeProvider,
     );
     message.attachE2eeProvider(runtimeE2eeProvider);
-    message.transparentBinaryPayload = payload.transparentBinaryPayload;
+    // PPT below supplies the packed value through arguments. Keep only one
+    // wire representation when the incoming lazy view also retains opaque bytes.
+    message.transparentBinaryPayload = options?.pptScheme == null
+        ? payload.transparentBinaryPayload
+        : null;
     Uint8List? packedPayload;
-    if (options?.pptScheme == 'wamp') {
-      if (payload.packedPayloadBytes != null &&
-          _matchesPayloadEncoding(payload.encoding, options!.pptSerializer)) {
-        packedPayload = payload.packedPayloadBytes;
-      }
-    } else if (options?.pptScheme != null) {
+    if (options?.pptScheme != null && options?.pptScheme != 'wamp') {
       packedPayload = _packMatchingLazyPayload(payload, options!.pptSerializer);
     }
     if (options?.pptScheme == 'wamp') {
-      message.arguments = packedPayload == null
-          ? E2EEPayload.packE2EEPayload(
-              payload.arguments ?? fallbackArguments,
-              payload.argumentsKeywords ?? fallbackArgumentsKeywords,
-              options!,
-              provider: runtimeE2eeProvider ?? message.e2eeProvider,
-              runtimeContext: message.e2eeRuntimeContext,
-            )
-          : <dynamic>[packedPayload];
+      // Packed CBOR can be plaintext or use another key/cipher. Applying the
+      // outbound provider also preserves its contextual key-selection policy.
+      message.arguments = E2EEPayload.packE2EEPayload(
+        payload.arguments ?? fallbackArguments,
+        payload.argumentsKeywords ?? fallbackArgumentsKeywords,
+        options!,
+        provider: runtimeE2eeProvider ?? message.e2eeProvider,
+        runtimeContext: message.e2eeRuntimeContext,
+      );
       message.argumentsKeywords = null;
       return;
     }
@@ -2092,6 +2099,7 @@ class Session {
             )
           : [packedPayload];
       message.argumentsKeywords = null;
+      message.retainLazyPayload(message.toLazyPayload(anchor: payload));
       return;
     }
     if (payload.packedPayloadBytes != null) {
@@ -2100,6 +2108,7 @@ class Session {
       if (payload.pptDecoded) {
         message.markPptPayloadDecoded();
       }
+      message.retainLazyPayload(message.toLazyPayload(anchor: payload));
       return;
     }
     message.setLazyPayload(
@@ -2122,6 +2131,7 @@ class Session {
     if (payload.pptDecoded) {
       message.markPptPayloadDecoded();
     }
+    message.retainLazyPayload(message.toLazyPayload(anchor: payload));
   }
 
   WampE2eeProvider? _resolveRuntimeE2eeProvider([WampE2eeProvider? provider]) {
@@ -2173,6 +2183,7 @@ class Session {
       (LazyPayloadEncoding.json, 'json') => true,
       (LazyPayloadEncoding.messagePack, 'msgpack') => true,
       (LazyPayloadEncoding.cbor, 'cbor') => true,
+      (LazyPayloadEncoding.flatbuffers, 'flatbuffers') => true,
       _ => false,
     };
   }
@@ -2255,7 +2266,8 @@ class NegotiatedSessionE2ee {
     if (isRequired != true) {
       return;
     }
-    if (version != ConnectanumE2eeProfile.version) {
+    if (version != ConnectanumE2eeProfile.version &&
+        version != ConnectanumFlatBuffersE2eeProfile.version) {
       _reject(
         'Required E2EE uses unsupported profile version ${version ?? 'null'}',
       );
@@ -2263,10 +2275,13 @@ class NegotiatedSessionE2ee {
     if (established != true) {
       _reject('Required E2EE was not established by the router');
     }
+    final selectedSerializer = version == ConnectanumE2eeProfile.version
+        ? ConnectanumE2eeProfile.serializer
+        : ConnectanumFlatBuffersE2eeProfile.serializer;
     if (scheme != ConnectanumE2eeProfile.scheme ||
-        serializer != ConnectanumE2eeProfile.serializer) {
+        serializer != selectedSerializer) {
       _reject(
-        'Required E2EE must select wamp/cbor, got '
+        'Required E2EE must select wamp/$selectedSerializer, got '
         '${scheme ?? 'null'}/${serializer ?? 'null'}',
       );
     }
@@ -2308,7 +2323,10 @@ class NegotiatedSessionE2ee {
 }
 
 class _NegotiatedSessionE2eeProvider
-    implements WampE2eeProvider, NativeE2eeFileSegmentProvider {
+    implements
+        WampE2eeProvider,
+        WampE2eeRuntimePayloadProvider,
+        NativeE2eeFileSegmentProvider {
   _NegotiatedSessionE2eeProvider({
     required this.provider,
     required this.negotiated,
@@ -2320,6 +2338,16 @@ class _NegotiatedSessionE2eeProvider
   final NegotiatedSessionE2ee negotiated;
   final String? realm;
   final WampE2eePartyContext? local;
+
+  @override
+  bool canUnpackFromRuntimeContext(WampE2eeRuntimeContext? runtimeContext) {
+    final runtimeProvider = provider as Object;
+    return runtimeProvider is WampE2eeRuntimePayloadProvider &&
+        runtimeProvider.canUnpackFromRuntimeContext(
+          _mergeRuntimeContext(runtimeContext),
+        );
+  }
+
   late final WampE2eeKeySelectionPolicy _keySelectionPolicy =
       WampE2eeKeySelectionPolicies.firstDefined([
         if (provider case WampE2eePolicyAwareProvider(
@@ -2408,6 +2436,11 @@ class _NegotiatedSessionE2eeProvider
     }
     options.pptSerializer ??= negotiated.serializer;
     options.pptCipher ??= negotiated.cipher;
+    if (provider case WampE2eeNegotiatedKeySelectionProvider(
+      handlesNegotiatedKeySelection: true,
+    ) when runtimeContext != null) {
+      return;
+    }
     options.pptKeyId ??= runtimeContext == null
         ? null
         : _keySelectionPolicy(runtimeContext, options);

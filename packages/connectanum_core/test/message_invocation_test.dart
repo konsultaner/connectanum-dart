@@ -381,50 +381,63 @@ void main() {
       expect(response.argumentsKeywords, isNull);
     });
 
-    test('respondWith reuses lazy wamp envelope bytes without decoding', () {
-      final invocation = Invocation(1, 2, InvocationDetails(null, null, false));
-      final responses = <AbstractMessageWithPayload>[];
-      invocation.onResponse(responses.add);
-      var decodeCount = 0;
-      final serializer = cbor_serializer.Serializer();
-      final packedPayload = LazyMessagePayload.packed(
-        encoding: LazyPayloadEncoding.cbor,
-        packedPayloadBytes: Uint8List.fromList(
-          serializer.serializePPT(
-            PPTPayload(
-              arguments: const ['wrapped-response'],
-              argumentsKeywords: const {'worker': 11},
+    test(
+      'respondWith encrypts matching packed CBOR with the attached provider',
+      () {
+        final invocation = Invocation(
+          1,
+          2,
+          InvocationDetails(null, null, false),
+        );
+        final provider = _testWampE2eeProvider();
+        invocation.attachE2eeProvider(provider);
+        final responses = <AbstractMessageWithPayload>[];
+        invocation.onResponse(responses.add);
+        var decodeCount = 0;
+        final serializer = cbor_serializer.Serializer();
+        final packedPayload = LazyMessagePayload.packed(
+          encoding: LazyPayloadEncoding.cbor,
+          packedPayloadBytes: Uint8List.fromList(
+            serializer.serializePPT(
+              PPTPayload(
+                arguments: const ['wrapped-response'],
+                argumentsKeywords: const {'worker': 11},
+              ),
             ),
           ),
-        ),
-        packedPayloadDecoder: (bytes) {
-          decodeCount += 1;
-          final decoded = serializer.deserializePPT(bytes)!;
-          return (
-            arguments: decoded.arguments,
-            argumentsKeywords: decoded.argumentsKeywords,
-          );
-        },
-      );
+          packedPayloadDecoder: (bytes) {
+            decodeCount += 1;
+            final decoded = serializer.deserializePPT(bytes)!;
+            return (
+              arguments: decoded.arguments,
+              argumentsKeywords: decoded.argumentsKeywords,
+            );
+          },
+        );
 
-      expect(
-        () => invocation.respondWith(
-          lazyPayload: packedPayload,
-          options: YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
-        ),
-        returnsNormally,
-      );
+        final options = YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor');
+        expect(
+          () => invocation.respondWith(
+            lazyPayload: packedPayload,
+            options: options,
+          ),
+          returnsNormally,
+        );
 
-      expect(decodeCount, 0);
-      expect(responses, hasLength(1));
-      final response = responses.single as Yield;
-      expect(response.arguments, hasLength(1));
-      expect(
-        response.arguments!.single,
-        equals(packedPayload.packedPayloadBytes),
-      );
-      expect(response.argumentsKeywords, isNull);
-    });
+        expect(decodeCount, 1);
+        expect(responses, hasLength(1));
+        final response = responses.single as Yield;
+        expect(response.arguments, hasLength(1));
+        expect(
+          response.arguments!.single,
+          isNot(equals(packedPayload.packedPayloadBytes)),
+        );
+        expect(response.argumentsKeywords, isNull);
+        final decoded = provider.unpackPayload(response.arguments, options);
+        expect(decoded.arguments, ['wrapped-response']);
+        expect(decoded.argumentsKeywords, {'worker': 11});
+      },
+    );
 
     test('respondWith packs wamp payloads with the attached E2EE provider', () {
       final provider = _testWampE2eeProvider();
@@ -603,9 +616,8 @@ class _RuntimePayloadE2eeProvider
   List<dynamic>? lastArguments;
 
   @override
-  bool canUnpackFromRuntimeContext(
-    WampE2eeRuntimeContext? runtimeContext,
-  ) => identical(runtimeContext?.payloadAnchor, anchor);
+  bool canUnpackFromRuntimeContext(WampE2eeRuntimeContext? runtimeContext) =>
+      identical(runtimeContext?.payloadAnchor, anchor);
 
   @override
   List<dynamic> packPayload(

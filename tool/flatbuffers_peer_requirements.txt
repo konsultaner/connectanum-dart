@@ -1,0 +1,3 @@
+flatbuffers==25.9.23
+cbor2==5.7.1
+websockets==15.0.1

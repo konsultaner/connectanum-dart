@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
@@ -21,6 +22,7 @@ AbstractMessage bindMessage(
   int? metadataDetailNumberA,
   int? metadataFlags,
   Uint8List? metadataDetailsBytes,
+  Uint8List? metadataTransparentPayloadBytes,
   String? metadataStringA,
   String? metadataStringB,
   String? metadataStringC,
@@ -38,6 +40,7 @@ AbstractMessage bindMessage(
       detailNumberA: metadataDetailNumberA ?? 0,
       flags: metadataFlags,
       detailsBytes: metadataDetailsBytes,
+      transparentPayloadBytes: metadataTransparentPayloadBytes,
       stringA: metadataStringA,
       stringB: metadataStringB,
       stringC: metadataStringC,
@@ -49,6 +52,13 @@ AbstractMessage bindMessage(
     if (metadataBound != null) {
       return metadataBound;
     }
+  }
+  if (serializer == NativeMessageSerializer.flatbuffers) {
+    final message = flatbuffers.Serializer().deserialize(bytes)!;
+    if (message is AbstractMessageWithPayload) {
+      _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
+    }
+    return message;
   }
   final decoded = _decodePayload(serializer, bytes);
   if (decoded is! List) {
@@ -78,6 +88,7 @@ AbstractMessage bindMessage(
 }
 
 const int _metadataBindFlag = 1 << 4;
+const int _transparentPayloadFlag = 1 << 8;
 const int _directBindFlag = 1 << 0;
 const int _detailNumberAPresentFlag = 1 << 1;
 const int _detailBoolATrueFlag = 1 << 3;
@@ -93,6 +104,7 @@ AbstractMessage? bindMessageFromMetadata(
   required int detailNumberA,
   required int flags,
   Uint8List? detailsBytes,
+  Uint8List? transparentPayloadBytes,
   String? stringA,
   String? stringB,
   String? stringC,
@@ -367,8 +379,27 @@ AbstractMessage? bindMessageFromMetadata(
     }
   }
 
+  if (message != null) {
+    final present = (flags & _transparentPayloadFlag) != 0;
+    if (present != (transparentPayloadBytes != null) ||
+        (present &&
+            (serializer != NativeMessageSerializer.flatbuffers ||
+                message is! AbstractMessageWithPayload))) {
+      throw ArgumentError('Invalid native transparent payload metadata');
+    }
+    if (present) {
+      (message as AbstractMessageWithPayload).transparentBinaryPayload =
+          transparentPayloadBytes;
+    }
+  }
   if (message is AbstractMessageWithPayload) {
     _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
+  }
+  if (message != null &&
+      serializer == NativeMessageSerializer.flatbuffers &&
+      messageCode != MessageTypes.codeHeartbeat &&
+      detailsBytes != null) {
+    flatbuffers.Serializer().retainMetadata(message, detailsBytes);
   }
   return message;
 }
@@ -567,7 +598,7 @@ LazyPayloadEncoding? _lazyPayloadEncodingForSerializer(
     NativeMessageSerializer.messagePack => LazyPayloadEncoding.messagePack,
     NativeMessageSerializer.cbor => LazyPayloadEncoding.cbor,
     NativeMessageSerializer.ubjson => null,
-    NativeMessageSerializer.flatbuffers => null,
+    NativeMessageSerializer.flatbuffers => LazyPayloadEncoding.cbor,
   };
 }
 
@@ -685,8 +716,9 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
       return _decodeCborBytes(bytes);
-    case NativeMessageSerializer.ubjson:
     case NativeMessageSerializer.flatbuffers:
+      return flatbuffers.Serializer().deserializeApplication(bytes);
+    case NativeMessageSerializer.ubjson:
       throw UnsupportedError(
         'Serializer ${serializer.name} is not supported for payload decoding',
       );
@@ -699,6 +731,9 @@ Map<String, dynamic>? _decodeOptionalMapFragment(
 ) {
   if (bytes == null || bytes.isEmpty) {
     return null;
+  }
+  if (serializer == NativeMessageSerializer.flatbuffers) {
+    return flatbuffers.Serializer().deserializeMetadata(bytes);
   }
   final decoded = _decodeFragment(serializer, bytes);
   if (decoded == null) {

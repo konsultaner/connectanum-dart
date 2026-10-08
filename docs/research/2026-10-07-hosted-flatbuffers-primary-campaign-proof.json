@@ -1,0 +1,164 @@
+{
+  "status": "full local verification passed; hosted campaign not dispatched",
+  "baseRevision": "0ec8df065c40053bdba40a594167f4f8417b56b5",
+  "filesSha256": {
+    ".github/workflows/wamp-profile-benchmarks.yml": "a64743d8637a760446bed9c8c7d1f982c1b43627b3460f54ce410407624ea5f3",
+    "tool/test_run_wamp_serializer_campaign.py": "bda902c26aab6028d106c374518849664abfb363d1d2823a4fa7daabb10ce5c4",
+    "docs/project_state.md": "a99e31d6bee5433a52a44ad5cb69ba2a855849aa5a11001ef441478a93c2556d",
+    "docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md": "1a5bde27ac70a99fa4c621ca824bd5c4db631effd4ae980b308eeabd91139171",
+    "docs/flatbuffers_performance_acceptance.md": "5ef349ac501336261a498ac31d9bb43e77c4931f3e7b99003d0d878fc43672a2",
+    "docs/research/2026-10-07-hosted-flatbuffers-primary-campaign.md": "0b6aa61abf2dc42c8d45c373567c4fe8867e0ce387ad312167e8819fa71cd53b"
+  },
+  "matrix": {
+    "cases": 48,
+    "codecs": 3,
+    "warmupPasses": 3,
+    "measuredPasses": 7,
+    "rows": 1440,
+    "minimumDurationMs": 10000,
+    "minimumSamples": 1000,
+    "unchangedPolicySha256": "39a469850ff73fb47ef9d670c558d7eab476ec88b9212e8a0fe41a06c9f27f48"
+  },
+  "deadlines": {
+    "hostedJobMinutes": 360,
+    "executorSeconds": 19800,
+    "partialRunAccepted": false
+  },
+  "focused": {
+    "cases": 38,
+    "exitCode": 0,
+    "log": "/tmp/connectanum-hosted-primary-focused.log",
+    "logSha256": "a33d705ecaa3a0d0b010aa809f623f95ced0876f0945f20bb38064bab7eab30d"
+  },
+  "actionlint": {
+    "version": "1.7.12",
+    "archiveSha256": "aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f",
+    "exitCode": 0
+  },
+  "syntheticSummaryFixtures": [
+    "setup failure",
+    "124 incomplete rows",
+    "42 retained findings with 20 displayed",
+    "passed control"
+  ],
+  "syntheticFixturesArePerformanceEvidence": false,
+  "linuxPreflight": {
+    "mode": "prepare-only",
+    "exitCode": 0,
+    "manifestSha256": "93ff531611fad5d00b2abf73e6d45cf11aec99fc1261781359536eaa2e116dfd",
+    "snapshot": "clean published 0ec8df06",
+    "workloadsExecuted": 0,
+    "reusedArtifacts": "8af2c337 production artifacts; native/bench Rust source unchanged"
+  },
+  "companionReview": {
+    "exitCode": 1,
+    "reason": "local resource lease unavailable: native mutation campaign is active",
+    "bypassed": false,
+    "directReviewCompleted": true
+  },
+  "canonicalVerify": {
+    "status": "completed",
+    "sessionId": 86561,
+    "command": "bin/verify",
+    "exitCode": 0,
+    "log": "/tmp/connectanum-hosted-primary-verify.log",
+    "logSha256": "47383f40b16956af6641145ba1aad367ee283dfed49c0a6deed5a6c23731940c",
+    "benchmarkCases": 1609,
+    "routerCases": 4958,
+    "coreBrowserCases": 4751,
+    "clientBrowserCases": 2829,
+    "unchangedNativeOnlySkips": 20
+  },
+  "hostedCampaign": {
+    "status": "not dispatched"
+  },
+  "publishedNativeCheckpoint": {
+    "head": "0ec8df065c40053bdba40a594167f4f8417b56b5",
+    "run": 37565137233,
+    "platforms": 5,
+    "pinnedAttestations": 15,
+    "runtimeValidatedAtThisCheckpoint": "Apple Silicon/Linux arm64 focused profiles only; other three platforms build/provenance only",
+    "preview": {
+      "head": "0ec8df065c40053bdba40a594167f4f8417b56b5",
+      "workflowRun": 37565137233,
+      "dryRun": true,
+      "assetCount": 30,
+      "assetsMatch": true,
+      "notesMatchRenderer": true,
+      "notesSha256": "a12f7a06b349ee56ef5431169f247041ae4cd80c2d4067f770f2ba0d18571dea",
+      "command": [
+        "python3",
+        "tool/render_native_release_notes.py",
+        "--release-tag",
+        "ct-ffi-v0.0.0-flatbuffers-0ec8df06-dry-run",
+        "--commit",
+        "0ec8df065c40053bdba40a594167f4f8417b56b5",
+        "--repository",
+        "konsultaner/connectanum-dart",
+        "--server-url",
+        "https://github.com",
+        "--workflow-ref",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml@refs/heads/codex/flatbuffers-zero-copy",
+        "--owner",
+        "konsultaner"
+      ]
+    },
+    "provenanceProofSha256": "36fa66f0280222e6074d1b6cad698a8426bbeaa2f23447a40fbe0c1b60d6a737",
+    "productionConsumers": {
+      "macos": {
+        "cases": 32,
+        "exitCode": 0,
+        "nativeOnlySkips": 0,
+        "librarySha256": "f249fbf13c797b08b0c626243ad6ade6332b40a31734a5934d2a95d9a94b026d",
+        "logSha256": "f8ed45a55a6f687a9be4e9d86ae0f7b620e1254d312cc2087b9fa6b24aab3a5a",
+        "productionTestOraclesAbsent": true,
+        "exportsSha256": "759166e74b01946056460ed538a304ef7e1b8900734f9487842fc7bb3551d30c",
+        "sourceRevision": "0ec8df065c40053bdba40a594167f4f8417b56b5",
+        "scope": "native FlatBuffers profile and real RawSocket/WebSocket/TLS/auth/fragmentation/PPT lifetime"
+      },
+      "linux": {
+        "cases": 32,
+        "exitCode": 0,
+        "nativeOnlySkips": 0,
+        "librarySha256": "940a4fb974f4f310d3f3b3489f930af9c97760946fc8c8647b079eaaf2a379c8",
+        "logSha256": "51266e71274f34ae7070263613b9e6e476a994d421dccfa2a7012bf901f57a6e",
+        "productionTestOraclesAbsent": true,
+        "exportsSha256": "e47b3b9554d818376c296aba11eb185ef124f6a96b739d98e983edc72bba0402",
+        "sourceRevision": "0ec8df065c40053bdba40a594167f4f8417b56b5",
+        "scope": "native FlatBuffers profile and real RawSocket/WebSocket/TLS/auth/fragmentation/PPT lifetime",
+        "workerCases": 20,
+        "workerExitCode": 0,
+        "workerLogSha256": "920d69f096919c7e77991b91394cf0353ab16a8725c40ff3a551832034bc5b81"
+      }
+    }
+  },
+  "acceptance": {
+    "milestoneComplete": false,
+    "issuesOpen": [
+      100,
+      101,
+      102,
+      103,
+      104
+    ],
+    "knownGaps": [
+      "complete SDK/TLS/transcode/whole-crypto copy accounting",
+      "full controlled primary results",
+      "small/large payload, fan-out, progressive, control and mixed-serializer performance evidence",
+      "resulting-head required CI"
+    ],
+    "scopeAndGatesChanged": false
+  },
+  "baselineFast": {
+    "exitCode": 0,
+    "log": "/tmp/connectanum-transcode-baseline-fast.log",
+    "logSha256": "cc73b484a9ca77ee7ccb68d74e0ed4cd072baea650cc58470296204208822ca7"
+  },
+  "declaredResourceBudgets": {
+    "cpuAllocationGcRssPointRatioMax": 1.0,
+    "confidenceUpperRatioMax": 1.05,
+    "confidenceLevel": 0.95,
+    "policyChanged": false,
+    "absoluteCeilingsPartOfPolicy": false
+  }
+}

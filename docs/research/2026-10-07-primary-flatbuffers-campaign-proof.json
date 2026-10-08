@@ -1,0 +1,151 @@
+{
+  "status": "failed: overlapping diagnostic job; no acceptance",
+  "metadata": {
+    "artifacts_sha256": {
+      "driver": "203379324a1a01adfa908604bee8be2b0526a33a13a14524430ec9e586393e95",
+      "native_library": "4c86366a177f982d511069a661245dacd69cd2250c4c4d1fa32efbdffa1f5d2e"
+    },
+    "campaign_kind": "primary",
+    "load_average": [
+      15.69287109375,
+      14.962890625,
+      14.853515625
+    ],
+    "lockfiles_sha256": {
+      "native/bench/Cargo.lock": "5d9a1011a6c8d9c01051489912c0b57b0b41ca9bd040500473de869a8f3810fd",
+      "native/transport/Cargo.lock": "86b9276e266bf62caf3ead9f410ec41fbf318dfa6f603fbeae2cfb4edfefa050",
+      "pubspec.lock": "d00421b38586c21ab8f11ed76cac85c5f7a7cabb5bc849beaeca007f1175b83a"
+    },
+    "platform": {
+      "cpu_model": "unavailable",
+      "dart_version": "Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_arm64\"",
+      "kernel": "6.12.76-linuxkit",
+      "logical_cpu_count": 24,
+      "os": "Linux",
+      "os_release": "PRETTY_NAME=\"Debian GNU/Linux 13 (trixie)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"13\"\nVERSION=\"13 (trixie)\"\nVERSION_CODENAME=trixie\nDEBIAN_VERSION_FULL=13.7\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n",
+      "runner_image": "dart@sha256:7efb22ee3003e3aaa7af34840bfacb2fc1b06e1ac1295237dfcca1552816588e",
+      "rustc_version": "rustc 1.99.0 (b940084d7 2026-09-28)"
+    },
+    "policy_sha256": "39a469850ff73fb47ef9d670c558d7eab476ec88b9212e8a0fe41a06c9f27f48",
+    "resource_mode": "source_vm_metrics",
+    "router_config_sha256": "ec18afa8941003c92faac9f7775379d78fd301c609e827d652138974b2c9f1b2",
+    "scenario_sha256": "64b07e1c11db37eb38705ad6ab0a64ef45193edde46c926d5330ab226365b822",
+    "source_revision": "8af2c337e5633ab77fef7e6e0c2298db388e6754",
+    "system_state_before": {
+      "cpu_scaling_governor": null,
+      "load_average": [
+        15.69287109375,
+        14.962890625,
+        14.853515625
+      ],
+      "power_supply": {},
+      "thermal_celsius_milli": {},
+      "virtualization_product": null
+    },
+    "worker_lifetime": "one_driver_and_stable_client_server_processes",
+    "working_tree_clean": true
+  },
+  "caseCount": 48,
+  "warmupPasses": 3,
+  "measuredPasses": 7,
+  "totalRows": 1440,
+  "minimumDurationMs": 10000,
+  "minimumSamples": 1000,
+  "startedAtUtc": "2026-10-07T01:00:22.701439+00:00",
+  "initialPids": {
+    "runner": 17154,
+    "driver": 17178,
+    "server": 17179,
+    "client": 17267
+  },
+  "sessionId": 79116,
+  "container": "connectanum-flatbuffers-linux-bench",
+  "outputPath": "/tmp/connectanum-8af2c337-primary-campaign-01",
+  "hostLogPath": "/tmp/connectanum-8af2c337-primary-campaign.log",
+  "hostEvidenceSha256": "fdb3049d7880413f0185c77f9d3cc6d5ba229c8f5c6085e3ac8f647fea0db4ed",
+  "preflightManifestSha256": "07e5e1e4e4e0e8776251969fd05f2abdafb153fb8ac41bc48d179965ada9f20a",
+  "limits": [
+    "The overlap guard rejected this run; 124 partial warm-up rows are not acceptance evidence.",
+    "No completed timing or copy acceptance.",
+    "Guest CPU model unavailable; additional host/guest evidence retained.",
+    "TLS/Dart SDK copy fields remain not_measured and must fail acceptance."
+  ],
+  "executionCommand": [
+    "/tmp/connectanum-8af2c337-primary-artifacts/http_stream",
+    "--dart",
+    "dart",
+    "--native-lib",
+    "/tmp/connectanum-8af2c337-primary-artifacts/libct_ffi.so",
+    "--router-config",
+    "/tmp/connectanum-8af2c337-primary-source/native/bench/bench_router.json",
+    "--control-base",
+    "https://127.0.0.1:8080/bench",
+    "--scenario",
+    "/tmp/connectanum-8af2c337-primary-campaign-01/scenarios",
+    "--results",
+    "/tmp/connectanum-8af2c337-primary-campaign-01/driver-results.jsonl",
+    "--results-only",
+    "--skip-wamp-worker-aot",
+    "--collect-wamp-vm-metrics",
+    "--router-worker-counts",
+    "1",
+    "--native-runtime-thread-counts",
+    "1",
+    "--workload-timeout-ms",
+    "300000"
+  ],
+  "observedManifestSha256": "7d2e8aa9799d7cd9166da1f4480dd1c594d8c1b33143a6d8463215b1bf4d5422",
+  "rowsCompletedAtSnapshot": 17,
+  "finalExecution": {
+    "command": [
+      "/tmp/connectanum-8af2c337-primary-artifacts/http_stream",
+      "--dart",
+      "dart",
+      "--native-lib",
+      "/tmp/connectanum-8af2c337-primary-artifacts/libct_ffi.so",
+      "--router-config",
+      "/tmp/connectanum-8af2c337-primary-source/native/bench/bench_router.json",
+      "--control-base",
+      "https://127.0.0.1:8080/bench",
+      "--scenario",
+      "/tmp/connectanum-8af2c337-primary-campaign-01/scenarios",
+      "--results",
+      "/tmp/connectanum-8af2c337-primary-campaign-01/driver-results.jsonl",
+      "--results-only",
+      "--skip-wamp-worker-aot",
+      "--collect-wamp-vm-metrics",
+      "--router-worker-counts",
+      "1",
+      "--native-runtime-thread-counts",
+      "1",
+      "--workload-timeout-ms",
+      "300000"
+    ],
+    "completed_at_utc": "2026-10-07T01:25:48.179655+00:00",
+    "driver_exit_code": -15,
+    "error": "build, test or mutation job overlapped the campaign",
+    "interfering_jobs": [
+      {
+        "pid": 19839,
+        "program": "dart"
+      }
+    ],
+    "observed_process_pids": {
+      "client_process_metrics": 17267,
+      "server_process_metrics": 17179
+    },
+    "pid": 17178,
+    "process_group_stopped": true,
+    "started_at_utc": "2026-10-07T01:00:22.701439+00:00",
+    "status": "failed"
+  },
+  "completedRows": 124,
+  "failedManifestSha256": "6d616a780a34b787f647d470ab918c95e7263a1d93aad0186651b871c0a86ecd",
+  "failedRowsSha256": "8c702c3c5eaa8387f5cf1b372fd43495beecd63fc7d859ae957440c71ffc7afe",
+  "processStateAfterFailure": {
+    "runner": "gone",
+    "driver": "gone",
+    "client": "gone",
+    "formerServer": "zombie; no running workload"
+  }
+}

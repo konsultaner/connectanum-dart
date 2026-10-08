@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "minimum_warmup_runs": 3,
+  "minimum_repetitions": 7,
+  "minimum_duration_ms": 10000,
+  "minimum_samples_per_run": 1000,
+  "confidence_level": 0.95,
+  "bootstrap_resamples": 20000,
+  "random_seed": 20261005,
+  "metrics": {
+    "throughput_mbps": {
+      "gate": {
+        "direction": "higher_is_better",
+        "median_min_ratio": 1.0,
+        "ci_lower_min_ratio": 0.95
+      }
+    },
+    "latency_p95_ms": {
+      "gate": {
+        "direction": "lower_is_better",
+        "median_max_ratio": 1.0,
+        "ci_upper_max_ratio": 1.05
+      }
+    },
+    "latency_p99_ms": {
+      "gate": {
+        "direction": "lower_is_better",
+        "median_max_ratio": 1.0,
+        "ci_upper_max_ratio": 1.05
+      }
+    },
+    "cpu_us_per_operation": {
+      "gate": {
+        "direction": "lower_is_better",
+        "median_max_ratio": 1.0,
+        "ci_upper_max_ratio": 1.05
+      }
+    },
+    "allocated_bytes_per_operation": {
+      "gate": {
+        "direction": "lower_is_better",
+        "median_max_ratio": 1.0,
+        "ci_upper_max_ratio": 1.05
+      }
+    },
+    "gc_pause_us_per_operation": {
+      "gate": {
+        "direction": "lower_is_better",
+        "median_max_ratio": 1.0,
+        "ci_upper_max_ratio": 1.05
+      }
+    },
+    "summed_sampled_peak_rss_bytes": {
+      "gate": {
+        "direction": "lower_is_better",
+        "median_max_ratio": 1.0,
+        "ci_upper_max_ratio": 1.05
+      }
+    }
+  },
+  "copy_metrics": [
+    "optimized_payload_copy_bytes",
+    "builder_input_copy_bytes",
+    "builder_growth_copy_bytes",
+    "transport_copy_bytes",
+    "websocket_mask_copy_bytes",
+    "tls_copy_bytes",
+    "transcode_copy_bytes",
+    "e2ee_copy_bytes"
+  ],
+  "notes": [
+    "Campaigns must run on Linux because process CPU ticks and RSS samples use /proc.",
+    "The candidate point estimate must meet parity; the 5% allowance applies only to confidence interval bounds.",
+    "For each paired repetition, throughput compares FlatBuffers with the faster CBOR/MessagePack result, and latency/resource metrics compare it with the lower CBOR/MessagePack result.",
+    "CPU, allocation, GC pause and peak-memory point estimates may not regress against the best binary baseline; the 5% interval tolerance only expresses measurement noise.",
+    "Missing instrumentation, incomplete codec rows, insufficient samples, or overlapping runs fail acceptance."
+  ]
+}

@@ -22,6 +22,26 @@ Future<void> _handleHello(
     return;
   }
 
+  if (state.serializer == NativeMessageSerializer.flatbuffers) {
+    state.flatBuffersProfile ??=
+        const flatbuffers.FlatBuffersSessionProfile.router();
+    try {
+      state.flatBuffersProfile = state.flatBuffersProfile!.acceptIncoming(
+        hello,
+      );
+    } catch (_) {
+      await sendAbort(
+        bossPort,
+        state,
+        connectionId,
+        wamp_core.Error.protocolViolation,
+        message: 'FlatBuffers HELLO capability advertisement is required',
+      );
+      state.phase = HandshakePhase.aborted;
+      return;
+    }
+  }
+
   final realmUri = hello.realm;
   if (realmUri == null || realmUri.isEmpty) {
     await sendAbort(
@@ -232,6 +252,24 @@ Future<void> _handleAuthenticate(
     return;
   }
 
+  if (state.serializer == NativeMessageSerializer.flatbuffers) {
+    try {
+      final profile =
+          state.flatBuffersProfile ??
+          const flatbuffers.FlatBuffersSessionProfile.router();
+      state.flatBuffersProfile = profile.acceptIncoming(authenticate);
+    } catch (_) {
+      await sendAbort(
+        bossPort,
+        state,
+        connectionId,
+        wamp_core.Error.protocolViolation,
+        message: 'AUTHENTICATE requires an accepted FlatBuffers CHALLENGE',
+      );
+      return;
+    }
+  }
+
   final signature = authenticate.signature;
   if (signature == null || signature.isEmpty) {
     await _abortPendingAuthentication(state, reason: 'missing_signature');
@@ -324,7 +362,8 @@ Future<void> _abortPendingAuthentication(
   WorkerConnectionState state, {
   String? reason,
 }) async {
-  if (state.phase != HandshakePhase.awaitingAuthenticate) {
+  if (state.phase != HandshakePhase.awaitingHello &&
+      state.phase != HandshakePhase.awaitingAuthenticate) {
     return;
   }
   final authenticator = state.authenticator;
@@ -332,6 +371,9 @@ Future<void> _abortPendingAuthentication(
   if (authenticator == null || authContext == null) {
     return;
   }
+  state.authenticator = null;
+  state.authContext = null;
+  state.pendingChallengeExtra = null;
   try {
     await authenticator.onAbort(authContext, reason: reason);
   } catch (_) {
@@ -373,6 +415,7 @@ Future<void> _openAnonymousSession({
     connectionId,
     serializer,
     Welcome(sessionId, welcomeDetails),
+    state: state,
   );
 
   state.phase = HandshakePhase.open;
@@ -477,6 +520,7 @@ Future<void> sendChallenge(
     connectionId,
     serializer,
     Challenge(method, extra),
+    state: state,
   );
 }
 
@@ -538,17 +582,18 @@ Future<void> completeAuthenticatedSession({
   welcomeDetails.authmethod = method;
   welcomeDetails.authprovider = authProvider;
   state.welcomeDetails = welcomeDetails;
-  state.phase = HandshakePhase.open;
-  state.authenticator = null;
-  state.authContext = null;
-  state.pendingChallengeExtra = null;
 
   await sendMessage(
     bossPort,
     connectionId,
     serializer,
     Welcome(sessionId, welcomeDetails),
+    state: state,
   );
+  state.phase = HandshakePhase.open;
+  state.authenticator = null;
+  state.authContext = null;
+  state.pendingChallengeExtra = null;
 
   if (statePort != null) {
     final session = SessionRecord(

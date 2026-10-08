@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import '../message/abstract_ppt_options.dart';
 import '../serializer/abstract_serializer.dart';
 import '../serializer/cbor/serializer.dart' as cbor_serializer;
+import '../serializer/flatbuffers/serializer.dart' as flatbuffers_serializer;
 import '../serializer/json/serializer.dart' as json_serializer;
 import '../serializer/msgpack/serializer.dart' as msgpack_serializer;
 
@@ -13,6 +14,8 @@ class PPTPayload {
       cbor_serializer.Serializer();
   static final AbstractSerializer _msgpackSerializer =
       msgpack_serializer.Serializer();
+  static final AbstractSerializer _flatbuffersSerializer =
+      flatbuffers_serializer.Serializer();
 
   List<dynamic>? arguments;
   Map<String, dynamic>? argumentsKeywords;
@@ -86,6 +89,7 @@ class PPTPayload {
       'json' => _jsonSerializer,
       'cbor' => _cborSerializer,
       'msgpack' => _msgpackSerializer,
+      'flatbuffers' => _flatbuffersSerializer,
       _ => null,
     };
   }

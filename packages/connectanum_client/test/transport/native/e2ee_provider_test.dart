@@ -1,14 +1,280 @@
+@TestOn('vm')
+library;
+
 import 'dart:async';
+import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/native_buffers.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
+import 'package:connectanum_core/cbor_serializer.dart' as cbor;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:test/test.dart';
 
 import '../../test_support/native_runtime_support.dart';
 
+part 'support/typed_e2ee_provider_cases.dart';
+
 void main() {
   final nativeClientRuntimeUnavailableReason = nativeClientRuntimeSkipReason();
+
+  _nativeTypedProviderCases(nativeClientRuntimeUnavailableReason);
+  _nativePolicyCallbackContractCases(nativeClientRuntimeUnavailableReason);
+
+  test('crypto staging and Dart bridge counts match actual operations', () async {
+    final source = await Isolate.resolvePackageUri(
+      Uri.parse('package:connectanum_client/connectanum.dart'),
+    );
+    final result = await Process.run(
+      Platform.resolvedExecutable,
+      [
+        'run',
+        source!
+            .resolve(
+              '../test/transport/native/support/crypto_copy_metrics_probe.dart',
+            )
+            .toFilePath(),
+      ],
+      environment: {
+        'CONNECTANUM_NATIVE_LIB': NativeLibraryLoader.resolvePath(),
+      },
+    );
+    expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+    expect(
+      result.stdout,
+      contains('exact native and Dart bridge deltas passed'),
+    );
+  }, skip: nativeClientRuntimeUnavailableReason);
+
+  test(
+    'unknown crypto metrics ABI never calls the snapshot',
+    () async {
+      final source = await Isolate.resolvePackageUri(
+        Uri.parse('package:connectanum_client/connectanum.dart'),
+      );
+      final directory = await Directory.systemTemp.createTemp(
+        'connectanum-crypto-abi-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final library =
+          '${directory.path}/crypto.${Platform.isMacOS ? 'dylib' : 'so'}';
+      final compiled = await Process.run('cc', [
+        Platform.isMacOS ? '-dynamiclib' : '-shared',
+        '-fPIC',
+        '-o',
+        library,
+        source!
+            .resolve(
+              '../test/transport/native/support/crypto_copy_abi_fixture.c',
+            )
+            .toFilePath(),
+        File(NativeLibraryLoader.resolvePath()).absolute.path,
+      ]);
+      expect(
+        compiled.exitCode,
+        0,
+        reason: '${compiled.stdout}\n${compiled.stderr}',
+      );
+      final result = await Process.run(Platform.resolvedExecutable, [
+        'run',
+        source
+            .resolve(
+              '../test/transport/native/support/crypto_copy_metrics_probe.dart',
+            )
+            .toFilePath(),
+        library,
+      ]);
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      expect(result.stdout, contains('unsupported ABI safely unavailable'));
+    },
+    skip:
+        nativeClientRuntimeUnavailableReason ??
+        ((!Platform.isMacOS && !Platform.isLinux)
+            ? 'Requires Unix C shared-library toolchain'
+            : false),
+  );
+
+  group(
+    'native-owned typed FlatBuffers encryption',
+    () {
+      tearDown(NativeClientRuntime.shutdownShared);
+
+      for (final cipher in [
+        ConnectanumE2eeProfile.xsalsa20Poly1305,
+        ConnectanumE2eeProfile.aes256Gcm,
+      ]) {
+        test('retains native input and composes $cipher ciphertext', () {
+          final allocator = NativeBufferAllocator.instance();
+          final application = Uint8List.fromList(
+            List<int>.generate(513, (index) => (index * 29) & 0xff),
+          );
+          final builder = allocator.allocate(application.length);
+          for (var index = 0; index < application.length; index++) {
+            builder.setUint8(index, application[index]);
+          }
+          final plaintext = builder.freeze();
+          addTearDown(plaintext.dispose);
+          builder.dispose();
+
+          final key = List<int>.generate(32, (index) => index + 1);
+          final provider = cipher == ConnectanumE2eeProfile.aes256Gcm
+              ? NativeWampFlatBuffersAes256GcmProvider.single(
+                  keyId: 'native-key',
+                  key: key,
+                )
+              : NativeWampFlatBuffersXsalsa20Poly1305Provider.single(
+                  keyId: 'native-key',
+                  key: key,
+                );
+          addTearDown(provider.release);
+          final options = CallOptions(
+            pptScheme: 'wamp',
+            pptSerializer: 'flatbuffers',
+          );
+          // VM resolves the IO export; the analyzer defaults to the stub.
+          // ignore: undefined_method
+          final ciphertext = provider.packNativeTypedPayload(
+            plaintext,
+            options,
+          );
+          addTearDown(ciphertext.dispose);
+
+          expect(plaintext.inputCopiedBytes, 0);
+          expect(ciphertext.inputCopiedBytes, 0);
+          expect(plaintext.isDisposed, isFalse);
+          expect(options.pptCipher, cipher);
+          expect(options.pptKeyId, 'native-key');
+
+          final controlBuilder = allocator.flatBuffers();
+          NativeOwnedBuffer? control;
+          NativeFlatBufferFrame? frame;
+          try {
+            controlBuilder.finish(
+              flatbuffers.writeWampFlatBufferMessage(
+                Call(
+                  7,
+                  'com.example.echo',
+                  options: CallOptions(
+                    pptScheme: options.pptScheme,
+                    pptSerializer: options.pptSerializer,
+                    pptCipher: options.pptCipher,
+                    pptKeyId: options.pptKeyId,
+                  ),
+                ),
+                controlBuilder,
+              ),
+            );
+            control = controlBuilder.freeze();
+            frame = allocator.composeFlatBufferFrame(
+              control,
+              opaquePayload: ciphertext,
+            );
+            expect(frame.segmentCount, greaterThan(1));
+            expect(
+              flatbuffers.Serializer().deserialize(frame.controlBytes),
+              isA<Call>(),
+            );
+          } finally {
+            frame?.dispose();
+            control?.dispose();
+            controlBuilder.dispose();
+          }
+
+          plaintext.dispose();
+          final decoded = provider.unpackPayload([ciphertext.bytes], options);
+          expect(decoded.arguments, [application]);
+          expect(decoded.argumentsKeywords, isNull);
+        });
+      }
+
+      test('revalidates a native input released by key-selection policy', () {
+        final allocator = NativeBufferAllocator.instance();
+        final builder = allocator.allocate(4)
+          ..setUint8(0, 1)
+          ..setUint8(1, 2)
+          ..setUint8(2, 3)
+          ..setUint8(3, 4);
+        late NativeOwnedBuffer plaintext;
+        plaintext = builder.freeze();
+        addTearDown(builder.dispose);
+        var callbackRan = false;
+        final provider = NativeWampFlatBuffersAes256GcmProvider(
+          keys: {
+            'native-key': List<int>.generate(32, (index) => index + 1),
+            'other-key': List<int>.generate(32, (index) => index + 65),
+          },
+          keySelectionPolicy: (_, _) {
+            callbackRan = true;
+            plaintext.dispose();
+            return 'native-key';
+          },
+        );
+        addTearDown(provider.release);
+        final options = CallOptions(
+          pptScheme: 'wamp',
+          pptSerializer: 'flatbuffers',
+        );
+        expect(
+          // VM resolves the IO export; the analyzer defaults to the stub.
+          // ignore: undefined_method
+          () => provider.packNativeTypedPayload(
+            plaintext,
+            options,
+            runtimeContext: const WampE2eeRuntimeContext(
+              direction: WampE2eeDirection.outbound,
+              messageType: WampE2eeMessageType.call,
+              uri: 'com.example.echo',
+            ),
+          ),
+          throwsStateError,
+        );
+        expect(callbackRan, isTrue);
+        expect(plaintext.isDisposed, isTrue);
+        expect(options.pptCipher, isNull);
+      });
+    },
+    skip: nativeClientRuntimeUnavailableReason,
+  );
+
+  test(
+    'typed plaintext owners survive derived views and release after GC',
+    () async {
+      final source = await Isolate.resolvePackageUri(
+        Uri.parse('package:connectanum_client/connectanum.dart'),
+      );
+      final result = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          '--enable-vm-service=0',
+          '--disable-service-auth-codes',
+          'run',
+          source!
+              .resolve(
+                '../test/transport/native/support/typed_e2ee_gc_probe.dart',
+              )
+              .toFilePath(),
+        ],
+        environment: {
+          'CONNECTANUM_NATIVE_LIB':
+              Platform.environment['CONNECTANUM_NATIVE_LIB']!,
+        },
+      );
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+        expect(
+          result.stdout,
+          contains(
+            'native-typed-e2ee-gc: $cipher derived read-only view retained then released storage',
+          ),
+        );
+      }
+    },
+    skip: nativeClientRuntimeUnavailableReason,
+    tags: 'ffi-test-owner-oracle',
+    timeout: const Timeout(Duration(seconds: 40)),
+  );
 
   group(
     'NativeWampCborXsalsa20Poly1305Provider',

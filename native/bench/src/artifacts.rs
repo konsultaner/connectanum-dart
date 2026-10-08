@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::report::{
     bench_http_stream_counter_delta, router_counter_delta, transport_counter_after,
@@ -76,6 +77,10 @@ pub struct WorkloadArtifactSummary {
     pub scenario_router_publications_delta: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_process_metrics: Option<ClientProcessMetrics>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_process_metrics: Option<ClientProcessMetrics>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub copy_metrics: Option<Value>,
     pub transport: TransportDeltaSummary,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_connection_usage: Option<HttpConnectionUsageSummary>,
@@ -732,6 +737,8 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         )
         .unwrap_or(0),
         client_process_metrics: report.client_process_metrics.clone(),
+        server_process_metrics: report.server_process_metrics.clone(),
+        copy_metrics: report.copy_metrics.clone(),
         transport: TransportDeltaSummary {
             rawsocket_zero_copy_calls: transport_counter_delta(
                 &report.metrics_before,
@@ -2790,6 +2797,10 @@ pub fn render_prometheus_metrics(
         "# HELP connectanum_bench_artifact_workload_client_process_rss_bytes Native WAMP client process resident-set-size observations\n",
     );
     output.push_str("# TYPE connectanum_bench_artifact_workload_client_process_rss_bytes gauge\n");
+    output.push_str(
+        "# HELP connectanum_bench_artifact_workload_server_process_rss_bytes WAMP benchmark server process resident-set-size observations (includes the HTTP control plane)\n",
+    );
+    output.push_str("# TYPE connectanum_bench_artifact_workload_server_process_rss_bytes gauge\n");
 
     for summary in summaries {
         let router_workers = summary.router_workers.to_string();
@@ -2867,6 +2878,23 @@ pub fn render_prometheus_metrics(
             ] {
                 output.push_str(&format!(
                     "connectanum_bench_artifact_workload_client_process_rss_bytes{} {}\n",
+                    format_labels_with_extra(&base_labels, &[("kind", kind)]),
+                    value
+                ));
+            }
+        }
+        if let Some(metrics) = &summary.server_process_metrics {
+            let mut observations = vec![
+                ("before", metrics.rss_before_bytes),
+                ("current", metrics.current_rss_bytes),
+                ("max_observed", metrics.max_rss_bytes),
+            ];
+            if let Some(peak) = metrics.peak_rss_during_bytes {
+                observations.push(("sampled_peak_during", peak));
+            }
+            for (kind, value) in observations {
+                output.push_str(&format!(
+                    "connectanum_bench_artifact_workload_server_process_rss_bytes{} {}\n",
                     format_labels_with_extra(&base_labels, &[("kind", kind)]),
                     value
                 ));
@@ -3274,6 +3302,7 @@ mod tests {
             workload: "load".to_string(),
             protocol: "h2".to_string(),
             client_impl: "n/a".to_string(),
+            wamp_configuration: None,
             router_workers: 3,
             native_runtime_threads: 4,
             iterations: 4,
@@ -3615,6 +3644,8 @@ mod tests {
             http_phase_timing: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            server_process_metrics: None,
+            copy_metrics: None,
             samples: vec![
                 WorkloadSample {
                     worker: 0,
@@ -3622,6 +3653,9 @@ mod tests {
                     latency_ms: 10.0,
                     request_bytes: 100,
                     response_bytes: 200,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 1.0,
@@ -3664,6 +3698,9 @@ mod tests {
                     latency_ms: 20.0,
                     request_bytes: 100,
                     response_bytes: 400,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 3.0,
@@ -3706,6 +3743,9 @@ mod tests {
                     latency_ms: 30.0,
                     request_bytes: 100,
                     response_bytes: 600,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: Some(HttpPhaseTimingSample {
                         stream_acquire_wait_ms: 5.0,
@@ -4468,6 +4508,24 @@ mod tests {
             rss_before_bytes: 67_108_864,
             current_rss_bytes: 536_870_912,
             max_rss_bytes: 805_306_368,
+            cpu_user_us_delta: Some(10),
+            cpu_system_us_delta: Some(4),
+            allocated_bytes_delta: Some(4096),
+            gc_count_delta: Some(1),
+            gc_pause_us_delta: Some(250),
+            peak_rss_during_bytes: Some(805_306_368),
+        });
+        report.server_process_metrics = Some(crate::report::ClientProcessMetrics {
+            pid: 43,
+            rss_before_bytes: 134_217_728,
+            current_rss_bytes: 201_326_592,
+            max_rss_bytes: 268_435_456,
+            cpu_user_us_delta: Some(20),
+            cpu_system_us_delta: Some(8),
+            allocated_bytes_delta: Some(8192),
+            gc_count_delta: Some(2),
+            gc_pause_us_delta: Some(500),
+            peak_rss_during_bytes: Some(234_881_024),
         });
         report.metrics_before["metrics"]["transport"]["rawsocket_zero_copy_calls_total"] =
             json!(10);
@@ -4504,10 +4562,13 @@ mod tests {
         assert!(text.contains("kind=\"buffered_file_segment_calls\""));
         assert!(text.contains("kind=\"buffered_file_segment_bytes\""));
         assert!(text.contains("connectanum_bench_artifact_workload_client_process_rss_bytes"));
+        assert!(text.contains("connectanum_bench_artifact_workload_server_process_rss_bytes"));
         assert!(text.contains("kind=\"before\""));
         assert!(text.contains("kind=\"current\""));
         assert!(text.contains("kind=\"peak\""));
+        assert!(text.contains("kind=\"sampled_peak_during\""));
         assert!(text.contains("805306368"));
+        assert!(text.contains("234881024"));
         assert!(text.contains("counter=\"invocations_dispatched\""));
         assert!(text.contains("connectanum_bench_artifact_workload_http_connection_usage"));
         assert!(text.contains("kind=\"connections_opened\""));
@@ -4539,11 +4600,31 @@ mod tests {
             rss_before_bytes: 67_108_864,
             current_rss_bytes: 536_870_912,
             max_rss_bytes: 805_306_368,
+            cpu_user_us_delta: Some(10),
+            cpu_system_us_delta: Some(4),
+            allocated_bytes_delta: Some(4096),
+            gc_count_delta: Some(1),
+            gc_pause_us_delta: Some(250),
+            peak_rss_during_bytes: Some(805_306_368),
         };
         report.client_process_metrics = Some(expected.clone());
+        let server_expected = crate::report::ClientProcessMetrics {
+            pid: 43,
+            rss_before_bytes: 134_217_728,
+            current_rss_bytes: 201_326_592,
+            max_rss_bytes: 268_435_456,
+            cpu_user_us_delta: Some(20),
+            cpu_system_us_delta: Some(8),
+            allocated_bytes_delta: Some(8192),
+            gc_count_delta: Some(2),
+            gc_pause_us_delta: Some(500),
+            peak_rss_during_bytes: Some(234_881_024),
+        };
+        report.server_process_metrics = Some(server_expected.clone());
 
         let summary = summarize_report(&report);
         assert_eq!(summary.client_process_metrics, Some(expected));
+        assert_eq!(summary.server_process_metrics, Some(server_expected));
     }
 
     #[test]

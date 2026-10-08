@@ -660,6 +660,109 @@ class NativeRouterMetrics {
   }
 }
 
+typedef _RustlsCopyMetricsSnapshot = ({
+  int outboundChunkCopyBytesTotal,
+  int queueReadCopyBytesTotal,
+  int deframerAppendCopyBytesTotal,
+  int deframerMoveCopyBytesTotal,
+  int recordBufferCopyBytesTotal,
+  int recordAppendCopyBytesTotal,
+});
+
+/// Cumulative transport copy-byte counters for the router process. Native
+/// counters are null when the loaded library predates their instrumentation.
+
+class NativeRouterTransportCopyMetrics {
+  const NativeRouterTransportCopyMetrics({
+    required this.dartToNativeCopiedBytesTotal,
+    required this.websocketMaskCopyBytesTotal,
+    required this.websocketCoalesceCopyBytesTotal,
+    required this.tlsPlaintextAcceptedBytesTotal,
+    this.ioBufferFrontCopyBytesTotal,
+    this.ioBufferedReadCopyBytesTotal,
+    this.rustlsOutboundChunkCopyBytesTotal,
+    this.rustlsQueueReadCopyBytesTotal,
+    this.rustlsDeframerAppendCopyBytesTotal,
+    this.rustlsDeframerMoveCopyBytesTotal,
+    this.rustlsRecordBufferCopyBytesTotal,
+    this.rustlsRecordAppendCopyBytesTotal,
+  });
+
+  final int dartToNativeCopiedBytesTotal;
+  final int? websocketMaskCopyBytesTotal;
+  final int? websocketCoalesceCopyBytesTotal;
+  final int? tlsPlaintextAcceptedBytesTotal;
+  final int? ioBufferFrontCopyBytesTotal;
+  final int? ioBufferedReadCopyBytesTotal;
+
+  /// Partial source observations; null means the library lacks the optional ABI.
+  final int? rustlsOutboundChunkCopyBytesTotal;
+  final int? rustlsQueueReadCopyBytesTotal;
+  final int? rustlsDeframerAppendCopyBytesTotal;
+  final int? rustlsDeframerMoveCopyBytesTotal;
+  final int? rustlsRecordBufferCopyBytesTotal;
+  final int? rustlsRecordAppendCopyBytesTotal;
+
+  NativeRouterTransportCopyMetrics deltaFrom(
+    NativeRouterTransportCopyMetrics before,
+  ) => NativeRouterTransportCopyMetrics(
+    dartToNativeCopiedBytesTotal: _counterDelta(
+      dartToNativeCopiedBytesTotal,
+      before.dartToNativeCopiedBytesTotal,
+    ),
+    websocketMaskCopyBytesTotal: _nullableCounterDelta(
+      websocketMaskCopyBytesTotal,
+      before.websocketMaskCopyBytesTotal,
+    ),
+    websocketCoalesceCopyBytesTotal: _nullableCounterDelta(
+      websocketCoalesceCopyBytesTotal,
+      before.websocketCoalesceCopyBytesTotal,
+    ),
+    tlsPlaintextAcceptedBytesTotal: _nullableCounterDelta(
+      tlsPlaintextAcceptedBytesTotal,
+      before.tlsPlaintextAcceptedBytesTotal,
+    ),
+    ioBufferFrontCopyBytesTotal: _nullableCounterDelta(
+      ioBufferFrontCopyBytesTotal,
+      before.ioBufferFrontCopyBytesTotal,
+    ),
+    ioBufferedReadCopyBytesTotal: _nullableCounterDelta(
+      ioBufferedReadCopyBytesTotal,
+      before.ioBufferedReadCopyBytesTotal,
+    ),
+    rustlsOutboundChunkCopyBytesTotal: _nullableCounterDelta(
+      rustlsOutboundChunkCopyBytesTotal,
+      before.rustlsOutboundChunkCopyBytesTotal,
+    ),
+    rustlsQueueReadCopyBytesTotal: _nullableCounterDelta(
+      rustlsQueueReadCopyBytesTotal,
+      before.rustlsQueueReadCopyBytesTotal,
+    ),
+    rustlsDeframerAppendCopyBytesTotal: _nullableCounterDelta(
+      rustlsDeframerAppendCopyBytesTotal,
+      before.rustlsDeframerAppendCopyBytesTotal,
+    ),
+    rustlsDeframerMoveCopyBytesTotal: _nullableCounterDelta(
+      rustlsDeframerMoveCopyBytesTotal,
+      before.rustlsDeframerMoveCopyBytesTotal,
+    ),
+    rustlsRecordBufferCopyBytesTotal: _nullableCounterDelta(
+      rustlsRecordBufferCopyBytesTotal,
+      before.rustlsRecordBufferCopyBytesTotal,
+    ),
+    rustlsRecordAppendCopyBytesTotal: _nullableCounterDelta(
+      rustlsRecordAppendCopyBytesTotal,
+      before.rustlsRecordAppendCopyBytesTotal,
+    ),
+  );
+
+  static int _counterDelta(int current, int before) =>
+      current >= before ? current - before : current;
+
+  static int? _nullableCounterDelta(int? current, int? before) =>
+      current == null || before == null ? null : _counterDelta(current, before);
+}
+
 class NativeHttpResponseStreamMetrics {
   const NativeHttpResponseStreamMetrics({
     required this.streamingResponsesTotal,
@@ -1445,6 +1548,7 @@ class _NativeMessageMetadata {
     required this.detailNumberB,
     required this.flags,
     this.detailsBytes,
+    this.transparentPayloadBytes,
     this.stringA,
     this.stringB,
     this.stringC,
@@ -1453,6 +1557,7 @@ class _NativeMessageMetadata {
   });
 
   static const flagMetadataBind = 1 << 4;
+  static const flagTransparentPayload = 1 << 8;
 
   final int messageCode;
   final int primaryId;
@@ -1461,6 +1566,7 @@ class _NativeMessageMetadata {
   final int detailNumberB;
   final int flags;
   final Uint8List? detailsBytes;
+  final Uint8List? transparentPayloadBytes;
   final String? stringA;
   final String? stringB;
   final String? stringC;
@@ -1563,6 +1669,27 @@ class NativeIncomingMessage {
   final void Function(int handle)? _releaseOverride;
 
   bool get hasNativeHandle => handle > 0;
+
+  /// Whether native envelope replacement can retain these argument spans for
+  /// [target]. Mixed ordinary CBOR/FlatBuffers containers share their encoding.
+  /// PPT and incompatible codecs use ordinary conversion. Older libraries
+  /// retain the existing homogeneous path through the absent optional query.
+  bool canForwardTo(NativeMessageSerializer target) {
+    if (!hasNativeHandle || _released) return false;
+    if (serializer == target) return true;
+    return _bindings?.ctMessageCanForwardToV1?.call(handle, target.id) == 1;
+  }
+
+  /// Resolves the negotiated native destination without importing its worker's
+  /// state. No application values or frame bytes cross the isolate boundary.
+  bool canForwardToConnection(int connectionId) {
+    if (!hasNativeHandle || _released || connectionId <= 0) return false;
+    return _bindings?.ctMessageCanForwardToConnectionV1?.call(
+          handle,
+          connectionId,
+        ) ==
+        1;
+  }
 
   int takeHandle() {
     if (_released) {
@@ -1671,8 +1798,20 @@ class _MessageBindings {
           'Expected a CALL with the transferred serializer',
         );
       }
+      if (serializer == NativeMessageSerializer.flatbuffers) {
+        _messageBytes.requireFlatbuffersBinding();
+      }
       return NativeCallPayloadBytes._(
         serializer: serializer,
+        transparentPayloadBytes:
+            (info.flags & _NativeMessageMetadata.flagTransparentPayload) == 0
+            ? null
+            : _messageBytes.read(
+                handle,
+                NativeMessageBytePart.transparentPayload,
+                borrowed: info.binaryArgPtr,
+                length: info.binaryArgLen,
+              ),
         argumentsBytes: info.argsLen == 0
             ? null
             : _messageBytes.read(
@@ -1711,6 +1850,9 @@ class _MessageBindings {
 
       var info = infoPtr.ref;
       final serializer = NativeMessageSerializer.fromId(info.serializer);
+      if (serializer == NativeMessageSerializer.flatbuffers) {
+        _messageBytes.requireFlatbuffersBinding();
+      }
       final argsAddress = info.argsLen == 0 ? 0 : info.argsPtr.address;
       final kwargsAddress = info.kwargsLen == 0 ? 0 : info.kwargsPtr.address;
       final args = info.argsLen == 0
@@ -1749,6 +1891,8 @@ class _MessageBindings {
                 metadataDetailNumberA: metadata.detailNumberA,
                 metadataFlags: metadata.flags,
                 metadataDetailsBytes: metadata.detailsBytes,
+                metadataTransparentPayloadBytes:
+                    metadata.transparentPayloadBytes,
                 metadataStringA: metadata.stringA,
                 metadataStringB: metadata.stringB,
                 metadataStringC: metadata.stringC,
@@ -1845,6 +1989,15 @@ _NativeMessageMetadata _metadataFromFfi(
 ) {
   final flags = info.flags;
   final metadataBind = (flags & _NativeMessageMetadata.flagMetadataBind) != 0;
+  final transparent =
+      (flags & _NativeMessageMetadata.flagTransparentPayload) == 0
+      ? null
+      : bytes.read(
+          handle,
+          NativeMessageBytePart.transparentPayload,
+          borrowed: info.binaryArgPtr,
+          length: info.binaryArgLen,
+        );
   _NativeMessageMetadata build(Uint8List? details) => _NativeMessageMetadata(
     messageCode: info.messageCode,
     primaryId: info.primaryId,
@@ -1853,6 +2006,7 @@ _NativeMessageMetadata _metadataFromFfi(
     detailNumberB: info.detailNumberB,
     flags: flags,
     detailsBytes: details,
+    transparentPayloadBytes: transparent,
     stringA: metadataBind
         ? _readOptionalString(info.stringAPtr, info.stringALen)
         : null,
@@ -1946,11 +2100,16 @@ class NativeCallPayloadBytes {
     required this.serializer,
     required this.argumentsBytes,
     required this.argumentsKeywordsBytes,
+    this.transparentPayloadBytes,
   });
 
   final NativeMessageSerializer serializer;
   final Uint8List? argumentsBytes;
   final Uint8List? argumentsKeywordsBytes;
+
+  /// An opaque application vector; null and present-empty remain distinct.
+  /// Its backing store retains native storage independently of routing handles.
+  final Uint8List? transparentPayloadBytes;
 }
 
 class NativeMessageHandleDecoder {
@@ -2164,6 +2323,7 @@ class NativeTransportRuntime
   final String _libraryPath;
   final ffi.DynamicLibrary _library; // Retain library for runtime lifetime.
   final CtFfiBindings _bindings;
+  int _dartToNativeCopiedBytesTotal = 0;
   // Resolve lazily so older libraries still support unambiguous listeners.
   late final CtListenConfiguredDart _listenConfigured = _library
       .lookupFunction<CtListenConfiguredNative, CtListenConfiguredDart>(
@@ -3500,6 +3660,106 @@ class NativeTransportRuntime
     }
   }
 
+  _RustlsCopyMetricsSnapshot? _rustlsCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctRustlsCopyMetricsSnapshot;
+    if (snapshot == null) return null;
+    final info = calloc<CtRustlsCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot partial Rustls copy metrics');
+      }
+      final value = info.ref;
+      return (
+        outboundChunkCopyBytesTotal: value.outboundChunkCopyBytesTotal,
+        queueReadCopyBytesTotal: value.queueReadCopyBytesTotal,
+        deframerAppendCopyBytesTotal: value.deframerAppendCopyBytesTotal,
+        deframerMoveCopyBytesTotal: value.deframerMoveCopyBytesTotal,
+        recordBufferCopyBytesTotal: value.recordBufferCopyBytesTotal,
+        recordAppendCopyBytesTotal: value.recordAppendCopyBytesTotal,
+      );
+    } finally {
+      calloc.free(info);
+    }
+  }
+
+  NativeRouterTransportCopyMetrics transportCopyMetricsSnapshot() {
+    final rustls = _rustlsCopyMetricsSnapshot();
+    final snapshotV2 = _bindings.ctTransportCopyMetricsSnapshotV2;
+    if (snapshotV2 != null) {
+      final info = calloc<CtTransportCopyMetricsInfoV2>();
+      try {
+        final result = snapshotV2(info);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(result, 'snapshot transport copy metrics v2');
+        }
+        final value = info.ref;
+        return NativeRouterTransportCopyMetrics(
+          dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+          rustlsOutboundChunkCopyBytesTotal:
+              rustls?.outboundChunkCopyBytesTotal,
+          rustlsQueueReadCopyBytesTotal: rustls?.queueReadCopyBytesTotal,
+          rustlsDeframerAppendCopyBytesTotal:
+              rustls?.deframerAppendCopyBytesTotal,
+          rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
+          rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
+          rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+
+          websocketMaskCopyBytesTotal: value.legacy.websocketMaskCopyBytesTotal,
+          websocketCoalesceCopyBytesTotal:
+              value.legacy.websocketCoalesceCopyBytesTotal,
+          tlsPlaintextAcceptedBytesTotal:
+              value.legacy.tlsPlaintextAcceptedBytesTotal,
+          ioBufferFrontCopyBytesTotal: value.ioBufferFrontCopyBytesTotal,
+          ioBufferedReadCopyBytesTotal: value.ioBufferedReadCopyBytesTotal,
+        );
+      } finally {
+        calloc.free(info);
+      }
+    }
+    final snapshot = _bindings.ctTransportCopyMetricsSnapshot;
+    if (snapshot == null) {
+      return NativeRouterTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+        rustlsOutboundChunkCopyBytesTotal: rustls?.outboundChunkCopyBytesTotal,
+        rustlsQueueReadCopyBytesTotal: rustls?.queueReadCopyBytesTotal,
+        rustlsDeframerAppendCopyBytesTotal:
+            rustls?.deframerAppendCopyBytesTotal,
+        rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
+        rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
+        rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+
+        websocketMaskCopyBytesTotal: null,
+        websocketCoalesceCopyBytesTotal: null,
+        tlsPlaintextAcceptedBytesTotal: null,
+      );
+    }
+    final info = calloc<CtTransportCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot transport copy metrics');
+      }
+      final value = info.ref;
+      return NativeRouterTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+        rustlsOutboundChunkCopyBytesTotal: rustls?.outboundChunkCopyBytesTotal,
+        rustlsQueueReadCopyBytesTotal: rustls?.queueReadCopyBytesTotal,
+        rustlsDeframerAppendCopyBytesTotal:
+            rustls?.deframerAppendCopyBytesTotal,
+        rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
+        rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
+        rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+
+        websocketMaskCopyBytesTotal: value.websocketMaskCopyBytesTotal,
+        websocketCoalesceCopyBytesTotal: value.websocketCoalesceCopyBytesTotal,
+        tlsPlaintextAcceptedBytesTotal: value.tlsPlaintextAcceptedBytesTotal,
+      );
+    } finally {
+      calloc.free(info);
+    }
+  }
+
   Uint8List _encodeHttpResponseBody(NativeHttpResponseBody body) {
     switch (body.kind) {
       case NativeHttpResponseBodyKind.bytes:
@@ -3596,6 +3856,7 @@ class NativeTransportRuntime
     final ptr = calloc<ffi.Uint8>(payload.length);
     try {
       ptr.asTypedList(payload.length).setAll(0, payload);
+      _dartToNativeCopiedBytesTotal += payload.length;
       final result = _bindings.ctSendMessage(connectionId, ptr, payload.length);
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to send message');

@@ -4,10 +4,13 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
+
 import '../../transport/socket/socket_helper.dart';
 import '../abstract_transport.dart';
+import '../dart_transport_copy_metrics.dart';
 import '../native/canonical_base64_io.dart';
 import '../native/external_byte_buffer.dart';
 
@@ -35,7 +38,10 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
   Uint8List _inboundBuffer = Uint8List(0);
   Uint8List? _inboundFrameBuffer;
   int _inboundFrameLength = 0;
-  Uint8List? _outboundBuffer = Uint8List(0);
+  List<Uint8List>? _outboundBuffer = <Uint8List>[];
+  int _openAttempt = 0;
+  bool _upgradeRequested = false;
+  flatbuffers.FlatBuffersSessionProfile? _flatBuffersProfile;
   late Completer _handshakeCompleter;
   Completer? _pingCompleter;
   Completer? _onConnectionLost;
@@ -60,14 +66,37 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
   }) : assert(
          _serializerType == SocketHelper.serializationJson ||
              _serializerType == SocketHelper.serializationMsgpack ||
-             _serializerType == SocketHelper.serializationCbor,
+             _serializerType == SocketHelper.serializationCbor ||
+             _serializerType == SocketHelper.serializationFlatBuffers,
        ),
        _tlsSecurityContext = tlsSecurityContext {
     _ssl = ssl;
     _allowInsecureCertificates = allowInsecureCertificates;
     _messageLengthExponent = messageLengthExponent;
+    if ((_serializerType == SocketHelper.serializationFlatBuffers) !=
+        (_serializer is flatbuffers.Serializer)) {
+      throw ArgumentError('FlatBuffers transport requires its matching codec');
+    }
     installNativeCanonicalBase64Codecs(_serializer);
   }
+
+  factory SocketTransport.withFlatBuffersSerializer(
+    String host,
+    int port, {
+    bool ssl = false,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
+    int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
+  }) => SocketTransport(
+    host,
+    port,
+    flatbuffers.Serializer(),
+    SocketHelper.serializationFlatBuffers,
+    ssl: ssl,
+    allowInsecureCertificates: allowInsecureCertificates,
+    tlsSecurityContext: tlsSecurityContext,
+    messageLengthExponent: messageLengthExponent,
+  );
 
   /// Sends a handshake of the morphology
   void _sendInitialHandshake() {
@@ -94,20 +123,19 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
   int? get maxMessageLength => _messageLength;
 
   @override
-  Future<void> close({error}) {
-    // found at https://stackoverflow.com/questions/28745138/how-to-handle-socket-disconnects-in-dart
-    if (isOpen) {
-      try {
-        return _socket!.drain().then((_) {
-          _socket!.destroy(); // closes in and out going socket
-          complete(_onDisconnect, error);
-        });
-      } catch (error) {
-        _socket!.destroy(); // closes in and out going socket
-        complete(_onDisconnect, error);
-      }
+  Future<void> close({error}) async {
+    _openAttempt++;
+    _outboundBuffer?.clear();
+    final socket = _socket;
+    _socket = null;
+    complete(_onDisconnect, error);
+    if (socket == null) return;
+    try {
+      if (error == null) await socket.close();
+    } finally {
+      // Do not wait for inbound EOF: the caller may never consume receive().
+      socket.destroy();
     }
-    return Future.value();
   }
 
   @override
@@ -168,6 +196,15 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
 
   @override
   Future<void> open({Duration? pingInterval}) async {
+    final openAttempt = ++_openAttempt;
+    _socket?.destroy();
+    _socket = null;
+    _messageLength = null;
+    _upgradeRequested = false;
+    _outboundBuffer = <Uint8List>[];
+    _flatBuffersProfile = _serializer is flatbuffers.Serializer
+        ? const flatbuffers.FlatBuffersSessionProfile.client()
+        : null;
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     _handshakeCompleter = Completer();
@@ -177,28 +214,38 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     _goodbyeSent = false;
     _goodbyeReceived = false;
     try {
+      final Socket socket;
       if (_ssl) {
-        _socket = await SecureSocket.connect(
+        socket = await SecureSocket.connect(
           _host,
           _port,
           context: _tlsSecurityContext as SecurityContext?,
           onBadCertificate: (certificate) => _allowInsecureCertificates,
         );
       } else {
-        _socket = await Socket.connect(_host, _port);
+        socket = await Socket.connect(_host, _port);
       }
-      _socket!.setOption(SocketOption.tcpNoDelay, true);
+      if (openAttempt != _openAttempt) {
+        socket.destroy();
+        return;
+      }
+      _socket = socket;
+      socket.setOption(SocketOption.tcpNoDelay, true);
       _pingInterval = pingInterval;
       unawaited(_runPingInterval());
       _sendInitialHandshake();
     } on SocketException catch (error) {
-      _onConnectionLost!.complete(error);
+      if (openAttempt == _openAttempt && !_onConnectionLost!.isCompleted) {
+        _onConnectionLost!.complete(error);
+      }
     }
   }
 
   @override
   Stream<AbstractMessage> receive() {
-    final socket = _socket!;
+    final socket = _socket;
+    if (socket == null) throw StateError('Transport is not open.');
+    final openAttempt = _openAttempt;
     final onDisconnect = _onDisconnect!;
     final onConnectionLost = _onConnectionLost!;
     socket.done.then(
@@ -223,7 +270,12 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     );
     // TODO set keep alive to true
     //_socket.setOption(RawSocketOption.fromBool(??, SO_KEEPALIVE, true), true)
-    return socket.expand(_consumeInboundChunk);
+    return socket.expand((chunk) {
+      if (openAttempt != _openAttempt || !identical(_socket, socket)) {
+        return const <AbstractMessage>[];
+      }
+      return _consumeInboundChunk(chunk);
+    });
   }
 
   List<AbstractMessage> _consumeInboundChunk(List<int> message) {
@@ -321,6 +373,10 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
       return message;
     }
     if (SocketHelper.isUpgrade(message)) {
+      if (!_upgradeRequested) {
+        _handleError(SocketHelper.errorUseOfReservedBits);
+        return Uint8List(0);
+      }
       if (message.length < 2) {
         _inboundBuffer = message;
         return Uint8List(0);
@@ -334,6 +390,7 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
                 ),
               )
               as int?;
+      _upgradeRequested = false;
       _handshakeCompleter.complete();
       if (message.length == 2) {
         return Uint8List(0);
@@ -353,11 +410,16 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     if (!SocketHelper.isRawSocket(handshake)) {
       return message;
     }
+    if ((handshake[1] & 0x0f) != _serializerType) {
+      _handleError(SocketHelper.errorSerializerNotSupported);
+      return Uint8List(0);
+    }
     final maxMessageSizeExponent = SocketHelper.getMaxMessageSizeExponent(
       handshake,
     );
     if (maxMessageSizeExponent == SocketHelper.maxMessageLengthExponent &&
         _messageLengthExponent > SocketHelper.maxMessageLengthExponent) {
+      _upgradeRequested = true;
       _logger.finer('Try to upgrade to 5 byte raw socket header');
       _send0(SocketHelper.getUpgradeHandshake(_messageLengthExponent));
       if (message.length > 4) {
@@ -434,6 +496,9 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
               'Could not deserialize inbound WAMP message '
               '(serializer: $_serializerType, payloadLength: ${payload.length})',
             );
+          }
+          if (_flatBuffersProfile case final profile?) {
+            _flatBuffersProfile = profile.acceptIncoming(deserializedMessage);
           }
           if (deserializedMessage is Goodbye) {
             _goodbyeReceived = true;
@@ -558,19 +623,24 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
 
   @override
   void send(AbstractMessage message) {
-    if (message is Goodbye) {
-      _goodbyeSent = true;
-    }
+    if (!isOpen) throw StateError('RawSocket transport is not open.');
+    final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
+    _sendMessage(message);
+    _flatBuffersProfile = nextProfile;
+    if (message is Goodbye) _goodbyeSent = true;
+  }
+
+  void _sendMessage(AbstractMessage message) {
     final fragments = _handshakeCompleter.isCompleted
         ? _serializer.serializeFragments(message)
         : null;
-    Uint8List? fragmentedPayload;
     if (fragments != null) {
       var payloadLength = 0;
       for (final fragment in fragments) {
         payloadLength += fragment.length;
       }
       if (payloadLength >= _segmentedSendThreshold) {
+        _checkOutgoingPayloadLength(payloadLength);
         _send0(
           SocketHelper.buildMessageHeader(
             SocketHelper.messageWamp,
@@ -580,37 +650,95 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
         );
         for (final fragment in fragments) {
           if (fragment.isNotEmpty) {
-            _send0(fragment);
+            _send0(fragment, anchor: message);
           }
         }
         return;
       }
-      final builder = BytesBuilder(copy: false);
-      for (final fragment in fragments) {
-        builder.add(fragment);
-      }
-      fragmentedPayload = builder.takeBytes();
+      _send0(_buildWampFrameFragments(fragments, payloadLength));
+      return;
     }
-    var serializedMessage = fragmentedPayload ?? _serializer.serialize(message);
+    var serializedMessage = _serializer.serialize(message);
     if (serializedMessage is String) {
       serializedMessage = utf8.encoder.convert(serializedMessage);
     }
-    final frame = _buildWampFrame(serializedMessage as List<int>);
     if (!_handshakeCompleter.isCompleted) {
-      if (_outboundBuffer!.isEmpty) {
-        _handshakeCompleter.future.then((aVoid) {
-          _send0(_outboundBuffer!);
-          _outboundBuffer = null;
-        });
+      final queue = _outboundBuffer!;
+      final queuedBytes = queue.fold<int>(
+        0,
+        (length, bytes) => length + bytes.length,
+      );
+      if (queuedBytes + (serializedMessage as List<int>).length >
+          1 << _messageLengthExponent) {
+        throw StateError('RawSocket pre-handshake queue is full');
       }
-      _outboundBuffer!.addAll(frame);
+      if (queue.isEmpty) {
+        final socket = _socket!;
+        final openAttempt = _openAttempt;
+        final onConnectionLost = _onConnectionLost!;
+        unawaited(
+          _handshakeCompleter.future.then<void>(
+            (_) {
+              try {
+                if (openAttempt != _openAttempt ||
+                    !identical(_socket, socket) ||
+                    !isOpen) {
+                  return;
+                }
+                _outboundBuffer = null;
+                // Build each frame using the header width negotiated by this peer.
+                for (final payload in queue) {
+                  _send0(_buildWampFrame(payload));
+                }
+              } on Object catch (error, stackTrace) {
+                _logger.shout(
+                  'Could not write queued RawSocket frame',
+                  error,
+                  stackTrace,
+                );
+                if (!onConnectionLost.isCompleted) {
+                  onConnectionLost.complete(error);
+                }
+                unawaited(close(error: error));
+              } finally {
+                queue.clear();
+              }
+            },
+            onError: (Object error, StackTrace stackTrace) {
+              queue.clear();
+            },
+          ),
+        );
+      }
+      // Match the ordinary framed-send ownership: the queue retains its bytes.
+      final queuedPayload = Uint8List.fromList(serializedMessage);
+      DartTransportCopyMetrics.recordRawSocketPreHandshakeQueueCopy(
+        queuedPayload.length,
+      );
+      queue.add(queuedPayload);
     } else {
-      _send0(frame);
+      _send0(_buildWampFrame(serializedMessage as List<int>));
     }
   }
 
-  void _send0(List<int> data) {
-    _socket!.add(data);
+  void _send0(List<int> data, {Object? anchor}) {
+    if (data is Uint8List) {
+      if (data.offsetInBytes == 0 &&
+          data.buffer.lengthInBytes == data.lengthInBytes) {
+        _socket!.add(data);
+        return;
+      }
+      final bounded = nativeExternalByteView(data, anchor: anchor);
+      if (bounded != null) {
+        _socket!.add(bounded);
+        return;
+      }
+    }
+    // Give the SDK full backing storage so retries reuse this one measured
+    // copy instead of copying the remaining subview on every write attempt.
+    final copied = Uint8List.fromList(data);
+    DartTransportCopyMetrics.recordRawSocketInputCopy(copied.length);
+    _socket!.add(copied);
   }
 
   @override
@@ -624,15 +752,49 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
   }
 
   Uint8List _buildWampFrame(List<int> payload) {
+    _checkOutgoingPayloadLength(payload.length);
     final builder = BytesBuilder(copy: false);
-    builder.add(
-      SocketHelper.buildMessageHeader(
-        SocketHelper.messageWamp,
-        payload.length,
-        isUpgradedProtocol,
-      ),
+    final header = SocketHelper.buildMessageHeader(
+      SocketHelper.messageWamp,
+      payload.length,
+      isUpgradedProtocol,
     );
+    builder.add(header);
     builder.add(payload);
-    return builder.takeBytes();
+    final frame = builder.takeBytes();
+    DartTransportCopyMetrics.recordRawSocketFramePayloadCopy(payload.length);
+    DartTransportCopyMetrics.recordRawSocketFrameHeaderCopy(header.length);
+    return frame;
+  }
+
+  Uint8List _buildWampFrameFragments(
+    List<Uint8List> fragments,
+    int payloadLength,
+  ) {
+    _checkOutgoingPayloadLength(payloadLength);
+    final header = SocketHelper.buildMessageHeader(
+      SocketHelper.messageWamp,
+      payloadLength,
+      isUpgradedProtocol,
+    );
+    final frame = Uint8List(header.length + payloadLength);
+    frame.setRange(0, header.length, header);
+    var offset = header.length;
+    for (final fragment in fragments) {
+      frame.setRange(offset, offset + fragment.length, fragment);
+      offset += fragment.length;
+    }
+    DartTransportCopyMetrics.recordRawSocketFramePayloadCopy(payloadLength);
+    DartTransportCopyMetrics.recordRawSocketFrameHeaderCopy(header.length);
+    return frame;
+  }
+
+  void _checkOutgoingPayloadLength(int length) {
+    final limit = maxMessageLength;
+    if (limit == null || length > limit) {
+      throw StateError(
+        'RawSocket payload length $length exceeds negotiated limit $limit',
+      );
+    }
   }
 }

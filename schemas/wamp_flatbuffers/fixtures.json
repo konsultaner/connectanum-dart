@@ -1,0 +1,1296 @@
+[
+  {
+    "name": "hello",
+    "union_tag": 1,
+    "wamp_id": 1,
+    "wire": {
+      "msg_type": "Hello",
+      "msg": {
+        "realm": "com.example",
+        "roles": {
+          "caller": {}
+        }
+      }
+    }
+  },
+  {
+    "name": "welcome",
+    "union_tag": 2,
+    "wamp_id": 2,
+    "wire": {
+      "msg_type": "Welcome",
+      "msg": {
+        "session": 9007199254740991,
+        "realm": "com.example",
+        "roles": {
+          "dealer": {}
+        },
+        "authid": "anonymous",
+        "authrole": "anonymous"
+      }
+    }
+  },
+  {
+    "name": "abort",
+    "union_tag": 3,
+    "wamp_id": 3,
+    "wire": {
+      "msg_type": "Abort",
+      "msg": {
+        "reason": "wamp.error.not_authorized",
+        "message": "Denied"
+      }
+    }
+  },
+  {
+    "name": "challenge",
+    "union_tag": 4,
+    "wamp_id": 4,
+    "wire": {
+      "msg_type": "Challenge",
+      "msg": {
+        "method": "SCRAM",
+        "extra": {
+          "key": "nonce",
+          "value": "abc"
+        }
+      }
+    }
+  },
+  {
+    "name": "authenticate",
+    "union_tag": 5,
+    "wamp_id": 5,
+    "wire": {
+      "msg_type": "Authenticate",
+      "msg": {
+        "signature": "signed",
+        "extra": {
+          "key": "nonce",
+          "value": "abc"
+        }
+      }
+    }
+  },
+  {
+    "name": "goodbye",
+    "union_tag": 6,
+    "wamp_id": 6,
+    "wire": {
+      "msg_type": "Goodbye",
+      "msg": {
+        "reason": "wamp.close.normal",
+        "message": "Bye"
+      }
+    }
+  },
+  {
+    "name": "error",
+    "union_tag": 7,
+    "wamp_id": 8,
+    "wire": {
+      "msg_type": "Error",
+      "msg": {
+        "request_type": "CALL",
+        "request": 77,
+        "error": "wamp.error.runtime_error",
+        "args": [
+          130,
+          1,
+          101,
+          104,
+          101,
+          108,
+          108,
+          111
+        ],
+        "kwargs": [
+          161,
+          99,
+          107,
+          101,
+          121,
+          66,
+          0,
+          255
+        ]
+      }
+    }
+  },
+  {
+    "name": "publish",
+    "union_tag": 8,
+    "wamp_id": 16,
+    "wire": {
+      "msg_type": "Publish",
+      "msg": {
+        "request": 42,
+        "topic": "com.example.topic",
+        "args": [
+          130,
+          1,
+          101,
+          104,
+          101,
+          108,
+          108,
+          111
+        ],
+        "kwargs": [
+          161,
+          99,
+          107,
+          101,
+          121,
+          66,
+          0,
+          255
+        ],
+        "acknowledge": true,
+        "exclude_me": false
+      }
+    }
+  },
+  {
+    "name": "published",
+    "union_tag": 9,
+    "wamp_id": 17,
+    "wire": {
+      "msg_type": "Published",
+      "msg": {
+        "request": 42,
+        "publication": 99
+      }
+    }
+  },
+  {
+    "name": "subscribe",
+    "union_tag": 10,
+    "wamp_id": 32,
+    "wire": {
+      "msg_type": "Subscribe",
+      "msg": {
+        "request": 43,
+        "topic": "com.example.topic",
+        "match": "PREFIX",
+        "get_retained": true
+      }
+    }
+  },
+  {
+    "name": "subscribed",
+    "union_tag": 11,
+    "wamp_id": 33,
+    "wire": {
+      "msg_type": "Subscribed",
+      "msg": {
+        "request": 43,
+        "subscription": 9
+      }
+    }
+  },
+  {
+    "name": "unsubscribe",
+    "union_tag": 12,
+    "wamp_id": 34,
+    "wire": {
+      "msg_type": "Unsubscribe",
+      "msg": {
+        "request": 44,
+        "subscription": 9
+      }
+    }
+  },
+  {
+    "name": "unsubscribed",
+    "union_tag": 13,
+    "wamp_id": 35,
+    "wire": {
+      "msg_type": "Unsubscribed",
+      "msg": {
+        "request": 44
+      }
+    }
+  },
+  {
+    "name": "event",
+    "union_tag": 14,
+    "wamp_id": 36,
+    "wire": {
+      "msg_type": "Event",
+      "msg": {
+        "subscription": 9,
+        "publication": 10,
+        "args": [
+          130,
+          1,
+          101,
+          104,
+          101,
+          108,
+          108,
+          111
+        ],
+        "kwargs": [
+          161,
+          99,
+          107,
+          101,
+          121,
+          66,
+          0,
+          255
+        ],
+        "publisher": 11,
+        "topic": "com.example.topic"
+      }
+    }
+  },
+  {
+    "name": "event_received",
+    "union_tag": 15,
+    "wamp_id": 37,
+    "wire": {
+      "msg_type": "EventReceived",
+      "msg": {
+        "publication": 10
+      }
+    }
+  },
+  {
+    "name": "call",
+    "union_tag": 16,
+    "wamp_id": 48,
+    "wire": {
+      "msg_type": "Call",
+      "msg": {
+        "request": 77,
+        "procedure": "com.example.proc",
+        "args": [
+          130,
+          1,
+          101,
+          104,
+          101,
+          108,
+          108,
+          111
+        ],
+        "kwargs": [
+          161,
+          99,
+          107,
+          101,
+          121,
+          66,
+          0,
+          255
+        ],
+        "timeout": 2500,
+        "receive_progress": true
+      }
+    }
+  },
+  {
+    "name": "cancel",
+    "union_tag": 17,
+    "wamp_id": 49,
+    "wire": {
+      "msg_type": "Cancel",
+      "msg": {
+        "request": 77,
+        "mode": "SKIP"
+      }
+    }
+  },
+  {
+    "name": "result",
+    "union_tag": 18,
+    "wamp_id": 50,
+    "wire": {
+      "msg_type": "Result",
+      "msg": {
+        "request": 77,
+        "args": [
+          130,
+          1,
+          101,
+          104,
+          101,
+          108,
+          108,
+          111
+        ],
+        "kwargs": [
+          161,
+          99,
+          107,
+          101,
+          121,
+          66,
+          0,
+          255
+        ],
+        "progress": true
+      }
+    }
+  },
+  {
+    "name": "register",
+    "union_tag": 19,
+    "wamp_id": 64,
+    "wire": {
+      "msg_type": "Register",
+      "msg": {
+        "request": 78,
+        "procedure": "com.example.proc",
+        "match": "EXACT",
+        "invoke": "ROUNDROBIN"
+      }
+    }
+  },
+  {
+    "name": "registered",
+    "union_tag": 20,
+    "wamp_id": 65,
+    "wire": {
+      "msg_type": "Registered",
+      "msg": {
+        "request": 78,
+        "registration": 99
+      }
+    }
+  },
+  {
+    "name": "unregister",
+    "union_tag": 21,
+    "wamp_id": 66,
+    "wire": {
+      "msg_type": "Unregister",
+      "msg": {
+        "request": 79,
+        "registration": 99
+      }
+    }
+  },
+  {
+    "name": "unregistered",
+    "union_tag": 22,
+    "wamp_id": 67,
+    "wire": {
+      "msg_type": "Unregistered",
+      "msg": {
+        "request": 79
+      }
+    }
+  },
+  {
+    "name": "invocation",
+    "union_tag": 23,
+    "wamp_id": 68,
+    "wire": {
+      "msg_type": "Invocation",
+      "msg": {
+        "request": 88,
+        "registration": 99,
+        "args": [
+          130,
+          1,
+          101,
+          104,
+          101,
+          108,
+          108,
+          111
+        ],
+        "kwargs": [
+          161,
+          99,
+          107,
+          101,
+          121,
+          66,
+          0,
+          255
+        ],
+        "caller": 123,
+        "receive_progress": true
+      }
+    }
+  },
+  {
+    "name": "interrupt",
+    "union_tag": 24,
+    "wamp_id": 69,
+    "wire": {
+      "msg_type": "Interrupt",
+      "msg": {
+        "request": 88,
+        "mode": "KILL",
+        "reason": "wamp.error.canceled"
+      }
+    }
+  },
+  {
+    "name": "yield",
+    "union_tag": 25,
+    "wamp_id": 70,
+    "wire": {
+      "msg_type": "Yield",
+      "msg": {
+        "request": 88,
+        "args": [
+          130,
+          1,
+          101,
+          104,
+          101,
+          108,
+          108,
+          111
+        ],
+        "kwargs": [
+          161,
+          99,
+          107,
+          101,
+          121,
+          66,
+          0,
+          255
+        ],
+        "progress": true
+      }
+    }
+  },
+  {
+    "name": "call_metadata",
+    "union_tag": 16,
+    "wamp_id": 48,
+    "wire": {
+      "msg_type": "Call",
+      "msg": {
+        "request": 77,
+        "procedure": "com.example.proc",
+        "args": [
+          130,
+          1,
+          101,
+          104,
+          101,
+          108,
+          108,
+          111
+        ]
+      },
+      "metadata": [
+        161,
+        97,
+        120,
+        24,
+        42
+      ]
+    }
+  },
+  {
+    "name": "heartbeat",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 1,
+        "incoming": 2,
+        "outgoing": 3
+      },
+      "metadata": [
+        160
+      ]
+    }
+  },
+  {
+    "name": "call_typed_payload",
+    "union_tag": 16,
+    "wamp_id": 48,
+    "wire": {
+      "msg_type": "Call",
+      "msg": {
+        "request": 78,
+        "procedure": "com.example.typed",
+        "payload": [
+          16,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          8,
+          0,
+          12,
+          0,
+          7,
+          0,
+          8,
+          0,
+          8,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          16,
+          32,
+          0,
+          0,
+          0,
+          28,
+          0,
+          32,
+          0,
+          0,
+          0,
+          24,
+          0,
+          8,
+          0,
+          12,
+          0,
+          16,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          20,
+          0,
+          7,
+          0,
+          28,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          48,
+          0,
+          0,
+          0,
+          32,
+          0,
+          0,
+          0,
+          16,
+          0,
+          0,
+          0,
+          196,
+          9,
+          0,
+          0,
+          77,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          8,
+          0,
+          0,
+          0,
+          161,
+          99,
+          107,
+          101,
+          121,
+          66,
+          0,
+          255,
+          8,
+          0,
+          0,
+          0,
+          130,
+          1,
+          101,
+          104,
+          101,
+          108,
+          108,
+          111,
+          16,
+          0,
+          0,
+          0,
+          99,
+          111,
+          109,
+          46,
+          101,
+          120,
+          97,
+          109,
+          112,
+          108,
+          101,
+          46,
+          112,
+          114,
+          111,
+          99,
+          0,
+          0,
+          0,
+          0
+        ],
+        "ppt_scheme": "OPAQUE",
+        "ppt_serializer": "FLATBUFFERS"
+      },
+      "metadata": [
+        163,
+        106,
+        112,
+        112,
+        116,
+        95,
+        115,
+        99,
+        104,
+        101,
+        109,
+        101,
+        102,
+        111,
+        112,
+        97,
+        113,
+        117,
+        101,
+        110,
+        112,
+        112,
+        116,
+        95,
+        115,
+        101,
+        114,
+        105,
+        97,
+        108,
+        105,
+        122,
+        101,
+        114,
+        107,
+        102,
+        108,
+        97,
+        116,
+        98,
+        117,
+        102,
+        102,
+        101,
+        114,
+        115,
+        103,
+        95,
+        115,
+        99,
+        104,
+        101,
+        109,
+        97,
+        114,
+        119,
+        97,
+        109,
+        112,
+        46,
+        112,
+        114,
+        111,
+        116,
+        111,
+        46,
+        77,
+        101,
+        115,
+        115,
+        97,
+        103,
+        101
+      ]
+    }
+  },
+  {
+    "name": "heartbeat_zero_mask_0",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 0
+      },
+      "metadata": [
+        160
+      ]
+    }
+  },
+  {
+    "name": "heartbeat_zero_mask_1",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 1
+      },
+      "metadata": [
+        160
+      ]
+    }
+  },
+  {
+    "name": "heartbeat_zero_mask_2",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 2
+      },
+      "metadata": [
+        160
+      ]
+    }
+  },
+  {
+    "name": "heartbeat_zero_mask_3",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 3
+      },
+      "metadata": [
+        160
+      ]
+    }
+  },
+  {
+    "name": "heartbeat_zero_mask_4",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 4
+      },
+      "metadata": [
+        160
+      ]
+    }
+  },
+  {
+    "name": "heartbeat_zero_mask_5",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 5
+      },
+      "metadata": [
+        160
+      ]
+    }
+  },
+  {
+    "name": "heartbeat_zero_mask_6",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 6
+      },
+      "metadata": [
+        160
+      ]
+    }
+  },
+  {
+    "name": "heartbeat_zero_mask_7",
+    "union_tag": 26,
+    "wamp_id": 7,
+    "wire": {
+      "msg_type": "Heartbeat",
+      "msg": {
+        "ping": 0,
+        "incoming": 0,
+        "outgoing": 0,
+        "presence": 7
+      },
+      "metadata": [
+        160
+      ]
+    }
+  },
+  {
+    "name": "challenge_custom",
+    "union_tag": 4,
+    "wamp_id": 4,
+    "wire": {
+      "msg_type": "Challenge",
+      "msg": {
+        "method": "NULL",
+        "method_name": "com.example.custom"
+      },
+      "metadata": [
+        162,
+        120,
+        36,
+        95,
+        99,
+        111,
+        110,
+        110,
+        101,
+        99,
+        116,
+        97,
+        110,
+        117,
+        109,
+        95,
+        102,
+        108,
+        97,
+        116,
+        98,
+        117,
+        102,
+        102,
+        101,
+        114,
+        115,
+        95,
+        109,
+        101,
+        116,
+        97,
+        100,
+        97,
+        116,
+        97,
+        95,
+        118,
+        49,
+        245,
+        101,
+        110,
+        111,
+        110,
+        99,
+        101,
+        66,
+        0,
+        255
+      ]
+    }
+  },
+  {
+    "name": "challenge_scram_ack",
+    "union_tag": 4,
+    "wamp_id": 4,
+    "wire": {
+      "msg_type": "Challenge",
+      "msg": {
+        "method": "SCRAM",
+        "method_name": "wamp-scram",
+        "extra": {
+          "key": "nonce",
+          "value": "nonce-example"
+        }
+      },
+      "metadata": [
+        165,
+        120,
+        36,
+        95,
+        99,
+        111,
+        110,
+        110,
+        101,
+        99,
+        116,
+        97,
+        110,
+        117,
+        109,
+        95,
+        102,
+        108,
+        97,
+        116,
+        98,
+        117,
+        102,
+        102,
+        101,
+        114,
+        115,
+        95,
+        109,
+        101,
+        116,
+        97,
+        100,
+        97,
+        116,
+        97,
+        95,
+        118,
+        49,
+        245,
+        101,
+        110,
+        111,
+        110,
+        99,
+        101,
+        109,
+        110,
+        111,
+        110,
+        99,
+        101,
+        45,
+        101,
+        120,
+        97,
+        109,
+        112,
+        108,
+        101,
+        100,
+        115,
+        97,
+        108,
+        116,
+        104,
+        99,
+        50,
+        70,
+        115,
+        100,
+        65,
+        61,
+        61,
+        106,
+        105,
+        116,
+        101,
+        114,
+        97,
+        116,
+        105,
+        111,
+        110,
+        115,
+        25,
+        16,
+        0,
+        99,
+        107,
+        100,
+        102,
+        102,
+        112,
+        98,
+        107,
+        100,
+        102,
+        50
+      ]
+    }
+  },
+  {
+    "name": "authenticate_binary_extra",
+    "union_tag": 5,
+    "wamp_id": 5,
+    "wire": {
+      "msg_type": "Authenticate",
+      "msg": {
+        "signature": "signature-example"
+      },
+      "metadata": [
+        161,
+        111,
+        99,
+        104,
+        97,
+        110,
+        110,
+        101,
+        108,
+        95,
+        98,
+        105,
+        110,
+        100,
+        105,
+        110,
+        103,
+        67,
+        0,
+        255,
+        1
+      ]
+    }
+  },
+  {
+    "name": "hello_metadata_advertisement",
+    "union_tag": 1,
+    "wamp_id": 1,
+    "wire": {
+      "msg_type": "Hello",
+      "msg": {
+        "realm": "realm1",
+        "roles": {
+          "caller": {}
+        }
+      },
+      "metadata": [
+        161,
+        101,
+        114,
+        111,
+        108,
+        101,
+        115,
+        161,
+        102,
+        99,
+        97,
+        108,
+        108,
+        101,
+        114,
+        161,
+        104,
+        102,
+        101,
+        97,
+        116,
+        117,
+        114,
+        101,
+        115,
+        161,
+        120,
+        36,
+        95,
+        99,
+        111,
+        110,
+        110,
+        101,
+        99,
+        116,
+        97,
+        110,
+        117,
+        109,
+        95,
+        102,
+        108,
+        97,
+        116,
+        98,
+        117,
+        102,
+        102,
+        101,
+        114,
+        115,
+        95,
+        109,
+        101,
+        116,
+        97,
+        100,
+        97,
+        116,
+        97,
+        95,
+        118,
+        49,
+        245
+      ]
+    }
+  },
+  {
+    "name": "welcome_metadata_ack",
+    "union_tag": 2,
+    "wamp_id": 2,
+    "wire": {
+      "msg_type": "Welcome",
+      "msg": {
+        "session": 123,
+        "realm": "",
+        "roles": {
+          "dealer": {}
+        },
+        "authid": "",
+        "authrole": ""
+      },
+      "metadata": [
+        161,
+        101,
+        114,
+        111,
+        108,
+        101,
+        115,
+        161,
+        102,
+        100,
+        101,
+        97,
+        108,
+        101,
+        114,
+        161,
+        104,
+        102,
+        101,
+        97,
+        116,
+        117,
+        114,
+        101,
+        115,
+        161,
+        120,
+        36,
+        95,
+        99,
+        111,
+        110,
+        110,
+        101,
+        99,
+        116,
+        97,
+        110,
+        117,
+        109,
+        95,
+        102,
+        108,
+        97,
+        116,
+        98,
+        117,
+        102,
+        102,
+        101,
+        114,
+        115,
+        95,
+        109,
+        101,
+        116,
+        97,
+        100,
+        97,
+        116,
+        97,
+        95,
+        118,
+        49,
+        245
+      ]
+    }
+  },
+  {
+    "name": "abort_bootstrap_metadata",
+    "union_tag": 3,
+    "wamp_id": 3,
+    "wire": {
+      "msg_type": "Abort",
+      "msg": {
+        "reason": "wamp.error.protocol_violation",
+        "message": "Unsupported binding"
+      },
+      "metadata": [
+        161,
+        103,
+        109,
+        101,
+        115,
+        115,
+        97,
+        103,
+        101,
+        115,
+        85,
+        110,
+        115,
+        117,
+        112,
+        112,
+        111,
+        114,
+        116,
+        101,
+        100,
+        32,
+        98,
+        105,
+        110,
+        100,
+        105,
+        110,
+        103
+      ]
+    }
+  }
+]

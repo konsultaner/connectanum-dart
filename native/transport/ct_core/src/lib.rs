@@ -65,6 +65,11 @@ mod protocol;
 mod rawsocket;
 mod tls;
 mod wamp;
+mod write_completion;
+#[cfg(test)]
+mod write_completion_tests;
+use write_completion::WriteGuard;
+pub use write_completion::{WriteOutcome, WriteReceipt};
 
 use config::{HttpRouteMatch, TransportProtocol};
 use quinn::{
@@ -89,6 +94,9 @@ type H3ServerRecvStream =
 
 const HTTP_STREAM_IDLE_FALLBACK: Duration = Duration::from_secs(10);
 const HTTP_STREAM_TOTAL_FALLBACK: Duration = Duration::from_secs(40);
+// Preserve a normal WebSocket Close frame without pinning queued/native owners
+// indefinitely when the peer stops reading during local close.
+const WEBSOCKET_CLOSE_GRACE: Duration = Duration::from_secs(1);
 const HTTP_STREAM_TOTAL_MULTIPLIER: u32 = 4;
 const HTTP2_MAX_CONCURRENT_STREAMS: u32 = 1024;
 const HTTP2_INITIAL_STREAM_WINDOW: u32 = 8 * 1024 * 1024;
@@ -278,6 +286,15 @@ struct FileSegmentMetrics {
 }
 
 #[derive(Default)]
+struct TransportCopyMetrics {
+    websocket_mask_copy_bytes_total: AtomicU64,
+    websocket_coalesce_copy_bytes_total: AtomicU64,
+    tls_plaintext_accepted_bytes_total: AtomicU64,
+    io_buffer_front_copy_bytes_total: AtomicU64,
+    io_buffered_read_copy_bytes_total: AtomicU64,
+}
+
+#[derive(Default)]
 struct HttpResponseStreamMetrics {
     streaming_responses_total: AtomicU64,
     stream_open_to_headers_send_samples_total: AtomicU64,
@@ -415,6 +432,32 @@ pub struct FileSegmentMetricsSnapshot {
     pub rawsocket_zero_copy_bytes_total: u64,
     pub buffered_file_segment_calls_total: u64,
     pub buffered_file_segment_bytes_total: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TransportCopyMetricsSnapshot {
+    /// Payload bytes copied into WebSocket masking scratch buffers. In-place
+    /// XOR and subsequent socket writes are not counted as additional copies.
+    pub websocket_mask_copy_bytes_total: u64,
+    /// Payload bytes copied into unmasked WebSocket frame/coalescing buffers.
+    /// Frame headers are excluded.
+    pub websocket_coalesce_copy_bytes_total: u64,
+    /// Plaintext bytes accepted by Rustls writers. This counts input volume,
+    /// not memory copies performed while encrypting or buffering it.
+    pub tls_plaintext_accepted_bytes_total: u64,
+    /// Bytes copied while staging/rebuilding prefetched transport input.
+    pub io_buffer_front_copy_bytes_total: u64,
+    /// Prefetched bytes copied into the caller's read buffer.
+    pub io_buffered_read_copy_bytes_total: u64,
+}
+
+/// Process-wide observations at two audited Rustls byte-copy sites.
+///
+/// This is partial TLS coverage. Record assembly, deframer movement, capacity
+/// growth and crypto-wrapper copies are not included. Concurrent TLS sessions
+/// contribute to these counters; deltas are not per-connection measurements.
+pub fn rustls_copy_metrics_snapshot() -> rustls::copy_observer::Snapshot {
+    rustls::copy_observer::snapshot()
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -1140,6 +1183,7 @@ impl tokio::io::AsyncWrite for InstrumentedHttp2IoStream {
 
 static HTTP_METRICS: OnceLock<HttpMetricsStore> = OnceLock::new();
 static FILE_SEGMENT_METRICS: OnceLock<FileSegmentMetrics> = OnceLock::new();
+static TRANSPORT_COPY_METRICS: OnceLock<TransportCopyMetrics> = OnceLock::new();
 
 fn http_metrics() -> &'static HttpMetricsStore {
     HTTP_METRICS.get_or_init(HttpMetricsStore::default)
@@ -1147,6 +1191,10 @@ fn http_metrics() -> &'static HttpMetricsStore {
 
 fn file_segment_metrics() -> &'static FileSegmentMetrics {
     FILE_SEGMENT_METRICS.get_or_init(FileSegmentMetrics::default)
+}
+
+fn transport_copy_metrics() -> &'static TransportCopyMetrics {
+    TRANSPORT_COPY_METRICS.get_or_init(TransportCopyMetrics::default)
 }
 
 fn http_response_stream_metrics() -> &'static HttpResponseStreamMetrics {
@@ -1199,6 +1247,51 @@ pub fn file_segment_metrics_snapshot() -> FileSegmentMetricsSnapshot {
         buffered_file_segment_bytes_total: metrics
             .buffered_file_segment_bytes_total
             .load(Ordering::Relaxed),
+    }
+}
+
+pub fn transport_copy_metrics_snapshot() -> TransportCopyMetricsSnapshot {
+    let metrics = transport_copy_metrics();
+    TransportCopyMetricsSnapshot {
+        websocket_mask_copy_bytes_total: metrics
+            .websocket_mask_copy_bytes_total
+            .load(Ordering::Relaxed),
+        websocket_coalesce_copy_bytes_total: metrics
+            .websocket_coalesce_copy_bytes_total
+            .load(Ordering::Relaxed),
+        tls_plaintext_accepted_bytes_total: metrics
+            .tls_plaintext_accepted_bytes_total
+            .load(Ordering::Relaxed),
+        io_buffer_front_copy_bytes_total: metrics
+            .io_buffer_front_copy_bytes_total
+            .load(Ordering::Relaxed),
+        io_buffered_read_copy_bytes_total: metrics
+            .io_buffered_read_copy_bytes_total
+            .load(Ordering::Relaxed),
+    }
+}
+
+pub(crate) fn record_websocket_mask_copy(bytes: usize) {
+    if bytes > 0 {
+        transport_copy_metrics()
+            .websocket_mask_copy_bytes_total
+            .fetch_add(bytes as u64, Ordering::Relaxed);
+    }
+}
+
+pub(crate) fn record_websocket_coalesce_copy(bytes: usize) {
+    if bytes > 0 {
+        transport_copy_metrics()
+            .websocket_coalesce_copy_bytes_total
+            .fetch_add(bytes as u64, Ordering::Relaxed);
+    }
+}
+
+pub(crate) fn record_tls_plaintext_accepted(bytes: usize) {
+    if bytes > 0 {
+        transport_copy_metrics()
+            .tls_plaintext_accepted_bytes_total
+            .fetch_add(bytes as u64, Ordering::Relaxed);
     }
 }
 
@@ -1259,7 +1352,9 @@ pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
 pub use protocol::{Http2Handshake, Http3Handshake, HttpHandshake, WebSocketHandshake};
 pub use rawsocket::Serializer as RawSocketSerializer;
 pub use wamp::{
-    parse_message, parse_message_segments, ParseError as WampParseError, ParsedMessage,
+    compose_flatbuffers_message_segments, encode_flatbuffers_message,
+    encode_flatbuffers_message_segments, parse_message, parse_message_segments,
+    validate_flatbuffers_payload, ParseError as WampParseError, ParsedMessage,
     Payload as WampPayload, RawFrame as WampRawFrame, WampMessage,
 };
 
@@ -1581,12 +1676,28 @@ struct RuntimeView {
     registry: Arc<ListenerRegistry>,
 }
 
+// Connection handles can outlive runtime shutdown in pending opens, receive
+// workers and callbacks. Keep their namespace for the lifetime of this library.
+static NEXT_CONNECTION_ID: AtomicU32 = AtomicU32::new(1);
+
+fn allocate_connection_id(sequence: &AtomicU32) -> Result<ConnectionId, Error> {
+    let id = sequence
+        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |next| {
+            if next == 0 || next > i32::MAX as u32 {
+                None
+            } else {
+                Some(next + 1)
+            }
+        })
+        .map_err(|_| Error::Io(io::Error::other("connection identifier capacity exhausted")))?;
+    Ok(ConnectionId(id))
+}
+
 struct ListenerRegistry {
     listeners: Mutex<HashMap<ListenerId, ListenerEntry>>,
     connections: Mutex<HashMap<ConnectionId, ConnectionEntry>>,
     connection_events: Mutex<VecDeque<HttpConnectionEvent>>,
     next_listener_id: AtomicU32,
-    next_connection_id: AtomicU32,
 }
 
 impl Default for ListenerRegistry {
@@ -1596,7 +1707,6 @@ impl Default for ListenerRegistry {
             connections: Mutex::new(HashMap::new()),
             connection_events: Mutex::new(VecDeque::new()),
             next_listener_id: AtomicU32::new(0),
-            next_connection_id: AtomicU32::new(0),
         }
     }
 }
@@ -1698,6 +1808,7 @@ enum ConnectionRecord {
         frames: Arc<Mutex<mpsc::Receiver<wamp::ParsedMessage>>>,
         reader_abort: AbortHandle,
         writer_abort: AbortHandle,
+        writer_runtime: tokio::runtime::Handle,
         heartbeat_abort: Option<AbortHandle>,
         send_tx: mpsc::Sender<OutboundFrame>,
     },
@@ -1784,12 +1895,8 @@ impl ListenerRegistry {
         ListenerId(id + 1)
     }
 
-    fn next_connection_id(&self) -> ConnectionId {
-        let id = self
-            .next_connection_id
-            .fetch_add(1, Ordering::SeqCst)
-            .wrapping_add(1);
-        ConnectionId(id)
+    fn next_connection_id(&self) -> Result<ConnectionId, Error> {
+        allocate_connection_id(&NEXT_CONNECTION_ID)
     }
 
     fn insert(&self, id: ListenerId, entry: ListenerEntry) {
@@ -2019,6 +2126,7 @@ impl ListenerRegistry {
                 writer_abort,
                 heartbeat_abort,
                 send_tx,
+                writer_runtime,
                 ..
             } => {
                 reader_abort.abort();
@@ -2026,7 +2134,13 @@ impl ListenerRegistry {
                     abort.abort();
                 }
                 drop(send_tx);
-                drop(writer_abort);
+                let deadline = time::Instant::now() + WEBSOCKET_CLOSE_GRACE;
+                writer_runtime.spawn(async move {
+                    time::sleep_until(deadline).await;
+                    // Capture this task, never a recyclable connection lookup.
+                    // Aborting an already finished writer is harmless.
+                    writer_abort.abort();
+                });
             }
             ConnectionRecord::WebSocketPending { .. }
             | ConnectionRecord::HttpPending { .. }
@@ -2292,6 +2406,7 @@ impl ListenerRegistry {
                     frames: Arc::new(Mutex::new(frame_rx)),
                     reader_abort,
                     writer_abort,
+                    writer_runtime: handle.clone(),
                     heartbeat_abort,
                     send_tx,
                 },
@@ -2558,6 +2673,24 @@ impl ListenerRegistry {
             .get(&connection_id)
             .map(|entry| entry.protocol)
             .ok_or(Error::ConnectionNotFound(connection_id))
+    }
+
+    fn connection_serializer(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<rawsocket::Serializer, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::RawSocket { _serializer, .. }
+            | ConnectionRecord::WebSocket { _serializer, .. } => Ok(*_serializer),
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
     }
 
     fn connection_websocket_protocol(
@@ -2915,7 +3048,10 @@ fn start_http3_listener(
                         let peer_addr = connection.remote_address();
                         let runtime_for_task = config_for_task.endpoint_config();
                         let handshake = Http3Handshake::from_endpoint(&runtime_for_task);
-                        let connection_id = registry_for_task.next_connection_id();
+                        let Ok(connection_id) = registry_for_task.next_connection_id() else {
+                            connection.close(quinn::VarInt::from_u32(0), b"connection capacity exhausted");
+                            return;
+                        };
                         #[cfg(feature = "ffi-test")]
                         if ffi_test_debug_logs_enabled() {
                             eprintln!(
@@ -3162,15 +3298,27 @@ struct OutboundFrame {
     deferred_segment: Option<Box<dyn FnOnce() -> Result<Bytes, String> + Send + 'static>>,
     file_segment: Option<OutboundFileSegment>,
     suffix_segments: Vec<Bytes>,
+    completion: Option<WriteGuard>,
 }
 
 impl OutboundFrame {
+    fn tracked(mut self) -> (Self, WriteReceipt) {
+        let (guard, receipt) = WriteGuard::new();
+        self.completion = Some(guard);
+        (self, receipt)
+    }
+
+    fn barrier() -> Self {
+        Self::control(0xff, Bytes::new())
+    }
+
     fn message(payload: Bytes) -> Self {
         let len = payload.len();
         Self {
             frame_type: 0,
             payload_len: len,
             segments: vec![payload],
+            completion: None,
             deferred_segment: None,
             file_segment: None,
             suffix_segments: Vec::new(),
@@ -3183,6 +3331,7 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len,
             segments,
+            completion: None,
             deferred_segment: None,
             file_segment: None,
             suffix_segments: Vec::new(),
@@ -3218,6 +3367,7 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len,
             segments: vec![prefix],
+            completion: None,
             deferred_segment: Some(Box::new(prepare)),
             file_segment: None,
             suffix_segments: if suffix.is_empty() {
@@ -3248,6 +3398,7 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len,
             segments: vec![prefix],
+            completion: None,
             deferred_segment: None,
             file_segment: Some(OutboundFileSegment {
                 file,
@@ -3265,6 +3416,7 @@ impl OutboundFrame {
             frame_type,
             payload_len: len,
             segments: vec![payload],
+            completion: None,
             deferred_segment: None,
             file_segment: None,
             suffix_segments: Vec::new(),
@@ -3401,10 +3553,10 @@ async fn resolve_deferred_segment(mut frame: OutboundFrame) -> Result<OutboundFr
     Ok(frame)
 }
 
-fn spawn_connection_writer(
+fn spawn_connection_writer<W: AsyncWrite + Unpin + Send + 'static>(
     handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
-    mut writer: IoWriteHalf,
+    mut writer: W,
     file_sender: Option<rawsocket::RawSocketFileSender>,
     max_message_size_exponent: u32,
     mut rx: mpsc::Receiver<OutboundFrame>,
@@ -3415,7 +3567,7 @@ fn spawn_connection_writer(
         let mut file_scratch = Vec::new();
         let mut encoded_file_scratch = Vec::new();
         'writer: while let Some(frame) = rx.recv().await {
-            let frame = match resolve_deferred_segment(frame).await {
+            let mut frame = match resolve_deferred_segment(frame).await {
                 Ok(frame) => frame,
                 Err(err) => {
                     eprintln!(
@@ -3425,6 +3577,15 @@ fn spawn_connection_writer(
                     break;
                 }
             };
+            if frame.frame_type == 0xff {
+                if writer.flush().await.is_err() {
+                    break;
+                }
+                if let Some(completion) = frame.completion.take() {
+                    completion.written();
+                }
+                continue;
+            }
             if frame.frame_type > 2 {
                 continue;
             }
@@ -3514,6 +3675,9 @@ fn spawn_connection_writer(
                     );
                 }
                 break;
+            }
+            if let Some(completion) = frame.completion.take() {
+                completion.written();
             }
         }
         let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
@@ -3697,11 +3861,11 @@ fn spawn_websocket_reader(
     task.abort_handle()
 }
 
-fn spawn_websocket_writer(
+fn spawn_websocket_writer<W: AsyncWrite + Unpin + Send + 'static>(
     handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
     serializer: rawsocket::Serializer,
-    mut writer: IoWriteHalf,
+    mut writer: W,
     mut rx: mpsc::Receiver<OutboundFrame>,
     close_tx: UnboundedSender<ConnectionTaskSignal>,
     mask_outbound_frames: bool,
@@ -3713,7 +3877,7 @@ fn spawn_websocket_writer(
         let mut file_scratch = Vec::new();
         let mut encoded_file_scratch = Vec::new();
         while let Some(frame) = rx.recv().await {
-            let frame = match resolve_deferred_segment(frame).await {
+            let mut frame = match resolve_deferred_segment(frame).await {
                 Ok(frame) => frame,
                 Err(err) => {
                     eprintln!(
@@ -3724,6 +3888,16 @@ fn spawn_websocket_writer(
                     break;
                 }
             };
+            if frame.frame_type == 0xff {
+                if writer.flush().await.is_err() {
+                    write_failed = true;
+                    break;
+                }
+                if let Some(completion) = frame.completion.take() {
+                    completion.written();
+                }
+                continue;
+            }
             let is_close_frame = frame.frame_type == 3;
             let opcode = match frame.frame_type {
                 0 => match serializer {
@@ -3780,6 +3954,9 @@ fn spawn_websocket_writer(
                 }
                 write_failed = true;
                 break;
+            }
+            if let Some(completion) = frame.completion.take() {
+                completion.written();
             }
             if is_close_frame {
                 close_sent = true;
@@ -4338,8 +4515,8 @@ fn encode_websocket_close_payload(code: Option<u16>, reason: &str) -> Bytes {
 }
 
 #[cfg(test)]
-async fn write_websocket_frame(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_frame<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     payload_len: usize,
     segments: &[Bytes],
@@ -4358,8 +4535,8 @@ async fn write_websocket_frame(
 }
 
 #[cfg(test)]
-async fn write_websocket_frame_client(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_frame_client<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     payload_len: usize,
     segments: &[Bytes],
@@ -4377,8 +4554,8 @@ async fn write_websocket_frame_client(
     .await
 }
 
-async fn write_websocket_frame_mode(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_frame_mode<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     payload_len: usize,
     segments: &[Bytes],
@@ -4432,8 +4609,8 @@ async fn write_websocket_frame_mode(
     .await
 }
 
-async fn write_websocket_continuation_frames(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_continuation_frames<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     segments: &[Bytes],
     mask_payload: bool,
@@ -4504,14 +4681,17 @@ async fn write_websocket_continuation_frames(
         let payload_start = mask_scratch.len();
         mask_scratch.extend_from_slice(segment.as_ref());
         if let Some(mask) = mask.as_ref() {
+            record_websocket_mask_copy(segment.len());
             xor_websocket_mask(&mut mask_scratch[payload_start..], mask, 0);
+        } else {
+            record_websocket_coalesce_copy(segment.len());
         }
     }
     flush_websocket_frame_batch(writer, mask_scratch).await
 }
 
-async fn flush_websocket_frame_batch(
-    writer: &mut IoWriteHalf,
+async fn flush_websocket_frame_batch<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     write_scratch: &mut Vec<u8>,
 ) -> io::Result<()> {
     if write_scratch.is_empty() {
@@ -4522,8 +4702,8 @@ async fn flush_websocket_frame_batch(
     Ok(())
 }
 
-async fn write_websocket_frame_fragment_mode(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_frame_fragment_mode<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     fin: bool,
     payload_len: usize,
@@ -4538,8 +4718,8 @@ async fn write_websocket_frame_fragment_mode(
     write_unmasked_websocket_frame(writer, &header, payload, mask_scratch).await
 }
 
-async fn write_unmasked_websocket_frame(
-    writer: &mut IoWriteHalf,
+async fn write_unmasked_websocket_frame<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     header: &[u8],
     payload: &[u8],
     write_scratch: &mut Vec<u8>,
@@ -4579,14 +4759,15 @@ async fn write_unmasked_websocket_frame(
         }
         write_scratch[..header.len()].copy_from_slice(header);
         write_scratch[header.len()..frame_len].copy_from_slice(payload);
+        record_websocket_coalesce_copy(payload.len());
         return writer.write_all(&write_scratch[..frame_len]).await;
     }
     writer.write_all(header).await?;
     writer.write_all(payload).await
 }
 
-async fn write_masked_websocket_frame(
-    writer: &mut IoWriteHalf,
+async fn write_masked_websocket_frame<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     header: &[u8],
     payload: &[u8],
     mask: &[u8; 4],
@@ -4605,6 +4786,7 @@ async fn write_masked_websocket_frame(
     }
     mask_scratch[..header.len()].copy_from_slice(header);
     mask_scratch[header.len()..first_write_len].copy_from_slice(&payload[..first_chunk_len]);
+    record_websocket_mask_copy(first_chunk_len);
     xor_websocket_mask(&mut mask_scratch[header.len()..first_write_len], mask, 0);
     writer.write_all(&mask_scratch[..first_write_len]).await?;
 
@@ -4616,6 +4798,7 @@ async fn write_masked_websocket_frame(
             mask_scratch.resize(chunk_len, 0);
         }
         mask_scratch[..chunk_len].copy_from_slice(&remaining[..chunk_len]);
+        record_websocket_mask_copy(chunk_len);
         xor_websocket_mask(&mut mask_scratch[..chunk_len], mask, payload_offset);
         writer.write_all(&mask_scratch[..chunk_len]).await?;
         payload_offset += chunk_len;
@@ -4674,8 +4857,8 @@ fn xor_websocket_mask(payload: &mut [u8], mask: &[u8; 4], offset: usize) {
     }
 }
 
-async fn write_websocket_payload(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_payload<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     payload: &[u8],
     mask: Option<&[u8; 4]>,
     payload_offset: &mut usize,
@@ -4695,6 +4878,7 @@ async fn write_websocket_payload(
             mask_scratch.resize(chunk_len, 0);
         }
         mask_scratch[..chunk_len].copy_from_slice(&remaining[..chunk_len]);
+        record_websocket_mask_copy(chunk_len);
         xor_websocket_mask(&mut mask_scratch[..chunk_len], mask, *payload_offset);
         writer.write_all(&mask_scratch[..chunk_len]).await?;
         *payload_offset += chunk_len;
@@ -4703,8 +4887,8 @@ async fn write_websocket_payload(
     Ok(())
 }
 
-async fn write_file_segment_buffered(
-    writer: &mut IoWriteHalf,
+async fn write_file_segment_buffered<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     segment: &OutboundFileSegment,
     file_scratch: &mut Vec<u8>,
     encoded_file_scratch: &mut Vec<u8>,
@@ -4830,8 +5014,8 @@ fn read_file_exact_at(_file: &File, _offset: u64, _buffer: &mut [u8]) -> io::Res
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn write_websocket_file_frame_mode(
-    writer: &mut IoWriteHalf,
+async fn write_websocket_file_frame_mode<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     opcode: u8,
     payload_len: usize,
     prefix_segments: &[Bytes],
@@ -5174,7 +5358,9 @@ async fn negotiate_accepted_connection(
 
     match protocol::negotiate_connection(io_stream, endpoint.as_ref()).await {
         Ok(protocol::NegotiatedConnection::RawSocket(negotiated)) => {
-            let connection_id = registry.next_connection_id();
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
             Arc::clone(&registry).register_rawsocket_connection(
                 runtime_handle.clone(),
                 listener_id,
@@ -5186,7 +5372,9 @@ async fn negotiate_accepted_connection(
             let _ = tx.send(connection_id).await;
         }
         Ok(protocol::NegotiatedConnection::WebSocket(handshake)) => {
-            let connection_id = registry.next_connection_id();
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
             registry.register_websocket_connection(
                 listener_id,
                 connection_id,
@@ -5198,7 +5386,9 @@ async fn negotiate_accepted_connection(
         }
         Ok(protocol::NegotiatedConnection::Http2(handshake)) => {
             let (stream, metadata) = handshake.split();
-            let connection_id = registry.next_connection_id();
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
             registry.register_http2_connection(
                 listener_id,
                 connection_id,
@@ -5221,7 +5411,9 @@ async fn negotiate_accepted_connection(
             let _ = tx.send(connection_id).await;
         }
         Ok(protocol::NegotiatedConnection::Http3(handshake)) => {
-            let connection_id = registry.next_connection_id();
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
             registry.register_http3_connection(
                 listener_id,
                 connection_id,
@@ -5233,7 +5425,9 @@ async fn negotiate_accepted_connection(
             let _ = tx.send(connection_id).await;
         }
         Ok(protocol::NegotiatedConnection::Http(handshake)) => {
-            let connection_id = registry.next_connection_id();
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
             registry.register_http_connection(
                 listener_id,
                 connection_id,
@@ -5515,6 +5709,11 @@ pub fn connection_protocol(connection_id: ConnectionId) -> Result<ConnectionProt
     manager.with_state(|state| state.registry.connection_protocol(connection_id))
 }
 
+/// The serializer actually selected by an established WAMP connection.
+pub fn connection_serializer(connection_id: ConnectionId) -> Result<rawsocket::Serializer, Error> {
+    RuntimeManager::global().with_state(|state| state.registry.connection_serializer(connection_id))
+}
+
 /// Returns the negotiated WebSocket subprotocol for a connection, if available.
 pub fn connection_websocket_protocol(connection_id: ConnectionId) -> Result<Option<String>, Error> {
     let manager = RuntimeManager::global();
@@ -5703,7 +5902,12 @@ pub fn wait_connection_message(
     })
 }
 
-/// Forces a connection to close and releases associated resources.
+/// Closes a connection and releases its native consumers.
+///
+/// RawSocket cancels pending writes immediately. WebSocket lets its writer drain
+/// and send Close(1000), then cancels it after one second if the peer is stalled.
+/// Await tracked write receipts or a drain barrier before close when successful
+/// local delivery is required. Independent caller-owned views remain valid.
 pub fn close_connection(connection_id: ConnectionId) -> Result<(), Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| state.registry.close_connection(connection_id))
@@ -5722,7 +5926,7 @@ pub fn connect_rawsocket(
 ) -> Result<ConnectionId, Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| {
-        let connection_id = state.registry.next_connection_id();
+        let connection_id = state.registry.next_connection_id()?;
         let endpoint_config = Arc::new(build_client_endpoint_config(
             host,
             port,
@@ -5773,7 +5977,7 @@ pub fn connect_websocket(
     let manager = RuntimeManager::global();
     manager.with_state(|state| {
         let subprotocol = websocket_subprotocol(serializer)?;
-        let connection_id = state.registry.next_connection_id();
+        let connection_id = state.registry.next_connection_id()?;
         let endpoint_config = Arc::new(build_client_endpoint_config(
             host,
             port,
@@ -5832,6 +6036,39 @@ pub fn send_wamp_message(connection_id: ConnectionId, payload: Bytes) -> Result<
             .registry
             .enqueue_frame(connection_id, OutboundFrame::message(payload))
     })
+}
+
+/// Enqueues a frame and observes local full-frame write plus flush.
+/// Queue rejection is an error; completion never implies peer acknowledgement
+/// or the release of other retained payload references.
+pub fn send_wamp_message_tracked(
+    connection_id: ConnectionId,
+    payload: Bytes,
+) -> Result<WriteReceipt, Error> {
+    let (frame, receipt) = OutboundFrame::message(payload).tracked();
+    RuntimeManager::global()
+        .with_state(|state| state.registry.enqueue_frame(connection_id, frame))?;
+    Ok(receipt)
+}
+
+/// Observe full-frame write and flush without concatenating payload segments.
+pub fn send_wamp_segments_tracked(
+    connection_id: ConnectionId,
+    segments: Vec<Bytes>,
+) -> Result<WriteReceipt, Error> {
+    let (frame, receipt) = OutboundFrame::message_segments(segments).tracked();
+    RuntimeManager::global()
+        .with_state(|state| state.registry.enqueue_frame(connection_id, frame))?;
+    Ok(receipt)
+}
+
+/// A FIFO local flush barrier, without emitting an additional protocol frame.
+/// Shutdown or a failed earlier write abandons this receipt.
+pub fn drain_wamp_writes(connection_id: ConnectionId) -> Result<WriteReceipt, Error> {
+    let (frame, receipt) = OutboundFrame::barrier().tracked();
+    RuntimeManager::global()
+        .with_state(|state| state.registry.enqueue_frame(connection_id, frame))?;
+    Ok(receipt)
 }
 
 /// Sends an HTTP response to the client. Currently unsupported.
@@ -6761,6 +6998,7 @@ fn websocket_subprotocol(serializer: rawsocket::Serializer) -> Result<&'static s
         rawsocket::Serializer::Json => Ok("wamp.2.json"),
         rawsocket::Serializer::MessagePack => Ok("wamp.2.msgpack"),
         rawsocket::Serializer::Cbor => Ok("wamp.2.cbor"),
+        rawsocket::Serializer::Flatbuffers => Ok("wamp.2.flatbuffers"),
         _ => Err(Error::Io(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("websocket serializer {serializer:?} is unsupported"),
@@ -10031,6 +10269,9 @@ mod tests {
         assert_eq!(connected.is_ok(), true, "{connected:?}");
         let client_connection_id = connected.unwrap();
         let server_connection_id = assert_accepted_connection(&mut receiver).await;
+        let tls_plaintext_before =
+            transport_copy_metrics_snapshot().tls_plaintext_accepted_bytes_total;
+        let rustls_copies_before = rustls_copy_metrics_snapshot();
 
         assert!(connection_supports_file_segments(client_connection_id).unwrap());
         assert!(connection_supports_file_segments(server_connection_id).unwrap());
@@ -10063,6 +10304,23 @@ mod tests {
             }
             other => panic!("unexpected tls server message: {other:?}"),
         }
+        let tls_plaintext_after =
+            transport_copy_metrics_snapshot().tls_plaintext_accepted_bytes_total;
+        assert!(
+            tls_plaintext_after > tls_plaintext_before,
+            "Rustls must report plaintext accepted after the handshake"
+        );
+        let rustls_copies_after = rustls_copy_metrics_snapshot();
+        assert!(
+            rustls_copies_after.outbound_chunk_copy_bytes
+                > rustls_copies_before.outbound_chunk_copy_bytes,
+            "the real native TLS send must observe outbound chunk copies"
+        );
+        assert!(
+            rustls_copies_after.record_append_copy_bytes
+                > rustls_copies_before.record_append_copy_bytes,
+            "the real native TLS records must observe appended bytes"
+        );
 
         std::fs::remove_file(path).unwrap();
         shutdown().unwrap();
@@ -10925,6 +11183,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn websocket_writer_serializes_segmented_payload() {
+        let before = transport_copy_metrics_snapshot();
         let bytes = write_websocket_frame_to_bytes(
             0x1,
             vec![
@@ -10940,6 +11199,11 @@ mod tests {
                 0x01, 0x05, b'h', b'e', b'l', b'l', b'o', 0x80, 0x06, b'-', b'w', b'o', b'r', b'l',
                 b'd',
             ]
+        );
+        let after = transport_copy_metrics_snapshot();
+        assert!(
+            after.websocket_coalesce_copy_bytes_total - before.websocket_coalesce_copy_bytes_total
+                >= 11
         );
     }
 
@@ -10962,6 +11226,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn websocket_client_writer_serializes_segmented_payload_as_continuations() {
+        let before = transport_copy_metrics_snapshot();
         let bytes = write_websocket_frame_client_to_bytes(
             0x2,
             vec![
@@ -10973,6 +11238,10 @@ mod tests {
         .await;
         let frames = read_websocket_frames_from_bytes_mode(&bytes, true).await;
         assert_eq!(frames.len(), 2);
+        let after = transport_copy_metrics_snapshot();
+        assert!(
+            after.websocket_mask_copy_bytes_total - before.websocket_mask_copy_bytes_total >= 11
+        );
         match &frames[0] {
             WebSocketFrame::Data {
                 opcode,
@@ -11338,5 +11607,75 @@ mod tests {
         let err = local_addr(ListenerId(999)).expect_err("missing listener");
         assert!(matches!(err, Error::ListenerNotFound(ListenerId(_))));
         shutdown().unwrap();
+    }
+}
+
+#[cfg(test)]
+mod flatbuffers_websocket_profile_tests {
+    use super::*;
+    #[test]
+    fn websocket_profile_maps_flatbuffers_with_existing_encodings() {
+        for (serializer, expected) in [
+            (rawsocket::Serializer::Json, "wamp.2.json"),
+            (rawsocket::Serializer::MessagePack, "wamp.2.msgpack"),
+            (rawsocket::Serializer::Cbor, "wamp.2.cbor"),
+            (rawsocket::Serializer::Flatbuffers, "wamp.2.flatbuffers"),
+        ] {
+            assert_eq!(websocket_subprotocol(serializer).unwrap(), expected);
+        }
+    }
+}
+
+#[cfg(test)]
+mod connection_id_lifetime_tests {
+    use super::*;
+
+    #[test]
+    fn recreated_registries_cannot_reuse_connection_ids() {
+        let first = ListenerRegistry::default().next_connection_id().unwrap();
+        let second = ListenerRegistry::default().next_connection_id().unwrap();
+        assert!(second.0 > first.0);
+    }
+
+    #[test]
+    fn connection_ids_stop_at_the_positive_ffi_boundary() {
+        let sequence = AtomicU32::new(i32::MAX as u32);
+        assert_eq!(
+            allocate_connection_id(&sequence).unwrap(),
+            ConnectionId(i32::MAX as u32)
+        );
+        assert!(allocate_connection_id(&sequence).is_err());
+        assert!(allocate_connection_id(&sequence).is_err());
+        assert_eq!(sequence.load(Ordering::SeqCst), i32::MAX as u32 + 1);
+    }
+
+    #[test]
+    fn invalid_connection_id_sequences_never_wrap_or_advance() {
+        for value in [0, i32::MAX as u32 + 1, u32::MAX] {
+            let sequence = AtomicU32::new(value);
+            assert!(allocate_connection_id(&sequence).is_err());
+            assert_eq!(sequence.load(Ordering::SeqCst), value);
+        }
+    }
+
+    #[test]
+    fn concurrent_connection_allocations_are_unique() {
+        let sequence = Arc::new(AtomicU32::new(1));
+        let workers: Vec<_> = (0..8)
+            .map(|_| {
+                let sequence = Arc::clone(&sequence);
+                std::thread::spawn(move || {
+                    (0..64)
+                        .map(|_| allocate_connection_id(&sequence).unwrap().0)
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        let mut ids: Vec<_> = workers
+            .into_iter()
+            .flat_map(|worker| worker.join().unwrap())
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(ids, (1..=512).collect::<Vec<_>>());
     }
 }

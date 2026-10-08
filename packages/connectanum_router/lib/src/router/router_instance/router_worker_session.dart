@@ -229,22 +229,26 @@ Future<void> _handleGoodbye({
   required int connectionId,
   String reason = 'wamp.close.goodbye_and_out',
 }) async {
-  if (state.phase == HandshakePhase.open) {
-    final serializer = state.serializer ?? NativeMessageSerializer.json;
-    // TODO(protocol-negotiation): forward the negotiated protocol once the
-    // native runtime reports real negotiation outcomes.
-    await sendMessage(
-      bossPort,
-      connectionId,
-      serializer,
-      goodbye_msg.Goodbye(null, reason),
+  try {
+    if (state.phase == HandshakePhase.open) {
+      final serializer = state.serializer ?? NativeMessageSerializer.json;
+      // TODO(protocol-negotiation): forward the negotiated protocol once the
+      // native runtime reports real negotiation outcomes.
+      await sendMessage(
+        bossPort,
+        connectionId,
+        serializer,
+        goodbye_msg.Goodbye(null, reason),
+        state: state,
+      );
+    }
+  } finally {
+    await _closeSession(
+      statePort: statePort,
+      realmContexts: realmContexts,
+      state: state,
     );
   }
-  await _closeSession(
-    statePort: statePort,
-    realmContexts: realmContexts,
-    state: state,
-  );
 }
 
 Future<void> _handleSubscribe({
@@ -296,6 +300,7 @@ Future<void> _handleSubscribe({
       connectionId,
       state.serializer ?? NativeMessageSerializer.json,
       subscribed_msg.Subscribed(message.requestId, subscriptionId),
+      state: state,
     );
   } on ArgumentError catch (error) {
     final errorMessage = error.toString();
@@ -400,6 +405,7 @@ Future<void> _handleUnsubscribe({
       connectionId,
       state.serializer ?? NativeMessageSerializer.json,
       unsubscribed_msg.Unsubscribed(message.requestId, null),
+      state: state,
     );
   } on StateError catch (error) {
     await _sendSessionError(
@@ -473,6 +479,7 @@ Future<void> _handleRegister({
       connectionId,
       state.serializer ?? NativeMessageSerializer.json,
       registered_msg.Registered(message.requestId, registrationId),
+      state: state,
     );
   } on ArgumentError catch (error) {
     final errorMessage = error.toString();
@@ -579,6 +586,7 @@ Future<void> _handleUnregister({
       connectionId,
       state.serializer ?? NativeMessageSerializer.json,
       unregistered_msg.Unregistered(message.requestId),
+      state: state,
     );
   } on StateError catch (error) {
     await _sendSessionError(
@@ -722,7 +730,12 @@ Future<void> _handlePublish({
         nativeMessage?.hasNativeHandle == true &&
         message.options?.custom.isNotEmpty != true;
     for (final match in externalMatches) {
-      if (canForwardNative && match.serializerId == sourceSerializer.id) {
+      if (canForwardNative &&
+          (match.serializerId == sourceSerializer.id ||
+              (match.serializerId != null &&
+                  nativeMessage!.canForwardTo(
+                    NativeMessageSerializer.fromId(match.serializerId!),
+                  )))) {
         nativeMatches.add(match);
       } else {
         dartForwardMatches.add(match);
@@ -750,6 +763,7 @@ Future<void> _handlePublish({
                   message.requestId,
                   routing.publicationId,
                 ),
+                state: state,
               )
               .then((_) {
                 bossPort.send({
@@ -1487,6 +1501,7 @@ Future<void> _sendSessionResult({
       arguments: arguments,
       argumentsKeywords: argumentsKeywords,
     ),
+    state: state,
   );
 }
 
@@ -2033,6 +2048,7 @@ Future<void> _sendCancelAck({
       const {},
       error_msg.Error.errorInvocationCanceled,
     ),
+    state: state,
   );
 }
 
@@ -2434,13 +2450,12 @@ Future<void> _handleYield({
     }
 
     var usedZeroCopy = false;
-    if (message.options?.pptScheme != 'wamp' &&
-        _canUseNativeForwardPath(
-          connectionStates: connectionStates,
-          sourceState: state,
-          targetConnectionId: callerConnectionId,
-          incomingMessage: incomingMessage,
-        )) {
+    if (_canUseNativeForwardPath(
+      connectionStates: connectionStates,
+      sourceState: state,
+      targetConnectionId: callerConnectionId,
+      incomingMessage: incomingMessage,
+    )) {
       final transferredHandle = incomingMessage!.takeHandle();
       if (transferredHandle > 0) {
         final command = {
@@ -2687,13 +2702,14 @@ bool _canUseNativeForwardPath({
   }
   final targetState = connectionStates[targetConnectionId];
   if (targetState == null) {
-    return false;
+    return incomingMessage!.canForwardToConnection(targetConnectionId);
   }
   final sourceSerializer =
       sourceState.serializer ?? NativeMessageSerializer.json;
   final targetSerializer =
       targetState.serializer ?? NativeMessageSerializer.json;
-  return sourceSerializer == targetSerializer;
+  return sourceSerializer == targetSerializer ||
+      incomingMessage!.canForwardTo(targetSerializer);
 }
 
 bool _canUseNativeProgressiveInvocationForwarding({
@@ -2701,7 +2717,7 @@ bool _canUseNativeProgressiveInvocationForwarding({
   required call_msg.Call message,
 }) {
   if (!dispatch.progressiveInvocation) {
-    return message.options?.pptScheme != 'wamp';
+    return _filteredInvocationOptionDetails(dispatch.initiatingOptions).isEmpty;
   }
   final options = message.options;
   return dispatch.initiatingOptions['ppt_scheme'] == options?.pptScheme &&
@@ -3066,6 +3082,7 @@ Future<void> _sendInvocationErrorToCallee({
     connectionId,
     state.serializer ?? NativeMessageSerializer.json,
     error_msg.Error(MessageTypes.codeInvocation, invocationId, details, reason),
+    state: state,
   );
 }
 
@@ -3129,6 +3146,7 @@ Future<void> _sendSessionError({
     connectionId,
     state.serializer ?? NativeMessageSerializer.json,
     error_msg.Error(requestType, requestId, details, reason),
+    state: state,
   );
 }
 
@@ -3138,6 +3156,10 @@ Future<void> _closeSession({
   required WorkerConnectionState state,
 }) async {
   await _abortPendingAuthentication(state, reason: 'connection_closed');
+  if (state.serializer == NativeMessageSerializer.flatbuffers) {
+    state.flatBuffersProfile =
+        const flatbuffers.FlatBuffersSessionProfile.router();
+  }
 
   if (state.phase != HandshakePhase.open) {
     state.phase = HandshakePhase.aborted;

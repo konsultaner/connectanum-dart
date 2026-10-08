@@ -35,6 +35,20 @@ graph LR
 
 ### Current Responsibilities
 
+The transport workspace pins a vendored Rustls 0.23.45 source in
+`native/transport/vendor/rustls`, with original licenses and an audited digest
+manifest. An optional observer reports actual outbound-chunk, queue-read,
+deframer append/move and record-buffer/content copies, including payload
+ownership conversions. A separate 48-byte `ct_rustls_copy_metrics_snapshot` ABI
+and optional client/router Dart bindings expose the six named partial counters
+to benchmark breakdowns; old libraries retain null. The 24-/40-byte transport
+snapshots stay unchanged. Vendored Tokio-Rustls 0.26.6 separately observes its
+actual plaintext extraction copy after `ReadBuf::put_slice()`; borrowed views
+and consumption retain their storage. Its published lockfile, licenses and
+source digests are audited. Remaining TLS copy sites keep total-copy gates
+unmeasured; the Tokio observation is not yet exposed through C/Dart metrics. See
+[the source and fixture policy](native/transport/vendor/README.md).
+
 - **Tokio runtime & ListenerRegistry (`ct_core/src/lib.rs`)**  
   Binds sockets, negotiates protocols, and spawns per-protocol tasks (RawSocket, WebSocket, HTTP/1.1 handshakes, HTTP/2 via `h2`, HTTP/3 via `quinn + h3`). RawSocket/WebSocket connections run a heartbeat monitor (PING/PONG), use bounded inbound/outbound queues (backpressure), and can be closed explicitly via FFI; every HTTP connection gets a `HttpConnectionStats` instance that records idle/body timeouts, GOAWAY, and backpressure depth; HTTP/3 body timeouts close the QUIC connection to avoid `h3-quinn` stop-sending races. The HTTP/2 server path now applies explicit `h2` flow-control and stream/window limits, and the HTTP/3 server path applies explicit QUIC transport tuning (larger stream/connection windows, send window, datagram buffers, keep-alive) instead of pure library defaults tuned for a much lower-bandwidth link.
   Listeners can be closed independently via `close_listener` (exposed as `ct_listener_close`) so deployments can stop accepting new connections while existing sessions drain.
@@ -169,3 +183,34 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
 - `packages/connectanum_router/lib/src/router/router_instance/router_binding.dart` – `/healthz` returns `503 draining` while the router is draining and refusing new accepts.
 - `docs/tls.md` / `docs/deployment.md` / `docs/router_example.yaml` – TLS configuration notes (SNI certs + optional mTLS via `tls.client_auth`) and a starter production config that now shows shared `session_profiles` for WAMP, HTTP, and internal sessions.
 - `deploy/docker` / `deploy/systemd` / `deploy/k8s` – production deployment templates (container image, systemd unit, Kubernetes manifests).
+
+## FlatBuffers codec and native buffer work
+
+- `packages/connectanum_core/lib/flatbuffers_serializer.dart` exports the public
+  stateless codec, portable builder, direct model writer and same-builder vector
+  references. Client/facade exports provide the same serializer surface.
+- `native/transport/ct_core/src/wamp/flatbuffers_wire.rs` and
+  `flatbuffers_cbor.rs` validate incoming frames and encoded application spans.
+  `flatbuffers_codec.rs` reconstructs native models; `flatbuffers_projection.rs`
+  checks typed-field/metadata agreement. Generated `flatbuffers_schema.rs`
+  shares the pinned descriptor inputs with Dart.
+- `flatbuffers_encoder.rs` and `flatbuffers_writer.rs` implement
+  `ct_core::encode_flatbuffers_message`. Finished allocations move into Bytes;
+  contiguous construction still copies embedded vectors. Native payloads retain
+  separate CBOR args/kwargs and opaque transparent bytes.
+- `schemas/wamp_flatbuffers/codec_cases.json` and the core codec round-trip tool
+  extend `tool/check_wamp_flatbuffers_interop.py` with all 25 native/public-Dart
+  message cases. `FlatBuffersSessionProfile` gates bootstrap/ordinary traffic in
+  client transports and router sessions; ordinary RawSocket/WebSocket selection
+  and native WebSocket mapping share this binding.
+- `native/transport/ct_ffi/src/runtime/native_frames.rs` exposes immutable segmented
+  frames retaining owned or leased control/application allocations. The Dart
+  `native_buffers.dart` library's `native_frames.dart` part provides composition,
+  retained/transfer sends, views and local completion receipts.
+- Core lazy payloads retain original storage owners across forwarding and mutable
+  message edits. Session and Invocation keep that ownership with reused outbound
+  wire views; encrypted payloads continue through their selected provider.
+- `docs/native_buffer_ownership.md` and the client native frame example describe
+  copy boundaries and the separate ObjectBox adapter contract. Full/mixed routing,
+  typed E2EE, platform/consumer and performance acceptance remain in
+  `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.

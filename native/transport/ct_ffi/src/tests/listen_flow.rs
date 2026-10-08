@@ -2746,7 +2746,9 @@ fn http3_handshake_surfaced_via_ffi() {
     let port = require_http3_port(listener_id);
 
     let rt = TokioRuntime::new().unwrap();
-    rt.block_on(async move {
+    // Keep the peer alive until the native connection/handshake views are read.
+    // Dropping it here races the server's connection cleanup with those reads.
+    let _client_peer = rt.block_on(async move {
         let addr = format!("127.0.0.1:{}", port);
         let server_addr = addr.parse().unwrap();
 
@@ -2763,6 +2765,7 @@ fn http3_handshake_surfaced_via_ffi() {
             .expect("connect http3");
         let _connection = connection.await.expect("http3 handshake");
         tokio::time::sleep(Duration::from_millis(50)).await;
+        (endpoint, _connection)
     });
 
     let connection_id = wait_for_connection(listener_id);
@@ -2965,7 +2968,8 @@ fn http3_stream_poll_returns_handle() {
     let port = require_http3_port(listener_id);
 
     let rt = TokioRuntime::new().unwrap();
-    rt.block_on(async move {
+    // The assertions below inspect a live connection, not a closed peer's ID.
+    let _client_peer = rt.block_on(async move {
         let addr = format!("127.0.0.1:{}", port);
         let server_addr = addr.parse().unwrap();
 
@@ -3004,6 +3008,7 @@ fn http3_stream_poll_returns_handle() {
             .expect("send empty body");
         stream.finish().await.expect("finish stream");
         tokio::time::sleep(Duration::from_millis(200)).await;
+        (endpoint, sender, stream)
     });
 
     let connection_id = ct_poll_connection(listener_id);

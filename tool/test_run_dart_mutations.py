@@ -111,6 +111,28 @@ class MutationRunnerTests(unittest.TestCase):
         )
         self.assertIn('workload_diagnostics.main', suite.read_text())
 
+    def test_workload_native_ppt_constructor_inputs_are_registered(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['bench-wamp-workload-vm']
+        self.assertIn('packages/connectanum_bench/lib/src/bench_payload/codec.dart',
+                      target['sources'])
+        for path in (
+            'test/bench_payload_codec_test.dart',
+            'test/wamp_flatbuffers_scenario_test.dart',
+            'test/support/native_library.dart',
+            'lib/src/bench_payload/generated/workload_payload_connectanum.bench_generated.dart',
+        ):
+            self.assertIn(f'packages/connectanum_bench/{path}', target['supportFiles'])
+        self.assertIn('schemas/bench_payload/workload_payload.fbs', target['supportFiles'])
+        suite = (runner.ROOT / target['tests'][0]).read_text()
+        for filename, alias in (
+            ('bench_payload_codec_test', 'payload_codec'),
+            ('wamp_flatbuffers_scenario_test', 'owned_payloads'),
+        ):
+            self.assertIn(f"import '../{filename}.dart' as {alias};", suite)
+            self.assertIn(f'{alias}.main', suite)
+        self.assertNotIn('threshold', target)
+
     def test_mcp_discovery_target_includes_full_source_and_consumer_tests(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         self.assertIn('client-mcp-discovery-vm', targets)
@@ -473,6 +495,7 @@ class MutationRunnerTests(unittest.TestCase):
         suites = [f'{prefix}/test/message_{name}_test.dart' for name in [
             'payload_contract', 'lazy_payload_regression', 'invocation', 'result',
         ]]
+        suites.append(f'{prefix}/test/message_flatbuffers_ppt_view_test.dart')
         for runtime in ['vm', 'web']:
             self.assertEqual(targets[f'core-lazy-{runtime}']['supportFiles'], suites)
         self.assertEqual(targets['core-lazy-vm']['tests'], [
@@ -480,6 +503,10 @@ class MutationRunnerTests(unittest.TestCase):
         ])
         vm_wrapper = (runner.ROOT / targets['core-lazy-vm']['tests'][0]).read_text()
         self.assertIn("group('payload contract', payload_contract.main);", vm_wrapper)
+        for runtime in ['vm', 'web']:
+            wrapper = (runner.ROOT / targets[f'core-lazy-{runtime}']['tests'][0]).read_text()
+            self.assertIn("import '../message_flatbuffers_ppt_view_test.dart'", wrapper)
+            self.assertIn("group('FlatBuffers PPT view', flatbuffers_ppt.main);", wrapper)
         self.assertLess(vm_wrapper.index("group('payload contract'"),
                         vm_wrapper.index("group('lazy payload'"))
         browser = targets['core-lazy-web']
@@ -586,6 +613,18 @@ class MutationRunnerTests(unittest.TestCase):
         })
         self.assertEqual(target['testRoot'], prefix)
 
+    def test_socket_target_includes_profile_and_wire_regressions(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['client-socket-vm']
+        prefix = 'packages/connectanum_client'
+        self.assertEqual(set(target['tests']), {
+            f'{prefix}/test/transport/socket/socket_transport_test.dart',
+            f'{prefix}/test/transport/flatbuffers_transport_profile_vm_test.dart',
+        })
+        self.assertIn(
+            f'{prefix}/test/transport/socket/socket_chunk_boundaries.dart',
+            target['supportFiles'])
+
     def test_native_transports_target_includes_file_wire_regressions(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         target = targets['client-native-transports-vm']
@@ -596,13 +635,46 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(set(target['tests']), {
             f'{prefix}/test/transport/native/native_transports_test.dart',
             f'{prefix}/test/transport/native/runtime_file_segment_test.dart',
+            f'{prefix}/test/transport/native/flatbuffers_profile_test.dart',
+            f'{prefix}/test/transport/native/flatbuffers_websocket_network_test.dart',
+            f'{prefix}/test/transport/native/native_flatbuffer_frame_test.dart',
+            f'{prefix}/test/transport/native/native_owned_segments_test.dart',
         })
         self.assertEqual(target['supportFiles'], [
             f'{prefix}/test/test_support/native_runtime_support.dart',
             f'{prefix}/test/test_support/native_runtime_support_io.dart',
             f'{prefix}/test/test_support/native_runtime_support_stub.dart',
             f'{prefix}/test/transport/native/support/file_digest_cases.dart',
+            f'{prefix}/test/transport/native/support/e2ee_message_cases.dart',
+            'native/bench/bench_tls.crt',
+            'native/bench/bench_tls.key',
+            f'{prefix}/test/transport/native/support/native_frame_gc_probe.dart',
+            f'{prefix}/test/transport/native/support/deferred_e2ee_message_cases.dart',
+            f'{prefix}/test/transport/native/support/deferred_e2ee_gc_probe.dart',
+            f'{prefix}/test/transport/native/support/deferred_session_message_cases.dart',
+            f'{prefix}/test/transport/native/support/owned_buffer_abi_fixture.c',
         ])
+        self.assertTrue(target['requiresNativeLibrary'])
+        self.assertTrue(target['isolateTestFiles'])
+
+    def test_native_buffer_target_mutates_all_parts_and_keeps_frame_gc_probe(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        target = targets['client-native-owned-buffers-vm']
+        prefix = 'packages/connectanum_client'
+        library = runner.ROOT / prefix / 'lib/native_buffers.dart'
+        expected_sources = {str(library.relative_to(runner.ROOT))}
+        expected_sources.update(
+            str((library.parent / part).relative_to(runner.ROOT))
+            for part in re.findall(r"^part '([^']+)';", library.read_text(), re.MULTILINE))
+        self.assertEqual(set(target['sources']), expected_sources)
+        self.assertEqual(set(target['tests']), {
+            f'{prefix}/test/transport/native/native_owned_buffer_test.dart',
+            f'{prefix}/test/transport/native/native_flatbuffer_frame_test.dart',
+            f'{prefix}/test/transport/native/native_owned_segments_test.dart',
+        })
+        self.assertIn(
+            f'{prefix}/test/transport/native/support/native_frame_gc_probe.dart',
+            target['supportFiles'])
         self.assertTrue(target['requiresNativeLibrary'])
         self.assertTrue(target['isolateTestFiles'])
 
@@ -1248,6 +1320,10 @@ class MutationRunnerTests(unittest.TestCase):
     def test_directory_targets_record_and_run_stable_test_file_order(self):
         self.exercise_main('killed', 0, directory_tests=True)
 
+    def test_isolated_campaign_honors_configured_order_before_cleanup_errors(self):
+        self.exercise_main('killed', 0, directory_tests=True, native=True,
+                           ordered_tests=True)
+
     def test_browser_commands_finish_suites_instead_of_fail_fast_shutdown(self):
         for status, expected in [('killed', 0), ('survived', 1)]:
             with self.subTest(status=status):
@@ -1322,7 +1398,7 @@ class MutationRunnerTests(unittest.TestCase):
 
     def exercise_main(self, status, expected_code, directory_tests=False, native=False,
                       browser=False, application=False, listing=False, flutter=False, wasm=False,
-                      baseline_only=False):
+                      baseline_only=False, ordered_tests=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config = root / 'config.json'
@@ -1332,6 +1408,11 @@ class MutationRunnerTests(unittest.TestCase):
             source_path = f'{package_root}/lib/a.dart'
             test_path = f'{package_root}/test/a_test.dart'
             selected = ['packages/core/test'] if directory_tests else [test_path]
+            ordered_paths = ['packages/core/test/z_test.dart', test_path,
+                             'packages/core/test/m_test.dart']
+            if ordered_tests:
+                selected = [ordered_paths[0], 'packages/core/test',
+                            ordered_paths[0], test_path]
             target = {'sources': [source_path], 'tests': selected}
             if browser:
                 target['platform'] = 'chrome'
@@ -1354,6 +1435,7 @@ class MutationRunnerTests(unittest.TestCase):
                             {'type': 'testDone', 'testID': 1, 'result': 'success'},
                             {'type': 'done', 'success': True})
             seen = []
+            seen_tests = []
             dependency_cwds = []
             def fake_snapshot(work, support_files):
                 self.assertEqual(support_files, target.get('supportFiles', []))
@@ -1368,6 +1450,8 @@ class MutationRunnerTests(unittest.TestCase):
                 if directory_tests:
                     files.extend([('packages/core/test/z_test.dart', 'last test'),
                                   ('packages/core/test/support/helper.dart', 'helper')])
+                if ordered_tests:
+                    files.append(('packages/core/test/m_test.dart', 'middle test'))
                 files.append((test_path, 'test fixture'))
                 for name, data in files:
                     path = work / name
@@ -1394,7 +1478,8 @@ class MutationRunnerTests(unittest.TestCase):
                     selected = [arg for arg in command if arg.startswith('packages/core/test')]
                     if native:
                         self.assertEqual(len(selected), 1)
-                        self.assertIn(selected[0], [test_path, 'packages/core/test/z_test.dart'])
+                        self.assertIn(selected[0], ordered_paths if ordered_tests else
+                                      [test_path, 'packages/core/test/z_test.dart'])
                     else:
                         self.assertEqual(selected, [test_path, 'packages/core/test/z_test.dart'])
                 if application:
@@ -1404,6 +1489,8 @@ class MutationRunnerTests(unittest.TestCase):
                 else:
                     current = (work / source_path).read_text()
                 seen.append(current)
+                if ordered_tests:
+                    seen_tests.append(selected[0])
                 self.assertEqual(command[0], 'flutter' if flutter else 'dart')
                 self.assertNotIn('--fail-fast', command)
                 if flutter:
@@ -1431,9 +1518,12 @@ class MutationRunnerTests(unittest.TestCase):
                     return 0, passed
                 if status == 'timeout':
                     return None, ''
+                cleanup_error = ordered_tests and selected[0] != ordered_paths[0]
                 failures = [] if status == 'unknown' else [
-                    {'type': 'error', 'testID': 1, 'isFailure': status != 'testError',
-                     'error': 'Expected true' if status != 'testError' else 'StateError: invalid state'}]
+                    {'type': 'error', 'testID': 1,
+                     'isFailure': status != 'testError' and not cleanup_error,
+                     'error': 'StateError: cleanup failed' if cleanup_error else
+                     'Expected true' if status != 'testError' else 'StateError: invalid state'}]
                 return (-9 if status == 'signal' else 1), events(
                     {'type': 'testStart', 'test': {'id': 1, 'name': 'contract'}},
                     *failures,
@@ -1459,6 +1549,9 @@ class MutationRunnerTests(unittest.TestCase):
                 expected_seen = []
             if native and directory_tests:
                 expected_seen = [source, source, 'bool f() => false;', source, source]
+            if ordered_tests:
+                expected_seen = [source] * 3 + ['bool f() => false;'] + [source] * 3
+                self.assertEqual(seen_tests, ordered_paths + ordered_paths[:1] + ordered_paths)
             if listing:
                 expected_seen = []
             if baseline_only:
@@ -1508,10 +1601,18 @@ class MutationRunnerTests(unittest.TestCase):
                 self.assertEqual(target['restoredBaselineExitCode'], 0)
                 if directory_tests:
                     self.assertEqual(target['resolvedTests'],
+                                     ordered_paths if ordered_tests else
                                      [test_path, 'packages/core/test/z_test.dart'])
                     self.assertIn('packages/core/test/support/helper.dart', target['testHashes'])
+                if ordered_tests:
+                    self.assertEqual(set(target['testHashes']),
+                                     set(ordered_paths + ['packages/core/test/support/helper.dart']))
+                    self.assertEqual(target['outcomes'][0]['killEvidence'], {
+                        'cause': 'assertion', 'assertionFailures': 1,
+                        'testErrors': 0, 'unclassifiedFailures': 0})
                 if native:
-                    self.assertEqual(len(target['testCommands']), 2 if directory_tests else 1)
+                    self.assertEqual(len(target['testCommands']), 3 if ordered_tests else
+                                     2 if directory_tests else 1)
                     if directory_tests:
                         self.assertNotIn('testCommand', target)
                     self.assertTrue(target['nativeArtifactUnchanged'])

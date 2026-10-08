@@ -72,6 +72,35 @@ jobs:
         id: package
         run: bin/package-native-artifact
 
+      - name: Install Dart for production consumers
+        uses: dart-lang/setup-dart@v1
+
+      - name: Fetch workspace dependencies
+        run: dart pub get
+
+      - name: Verify packaged production profiles
+        env:
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          CHECKSUM_PATH: ${{ steps.package.outputs.checksum_path }}
+          MANIFEST_PATH: ${{ steps.package.outputs.manifest_path }}
+        run: |
+          python3 tool/check_native_artifact_consumers.py \
+            --archive "$ARCHIVE_PATH" \
+            --checksum "$CHECKSUM_PATH" \
+            --manifest "$MANIFEST_PATH" \
+            --expected-commit "$GITHUB_SHA" \
+            --output-dir out/native-consumer-proof
+
+      - name: Upload production consumer evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-consumers-${{ steps.package.outputs.host_triple }}
+          path: |
+            out/native-consumer-proof/consumer-proof.json
+            out/native-consumer-proof/profile-*.jsonl
+          if-no-files-found: error
+
       - name: Sign packaged artifacts
         env:
           ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}

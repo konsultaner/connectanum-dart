@@ -59,6 +59,199 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def run_vm_coverage_probe(self, failed_suite: str = ''):
+        source = (REPO_ROOT / 'bin/test-coverage').read_text()
+        commands = 'run_package_coverage() {' + source.split(
+            'run_package_coverage() {', 1
+        )[1].split('\nreport_on=()', 1)[0]
+        with tempfile.TemporaryDirectory(prefix='VM coverage launcher ') as temp:
+            root = Path(temp)
+            fake = root / 'dart'
+            fake.write_text('#!/usr/bin/env python3\n' + textwrap.dedent('''\
+                import json, os, sys
+                args = sys.argv[1:]
+                with open(os.environ['TASK_COVERAGE_LOG'], 'a') as output:
+                    output.write(json.dumps({'args': args, 'cwd': os.getcwd(),
+                        'forward': os.environ.get('CONNECTANUM_FORWARD_NATIVE_PUBLISH')}) + '\\n')
+                suite = os.environ['TASK_FAILED_SUITE']
+                sys.exit(73 if suite and suite in args else 0)
+                '''))
+            fake.chmod(0o755)
+            log = root / 'commands.jsonl'
+            environment = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
+                               TASK_COVERAGE_LOG=str(log), TASK_FAILED_SUITE=failed_suite,
+                               TASK_COVERAGE_ROOT=str(root), TASK_REPO_ROOT=str(REPO_ROOT))
+            result = subprocess.run(['bash', '-c', 'set -euo pipefail\n'
+                + 'ROOT_DIR="$TASK_REPO_ROOT"\ncoverage_root="$TASK_COVERAGE_ROOT"\n'
+                + commands], env=environment, text=True, capture_output=True, timeout=20)
+            rows = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+            return result, rows
+
+    def test_vm_coverage_retains_complete_flatbuffers_and_copy_metrics_suites(self):
+        result, rows = self.run_vm_coverage_probe()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        reports = []
+        for package, suite, label in (
+            ('connectanum_client', 'dart_transport_copy_metrics_test.dart', 'copy_metrics'),
+            ('connectanum_client', 'transport/flatbuffers_transport_profile_vm_test.dart', 'flatbuffers_profile'),
+            ('connectanum_client', 'transport/native/native_owned_segments_test.dart', 'owned_segments'),
+            ('connectanum_client', 'transport/native/flatbuffers_profile_test.dart', 'flatbuffers_native_profile'),
+            ('connectanum_client', 'transport/native/flatbuffers_websocket_network_test.dart', 'flatbuffers_websocket'),
+            ('connectanum_client', 'transport/native/native_flatbuffer_frame_test.dart', 'flatbuffers_frames'),
+            ('connectanum_router', 'router_flatbuffers_native_test.dart', 'flatbuffers_native'),
+            ('connectanum_router', 'router_flatbuffers_session_ppt_test.dart', 'flatbuffers_ppt'),
+        ):
+            with self.subTest(suite=suite):
+                matches = [row for row in rows if f'test/{suite}' in row['args']
+                           and (package != 'connectanum_router' or row['forward'] == '1')]
+                self.assertEqual(len(matches), 1)
+                row = matches[0]
+                self.assertEqual(row['cwd'], str(REPO_ROOT / 'packages' / package))
+                for option in ('--name', '--tags', '--exclude-tags'):
+                    self.assertFalse(any(arg == option or arg.startswith(option + '=') for arg in row['args']))
+                report = next(arg for arg in row['args'] if arg.startswith('--coverage='))
+                self.assertTrue(report.endswith(f'/raw/{package}_{label}'))
+                reports.append(report)
+        self.assertEqual(len(set(reports)), len(reports))
+
+    def test_vm_coverage_propagates_added_suite_failures(self):
+        for suite in ('transport/native/native_owned_segments_test.dart',
+                      'router_flatbuffers_session_ppt_test.dart'):
+            with self.subTest(suite=suite):
+                result, rows = self.run_vm_coverage_probe(f'test/{suite}')
+                self.assertEqual(result.returncode, 73)
+                self.assertIn(f'test/{suite}', rows[-1]['args'])
+
+    def run_router_coverage_probe(self, *, script: str | None = None,
+                                 shared_exit: int = 0, isolated_exit: int = 0):
+        source = script or (REPO_ROOT / "bin/test-coverage").read_text()
+        package_function = "run_package_coverage() {" + source.split(
+            "run_package_coverage() {", 1
+        )[1].split("\n}", 1)[0] + "\n}"
+        marker = "run_package_coverage \\\n  connectanum_router \\\n"
+        commands = marker + source.split(marker, 1)[1].split(
+            "printf 'Collecting zero-copy Dart VM coverage", 1
+        )[0]
+        with tempfile.TemporaryDirectory(prefix="router coverage process ") as temp:
+            root = Path(temp)
+            fake = root / "dart"
+            fake.write_text("#!/usr/bin/env python3\n" + textwrap.dedent("""\
+                import json, os, sys
+                args = sys.argv[1:]
+                with open(os.environ['TASK_COVERAGE_LOG'], 'a') as output:
+                    output.write(json.dumps({'pid': os.getpid(), 'args': args,
+                                             'cwd': os.getcwd()}) + '\\n')
+                if 'test/remote_auth_integration_test.dart' in args:
+                    sys.exit(int(os.environ['TASK_ISOLATED_EXIT']))
+                if '--exclude-tags' not in args or 'remote_auth_integration' not in args[args.index('--exclude-tags') + 1]:
+                    sys.exit(79)
+                sys.exit(int(os.environ['TASK_SHARED_EXIT']))
+                """))
+            fake.chmod(0o755)
+            log = root / "commands.jsonl"
+            environment = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
+                               TASK_COVERAGE_LOG=str(log), TASK_SHARED_EXIT=str(shared_exit),
+                               TASK_ISOLATED_EXIT=str(isolated_exit), TASK_COVERAGE_ROOT=str(root))
+            result = subprocess.run(["bash", "-c", 'set -euo pipefail\n'
+                + 'ROOT_DIR="$TASK_REPO_ROOT"\ncoverage_root="$TASK_COVERAGE_ROOT"\n'
+                + package_function + '\n' + commands],
+                env=dict(environment, TASK_REPO_ROOT=str(REPO_ROOT)),
+                text=True, capture_output=True, timeout=20)
+            rows = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+            return result, rows
+
+    def test_router_coverage_isolates_runtime_owner_and_retains_both_raw_reports(self):
+        result, rows = self.run_router_coverage_probe()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(rows), 2)
+        self.assertNotEqual(rows[0]['pid'], rows[1]['pid'])
+        self.assertIn('test', rows[0]['args'])
+        self.assertIn('zero_copy_publish || remote_auth_integration', rows[0]['args'])
+        self.assertIn('test/remote_auth_integration_test.dart', rows[1]['args'])
+        self.assertNotIn('--name', rows[1]['args'])
+        self.assertNotIn('--exclude-tags', rows[1]['args'])
+        reports = [next(arg for arg in row['args'] if arg.startswith('--coverage=')) for row in rows]
+        self.assertTrue(reports[0].endswith('/raw/connectanum_router'))
+        self.assertTrue(reports[1].endswith('/raw/connectanum_router_remote_auth'))
+        self.assertEqual([row['cwd'] for row in rows], [str(REPO_ROOT / 'packages/connectanum_router')] * 2)
+
+    def test_router_coverage_does_not_hide_shared_or_isolated_failure(self):
+        for shared, isolated, calls in ((71, 0, 1), (0, 72, 2)):
+            with self.subTest(shared=shared, isolated=isolated):
+                result, rows = self.run_router_coverage_probe(shared_exit=shared, isolated_exit=isolated)
+                self.assertEqual(result.returncode, shared or isolated)
+                self.assertEqual(len(rows), calls)
+
+    def run_fast_client_runtime_probe(self, *, explicit: bool, supported: bool = True,
+                                      build_exit: int = 0) -> subprocess.CompletedProcess:
+        function = "run_client_fast_tests() {" + TEST_FAST.read_text().split(
+            "run_client_fast_tests() {", 1
+        )[1].split("run_bench_vm_tests() {", 1)[0]
+        script = f'''
+set -euo pipefail
+source "{COMMON}"
+native_runtime_supported() {{ return {0 if supported else 1}; }}
+ensure_rust_env() {{ return 0; }}
+ensure_native_lib_env() {{ export CONNECTANUM_NATIVE_LIB="production-library"; }}
+build_native_ffi_test_release() {{
+  printf 'ffi-test-build\\n'
+  if [[ {build_exit} -ne 0 ]]; then return {build_exit}; fi
+  export CONNECTANUM_NATIVE_LIB="oracle-library"
+}}
+dart() {{
+  if [[ "$*" == *native_owned_buffer_test.dart* ]]; then
+    printf 'owner-oracles=%s\\n' "${{CONNECTANUM_NATIVE_LIB:-unset}}"
+    [[ "${{CONNECTANUM_NATIVE_LIB:-}}" == "oracle-library" ]] || return 79
+  fi
+}}
+{function}
+run_client_fast_tests
+'''
+        environment = dict(os.environ)
+        environment.pop("CONNECTANUM_NATIVE_LIB", None)
+        if explicit:
+            environment["CONNECTANUM_NATIVE_LIB"] = "production-library"
+        return subprocess.run(["bash", "-c", script], cwd=REPO_ROOT, env=environment,
+                              text=True, capture_output=True, timeout=30)
+
+    @unittest.skipIf(os.name == "nt", "The verification launcher requires Bash")
+    def test_fast_owner_oracles_prepare_test_library_after_production_package(self):
+        for explicit in (False, True):
+            with self.subTest(explicit=explicit):
+                result = self.run_fast_client_runtime_probe(explicit=explicit)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout.count("ffi-test-build"), 1, result.stdout)
+                self.assertIn("owner-oracles=oracle-library", result.stdout)
+
+    @unittest.skipIf(os.name == "nt", "The verification launcher requires Bash")
+    def test_fast_test_library_build_failure_is_not_a_native_skip(self):
+        result = self.run_fast_client_runtime_probe(explicit=True, build_exit=37)
+        self.assertEqual(result.returncode, 37, result.stdout + result.stderr)
+        self.assertNotIn("owner-oracles=", result.stdout)
+
+    @unittest.skipIf(os.name == "nt", "The verification launcher requires Bash")
+    def test_fast_unsupported_platform_keeps_native_skip(self):
+        result = self.run_fast_client_runtime_probe(explicit=True, supported=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("ffi-test-build", result.stdout)
+        self.assertNotIn("owner-oracles=", result.stdout)
+
+    def test_session_key_selection_regressions_run_in_vm_browser_and_coverage(self):
+        filename = "session_e2ee_key_selection_test.dart"
+        for path in (TEST_FAST, TEST_ALL):
+            with self.subTest(script=path.name, runtime="vm"):
+                self.assertIn(f"dart test packages/connectanum_client/test/{filename}", path.read_text())
+        for path in (TEST_ALL, REPO_ROOT / "bin/test-browser-coverage"):
+            with self.subTest(script=path.name, runtime="browser"):
+                self.assert_client_browser_suites_selected(path.read_text())
+                client = path.read_text().split("cd packages/connectanum_client", 1)[1]
+                self.assertIn(f"test/{filename}", client)
+        coverage = (REPO_ROOT / "bin/test-coverage").read_text()
+        self.assertIn(
+            f"run_package_coverage connectanum_client connectanum_client_e2ee_key_selection test/{filename}",
+            coverage,
+        )
+
     def test_portable_file_suites_run_in_vm_and_browser_gates(self):
         for name in ('metadata', 'digest'):
             filename = f'file_transfer_{name}_test.dart'
@@ -410,10 +603,12 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         root = REPO_ROOT / 'packages/connectanum_bench'
         entrypoint = root / 'test/support/wamp_workload_mutation_suite.dart'
         self.assertEqual(target['sources'], [
-            'packages/connectanum_bench/lib/src/wamp_workload_runner.dart'])
+            'packages/connectanum_bench/lib/src/wamp_workload_runner.dart',
+            'packages/connectanum_bench/lib/src/bench_payload/codec.dart'])
         self.assertEqual(target['testRoot'], 'packages/connectanum_bench')
         self.assertEqual(target['tests'], [entrypoint.relative_to(REPO_ROOT).as_posix()])
         expected = {root / 'test' / name for name in [
+            'bench_payload_codec_test.dart', 'wamp_flatbuffers_scenario_test.dart',
             'wamp_workload_runner_test.dart', 'wamp_session_wire_regression_test.dart',
             'wamp_workload_failure_regression_test.dart',
             'wamp_workload_timing_test.dart',
@@ -430,7 +625,12 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
             'wamp_transport_targets_boundaries_test.dart',
             'wamp_transport_targets_ranking_test.dart',
         ]}
-        fixtures = {'native/bench/bench_tls.crt', 'native/bench/bench_tls.key'}
+        fixtures = {
+            'native/bench/bench_tls.crt', 'native/bench/bench_tls.key',
+            'packages/connectanum_bench/test/support/native_library.dart',
+            'packages/connectanum_bench/lib/src/bench_payload/generated/workload_payload_connectanum.bench_generated.dart',
+            'schemas/bench_payload/workload_payload.fbs',
+        }
         self.assertEqual(set(target['supportFiles']), fixtures | {
             path.relative_to(REPO_ROOT).as_posix() for path in expected})
         source = entrypoint.read_text()
@@ -1690,7 +1890,8 @@ fi
         )
 
     def test_vm_commands_include_complete_reply_and_progressive_file_suites(self):
-        for suite in ('session_lazy_reply_test.dart', 'session_progressive_file_test.dart',
+        for suite in ('session_lazy_reply_test.dart', 'session_flatbuffers_ppt_test.dart',
+                      'session_progressive_file_test.dart',
                       'session_progressive_call_test.dart',
                       'session_goodbye_test.dart'):
             command = f'dart test packages/connectanum_client/test/{suite}'
@@ -1709,6 +1910,7 @@ fi
         for label, suite in (
             ('e2ee_profile', 'session_e2ee_profile_test.dart'),
             ('lazy_reply', 'session_lazy_reply_test.dart'),
+            ('flatbuffers_ppt', 'session_flatbuffers_ppt_test.dart'),
             ('progressive_file', 'session_progressive_file_test.dart'),
             ('progressive_call', 'session_progressive_call_test.dart'),
             ('goodbye', 'session_goodbye_test.dart'),
@@ -1803,7 +2005,9 @@ fi
             "test/client_test.dart",
             "test/meta_state_cache_test.dart",
             "test/session_e2ee_profile_test.dart",
+            "test/session_e2ee_key_selection_test.dart",
             "test/session_lazy_reply_test.dart",
+            "test/session_flatbuffers_ppt_test.dart",
             "test/session_progressive_file_test.dart",
             "test/session_progressive_call_test.dart",
             "test/session_goodbye_test.dart",
@@ -1825,7 +2029,9 @@ fi
                     "test/client_test.dart",
                     "test/meta_state_cache_test.dart",
                     "test/session_e2ee_profile_test.dart",
+                    "test/session_e2ee_key_selection_test.dart",
                     "test/session_lazy_reply_test.dart",
+                    "test/session_flatbuffers_ppt_test.dart",
                     "test/session_progressive_file_test.dart",
                     "test/session_progressive_call_test.dart",
                     "test/session_goodbye_test.dart",

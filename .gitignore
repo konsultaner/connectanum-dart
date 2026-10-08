@@ -13,6 +13,7 @@ pubspec.lock
 coverage
 /out/
 /native/transport/target/
+/native/transport/vendor/rustls/target/
 Cargo.lock
 !/tool/rust_coverage_scope/Cargo.lock
 /tool/rust_coverage_scope/target/
@@ -27,3 +28,6 @@ bench_results.jsonl
 /native/bench/artifacts/bench_results.summary.json
 /native/bench/artifacts/bench_results.gate.json
 /native/bench/artifacts/bench_results.gate.md
+
+/native/transport/vendor/tokio-rustls/target/
+!/native/transport/vendor/tokio-rustls/Cargo.lock

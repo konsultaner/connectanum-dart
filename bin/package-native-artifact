@@ -36,6 +36,9 @@ done
 cd_repo_root
 require_command cargo
 require_command rustc
+require_command python3
+
+python3 tool/check_rustls_source.py
 
 host_os="$(host_os_slug)"
 host_arch="$(host_arch_slug)"
@@ -66,6 +69,22 @@ mkdir -p "$bundle_dir"
 
 cp "$lib_path" "${bundle_dir}/${lib_name}"
 cp LICENSE "${bundle_dir}/LICENSE"
+mkdir -p "${bundle_dir}/licenses/rustls"
+for native_license_name in LICENSE-APACHE LICENSE-ISC LICENSE-MIT; do
+  cp "native/transport/vendor/rustls/${native_license_name}" \
+    "${bundle_dir}/licenses/rustls/${native_license_name}"
+done
+cp native/transport/vendor/README.md "${bundle_dir}/licenses/rustls/README.md"
+cp native/transport/vendor/rustls-source-manifest.json \
+  "${bundle_dir}/licenses/rustls/source-manifest.json"
+mkdir -p "${bundle_dir}/licenses/tokio-rustls"
+for native_license_name in LICENSE-APACHE LICENSE-MIT; do
+  cp "native/transport/vendor/tokio-rustls/${native_license_name}" \
+    "${bundle_dir}/licenses/tokio-rustls/${native_license_name}"
+done
+cp native/transport/vendor/README.md "${bundle_dir}/licenses/tokio-rustls/README.md"
+cp native/transport/vendor/tokio-rustls-source-manifest.json \
+  "${bundle_dir}/licenses/tokio-rustls/source-manifest.json"
 
 commit_sha="unknown"
 if command -v git >/dev/null 2>&1; then
@@ -91,6 +110,8 @@ This archive contains the prebuilt \`ct_ffi\` native library for
 - \`${lib_name}\` - native transport library used by the router and native client
 - \`manifest.json\` - machine-readable build metadata
 - \`LICENSE\`
+- \`licenses/rustls/\` - pinned Rustls licenses, modification notice and source digests
+- \`licenses/tokio-rustls/\` - pinned Tokio-Rustls licenses, modification notice and source digests
 
 ## How to use it
 

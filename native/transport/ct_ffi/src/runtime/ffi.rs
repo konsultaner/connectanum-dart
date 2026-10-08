@@ -48,7 +48,7 @@ use ct_core::{
     HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
     HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
     HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, ResponseStreamWriter,
-    WampMessage, RESPONSE_STREAM_BUFFER,
+    TransportCopyMetricsSnapshot, WampMessage, RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -76,9 +76,12 @@ use rustls::{ClientConfig as RustlsClientConfig, RootCertStore};
 #[cfg(feature = "ffi-test")]
 use rustls_pemfile::certs as read_pem_certs;
 use xsalsa20poly1305::{
-    aead::{Aead, KeyInit},
-    Key, Nonce, XSalsa20Poly1305,
+    aead::{AeadInPlace, KeyInit},
+    Key, Nonce, Tag, XSalsa20Poly1305,
 };
+
+#[cfg(test)]
+use xsalsa20poly1305::aead::Aead;
 
 use crate::callbacks::{
     invoke_connection_callback, invoke_listener_callback, register_connection_callback,
@@ -103,7 +106,7 @@ use super::state::{
 };
 #[cfg(test)]
 use super::state::{remove_message, with_message};
-use rmp::encode::{write_array_len, write_u64};
+use rmp::encode::{write_array_len, write_bin_len, write_u64};
 use serde::Serialize;
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use serde_value::Value as SerdeValue;
@@ -114,6 +117,20 @@ const E2EE_AES256_GCM_NONCE_LEN: usize = 12;
 const E2EE_AUTH_TAG_LEN: usize = 16;
 const CT_E2EE_DECRYPTED_PAYLOAD_DIRECT_BINARY: c_int = 1;
 const CT_E2EE_DECRYPTED_PAYLOAD_PPT: c_int = 2;
+
+// Instrument only exported owner handles, not every allocation retained by an
+// asynchronous consumer. GC probes use this oracle with no queued consumers.
+#[cfg(feature = "ffi-test")]
+fn test_external_buffer_owners() -> &'static Mutex<std::collections::HashSet<usize>> {
+    static OWNERS: OnceLock<Mutex<std::collections::HashSet<usize>>> = OnceLock::new();
+    OWNERS.get_or_init(|| Mutex::new(std::collections::HashSet::new()))
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum E2eePlaintextFormat {
+    CborPpt,
+    TypedFlatbuffers,
+}
 const SHA256_DIGEST_LEN: usize = 32;
 const ASYNC_SHA256_QUEUE_CAPACITY: usize = 2;
 
@@ -382,6 +399,23 @@ pub struct CtFileSegmentMetricsInfo {
 }
 
 #[repr(C)]
+#[derive(Default)]
+pub struct CtTransportCopyMetricsInfo {
+    pub websocket_mask_copy_bytes_total: u64,
+    pub websocket_coalesce_copy_bytes_total: u64,
+    pub tls_plaintext_accepted_bytes_total: u64,
+}
+
+/// Separately named snapshot ABI; the original 24-byte struct stays unchanged.
+#[repr(C)]
+#[derive(Default)]
+pub struct CtTransportCopyMetricsInfoV2 {
+    pub legacy: CtTransportCopyMetricsInfo,
+    pub io_buffer_front_copy_bytes_total: u64,
+    pub io_buffered_read_copy_bytes_total: u64,
+}
+
+#[repr(C)]
 pub struct CtRouterMetricsInfo {
     pub total_events: u64,
     pub graceful_events: u64,
@@ -526,7 +560,7 @@ impl_zeroed_ffi_default!(
     CtWebSocketHandshakeInfo,
 );
 
-fn map_error(err: CoreError) -> c_int {
+pub(super) fn map_error(err: CoreError) -> c_int {
     match err {
         CoreError::RuntimeAlreadyStarted => ERR_ALREADY_STARTED,
         CoreError::RuntimeNotStarted => ERR_RUNTIME_NOT_STARTED,
@@ -565,6 +599,22 @@ fn extract_payload_slices(message: &WampMessage) -> (Option<Bytes>, Option<Bytes
     }
 }
 
+// Opaque application bytes are distinct from encoded argument containers.
+fn extract_transparent_payload(message: &WampMessage) -> Option<&Bytes> {
+    match message {
+        WampMessage::Publish { payload, .. }
+        | WampMessage::Event { payload, .. }
+        | WampMessage::Call { payload, .. }
+        | WampMessage::Result { payload, .. }
+        | WampMessage::Invocation { payload, .. }
+        | WampMessage::Yield { payload, .. }
+        | WampMessage::Error { payload, .. }
+        | WampMessage::Abort { payload, .. }
+        | WampMessage::Goodbye { payload, .. } => payload.transparent.as_ref(),
+        _ => None,
+    }
+}
+
 fn option_bytes_ptr(bytes: &Option<Bytes>) -> (*const u8, usize) {
     match bytes {
         Some(data) => (data.as_ptr(), data.len()),
@@ -586,8 +636,11 @@ fn encode_serializable_bytes<T: Serialize>(
     let encoded = match serializer {
         RawSocketSerializer::Json => serde_json::to_vec(value).ok()?,
         RawSocketSerializer::MessagePack => rmp_serde::to_vec(value).ok()?,
-        RawSocketSerializer::Cbor => serde_cbor::to_vec(value).ok()?,
-        RawSocketSerializer::Ubjson | RawSocketSerializer::Flatbuffers => return None,
+        // FlatBuffers embeds dynamic fragments and metadata as CBOR.
+        RawSocketSerializer::Cbor | RawSocketSerializer::Flatbuffers => {
+            serde_cbor::to_vec(value).ok()?
+        }
+        RawSocketSerializer::Ubjson => return None,
     };
     Some(Bytes::from(encoded))
 }
@@ -612,6 +665,9 @@ struct UnknownMetadata<'a> {
 
 fn extract_detail_bytes(serializer: RawSocketSerializer, message: &WampMessage) -> Option<Bytes> {
     match message {
+        WampMessage::Unregistered { details, .. } if !details.is_empty() => {
+            encode_value_map_bytes(serializer, details)
+        }
         WampMessage::Hello { details, .. }
         | WampMessage::Publish {
             options: details, ..
@@ -846,12 +902,16 @@ fn encrypt_e2ee_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, c_int> 
     let cipher = XSalsa20Poly1305::new(&normalize_key_material(key)?);
     let mut nonce = Nonce::default();
     OsRng.fill_bytes(nonce.as_mut_slice());
-    let ciphertext = cipher
-        .encrypt(&nonce, plaintext)
-        .map_err(|_| ERR_INTERNAL)?;
-    let mut combined = Vec::with_capacity(E2EE_NONCE_LEN + ciphertext.len());
+    let body_start = E2EE_NONCE_LEN + E2EE_AUTH_TAG_LEN;
+    let mut combined = Vec::with_capacity(body_start + plaintext.len());
     combined.extend_from_slice(nonce.as_slice());
-    combined.extend_from_slice(&ciphertext);
+    combined.resize(body_start, 0);
+    combined.extend_from_slice(plaintext);
+    super::crypto_copy_metrics::record_plaintext_copy(plaintext.len());
+    let tag = cipher
+        .encrypt_in_place_detached(&nonce, &[], &mut combined[body_start..])
+        .map_err(|_| ERR_INTERNAL)?;
+    combined[E2EE_NONCE_LEN..body_start].copy_from_slice(tag.as_slice());
     Ok(combined)
 }
 
@@ -862,9 +922,13 @@ fn decrypt_e2ee_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, c_int>
     let cipher = XSalsa20Poly1305::new(&normalize_key_material(key)?);
     let (nonce_bytes, message) = ciphertext.split_at(E2EE_NONCE_LEN);
     let nonce = Nonce::from_slice(nonce_bytes);
+    let tag = Tag::from_slice(message.get(..E2EE_AUTH_TAG_LEN).ok_or(ERR_DECRYPT_FAILED)?);
+    let mut plaintext = message[E2EE_AUTH_TAG_LEN..].to_vec();
+    super::crypto_copy_metrics::record_ciphertext_copy(plaintext.len());
     cipher
-        .decrypt(nonce, message)
-        .map_err(|_| ERR_DECRYPT_FAILED)
+        .decrypt_in_place_detached(nonce, &[], &mut plaintext, tag)
+        .map_err(|_| ERR_DECRYPT_FAILED)?;
+    Ok(plaintext)
 }
 
 fn aes256_gcm_key(key: &[u8]) -> Result<LessSafeKey, c_int> {
@@ -882,6 +946,7 @@ fn encrypt_e2ee_aes256_gcm_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u
         Vec::with_capacity(E2EE_AES256_GCM_NONCE_LEN + plaintext.len() + E2EE_AUTH_TAG_LEN);
     combined.extend_from_slice(&nonce_bytes);
     combined.extend_from_slice(plaintext);
+    super::crypto_copy_metrics::record_plaintext_copy(plaintext.len());
     let tag = cipher
         .seal_in_place_separate_tag(
             RingNonce::assume_unique_for_key(nonce_bytes),
@@ -902,6 +967,7 @@ fn decrypt_e2ee_aes256_gcm_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<
     let nonce_bytes = <[u8; E2EE_AES256_GCM_NONCE_LEN]>::try_from(nonce_bytes)
         .map_err(|_| ERR_INVALID_ARGUMENT)?;
     let mut plaintext = message.to_vec();
+    super::crypto_copy_metrics::record_ciphertext_copy(plaintext.len());
     let plaintext_len = cipher
         .open_in_place(
             RingNonce::assume_unique_for_key(nonce_bytes),
@@ -948,11 +1014,22 @@ struct DecryptedE2eeMessagePayload {
     kind: c_int,
 }
 
-fn decrypted_e2ee_message_payload(
+fn decrypted_e2ee_message_payload_with_format(
     bytes: Vec<u8>,
     plaintext_range: std::ops::Range<usize>,
+    format: E2eePlaintextFormat,
 ) -> Result<DecryptedE2eeMessagePayload, c_int> {
     let plaintext = bytes.get(plaintext_range.clone()).ok_or(ERR_INTERNAL)?;
+    if format == E2eePlaintextFormat::TypedFlatbuffers {
+        if plaintext.len() > 64 * 1024 * 1024 {
+            return Err(ERR_INVALID_ARGUMENT);
+        }
+        return Ok(DecryptedE2eeMessagePayload {
+            bytes,
+            range: plaintext_range,
+            kind: CT_E2EE_DECRYPTED_PAYLOAD_DIRECT_BINARY,
+        });
+    }
     if let Some(payload) = cbor_ppt_single_binary_argument(plaintext) {
         let payload_offset = payload.as_ptr() as usize - plaintext.as_ptr() as usize;
         let start = plaintext_range
@@ -973,32 +1050,64 @@ fn decrypted_e2ee_message_payload(
     })
 }
 
+fn borrowed_e2ee_message_ciphertext(message: &StoredMessage) -> Result<&[u8], c_int> {
+    if message.kwargs.is_some() {
+        return Err(ERR_UNSUPPORTED);
+    }
+    if let Some(payload) = extract_transparent_payload(&message.message) {
+        if message.serializer != RawSocketSerializer::Flatbuffers || message.args.is_some() {
+            return Err(ERR_UNSUPPORTED);
+        }
+        return Ok(payload.as_ref());
+    }
+    let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
+    single_binary_argument(message.serializer, args).map_err(|_| ERR_UNSUPPORTED)
+}
+
+#[cfg(test)]
 fn decrypt_e2ee_message_payload_copied(
     message: &StoredMessage,
     key: &[u8],
     cipher_code: c_int,
 ) -> Result<DecryptedE2eeMessagePayload, c_int> {
+    decrypt_e2ee_message_payload_copied_with_format(
+        message,
+        key,
+        cipher_code,
+        E2eePlaintextFormat::CborPpt,
+    )
+}
+
+fn decrypt_e2ee_message_payload_copied_with_format(
+    message: &StoredMessage,
+    key: &[u8],
+    cipher_code: c_int,
+    format: E2eePlaintextFormat,
+) -> Result<DecryptedE2eeMessagePayload, c_int> {
     if message.kwargs.is_some() {
         return Err(ERR_UNSUPPORTED);
     }
-    let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
     let decoded_json = match message.serializer {
         RawSocketSerializer::Json => {
+            let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
             Some(decode_canonical_json_single_binary_argument(args).ok_or(ERR_UNSUPPORTED)?)
         }
         _ => None,
     };
     let ciphertext = match decoded_json.as_deref() {
         Some(ciphertext) => ciphertext,
-        None => single_binary_argument(message.serializer, args).map_err(|_| ERR_UNSUPPORTED)?,
+        None => borrowed_e2ee_message_ciphertext(message)?,
     };
+    if format == E2eePlaintextFormat::TypedFlatbuffers && ciphertext.len() > 64 * 1024 * 1024 {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
     let plaintext = match cipher_code {
         1 => decrypt_e2ee_payload(key, ciphertext),
         2 => decrypt_e2ee_aes256_gcm_payload(key, ciphertext),
         _ => Err(ERR_INVALID_ARGUMENT),
     }?;
     let plaintext_len = plaintext.len();
-    decrypted_e2ee_message_payload(plaintext, 0..plaintext_len)
+    decrypted_e2ee_message_payload_with_format(plaintext, 0..plaintext_len, format)
 }
 
 fn slice_range(container: &[u8], slice: &[u8]) -> Option<std::ops::Range<usize>> {
@@ -1007,25 +1116,38 @@ fn slice_range(container: &[u8], slice: &[u8]) -> Option<std::ops::Range<usize>>
     (end <= container.len()).then_some(start..end)
 }
 
+#[cfg(test)]
 fn decrypt_e2ee_message_payload_owned(
     message: StoredMessage,
     key: &[u8],
     cipher_code: c_int,
 ) -> Result<DecryptedE2eeMessagePayload, c_int> {
+    decrypt_e2ee_message_payload_owned_with_format(
+        message,
+        key,
+        cipher_code,
+        E2eePlaintextFormat::CborPpt,
+    )
+}
+
+fn decrypt_e2ee_message_payload_owned_with_format(
+    message: StoredMessage,
+    key: &[u8],
+    cipher_code: c_int,
+    format: E2eePlaintextFormat,
+) -> Result<DecryptedE2eeMessagePayload, c_int> {
     if cipher_code != 2 || message.serializer == RawSocketSerializer::Json {
-        return decrypt_e2ee_message_payload_copied(&message, key, cipher_code);
+        return decrypt_e2ee_message_payload_copied_with_format(&message, key, cipher_code, format);
     }
-    if message.kwargs.is_some() {
-        return Err(ERR_UNSUPPORTED);
+    let ciphertext = borrowed_e2ee_message_ciphertext(&message)?;
+    if format == E2eePlaintextFormat::TypedFlatbuffers && ciphertext.len() > 64 * 1024 * 1024 {
+        return Err(ERR_INVALID_ARGUMENT);
     }
-    let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
-    let ciphertext =
-        single_binary_argument(message.serializer, args).map_err(|_| ERR_UNSUPPORTED)?;
     let Some(raw) = message.raw.as_contiguous() else {
-        return decrypt_e2ee_message_payload_copied(&message, key, cipher_code);
+        return decrypt_e2ee_message_payload_copied_with_format(&message, key, cipher_code, format);
     };
     let Some(ciphertext_range) = slice_range(raw, ciphertext) else {
-        return decrypt_e2ee_message_payload_copied(&message, key, cipher_code);
+        return decrypt_e2ee_message_payload_copied_with_format(&message, key, cipher_code, format);
     };
 
     let StoredMessage {
@@ -1049,12 +1171,12 @@ fn decrypt_e2ee_message_payload_owned(
                 raw.get(ciphertext_range).ok_or(ERR_INTERNAL)?,
             )?;
             let plaintext_len = plaintext.len();
-            return decrypted_e2ee_message_payload(plaintext, 0..plaintext_len);
+            return decrypted_e2ee_message_payload_with_format(plaintext, 0..plaintext_len, format);
         }
     };
     let plaintext_range =
         decrypt_e2ee_aes256_gcm_payload_in_place(key, &mut bytes, ciphertext_range)?;
-    decrypted_e2ee_message_payload(bytes, plaintext_range)
+    decrypted_e2ee_message_payload_with_format(bytes, plaintext_range, format)
 }
 
 fn write_external_byte_buffer_range(
@@ -1071,6 +1193,11 @@ fn write_external_byte_buffer_range(
     let bytes_len = range.len();
     let mut owner = Box::new(bytes);
     let owner_ptr = owner.as_mut() as *mut Vec<u8> as *mut c_void;
+    #[cfg(feature = "ffi-test")]
+    test_external_buffer_owners()
+        .lock()
+        .unwrap()
+        .insert(owner_ptr as usize);
     let _ = Box::into_raw(owner);
     unsafe {
         (*out).ptr = bytes_ptr;
@@ -1159,7 +1286,7 @@ fn encode_event_segments_msgpack(
     let details_msgpack = rmp_serde::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
 
     let has_kwargs = payload.kwargs.is_some();
-    let has_args = payload.args.is_some() || has_kwargs;
+    let has_args = payload.args.is_some() || payload.transparent.is_some() || has_kwargs;
     let mut element_count = 4; // code, subscription_id, publication_id, details
     if has_args {
         element_count += 1;
@@ -1177,36 +1304,70 @@ fn encode_event_segments_msgpack(
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
-    if has_args {
-        let args_bytes = if let Some(args) = payload.args.clone() {
-            args
-        } else {
-            Bytes::from_static(EMPTY_MSGPACK_ARRAY)
-        };
-        segments.push(args_bytes);
-    }
-    if let Some(kwargs) = payload.kwargs.clone() {
-        segments.push(kwargs);
-    }
+    append_forwarded_binary_payload(&mut segments, payload, RawSocketSerializer::MessagePack)?;
     Ok(segments)
 }
 
 fn write_cbor_array_len(buf: &mut Vec<u8>, len: usize) {
+    write_cbor_length(buf, 0x80, len);
+}
+
+fn write_cbor_length(buf: &mut Vec<u8>, major: u8, len: usize) {
     if len <= 23 {
-        buf.push(0x80 | len as u8);
+        buf.push(major | len as u8);
     } else if len <= u8::MAX as usize {
-        buf.push(0x98);
+        buf.push(major | 24);
         buf.push(len as u8);
     } else if len <= u16::MAX as usize {
-        buf.push(0x99);
+        buf.push(major | 25);
         buf.extend_from_slice(&(len as u16).to_be_bytes());
     } else if len <= u32::MAX as usize {
-        buf.push(0x9a);
+        buf.push(major | 26);
         buf.extend_from_slice(&(len as u32).to_be_bytes());
     } else {
-        buf.push(0x9b);
+        buf.push(major | 27);
         buf.extend_from_slice(&(len as u64).to_be_bytes());
     }
+}
+
+// Only the outer one-argument wrapper is encoded here. The opaque body remains
+// a separately owned segment, including an empty body with a producer lease.
+fn append_forwarded_binary_payload(
+    segments: &mut Vec<Bytes>,
+    payload: &ct_core::WampPayload,
+    serializer: RawSocketSerializer,
+) -> Result<(), c_int> {
+    if let Some(body) = &payload.transparent {
+        if payload.args.is_some() || payload.kwargs.is_some() {
+            return Err(ERR_INVALID_ARGUMENT);
+        }
+        let mut wrapper = Vec::new();
+        match serializer {
+            RawSocketSerializer::MessagePack => {
+                write_array_len(&mut wrapper, 1).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                let len = u32::try_from(body.len()).map_err(|_| ERR_INVALID_ARGUMENT)?;
+                write_bin_len(&mut wrapper, len).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            }
+            RawSocketSerializer::Cbor => {
+                write_cbor_array_len(&mut wrapper, 1);
+                write_cbor_length(&mut wrapper, 0x40, body.len());
+            }
+            _ => return Err(ERR_UNSUPPORTED),
+        }
+        segments.push(Bytes::from(wrapper));
+        segments.push(body.clone());
+    } else {
+        if payload.args.is_some() || payload.kwargs.is_some() {
+            segments.push(payload.args.clone().unwrap_or_else(|| match serializer {
+                RawSocketSerializer::MessagePack => Bytes::from_static(EMPTY_MSGPACK_ARRAY),
+                _ => Bytes::from_static(&[0x80]),
+            }));
+        }
+        if let Some(kwargs) = &payload.kwargs {
+            segments.push(kwargs.clone());
+        }
+    }
+    Ok(())
 }
 
 fn insert_ppt_details_from_options(
@@ -1268,7 +1429,7 @@ fn encode_event_segments_cbor(
     let details_cbor = serde_cbor::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
 
     let has_kwargs = payload.kwargs.is_some();
-    let has_args = payload.args.is_some() || has_kwargs;
+    let has_args = payload.args.is_some() || payload.transparent.is_some() || has_kwargs;
     let mut element_count = 4; // code, subscription_id, publication_id, details
     if has_args {
         element_count += 1;
@@ -1289,22 +1450,247 @@ fn encode_event_segments_cbor(
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
-    if has_args {
-        let args_bytes = if let Some(args) = payload.args.clone() {
-            args
-        } else {
-            Bytes::from_static(&[0x80])
-        };
-        segments.push(args_bytes);
-    }
-    if let Some(kwargs) = payload.kwargs.clone() {
-        segments.push(kwargs);
-    }
+    append_forwarded_binary_payload(&mut segments, payload, RawSocketSerializer::Cbor)?;
     Ok(segments)
 }
 
+fn encode_forwarded_flatbuffers(message: WampMessage) -> Result<Vec<Bytes>, c_int> {
+    ct_core::encode_flatbuffers_message_segments(&message).map_err(|_| ERR_INVALID_ARGUMENT)
+}
+
+fn flatbuffers_routing_details(
+    mut details: JsonMap<String, JsonValue>,
+    options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> Result<std::collections::BTreeMap<SerdeValue, SerdeValue>, c_int> {
+    insert_ppt_details_from_options(&mut details, options)?;
+    match serde_value::to_value(details).map_err(|_| ERR_INVALID_ARGUMENT)? {
+        SerdeValue::Map(details) => Ok(details),
+        _ => Err(ERR_INVALID_ARGUMENT),
+    }
+}
+
+// Borrow a valid PPT body without interpreting its application encoding. Outer
+// Nonempty kwargs, malformed wrappers and non-string metadata retain the fallback.
+fn binary_ppt_body<'a>(
+    source: RawSocketSerializer,
+    payload: &'a ct_core::WampPayload,
+    metadata: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> Option<(&'a Bytes, usize)> {
+    if !is_binary_forwarding_serializer(source)
+        || payload
+            .kwargs
+            .as_ref()
+            .is_some_and(|kwargs| !empty_ppt_keyword_map(source, kwargs))
+    {
+        return None;
+    }
+    let scheme = metadata.get(&SerdeValue::String("ppt_scheme".into()))?;
+    if serde_value_str(scheme)?.is_empty() {
+        return None;
+    }
+    for key in ["ppt_serializer", "ppt_cipher", "ppt_keyid"] {
+        if let Some(value) = metadata.get(&SerdeValue::String(key.into())) {
+            serde_value_str(value)?;
+        }
+    }
+    if let Some(body) = &payload.transparent {
+        return (source == RawSocketSerializer::Flatbuffers && payload.args.is_none())
+            .then_some((body, 0));
+    }
+    let args = payload.args.as_ref()?;
+    let body = single_binary_argument(source, args).ok()?;
+    Some((args, args.len() - body.len()))
+}
+
+fn empty_ppt_keyword_map(source: RawSocketSerializer, bytes: &[u8]) -> bool {
+    match source {
+        RawSocketSerializer::Cbor => {
+            if bytes == [0xbf, 0xff] {
+                return true;
+            }
+            let mut offset = 0;
+            read_cbor_length(bytes, &mut offset, 5) == Some(0) && offset == bytes.len()
+        }
+        RawSocketSerializer::MessagePack => {
+            matches!(bytes, [0x80] | [0xde, 0, 0] | [0xdf, 0, 0, 0, 0])
+        }
+        // FlatBuffers transparent bodies cannot have keyword vectors.
+        _ => false,
+    }
+}
+
+fn is_binary_forwarding_serializer(serializer: RawSocketSerializer) -> bool {
+    matches!(
+        serializer,
+        RawSocketSerializer::Cbor
+            | RawSocketSerializer::MessagePack
+            | RawSocketSerializer::Flatbuffers
+    )
+}
+
+struct EmptyPptBodyOwner {
+    _args: Bytes,
+}
+
+impl AsRef<[u8]> for EmptyPptBodyOwner {
+    fn as_ref(&self) -> &[u8] {
+        &[]
+    }
+}
+
+fn forwarding_payload<'a>(
+    message: &StoredMessage,
+    target: RawSocketSerializer,
+    payload: &'a ct_core::WampPayload,
+    metadata: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
+) -> Result<std::borrow::Cow<'a, ct_core::WampPayload>, c_int> {
+    reusable_forwarding_serializer(message, target)?;
+    if message.serializer != target {
+        if let Some((args, offset)) = binary_ppt_body(message.serializer, payload, metadata) {
+            let body = if offset == 0 {
+                args.clone()
+            } else if offset == args.len() {
+                // Bytes::slice of an empty range can discard the original owner.
+                Bytes::from_owner(EmptyPptBodyOwner {
+                    _args: args.clone(),
+                })
+            } else {
+                args.slice(offset..)
+            };
+            return Ok(std::borrow::Cow::Owned(ct_core::WampPayload {
+                transparent: Some(body),
+                ..Default::default()
+            }));
+        }
+    }
+    Ok(std::borrow::Cow::Borrowed(payload))
+}
+
+// Ordinary FlatBuffers arguments share CBOR spans. For PPT, the three binary
+// serializers can retain the body and rebuild only their outer container.
+fn reusable_forwarding_serializer(
+    message: &StoredMessage,
+    target: RawSocketSerializer,
+) -> Result<RawSocketSerializer, c_int> {
+    if message.serializer == target {
+        return Ok(target);
+    }
+    let (payload, metadata) = match &message.message {
+        WampMessage::Publish {
+            payload, options, ..
+        }
+        | WampMessage::Call {
+            payload, options, ..
+        }
+        | WampMessage::Yield {
+            payload, options, ..
+        } => (payload, options),
+        WampMessage::Error {
+            payload, details, ..
+        } => (payload, details),
+        _ => return Err(ERR_UNSUPPORTED),
+    };
+    if is_binary_forwarding_serializer(target)
+        && binary_ppt_body(message.serializer, payload, metadata).is_some()
+    {
+        return Ok(target);
+    }
+    if !matches!(
+        (message.serializer, target),
+        (RawSocketSerializer::Cbor, RawSocketSerializer::Flatbuffers)
+            | (RawSocketSerializer::Flatbuffers, RawSocketSerializer::Cbor)
+    ) {
+        return Err(ERR_UNSUPPORTED);
+    }
+    if payload.transparent.is_some()
+        || metadata.contains_key(&SerdeValue::String("ppt_scheme".into()))
+    {
+        return Err(ERR_UNSUPPORTED);
+    }
+    if target == RawSocketSerializer::Flatbuffers {
+        // Destination limits differ from an ordinary CBOR connection. Scan
+        // encoded containers without constructing application Lists/Maps.
+        ct_core::validate_flatbuffers_payload(payload).map_err(|_| ERR_UNSUPPORTED)?;
+    }
+    Ok(target)
+}
+
+fn forwarding_serializer_for_connection(
+    message: &StoredMessage,
+    connection_id: c_int,
+) -> Result<RawSocketSerializer, c_int> {
+    if connection_id <= 0 {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let target =
+        ct_core::connection_serializer(ConnectionId(connection_id as u32)).map_err(map_error)?;
+    reusable_forwarding_serializer(message, target)
+}
+
+/// Optional v1 query for shared-payload routing. 1 means eligible, 0 means
+/// use the ordinary conversion path, negative means invalid input/handle.
+/// This query neither consumes the handle nor decodes application values.
+#[cfg(not(all(feature = "ffi-test", connectanum_legacy_message_handles_test)))]
+#[no_mangle]
+pub extern "C" fn ct_message_can_forward_to_v1_wide(handle: i64, serializer_id: c_int) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let target = match serializer_from_id(serializer_id) {
+        Ok(target) => target,
+        Err(code) => return code,
+    };
+    super::message_handles::with_message(handle as u64, |message| {
+        i32::from(reusable_forwarding_serializer(message, target).is_ok())
+    })
+    .unwrap_or(ERR_INVALID_ARGUMENT)
+}
+
+/// Like the serializer query, resolving the actual negotiated destination.
+/// Allows router workers to forward handles across isolate boundaries without
+/// importing a destination worker's state or exporting its application bytes.
+#[cfg(not(all(feature = "ffi-test", connectanum_legacy_message_handles_test)))]
+#[no_mangle]
+pub extern "C" fn ct_message_can_forward_to_connection_v1_wide(
+    handle: i64,
+    connection_id: c_int,
+) -> c_int {
+    if handle <= 0 || connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    super::message_handles::with_message(handle as u64, |message| {
+        match forwarding_serializer_for_connection(message, connection_id) {
+            Ok(_) => 1,
+            Err(ERR_UNSUPPORTED) => 0,
+            Err(code) => code,
+        }
+    })
+    .unwrap_or(ERR_INVALID_ARGUMENT)
+}
+
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 fn encode_event_segments(
     message: &StoredMessage,
+    subscription_id: u64,
+    publication_id: u64,
+    publisher: Option<u64>,
+    topic: Option<&str>,
+) -> Result<Vec<Bytes>, c_int> {
+    encode_event_segments_for_serializer(
+        message,
+        message.serializer,
+        subscription_id,
+        publication_id,
+        publisher,
+        topic,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_event_segments_for_serializer(
+    message: &StoredMessage,
+    serializer: RawSocketSerializer,
     subscription_id: u64,
     publication_id: u64,
     publisher: Option<u64>,
@@ -1316,7 +1702,9 @@ fn encode_event_segments(
         } => (payload, options),
         _ => return Err(ERR_INVALID_ARGUMENT),
     };
-    match message.serializer {
+    let payload = forwarding_payload(message, serializer, payload, options)?;
+    let payload = payload.as_ref();
+    match serializer {
         RawSocketSerializer::Json => encode_event_segments_json(
             payload,
             subscription_id,
@@ -1341,6 +1729,21 @@ fn encode_event_segments(
             topic,
             options,
         ),
+        RawSocketSerializer::Flatbuffers => {
+            let mut details = JsonMap::new();
+            if let Some(publisher) = publisher {
+                details.insert("publisher".into(), JsonValue::Number(publisher.into()));
+            }
+            if let Some(topic) = topic {
+                details.insert("topic".into(), JsonValue::String(topic.into()));
+            }
+            encode_forwarded_flatbuffers(WampMessage::Event {
+                subscription_id,
+                publication_id,
+                details: flatbuffers_routing_details(details, options)?,
+                payload: payload.clone(),
+            })
+        }
         _ => Err(ERR_UNSUPPORTED),
     }
 }
@@ -1467,7 +1870,7 @@ fn encode_invocation_segments_msgpack(
     let details_msgpack = rmp_serde::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
 
     let has_kwargs = payload.kwargs.is_some();
-    let has_args = payload.args.is_some() || has_kwargs;
+    let has_args = payload.args.is_some() || payload.transparent.is_some() || has_kwargs;
     let mut element_count = 4; // code, invocation_id, registration_id, details
     if has_args {
         element_count += 1;
@@ -1485,17 +1888,7 @@ fn encode_invocation_segments_msgpack(
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
-    if has_args {
-        let args_bytes = if let Some(args) = payload.args.clone() {
-            args
-        } else {
-            Bytes::from_static(EMPTY_MSGPACK_ARRAY)
-        };
-        segments.push(args_bytes);
-    }
-    if let Some(kwargs) = payload.kwargs.clone() {
-        segments.push(kwargs);
-    }
+    append_forwarded_binary_payload(&mut segments, payload, RawSocketSerializer::MessagePack)?;
     Ok(segments)
 }
 
@@ -1544,7 +1937,7 @@ fn encode_invocation_segments_cbor(
     let details_cbor = serde_cbor::to_vec(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
 
     let has_kwargs = payload.kwargs.is_some();
-    let has_args = payload.args.is_some() || has_kwargs;
+    let has_args = payload.args.is_some() || payload.transparent.is_some() || has_kwargs;
     let mut element_count = 4; // code, invocation_id, registration_id, details
     if has_args {
         element_count += 1;
@@ -1565,22 +1958,41 @@ fn encode_invocation_segments_cbor(
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
-    if has_args {
-        let args_bytes = if let Some(args) = payload.args.clone() {
-            args
-        } else {
-            Bytes::from_static(&[0x80])
-        };
-        segments.push(args_bytes);
-    }
-    if let Some(kwargs) = payload.kwargs.clone() {
-        segments.push(kwargs);
-    }
+    append_forwarded_binary_payload(&mut segments, payload, RawSocketSerializer::Cbor)?;
     Ok(segments)
 }
 
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 fn encode_invocation_segments(
     message: &StoredMessage,
+    invocation_id: u64,
+    registration_id: u64,
+    caller: Option<u64>,
+    caller_authid: Option<&str>,
+    caller_authrole: Option<&str>,
+    procedure: Option<&str>,
+    receive_progress: Option<bool>,
+    invocation_progress: Option<bool>,
+) -> Result<Vec<Bytes>, c_int> {
+    encode_invocation_segments_for_serializer(
+        message,
+        message.serializer,
+        invocation_id,
+        registration_id,
+        caller,
+        caller_authid,
+        caller_authrole,
+        procedure,
+        receive_progress,
+        invocation_progress,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_invocation_segments_for_serializer(
+    message: &StoredMessage,
+    serializer: RawSocketSerializer,
     invocation_id: u64,
     registration_id: u64,
     caller: Option<u64>,
@@ -1596,7 +2008,9 @@ fn encode_invocation_segments(
         } => (payload, options),
         _ => return Err(ERR_INVALID_ARGUMENT),
     };
-    match message.serializer {
+    let payload = forwarding_payload(message, serializer, payload, options)?;
+    let payload = payload.as_ref();
+    match serializer {
         RawSocketSerializer::Json => encode_invocation_segments_json(
             payload,
             invocation_id,
@@ -1633,6 +2047,35 @@ fn encode_invocation_segments(
             invocation_progress,
             options,
         ),
+        RawSocketSerializer::Flatbuffers => {
+            let mut details = JsonMap::new();
+            if let Some(caller) = caller {
+                details.insert("caller".into(), JsonValue::Number(caller.into()));
+            }
+            for (key, value) in [
+                ("caller_authid", caller_authid),
+                ("caller_authrole", caller_authrole),
+                ("procedure", procedure),
+            ] {
+                if let Some(value) = value {
+                    details.insert(key.into(), JsonValue::String(value.into()));
+                }
+            }
+            for (key, value) in [
+                ("receive_progress", receive_progress),
+                ("progress", invocation_progress),
+            ] {
+                if let Some(value) = value {
+                    details.insert(key.into(), JsonValue::Bool(value));
+                }
+            }
+            encode_forwarded_flatbuffers(WampMessage::Invocation {
+                request_id: invocation_id,
+                registration_id,
+                details: flatbuffers_routing_details(details, options)?,
+                payload: payload.clone(),
+            })
+        }
         _ => Err(ERR_UNSUPPORTED),
     }
 }
@@ -1670,7 +2113,7 @@ fn build_result_segments_msgpack(
     details_msgpack: Vec<u8>,
 ) -> Result<Vec<Bytes>, c_int> {
     let has_kwargs = payload.kwargs.is_some();
-    let has_args = payload.args.is_some() || has_kwargs;
+    let has_args = payload.args.is_some() || payload.transparent.is_some() || has_kwargs;
     let mut element_count = 3; // code, request_id, details
     if has_args {
         element_count += 1;
@@ -1686,17 +2129,7 @@ fn build_result_segments_msgpack(
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
     segments.push(Bytes::from(details_msgpack));
-    if has_args {
-        let args_bytes = if let Some(args) = payload.args.clone() {
-            args
-        } else {
-            Bytes::from_static(EMPTY_MSGPACK_ARRAY)
-        };
-        segments.push(args_bytes);
-    }
-    if let Some(kwargs) = payload.kwargs.clone() {
-        segments.push(kwargs);
-    }
+    append_forwarded_binary_payload(&mut segments, payload, RawSocketSerializer::MessagePack)?;
     Ok(segments)
 }
 
@@ -1706,7 +2139,7 @@ fn build_result_segments_cbor(
     details_cbor: Vec<u8>,
 ) -> Result<Vec<Bytes>, c_int> {
     let has_kwargs = payload.kwargs.is_some();
-    let has_args = payload.args.is_some() || has_kwargs;
+    let has_args = payload.args.is_some() || payload.transparent.is_some() || has_kwargs;
     let mut element_count = 3; // code, request_id, details
     if has_args {
         element_count += 1;
@@ -1723,85 +2156,128 @@ fn build_result_segments_cbor(
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
-    if has_args {
-        let args_bytes = if let Some(args) = payload.args.clone() {
-            args
-        } else {
-            Bytes::from_static(&[0x80])
-        };
-        segments.push(args_bytes);
-    }
-    if let Some(kwargs) = payload.kwargs.clone() {
-        segments.push(kwargs);
-    }
+    append_forwarded_binary_payload(&mut segments, payload, RawSocketSerializer::Cbor)?;
     Ok(segments)
 }
 
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 fn encode_result_segments(
     message: &StoredMessage,
     request_id: u64,
     progress: bool,
 ) -> Result<Vec<Bytes>, c_int> {
-    match &message.message {
+    encode_result_segments_for_serializer(message, message.serializer, request_id, progress)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_result_segments_for_serializer(
+    message: &StoredMessage,
+    serializer: RawSocketSerializer,
+    request_id: u64,
+    progress: bool,
+) -> Result<Vec<Bytes>, c_int> {
+    let (payload, options) = match &message.message {
         WampMessage::Yield {
             options, payload, ..
-        } => match message.serializer {
-            RawSocketSerializer::Json => {
-                let mut details_map = options.clone();
-                if progress {
-                    details_map.insert(
-                        SerdeValue::String("progress".into()),
-                        SerdeValue::Bool(true),
-                    );
-                }
-                let details_json =
-                    serde_json::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
-                Ok(build_result_segments_json(
-                    payload,
-                    request_id,
-                    Bytes::from(details_json),
-                ))
+        } => (payload, options),
+        _ => return Err(ERR_INVALID_ARGUMENT),
+    };
+    let payload = forwarding_payload(message, serializer, payload, options)?;
+    let payload = payload.as_ref();
+    match serializer {
+        RawSocketSerializer::Json => {
+            let mut details_map = options.clone();
+            if progress {
+                details_map.insert(
+                    SerdeValue::String("progress".into()),
+                    SerdeValue::Bool(true),
+                );
             }
-            RawSocketSerializer::MessagePack => {
-                let mut details_map = options.clone();
-                if progress {
-                    details_map.insert(
-                        SerdeValue::String("progress".into()),
-                        SerdeValue::Bool(true),
-                    );
-                }
-                let details_msgpack =
-                    rmp_serde::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
-                build_result_segments_msgpack(payload, request_id, details_msgpack)
+            let details_json =
+                serde_json::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            Ok(build_result_segments_json(
+                payload,
+                request_id,
+                Bytes::from(details_json),
+            ))
+        }
+        RawSocketSerializer::MessagePack => {
+            let mut details_map = options.clone();
+            if progress {
+                details_map.insert(
+                    SerdeValue::String("progress".into()),
+                    SerdeValue::Bool(true),
+                );
             }
-            RawSocketSerializer::Cbor => {
-                let mut details_map = options.clone();
-                if progress {
-                    details_map.insert(
-                        SerdeValue::String("progress".into()),
-                        SerdeValue::Bool(true),
-                    );
-                }
-                let details_cbor =
-                    serde_cbor::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
-                build_result_segments_cbor(payload, request_id, details_cbor)
+            let details_msgpack =
+                rmp_serde::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            build_result_segments_msgpack(payload, request_id, details_msgpack)
+        }
+        RawSocketSerializer::Cbor => {
+            let mut details_map = options.clone();
+            if progress {
+                details_map.insert(
+                    SerdeValue::String("progress".into()),
+                    SerdeValue::Bool(true),
+                );
             }
-            _ => Err(ERR_UNSUPPORTED),
-        },
-        _ => Err(ERR_INVALID_ARGUMENT),
+            let details_cbor =
+                serde_cbor::to_vec(&details_map).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            build_result_segments_cbor(payload, request_id, details_cbor)
+        }
+        RawSocketSerializer::Flatbuffers => {
+            let mut details = options.clone();
+            if progress {
+                details.insert(
+                    SerdeValue::String("progress".into()),
+                    SerdeValue::Bool(true),
+                );
+            }
+            encode_forwarded_flatbuffers(WampMessage::Result {
+                request_id,
+                details,
+                payload: payload.clone(),
+            })
+        }
+        _ => Err(ERR_UNSUPPORTED),
     }
 }
 
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 fn encode_result_segments_from_call(
     message: &StoredMessage,
     request_id: u64,
 ) -> Result<Vec<Bytes>, c_int> {
-    let payload = match &message.message {
-        WampMessage::Call { payload, .. } => payload,
+    encode_result_segments_from_call_for_serializer(message, message.serializer, request_id)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_result_segments_from_call_for_serializer(
+    message: &StoredMessage,
+    serializer: RawSocketSerializer,
+    request_id: u64,
+) -> Result<Vec<Bytes>, c_int> {
+    let (payload, options) = match &message.message {
+        WampMessage::Call {
+            payload, options, ..
+        } => (payload, options),
         _ => return Err(ERR_INVALID_ARGUMENT),
     };
-    let details = std::collections::BTreeMap::<SerdeValue, SerdeValue>::new();
-    match message.serializer {
+    let mut details = std::collections::BTreeMap::<SerdeValue, SerdeValue>::new();
+    if binary_ppt_body(message.serializer, payload, options).is_some() {
+        // Echo the opaque PPT contract, without propagating CALL routing options.
+        for key in ["ppt_scheme", "ppt_serializer", "ppt_cipher", "ppt_keyid"] {
+            let key = SerdeValue::String(key.into());
+            if let Some(value) = options.get(&key) {
+                details.insert(key, value.clone());
+            }
+        }
+    }
+    let payload = forwarding_payload(message, serializer, payload, options)?;
+    let payload = payload.as_ref();
+    match serializer {
         RawSocketSerializer::Json => {
             let details_json = serde_json::to_vec(&details).map_err(|_| ERR_INVALID_ARGUMENT)?;
             Ok(build_result_segments_json(
@@ -1818,6 +2294,11 @@ fn encode_result_segments_from_call(
             let details_cbor = serde_cbor::to_vec(&details).map_err(|_| ERR_INVALID_ARGUMENT)?;
             build_result_segments_cbor(payload, request_id, details_cbor)
         }
+        RawSocketSerializer::Flatbuffers => encode_forwarded_flatbuffers(WampMessage::Result {
+            request_id,
+            details,
+            payload: payload.clone(),
+        }),
         _ => Err(ERR_UNSUPPORTED),
     }
 }
@@ -1863,7 +2344,7 @@ fn build_error_segments_msgpack(
     error_msgpack: Vec<u8>,
 ) -> Result<Vec<Bytes>, c_int> {
     let has_kwargs = payload.kwargs.is_some();
-    let has_args = payload.args.is_some() || has_kwargs;
+    let has_args = payload.args.is_some() || payload.transparent.is_some() || has_kwargs;
     let mut element_count = 5; // code, request_type, request_id, details, error
     if has_args {
         element_count += 1;
@@ -1882,17 +2363,7 @@ fn build_error_segments_msgpack(
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
-    if has_args {
-        let args_bytes = if let Some(args) = payload.args.clone() {
-            args
-        } else {
-            Bytes::from_static(EMPTY_MSGPACK_ARRAY)
-        };
-        segments.push(args_bytes);
-    }
-    if let Some(kwargs) = payload.kwargs.clone() {
-        segments.push(kwargs);
-    }
+    append_forwarded_binary_payload(&mut segments, payload, RawSocketSerializer::MessagePack)?;
     Ok(segments)
 }
 
@@ -1904,7 +2375,7 @@ fn build_error_segments_cbor(
     error_cbor: Vec<u8>,
 ) -> Result<Vec<Bytes>, c_int> {
     let has_kwargs = payload.kwargs.is_some();
-    let has_args = payload.args.is_some() || has_kwargs;
+    let has_args = payload.args.is_some() || payload.transparent.is_some() || has_kwargs;
     let mut element_count = 5; // code, request_type, request_id, details, error
     if has_args {
         element_count += 1;
@@ -1923,69 +2394,74 @@ fn build_error_segments_cbor(
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
-    if has_args {
-        let args_bytes = if let Some(args) = payload.args.clone() {
-            args
-        } else {
-            Bytes::from_static(&[0x80])
-        };
-        segments.push(args_bytes);
-    }
-    if let Some(kwargs) = payload.kwargs.clone() {
-        segments.push(kwargs);
-    }
+    append_forwarded_binary_payload(&mut segments, payload, RawSocketSerializer::Cbor)?;
     Ok(segments)
 }
 
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 fn encode_error_segments(
     message: &StoredMessage,
     request_type: u64,
     request_id: u64,
 ) -> Result<Vec<Bytes>, c_int> {
-    match &message.message {
+    encode_error_segments_for_serializer(message, message.serializer, request_type, request_id)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_error_segments_for_serializer(
+    message: &StoredMessage,
+    serializer: RawSocketSerializer,
+    request_type: u64,
+    request_id: u64,
+) -> Result<Vec<Bytes>, c_int> {
+    let (payload, details, error) = match &message.message {
         WampMessage::Error {
             details,
             error,
             payload,
             ..
-        } => match message.serializer {
-            RawSocketSerializer::Json => {
-                let details_json = serde_json::to_vec(details).map_err(|_| ERR_INVALID_ARGUMENT)?;
-                let error_json = serde_json::to_string(error).map_err(|_| ERR_INVALID_ARGUMENT)?;
-                Ok(build_error_segments_json(
-                    payload,
-                    request_type,
-                    request_id,
-                    Bytes::from(details_json),
-                    Bytes::from(error_json.into_bytes()),
-                ))
-            }
-            RawSocketSerializer::MessagePack => {
-                let details_msgpack =
-                    rmp_serde::to_vec(details).map_err(|_| ERR_INVALID_ARGUMENT)?;
-                let error_msgpack = rmp_serde::to_vec(error).map_err(|_| ERR_INVALID_ARGUMENT)?;
-                build_error_segments_msgpack(
-                    payload,
-                    request_type,
-                    request_id,
-                    details_msgpack,
-                    error_msgpack,
-                )
-            }
-            RawSocketSerializer::Cbor => {
-                let details_cbor = serde_cbor::to_vec(details).map_err(|_| ERR_INVALID_ARGUMENT)?;
-                let error_cbor = serde_cbor::to_vec(error).map_err(|_| ERR_INVALID_ARGUMENT)?;
-                build_error_segments_cbor(
-                    payload,
-                    request_type,
-                    request_id,
-                    details_cbor,
-                    error_cbor,
-                )
-            }
-            _ => Err(ERR_UNSUPPORTED),
-        },
-        _ => Err(ERR_INVALID_ARGUMENT),
+        } => (payload, details, error),
+        _ => return Err(ERR_INVALID_ARGUMENT),
+    };
+    let payload = forwarding_payload(message, serializer, payload, details)?;
+    let payload = payload.as_ref();
+    match serializer {
+        RawSocketSerializer::Json => {
+            let details_json = serde_json::to_vec(details).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            let error_json = serde_json::to_string(error).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            Ok(build_error_segments_json(
+                payload,
+                request_type,
+                request_id,
+                Bytes::from(details_json),
+                Bytes::from(error_json.into_bytes()),
+            ))
+        }
+        RawSocketSerializer::MessagePack => {
+            let details_msgpack = rmp_serde::to_vec(details).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            let error_msgpack = rmp_serde::to_vec(error).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            build_error_segments_msgpack(
+                payload,
+                request_type,
+                request_id,
+                details_msgpack,
+                error_msgpack,
+            )
+        }
+        RawSocketSerializer::Cbor => {
+            let details_cbor = serde_cbor::to_vec(details).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            let error_cbor = serde_cbor::to_vec(error).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            build_error_segments_cbor(payload, request_type, request_id, details_cbor, error_cbor)
+        }
+        RawSocketSerializer::Flatbuffers => encode_forwarded_flatbuffers(WampMessage::Error {
+            request_type,
+            request_id,
+            details: details.clone(),
+            error: error.clone(),
+            payload: payload.clone(),
+        }),
+        _ => Err(ERR_UNSUPPORTED),
     }
 }
 
@@ -2020,9 +2496,21 @@ pub extern "C" fn ct_external_byte_buffer_free(owner: *mut c_void) {
     if owner.is_null() {
         return;
     }
+    // Hold the test registry across destruction so allocation-address reuse
+    // cannot remove a newly registered owner on another thread.
+    #[cfg(feature = "ffi-test")]
+    let mut test_owners = test_external_buffer_owners().lock().unwrap();
     unsafe {
         drop(Box::from_raw(owner as *mut Vec<u8>));
     }
+    #[cfg(feature = "ffi-test")]
+    test_owners.remove(&(owner as usize));
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_external_byte_buffer_live_owners() -> usize {
+    test_external_buffer_owners().lock().unwrap().len()
 }
 
 #[no_mangle]
@@ -2207,6 +2695,99 @@ pub extern "C" fn ct_e2ee_session_encrypt_aes256gcm(
     }
 }
 
+/// Versioned optional ABI for encrypting frozen Connectanum-owned buffers.
+#[no_mangle]
+pub extern "C" fn ct_e2ee_owned_buffer_abi_version() -> u32 {
+    1
+}
+
+/// Encrypt a frozen owned-buffer handle without exporting its bytes through
+/// Dart. The input handle is retained and remains valid on every outcome; a
+/// successful call publishes an independent frozen result handle.
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_encrypt_owned_buffer(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    input_handle: c_int,
+    cipher_code: c_int,
+    out_handle: *mut c_int,
+) -> c_int {
+    if out_handle.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe { *out_handle = 0 };
+    if session_handle <= 0 || input_handle <= 0 || !(1..=2).contains(&cipher_code) {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let key_id = match read_optional_str(key_id_ptr, key_id_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    match encrypt_e2ee_owned_buffer_inner(
+        session_handle,
+        input_handle,
+        key_id.as_deref(),
+        cipher_code,
+    ) {
+        Ok(encrypted) => {
+            unsafe { *out_handle = encrypted.handle };
+            SUCCESS
+        }
+        Err(code) => code,
+    }
+}
+
+fn encrypt_e2ee_owned_buffer_inner(
+    session_handle: c_int,
+    input_handle: c_int,
+    key_id: Option<&str>,
+    cipher_code: c_int,
+) -> Result<OwnedE2eeBufferResult, c_int> {
+    if session_handle <= 0 || input_handle <= 0 || !(1..=2).contains(&cipher_code) {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let input = super::owned_buffers::borrow_frozen(input_handle)?;
+    let plaintext = input.bytes();
+    #[cfg(test)]
+    let input_ptr = plaintext.as_ptr();
+    let reservation = super::owned_buffers::reserve_frozen()?;
+    let encrypted = match with_e2ee_session(session_handle as u32, |session| {
+        let Some((key, _)) = session.resolve_key(key_id) else {
+            return Err(ERR_KEY_NOT_FOUND);
+        };
+        match cipher_code {
+            1 => encrypt_e2ee_payload(key.as_ref(), &plaintext),
+            2 => encrypt_e2ee_aes256_gcm_payload(key.as_ref(), &plaintext),
+            _ => Err(ERR_INVALID_ARGUMENT),
+        }
+    }) {
+        Some(Ok(bytes)) => bytes,
+        Some(Err(code)) => return Err(code),
+        None => return Err(ERR_HANDLE_UNAVAILABLE),
+    };
+    #[cfg(test)]
+    let output_ptr = encrypted.as_ptr();
+    let output_len = encrypted.len();
+    let bytes = Bytes::from(encrypted);
+    let handle = reservation.commit(bytes, 0..output_len) as c_int;
+    Ok(OwnedE2eeBufferResult {
+        handle,
+        #[cfg(test)]
+        input_ptr,
+        #[cfg(test)]
+        output_ptr,
+    })
+}
+
+struct OwnedE2eeBufferResult {
+    handle: c_int,
+    #[cfg(test)]
+    input_ptr: *const u8,
+    #[cfg(test)]
+    output_ptr: *const u8,
+}
+
 #[no_mangle]
 pub extern "C" fn ct_e2ee_session_decrypt_aes256gcm(
     session_handle: c_int,
@@ -2281,12 +2862,7 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_single_binary_argument_wide(
         Err(code) => return code,
     };
     let decrypted = super::message_handles::with_message(message_handle as u64, |message| {
-        if message.kwargs.is_some() {
-            return Err(ERR_UNSUPPORTED);
-        }
-        let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
-        let ciphertext =
-            single_binary_argument(message.serializer, args).map_err(|_| ERR_UNSUPPORTED)?;
+        let ciphertext = borrowed_e2ee_message_ciphertext(message)?;
         with_e2ee_session(session_handle as u32, |session| {
             let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
                 return Err(ERR_KEY_NOT_FOUND);
@@ -2366,6 +2942,33 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume_wide(
     out: *mut CtExternalByteBuffer,
     out_kind: *mut c_int,
 ) -> c_int {
+    ct_e2ee_session_decrypt_message_payload_consume_format_wide(
+        session_handle,
+        key_id_ptr,
+        key_id_len,
+        message_handle,
+        cipher_code,
+        0,
+        out,
+        out_kind,
+    )
+}
+
+/// Explicit plaintext format: 0 preserves CBOR PPT unwrapping; 1 returns the
+/// complete authenticated typed FlatBuffers span. Unknown formats preserve the
+/// message handle. Once a valid format consumes the handle, failures consume it
+/// too, matching the existing one-shot ownership contract.
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume_format_wide(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    message_handle: i64,
+    cipher_code: c_int,
+    plaintext_format: c_int,
+    out: *mut CtExternalByteBuffer,
+    out_kind: *mut c_int,
+) -> c_int {
     if message_handle <= 0 || out.is_null() || out_kind.is_null() {
         return ERR_INVALID_ARGUMENT;
     }
@@ -2375,6 +2978,11 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume_wide(
         (*out).owner = ptr::null_mut();
         *out_kind = 0;
     }
+    let format = match plaintext_format {
+        0 => E2eePlaintextFormat::CborPpt,
+        1 => E2eePlaintextFormat::TypedFlatbuffers,
+        _ => return ERR_INVALID_ARGUMENT,
+    };
     let message = match super::message_handles::remove(message_handle as u64) {
         Some(value) => value,
         None => return ERR_HANDLE_UNAVAILABLE,
@@ -2394,10 +3002,18 @@ pub extern "C" fn ct_e2ee_session_decrypt_message_payload_consume_wide(
         None => return ERR_HANDLE_UNAVAILABLE,
     };
     let decrypted = match Arc::try_unwrap(message) {
-        Ok(message) => decrypt_e2ee_message_payload_owned(message, key.as_ref(), cipher_code),
-        Err(message) => {
-            decrypt_e2ee_message_payload_copied(message.as_ref(), key.as_ref(), cipher_code)
-        }
+        Ok(message) => decrypt_e2ee_message_payload_owned_with_format(
+            message,
+            key.as_ref(),
+            cipher_code,
+            format,
+        ),
+        Err(message) => decrypt_e2ee_message_payload_copied_with_format(
+            message.as_ref(),
+            key.as_ref(),
+            cipher_code,
+            format,
+        ),
     };
     match decrypted {
         Ok(payload) => write_external_byte_buffer_range(
@@ -2697,6 +3313,7 @@ pub extern "C" fn ct_client_connect_websocket(
         Ok(RawSocketSerializer::Json) => RawSocketSerializer::Json,
         Ok(RawSocketSerializer::MessagePack) => RawSocketSerializer::MessagePack,
         Ok(RawSocketSerializer::Cbor) => RawSocketSerializer::Cbor,
+        Ok(RawSocketSerializer::Flatbuffers) => RawSocketSerializer::Flatbuffers,
         Ok(_) => return ERR_UNSUPPORTED_SERIALIZER,
         Err(code) => return code,
     };
@@ -3069,6 +3686,46 @@ pub extern "C" fn ct_file_segment_metrics_snapshot(info: *mut CtFileSegmentMetri
             rawsocket_zero_copy_bytes_total: snapshot.rawsocket_zero_copy_bytes_total,
             buffered_file_segment_calls_total: snapshot.buffered_file_segment_calls_total,
             buffered_file_segment_bytes_total: snapshot.buffered_file_segment_bytes_total,
+        });
+    }
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_transport_copy_metrics_snapshot(
+    info: *mut CtTransportCopyMetricsInfo,
+) -> c_int {
+    if info.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let snapshot: TransportCopyMetricsSnapshot = ct_core::transport_copy_metrics_snapshot();
+    unsafe {
+        info.write(CtTransportCopyMetricsInfo {
+            websocket_mask_copy_bytes_total: snapshot.websocket_mask_copy_bytes_total,
+            websocket_coalesce_copy_bytes_total: snapshot.websocket_coalesce_copy_bytes_total,
+            tls_plaintext_accepted_bytes_total: snapshot.tls_plaintext_accepted_bytes_total,
+        });
+    }
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_transport_copy_metrics_snapshot_v2(
+    info: *mut CtTransportCopyMetricsInfoV2,
+) -> c_int {
+    if info.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let snapshot = ct_core::transport_copy_metrics_snapshot();
+    unsafe {
+        info.write(CtTransportCopyMetricsInfoV2 {
+            legacy: CtTransportCopyMetricsInfo {
+                websocket_mask_copy_bytes_total: snapshot.websocket_mask_copy_bytes_total,
+                websocket_coalesce_copy_bytes_total: snapshot.websocket_coalesce_copy_bytes_total,
+                tls_plaintext_accepted_bytes_total: snapshot.tls_plaintext_accepted_bytes_total,
+            },
+            io_buffer_front_copy_bytes_total: snapshot.io_buffer_front_copy_bytes_total,
+            io_buffered_read_copy_bytes_total: snapshot.io_buffered_read_copy_bytes_total,
         });
     }
     SUCCESS
@@ -3624,6 +4281,7 @@ const CT_MESSAGE_FLAG_METADATA_BIND: u32 = 1 << 4;
 const CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE: u32 = 1 << 5;
 const CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE: u32 = 1 << 6;
 const CT_MESSAGE_FLAG_DETAIL_BOOL_D_TRUE: u32 = 1 << 7;
+const CT_MESSAGE_FLAG_TRANSPARENT_BINARY_PAYLOAD: u32 = 1 << 8;
 
 fn serializer_id(serializer: ct_core::RawSocketSerializer) -> u8 {
     match serializer {
@@ -4184,7 +4842,10 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
     let (args_ptr, args_len) = option_bytes_ptr(&msg.args);
     let (kwargs_ptr, kwargs_len) = option_bytes_ptr(&msg.kwargs);
     let (details_ptr, details_len) = option_bytes_ptr(&msg.details);
-    let binary_argument = if msg.code == 68 && msg.kwargs.is_none() {
+    let transparent = extract_transparent_payload(&msg.message);
+    let binary_argument = if let Some(payload) = transparent {
+        Some(payload.as_ref())
+    } else if msg.code == 68 && msg.kwargs.is_none() {
         msg.args
             .as_deref()
             .and_then(|args| single_binary_argument(msg.serializer, args).ok())
@@ -4204,6 +4865,11 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
         details_len,
         binary_arg_ptr: binary_argument.map_or(ptr::null(), <[u8]>::as_ptr),
         binary_arg_len: binary_argument.map_or(0, <[u8]>::len),
+        flags: if transparent.is_some() {
+            CT_MESSAGE_FLAG_TRANSPARENT_BINARY_PAYLOAD
+        } else {
+            0
+        },
         ..CtMessageInfo::default()
     };
     match &msg.message {
@@ -4316,7 +4982,7 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
             info.secondary_id = *registration_id;
             info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
         }
-        WampMessage::Unregistered { request_id } => {
+        WampMessage::Unregistered { request_id, .. } => {
             info.primary_id = *request_id;
             info.flags |= CT_MESSAGE_FLAG_DIRECT_BIND | CT_MESSAGE_FLAG_METADATA_BIND;
         }
@@ -4507,9 +5173,16 @@ fn parsed_message_value(parsed: ct_core::ParsedMessage) -> StoredMessage {
         message,
         raw,
         serializer,
+        encoded_metadata,
     } = parsed;
     let (args, kwargs) = extract_payload_slices(&message);
-    let details = extract_detail_bytes(serializer, &message);
+    let details = if matches!(message, WampMessage::Heartbeat { .. }) {
+        // The FFI heartbeat dictionary includes nullable control fields in
+        // addition to the wire metadata, so this small wrapper is constructed.
+        extract_detail_bytes(serializer, &message)
+    } else {
+        encoded_metadata.or_else(|| extract_detail_bytes(serializer, &message))
+    };
     StoredMessage {
         serializer,
         code: message.code(),
@@ -4535,6 +5208,15 @@ fn wide_message_handle_result(result: Result<u64, MessageHandleError>) -> i64 {
 
 fn store_parsed_message_wide(parsed: ct_core::ParsedMessage) -> i64 {
     wide_message_handle_result(super::message_handles::insert(parsed_message_value(parsed)))
+}
+
+/// Version 1 declares the pinned FlatBuffers codec, original metadata export,
+/// transparent-payload flag at bit 8 and byte-view selector 5. Session profile
+/// negotiation remains required independently of this native binding contract.
+#[cfg(not(all(feature = "ffi-test", connectanum_legacy_message_handles_test)))]
+#[no_mangle]
+pub extern "C" fn ct_flatbuffers_binding_version() -> c_uint {
+    1
 }
 
 /// Version 1 is the complete additive signed 64-bit message-handle family.
@@ -4671,22 +5353,8 @@ pub extern "C" fn ct_test_message_enqueue(
     let bytes = unsafe { slice::from_raw_parts(frame_ptr, frame_len as usize) };
     let payload = Bytes::copy_from_slice(bytes);
     match parse_message(serializer, payload) {
-        Ok(ct_core::ParsedMessage {
-            message,
-            raw,
-            serializer: _,
-        }) => {
-            let (args, kwargs) = extract_payload_slices(&message);
-            let details = extract_detail_bytes(serializer, &message);
-            let handle = match store_message(StoredMessage {
-                serializer,
-                code: message.code(),
-                raw: StoredRawFrame::from_raw(raw),
-                message,
-                details,
-                args,
-                kwargs,
-            }) {
+        Ok(parsed) => {
+            let handle = match store_message(parsed_message_value(parsed)) {
                 Ok(handle) => handle,
                 Err(error) => return message_handle_result(Err(error)),
             };
@@ -5323,6 +5991,20 @@ pub extern "C" fn ct_send_message_owned(
         Ok(()) => SUCCESS,
         Err(err) => map_error(err),
     }
+}
+
+/// Consume one frozen native-buffer handle on every submission outcome,
+/// including runtime/connection/queue rejection. Mutable or unknown handles
+/// are rejected without consumption. This reports queue acceptance, not local
+/// write completion, final buffer release or peer acknowledgement.
+#[no_mangle]
+pub extern "C" fn ct_owned_buffer_send(connection_id: c_int, handle: c_int) -> c_int {
+    super::owned_buffers::submit_frozen(handle, |payload| {
+        match send_wamp_message(ConnectionId(connection_id as u32), payload) {
+            Ok(()) => SUCCESS,
+            Err(error) => map_error(error),
+        }
+    })
 }
 
 unsafe fn take_owned_outbound_segments(
@@ -6096,7 +6778,9 @@ fn single_binary_argument(serializer: RawSocketSerializer, args: &[u8]) -> Resul
         RawSocketSerializer::MessagePack => {
             msgpack_single_binary_argument(args).ok_or(ERR_INVALID_ARGUMENT)
         }
-        RawSocketSerializer::Cbor => cbor_single_binary_argument(args).ok_or(ERR_INVALID_ARGUMENT),
+        RawSocketSerializer::Cbor | RawSocketSerializer::Flatbuffers => {
+            cbor_single_binary_argument(args).ok_or(ERR_INVALID_ARGUMENT)
+        }
         _ => Err(ERR_UNSUPPORTED),
     }
 }
@@ -6108,11 +6792,86 @@ fn decode_canonical_json_single_binary_argument(bytes: &[u8]) -> Option<Vec<u8>>
     Base64Engine.decode(encoded).ok()
 }
 
+fn canonical_json_single_binary_argument_length(bytes: &[u8]) -> Option<usize> {
+    let encoded = bytes.strip_prefix(br#"["\u0000"#)?.strip_suffix(br#""]"#)?;
+    if encoded.is_empty() {
+        return Some(0);
+    }
+    if encoded.len() % 4 != 0 {
+        return None;
+    }
+    let padding = if encoded.ends_with(b"==") {
+        2
+    } else if encoded.ends_with(b"=") {
+        1
+    } else {
+        0
+    };
+    let data = &encoded[..encoded.len() - padding];
+    let mut last = 0;
+    for &byte in data {
+        last = match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            _ => return None,
+        };
+    }
+    if (padding == 1 && last & 3 != 0) || (padding == 2 && last & 15 != 0) {
+        return None;
+    }
+    (encoded.len() / 4).checked_mul(3)?.checked_sub(padding)
+}
+
+/// Inspects a sole binary argument without exporting, copying or consuming storage.
+/// Keyword containers, including an empty one, are not a single binary payload.
+/// This optional wide-handle entry point does not authenticate the payload.
+#[no_mangle]
+pub extern "C" fn ct_message_single_binary_argument_length_wide(
+    message_handle: i64,
+    out_length: *mut usize,
+) -> c_int {
+    if out_length.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe { *out_length = 0 };
+    if message_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match super::message_handles::with_message(message_handle as u64, |message| {
+        if message.kwargs.is_some() {
+            return Err(ERR_UNSUPPORTED);
+        }
+        match message.serializer {
+            RawSocketSerializer::Json => message
+                .args
+                .as_deref()
+                .and_then(canonical_json_single_binary_argument_length)
+                .ok_or(ERR_UNSUPPORTED),
+            _ => borrowed_e2ee_message_ciphertext(message).map(<[u8]>::len),
+        }
+    }) {
+        Some(Ok(length)) => {
+            unsafe { *out_length = length };
+            SUCCESS
+        }
+        Some(Err(code)) => code,
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
 fn write_external_byte_buffer(mut bytes: Vec<u8>, out: *mut CtExternalByteBuffer) -> c_int {
     let bytes_ptr = bytes.as_mut_ptr();
     let bytes_len = bytes.len();
     let mut owner = Box::new(bytes);
     let owner_ptr = owner.as_mut() as *mut Vec<u8> as *mut c_void;
+    #[cfg(feature = "ffi-test")]
+    test_external_buffer_owners()
+        .lock()
+        .unwrap()
+        .insert(owner_ptr as usize);
     let _ = Box::into_raw(owner);
     unsafe {
         (*out).ptr = bytes_ptr;
@@ -6336,6 +7095,11 @@ unsafe fn take_owned_external_buffer_slice(
         return Err(ERR_INVALID_ARGUMENT);
     }
     let owner = unsafe { Box::from_raw(owner_ptr as *mut Vec<u8>) };
+    #[cfg(feature = "ffi-test")]
+    test_external_buffer_owners()
+        .lock()
+        .unwrap()
+        .remove(&(owner_ptr as usize));
     if bytes_len < 0 || (bytes_len > 0 && bytes_ptr.is_null()) {
         return Err(ERR_INVALID_ARGUMENT);
     }
@@ -6554,7 +7318,8 @@ pub struct CtMessageByteView {
 }
 
 /// Exports a zero-copy slice with ownership independent of routing handles.
-/// Parts: 0 frame, 1 arguments, 2 keyword arguments, 3 details, 4 binary argument.
+/// Parts: 0 frame, 1 arguments, 2 keyword arguments, 3 details, 4 binary argument,
+/// 5 transparent application payload (FlatBuffers opaque vector).
 /// The caller must release each non-null owner exactly once with
 /// `ct_message_buffer_free`, after every view of that slice is unreachable.
 /// Token addresses may repeat; each successful export owns a separate reference.
@@ -6596,6 +7361,7 @@ pub extern "C" fn ct_message_buffer_export_wide(
             .as_deref()
             .and_then(|args| single_binary_argument(message.serializer, args).ok()),
         4 => None,
+        5 => extract_transparent_payload(&message.message).map(Bytes::as_ref),
         _ => return ERR_INVALID_ARGUMENT,
     };
     let Some(bytes) = bytes else {
@@ -6965,8 +7731,10 @@ pub extern "C" fn ct_forward_publish_event_wide(
     };
     let handle_u64 = handle as u64;
     let segments = match super::message_handles::with_message(handle_u64, |msg| {
-        encode_event_segments(
+        let serializer = forwarding_serializer_for_connection(msg, connection_id)?;
+        encode_event_segments_for_serializer(
             msg,
+            serializer,
             subscription_id,
             publication_id,
             publisher,
@@ -7170,8 +7938,10 @@ fn forward_call_invocation_impl(
     };
     let handle_u64 = handle as u64;
     let segments = match super::message_handles::with_message(handle_u64, |msg| {
-        encode_invocation_segments(
+        let serializer = forwarding_serializer_for_connection(msg, connection_id)?;
+        encode_invocation_segments_for_serializer(
             msg,
+            serializer,
             invocation_id,
             registration_id,
             caller,
@@ -7216,7 +7986,8 @@ pub extern "C" fn ct_forward_result_from_yield_wide(
     let handle_u64 = handle as u64;
     let progress = progress_flag != 0;
     let segments = match super::message_handles::with_message(handle_u64, |msg| {
-        encode_result_segments(msg, request_id, progress)
+        let serializer = forwarding_serializer_for_connection(msg, connection_id)?;
+        encode_result_segments_for_serializer(msg, serializer, request_id, progress)
     }) {
         Some(Ok(parts)) => parts,
         Some(Err(code)) => return code,
@@ -7249,7 +8020,8 @@ pub extern "C" fn ct_forward_result_from_call_wide(
     }
     let handle_u64 = handle as u64;
     let segments = match super::message_handles::with_message(handle_u64, |msg| {
-        encode_result_segments_from_call(msg, request_id)
+        let serializer = forwarding_serializer_for_connection(msg, connection_id)?;
+        encode_result_segments_from_call_for_serializer(msg, serializer, request_id)
     }) {
         Some(Ok(parts)) => parts,
         Some(Err(code)) => return code,
@@ -7284,7 +8056,8 @@ pub extern "C" fn ct_forward_error_from_error_wide(
     }
     let handle_u64 = handle as u64;
     let segments = match super::message_handles::with_message(handle_u64, |msg| {
-        encode_error_segments(msg, request_type, request_id)
+        let serializer = forwarding_serializer_for_connection(msg, connection_id)?;
+        encode_error_segments_for_serializer(msg, serializer, request_type, request_id)
     }) {
         Some(Ok(parts)) => parts,
         Some(Err(code)) => return code,
@@ -7314,6 +8087,22 @@ mod segmented_forwarding_tests;
 #[cfg(test)]
 #[path = "metadata_projection_tests.rs"]
 mod metadata_projection_tests;
+
+#[cfg(test)]
+#[path = "flatbuffers_metadata_tests.rs"]
+mod flatbuffers_metadata_tests;
+
+#[cfg(test)]
+#[path = "flatbuffers_opaque_tests.rs"]
+mod flatbuffers_opaque_tests;
+
+#[cfg(test)]
+#[path = "flatbuffers_e2ee_tests.rs"]
+mod flatbuffers_e2ee_tests;
+
+#[cfg(test)]
+#[path = "crypto_copy_tests.rs"]
+mod crypto_copy_tests;
 
 #[cfg(test)]
 mod tests {
@@ -8034,6 +8823,141 @@ mod tests {
             ct_external_byte_buffer_free(output.owner);
             ct_message_release(handle);
         }
+    }
+
+    #[test]
+    fn message_binary_argument_length_validates_json_without_decoding() {
+        for length in 0..=512 {
+            let bytes: Vec<u8> = (0..length).map(|index| index as u8).collect();
+            let encoded = Base64Engine.encode(&bytes);
+            let args = format!(r#"["\u0000{encoded}"]"#);
+            assert_eq!(
+                canonical_json_single_binary_argument_length(args.as_bytes()),
+                Some(length)
+            );
+            assert_eq!(
+                decode_canonical_json_single_binary_argument(args.as_bytes()),
+                Some(bytes)
+            );
+        }
+        for encoded in [
+            "A", "AA", "AAA", "AAAAA", "AB==", "AAB=", "A===", "====", "AA=A", "AAAA====", "AA== ",
+            "AA-_", "AA\\n", "éAAA",
+        ] {
+            let args = format!(r#"["\u0000{encoded}"]"#);
+            assert_eq!(
+                canonical_json_single_binary_argument_length(args.as_bytes()),
+                None,
+                "{encoded}"
+            );
+            assert!(
+                decode_canonical_json_single_binary_argument(args.as_bytes()).is_none(),
+                "{encoded}"
+            );
+        }
+        for args in [
+            r#"["AQID"]"#,
+            r#"["\u0000AQID",0]"#,
+            r#"[]"#,
+            r#"null"#,
+            r#"["\u0000AQID" ]"#,
+        ] {
+            assert_eq!(
+                canonical_json_single_binary_argument_length(args.as_bytes()),
+                None
+            );
+        }
+    }
+
+    #[test]
+    fn message_binary_argument_length_preserves_handles_storage_and_rejects_shape() {
+        let _guard = test_guard();
+        for (serializer, frame) in [
+            (
+                RawSocketSerializer::Json,
+                br#"[50,77,{},["\u0000AQID"]]"#.to_vec(),
+            ),
+            (
+                RawSocketSerializer::Cbor,
+                vec![0x84, 0x18, 50, 0x18, 77, 0xa0, 0x81, 0x43, 1, 2, 3],
+            ),
+            (
+                RawSocketSerializer::MessagePack,
+                vec![0x94, 50, 77, 0x80, 0x91, 0xc4, 3, 1, 2, 3],
+            ),
+        ] {
+            let handle = wide_test_message(serializer, frame);
+            let allocation =
+                super::super::message_handles::retain_allocation(handle as u64).unwrap();
+            let observer = Arc::downgrade(&allocation);
+            drop(allocation);
+            assert_eq!(observer.strong_count(), 1);
+            let mut length = usize::MAX;
+            assert_eq!(
+                ct_message_single_binary_argument_length_wide(handle, &mut length),
+                SUCCESS
+            );
+            assert_eq!(length, 3);
+            assert_eq!(observer.strong_count(), 1);
+            assert_eq!(
+                ct_message_single_binary_argument_length_wide(handle, ptr::null_mut()),
+                ERR_INVALID_ARGUMENT
+            );
+            assert_eq!(observer.strong_count(), 1);
+            ct_message_release_wide(handle);
+            assert_eq!(observer.strong_count(), 0);
+            assert_eq!(
+                ct_message_single_binary_argument_length_wide(handle, &mut length),
+                ERR_HANDLE_UNAVAILABLE
+            );
+            assert_eq!(length, 0);
+        }
+        for frame in [
+            br#"[50,77,{},[]]"#.as_slice(),
+            br#"[50,77,{},[1]]"#,
+            br#"[50,77,{},["\u0000AQID"],{}]"#,
+            br#"[50,77,{},["\u0000AB=="]]"#,
+        ] {
+            let handle = wide_test_message(RawSocketSerializer::Json, frame.to_vec());
+            let mut length = usize::MAX;
+            assert_eq!(
+                ct_message_single_binary_argument_length_wide(handle, &mut length),
+                ERR_UNSUPPORTED
+            );
+            assert_eq!(length, 0);
+            assert!(super::super::message_handles::with_message(handle as u64, |_| ()).is_some());
+            ct_message_release_wide(handle);
+        }
+        let mut length = usize::MAX;
+        assert_eq!(
+            ct_message_single_binary_argument_length_wide(0, &mut length),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(length, 0);
+    }
+
+    #[test]
+    fn message_binary_argument_length_keeps_segmented_frame_unflattened() {
+        let _guard = test_guard();
+        let frame = Bytes::from_static(&[0x94, 50, 77, 0x80, 0x91, 0xc4, 3, 1, 2, 3]);
+        let parsed = parse_message_segments(
+            RawSocketSerializer::MessagePack,
+            vec![frame.slice(..5), frame.slice(5..)],
+        )
+        .unwrap();
+        let handle = store_parsed_message_wide(parsed);
+        let mut length = usize::MAX;
+        assert_eq!(
+            ct_message_single_binary_argument_length_wide(handle, &mut length),
+            SUCCESS
+        );
+        assert_eq!(length, 3);
+        super::super::message_handles::with_message(handle as u64, |message| {
+            assert!(message.raw.is_segmented());
+            assert!(!message.raw.has_contiguous_cache());
+        })
+        .unwrap();
+        ct_message_release_wide(handle);
     }
 
     #[test]
@@ -9115,6 +10039,48 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "ffi-test")]
+    fn external_owner_oracle_tracks_free_and_consumption() {
+        let _guard = test_guard();
+        let mut output = CtExternalByteBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+            owner: ptr::null_mut(),
+        };
+        assert_eq!(
+            write_external_byte_buffer(vec![1, 2, 3], &mut output),
+            SUCCESS
+        );
+        assert!(test_external_buffer_owners()
+            .lock()
+            .unwrap()
+            .contains(&(output.owner as usize)));
+        ct_external_byte_buffer_free(output.owner);
+        assert!(!test_external_buffer_owners()
+            .lock()
+            .unwrap()
+            .contains(&(output.owner as usize)));
+
+        let mut kind = 0;
+        assert_eq!(
+            write_external_byte_buffer_range(vec![9, 8, 7, 6], 1..3, 1, &mut output, &mut kind),
+            SUCCESS
+        );
+        assert!(test_external_buffer_owners()
+            .lock()
+            .unwrap()
+            .contains(&(output.owner as usize)));
+        assert_eq!(
+            ct_sha256_update_external_owned_async(0, output.owner, output.ptr, output.len as c_int),
+            ERR_INVALID_ARGUMENT
+        );
+        assert!(!test_external_buffer_owners()
+            .lock()
+            .unwrap()
+            .contains(&(output.owner as usize)));
+    }
+
+    #[test]
     fn native_sha256_external_owner_slice_reuses_the_original_allocation() {
         let _guard = test_guard();
         let mut owner_bytes = vec![0x11_u8; 64];
@@ -9397,6 +10363,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(args.clone()),
                     kwargs: Some(kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -9444,6 +10411,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(args.clone()),
                     kwargs: Some(kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -9507,6 +10475,7 @@ mod tests {
                         payload: WampPayload {
                             args: None,
                             kwargs: None,
+                            transparent: None,
                         },
                     },
                     details: None,
@@ -9555,6 +10524,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(msgpack_args.clone()),
                     kwargs: Some(msgpack_kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -9588,6 +10558,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(cbor_args.clone()),
                     kwargs: Some(cbor_kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -9630,6 +10601,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(args.clone()),
                     kwargs: Some(kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -9655,6 +10627,7 @@ mod tests {
                 payload: WampPayload {
                     args: Some(args.clone()),
                     kwargs: Some(kwargs.clone()),
+                    transparent: None,
                 },
             },
             details: None,
@@ -10157,6 +11130,55 @@ mod tests {
         );
         assert_eq!(
             ct_file_segment_metrics_snapshot(std::ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[test]
+    fn transport_copy_metrics_snapshot_matches_core_counters() {
+        let _guard = test_guard();
+        let mut ffi = CtTransportCopyMetricsInfo::default();
+
+        assert_eq!(ct_transport_copy_metrics_snapshot(&mut ffi), SUCCESS);
+        let core = ct_core::transport_copy_metrics_snapshot();
+        assert!(ffi.websocket_mask_copy_bytes_total <= core.websocket_mask_copy_bytes_total);
+        assert!(
+            ffi.websocket_coalesce_copy_bytes_total <= core.websocket_coalesce_copy_bytes_total
+        );
+        assert!(ffi.tls_plaintext_accepted_bytes_total <= core.tls_plaintext_accepted_bytes_total);
+        assert_eq!(
+            ct_transport_copy_metrics_snapshot(std::ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[test]
+    fn transport_copy_metrics_v2_preserves_v1_size_and_reports_input_copies() {
+        let _guard = test_guard();
+        #[repr(C)]
+        struct GuardedV1 {
+            info: CtTransportCopyMetricsInfo,
+            sentinel: u64,
+        }
+        assert_eq!(std::mem::size_of::<CtTransportCopyMetricsInfo>(), 24);
+        assert_eq!(std::mem::size_of::<CtTransportCopyMetricsInfoV2>(), 40);
+        let mut old = GuardedV1 {
+            info: CtTransportCopyMetricsInfo::default(),
+            sentinel: 0xfedc_ba98_7654_3210,
+        };
+        assert_eq!(ct_transport_copy_metrics_snapshot(&mut old.info), SUCCESS);
+        assert_eq!(old.sentinel, 0xfedc_ba98_7654_3210);
+        let mut current = CtTransportCopyMetricsInfoV2::default();
+        assert_eq!(ct_transport_copy_metrics_snapshot_v2(&mut current), SUCCESS);
+        let core = ct_core::transport_copy_metrics_snapshot();
+        assert!(current.io_buffer_front_copy_bytes_total <= core.io_buffer_front_copy_bytes_total);
+        assert!(
+            current.io_buffered_read_copy_bytes_total <= core.io_buffered_read_copy_bytes_total
+        );
+        assert_eq!(
+            ct_transport_copy_metrics_snapshot_v2(std::ptr::null_mut()),
             ERR_INVALID_ARGUMENT
         );
     }

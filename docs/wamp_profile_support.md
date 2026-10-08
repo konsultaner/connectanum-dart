@@ -18,6 +18,17 @@ every supported feature must be announced by the relevant roles. `HELLO` and
 - **Unsupported** means the feature is not announced and must not be assumed by
   a consumer application.
 
+## FlatBuffers candidate status, 2026-10-04
+
+The [FlatBuffers milestone](https://github.com/konsultaner/connectanum-dart/milestone/1)
+adds an implementation candidate beside JSON, MessagePack and CBOR. Its
+[pinned binding](flatbuffers_binding.md) covers ordinary VM/browser and native
+RawSocket/WebSocket selection; the [ownership guide](native_buffer_ownership.md)
+defines native construction, retained frames and external leases. An outer
+FlatBuffers envelope can carry the existing CBOR E2EE profile. Typed FlatBuffers
+E2EE, performance parity and complete platform/consumer acceptance remain open;
+this checkpoint does not establish released support or conformance certification.
+
 ## Basic Profile
 
 The Basic Profile subset required by all six implemented roles is implemented:
@@ -99,7 +110,7 @@ feature-announcement table:
 | Salted Challenge Response / SCRAM | Implemented as a client/router authentication method |
 | Dynamic Authentication API | Partial: pluggable and remote authentication exists, but full WAMP Dynamic Authentication API interoperability is not claimed |
 | Authorization | Implemented with router realm policies and integration tests |
-| Payload E2EE | Implemented for the versioned Connectanum v1 release profile: standard PPT fields, CBOR, XSalsa20-Poly1305, AES-256-GCM, negotiated/policy key selection and rotation, Dart/native providers, opaque router forwarding, and fail-closed validation; FlatBuffers is unsupported |
+| Payload E2EE | Implemented for the versioned Connectanum v1 release profile: standard PPT fields, CBOR, XSalsa20-Poly1305, AES-256-GCM, negotiated/policy key selection and rotation, Dart/native providers, opaque router forwarding, and fail-closed validation; typed FlatBuffers payload encryption remains unsupported |
 | Binary values in JSON | Implemented with WAMP's NUL-prefixed Base64 representation |
 | Message batching and multiplexed WAMP transport | Unsupported |
 | WAMP IDL, interface catalogs, and interface reflection | Unsupported as WAMP features; MCP catalogs are a separate API surface |

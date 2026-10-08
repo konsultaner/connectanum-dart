@@ -12,6 +12,7 @@ import 'dart:typed_data';
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/authentication.dart'
     show CraAuthentication, ScramAuthentication, TicketAuthentication;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
 import 'package:connectanum_core/connectanum_core.dart'
     show
         CallOptions,
@@ -28,7 +29,13 @@ import 'package:connectanum_core/connectanum_core.dart'
 import 'package:connectanum_core/connectanum_core.dart' show YieldOptions;
 import 'package:connectanum_core/connectanum_core.dart'
     as core
-    show CancelOptions, Error, Invocation, Result;
+    show
+        CancelOptions,
+        Error,
+        Invocation,
+        Result,
+        WampCborAes256GcmProvider,
+        WampCborXsalsa20Poly1305Provider;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/config/auth_registry.dart';
 import 'package:connectanum_router/src/router/config/authenticator.dart';
@@ -42,6 +49,7 @@ import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
 part 'support/http_edge_cases.dart';
+part 'support/flatbuffers_worker_ack_cases.dart';
 part 'support/http_progressive_failure_cases.dart';
 part 'support/http_initial_auth_cases.dart';
 part 'support/http_auth_abort_cases.dart';
@@ -4605,6 +4613,7 @@ void _fileResponseCleanupTests() {
 }
 
 void main() {
+  _flatbuffersWorkerAckTests();
   _internalPublishFilterCases();
   registerHttpAdapterOptionCases();
   _httpRevocationHintCases();
@@ -18100,7 +18109,7 @@ void main() {
   );
 
   test(
-    'preserves packed wamp lazy payloads across internal session calls',
+    'preserves custom opaque packed payloads across internal session calls',
     () async {
       final runtime = _HandleRuntime();
       final router = Router(
@@ -18159,7 +18168,7 @@ void main() {
               },
             ),
             options: CallOptions(
-              pptScheme: 'wamp',
+              pptScheme: 'x_opaque',
               pptSerializer: 'cbor',
               pptCipher: 'xsalsa20poly1305',
               pptKeyId: 'test-key',
@@ -18177,4 +18186,120 @@ void main() {
       expect(decodeCount, 0);
     },
   );
+  for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+    for (final withProvider in [false, true]) {
+      test(
+        'internal packed WAMP reply cipher=$cipher provider=$withProvider',
+        () async {
+          final fixture = _internalCloseFixture();
+          final caller = await fixture.binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          final callee = await fixture.binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          addTearDown(caller.close);
+          addTearDown(callee.close);
+          final keys = {'test-key': List<int>.filled(32, 9)};
+          final provider = cipher == 'xsalsa20poly1305'
+              ? core.WampCborXsalsa20Poly1305Provider(
+                  keys: keys,
+                  defaultKeyId: 'test-key',
+                )
+              : core.WampCborAes256GcmProvider(
+                  keys: keys,
+                  defaultKeyId: 'test-key',
+                );
+          final callOptions = CallOptions(
+            pptScheme: 'wamp',
+            pptSerializer: 'cbor',
+            pptCipher: cipher,
+            pptKeyId: 'test-key',
+          );
+          final packed =
+              provider
+                      .packPayload(
+                        const ['encrypted request'],
+                        const {'keyword': 7},
+                        callOptions,
+                      )
+                      .single
+                  as Uint8List;
+          Uint8List? seenPacked;
+          var originalDecodeCount = 0;
+          var replyDecodeCount = 0;
+          final registration = await callee.register('app.encrypted');
+          registration.onLazyInvokePayload((invocation) {
+            seenPacked = invocation.packedPayloadBytes;
+            final options = YieldOptions(
+              pptScheme: invocation.pptScheme,
+              pptSerializer: invocation.pptSerializer,
+              pptCipher: invocation.pptCipher,
+              pptKeyId: invocation.pptKeyId,
+            );
+            final payload = withProvider
+                ? LazyMessagePayload.packed(
+                    encoding: LazyPayloadEncoding.cbor,
+                    packedPayloadBytes: invocation.packedPayloadBytes!,
+                    e2eeProvider: provider,
+                    packedPayloadDecoder: (bytes) {
+                      replyDecodeCount++;
+                      return provider.unpackPayload([bytes], options);
+                    },
+                  )
+                : invocation.payload;
+            invocation.respondWith(lazyPayload: payload, options: options);
+          });
+          final reply = caller
+              .callLazyPayload(
+                'app.encrypted',
+                options: callOptions,
+                payload: LazyMessagePayload.packed(
+                  encoding: LazyPayloadEncoding.cbor,
+                  packedPayloadBytes: packed,
+                  packedPayloadDecoder: (_) {
+                    originalDecodeCount++;
+                    throw StateError('Routing must not decode the plaintext');
+                  },
+                ),
+              )
+              .first
+              .timeout(const Duration(seconds: 5));
+          if (withProvider) {
+            final result = await reply;
+            final response = result.toLazyResultPayload().packedPayloadBytes!;
+            expect(response, isNot(orderedEquals(packed)));
+            final decoded = provider.unpackPayload([response], callOptions);
+            expect(decoded.arguments, ['encrypted request']);
+            expect(decoded.argumentsKeywords, {'keyword': 7});
+            expect(result.details.pptScheme, 'wamp');
+            expect(result.details.pptSerializer, 'cbor');
+            expect(result.details.pptCipher, cipher);
+            expect(result.details.pptKeyId, 'test-key');
+            expect(replyDecodeCount, 1);
+          } else {
+            await expectLater(
+              reply,
+              throwsA(
+                isA<core.Error>()
+                    .having(
+                      (error) => error.error,
+                      'error URI',
+                      core.Error.unknown,
+                    )
+                    .having(
+                      (error) => error.arguments,
+                      'provider rejection',
+                      [contains('WampE2eeProviderUnavailableException')],
+                    ),
+              ),
+            );
+            expect(replyDecodeCount, 0);
+          }
+          expect(seenPacked, orderedEquals(packed));
+          expect(originalDecodeCount, 0);
+        },
+      );
+    }
+  }
 }

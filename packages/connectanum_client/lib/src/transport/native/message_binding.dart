@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:core' hide Error;
+import 'dart:core' as core show Error;
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/json_serializer.dart' show decodeBase64Bytes;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
@@ -11,21 +14,337 @@ import 'message_protocol.dart';
 const String _jsonBinaryPrefix = '\u0000';
 const String _jsonEscapedBinaryPrefix = '\\u0000';
 
+const _resultDetailKeys = {
+  'progress',
+  'ppt_scheme',
+  'ppt_serializer',
+  'ppt_cipher',
+  'ppt_keyid',
+};
+const _eventDetailKeys = {
+  'publisher',
+  'trustlevel',
+  'topic',
+  'ppt_scheme',
+  'ppt_serializer',
+  'ppt_cipher',
+  'ppt_keyid',
+};
+const _invocationDetailKeys = {
+  'caller',
+  'procedure',
+  'progress',
+  'receive_progress',
+  'timeout',
+  'ppt_scheme',
+  'ppt_serializer',
+  'ppt_cipher',
+  'ppt_keyid',
+};
+
 class NativeSessionMessage extends AbstractMessageWithPayload {
   NativeSessionMessage({
     required this.serializer,
-    required this.metadata,
+    required NativeMessageMetadata metadata,
     Uint8List? argsBytes,
     Uint8List? kwargsBytes,
-  }) {
+  }) : _metadata = metadata {
     id = metadata.messageCode;
+    _applyNativeTransparentPayload(this, serializer, metadata);
     _applyLazyPayload(this, serializer, argsBytes, kwargsBytes);
   }
 
+  /// Keeps only routing metadata until application or wire values are read.
+  ///
+  /// Lazy application views can consume a typed native E2EE payload before any
+  /// ciphertext export. Wire access still exports the original immutable views,
+  /// forcing the safe copied decrypt fallback. Consuming decrypt invalidates
+  /// wire access that has not already exported storage, including on auth failure.
+  NativeSessionMessage.deferred({
+    required this.serializer,
+    required NativeMessageMetadata metadata,
+    required NativeSessionMessage Function() wireMessage,
+  }) : _metadata = metadata {
+    if (!isNativeTypedE2eeSessionMetadata(metadata)) {
+      throw ArgumentError(
+        'Deferred native Session requires typed E2EE metadata',
+      );
+    }
+    id = metadata.messageCode;
+    _deferredNativePayload = true;
+    _wireMessageLoader = wireMessage;
+  }
+
   final NativeMessageSerializer serializer;
-  final NativeMessageMetadata metadata;
+  NativeMessageMetadata _metadata;
+  NativeMessageMetadata get metadata => _metadata;
+  bool _deferredNativePayload = false;
+  bool _loadingWire = false;
+  bool _restoringWire = false;
+  bool _wirePayloadModified = false;
+  bool _readingWirePayload = false;
+  NativeSessionMessage Function()? _wireMessageLoader;
+  ({Object error, StackTrace stack})? _wireFailure;
+  LazyMessagePayload? _applicationPayload;
+
+  /// Whether a deferred wrapper's wire values no longer match its native handle.
+  bool get hasModifiedNativeWirePayload => _wirePayloadModified;
+
+  void _ensureWirePayload() {
+    if (_loadingWire) {
+      if (_restoringWire) return;
+      throw StateError('Recursive deferred native wire payload access');
+    }
+    final failure = _wireFailure;
+    if (failure != null) {
+      core.Error.throwWithStackTrace(failure.error, failure.stack);
+    }
+    final loader = _wireMessageLoader;
+    if (loader == null) return;
+    _loadingWire = true;
+    try {
+      final wire = loader();
+      _restoringWire = true;
+      _metadata = wire.metadata;
+      super.restoreLazyPayload(wire.toLazyPayload());
+      _wireMessageLoader = null;
+    } catch (error, stack) {
+      _wireFailure = (error: error, stack: stack);
+      _wireMessageLoader = null;
+      rethrow;
+    } finally {
+      _restoringWire = false;
+      _loadingWire = false;
+    }
+  }
+
+  void _modifyWirePayload() {
+    _ensureWirePayload();
+    if (!_deferredNativePayload || _loadingWire) return;
+    _wirePayloadModified = true;
+    super.transparentBinaryPayload = null;
+    // A changed ciphertext must never decrypt the original anchored handle.
+    super.attachE2eeRuntimeContext(
+      e2eeRuntimeContext?.copyWith(payloadAnchor: null),
+    );
+  }
+
+  @override
+  List<dynamic>? get arguments {
+    _ensureWirePayload();
+    return super.arguments;
+  }
+
+  @override
+  set arguments(List<dynamic>? value) {
+    _modifyWirePayload();
+    super.arguments = value;
+  }
+
+  @override
+  Map<String, dynamic>? get argumentsKeywords {
+    _ensureWirePayload();
+    return super.argumentsKeywords;
+  }
+
+  @override
+  set argumentsKeywords(Map<String, dynamic>? value) {
+    _modifyWirePayload();
+    super.argumentsKeywords = value;
+  }
+
+  @override
+  Uint8List? get transparentBinaryPayload {
+    _ensureWirePayload();
+    return super.transparentBinaryPayload;
+  }
+
+  @override
+  set transparentBinaryPayload(Uint8List? value) {
+    _modifyWirePayload();
+    super.transparentBinaryPayload = value;
+  }
+
+  @override
+  Uint8List? get debugEncodedArgumentsBytes {
+    _ensureWirePayload();
+    return super.debugEncodedArgumentsBytes;
+  }
+
+  @override
+  Uint8List? get debugEncodedArgumentsKeywordsBytes {
+    _ensureWirePayload();
+    return super.debugEncodedArgumentsKeywordsBytes;
+  }
+
+  @override
+  List<dynamic>? get wireArguments {
+    _ensureWirePayload();
+    return super.wireArguments;
+  }
+
+  @override
+  Map<String, dynamic>? get wireArgumentsKeywords {
+    _ensureWirePayload();
+    return super.wireArgumentsKeywords;
+  }
+
+  @override
+  void attachE2eeProvider(WampE2eeProvider? provider) {
+    if (!identical(provider, e2eeProvider)) _applicationPayload = null;
+    super.attachE2eeProvider(provider);
+  }
+
+  @override
+  void attachE2eeRuntimeContext(WampE2eeRuntimeContext? runtimeContext) {
+    if (!identical(runtimeContext, e2eeRuntimeContext)) {
+      _applicationPayload = null;
+    }
+    super.attachE2eeRuntimeContext(
+      _wirePayloadModified
+          ? runtimeContext?.copyWith(payloadAnchor: null)
+          : runtimeContext,
+    );
+  }
+
+  @override
+  void setLazyPayload({
+    Uint8List? argumentsBytes,
+    PayloadListDecoder? argumentsDecoder,
+    Uint8List? argumentsKeywordsBytes,
+    PayloadMapDecoder? argumentsKeywordsDecoder,
+    LazyPayloadEncoding? encoding,
+  }) {
+    _modifyWirePayload();
+    super.setLazyPayload(
+      argumentsBytes: argumentsBytes,
+      argumentsDecoder: argumentsDecoder,
+      argumentsKeywordsBytes: argumentsKeywordsBytes,
+      argumentsKeywordsDecoder: argumentsKeywordsDecoder,
+      encoding: encoding,
+    );
+  }
+
+  @override
+  void restoreLazyPayload(LazyMessagePayload payload) {
+    _modifyWirePayload();
+    super.restoreLazyPayload(
+      _wirePayloadModified && !_loadingWire
+          ? payload.withE2eeRuntimeContext(
+              payload.e2eeRuntimeContext?.copyWith(payloadAnchor: null),
+            )
+          : payload,
+    );
+  }
+
+  @override
+  void retainLazyPayload(LazyMessagePayload payload) {
+    _modifyWirePayload();
+    super.retainLazyPayload(
+      _wirePayloadModified && !_loadingWire
+          ? payload.withE2eeRuntimeContext(
+              payload.e2eeRuntimeContext?.copyWith(payloadAnchor: null),
+            )
+          : payload,
+    );
+  }
+
+  @override
+  void ensureDecodedPayloadView({
+    required String? pptScheme,
+    required String? pptSerializer,
+    required String? pptCipher,
+    required String? pptKeyId,
+  }) {
+    _ensureWirePayload();
+    final wasReadingWire = _readingWirePayload;
+    _readingWirePayload = true;
+    try {
+      super.ensureDecodedPayloadView(
+        pptScheme: pptScheme,
+        pptSerializer: pptSerializer,
+        pptCipher: pptCipher,
+        pptKeyId: pptKeyId,
+      );
+    } finally {
+      _readingWirePayload = wasReadingWire;
+    }
+  }
+
+  @override
+  LazyMessagePayload toLazyPayload({Object? anchor}) {
+    if (!_deferredNativePayload ||
+        _wirePayloadModified ||
+        _readingWirePayload) {
+      return super.toLazyPayload(anchor: anchor);
+    }
+    final provider = e2eeProvider;
+    final runtimeProvider = switch (provider) {
+      WampE2eeRuntimePayloadProvider value => value,
+      _ => null,
+    };
+    final context = e2eeRuntimeContext;
+    final (scheme, serializer, cipher, keyId) = _nativeTypedE2eeFields(
+      metadata,
+    );
+    final payload = _applicationPayload ??= LazyMessagePayload.deferred(
+      encoding: LazyPayloadEncoding.flatbuffers,
+      e2eeProvider: provider,
+      e2eeRuntimeContext: context,
+      anchor: this,
+      loader: () {
+        if (!_wirePayloadModified &&
+            runtimeProvider != null &&
+            runtimeProvider.canUnpackFromRuntimeContext(context)) {
+          return decodePayloadView(
+            null,
+            null,
+            pptScheme: scheme,
+            pptSerializer: serializer,
+            pptCipher: cipher,
+            pptKeyId: keyId,
+            e2eeProvider: provider,
+            runtimeContext: context,
+          );
+        }
+        _ensureWirePayload();
+        return decodeLazyPayloadView(
+          super.toLazyPayload(),
+          pptScheme: scheme,
+          pptSerializer: serializer,
+          pptCipher: cipher,
+          pptKeyId: keyId,
+          e2eeProvider: provider,
+          runtimeContext: _wirePayloadModified
+              ? context?.copyWith(payloadAnchor: null)
+              : context,
+        );
+      },
+    );
+    return payload.withAnchor(anchor ?? this);
+  }
+
+  /// Optional application details decoded only when a lazy handler reads them.
+  /// Standard projected WAMP fields remain on the typed payload view.
+  late final Map<String, dynamic>? customDetails = metadata.detailsBytes == null
+      ? null
+      : _lazyDynamicDetailMap(
+          serializer,
+          metadata.detailsBytes,
+          knownKeys: switch (metadata.messageCode) {
+            final code when code == MessageTypes.codeResult =>
+              _resultDetailKeys,
+            final code when code == MessageTypes.codeEvent => _eventDetailKeys,
+            final code when code == MessageTypes.codeInvocation =>
+              _invocationDetailKeys,
+            _ => throw StateError(
+              'Custom payload details require RESULT, EVENT or INVOCATION',
+            ),
+          },
+        );
 
   AbstractMessage materialize() {
+    _ensureWirePayload();
     final boundMessage = _bindFromMetadata(
       serializer,
       metadata,
@@ -47,6 +366,27 @@ class NativeSessionMessage extends AbstractMessageWithPayload {
     }
     return boundMessage;
   }
+}
+
+(String?, String?, String?, String?) _nativeTypedE2eeFields(
+  NativeMessageMetadata metadata,
+) => metadata.messageCode == MessageTypes.codeResult
+    ? (metadata.stringA, metadata.stringB, metadata.stringC, metadata.stringD)
+    : (metadata.stringB, metadata.stringC, metadata.stringD, metadata.stringE);
+
+bool isNativeTypedE2eeSessionMetadata(NativeMessageMetadata metadata) {
+  if (!metadata.hasFlag(NativeMessageMetadata.flagMetadataBind) ||
+      !{
+        MessageTypes.codeResult,
+        MessageTypes.codeEvent,
+        MessageTypes.codeInvocation,
+      }.contains(metadata.messageCode)) {
+    return false;
+  }
+  final (scheme, serializer, cipher, _) = _nativeTypedE2eeFields(metadata);
+  return scheme == 'wamp' &&
+      serializer == 'flatbuffers' &&
+      (cipher == 'aes256gcm' || cipher == 'xsalsa20poly1305');
 }
 
 AbstractMessage bindMessage(
@@ -123,6 +463,9 @@ AbstractMessage _bindDecodedPayload(
   NativeMessageSerializer serializer,
   Uint8List bytes,
 ) {
+  if (serializer == NativeMessageSerializer.flatbuffers) {
+    return flatbuffers.Serializer().deserialize(bytes)!;
+  }
   final decoded = _decodePayload(serializer, bytes);
   if (decoded is! List) {
     throw ArgumentError('Decoded WAMP message is not an array: $decoded');
@@ -134,6 +477,51 @@ AbstractMessage _bindDecodedPayload(
 }
 
 AbstractMessage? _bindFromMetadata(
+  NativeMessageSerializer serializer,
+  NativeMessageMetadata metadata, {
+  Uint8List? argsBytes,
+  Uint8List? kwargsBytes,
+}) {
+  final message = _bindFromMetadataFields(
+    serializer,
+    metadata,
+    argsBytes: argsBytes,
+    kwargsBytes: kwargsBytes,
+  );
+  if (message != null) {
+    _applyNativeTransparentPayload(message, serializer, metadata);
+  }
+  if (message != null &&
+      serializer == NativeMessageSerializer.flatbuffers &&
+      metadata.messageCode != MessageTypes.codeHeartbeat &&
+      metadata.detailsBytes != null) {
+    flatbuffers.Serializer().retainMetadata(message, metadata.detailsBytes!);
+  }
+  return message;
+}
+
+void _applyNativeTransparentPayload(
+  AbstractMessage message,
+  NativeMessageSerializer serializer,
+  NativeMessageMetadata metadata,
+) {
+  final present = metadata.hasFlag(
+    NativeMessageMetadata.flagTransparentPayload,
+  );
+  final bytes = metadata.transparentPayloadBytes;
+  if (present != (bytes != null) ||
+      (present &&
+          (serializer != NativeMessageSerializer.flatbuffers ||
+              message is! AbstractMessageWithPayload ||
+              !{16, 36, 48, 50, 68, 70, 8}.contains(metadata.messageCode)))) {
+    throw ArgumentError('Invalid native transparent payload metadata');
+  }
+  if (present) {
+    (message as AbstractMessageWithPayload).transparentBinaryPayload = bytes;
+  }
+}
+
+AbstractMessage? _bindFromMetadataFields(
   NativeMessageSerializer serializer,
   NativeMessageMetadata metadata, {
   Uint8List? argsBytes,
@@ -215,15 +603,7 @@ AbstractMessage? _bindFromMetadata(
         details,
         serializer,
         metadata.detailsBytes,
-        const {
-          'publisher',
-          'trustlevel',
-          'topic',
-          'ppt_scheme',
-          'ppt_serializer',
-          'ppt_cipher',
-          'ppt_keyid',
-        },
+        _eventDetailKeys,
       );
     }
     final message = Event(metadata.primaryId, metadata.secondaryId, details);
@@ -263,13 +643,7 @@ AbstractMessage? _bindFromMetadata(
         details,
         serializer,
         metadata.detailsBytes,
-        const {
-          'progress',
-          'ppt_scheme',
-          'ppt_serializer',
-          'ppt_cipher',
-          'ppt_keyid',
-        },
+        _resultDetailKeys,
       );
     }
     final message = Result(metadata.primaryId, details);
@@ -310,17 +684,7 @@ AbstractMessage? _bindFromMetadata(
         details,
         serializer,
         metadata.detailsBytes,
-        const {
-          'caller',
-          'procedure',
-          'progress',
-          'receive_progress',
-          'timeout',
-          'ppt_scheme',
-          'ppt_serializer',
-          'ppt_cipher',
-          'ppt_keyid',
-        },
+        _invocationDetailKeys,
       );
     }
     final message = Invocation(
@@ -445,6 +809,9 @@ Map<String, dynamic>? _decodeOptionalMapFragment(
 ) {
   if (bytes == null) {
     return null;
+  }
+  if (serializer == NativeMessageSerializer.flatbuffers) {
+    return flatbuffers.Serializer().deserializeMetadata(bytes);
   }
   final decoded = _decodeFragment(serializer, bytes);
   if (decoded == null) {
@@ -677,7 +1044,7 @@ LazyPayloadEncoding? _lazyPayloadEncodingForSerializer(
     NativeMessageSerializer.messagePack => LazyPayloadEncoding.messagePack,
     NativeMessageSerializer.cbor => LazyPayloadEncoding.cbor,
     NativeMessageSerializer.ubjson => null,
-    NativeMessageSerializer.flatbuffers => null,
+    NativeMessageSerializer.flatbuffers => LazyPayloadEncoding.cbor,
   };
 }
 
@@ -916,8 +1283,9 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
       return cbor.cborDecode(bytes).toObject();
-    case NativeMessageSerializer.ubjson:
     case NativeMessageSerializer.flatbuffers:
+      return flatbuffers.Serializer().deserializeApplication(bytes);
+    case NativeMessageSerializer.ubjson:
       throw UnsupportedError(
         'Serializer ${serializer.name} is not supported for payload decoding',
       );

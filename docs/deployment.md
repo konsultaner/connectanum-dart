@@ -134,6 +134,15 @@ bundles for:
 - macOS Intel (`x86_64-apple-darwin`)
 - Windows x64 (`x86_64-pc-windows-msvc`)
 
+Each artifact runner also verifies its archive checksum and source manifest,
+loads the packaged production library, rejects test-oracle exports, and runs
+the FlatBuffers client and router profile tests in separate Dart processes.
+All 34 expected public cases must pass without skips. Per-platform
+`native-consumers-<host-triple>` artifacts retain the library/archive hashes,
+source metadata, JSON test logs and `consumer-proof.json`, including failures.
+These checks establish profile runtime behavior; performance and complete copy
+coverage have their separate benchmark gates.
+
 Release-tag runs publish the same assets to GitHub Releases. You can either
 let the hook fetch those assets via a `CONNECTANUM_NATIVE_RELEASE_TAG` user
 define or extract the archive manually and provide `CONNECTANUM_NATIVE_LIB` to

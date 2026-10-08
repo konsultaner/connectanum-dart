@@ -220,25 +220,32 @@ void main() {
         },
       );
 
-      test('closing an active command also cancels queued commands', () async {
-        final fixture = await _WorkerFixture.create();
-        fixture.enable('hold-response');
-        final first = expectLater(
-          fixture.worker.runWithMetrics(_scenario()),
-          throwsStateError,
+      for (final reuse in [false, true]) {
+        test(
+          'closing active and queued commands with campaign reuse=$reuse',
+          () async {
+            final fixture = await _WorkerFixture.create(
+              reuseSuccessfulWorkers: reuse,
+            );
+            fixture.enable('hold-response');
+            final first = expectLater(
+              fixture.worker.runWithMetrics(_scenario()),
+              throwsStateError,
+            );
+            final second = expectLater(
+              fixture.worker.runWithMetrics(_scenario('second')),
+              throwsStateError,
+            );
+            await fixture.waitFor(() => fixture.hasMarker('request'));
+            await fixture.worker.close();
+            await Future.wait([first, second]);
+            await fixture.expectNoLiveChildren();
+            expect(fixture.pids, hasLength(1));
+            fixture.disable('hold-response');
+            expect(await fixture.worker.run(_scenario()), hasLength(1));
+          },
         );
-        final second = expectLater(
-          fixture.worker.runWithMetrics(_scenario('second')),
-          throwsStateError,
-        );
-        await fixture.waitFor(() => fixture.hasMarker('request'));
-        await fixture.worker.close();
-        await Future.wait([first, second]);
-        await fixture.expectNoLiveChildren();
-        expect(fixture.pids, hasLength(1));
-        fixture.disable('hold-response');
-        expect(await fixture.worker.run(_scenario()), hasLength(1));
-      });
+      }
 
       test(
         'close cancels a start waiting for previous cleanup',
@@ -408,6 +415,68 @@ void main() {
           await fixture.expectNoLiveChildren();
         },
       );
+
+      test(
+        'campaign reuse preserves successful RPC and pub-sub warmup',
+        () async {
+          final fixture = await _WorkerFixture.create(
+            reuseSuccessfulWorkers: true,
+          );
+          final first = await fixture.worker.runWithMetrics(_scenario());
+          final second = await fixture.worker.runWithMetrics(
+            _scenario('second'),
+          );
+          final pubsub = WampScenario.fromJson({
+            ..._scenario().toJson(),
+            'mode': 'pubsub',
+          });
+          final third = await fixture.worker.runWithMetrics(pubsub);
+          expect(
+            [first, second, third].map((r) => r.samples.single.requestBytes),
+            [
+              17,
+              29,
+              17,
+            ],
+          );
+          expect(fixture.pids, hasLength(1));
+          await fixture.worker.close();
+          await fixture.expectNoLiveChildren();
+        },
+      );
+
+      test('campaign reuse still recycles cancellation workloads', () async {
+        final fixture = await _WorkerFixture.create(
+          reuseSuccessfulWorkers: true,
+        );
+        final scenario = WampScenario.fromJson({
+          ..._scenario().toJson(),
+          'mode': 'cancel_cycle',
+        });
+        await fixture.worker.runWithMetrics(scenario);
+        await fixture.expectNoLiveChildren();
+        await fixture.worker.runWithMetrics(_scenario());
+        expect(fixture.pids, hasLength(2));
+        await fixture.worker.close();
+        await fixture.expectNoLiveChildren();
+      });
+
+      test('campaign reuse stops failed helpers before recovery', () async {
+        final fixture = await _WorkerFixture.create(
+          reuseSuccessfulWorkers: true,
+        );
+        await fixture.response.writeAsString('{"error":"failed workload"}');
+        await expectLater(
+          fixture.worker.runWithMetrics(_scenario()),
+          throwsA(isA<StateError>()),
+        );
+        await fixture.expectNoLiveChildren();
+        await fixture.response.writeAsString(_response);
+        await fixture.worker.runWithMetrics(_scenario());
+        expect(fixture.pids, hasLength(2));
+        await fixture.worker.close();
+        await fixture.expectNoLiveChildren();
+      });
 
       test(
         'response preserves samples and all metrics across recycling',
@@ -580,6 +649,7 @@ class _WorkerFixture {
     Logger? logger,
     bool dartEntrypoint = false,
     bool packageEntrypoint = false,
+    bool reuseSuccessfulWorkers = false,
   }) async {
     final directory = await Directory.systemTemp.createTemp(
       'connectanum-worker-lifecycle-',
@@ -615,6 +685,7 @@ class _WorkerFixture {
             : '${directory.path}/tool/worker.dart',
         dartExecutable: dartEntrypoint ? executable.path : null,
         readyTimeout: readyTimeout,
+        reuseSuccessfulWorkers: reuseSuccessfulWorkers,
         logger: logger,
       ),
     );

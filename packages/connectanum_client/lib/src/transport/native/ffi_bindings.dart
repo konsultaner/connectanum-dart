@@ -145,6 +145,29 @@ typedef CtE2eeSessionDecryptMessagePayloadConsumeDart =
       ffi.Pointer<ffi.Int32>,
     );
 
+typedef CtE2eeSessionDecryptMessagePayloadConsumeFormatWideNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int64,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<CtExternalByteBuffer>,
+      ffi.Pointer<ffi.Int32>,
+    );
+typedef CtE2eeSessionDecryptMessagePayloadConsumeFormatDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      int,
+      int,
+      int,
+      ffi.Pointer<CtExternalByteBuffer>,
+      ffi.Pointer<ffi.Int32>,
+    );
+
 typedef CtClientConnectRawsocketNative =
     ffi.Int32 Function(
       ffi.Pointer<ffi.Char>,
@@ -200,6 +223,28 @@ typedef CtFileSegmentMetricsSnapshotNative =
 typedef CtFileSegmentMetricsSnapshotDart =
     int Function(ffi.Pointer<CtFileSegmentMetricsInfo>);
 
+typedef CtTransportCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
+typedef CtTransportCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
+
+typedef CtRustlsCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtRustlsCopyMetricsInfo>);
+typedef CtRustlsCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtRustlsCopyMetricsInfo>);
+
+typedef CtTransportCopyMetricsSnapshotV2Native =
+    ffi.Int32 Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
+typedef CtTransportCopyMetricsSnapshotV2Dart =
+    int Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
+
+typedef CtE2eeCopyMetricsVersionNative = ffi.Uint32 Function();
+typedef CtE2eeCopyMetricsVersionDart = int Function();
+typedef CtE2eeCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtE2eeCopyMetricsInfo>);
+typedef CtE2eeCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtE2eeCopyMetricsInfo>);
+
 typedef CtPollConnectionMessageNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollConnectionMessageWideNative = ffi.Int64 Function(ffi.Int32);
 typedef CtPollConnectionMessageDart = int Function(int);
@@ -236,6 +281,11 @@ typedef CtMessageDecodeSingleBinaryArgumentWideNative =
     ffi.Int32 Function(ffi.Int64, ffi.Pointer<CtExternalByteBuffer>);
 typedef CtMessageDecodeSingleBinaryArgumentDart =
     int Function(int, ffi.Pointer<CtExternalByteBuffer>);
+
+typedef CtMessageSingleBinaryArgumentLengthWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Pointer<ffi.Size>);
+typedef CtMessageSingleBinaryArgumentLengthDart =
+    int Function(int, ffi.Pointer<ffi.Size>);
 
 typedef CtBase64DecodeCanonicalNative =
     ffi.Int32 Function(
@@ -450,6 +500,55 @@ final class CtFileSegmentMetricsInfo extends ffi.Struct {
 
   @ffi.Uint64()
   external int bufferedFileSegmentBytesTotal;
+}
+
+final class CtTransportCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int websocketMaskCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int websocketCoalesceCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int tlsPlaintextAcceptedBytesTotal;
+}
+
+final class CtRustlsCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int outboundChunkCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int queueReadCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int deframerAppendCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int deframerMoveCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int recordBufferCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int recordAppendCopyBytesTotal;
+}
+
+final class CtTransportCopyMetricsInfoV2 extends ffi.Struct {
+  external CtTransportCopyMetricsInfo legacy;
+
+  @ffi.Uint64()
+  external int ioBufferFrontCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int ioBufferedReadCopyBytesTotal;
+}
+
+final class CtE2eeCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int plaintextStagingCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int ciphertextStagingCopyBytesTotal;
 }
 
 final class CtHttpHeader extends ffi.Struct {
@@ -667,6 +766,18 @@ class CtFfiBindings {
                 );
               })(),
             ),
+      ctE2eeSessionDecryptMessagePayloadConsumeFormat =
+          messageHandleAbi == NativeMessageHandleAbi.wide
+          ? _tryLookup(
+              () =>
+                  library.lookupFunction<
+                    CtE2eeSessionDecryptMessagePayloadConsumeFormatWideNative,
+                    CtE2eeSessionDecryptMessagePayloadConsumeFormatDart
+                  >(
+                    'ct_e2ee_session_decrypt_message_payload_consume_format_wide',
+                  ),
+            )
+          : null,
       ctClientConnectRawsocket = library
           .lookupFunction<
             CtClientConnectRawsocketNative,
@@ -696,6 +807,41 @@ class CtFfiBindings {
             CtFileSegmentMetricsSnapshotNative,
             CtFileSegmentMetricsSnapshotDart
           >('ct_file_segment_metrics_snapshot'),
+      ctRustlsCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtRustlsCopyMetricsSnapshotNative,
+              CtRustlsCopyMetricsSnapshotDart
+            >('ct_rustls_copy_metrics_snapshot'),
+      ),
+      ctTransportCopyMetricsSnapshotV2 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTransportCopyMetricsSnapshotV2Native,
+              CtTransportCopyMetricsSnapshotV2Dart
+            >('ct_transport_copy_metrics_snapshot_v2'),
+      ),
+      ctTransportCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTransportCopyMetricsSnapshotNative,
+              CtTransportCopyMetricsSnapshotDart
+            >('ct_transport_copy_metrics_snapshot'),
+      ),
+      ctE2eeCopyMetricsVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtE2eeCopyMetricsVersionNative,
+              CtE2eeCopyMetricsVersionDart
+            >('ct_e2ee_copy_metrics_abi_version'),
+      ),
+      ctE2eeCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtE2eeCopyMetricsSnapshotNative,
+              CtE2eeCopyMetricsSnapshotDart
+            >('ct_e2ee_copy_metrics_snapshot'),
+      ),
       ctPollConnectionMessage = messageHandleAbi == NativeMessageHandleAbi.wide
           ? library.lookupFunction<
               CtPollConnectionMessageWideNative,
@@ -777,6 +923,13 @@ class CtFfiBindings {
               return (int a0, ffi.Pointer<CtExternalByteBuffer> a1) =>
                   call(checkedLegacyMessageHandle(a0), a1);
             })(),
+      ctMessageSingleBinaryArgumentLength = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtMessageSingleBinaryArgumentLengthWideNative,
+              CtMessageSingleBinaryArgumentLengthDart
+            >('ct_message_single_binary_argument_length_wide'),
+      ),
       ctBase64DecodeCanonical = _tryLookup(
         () =>
             library.lookupFunction<
@@ -934,12 +1087,19 @@ class CtFfiBindings {
   ctE2eeSessionDecryptMessageSingleBinaryArgument;
   final CtE2eeSessionDecryptMessagePayloadConsumeDart?
   ctE2eeSessionDecryptMessagePayloadConsume;
+  final CtE2eeSessionDecryptMessagePayloadConsumeFormatDart?
+  ctE2eeSessionDecryptMessagePayloadConsumeFormat;
   final CtClientConnectRawsocketDart ctClientConnectRawsocket;
   final CtClientConnectWebSocketDart ctClientConnectWebSocket;
   final CtConnectionCloseDart ctConnectionClose;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionSupportsFileSegmentsDart ctConnectionSupportsFileSegments;
   final CtFileSegmentMetricsSnapshotDart ctFileSegmentMetricsSnapshot;
+  final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
+  final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;
+  final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;
+  final CtE2eeCopyMetricsVersionDart? ctE2eeCopyMetricsVersion;
+  final CtE2eeCopyMetricsSnapshotDart? ctE2eeCopyMetricsSnapshot;
   final CtPollConnectionMessageDart ctPollConnectionMessage;
   final CtWaitConnectionMessageDart ctWaitConnectionMessage;
   final CtMessageGetDart ctMessageGet;
@@ -948,6 +1108,8 @@ class CtFfiBindings {
   final CtMessageRetainDart ctMessageRetain;
   final CtMessageDecodeSingleBinaryArgumentDart
   ctMessageDecodeSingleBinaryArgument;
+  final CtMessageSingleBinaryArgumentLengthDart?
+  ctMessageSingleBinaryArgumentLength;
   final CtBase64DecodeCanonicalDart? ctBase64DecodeCanonical;
   final CtBase64EncodeCanonicalDart? ctBase64EncodeCanonical;
   final CtSha256NewDart ctSha256New;

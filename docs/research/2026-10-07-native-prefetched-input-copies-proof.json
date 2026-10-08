@@ -1,0 +1,318 @@
+{
+  "base_commit": "ba79dbf9c909a563ec9e0ec13d1eeb78ae4648d3",
+  "source_archive_sha256": "94519a6d6b789ebbf6a607b8c3a3f397543eaf2effc4d979d938adc174083c4f",
+  "overlaid_files": {
+    "native/transport/ct_core/src/io_stream.rs": "64ec5690831b4c58d2f4502ed3848433c16602ae7d1899d1a9a6dd7713e1b73e",
+    "native/transport/ct_core/src/lib.rs": "055f2e79d47efee3283b6c5f4bbfade21745b65bd7223575e4e1adddb280104c",
+    "native/transport/ct_ffi/src/runtime/ffi.rs": "db0e8c433f8d36b02e9b1df4d8c863a4a616fb4dfafc6f5fc3ebb51f3d9718bf",
+    "packages/connectanum_bench/lib/src/transport_copy_metrics.dart": "bcce5f6a5d68e789801c9df369471ce0d1a814e55b5cb6dfcce566f3e2e62cbc",
+    "packages/connectanum_bench/pubspec.yaml": "2407ffdabc0f0ee88a99d38dd6714d41a833788563b2b0c9299e8682f42871cb",
+    "packages/connectanum_bench/test/transport_copy_metrics_test.dart": "95e6c6acc8c5c55a9fc3e03b9c6a8dac0deac027af520de8dbbfafd5ccb39f13",
+    "packages/connectanum_bench/test/wamp_transport_integration_test.dart": "67fb001efb96a72e8d90c25a8da61e18730f864c73d4fbc17d78b16653f23b21",
+    "packages/connectanum_bench/tool/wamp_client_main.dart": "50b29fc822d705db03bd785fe915e82a0de671f52853e29de6d0b6d4d17b4a17",
+    "packages/connectanum_client/lib/src/transport/native/ffi_bindings.dart": "139a20b87ed6ab9647923ddd68295cf691d778baa29adc194673803e3a428e7a",
+    "packages/connectanum_client/lib/src/transport/native/runtime.dart": "b291cc1c23f262b5f3e4cbc681c8dcbc7e0cfb7af8a860f917dd0a0f62294935",
+    "packages/connectanum_router/lib/src/native/ffi_bindings.dart": "8d6339d3790abb19752dcd20cdfb8464564323f89bea8849c0236b3c33a8a92d",
+    "packages/connectanum_router/lib/src/native/runtime.dart": "ed8c55b208d10b15a905a37027af0285bbd16a0f533026632e6ccee00777e2ed",
+    "tool/test_wamp_serializer_compare.py": "64a032ceb02b9d091b01f8c79d8809e5633b563715c1ef2f0fefb4451e1d0f02",
+    "tool/wamp_serializer_compare.py": "d9f49d4b65070b8af0e2d64c3b774328d0a09eb696d0564815eb704d34da64a1",
+    "packages/connectanum_bench/test/native_transport_copy_abi_test.dart": "6c585bb7c3961fbfee28d6e72b8f00751c1cc99ef06a81684b2490920056f44f",
+    "pubspec.lock": "d00421b38586c21ab8f11ed76cac85c5f7a7cabb5bc849beaeca007f1175b83a",
+    "native/transport/Cargo.lock": "86b9276e266bf62caf3ead9f410ec41fbf318dfa6f603fbeae2cfb4edfefa050",
+    "native/bench/Cargo.lock": "5d9a1011a6c8d9c01051489912c0b57b0b41ca9bd040500473de869a8f3810fd"
+  },
+  "linux_sources_verified": {
+    "native/transport/ct_core/src/io_stream.rs": "64ec5690831b4c58d2f4502ed3848433c16602ae7d1899d1a9a6dd7713e1b73e",
+    "native/transport/ct_core/src/lib.rs": "055f2e79d47efee3283b6c5f4bbfade21745b65bd7223575e4e1adddb280104c",
+    "native/transport/ct_ffi/src/runtime/ffi.rs": "db0e8c433f8d36b02e9b1df4d8c863a4a616fb4dfafc6f5fc3ebb51f3d9718bf",
+    "packages/connectanum_bench/lib/src/transport_copy_metrics.dart": "bcce5f6a5d68e789801c9df369471ce0d1a814e55b5cb6dfcce566f3e2e62cbc",
+    "packages/connectanum_bench/pubspec.yaml": "2407ffdabc0f0ee88a99d38dd6714d41a833788563b2b0c9299e8682f42871cb",
+    "packages/connectanum_bench/test/transport_copy_metrics_test.dart": "95e6c6acc8c5c55a9fc3e03b9c6a8dac0deac027af520de8dbbfafd5ccb39f13",
+    "packages/connectanum_bench/test/wamp_transport_integration_test.dart": "67fb001efb96a72e8d90c25a8da61e18730f864c73d4fbc17d78b16653f23b21",
+    "packages/connectanum_bench/tool/wamp_client_main.dart": "50b29fc822d705db03bd785fe915e82a0de671f52853e29de6d0b6d4d17b4a17",
+    "packages/connectanum_client/lib/src/transport/native/ffi_bindings.dart": "139a20b87ed6ab9647923ddd68295cf691d778baa29adc194673803e3a428e7a",
+    "packages/connectanum_client/lib/src/transport/native/runtime.dart": "b291cc1c23f262b5f3e4cbc681c8dcbc7e0cfb7af8a860f917dd0a0f62294935",
+    "packages/connectanum_router/lib/src/native/ffi_bindings.dart": "8d6339d3790abb19752dcd20cdfb8464564323f89bea8849c0236b3c33a8a92d",
+    "packages/connectanum_router/lib/src/native/runtime.dart": "ed8c55b208d10b15a905a37027af0285bbd16a0f533026632e6ccee00777e2ed",
+    "tool/test_wamp_serializer_compare.py": "64a032ceb02b9d091b01f8c79d8809e5633b563715c1ef2f0fefb4451e1d0f02",
+    "tool/wamp_serializer_compare.py": "d9f49d4b65070b8af0e2d64c3b774328d0a09eb696d0564815eb704d34da64a1",
+    "packages/connectanum_bench/test/native_transport_copy_abi_test.dart": "b254172b80b35b6879cee487da66da6ea963a5a279cb3fbd7952059fdbf8732e",
+    "pubspec.lock": "d00421b38586c21ab8f11ed76cac85c5f7a7cabb5bc849beaeca007f1175b83a",
+    "native/transport/Cargo.lock": "86b9276e266bf62caf3ead9f410ec41fbf318dfa6f603fbeae2cfb4edfefa050",
+    "native/bench/Cargo.lock": "5d9a1011a6c8d9c01051489912c0b57b0b41ca9bd040500473de869a8f3810fd"
+  },
+  "linux_native_library_sha256": "8e7517f1a5b81781d34fde28539486a08880695b923a231974ac7764dac49b22",
+  "linux_exit": 0,
+  "linux_log_sha256": {
+    "dart.log": "08c493c035f08942588b19f7b441293c4d10ec3486b757c295a54d825eacff12",
+    "pub-get.log": "c983dbe3eae7134a993641bddf23ee31f9a1f53bee421b47a9dbe76c7d116d88",
+    "worker.log": "5b5bafb3e5f9d08bfa10bf321a474579070a8239edb883cdcdac33de165fd0c9",
+    "abi.log": "bff8070fa5e2b162413522e820f52ebf5e2ec742dead7432edfe2bba1dda5c79",
+    "rust.log": "8f481b02854fea3c394e19aae74bb4bbec4cfbe68ba31d5356cf0663457ff2fa",
+    "rust-setup-failed.log": "6a6a932ef09ba047d72ddc69c61c75d59f50b9a3b813aec7e6d94b222df124b3",
+    "build.log": "507b9649e08443aa83e6290265ba9d7f4a7d63952939568f9dd38c034f018828"
+  },
+  "test_isolation_followup": {
+    "path": "packages/connectanum_bench/test/native_transport_copy_abi_test.dart",
+    "original_sha256": "6c585bb7c3961fbfee28d6e72b8f00751c1cc99ef06a81684b2490920056f44f",
+    "final_sha256": "b254172b80b35b6879cee487da66da6ea963a5a279cb3fbd7952059fdbf8732e",
+    "reason": "Run exact comparisons in a fresh process outside shared Rust counter mutations.",
+    "canonical_resolver": "nativeBenchTestLibrary: explicit environment override, then test-enabled/release build; excludes stale debug preference."
+  },
+  "macos_native_library_sha256": "295357f210e9d0a4c8e583696b16e85c73c3b145c50f0cf86abf531eb414a730",
+  "macos_canonical_ffi_test_library_sha256": "1d61a04c2c67603eba6966e8482677caff954a068bce62037d8effea4cc92627",
+  "final_source_sha256": {
+    "native/transport/ct_core/src/io_stream.rs": "64ec5690831b4c58d2f4502ed3848433c16602ae7d1899d1a9a6dd7713e1b73e",
+    "native/transport/ct_core/src/lib.rs": "055f2e79d47efee3283b6c5f4bbfade21745b65bd7223575e4e1adddb280104c",
+    "native/transport/ct_ffi/src/runtime/ffi.rs": "db0e8c433f8d36b02e9b1df4d8c863a4a616fb4dfafc6f5fc3ebb51f3d9718bf",
+    "packages/connectanum_bench/lib/src/transport_copy_metrics.dart": "bcce5f6a5d68e789801c9df369471ce0d1a814e55b5cb6dfcce566f3e2e62cbc",
+    "packages/connectanum_bench/pubspec.yaml": "2407ffdabc0f0ee88a99d38dd6714d41a833788563b2b0c9299e8682f42871cb",
+    "packages/connectanum_bench/test/transport_copy_metrics_test.dart": "95e6c6acc8c5c55a9fc3e03b9c6a8dac0deac027af520de8dbbfafd5ccb39f13",
+    "packages/connectanum_bench/test/wamp_transport_integration_test.dart": "67fb001efb96a72e8d90c25a8da61e18730f864c73d4fbc17d78b16653f23b21",
+    "packages/connectanum_bench/tool/wamp_client_main.dart": "50b29fc822d705db03bd785fe915e82a0de671f52853e29de6d0b6d4d17b4a17",
+    "packages/connectanum_client/lib/src/transport/native/ffi_bindings.dart": "139a20b87ed6ab9647923ddd68295cf691d778baa29adc194673803e3a428e7a",
+    "packages/connectanum_client/lib/src/transport/native/runtime.dart": "b291cc1c23f262b5f3e4cbc681c8dcbc7e0cfb7af8a860f917dd0a0f62294935",
+    "packages/connectanum_router/lib/src/native/ffi_bindings.dart": "8d6339d3790abb19752dcd20cdfb8464564323f89bea8849c0236b3c33a8a92d",
+    "packages/connectanum_router/lib/src/native/runtime.dart": "ed8c55b208d10b15a905a37027af0285bbd16a0f533026632e6ccee00777e2ed",
+    "tool/test_wamp_serializer_compare.py": "64a032ceb02b9d091b01f8c79d8809e5633b563715c1ef2f0fefb4451e1d0f02",
+    "tool/wamp_serializer_compare.py": "d9f49d4b65070b8af0e2d64c3b774328d0a09eb696d0564815eb704d34da64a1",
+    "packages/connectanum_bench/test/native_transport_copy_abi_test.dart": "b254172b80b35b6879cee487da66da6ea963a5a279cb3fbd7952059fdbf8732e"
+  },
+  "final_linux_evidence": {
+    "/tmp/connectanum-native-io-copy-linux-evidence/dart.log": {
+      "sha256": "08c493c035f08942588b19f7b441293c4d10ec3486b757c295a54d825eacff12"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/canonical-resolver.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/dart-isolated.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/dart-canonical-resolver.log": {
+      "sha256": "007415bda714af2f23d8b5c97f02ea59d1f100df43d97fdc36b52899ef83460e"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/pub-get.log": {
+      "sha256": "c983dbe3eae7134a993641bddf23ee31f9a1f53bee421b47a9dbe76c7d116d88"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/old-canonical-resolver.log": {
+      "sha256": "007415bda714af2f23d8b5c97f02ea59d1f100df43d97fdc36b52899ef83460e"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/dart-isolated.log": {
+      "sha256": "007415bda714af2f23d8b5c97f02ea59d1f100df43d97fdc36b52899ef83460e"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/worker.log": {
+      "sha256": "5b5bafb3e5f9d08bfa10bf321a474579070a8239edb883cdcdac33de165fd0c9"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/abi.log": {
+      "sha256": "bff8070fa5e2b162413522e820f52ebf5e2ec742dead7432edfe2bba1dda5c79"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/old-isolated.log": {
+      "sha256": "0af14033344ab4d9e39e0ff17865c13e098466603c7c962840587491d6e4ffb8"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/rust.log": {
+      "sha256": "8f481b02854fea3c394e19aae74bb4bbec4cfbe68ba31d5356cf0663457ff2fa"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/full-mode.log": {
+      "sha256": "a06305c0496e7d189d7218a6e5fe8e55a27ab36c8ce31ff5ed636aa1b1c8b9f2"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/full-mode.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/rust-setup-failed.log": {
+      "sha256": "6a6a932ef09ba047d72ddc69c61c75d59f50b9a3b813aec7e6d94b222df124b3"
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/old-isolated.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-linux-evidence/build.log": {
+      "sha256": "507b9649e08443aa83e6290265ba9d7f4a7d63952939568f9dd38c034f018828"
+    }
+  },
+  "final_logs": {
+    "/tmp/connectanum-native-io-copy-full-mode-before.log": {
+      "sha256": "b70d6978e9031eb4a4e0fa03015005c4500feae6f3952543e5591c45a88a12a0"
+    },
+    "/tmp/connectanum-native-io-copy-full-mode-before.exit": {
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "exit": 1
+    },
+    "/tmp/connectanum-native-io-copy-full-mode-after.log": {
+      "sha256": "37f34e0276710357d1a49ac813dda49e27c612bcb6a2b820c54d1212726e5a73"
+    },
+    "/tmp/connectanum-native-io-copy-full-mode-after.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-verify.log": {
+      "sha256": "d2a22a4527cc3de5bce3dc2379e81f14ad1c6deb1b5dabb38fdd57a136559c79"
+    },
+    "/tmp/connectanum-native-io-copy-verify.exit": {
+      "sha256": "9d9b18720961e9b4689fd763b85e7b6f36160ccd3a8a1c9ddc5103bb0f66c396",
+      "exit": 143
+    },
+    "/tmp/connectanum-native-io-copy-verify-final.log": {
+      "sha256": "799ddffd46a417bcbaa62358122343f3535dd0560f67db3389ae8fd53b82ba09"
+    },
+    "/tmp/connectanum-native-io-copy-verify-final.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-fast-isolated-final.log": {
+      "sha256": "ad7bcc8954f2be2c04014a4928ad04d062faa15a5e9b2f2192cbe33f1a361531"
+    },
+    "/tmp/connectanum-native-io-copy-fast-isolated-final.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-dart-abi-old-canonical-resolver.log": {
+      "sha256": "007415bda714af2f23d8b5c97f02ea59d1f100df43d97fdc36b52899ef83460e"
+    },
+    "/tmp/connectanum-native-io-copy-dart-abi-old-canonical-resolver.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-probe-debug.log": {
+      "sha256": "f995e4f2c8d1d1fb9c537adf12780f1cbb992c4271676b1d68ffce9bdef2fe67"
+    },
+    "/tmp/connectanum-native-io-copy-probe-debug.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-final-local-review.log": {
+      "sha256": "01ace701dd6b8bf112334b59be8ff0e8b2d208c4ad3259fe1cad5db1c3e08303"
+    },
+    "/tmp/connectanum-native-io-copy-final-local-review.exit": {
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "exit": 1
+    },
+    "/tmp/connectanum-native-io-copy-review-native.log": {
+      "sha256": "f3137ec962f1a1201b69ba3327fbd19bcfbddbec4d495c6ecf46df9fe33afd27"
+    },
+    "/tmp/connectanum-native-io-copy-review-native.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-review-report.log": {
+      "sha256": "1758fee3274f2cf3bcd5cd7ca6db2ecfd2abb5a1d78847ca55be65706d24d234"
+    },
+    "/tmp/connectanum-native-io-copy-review-report.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    },
+    "/tmp/connectanum-native-io-copy-final-test-ideas.log": {
+      "sha256": "f014661f43b17938243d62d81c49a1178beb8c5f5dca81981ec78e9dd7e3984d"
+    },
+    "/tmp/connectanum-native-io-copy-final-test-ideas.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "exit": 0
+    }
+  },
+  "canonical_verification": {
+    "fast_exit": 0,
+    "final_verify_exit": 0,
+    "benchmark_cases": 1616,
+    "router_cases": 4958,
+    "core_browser_cases": 4751,
+    "client_browser_cases": 2829,
+    "unchanged_native_only_browser_skips": 20,
+    "note": "Test-only canonical resolver fix follows fast pass; exact fail-first/final focused probes and fresh full verify cover it."
+  },
+  "preceding_hosted_vm_coverage": {
+    "source_commit": "0ec8df065c40053bdba40a594167f4f8417b56b5",
+    "run_id": 37565051795,
+    "job_id": 112617197871,
+    "job_conclusion": "success",
+    "artifact_id": 11460742311,
+    "libraries": {
+      "measurement": "Dart vm handwritten executable lines in LCOV",
+      "sourceScope": "library",
+      "packages": {
+        "connectanum_auth_server": {
+          "covered": 466,
+          "total": 466,
+          "percent": 100.0
+        },
+        "connectanum_bench": {
+          "covered": 3024,
+          "total": 3076,
+          "percent": 98.30949284785436
+        },
+        "connectanum_client": {
+          "covered": 10173,
+          "total": 11012,
+          "percent": 92.38103886669089
+        },
+        "connectanum_core": {
+          "covered": 8861,
+          "total": 9318,
+          "percent": 95.0955140588109
+        },
+        "connectanum_mcp": {
+          "covered": 3779,
+          "total": 3930,
+          "percent": 96.15776081424936
+        },
+        "connectanum_router": {
+          "covered": 18286,
+          "total": 19804,
+          "percent": 92.33488184205211
+        }
+      },
+      "overall": {
+        "covered": 44589,
+        "total": 47606,
+        "percent": 93.66256354241062
+      },
+      "rawOverall": {
+        "covered": 45318,
+        "total": 51044,
+        "percent": 88.7822270981898
+      }
+    },
+    "packaging": {
+      "measurement": "Dart vm executable lines in LCOV",
+      "sourceScope": "packaging",
+      "packages": {
+        "connectanum_auth_server": {
+          "covered": 33,
+          "total": 33,
+          "percent": 100.0
+        },
+        "connectanum_client": {
+          "covered": 388,
+          "total": 402,
+          "percent": 96.51741293532338
+        },
+        "connectanum_router": {
+          "covered": 371,
+          "total": 385,
+          "percent": 96.36363636363636
+        }
+      },
+      "overall": {
+        "covered": 792,
+        "total": 820,
+        "percent": 96.58536585365853
+      },
+      "rawOverall": {
+        "covered": 792,
+        "total": 820,
+        "percent": 96.58536585365853
+      }
+    },
+    "artifact_file_sha256": {
+      "packaging-summary.json": "850609896bf78cb077847ca96881dec5c103d196dabb9324c59d820e5914ecac",
+      "summary.json": "19bf5e27e9826ee22e8d99a8805a8f6d9f6d0cc49bd460faf0e3d9382210e7a0",
+      "packaging-lcov.info": "b0850582930e67323ebafdd86da808d1be6f855b5fb4f2a6a2692d7b29d296ce",
+      "lcov.info": "2a8d6df242c1bdd0e28b7df8e97019aa25560c222cd0483fe6a6d7ec93442345"
+    }
+  }
+}

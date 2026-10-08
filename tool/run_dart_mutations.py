@@ -607,17 +607,23 @@ def main():
                 result['flutterReporterHashes'] = install_flutter_reporter(work, test_root)
             justified = validate_equivalents(equivalents.get(name, {}), mutations, result['sourceHashes'])
             test_files = set()
-            runnable_tests = set()
+            runnable_tests = []
+            seen_tests = set()
             for test in target['tests']:
                 test_path = work / test
                 if test_path.is_dir():
                     test_files.update(test_path.rglob('*.dart'))
-                    runnable_tests.update(test_path.rglob('*_test.dart'))
+                    discovered = sorted(test_path.rglob('*_test.dart'))
                 else:
                     test_files.add(test_path)
-                    runnable_tests.add(test_path)
-            # Stable discovery makes deadline-bound execution reproducible.
-            resolved_tests = sorted(str(path.relative_to(work)) for path in runnable_tests)
+                    discovered = [test_path]
+                for path in discovered:
+                    if path not in seen_tests:
+                        seen_tests.add(path)
+                        runnable_tests.append(path)
+            # Preserve configured priority; sort discovery within each directory.
+            # Earlier isolated failures otherwise hide later assertion evidence.
+            resolved_tests = [str(path.relative_to(work)) for path in runnable_tests]
             if not resolved_tests:
                 raise ValueError(f'No runnable test files for {name}')
             result['resolvedTests'] = resolved_tests

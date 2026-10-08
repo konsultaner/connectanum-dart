@@ -1,0 +1,69 @@
+{
+  "upstream": {
+    "repository": "https://github.com/crossbario/autobahn-python",
+    "revision": "ca1e60c7f7dd78dc2df98a3b7bdc274ae197ae9c",
+    "path": "src/autobahn/wamp/flatbuffers",
+    "license": "MIT",
+    "sha256": {
+      "auth.fbs": "36ee49eaeac001eebaaf0ee229d7c62b844fb43846539ebe4efc0d134863baac",
+      "pubsub.fbs": "193d9f35702df91f8c98d5e9dc732852d91870730244b9d0dc149537247cfd8b",
+      "roles.fbs": "c475274e7ffc35d0716c3c341aa30e99762cf3b8083bb97a67c1f9e399d38fe9",
+      "rpc.fbs": "ded802b4fa0f622f72d2eb0536f77401c0b233d92492c4779522b82a7de56c99",
+      "session.fbs": "267c0665e4cae8faf98af9f098a286b4c839a2b047f67ca8d61a960c3b5a8cad",
+      "types.fbs": "2c6395341b6228ce3803947e4caa9ec3c1eb7a72a01ba5d49263e02a5d3dff3c",
+      "wamp.fbs": "ac332856ee1363d64471ae49c0e75f0feb2615a13e47a6d37d1afa3231a4f6f6",
+      "LICENSE": "ff61657bfe1984c96d932fc0423268097b4b588bc57d47c26e8d680250d6c76d"
+    }
+  },
+  "flatc": "25.9.23",
+  "dart_runtime": {
+    "package": "flat_buffers",
+    "version": "25.9.23"
+  },
+  "rust_runtime": {
+    "crate": "flatbuffers",
+    "version": "25.9.23"
+  },
+  "python_runtime": {
+    "package": "flatbuffers",
+    "version": "25.9.23"
+  },
+  "metadata_extension": {
+    "field": "metadata",
+    "vtable_offset": 8,
+    "encoding": "CBOR options/details dictionary",
+    "capability": "_connectanum_flatbuffers_metadata_v1"
+  },
+  "control_extensions": {
+    "Challenge.method_name": {
+      "vtable_offset": 10,
+      "type": "string"
+    },
+    "Heartbeat": {
+      "union_tag": 26,
+      "wamp_id": 7,
+      "presence_vtable_offset": 10,
+      "presence_default": 7,
+      "presence_bits": { "ping": 1, "incoming": 2, "outgoing": 4 }
+    }
+  },
+  "dart_format_language": "3.10",
+  "compiler_assets": {
+    "linux-x86_64": {
+      "name": "Linux.flatc.binary.g++-13.zip",
+      "sha256": "de0c6ad114a5a686ecf64322528c602c7d4512446a93f290f54f00ee5abea487"
+    },
+    "darwin-arm64": {
+      "name": "Mac.flatc.binary.zip",
+      "sha256": "1e14d2feade6d109fa9c102e6e5ead68f325ed3da1d3022ce08d3222f828d983"
+    },
+    "darwin-x86_64": {
+      "name": "MacIntel.flatc.binary.zip",
+      "sha256": "7a1de9cd4d0e769a39c41f3c59496bd011bc7a94d97baa58b0df8df782dc5c8d"
+    },
+    "windows-amd64": {
+      "name": "Windows.flatc.binary.zip",
+      "sha256": "3d6383193ecd274f5de544a6e03464a87f581befb9fc1dda9cf508fa3cce3127"
+    }
+  }
+}

@@ -10,14 +10,19 @@ dart_workspace_bootstrap
 run_client_fast_tests() {
   local native_client_runtime_ready=1
 
-  if ensure_native_client_test_runtime; then
+  if native_runtime_supported && ensure_rust_env; then
+    build_native_ffi_test_release
     native_client_runtime_ready=0
   fi
 
   dart test packages/connectanum_client/test/client_test.dart
   dart test packages/connectanum_client/test/meta_state_cache_test.dart
   dart test packages/connectanum_client/test/session_e2ee_profile_test.dart
+  dart test packages/connectanum_client/test/session_e2ee_key_selection_test.dart
   dart test packages/connectanum_client/test/session_lazy_reply_test.dart
+  dart test packages/connectanum_client/test/session_flatbuffers_ppt_test.dart
+  dart test packages/connectanum_client/test/session_lazy_payload_lifetime_vm_test.dart --concurrency=1
+  dart test packages/connectanum_client/test/transport/flatbuffers_transport_profile_vm_test.dart --concurrency=1
   dart test packages/connectanum_client/test/session_progressive_file_test.dart
   dart test packages/connectanum_client/test/session_progressive_call_test.dart
   dart test packages/connectanum_client/test/session_goodbye_test.dart
@@ -41,6 +46,9 @@ run_client_fast_tests() {
 
   if [[ "$native_client_runtime_ready" -eq 0 ]]; then
     dart test packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart
+    dart test packages/connectanum_client/test/transport/native/native_owned_buffer_test.dart
+    dart test packages/connectanum_client/test/transport/native/native_owned_segments_test.dart
+    dart test packages/connectanum_client/test/transport/native/flatbuffers_profile_test.dart
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/resource_restart_test.dart --concurrency=1
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
@@ -52,13 +60,22 @@ run_client_fast_tests() {
 }
 
 run_bench_vm_tests() {
+  local bench_native_lib_path=""
+
   printf 'Running bench suite from package root so package-local test config applies on %s.\n' "$(uname -s)"
   if ensure_rust_env && native_runtime_supported; then
     build_native_ffi_test_release
+    bench_native_lib_path="$(native_ffi_test_lib_path)"
   fi
   (
     cd packages/connectanum_bench
-    env -u CONNECTANUM_NATIVE_LIB CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test
+    if [[ -n "$bench_native_lib_path" ]]; then
+      env -u CONNECTANUM_NATIVE_LIB \
+        CONNECTANUM_NATIVE_LIB="$bench_native_lib_path" \
+        CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test
+    else
+      env -u CONNECTANUM_NATIVE_LIB CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test
+    fi
   )
 }
 
@@ -68,19 +85,28 @@ if ensure_rust_env; then
   "$ROOT_DIR/bin/test-native-mutation-tools"
 fi
 python3 tool/test_package_native_artifact.py
+python3 tool/test_native_artifact_consumers.py
 python3 tool/test_package_wamp_app.py
 python3 tool/test_run_wamp_app_lab.py
 python3 tool/test_check_wamp_app_benchmarks.py
 python3 tool/test_verification_scripts.py
 python3 tool/test_mcp_consumer_package_boundary.py
 python3 tool/build_conformance_fixtures.py --check
+python3 tool/check_rustls_source.py
+python3 tool/test_check_rustls_source.py
 python3 tool/test_build_conformance_fixtures.py
+python3 tool/generate_wamp_flatbuffers.py --verify-inputs-only
+python3 tool/test_generate_wamp_flatbuffers.py
+python3 tool/test_generate_bench_flatbuffers.py
+python3 tool/test_wamp_serializer_compare.py
+python3 tool/test_run_wamp_serializer_campaign.py
 python3 tool/check_public_artifact_references.py
 python3 tool/test_public_artifact_references.py
 python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
 python3 tool/test_router_image_mcp_smoke.py
 python3 tool/test_check_coverage.py
+python3 tool/test_run_native_guardmalloc.py
 python3 tool/test_run_dart_mutations.py
 python3 tool/test_flutter_mutations.py
 python3 tool/test_websocket_integration.py
@@ -105,7 +131,11 @@ if ensure_rust_env; then
   if native_runtime_supported; then
     dart test packages/connectanum_router/test/native/native_runtime_test.dart --concurrency=1
   fi
-  dart test packages/connectanum_router/test/router_worker_auth_test.dart
+  dart test packages/connectanum_router/test/router_worker_auth_test.dart \
+    packages/connectanum_router/test/router_flatbuffers_profile_test.dart
+  CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+    dart test packages/connectanum_router/test/router_flatbuffers_native_test.dart \
+      --chain-stack-traces
   CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
     dart test packages/connectanum_router/test/router_worker_session_test.dart \
       --tags zero_copy_publish \

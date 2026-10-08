@@ -6,6 +6,24 @@ import '../serializer/cbor/serializer_missing_messages_test.dart'
     as cbor_missing;
 import '../serializer/cbor/serializer_ppt_binary_test.dart' as cbor_ppt;
 import '../serializer/cbor/serializer_test.dart' as cbor_serializer;
+import '../serializer/flatbuffers_binding_test.dart' as flatbuffers_binding;
+import '../serializer/flatbuffers_validation_test.dart'
+    as flatbuffers_validation;
+import '../serializer/flatbuffers_wire_writer_test.dart' as flatbuffers_writer;
+import '../serializer/flatbuffers_message_writer_test.dart'
+    as flatbuffers_message_writer;
+import '../serializer/flatbuffers_cbor_validation_test.dart'
+    as flatbuffers_cbor_validation;
+import '../serializer/flatbuffers_frame_test.dart' as flatbuffers_frame;
+import '../serializer/flatbuffers_fragments_test.dart' as flatbuffers_fragments;
+import '../serializer/flatbuffers_message_reader_test.dart'
+    as flatbuffers_message_reader;
+import '../serializer/flatbuffers_metadata_roundtrip_test.dart'
+    as flatbuffers_metadata_roundtrip;
+import '../serializer/flatbuffers_metadata_access_test.dart'
+    as flatbuffers_metadata_access;
+import '../serializer/flatbuffers_session_profile_test.dart'
+    as flatbuffers_session_profile;
 import '../serializer/json/binary_codec_test.dart' as json_binary;
 import '../serializer/json/serializer_test.dart' as json_serializer;
 import '../serializer/msgpack/codec_test.dart' as msgpack_codec;
@@ -39,6 +57,17 @@ void main() {
   group('CBOR missing messages', cbor_missing.main);
   group('CBOR PPT binary', cbor_ppt.main);
   group('CBOR serializer', cbor_serializer.main);
+  group('FlatBuffers binding', flatbuffers_binding.main);
+  group('FlatBuffers validation', flatbuffers_validation.main);
+  group('FlatBuffers writer', flatbuffers_writer.main);
+  group('FlatBuffers message writer', flatbuffers_message_writer.main);
+  group('FlatBuffers CBOR validation', flatbuffers_cbor_validation.main);
+  group('FlatBuffers frame', flatbuffers_frame.main);
+  group('flatbuffers fragments', flatbuffers_fragments.main);
+  group('FlatBuffers message reader', flatbuffers_message_reader.main);
+  group('FlatBuffers metadata roundtrip', flatbuffers_metadata_roundtrip.main);
+  group('FlatBuffers metadata access', flatbuffers_metadata_access.main);
+  group('FlatBuffers session profile', flatbuffers_session_profile.main);
   group('JSON binary', json_binary.main);
   group('JSON serializer', json_serializer.main);
   group('MessagePack codec', msgpack_codec.main);

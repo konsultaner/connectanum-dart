@@ -1,0 +1,180 @@
+{
+  "source_revision": "a5c6aaf9a475ac983ca2397a063646d600f3ba1f",
+  "execution_status": "completed",
+  "driver_exit": 0,
+  "overlap_detected": false,
+  "inputs_unchanged": true,
+  "working_tree_clean": true,
+  "cases": 48,
+  "warmup_passes": 3,
+  "measured_passes": 7,
+  "completed_rows": 1440,
+  "comparison_status": "failed",
+  "findings_count": 2129,
+  "finding_categories": {
+    "missing_transport_copy_bytes": 756,
+    "parity_gate_failure": 276,
+    "zero_baseline_metric": 336,
+    "missing_tls_copy_bytes": 504,
+    "missing_websocket_mask_copy_bytes": 252,
+    "measured_window_below_10000ms": 5
+  },
+  "metric_summary": {
+    "allocated_bytes_per_operation": {
+      "failed_cases": 48,
+      "total_cases": 48,
+      "min_median_ratio": 0.973170178753696,
+      "median_of_case_median_ratios": 1.36425665924077,
+      "max_median_ratio": 2.245154376682405
+    },
+    "cpu_us_per_operation": {
+      "failed_cases": 48,
+      "total_cases": 48,
+      "min_median_ratio": 1.095818645121052,
+      "median_of_case_median_ratios": 1.4366445614211854,
+      "max_median_ratio": 2.1509857024778856
+    },
+    "gc_pause_us_per_operation": {
+      "failed_cases": 0,
+      "total_cases": 48,
+      "min_median_ratio": 1.0,
+      "median_of_case_median_ratios": 1.0,
+      "max_median_ratio": 1.0
+    },
+    "latency_p95_ms": {
+      "failed_cases": 48,
+      "total_cases": 48,
+      "min_median_ratio": 1.0689702454408336,
+      "median_of_case_median_ratios": 1.2868156251869878,
+      "max_median_ratio": 1.9353060632434
+    },
+    "latency_p99_ms": {
+      "failed_cases": 48,
+      "total_cases": 48,
+      "min_median_ratio": 1.0665701881331404,
+      "median_of_case_median_ratios": 1.248242474021273,
+      "max_median_ratio": 2.0245353159851303
+    },
+    "summed_sampled_peak_rss_bytes": {
+      "failed_cases": 36,
+      "total_cases": 48,
+      "min_median_ratio": 0.9921462225611417,
+      "median_of_case_median_ratios": 1.0076878916188785,
+      "max_median_ratio": 1.0524401116299407
+    },
+    "throughput_mbps": {
+      "failed_cases": 48,
+      "total_cases": 48,
+      "min_median_ratio": 0.49390078206741456,
+      "median_of_case_median_ratios": 0.7043135622436432,
+      "max_median_ratio": 0.9589100791446241
+    }
+  },
+  "sample_cases": [
+    {
+      "id": "rpc_rawsocket_clear_dart_values",
+      "throughput_ratio": 0.5117051296755949,
+      "p95_ratio": 1.9054090785539548
+    },
+    {
+      "id": "rpc_rawsocket_clear_native_native_buffer",
+      "throughput_ratio": 0.7291880663406698,
+      "p95_ratio": 1.2899690562145436
+    },
+    {
+      "id": "rpc_rawsocket_clear_native_pre_encoded_span",
+      "throughput_ratio": 0.6688944885642171,
+      "p95_ratio": 1.3403254972875227
+    }
+  ],
+  "artifact_file_sha256": {
+    "manifest.json": "4151d76b5e4bcf7cbf665c41ea24d789187c24b24505c181e8b274d4a0fb8c66",
+    "comparison.json": "346b80a896499025847844b0367fd8d3697c0b9ae970e42a13b09953e8416524",
+    "comparison.md": "81cc0c85ea85df475cef52fd43076149a6d47d6a8550088c5bb9b7bb9afc84ad",
+    "driver.log": "e1917fc9ac23bfa54621139ae28b30b04c786d7d4f06d05a9c35eacb14d2ba1b"
+  },
+  "run": "https://github.com/konsultaner/connectanum-dart/actions/runs/37582544124",
+  "replay_exit": 1,
+  "replay_exact_comparison_fields": {
+    "status": true,
+    "case_count": true,
+    "cases": true,
+    "findings": true,
+    "policy": true
+  },
+  "completed_rows_per_pass": [
+    144,
+    144,
+    144,
+    144,
+    144,
+    144,
+    144,
+    144,
+    144,
+    144
+  ],
+  "uploaded_policy_hash_verified": true,
+  "uploaded_executable_hashes_verified": true,
+  "below_minimum_windows": [
+    {
+      "scenario": "0003_measured",
+      "workload": "pubsub_rawsocket_tls_native_pre_encoded_span_msgpack",
+      "data_window_elapsed_ms": 9999.989
+    },
+    {
+      "scenario": "0005_measured",
+      "workload": "pubsub_websocket_clear_dart_native_buffer_msgpack",
+      "data_window_elapsed_ms": 9999.984
+    },
+    {
+      "scenario": "0007_measured",
+      "workload": "rpc_websocket_tls_dart_native_buffer_msgpack",
+      "data_window_elapsed_ms": 9999.973
+    },
+    {
+      "scenario": "0008_measured",
+      "workload": "pubsub_websocket_clear_native_native_buffer_flatbuffers",
+      "data_window_elapsed_ms": 9999.991
+    },
+    {
+      "scenario": "0009_measured",
+      "workload": "pubsub_rawsocket_clear_dart_values_cbor",
+      "data_window_elapsed_ms": 9999.977
+    }
+  ],
+  "measured_rows": 1008,
+  "summed_client_server_gc_count": 0,
+  "gc_investigation": {
+    "status": "reproduced_actual_gc_timeline_ignored",
+    "collector_source": "packages/connectanum_bench/lib/src/dart_vm_metrics.dart",
+    "raw_event_category": "GC",
+    "raw_collection_events": [
+      "CollectNewGeneration",
+      "CollectOldGeneration"
+    ],
+    "raw_phases": [
+      "B",
+      "E"
+    ],
+    "forced_collection_api": "VmService.getAllocationProfile(gc:true) for every application isolate",
+    "reported_metrics": {
+      "allocated_bytes_delta": 88763696,
+      "gc_count_delta": 0,
+      "gc_pause_us_delta": 0,
+      "current_rss_bytes": 318504960,
+      "peak_rss_bytes": 318504960
+    },
+    "log_sha256": "fe68cd5365e26947389c95b83939b57123d638bc830aca149d94fcca6b3e029c",
+    "probe_sha256": "38887853c4515bf47b83ad979ebc18edd9b9e0cb315f5cc5f60b4087b060d51e",
+    "source_fix_applied": false,
+    "canonical_session_unchanged": 85132,
+    "positive_count_fail_first": {
+      "exit": 1,
+      "log_sha256": "9de53e3b9518cf6353080f089195a86cef7c811a01992894a669f32bcbc997c5"
+    },
+    "sdk_version": "3.13.1 stable macos_arm64",
+    "pinned_source": "https://github.com/dart-lang/sdk/blob/3.13.1/runtime/vm/heap/heap.cc",
+    "local_test_advice": "Qwen completes. Retain pairing/nesting controls. Reject suggestion to return zero for unknown/missing-phase traces; unknown coverage must remain unmeasured."
+  }
+}

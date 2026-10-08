@@ -37,11 +37,11 @@ void main() {
     addTearDown(first.dispose);
 
     final encoded = storage.values.values.single;
-    expect(encoded, contains('ciphertext'));
+    _expectEncryptedEnvelope(encoded);
     expect(encoded, isNot(contains('correct horse battery')));
     expect(encoded, isNot(contains('signing_seed')));
     expect(encoded, isNot(contains('exchange_private_key')));
-    expect(encoded, isNot(contains('alice')));
+    expect(encoded, isNot(contains(jsonEncode('alice'))));
 
     final reopened = await vault.openOrCreate(
       endpoint: endpoint,
@@ -393,6 +393,7 @@ void main() {
         outbox: [pending],
       );
       final encoded = storage.values.values.single;
+      _expectEncryptedEnvelope(encoded);
       expect(encoded, isNot(contains('durable retry plaintext')));
       expect(encoded, isNot(contains('private-contract.pdf')));
       expect(encoded, isNot(contains('application/pdf')));
@@ -437,9 +438,10 @@ void main() {
       ),
     );
     final encoded = storage.values.values.single;
+    _expectEncryptedEnvelope(encoded);
     expect(encoded, isNot(contains('private-conversation-id')));
-    expect(encoded, isNot(contains('dark')));
-    expect(encoded, isNot(contains('ocean')));
+    expect(encoded, isNot(contains(jsonEncode('dark'))));
+    expect(encoded, isNot(contains(jsonEncode('ocean'))));
     await first.dispose();
 
     final reopened = await vault.openOrCreate(
@@ -490,7 +492,8 @@ void main() {
     );
     await first.saveContacts([contact]);
     final encoded = storage.values.values.single;
-    expect(encoded, isNot(contains('bob')));
+    _expectEncryptedEnvelope(encoded);
+    expect(encoded, isNot(contains(jsonEncode('bob'))));
     expect(encoded, isNot(contains('Bob From Phone')));
     await first.dispose();
 
@@ -691,8 +694,8 @@ void main() {
       await session.dispose();
 
       final encoded = utf8.decode(archive);
-      expect(encoded, contains('ciphertext'));
-      expect(encoded, isNot(contains('alice')));
+      _expectEncryptedEnvelope(encoded, backup: true);
+      expect(encoded, isNot(contains(jsonEncode('alice'))));
       expect(encoded, isNot(contains('private-conversation-id')));
       expect(encoded, isNot(contains('Bob From Phone')));
       expect(encoded, isNot(contains('signing_seed')));
@@ -841,6 +844,27 @@ void main() {
     addTearDown(restored.dispose);
     expect(restored.deviceId, deviceId);
   });
+}
+
+void _expectEncryptedEnvelope(String encoded, {bool backup = false}) {
+  final envelope = jsonDecode(encoded) as Map<String, dynamic>;
+  // Random Base64 can spell short words. Only public envelope metadata may be
+  // stored outside the ciphertext; reject any plaintext document fields.
+  expect(
+    envelope.keys,
+    unorderedEquals([
+      'schema',
+      'kdf',
+      'iterations',
+      'memory_kib',
+      'salt',
+      'cipher',
+      'ciphertext',
+      if (backup) ...['format', 'content', 'media'],
+    ]),
+  );
+  expect(envelope['cipher'], 'xsalsa20-poly1305-secretbox');
+  expect(envelope['ciphertext'], allOf(isA<String>(), isNotEmpty));
 }
 
 final class MemoryVaultStorage implements VaultStorage {

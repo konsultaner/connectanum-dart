@@ -14,7 +14,11 @@ run_client_vm_tests() {
   dart test packages/connectanum_client/test/client_test.dart
   dart test packages/connectanum_client/test/meta_state_cache_test.dart
   dart test packages/connectanum_client/test/session_e2ee_profile_test.dart
+  dart test packages/connectanum_client/test/session_e2ee_key_selection_test.dart
   dart test packages/connectanum_client/test/session_lazy_reply_test.dart
+  dart test packages/connectanum_client/test/session_flatbuffers_ppt_test.dart
+  dart test packages/connectanum_client/test/session_lazy_payload_lifetime_vm_test.dart --concurrency=1
+  dart test packages/connectanum_client/test/transport/flatbuffers_transport_profile_vm_test.dart --concurrency=1
   dart test packages/connectanum_client/test/session_progressive_file_test.dart
   dart test packages/connectanum_client/test/session_progressive_call_test.dart
   dart test packages/connectanum_client/test/session_goodbye_test.dart
@@ -33,6 +37,10 @@ run_client_vm_tests() {
 
   if native_runtime_supported; then
     dart test packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart
+    dart test packages/connectanum_client/test/transport/native/native_owned_buffer_test.dart
+    dart test packages/connectanum_client/test/transport/native/flatbuffers_profile_test.dart
+    dart test packages/connectanum_client/test/transport/native/flatbuffers_websocket_network_test.dart --concurrency=1
+    dart test packages/connectanum_client/test/transport/native/native_flatbuffer_frame_test.dart --concurrency=1
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/resource_restart_test.dart --concurrency=1
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
@@ -61,6 +69,10 @@ run_router_zero_copy_publish_tests() {
         test/router_integration_native_test.dart \
         --tags zero_copy_publish \
         --chain-stack-traces
+    CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+      dart test test/router_flatbuffers_native_test.dart --chain-stack-traces
+    CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+      dart test test/router_flatbuffers_session_ppt_test.dart --chain-stack-traces
   )
 }
 
@@ -136,7 +148,9 @@ run_client_browser_websocket_test() {
         test/client_test.dart
         test/meta_state_cache_test.dart
         test/session_e2ee_profile_test.dart
+        test/session_e2ee_key_selection_test.dart
         test/session_lazy_reply_test.dart
+        test/session_flatbuffers_ppt_test.dart
         test/session_progressive_file_test.dart
         test/file_transfer_metadata_test.dart
         test/file_transfer_digest_test.dart
@@ -145,6 +159,7 @@ run_client_browser_websocket_test() {
         test/transport/native/message_binding_test.dart
         test/transport/local
         test/transport/websocket/websocket_transport_web_test.dart
+        test/transport/websocket/flatbuffers_transport_profile_web_test.dart
         test/transport/websocket/websocket_browser_lifecycle_test.dart
         test/transport/websocket/websocket_attempt_lifecycle_test.dart
         test/mcp/form_elicitation_regression_test.dart
@@ -177,6 +192,18 @@ run_client_browser_websocket_test() {
 }
 
 if native_runtime_supported; then
+  python3 tool/check_rustls_source.py
+  python3 tool/test_check_rustls_source.py
+  cargo_with_retry test \
+    --manifest-path native/transport/vendor/rustls/Cargo.toml \
+    --no-default-features \
+    --features std,ring,tls12,connectanum-copy-observer \
+    --lib
+  cargo_with_retry test \
+    --manifest-path native/transport/vendor/tokio-rustls/Cargo.toml \
+    --locked --no-default-features \
+    --features ring,logging,tls12,connectanum-copy-observer \
+    --lib
   cargo_with_retry test --manifest-path native/transport/Cargo.toml -p ct_core
   cargo_with_retry test --manifest-path native/transport/Cargo.toml -p ct_ffi
   cargo_with_retry test \
@@ -192,6 +219,7 @@ fi
 build_native_ffi_test_release
 
 python3 tool/test_package_native_artifact.py
+python3 tool/test_native_artifact_consumers.py
 python3 tool/test_package_wamp_app.py
 python3 tool/test_run_wamp_app_lab.py
 python3 tool/test_check_wamp_app_benchmarks.py
@@ -199,12 +227,18 @@ python3 tool/test_verification_scripts.py
 python3 tool/test_mcp_consumer_package_boundary.py
 python3 tool/build_conformance_fixtures.py --check
 python3 tool/test_build_conformance_fixtures.py
+python3 tool/generate_wamp_flatbuffers.py --verify-inputs-only
+python3 tool/test_generate_wamp_flatbuffers.py
+python3 tool/test_generate_bench_flatbuffers.py
+python3 tool/test_wamp_serializer_compare.py
+python3 tool/test_run_wamp_serializer_campaign.py
 python3 tool/check_public_artifact_references.py
 python3 tool/test_public_artifact_references.py
 python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
 python3 tool/test_router_image_mcp_smoke.py
 python3 tool/test_check_coverage.py
+python3 tool/test_run_native_guardmalloc.py
 python3 tool/test_run_dart_mutations.py
 python3 tool/test_flutter_mutations.py
 python3 tool/test_websocket_integration.py
