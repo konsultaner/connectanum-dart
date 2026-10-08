@@ -41,18 +41,24 @@ run_package_coverage connectanum_core connectanum_core test
 run_package_coverage connectanum_mcp connectanum_mcp test
 run_package_coverage connectanum connectanum test
 run_package_coverage connectanum_client connectanum_client_core test/client_test.dart
+run_package_coverage connectanum_client connectanum_client_copy_metrics test/dart_transport_copy_metrics_test.dart
 run_package_coverage connectanum_client connectanum_client_file test/file_transfer_test.dart test/file_transfer_metadata_test.dart test/file_transfer_digest_test.dart
 run_package_coverage connectanum_client connectanum_client_meta test/meta_state_cache_test.dart
 run_package_coverage connectanum_client connectanum_client_e2ee_profile test/session_e2ee_profile_test.dart
 run_package_coverage connectanum_client connectanum_client_e2ee_key_selection test/session_e2ee_key_selection_test.dart
 run_package_coverage connectanum_client connectanum_client_lazy_reply test/session_lazy_reply_test.dart
 run_package_coverage connectanum_client connectanum_client_flatbuffers_ppt test/session_flatbuffers_ppt_test.dart
+run_package_coverage connectanum_client connectanum_client_flatbuffers_profile test/transport/flatbuffers_transport_profile_vm_test.dart --concurrency=1
 run_package_coverage connectanum_client connectanum_client_progressive_file test/session_progressive_file_test.dart
 run_package_coverage connectanum_client connectanum_client_progressive_call test/session_progressive_call_test.dart
 run_package_coverage connectanum_client connectanum_client_goodbye test/session_goodbye_test.dart
 run_package_coverage connectanum_client connectanum_client_base64 test/transport/native/canonical_base64_io_test.dart
 run_package_coverage connectanum_client connectanum_client_external_buffers test/transport/native/external_byte_buffer_test.dart
 run_package_coverage connectanum_client connectanum_client_owned_buffers test/transport/native/native_owned_buffer_test.dart
+run_package_coverage connectanum_client connectanum_client_owned_segments test/transport/native/native_owned_segments_test.dart --concurrency=1
+run_package_coverage connectanum_client connectanum_client_flatbuffers_native_profile test/transport/native/flatbuffers_profile_test.dart --concurrency=1
+run_package_coverage connectanum_client connectanum_client_flatbuffers_websocket test/transport/native/flatbuffers_websocket_network_test.dart --concurrency=1
+run_package_coverage connectanum_client connectanum_client_flatbuffers_frames test/transport/native/native_flatbuffer_frame_test.dart --concurrency=1
 run_package_coverage connectanum_client connectanum_client_restart test/transport/native/resource_restart_test.dart --concurrency=1
 run_package_coverage connectanum_client connectanum_client_native_files test/transport/native/runtime_file_segment_test.dart
 run_package_coverage \
@@ -124,6 +130,14 @@ printf 'Collecting zero-copy Dart VM coverage for connectanum_router.\n'
       --tags zero_copy_publish \
       --chain-stack-traces \
       --coverage="$coverage_root/raw/connectanum_router_zero_copy"
+  CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+    dart test -p vm test/router_flatbuffers_native_test.dart \
+      --chain-stack-traces \
+      --coverage="$coverage_root/raw/connectanum_router_flatbuffers_native"
+  CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+    dart test -p vm test/router_flatbuffers_session_ppt_test.dart \
+      --chain-stack-traces \
+      --coverage="$coverage_root/raw/connectanum_router_flatbuffers_ppt"
 )
 
 report_on=()

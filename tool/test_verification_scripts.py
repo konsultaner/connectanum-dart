@@ -59,6 +59,69 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def run_vm_coverage_probe(self, failed_suite: str = ''):
+        source = (REPO_ROOT / 'bin/test-coverage').read_text()
+        commands = 'run_package_coverage() {' + source.split(
+            'run_package_coverage() {', 1
+        )[1].split('\nreport_on=()', 1)[0]
+        with tempfile.TemporaryDirectory(prefix='VM coverage launcher ') as temp:
+            root = Path(temp)
+            fake = root / 'dart'
+            fake.write_text('#!/usr/bin/env python3\n' + textwrap.dedent('''\
+                import json, os, sys
+                args = sys.argv[1:]
+                with open(os.environ['TASK_COVERAGE_LOG'], 'a') as output:
+                    output.write(json.dumps({'args': args, 'cwd': os.getcwd(),
+                        'forward': os.environ.get('CONNECTANUM_FORWARD_NATIVE_PUBLISH')}) + '\\n')
+                suite = os.environ['TASK_FAILED_SUITE']
+                sys.exit(73 if suite and suite in args else 0)
+                '''))
+            fake.chmod(0o755)
+            log = root / 'commands.jsonl'
+            environment = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
+                               TASK_COVERAGE_LOG=str(log), TASK_FAILED_SUITE=failed_suite,
+                               TASK_COVERAGE_ROOT=str(root), TASK_REPO_ROOT=str(REPO_ROOT))
+            result = subprocess.run(['bash', '-c', 'set -euo pipefail\n'
+                + 'ROOT_DIR="$TASK_REPO_ROOT"\ncoverage_root="$TASK_COVERAGE_ROOT"\n'
+                + commands], env=environment, text=True, capture_output=True, timeout=20)
+            rows = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+            return result, rows
+
+    def test_vm_coverage_retains_complete_flatbuffers_and_copy_metrics_suites(self):
+        result, rows = self.run_vm_coverage_probe()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        reports = []
+        for package, suite, label in (
+            ('connectanum_client', 'dart_transport_copy_metrics_test.dart', 'copy_metrics'),
+            ('connectanum_client', 'transport/flatbuffers_transport_profile_vm_test.dart', 'flatbuffers_profile'),
+            ('connectanum_client', 'transport/native/native_owned_segments_test.dart', 'owned_segments'),
+            ('connectanum_client', 'transport/native/flatbuffers_profile_test.dart', 'flatbuffers_native_profile'),
+            ('connectanum_client', 'transport/native/flatbuffers_websocket_network_test.dart', 'flatbuffers_websocket'),
+            ('connectanum_client', 'transport/native/native_flatbuffer_frame_test.dart', 'flatbuffers_frames'),
+            ('connectanum_router', 'router_flatbuffers_native_test.dart', 'flatbuffers_native'),
+            ('connectanum_router', 'router_flatbuffers_session_ppt_test.dart', 'flatbuffers_ppt'),
+        ):
+            with self.subTest(suite=suite):
+                matches = [row for row in rows if f'test/{suite}' in row['args']
+                           and (package != 'connectanum_router' or row['forward'] == '1')]
+                self.assertEqual(len(matches), 1)
+                row = matches[0]
+                self.assertEqual(row['cwd'], str(REPO_ROOT / 'packages' / package))
+                for option in ('--name', '--tags', '--exclude-tags'):
+                    self.assertFalse(any(arg == option or arg.startswith(option + '=') for arg in row['args']))
+                report = next(arg for arg in row['args'] if arg.startswith('--coverage='))
+                self.assertTrue(report.endswith(f'/raw/{package}_{label}'))
+                reports.append(report)
+        self.assertEqual(len(set(reports)), len(reports))
+
+    def test_vm_coverage_propagates_added_suite_failures(self):
+        for suite in ('transport/native/native_owned_segments_test.dart',
+                      'router_flatbuffers_session_ppt_test.dart'):
+            with self.subTest(suite=suite):
+                result, rows = self.run_vm_coverage_probe(f'test/{suite}')
+                self.assertEqual(result.returncode, 73)
+                self.assertIn(f'test/{suite}', rows[-1]['args'])
+
     def run_router_coverage_probe(self, *, script: str | None = None,
                                  shared_exit: int = 0, isolated_exit: int = 0):
         source = script or (REPO_ROOT / "bin/test-coverage").read_text()

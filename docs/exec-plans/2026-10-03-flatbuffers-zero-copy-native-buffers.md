@@ -7,6 +7,21 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
 
+Current follow-up (2026-10-08): PR #105 Codecov project regression.
+At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;
+Codecov project coverage fails at 88.693% against master's 93.896%.
+Its report includes two generated WAMP FlatBuffers files already measured
+separately by the local coverage checker. Codecov now uses the same exact
+exclusions; handwritten runtime/serializer code and thresholds remain unchanged.
+The coverage runner also retains eight previously omitted complete suites,
+including native owned segments, FlatBuffers frames/profiles, copy metrics and
+router forwarding variants. Actual added-suite runs pass and contribute 171
+handwritten VM line hits; the merged hosted-report estimate is 93.913%.
+Three fail-first regression methods reproduce the omissions and scope mismatch.
+Fresh baseline `bin/test-fast` passes. Candidate full verification and hosted
+Codecov acceptance are pending.
+Evidence: [coverage scope/proof](../research/2026-10-08-codecov-project-coverage.md).
+
 Current follow-up (2026-10-07): coverage runtime ownership isolation.
 The normal runner isolates remote-auth integration; the coverage runner omitted
 that separation. A focused combined actual run aborts at exit 134 with runtime

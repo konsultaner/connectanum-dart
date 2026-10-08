@@ -1,9 +1,24 @@
 # Project State
 
-Last updated: 2026-10-07.
+Last updated: 2026-10-08.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
+
+Current follow-up (2026-10-08): PR #105 Codecov project regression.
+At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;
+Codecov project coverage fails at 88.693% against master's 93.896%.
+Its report includes two generated WAMP FlatBuffers files already measured
+separately by the local coverage checker. Codecov now uses the same exact
+exclusions; handwritten runtime/serializer code and thresholds remain unchanged.
+The coverage runner also retains eight previously omitted complete suites,
+including native owned segments, FlatBuffers frames/profiles, copy metrics and
+router forwarding variants. Actual added-suite runs pass and contribute 171
+handwritten VM line hits; the merged hosted-report estimate is 93.913%.
+Three fail-first regression methods reproduce the omissions and scope mismatch.
+Fresh baseline `bin/test-fast` passes. Candidate full verification and hosted
+Codecov acceptance are pending.
+Evidence: [coverage scope/proof](research/2026-10-08-codecov-project-coverage.md).
 
 Current follow-up (2026-10-07): coverage runtime ownership isolation.
 The normal runner isolates remote-auth integration; the coverage runner omitted

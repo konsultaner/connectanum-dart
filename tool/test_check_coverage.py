@@ -1,14 +1,20 @@
 from pathlib import Path
 import json
+import re
 import sys
 import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).parent))
-from check_coverage import findings, read_lcov, report
+from check_coverage import GENERATED_FLATBUFFERS_SOURCES, findings, read_lcov, report
 
 
 class CoverageTests(unittest.TestCase):
+    def test_codecov_matches_verified_generated_binding_scope(self):
+        config = (Path(__file__).resolve().parents[1] / 'codecov.yml').read_text()
+        ignored = re.findall(r'^  - "([^"]+)"$', config, re.MULTILINE)
+        self.assertEqual(set(ignored), GENERATED_FLATBUFFERS_SOURCES)
+
     def test_verified_flatbuffers_artifacts_are_measured_separately(self):
         generated = 'packages/connectanum_core/lib/src/serializer/flatbuffers/generated/wamp_wamp.proto_generated.dart'
         handwritten = 'packages/connectanum_core/lib/src/serializer/flatbuffers/runtime.dart'
