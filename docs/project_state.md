@@ -14,23 +14,26 @@ bytes available against the unchanged 16,106,127,360-byte policy requirement.
 Preserve its verified snapshot, inventories and terminal failure evidence; it
 contains no component score and no owner or resource-lease holder remains.
 
-A fail-first cleanup regression now covers the remaining project-owned build
-caches that blocked admission. The helper accepts only the repository's
-gitignored `native/bench/target` and Cargo `target` children of user-owned,
-one-hour-old Connectanum FlatBuffers stages. It requires the Cargo cache tag,
-rejects tracked content, symlink traversal, identity swaps and live command,
-open-file or cwd users, and atomically records tracked/source preservation and
-allocated-byte evidence. Current read-only discovery selects three caches with
-7,509,479,424 allocated bytes; it does not select source or prior mutation
-evidence. All 14 cleanup regressions, all 179 canonical mutation-tool checks and
-all 41 fresh full431 operational checks pass. A fresh concurrency-free
-`bin/test-fast` also exits zero, including real Cargo, router, MCP and consumer
-smokes. Full431 retains the unchanged
-verification, inventories, tests, assertions, operators, deadlines, four
-workers/four Cargo jobs, reserves and independent 95% gates. Commit code and
-state together, then run its clean matching preflight and full collection. Both
-native gates and the detailed measurement report remain open; no
-push/publication.
+The committed cleanup helper covers the remaining project-owned build caches
+that blocked admission. Full431's canonical verification then failed before
+snapshot or mutation collection only because the SIGTERM-resistant WAMP-app
+cleanup smoke took 15.316 seconds against its unchanged 15-second assertion.
+Its preceding native-debug cleanup safely reclaimed an observed 1,991,180,288
+shared bytes and preserved protected hashes. Full431 is terminal and unscored;
+its launch owner and resource lease are gone.
+
+The smoke fixture had copied the full example twice and spent five wall-clock
+seconds polling the deliberately unresponsive child. Its test-only `rsync`
+double now creates the two required workspace shapes, and its test-only sleep
+double maps each 100-ms poll to 10 ms while recording and asserting all exactly
+50 grace polls. The original 15-second assertion, MCP failure, secret absence,
+reverse cleanup, runtime-temp, process-escalation and released-port assertions
+remain. The focused case passes in 4.978 seconds, all 15 WAMP-app tests pass in
+47.393 seconds, and fresh concurrency-free `bin/test-fast` exits zero including
+real Cargo, live WAMP, router, MCP and consumer smokes. Commit the test and state
+together, then run a fresh full432 clean matching preflight and complete
+collection. Both native 95% gates and the detailed measurement report remain
+open; no push/publication.
 
 Work429: full427 and full428 are terminal preflight failures; neither froze a
 snapshot or started timed mutation collection. Full427 eventually failed the

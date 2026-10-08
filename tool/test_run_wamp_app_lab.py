@@ -653,7 +653,9 @@ class RunWampAppLabTests(unittest.TestCase):
             state = temporary / "state"
             adb_log = temporary / "adb.log"
             desktop_log = temporary / "desktop.log"
+            rsync_log = temporary / "rsync.log"
             runtime_tmp_log = temporary / "runtime-tmp.log"
+            sleep_log = temporary / "sleep.log"
             devices = [
                 {
                     "name": "Android Emulator",
@@ -697,6 +699,20 @@ class RunWampAppLabTests(unittest.TestCase):
                     "  exit 0\n"
                     "fi\n"
                     "exit 99\n"
+                ),
+                "rsync": (
+                    "#!/usr/bin/env bash\n"
+                    "destination=\"${!#}\"\n"
+                    "printf '%s\\n' \"$destination\" >>\"$WAMP_APP_TEST_RSYNC_LOG\"\n"
+                    "mkdir -p \"$destination/client\"\n"
+                ),
+                "sleep": (
+                    "#!/usr/bin/env bash\n"
+                    "printf '%s\\n' \"$*\" >>\"$WAMP_APP_TEST_SLEEP_LOG\"\n"
+                    "if [[ \"$1\" == 0.1 ]]; then\n"
+                    "  exec /bin/sleep 0.01\n"
+                    "fi\n"
+                    "exec /bin/sleep \"$@\"\n"
                 ),
                 "dart": (
                     "#!/usr/bin/env bash\n"
@@ -767,7 +783,9 @@ class RunWampAppLabTests(unittest.TestCase):
             environment["PATH"] = f"{temporary}:{environment['PATH']}"
             environment["WAMP_APP_TEST_ADB_LOG"] = str(adb_log)
             environment["WAMP_APP_TEST_DESKTOP_LOG"] = str(desktop_log)
+            environment["WAMP_APP_TEST_RSYNC_LOG"] = str(rsync_log)
             environment["WAMP_APP_TEST_TMPDIR_LOG"] = str(runtime_tmp_log)
+            environment["WAMP_APP_TEST_SLEEP_LOG"] = str(sleep_log)
             started = time.monotonic()
             result = subprocess.run(
                 [
@@ -810,6 +828,20 @@ class RunWampAppLabTests(unittest.TestCase):
             self.assertEqual(
                 runtime_tmp_log.read_text(encoding="utf-8").strip(),
                 str(state / "runtime-tmp"),
+            )
+            self.assertEqual(
+                {
+                    pathlib.Path(path).resolve()
+                    for path in rsync_log.read_text(encoding="utf-8").splitlines()
+                },
+                {
+                    (state / "android-workspace").resolve(),
+                    (state / "ios-workspace").resolve(),
+                },
+            )
+            self.assertEqual(
+                sleep_log.read_text(encoding="utf-8").splitlines().count("0.1"),
+                50,
             )
             with socket.socket() as released:
                 released.bind(("127.0.0.1", port))

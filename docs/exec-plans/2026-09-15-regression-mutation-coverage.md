@@ -67,20 +67,35 @@ tracked content, valid/missing/invalid Cargo tags, top-level and internal
 symlinks, identity swaps, live users, proof collisions, tracked drift,
 hard-link allocation accounting and allowlist boundaries. All 179 canonical
 mutation-tool checks and all 41 full431 operational checks pass without a
-competitor. Fresh concurrency-free `bin/test-fast` also exits zero. Current
-read-only discovery selects three caches totalling
-7,509,479,424 allocated bytes. Full431 runs the helper only after successful
-canonical verification and native-debug cleanup, stores the full preservation
-proof separately and keeps the existing 13-GiB preflight floor plus the
-unchanged 15-GiB pilot admission requirement.
+competitor. The helper runs only after successful canonical verification and
+native-debug cleanup, stores its preservation proof separately and keeps the
+existing 13-GiB preflight floor plus unchanged 15-GiB pilot admission.
 
-Commit implementation and plan state together, then launch full431 from that
-clean fingerprint. Require completed cleanup proof with matching tracked and
-stage inventories before accepting preflight. Freeze fresh exact inventories
-and run matching controls plus complete Core/FFI campaigns with the original
-tests, assertions, operators, deadlines, four workers/four Cargo jobs, evidence
-allowances and independent 95% gates. Both gates and the detailed actual
-runtime/resource report remain open; no push or publication.
+Full431 is a terminal, unscored preflight failure. Canonical verification
+failed before snapshot, inventories or mutation collection when the WAMP-app
+MCP-failure cleanup smoke took 15.316 seconds against its unchanged 15-second
+assertion. Native-debug cleanup had safely reclaimed an observed 1,991,180,288
+shared bytes with protected hashes unchanged. No supervisor, worker or resource
+lease remains.
+
+The smoke's test fixture needlessly copied the complete example twice and paid
+the real five-second grace interval for its deliberately SIGTERM-resistant
+router. Replace only those fixture costs: a logged `rsync` double creates the
+two required workspace shapes, while a logged sleep double maps 100-ms polls to
+10 ms and asserts exactly 50 polls. Keep the production launcher, 15-second
+deadline, escalation path, MCP failure, reverse cleanup, secret/runtime-temp
+and released-port assertions unchanged. The focused case passes in 4.978
+seconds, the complete 15-test file in 47.393 seconds, and a fresh
+concurrency-free `bin/test-fast` exits zero including real Cargo, live WAMP,
+router, MCP and consumer smokes.
+
+Commit the fixture regression and plan state together, then launch full432 from
+that clean fingerprint. Require completed cleanup proof with matching tracked
+and stage inventories before accepting preflight. Freeze fresh exact
+inventories and run matching controls plus complete Core/FFI campaigns with the
+original tests, assertions, operators, deadlines, four workers/four Cargo jobs,
+evidence allowances and independent 95% gates. Both gates and the detailed
+actual runtime/resource report remain open; no push or publication.
 
 ### Work429 TLS Regression Scheduling And Verified Cache Reclamation
 
