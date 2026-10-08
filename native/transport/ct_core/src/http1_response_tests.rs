@@ -208,7 +208,10 @@ async fn assert_tls_response_completion(chunked: bool, len: usize) {
         let (mut server, mut client) = tls_pair().await;
         let body = vec![0x5a; len];
         let expected = expected_response(chunked, &body);
-        let send = async {
+        // Keep sender and receiver on separate Tokio task budgets. JoinSet also
+        // aborts the sender if the outer deadline drops this test future.
+        let mut sender = tokio::task::JoinSet::new();
+        sender.spawn(async move {
             send_counted_response(&mut server, chunked, body).await;
             assert!(
                 !server.get_ref().1.wants_write(),
@@ -220,7 +223,7 @@ async fn assert_tls_response_completion(chunked: bool, len: usize) {
             assert_eq!(&next, b"next");
             send_counted_response(&mut server, false, b"second".to_vec()).await;
             assert!(!server.get_ref().1.wants_write());
-        };
+        });
         let receive = async {
             assert_response_bytes(&mut client, &expected).await;
             client.write_all(b"next").await.unwrap();
@@ -228,7 +231,23 @@ async fn assert_tls_response_completion(chunked: bool, len: usize) {
             let expected = expected_response(false, b"second");
             assert_response_bytes(&mut client, &expected).await;
         };
-        tokio::join!(send, receive);
+        tokio::pin!(receive);
+        tokio::select! {
+            result = sender.join_next() => {
+                result
+                    .expect("HTTP/1 TLS sender task must exist")
+                    .expect("HTTP/1 TLS sender task panicked");
+                receive.await;
+            }
+            () = &mut receive => {
+                sender
+                    .join_next()
+                    .await
+                    .expect("HTTP/1 TLS sender task must exist")
+                    .expect("HTTP/1 TLS sender task panicked");
+            }
+        }
+        assert!(sender.is_empty(), "HTTP/1 TLS sender task was not joined");
     })
     .await
     .expect("bounded HTTP/1 TLS completion test");

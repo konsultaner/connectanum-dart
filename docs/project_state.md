@@ -7,6 +7,42 @@ campaigns without narrowing inventories, test suites, deadlines or evidence gate
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work429: full427 and full428 are terminal preflight failures; neither froze a
+snapshot or started timed mutation collection. Full427 eventually failed the
+WAMP-app smoke deadline at 15.696 seconds versus the unchanged 15-second
+assertion. Full428 failed all three canonical Core attempts because
+`http1_tls_chunked_response_flushes_terminal_frame` exhausted its unchanged
+five-second outer deadline. The TLS regression now runs its sender in a joined
+Tokio task while the receiver remains local, preserving fail-fast panic
+propagation and abort-on-timeout cleanup without changing production code,
+wire assertions or deadlines. The exact test passes ten times and the complete
+345-test Core suite passes five consecutive times. A manual terminal-flush
+mutation is assertion-killed and was restored exactly; formatting and diff
+checks pass.
+
+The first post-fix canonical verification was deliberately stopped by its own
+process-group watcher when unrelated concurrent verification drove available
+space below the unchanged four-GiB reserve; it is not pass evidence. Remove
+only twelve verified-unused, gitignored historical `target/` build caches from
+the retained regression-coverage workspaces. Every file, symlink and mode
+outside those caches remains hash-identical; the proof is
+`out/native-mutation-disk-cleanup429/historical-target-cleanup.json`. This
+reclaimed an observed 11,714,994,176 shared bytes and left 16,781,598,720 bytes
+available.
+
+Verify429 then failed only because its observer matched build words inside an
+unrelated diagnostic shell's `rg` pattern. Verify430 classifies the leading
+executable and arguments instead, passes its focused classifier cases and sees
+no competitor. Its exclusive-lease `bin/verify` exits zero with all Cargo,
+Chrome and Dart2Wasm suites; all 1,898 tracked hashes remain unchanged across
+520 resource samples. Available space stays at least 12,474,425,344 bytes,
+well above the unchanged four-GiB reserve. The log SHA-256 is
+`33767085c5843d760bab330f165330722d1769273e60ae105d9cd73febd06c1a`.
+No owner or lock holder remains. Commit code and state together, then start a
+fresh full429 preflight and snapshot at the matching committed fingerprint.
+Both native 95% gates and the detailed measurement report remain open; no
+push/publication.
+
 Work426: full426 never froze a snapshot or started a timed campaign. Its
 ignored directory contains helper templates only: no launch marker, preflight
 status, manifest, mutation outcome or score exists. Exact process inspection

@@ -38,6 +38,60 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work429 TLS Regression Scheduling And Verified Cache Reclamation
+
+Treat full427 and full428 as terminal preflight failures. Neither froze an
+immutable snapshot, generated matching campaign manifests or started timed
+mutation collection. Full427 eventually failed the WAMP-app smoke deadline at
+15.696 seconds against the unchanged 15-second assertion. Full428 then failed
+all three canonical Core retries because
+`http1_tls_chunked_response_flushes_terminal_frame` exhausted its unchanged
+five-second outer deadline.
+
+Reproduce the TLS failure before changing the test. Keep the 64-byte duplex,
+one-MiB body, accepted-byte checks, TLS `wants_write` checks, exact response
+bytes, keep-alive reuse and outer deadline unchanged. Run the sender in a
+`JoinSet` task while polling the receiver locally so suite contention does not
+confine both halves to one cooperative task budget. Join and propagate sender
+panics on either completion order; dropping the set aborts a sender left behind
+by the outer timeout. The exact regression passes ten times and the complete
+345-test Core suite passes five consecutive times. Temporarily removing the
+terminal production flush makes the existing accepted-byte assertion fail,
+then restoration returns the exact test to green. This is assertion evidence,
+not timeout/crash credit, and production source remains unchanged.
+
+The first post-fix canonical verification is incomplete: an exact
+process-group disk watcher stopped only that verification after an unrelated
+checkout began verification and shared available space crossed below the
+unchanged four-GiB reserve. Do not count forced-stop Dart load errors as product
+failures or pass evidence. Prove twelve old regression-coverage `target/`
+directories are gitignored, unused and contain only removable build caches;
+hash every retained file, symlink and mode outside each cache before and after
+deletion. The completed proof at
+`out/native-mutation-disk-cleanup429/historical-target-cleanup.json` records
+unchanged protected hashes, 11,714,994,176 observed shared bytes reclaimed and
+16,781,598,720 bytes available afterward. Raw logs, coverage, source snapshots
+and mutation evidence remain intact.
+
+Verify429 correctly retained failure evidence but falsely classified a
+diagnostic observer as a competing build because build words appeared only in
+the observer's `rg` pattern. Verify430 classifies the leading executable and
+arguments instead; focused cases cover real and diagnostic shell payloads, and
+the live census reports no competitor. Under one inherited exclusive lease,
+fresh canonical `bin/verify` exits zero with all Cargo, Chrome and Dart2Wasm
+suites. All 1,898 tracked hashes remain unchanged over 520 resource samples;
+available space stays at least 12,474,425,344 bytes against the unchanged
+four-GiB reserve. The final verification log SHA-256 is
+`33767085c5843d760bab330f165330722d1769273e60ae105d9cd73febd06c1a`,
+and no owner or lock holder remains.
+
+Commit code and plan state together, then create a fresh full429
+preflight/snapshot because the test fingerprint changed. Keep exact Core/FFI
+inventories, original tests, assertions, operators, deadlines, four workers/
+four Cargo jobs, reserve and independent 95% gates unchanged. Both complete
+native gates and the detailed actual runtime report remain open; no
+push/publication.
+
 ### Work426 Inherited Lease Descriptor Propagation
 
 Full426 never reached snapshot freeze or timed collection. Its ignored output
