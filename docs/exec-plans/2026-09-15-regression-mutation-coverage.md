@@ -38,6 +38,34 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work426 Inherited Lease Descriptor Propagation
+
+Full426 never reached snapshot freeze or timed collection. Its ignored output
+directory contains helper templates only and has no launch marker, preflight
+status, manifests or mutation outcomes. No full425/full426 supervisor,
+coordinator, worker, Cargo-mutants or analyzer process remains. Do not treat the
+directory as campaign evidence and do not reuse its name for a later run.
+
+The exclusive preflight reproduced a nested-child lease failure in the real
+SIGTERM campaign fixture: it inherited `CONNECTANUM_NATIVE_MUTATION_LEASE_FD`
+without preserving that descriptor through `Popen`, so the nested campaign
+correctly rejected a changed lease identity. Preserve fail-closed acquisition.
+Forward an inherited descriptor only after validating the private lock
+directory and exact descriptor/path device-inode, owner, mode and regular-file
+identity. Missing markers forward no descriptors; malformed, closed, unrelated,
+shared and released descriptors remain failures. Seventeen coordination tests
+cover both the forwarding helper and actual acquisition path. Fresh
+`bin/test-fast` and canonical `bin/verify` pass while launched beneath the same
+exclusive lease, including real Cargo, Chrome and Dart2Wasm suites.
+
+Commit code and plan state together. The commit changes the fingerprint, so use
+a new full427 directory for one concurrency-free matching preflight, immutable
+snapshot, regenerated exact inventories, profile controls and complete Core/FFI
+campaigns. Keep four workers/four Cargo jobs, existing tests, assertions,
+operators, deadlines, disk reserve and independent 95% gates unchanged. Full425
+remains partial evidence; full426 has no campaign evidence; both gates and the
+actual measurement report remain open. Do not push or publish.
+
 ### Work425 Process Census Timeout Recovery
 
 Treat full425 as terminal partial evidence only. It froze exact inventories of

@@ -120,6 +120,70 @@ class CoordinationTests(unittest.TestCase):
                 with coordination.resource_lease(exclusive=False):
                     self.fail('Inherited child weakened the parent lease')
 
+    def test_inherited_descriptor_forwarding_is_empty_without_marker(self):
+        environment = os.environ.copy()
+        environment.pop(coordination.LEASE_FD_ENV, None)
+        self.assertEqual(coordination.inherited_resource_lease_pass_fds(environment), ())
+
+    def test_inherited_descriptor_forwarding_validates_exact_lock_identity(self):
+        with coordination.resource_lease(exclusive=True) as lease:
+            environment = lease.child_environment()
+            self.assertEqual(
+                coordination.inherited_resource_lease_pass_fds(environment),
+                lease.pass_fds,
+            )
+
+    def test_inherited_descriptor_forwarding_rejects_malformed_values(self):
+        for raw_fd in ('', '-1', '3abc', '\u0663'):
+            with self.subTest(raw_fd=raw_fd), self.assertRaisesRegex(
+                    RuntimeError, 'Invalid inherited'):
+                coordination.inherited_resource_lease_pass_fds({
+                    'CODEX_HOME': os.environ['CODEX_HOME'],
+                    coordination.LEASE_FD_ENV: raw_fd,
+                })
+
+    def test_acquire_rejects_malformed_inherited_descriptor_without_locking(self):
+        environment = {
+            'CODEX_HOME': os.environ['CODEX_HOME'],
+            coordination.LEASE_FD_ENV: '3abc',
+        }
+        with self.assertRaisesRegex(RuntimeError, 'Invalid inherited'):
+            coordination.acquire_resource_lease(
+                exclusive=True,
+                environment=environment,
+            )
+        with coordination.resource_lease(exclusive=True):
+            pass
+
+    def test_inherited_descriptor_forwarding_rejects_closed_descriptor(self):
+        lease = coordination.acquire_resource_lease(exclusive=True)
+        environment = lease.child_environment()
+        lease.close()
+        with self.assertRaisesRegex(RuntimeError, 'identity changed'):
+            coordination.inherited_resource_lease_pass_fds(environment)
+
+    def test_inherited_descriptor_forwarding_rejects_unrelated_descriptor(self):
+        with coordination.resource_lease(exclusive=True):
+            unrelated = os.open(Path(self.temporary.name) / 'forward-unrelated',
+                                os.O_RDWR | os.O_CREAT, 0o600)
+            self.addCleanup(os.close, unrelated)
+            environment = {
+                'CODEX_HOME': os.environ['CODEX_HOME'],
+                coordination.LEASE_FD_ENV: str(unrelated),
+            }
+            with self.assertRaisesRegex(RuntimeError, 'identity changed'):
+                coordination.inherited_resource_lease_pass_fds(environment)
+            os.fstat(unrelated)
+
+    def test_only_active_exclusive_descriptors_can_be_forwarded(self):
+        with coordination.resource_lease(exclusive=False) as shared:
+            with self.assertRaisesRegex(RuntimeError, 'active exclusive'):
+                shared.pass_fds
+        exclusive = coordination.acquire_resource_lease(exclusive=True)
+        exclusive.close()
+        with self.assertRaisesRegex(RuntimeError, 'active exclusive'):
+            exclusive.pass_fds
+
     def test_inherited_descriptor_must_match_the_secure_lock_path(self):
         unrelated = os.open(Path(self.temporary.name) / 'unrelated',
                             os.O_RDWR | os.O_CREAT, 0o600)

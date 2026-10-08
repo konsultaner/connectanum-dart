@@ -13,6 +13,7 @@ import unittest
 from unittest.mock import patch
 
 import native_coverage
+import native_mutation_coordination as coordination
 import native_mutation_batches as batches
 import native_mutation_timing as timing
 import run_native_mutation_campaign as campaign
@@ -623,7 +624,8 @@ class RealCampaignTests(unittest.TestCase):
                        str(root), '--analyzer', str(self.analyzer), '--output', str(output),
                        '--target', 'core-all', '--batches', '2', '--jobs', '2', '--cargo-jobs', '1']
             with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                  text=True) as process:
+                                  text=True,
+                                  pass_fds=coordination.inherited_resource_lease_pass_fds()) as process:
                 try:
                     deadline = time.monotonic() + 30
                     while time.monotonic() < deadline:

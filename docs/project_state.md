@@ -7,6 +7,28 @@ campaigns without narrowing inventories, test suites, deadlines or evidence gate
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work426: full426 never froze a snapshot or started a timed campaign. Its
+ignored directory contains helper templates only: no launch marker, preflight
+status, manifest, mutation outcome or score exists. Exact process inspection
+confirms that no full425/full426 supervisor, coordinator, worker, Cargo-mutants
+or analyzer owner remains. Preserve full425 as partial raw evidence and do not
+reinterpret the empty full426 directory as a campaign result.
+
+The attempted exclusive-lease preflight exposed a real nested-process defect:
+the campaign's SIGTERM integration fixture inherited the lease environment but
+did not pass the already-open lease descriptor to its child. The child therefore
+failed closed with a resource-lease identity error. A fail-first regression
+reproduces that exact nested launch. Descriptor forwarding now accepts only an
+ASCII decimal descriptor whose open file has the exact secure lock-path identity;
+missing markers forward nothing, while malformed, closed, unrelated, shared or
+released descriptors remain rejected. Seventeen coordination regressions pass,
+and fresh `bin/test-fast` plus canonical `bin/verify` both exit zero while their
+parent holds the exclusive machine lease, including real Cargo, Chrome and
+Dart2Wasm suites. Commit the implementation and state together, then use a fresh
+full427 directory and matching committed fingerprint for preflight, freeze,
+controls and complete Core/FFI collection. Both independent 95% gates and the
+detailed measured report remain open; no push/publication.
+
 Work425: full425 is terminal, incomplete and unscored. Its exact inventories
 contain 1,970 Core and 1,297 FFI candidates. Both fresh 16-batch Core controls
 completed and were independently audited: the same 31 sampled outcomes and 552

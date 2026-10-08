@@ -86,6 +86,24 @@ def _open_file(path):
         ) from error
 
 
+def _parse_inherited_fd(raw_fd):
+    if not raw_fd.isascii() or not raw_fd.isdecimal():
+        raise ResourceLeaseError('Invalid inherited native mutation resource-lease descriptor')
+    return int(raw_fd)
+
+
+def inherited_resource_lease_pass_fds(environment=None):
+    values = os.environ if environment is None else environment
+    raw_fd = values.get(LEASE_FD_ENV)
+    if raw_fd is None:
+        return ()
+    fd = _parse_inherited_fd(raw_fd)
+    path = lease_path(values)
+    _validate_directory(path.parent)
+    _validate_file(fd, path)
+    return (fd,)
+
+
 class ResourceLease:
     def __init__(self, fd, path, *, exclusive, inherited):
         self.fd = fd
@@ -138,9 +156,7 @@ def acquire_resource_lease(*, exclusive, environment=None):
     inherited = False
     raw_fd = values.get(LEASE_FD_ENV) if exclusive else None
     if raw_fd is not None:
-        if not raw_fd.isascii() or not raw_fd.isdecimal():
-            raise ResourceLeaseError('Invalid inherited native mutation resource-lease descriptor')
-        fd = int(raw_fd)
+        fd = _parse_inherited_fd(raw_fd)
         inherited = True
         try:
             _validate_file(fd, path)
