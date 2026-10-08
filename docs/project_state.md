@@ -7,6 +7,31 @@ campaigns without narrowing inventories, test suites, deadlines or evidence gate
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+Work430/431: full430 completed canonical verification and froze exact
+inventories of 1,970 Core and 1,297 FFI candidates, but failed admission before
+the first pilot or mutation phase. Its shared filesystem had 14,686,707,712
+bytes available against the unchanged 16,106,127,360-byte policy requirement.
+Preserve its verified snapshot, inventories and terminal failure evidence; it
+contains no component score and no owner or resource-lease holder remains.
+
+A fail-first cleanup regression now covers the remaining project-owned build
+caches that blocked admission. The helper accepts only the repository's
+gitignored `native/bench/target` and Cargo `target` children of user-owned,
+one-hour-old Connectanum FlatBuffers stages. It requires the Cargo cache tag,
+rejects tracked content, symlink traversal, identity swaps and live command,
+open-file or cwd users, and atomically records tracked/source preservation and
+allocated-byte evidence. Current read-only discovery selects three caches with
+7,509,479,424 allocated bytes; it does not select source or prior mutation
+evidence. All 14 cleanup regressions, all 179 canonical mutation-tool checks and
+all 41 fresh full431 operational checks pass. A fresh concurrency-free
+`bin/test-fast` also exits zero, including real Cargo, router, MCP and consumer
+smokes. Full431 retains the unchanged
+verification, inventories, tests, assertions, operators, deadlines, four
+workers/four Cargo jobs, reserves and independent 95% gates. Commit code and
+state together, then run its clean matching preflight and full collection. Both
+native gates and the detailed measurement report remain open; no
+push/publication.
+
 Work429: full427 and full428 are terminal preflight failures; neither froze a
 snapshot or started timed mutation collection. Full427 eventually failed the
 WAMP-app smoke deadline at 15.696 seconds versus the unchanged 15-second

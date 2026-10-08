@@ -38,6 +38,50 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work430/431 Admission-Safe Project Cache Reclamation
+
+Treat full430 as terminal, complete preflight evidence and a failed collection
+attempt. Canonical `bin/verify` exited zero, all 1,898 tracked files remained
+hash-identical, and the frozen inventories contain exactly 1,970 Core and 1,297
+FFI candidates. The first default-Core pilot admission observed
+14,686,707,712 available bytes against the unchanged 4-GiB reserve, four
+2.5-GiB worker caches and 1-GiB pilot-evidence allowance, requiring
+16,106,127,360 bytes. It therefore failed before starting any phase. Preserve
+the snapshot, inventories, admission report and terminal failure unchanged; no
+counts, score or gate exist.
+
+Reproduce the missing-headroom case before cleanup. Reclaim only caches owned
+by this project and proven unused: the exact gitignored
+`native/bench/target`, plus the `target` child of user-owned Connectanum
+FlatBuffers stage directories under the active temporary root that are at least
+one hour old. Require a plain-path Cargo cache signature, no tracked content,
+stable device/inode/owner/mode identity, and no command, open-file or cwd user.
+Quarantine by atomic rename, recheck identity and users, restore on a failed
+post-rename check, never follow internal symlinks, and preserve/hash every
+tracked file and every non-cache stage entry. Reserve the proof exclusively and
+write completed or failed evidence atomically. Never select prior mutation
+evidence, arbitrary temp directories, source or unrelated build caches.
+
+Fourteen focused cleanup regressions cover exact selection, no-op discovery,
+tracked content, valid/missing/invalid Cargo tags, top-level and internal
+symlinks, identity swaps, live users, proof collisions, tracked drift,
+hard-link allocation accounting and allowlist boundaries. All 179 canonical
+mutation-tool checks and all 41 full431 operational checks pass without a
+competitor. Fresh concurrency-free `bin/test-fast` also exits zero. Current
+read-only discovery selects three caches totalling
+7,509,479,424 allocated bytes. Full431 runs the helper only after successful
+canonical verification and native-debug cleanup, stores the full preservation
+proof separately and keeps the existing 13-GiB preflight floor plus the
+unchanged 15-GiB pilot admission requirement.
+
+Commit implementation and plan state together, then launch full431 from that
+clean fingerprint. Require completed cleanup proof with matching tracked and
+stage inventories before accepting preflight. Freeze fresh exact inventories
+and run matching controls plus complete Core/FFI campaigns with the original
+tests, assertions, operators, deadlines, four workers/four Cargo jobs, evidence
+allowances and independent 95% gates. Both gates and the detailed actual
+runtime/resource report remain open; no push or publication.
+
 ### Work429 TLS Regression Scheduling And Verified Cache Reclamation
 
 Treat full427 and full428 as terminal preflight failures. Neither froze an
