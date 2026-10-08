@@ -1,38 +1,35 @@
 # Project State
 
-Last updated: 2026-10-07
+Last updated: 2026-10-08
 Current branch: `codex/mutation-runner-speed`
 Current milestone: bound mutation-runner disk usage and measure complete native
 campaigns without narrowing inventories, test suites, deadlines or evidence gates.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-Work424: full423 is terminal and unscored. Its default Core pilot froze the
-exact 1,970-candidate inventory and planned 16 fresh sample batches, but a
-same-user local-companion request started during collection. Schema-three
-resource evidence detected that competitor and failed closed: four batches
-completed, four retained cancelled/failed evidence, and later batches never
-started. The supervisor, coordinator and workers are gone; preserve all 246 MB
-of raw full423 evidence. This is neither a valid pilot nor a full collection or
-gate result.
+Work425: full425 is terminal, incomplete and unscored. Its exact inventories
+contain 1,970 Core and 1,297 FFI candidates. Both fresh 16-batch Core controls
+completed and were independently audited: the same 31 sampled outcomes and 552
+baseline tests took 869.77 seconds with the default profile and 848.47 seconds
+with the lean profile, whose peak allocated worker scratch fell from
+2,044,968,960 to 428,662,784 bytes. The subsequent exact Core collection
+stopped after 2,925.87 seconds when one of 564 otherwise valid resource samples
+timed out reading the full `ps` process table. Four batches started, later
+batches cancelled, FFI never started, and the partial outcome counts are not a
+score or gate. Preserve all full425 evidence unchanged. The exact launchd job,
+supervisor, coordinator and workers are gone; the resource lease is free.
 
-A private per-user machine lease now coordinates native mutation work with
-local inference. Companion requests take shared leases from their first action
-through output; mutation campaigns take an exclusive lease before argument
-parsing. The fresh full424 supervisor holds that exclusive lease across freeze,
-profile controls, complete Core/FFI collection and final reaudits, passing the
-same descriptor to campaign children. Secure path/owner/mode/inode checks,
-failure/cancellation release, real companion exclusion and concurrent campaign
-rejection are regression-tested; the existing same-user process census remains
-a second fail-closed guard. All 155 tracked mutation-tool checks, 28 companion
-checks and 36 full424 operational checks pass. Fresh `bin/verify` exits zero,
-including actual Chrome and Dart2Wasm suites (log SHA-256
-`6c2b1668d64183047c89dd7862048fd6da5b5ef7598f32e535fe8b0ca1cf9d62`).
-A separate-worktree verify started after this run began, so retain this as
-functional evidence but create a new concurrency-free post-commit preflight.
-The changed tool fingerprint then requires a fresh snapshot and exact
-inventories before starting full424. Both 95% gates and the measured report
-remain open; no push/publication.
+A fail-first regression now reproduces that one transient five-second process-
+snapshot timeout. Resource sampling retries the entire fresh snapshot up to
+three times with 50-ms spacing, never parses timed-out partial output, and still
+fails closed on a third timeout or any non-timeout process-table failure.
+First-attempt cost, fresh retry identity and strict failure paths are covered.
+The focused resource suite passes 32 tests and all seven native mutation-tool
+suites pass 158 tests. Fresh concurrency-free `bin/verify` exits zero, including
+actual Chrome and Dart2Wasm suites. Commit this code and state together, then
+run a new matching preflight and full426 snapshot because the changed tool
+fingerprint invalidates full425 for certification. Both independent 95% gates
+and the detailed measured report remain open; no push/publication.
 
 Work420: mutation resource evidence is now schema three and fails closed when
 another local companion request is active. Detection is same-user, bounded and

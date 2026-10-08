@@ -17,6 +17,8 @@ import time
 
 COMPANION_SCRIPTS = frozenset(('ollama_companion.py', 'llama_companion.py'))
 COMPANION_ROLES = frozenset(('ask', 'debug', 'judge', 'review', 'summarize', 'tests'))
+PROCESS_SNAPSHOT_ATTEMPTS = 3
+PROCESS_SNAPSHOT_RETRY_SECONDS = .05
 SCHEMA_VERSION = 3
 
 
@@ -86,10 +88,18 @@ def parse_competing_processes(output, uid=None):
 
 
 def competing_processes():
-    result = subprocess.run(
-        ['ps', '-ww', '-axo', 'pid=,ppid=,uid=,state=,args='],
-        capture_output=True, text=True, check=True, timeout=5,
-    )
+    for attempt in range(PROCESS_SNAPSHOT_ATTEMPTS):
+        try:
+            result = subprocess.run(
+                ['ps', '-ww', '-axo', 'pid=,ppid=,uid=,state=,args='],
+                capture_output=True, text=True, check=True, timeout=5,
+            )
+            break
+        except subprocess.TimeoutExpired:
+            if attempt + 1 == PROCESS_SNAPSHOT_ATTEMPTS:
+                raise
+            # A timed-out snapshot may be partial; retry the whole process table.
+            time.sleep(PROCESS_SNAPSHOT_RETRY_SECONDS)
     return parse_competing_processes(result.stdout)
 
 

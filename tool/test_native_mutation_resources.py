@@ -59,11 +59,45 @@ class ResourceTests(unittest.TestCase):
     def test_detector_uses_a_bounded_process_snapshot(self):
         completed = type('Completed', (), {'stdout':
             ' 101 7 501 S /usr/bin/Python /skills/ollama_companion.py review\n'})()
-        with patch.object(resources.subprocess, 'run', return_value=completed) as run:
+        with patch.object(resources.subprocess, 'run', return_value=completed) as run, \
+                patch.object(resources.time, 'sleep') as sleep:
             self.assertEqual(self.real_competing_processes(), [self.companion()])
         run.assert_called_once_with(
             ['ps', '-ww', '-axo', 'pid=,ppid=,uid=,state=,args='],
             capture_output=True, text=True, check=True, timeout=5)
+        sleep.assert_not_called()
+
+    def test_detector_retries_a_transient_snapshot_timeout_from_scratch(self):
+        timed_out = resources.subprocess.TimeoutExpired(
+            cmd=['ps'], timeout=5,
+            output=' 999 7 501 S /usr/bin/Python /skills/ollama_companion.py ask\n')
+        completed = type('Completed', (), {'stdout':
+            ' 101 7 501 S /usr/bin/Python /skills/ollama_companion.py review\n'})()
+        with patch.object(resources.subprocess, 'run',
+                          side_effect=(timed_out, completed)) as run, \
+                patch.object(resources.time, 'sleep') as sleep:
+            self.assertEqual(self.real_competing_processes(), [self.companion()])
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args_list[0], run.call_args_list[1])
+        sleep.assert_called_once_with(resources.PROCESS_SNAPSHOT_RETRY_SECONDS)
+
+    def test_detector_persistent_snapshot_timeout_still_fails_closed(self):
+        timed_out = resources.subprocess.TimeoutExpired(cmd=['ps'], timeout=5)
+        with patch.object(resources.subprocess, 'run', side_effect=timed_out) as run, \
+                patch.object(resources.time, 'sleep') as sleep, \
+                self.assertRaises(resources.subprocess.TimeoutExpired):
+            self.real_competing_processes()
+        self.assertEqual(run.call_count, resources.PROCESS_SNAPSHOT_ATTEMPTS)
+        self.assertEqual(sleep.call_count, resources.PROCESS_SNAPSHOT_ATTEMPTS - 1)
+
+    def test_detector_does_not_retry_a_non_timeout_snapshot_failure(self):
+        denied = resources.subprocess.CalledProcessError(1, ['ps'])
+        with patch.object(resources.subprocess, 'run', side_effect=denied) as run, \
+                patch.object(resources.time, 'sleep') as sleep, \
+                self.assertRaises(resources.subprocess.CalledProcessError):
+            self.real_competing_processes()
+        self.assertEqual(run.call_count, 1)
+        sleep.assert_not_called()
 
     def test_active_companion_blocks_start_without_signalling_foreign_process(self):
         process = self.companion()

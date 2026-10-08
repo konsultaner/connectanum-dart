@@ -38,6 +38,42 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work425 Process Census Timeout Recovery
+
+Treat full425 as terminal partial evidence only. It froze exact inventories of
+1,970 Core and 1,297 FFI candidates. Its fresh default and lean Core controls
+both completed 16 batches and passed matching archived-tool audits: all 31
+sampled mutation outcomes and 552 baseline tests match. Measured mutation time
+was 869.77 seconds by default and 848.47 seconds lean; peak allocated worker
+scratch fell from 2,044,968,960 to 428,662,784 bytes with no incremental cache.
+This validates the lean profile for that frozen fingerprint, not either full
+component gate.
+
+The exact Core collection then stopped incomplete after 2,925.87 seconds. One
+batch's 564th resource sample received `subprocess.TimeoutExpired` while reading
+`ps -ww -axo pid=,ppid=,uid=,state=,args=` with the existing five-second
+deadline. Three peers cancelled, later batches never started and FFI did not
+start. Minimum sampled free space was 16,517,226,496 bytes, peak allocated cache
+was 424,882,176 bytes, peak allocated scratch was 529,530,880 bytes, and no
+competitor was observed. Preserve all raw evidence and never credit the partial
+counts as a score. The exact launchd job is unloaded; supervisor, coordinator,
+workers and lease owner are absent.
+
+Reproduce the infrastructure defect before changing behavior. A transient
+timeout with deliberately stale partial output now fails the old implementation
+and passes only when the detector retries a whole fresh process table. Permit at
+most three five-second attempts separated by 50 ms. Parse only a successful
+snapshot. Persistent timeout, non-timeout process failure, detected competition,
+resource-limit breach and cancellation remain strict uncredited failures. Also
+assert that an ordinary successful sample performs one process read and no
+sleep. The focused resource suite passes 32 tests; all mutation-tool suites pass
+158 tests. A fresh concurrency-free `bin/verify` exits zero with Chrome and
+Dart2Wasm coverage. Full425 cannot certify the changed fingerprint: create a
+clean local commit, run a fresh matching preflight, freeze full426, regenerate
+both exact inventories and rerun matching controls plus complete Core/FFI
+campaigns. Both 95% gates and the detailed report remain open; do not push,
+publish or weaken thresholds.
+
 ### Work424 Machine-Wide Mutation/Inference Lease
 
 Treat full423 as terminal partial evidence only. It froze the exact 1,970-Core-
