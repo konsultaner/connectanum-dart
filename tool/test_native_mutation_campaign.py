@@ -24,7 +24,7 @@ from test_native_mutation_batches import BatchEvidenceTests
 
 
 class CampaignTests(BatchEvidenceTests):
-    def collect(self, jobs=2, reuse=(), worker=None, sample_count=None):
+    def collect(self, jobs=2, reuse=(), worker=None, sample_count=None, resume_from=None):
         full = json.loads((self.directories[0] / 'filtered-inventory.json').read_text())
 
         def prepare(work, output, scope, target):
@@ -42,7 +42,33 @@ class CampaignTests(BatchEvidenceTests):
                 patch.object(collector, 'collect', side_effect=worker or collect):
             return campaign.collect_campaign(self.root, self.root / 'parallel', Path('analyzer'),
                                              'core-all', 2, jobs, 1, reuse,
-                                             sample_count=sample_count)
+                                             sample_count=sample_count,
+                                             resume_from=resume_from)
+
+    def interrupted_campaign(self, completed=(0,), partial=()):
+        import shutil
+
+        source = self.root / 'interrupted'
+        source.mkdir()
+        records = []
+        for index in completed:
+            directory = source / f'batch-{index:04d}'
+            shutil.copytree(self.directories[index], directory)
+            records.append({'index': index, 'directory': str(directory.resolve()),
+                            'reused': False, 'exitCode': 0})
+        for index in partial:
+            directory = source / f'batch-{index:04d}'
+            directory.mkdir()
+            self.write(directory / 'run-manifest.json', {'complete': False})
+        self.write(source / 'campaign-manifest.json', {
+            'complete': False,
+            'target': 'core-all',
+            'batchCount': 2,
+            'jobs': 2,
+            'cargoBuildJobs': 1,
+            'batches': records,
+        })
+        return source
 
     def test_timing_pilot_is_deterministic_and_never_combines_partial_scores(self):
         self.assertEqual(campaign.sample_indices(16, 4), [0, 4, 8, 12])
@@ -102,6 +128,114 @@ class CampaignTests(BatchEvidenceTests):
         self.assertEqual(manifest['maxConcurrentWorkers'], 0)
         self.assertTrue(all(item['reused'] for item in manifest['batches']))
         self.assertFalse((self.root / 'parallel/batch-0000').exists())
+
+    def test_resume_reuses_only_manifested_complete_batches_and_reruns_partial_ones(self):
+        import shutil
+
+        source = self.interrupted_campaign(completed=(0,), partial=(1,))
+        before = {str(path.relative_to(source)): path.read_bytes()
+                  for path in source.rglob('*') if path.is_file()}
+        started = []
+
+        def worker(root, output, analyzer, target, batch=None, **kwargs):
+            started.append(batch[0])
+            shutil.copytree(self.directories[batch[0]], output)
+            return 0
+
+        self.assertEqual(self.collect(worker=worker, resume_from=source), 0)
+        self.assertEqual(started, [1])
+        self.assertEqual(before, {str(path.relative_to(source)): path.read_bytes()
+                                  for path in source.rglob('*') if path.is_file()})
+        manifest = json.loads((self.root / 'parallel/campaign-manifest.json').read_text())
+        self.assertEqual(manifest['resumedFrom']['completedBatchIndexes'], [0])
+        self.assertEqual(manifest['resumedFrom']['excludedIncompleteBatchIndexes'], [1])
+        self.assertEqual(manifest['resumedFrom']['excludedUnrecordedCompleteBatchIndexes'], [])
+        self.assertEqual(manifest['resumedFrom']['pendingBatchIndexes'], [1])
+        self.assertTrue(manifest['batches'][0]['reused'])
+        self.assertFalse(manifest['batches'][1]['reused'])
+        self.assertFalse((self.root / 'parallel/batch-0000').exists())
+        self.assertTrue((self.root / 'parallel/batch-0001').exists())
+
+    def test_resume_excludes_unrecorded_complete_batch_and_reruns_it(self):
+        import shutil
+
+        source = self.interrupted_campaign(completed=(0,))
+        shutil.copytree(self.directories[1], source / 'batch-0001')
+        before = (source / 'batch-0001/run-manifest.json').read_bytes()
+        started = []
+
+        def worker(root, output, analyzer, target, batch=None, **kwargs):
+            started.append(batch[0])
+            shutil.copytree(self.directories[batch[0]], output)
+            return 0
+
+        self.assertEqual(self.collect(worker=worker, resume_from=source), 0)
+        self.assertEqual(started, [1])
+        self.assertEqual((source / 'batch-0001/run-manifest.json').read_bytes(), before)
+        manifest = json.loads((self.root / 'parallel/campaign-manifest.json').read_text())
+        self.assertEqual(manifest['resumedFrom']['completedBatchIndexes'], [0])
+        self.assertEqual(manifest['resumedFrom']['excludedIncompleteBatchIndexes'], [])
+        self.assertEqual(manifest['resumedFrom']['excludedUnrecordedCompleteBatchIndexes'], [1])
+        self.assertEqual(manifest['resumedFrom']['pendingBatchIndexes'], [1])
+
+    def test_resume_rejects_pilots_aliases_and_manual_reuse_before_creating_output(self):
+        source = self.interrupted_campaign()
+        manifest_path = source / 'campaign-manifest.json'
+        manifest = json.loads(manifest_path.read_text())
+        self.write(manifest_path, {**manifest, 'timingOnly': True})
+        with self.assertRaisesRegex(ValueError, 'timing pilot'):
+            self.collect(resume_from=source)
+        self.assertFalse((self.root / 'parallel').exists())
+
+        self.write(manifest_path, manifest)
+        with self.assertRaisesRegex(ValueError, 'manual reuse'):
+            self.collect(reuse=self.directories[:1], resume_from=source)
+        self.assertFalse((self.root / 'parallel').exists())
+
+        with self.assertRaisesRegex(ValueError, 'fresh output'):
+            campaign.collect_campaign(self.root, source, Path('analyzer'),
+                                      'core-all', 2, 2, 1, resume_from=source)
+
+    def test_resume_rejects_invalid_campaign_metadata_before_creating_output(self):
+        source = self.interrupted_campaign()
+        manifest_path = source / 'campaign-manifest.json'
+        manifest = json.loads(manifest_path.read_text())
+        invalid = (
+            {**manifest, 'complete': True},
+            {**manifest, 'target': 'ffi-all'},
+            {**manifest, 'jobs': 1},
+            {**manifest, 'batches': 'not-a-list'},
+            {**manifest, 'batches': [
+                {'index': 0, 'directory': str(source / 'batch-0000'),
+                 'reused': False, 'exitCode': 0},
+                {'index': 0, 'directory': str(source / 'batch-0000'),
+                 'reused': False, 'exitCode': 0},
+            ]},
+        )
+        for changed in invalid:
+            with self.subTest(changed=changed):
+                self.write(manifest_path, changed)
+                with self.assertRaises(ValueError):
+                    self.collect(resume_from=source)
+                self.assertFalse((self.root / 'parallel').exists())
+
+    def test_atomic_manifest_write_preserves_previous_checkpoint_when_replace_fails(self):
+        path = self.root / 'checkpoint.json'
+        path.write_text('{"sequence": 1}\n')
+        with patch.object(campaign.os, 'replace', side_effect=OSError('controlled failure')), \
+                self.assertRaisesRegex(OSError, 'controlled failure'):
+            campaign.write_json_atomic(path, {'sequence': 2})
+        self.assertEqual(json.loads(path.read_text()), {'sequence': 1})
+        self.assertFalse((self.root / '.checkpoint.json.tmp').exists())
+
+        with patch.object(campaign.json, 'dump', side_effect=TypeError('controlled encode failure')), \
+                self.assertRaisesRegex(TypeError, 'controlled encode failure'):
+            campaign.write_json_atomic(path, {'sequence': 2})
+        self.assertEqual(json.loads(path.read_text()), {'sequence': 1})
+        self.assertFalse((self.root / '.checkpoint.json.tmp').exists())
+
+        campaign.write_json_atomic(path, {'sequence': 3})
+        self.assertEqual(json.loads(path.read_text()), {'sequence': 3})
 
     def test_corrupted_reuse_is_rejected_before_workers_start(self):
         path = self.directories[0] / 'mutants.out/logs/mutant-0.log'
@@ -584,6 +718,38 @@ class RealCampaignTests(unittest.TestCase):
                               'speedup': timings[0]['elapsedSeconds'] / timings[1]['elapsedSeconds'],
                               'fourWorkerSeconds': timings[2]['elapsedSeconds'],
                               'fourWorkerSpeedup': timings[0]['elapsedSeconds'] / timings[2]['elapsedSeconds']}))
+
+    def test_real_interrupted_campaign_resumes_into_fresh_output(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / 'repo'
+            fixture(root)
+            interrupted = base / 'interrupted'
+            self.assertEqual(campaign.collect_campaign(root, interrupted, self.analyzer,
+                                                      'core-all', 4, 2, 1), 0)
+            manifest_path = interrupted / 'campaign-manifest.json'
+            manifest = json.loads(manifest_path.read_text())
+            retained = sorted(manifest['batches'], key=lambda item: item['index'])[:2]
+            manifest.update(complete=False, batches=retained)
+            manifest.pop('gatePassed')
+            campaign.write_json_atomic(manifest_path, manifest)
+            before = {str(path.relative_to(interrupted)): path.read_bytes()
+                      for path in interrupted.glob('batch-*/run-manifest.json')}
+
+            resumed = base / 'resumed'
+            self.assertEqual(campaign.collect_campaign(
+                root, resumed, self.analyzer, 'core-all', 4, 2, 1,
+                resume_from=interrupted), 0)
+            self.assertEqual(before, {str(path.relative_to(interrupted)): path.read_bytes()
+                                      for path in interrupted.glob('batch-*/run-manifest.json')})
+            resumed_manifest = json.loads((resumed / 'campaign-manifest.json').read_text())
+            self.assertEqual(resumed_manifest['resumedFrom']['completedBatchIndexes'], [0, 1])
+            self.assertEqual(
+                resumed_manifest['resumedFrom']['excludedUnrecordedCompleteBatchIndexes'], [2, 3])
+            self.assertEqual(resumed_manifest['resumedFrom']['pendingBatchIndexes'], [2, 3])
+            report = json.loads((resumed / 'combined.json').read_text())
+            self.assertTrue(report['evidenceClean'])
+            self.assertEqual(report['counts'], {'killed': report['generated']})
 
     def test_real_pilot_audits_timings_without_a_complete_campaign_or_score(self):
         with tempfile.TemporaryDirectory() as temporary:

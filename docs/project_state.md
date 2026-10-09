@@ -2,10 +2,36 @@
 
 Last updated: 2026-10-09
 Current branch: `codex/mutation-runner-speed`
-Current milestone: bound mutation-runner disk usage and measure complete native
-campaigns without narrowing inventories, test suites, deadlines or evidence gates.
+Current milestone: make full native campaigns restart-resumable, then measure
+both gates without narrowing inventories, tests, deadlines or evidence rules.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work433: full433 is terminal, incomplete and unscored after an external host
+reboot. Its committed `22408f2c` preflight passed canonical verification, froze
+exact inventories of 1,970 Core and 1,297 FFI candidates and reproduced the
+default/lean 31-candidate control equivalence. The exact Core run atomically
+retained 30 of 32 complete batches; batches 30/31 are partial and FFI never
+started. No campaign owner remains, the machine lease is free and all raw
+evidence stays unchanged. These partial outcomes are not a score or gate.
+
+The runner now checkpoints its campaign manifest by fsynced atomic replacement
+and accepts an explicit `--resume-from` only into a fresh output. It requires
+the same target, partition, jobs, Cargo jobs and resource policy, reaudits every
+manifested complete batch through the existing source/tool/compiler/raw-evidence
+checks, and reruns every missing, partial or unrecorded batch. Excluded evidence
+is recorded without kill credit; source campaign files remain immutable. The
+fail-first regressions, a real 8-candidate Cargo resume and all 190 native
+mutation-tool tests pass. Direct inspection of full433 selects exactly batches
+0..29 and excludes partial batches 30/31 while preserving all 33 manifest hashes.
+The pre-change `bin/test-fast` baseline and final `bin/verify` pass; the latter
+includes native, Dart, integration and Chrome/Dart2Wasm suites.
+
+Because the runner itself is fingerprinted, full433 cannot certify the changed
+tool. Commit code/tests/state together after verification, then start a fresh
+matching full434 preflight, controls and complete Core/FFI campaign. Preserve
+the unchanged 95% gates, operators, original tests, assertions, deadlines and
+resource limits. The detailed measured report remains open; no push/publication.
 
 Work432: full432 is terminal, incomplete and unscored. Canonical verification
 passed at committed fingerprint `41831b65`, then the frozen snapshot generated

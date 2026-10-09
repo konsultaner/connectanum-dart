@@ -38,6 +38,43 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work433 Host-Reboot Recovery And Immutable Resume
+
+Treat full433 as terminal partial evidence only. Its committed `22408f2c`
+preflight passed canonical verification and froze exact 1,970-Core and 1,297-FFI
+inventories. Both 31-candidate controls retained identical outcomes and 552
+baseline tests. The exact Core campaign atomically retained 30 of 32 complete
+batches before the host rebooted; batches 30/31 are partial, FFI never started
+and no owner or lease holder remains. Preserve every raw artifact unchanged.
+Neither the partial Core outcomes nor full433 establish a score or gate.
+
+Reproduce the missing restart contract before changing the runner. Resume must
+always target a fresh output and accept only manifest-recorded complete batches;
+reaudit their source, tests, tools, compiler/build environment, resource policy,
+inventories and raw outcomes. Explicitly record and rerun missing, partial and
+unrecorded batches without crediting their retained outcomes. Reject pilots,
+configuration drift, malformed/duplicate records, output aliasing and mixed
+manual reuse before workers start. Keep the prior campaign byte-identical.
+Checkpoint the coordinator manifest with an fsynced atomic replacement so a
+process or host interruption preserves the preceding valid checkpoint.
+
+Fail-first tests reproduce the absent resume API. Focused tests cover atomic
+write/replace failure, metadata rejection and immutable reuse. A real Cargo
+fixture reaudits two manifest-recorded batches, deliberately excludes two
+unrecorded completed directories, reruns them in a fresh output and passes the
+complete 8/8 gate. All 190 native mutation-tool tests pass. The new parser reads
+the actual full433 evidence as exactly 30 reusable batches plus partial 30/31;
+all 33 campaign/batch manifest hashes remain unchanged. The pre-change
+`bin/test-fast` baseline and final `bin/verify` pass; the latter includes native,
+Dart, integration and Chrome/Dart2Wasm suites.
+
+The runner is part of the evidence fingerprint, so no old batch can certify the
+new implementation. After final verification, commit implementation, tests and
+state together and start full434 from a fresh matching snapshot. Repeat controls
+and both exact full gates with unchanged 32 batches, four workers/four Cargo jobs,
+operators, original tests, assertions, deadlines, disk reserve and 95% threshold.
+No push or publication; the detailed actual measurement report remains open.
+
 ### Work432 Transient Rejected Companion Confirmation
 
 Treat full432 as terminal partial evidence only. Its committed `41831b65`

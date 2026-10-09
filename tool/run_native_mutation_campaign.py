@@ -3,6 +3,7 @@
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import hashlib
 import json
 from dataclasses import asdict
 import os
@@ -27,8 +28,110 @@ def sample_indices(count, sample_count):
     return [index * count // sample_count for index in range(sample_count)]
 
 
+def write_json_atomic(path, value):
+    temporary = path.with_name(f'.{path.name}.tmp')
+    try:
+        with temporary.open('x') as destination:
+            json.dump(value, destination, indent=2)
+            destination.write('\n')
+            destination.flush()
+            os.fsync(destination.fileno())
+        os.replace(temporary, path)
+        if os.name != 'nt':
+            descriptor = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def resume_batches(source, output, target, count, jobs, build_jobs, resource_limits):
+    source = source.resolve()
+    output = output.resolve()
+    if source == output:
+        raise ValueError('Resume requires a fresh output directory')
+    manifest_path = source / 'campaign-manifest.json'
+    try:
+        manifest_bytes = manifest_path.read_bytes()
+        manifest = json.loads(manifest_bytes)
+    except (OSError, json.JSONDecodeError, TypeError) as error:
+        raise ValueError('Resume campaign manifest is missing or invalid') from error
+    if type(manifest) is not dict or manifest.get('complete') is not False:
+        raise ValueError('Resume requires an incomplete campaign manifest')
+    if manifest.get('timingOnly') is True or manifest.get('pilotComplete') is True:
+        raise ValueError('Cannot resume a timing pilot')
+    expected_limits = asdict(resource_limits) if resource_limits is not None else None
+    if (manifest.get('target') != target or manifest.get('batchCount') != count
+            or manifest.get('jobs') != jobs or manifest.get('cargoBuildJobs') != build_jobs
+            or manifest.get('resourceLimits') != expected_limits
+            or manifest.get('resourceSchemaVersion')
+            != (resources.SCHEMA_VERSION if resource_limits is not None else None)):
+        raise ValueError('Resume campaign configuration differs')
+    records = manifest.get('batches')
+    if type(records) is not list:
+        raise ValueError('Resume campaign has invalid batch records')
+    directories = []
+    recorded_paths = {}
+    seen = set()
+    for record in records:
+        if type(record) is not dict:
+            raise ValueError('Resume campaign has invalid batch records')
+        index = record.get('index')
+        directory = record.get('directory')
+        reused = record.get('reused')
+        if (type(index) is not int or not 0 <= index < count or type(directory) is not str
+                or not directory or type(reused) is not bool or index in seen):
+            raise ValueError('Resume campaign has invalid or duplicate batch records')
+        path = Path(directory)
+        path = (source / path).resolve() if not path.is_absolute() else path.resolve()
+        if not reused:
+            exit_code = record.get('exitCode')
+            if type(exit_code) is not int or exit_code not in (0, 1):
+                raise ValueError('Resume campaign contains an incomplete batch record')
+            if path != (source / f'batch-{index:04d}').resolve():
+                raise ValueError('Resume campaign batch path differs from its index')
+        directories.append(path)
+        recorded_paths[index] = path
+        seen.add(index)
+
+    excluded_incomplete = []
+    excluded_complete = []
+    for path in sorted(source.glob('batch-*')):
+        name = path.name.removeprefix('batch-')
+        if (path.is_symlink() or not path.is_dir() or len(name) != 4 or not name.isdigit()
+                or not 0 <= int(name) < count):
+            raise ValueError('Resume campaign contains an invalid batch directory')
+        index = int(name)
+        if recorded_paths.get(index) == path.resolve():
+            continue
+        batch_manifest_path = path / 'run-manifest.json'
+        try:
+            batch_manifest = json.loads(batch_manifest_path.read_text())
+        except (OSError, json.JSONDecodeError, TypeError):
+            batch_manifest = None
+        if type(batch_manifest) is dict and batch_manifest.get('complete') is True:
+            excluded_complete.append(index)
+        else:
+            excluded_incomplete.append(index)
+    try:
+        if manifest_path.read_bytes() != manifest_bytes:
+            raise ValueError('Resume campaign manifest changed during inspection')
+    except OSError as error:
+        raise ValueError('Resume campaign manifest changed during inspection') from error
+    return directories, {
+        'directory': str(source),
+        'manifestSha256': hashlib.sha256(manifest_bytes).hexdigest(),
+        'completedBatchIndexes': sorted(seen),
+        'excludedIncompleteBatchIndexes': sorted(excluded_incomplete),
+        'excludedUnrecordedCompleteBatchIndexes': sorted(excluded_complete),
+        'pendingBatchIndexes': sorted(set(range(count)) - seen),
+    }
+
+
 def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1, reuse=(),
-                     *, sample_count=None, resource_limits=None):
+                     *, sample_count=None, resource_limits=None, resume_from=None):
     if (target not in collector.WHOLE_COMPONENTS
             or any(type(value) is not int or value < 1 for value in (count, jobs, build_jobs))
             or jobs > min(count, 64)):
@@ -36,6 +139,14 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
     selected = list(range(count)) if sample_count is None else sample_indices(count, sample_count)
     if sample_count is not None and reuse:
         raise ValueError('Timing pilots require fresh batches, not reused timing measurements')
+    if sample_count is not None and resume_from is not None:
+        raise ValueError('Cannot resume a timing pilot')
+    if reuse and resume_from is not None:
+        raise ValueError('Resume cannot be combined with manual reuse')
+    resumed_from = None
+    if resume_from is not None:
+        reuse, resumed_from = resume_batches(
+            resume_from, output, target, count, jobs, build_jobs, resource_limits)
     started = time.monotonic()
     output.mkdir(parents=True, exist_ok=False)
     scope = native_coverage.snapshot(root, native_coverage.ROOTS, analyzer)
@@ -51,13 +162,15 @@ def collect_campaign(root, output, analyzer, target, count, jobs=4, build_jobs=1
     if resource_limits is not None:
         manifest['resourceLimits'] = asdict(resource_limits)
         manifest['resourceSchemaVersion'] = resources.SCHEMA_VERSION
+    if resumed_from is not None:
+        manifest['resumedFrom'] = resumed_from
     if sample_count is not None:
         manifest.update(timingOnly=True, sampledBatchIndexes=selected)
     manifest_path = output / 'campaign-manifest.json'
 
     def save():
         manifest['elapsedSeconds'] = time.monotonic() - started
-        manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+        write_json_atomic(manifest_path, manifest)
 
     save()
     with tempfile.TemporaryDirectory(prefix='connectanum-native-campaign-') as temporary:
@@ -213,6 +326,8 @@ def _run_main():
                         help='Measure evenly spaced batches only; never create a combined score')
     parser.add_argument('--reuse', type=Path, action='append', default=[],
                         help='Completed immutable batch directory; raw logs are reaudited before reuse')
+    parser.add_argument('--resume-from', type=Path,
+                        help='Incomplete campaign directory; resume into the required fresh output')
     resources.add_arguments(parser)
     args = parser.parse_args()
     if args.jobs < 1:
@@ -228,7 +343,8 @@ def _run_main():
                                 args.target, args.batches, args.jobs, build_jobs, args.reuse,
                                 sample_count=args.pilot_batches,
                                 resource_limits=resources.DiskLimits(
-                                    args.disk_reserve_gib, args.max_cache_gib))
+                                    args.disk_reserve_gib, args.max_cache_gib),
+                                resume_from=args.resume_from)
     except KeyboardInterrupt:
         return 130
     finally:
