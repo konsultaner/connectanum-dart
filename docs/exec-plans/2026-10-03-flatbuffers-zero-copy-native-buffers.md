@@ -7,6 +7,22 @@ Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Merged PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105) at `0e585405`.
 
+Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), master `759d3d4c`.
+Pending release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107).
+
+Current follow-up (2026-10-09): integrate merged CI into the beta.8 release.
+The user merges PR #108 at master `759d3d4c`. Release PR #107 then has one
+execution-plan documentation conflict. Fresh pre-merge `bin/test-fast` passes
+at exit 0 on `85b92916`; baseline evidence is retained under
+`out/ci-release-resync-evidence/`. The merge preserves both the release checklist
+and completed CI acceptance evidence. Package/runtime/crate changes remain the
+approved beta.8 graph; no package is published yet. Canonical `bin/verify`,
+strict package archives and replacement hosted acceptance are pending.
+Required review and protected-master promotion remain mandatory before native
+assets and dependency-ordered pub.dev tags are published. Companion summary
+was initially resource-lease blocked; review then times out on Ollama and cannot
+reach GLM. Manual version/tag review passes; the primary checkout is preserved.
+
 ## Coordinated beta.8 release checkpoint (2026-10-08)
 
 The user requests another version bump and pub.dev deployment after PR #105
@@ -39,13 +55,63 @@ and Chrome/Dart2Wasm (4,751 core and 2,829 client; 20 native-only skips).
 Companion review is attempted but blocked by the active native mutation resource
 lease; manual review is complete and the campaign remains untouched.
 [PR #107](https://github.com/konsultaner/connectanum-dart/pull/107) is ready for
-review. Hosted CI is in progress with no observed failures; required review
-and protected-master promotion are pending. The
+review. Hosted checks pass on original head `7ca882c6`; required review
+and protected-master promotion remain pending. The
 [five-platform native dry run](https://github.com/konsultaner/connectanum-dart/actions/runs/37799443111)
 passes its builds, consumers and release preview with publication skipped.
 Downloaded reports independently verify the exact `7ca882c6` commit, all 170
 profile cases with zero skips, log hashes, lifecycle and 48-byte ABI guards.
-Final measurement notes remain local to avoid restarting CI on the frozen head.
+These production-profile measurements belong to original head `7ca882c6`;
+they do not claim verification of the new integration commit.
+
+Current follow-up (2026-10-09): CI repair for [PR #108](https://github.com/konsultaner/connectanum-dart/pull/108).
+Branch `codex/ci-execution-sharing` starts from merged master `0e585405`;
+the beta.8 release branch/head remains preserved separately. The first run at
+`163699a0` fails before tests because setup-dart registers its matcher from the
+parent composite path. The explicit matcher opt-out at `15bbac7f` fixes shared
+setup; hosted Fast Checks, package dry runs, browser coverage, shared native
+build and completed mutation gates pass. Fresh local `bin/test-fast` and
+canonical `bin/verify` also pass (Rust, VM, consumers, Chrome/Dart2Wasm; 4,751
+core, 2,829 client, 20 unchanged native-only skips).
+
+The replacement [run 37850365570](https://github.com/konsultaner/connectanum-dart/actions/runs/37850365570)
+then exposes missing native benchmark coverage: its process intentionally
+clears `CONNECTANUM_NATIVE_LIB`, while the shared library only exists under
+`out/ci-native`. One ABI test fails and 230 native cases skip. Prepare now
+installs and verifies the same artifact at the conventional ffi-test location,
+using atomic replacement; dependency, source, toolchain, profile and digest
+checks remain enforced. The real Dart discovery regression fails before the
+fix and passes after it. All 14 CI execution contracts pass; the actual native
+copy ABI case passes with the override unset and no skips. Local CI coverage
+executes all 1,642 benchmark cases with zero skips. Its macOS benchmark gate
+measures 97.203% against the 98% Linux CI floor: the exact 35-line difference
+from the passing Linux report is confined to Linux-only CPU/RSS metrics.
+No floor or platform guard is changed. Canonical `bin/verify` with shared
+artifact reuse passes at exit 0 (Rust, VM, consumers, Chrome/Dart2Wasm;
+4,751 core, 2,829 client, 20 unchanged native-only browser skips).
+Replacement hosted Linux acceptance passes on source head `3efbba99`:
+all 1,642 benchmark cases pass, benchmark coverage is 98.329%, handwritten
+VM coverage is 93.916%, and library/packaging policies report no findings.
+
+At source head `3efbba99`, all six hosted MCP shards and independently
+regenerated aggregation complete all 1,101 mutants; the uploaded outcomes
+exactly match the fresh inventory, both baselines pass, and the assertion score
+is 97.37783075089392%, above the original 95% gate. The latest
+[main run 37855378339](https://github.com/konsultaner/connectanum-dart/actions/runs/37855378339)
+passes all 36 jobs, including Linux coverage and required Full Verify. All 47
+PR checks pass on source head `3efbba99`. The user merges PR #108 into master
+at `759d3d4c` on 2026-10-09. Package dry runs and every WampApp platform artifact pass on
+the same source head. The separate macOS
+artifact job initially cannot acquire a runner; its targeted retry passes on
+unchanged artifact head `163699a0` (run 37810537255, attempt 2). Inventories,
+coverage scopes/floors and deadlines stay unchanged. Local companion attempts
+remain blocked by the active native mutation resource lease. Scope and proof:
+[CI plan](../research/2026-10-08-ci-execution-sharing.md).
+
+CI acceptance evidence was retained locally while PR #108 was under review;
+it is now recorded here after that PR is merged. The tested source head stays
+at `3efbba99`. The beta.8 release follows through PR #107.
+
 
 Current follow-up (2026-10-08): PR #105 Codecov project regression.
 At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;

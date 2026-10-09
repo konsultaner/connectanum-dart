@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: [master]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -135,41 +135,44 @@ jobs:
             out/native-memory-controls
           if-no-files-found: error
 
+  native-build:
+    name: Shared ffi-test Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - id: rust
+        run: echo "identity=$(rustc -Vv | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v5
+        with:
+          path: native/transport/target/ffi-test
+          key: ffi-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.identity }}-${{ hashFiles('native/transport/**', 'bin/common.sh') }}
+          restore-keys: ffi-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.identity }}-
+      - name: Build and record the same-run ffi-test library
+        run: |
+          set -euo pipefail
+          source bin/common.sh
+          build_native_ffi_test_release
+          python3 tool/ci_native_artifact.py record --directory out/ci-native \
+            --library "$CONNECTANUM_NATIVE_LIB"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ci-native-ffi-test
+          path: out/ci-native
+          if-no-files-found: error
+
   fast:
     name: Fast Checks
     runs-on: ubuntu-latest
-    # Cold tooling/builds and the full regression/consumer set exceed 20 minutes.
-    # Preserve every suite and its deadline within a larger aggregate budget.
-    timeout-minutes: 45
-
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
-
-      - uses: dart-lang/setup-dart@v1
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy, llvm-tools-preview
-
-      - name: Install native coverage tooling
-        run: cargo install cargo-llvm-cov --locked --version 0.9.1
-
-      - name: Install native mutation tooling
-        run: cargo install cargo-mutants --locked --version 27.1.0
-
-      - id: chrome
-        uses: browser-actions/setup-chrome@v2
-
-      - name: Bootstrap workspace
-        env:
-          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
-        run: bin/bootstrap
-
-      - name: Run fast regression set
-        env:
-          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
-          CONNECTANUM_TEST_LLVM_COVERAGE: '1'
-        run: bin/test-fast
+      - uses: ./.github/actions/setup-ci
+      - name: Format, analyze and verify tooling contracts
+        run: bin/test-ci-fast
 
   wamp-app:
     name: WampApp Consumer
@@ -236,55 +239,30 @@ jobs:
   verify:
     name: Full Verify
     runs-on: ubuntu-latest
-    # Hosted LLVM builds and VM/consumer checks used 41 minutes before browsers.
-    # Allow the bounded 15-minute core and two 7-minute client browser attempts.
-    timeout-minutes: 90
-    needs: [fast, wamp-app, flatbuffers-binding, native-memory]
-
+    timeout-minutes: 5
+    if: always()
+    needs: [fast, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, browser-coverage]
     steps:
       - uses: actions/checkout@v5
-
-      - uses: dart-lang/setup-dart@v1
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy, llvm-tools-preview
-
-      - name: Install native coverage tooling
-        run: cargo install cargo-llvm-cov --locked --version 0.9.1
-
-      - name: Install native mutation tooling
-        run: cargo install cargo-mutants --locked --version 27.1.0
-
-      - id: chrome
-        uses: browser-actions/setup-chrome@v2
-
-      - name: Bootstrap workspace
+      - name: Require every validation lane to succeed
         env:
-          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
-        run: bin/bootstrap
+          CONNECTANUM_CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 tool/check_ci_needs.py
 
-      - name: Run full verification
-        env:
-          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
-          CONNECTANUM_TEST_LLVM_COVERAGE: '1'
-        run: bin/verify
-
-  coverage:
+  verification:
     name: Dart VM Coverage
     runs-on: ubuntu-latest
-    # Includes library and packaging coverage formatting on cold hosted runners.
     timeout-minutes: 90
-    needs: [fast, wamp-app]
+    needs: native-build
     permissions:
       contents: read
       id-token: write
-
     steps:
       - uses: actions/checkout@v5
-
-      - uses: dart-lang/setup-dart@v1
-
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+          native-tools: 'true'
       # Codecov needs OIDC, but public dependency downloads do not need pub auth.
       - name: Use anonymous pub.dev downloads
         run: |
@@ -294,19 +272,23 @@ jobs:
           fi
           unset pub_token_repositories
 
-      - uses: dtolnay/rust-toolchain@stable
-
+      - uses: actions/download-artifact@v8
+        with:
+          name: ci-native-ffi-test
+          path: out/ci-native
+      - name: Validate shared native identity
+        run: python3 tool/ci_native_artifact.py prepare --directory out/ci-native
       - name: Bootstrap workspace
         run: bin/bootstrap
-
       - name: Activate coverage tooling
         run: dart pub global activate coverage 1.15.1
-
-      - name: Collect Dart VM coverage
+      - name: Run Rust, consumers and complete VM suites with coverage
         env:
+          CONNECTANUM_TEST_LLVM_COVERAGE: '1'
+          CONNECTANUM_CI_VERIFY: '1'
+          CONNECTANUM_CI_NATIVE_DIR: out/ci-native
           CONNECTANUM_COVERAGE_DIR: out/coverage
-        run: bin/test-coverage
-
+        run: bin/verify
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
@@ -317,7 +299,6 @@ jobs:
           name: dart-vm
           plugins: noop
           use_oidc: true
-
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v7
@@ -331,60 +312,151 @@ jobs:
           if-no-files-found: error
 
   mutation-gates:
-    name: ${{ matrix.target }} Mutation Gate
+    name: ${{ matrix.group }} Mutation Gate
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ matrix.timeout_minutes || 20 }}
+    needs: native-build
+    timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
       fail-fast: false
       matrix:
-        target: [router-authorization, router-metrics-vm, core-mcp-completion-vm, core-mcp-completion-web, core-registered-vm, core-registered-web, core-subscribed-vm, core-subscribed-web, core-metadata-vm, core-metadata-web, auth-server, client-installer, router-installer, core-e2ee-vm, bench-config, bench-http-auth-vm, core-lazy-vm, core-lazy-web, core-pem-pkcs8-vm, core-pem-pkcs8-web, client-message-binding-vm, router-message-binding-vm, bench-remote-auth-native, mcp-library, router-remote-wamp-vm, router-config-loader-vm, router-remote-authenticator-vm, router-http-auth-vm, core-scram-request-vm, core-scram-request-web, client-meta-cache-vm, client-meta-cache-web, core-base64-vm, core-base64-web]
         include:
-          # MCP processed 999/1101 mutants before the 180-minute job deadline.
-          # Complete campaigns must also finish the restored baseline.
-          # These are job budgets; per-mutant deadlines and thresholds stay fixed.
-          - target: mcp-library
-            timeout_minutes: 240
-          - target: router-remote-wamp-vm
+          - group: core-contracts-vm
+            timeout_minutes: 30
+            chrome: false
+          - group: core-contracts-web
+            timeout_minutes: 60
+            chrome: true
+          - group: bench-config-http
+            timeout_minutes: 30
+            chrome: false
+          - group: core-utils-vm
             timeout_minutes: 45
-          - target: router-config-loader-vm
+            chrome: false
+          - group: client-utils-vm
             timeout_minutes: 45
-          - target: router-remote-authenticator-vm
+            chrome: false
+          - group: installers
             timeout_minutes: 45
-          - target: router-http-auth-vm
-            timeout_minutes: 45
-          - target: core-lazy-web
+            chrome: false
+          - group: router-authorization
+            timeout_minutes: 30
+            chrome: false
+          - group: core-metadata-web
             timeout_minutes: 90
-          - target: core-metadata-web
+            chrome: true
+          - group: auth-server
+            timeout_minutes: 30
+            chrome: false
+          - group: core-e2ee-vm
+            timeout_minutes: 30
+            chrome: false
+          - group: core-lazy-web
             timeout_minutes: 90
-          - target: core-pem-pkcs8-web
+            chrome: true
+          - group: core-pem-pkcs8-web
             timeout_minutes: 90
-          - target: core-base64-web
+            chrome: true
+          - group: client-message-binding-vm
+            timeout_minutes: 90
+            chrome: false
+          - group: router-message-binding-vm
+            timeout_minutes: 90
+            chrome: false
+          - group: bench-remote-auth-native
+            timeout_minutes: 30
+            chrome: false
+          - group: router-remote-wamp-vm
             timeout_minutes: 45
-          - target: client-meta-cache-web
+            chrome: false
+          - group: router-config-loader-vm
             timeout_minutes: 45
-          - target: client-message-binding-vm
-            timeout_minutes: 90
-          - target: router-message-binding-vm
-            timeout_minutes: 90
+            chrome: false
+          - group: router-remote-authenticator-vm
+            timeout_minutes: 45
+            chrome: false
+          - group: router-http-auth-vm
+            timeout_minutes: 45
+            chrome: false
+          - group: client-meta-cache-web
+            timeout_minutes: 45
+            chrome: true
+          - group: core-base64-web
+            timeout_minutes: 45
+            chrome: true
     steps:
       - uses: actions/checkout@v5
-      - uses: dart-lang/setup-dart@v1
-      - uses: dtolnay/rust-toolchain@stable
-        if: matrix.target == 'bench-remote-auth-native'
-      - id: chrome
-        if: matrix.target == 'core-lazy-web' || matrix.target == 'core-mcp-completion-web' || matrix.target == 'core-registered-web' || matrix.target == 'core-subscribed-web' || matrix.target == 'core-metadata-web' || matrix.target == 'core-pem-pkcs8-web' || matrix.target == 'core-scram-request-web' || matrix.target == 'client-meta-cache-web' || matrix.target == 'core-base64-web'
-        uses: browser-actions/setup-chrome@v2
-      - name: Run the complete target AST mutation inventory
+      - uses: ./.github/actions/setup-ci
+        id: setup
+        with:
+          rust: ${{ matrix.group == 'bench-remote-auth-native' && 'true' || 'false' }}
+          chrome: ${{ matrix.chrome && 'true' || 'false' }}
+      - uses: actions/download-artifact@v8
+        if: matrix.group == 'bench-remote-auth-native'
+        with:
+          name: ci-native-ffi-test
+          path: out/ci-native
+      - name: Prepare shared native identity and dependencies
+        if: matrix.group == 'bench-remote-auth-native'
+        run: python3 tool/ci_native_artifact.py prepare --directory out/ci-native
+      - name: Run every target in the group with its complete inventory
         env:
-          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
-          CONNECTANUM_MUTATIONS_NATIVE: ${{ matrix.target == 'bench-remote-auth-native' && '1' || '0' }}
-        run: bin/test-mutations --target "${{ matrix.target }}" --output out/mutations
+          CHROME_EXECUTABLE: ${{ steps.setup.outputs.chrome-path }}
+          CONNECTANUM_MUTATIONS_NATIVE: ${{ matrix.group == 'bench-remote-auth-native' && '1' || '0' }}
+          CONNECTANUM_CI_NATIVE_DIR: ${{ matrix.group == 'bench-remote-auth-native' && 'out/ci-native' || '' }}
+        run: python3 tool/run_ci_mutations.py --group "${{ matrix.group }}" --output out/mutations
       - name: Upload complete inventory, scores and per-mutant logs
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mutations-${{ matrix.target }}
+          name: mutations-${{ matrix.group }}
           path: out/mutations
+          if-no-files-found: error
+
+  mcp-shards:
+    name: MCP Mutation Shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+      - name: Execute the assigned complete-inventory partition
+        run: bin/test-mutations --target mcp-library --shard-index "${{ matrix.shard }}" --shard-count 6 --output out/mutations
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutations-mcp-shard-${{ matrix.shard }}
+          path: out/mutations
+          if-no-files-found: error
+
+  mcp-mutations:
+    name: mcp-library Mutation Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: mcp-shards
+    if: always()
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+      - run: dart pub get
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: mutations-mcp-shard-*
+          path: out/mcp-shards
+      - name: Regenerate the full inventory and enforce its original assertion gate
+        run: python3 tool/merge_dart_mutation_shards.py --input out/mcp-shards --output out/mcp-aggregate --target mcp-library --shard-count 6
+      - name: Require all shard jobs to have succeeded
+        env:
+          SHARD_RESULT: ${{ needs.mcp-shards.result }}
+        run: test "$SHARD_RESULT" = success
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutations-mcp-aggregate
+          path: out/mcp-aggregate
           if-no-files-found: error
 
   browser-coverage:
@@ -393,13 +465,14 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
-      - uses: dart-lang/setup-dart@v1
-      - id: chrome
-        uses: browser-actions/setup-chrome@v2
+      - uses: ./.github/actions/setup-ci
+        id: setup
+        with:
+          chrome: 'true'
       - run: dart pub global activate coverage 1.15.1
       - name: Measure full core browser suite and portable client suites
         env:
-          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          CHROME_EXECUTABLE: ${{ steps.setup.outputs.chrome-path }}
           CONNECTANUM_BROWSER_COVERAGE_DIR: out/coverage-browser
         run: bin/test-browser-coverage
       - if: always()

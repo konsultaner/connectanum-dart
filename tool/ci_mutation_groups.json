@@ -1,0 +1,77 @@
+{
+  "core-contracts-vm": [
+    "router-metrics-vm",
+    "core-mcp-completion-vm",
+    "core-registered-vm",
+    "core-subscribed-vm",
+    "core-scram-request-vm"
+  ],
+  "core-contracts-web": [
+    "core-mcp-completion-web",
+    "core-registered-web",
+    "core-subscribed-web",
+    "core-scram-request-web"
+  ],
+  "bench-config-http": [
+    "bench-config",
+    "bench-http-auth-vm"
+  ],
+  "core-utils-vm": [
+    "core-metadata-vm",
+    "core-pem-pkcs8-vm",
+    "core-base64-vm"
+  ],
+  "client-utils-vm": [
+    "core-lazy-vm",
+    "client-meta-cache-vm"
+  ],
+  "installers": [
+    "client-installer",
+    "router-installer"
+  ],
+  "router-authorization": [
+    "router-authorization"
+  ],
+  "core-metadata-web": [
+    "core-metadata-web"
+  ],
+  "auth-server": [
+    "auth-server"
+  ],
+  "core-e2ee-vm": [
+    "core-e2ee-vm"
+  ],
+  "core-lazy-web": [
+    "core-lazy-web"
+  ],
+  "core-pem-pkcs8-web": [
+    "core-pem-pkcs8-web"
+  ],
+  "client-message-binding-vm": [
+    "client-message-binding-vm"
+  ],
+  "router-message-binding-vm": [
+    "router-message-binding-vm"
+  ],
+  "bench-remote-auth-native": [
+    "bench-remote-auth-native"
+  ],
+  "router-remote-wamp-vm": [
+    "router-remote-wamp-vm"
+  ],
+  "router-config-loader-vm": [
+    "router-config-loader-vm"
+  ],
+  "router-remote-authenticator-vm": [
+    "router-remote-authenticator-vm"
+  ],
+  "router-http-auth-vm": [
+    "router-http-auth-vm"
+  ],
+  "client-meta-cache-web": [
+    "client-meta-cache-web"
+  ],
+  "core-base64-web": [
+    "core-base64-web"
+  ]
+}
