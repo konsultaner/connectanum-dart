@@ -2826,15 +2826,16 @@ void main() {
     test(
       'drops a late native lazy invocation response after session shutdown',
       () async {
-        final transport = _ClosedSendThrowingSessionOptimizedTransport(
-          (message, transport) {
-            if (message is Hello) {
-              transport.receiveObject(Welcome(42, Details.forWelcome()));
-            } else if (message is Register) {
-              transport.receiveObject(Registered(message.requestId, 5355));
-            }
-          },
-        );
+        final transport = _ClosedSendThrowingSessionOptimizedTransport((
+          message,
+          transport,
+        ) {
+          if (message is Hello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+          } else if (message is Register) {
+            transport.receiveObject(Registered(message.requestId, 5355));
+          }
+        });
         final session = await Client(
           realm: 'test.realm',
           transport: transport,
@@ -4158,11 +4159,17 @@ void main() {
       },
     );
     test(
-      'publishLazyPayload reuses matching wamp wrapped payload bytes without decoding',
+      'publishLazyPayload encrypts matching packed CBOR with the client provider',
       () async {
         final transport = _MockTransport();
-        final client = Client(realm: 'test.realm', transport: transport);
+        final provider = _testWampE2eeProvider();
+        final client = Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        );
         var decodeCount = 0;
+        var publishes = 0;
         final packedPayloadBytes = Uint8List.fromList(
           cbor.cborEncode(cbor.CborValue(const ['wrapped'])),
         );
@@ -4173,13 +4180,20 @@ void main() {
             return;
           }
           if (message.id == MessageTypes.codePublish) {
+            publishes++;
             final publish = message as Publish;
             expect(publish.arguments, hasLength(1));
             expect(
               publish.arguments!.single,
-              orderedEquals(packedPayloadBytes),
+              isNot(equals(packedPayloadBytes)),
             );
             expect(publish.argumentsKeywords, isNull);
+            final decoded = provider.unpackPayload(
+              publish.arguments,
+              publish.options!,
+            );
+            expect(decoded.arguments, ['wrapped']);
+            expect(decoded.argumentsKeywords, <String, dynamic>{});
           }
         });
 
@@ -4201,7 +4215,8 @@ void main() {
           options: PublishOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
         );
 
-        expect(decodeCount, 0);
+        expect(decodeCount, 1);
+        expect(publishes, 1);
       },
     );
     test(
@@ -5698,11 +5713,7 @@ class _ImmediateInvocationTransport extends _ImmediateResponseTransport {
       outbound.add(message);
       inbound.add(Registered(message.requestId, 20));
       inbound.add(
-        Invocation(
-          9001,
-          20,
-          InvocationDetails(7, message.procedure, false),
-        ),
+        Invocation(9001, 20, InvocationDetails(7, message.procedure, false)),
       );
       return;
     }

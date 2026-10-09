@@ -13,14 +13,25 @@ typedef MaterializedPayloadView = ({
   Map<String, dynamic>? argumentsKeywords,
 });
 typedef PackedPayloadDecoder =
-    MaterializedPayloadView Function(Uint8List bytes);
+    MaterializedPayloadView Function(
+      Uint8List bytes,
+    );
 
-enum LazyPayloadEncoding { json, messagePack, cbor }
+enum LazyPayloadEncoding {
+  json,
+  messagePack,
+  cbor,
+
+  /// A single schema-defined application FlatBuffer, carried as a PPT value.
+  /// Dynamic arguments in a FlatBuffers WAMP envelope still use [cbor].
+  flatbuffers,
+}
 
 /// A payload view that delays decoding until an application reads its values.
 ///
 /// The view can retain encoded argument slices or one packed PPT payload while
-/// preserving the object that owns the underlying storage through [anchor].
+/// preserving the object that owns the underlying storage through [anchor] or
+/// the optional [storageOwner] when it differs from the public anchor.
 class LazyMessagePayload {
   LazyMessagePayload._({
     this.transparentBinaryPayload,
@@ -37,7 +48,11 @@ class LazyMessagePayload {
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
     this.anchor,
-  }) : _argumentsBytes = argumentsBytes,
+    Object? storageAnchor,
+    _DeferredMaterializedPayload? deferred,
+  }) : _storageAnchor = storageAnchor ?? anchor,
+       _deferred = deferred,
+       _argumentsBytes = argumentsBytes,
        _argumentsKeywordsBytes = argumentsKeywordsBytes,
        _argumentsDecoder = argumentsDecoder,
        _argumentsKeywordsDecoder = argumentsKeywordsDecoder,
@@ -78,6 +93,9 @@ class LazyMessagePayload {
   }
 
   /// Creates a view backed by one packed Payload Passthru Mode value.
+  ///
+  /// [storageOwner] can retain the encoded bytes' allocation separately from
+  /// [anchor], which remains available for protocol-specific bookkeeping.
   factory LazyMessagePayload.packed({
     Uint8List? transparentBinaryPayload,
     required LazyPayloadEncoding? encoding,
@@ -87,6 +105,7 @@ class LazyMessagePayload {
     WampE2eeProvider? e2eeProvider,
     WampE2eeRuntimeContext? e2eeRuntimeContext,
     Object? anchor,
+    Object? storageOwner,
   }) {
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
@@ -97,6 +116,7 @@ class LazyMessagePayload {
       packedPayloadDecoder: packedPayloadDecoder,
       pptDecoded: pptDecoded,
       anchor: anchor,
+      storageAnchor: storageOwner,
     );
   }
 
@@ -123,6 +143,26 @@ class LazyMessagePayload {
     );
   }
 
+  /// Produces application values on first access, sharing the result or failure
+  /// across derived views. The synchronous loader owns any PPT/E2EE processing.
+  /// It runs at most once, including for absent/empty values and thrown errors.
+  /// Recursive access throws [StateError]. Copying with [toOwned] evaluates the
+  /// loader before copying its values; the owned copy retains no loader or anchor.
+  factory LazyMessagePayload.deferred({
+    required MaterializedPayloadView Function() loader,
+    LazyPayloadEncoding? encoding,
+    WampE2eeProvider? e2eeProvider,
+    WampE2eeRuntimeContext? e2eeRuntimeContext,
+    Object? anchor,
+  }) => LazyMessagePayload._(
+    encoding: encoding,
+    pptDecoded: true,
+    e2eeProvider: e2eeProvider,
+    e2eeRuntimeContext: e2eeRuntimeContext,
+    anchor: anchor,
+    deferred: _DeferredMaterializedPayload(loader),
+  );
+
   /// The transparent binary payload carried outside regular WAMP arguments.
   final Uint8List? transparentBinaryPayload;
 
@@ -138,8 +178,21 @@ class LazyMessagePayload {
   /// Runtime context associated with an encoded E2EE payload.
   final WampE2eeRuntimeContext? e2eeRuntimeContext;
 
-  /// Keeps externally owned encoded storage alive for this view's lifetime.
+  /// The current caller anchor. Derived views also retain the original storage
+  /// owner, even when this anchor is replaced or cleared.
   final Object? anchor;
+
+  /// The object whose lifetime keeps the storage backing this view valid.
+  ///
+  /// This can differ from [anchor] when the caller anchor changes but the view
+  /// still refers to the original encoded storage. Native transports use this
+  /// ownership reference when retaining encoded spans for asynchronous work.
+  Object? get storageOwner => _storageAnchor;
+
+  // Retain the first storage owner directly rather than growing a chain for
+  // every routing or metadata view. Owned copies deliberately omit it.
+  final Object? _storageAnchor;
+  final _DeferredMaterializedPayload? _deferred;
 
   Uint8List? _argumentsBytes;
   Uint8List? _argumentsKeywordsBytes;
@@ -170,6 +223,8 @@ class LazyMessagePayload {
 
   /// Positional arguments, decoded on first access when necessary.
   List<dynamic>? get arguments {
+    final deferred = _deferred;
+    if (deferred != null) return deferred.value.arguments;
     _decodePackedPayloadIfNeeded();
     if (_arguments == null &&
         _argumentsBytes != null &&
@@ -181,6 +236,8 @@ class LazyMessagePayload {
 
   /// Keyword arguments, decoded on first access when necessary.
   Map<String, dynamic>? get argumentsKeywords {
+    final deferred = _deferred;
+    if (deferred != null) return deferred.value.argumentsKeywords;
     _decodePackedPayloadIfNeeded();
     if (_argumentsKeywords == null &&
         _argumentsKeywordsBytes != null &&
@@ -190,12 +247,14 @@ class LazyMessagePayload {
     return _argumentsKeywords;
   }
 
-  /// Copies retained buffers and materialized WAMP lists, maps and binary
-  /// values without forcing decoding. Providers, contexts and decoder callbacks
-  /// remain shared; the external storage anchor is not retained.
+  /// Copies retained buffers and materialized WAMP lists, maps and binary values.
+  /// Encoded slices do not need decoding; deferred values are evaluated first.
+  /// Providers, contexts and encoded decoder callbacks remain shared; the external
+  /// storage anchor and deferred loader are not retained.
   LazyMessagePayload toOwned() => _toOwned(_OwnedPayloadCopier());
 
   LazyMessagePayload _toOwned(_OwnedPayloadCopier copier) {
+    final deferred = _deferred?.value;
     return LazyMessagePayload._(
       transparentBinaryPayload:
           copier.copy(transparentBinaryPayload) as Uint8List?,
@@ -210,9 +269,16 @@ class LazyMessagePayload {
       argumentsKeywordsDecoder: _argumentsKeywordsDecoder,
       packedPayloadBytes: copier.copy(_packedPayloadBytes) as Uint8List?,
       packedPayloadDecoder: _packedPayloadDecoder,
-      arguments: copier.copy(_arguments) as List<dynamic>?,
+      arguments:
+          copier.copy(deferred == null ? _arguments : deferred.arguments)
+              as List<dynamic>?,
       argumentsKeywords:
-          copier.copy(_argumentsKeywords) as Map<String, dynamic>?,
+          copier.copy(
+                deferred == null
+                    ? _argumentsKeywords
+                    : deferred.argumentsKeywords,
+              )
+              as Map<String, dynamic>?,
     );
   }
 
@@ -231,8 +297,9 @@ class LazyMessagePayload {
     _packedPayloadDecoder = null;
   }
 
-  /// Returns an equivalent view that retains [anchor].
+  /// Returns an equivalent view with [anchor], retaining the storage owner.
   LazyMessagePayload withAnchor(Object? anchor) {
+    if (identical(anchor, this.anchor)) return this;
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: encoding,
@@ -248,6 +315,8 @@ class LazyMessagePayload {
       arguments: _arguments,
       argumentsKeywords: _argumentsKeywords,
       anchor: anchor,
+      storageAnchor: _storageAnchor,
+      deferred: _deferred,
     );
   }
 
@@ -271,6 +340,8 @@ class LazyMessagePayload {
       arguments: _arguments,
       argumentsKeywords: _argumentsKeywords,
       anchor: anchor,
+      storageAnchor: _storageAnchor,
+      deferred: _deferred,
     );
   }
 
@@ -296,7 +367,38 @@ class LazyMessagePayload {
       arguments: _arguments,
       argumentsKeywords: _argumentsKeywords,
       anchor: anchor,
+      storageAnchor: _storageAnchor,
+      deferred: _deferred,
     );
+  }
+}
+
+class _DeferredMaterializedPayload {
+  _DeferredMaterializedPayload(this._loader);
+
+  MaterializedPayloadView Function()? _loader;
+  MaterializedPayloadView? _value;
+  ({Object error, StackTrace stack})? _failure;
+  bool _loading = false;
+
+  MaterializedPayloadView get value {
+    final value = _value;
+    if (value != null) return value;
+    final failure = _failure;
+    if (failure != null) {
+      Error.throwWithStackTrace(failure.error, failure.stack);
+    }
+    if (_loading) throw StateError('Recursive deferred payload access');
+    _loading = true;
+    try {
+      return _value = _loader!();
+    } catch (error, stack) {
+      _failure = (error: error, stack: stack);
+      rethrow;
+    } finally {
+      _loading = false;
+      _loader = null;
+    }
   }
 }
 
@@ -407,16 +509,22 @@ MaterializedPayloadView decodeLazyPayloadView(
     WampE2eeRuntimePayloadProvider provider => provider,
     _ => null,
   };
+  final opaque = pptScheme == null ? null : _transparentPptPayload(payload);
   final canUseRuntimePayload =
       pptScheme == 'wamp' &&
+      opaque == null &&
       (payload.hasEncodedArguments || payload.hasEncodedArgumentsKeywords) &&
       runtimePayloadProvider != null &&
       runtimePayloadProvider.canUnpackFromRuntimeContext(
         resolvedRuntimeContext,
       );
   return decodePayloadView(
-    canUseRuntimePayload ? null : payload.arguments,
-    canUseRuntimePayload ? null : payload.argumentsKeywords,
+    canUseRuntimePayload
+        ? null
+        : opaque != null
+        ? <dynamic>[opaque]
+        : payload.arguments,
+    canUseRuntimePayload || opaque != null ? null : payload.argumentsKeywords,
     pptScheme: pptScheme,
     pptSerializer: pptSerializer,
     pptCipher: pptCipher,
@@ -448,8 +556,10 @@ LazyMessagePayload unwrapLazyPayloadView(
     WampE2eeRuntimePayloadProvider provider => provider,
     _ => null,
   };
+  final opaque = _transparentPptPayload(payload);
   final canUseRuntimePayload =
       pptScheme == 'wamp' &&
+      opaque == null &&
       (payload.hasEncodedArguments || payload.hasEncodedArgumentsKeywords) &&
       runtimePayloadProvider != null &&
       runtimePayloadProvider.canUnpackFromRuntimeContext(
@@ -460,10 +570,12 @@ LazyMessagePayload unwrapLazyPayloadView(
         .withE2eeProvider(resolvedE2eeProvider)
         .withE2eeRuntimeContext(resolvedRuntimeContext);
   }
-  final outerArguments = payload.arguments;
-  final outerArgumentsKeywords = payload.argumentsKeywords;
+  final outerArguments = opaque == null ? payload.arguments : <dynamic>[opaque];
+  final outerArgumentsKeywords = opaque == null
+      ? payload.argumentsKeywords
+      : null;
   if (outerArguments == null || outerArguments.isEmpty) {
-    return LazyMessagePayload.materialized(
+    return LazyMessagePayload._(
       transparentBinaryPayload: payload.transparentBinaryPayload,
       encoding: payload.encoding,
       arguments: const <dynamic>[],
@@ -472,17 +584,18 @@ LazyMessagePayload unwrapLazyPayloadView(
       e2eeProvider: resolvedE2eeProvider,
       e2eeRuntimeContext: resolvedRuntimeContext,
       anchor: payload.anchor,
+      storageAnchor: payload._storageAnchor,
     );
   }
-  final packedPayloadBytes = _extractWrappedPayloadBytes(
-    outerArguments,
-    outerArgumentsKeywords,
-  );
+  final packedPayloadBytes =
+      opaque ??
+      _extractWrappedPayloadBytes(outerArguments, outerArgumentsKeywords);
   if (packedPayloadBytes != null) {
-    return LazyMessagePayload.packed(
+    return LazyMessagePayload._(
       transparentBinaryPayload: payload.transparentBinaryPayload,
       encoding: _lazyEncodingFromPptSerializer(pptSerializer),
       packedPayloadBytes: packedPayloadBytes,
+      pptDecoded: true,
       packedPayloadDecoder: (bytes) {
         final decoded = decodePayloadView(
           <dynamic>[bytes],
@@ -502,6 +615,7 @@ LazyMessagePayload unwrapLazyPayloadView(
       e2eeProvider: resolvedE2eeProvider,
       e2eeRuntimeContext: resolvedRuntimeContext,
       anchor: payload.anchor,
+      storageAnchor: payload._storageAnchor,
     );
   }
   final decoded = decodeLazyPayloadView(
@@ -513,7 +627,7 @@ LazyMessagePayload unwrapLazyPayloadView(
     e2eeProvider: resolvedE2eeProvider,
     runtimeContext: resolvedRuntimeContext,
   );
-  return LazyMessagePayload.materialized(
+  return LazyMessagePayload._(
     transparentBinaryPayload: payload.transparentBinaryPayload,
     encoding: payload.encoding,
     arguments: decoded.arguments,
@@ -522,7 +636,22 @@ LazyMessagePayload unwrapLazyPayloadView(
     e2eeProvider: resolvedE2eeProvider,
     e2eeRuntimeContext: resolvedRuntimeContext,
     anchor: payload.anchor,
+    storageAnchor: payload._storageAnchor,
   );
+}
+
+// Preserve the existing argument representation when present. The transparent
+// vector is the PPT input only for a message whose wire arguments are absent.
+Uint8List? _transparentPptPayload(LazyMessagePayload payload) {
+  if (payload.transparentBinaryPayload == null ||
+      payload.hasEncodedArguments ||
+      payload.hasEncodedArgumentsKeywords ||
+      payload.hasPackedPayloadBytes ||
+      payload.arguments != null ||
+      payload.argumentsKeywords != null) {
+    return null;
+  }
+  return payload.transparentBinaryPayload;
 }
 
 LazyPayloadEncoding? _lazyEncodingFromPptSerializer(String? serializer) {
@@ -530,6 +659,7 @@ LazyPayloadEncoding? _lazyEncodingFromPptSerializer(String? serializer) {
     'json' => LazyPayloadEncoding.json,
     'msgpack' => LazyPayloadEncoding.messagePack,
     'cbor' => LazyPayloadEncoding.cbor,
+    'flatbuffers' => LazyPayloadEncoding.flatbuffers,
     _ => null,
   };
 }
@@ -607,6 +737,10 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   LazyPayloadEncoding? _lazyPayloadEncoding;
   bool _pptPayloadDecoded = false;
   LazyMessagePayload? _retainedLazyPayload;
+
+  // A mutable message remains an owner after its semantic wire cache is
+  // invalidated. Existing opaque/binary spans can still refer to that storage.
+  Object? _payloadStorageOwner;
   WampE2eeProvider? _e2eeProvider;
   WampE2eeRuntimeContext? _e2eeRuntimeContext;
 
@@ -621,6 +755,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   /// Positional arguments, decoded on first access when retained lazily.
   List<dynamic>? get arguments {
+    _materializeDeferredPayloadIfNeeded();
     if (_arguments == null &&
         _encodedArguments != null &&
         _argumentsDecoder != null) {
@@ -630,6 +765,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   }
 
   set arguments(List<dynamic>? value) {
+    _materializeDeferredPayloadIfNeeded();
     _arguments = value;
     _encodedArguments = null;
     _argumentsDecoder = null;
@@ -639,6 +775,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   /// Keyword arguments, decoded on first access when retained lazily.
   Map<String, dynamic>? get argumentsKeywords {
+    _materializeDeferredPayloadIfNeeded();
     if (_argumentsKeywords == null &&
         _encodedArgumentsKeywords != null &&
         _argumentsKeywordsDecoder != null) {
@@ -650,11 +787,20 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   }
 
   set argumentsKeywords(Map<String, dynamic>? value) {
+    _materializeDeferredPayloadIfNeeded();
     _argumentsKeywords = value;
     _encodedArgumentsKeywords = null;
     _argumentsKeywordsDecoder = null;
     _pptPayloadDecoded = false;
     _retainedLazyPayload = null;
+  }
+
+  void _materializeDeferredPayloadIfNeeded() {
+    final deferred = _retainedLazyPayload?._deferred;
+    if (deferred == null) return;
+    final values = deferred.value;
+    _arguments = values.arguments;
+    _argumentsKeywords = values.argumentsKeywords;
   }
 
   /// Whether encoded positional arguments are waiting to be decoded.
@@ -736,7 +882,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
       return retainedLazyPayload.withAnchor(anchor ?? this);
     }
     if (_pptPayloadDecoded) {
-      return LazyMessagePayload.materialized(
+      return LazyMessagePayload._(
         transparentBinaryPayload: transparentBinaryPayload,
         encoding: _lazyPayloadEncoding,
         arguments: arguments,
@@ -745,12 +891,13 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
         e2eeProvider: e2eeProvider,
         e2eeRuntimeContext: e2eeRuntimeContext,
         anchor: anchor ?? this,
+        storageAnchor: _payloadStorageOwner,
       );
     }
     if ((_encodedArguments != null && _argumentsDecoder != null) ||
         (_encodedArgumentsKeywords != null &&
             _argumentsKeywordsDecoder != null)) {
-      return LazyMessagePayload.encoded(
+      return LazyMessagePayload._(
         transparentBinaryPayload: transparentBinaryPayload,
         encoding: _lazyPayloadEncoding,
         argumentsBytes: _encodedArguments,
@@ -764,9 +911,10 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
         e2eeProvider: e2eeProvider,
         e2eeRuntimeContext: e2eeRuntimeContext,
         anchor: anchor ?? this,
+        storageAnchor: _payloadStorageOwner,
       );
     }
-    return LazyMessagePayload.materialized(
+    return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
       encoding: _lazyPayloadEncoding,
       arguments: _arguments,
@@ -774,6 +922,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
       e2eeProvider: e2eeProvider,
       e2eeRuntimeContext: e2eeRuntimeContext,
       anchor: anchor ?? this,
+      storageAnchor: _payloadStorageOwner,
     );
   }
 
@@ -804,6 +953,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   void retainLazyPayload(LazyMessagePayload payload) {
     final provider = payload.e2eeProvider ?? _e2eeProvider;
     final runtimeContext = _e2eeRuntimeContext ?? payload.e2eeRuntimeContext;
+    _payloadStorageOwner = payload._storageAnchor ?? payload.anchor;
     _e2eeProvider = provider;
     _e2eeRuntimeContext = runtimeContext;
     _retainedLazyPayload = payload
@@ -821,6 +971,19 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     final runtimeContext = _e2eeRuntimeContext ?? payload.e2eeRuntimeContext;
     transparentBinaryPayload = payload.transparentBinaryPayload;
     _lazyPayloadEncoding = payload.encoding;
+    if (payload._deferred != null) {
+      _arguments = null;
+      _argumentsKeywords = null;
+      _encodedArguments = null;
+      _encodedArgumentsKeywords = null;
+      _argumentsDecoder = null;
+      _argumentsKeywordsDecoder = null;
+      _pptPayloadDecoded = true;
+      _e2eeProvider = provider;
+      _e2eeRuntimeContext = runtimeContext;
+      retainLazyPayload(payload);
+      return;
+    }
     if (payload.packedPayloadBytes != null) {
       arguments = <dynamic>[payload.packedPayloadBytes!];
       argumentsKeywords = null;
@@ -982,7 +1145,8 @@ bool _payloadLooksPackedForPpt(
   if (pptSerializer == null ||
       (pptSerializer != 'json' &&
           pptSerializer != 'msgpack' &&
-          pptSerializer != 'cbor')) {
+          pptSerializer != 'cbor' &&
+          pptSerializer != 'flatbuffers')) {
     return arguments.length == 1 && first is Map;
   }
   return _isBinaryPayloadValue(first);

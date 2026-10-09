@@ -3,14 +3,16 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_core/connectanum_core.dart';
-
-import 'websocket_transport_serialization.dart';
-import '../../transport/abstract_transport.dart';
-import '../../transport/native/canonical_base64_io.dart';
 import 'package:connectanum_core/json_serializer.dart' as serializer_json;
 import 'package:connectanum_core/msgpack_serializer.dart' as serializer_msgpack;
 import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
+
+import '../../transport/abstract_transport.dart';
+import '../../transport/native/canonical_base64_io.dart';
+import '../dart_transport_copy_metrics.dart';
+import 'websocket_transport_serialization.dart';
 
 /// This transport type is used to connect via web sockets
 /// in a dart vm environment. A known issue is that this
@@ -32,6 +34,7 @@ class WebSocketTransport extends AbstractTransport {
   WebSocket? _socket;
   HttpClient? _httpClient;
   int _openAttempt = 0;
+  flatbuffers.FlatBuffersSessionProfile? _flatBuffersProfile;
   Completer? _onConnectionLost;
   Completer? _onDisconnect;
   late Completer _onReady;
@@ -48,8 +51,13 @@ class WebSocketTransport extends AbstractTransport {
        assert(
          _serializerType == WebSocketSerialization.serializationJson ||
              _serializerType == WebSocketSerialization.serializationMsgpack ||
-             _serializerType == WebSocketSerialization.serializationCbor,
+             _serializerType == WebSocketSerialization.serializationCbor ||
+             _serializerType == WebSocketSerialization.serializationFlatBuffers,
        ) {
+    if ((_serializerType == WebSocketSerialization.serializationFlatBuffers) !=
+        (_serializer is flatbuffers.Serializer)) {
+      throw ArgumentError('FlatBuffers transport requires its matching codec');
+    }
     installNativeCanonicalBase64Codecs(_serializer);
   }
 
@@ -90,6 +98,20 @@ class WebSocketTransport extends AbstractTransport {
     url,
     serializer_cbor.Serializer(),
     WebSocketSerialization.serializationCbor,
+    headers,
+    allowInsecureCertificates,
+    tlsSecurityContext,
+  );
+
+  factory WebSocketTransport.withFlatBuffersSerializer(
+    String url, [
+    Map<String, dynamic>? headers,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
+  ]) => WebSocketTransport(
+    url,
+    flatbuffers.Serializer(),
+    WebSocketSerialization.serializationFlatBuffers,
     headers,
     allowInsecureCertificates,
     tlsSecurityContext,
@@ -138,6 +160,9 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Future<void> open({Duration? pingInterval}) async {
     final openAttempt = ++_openAttempt;
+    _flatBuffersProfile = _serializer is flatbuffers.Serializer
+        ? const flatbuffers.FlatBuffersSessionProfile.client()
+        : null;
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
@@ -164,6 +189,18 @@ class WebSocketTransport extends AbstractTransport {
         await socket.close();
         return;
       }
+      if (_serializerType == WebSocketSerialization.serializationFlatBuffers &&
+          socket.protocol != _serializerType) {
+        final error = UnsupportedError(
+          'FlatBuffers WebSocket subprotocol was not negotiated',
+        );
+        final onConnectionLost = _onConnectionLost!;
+        if (!onConnectionLost.isCompleted) onConnectionLost.complete(error);
+        if (identical(_httpClient, client)) _httpClient = null;
+        client.close(force: true);
+        await socket.close(WebSocketStatus.protocolError);
+        throw error;
+      }
       _socket = socket;
       _onReady.complete();
       if (pingInterval != null) {
@@ -186,9 +223,14 @@ class WebSocketTransport extends AbstractTransport {
   /// the underlying socket.
   @override
   void send(AbstractMessage message) {
-    if (message is Goodbye) {
-      _goodbyeSent = true;
-    }
+    if (!isOpen) throw StateError('WebSocket transport is not open.');
+    final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
+    _sendMessage(message);
+    _flatBuffersProfile = nextProfile;
+    if (message is Goodbye) _goodbyeSent = true;
+  }
+
+  void _sendMessage(AbstractMessage message) {
     final fragments = _serializer.serializeFragments(message);
     if (fragments != null && fragments.isNotEmpty) {
       // dart:io accepts only complete WebSocket messages, not frame segments.
@@ -197,6 +239,11 @@ class WebSocketTransport extends AbstractTransport {
         builder.add(fragment);
       }
       final serializedMessage = builder.takeBytes();
+      if (fragments.length > 1 && serializedMessage.isNotEmpty) {
+        DartTransportCopyMetrics.recordWebSocketFragmentCoalesceCopy(
+          serializedMessage.length,
+        );
+      }
       if (serializedMessage.isEmpty) {
         _sendSerializedMessage(message);
         return;
@@ -225,7 +272,9 @@ class WebSocketTransport extends AbstractTransport {
   /// objects.
   @override
   Stream<AbstractMessage?> receive() {
-    final socket = _socket!;
+    final socket = _socket;
+    if (socket == null) throw StateError('Transport is not open.');
+    final openAttempt = _openAttempt;
     final onDisconnect = _onDisconnect!;
     final onConnectionLost = _onConnectionLost!;
     socket.done.then(
@@ -245,14 +294,22 @@ class WebSocketTransport extends AbstractTransport {
       },
     );
     return socket.map((messageEvent) {
+      if (openAttempt != _openAttempt || !identical(_socket, socket)) {
+        return null;
+      }
       try {
         final message = _decodeInboundMessage(messageEvent);
+        if (_flatBuffersProfile case final profile?) {
+          _flatBuffersProfile = profile.acceptIncoming(message);
+        }
         if (message is Goodbye && identical(_socket, socket)) {
           _goodbyeReceived = true;
         }
         return message;
       } on Object catch (error) {
-        _handleInboundMessageError(error);
+        if (openAttempt == _openAttempt && identical(_socket, socket)) {
+          _handleInboundMessageError(error);
+        }
         return null;
       }
     });

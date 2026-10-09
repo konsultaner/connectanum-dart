@@ -18,6 +18,14 @@ on:
       - pubspec.yaml
   workflow_dispatch:
     inputs:
+      campaign:
+        description: Canonical profile gates or the full paired FlatBuffers campaign
+        required: true
+        default: profiles
+        type: choice
+        options:
+          - profiles
+          - flatbuffers_primary
       router_worker_counts:
         description: Router worker counts passed to the bench orchestrator
         required: false
@@ -43,6 +51,7 @@ env:
 jobs:
   linux-wamp-profile:
     name: Linux WAMP profile gates
+    if: github.event_name != 'workflow_dispatch' || inputs.campaign != 'flatbuffers_primary'
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -76,3 +85,114 @@ jobs:
           name: wamp-profile-benchmark-artifacts
           path: out/wamp-profile-validation
           if-no-files-found: error
+
+  linux-flatbuffers-primary:
+    name: Full paired FlatBuffers campaign
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_primary'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    concurrency:
+      group: wamp-flatbuffers-primary
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.13.5
+
+      - uses: dtolnay/rust-toolchain@1.99.0
+
+      - name: Record hosted runner and source
+        run: |
+          set -euo pipefail
+          mkdir -p out/wamp-flatbuffers-primary/setup
+          {
+            printf 'source_revision=%s\n' "$(git rev-parse HEAD)"
+            printf 'runner_image=%s/%s\n' "${ImageOS:?}" "${ImageVersion:?}"
+            printf 'uname=%s\n' "$(uname -a)"
+            printf 'dart=%s\n' "$(dart --version 2>&1)"
+            printf 'rustc=%s\n' "$(rustc --version)"
+            cat /proc/cpuinfo
+          } > out/wamp-flatbuffers-primary/setup/host-info.txt
+
+      - name: Resolve dependencies and build production executables
+        run: |
+          set -euo pipefail
+          bin/bootstrap 2>&1 | tee out/wamp-flatbuffers-primary/setup/bootstrap.log
+          cargo generate-lockfile --manifest-path native/bench/Cargo.toml
+          mkdir -p out/wamp-flatbuffers-primary/setup/locks/native/{bench,transport}
+          cp pubspec.lock out/wamp-flatbuffers-primary/setup/locks/
+          cp native/bench/Cargo.lock out/wamp-flatbuffers-primary/setup/locks/native/bench/
+          cp native/transport/Cargo.lock out/wamp-flatbuffers-primary/setup/locks/native/transport/
+          cargo build --release --locked --manifest-path native/transport/Cargo.toml -p ct_ffi \
+            2>&1 | tee out/wamp-flatbuffers-primary/setup/native-build.log
+          cargo build --release --locked --manifest-path native/bench/Cargo.toml --bin http_stream \
+            2>&1 | tee out/wamp-flatbuffers-primary/setup/driver-build.log
+          cp native/transport/target/release/libct_ffi.so out/wamp-flatbuffers-primary/setup/
+          cp native/bench/target/release/http_stream out/wamp-flatbuffers-primary/setup/
+          sha256sum out/wamp-flatbuffers-primary/setup/{http_stream,libct_ffi.so} \
+            > out/wamp-flatbuffers-primary/setup/artifacts.sha256
+          nm -D --defined-only out/wamp-flatbuffers-primary/setup/libct_ffi.so \
+            > out/wamp-flatbuffers-primary/setup/native-exports.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          exports = Path('out/wamp-flatbuffers-primary/setup/native-exports.txt').read_text()
+          if any(line.split()[-1].startswith('ct_test_') for line in exports.splitlines() if line.split()):
+              raise SystemExit('Production benchmark library contains test oracles')
+          PY
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Run all 1440 paired rows with the unchanged policy
+        run: |
+          set -euo pipefail
+          python3 tool/run_wamp_serializer_campaign.py \
+            --output out/wamp-flatbuffers-primary/campaign \
+            --driver out/wamp-flatbuffers-primary/setup/http_stream \
+            --native-lib out/wamp-flatbuffers-primary/setup/libct_ffi.so \
+            --runner-image "github-hosted/${ImageOS:?}/${ImageVersion:?}" \
+            --warmups 3 --repetitions 7 --duration-ms 10000 --samples 1000 \
+            --concurrency 1 --in-flight 1 --router-workers 1 --native-threads 1 \
+            --workload-timeout-ms 300000 --campaign-timeout-seconds 19800 \
+            2>&1 | tee out/wamp-flatbuffers-primary/campaign.log
+
+      - name: Summarize completed rows and acceptance
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          root = Path('out/wamp-flatbuffers-primary/campaign')
+          print('## Full paired FlatBuffers campaign\n')
+          manifest = root / 'manifest.json'
+          if not manifest.exists():
+              print('Campaign did not start. Setup logs are retained in the artifact.')
+          else:
+              data = json.loads(manifest.read_text())
+              runs = data['warmup_runs'] + data['measured_runs']
+              rows = sum(run['rows_completed'] for run in runs)
+              print(f"Completed rows: {rows}/1440. Execution: {data['execution']['status']}.\n")
+              result = root / 'comparison.json'
+              if result.exists():
+                  report = json.loads(result.read_text())
+                  findings = report['findings']
+                  print(f"Acceptance: {report['status']}. Findings: {len(findings)}.\n")
+                  for finding in findings[:20]:
+                      print(f'- {finding}')
+                  if len(findings) > 20:
+                      print('\nAll remaining findings are retained in comparison.json and comparison.md.')
+              else:
+                  print('Acceptance is unproven; no comparison report was produced.')
+          print('\nThe full matrix, source/artifact hashes, resolved locks, raw reports and failure logs are retained.')
+          PY
+
+      - name: Upload full campaign evidence even after failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wamp-flatbuffers-primary-${{ github.sha }}-${{ github.run_attempt }}
+          path: out/wamp-flatbuffers-primary
+          if-no-files-found: error
+          retention-days: 30

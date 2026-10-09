@@ -10,14 +10,23 @@ import 'dart:typed_data';
 
 import 'package:connectanum_client/src/transport/native/runtime.dart' as client;
 import 'package:connectanum_client/src/transport/native/message_binding.dart'
-    show materializeSessionMessage;
+    show bindSessionMessage, materializeSessionMessage;
+import 'package:connectanum_client/src/transport/native/message_protocol.dart'
+    show NativeMessageMetadata;
+import 'package:connectanum_client/src/transport/native/message_protocol.dart'
+    as client_protocol;
 import 'package:connectanum_client/native_message_bytes.dart';
 import 'package:connectanum_client/native_message_handles.dart';
-import 'package:connectanum_core/connectanum_core.dart' show Call, Result;
+import 'package:connectanum_core/connectanum_core.dart'
+    show AbstractMessageWithPayload, Call, Result;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
+import 'package:connectanum_core/json_serializer.dart' as json;
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_router/src/native/ffi_bindings.dart'
     show CtFfiBindings, CtMessageInfo;
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/native/message_binding.dart'
+    as router_binding;
 import 'package:ffi/ffi.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
@@ -29,6 +38,7 @@ void main() {
   final legacy =
       Platform.environment['CONNECTANUM_TEST_LEGACY_MESSAGE_BYTES'] == '1';
   final expectedNativeOwner = legacy ? 0 : 1;
+  _flatbuffersOpaqueContracts(path, legacy);
   test('native byte ownership capability matches the tested ABI', () {
     expect(
       NativeMessageBytes(ffi.DynamicLibrary.open(path!)).supportsZeroCopy,
@@ -590,6 +600,192 @@ void main() {
       },
       skip: path == null ? 'Native library unavailable' : null,
     );
+  }
+}
+
+void _flatbuffersOpaqueContracts(String? path, bool legacy) {
+  for (final invalid in ['missing bytes', 'missing flag', 'wrong serializer']) {
+    test('opaque native metadata rejects $invalid before lazy delivery', () {
+      final serializer = invalid == 'wrong serializer'
+          ? NativeMessageSerializer.cbor
+          : NativeMessageSerializer.flatbuffers;
+      final bytes = invalid == 'missing bytes' ? null : Uint8List(0);
+      final flags =
+          NativeMessageMetadata.flagMetadataBind |
+          (invalid == 'missing flag'
+              ? 0
+              : NativeMessageMetadata.flagTransparentPayload);
+      expect(
+        () => bindSessionMessage(
+          client_protocol.NativeMessageSerializer.fromId(serializer.id),
+          Uint8List(0),
+          metadata: NativeMessageMetadata(
+            messageCode: 50,
+            primaryId: 1,
+            secondaryId: 0,
+            detailNumberA: 0,
+            detailNumberB: 0,
+            flags: flags,
+            transparentPayloadBytes: bytes,
+          ),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => router_binding.bindMessageFromMetadata(
+          serializer,
+          messageCode: 48,
+          primaryId: 1,
+          secondaryId: 0,
+          detailNumberA: 0,
+          flags: flags,
+          stringA: 'com.proc',
+          transparentPayloadBytes: bytes,
+        ),
+        throwsArgumentError,
+      );
+    });
+  }
+  final codec = flat.Serializer();
+  final wireCases = <List<Object?>>[
+    [16, 1, <String, Object?>{}, 'com.topic'],
+    [36, 1, 2, <String, Object?>{}],
+    [48, 1, <String, Object?>{}, 'com.proc'],
+    [50, 1, <String, Object?>{}],
+    [68, 1, 2, <String, Object?>{}],
+    [70, 1, <String, Object?>{}],
+    [8, 48, 1, <String, Object?>{}, 'wamp.error.runtime_error'],
+  ];
+  for (final wire in wireCases) {
+    for (final state in ['absent', 'empty', 'data']) {
+      final expected = switch (state) {
+        'absent' => null,
+        'empty' => Uint8List(0),
+        _ => Uint8List.fromList([0, 255, 1, 2]),
+      };
+      final model =
+          json.Serializer().deserialize(
+                Uint8List.fromList(utf8.encode(jsonEncode(wire))),
+              )!
+              as AbstractMessageWithPayload;
+      model.transparentBinaryPayload = expected;
+      final frame = codec.serialize(model);
+      for (final isClient in [false, true]) {
+        if (!(isClient ? {36, 50, 68, 8} : {16, 48, 70, 8}).contains(
+          wire.first,
+        )) {
+          continue;
+        }
+        test(
+          'FlatBuffers ${wire.first} $state opaque '
+          '${isClient ? 'client' : 'router'} survives handle release',
+          () {
+            final runtime = NativeTransportRuntime(libraryPath: path)..start();
+            addTearDown(() {
+              runtime.shutdown();
+              runtime.dispose();
+            });
+            final library = ffi.DynamicLibrary.open(path!);
+            final handle = runtime.enqueueTestMessage(
+              connectionId: 9730,
+              serializer: NativeMessageSerializer.flatbuffers,
+              frame: frame,
+            );
+            final observer = _MessageObserver(library);
+            final token = observer.watch(handle);
+            addTearDown(() => observer.free(token));
+            late AbstractMessageWithPayload bound;
+            if (isClient) {
+              final consumer = client.NativeClientRuntime.instance(
+                libraryPath: path,
+              );
+              addTearDown(consumer.shutdown);
+              final incoming = consumer.materialize(handle);
+              expect(incoming.argumentsBytes, isNull);
+              expect(incoming.argumentsKeywordsBytes, isNull);
+              expect(incoming.singleBinaryArgumentBytes, isNull);
+              bound =
+                  materializeSessionMessage(incoming.message)
+                      as AbstractMessageWithPayload;
+              incoming.release();
+              incoming.release();
+            } else {
+              final incoming = NativeMessageHandleDecoder(
+                libraryPath: path,
+              ).materialize(handle);
+              expect(incoming.argumentsBytes, isNull);
+              expect(incoming.argumentsKeywordsBytes, isNull);
+              bound = incoming.message as AbstractMessageWithPayload;
+              incoming.dispose();
+              incoming.dispose();
+            }
+            final retained = bound.transparentBinaryPayload;
+            // A nonempty opaque view must own the original message allocation.
+            expect(observer.alive(token), state == 'data' ? 1 : 0);
+            runtime.shutdown();
+            expect(observer.alive(token), state == 'data' ? 1 : 0);
+            expect(retained, expected);
+            if (state == 'data') {
+              expect(() => retained![0] = 42, throwsUnsupportedError);
+              expect(
+                () =>
+                    retained!.buffer.asUint8List()[retained.offsetInBytes] = 42,
+                throwsUnsupportedError,
+              );
+              expect(
+                () => Uint8List.sublistView(retained!)[0] = 42,
+                throwsUnsupportedError,
+              );
+            }
+            expect(bound.arguments, isNull);
+            expect(bound.argumentsKeywords, isNull);
+            final roundtrip =
+                codec.deserialize(codec.serialize(bound))!
+                    as AbstractMessageWithPayload;
+            expect(roundtrip.transparentBinaryPayload, expected);
+          },
+          skip: path == null || legacy
+              ? 'Requires FlatBuffers binding v1'
+              : null,
+        );
+      }
+      if (wire.first == 48) {
+        test(
+          'FlatBuffers payload-only CALL retains $state opaque data',
+          () {
+            final runtime = NativeTransportRuntime(libraryPath: path)..start();
+            addTearDown(() {
+              runtime.shutdown();
+              runtime.dispose();
+            });
+            final decoder = NativeMessageHandleDecoder(libraryPath: path);
+            final handle = runtime.enqueueTestMessage(
+              connectionId: 9731,
+              serializer: NativeMessageSerializer.flatbuffers,
+              frame: frame,
+            );
+            final observer = _MessageObserver(ffi.DynamicLibrary.open(path!));
+            final token = observer.watch(handle);
+            addTearDown(() => observer.free(token));
+            final payload = decoder.readRetainedCallPayload(
+              handle,
+              serializer: NativeMessageSerializer.flatbuffers,
+            );
+            final retained = payload.transparentPayloadBytes;
+            expect(payload.argumentsBytes, isNull);
+            expect(payload.argumentsKeywordsBytes, isNull);
+            decoder.release(handle);
+            expect(observer.alive(token), state == 'data' ? 1 : 0);
+            runtime.shutdown();
+            expect(observer.alive(token), state == 'data' ? 1 : 0);
+            expect(retained, expected);
+          },
+          skip: path == null || legacy
+              ? 'Requires FlatBuffers binding v1'
+              : null,
+        );
+      }
+    }
   }
 }
 

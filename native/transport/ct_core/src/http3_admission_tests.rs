@@ -221,7 +221,7 @@ fn assert_http3_setup_close(code: h3::error::Code, expected: HttpConnectionClose
                 .unwrap(),
             quinn::ConnectionError::ApplicationClosed(_)
         ));
-        let id = server.registry.next_connection_id();
+        let id = server.registry.next_connection_id().unwrap();
         let streams = server.registry.register_http3_connection(
             ListenerId(1),
             id,

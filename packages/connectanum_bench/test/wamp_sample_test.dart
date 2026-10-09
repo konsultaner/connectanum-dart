@@ -34,6 +34,17 @@ void main() {
       expect(WampSample.fromJson(json).toJson(), json);
     });
 
+    test('payload preparation and native copy metrics survive JSON', () {
+      final json = {
+        ..._sampleJson(),
+        'payload_preparation_us': 23,
+        'native_builder_input_copied_bytes': 1024,
+        'native_builder_growth_copied_bytes': 512,
+      };
+
+      expect(WampSample.fromJson(json).toJson(), json);
+    });
+
     test('invalid latencies do not create timing bounds', () {
       final sample = WampSample(
         worker: 0,

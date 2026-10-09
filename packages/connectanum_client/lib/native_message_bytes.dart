@@ -24,6 +24,9 @@ enum NativeMessageBytePart {
 
   /// A supported invocation's sole binary argument, without its encoding header.
   singleBinaryArgument,
+
+  /// A FlatBuffers opaque application vector, distinct from CBOR arguments.
+  transparentPayload,
 }
 
 final class _MessageByteView extends ffi.Struct {
@@ -43,7 +46,7 @@ typedef _ExportDart = int Function(int, int, ffi.Pointer<_MessageByteView>);
 typedef _ExportWideNative =
     ffi.Int32 Function(ffi.Int64, ffi.Uint32, ffi.Pointer<_MessageByteView>);
 
-/// Creates byte views that remain valid after a routing handle is released.
+/// Creates read-only byte views valid after a routing handle is released.
 ///
 /// New runtimes export independent native owners, attached to the external
 /// typed-data allocation so all subviews retain storage. Older runtimes use an
@@ -52,6 +55,12 @@ final class NativeMessageBytes {
   /// Resolves the optional, paired ownership entry points in [library].
   NativeMessageBytes(ffi.DynamicLibrary library)
     : messageHandleAbi = NativeMessageHandleAbi.detect(library) {
+    if (library.providesSymbol('ct_flatbuffers_binding_version')) {
+      _flatbuffersBindingVersion = library
+          .lookupFunction<ffi.Uint32 Function(), int Function()>(
+            'ct_flatbuffers_binding_version',
+          )();
+    }
     if (messageHandleAbi == NativeMessageHandleAbi.wide) {
       _export = library.lookupFunction<_ExportWideNative, _ExportDart>(
         'ct_message_buffer_export_wide',
@@ -72,6 +81,26 @@ final class NativeMessageBytes {
   }
 
   _ExportDart? _export;
+  int _flatbuffersBindingVersion = 0;
+
+  /// The native codec and owned opaque-vector contract, independent of session
+  /// profile negotiation. Missing or unknown versions cannot grant support.
+  bool get supportsFlatbuffersBinding =>
+      _flatbuffersBindingVersion == 1 && supportsZeroCopy;
+
+  void requireFlatbuffersBinding() {
+    if (_flatbuffersBindingVersion == 1 && !supportsZeroCopy) {
+      throw UnsupportedError(
+        'Native FlatBuffers binding version 1 requires native byte ownership',
+      );
+    }
+    if (!supportsFlatbuffersBinding) {
+      throw UnsupportedError(
+        'Native FlatBuffers binding version 1 is required '
+        '(found $_flatbuffersBindingVersion)',
+      );
+    }
+  }
 
   /// The same complete ABI used by the client and router message bindings.
   final NativeMessageHandleAbi messageHandleAbi;
@@ -96,6 +125,9 @@ final class NativeMessageBytes {
     required int length,
     required T Function(Uint8List copy) consume,
   }) {
+    if (part == NativeMessageBytePart.transparentPayload) {
+      requireFlatbuffersBinding();
+    }
     if (messageHandleAbi == NativeMessageHandleAbi.legacy) {
       checkedLegacyMessageHandle(handle);
     }
@@ -140,15 +172,22 @@ final class NativeMessageBytes {
     required ffi.Pointer<ffi.Uint8> borrowed,
     required int length,
   }) {
+    if (part == NativeMessageBytePart.transparentPayload) {
+      requireFlatbuffersBinding();
+    }
     if (messageHandleAbi == NativeMessageHandleAbi.legacy) {
       checkedLegacyMessageHandle(handle);
     }
     if (handle <= 0 || length < 0 || (length > 0 && borrowed == ffi.nullptr)) {
       throw ArgumentError('Invalid native message byte view');
     }
-    if (length == 0) return Uint8List(0);
+    if (length == 0) return Uint8List(0).asUnmodifiableView();
     final export = _export;
-    if (export == null) return Uint8List.fromList(borrowed.asTypedList(length));
+    if (export == null) {
+      return Uint8List.fromList(
+        borrowed.asTypedList(length),
+      ).asUnmodifiableView();
+    }
     final output = calloc<_MessageByteView>();
     try {
       final status = export(handle, part.index, output);
@@ -165,11 +204,13 @@ final class NativeMessageBytes {
         );
       }
       try {
-        return view.data.asTypedList(
-          view.length,
-          finalizer: _finalizer,
-          token: view.owner,
-        );
+        return view.data
+            .asTypedList(
+              view.length,
+              finalizer: _finalizer,
+              token: view.owner,
+            )
+            .asUnmodifiableView();
       } catch (_) {
         _free!(view.owner);
         rethrow;

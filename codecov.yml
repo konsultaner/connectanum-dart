@@ -1,2 +1,8 @@
 codecov:
   require_ci_to_pass: true
+
+# Match tool/check_coverage.py: these compiler outputs have pinned regeneration
+# and independent fixture checks in the mandatory FlatBuffers Binding CI job.
+ignore:
+  - "packages/connectanum_core/lib/src/serializer/flatbuffers/generated/wamp_wamp.proto_generated.dart"
+  - "packages/connectanum_core/lib/src/serializer/flatbuffers/generated/wamp_wamp_generated.dart"

@@ -332,7 +332,7 @@
         },
         "websocket": {
           "path": "/wamp",
-          "subprotocols": ["wamp.2.json", "wamp.2.msgpack", "wamp.2.cbor"]
+          "subprotocols": ["wamp.2.json", "wamp.2.msgpack", "wamp.2.cbor", "wamp.2.flatbuffers"]
         }
       },
       {
@@ -354,7 +354,7 @@
         },
         "websocket": {
           "path": "/wamp",
-          "subprotocols": ["wamp.2.json", "wamp.2.msgpack", "wamp.2.cbor"]
+          "subprotocols": ["wamp.2.json", "wamp.2.msgpack", "wamp.2.cbor", "wamp.2.flatbuffers"]
         }
       }
     ],

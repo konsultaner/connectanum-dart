@@ -10,6 +10,10 @@ typedef CtStartRuntimeDart = int Function();
 typedef CtShutdownNative = ffi.Int32 Function();
 typedef CtShutdownDart = int Function();
 
+typedef CtMessageCanForwardToV1Native =
+    ffi.Int32 Function(ffi.Int64, ffi.Int32);
+typedef CtMessageCanForwardToV1Dart = int Function(int, int);
+
 typedef CtListenNative =
     ffi.Int32 Function(ffi.Pointer<ffi.Char>, ffi.Uint32, ffi.Int32);
 typedef CtListenDart = int Function(ffi.Pointer<ffi.Char>, int, int);
@@ -421,6 +425,21 @@ typedef CtRouterMetricsSnapshotNative =
     ffi.Int32 Function(ffi.Pointer<CtRouterMetricsInfo>);
 typedef CtRouterMetricsSnapshotDart =
     int Function(ffi.Pointer<CtRouterMetricsInfo>);
+
+typedef CtTransportCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
+typedef CtTransportCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
+
+typedef CtRustlsCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtRustlsCopyMetricsInfo>);
+typedef CtRustlsCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtRustlsCopyMetricsInfo>);
+
+typedef CtTransportCopyMetricsSnapshotV2Native =
+    ffi.Int32 Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
+typedef CtTransportCopyMetricsSnapshotV2Dart =
+    int Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
 
 typedef CtHttpResponseStreamOpenNative =
     ffi.Int32 Function(
@@ -925,6 +944,47 @@ final class CtRouterMetricsInfo extends ffi.Struct {
   external int breakdownLen;
 }
 
+final class CtTransportCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int websocketMaskCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int websocketCoalesceCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int tlsPlaintextAcceptedBytesTotal;
+}
+
+final class CtRustlsCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int outboundChunkCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int queueReadCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int deframerAppendCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int deframerMoveCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int recordBufferCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int recordAppendCopyBytesTotal;
+}
+
+final class CtTransportCopyMetricsInfoV2 extends ffi.Struct {
+  external CtTransportCopyMetricsInfo legacy;
+
+  @ffi.Uint64()
+  external int ioBufferFrontCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int ioBufferedReadCopyBytesTotal;
+}
+
 final class CtRouterMetricsBreakdownInfo extends ffi.Struct {
   @ffi.Uint32()
   external int listenerId;
@@ -1124,6 +1184,20 @@ class CtFfiBindings {
                   );
               return (int a0) => call(checkedLegacyMessageHandle(a0));
             })(),
+      ctMessageCanForwardToV1 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtMessageCanForwardToV1Native,
+              CtMessageCanForwardToV1Dart
+            >('ct_message_can_forward_to_v1_wide'),
+      ),
+      ctMessageCanForwardToConnectionV1 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtMessageCanForwardToV1Native,
+              CtMessageCanForwardToV1Dart
+            >('ct_message_can_forward_to_connection_v1_wide'),
+      ),
       ctForwardPublishEvent = messageHandleAbi == NativeMessageHandleAbi.wide
           ? library.lookupFunction<
               CtForwardPublishEventWideNative,
@@ -1432,6 +1506,27 @@ class CtFfiBindings {
             CtRouterMetricsSnapshotNative,
             CtRouterMetricsSnapshotDart
           >('ct_router_metrics_snapshot'),
+      ctRustlsCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtRustlsCopyMetricsSnapshotNative,
+              CtRustlsCopyMetricsSnapshotDart
+            >('ct_rustls_copy_metrics_snapshot'),
+      ),
+      ctTransportCopyMetricsSnapshotV2 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTransportCopyMetricsSnapshotV2Native,
+              CtTransportCopyMetricsSnapshotV2Dart
+            >('ct_transport_copy_metrics_snapshot_v2'),
+      ),
+      ctTransportCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTransportCopyMetricsSnapshotNative,
+              CtTransportCopyMetricsSnapshotDart
+            >('ct_transport_copy_metrics_snapshot'),
+      ),
       ctHttpResponseStreamOpen = library
           .lookupFunction<
             CtHttpResponseStreamOpenNative,
@@ -1533,6 +1628,8 @@ class CtFfiBindings {
   final CtMessagePeekDart ctMessagePeek;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;
+  final CtMessageCanForwardToV1Dart? ctMessageCanForwardToV1;
+  final CtMessageCanForwardToV1Dart? ctMessageCanForwardToConnectionV1;
   final CtForwardPublishEventDart ctForwardPublishEvent;
   final CtForwardCallInvocationDart ctForwardCallInvocation;
   final CtForwardCallInvocationV2Dart ctForwardCallInvocationV2;
@@ -1573,6 +1670,9 @@ class CtFfiBindings {
   final CtHttpConnectionEventGetDart ctHttpConnectionEventGet;
   final CtHttpConnectionEventReleaseDart ctHttpConnectionEventRelease;
   final CtRouterMetricsSnapshotDart ctRouterMetricsSnapshot;
+  final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
+  final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;
+  final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;
   final CtHttpResponseStreamOpenDart ctHttpResponseStreamOpen;
   final CtHttpResponseStreamWriteDart ctHttpResponseStreamWrite;
   final CtHttpResponseStreamFinishDart ctHttpResponseStreamFinish;

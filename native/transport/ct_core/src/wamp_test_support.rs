@@ -99,7 +99,10 @@ fn false_result_expectations_fail_with_assertion_diagnostics() {
         }),
         std::panic::catch_unwind(|| assert_condition!(false, "context")),
         std::panic::catch_unwind(|| {
-            unexpected_message(super::WampMessage::Unregistered { request_id: 7 })
+            unexpected_message(super::WampMessage::Unregistered {
+                request_id: 7,
+                details: Default::default(),
+            })
         }),
     ] {
         assert!(failure.is_err());

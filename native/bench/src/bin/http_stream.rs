@@ -202,6 +202,10 @@ struct Args {
     #[arg(long, default_value_t = false)]
     skip_wamp_worker_aot: bool,
 
+    /// Collect Dart VM allocation and GC metrics from the source WAMP worker.
+    #[arg(long, default_value_t = false)]
+    collect_wamp_vm_metrics: bool,
+
     /// Path to router config consumed by bench_main
     #[arg(long, default_value = "native/bench/bench_router.json")]
     router_config: String,
@@ -239,6 +243,10 @@ struct Args {
     /// Directory that receives transformed bench artifact outputs (.prom + summary json).
     #[arg(long)]
     artifact_dir: Option<String>,
+
+    /// Stream flushed JSONL only, without retaining/rebuilding aggregate history.
+    #[arg(long, default_value_t = false, conflicts_with = "artifact_dir")]
+    results_only: bool,
 
     /// Timeout per workload in milliseconds (guards against hung tests).
     #[arg(long, default_value = "300000")]
@@ -311,6 +319,12 @@ impl Drop for PreparedWampWorker {
 }
 
 fn prepare_wamp_worker(args: &Args) -> Result<PreparedWampWorker> {
+    if args.collect_wamp_vm_metrics && !args.skip_wamp_worker_aot {
+        bail!("--collect-wamp-vm-metrics requires --skip-wamp-worker-aot");
+    }
+    if args.collect_wamp_vm_metrics && args.wamp_worker_executable.is_some() {
+        bail!("--collect-wamp-vm-metrics cannot use a prebuilt WAMP worker");
+    }
     if let Some(path) = args.wamp_worker_executable.as_deref() {
         let executable = Path::new(path)
             .canonicalize()
@@ -497,6 +511,12 @@ fn run_bench_suite(
     );
 
     let mut command = Command::new(&args.dart);
+    if args.collect_wamp_vm_metrics {
+        command
+            .arg("--timeline_streams=GC")
+            .arg("--observe=0/127.0.0.1")
+            .arg("--no-pause-isolates-on-exit");
+    }
     command
         .arg("run")
         .arg(&args.bench_main)
@@ -511,6 +531,9 @@ fn run_bench_suite(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
+    if args.collect_wamp_vm_metrics {
+        command.env("CONNECTANUM_BENCH_WAMP_VM_METRICS", "1");
+    }
     configure_bench_child_environment(&mut command, &args.native_lib, native_runtime_threads);
     let mut child_process =
         OwnedBenchProcess(command.spawn().context("failed to spawn bench_main")?);
@@ -639,8 +662,13 @@ fn run_bench_suite(
                 };
                 let started_at = now_millis();
                 let execution = if prepared.is_wamp() {
-                    run_wamp_workload(&http_control, &prepared, workload_timeout)
-                        .with_context(|| format!("workload \"{}\" failed", workload.name))?
+                    run_wamp_workload(
+                        &http_control,
+                        &prepared,
+                        workload.minimum_duration_ms,
+                        workload_timeout,
+                    )
+                    .with_context(|| format!("workload \"{}\" failed", workload.name))?
                 } else if prepared.is_rawsocket_auth_frames() {
                     WorkloadExecution::samples_only(
                         runtime
@@ -678,6 +706,20 @@ fn run_bench_suite(
                     workload: workload.name.clone(),
                     protocol: workload.protocol.clone(),
                     client_impl: prepared.client_impl.clone(),
+                    wamp_configuration: parse_wamp_protocol(&prepared.protocol).map(|_| {
+                        json!({
+                            "serializer": prepared.serializer,
+                            "peer_serializer": prepared.peer_serializer,
+                            "secure_transport": prepared.secure_transport,
+                            "peer_count": prepared.peer_count,
+                            "in_flight_per_session": prepared.in_flight_per_session,
+                            "ppt_scheme": prepared.ppt_scheme,
+                            "ppt_serializer": prepared.ppt_serializer,
+                            "payload_construction": prepared.payload_construction,
+                            "ppt_cipher": prepared.ppt_cipher,
+                            "ppt_keyid": prepared.ppt_keyid,
+                        })
+                    }),
                     router_workers,
                     native_runtime_threads,
                     iterations: workload.iterations,
@@ -702,17 +744,18 @@ fn run_bench_suite(
                     ),
                     file_segment_metrics: execution.file_segment_metrics.clone(),
                     client_process_metrics: execution.client_process_metrics.clone(),
+                    server_process_metrics: execution.server_process_metrics.clone(),
+                    copy_metrics: execution.copy_metrics.clone(),
                     samples: execution.samples,
                 };
                 print_workload_summary(&report, &prepared);
-                results_writer.write(&report)?;
-                reports.push(report);
-                write_artifact_bundle(reports, results_path, artifact_dir).with_context(|| {
-                    format!(
-                        "failed to write transformed artifact bundle next to {}",
-                        args.results
-                    )
-                })?;
+                results_writer.write_and_collect(
+                    report,
+                    reports,
+                    results_path,
+                    artifact_dir,
+                    args.results_only,
+                )?;
             }
         }
         Ok(())
@@ -1532,6 +1575,8 @@ struct WorkloadConfig {
     path: String,
     #[serde(default = "default_iterations")]
     iterations: u32,
+    #[serde(default)]
+    minimum_duration_ms: Option<u64>,
     #[serde(default = "default_concurrency")]
     concurrency: u32,
     #[serde(default = "default_in_flight_per_session")]
@@ -1548,6 +1593,8 @@ struct WorkloadConfig {
     ppt_scheme: Option<String>,
     #[serde(default)]
     ppt_serializer: Option<String>,
+    #[serde(default)]
+    payload_construction: Option<String>,
     #[serde(default)]
     ppt_cipher: Option<String>,
     #[serde(default)]
@@ -1874,6 +1921,7 @@ struct PreparedWorkload {
     secure_transport: bool,
     ppt_scheme: Option<String>,
     ppt_serializer: Option<String>,
+    payload_construction: Option<String>,
     ppt_cipher: Option<String>,
     ppt_keyid: Option<String>,
     response_bytes: u64,
@@ -1929,6 +1977,64 @@ impl PreparedWorkload {
             bail!("HTTP/1.1 does not support streams_per_connection > 1");
         }
         let is_wamp = parse_wamp_protocol(&config.protocol).is_some();
+        if let Some(minimum_duration_ms) = config.minimum_duration_ms {
+            if minimum_duration_ms == 0 {
+                bail!(
+                    "workload {} minimum_duration_ms must be positive",
+                    config.name
+                );
+            }
+            let (_, mode) = parse_wamp_protocol(&config.protocol)
+                .ok_or_else(|| anyhow!("minimum_duration_ms is only supported for WAMP"))?;
+            if !matches!(mode, BenchWampMode::Rpc | BenchWampMode::PubSub) {
+                bail!(
+                    "workload {} minimum_duration_ms is supported for RPC and pub/sub only",
+                    config.name
+                );
+            }
+        }
+        if let Some(construction) = config.payload_construction.as_deref() {
+            if !is_wamp {
+                bail!(
+                    "workload {} payload_construction is only supported for WAMP",
+                    config.name
+                );
+            }
+            if !matches!(
+                construction,
+                "values" | "native_buffer" | "pre_encoded_span"
+            ) {
+                bail!(
+                    "workload {} has unsupported payload_construction {construction}",
+                    config.name
+                );
+            }
+            let typed_e2ee = config.ppt_scheme.as_deref() == Some("wamp")
+                && config.ppt_serializer.as_deref() == Some("flatbuffers");
+            if config.ppt_scheme.as_deref() != Some("x_connectanum_bench_typed") && !typed_e2ee {
+                bail!(
+                    "workload {} payload_construction requires typed benchmark PPT or typed FlatBuffers E2EE",
+                    config.name
+                );
+            }
+            if typed_e2ee
+                && !matches!(
+                    parse_wamp_protocol(&config.protocol),
+                    Some((_, BenchWampMode::Rpc | BenchWampMode::PubSub))
+                )
+            {
+                bail!("typed FlatBuffers E2EE construction supports RPC and pub/sub only");
+            }
+            if !matches!(
+                config.ppt_serializer.as_deref(),
+                Some("flatbuffers" | "cbor" | "msgpack")
+            ) {
+                bail!(
+                    "workload {} typed benchmark PPT requires flatbuffers, cbor, or msgpack",
+                    config.name
+                );
+            }
+        }
         let is_rawsocket_frame = parse_rawsocket_frame_protocol(&config.protocol).is_some();
         let path = if is_wamp || is_rawsocket_frame {
             config.path.clone()
@@ -2021,6 +2127,7 @@ impl PreparedWorkload {
             secure_transport: config.secure_transport,
             ppt_scheme: config.ppt_scheme.clone(),
             ppt_serializer: config.ppt_serializer.clone(),
+            payload_construction: config.payload_construction.clone(),
             ppt_cipher: config.ppt_cipher.clone(),
             ppt_keyid: config.ppt_keyid.clone(),
             response_bytes: config.response_bytes,
@@ -2110,6 +2217,8 @@ struct WorkloadExecution {
     data_window_elapsed_ms: Option<f64>,
     file_segment_metrics: Option<FileSegmentMetricsDelta>,
     client_process_metrics: Option<ClientProcessMetrics>,
+    server_process_metrics: Option<ClientProcessMetrics>,
+    copy_metrics: Option<Value>,
 }
 
 impl WorkloadExecution {
@@ -2120,6 +2229,8 @@ impl WorkloadExecution {
             data_window_elapsed_ms: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            server_process_metrics: None,
+            copy_metrics: None,
         }
     }
 
@@ -2128,6 +2239,8 @@ impl WorkloadExecution {
         data_window_elapsed_ms: Option<f64>,
         file_segment_metrics: Option<FileSegmentMetricsDelta>,
         client_process_metrics: Option<ClientProcessMetrics>,
+        server_process_metrics: Option<ClientProcessMetrics>,
+        copy_metrics: Option<Value>,
     ) -> Self {
         Self {
             samples,
@@ -2135,6 +2248,8 @@ impl WorkloadExecution {
             data_window_elapsed_ms,
             file_segment_metrics,
             client_process_metrics,
+            server_process_metrics,
+            copy_metrics,
         }
     }
 
@@ -2153,6 +2268,8 @@ impl WorkloadExecution {
             data_window_elapsed_ms: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            server_process_metrics: None,
+            copy_metrics: None,
         }
     }
 }
@@ -2187,6 +2304,27 @@ impl ResultsWriter {
         self.file.write_all(line.as_bytes())?;
         self.file.write_all(b"\n")?;
         self.file.flush()?;
+        Ok(())
+    }
+
+    fn write_and_collect(
+        &mut self,
+        report: WorkloadReport,
+        reports: &mut Vec<WorkloadReport>,
+        results_path: &Path,
+        artifact_dir: Option<&Path>,
+        results_only: bool,
+    ) -> Result<()> {
+        self.write(&report)?;
+        if !results_only {
+            reports.push(report);
+            write_artifact_bundle(reports, results_path, artifact_dir).with_context(|| {
+                format!(
+                    "failed to write transformed artifact bundle next to {}",
+                    results_path.display()
+                )
+            })?;
+        }
         Ok(())
     }
 }
@@ -2271,6 +2409,21 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
             format_bytes(metrics.rss_before_bytes),
             format_bytes(metrics.current_rss_bytes),
             format_bytes(metrics.max_rss_bytes)
+        );
+    }
+    if let Some(metrics) = &report.server_process_metrics {
+        println!(
+            "  Server/control process {} resources: CPU user {} us / system {} us | allocated {} B | GC {} events / {} us | RSS current {} | sampled peak {}",
+            metrics.pid,
+            format_optional_u64(metrics.cpu_user_us_delta),
+            format_optional_u64(metrics.cpu_system_us_delta),
+            format_optional_u64(metrics.allocated_bytes_delta),
+            format_optional_u64(metrics.gc_count_delta),
+            format_optional_u64(metrics.gc_pause_us_delta),
+            format_bytes(metrics.current_rss_bytes),
+            metrics
+                .peak_rss_during_bytes
+                .map_or_else(|| "unavailable".to_string(), format_bytes),
         );
     }
     if let Some(delta) = router_counter_delta(
@@ -2472,6 +2625,10 @@ fn format_bytes(bytes: u64) -> String {
         unit += 1;
     }
     format!("{:.2} {}", value, UNITS[unit])
+}
+
+fn format_optional_u64(value: Option<u64>) -> String {
+    value.map_or_else(|| "unavailable".to_string(), |value| value.to_string())
 }
 
 fn now_millis() -> u128 {
@@ -3264,6 +3421,7 @@ fn split_metrics_payload(mut value: Value) -> (Value, Option<String>) {
 fn run_wamp_workload(
     http_control: &BenchHttpClient,
     workload: &PreparedWorkload,
+    minimum_duration_ms: Option<u64>,
     workload_timeout: Duration,
 ) -> Result<WorkloadExecution> {
     let (transport, mode) = parse_wamp_protocol(&workload.protocol)
@@ -3288,6 +3446,7 @@ fn run_wamp_workload(
         "mode": mode.as_str(),
         "uri": workload.path,
         "iterations": workload.iterations,
+        "minimum_duration_ms": minimum_duration_ms,
         "concurrency": workload.concurrency,
         "in_flight_per_session": workload.in_flight_per_session,
         "peer_count": workload.peer_count,
@@ -3298,6 +3457,7 @@ fn run_wamp_workload(
         "secure_transport": workload.secure_transport,
         "ppt_scheme": workload.ppt_scheme.clone(),
         "ppt_serializer": workload.ppt_serializer.clone(),
+        "payload_construction": workload.payload_construction.clone(),
         "ppt_cipher": workload.ppt_cipher.clone(),
         "ppt_keyid": workload.ppt_keyid.clone(),
     });
@@ -3311,11 +3471,15 @@ fn run_wamp_workload(
     let data_window_elapsed_ms = parse_wamp_data_window_elapsed_ms(&response);
     let file_segment_metrics = parse_wamp_file_segment_metrics(&response)?;
     let client_process_metrics = parse_wamp_client_process_metrics(&response)?;
+    let server_process_metrics = parse_wamp_server_process_metrics(&response)?;
+    let copy_metrics = response.get("copy_metrics").cloned();
     Ok(WorkloadExecution::wamp(
         samples,
         data_window_elapsed_ms,
         file_segment_metrics,
         client_process_metrics,
+        server_process_metrics,
+        copy_metrics,
     ))
 }
 
@@ -3335,6 +3499,16 @@ fn parse_wamp_client_process_metrics(response: &Value) -> Result<Option<ClientPr
         .map(serde_json::from_value)
         .transpose()
         .context("failed to decode WAMP client-process metrics")
+}
+
+fn parse_wamp_server_process_metrics(response: &Value) -> Result<Option<ClientProcessMetrics>> {
+    response
+        .get("server_process_metrics")
+        .filter(|metrics| !metrics.is_null())
+        .cloned()
+        .map(serde_json::from_value)
+        .transpose()
+        .context("failed to decode WAMP server-process metrics")
 }
 
 fn parse_wamp_data_window_elapsed_ms(response: &Value) -> Option<f64> {
@@ -3429,6 +3603,9 @@ async fn run_rawsocket_auth_frame_iteration(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 });
@@ -3445,6 +3622,9 @@ async fn run_rawsocket_auth_frame_iteration(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 });
@@ -3464,6 +3644,9 @@ async fn run_rawsocket_auth_frame_iteration(
             latency_ms: start.elapsed().as_secs_f64() * 1000.0,
             request_bytes,
             response_bytes,
+            payload_preparation_us: None,
+            native_builder_input_copied_bytes: None,
+            native_builder_growth_copied_bytes: None,
             http_fresh_connection_timing: None,
             http_phase_timing: None,
         });
@@ -3492,6 +3675,9 @@ async fn run_rawsocket_auth_frame_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes,
         response_bytes,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -4184,6 +4370,9 @@ async fn run_h1_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 }
@@ -4283,6 +4472,9 @@ async fn run_h2_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 }
@@ -4390,6 +4582,9 @@ async fn run_h3_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    payload_preparation_us: None,
+                    native_builder_input_copied_bytes: None,
+                    native_builder_growth_copied_bytes: None,
                     http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 }
@@ -5109,6 +5304,9 @@ async fn h1_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -5152,6 +5350,9 @@ async fn h2_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -5195,6 +5396,9 @@ async fn h3_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -5765,6 +5969,9 @@ async fn send_h1_request(
         latency_ms,
         request_bytes: sent,
         response_bytes: received,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -5808,6 +6015,9 @@ async fn send_h1_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: sent,
         response_bytes: response.body.len() as u64,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -5896,6 +6106,9 @@ async fn send_h2_request(
         latency_ms,
         request_bytes: workload.request_bytes,
         response_bytes: response_body.received_bytes,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: Some(HttpPhaseTimingSample {
             stream_acquire_wait_ms,
@@ -5999,6 +6212,9 @@ async fn send_h2_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: workload.request_bytes,
         response_bytes: response.body.len() as u64,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -6193,6 +6409,9 @@ async fn send_h3_request(
         latency_ms,
         request_bytes: sent,
         response_bytes: received,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -6305,6 +6524,9 @@ async fn send_h3_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: sent,
         response_bytes: received.len() as u64,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
@@ -6402,6 +6624,9 @@ mod tests {
             latency_ms: 0.0,
             request_bytes: 0,
             response_bytes: 0,
+            payload_preparation_us: None,
+            native_builder_input_copied_bytes: None,
+            native_builder_growth_copied_bytes: None,
             http_fresh_connection_timing: None,
             http_phase_timing: None,
         }
@@ -6475,6 +6700,38 @@ mod tests {
         assert_eq!(metrics.max_rss_bytes, 805_306_368);
         assert_eq!(
             parse_wamp_client_process_metrics(&json!({"samples": []})).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn wamp_server_process_metrics_preserve_benchmark_service_metrics() {
+        let metrics = parse_wamp_server_process_metrics(&json!({
+            "server_process_metrics": {
+                "pid": 43,
+                "rss_before_bytes": 134_217_728u64,
+                "current_rss_bytes": 201_326_592u64,
+                "max_rss_bytes": 268_435_456u64,
+                "cpu_user_us_delta": 1_200_000u64,
+                "cpu_system_us_delta": 300_000u64,
+                "allocated_bytes_delta": 8_388_608u64,
+                "gc_count_delta": 2,
+                "gc_pause_us_delta": 5_000u64,
+                "peak_rss_during_bytes": 234_881_024u64,
+            }
+        }))
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(metrics.pid, 43);
+        assert_eq!(metrics.cpu_user_us_delta, Some(1_200_000));
+        assert_eq!(metrics.cpu_system_us_delta, Some(300_000));
+        assert_eq!(metrics.allocated_bytes_delta, Some(8_388_608));
+        assert_eq!(metrics.gc_count_delta, Some(2));
+        assert_eq!(metrics.gc_pause_us_delta, Some(5_000));
+        assert_eq!(metrics.peak_rss_during_bytes, Some(234_881_024));
+        assert_eq!(
+            parse_wamp_server_process_metrics(&json!({"server_process_metrics": null})).unwrap(),
             None
         );
     }
@@ -6702,6 +6959,7 @@ mod tests {
             workload: "workload".to_string(),
             protocol: "h2".to_string(),
             client_impl: "n/a".to_string(),
+            wamp_configuration: None,
             router_workers: 2,
             native_runtime_threads: 4,
             iterations: 1,
@@ -6723,6 +6981,8 @@ mod tests {
             http_phase_timing: None,
             file_segment_metrics: None,
             client_process_metrics: None,
+            server_process_metrics: None,
+            copy_metrics: None,
             samples: vec![sample(0)],
         };
 
@@ -6733,7 +6993,45 @@ mod tests {
         assert!(written.contains("\"scenario\":\"scenario\""));
         assert!(written.ends_with('\n'));
 
+        let stream_path = temp_dir.join("stream.jsonl");
+        let mut stream_writer = ResultsWriter::create(stream_path.to_str().unwrap()).unwrap();
+        let mut history = Vec::new();
+        for _ in 0..10 {
+            stream_writer
+                .write_and_collect(report.clone(), &mut history, &stream_path, None, true)
+                .unwrap();
+            assert!(history.is_empty());
+        }
+        assert_eq!(
+            fs::read_to_string(&stream_path).unwrap().lines().count(),
+            10
+        );
+        assert_eq!(fs::read_dir(&temp_dir).unwrap().count(), 2);
+
+        writer
+            .write_and_collect(report, &mut history, &path, None, false)
+            .unwrap();
+        assert_eq!(history.len(), 1);
+
         fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn results_only_conflicts_with_aggregate_artifact_output() {
+        assert!(
+            Args::try_parse_from(["http_stream", "--native-lib", "library", "--results-only"])
+                .unwrap()
+                .results_only
+        );
+        assert!(Args::try_parse_from([
+            "http_stream",
+            "--native-lib",
+            "library",
+            "--results-only",
+            "--artifact-dir",
+            "out"
+        ])
+        .is_err());
     }
 
     #[test]
@@ -6757,6 +7055,7 @@ mod tests {
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -6764,6 +7063,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -6789,6 +7089,58 @@ mod tests {
     }
 
     #[test]
+    fn minimum_duration_is_limited_to_positive_rpc_and_pubsub_workloads() {
+        let scenario: ScenarioFile = toml::from_str(
+            r#"
+name = "timed"
+
+[[workloads]]
+name = "rpc"
+protocol = "wamp_rawsocket_rpc"
+path = "bench.rpc.echo"
+iterations = 1
+concurrency = 1
+minimum_duration_ms = 30
+"#,
+        )
+        .unwrap();
+        let prepared = PreparedWorkload::from_config(&scenario.workloads[0]).unwrap();
+        assert!(prepared.is_wamp());
+
+        let zero_duration: ScenarioFile = toml::from_str(
+            r#"
+name = "timed"
+
+[[workloads]]
+name = "rpc"
+protocol = "wamp_rawsocket_rpc"
+minimum_duration_ms = 0
+"#,
+        )
+        .unwrap();
+        let error = PreparedWorkload::from_config(&zero_duration.workloads[0])
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("must be positive"));
+
+        let unsupported_mode: ScenarioFile = toml::from_str(
+            r#"
+name = "timed"
+
+[[workloads]]
+name = "auth"
+protocol = "wamp_rawsocket_auth"
+minimum_duration_ms = 30
+"#,
+        )
+        .unwrap();
+        let error = PreparedWorkload::from_config(&unsupported_mode.workloads[0])
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("RPC and pub/sub only"));
+    }
+
+    #[test]
     fn prepared_workload_rejects_invalid_wamp_client_impl() {
         let config = WorkloadConfig {
             name: "load".to_string(),
@@ -6799,6 +7151,7 @@ mod tests {
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -6806,6 +7159,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7226,6 +7580,7 @@ mod tests {
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7233,6 +7588,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7271,6 +7627,7 @@ mod tests {
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7278,6 +7635,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7317,6 +7675,7 @@ mod tests {
             method: default_method(),
             path: "bench.topic".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7324,6 +7683,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7349,6 +7709,65 @@ mod tests {
     }
 
     #[test]
+    fn prepared_workload_parses_typed_payload_construction_from_toml() {
+        let scenario: ScenarioFile = toml::from_str(
+            r#"
+name = "typed_payload"
+
+[[workloads]]
+name = "rawsocket_rpc_native_buffer"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 2
+concurrency = 1
+request_bytes = 1024
+ppt_scheme = "x_connectanum_bench_typed"
+ppt_serializer = "flatbuffers"
+payload_construction = "native_buffer"
+"#,
+        )
+        .unwrap();
+        let prepared = PreparedWorkload::from_config(&scenario.workloads[0]).unwrap();
+        assert_eq!(
+            prepared.payload_construction.as_deref(),
+            Some("native_buffer")
+        );
+    }
+
+    #[test]
+    fn typed_e2ee_payload_construction_reaches_the_wamp_worker() {
+        let scenario: ScenarioFile = toml::from_str(
+            r#"
+name = "typed_crypto"
+[[workloads]]
+name = "typed_crypto_rpc"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "flatbuffers"
+peer_serializer = "flatbuffers"
+path = "bench.rpc.echo"
+ppt_scheme = "wamp"
+ppt_serializer = "flatbuffers"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+payload_construction = "native_buffer"
+"#,
+        )
+        .unwrap();
+        let mut config = scenario.workloads.into_iter().next().unwrap();
+        for construction in ["values", "native_buffer", "pre_encoded_span"] {
+            config.payload_construction = Some(construction.to_string());
+            let prepared = PreparedWorkload::from_config(&config).unwrap();
+            assert_eq!(prepared.ppt_serializer.as_deref(), Some("flatbuffers"));
+            assert_eq!(prepared.payload_construction.as_deref(), Some(construction));
+        }
+        config.protocol = "wamp_rawsocket_file_transfer".into();
+        assert!(PreparedWorkload::from_config(&config).is_err());
+    }
+
+    #[test]
     fn prepared_workload_preserves_secure_wamp_transport_flag() {
         let config = WorkloadConfig {
             name: "load".to_string(),
@@ -7359,6 +7778,7 @@ mod tests {
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7366,6 +7786,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: true,
@@ -7403,6 +7824,7 @@ mod tests {
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7410,6 +7832,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: Some("wamp".to_string()),
             ppt_serializer: Some("cbor".to_string()),
+            payload_construction: None,
             ppt_cipher: Some("aes256gcm".to_string()),
             ppt_keyid: Some("benchmark-key".to_string()),
             secure_transport: false,
@@ -7438,6 +7861,41 @@ mod tests {
     }
 
     #[test]
+    fn serializer_matrix_compares_all_codecs_with_identical_workloads() {
+        let scenario = load_scenario(&format!(
+            "{}/scenarios/wamp_serializer_matrix.toml",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap();
+        assert_eq!(scenario.workloads.len(), 8);
+        for protocol in ["wamp_rawsocket_rpc", "wamp_websocket_rpc"] {
+            for serializer in ["json", "msgpack", "cbor", "flatbuffers"] {
+                let rows: Vec<_> = scenario
+                    .workloads
+                    .iter()
+                    .filter(|row| row.protocol == protocol && row.serializer == serializer)
+                    .collect();
+                assert_eq!(
+                    rows.len(),
+                    1,
+                    "missing or duplicate {protocol}/{serializer}"
+                );
+                let row = rows[0];
+                assert_eq!(row.path, "bench.rpc.echo");
+                assert_eq!(row.iterations, 80);
+                assert_eq!(row.concurrency, 8);
+                assert_eq!(row.in_flight_per_session, 4);
+                assert_eq!(row.request_bytes, 16384);
+                assert!(!row.secure_transport);
+                assert!(row.peer_serializer.is_none());
+                assert!(row.ppt_scheme.is_none());
+                let prepared = PreparedWorkload::from_config(row).unwrap();
+                assert_eq!(prepared.serializer, serializer);
+            }
+        }
+    }
+
+    #[test]
     fn prepared_workload_preserves_wamp_in_flight_setting() {
         let config = WorkloadConfig {
             name: "load".to_string(),
@@ -7448,6 +7906,7 @@ mod tests {
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: 4,
             peer_count: default_peer_count(),
@@ -7455,6 +7914,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7488,6 +7948,7 @@ mod tests {
             method: default_method(),
             path: "bench.topic".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: 8,
@@ -7495,6 +7956,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7528,6 +7990,7 @@ mod tests {
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7535,6 +7998,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7570,6 +8034,7 @@ mod tests {
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7577,6 +8042,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7612,6 +8078,7 @@ mod tests {
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7619,6 +8086,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7663,6 +8131,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7700,6 +8169,7 @@ mod tests {
             method: default_method(),
             path: "/bench/secure-jwt".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7707,6 +8177,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7743,6 +8214,7 @@ mod tests {
             method: default_method(),
             path: "/bench/secure-oauth".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7750,6 +8222,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7789,6 +8262,7 @@ mod tests {
             method: default_method(),
             path: "/bench/secure".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7796,6 +8270,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7832,6 +8307,7 @@ mod tests {
             method: default_method(),
             path: "/bench/auth".to_string(),
             iterations: default_iterations(),
+            minimum_duration_ms: None,
             concurrency: default_concurrency(),
             in_flight_per_session: default_in_flight_per_session(),
             peer_count: default_peer_count(),
@@ -7839,6 +8315,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7882,6 +8359,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7925,6 +8403,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -7980,6 +8459,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -8475,6 +8955,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -8572,6 +9053,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -8611,6 +9093,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,
@@ -8650,6 +9133,7 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            payload_construction: None,
             ppt_cipher: None,
             ppt_keyid: None,
             secure_transport: false,

@@ -9,15 +9,21 @@ final _externalRoots = Expando<_NativeExternalByteBuffer>(
 final _externalAnchors = Expando<_NativeExternalByteBuffer>(
   'connectanum.native.external-anchor',
 );
+// Retain the source as a finalization token, including in compiled Dart where
+// an otherwise unread metadata field does not preserve the source's lifetime.
+// The source allocation keeps its sole native-free finalizer.
+final _externalAliases = Finalizer<Object>((_) {});
 
 final class _NativeExternalByteBuffer {
   const _NativeExternalByteBuffer(
     this.pointer,
+    this.buffer,
     this.baseOffsetInBytes,
     this.lengthInBytes,
   );
 
   final ffi.Pointer<ffi.Uint8> pointer;
+  final ByteBuffer buffer;
   final int baseOffsetInBytes;
   final int lengthInBytes;
 }
@@ -62,6 +68,7 @@ Uint8List allocateNativeExternalBytes(int length) {
   }
   final owner = _NativeExternalByteBuffer(
     pointer,
+    bytes.buffer,
     bytes.offsetInBytes,
     bytes.lengthInBytes,
   );
@@ -90,7 +97,9 @@ NativeExternalByteSlice? nativeExternalByteSlice(
       (anchor == null ? null : _externalAnchors[anchor]) ??
       _externalAnchors[bytes] ??
       _externalRoots[bytes];
-  if (owner == null) {
+  // Buffer getters can return distinct wrappers for the same allocation.
+  // Their equality checks backing storage, including read-only/nested views.
+  if (owner == null || bytes.buffer != owner.buffer) {
     return null;
   }
   final start = bytes.offsetInBytes;
@@ -104,4 +113,30 @@ NativeExternalByteSlice? nativeExternalByteSlice(
     length: bytes.lengthInBytes,
     owner: bytes,
   );
+}
+
+/// A bounded backing buffer for an already validated native range.
+///
+/// The original allocation keeps its finalizer. Both the mutable backing root
+/// and its read-only facade retain that allocation, including through derived
+/// views after the facade is collected. No foreign allocation is adopted.
+Uint8List? nativeExternalByteView(Uint8List bytes, {Object? anchor}) {
+  final slice = nativeExternalByteSlice(bytes, anchor: anchor);
+  if (slice == null) return null;
+  if (bytes.offsetInBytes == 0 &&
+      bytes.buffer.lengthInBytes == bytes.lengthInBytes) {
+    return bytes;
+  }
+  final backing = slice.pointer.asTypedList(slice.length);
+  final view = backing.asUnmodifiableView();
+  final owner = _NativeExternalByteBuffer(
+    slice.pointer,
+    backing.buffer,
+    0,
+    slice.length,
+  );
+  _externalRoots[backing] = owner;
+  _externalRoots[view] = owner;
+  _externalAliases.attach(backing, slice.owner);
+  return view;
 }

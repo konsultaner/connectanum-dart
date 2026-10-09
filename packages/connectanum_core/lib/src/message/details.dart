@@ -1,3 +1,4 @@
+import 'field_assignments.dart';
 import 'custom_fields.dart';
 
 class Details {
@@ -511,6 +512,10 @@ SubscriberFeatures? _mapSubscriberFeatures(Map<String, dynamic>? map) {
       map['subscription_revocation'] ?? features.subscriptionRevocation;
   features.payloadPassThruMode =
       map['payload_passthru_mode'] ?? features.payloadPassThruMode;
+  features.callTimeout = map['call_timeout'] ?? features.callTimeout;
+  features.callCanceling = map['call_canceling'] ?? features.callCanceling;
+  features.progressiveCallResults =
+      map['progressive_call_results'] ?? features.progressiveCallResults;
   return features;
 }
 
@@ -600,10 +605,33 @@ class Publisher {
 }
 
 class PublisherFeatures {
-  bool publisherIdentification = false;
-  bool subscriberBlackWhiteListing = false;
-  bool publisherExclusion = false;
-  bool payloadPassThruMode = false;
+  bool _publisherIdentification = false;
+  bool get publisherIdentification => _publisherIdentification;
+  set publisherIdentification(bool value) {
+    _publisherIdentification = value;
+    recordWampFieldAssignment(this, 'publisher_identification');
+  }
+
+  bool _subscriberBlackWhiteListing = false;
+  bool get subscriberBlackWhiteListing => _subscriberBlackWhiteListing;
+  set subscriberBlackWhiteListing(bool value) {
+    _subscriberBlackWhiteListing = value;
+    recordWampFieldAssignment(this, 'subscriber_blackwhite_listing');
+  }
+
+  bool _publisherExclusion = false;
+  bool get publisherExclusion => _publisherExclusion;
+  set publisherExclusion(bool value) {
+    _publisherExclusion = value;
+    recordWampFieldAssignment(this, 'publisher_exclusion');
+  }
+
+  bool _payloadPassThruMode = false;
+  bool get payloadPassThruMode => _payloadPassThruMode;
+  set payloadPassThruMode(bool value) {
+    _payloadPassThruMode = value;
+    recordWampFieldAssignment(this, 'payload_passthru_mode');
+  }
 }
 
 class Broker {
@@ -614,31 +642,76 @@ class Broker {
 /// Broker feature flags advertised in WAMP `WELCOME.Details`.
 class BrokerFeatures {
   /// Whether events may disclose the publisher session ID.
-  bool publisherIdentification = false;
+  bool _publisherIdentification = false;
+  bool get publisherIdentification => _publisherIdentification;
+  set publisherIdentification(bool value) {
+    _publisherIdentification = value;
+    recordWampFieldAssignment(this, 'publisher_identification');
+  }
 
   /// Whether events may include a router-assigned publication trust level.
-  bool publicationTrustLevels = false;
+  bool _publicationTrustLevels = false;
+  bool get publicationTrustLevels => _publicationTrustLevels;
+  set publicationTrustLevels(bool value) {
+    _publicationTrustLevels = value;
+    recordWampFieldAssignment(this, 'publication_trustlevels');
+  }
 
   /// Whether the broker supports prefix and wildcard subscriptions.
-  bool patternBasedSubscription = false;
+  bool _patternBasedSubscription = false;
+  bool get patternBasedSubscription => _patternBasedSubscription;
+  set patternBasedSubscription(bool value) {
+    _patternBasedSubscription = value;
+    recordWampFieldAssignment(this, 'pattern_based_subscription');
+  }
 
   /// Whether the broker exposes the WAMP subscription meta API.
-  bool subscriptionMetaApi = false;
+  bool _subscriptionMetaApi = false;
+  bool get subscriptionMetaApi => _subscriptionMetaApi;
+  set subscriptionMetaApi(bool value) {
+    _subscriptionMetaApi = value;
+    recordWampFieldAssignment(this, 'subscription_meta_api');
+  }
 
   /// Whether publishers may include or exclude specific subscribers.
-  bool subscriberBlackWhiteListing = false;
+  bool _subscriberBlackWhiteListing = false;
+  bool get subscriberBlackWhiteListing => _subscriberBlackWhiteListing;
+  set subscriberBlackWhiteListing(bool value) {
+    _subscriberBlackWhiteListing = value;
+    recordWampFieldAssignment(this, 'subscriber_blackwhite_listing');
+  }
 
   /// Whether the broker exposes the WAMP session meta API.
-  bool sessionMetaApi = false;
+  bool _sessionMetaApi = false;
+  bool get sessionMetaApi => _sessionMetaApi;
+  set sessionMetaApi(bool value) {
+    _sessionMetaApi = value;
+    recordWampFieldAssignment(this, 'session_meta_api');
+  }
 
   /// Whether publishers may control delivery to their own session.
-  bool publisherExclusion = false;
+  bool _publisherExclusion = false;
+  bool get publisherExclusion => _publisherExclusion;
+  set publisherExclusion(bool value) {
+    _publisherExclusion = value;
+    recordWampFieldAssignment(this, 'publisher_exclusion');
+  }
 
   /// Whether the broker supports event-history retrieval.
-  bool eventHistory = false;
+  bool _eventHistory = false;
+  bool get eventHistory => _eventHistory;
+  set eventHistory(bool value) {
+    _eventHistory = value;
+    recordWampFieldAssignment(this, 'event_history');
+  }
 
   /// Whether the broker supports WAMP Payload Passthru Mode.
-  bool payloadPassThruMode = false;
+  bool _payloadPassThruMode = false;
+  bool get payloadPassThruMode => _payloadPassThruMode;
+  set payloadPassThruMode(bool value) {
+    _payloadPassThruMode = value;
+    recordWampFieldAssignment(this, 'payload_passthru_mode');
+  }
 }
 
 class Subscriber {
@@ -646,26 +719,70 @@ class Subscriber {
 }
 
 class SubscriberFeatures {
-  bool publisherIdentification = false;
-  bool publicationTrustLevels = false;
-  bool patternBasedSubscription = false;
-  bool subscriptionRevocation = false;
-  bool payloadPassThruMode = false;
+  bool _publisherIdentification = false;
+  bool get publisherIdentification => _publisherIdentification;
+  set publisherIdentification(bool value) {
+    _publisherIdentification = value;
+    recordWampFieldAssignment(this, 'publisher_identification');
+  }
+
+  bool _publicationTrustLevels = false;
+  bool get publicationTrustLevels => _publicationTrustLevels;
+  set publicationTrustLevels(bool value) {
+    _publicationTrustLevels = value;
+    recordWampFieldAssignment(this, 'publication_trustlevels');
+  }
+
+  bool _patternBasedSubscription = false;
+  bool get patternBasedSubscription => _patternBasedSubscription;
+  set patternBasedSubscription(bool value) {
+    _patternBasedSubscription = value;
+    recordWampFieldAssignment(this, 'pattern_based_subscription');
+  }
+
+  bool _subscriptionRevocation = false;
+  bool get subscriptionRevocation => _subscriptionRevocation;
+  set subscriptionRevocation(bool value) {
+    _subscriptionRevocation = value;
+    recordWampFieldAssignment(this, 'subscription_revocation');
+  }
+
+  bool _payloadPassThruMode = false;
+  bool get payloadPassThruMode => _payloadPassThruMode;
+  set payloadPassThruMode(bool value) {
+    _payloadPassThruMode = value;
+    recordWampFieldAssignment(this, 'payload_passthru_mode');
+  }
 
   @Deprecated(
     'RPC timeout support belongs to CallerFeatures and CalleeFeatures.',
   )
-  bool callTimeout = false;
+  bool _callTimeout = false;
+  bool get callTimeout => _callTimeout;
+  set callTimeout(bool value) {
+    _callTimeout = value;
+    recordWampFieldAssignment(this, 'call_timeout');
+  }
 
   @Deprecated(
     'RPC cancellation support belongs to CallerFeatures and CalleeFeatures.',
   )
-  bool callCanceling = false;
+  bool _callCanceling = false;
+  bool get callCanceling => _callCanceling;
+  set callCanceling(bool value) {
+    _callCanceling = value;
+    recordWampFieldAssignment(this, 'call_canceling');
+  }
 
   @Deprecated(
     'Progressive RPC results belong to CallerFeatures and CalleeFeatures.',
   )
-  bool progressiveCallResults = false;
+  bool _progressiveCallResults = false;
+  bool get progressiveCallResults => _progressiveCallResults;
+  set progressiveCallResults(bool value) {
+    _progressiveCallResults = value;
+    recordWampFieldAssignment(this, 'progressive_call_results');
+  }
 }
 
 class Dealer {
@@ -674,17 +791,82 @@ class Dealer {
 }
 
 class DealerFeatures {
-  bool callerIdentification = false;
-  bool callTrustLevels = false;
-  bool patternBasedRegistration = false;
-  bool registrationMetaApi = false;
-  bool sharedRegistration = false;
-  bool sessionMetaApi = false;
-  bool callTimeout = false;
-  bool callCanceling = false;
-  bool progressiveCallInvocations = false;
-  bool progressiveCallResults = false;
-  bool payloadPassThruMode = false;
+  bool _callerIdentification = false;
+  bool get callerIdentification => _callerIdentification;
+  set callerIdentification(bool value) {
+    _callerIdentification = value;
+    recordWampFieldAssignment(this, 'caller_identification');
+  }
+
+  bool _callTrustLevels = false;
+  bool get callTrustLevels => _callTrustLevels;
+  set callTrustLevels(bool value) {
+    _callTrustLevels = value;
+    recordWampFieldAssignment(this, 'call_trustlevels');
+  }
+
+  bool _patternBasedRegistration = false;
+  bool get patternBasedRegistration => _patternBasedRegistration;
+  set patternBasedRegistration(bool value) {
+    _patternBasedRegistration = value;
+    recordWampFieldAssignment(this, 'pattern_based_registration');
+  }
+
+  bool _registrationMetaApi = false;
+  bool get registrationMetaApi => _registrationMetaApi;
+  set registrationMetaApi(bool value) {
+    _registrationMetaApi = value;
+    recordWampFieldAssignment(this, 'registration_meta_api');
+  }
+
+  bool _sharedRegistration = false;
+  bool get sharedRegistration => _sharedRegistration;
+  set sharedRegistration(bool value) {
+    _sharedRegistration = value;
+    recordWampFieldAssignment(this, 'shared_registration');
+  }
+
+  bool _sessionMetaApi = false;
+  bool get sessionMetaApi => _sessionMetaApi;
+  set sessionMetaApi(bool value) {
+    _sessionMetaApi = value;
+    recordWampFieldAssignment(this, 'session_meta_api');
+  }
+
+  bool _callTimeout = false;
+  bool get callTimeout => _callTimeout;
+  set callTimeout(bool value) {
+    _callTimeout = value;
+    recordWampFieldAssignment(this, 'call_timeout');
+  }
+
+  bool _callCanceling = false;
+  bool get callCanceling => _callCanceling;
+  set callCanceling(bool value) {
+    _callCanceling = value;
+    recordWampFieldAssignment(this, 'call_canceling');
+  }
+
+  bool _progressiveCallInvocations = false;
+  bool get progressiveCallInvocations => _progressiveCallInvocations;
+  set progressiveCallInvocations(bool value) {
+    _progressiveCallInvocations = value;
+    recordWampFieldAssignment(this, 'progressive_call_invocations');
+  }
+
+  bool _progressiveCallResults = false;
+  bool get progressiveCallResults => _progressiveCallResults;
+  set progressiveCallResults(bool value) {
+    _progressiveCallResults = value;
+    recordWampFieldAssignment(this, 'progressive_call_results');
+  }
+
+  bool _payloadPassThruMode = false;
+  bool get payloadPassThruMode => _payloadPassThruMode;
+  set payloadPassThruMode(bool value) {
+    _payloadPassThruMode = value;
+    recordWampFieldAssignment(this, 'payload_passthru_mode');
+  }
 }
 
 class Callee {
@@ -692,15 +874,68 @@ class Callee {
 }
 
 class CalleeFeatures {
-  bool callerIdentification = false;
-  bool callTrustlevels = false;
-  bool patternBasedRegistration = false;
-  bool sharedRegistration = false;
-  bool callTimeout = false;
-  bool callCanceling = false;
-  bool progressiveCallInvocations = false;
-  bool progressiveCallResults = false;
-  bool payloadPassThruMode = false;
+  bool _callerIdentification = false;
+  bool get callerIdentification => _callerIdentification;
+  set callerIdentification(bool value) {
+    _callerIdentification = value;
+    recordWampFieldAssignment(this, 'caller_identification');
+  }
+
+  bool _callTrustlevels = false;
+  bool get callTrustlevels => _callTrustlevels;
+  set callTrustlevels(bool value) {
+    _callTrustlevels = value;
+    recordWampFieldAssignment(this, 'call_trustlevels');
+  }
+
+  bool _patternBasedRegistration = false;
+  bool get patternBasedRegistration => _patternBasedRegistration;
+  set patternBasedRegistration(bool value) {
+    _patternBasedRegistration = value;
+    recordWampFieldAssignment(this, 'pattern_based_registration');
+  }
+
+  bool _sharedRegistration = false;
+  bool get sharedRegistration => _sharedRegistration;
+  set sharedRegistration(bool value) {
+    _sharedRegistration = value;
+    recordWampFieldAssignment(this, 'shared_registration');
+  }
+
+  bool _callTimeout = false;
+  bool get callTimeout => _callTimeout;
+  set callTimeout(bool value) {
+    _callTimeout = value;
+    recordWampFieldAssignment(this, 'call_timeout');
+  }
+
+  bool _callCanceling = false;
+  bool get callCanceling => _callCanceling;
+  set callCanceling(bool value) {
+    _callCanceling = value;
+    recordWampFieldAssignment(this, 'call_canceling');
+  }
+
+  bool _progressiveCallInvocations = false;
+  bool get progressiveCallInvocations => _progressiveCallInvocations;
+  set progressiveCallInvocations(bool value) {
+    _progressiveCallInvocations = value;
+    recordWampFieldAssignment(this, 'progressive_call_invocations');
+  }
+
+  bool _progressiveCallResults = false;
+  bool get progressiveCallResults => _progressiveCallResults;
+  set progressiveCallResults(bool value) {
+    _progressiveCallResults = value;
+    recordWampFieldAssignment(this, 'progressive_call_results');
+  }
+
+  bool _payloadPassThruMode = false;
+  bool get payloadPassThruMode => _payloadPassThruMode;
+  set payloadPassThruMode(bool value) {
+    _payloadPassThruMode = value;
+    recordWampFieldAssignment(this, 'payload_passthru_mode');
+  }
 }
 
 class Caller {
@@ -708,10 +943,45 @@ class Caller {
 }
 
 class CallerFeatures {
-  bool callerIdentification = false;
-  bool callTimeout = false;
-  bool callCanceling = false;
-  bool progressiveCallInvocations = false;
-  bool progressiveCallResults = false;
-  bool payloadPassThruMode = false;
+  bool _callerIdentification = false;
+  bool get callerIdentification => _callerIdentification;
+  set callerIdentification(bool value) {
+    _callerIdentification = value;
+    recordWampFieldAssignment(this, 'caller_identification');
+  }
+
+  bool _callTimeout = false;
+  bool get callTimeout => _callTimeout;
+  set callTimeout(bool value) {
+    _callTimeout = value;
+    recordWampFieldAssignment(this, 'call_timeout');
+  }
+
+  bool _callCanceling = false;
+  bool get callCanceling => _callCanceling;
+  set callCanceling(bool value) {
+    _callCanceling = value;
+    recordWampFieldAssignment(this, 'call_canceling');
+  }
+
+  bool _progressiveCallInvocations = false;
+  bool get progressiveCallInvocations => _progressiveCallInvocations;
+  set progressiveCallInvocations(bool value) {
+    _progressiveCallInvocations = value;
+    recordWampFieldAssignment(this, 'progressive_call_invocations');
+  }
+
+  bool _progressiveCallResults = false;
+  bool get progressiveCallResults => _progressiveCallResults;
+  set progressiveCallResults(bool value) {
+    _progressiveCallResults = value;
+    recordWampFieldAssignment(this, 'progressive_call_results');
+  }
+
+  bool _payloadPassThruMode = false;
+  bool get payloadPassThruMode => _payloadPassThruMode;
+  set payloadPassThruMode(bool value) {
+    _payloadPassThruMode = value;
+    recordWampFieldAssignment(this, 'payload_passthru_mode');
+  }
 }

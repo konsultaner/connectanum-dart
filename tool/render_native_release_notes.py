@@ -82,6 +82,18 @@ def render_release_notes(
 - Detached Sigstore bundle:
   `cosign verify-blob path/to/ct-ffi-<host-triple>.tar.gz --bundle path/to/ct-ffi-<host-triple>.tar.gz.sigstore.json --certificate-identity {workflow_identity} --certificate-oidc-issuer https://token.actions.githubusercontent.com`
 
+## FlatBuffers validation and performance
+
+- Binding and negotiated profile: {repo_url}/blob/{commit_sha}/docs/flatbuffers_binding.md
+- Conformance evidence and limitations: {repo_url}/blob/{commit_sha}/docs/research/2026-10-04-flatbuffers-live-peer-conformance.md
+- Benchmark evidence and acceptance contract: {repo_url}/blob/{commit_sha}/docs/flatbuffers_performance_acceptance.md
+- Buffer ownership and copy boundaries: {repo_url}/blob/{commit_sha}/docs/native_buffer_ownership.md
+- Hosted checks for this commit: {repo_url}/commit/{commit_sha}/checks
+
+Use the linked evidence to assess profile compatibility, measured copy boundaries
+and serializer performance. The benchmark contract records outstanding work;
+FlatBuffers performance parity and complete copy coverage remain unaccepted.
+
 ## Related links
 
 - Repository README: {repo_url}/blob/{commit_sha}/README.md

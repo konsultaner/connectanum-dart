@@ -1,0 +1,792 @@
+{
+  "head": "8503f31cdb966a592b52e774ed32bda0d19c22db",
+  "workflowRun": 37546766311,
+  "status": "five-platform provenance and preview verified; Apple Silicon/Linux arm64 production consumers passed",
+  "platforms": [
+    {
+      "artifact": "ct-ffi-aarch64-apple-darwin",
+      "manifest": {
+        "schema_version": 1,
+        "artifact": "ct-ffi-aarch64-apple-darwin",
+        "crate": "ct_ffi",
+        "library_file": "libct_ffi.dylib",
+        "host_os": "macos",
+        "host_arch": "arm64",
+        "host_triple": "aarch64-apple-darwin",
+        "git_commit": "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "built_at_utc": "2026-10-06T23:30:01Z"
+      },
+      "archiveSha256": "0655826a0ec7bb9e69360e333c9758efc25a7bcb36541791a73076e9fa524a63",
+      "library": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/unpacked/ct-ffi-aarch64-apple-darwin/libct_ffi.dylib",
+      "librarySha256": "f249fbf13c797b08b0c626243ad6ade6332b40a31734a5934d2a95d9a94b026d",
+      "runtimeValidated": true
+    },
+    {
+      "artifact": "ct-ffi-aarch64-unknown-linux-gnu",
+      "manifest": {
+        "schema_version": 1,
+        "artifact": "ct-ffi-aarch64-unknown-linux-gnu",
+        "crate": "ct_ffi",
+        "library_file": "libct_ffi.so",
+        "host_os": "linux",
+        "host_arch": "arm64",
+        "host_triple": "aarch64-unknown-linux-gnu",
+        "git_commit": "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "built_at_utc": "2026-10-06T23:31:22Z"
+      },
+      "archiveSha256": "6303f1a5b0f2300fab51aa94e80d812383fbf05f16fe0c416184928a625fe68f",
+      "library": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/unpacked/ct-ffi-aarch64-unknown-linux-gnu/libct_ffi.so",
+      "librarySha256": "940a4fb974f4f310d3f3b3489f930af9c97760946fc8c8647b079eaaf2a379c8",
+      "runtimeValidated": true
+    },
+    {
+      "artifact": "ct-ffi-x86_64-apple-darwin",
+      "manifest": {
+        "schema_version": 1,
+        "artifact": "ct-ffi-x86_64-apple-darwin",
+        "crate": "ct_ffi",
+        "library_file": "libct_ffi.dylib",
+        "host_os": "macos",
+        "host_arch": "x86_64",
+        "host_triple": "x86_64-apple-darwin",
+        "git_commit": "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "built_at_utc": "2026-10-06T23:32:54Z"
+      },
+      "archiveSha256": "d0b7f3818dc3d2266fe76c7d1375fc70ac04aadbc067e3977c3298df5b2d9f27",
+      "library": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-apple-darwin/unpacked/ct-ffi-x86_64-apple-darwin/libct_ffi.dylib",
+      "librarySha256": "67876f98c5694532e40aa837ff0027e42ec7eda5b18ed7d1b27526e3525da8e9",
+      "runtimeValidated": false
+    },
+    {
+      "artifact": "ct-ffi-x86_64-pc-windows-msvc",
+      "manifest": {
+        "schema_version": 1,
+        "artifact": "ct-ffi-x86_64-pc-windows-msvc",
+        "crate": "ct_ffi",
+        "library_file": "ct_ffi.dll",
+        "host_os": "windows",
+        "host_arch": "x86_64",
+        "host_triple": "x86_64-pc-windows-msvc",
+        "git_commit": "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "built_at_utc": "2026-10-06T23:32:28Z"
+      },
+      "archiveSha256": "5b7a9f7f53e13025b7253f9dd891c74f6a687fe0aae2d1cb4812906c4926afc8",
+      "library": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-pc-windows-msvc/unpacked/ct-ffi-x86_64-pc-windows-msvc/ct_ffi.dll",
+      "librarySha256": "fc731eaad8249f3042b03b7b900ba08982dea4a4dc1366e190400f18a83b3e69",
+      "runtimeValidated": false
+    },
+    {
+      "artifact": "ct-ffi-x86_64-unknown-linux-gnu",
+      "manifest": {
+        "schema_version": 1,
+        "artifact": "ct-ffi-x86_64-unknown-linux-gnu",
+        "crate": "ct_ffi",
+        "library_file": "libct_ffi.so",
+        "host_os": "linux",
+        "host_arch": "x86_64",
+        "host_triple": "x86_64-unknown-linux-gnu",
+        "git_commit": "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "built_at_utc": "2026-10-06T23:32:29Z"
+      },
+      "archiveSha256": "7d6ad0b2c64d2c9b466b86cfcce9bb13236d39f65cd0cfc178b43e429137eecf",
+      "library": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-unknown-linux-gnu/unpacked/ct-ffi-x86_64-unknown-linux-gnu/libct_ffi.so",
+      "librarySha256": "8fcef353fec09ea8aa5c17d60b455c8ed4995be87956c92cc975a91370584a28",
+      "runtimeValidated": false
+    }
+  ],
+  "attestations": [
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/ct-ffi-aarch64-apple-darwin.tar.gz",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/ct-ffi-aarch64-apple-darwin.tar.gz",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/verified-ct-ffi-aarch64-apple-darwin.tar.gz.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/ct-ffi-aarch64-apple-darwin.tar.gz.sha256",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/ct-ffi-aarch64-apple-darwin.tar.gz.sha256",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/verified-ct-ffi-aarch64-apple-darwin.tar.gz.sha256.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/ct-ffi-aarch64-apple-darwin.manifest.json",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/ct-ffi-aarch64-apple-darwin.manifest.json",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/verified-ct-ffi-aarch64-apple-darwin.manifest.json.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/ct-ffi-aarch64-unknown-linux-gnu.tar.gz",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/ct-ffi-aarch64-unknown-linux-gnu.tar.gz",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/verified-ct-ffi-aarch64-unknown-linux-gnu.tar.gz.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/ct-ffi-aarch64-unknown-linux-gnu.tar.gz.sha256",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/ct-ffi-aarch64-unknown-linux-gnu.tar.gz.sha256",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/verified-ct-ffi-aarch64-unknown-linux-gnu.tar.gz.sha256.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/ct-ffi-aarch64-unknown-linux-gnu.manifest.json",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/ct-ffi-aarch64-unknown-linux-gnu.manifest.json",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/verified-ct-ffi-aarch64-unknown-linux-gnu.manifest.json.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-apple-darwin/ct-ffi-x86_64-apple-darwin.tar.gz",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-apple-darwin/ct-ffi-x86_64-apple-darwin.tar.gz",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-apple-darwin/verified-ct-ffi-x86_64-apple-darwin.tar.gz.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-apple-darwin/ct-ffi-x86_64-apple-darwin.tar.gz.sha256",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-apple-darwin/ct-ffi-x86_64-apple-darwin.tar.gz.sha256",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-apple-darwin/verified-ct-ffi-x86_64-apple-darwin.tar.gz.sha256.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-apple-darwin/ct-ffi-x86_64-apple-darwin.manifest.json",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-apple-darwin/ct-ffi-x86_64-apple-darwin.manifest.json",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-apple-darwin/verified-ct-ffi-x86_64-apple-darwin.manifest.json.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-pc-windows-msvc/ct-ffi-x86_64-pc-windows-msvc.tar.gz",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-pc-windows-msvc/ct-ffi-x86_64-pc-windows-msvc.tar.gz",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-pc-windows-msvc/verified-ct-ffi-x86_64-pc-windows-msvc.tar.gz.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-pc-windows-msvc/ct-ffi-x86_64-pc-windows-msvc.tar.gz.sha256",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-pc-windows-msvc/ct-ffi-x86_64-pc-windows-msvc.tar.gz.sha256",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-pc-windows-msvc/verified-ct-ffi-x86_64-pc-windows-msvc.tar.gz.sha256.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-pc-windows-msvc/ct-ffi-x86_64-pc-windows-msvc.manifest.json",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-pc-windows-msvc/ct-ffi-x86_64-pc-windows-msvc.manifest.json",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-pc-windows-msvc/verified-ct-ffi-x86_64-pc-windows-msvc.manifest.json.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-unknown-linux-gnu/ct-ffi-x86_64-unknown-linux-gnu.tar.gz",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-unknown-linux-gnu/ct-ffi-x86_64-unknown-linux-gnu.tar.gz",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-unknown-linux-gnu/verified-ct-ffi-x86_64-unknown-linux-gnu.tar.gz.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-unknown-linux-gnu/ct-ffi-x86_64-unknown-linux-gnu.tar.gz.sha256",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-unknown-linux-gnu/ct-ffi-x86_64-unknown-linux-gnu.tar.gz.sha256",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-unknown-linux-gnu/verified-ct-ffi-x86_64-unknown-linux-gnu.tar.gz.sha256.json"
+    },
+    {
+      "subject": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-unknown-linux-gnu/ct-ffi-x86_64-unknown-linux-gnu.manifest.json",
+      "exitCode": 0,
+      "command": [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-unknown-linux-gnu/ct-ffi-x86_64-unknown-linux-gnu.manifest.json",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--source-digest",
+        "8503f31cdb966a592b52e774ed32bda0d19c22db",
+        "--source-ref",
+        "refs/heads/codex/flatbuffers-zero-copy",
+        "--signer-workflow",
+        "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml",
+        "--deny-self-hosted-runners",
+        "--format",
+        "json"
+      ],
+      "result": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-x86_64-unknown-linux-gnu/verified-ct-ffi-x86_64-unknown-linux-gnu.manifest.json.json"
+    }
+  ],
+  "preview": {
+    "head": "8503f31cdb966a592b52e774ed32bda0d19c22db",
+    "workflowRun": 37546766311,
+    "dryRun": true,
+    "assetCount": 30,
+    "assetsMatch": true,
+    "notesMatchRenderer": true,
+    "notesSha256": "915ad26cb281a327f01b0db76e0ec40344c46a242e6b1d99db30991fece8b702",
+    "command": [
+      "python3",
+      "tool/render_native_release_notes.py",
+      "--release-tag",
+      "ct-ffi-v3.0.0-beta.7",
+      "--commit",
+      "8503f31cdb966a592b52e774ed32bda0d19c22db",
+      "--repository",
+      "konsultaner/connectanum-dart",
+      "--server-url",
+      "https://github.com",
+      "--workflow-ref",
+      "konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml@refs/heads/codex/flatbuffers-zero-copy",
+      "--owner",
+      "konsultaner"
+    ]
+  },
+  "productionConsumers": [
+    {
+      "head": "8503f31cdb966a592b52e774ed32bda0d19c22db",
+      "workflowRun": 37546766311,
+      "sourceArchiveSha256": "36ccd9a7b65afa50f52cae2eec0b6809f8428638897c41411afedc0032a80db3",
+      "library": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-apple-darwin/unpacked/ct-ffi-aarch64-apple-darwin/libct_ffi.dylib",
+      "librarySha256": "f249fbf13c797b08b0c626243ad6ade6332b40a31734a5934d2a95d9a94b026d",
+      "results": [
+        {
+          "step": "source-get",
+          "cwd": "/tmp/connectanum-8503f31c-consumer-source",
+          "argv": [
+            "dart",
+            "pub",
+            "get"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-source-get.log",
+          "logSha256": "af7e80845b98e816b45fc417a97a52cd101c23c221fd9c55e63599deb1561f64"
+        },
+        {
+          "step": "consumer-get",
+          "cwd": "/tmp/connectanum-8503f31c-public-consumer",
+          "argv": [
+            "dart",
+            "pub",
+            "get"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-consumer-get.log",
+          "logSha256": "07eb59df22406fcfcb27bf2b5c56ed4b48bb044adccf35dbdd1fc4b8c276d960"
+        },
+        {
+          "step": "consumer-codecs",
+          "cwd": "/tmp/connectanum-8503f31c-public-consumer",
+          "argv": [
+            "dart",
+            "run",
+            "bin/encodings.dart"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-consumer-codecs.log",
+          "logSha256": "e88271b0c58107f7e54f24464fb069274952eddf64cf483f953a46b818536500"
+        },
+        {
+          "step": "consumer-native",
+          "cwd": "/tmp/connectanum-8503f31c-public-consumer",
+          "argv": [
+            "dart",
+            "run",
+            "bin/main.dart"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-consumer-native.log",
+          "logSha256": "8036a040033b792fb7da0f6ae5bad5015bc3af0435c8eee98c1e516e0a72085b"
+        },
+        {
+          "step": "production-external-provenance",
+          "cwd": "/tmp/connectanum-8503f31c-consumer-source/packages/connectanum_client",
+          "argv": [
+            "dart",
+            "test",
+            "test/transport/native/external_byte_buffer_test.dart",
+            "--reporter",
+            "expanded"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-production-external-provenance.log",
+          "logSha256": "f8d684c821c9c6bc19ee51167c8059b122faa7ae6d3721eb8f216ad16c8094c1"
+        },
+        {
+          "step": "production-segments",
+          "cwd": "/tmp/connectanum-8503f31c-consumer-source/packages/connectanum_client",
+          "argv": [
+            "dart",
+            "test",
+            "test/transport/native/native_owned_segments_test.dart",
+            "--reporter",
+            "expanded"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-production-segments.log",
+          "logSha256": "39af17397406672cbc11341ed4203a8e4933cdb543638ae02968b72e183c6172"
+        },
+        {
+          "step": "production-owned-ppt",
+          "cwd": "/tmp/connectanum-8503f31c-consumer-source/packages/connectanum_bench",
+          "argv": [
+            "dart",
+            "test",
+            "test/wamp_transport_integration_test.dart",
+            "--name",
+            "native owned PPT runner",
+            "--reporter",
+            "expanded"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-production-owned-ppt.log",
+          "logSha256": "137668e956107167bb480f3bc1e3006aa6d837d5a2deabee3c715062520deca3"
+        },
+        {
+          "step": "production-mixed-ppt",
+          "cwd": "/tmp/connectanum-8503f31c-consumer-source/packages/connectanum_router",
+          "argv": [
+            "dart",
+            "test",
+            "test/router_flatbuffers_session_ppt_test.dart",
+            "--concurrency=1",
+            "--reporter",
+            "expanded"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-production-mixed-ppt.log",
+          "logSha256": "90200e2a6d7f65832da0dec6f09b0cb354b77ec0eb26ac388f2f1ade5ed312d5"
+        }
+      ],
+      "productionOracleExports": [],
+      "ffiTestOracleSymbols": [
+        "_ct_test_byte_buffer_free",
+        "_ct_test_call_observer_new",
+        "_ct_test_clear_messages",
+        "_ct_test_external_byte_buffer_live_owners",
+        "_ct_test_http3_stream_request",
+        "_ct_test_message_enqueue",
+        "_ct_test_message_enqueue_wide",
+        "_ct_test_message_observer_alive",
+        "_ct_test_message_observer_free",
+        "_ct_test_message_observer_new",
+        "_ct_test_message_observer_new_wide",
+        "_ct_test_owned_buffer_last_frozen_alignment",
+        "_ct_test_owned_buffer_live_allocations",
+        "_ct_test_owned_buffer_live_handles",
+        "_ct_test_push_http_connection_event",
+        "_ct_test_register_http3_connection",
+        "_ct_test_register_http3_request",
+        "_ct_test_write_receipt_live_handles"
+      ],
+      "otherPlatformsRuntimeValidated": false,
+      "status": "passed",
+      "testCounts": {
+        "production-external-provenance": 20,
+        "production-segments": 10,
+        "production-owned-ppt": 16,
+        "production-mixed-ppt": 104
+      }
+    },
+    {
+      "head": "8503f31cdb966a592b52e774ed32bda0d19c22db",
+      "workflowRun": 37546766311,
+      "sourceArchiveSha256": "36ccd9a7b65afa50f52cae2eec0b6809f8428638897c41411afedc0032a80db3",
+      "platform": "Linux arm64 Docker VM; runtime correctness only",
+      "library": "/tmp/connectanum-8503f31c-native-artifacts/ct-ffi-aarch64-unknown-linux-gnu/unpacked/ct-ffi-aarch64-unknown-linux-gnu/libct_ffi.so",
+      "librarySha256": "940a4fb974f4f310d3f3b3489f930af9c97760946fc8c8647b079eaaf2a379c8",
+      "results": [
+        {
+          "step": "source-get",
+          "command": [
+            "docker",
+            "exec",
+            "-w",
+            "/tmp/connectanum-8503f31c-consumer-source",
+            "-e",
+            "CONNECTANUM_NATIVE_LIB=/tmp/connectanum-8503f31c-production-libct_ffi.so",
+            "-e",
+            "CONNECTANUM_SKIP_NATIVE_BUILD=1",
+            "connectanum-flatbuffers-linux-bench",
+            "dart",
+            "pub",
+            "get"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-linux-source-get.log",
+          "logSha256": "af7e80845b98e816b45fc417a97a52cd101c23c221fd9c55e63599deb1561f64"
+        },
+        {
+          "step": "consumer-get",
+          "command": [
+            "docker",
+            "exec",
+            "-w",
+            "/tmp/connectanum-8503f31c-public-consumer",
+            "-e",
+            "CONNECTANUM_NATIVE_LIB=/tmp/connectanum-8503f31c-production-libct_ffi.so",
+            "-e",
+            "CONNECTANUM_SKIP_NATIVE_BUILD=1",
+            "connectanum-flatbuffers-linux-bench",
+            "dart",
+            "pub",
+            "get"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-linux-consumer-get.log",
+          "logSha256": "07eb59df22406fcfcb27bf2b5c56ed4b48bb044adccf35dbdd1fc4b8c276d960"
+        },
+        {
+          "step": "consumer-codecs",
+          "command": [
+            "docker",
+            "exec",
+            "-w",
+            "/tmp/connectanum-8503f31c-public-consumer",
+            "-e",
+            "CONNECTANUM_NATIVE_LIB=/tmp/connectanum-8503f31c-production-libct_ffi.so",
+            "-e",
+            "CONNECTANUM_SKIP_NATIVE_BUILD=1",
+            "connectanum-flatbuffers-linux-bench",
+            "dart",
+            "run",
+            "bin/encodings.dart"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-linux-consumer-codecs.log",
+          "logSha256": "e88271b0c58107f7e54f24464fb069274952eddf64cf483f953a46b818536500"
+        },
+        {
+          "step": "consumer-native",
+          "command": [
+            "docker",
+            "exec",
+            "-w",
+            "/tmp/connectanum-8503f31c-public-consumer",
+            "-e",
+            "CONNECTANUM_NATIVE_LIB=/tmp/connectanum-8503f31c-production-libct_ffi.so",
+            "-e",
+            "CONNECTANUM_SKIP_NATIVE_BUILD=1",
+            "connectanum-flatbuffers-linux-bench",
+            "dart",
+            "run",
+            "bin/main.dart"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-linux-consumer-native.log",
+          "logSha256": "514fd4236ff3db3f66d371bff692b2f8ceeac3ad4d7d1af7a07f3fd4a74c4a7d"
+        },
+        {
+          "step": "production-external-provenance",
+          "command": [
+            "docker",
+            "exec",
+            "-w",
+            "/tmp/connectanum-8503f31c-consumer-source/packages/connectanum_client",
+            "-e",
+            "CONNECTANUM_NATIVE_LIB=/tmp/connectanum-8503f31c-production-libct_ffi.so",
+            "-e",
+            "CONNECTANUM_SKIP_NATIVE_BUILD=1",
+            "connectanum-flatbuffers-linux-bench",
+            "dart",
+            "test",
+            "test/transport/native/external_byte_buffer_test.dart",
+            "--reporter",
+            "expanded"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-linux-production-external-provenance.log",
+          "logSha256": "ff6f279e78851e56ac4a77835210297fbd69a8b67bcc905e37b6c688a744c4c6"
+        },
+        {
+          "step": "production-segments",
+          "command": [
+            "docker",
+            "exec",
+            "-w",
+            "/tmp/connectanum-8503f31c-consumer-source/packages/connectanum_client",
+            "-e",
+            "CONNECTANUM_NATIVE_LIB=/tmp/connectanum-8503f31c-production-libct_ffi.so",
+            "-e",
+            "CONNECTANUM_SKIP_NATIVE_BUILD=1",
+            "connectanum-flatbuffers-linux-bench",
+            "dart",
+            "test",
+            "test/transport/native/native_owned_segments_test.dart",
+            "--reporter",
+            "expanded"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-linux-production-segments.log",
+          "logSha256": "09bcaf4017ac01ce50b7402f67c46844dd5062ca57518d063e0b24bdc89a5424"
+        },
+        {
+          "step": "production-owned-ppt",
+          "command": [
+            "docker",
+            "exec",
+            "-w",
+            "/tmp/connectanum-8503f31c-consumer-source/packages/connectanum_bench",
+            "-e",
+            "CONNECTANUM_NATIVE_LIB=/tmp/connectanum-8503f31c-production-libct_ffi.so",
+            "-e",
+            "CONNECTANUM_SKIP_NATIVE_BUILD=1",
+            "connectanum-flatbuffers-linux-bench",
+            "dart",
+            "test",
+            "test/wamp_transport_integration_test.dart",
+            "--name",
+            "native owned PPT runner",
+            "--reporter",
+            "expanded"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-linux-production-owned-ppt.log",
+          "logSha256": "b36766e7ffa776d9fce92cbc0b51c41b45956e231e30c334c284908cde7a55a5"
+        },
+        {
+          "step": "production-mixed-ppt",
+          "command": [
+            "docker",
+            "exec",
+            "-w",
+            "/tmp/connectanum-8503f31c-consumer-source/packages/connectanum_router",
+            "-e",
+            "CONNECTANUM_NATIVE_LIB=/tmp/connectanum-8503f31c-production-libct_ffi.so",
+            "-e",
+            "CONNECTANUM_SKIP_NATIVE_BUILD=1",
+            "connectanum-flatbuffers-linux-bench",
+            "dart",
+            "test",
+            "test/router_flatbuffers_session_ppt_test.dart",
+            "--concurrency=1",
+            "--reporter",
+            "expanded"
+          ],
+          "exitCode": 0,
+          "log": "/tmp/connectanum-8503f31c-linux-production-mixed-ppt.log",
+          "logSha256": "b1885e1597adfe42a8fa1a8b4e3fc614d8060f7d8eb4eceed71562cb909842c4"
+        }
+      ],
+      "status": "passed",
+      "productionOracleExports": [],
+      "productionOracleSymbolCheck": "nm -D --defined-only, no ct_test_ exports",
+      "testCounts": {
+        "production-external-provenance": 20,
+        "production-segments": 10,
+        "production-owned-ppt": 16,
+        "production-mixed-ppt": 104
+      }
+    }
+  ],
+  "scope": "Five build/provenance platforms; runtime correctness on Apple Silicon and Linux arm64 only. No timing/parity result."
+}

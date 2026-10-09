@@ -80,7 +80,11 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
     def test_bench_readme_publishes_current_result_snapshot(self) -> None:
         readme = BENCH_README.read_text(encoding="utf-8")
 
-        self.assertIn("complete production-gate snapshot covers 78 workloads", readme)
+        self.assertIn(
+            "78-workload production-gate snapshot below covers JSON, MessagePack and",
+            readme,
+        )
+        self.assertIn("does not count toward milestone issue #103 or establish", readme)
         self.assertIn("sustained data-window / full-lifecycle throughput", readme)
         self.assertIn("| Transport and path | JSON (Gbit/s) |", readme)
         self.assertIn("### 64 MiB file transfer", readme)

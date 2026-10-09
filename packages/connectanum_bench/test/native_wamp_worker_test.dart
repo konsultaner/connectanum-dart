@@ -32,17 +32,35 @@ void main() {
       'rss_before_bytes': 67_108_864,
       'current_rss_bytes': 536_870_912,
       'max_rss_bytes': 805_306_368,
+      'cpu_user_us_delta': 1234,
+      'cpu_system_us_delta': 432,
+      'allocated_bytes_delta': 98_765,
+      'gc_count_delta': 2,
+      'gc_pause_us_delta': 456,
+      'peak_rss_during_bytes': 805_306_368,
     });
 
     expect(metrics.pid, 42);
     expect(metrics.rssBeforeBytes, 67_108_864);
     expect(metrics.currentRssBytes, 536_870_912);
     expect(metrics.maxRssBytes, 805_306_368);
+    expect(metrics.cpuUserUsDelta, 1234);
+    expect(metrics.cpuSystemUsDelta, 432);
+    expect(metrics.allocatedBytesDelta, 98_765);
+    expect(metrics.gcCountDelta, 2);
+    expect(metrics.gcPauseUsDelta, 456);
+    expect(metrics.peakRssDuringBytes, 805_306_368);
     expect(metrics.toJson(), {
       'pid': 42,
       'rss_before_bytes': 67_108_864,
       'current_rss_bytes': 536_870_912,
       'max_rss_bytes': 805_306_368,
+      'cpu_user_us_delta': 1234,
+      'cpu_system_us_delta': 432,
+      'allocated_bytes_delta': 98_765,
+      'gc_count_delta': 2,
+      'gc_pause_us_delta': 456,
+      'peak_rss_during_bytes': 805_306_368,
     });
   });
 
@@ -96,6 +114,77 @@ IFS= read -r stop || true
     },
     skip: Platform.isWindows
         ? 'The direct-launch fixture uses a POSIX shell script.'
+        : false,
+  );
+
+  test(
+    'source worker exposes allocation, GC, CPU, and sampled RSS metrics',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'connectanum_native_vm_metrics_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+      final script = File('${tempDirectory.path}/worker.dart');
+      await script.writeAsString(r'''import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+Future<void> main() async {
+  stdout.writeln('READY');
+  await stdout.flush();
+  await for (final line in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
+    if (line == 'STOP') break;
+    final retained = <List<int>>[];
+    for (var i = 0; i < 80; i++) {
+      retained.add(List<int>.filled(128 * 1024, i));
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    stdout.writeln(jsonEncode({
+      'samples': [],
+      'file_segment_metrics': {},
+      'process_metrics': {
+        'pid': pid,
+        'rss_before_bytes': ProcessInfo.currentRss,
+        'current_rss_bytes': ProcessInfo.currentRss,
+        'max_rss_bytes': ProcessInfo.maxRss,
+      },
+    }));
+    await stdout.flush();
+    if (retained.length != 80) throw StateError('allocation fixture failed');
+  }
+}
+''');
+
+      final worker = NativeWampWorker(
+        realmUri: 'bench.control',
+        wampTargets: const {},
+        nativeLibraryPath: '${tempDirectory.path}/unused_native_library',
+        workerScriptPath: script.path,
+        enableVmMetrics: true,
+      );
+      addTearDown(worker.close);
+
+      final result = await worker.runWithMetrics(
+        WampScenario.fromJson({
+          'transport': 'rawsocket',
+          'client_impl': 'native',
+          'mode': 'rpc',
+          'uri': 'bench.rpc.echo',
+        }),
+      );
+
+      final metrics = result.processMetrics!;
+      expect(metrics.allocatedBytesDelta, greaterThan(0));
+      expect(metrics.gcCountDelta, isNotNull);
+      expect(metrics.gcPauseUsDelta, isNotNull);
+      if (Platform.isLinux) {
+        expect(metrics.cpuUserUsDelta, isNotNull);
+        expect(metrics.cpuSystemUsDelta, isNotNull);
+        expect(metrics.peakRssDuringBytes, greaterThan(0));
+      }
+    },
+    skip: Platform.isWindows
+        ? 'The source worker fixture uses a Dart CLI runtime with POSIX VM-service flags.'
         : false,
   );
 

@@ -2,8 +2,9 @@ name: Dart Package Publish Dry Run
 
 on:
   push:
-    branches: ['**']
+    branches: [master]
     paths:
+      - '.github/actions/setup-ci/**'
       - '.github/workflows/dart-package-publish.yml'
       - '.github/workflows/pub-dev-*.yml'
       - 'bin/dart-package-publish-dry-run'
@@ -13,6 +14,7 @@ on:
   pull_request:
     branches: [master]
     paths:
+      - '.github/actions/setup-ci/**'
       - '.github/workflows/dart-package-publish.yml'
       - '.github/workflows/pub-dev-*.yml'
       - 'bin/dart-package-publish-dry-run'
@@ -36,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: dart-lang/setup-dart@v1
+      - uses: ./.github/actions/setup-ci
 
       - name: Validate strict Dart package release readiness
         run: bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan

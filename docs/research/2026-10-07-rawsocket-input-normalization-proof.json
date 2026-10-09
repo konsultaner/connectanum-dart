@@ -1,0 +1,155 @@
+{
+  "status": "focused checks and fresh canonical verification pass; preceding failed run retained",
+  "sourceSha256": {
+    "packages/connectanum_client/lib/src/transport/dart_transport_copy_metrics.dart": "48a85b80b04847c3d376b2e4a91c80086ac77032beb43477c44b03bcee208ec2",
+    "packages/connectanum_client/lib/src/transport/socket/socket_transport.dart": "f1217a251069fc7de4cb5905a4d6f21141cf2b71d8d6b4facce7d6cf89e49805",
+    "packages/connectanum_client/lib/src/transport/socket/socket_helper.dart": "15b9da283752cd421f18cdbbf8ea61901b334342a2daea1a617cfb1f01778ace",
+    "packages/connectanum_client/test/dart_transport_copy_metrics_test.dart": "5b320ab0f4d6cf0fb8ee31958308516adc94d024dba7928951cc6a9cfb6360b8",
+    "packages/connectanum_client/test/transport/socket/socket_chunk_boundaries.dart": "a8d6a3856daab43f4d0264cb6d76a75a36aabd41975285507fca97db3d96dbbc",
+    "packages/connectanum_client/tool/rawsocket_copy_probe.dart": "757eb6160756ab3844c57fb6b46dc705c5137c5d310981f7561e51c6be1b126b"
+  },
+  "checks": {
+    "baseline-fast": {
+      "log": "/tmp/connectanum-socket-normalization-baseline-fast.log",
+      "logSha256": "e097d622052c659a9586a0c6f8ea0f3fd57363fecc276d1ec28d50eced30a193",
+      "exitCode": 0
+    },
+    "before": {
+      "log": "/tmp/connectanum-socket-normalization-before.log",
+      "logSha256": "1eaf8bdee41ae8f90bf4033c4b496e4a3ded116bc5a87a16e88c4f9d47c63822",
+      "exitCode": 1
+    },
+    "total-before": {
+      "log": "/tmp/connectanum-socket-normalization-total-before.log",
+      "logSha256": "774909a638215adb8cdf6e3716160de39263380552399f5bbb099052ec34ab0e",
+      "exitCode": 1
+    },
+    "after": {
+      "log": "/tmp/connectanum-socket-normalization-after.log",
+      "logSha256": "b6f270c8d0803798c9847107230ee3d4a09c6ab8bb3a06c825e822e43b9c5de2",
+      "exitCode": 1
+    },
+    "final-focused": {
+      "log": "/tmp/connectanum-socket-normalization-final-focused.log",
+      "logSha256": "27fdbc1f1bb4c24679a7dbcf9b90d1215e0f46bd4119d7cc4ef5c905bdedf2e0",
+      "exitCode": 1
+    },
+    "final-semantic": {
+      "log": "/tmp/connectanum-socket-normalization-final-semantic.log",
+      "logSha256": "97dc5241e1f424c4d9fc9b8777f08353c3427c04a447f33d940dcf37db0fc8b0",
+      "exitCode": 0
+    },
+    "linux-focused": {
+      "log": "/tmp/connectanum-socket-normalization-linux-focused.log",
+      "logSha256": "67b656bf4e200c04fd17afc0e9f34b43481ea3908d9e6560d8f44c1e85341499",
+      "exitCode": 1
+    },
+    "linux-vm-focused": {
+      "log": "/tmp/connectanum-socket-normalization-linux-vm-focused.log",
+      "logSha256": "8987c619104d15ce83224ee72ab811f929b337e52035a86db50693e905866b95",
+      "exitCode": 0
+    },
+    "exact-ci": {
+      "log": "/tmp/connectanum-socket-normalization-exact-ci.log",
+      "logSha256": "5e77cdc850b7a8f4b47b74597d591eb8d9343f5e1be6ef967a3cf83a79785273",
+      "exitCode": 0
+    },
+    "first-canonical-verify": {
+      "log": "/tmp/connectanum-socket-normalization-verify.log",
+      "logSha256": "eebf45ce0999ec609d87774c365984580a2436629dd45386f5f00166a0cbfeaf",
+      "exitCode": 1,
+      "failure": "Existing FastCGI cumulative stdout limit fixture expected clean closure but observed ECONNRESET. 4,957 router cases passed; one failed."
+    },
+    "final-canonical-verify": {
+      "command": "bin/verify",
+      "log": "/tmp/connectanum-socket-normalization-final-verify.log",
+      "logSha256": "2486f330d9392a8787ce55402b609d475b803f00f481c578cf03b65248c12a9e",
+      "exitCode": 0,
+      "benchmarkCases": 1563,
+      "routerCases": 4958,
+      "coreBrowserCases": 4751,
+      "clientBrowserCases": 2829,
+      "unchangedNativeOnlySkips": 20
+    }
+  },
+  "failFirst": {
+    "fallbackCases": 24,
+    "headerAccountingCases": 3,
+    "total": 27
+  },
+  "focused": {
+    "macOSCases": 81,
+    "linuxArm64VmCases": 81
+  },
+  "initialLinuxAttempt": "VM cases passed; default Chrome platform could not load because Chrome is unavailable. Explicit VM rerun passed.",
+  "intermediateFailures": "FlatBuffers assertions initially omitted measured control-prefix copies, then counted eight freshly constructed bytes. Final checks assert actual prefix-copy bytes and decoded semantics.",
+  "review": {
+    "model": "glm-5.3-flash-q6",
+    "path": "/tmp/connectanum-socket-normalization-bounded-review.txt",
+    "sha256": "425128ddffc8627ed70b4e31b55ab947d0e571296c42b680ed12fb799402f99e",
+    "concreteDefects": 0,
+    "scope": "bounded normalization implementation; helper lifetime verified separately",
+    "earlierQwenAttempt": "output limit exceeded; not review evidence"
+  },
+  "limits": [
+    "No complete SDK/TLS/end-to-end copy accounting.",
+    "No performance acceptance.",
+    "No gate or matrix reduction."
+  ],
+  "master": {
+    "revision": "3bac4cf5db3b4cd9d51636f8454e6672722007e2",
+    "mergeResult": "Already up to date."
+  },
+  "linuxExecutedSourceSha256": {
+    "packages/connectanum_client/lib/src/transport/dart_transport_copy_metrics.dart": "48a85b80b04847c3d376b2e4a91c80086ac77032beb43477c44b03bcee208ec2",
+    "packages/connectanum_client/lib/src/transport/socket/socket_transport.dart": "f1217a251069fc7de4cb5905a4d6f21141cf2b71d8d6b4facce7d6cf89e49805",
+    "packages/connectanum_client/lib/src/transport/socket/socket_helper.dart": "15b9da283752cd421f18cdbbf8ea61901b334342a2daea1a617cfb1f01778ace",
+    "packages/connectanum_client/test/dart_transport_copy_metrics_test.dart": "5b320ab0f4d6cf0fb8ee31958308516adc94d024dba7928951cc6a9cfb6360b8",
+    "packages/connectanum_client/test/transport/socket/socket_chunk_boundaries.dart": "a8d6a3856daab43f4d0264cb6d76a75a36aabd41975285507fca97db3d96dbbc",
+    "packages/connectanum_client/tool/rawsocket_copy_probe.dart": "757eb6160756ab3844c57fb6b46dc705c5137c5d310981f7561e51c6be1b126b"
+  },
+  "fastCgiRepro": {
+    "isolatedExitCode": 0,
+    "repeatedRuns": [
+      {
+        "repeat": 1,
+        "exitCode": 0,
+        "log": "/tmp/connectanum-socket-normalization-fastcgi-repeat-1.log",
+        "logSha256": "4d350b503beb30b5fc35761e485840bcb9b8e33fee67b7e3de1fd50bba9cede3"
+      },
+      {
+        "repeat": 2,
+        "exitCode": 0,
+        "log": "/tmp/connectanum-socket-normalization-fastcgi-repeat-2.log",
+        "logSha256": "4d350b503beb30b5fc35761e485840bcb9b8e33fee67b7e3de1fd50bba9cede3"
+      },
+      {
+        "repeat": 3,
+        "exitCode": 0,
+        "log": "/tmp/connectanum-socket-normalization-fastcgi-repeat-3.log",
+        "logSha256": "4d350b503beb30b5fc35761e485840bcb9b8e33fee67b7e3de1fd50bba9cede3"
+      },
+      {
+        "repeat": 4,
+        "exitCode": 0,
+        "log": "/tmp/connectanum-socket-normalization-fastcgi-repeat-4.log",
+        "logSha256": "4d350b503beb30b5fc35761e485840bcb9b8e33fee67b7e3de1fd50bba9cede3"
+      },
+      {
+        "repeat": 5,
+        "exitCode": 0,
+        "log": "/tmp/connectanum-socket-normalization-fastcgi-repeat-5.log",
+        "logSha256": "4d350b503beb30b5fc35761e485840bcb9b8e33fee67b7e3de1fd50bba9cede3"
+      }
+    ],
+    "codeAssertionTimeoutChanges": false,
+    "triage": "Qwen proposed an abort-close race; this remains a hypothesis, not a proven product defect.",
+    "sourceInspection": {
+      "file": "packages/connectanum_router/lib/src/router/router_instance/router_binding.dart",
+      "stdoutLimitThrowsBeforeEndRequest": true,
+      "finallyDestroysSocket": true,
+      "traceLimit": "Source supports an abort-close hypothesis; no packet-level reset causality was proven."
+    },
+    "triageSha256": "84ba01260851627a8905ea4d90dad64f28b513425ffd82745650c20c4d3a7554"
+  }
+}

@@ -1,0 +1,373 @@
+{
+  "status": "passed",
+  "baseCommit": "d4d913174248cf07211aa38cd84c4422a17be524",
+  "scope": "Linux calloc-backed socket writes under genuine EAGAIN; not FlatBuffers routing, Rust/database ownership, TLS or total copies",
+  "sdk": "3.13.5 linux_arm64",
+  "retryBoundary": "pending Socket.flush while receiver paused, then positive accepted writes after receiver resumes",
+  "sourceSha256": {
+    "tool/sdk_socket_copy_probe.c": "09b866d67fea343f70da4c2ad2378be11503a00fefcb2dd81ec0c5db09cbd229",
+    "packages/connectanum_client/tool/sdk_socket_copy_probe.dart": "86c79f2e42a6b6ead126702090916a7f5f6488be487d7c8e8a9e94d7c96ebf81",
+    "packages/connectanum_client/tool/sdk_socket_backpressure_probe.dart": "bcb1f1d76429ec42f23f3a8962ccf13437d8e5939e1a274bc8d8f2622e49bb5e"
+  },
+  "rawObservationsSha256": "3f383c1552eb5096f87a8296d01506109a9e24b28ed088799b3d646211d574d2",
+  "exactCiStepSha256": "7921d274bc00123c6273adacd24ca3df0cff3093cec48bbf5127ac6bd65d92af",
+  "exactCiStepExit": 0,
+  "cases": [
+    {
+      "shape": "full",
+      "inputBytes": 16777216,
+      "backingBytes": 16777216,
+      "viewOffset": 0,
+      "nativeInputAddress": 281472911011856,
+      "kernelEagainCount": 4,
+      "writesBeforeReaderResume": 2,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "flushWasPending": true,
+      "payloadEqual": true,
+      "originalStorageAtEveryWrite": true,
+      "observations": [
+        {
+          "address": 281472911011856,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "inputOffset": 0,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472913637051,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 2625195,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472913637051,
+          "requested": 14152021,
+          "accepted": 3994463,
+          "errno": 0,
+          "inputOffset": 2625195,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472917631514,
+          "requested": 10157558,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 6619658,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472917631514,
+          "requested": 10157558,
+          "accepted": 4387361,
+          "errno": 0,
+          "inputOffset": 6619658,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472922018875,
+          "requested": 5770197,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 11007019,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472922018875,
+          "requested": 5770197,
+          "accepted": 4256395,
+          "errno": 0,
+          "inputOffset": 11007019,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472926275270,
+          "requested": 1513802,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 15263414,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472926275270,
+          "requested": 1513802,
+          "accepted": 1513802,
+          "errno": 0,
+          "inputOffset": 15263414,
+          "matchesInput": 1
+        }
+      ]
+    },
+    {
+      "shape": "full-readonly",
+      "inputBytes": 16777216,
+      "backingBytes": 16777216,
+      "viewOffset": 0,
+      "nativeInputAddress": 281472628254368,
+      "kernelEagainCount": 4,
+      "writesBeforeReaderResume": 2,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "flushWasPending": true,
+      "payloadEqual": true,
+      "originalStorageAtEveryWrite": true,
+      "observations": [
+        {
+          "address": 281472628254368,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "inputOffset": 0,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472630879563,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 2625195,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472630879563,
+          "requested": 14152021,
+          "accepted": 3994463,
+          "errno": 0,
+          "inputOffset": 2625195,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472634874026,
+          "requested": 10157558,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 6619658,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472634874026,
+          "requested": 10157558,
+          "accepted": 4387361,
+          "errno": 0,
+          "inputOffset": 6619658,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472639261387,
+          "requested": 5770197,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 11007019,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472639261387,
+          "requested": 5770197,
+          "accepted": 4256395,
+          "errno": 0,
+          "inputOffset": 11007019,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472643517782,
+          "requested": 1513802,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 15263414,
+          "matchesInput": 1
+        },
+        {
+          "address": 281472643517782,
+          "requested": 1513802,
+          "accepted": 1513802,
+          "errno": 0,
+          "inputOffset": 15263414,
+          "matchesInput": 1
+        }
+      ]
+    },
+    {
+      "shape": "partial",
+      "inputBytes": 16777216,
+      "backingBytes": 16777280,
+      "viewOffset": 32,
+      "nativeInputAddress": 281472628254400,
+      "kernelEagainCount": 4,
+      "writesBeforeReaderResume": 2,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "flushWasPending": true,
+      "payloadEqual": true,
+      "originalStorageAtEveryWrite": false,
+      "observations": [
+        {
+          "address": 281472946143384,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "inputOffset": 0,
+          "matchesInput": 0
+        },
+        {
+          "address": 281472948768579,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 2625195,
+          "matchesInput": 0
+        },
+        {
+          "address": 281473106051224,
+          "requested": 14152021,
+          "accepted": 3928980,
+          "errno": 0,
+          "inputOffset": 2625195,
+          "matchesInput": 0
+        },
+        {
+          "address": 281473109980204,
+          "requested": 10223041,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 6554175,
+          "matchesInput": 0
+        },
+        {
+          "address": 281472952959128,
+          "requested": 10223041,
+          "accepted": 4387361,
+          "errno": 0,
+          "inputOffset": 6554175,
+          "matchesInput": 0
+        },
+        {
+          "address": 281472957346489,
+          "requested": 5835680,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 10941536,
+          "matchesInput": 0
+        },
+        {
+          "address": 281473114439832,
+          "requested": 5835680,
+          "accepted": 4256395,
+          "errno": 0,
+          "inputOffset": 10941536,
+          "matchesInput": 0
+        },
+        {
+          "address": 281473118696227,
+          "requested": 1579285,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 15197931,
+          "matchesInput": 0
+        },
+        {
+          "address": 281473574240408,
+          "requested": 1579285,
+          "accepted": 1579285,
+          "errno": 0,
+          "inputOffset": 15197931,
+          "matchesInput": 0
+        }
+      ]
+    },
+    {
+      "shape": "partial-readonly",
+      "inputBytes": 16777216,
+      "backingBytes": 16777280,
+      "viewOffset": 32,
+      "nativeInputAddress": 281472628254400,
+      "kernelEagainCount": 4,
+      "writesBeforeReaderResume": 2,
+      "acceptedBeforeReaderResume": 2625195,
+      "acceptedAfterReaderResume": 14152021,
+      "flushWasPending": true,
+      "payloadEqual": true,
+      "originalStorageAtEveryWrite": false,
+      "observations": [
+        {
+          "address": 281472946143384,
+          "requested": 16777216,
+          "accepted": 2625195,
+          "errno": 0,
+          "inputOffset": 0,
+          "matchesInput": 0
+        },
+        {
+          "address": 281472948768579,
+          "requested": 14152021,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 2625195,
+          "matchesInput": 0
+        },
+        {
+          "address": 281473106051224,
+          "requested": 14152021,
+          "accepted": 3994463,
+          "errno": 0,
+          "inputOffset": 2625195,
+          "matchesInput": 0
+        },
+        {
+          "address": 281473110045687,
+          "requested": 10157558,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 6619658,
+          "matchesInput": 0
+        },
+        {
+          "address": 281472952959128,
+          "requested": 10157558,
+          "accepted": 4387361,
+          "errno": 0,
+          "inputOffset": 6619658,
+          "matchesInput": 0
+        },
+        {
+          "address": 281472957346489,
+          "requested": 5770197,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 11007019,
+          "matchesInput": 0
+        },
+        {
+          "address": 281473112342680,
+          "requested": 5770197,
+          "accepted": 4256395,
+          "errno": 0,
+          "inputOffset": 11007019,
+          "matchesInput": 0
+        },
+        {
+          "address": 281473116599075,
+          "requested": 1513802,
+          "accepted": -1,
+          "errno": 11,
+          "inputOffset": 15263414,
+          "matchesInput": 0
+        },
+        {
+          "address": 281473574764696,
+          "requested": 1513802,
+          "accepted": 1513802,
+          "errno": 0,
+          "inputOffset": 15263414,
+          "matchesInput": 0
+        }
+      ]
+    }
+  ],
+  "missingInterposerControl": {
+    "exit": 255,
+    "requiredSymbolFailure": "probe_reset"
+  }
+}

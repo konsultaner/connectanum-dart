@@ -27,6 +27,7 @@ const int _workerEventWorkerShutdown = 13;
 const int _workerEventSessionOpened = 14;
 
 final json_serializer.Serializer _jsonSerializer = json_serializer.Serializer();
+final flatbuffers.Serializer _flatBuffersSerializer = flatbuffers.Serializer();
 final cbor_serializer.Serializer _cborSerializer = cbor_serializer.Serializer();
 final msgpack_serializer.Serializer _msgpackSerializer =
     msgpack_serializer.Serializer();
@@ -156,7 +157,13 @@ Future<void> sendAbort(
   List<dynamic>? arguments,
   Map<String, Object?>? argumentsKeywords,
 }) async {
+  await _abortPendingAuthentication(state, reason: reason);
+  state.phase = HandshakePhase.aborted;
   final serializer = state.serializer ?? NativeMessageSerializer.json;
+  if (serializer == NativeMessageSerializer.flatbuffers) {
+    state.flatBuffersProfile ??=
+        const flatbuffers.FlatBuffersSessionProfile.router();
+  }
   final abortDetails = <String, Object?>{};
   if (details != null && details.isNotEmpty) {
     abortDetails.addAll(details);
@@ -168,21 +175,57 @@ Future<void> sendAbort(
     arguments: arguments,
     argumentsKeywords: argumentsKeywords,
   );
-  await sendMessage(bossPort, connectionId, serializer, abort);
+  await sendMessage(bossPort, connectionId, serializer, abort, state: state);
 }
 
 Future<void> sendMessage(
   SendPort bossPort,
   int connectionId,
   NativeMessageSerializer serializer,
-  AbstractMessage message,
-) async {
+  AbstractMessage message, {
+  WorkerConnectionState? state,
+}) async {
+  flatbuffers.FlatBuffersSessionProfile? nextProfile;
+  final previousProfile = state?.flatBuffersProfile;
+  final previousPhase = state?.phase;
+  if (serializer == NativeMessageSerializer.flatbuffers) {
+    final profile = state?.flatBuffersProfile;
+    if (profile == null) {
+      throw StateError('FlatBuffers connection profile is required');
+    }
+    nextProfile = profile.prepareOutgoing(message);
+  }
   final payload = encodeMessage(serializer, message);
-  bossPort.send({
-    'type': 'worker_send',
-    'connectionId': connectionId,
-    'payload': payload,
-  });
+  final changesProfile =
+      nextProfile != null && !identical(nextProfile, state?.flatBuffersProfile);
+  final acceptedReply = changesProfile ? ReceivePort() : null;
+  try {
+    bossPort.send({
+      'type': 'worker_send',
+      'connectionId': connectionId,
+      'payload': payload,
+      if (acceptedReply != null) 'acceptedReply': acceptedReply.sendPort,
+    });
+    if (acceptedReply != null) {
+      final result = await acceptedReply.first.timeout(
+        const Duration(seconds: 5),
+      );
+      if (result is! Map || result['accepted'] != true) {
+        throw StateError('Native FlatBuffers enqueue rejected');
+      }
+    }
+    if (nextProfile != null) {
+      if (!identical(state!.flatBuffersProfile, previousProfile) ||
+          state.phase != previousPhase) {
+        throw StateError(
+          'FlatBuffers connection changed before enqueue acceptance',
+        );
+      }
+      state.flatBuffersProfile = nextProfile;
+    }
+  } finally {
+    acceptedReply?.close();
+  }
 }
 
 Uint8List encodeMessage(
@@ -198,6 +241,8 @@ Uint8List encodeMessage(
       return _msgpackSerializer.serialize(message);
     case NativeMessageSerializer.cbor:
       return _cborSerializer.serialize(message);
+    case NativeMessageSerializer.flatbuffers:
+      return _flatBuffersSerializer.serialize(message);
     default:
       throw UnsupportedError('Serializer ${serializer.name} not supported');
   }
@@ -383,6 +428,12 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
             workerId,
           );
         } else {
+          if (state.serializer == NativeMessageSerializer.flatbuffers) {
+            final profile =
+                state.flatBuffersProfile ??
+                const flatbuffers.FlatBuffersSessionProfile.router();
+            state.flatBuffersProfile = profile.acceptIncoming(message);
+          }
           await _handleSessionMessage(
             bossPort: bossPort,
             statePort: statePort,
@@ -488,7 +539,13 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         return;
       }
       final serializer = state.serializer ?? NativeMessageSerializer.json;
-      await sendMessage(bossPort, connectionId, serializer, message);
+      await sendMessage(
+        bossPort,
+        connectionId,
+        serializer,
+        message,
+        state: state,
+      );
     } else if (command == _workerCmdDrainConnections) {
       final reason = raw.length > 1 && raw[1] is String
           ? raw[1] as String
@@ -500,19 +557,29 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
           continue;
         }
         connections.remove(targetConnectionId);
-        await _handleGoodbye(
-          bossPort: bossPort,
-          statePort: statePort,
-          realmContexts: realmContexts,
-          state: targetState,
-          connectionId: targetConnectionId,
-          reason: reason,
-        );
-        connectionStates.remove(targetConnectionId);
-        bossPort.send({
-          'type': _workerEventConnectionRemoved,
-          'connectionId': targetConnectionId,
-        });
+        try {
+          await _handleGoodbye(
+            bossPort: bossPort,
+            statePort: statePort,
+            realmContexts: realmContexts,
+            state: targetState,
+            connectionId: targetConnectionId,
+            reason: reason,
+          );
+        } catch (error, stackTrace) {
+          bossPort.send({
+            'type': _workerEventError,
+            'connectionId': targetConnectionId,
+            'error': error.toString(),
+            'stackTrace': stackTrace.toString(),
+          });
+        } finally {
+          connectionStates.remove(targetConnectionId);
+          bossPort.send({
+            'type': _workerEventConnectionRemoved,
+            'connectionId': targetConnectionId,
+          });
+        }
       }
       bossPort.send({'type': _workerEventDrained, 'workerHash': workerId});
     } else if (command == _workerCmdShutdown) {

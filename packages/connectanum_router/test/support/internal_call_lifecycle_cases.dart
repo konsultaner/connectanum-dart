@@ -2,7 +2,12 @@ part of '../router_runtime_test.dart';
 
 void _internalCallLifecycleCases() {
   group('internal call lifecycle', () {
-    for (final encoding in LazyPayloadEncoding.values) {
+    // These shape checks exercise codecs that encode arbitrary lists and maps.
+    for (final encoding in [
+      LazyPayloadEncoding.json,
+      LazyPayloadEncoding.messagePack,
+      LazyPayloadEncoding.cbor,
+    ]) {
       for (final shape in ['null', 'invalid-arguments', 'invalid-keywords']) {
         test('lazy decoding ${encoding.name} $shape recovers', () async {
           final fixture = _internalCloseFixture();
@@ -20,6 +25,9 @@ void _internalCallLifecycleCases() {
               LazyPayloadEncoding.messagePack => msgpack_dart.serialize(value),
               LazyPayloadEncoding.cbor => cbor.cborEncode(
                 cbor.CborValue(value),
+              ),
+              LazyPayloadEncoding.flatbuffers => throw UnsupportedError(
+                'Typed FlatBuffers uses a single application buffer',
               ),
             },
           );
@@ -78,6 +86,60 @@ void _internalCallLifecycleCases() {
         });
       }
     }
+
+    test(
+      'typed FlatBuffers internal call preserves buffer and PPT metadata',
+      () async {
+        final fixture = _internalCloseFixture();
+        final caller = await fixture.binding.createInternalSession(
+          realmUri: 'realm1',
+        );
+        final callee = await fixture.binding.createInternalSession(
+          realmUri: 'realm1',
+        );
+        addTearDown(caller.close);
+        addTearDown(callee.close);
+        final builder = flat.WampFlatBufferBuilder();
+        builder.startTable(1);
+        builder.addInt32(0, 42);
+        builder.finish(builder.endTable());
+        final bytes = builder.buffer;
+        final registration = await callee.register('app.typed');
+        registration.onInvoke((invocation) {
+          expect(invocation.details.pptScheme, 'x_typed');
+          expect(invocation.details.pptSerializer, 'flatbuffers');
+          expect(invocation.arguments, [bytes]);
+          expect(invocation.argumentsKeywords, isNull);
+          invocation.respondWith(
+            lazyPayload: invocation.toLazyPayload(),
+            options: YieldOptions(
+              pptScheme: 'x_typed',
+              pptSerializer: 'flatbuffers',
+            ),
+          );
+        });
+        final result = await caller
+            .callLazyPayload(
+              'app.typed',
+              options: CallOptions(
+                pptScheme: 'x_typed',
+                pptSerializer: 'flatbuffers',
+              ),
+              payload: LazyMessagePayload.packed(
+                encoding: LazyPayloadEncoding.flatbuffers,
+                packedPayloadBytes: bytes,
+                packedPayloadDecoder: (value) =>
+                    (arguments: [value], argumentsKeywords: null),
+              ),
+            )
+            .first
+            .timeout(const Duration(seconds: 5));
+        expect(result.details.pptScheme, 'x_typed');
+        expect(result.details.pptSerializer, 'flatbuffers');
+        expect(result.arguments, [bytes]);
+        expect(result.argumentsKeywords, isNull);
+      },
+    );
 
     test(
       'transfer callback cannot admit a call after starting close',

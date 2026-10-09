@@ -1,3 +1,4 @@
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'dart:async';
 import 'package:web/web.dart';
 import 'dart:typed_data';
@@ -20,6 +21,7 @@ class WebSocketTransport extends AbstractTransport {
   final String _serializerType;
   WebSocket? _socket;
   int _openAttempt = 0;
+  flatbuffers.FlatBuffersSessionProfile? _flatBuffersProfile;
   _WebSocketCloseState _closeState = _WebSocketCloseState();
   Completer? _onConnectionLost;
   Completer? _onDisconnect;
@@ -35,8 +37,14 @@ class WebSocketTransport extends AbstractTransport {
   ]) : assert(
          _serializerType == WebSocketSerialization.serializationJson ||
              _serializerType == WebSocketSerialization.serializationMsgpack ||
-             _serializerType == WebSocketSerialization.serializationCbor,
-       );
+             _serializerType == WebSocketSerialization.serializationCbor ||
+             _serializerType == WebSocketSerialization.serializationFlatBuffers,
+       ) {
+    if ((_serializerType == WebSocketSerialization.serializationFlatBuffers) !=
+        (_serializer is flatbuffers.Serializer)) {
+      throw ArgumentError('FlatBuffers transport requires its matching codec');
+    }
+  }
 
   factory WebSocketTransport.withJsonSerializer(
     String url, [
@@ -80,6 +88,20 @@ class WebSocketTransport extends AbstractTransport {
     tlsSecurityContext,
   );
 
+  factory WebSocketTransport.withFlatBuffersSerializer(
+    String url, [
+    Map<String, dynamic>? additionalHeaders,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
+  ]) => WebSocketTransport(
+    url,
+    flatbuffers.Serializer(),
+    WebSocketSerialization.serializationFlatBuffers,
+    additionalHeaders,
+    allowInsecureCertificates,
+    tlsSecurityContext,
+  );
+
   /// Calling close will close the underlying socket connection
   @override
   Future<void> close({error}) {
@@ -116,6 +138,9 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Future<void> open({Duration? pingInterval}) async {
     final openAttempt = ++_openAttempt;
+    _flatBuffersProfile = _serializer is flatbuffers.Serializer
+        ? const flatbuffers.FlatBuffersSessionProfile.client()
+        : null;
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
@@ -136,16 +161,39 @@ class WebSocketTransport extends AbstractTransport {
       if (!openCompleter.isCompleted) openCompleter.complete(open);
     });
     socket.onError.listen((Event error) {
-      if (!openCompleter.isCompleted) openCompleter.completeError(error);
-      if (openAttempt == _openAttempt) complete(onConnectionLost, error);
+      final failure =
+          _serializerType == WebSocketSerialization.serializationFlatBuffers
+          ? UnsupportedError('Could not open FlatBuffers WebSocket connection')
+          : error;
+      if (!openCompleter.isCompleted) openCompleter.completeError(failure);
+      if (openAttempt == _openAttempt) {
+        if (_serializerType ==
+            WebSocketSerialization.serializationFlatBuffers) {
+          if (!onConnectionLost!.isCompleted)
+            onConnectionLost.complete(failure);
+        } else {
+          complete(onConnectionLost, failure);
+        }
+      }
     });
     try {
       await openCompleter.future;
       if (openAttempt == _openAttempt && !onReady.isCompleted) {
+        if (_serializerType ==
+                WebSocketSerialization.serializationFlatBuffers &&
+            socket.protocol != _serializerType) {
+          final error = UnsupportedError(
+            'FlatBuffers WebSocket subprotocol was not negotiated',
+          );
+          socket.close();
+          if (!onConnectionLost!.isCompleted) onConnectionLost.complete(error);
+          throw error;
+        }
         onReady.complete();
       }
-    } catch (_) {
+    } catch (error) {
       _logger.info('Error while opening the channel');
+      if (error is UnsupportedError) rethrow;
     }
   }
 
@@ -153,9 +201,8 @@ class WebSocketTransport extends AbstractTransport {
   /// the underlying socket.
   @override
   void send(AbstractMessage message) {
-    if (message is Goodbye) {
-      _closeState.goodbyeSent = true;
-    }
+    if (!isOpen) throw StateError('WebSocket transport is not open.');
+    final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
     var serializedMessage = _serializer.serialize(message);
     // toJS only works on casted objects
     _socket!.send(
@@ -163,6 +210,8 @@ class WebSocketTransport extends AbstractTransport {
           ? serializedMessage.toJS
           : (serializedMessage as Uint8List).toJS,
     );
+    _flatBuffersProfile = nextProfile;
+    if (message is Goodbye) _closeState.goodbyeSent = true;
   }
 
   /// This method return a [Stream] that streams all incoming messages as unserialized
@@ -173,6 +222,7 @@ class WebSocketTransport extends AbstractTransport {
     if (socket == null) {
       throw StateError('WebSocket transport is not open.');
     }
+    final openAttempt = _openAttempt;
     final onDisconnect = _onDisconnect!;
     final closeState = _closeState;
     final onConnectionLost = _onConnectionLost!;
@@ -194,13 +244,37 @@ class WebSocketTransport extends AbstractTransport {
       controller.onCancel = subscription.cancel;
     }, isBroadcast: true);
     return messages.asyncMap((messageEvent) async {
+      // A retired FlatBuffers stream must not advance the new profile. Legacy
+      // streams keep delivering to their captured connection and close state.
+      if (_serializerType == WebSocketSerialization.serializationFlatBuffers &&
+          (openAttempt != _openAttempt || !identical(_socket, socket))) {
+        return null;
+      }
       try {
-        final message = await _decodeInboundMessage(messageEvent);
+        final message = await _decodeInboundMessage(
+          messageEvent,
+          socket,
+          openAttempt,
+        );
+        if (_serializerType ==
+                WebSocketSerialization.serializationFlatBuffers &&
+            (openAttempt != _openAttempt || !identical(_socket, socket))) {
+          return null;
+        }
+        if (message == null) return null;
+        if (_flatBuffersProfile case final profile?) {
+          _flatBuffersProfile = profile.acceptIncoming(message);
+        }
         if (message is Goodbye) {
           closeState.goodbyeReceived = true;
         }
         return message;
       } on Object catch (error) {
+        if (_serializerType ==
+                WebSocketSerialization.serializationFlatBuffers &&
+            (openAttempt != _openAttempt || !identical(_socket, socket))) {
+          return null;
+        }
         _handleInboundMessageError(
           error,
           socket,
@@ -212,8 +286,10 @@ class WebSocketTransport extends AbstractTransport {
     });
   }
 
-  Future<AbstractMessage> _decodeInboundMessage(
+  Future<AbstractMessage?> _decodeInboundMessage(
     MessageEvent messageEvent,
+    WebSocket socket,
+    int openAttempt,
   ) async {
     if (_serializerType == WebSocketSerialization.serializationJson) {
       final payload = messageEvent.data.toString();
@@ -229,6 +305,10 @@ class WebSocketTransport extends AbstractTransport {
     }
 
     final arraybuffer = await (messageEvent.data as Blob).arrayBuffer().toDart;
+    if (_serializerType == WebSocketSerialization.serializationFlatBuffers &&
+        (openAttempt != _openAttempt || !identical(_socket, socket))) {
+      return null;
+    }
     final payload = arraybuffer.toDart.asUint8List(0);
     final message = _serializer.deserialize(payload);
     if (message == null) {

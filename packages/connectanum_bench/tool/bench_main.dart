@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -10,8 +11,10 @@ import 'package:logging/logging.dart';
 
 import 'package:connectanum_bench/src/http_stream_handler.dart';
 import 'package:connectanum_bench/src/http_auth_bench_harness.dart';
+import 'package:connectanum_bench/src/dart_vm_metrics.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/remote_auth_bench_harness.dart';
+import 'package:connectanum_bench/src/transport_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
@@ -87,6 +90,8 @@ Future<void> _runBenchMain(List<String> args) async {
     nativeLibraryPath: nativeLibraryPath,
     controlRealm: controlRealm,
     workerScriptPath: results['wamp-worker'] as String?,
+    enableWampVmMetrics:
+        Platform.environment['CONNECTANUM_BENCH_WAMP_VM_METRICS'] == '1',
   );
 
   final sigintSub = ProcessSignal.sigint.watch().listen(
@@ -125,18 +130,26 @@ void _configureLogging({required bool verbose}) {
     });
 }
 
+NativeRouterTransportCopyMetrics? _routerTransportCopyMetrics(
+  NativeRuntime runtime,
+) => runtime is NativeTransportRuntime
+    ? runtime.transportCopyMetricsSnapshot()
+    : null;
+
 class _BenchRouterService {
   _BenchRouterService({
     required this.routerConfigPath,
     required this.nativeLibraryPath,
     required this.controlRealm,
     this.workerScriptPath,
+    required this.enableWampVmMetrics,
   });
 
   final String routerConfigPath;
   final String nativeLibraryPath;
   final String controlRealm;
   final String? workerScriptPath;
+  final bool enableWampVmMetrics;
 
   final _logger = Logger('BenchRouterService');
   final _shutdownCompleter = Completer<void>();
@@ -198,6 +211,9 @@ class _BenchRouterService {
         authId: 'bench-http',
         authRole: 'internal',
       );
+      final serverProcessMetricsCollector = enableWampVmMetrics
+          ? await _connectServerProcessMetricsCollector()
+          : null;
       final control = _BenchControlRegistry(
         binding: binding,
         session: controlSession,
@@ -208,9 +224,11 @@ class _BenchRouterService {
         secureWampTargets: secureWampTargets,
         nativeLibraryPath: nativeLibraryPath,
         workerScriptPath: workerScriptPath ?? _resolveWampWorkerScriptPath(),
+        enableVmMetrics: enableWampVmMetrics,
+        serverProcessMetricsCollector: serverProcessMetricsCollector,
       );
-      await control.initialize();
       _controlRegistry = control;
+      await control.initialize();
 
       _listenForStdin();
 
@@ -226,6 +244,21 @@ class _BenchRouterService {
         await _teardown();
       }
     }
+  }
+
+  Future<DartVmMetricsCollector> _connectServerProcessMetricsCollector() async {
+    final serviceUri = (await developer.Service.getInfo()).serverUri;
+    if (serviceUri == null) {
+      throw StateError(
+        'Router process metrics require the Dart VM service; '
+        'launch bench_main with --enable-vm-service',
+      );
+    }
+    return DartVmMetricsCollector.connect(
+      serviceUri: serviceUri,
+      pid: pid,
+      allIsolates: true,
+    );
   }
 
   void _listenForStdin() {
@@ -361,6 +394,8 @@ class _BenchControlRegistry {
     required this.secureWampTargets,
     required this.nativeLibraryPath,
     required this.workerScriptPath,
+    required this.enableVmMetrics,
+    required this.serverProcessMetricsCollector,
   }) {
     _nativeWampWorker = NativeWampWorker(
       realmUri: realmUri,
@@ -368,6 +403,9 @@ class _BenchControlRegistry {
       secureWampTargets: secureWampTargets,
       nativeLibraryPath: nativeLibraryPath,
       workerScriptPath: workerScriptPath,
+      enableVmMetrics: enableVmMetrics,
+      reuseSuccessfulWorkers:
+          Platform.environment['CONNECTANUM_BENCH_WAMP_REUSE_WORKER'] == '1',
       logger: _logger,
     );
   }
@@ -381,6 +419,8 @@ class _BenchControlRegistry {
   final Map<WampTransport, WampTransportTarget> secureWampTargets;
   final String nativeLibraryPath;
   final String workerScriptPath;
+  final bool enableVmMetrics;
+  final DartVmMetricsCollector? serverProcessMetricsCollector;
 
   final _logger = Logger('BenchControlRegistry');
   final List<_BenchRegisteredHandler> _registrations = [];
@@ -420,6 +460,7 @@ class _BenchControlRegistry {
     }
     _registrations.clear();
     await _nativeWampWorker.close();
+    await serverProcessMetricsCollector?.close();
   }
 
   Future<void> _register(
@@ -666,27 +707,70 @@ class _BenchControlRegistry {
     }
     try {
       final scenario = WampScenario.fromJson(payload);
+      if (serverProcessMetricsCollector != null) {
+        // The first real route use can create router isolates lazily. Run one
+        // throwaway operation before opening the measured server VM window so
+        // isolate discovery reflects the warmed workload's stable set.
+        await _nativeWampWorker.runWithMetrics(_serverMetricsWarmup(scenario));
+      }
       Object? baselineMetrics;
       try {
         baselineMetrics = await binding.collectMetrics();
       } catch (_) {
         baselineMetrics = null;
       }
-      // Keep client CPU and RSS separate from the router/control process. The
-      // worker honors the scenario's Dart or native client implementation.
-      final result = await _nativeWampWorker.runWithMetrics(scenario);
+      final routerCopyMetricsBefore = _routerTransportCopyMetrics(
+        binding.runtime,
+      );
+      final serverMetricsCollector = serverProcessMetricsCollector;
+      final serverMetricsWindow = await serverMetricsCollector?.beginWindow();
+      final serverRssBeforeBytes = ProcessInfo.currentRss;
+      final serverRssSampler = serverMetricsCollector == null
+          ? null
+          : DartVmMetricsRssSampler(pid);
+      int? serverCurrentRssAtWindowEnd;
+      DartVmMetricsRssSnapshot? serverRssSnapshot;
+      final NativeWampWorkerResult result;
+      try {
+        // The worker honors the scenario's Dart or native client implementation.
+        result = await _nativeWampWorker.runWithMetrics(scenario);
+      } finally {
+        serverCurrentRssAtWindowEnd = ProcessInfo.currentRss;
+        serverRssSnapshot = await serverRssSampler?.stop();
+      }
+      final serverProcessMetrics =
+          serverMetricsCollector == null || serverMetricsWindow == null
+          ? null
+          : await _serverProcessMetricsJson(
+              serverMetricsCollector,
+              serverMetricsWindow,
+              rssBeforeBytes: serverRssBeforeBytes,
+              currentRssAtWindowEnd: serverCurrentRssAtWindowEnd,
+              rssSnapshot: serverRssSnapshot,
+            );
       final samples = result.samples;
       final fileSegmentMetrics = result.fileSegmentMetrics;
       final clientProcessMetrics = result.processMetrics;
       if (baselineMetrics != null) {
         await _awaitRouterQuiescence(baselineMetrics);
       }
+      final routerCopyMetricsAfter = _routerTransportCopyMetrics(
+        binding.runtime,
+      );
+      final copyMetrics = mergeRouterTransportCopyMetrics(
+        result.copyMetrics,
+        scenario: scenario,
+        before: routerCopyMetricsBefore,
+        after: routerCopyMetricsAfter,
+      );
       final dataWindow = WampSampleWindow.fromSamples(samples);
       context.sendJson(
         body: {
           'samples': samples.map((sample) => sample.toJson()).toList(),
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
           'file_segment_metrics': fileSegmentMetrics.toJson(),
+          'copy_metrics': copyMetrics,
+          'server_process_metrics': serverProcessMetrics,
           if (clientProcessMetrics != null)
             'client_process_metrics': clientProcessMetrics.toJson(),
         },
@@ -712,6 +796,49 @@ class _BenchControlRegistry {
         },
       );
     }
+  }
+
+  Future<Map<String, Object?>> _serverProcessMetricsJson(
+    DartVmMetricsCollector collector,
+    DartVmMetricsWindow window, {
+    required int rssBeforeBytes,
+    required int? currentRssAtWindowEnd,
+    required DartVmMetricsRssSnapshot? rssSnapshot,
+  }) async {
+    final measured = await collector.endWindow(
+      window,
+      rssSnapshot:
+          rssSnapshot ??
+          const DartVmMetricsRssSnapshot(
+            currentRssBytes: null,
+            peakRssBytes: null,
+          ),
+    );
+    return {
+      'pid': pid,
+      'rss_before_bytes': rssBeforeBytes,
+      'current_rss_bytes':
+          measured.currentRssBytes ??
+          (!Platform.isLinux ? currentRssAtWindowEnd : null),
+      'max_rss_bytes': ProcessInfo.maxRss,
+      'cpu_user_us_delta': measured.cpuUserMicros,
+      'cpu_system_us_delta': measured.cpuSystemMicros,
+      'allocated_bytes_delta': measured.allocatedBytes,
+      'gc_count_delta': measured.gcCount,
+      'gc_pause_us_delta': measured.gcPauseMicros,
+      'peak_rss_during_bytes': measured.peakRssBytes,
+    };
+  }
+
+  WampScenario _serverMetricsWarmup(WampScenario scenario) {
+    final warmupPayloadBytes = scenario.payloadBytes > 1024
+        ? 1024
+        : scenario.payloadBytes;
+    final payload = Map<String, Object?>.from(scenario.toJson())
+      ..['iterations'] = 1
+      ..['payload_bytes'] = warmupPayloadBytes
+      ..remove('minimum_duration_ms');
+    return WampScenario.fromJson(payload);
   }
 
   Future<void> _handleRpcEchoLazyInvoke(

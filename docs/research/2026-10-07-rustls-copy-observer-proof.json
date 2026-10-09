@@ -1,0 +1,169 @@
+{
+  "status": "verified_partial_source_observer",
+  "base_commit": "04757fda2992197a35320d8511fcb2fe1c5a76f9",
+  "complete_tls_copy_coverage": false,
+  "performance_acceptance": false,
+  "rustls_version": "0.23.45",
+  "upstream_commit": "2976d90fd1c2db6b518700dd101b714069cfcb17",
+  "pinned_sources_and_fixtures": 841,
+  "mac_library_cases": 234,
+  "linux_library_cases": 235,
+  "linux_only_case": "key_log_file::tests::test_env_var_cannot_be_written",
+  "linux_frozen_overlay_inputs": 859,
+  "source_sha256": {
+    ".gitattributes": "89d11b66a210afe67a206501c4f4342cf5768f6e5fddc1169e9ef0c3aacf53e1",
+    ".gitignore": "82451a0633b3a90f5a055b50feaa34ec08b5bbb14cb6dba93c0695f0732653a0",
+    "bin/package-native-artifact": "7329da48d55468031f7f519b5302f140a159e6cf7dc60080eea80d8a7180ace3",
+    "bin/test-fast": "bc5d875b5aa438d47bc85d02d371cbbbd580fa0b74ded7051093383fb48fa5e8",
+    "bin/test-all": "418c8068519adb2b8e2a3927a947a06652706d869645a0d29800c49b9d7581d8",
+    "native/transport/Cargo.toml": "51cecbb54983a9bc77b4f6d300120ebbd25ad543683fa0c379746217aabe8f79",
+    "native/transport/ct_core/Cargo.toml": "52e12e93ce826e1487cd25466ae821cf6c0dbe3d483396c7f906bafab1bb7bf0",
+    "native/transport/ct_core/src/lib.rs": "a6857bcc0dd9a7cefc705e4ad34fc85f8749bd645b440afb9c575e5242c8867a",
+    "native/transport/ct_ffi/Cargo.toml": "3c66ee3f4e9cd2b46528baeb31606a227d26d9567a650e60c1897dfae79bd1ef",
+    "native/transport/vendor/rustls-source-manifest.json": "e97baa663c7313a7d9bfdf09cd245086cb9b733be95766556980fba7be7e0446",
+    "native/transport/vendor/README.md": "23fcc76091491c655d56fa38b32b02ac7e73c11db59faaadf3751ec752dcbf5c",
+    "tool/check_rustls_source.py": "a8491b4f1f965b8dbe655ef1eb85efff32fbbb121ea072c1e7d5c4762b25b814",
+    "tool/test_check_rustls_source.py": "2e637811b766df859c40fc452027ed16885f3bc2424a2147e1790984664d476d"
+  },
+  "checks": {
+    "fail-first": {
+      "exit": 101,
+      "log": "/tmp/connectanum-rustls-copy-observer-fail-first.log",
+      "log_sha256": "e58a33a4f6ab404de47a43b1b875b9125c831c5662c223e309205ac11754d4fe",
+      "expected_failure_cases": 2
+    },
+    "upstream": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-upstream.log",
+      "log_sha256": "468011748d5fccfe2016f95a2c48da8a01068970e696374a982d519bf695f4f6"
+    },
+    "disabled": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-disabled.log",
+      "log_sha256": "e9ed5d9bcd249a92dabb49a79f95c60ce3be3fdc6bb1c0ca02b55e51df35e1da"
+    },
+    "live-tls": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-live-tls.log",
+      "log_sha256": "30de3fb9f9dc67276c33ec63abcf322b6c2724897ef076443318ad30fb131d68"
+    },
+    "linux-upstream": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-linux-upstream.log",
+      "log_sha256": "9bde1ce3d43b70c40855e973c2ed49bae37b059b224cfa3f181ab352783f14e8"
+    },
+    "linux-live-tls": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-linux-live-tls.log",
+      "log_sha256": "b11fc9378263cc421c4eff8cf75cc0257fddcc341fde76763337a79e839f6dd4"
+    },
+    "fast": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-fast.log",
+      "log_sha256": "43c4b8099720a205c638cd1461d60bdadbabde85fbf91c84a9429a90e71ae55e"
+    },
+    "review-module": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-review-module.log",
+      "log_sha256": "710ae8e1bae5c350b516299e32d0750ba0770eab236d7a955b92f1cd00fc22e2"
+    },
+    "native-judge": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-native-judge.log",
+      "log_sha256": "17652f002307f4f03e35109465c2bb7f8d195b614e4c2ad10bc73e9dae4d9f3a"
+    },
+    "final-judge": {
+      "exit": 1,
+      "log": "/tmp/connectanum-rustls-copy-observer-final-judge.log",
+      "log_sha256": "942815d9c012c93cd645ffab4e88781b544876e1b8e97e3d14c6e52e18727679",
+      "scope": "incomplete broad judgment; replaced by completed narrower native judgment"
+    },
+    "package": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-package.log",
+      "log_sha256": "9cf4089b62c26048cffe8fbcaf85576cd52abaf1f1f7840645d7e01c98d9dedd"
+    }
+  },
+  "remaining_gaps": [
+    "Rustls growth, record assembly, deframer and crypto wrappers",
+    "Tokio-Rustls plaintext extraction",
+    "Dart SDK TLS",
+    "mixed-serializer transformation",
+    "whole-crypto accounting",
+    "primary 1440-row parity campaign and original supplemental cases",
+    "resulting-head hosted/platform/consumer evidence"
+  ],
+  "initial_full_verify": {
+    "exit": 1,
+    "log": "/tmp/connectanum-rustls-copy-observer-verify.log",
+    "failure": "FastCGI enforces the cumulative stdout limit: peer reset",
+    "isolated_unchanged_exit": 0,
+    "log_sha256": "56e6b2df59e0bc8afbeb83445263f9a5be798085403a19d0c1417e90b28d9334"
+  },
+  "unchanged_fastcgi_repeats": [
+    {
+      "repeat": 1,
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-fastcgi-repeat-1.log"
+    },
+    {
+      "repeat": 2,
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-fastcgi-repeat-2.log"
+    },
+    {
+      "repeat": 3,
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-fastcgi-repeat-3.log"
+    },
+    {
+      "repeat": 4,
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-fastcgi-repeat-4.log"
+    },
+    {
+      "repeat": 5,
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-copy-observer-fastcgi-repeat-5.log"
+    }
+  ],
+  "final_full_verify": {
+    "exit": 0,
+    "log": "/tmp/connectanum-rustls-copy-observer-verify-final.log",
+    "log_sha256": "d9a545386ad999bad09aeea6db08bc8a77f7a3aecc0000131ef03c0a9a1c20a5",
+    "benchmark_cases": 1616,
+    "router_cases": 4958,
+    "core_browser_cases": 4751,
+    "client_browser_cases": 2829,
+    "unchanged_native_only_browser_skips": 20
+  },
+  "local_packaging_smoke": {
+    "check": "local_packaging_smoke",
+    "notice_files_matched": [
+      "LICENSE-APACHE",
+      "LICENSE-ISC",
+      "LICENSE-MIT",
+      "README.md",
+      "source-manifest.json"
+    ],
+    "archive_sha256": "30ad18500f2987ace9e320a802f241d4471e4935add3fbd5176b91e60a99b036",
+    "library_sha256": "7d4de1c98139253bc6143e4472cb8fbdf8456f9a9febbc96aa7cfbc966d1bd10",
+    "test_oracle_exports": false,
+    "old_and_v2_snapshot_symbols_present": true,
+    "base_git_commit_in_bundle": "04757fda2992197a35320d8511fcb2fe1c5a76f9",
+    "source_status": "uncommitted candidate; scoped source digests in proof, not resulting-head release acceptance"
+  },
+  "git_source_controls": {
+    "newline_control_source_blobs": 841,
+    "autocrlf_true_matches_unfiltered": true,
+    "source_gate_negative_controls": 5,
+    "staged_diff_check_exit": 0
+  },
+  "hosted_preceding_pr_run": {
+    "run": 37565054707,
+    "head": "0ec8df065c40053bdba40a594167f4f8417b56b5",
+    "status": "completed",
+    "conclusion": "success",
+    "jobs_passed": 41
+  }
+}

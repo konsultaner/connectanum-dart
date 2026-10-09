@@ -725,6 +725,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn flatbuffers_handshake_has_a_wamp_parser() {
+        let (socket, mut client) = socket_pair().await;
+        let config = runtime_config(Some(Duration::from_millis(200)), 16);
+        send_handshake_with_serializer(&mut client, 16, SERIALIZER_FLATBUFFERS).await;
+        let session = successful_handshake(negotiate(IoStream::plain(socket), &config).await);
+        assert_eq!(session.serializer, Serializer::Flatbuffers);
+        let serializer = session.serializer;
+        drop(session);
+        assert_complete_wire(client, &[0x7f, 0x75, 0, 0]).await;
+        let fixture = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../schemas/wamp_flatbuffers/fixtures/call_metadata.bin"),
+        )
+        .unwrap();
+        let parsed = crate::wamp::parse_message(serializer, bytes::Bytes::from(fixture));
+        assert!(
+            parsed.is_ok(),
+            "accepted FlatBuffers handshake has no parser: {parsed:?}"
+        );
+    }
+
+    #[tokio::test]
     async fn negotiate_rejects_unsupported_serializer() {
         let (socket, mut client) = socket_pair().await;
         let config = runtime_config(Some(Duration::from_millis(200)), 16);

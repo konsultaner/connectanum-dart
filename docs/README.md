@@ -21,6 +21,8 @@ contracts, and examples live here or in the package `example/` directories.
 ## Build Applications
 
 - [Client package](../packages/connectanum_client/README.md)
+- [FlatBuffers wire binding and negotiation](flatbuffers_binding.md)
+- [Native buffers, ownership and copy boundaries](native_buffer_ownership.md)
 - [Router package](../packages/connectanum_router/README.md)
 - [MCP package](../packages/connectanum_mcp/README.md)
 - [Remote auth server package](../packages/connectanum_auth_server/README.md)

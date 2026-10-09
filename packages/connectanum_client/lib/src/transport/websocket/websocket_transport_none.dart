@@ -1,3 +1,4 @@
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'dart:async';
 
 import '../abstract_transport.dart';
@@ -55,6 +56,20 @@ class WebSocketTransport extends AbstractTransport {
     url,
     serializer_cbor.Serializer(),
     WebSocketSerialization.serializationCbor,
+    additionalHeaders,
+    allowInsecureCertificates,
+    tlsSecurityContext,
+  );
+
+  factory WebSocketTransport.withFlatBuffersSerializer(
+    String url, [
+    Map<String, dynamic>? additionalHeaders,
+    bool allowInsecureCertificates = false,
+    Object? tlsSecurityContext,
+  ]) => WebSocketTransport(
+    url,
+    flatbuffers.Serializer(),
+    WebSocketSerialization.serializationFlatBuffers,
     additionalHeaders,
     allowInsecureCertificates,
     tlsSecurityContext,

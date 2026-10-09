@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:core' hide Error;
+import 'dart:core' as core show Error;
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -7,18 +9,33 @@ import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/src/transport/native/message_binding.dart';
 import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  _deferredSessionStateCases();
+  _deferredBindingContracts();
+  test('malformed FlatBuffers frame fails as malformed input', () {
+    expect(
+      () => bindMessage(
+        NativeMessageSerializer.flatbuffers,
+        Uint8List.fromList([0xff]),
+      ),
+      throwsFormatException,
+    );
+  });
+
+  _optionalControlFieldContracts();
+  _flatBuffersSessionDetailContracts();
   _bindingBoundaryContracts();
+  _flatBuffersMetadataContracts();
   _metadataDispatchContracts();
   _validFrameContracts();
   for (final serializer in [
     NativeMessageSerializer.ubjson,
-    NativeMessageSerializer.flatbuffers,
   ]) {
     test('unsupported inbound $serializer fails explicitly', () {
       expect(
@@ -29,7 +46,6 @@ void main() {
   }
   for (final serializer in [
     NativeMessageSerializer.ubjson,
-    NativeMessageSerializer.flatbuffers,
   ]) {
     test(
       'unsupported $serializer fails when a deferred fragment is accessed',
@@ -1990,6 +2006,528 @@ void main() {
   });
 }
 
+void _deferredSessionStateCases() {
+  NativeMessageMetadata metadata() => NativeMessageMetadata(
+    messageCode: MessageTypes.codeInvocation,
+    primaryId: 71,
+    secondaryId: 81,
+    detailNumberA: 0,
+    detailNumberB: 0,
+    flags: NativeMessageMetadata.flagMetadataBind,
+    stringA: 'typed.read',
+    stringB: 'wamp',
+    stringC: 'flatbuffers',
+    stringD: 'aes256gcm',
+  );
+  for (final changeContext in [false, true]) {
+    test(
+      'new deferred Session view refreshes provider context=$changeContext',
+      () {
+        final firstKey = List<int>.filled(32, 7);
+        final secondKey = List<int>.filled(32, 9);
+        final encoder = WampFlatBuffersAes256GcmProvider.single(
+          keyId: 'first',
+          key: firstKey,
+        );
+        final ciphertext =
+            encoder
+                    .packPayload(
+                      [
+                        Uint8List.fromList([1, 2, 3]),
+                      ],
+                      null,
+                      PublishOptions(),
+                    )
+                    .single
+                as Uint8List;
+        final shared = WampFlatBuffersAes256GcmProvider(
+          keys: {'first': firstKey, 'second': secondKey},
+          keySelectionPolicy: (context, _) =>
+              context.realm == 'first' ? 'first' : 'second',
+        );
+        final meta = metadata();
+        final message = NativeSessionMessage.deferred(
+          serializer: NativeMessageSerializer.json,
+          metadata: meta,
+          wireMessage: () => NativeSessionMessage(
+            serializer: NativeMessageSerializer.json,
+            metadata: meta,
+            argsBytes: Uint8List.fromList(
+              utf8.encode(jsonEncode(['\u0000${base64Encode(ciphertext)}'])),
+            ),
+          ),
+        );
+        WampE2eeRuntimeContext context(String realm) => WampE2eeRuntimeContext(
+          direction: WampE2eeDirection.inbound,
+          messageType: WampE2eeMessageType.invocation,
+          realm: realm,
+        );
+        message.attachE2eeProvider(changeContext ? shared : encoder);
+        if (changeContext) message.attachE2eeRuntimeContext(context('first'));
+        final original = message.toLazyPayload();
+        if (changeContext) {
+          message.attachE2eeRuntimeContext(context('second'));
+        } else {
+          message.attachE2eeProvider(
+            WampFlatBuffersAes256GcmProvider.single(
+              keyId: 'second',
+              key: secondKey,
+            ),
+          );
+        }
+        final updated = message.toLazyPayload();
+        expect(
+          () => updated.arguments,
+          throwsA(isA<WampE2eeDecryptionException>()),
+        );
+        expect(original.arguments!.single, orderedEquals([1, 2, 3]));
+        expect(original.arguments!.single, same(original.arguments!.single));
+      },
+    );
+  }
+  test('deferred native wire loader rejects recursive wire access', () {
+    final meta = metadata();
+    late NativeSessionMessage message;
+    message = NativeSessionMessage.deferred(
+      serializer: NativeMessageSerializer.json,
+      metadata: meta,
+      wireMessage: () {
+        message.arguments;
+        return NativeSessionMessage(
+          serializer: NativeMessageSerializer.json,
+          metadata: meta,
+        );
+      },
+    );
+    expect(() => message.arguments, throwsStateError);
+    expect(() => message.materialize(), throwsStateError);
+  });
+  test('deferred native explicit decode loads the wire before unpacking', () {
+    final provider = WampFlatBuffersAes256GcmProvider.single(
+      keyId: 'typed',
+      key: List<int>.filled(32, 7),
+    );
+    final ciphertext =
+        provider
+                .packPayload(
+                  [
+                    Uint8List.fromList([1, 2, 3]),
+                  ],
+                  null,
+                  PublishOptions(),
+                )
+                .single
+            as Uint8List;
+    final meta = metadata();
+    final message = NativeSessionMessage.deferred(
+      serializer: NativeMessageSerializer.json,
+      metadata: meta,
+      wireMessage: () => NativeSessionMessage(
+        serializer: NativeMessageSerializer.json,
+        metadata: meta,
+        argsBytes: Uint8List.fromList(
+          utf8.encode(jsonEncode(['\u0000${base64Encode(ciphertext)}'])),
+        ),
+      ),
+    )..attachE2eeProvider(provider);
+    message.ensureDecodedPayloadView(
+      pptScheme: 'wamp',
+      pptSerializer: 'flatbuffers',
+      pptCipher: 'aes256gcm',
+      pptKeyId: 'typed',
+    );
+    expect(message.arguments!.single, orderedEquals([1, 2, 3]));
+    expect(message.hasDecodedPptPayload, isTrue);
+    expect(message.wireArguments!.single, orderedEquals(ciphertext));
+  });
+  test('deferred native wire loader retains one terminal error and stack', () {
+    var loads = 0;
+    final failure = StateError('wire load rejected');
+    final origin = StackTrace.fromString('native-wire-origin');
+    final message = NativeSessionMessage.deferred(
+      serializer: NativeMessageSerializer.json,
+      metadata: metadata(),
+      wireMessage: () {
+        loads++;
+        core.Error.throwWithStackTrace(failure, origin);
+      },
+    );
+    for (final get in <Object? Function()>[
+      () => message.arguments,
+      () => message.argumentsKeywords,
+      () => message.transparentBinaryPayload,
+      () => message.materialize(),
+    ]) {
+      try {
+        get();
+        fail('Expected cached wire failure');
+      } catch (error, stack) {
+        expect(error, same(failure));
+        expect(stack.toString(), origin.toString());
+      }
+    }
+    expect(loads, 1);
+  });
+}
+
+void _optionalControlFieldContracts() {
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+  ]) {
+    test(
+      'valid WELCOME $serializer binds omitted optional fields without throwing',
+      () {
+        final wire = [
+          MessageTypes.codeWelcome,
+          17,
+          {
+            'roles': {'broker': <String, Object?>{}},
+          },
+        ];
+        final frame = switch (serializer) {
+          NativeMessageSerializer.json => Uint8List.fromList(
+            utf8.encode(jsonEncode(wire)),
+          ),
+          NativeMessageSerializer.messagePack => msgpack.serialize(wire),
+          NativeMessageSerializer.cbor => Uint8List.fromList(
+            cbor.cbor.encode(cbor.CborValue(wire)),
+          ),
+          _ => throw StateError('Unexpected test serializer'),
+        };
+        AbstractMessage? value;
+        expect(
+          () => value = bindMessage(serializer, frame),
+          returnsNormally,
+        );
+        expect(value, isA<Welcome>());
+        final details = (value as Welcome).details;
+        expect(details.roles?.broker, isNotNull);
+        expect(details.authmethods, isNull);
+        expect(details.topic, isNull);
+        expect(details.procedure, isNull);
+        expect(details.roles?.dealer, isNull);
+      },
+    );
+  }
+
+  test('native FlatBuffers acknowledgement needs no transparent payload', () {
+    AbstractMessage? value;
+    expect(
+      () => value = bindMessage(
+        NativeMessageSerializer.flatbuffers,
+        Uint8List.fromList([0xff]),
+        metadata: _metadata(
+          messageCode: MessageTypes.codePublished,
+          primaryId: 17,
+          secondaryId: 29,
+          flags: NativeMessageMetadata.flagMetadataBind,
+        ),
+      ),
+      returnsNormally,
+    );
+    expect(value, isA<Published>());
+    final published = value as Published;
+    expect(published.publishRequestId, 17);
+    expect(published.publicationId, 29);
+  });
+}
+
+void _flatBuffersSessionDetailContracts() {
+  Uint8List dictionary(Object? value) => Uint8List.fromList(
+    cbor.cbor.encode(cbor.CborValue(value)),
+  );
+  final unusedFrame = Uint8List.fromList([0xff]);
+  for (final entry in [
+    (MessageTypes.codeResult, <String, Object?>{'progress': true}),
+    (
+      MessageTypes.codeEvent,
+      <String, Object?>{'publisher': 29, 'topic': 'com.topic'},
+    ),
+    (
+      MessageTypes.codeInvocation,
+      <String, Object?>{'caller': 31, 'procedure': 'com.proc'},
+    ),
+  ]) {
+    for (final present in [false, true]) {
+      test(
+        'FlatBuffers session ${entry.$1} custom details present=$present',
+        () {
+          final custom = <String, Object?>{
+            '_custom': [7, 8],
+            '_nested': {'trace': 9},
+          };
+          final bound = bindSessionMessage(
+            NativeMessageSerializer.flatbuffers,
+            unusedFrame,
+            metadata: _metadata(
+              messageCode: entry.$1,
+              primaryId: 17,
+              secondaryId: 19,
+              flags: NativeMessageMetadata.flagMetadataBind,
+              detailsBytes: present
+                  ? dictionary({...entry.$2, ...custom})
+                  : null,
+            ),
+          );
+          expect(bound, isA<NativeSessionMessage>());
+          Map<String, dynamic>? actual;
+          expect(() {
+            final view = (bound as NativeSessionMessage).customDetails;
+            actual = view == null ? null : Map<String, dynamic>.from(view);
+          }, returnsNormally);
+          expect(actual, present ? custom : null);
+        },
+      );
+    }
+  }
+
+  for (final invalid in <Object>[
+    <Object, Object>{1: 'non-string dictionary key'},
+    <Object>[1, 2],
+  ]) {
+    test(
+      'FlatBuffers session rejects malformed custom dictionary $invalid',
+      () {
+        final bound = bindSessionMessage(
+          NativeMessageSerializer.flatbuffers,
+          unusedFrame,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            primaryId: 17,
+            flags: NativeMessageMetadata.flagMetadataBind,
+            detailsBytes: dictionary(invalid),
+          ),
+        );
+        expect(bound, isA<NativeSessionMessage>());
+        expect(
+          () => (bound as NativeSessionMessage).customDetails!['1'],
+          throwsFormatException,
+        );
+      },
+    );
+  }
+}
+
+void _flatBuffersMetadataContracts() {
+  final codec = flatbuffers.Serializer();
+  Uint8List dictionary(Map<String, Object?> value) => Uint8List.fromList(
+    cbor.cbor.encode(cbor.CborValue(value)),
+  );
+  final unusedFrame = Uint8List.fromList([0xff]);
+
+  test('FlatBuffers native GOODBYE preserves unmodeled metadata on resend', () {
+    final value = _expectMessage<Goodbye>(
+      _validFrame(
+        () => bindMessage(
+          NativeMessageSerializer.flatbuffers,
+          unusedFrame,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeGoodbye,
+            flags: NativeMessageMetadata.flagDirectBind,
+            stringA: 'wamp.close.normal',
+            stringB: 'finished',
+            detailsBytes: dictionary({
+              'message': 'finished',
+              '_trace': {'sequence': 17},
+            }),
+          ),
+        ),
+      ),
+    );
+    expect(value.reason, 'wamp.close.normal');
+    expect(value.message?.message, 'finished');
+    final resent = _expectMessage<Goodbye>(
+      _validFrame(() => codec.deserialize(codec.serialize(value))),
+    );
+    expect(codec.metadataFor(resent), {
+      'message': 'finished',
+      '_trace': {'sequence': 17},
+    });
+  });
+
+  test('FlatBuffers fallback ignores metadata without binding permission', () {
+    final frame = codec.serialize(
+      Result(17, ResultDetails())..arguments = [29],
+    );
+    final value = _expectMessage<Result>(
+      _validFrame(
+        () => bindMessage(
+          NativeMessageSerializer.flatbuffers,
+          frame,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            primaryId: 99,
+            detailsBytes: dictionary({'_ignored': true}),
+          ),
+        ),
+      ),
+    );
+    expect(value.callRequestId, 17);
+    expect(value.arguments, [29]);
+    expect(codec.metadataFor(value), isEmpty);
+  });
+
+  test('FlatBuffers native metadata may omit the dictionary', () {
+    final value = _expectMessage<Published>(
+      _validFrame(
+        () => bindMessage(
+          NativeMessageSerializer.flatbuffers,
+          unusedFrame,
+          metadata: _metadata(
+            messageCode: MessageTypes.codePublished,
+            primaryId: 17,
+            secondaryId: 29,
+            flags: NativeMessageMetadata.flagMetadataBind,
+          ),
+        ),
+      ),
+    );
+    expect(value.publishRequestId, 17);
+    expect(value.publicationId, 29);
+  });
+
+  test(
+    'FlatBuffers native HEARTBEAT unwraps counters without retaining wrapper',
+    () {
+      final value = _expectMessage<Heartbeat>(
+        _validFrame(
+          () => bindMessage(
+            NativeMessageSerializer.flatbuffers,
+            unusedFrame,
+            metadata: _metadata(
+              messageCode: MessageTypes.codeHeartbeat,
+              flags: NativeMessageMetadata.flagMetadataBind,
+              detailsBytes: dictionary({
+                'details': {'mode': 'ping'},
+                'ping': 11,
+                'incoming': 12.75,
+                'outgoing': 'unrecognized',
+              }),
+            ),
+          ),
+        ),
+      );
+      expect(value.details, {'mode': 'ping'});
+      expect(value.ping, 11);
+      expect(value.incoming, 12);
+      expect(value.outgoing, isNull);
+      final resent = _expectMessage<Heartbeat>(
+        _validFrame(() => codec.deserialize(codec.serialize(value))),
+      );
+      expect(resent.details, {'mode': 'ping'});
+      expect(resent.ping, 11);
+      expect(resent.incoming, 12);
+      expect(resent.outgoing, isNull);
+    },
+  );
+
+  for (final code in [8, 16, 36, 48, 50, 68, 70]) {
+    for (final empty in [false, true]) {
+      test(
+        'native FlatBuffers opaque span stays borrowed code=$code empty=$empty',
+        () {
+          final bytes = Uint8List.fromList(empty ? [] : [1, 2, 3]);
+          final value = _validFrame(
+            () => NativeSessionMessage(
+              serializer: NativeMessageSerializer.flatbuffers,
+              metadata: _metadata(
+                messageCode: code,
+                primaryId: 17,
+                secondaryId: 29,
+                flags:
+                    NativeMessageMetadata.flagDirectBind |
+                    NativeMessageMetadata.flagTransparentPayload,
+                transparentPayloadBytes: bytes,
+              ),
+            ),
+          );
+          expect(value.transparentBinaryPayload, same(bytes));
+          expect(value.arguments, isNull);
+          expect(value.argumentsKeywords, isNull);
+          if ([8, 36, 50, 68].contains(code)) {
+            final model = _expectMessage<AbstractMessageWithPayload>(
+              _validFrame(value.materialize),
+            );
+            expect(model.id, code);
+            expect(model.transparentBinaryPayload, same(bytes));
+            expect(model.arguments, isNull);
+            expect(model.argumentsKeywords, isNull);
+          }
+        },
+      );
+    }
+  }
+
+  for (final flagged in [false, true]) {
+    test('native opaque payload rejects inconsistent flag=$flagged', () {
+      expect(
+        () => NativeSessionMessage(
+          serializer: NativeMessageSerializer.flatbuffers,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            flags: flagged ? NativeMessageMetadata.flagTransparentPayload : 0,
+            transparentPayloadBytes: flagged ? null : Uint8List(0),
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+  }
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.ubjson,
+  ]) {
+    test('native opaque payload rejects serializer $serializer', () {
+      expect(
+        () => NativeSessionMessage(
+          serializer: serializer,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            flags: NativeMessageMetadata.flagTransparentPayload,
+            transparentPayloadBytes: Uint8List(0),
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+  }
+  test('native opaque payload rejects an unsupported routing code', () {
+    expect(
+      () => NativeSessionMessage(
+        serializer: NativeMessageSerializer.flatbuffers,
+        metadata: _metadata(
+          messageCode: MessageTypes.codePublished,
+          flags: NativeMessageMetadata.flagTransparentPayload,
+          transparentPayloadBytes: Uint8List(0),
+        ),
+      ),
+      throwsArgumentError,
+    );
+  });
+  test('native opaque payload rejects a non-payload model', () {
+    expect(
+      () => bindMessage(
+        NativeMessageSerializer.flatbuffers,
+        unusedFrame,
+        metadata: _metadata(
+          messageCode: MessageTypes.codePublished,
+          primaryId: 17,
+          secondaryId: 29,
+          flags:
+              NativeMessageMetadata.flagDirectBind |
+              NativeMessageMetadata.flagTransparentPayload,
+          transparentPayloadBytes: Uint8List(0),
+        ),
+      ),
+      throwsArgumentError,
+    );
+  });
+}
+
 void _bindingBoundaryContracts() {
   for (final serializer in [
     NativeMessageSerializer.json,
@@ -2441,6 +2979,7 @@ NativeMessageMetadata _metadata({
   int detailNumberB = 0,
   int flags = 0,
   Uint8List? detailsBytes,
+  Uint8List? transparentPayloadBytes,
   String? stringA,
   String? stringB,
   String? stringC,
@@ -2458,10 +2997,281 @@ NativeMessageMetadata _metadata({
     detailNumberB: detailNumberB,
     flags: normalizedFlags,
     detailsBytes: detailsBytes,
+    transparentPayloadBytes: transparentPayloadBytes,
     stringA: stringA,
     stringB: stringB,
     stringC: stringC,
     stringD: stringD,
     stringE: stringE,
   );
+}
+
+NativeMessageMetadata _typedBindingMetadata(
+  int code, {
+  bool bind = true,
+  String scheme = 'wamp',
+  String serializer = 'flatbuffers',
+  String cipher = 'aes256gcm',
+}) => NativeMessageMetadata(
+  messageCode: code,
+  primaryId: 71,
+  secondaryId: 81,
+  detailNumberA: 0,
+  detailNumberB: 0,
+  flags: bind ? NativeMessageMetadata.flagMetadataBind : 0,
+  stringA: code == MessageTypes.codeResult ? scheme : 'typed.read',
+  stringB: code == MessageTypes.codeResult ? serializer : scheme,
+  stringC: code == MessageTypes.codeResult ? cipher : serializer,
+  stringD: code == MessageTypes.codeResult ? 'typed-key' : cipher,
+  stringE: code == MessageTypes.codeResult ? null : 'typed-key',
+);
+
+Uint8List _bindingCipherFragment(Uint8List ciphertext) => Uint8List.fromList(
+  utf8.encode(jsonEncode(['\u0000${base64Encode(ciphertext)}'])),
+);
+
+class _BindingRuntimeProvider extends WampE2eeProvider
+    implements WampE2eeRuntimePayloadProvider {
+  _BindingRuntimeProvider({this.runtimeSupported = true});
+
+  bool runtimeSupported;
+  final inputs = <List<dynamic>?>[];
+  final contexts = <WampE2eeRuntimeContext?>[];
+  final fields = <(String?, String?, String?, String?)>[];
+  final result = Uint8List.fromList([42]).asUnmodifiableView();
+
+  @override
+  bool canUnpackFromRuntimeContext(WampE2eeRuntimeContext? context) =>
+      runtimeSupported && context?.payloadAnchor != null;
+
+  @override
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) => throw UnsupportedError('The binding fixture only receives payloads');
+
+  @override
+  E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    inputs.add(arguments);
+    contexts.add(runtimeContext);
+    fields.add((
+      options.pptScheme,
+      options.pptSerializer,
+      options.pptCipher,
+      options.pptKeyId,
+    ));
+    return (arguments: [result], argumentsKeywords: null);
+  }
+}
+
+void _deferredBindingContracts() {
+  for (final code in [
+    MessageTypes.codeResult,
+    MessageTypes.codeEvent,
+    MessageTypes.codeInvocation,
+  ]) {
+    test(
+      'deferred binding code=$code rejects unsupported metadata immediately',
+      () {
+        for (final meta in [
+          _typedBindingMetadata(code, bind: false),
+          _typedBindingMetadata(MessageTypes.codeCall),
+          _typedBindingMetadata(code, scheme: 'custom'),
+          _typedBindingMetadata(code, serializer: 'cbor'),
+          _typedBindingMetadata(code, cipher: 'aes128'),
+        ]) {
+          expect(isNativeTypedE2eeSessionMetadata(meta), isFalse);
+          expect(
+            () => NativeSessionMessage.deferred(
+              serializer: NativeMessageSerializer.json,
+              metadata: meta,
+              wireMessage: () =>
+                  throw StateError('Invalid metadata exported wire'),
+            ),
+            throwsArgumentError,
+          );
+        }
+      },
+    );
+    for (final cipher in ['aes256gcm', 'xsalsa20poly1305']) {
+      for (final runtimeSupported in [true, false]) {
+        test(
+          'deferred binding code=$code $cipher runtime=$runtimeSupported memoizes application values',
+          () {
+            final meta = _typedBindingMetadata(code, cipher: cipher);
+            expect(isNativeTypedE2eeSessionMetadata(meta), isTrue);
+            final ciphertext = Uint8List.fromList([1, 2, 3]);
+            final provider = _BindingRuntimeProvider(
+              runtimeSupported: runtimeSupported,
+            );
+            final context = WampE2eeRuntimeContext(
+              direction: WampE2eeDirection.inbound,
+              messageType: code == MessageTypes.codeResult
+                  ? WampE2eeMessageType.result
+                  : code == MessageTypes.codeEvent
+                  ? WampE2eeMessageType.event
+                  : WampE2eeMessageType.invocation,
+              realm: 'binding.realm',
+              payloadAnchor: Object(),
+            );
+            var loads = 0;
+            late NativeSessionMessage message;
+            expect(() {
+              message = NativeSessionMessage.deferred(
+                serializer: NativeMessageSerializer.json,
+                metadata: meta,
+                wireMessage: () {
+                  loads++;
+                  return NativeSessionMessage(
+                    serializer: NativeMessageSerializer.json,
+                    metadata: meta,
+                    argsBytes: _bindingCipherFragment(ciphertext),
+                  );
+                },
+              );
+            }, returnsNormally);
+            message
+              ..attachE2eeProvider(provider)
+              ..attachE2eeRuntimeContext(context);
+            final anchor = Object();
+            final view = message.toLazyPayload(anchor: anchor);
+            expect(view.anchor, same(anchor));
+            expect(message.toLazyPayload().anchor, same(message));
+            expect(message.id, code);
+            expect(message.metadata, same(meta));
+            expect(message.hasModifiedNativeWirePayload, isFalse);
+            expect(loads, 0);
+            expect(provider.inputs, isEmpty);
+            expect(view.arguments!.single, same(provider.result));
+            expect(view.argumentsKeywords, isNull);
+            expect(
+              provider.inputs,
+              runtimeSupported
+                  ? [null]
+                  : [
+                      [ciphertext],
+                    ],
+            );
+            expect(provider.fields, [
+              ('wamp', 'flatbuffers', cipher, 'typed-key'),
+            ]);
+            expect(provider.contexts, [same(context)]);
+            expect(loads, runtimeSupported ? 0 : 1);
+            message.attachE2eeProvider(provider);
+            message.attachE2eeRuntimeContext(context);
+            expect(
+              message.toLazyPayload().arguments!.single,
+              same(provider.result),
+            );
+            expect(provider.inputs, hasLength(1));
+            expect(loads, runtimeSupported ? 0 : 1);
+          },
+        );
+      }
+    }
+  }
+
+  for (final hadContext in [false, true]) {
+    for (final operation in ['arguments', 'encoded', 'restore', 'retain']) {
+      test(
+        'deferred binding $operation replaces wire without reusing its native anchor context=$hadContext',
+        () {
+          final meta = _typedBindingMetadata(MessageTypes.codeInvocation);
+          final provider = _BindingRuntimeProvider();
+          final oldCiphertext = Uint8List.fromList([1, 2, 3]);
+          final replacement = Uint8List.fromList([7, 8, 9]);
+          var loads = 0;
+          final message = NativeSessionMessage.deferred(
+            serializer: NativeMessageSerializer.json,
+            metadata: meta,
+            wireMessage: () {
+              loads++;
+              return NativeSessionMessage(
+                serializer: NativeMessageSerializer.json,
+                metadata: meta,
+                argsBytes: _bindingCipherFragment(oldCiphertext),
+              );
+            },
+          )..attachE2eeProvider(provider);
+          if (hadContext) {
+            message.attachE2eeRuntimeContext(
+              WampE2eeRuntimeContext(
+                direction: WampE2eeDirection.inbound,
+                messageType: WampE2eeMessageType.invocation,
+                realm: 'existing',
+                payloadAnchor: Object(),
+              ),
+            );
+          }
+          final originalView = message.toLazyPayload();
+          expect(provider.inputs, isEmpty);
+          final replacementContext = WampE2eeRuntimeContext(
+            direction: WampE2eeDirection.inbound,
+            messageType: WampE2eeMessageType.invocation,
+            realm: 'replacement',
+            payloadAnchor: Object(),
+          );
+          final replacementView = LazyMessagePayload.materialized(
+            arguments: [replacement],
+            e2eeProvider: provider,
+            e2eeRuntimeContext: replacementContext,
+          );
+          switch (operation) {
+            case 'arguments':
+              message.arguments = [replacement];
+            case 'encoded':
+              message.setLazyPayload(
+                argumentsBytes: Uint8List.fromList([0]),
+                argumentsDecoder: (_) => [replacement],
+              );
+            case 'restore':
+              message.restoreLazyPayload(replacementView);
+            case 'retain':
+              message.retainLazyPayload(replacementView);
+          }
+          expect(loads, 1);
+          expect(message.hasModifiedNativeWirePayload, isTrue);
+          expect(message.toLazyPayload().arguments, [replacement]);
+          expect(
+            message.toLazyPayload().e2eeRuntimeContext?.payloadAnchor,
+            isNull,
+          );
+          expect(originalView.arguments!.single, same(provider.result));
+          expect(provider.inputs, [
+            [replacement],
+          ]);
+          expect(provider.contexts, hasLength(1));
+          expect(provider.contexts.single?.payloadAnchor, isNull);
+          message.attachE2eeRuntimeContext(replacementContext);
+          expect(message.e2eeRuntimeContext!.realm, 'replacement');
+          expect(message.e2eeRuntimeContext!.payloadAnchor, isNull);
+        },
+      );
+    }
+  }
+
+  test('ordinary binding keeps its wire payload and native anchor', () {
+    final meta = _typedBindingMetadata(MessageTypes.codeInvocation);
+    final ciphertext = Uint8List.fromList([1, 2, 3]);
+    final context = WampE2eeRuntimeContext(
+      direction: WampE2eeDirection.inbound,
+      messageType: WampE2eeMessageType.invocation,
+      payloadAnchor: Object(),
+    );
+    final message = NativeSessionMessage(
+      serializer: NativeMessageSerializer.json,
+      metadata: meta,
+      argsBytes: _bindingCipherFragment(ciphertext),
+    )..attachE2eeRuntimeContext(context);
+    expect(message.hasModifiedNativeWirePayload, isFalse);
+    expect(message.toLazyPayload().arguments, [ciphertext]);
+    expect(message.e2eeRuntimeContext, same(context));
+    expect(message.toLazyPayload().hasEncodedArguments, isTrue);
+  });
 }

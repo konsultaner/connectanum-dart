@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+dart_workspace_bootstrap
+"$ROOT_DIR/bin/check-format"
+dart analyze
+"$ROOT_DIR/bin/test-tooling"

@@ -1,14 +1,17 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:pinenacl/api.dart' show EncryptedMessage;
+import 'package:pinenacl/api.dart' show ByteList, EncryptedMessage;
 import 'package:pinenacl/x25519.dart' show SecretBox;
 import 'package:pointycastle/export.dart'
     show AEADParameters, AESEngine, GCMBlockCipher, KeyParameter;
 
 import 'abstract_ppt_options.dart';
+import 'e2ee_copy_metrics.dart';
 import '../message/ppt_payload.dart';
 import '../serializer/cbor/serializer.dart' as cbor_serializer;
+import '../serializer/abstract_serializer.dart';
+import '../serializer/flatbuffers/serializer.dart' as flatbuffers_serializer;
 
 typedef E2EEPayloadView = ({
   List<dynamic>? arguments,
@@ -23,6 +26,18 @@ abstract final class ConnectanumE2eeProfile {
   static const aes256Gcm = 'aes256gcm';
   static const aes256GcmNonceLength = 12;
   static const aes256GcmTagLength = 16;
+}
+
+/// Connectanum-local typed plaintext profile; version 2 is not a WAMP
+/// standardized E2EE version. The application owns its table schema.
+abstract final class ConnectanumFlatBuffersE2eeProfile {
+  static const version = 2;
+  static const scheme = 'wamp';
+  static const serializer = 'flatbuffers';
+
+  /// Includes nonce and authentication tag. The surrounding WAMP frame and
+  /// negotiated transport can impose a smaller limit independently.
+  static const maximumCiphertextBytes = 64 * 1024 * 1024;
 }
 
 enum WampE2eeDirection { outbound, inbound }
@@ -356,6 +371,14 @@ abstract interface class WampE2eeRuntimePayloadProvider {
   bool canUnpackFromRuntimeContext(WampE2eeRuntimeContext? runtimeContext);
 }
 
+/// Providers may resolve negotiated directional keys after payload validation.
+/// The precedence is explicit key, configured policy, negotiated key, default.
+/// With a runtime context, Session wrappers leave key resolution to this provider.
+/// Context-free calls keep the Session's existing directional defaults.
+abstract interface class WampE2eeNegotiatedKeySelectionProvider {
+  bool get handlesNegotiatedKeySelection;
+}
+
 abstract interface class WampE2eeProfileSupport {
   bool supportsE2eeProfile({
     required int version,
@@ -433,49 +456,39 @@ class WampE2eeDecryptionException extends WampE2eeException {
        );
 }
 
-class WampCborXsalsa20Poly1305Provider
-    implements WampE2eePolicyAwareProvider, WampE2eeProfileSupport {
-  WampCborXsalsa20Poly1305Provider({
-    required Map<String, List<int>> keys,
-    String? defaultKeyId,
-    WampE2eeKeySelectionPolicy? keySelectionPolicy,
-  }) : this._(
-         keys: keys,
-         defaultKeyId: defaultKeyId,
-         keySelectionPolicy: keySelectionPolicy,
-         cipher: supportedCipher,
-       );
-
-  WampCborXsalsa20Poly1305Provider._({
+abstract class _WampE2eeCipherProvider
+    implements
+        WampE2eePolicyAwareProvider,
+        WampE2eeProfileSupport,
+        WampE2eeNegotiatedKeySelectionProvider {
+  _WampE2eeCipherProvider({
     required Map<String, List<int>> keys,
     required String cipher,
+    required AbstractSerializer payloadSerializer,
+    required String serializerName,
+    required int profileVersion,
     String? defaultKeyId,
     WampE2eeKeySelectionPolicy? keySelectionPolicy,
   }) : _keys = Map.unmodifiable(_normalizeKeys(keys)),
        _defaultKeyId = _resolveDefaultKeyId(keys, defaultKeyId),
        _keySelectionPolicy = keySelectionPolicy,
-       _cipher = cipher;
+       _cipher = cipher,
+       _serializer = payloadSerializer,
+       _serializerName = serializerName,
+       _profileVersion = profileVersion;
 
-  WampCborXsalsa20Poly1305Provider.single({
-    required String keyId,
-    required List<int> key,
-    WampE2eeKeySelectionPolicy? keySelectionPolicy,
-  }) : this(
-         keys: {keyId: key},
-         defaultKeyId: keyId,
-         keySelectionPolicy: keySelectionPolicy,
-       );
-
-  static const supportedSerializer = ConnectanumE2eeProfile.serializer;
-  static const supportedCipher = ConnectanumE2eeProfile.xsalsa20Poly1305;
-
-  static final cbor_serializer.Serializer _serializer =
-      cbor_serializer.Serializer();
-
+  final AbstractSerializer _serializer;
+  final String _serializerName;
+  final int _profileVersion;
   final Map<String, Uint8List> _keys;
   final String? _defaultKeyId;
   final WampE2eeKeySelectionPolicy? _keySelectionPolicy;
   final String _cipher;
+  static final _negotiatedKeySelectionPolicy =
+      WampE2eeKeySelectionPolicies.negotiated();
+
+  @override
+  bool get handlesNegotiatedKeySelection => _isTyped;
 
   @override
   bool supportsE2eeProfile({
@@ -484,9 +497,9 @@ class WampCborXsalsa20Poly1305Provider
     required String serializer,
     required String cipher,
   }) {
-    return version == ConnectanumE2eeProfile.version &&
+    return version == _profileVersion &&
         scheme == ConnectanumE2eeProfile.scheme &&
-        serializer == ConnectanumE2eeProfile.serializer &&
+        serializer == _serializerName &&
         cipher == _cipher;
   }
 
@@ -504,25 +517,55 @@ class WampCborXsalsa20Poly1305Provider
   }) {
     _verifyScheme(options);
     _verifySerializer(options);
+    final typedPlaintext = _isTyped
+        ? _typedPlaintext(arguments, argumentsKeywords)
+        : null;
     final keyId = _resolveKeyId(
       options,
       operation: 'pack',
       runtimeContext: runtimeContext,
     );
+    _verifyScheme(options);
+    _verifySerializer(options);
     _resolveCipher(options, operation: 'pack');
 
     options.pptScheme ??= 'wamp';
-    options.pptSerializer ??= supportedSerializer;
+    options.pptSerializer ??= _serializerName;
     options.pptCipher ??= _cipher;
     options.pptKeyId ??= keyId;
 
-    final plaintext = Uint8List.fromList(
-      _serializer.serializePPT(
-        PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
-      ),
-    );
+    final plaintext =
+        typedPlaintext ??
+        _serializer.serializePPT(
+          PPTPayload(
+            arguments: arguments,
+            argumentsKeywords: argumentsKeywords,
+          ),
+        );
     final encrypted = _encryptPayload(plaintext, _keys[keyId]!);
-    return <dynamic>[Uint8List.fromList(encrypted)];
+    // Both ciphers produce fresh, mutable ciphertext. The CBOR profile needs
+    // no second plaintext or ciphertext copy around these private operations.
+    return <dynamic>[encrypted];
+  }
+
+  bool get _isTyped =>
+      _profileVersion == ConnectanumFlatBuffersE2eeProfile.version;
+
+  Uint8List _typedPlaintext(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+  ) {
+    final bytes = _serializer.serializePPT(
+      PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
+    );
+    // Typed serialization returns the application span unchanged. These are
+    // exactly nonce + tag bytes, with no additional plaintext framing.
+    final overhead = _cipher == ConnectanumE2eeProfile.aes256Gcm ? 28 : 40;
+    if (bytes.length >
+        ConnectanumFlatBuffersE2eeProfile.maximumCiphertextBytes - overhead) {
+      throw ArgumentError('Typed E2EE ciphertext exceeds the byte limit');
+    }
+    return bytes;
   }
 
   @override
@@ -534,12 +577,19 @@ class WampCborXsalsa20Poly1305Provider
     _verifyScheme(options);
     _verifySerializer(options);
     _resolveCipher(options, operation: 'unpack');
+    final typedCiphertext = _isTyped
+        ? _coerceEncryptedPayload(arguments, options)
+        : null;
     final keyId = _resolveKeyId(
       options,
       operation: 'unpack',
       runtimeContext: runtimeContext,
     );
-    final encryptedBytes = _coerceEncryptedPayload(arguments, options);
+    _verifyScheme(options);
+    _verifySerializer(options);
+    _resolveCipher(options, operation: 'unpack');
+    final encryptedBytes =
+        typedCiphertext ?? _coerceEncryptedPayload(arguments, options);
 
     final decoded = _decryptPayload(encryptedBytes, options, _keys[keyId]!);
     return (
@@ -556,9 +606,12 @@ class WampCborXsalsa20Poly1305Provider
     final plaintext = (() {
       try {
         return switch (_cipher) {
-          ConnectanumE2eeProfile.xsalsa20Poly1305 => SecretBox(
-            key,
-          ).decrypt(EncryptedMessage.fromList(encryptedBytes)),
+          ConnectanumE2eeProfile.xsalsa20Poly1305 =>
+            _isTyped
+                ? _decryptTypedXsalsa(encryptedBytes, key)
+                : SecretBox(
+                    key,
+                  ).decrypt(EncryptedMessage.fromList(encryptedBytes)),
           ConnectanumE2eeProfile.aes256Gcm => _decryptAes256Gcm(
             encryptedBytes,
             key,
@@ -583,14 +636,18 @@ class WampCborXsalsa20Poly1305Provider
       throw WampE2eeInvalidPayloadException(
         'unpack',
         options: options,
-        reason: 'Decrypted payload is not a valid CBOR PPT envelope',
+        reason: _isTyped
+            ? 'Decrypted typed FlatBuffers payload exceeds the byte limit'
+            : 'Decrypted payload is not a valid CBOR PPT envelope',
       );
     }
     if (decoded == null) {
       throw WampE2eeInvalidPayloadException(
         'unpack',
         options: options,
-        reason: 'Decrypted payload is not a valid CBOR PPT envelope',
+        reason: _isTyped
+            ? 'Decrypted typed FlatBuffers payload exceeds the byte limit'
+            : 'Decrypted payload is not a valid CBOR PPT envelope',
       );
     }
     return decoded;
@@ -598,12 +655,32 @@ class WampCborXsalsa20Poly1305Provider
 
   Uint8List _encryptPayload(Uint8List plaintext, Uint8List key) {
     return switch (_cipher) {
-      ConnectanumE2eeProfile.xsalsa20Poly1305 => Uint8List.fromList(
-        SecretBox(key).encrypt(plaintext),
-      ),
+      ConnectanumE2eeProfile.xsalsa20Poly1305 => _encryptXsalsa(plaintext, key),
       ConnectanumE2eeProfile.aes256Gcm => _encryptAes256Gcm(plaintext, key),
       _ => throw StateError('Unsupported provider cipher $_cipher'),
     };
+  }
+
+  Uint8List _encryptXsalsa(Uint8List plaintext, Uint8List key) {
+    final encrypted = Uint8List.fromList(SecretBox(key).encrypt(plaintext));
+    PortableE2eeCopyMetrics.recordCiphertextWrappingCopy(encrypted.length);
+    return encrypted;
+  }
+
+  Uint8List _decryptTypedXsalsa(Uint8List encrypted, Uint8List key) {
+    const nonceLength = EncryptedMessage.nonceLength;
+    if (encrypted.length < nonceLength) {
+      throw ArgumentError('XSalsa payload is shorter than its nonce');
+    }
+    final nonce = Uint8List.sublistView(encrypted, 0, nonceLength);
+    final body = Uint8List.sublistView(encrypted, nonceLength);
+    // Typed preflight enforces the profile's 64 MiB ciphertext limit. Avoid
+    // EncryptedMessage.fromList's unrelated default 1 MiB cap, using the public
+    // explicit-length wrapper and nonce API. Authentication is unchanged.
+    return SecretBox(key).decrypt(
+      ByteList.withConstraint(body, constraintLength: body.length),
+      nonce: nonce,
+    );
   }
 
   Uint8List _encryptAes256Gcm(Uint8List plaintext, Uint8List key) {
@@ -624,14 +701,21 @@ class WampCborXsalsa20Poly1305Provider
           Uint8List(0),
         ),
       );
-    final ciphertextAndTag = cipher.process(plaintext);
-    return Uint8List(nonce.length + ciphertextAndTag.length)
-      ..setRange(0, nonce.length, nonce)
-      ..setRange(
-        nonce.length,
-        nonce.length + ciphertextAndTag.length,
-        ciphertextAndTag,
-      );
+    // Write cipher output directly after the nonce rather than copying an
+    // intermediate ciphertext/tag allocation. PointyCastle rounds its output
+    // capacity to a block boundary; expose only the bytes actually written.
+    final encrypted = Uint8List(
+      nonce.length + cipher.getOutputSize(plaintext.length),
+    )..setRange(0, nonce.length, nonce);
+    var written = cipher.processBytes(
+      plaintext,
+      0,
+      plaintext.length,
+      encrypted,
+      nonce.length,
+    );
+    written += cipher.doFinal(encrypted, nonce.length + written);
+    return Uint8List.sublistView(encrypted, 0, nonce.length + written);
   }
 
   Uint8List _decryptAes256Gcm(Uint8List encrypted, Uint8List key) {
@@ -680,11 +764,13 @@ class WampCborXsalsa20Poly1305Provider
 
   void _verifySerializer(PPTOptions options) {
     final serializer = options.pptSerializer;
-    if (serializer != null && serializer != supportedSerializer) {
+    if (serializer != null && serializer != _serializerName) {
       throw ArgumentError.value(
         serializer,
         'pptSerializer',
-        'WAMP E2EE currently supports only ppt_serializer = "cbor"',
+        _isTyped
+            ? 'WAMP E2EE provider supports only ppt_serializer = "flatbuffers"'
+            : 'WAMP E2EE currently supports only ppt_serializer = "cbor"',
       );
     }
   }
@@ -702,9 +788,17 @@ class WampCborXsalsa20Poly1305Provider
     required String operation,
     WampE2eeRuntimeContext? runtimeContext,
   }) {
+    final policyKeyId = options.pptKeyId == null
+        ? _resolvePolicyKeyId(runtimeContext, options)
+        : null;
+    // Policy receives mutable options. Use and validate their current key ID
+    // so emitted metadata and the actual cryptographic key cannot diverge.
     final keyId =
         options.pptKeyId ??
-        _resolvePolicyKeyId(runtimeContext, options) ??
+        policyKeyId ??
+        (_isTyped && runtimeContext != null
+            ? _negotiatedKeySelectionPolicy(runtimeContext, options)
+            : null) ??
         _defaultKeyId;
     if (keyId == null) {
       throw WampE2eeKeyNotFoundException(
@@ -746,21 +840,36 @@ class WampCborXsalsa20Poly1305Provider
       );
     }
     final value = arguments.single;
+    if (_isTyped &&
+        value is List &&
+        value.length >
+            ConnectanumFlatBuffersE2eeProfile.maximumCiphertextBytes) {
+      throw WampE2eeInvalidPayloadException(
+        'unpack',
+        options: options,
+        reason: 'Typed E2EE ciphertext exceeds the byte limit',
+      );
+    }
     if (value is Uint8List) {
       return value;
     }
     if (value is List) {
       final bytes = Uint8List(value.length);
-      for (var index = 0; index < bytes.length; index++) {
-        final byte = value[index];
-        if (byte is! int || byte < 0 || byte > 255) {
-          throw WampE2eeInvalidPayloadException(
-            'unpack',
-            options: options,
-            reason: 'WAMP E2EE payload bytes must be integers from 0 to 255',
-          );
+      var copied = 0;
+      try {
+        for (; copied < bytes.length; copied++) {
+          final byte = value[copied];
+          if (byte is! int || byte < 0 || byte > 255) {
+            throw WampE2eeInvalidPayloadException(
+              'unpack',
+              options: options,
+              reason: 'WAMP E2EE payload bytes must be integers from 0 to 255',
+            );
+          }
+          bytes[copied] = byte;
         }
-        bytes[index] = byte;
+      } finally {
+        PortableE2eeCopyMetrics.recordCiphertextCoercionCopy(copied);
       }
       return bytes;
     }
@@ -829,6 +938,106 @@ class WampCborXsalsa20Poly1305Provider
     }
     return keys.length == 1 ? keys.keys.single : null;
   }
+}
+
+class WampCborXsalsa20Poly1305Provider extends _WampE2eeCipherProvider {
+  WampCborXsalsa20Poly1305Provider({
+    required Map<String, List<int>> keys,
+    String? defaultKeyId,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
+  }) : this._(
+         keys: keys,
+         defaultKeyId: defaultKeyId,
+         keySelectionPolicy: keySelectionPolicy,
+         cipher: supportedCipher,
+       );
+
+  WampCborXsalsa20Poly1305Provider._({
+    required super.keys,
+    required super.cipher,
+    super.defaultKeyId,
+    super.keySelectionPolicy,
+  }) : super(
+         payloadSerializer: cbor_serializer.Serializer(),
+         serializerName: supportedSerializer,
+         profileVersion: ConnectanumE2eeProfile.version,
+       );
+
+  WampCborXsalsa20Poly1305Provider.single({
+    required String keyId,
+    required List<int> key,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
+  }) : this(
+         keys: {keyId: key},
+         defaultKeyId: keyId,
+         keySelectionPolicy: keySelectionPolicy,
+       );
+
+  static const supportedSerializer = ConnectanumE2eeProfile.serializer;
+  static const supportedCipher = ConnectanumE2eeProfile.xsalsa20Poly1305;
+}
+
+/// Encrypts exactly one application byte span, including an empty span.
+/// No application schema, CBOR envelope or keyword dictionary is inferred.
+class WampFlatBuffersXsalsa20Poly1305Provider extends _WampE2eeCipherProvider {
+  WampFlatBuffersXsalsa20Poly1305Provider({
+    required Map<String, List<int>> keys,
+    String? defaultKeyId,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
+  }) : this._(
+         keys: keys,
+         defaultKeyId: defaultKeyId,
+         keySelectionPolicy: keySelectionPolicy,
+         cipher: supportedCipher,
+       );
+
+  WampFlatBuffersXsalsa20Poly1305Provider._({
+    required super.keys,
+    required super.cipher,
+    super.defaultKeyId,
+    super.keySelectionPolicy,
+  }) : super(
+         payloadSerializer: flatbuffers_serializer.Serializer(),
+         serializerName: supportedSerializer,
+         profileVersion: ConnectanumFlatBuffersE2eeProfile.version,
+       );
+
+  WampFlatBuffersXsalsa20Poly1305Provider.single({
+    required String keyId,
+    required List<int> key,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
+  }) : this(
+         keys: {keyId: key},
+         defaultKeyId: keyId,
+         keySelectionPolicy: keySelectionPolicy,
+       );
+
+  static const supportedSerializer =
+      ConnectanumFlatBuffersE2eeProfile.serializer;
+  static const supportedCipher = ConnectanumE2eeProfile.xsalsa20Poly1305;
+}
+
+class WampFlatBuffersAes256GcmProvider
+    extends WampFlatBuffersXsalsa20Poly1305Provider {
+  WampFlatBuffersAes256GcmProvider({
+    required super.keys,
+    super.defaultKeyId,
+    super.keySelectionPolicy,
+  }) : super._(cipher: supportedCipher);
+
+  WampFlatBuffersAes256GcmProvider.single({
+    required String keyId,
+    required List<int> key,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
+  }) : this(
+         keys: {keyId: key},
+         defaultKeyId: keyId,
+         keySelectionPolicy: keySelectionPolicy,
+       );
+
+  static const supportedSerializer =
+      ConnectanumFlatBuffersE2eeProfile.serializer;
+  static const supportedCipher = ConnectanumE2eeProfile.aes256Gcm;
 }
 
 class WampCborAes256GcmProvider extends WampCborXsalsa20Poly1305Provider {

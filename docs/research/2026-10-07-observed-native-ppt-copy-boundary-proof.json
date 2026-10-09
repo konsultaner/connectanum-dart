@@ -1,0 +1,114 @@
+{
+  "status": "focused and full canonical verification pass; resulting-head hosted evidence pending",
+  "baseRevision": "46d39fc5286a7c93b6781e34f986e40687230f86",
+  "sourceSha256": {
+    "packages/connectanum_bench/lib/src/transport_copy_metrics.dart": "f17ddc407645a314cb67a97594584f1329e8b6677e041386527204c63872fce6",
+    "packages/connectanum_bench/lib/src/wamp_workload_runner.dart": "0f3cf67505e7038716a21fda320005e1274d42e5f47c1ae969066590c4bd505f",
+    "packages/connectanum_bench/test/owned_ppt_copy_metrics_test.dart": "4dedda9f4ed5e568991c7401fa6d6b47a78b827920be114465e5ff214cd2444b",
+    "packages/connectanum_bench/test/wamp_transport_integration_test.dart": "f3ff906b05d3e5f02c8405f1b454c9120b7e1dc51402f22fbcf68d108bc21a2d",
+    "packages/connectanum_bench/tool/wamp_client_main.dart": "d985ad47c41e24575f7a6d381c18f4cd9a2778d3882d2e58ffdd08cea0ba6af7",
+    "packages/connectanum_client/lib/src/transport/native/flatbuffers_payload_anchor.dart": "bf73c974eb8a20a34b5adea409d77eadfe960854cf903eb3932c82f50788ade6",
+    "packages/connectanum_client/lib/src/transport/native/native_transports_io.dart": "33721d15d56bf0417c36e0accbde4c05ba6dc8fecdfb536ff9e9288724eceb6a",
+    "packages/connectanum_client/test/transport/native/flatbuffers_profile_test.dart": "8d4caf8206a87d198d16e5777a7b1ec55271d7a0d2b1345a440648e822c30080",
+    "packages/connectanum_client/test/transport/native/flatbuffers_websocket_network_test.dart": "3b637754859cf52f483581f8ccec9a0c17f28972fe0f705500bd6d18297265cd"
+  },
+  "linuxExecutedSourceSha256": {
+    "packages/connectanum_bench/lib/src/transport_copy_metrics.dart": "f17ddc407645a314cb67a97594584f1329e8b6677e041386527204c63872fce6",
+    "packages/connectanum_bench/lib/src/wamp_workload_runner.dart": "0f3cf67505e7038716a21fda320005e1274d42e5f47c1ae969066590c4bd505f",
+    "packages/connectanum_bench/test/owned_ppt_copy_metrics_test.dart": "4dedda9f4ed5e568991c7401fa6d6b47a78b827920be114465e5ff214cd2444b",
+    "packages/connectanum_bench/test/wamp_transport_integration_test.dart": "f3ff906b05d3e5f02c8405f1b454c9120b7e1dc51402f22fbcf68d108bc21a2d",
+    "packages/connectanum_bench/tool/wamp_client_main.dart": "d985ad47c41e24575f7a6d381c18f4cd9a2778d3882d2e58ffdd08cea0ba6af7",
+    "packages/connectanum_client/lib/src/transport/native/flatbuffers_payload_anchor.dart": "bf73c974eb8a20a34b5adea409d77eadfe960854cf903eb3932c82f50788ade6",
+    "packages/connectanum_client/lib/src/transport/native/native_transports_io.dart": "33721d15d56bf0417c36e0accbde4c05ba6dc8fecdfb536ff9e9288724eceb6a",
+    "packages/connectanum_client/test/transport/native/flatbuffers_profile_test.dart": "8d4caf8206a87d198d16e5777a7b1ec55271d7a0d2b1345a440648e822c30080",
+    "packages/connectanum_client/test/transport/native/flatbuffers_websocket_network_test.dart": "3b637754859cf52f483581f8ccec9a0c17f28972fe0f705500bd6d18297265cd"
+  },
+  "checks": {
+    "before": {
+      "log": "/tmp/connectanum-observed-owned-copy-before.log",
+      "sha256": "45b47665392e2262366c96e4ac58d0233d0e5929d3450cc0134e01fbc5aa4d70",
+      "exitCode": 1
+    },
+    "final-focused": {
+      "log": "/tmp/connectanum-observed-owned-copy-final-focused.log",
+      "sha256": "d8deb0c5a25f9635f64c1609f784993f65caa27606fe4c3cd5705a648e0e77ae",
+      "exitCode": 0
+    },
+    "final-native": {
+      "log": "/tmp/connectanum-observed-owned-copy-final-native.log",
+      "sha256": "05143495459e15e65e770806ccf52de191d81c62d081cf1665baaa4faf5ecd1f",
+      "exitCode": 0
+    },
+    "final-transports-live": {
+      "log": "/tmp/connectanum-observed-owned-copy-final-transports-live.log",
+      "sha256": "d7b7af341173a9cc5e887d363059a2c74f93e35089d74bc78afddf51512fb753",
+      "exitCode": 0
+    },
+    "linux-native": {
+      "log": "/tmp/connectanum-observed-owned-copy-linux-native.log",
+      "sha256": "31f1a1cce96281522ff376ac9ba071cff061ef1f8fe63996bd7eac1a82b529d6",
+      "exitCode": 0
+    },
+    "linux-bench": {
+      "log": "/tmp/connectanum-observed-owned-copy-linux-bench.log",
+      "sha256": "82af173f10a1cfe14c8d15e105513028c805a634f8ed7be0721d02a4e159d54c",
+      "exitCode": 0
+    },
+    "linux-final-transports-live": {
+      "log": "/tmp/connectanum-observed-owned-copy-linux-final-transports-live.log",
+      "sha256": "de74b380ba6650b70f28d829ea13d11e0d2c51e1d0c86f9c543cdbbcd45b91cd",
+      "exitCode": 0
+    },
+    "final-analysis": {
+      "log": "/tmp/connectanum-observed-owned-copy-final-analysis.log",
+      "sha256": "6e6bce0e9bac3f4d715a16916232a4f69c6dfa65709dc8e5efe2ed440a20c645",
+      "exitCode": 0
+    },
+    "canonical-verify": {
+      "command": "bin/verify",
+      "log": "/tmp/connectanum-observed-owned-copy-verify.log",
+      "exitCode": 0,
+      "sha256": "f77ee3e66c8751f7a58dfc1c84b1b1be36712f59b5947c2b0a7b8f638be934b4",
+      "benchmarkCases": 1609,
+      "routerCases": 4958,
+      "coreBrowserCases": 4751,
+      "clientBrowserCases": 2829,
+      "unchangedNativeOnlySkips": 20
+    }
+  },
+  "baselineFast": {
+    "log": "/tmp/connectanum-copy-accounting-baseline-fast.log",
+    "exitCode": 0,
+    "sha256": "57e07ce74ea7d59c3ea7aa01da9d4fd0e0a3ecb1065c9382d09923b51b477098"
+  },
+  "failFirst": {
+    "passed": 1,
+    "failed": 36
+  },
+  "focusedCases": 121,
+  "nativeCasesPerPlatform": 32,
+  "liveCasesPerPlatform": 20,
+  "newConcurrentWorkerCases": 8,
+  "platforms": [
+    "macOS arm64",
+    "Linux arm64"
+  ],
+  "linuxNativeLibrary": "/tmp/connectanum-8af2c337-primary-artifacts/libct_ffi.so",
+  "review": {
+    "design": "GLM accepted with change; per-owner reconciliation implemented",
+    "judgeOutputSha256": "f1269d441b9cd84cea3bbbd0982f3f46b094dfc76c99a04bb9c8bb8945aae3b7",
+    "testAdvice": "Qwen success/failure/empty ideas used; reused/copy-byte confusion rejected",
+    "finalCompanionReview": "blocked: native mutation resource lease active",
+    "blockedReviewLog": "/tmp/connectanum-observed-owned-copy-review.log",
+    "manualSourceReview": true
+  },
+  "measurementScope": "one exact native owner per sample; successful native frame queue acceptance; no TLS/delivery inference",
+  "limits": [
+    "No performance acceptance.",
+    "Total SDK/TLS/transcode/crypto copies remain incomplete.",
+    "Full original matrix, fields and gates unchanged."
+  ],
+  "setupFailure": "Initial fail-first command used the wrong working directory; retained separately at /tmp/connectanum-observed-owned-copy-before-setup-failure.log; not behavioral evidence.",
+  "linuxNativeLibrarySha256": "4c86366a177f982d511069a661245dacd69cd2250c4c4d1fa32efbdffa1f5d2e",
+  "nativeSourceUnchangedSince": "8af2c337e5633ab77fef7e6e0c2298db388e6754"
+}

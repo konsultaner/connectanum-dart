@@ -132,6 +132,9 @@ fn sample(base: u64, optional: bool) -> WorkloadSample {
         latency_ms: 100.0,
         request_bytes: 7,
         response_bytes: 10000,
+        payload_preparation_us: None,
+        native_builder_input_copied_bytes: None,
+        native_builder_growth_copied_bytes: None,
         http_fresh_connection_timing: None,
         http_phase_timing: Some(serde_json::from_value(Value::Object(phase)).unwrap()),
     }

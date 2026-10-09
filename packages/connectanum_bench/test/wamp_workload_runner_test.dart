@@ -302,6 +302,60 @@ void main() {
       );
     });
 
+    test('runs RPC operations until the configured minimum duration', () async {
+      final broker = _FakeWampBroker(
+        callDelay: const Duration(milliseconds: 2),
+      );
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('rpc_minimum_duration_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.cbor,
+        mode: WampMode.rpc,
+        uri: 'bench.rpc.echo',
+        iterations: 1,
+        concurrency: 2,
+        inFlightPerSession: 2,
+        minimumDurationMs: 30,
+        payloadBytes: 16,
+      );
+      final stopwatch = Stopwatch()..start();
+
+      final samples = await runner.run(scenario);
+
+      expect(
+        stopwatch.elapsed,
+        greaterThanOrEqualTo(const Duration(milliseconds: 30)),
+      );
+      expect(samples.length, greaterThan(scenario.concurrency));
+      expect(broker.callCounts['bench.rpc.echo'], samples.length);
+    });
+
+    test('rejects minimum-duration use outside RPC and pubsub', () async {
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(_FakeWampBroker()),
+        logger: Logger.detached('unsupported_minimum_duration_test'),
+      );
+      final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.cbor,
+        mode: WampMode.authenticate,
+        uri: 'bench.auth',
+        iterations: 1,
+        concurrency: 1,
+        minimumDurationMs: 10,
+        payloadBytes: 0,
+      );
+
+      await expectLater(
+        runner.run(scenario),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
     test('keeps lazy RPC results encoded after timing completes', () async {
       var decoded = false;
       var releases = 0;
@@ -1279,6 +1333,69 @@ void main() {
       );
       expect(
         () => WampScenario.fromJson(profile(keyId: null)),
+        throwsFormatException,
+      );
+    });
+
+    for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+      test(
+        'round-trips an explicit typed FlatBuffers E2EE $cipher scenario',
+        () {
+          final scenario = WampScenario.fromJson({
+            'transport': 'rawsocket',
+            'client_impl': 'dart',
+            'serializer': 'json',
+            'mode': 'rpc',
+            'uri': 'bench.rpc.echo',
+            'ppt_scheme': 'wamp',
+            'ppt_serializer': 'flatbuffers',
+            'ppt_cipher': cipher,
+            'ppt_keyid': 'benchmark-key',
+          });
+          expect(
+            WampScenario.fromJson(scenario.toJson()).pptSerializer,
+            'flatbuffers',
+          );
+          final provider = e2eeProviderFactoryForScenario(scenario)!();
+          final options = wamp_core.PublishOptions(pptScheme: 'wamp');
+          final bytes = Uint8List.fromList([1, 2, 3, 4]);
+          final packed = provider.packPayload([bytes], null, options);
+          final clear = provider.unpackPayload(packed, options);
+          expect(options.pptSerializer, 'flatbuffers');
+          final profile = provider as wamp_core.WampE2eeProfileSupport;
+          expect(
+            profile.supportsE2eeProfile(
+              version: 2,
+              scheme: 'wamp',
+              serializer: 'flatbuffers',
+              cipher: cipher,
+            ),
+            isTrue,
+          );
+          expect(
+            profile.supportsE2eeProfile(
+              version: 1,
+              scheme: 'wamp',
+              serializer: 'flatbuffers',
+              cipher: cipher,
+            ),
+            isFalse,
+          );
+          expect(clear.arguments, [bytes]);
+        },
+      );
+    }
+
+    test('rejects typed FlatBuffers E2EE file scenarios', () {
+      expect(
+        () => WampScenario.fromJson({
+          'mode': 'file_transfer',
+          'uri': 'bench.file.receive',
+          'ppt_scheme': 'wamp',
+          'ppt_serializer': 'flatbuffers',
+          'ppt_cipher': 'aes256gcm',
+          'ppt_keyid': 'benchmark-key',
+        }),
         throwsFormatException,
       );
     });

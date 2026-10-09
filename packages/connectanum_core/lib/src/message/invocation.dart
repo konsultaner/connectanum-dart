@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:typed_data';
 
 import 'e2ee_payload.dart';
@@ -156,96 +155,90 @@ class Invocation extends AbstractMessageWithPayload {
         assert(options.progress == false);
       }
       assert(UriPattern.match(errorUri!));
-      final error = Error(
-        MessageTypes.codeInvocation,
-        requestId,
-        HashMap(),
-        errorUri,
-        arguments: arguments,
-        argumentsKeywords: argumentsKeywords,
-      );
-      _emitResponse(error);
-    } else {
-      var invokeArguments = arguments;
-      var invokeArgumentsKeywords = argumentsKeywords;
-      Uint8List? packedPayload;
-
-      if (options?.pptScheme == 'wamp') {
-        if (lazyPayload?.packedPayloadBytes != null &&
-            _matchesPackedPayloadEncoding(lazyPayload!, options!)) {
-          packedPayload = lazyPayload.packedPayloadBytes;
-        }
-      } else if (options?.pptScheme != null) {
-        packedPayload = lazyPayload == null
-            ? null
-            : _packMatchingLazyPayload(lazyPayload, options!);
-      }
-
-      if (options?.pptScheme == 'wamp') {
-        final runtimeContext = _responseRuntimeContext();
-        invokeArguments = packedPayload == null
-            ? E2EEPayload.packE2EEPayload(
-                lazyPayload?.arguments ?? arguments,
-                lazyPayload?.argumentsKeywords ?? argumentsKeywords,
-                options!,
-                provider: lazyPayload?.e2eeProvider ?? e2eeProvider,
-                runtimeContext: runtimeContext,
-              )
-            : <dynamic>[packedPayload];
-        invokeArgumentsKeywords = null;
-      } else if (options?.pptScheme != null) {
-        // It's some variation of PPT
-        invokeArguments = packedPayload == null
-            ? PPTPayload.packPPTPayload(
-                lazyPayload?.arguments ?? arguments,
-                lazyPayload?.argumentsKeywords ?? argumentsKeywords,
-                options!,
-              )
-            : [packedPayload];
-        invokeArgumentsKeywords = null;
-      }
-
-      final yield = Yield(
-        requestId,
-        options: options,
-        arguments: invokeArguments,
-        argumentsKeywords: invokeArgumentsKeywords,
-      );
-      yield.attachE2eeProvider(lazyPayload?.e2eeProvider ?? e2eeProvider);
-      yield.attachE2eeRuntimeContext(_responseRuntimeContext());
-      if (lazyPayload != null) {
-        if (options?.pptScheme != null) {
-          if (packedPayload != null) {
-            yield.arguments = <dynamic>[packedPayload];
-            yield.argumentsKeywords = null;
-          } else {
-            yield.arguments = invokeArguments;
-            yield.argumentsKeywords = invokeArgumentsKeywords;
-          }
-        } else if (options?.pptScheme == null) {
-          yield.setLazyPayload(
-            argumentsBytes: lazyPayload.argumentsBytes,
-            argumentsDecoder: lazyPayload.argumentsBytes == null
-                ? null
-                : (_) => lazyPayload.arguments ?? const <dynamic>[],
-            argumentsKeywordsBytes: lazyPayload.argumentsKeywordsBytes,
-            argumentsKeywordsDecoder: lazyPayload.argumentsKeywordsBytes == null
-                ? null
-                : (_) =>
-                      lazyPayload.argumentsKeywords ??
-                      const <String, dynamic>{},
-            encoding: lazyPayload.encoding,
-          );
-          if (!lazyPayload.hasEncodedArguments) {
-            yield.arguments = lazyPayload.arguments;
-          }
-          if (!lazyPayload.hasEncodedArgumentsKeywords) {
-            yield.argumentsKeywords = lazyPayload.argumentsKeywords;
-          }
-        }
-      }
-      _emitResponse(yield);
     }
+    var invokeArguments = arguments;
+    var invokeArgumentsKeywords = argumentsKeywords;
+    Uint8List? packedPayload;
+    final runtimeContext = _responseRuntimeContext(
+      isError ? WampE2eeMessageType.error : WampE2eeMessageType.yield,
+    );
+
+    if (options?.pptScheme != null && options?.pptScheme != 'wamp') {
+      packedPayload = lazyPayload == null
+          ? null
+          : _packMatchingLazyPayload(lazyPayload, options!);
+    }
+
+    if (options?.pptScheme == 'wamp') {
+      // An encoding match proves neither ciphertext provenance nor key/cipher
+      // affinity. The outbound provider must apply its context and key policy.
+      invokeArguments = E2EEPayload.packE2EEPayload(
+        lazyPayload?.arguments ?? arguments,
+        lazyPayload?.argumentsKeywords ?? argumentsKeywords,
+        options!,
+        provider: lazyPayload?.e2eeProvider ?? e2eeProvider,
+        runtimeContext: runtimeContext,
+      );
+      invokeArgumentsKeywords = null;
+    } else if (options?.pptScheme != null) {
+      invokeArguments = packedPayload == null
+          ? PPTPayload.packPPTPayload(
+              lazyPayload?.arguments ?? arguments,
+              lazyPayload?.argumentsKeywords ?? argumentsKeywords,
+              options!,
+            )
+          : <dynamic>[packedPayload];
+      invokeArgumentsKeywords = null;
+    }
+
+    final AbstractMessageWithPayload response = isError
+        ? Error(
+            MessageTypes.codeInvocation,
+            requestId,
+            <String, dynamic>{
+              if (options?.pptScheme != null) 'ppt_scheme': options!.pptScheme,
+              if (options?.pptSerializer != null)
+                'ppt_serializer': options!.pptSerializer,
+              if (options?.pptCipher != null) 'ppt_cipher': options!.pptCipher,
+              if (options?.pptKeyId != null) 'ppt_keyid': options!.pptKeyId,
+              ...?options?.custom,
+            },
+            errorUri,
+            arguments: invokeArguments,
+            argumentsKeywords: invokeArgumentsKeywords,
+          )
+        : Yield(
+            requestId,
+            options: options,
+            arguments: invokeArguments,
+            argumentsKeywords: invokeArgumentsKeywords,
+          );
+    response.attachE2eeProvider(lazyPayload?.e2eeProvider ?? e2eeProvider);
+    response.attachE2eeRuntimeContext(runtimeContext);
+    if (lazyPayload != null && options?.pptScheme == null) {
+      if (lazyPayload.hasPackedPayloadBytes) {
+        // Without PPT metadata the reply contains application values, not the
+        // packed wire wrapper. Encoded dynamic fragments can still be reused.
+        response.arguments = lazyPayload.arguments ?? arguments;
+        response.argumentsKeywords =
+            lazyPayload.argumentsKeywords ?? argumentsKeywords;
+      } else {
+        response.restoreLazyPayload(lazyPayload);
+        if (!lazyPayload.hasEncodedArguments && lazyPayload.arguments == null) {
+          response.arguments = arguments;
+        }
+        if (!lazyPayload.hasEncodedArgumentsKeywords &&
+            lazyPayload.argumentsKeywords == null) {
+          response.argumentsKeywords = argumentsKeywords;
+        }
+      }
+    }
+    if (lazyPayload != null && options?.pptScheme != 'wamp') {
+      // Keep the source lease with the actual outbound wire view. Packing a
+      // reply can reuse spans even when its argument wrapper is different.
+      response.retainLazyPayload(response.toLazyPayload(anchor: lazyPayload));
+    }
+    _emitResponse(response);
   }
 
   Invocation(
@@ -314,14 +307,16 @@ class Invocation extends AbstractMessageWithPayload {
     }
   }
 
-  WampE2eeRuntimeContext? _responseRuntimeContext() {
+  WampE2eeRuntimeContext? _responseRuntimeContext(
+    WampE2eeMessageType messageType,
+  ) {
     final runtimeContext = e2eeRuntimeContext;
     if (runtimeContext == null) {
       return null;
     }
     return runtimeContext.copyWith(
       direction: WampE2eeDirection.outbound,
-      messageType: WampE2eeMessageType.yield,
+      messageType: messageType,
       uri: details.procedure ?? runtimeContext.uri,
     );
   }
@@ -429,6 +424,7 @@ bool _matchesPayloadEncoding(
     (LazyPayloadEncoding.json, 'json') => true,
     (LazyPayloadEncoding.messagePack, 'msgpack') => true,
     (LazyPayloadEncoding.cbor, 'cbor') => true,
+    (LazyPayloadEncoding.flatbuffers, 'flatbuffers') => true,
     _ => false,
   };
 }

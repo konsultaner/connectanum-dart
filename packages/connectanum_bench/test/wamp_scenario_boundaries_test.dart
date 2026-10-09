@@ -2,6 +2,42 @@ import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('payload construction configuration', () {
+    for (final (wireName, construction) in [
+      ('values', WampPayloadConstruction.dartValues),
+      ('native_buffer', WampPayloadConstruction.nativeBuffer),
+      ('pre_encoded_span', WampPayloadConstruction.preEncodedSpan),
+    ]) {
+      test('$wireName parses and serializes', () {
+        final scenario = WampScenario.fromJson({
+          ..._json(),
+          'payload_construction': wireName,
+        });
+        expect(scenario.payloadConstruction, construction);
+        if (construction == WampPayloadConstruction.dartValues) {
+          expect(
+            scenario.toJson().containsKey('payload_construction'),
+            isFalse,
+          );
+        } else {
+          expect(scenario.toJson()['payload_construction'], wireName);
+        }
+      });
+    }
+
+    for (final value in <Object?>['unknown', 1, true, [], {}]) {
+      test('rejects invalid payload construction $value', () {
+        expect(
+          () => WampScenario.fromJson({
+            ..._json(),
+            'payload_construction': value,
+          }),
+          throwsFormatException,
+        );
+      });
+    }
+  });
+
   group('scenario JSON validation', () {
     for (final field in ['mode', 'uri']) {
       for (final value in <Object?>[null, '', '  ', 1, true, [], {}]) {

@@ -6,6 +6,7 @@ import 'package:connectanum_bench/src/benchmark_config.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
+import 'package:connectanum_client/native_buffers.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 
@@ -161,6 +162,9 @@ class BenchmarkRunner {
         secureWampTargets: secureWampTargets,
       ),
       logger: _logger,
+      nativeBufferAllocator: NativeBufferAllocator.instance(
+        libraryPath: nativeLibraryPath,
+      ),
     );
     return runner.run(scenario);
   }

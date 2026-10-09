@@ -9,6 +9,12 @@ pub struct WorkloadSample {
     pub request_bytes: u64,
     pub response_bytes: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payload_preparation_us: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_builder_input_copied_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_builder_growth_copied_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub http_fresh_connection_timing: Option<HttpFreshConnectionTiming>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub http_phase_timing: Option<HttpPhaseTimingSample>,
@@ -302,6 +308,18 @@ pub struct ClientProcessMetrics {
     pub rss_before_bytes: u64,
     pub current_rss_bytes: u64,
     pub max_rss_bytes: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu_user_us_delta: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu_system_us_delta: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allocated_bytes_delta: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gc_count_delta: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gc_pause_us_delta: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peak_rss_during_bytes: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -311,6 +329,9 @@ pub struct WorkloadReport {
     pub protocol: String,
     #[serde(default = "default_client_impl")]
     pub client_impl: String,
+    /// Actual prepared WAMP settings; omitted for non-WAMP and legacy reports.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wamp_configuration: Option<Value>,
     #[serde(default = "default_router_workers")]
     pub router_workers: u32,
     #[serde(default = "default_native_runtime_threads")]
@@ -347,6 +368,10 @@ pub struct WorkloadReport {
     pub file_segment_metrics: Option<FileSegmentMetricsDelta>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_process_metrics: Option<ClientProcessMetrics>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_process_metrics: Option<ClientProcessMetrics>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub copy_metrics: Option<Value>,
     pub samples: Vec<WorkloadSample>,
 }
 
@@ -626,5 +651,38 @@ mod tests {
         assert_eq!(report.throughput_elapsed_ms(), 1000.0);
         report.data_window_elapsed_ms = Some(f64::NAN);
         assert_eq!(report.throughput_elapsed_ms(), 1000.0);
+    }
+
+    #[test]
+    fn wamp_payload_construction_metrics_survive_sample_report_parsing() {
+        let sample: WorkloadSample = serde_json::from_value(json!({
+            "worker": 2,
+            "iteration": 9,
+            "latency_ms": 1.25,
+            "request_bytes": 1024,
+            "response_bytes": 1024,
+            "payload_preparation_us": 31,
+            "native_builder_input_copied_bytes": 1024,
+            "native_builder_growth_copied_bytes": 512
+        }))
+        .unwrap();
+        assert_eq!(sample.payload_preparation_us, Some(31));
+        assert_eq!(sample.native_builder_input_copied_bytes, Some(1024));
+        assert_eq!(sample.native_builder_growth_copied_bytes, Some(512));
+        let encoded = serde_json::to_value(sample).unwrap();
+        assert_eq!(encoded["payload_preparation_us"], 31);
+        assert_eq!(encoded["native_builder_input_copied_bytes"], 1024);
+        assert_eq!(encoded["native_builder_growth_copied_bytes"], 512);
+
+        let legacy: WorkloadSample = serde_json::from_value(json!({
+            "worker": 0,
+            "iteration": 0,
+            "latency_ms": 1.0,
+            "request_bytes": 1,
+            "response_bytes": 1
+        }))
+        .unwrap();
+        let legacy_json = serde_json::to_value(legacy).unwrap();
+        assert!(legacy_json.get("payload_preparation_us").is_none());
     }
 }

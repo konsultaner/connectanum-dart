@@ -13,6 +13,8 @@ import 'package:connectanum_client/src/transport/native/runtime.dart'
     show NativeClientRuntime;
 import 'package:connectanum_core/authentication.dart' as auth;
 import 'package:connectanum_core/connectanum_core.dart' as wamp;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
+import 'package:connectanum_core/json_serializer.dart' as wamp_json;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
@@ -301,7 +303,15 @@ Future<void> _expectHandshake(
   if (transport == WampTransport.rawsocket) {
     expect(await peer.next(), [
       'negotiated',
-      [0x7f, (8 << 4) | (serializer.index + 1), 0, 0],
+      [
+        0x7f,
+        (8 << 4) |
+            (serializer == WampSerializer.flatbuffers
+                ? 5
+                : serializer.index + 1),
+        0,
+        0,
+      ],
     ]);
   } else {
     expect(await peer.next(), [
@@ -483,15 +493,33 @@ Future<void> _peerMain(Map<String, Object?> config) async {
   WebSocket? web;
   late Future<void> Function() closeServer;
 
+  var flatProfile = const flat.FlatBuffersSessionProfile.router();
+  Uint8List encodeFlat(List<dynamic> value) {
+    final message = wamp_json.Serializer().deserialize(
+      Uint8List.fromList(utf8.encode(jsonEncode(value))),
+    )!;
+    flatProfile = flatProfile.prepareOutgoing(message);
+    return flat.Serializer().serialize(message);
+  }
+
+  List<dynamic> decodeFlat(List<int> bytes) {
+    final message = flat.Serializer().deserialize(Uint8List.fromList(bytes))!;
+    flatProfile = flatProfile.acceptIncoming(message);
+    return (jsonDecode(wamp_json.Serializer().serialize(message)) as List)
+        .cast<dynamic>();
+  }
+
   Uint8List encode(List<dynamic> value) => switch (serializer) {
     'json' => Uint8List.fromList(utf8.encode(jsonEncode(value))),
     'msgpack' => msgpack.serialize(value),
+    'flatbuffers' => encodeFlat(value),
     _ => Uint8List.fromList(cbor.cbor.encode(cbor.CborValue(value))),
   };
   List<dynamic> decode(List<int> bytes) =>
       (switch (serializer) {
                 'json' => jsonDecode(utf8.decode(bytes)),
                 'msgpack' => msgpack.deserialize(Uint8List.fromList(bytes)),
+                'flatbuffers' => decodeFlat(bytes),
                 _ => cbor.cbor.decode(bytes).toObject(),
               }
               as List)

@@ -1,0 +1,109 @@
+{
+  "status": "partial_source_observer_canonical_verification_passed",
+  "base_commit": "cde9fbedfd3c6b5608ce383062d99c8d12d1c375",
+  "complete_tls_copy_coverage": false,
+  "performance_acceptance": false,
+  "mac_enabled_cases": 243,
+  "mac_disabled_cases": 232,
+  "linux_enabled_cases": 244,
+  "linux_disabled_cases": 233,
+  "linux_matched_inputs": 860,
+  "modified_upstream_files": 6,
+  "source_sha256": {
+    "native/transport/vendor/rustls/src/copy_observer.rs": "7b79a173636b49dc1583ef95e33722a2e497814c833ba80f7e4f166affa0b3b5",
+    "native/transport/vendor/rustls/src/msgs/base.rs": "22ca4e7e92ee8f24d5c0a9729f4a3cab18807ed5f19342e9f801499ba990dfc4",
+    "native/transport/vendor/rustls-source-manifest.json": "4f4d861287213631cc7a4c4b3a4605b88e891e3dae2158d45e7be9520868b090",
+    "native/transport/vendor/README.md": "aae24c97c3ec1332b7e06a085ae9a78817ac58d8171f380a7c6489ffd7a4a726"
+  },
+  "linux_snapshot_sha256": "df7917ff0b3c38717a1239f53dfb86c4ea817b5af47999edd4839d6297f477f0",
+  "checks": {
+    "fail-first": {
+      "exit": 101,
+      "log": "/tmp/connectanum-rustls-payload-fail-first.log",
+      "log_sha256": "935c602e3e9b01e214309d6d2c46cc2167085c61c1c0cefc818a31e7d5987f4b"
+    },
+    "prefixed-fail-first": {
+      "exit": 101,
+      "log": "/tmp/connectanum-rustls-prefixed-payload-fail-first.log",
+      "log_sha256": "644556b3a86de66549dcce20598286d5f2d6dd755d6ca42b846b12b21ff0a45a"
+    },
+    "upstream": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-all-payload-upstream-final.log",
+      "log_sha256": "4faf5d14be4de98f7d4f8b38a6d594563c671e9bb67feb3c7ad1528ce5d7f377"
+    },
+    "disabled": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-all-payload-disabled.log",
+      "log_sha256": "85ee7d44ff66c2f02722153e5b2377ac9c8aa8f373abaf6439c989f177424283"
+    },
+    "live-tls": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-all-payload-live-tls.log",
+      "log_sha256": "89cb8801e9fa38cb94abe90adda9ee83137cddb278532008dab6f36b094e39e8"
+    },
+    "linux-inputs": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-all-payload-linux-inputs.log",
+      "log_sha256": "39eefcf53f1822a8169b12c7c11b0655083011a006aeb5ab99d8b167fe901c04"
+    },
+    "linux-upstream": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-all-payload-linux-upstream.log",
+      "log_sha256": "ff41f32661a04784c7b57c9e475c6ee09af21dd6e33027856f74801a3eaa1298"
+    },
+    "linux-disabled": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-all-payload-linux-disabled.log",
+      "log_sha256": "a0ef987083d113d07f8c24e908aa3718aa7018fed54dd13539891938cb95ddb3"
+    },
+    "linux-live": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-all-payload-linux-live.log",
+      "log_sha256": "fce07a64bc67ed990fd48295b7ddc6b66259d2a20fc0e99585ad152226bf3577"
+    },
+    "review": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-payload-hooks-review.log",
+      "log_sha256": "4cf5593c01d36e2103745087769db72acf3c0e9d5de7e8134e6e0e11514d38f5"
+    },
+    "followup-review": {
+      "exit": 1,
+      "log": "/tmp/connectanum-rustls-payload-clone-read-review.log",
+      "log_sha256": "8717718d0fd56cdbbace43d10f3081603101efe2ef6d1fd672c66a4639dd1091"
+    },
+    "fast": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-all-payload-fast.log",
+      "log_sha256": "49465a0c5bf4169b9fd9fac56fc38d62f3bf3ef62f37b6d3eb59cdf24db36cfb"
+    },
+    "verify": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-all-payload-verify.log",
+      "log_sha256": "14cd8a0074d91fd485af40ef3aba736f13ce23ce9341485fe7c4dbad127e38c3"
+    },
+    "followup-review-final": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-payload-clone-read-review-final.log",
+      "log_sha256": "5e7f465286478d904c040f7656dc7f724d1a4cea706099d7c7967a4327a209f3"
+    }
+  },
+  "source_review_assessment": "Initial U24-clone/Payload-read misses disproved by source and targeted pointer/byte regression. Initial follow-up blocked by resource lease; post-verification retry completes and confirms nested delegation/borrow semantics. Speculative pre-existing upper-length/Debug/bounds concerns do not identify a new patch defect; Reader bounds and exact observer tests remain independently verified.",
+  "remaining_scope": [
+    "growth and generated record/header metadata",
+    "remaining record and crypto sites",
+    "Tokio-Rustls extraction",
+    "Dart SDK TLS",
+    "mixed-serializer transformations",
+    "whole crypto",
+    "full primary parity and original supplemental cases",
+    "remaining supported-platform runtime consumers and resulting-source hosted acceptance"
+  ],
+  "canonical_cases": {
+    "benchmark": 1616,
+    "router": 4958,
+    "core_browser": 4751,
+    "client_browser": 2829,
+    "unchanged_native_only_browser_skips": 20
+  }
+}

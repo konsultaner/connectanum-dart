@@ -1,5 +1,7 @@
 import 'package:test/test.dart';
 
+import '../bench_payload_codec_test.dart' as payload_codec;
+import '../wamp_flatbuffers_scenario_test.dart' as owned_payloads;
 import '../wamp_sample_test.dart' as sample;
 import '../wamp_sample_boundaries_test.dart' as sample_boundaries;
 import '../wamp_scenario_boundaries_test.dart' as scenario_boundaries;
@@ -23,6 +25,8 @@ import '../wamp_file_registration_deadline_test.dart' as file_deadlines;
 import '../wamp_file_cleanup_failure_test.dart' as file_cleanup;
 
 void main() {
+  group('native fixture construction', payload_codec.main);
+  group('owned typed payload spans', owned_payloads.main);
   group('workload behavior', workloads.main);
   group('workload failure regressions', workload_failures.main);
   group('workload latency and byte accounting', workload_timing.main);

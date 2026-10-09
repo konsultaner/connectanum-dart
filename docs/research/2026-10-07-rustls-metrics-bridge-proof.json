@@ -1,0 +1,143 @@
+{
+  "status": "partial_rustls_source_metrics_canonical_verification_passed",
+  "base_commit": "ef936cfa72f0fef20168e59b50c1271846f9eaae",
+  "complete_tls_copy_coverage": false,
+  "performance_acceptance": false,
+  "linux_matched_inputs": 2996,
+  "linux_snapshot_sha256": "e376aef2171df3cf06debe5e69bf323133664d2250d959f2b4c4b428a98ddf4c",
+  "code_inputs_still_matching": 1711,
+  "new_abi_bytes": 48,
+  "preserved_legacy_abi_bytes": [
+    24,
+    40
+  ],
+  "mac_merge_delta_cases": 56,
+  "linux_merge_delta_new_abi_cases": 56,
+  "old_library_probes": {
+    "macos_arm64": 0,
+    "linux_arm64": 0
+  },
+  "checks": {
+    "fail-first": {
+      "exit": 1,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-fail-first.log",
+      "log_sha256": "055c5720843207c84f64586a29d83c6e508ef8443fc0fe87d6bdf306224cc424"
+    },
+    "native": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-native.log",
+      "log_sha256": "86c7263a0c4df3ea86d3df70306c99508d79a10298b0f748c58c3cfe32f85a5c"
+    },
+    "delta-merge": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-delta-merge.log",
+      "log_sha256": "796e12da30bcff5ac9f934a9d3affe99edb4708182e294052caef80212f52b45"
+    },
+    "build": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-build.log",
+      "log_sha256": "128907119db4409eb547fda280fb43746f9d492e48d4ffe9cf23200ee7a93058"
+    },
+    "new-abi": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-new-abi.log",
+      "log_sha256": "a06305c0496e7d189d7218a6e5fe8e55a27ab36c8ce31ff5ed636aa1b1c8b9f2"
+    },
+    "old-abi": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-old-abi.log",
+      "log_sha256": "37f34e0276710357d1a49ac813dda49e27c612bcb6a2b820c54d1212726e5a73"
+    },
+    "analysis": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-analysis.log",
+      "log_sha256": "960e7edcb8dfdc169ba5cd0727f8810d38475375a391d016f38ff61c008d42f4"
+    },
+    "linux": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-linux.log",
+      "log_sha256": "25a9af2b0dd30827ae48f3b7883985c8de01c20da7ad02a82ac48b34dbfcd8e0"
+    },
+    "linux-old-abi": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-linux-old-abi.log",
+      "log_sha256": "a06305c0496e7d189d7218a6e5fe8e55a27ab36c8ce31ff5ed636aa1b1c8b9f2"
+    },
+    "review": {
+      "exit": 1,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-review.log",
+      "log_sha256": "8717718d0fd56cdbbace43d10f3081603101efe2ef6d1fd672c66a4639dd1091"
+    },
+    "invalid-fail-first": {
+      "exit": 1,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-invalid-fail-first.log",
+      "log_sha256": "2256f5f067e60f102dd89c699c05106a26d617a22b75ea5a63ff7b16044486de"
+    },
+    "delta-merge-final": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-delta-merge-final.log",
+      "log_sha256": "7d17c5bddc527a517cd7e2e7cb7957da4f12e66225506f720a4d579738f01487"
+    },
+    "linux-final-merge": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-linux-final-merge.log",
+      "log_sha256": "3764c27257922396fc73a76105350546d83c4952b7ebddb61881609a3afb0f5a"
+    },
+    "fast": {
+      "exit": 1,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-fast.log",
+      "log_sha256": "c798fdf3ed944100ae5c8eaad141190bfa04d9f36fa9d3845cde8e4717e7f285"
+    },
+    "fast-final": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-fast-final.log",
+      "log_sha256": "b2f0082bedfe8d186bc3152010d103860a07460e60225b72231921f0e663d0e0"
+    },
+    "verify": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-verify.log",
+      "log_sha256": "cdaa95510d8740315d9fc4a95363b79bd223f328062eea84d4850d3b9942f146"
+    },
+    "format-final": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-format-final.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "linux-formatted": {
+      "exit": 0,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-linux-formatted.log",
+      "log_sha256": "317ba90e5bdc9fe03c4cf53dc3bbdfc7a100fc3c6ed0440496e441738a561d40"
+    },
+    "review-final": {
+      "exit": 1,
+      "log": "/tmp/connectanum-rustls-metrics-bridge-review-final.log",
+      "log_sha256": "8717718d0fd56cdbbace43d10f3081603101efe2ef6d1fd672c66a4639dd1091"
+    }
+  },
+  "source_sha256": {
+    "native/transport/ct_ffi/src/runtime/mod.rs": "e826a9448daafc785bcafbfd807918f3cbd097f01c0677fd1b1bedf9a9d037f7",
+    "native/transport/ct_ffi/src/runtime/rustls_copy_metrics.rs": "fa43e85e3d7a1f2a2705aaa7226c0809d6a307767ab11b48f334fa93e50d7e4e",
+    "packages/connectanum_bench/lib/src/transport_copy_metrics.dart": "8794f63c58e01fc9358b563870bca234794f25fa17c7cf892de8f8af4216304c",
+    "packages/connectanum_bench/test/native_transport_copy_abi_test.dart": "06e1f1e8dce1d36aa3e86fce87ea548494dd804f0412f3e1248bbb9e723a52fe",
+    "packages/connectanum_bench/test/rustls_source_copy_metrics_test.dart": "860420f6960de9e8f7dec3c32dcc48e1b7c0929e253f806a00a714c96327f666",
+    "packages/connectanum_bench/test/transport_copy_metrics_test.dart": "204af0f7c3f5614a7f3bc730868dabcfbf6de990d9aea15c05aa7bc4b3f5c055",
+    "packages/connectanum_bench/tool/wamp_client_main.dart": "4f36d2538497a9ac1112de51cb7a29f3f741da90253bb997b7271831502b5bd3",
+    "packages/connectanum_client/lib/src/transport/native/ffi_bindings.dart": "9eeba6203fad42cd0942656e3a731d8c02d3d062243ab92dfc0e228d5c7fd40f",
+    "packages/connectanum_client/lib/src/transport/native/runtime.dart": "65b78150236bb53a66c029fa2735ac4fffd1d8f7bfee6ce27dbebfd42c7e2d2e",
+    "packages/connectanum_client/test/dart_transport_copy_metrics_test.dart": "5b320ab0f4d6cf0fb8ee31958308516adc94d024dba7928951cc6a9cfb6360b8",
+    "packages/connectanum_core/lib/src/serializer/flatbuffers/runtime.dart": "6371e25968e943604254d1c12bd0d9b63053ed81bbd4a414e21d95f89df24f07",
+    "packages/connectanum_router/lib/src/native/ffi_bindings.dart": "385b845f74f8a2f138db307ea72d825a6172a2e7f411ca4fb504284fcd7ed497",
+    "packages/connectanum_router/lib/src/native/runtime.dart": "4ba8bcfaef8d0fae511a9875b480160f71bd5d889c67cb2d88ceebf7b6628975"
+  },
+  "review": "Initial and narrowed retry blocked by active native mutation resource lease; no completed review claimed. Direct inspection, field-specific delta/negative controls and old/new library checks pass.",
+  "linux_merge_delta_cases": 56,
+  "published_proof_repair": "Observed candidate fast failure from local SDK path in separate published artifact proof. Fixed/committed with neutral command paths and raw report hashes; direct public reference gate passes. Fresh canonical check required.",
+  "canonical_cases": {
+    "benchmark": 1642,
+    "router": 4958,
+    "core_browser": 4751,
+    "client_browser": 2829,
+    "unchanged_native_only_browser_skips": 20
+  },
+  "source_format_assessment": "Virtual workspace cargo fmt command lacks targets (setup-only error). Direct ct_ffi formatting sorts module declarations/reexports; check0, full native verification0, Linux guard/newABI replay0 on all2996 matched formatted inputs."
+}

@@ -1,5 +1,8 @@
 name = "wamp_serializer_matrix"
-description = "Serializer-aware WAMP RPC sweep over RawSocket and WebSocket using larger payloads."
+description = "Ordinary-value WAMP RPC comparison across JSON, MessagePack, CBOR and FlatBuffers over RawSocket and WebSocket."
+
+# FlatBuffers uses CBOR application fragments in this ordinary-value matrix.
+# Typed FlatBuffers and native-owned construction need separate workloads.
 
 [[workloads]]
 name = "rawsocket_rpc_json_16k"
@@ -32,9 +35,29 @@ in_flight_per_session = 4
 request_bytes = 16384
 
 [[workloads]]
+name = "rawsocket_rpc_flatbuffers_16k"
+protocol = "wamp_rawsocket_rpc"
+serializer = "flatbuffers"
+path = "bench.rpc.echo"
+iterations = 80
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 16384
+
+[[workloads]]
 name = "websocket_rpc_json_16k"
 protocol = "wamp_websocket_rpc"
 serializer = "json"
+path = "bench.rpc.echo"
+iterations = 80
+concurrency = 8
+in_flight_per_session = 4
+request_bytes = 16384
+
+[[workloads]]
+name = "websocket_rpc_flatbuffers_16k"
+protocol = "wamp_websocket_rpc"
+serializer = "flatbuffers"
 path = "bench.rpc.echo"
 iterations = 80
 concurrency = 8

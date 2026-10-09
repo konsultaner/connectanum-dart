@@ -14,10 +14,85 @@ to run:
 
 This package is an internal workspace tool, not an end-user runtime package.
 
-## Current Results
+## Typed FlatBuffers workload fixture
 
-The current complete production-gate snapshot covers 78 workloads and passes
-every throughput, lifecycle, transport, and zero-copy policy. Each cell reports
+`schemas/bench_payload/workload_payload.fbs` defines an application payload with
+worker and iteration identity plus a deterministic binary body. Its checked-in
+Dart reader/object builder is generated with the compiler version pinned in
+`schemas/wamp_flatbuffers/manifest.json`:
+
+```bash
+python3 tool/fetch_flatc.py --output /tmp/connectanum-flatc
+python3 tool/generate_bench_flatbuffers.py \
+  --flatc /tmp/connectanum-flatc/flatc
+python3 tool/generate_bench_flatbuffers.py \
+  --flatc /tmp/connectanum-flatc/flatc --check
+```
+
+The fixture codec checks exact identity and body contents and can build the same
+payload in Dart or directly in native-owned storage. These are correctness and
+construction primitives; they do not establish typed-payload performance parity.
+
+Typed RPC and pub/sub workloads can compare the `values`, `native_buffer`, and
+`pre_encoded_span` construction groups. For example:
+
+```toml
+[[workloads]]
+name = "rawsocket_rpc_flatbuffers_native_buffer"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "cbor" # WAMP envelope serializer
+path = "bench.rpc.echo"
+iterations = 1000
+concurrency = 1
+request_bytes = 65536
+ppt_scheme = "x_connectanum_bench_typed"
+ppt_serializer = "flatbuffers"
+payload_construction = "native_buffer"
+```
+
+`values` constructs the application value in Dart. `native_buffer` builds a
+FlatBuffer in native-owned memory; for CBOR/MessagePack PPT it stores the binary
+body in native-owned memory before ordinary PPT serialization.
+`pre_encoded_span` serializes the PPT value first, copies those bytes into a
+frozen native owner, and submits that owner through the lazy packed-payload path.
+The runner retains the owner through the RPC result or all matching pub/sub
+deliveries, validates the body and identity, then disposes it.
+
+For a native caller using a FlatBuffers WAMP envelope and typed FlatBuffers PPT,
+the `native_buffer` and `pre_encoded_span` groups use
+`NativeOwnedBuffer.asFlatBuffersPptPayload()`. Session rebuilds only the WAMP
+control envelope and retains the exact application payload span in the native
+frame. The matching integration test verifies the same view and owner reach the
+Session path and stay live through the response. Dart callers, other WAMP
+envelopes, CBOR/MessagePack PPT and unsupported payload shapes use the ordinary
+serializer path. Later WebSocket masking, TLS, encryption, transcoding or
+coalescing can still copy, so this path does not claim end-to-end zero-copy.
+
+`latency_ms` includes payload preparation and the complete request/result or
+publish/delivery path. `payload_preparation_us` is a separate construction timing;
+for `values` and `native_buffer` with dynamic CBOR/MessagePack PPT, the later PPT
+serialization is outside that field but remains inside `latency_ms`. The
+`native_builder_*_copied_bytes` counters cover builder input and growth only,
+not all codec, transport, security or receive copies. Correctness coverage
+includes an 18-case RawSocket matrix with the Dart caller and CBOR WAMP envelope
+across RPC/pub/sub, all three PPT codecs and construction groups. A separate
+12-case matrix covers typed FlatBuffers PPT across RawSocket/WebSocket,
+Dart/native callers and outer serializers, without the runner construction
+groups. A further 12-case live runner matrix covers native RawSocket RPC/pub-sub
+with FlatBuffers WAMP envelopes, all three PPT serializers, and
+`native_buffer`/`pre_encoded_span`; each case validates two iterations. These
+matrices establish correctness and ownership only, not performance. Typed runner
+groups still lack WebSocket and TLS coverage. See the
+[acceptance contract](../../docs/flatbuffers_performance_acceptance.md) before
+claiming parity.
+
+## Existing baseline results (2026-08-24)
+
+The 78-workload production-gate snapshot below covers JSON, MessagePack and
+CBOR, without FlatBuffers. It remains regression evidence for those existing
+paths only and does not count toward milestone issue #103 or establish
+FlatBuffers parity. Each cell reports
 **sustained data-window / full-lifecycle throughput** in Gbit/s; lifecycle
 throughput includes connection, session, routing, and teardown costs.
 

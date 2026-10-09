@@ -525,281 +525,337 @@ void main() {
       },
     );
 
-    test(
-      'dispatches calls across workers and returns result to caller',
-      () async {
-        final bossMessages = <Map<String, Object?>>[];
-        final bossPort = ReceivePort()
-          ..listen((dynamic message) {
-            if (message is Map<String, Object?>) {
-              bossMessages.add(message);
-            }
-          });
-        addTearDown(bossPort.close);
+    for (final nativeEncrypted in [false, true]) {
+      test(
+        'dispatches calls across workers and returns result to caller nativeEncrypted=$nativeEncrypted',
+        () async {
+          final bossMessages = <Map<String, Object?>>[];
+          final bossPort = ReceivePort()
+            ..listen((dynamic message) {
+              if (message is Map<String, Object?>) {
+                bossMessages.add(message);
+              }
+            });
+          addTearDown(bossPort.close);
 
-        final listener = _buildListener();
-        final calleeState =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        calleeState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 901;
+          final listener = _buildListener();
+          final calleeState =
+              createWorkerStateForTest(
+                    listener: listener,
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState;
+          calleeState
+            ..serializer = NativeMessageSerializer.json
+            ..phase = HandshakePhase.open
+            ..realmUri = 'realm1'
+            ..realmSettings = routerSettings.realms.first
+            ..sessionId = 901;
 
-        final callerState =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        callerState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 902;
+          final callerState =
+              createWorkerStateForTest(
+                    listener: listener,
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState;
+          callerState
+            ..serializer = NativeMessageSerializer.json
+            ..phase = HandshakePhase.open
+            ..realmUri = 'realm1'
+            ..realmSettings = routerSettings.realms.first
+            ..sessionId = 902;
 
-        _openSession(
-          stateStore,
-          sessionId: calleeState.sessionId!,
-          listener: listener,
-          connectionId: 31,
-        );
-        _openSession(
-          stateStore,
-          sessionId: callerState.sessionId!,
-          listener: listener,
-          connectionId: 32,
-        );
-        await Future<void>.delayed(Duration.zero);
-        final connectionStates = <int, WorkerConnectionState>{
-          31: calleeState,
-          32: callerState,
-        };
+          _openSession(
+            stateStore,
+            sessionId: calleeState.sessionId!,
+            listener: listener,
+            connectionId: 31,
+          );
+          _openSession(
+            stateStore,
+            sessionId: callerState.sessionId!,
+            listener: listener,
+            connectionId: 32,
+          );
+          await Future<void>.delayed(Duration.zero);
+          final connectionStates = <int, WorkerConnectionState>{
+            31: calleeState,
+            32: callerState,
+          };
 
-        final realmContexts = RealmContextCache(
-          statePort: stateStore.commandPort,
-        );
+          final realmContexts = RealmContextCache(
+            statePort: stateStore.commandPort,
+          );
 
-        final register = register_msg.Register(2101, 'com.parallel.proc');
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          connectionStates: connectionStates,
-          state: calleeState,
-          message: register,
-          connectionId: 31,
-        );
-        await Future<void>.delayed(Duration.zero);
-        bossMessages.clear();
+          final register = register_msg.Register(2101, 'com.parallel.proc');
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            connectionStates: connectionStates,
+            state: calleeState,
+            message: register,
+            connectionId: 31,
+          );
+          await Future<void>.delayed(Duration.zero);
+          bossMessages.clear();
 
-        final call = call_msg.Call(
-          2102,
-          'com.parallel.proc',
-          arguments: ['input'],
-        );
-        final callIncoming = NativeIncomingMessage.test(
-          serializer: NativeMessageSerializer.json,
-          message: call,
-          handle: 321,
-          onRetain: (handle) => handle,
-        );
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          connectionStates: connectionStates,
-          state: callerState,
-          message: call,
-          connectionId: 32,
-          incomingMessage: callIncoming,
-        );
-        await Future<void>.delayed(Duration.zero);
+          final call = call_msg.Call(
+            2102,
+            'com.parallel.proc',
+            arguments: ['input'],
+          );
+          final callIncoming = NativeIncomingMessage.test(
+            serializer: NativeMessageSerializer.json,
+            message: call,
+            handle: 321,
+            onRetain: (handle) => handle,
+          );
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            connectionStates: connectionStates,
+            state: callerState,
+            message: call,
+            connectionId: 32,
+            incomingMessage: callIncoming,
+          );
+          await Future<void>.delayed(Duration.zero);
 
-        final invocationCommands = bossMessages.where(
-          (message) => message['type'] == 'worker_forward_native_invocation',
-        );
-        expect(invocationCommands.length, equals(1));
-        final invocationCommand = invocationCommands.single;
-        expect(invocationCommand['connectionId'], equals(31));
-        expect(invocationCommand['handle'], equals(321));
-        final invocationId = invocationCommand['invocationId'] as int;
-        bossMessages.clear();
-
-        final yieldMessage = yield_msg.Yield(
-          invocationId,
-          arguments: ['result'],
-        );
-        final yieldIncoming = NativeIncomingMessage.test(
-          serializer: NativeMessageSerializer.json,
-          message: yieldMessage,
-          handle: 322,
-          onRetain: (handle) => handle,
-        );
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          connectionStates: connectionStates,
-          state: calleeState,
-          message: yieldMessage,
-          connectionId: 31,
-          incomingMessage: yieldIncoming,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final resultCommands = bossMessages.where(
-          (message) => message['type'] == 'worker_forward_native_result',
-        );
-        expect(resultCommands.length, equals(1));
-        final resultCommand = resultCommands.single;
-        expect(resultCommand['connectionId'], equals(32));
-        expect(resultCommand['handle'], equals(322));
-        expect(resultCommand['progress'], isFalse);
-
-        expect(
-          bossMessages.where(
-            (message) => message['type'] == 'worker_forward_message',
-          ),
-          isEmpty,
-        );
-
-        bossMessages.clear();
-        final encryptedPayload = Uint8List.fromList(
-          List<int>.generate(64, (index) => index),
-        );
-        final e2eeCall = call_msg.Call(
-          2103,
-          'com.parallel.proc',
-          options: call_msg.CallOptions(
-            pptScheme: 'wamp',
-            pptSerializer: 'cbor',
-            pptCipher: 'aes256gcm',
-            pptKeyId: 'benchmark-key',
-          ),
-        );
-        final encodedEncryptedArguments = Uint8List.fromList(
-          cbor.cborEncode(cbor.CborValue([encryptedPayload])),
-        );
-        e2eeCall.setLazyPayload(
-          argumentsBytes: encodedEncryptedArguments,
-          argumentsDecoder: (_) => [encryptedPayload],
-          encoding: LazyPayloadEncoding.cbor,
-        );
-        final e2eeCallTakenHandles = <int>[];
-        final e2eeCallIncoming = NativeIncomingMessage.test(
-          serializer: NativeMessageSerializer.json,
-          message: e2eeCall,
-          handle: 323,
-          onTake: (handle) {
-            e2eeCallTakenHandles.add(handle);
-            return handle;
-          },
-        );
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          connectionStates: connectionStates,
-          state: callerState,
-          message: e2eeCall,
-          connectionId: 32,
-          incomingMessage: e2eeCallIncoming,
-        );
-        await Future<void>.delayed(Duration.zero);
-        expect(e2eeCallTakenHandles, isEmpty);
-        expect(
-          bossMessages.where(
+          final invocationCommands = bossMessages.where(
             (message) => message['type'] == 'worker_forward_native_invocation',
-          ),
-          isEmpty,
-        );
-        final e2eeInvocation =
-            _extractForwardMessages(bossMessages).single['message']
-                as invocation_msg.Invocation;
-        expect(
-          e2eeInvocation.toLazyPayload().packedPayloadBytes,
-          orderedEquals(encryptedPayload),
-        );
-        bossMessages.clear();
+          );
+          expect(invocationCommands.length, equals(1));
+          final invocationCommand = invocationCommands.single;
+          expect(invocationCommand['connectionId'], equals(31));
+          expect(invocationCommand['handle'], equals(321));
+          final invocationId = invocationCommand['invocationId'] as int;
+          bossMessages.clear();
 
-        final e2eeYield = yield_msg.Yield(
-          e2eeInvocation.requestId,
-          options: yield_msg.YieldOptions(
-            pptScheme: 'wamp',
-            pptSerializer: 'cbor',
-            pptCipher: 'aes256gcm',
-            pptKeyId: 'benchmark-key',
-          ),
-        );
-        e2eeYield.setLazyPayload(
-          argumentsBytes: encodedEncryptedArguments,
-          argumentsDecoder: (_) => [encryptedPayload],
-          encoding: LazyPayloadEncoding.cbor,
-        );
-        final e2eeTakenHandles = <int>[];
-        final e2eeIncoming = NativeIncomingMessage.test(
-          serializer: NativeMessageSerializer.json,
-          message: e2eeYield,
-          handle: 324,
-          onTake: (handle) {
-            e2eeTakenHandles.add(handle);
-            return handle;
-          },
-        );
+          final yieldMessage = yield_msg.Yield(
+            invocationId,
+            arguments: ['result'],
+          );
+          final yieldIncoming = NativeIncomingMessage.test(
+            serializer: NativeMessageSerializer.json,
+            message: yieldMessage,
+            handle: 322,
+            onRetain: (handle) => handle,
+          );
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            connectionStates: connectionStates,
+            state: calleeState,
+            message: yieldMessage,
+            connectionId: 31,
+            incomingMessage: yieldIncoming,
+          );
+          await Future<void>.delayed(Duration.zero);
 
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          connectionStates: connectionStates,
-          state: calleeState,
-          message: e2eeYield,
-          connectionId: 31,
-          incomingMessage: e2eeIncoming,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        expect(e2eeTakenHandles, isEmpty);
-        expect(
-          bossMessages.where(
+          final resultCommands = bossMessages.where(
             (message) => message['type'] == 'worker_forward_native_result',
-          ),
-          isEmpty,
-        );
-        final e2eeForward = _extractForwardMessages(bossMessages).single;
-        final e2eeResult = e2eeForward['message'] as result_msg.Result;
-        expect(e2eeResult.details.pptScheme, equals('wamp'));
-        expect(e2eeResult.details.pptCipher, equals('aes256gcm'));
-        expect(e2eeResult.wireArguments, hasLength(1));
-        expect(
-          e2eeResult.toLazyPayload().packedPayloadBytes,
-          orderedEquals(encryptedPayload),
-        );
-        final forwardedPayload = e2eeResult.wireArguments!.single;
-        expect(
-          forwardedPayload is TransferableTypedData
-              ? forwardedPayload.materialize().asUint8List()
-              : forwardedPayload,
-          orderedEquals(encryptedPayload),
-        );
-        final outerSerializer = cbor_serializer.Serializer();
-        final decodedE2eeResult =
-            outerSerializer.deserialize(outerSerializer.serialize(e2eeResult))!
-                as result_msg.Result;
-        expect(decodedE2eeResult.wireArguments, hasLength(1));
-        expect(
-          decodedE2eeResult.wireArguments!.single,
-          orderedEquals(encryptedPayload),
-        );
-      },
-    );
+          );
+          expect(resultCommands.length, equals(1));
+          final resultCommand = resultCommands.single;
+          expect(resultCommand['connectionId'], equals(32));
+          expect(resultCommand['handle'], equals(322));
+          expect(resultCommand['progress'], isFalse);
+
+          expect(
+            bossMessages.where(
+              (message) => message['type'] == 'worker_forward_message',
+            ),
+            isEmpty,
+          );
+
+          bossMessages.clear();
+          if (nativeEncrypted) {
+            callerState.serializer = NativeMessageSerializer.cbor;
+            calleeState.serializer = NativeMessageSerializer.cbor;
+          }
+          final encryptedPayload = Uint8List.fromList(
+            List<int>.generate(64, (index) => index),
+          );
+          final e2eeCall = call_msg.Call(
+            2103,
+            'com.parallel.proc',
+            options: call_msg.CallOptions(
+              pptScheme: 'wamp',
+              pptSerializer: 'cbor',
+              pptCipher: 'aes256gcm',
+              pptKeyId: 'benchmark-key',
+            ),
+          );
+          final encodedEncryptedArguments = Uint8List.fromList(
+            cbor.cborEncode(cbor.CborValue([encryptedPayload])),
+          );
+          e2eeCall.setLazyPayload(
+            argumentsBytes: encodedEncryptedArguments,
+            argumentsDecoder: (_) => nativeEncrypted
+                ? throw StateError(
+                    'native encrypted forwarding must not decode',
+                  )
+                : [encryptedPayload],
+            encoding: LazyPayloadEncoding.cbor,
+          );
+          final e2eeCallTakenHandles = <int>[];
+          final e2eeCallIncoming = NativeIncomingMessage.test(
+            serializer: nativeEncrypted
+                ? NativeMessageSerializer.cbor
+                : NativeMessageSerializer.json,
+            message: e2eeCall,
+            handle: nativeEncrypted ? 323 : 0,
+            onTake: (handle) {
+              e2eeCallTakenHandles.add(handle);
+              return handle;
+            },
+          );
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            connectionStates: connectionStates,
+            state: callerState,
+            message: e2eeCall,
+            connectionId: 32,
+            incomingMessage: e2eeCallIncoming,
+          );
+          await Future<void>.delayed(Duration.zero);
+          final int e2eeInvocationId;
+          if (nativeEncrypted) {
+            expect(e2eeCallTakenHandles, [323]);
+            final command = bossMessages.singleWhere(
+              (message) =>
+                  message['type'] == 'worker_forward_native_invocation',
+            );
+            expect(command['handle'], 323);
+            expect(command['connectionId'], 31);
+            expect(command['procedure'], 'com.parallel.proc');
+            e2eeInvocationId = command['invocationId'] as int;
+            expect(_extractForwardMessages(bossMessages), isEmpty);
+            expect(
+              e2eeCall.debugEncodedArgumentsBytes,
+              same(encodedEncryptedArguments),
+            );
+          } else {
+            expect(e2eeCallTakenHandles, isEmpty);
+            expect(
+              bossMessages.where(
+                (message) =>
+                    message['type'] == 'worker_forward_native_invocation',
+              ),
+              isEmpty,
+            );
+            final e2eeInvocation =
+                _extractForwardMessages(bossMessages).single['message']
+                    as invocation_msg.Invocation;
+            expect(
+              e2eeInvocation.toLazyPayload().packedPayloadBytes,
+              orderedEquals(encryptedPayload),
+            );
+            e2eeInvocationId = e2eeInvocation.requestId;
+          }
+          bossMessages.clear();
+
+          final e2eeYield = yield_msg.Yield(
+            e2eeInvocationId,
+            options: yield_msg.YieldOptions(
+              pptScheme: 'wamp',
+              pptSerializer: 'cbor',
+              pptCipher: 'aes256gcm',
+              pptKeyId: 'benchmark-key',
+            ),
+          );
+          e2eeYield.setLazyPayload(
+            argumentsBytes: encodedEncryptedArguments,
+            argumentsDecoder: (_) => nativeEncrypted
+                ? throw StateError(
+                    'native encrypted forwarding must not decode',
+                  )
+                : [encryptedPayload],
+            encoding: LazyPayloadEncoding.cbor,
+          );
+          final e2eeTakenHandles = <int>[];
+          final e2eeIncoming = NativeIncomingMessage.test(
+            serializer: nativeEncrypted
+                ? NativeMessageSerializer.cbor
+                : NativeMessageSerializer.json,
+            message: e2eeYield,
+            handle: nativeEncrypted ? 324 : 0,
+            onTake: (handle) {
+              e2eeTakenHandles.add(handle);
+              return handle;
+            },
+          );
+
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            connectionStates: connectionStates,
+            state: calleeState,
+            message: e2eeYield,
+            connectionId: 31,
+            incomingMessage: e2eeIncoming,
+          );
+          await Future<void>.delayed(Duration.zero);
+
+          if (nativeEncrypted) {
+            expect(e2eeTakenHandles, [324]);
+            final command = bossMessages.singleWhere(
+              (message) => message['type'] == 'worker_forward_native_result',
+            );
+            expect(command['connectionId'], 32);
+            expect(command['handle'], 324);
+            expect(command['requestId'], 2103);
+            expect(command['progress'], isFalse);
+            expect(_extractForwardMessages(bossMessages), isEmpty);
+            expect(
+              e2eeYield.debugEncodedArgumentsBytes,
+              same(encodedEncryptedArguments),
+            );
+          } else {
+            expect(e2eeTakenHandles, isEmpty);
+            expect(
+              bossMessages.where(
+                (message) => message['type'] == 'worker_forward_native_result',
+              ),
+              isEmpty,
+            );
+            final e2eeForward = _extractForwardMessages(bossMessages).single;
+            final e2eeResult = e2eeForward['message'] as result_msg.Result;
+            expect(e2eeResult.details.pptScheme, equals('wamp'));
+            expect(e2eeResult.details.pptCipher, equals('aes256gcm'));
+            expect(e2eeResult.wireArguments, hasLength(1));
+            expect(
+              e2eeResult.toLazyPayload().packedPayloadBytes,
+              orderedEquals(encryptedPayload),
+            );
+            final forwardedPayload = e2eeResult.wireArguments!.single;
+            expect(
+              forwardedPayload is TransferableTypedData
+                  ? forwardedPayload.materialize().asUint8List()
+                  : forwardedPayload,
+              orderedEquals(encryptedPayload),
+            );
+            final outerSerializer = cbor_serializer.Serializer();
+            final decodedE2eeResult =
+                outerSerializer.deserialize(
+                      outerSerializer.serialize(e2eeResult),
+                    )!
+                    as result_msg.Result;
+            expect(decodedE2eeResult.wireArguments, hasLength(1));
+            expect(
+              decodedE2eeResult.wireArguments!.single,
+              orderedEquals(encryptedPayload),
+            );
+          }
+        },
+      );
+    }
 
     test(
       'reuses retained native CALL payload for exact internal lazy result',

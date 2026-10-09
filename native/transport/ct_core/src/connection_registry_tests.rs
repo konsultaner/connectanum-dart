@@ -471,6 +471,7 @@ async fn active_wamp_records_preserve_frames_backpressure_and_close_semantics() 
                 frames: Arc::clone(&frames),
                 reader_abort: reader.abort_handle(),
                 writer_abort: writer.abort_handle(),
+                writer_runtime: tokio::runtime::Handle::current(),
                 heartbeat_abort: Some(heartbeat.abort_handle()),
                 send_tx,
             }

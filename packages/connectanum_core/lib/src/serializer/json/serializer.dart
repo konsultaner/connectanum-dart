@@ -1006,8 +1006,11 @@ class Serializer extends AbstractSerializer {
     return value;
   }
 
-  String _encodeJsonObject(Object? value) {
-    return json.encode(_jsonEncodablePayloadFragment(value));
+  String _encodeJsonObject(
+    Object? value, {
+    Map<TransferableTypedData, String>? encodedTransfers,
+  }) {
+    return json.encode(_jsonEncodablePayloadFragment(value, encodedTransfers));
   }
 
   Uint8List _convertStringToUint8List(String binaryJsonString) {
@@ -1587,6 +1590,9 @@ class Serializer extends AbstractSerializer {
   }
 
   String _serializePayload(AbstractMessageWithPayload message) {
+    final encodedTransfers = Map<TransferableTypedData, String>.identity();
+    String encodePayload(Object? value) =>
+        _encodeJsonObject(value, encodedTransfers: encodedTransfers);
     final encodedArgs = message.lazyPayloadEncoding == LazyPayloadEncoding.json
         ? message.debugEncodedArgumentsBytes
         : null;
@@ -1600,30 +1606,26 @@ class Serializer extends AbstractSerializer {
           ? message.wireArgumentsKeywords
           : null;
       final argsJson = encodedArgs == null
-          ? _encodeJsonObject(arguments ?? const [])
+          ? encodePayload(arguments ?? const [])
           : _utf8Decoder.convert(encodedArgs);
       if (encodedKwargs != null) {
         return ',$argsJson,${_utf8Decoder.convert(encodedKwargs)}';
       }
       if (argumentsKeywords != null) {
-        return ',$argsJson,${_encodeJsonObject(argumentsKeywords)}';
+        return ',$argsJson,${encodePayload(argumentsKeywords)}';
       }
       return ',$argsJson';
     }
 
     final arguments = message.wireArguments;
     final argumentsKeywords = message.wireArgumentsKeywords;
-    _convertMessagePayloadUint8ListToBinaryJsonString(
-      arguments,
-      argumentsKeywords,
-    );
     if (message.transparentBinaryPayload != null) {
       return ',${_encodeJsonObject(_convertUint8ListToString(message.transparentBinaryPayload!))}';
     } else {
       if (argumentsKeywords != null) {
-        return ',${_encodeJsonObject(arguments ?? [])},${_encodeJsonObject(argumentsKeywords)}';
+        return ',${encodePayload(arguments ?? [])},${encodePayload(argumentsKeywords)}';
       } else if (arguments != null) {
-        return ',${_encodeJsonObject(arguments)}';
+        return ',${encodePayload(arguments)}';
       }
     }
     return '';
@@ -1642,6 +1644,9 @@ class Serializer extends AbstractSerializer {
       return null;
     }
 
+    final encodedTransfers = Map<TransferableTypedData, String>.identity();
+    String encodePayload(Object? value) =>
+        _encodeJsonObject(value, encodedTransfers: encodedTransfers);
     final fragments = <Uint8List>[];
     if (encodedArguments != null) {
       fragments.add(Uint8List.fromList(utf8.encode('$messagePrefix,')));
@@ -1650,7 +1655,7 @@ class Serializer extends AbstractSerializer {
       fragments.add(
         Uint8List.fromList(
           utf8.encode(
-            '$messagePrefix,${_encodeJsonObject(message.wireArguments ?? const <dynamic>[])}',
+            '$messagePrefix,${encodePayload(message.wireArguments ?? const <dynamic>[])}',
           ),
         ),
       );
@@ -1664,7 +1669,7 @@ class Serializer extends AbstractSerializer {
       if (argumentsKeywords != null) {
         fragments.add(
           Uint8List.fromList(
-            utf8.encode(',${_encodeJsonObject(argumentsKeywords)}'),
+            utf8.encode(',${encodePayload(argumentsKeywords)}'),
           ),
         );
       }
@@ -1701,38 +1706,6 @@ class Serializer extends AbstractSerializer {
     return <Uint8List>[prefix, encoded, suffix];
   }
 
-  void _convertMessagePayloadUint8ListToBinaryJsonString(
-    List<dynamic>? arguments,
-    Map<String, dynamic>? argumentsKeywords,
-  ) {
-    if (arguments != null && arguments.isNotEmpty) {
-      _convertListEntriesUint8ListToBinaryJsonString(arguments);
-    }
-
-    if (argumentsKeywords != null && argumentsKeywords.isNotEmpty) {
-      _convertMapEntriesUint8ListToBinaryJsonString(argumentsKeywords);
-    }
-  }
-
-  void _convertMapEntriesUint8ListToBinaryJsonString(Map payload) {
-    for (var element in payload.entries) {
-      if (element.value is Map) {
-        _convertMapEntriesUint8ListToBinaryJsonString(element.value);
-      }
-      if (element.value is List) {
-        _convertListEntriesUint8ListToBinaryJsonString(element.value);
-      }
-      if (element.value is Uint8List) {
-        payload[element.key] = _convertUint8ListToString(element.value);
-      } else if (element.value is TransferableTypedData) {
-        final binary = (element.value as TransferableTypedData)
-            .materialize()
-            .asUint8List();
-        payload[element.key] = _convertUint8ListToString(binary);
-      }
-    }
-  }
-
   dynamic _decodeCustomJsonValue(String value) {
     try {
       return _normalizeJsonPayloadFragment(json.decode(value));
@@ -1741,44 +1714,39 @@ class Serializer extends AbstractSerializer {
     }
   }
 
-  void _convertListEntriesUint8ListToBinaryJsonString(List payload) {
-    for (var i = 0; i < payload.length; i++) {
-      if (payload[i] is Map) {
-        _convertMapEntriesUint8ListToBinaryJsonString(payload[i]);
-      }
-      if (payload[i] is List) {
-        _convertListEntriesUint8ListToBinaryJsonString(payload[i]);
-      }
-      if (payload[i] is Uint8List) {
-        payload[i] = _convertUint8ListToString(payload[i]);
-      } else if (payload[i] is TransferableTypedData) {
-        final binary = (payload[i] as TransferableTypedData)
-            .materialize()
-            .asUint8List();
-        payload[i] = _convertUint8ListToString(binary);
-      }
-    }
-  }
-
   String _convertUint8ListToString(Uint8List binary) {
     return '$_binaryPrefix${base64.encode(binary)}';
   }
 
-  Object? _jsonEncodablePayloadFragment(Object? value) {
+  Object? _jsonEncodablePayloadFragment(
+    Object? value, [
+    Map<TransferableTypedData, String>? encodedTransfers,
+  ]) {
     if (value is Uint8List) {
       return _convertUint8ListToString(value);
     }
     if (value is TransferableTypedData) {
+      if (encodedTransfers != null) {
+        return encodedTransfers.putIfAbsent(
+          value,
+          () => _convertUint8ListToString(value.materialize().asUint8List()),
+        );
+      }
       return _convertUint8ListToString(value.materialize().asUint8List());
     }
     if (value is List) {
       return value
-          .map<Object?>((entry) => _jsonEncodablePayloadFragment(entry))
+          .map<Object?>(
+            (entry) => _jsonEncodablePayloadFragment(entry, encodedTransfers),
+          )
           .toList(growable: false);
     }
     if (value is Map) {
       return value.map<Object?, Object?>(
-        (key, entry) => MapEntry(key, _jsonEncodablePayloadFragment(entry)),
+        (key, entry) => MapEntry(
+          key,
+          _jsonEncodablePayloadFragment(entry, encodedTransfers),
+        ),
       );
     }
     return value;

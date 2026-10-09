@@ -17,12 +17,12 @@ impl fmt::Display for UnsupportedPlatform {
 
 impl std::error::Error for UnsupportedPlatform {}
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-mod linux;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-pub use linux::*;
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+mod supported;
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+pub use supported::*;
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 mod unsupported;
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 pub use unsupported::*;

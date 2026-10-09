@@ -1,0 +1,44 @@
+{
+  "source_commit": "3b2517892a5f43460d0f925635dacca265bbeefd",
+  "scope": "clean macOS arm64 native package and isolated production profile consumers",
+  "package": {
+    "head": "3b2517892a5f43460d0f925635dacca265bbeefd",
+    "clean_source": true,
+    "archive_sha256": "fa8055336da282d4ff44dd9455493eb69d7d00c35318f7446ea251ecc7adfa7e",
+    "library_sha256": "7d4de1c98139253bc6143e4472cb8fbdf8456f9a9febbc96aa7cfbc966d1bd10",
+    "licenses_source_manifest_notice_match": true,
+    "test_oracles_absent": true
+  },
+  "source_code_unchanged_after_full_verify": true,
+  "production_profiles": [
+    {
+      "file": "packages/connectanum_client/test/transport/native/flatbuffers_profile_test.dart",
+      "exit": 0,
+      "log": "/tmp/connectanum-3b251789-production-profile-1.log",
+      "log_sha256": "c400c1b42907c237474a13e7a7fc6144e44e162c3acd415edf6efbe3f3f9ceda"
+    },
+    {
+      "file": "packages/connectanum_client/test/transport/flatbuffers_transport_profile_vm_test.dart",
+      "exit": 0,
+      "log": "/tmp/connectanum-3b251789-production-profile-2.log",
+      "log_sha256": "2f0a7e86023acf9ddf7f4a1fa98b0de0074d8bf7fbe28c1a021969ed5f7ad8d7"
+    },
+    {
+      "file": "packages/connectanum_router/test/router_flatbuffers_native_test.dart",
+      "exit": 0,
+      "log": "/tmp/connectanum-3b251789-production-profile-3.log",
+      "log_sha256": "845a3d99f3cc9d9487ac3d21315f9a207f854e47fb2361ec347dbbf5d23b41e5"
+    }
+  ],
+  "production_profile_cases": 34,
+  "initial_combined_probe": {
+    "exit": 1,
+    "passed_client_transport_cases": 32,
+    "failed_router_cases": 2,
+    "reason": "test files shared one process-native runtime; router start found runtime already started",
+    "log": "/tmp/connectanum-3b251789-production-profiles.log"
+  },
+  "complete_tls_copy_coverage": false,
+  "performance_acceptance": false,
+  "multi_platform_release_acceptance": false
+}

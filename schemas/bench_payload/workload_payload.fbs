@@ -1,0 +1,10 @@
+namespace Connectanum.Bench;
+
+table WorkloadPayload {
+  worker:uint;
+  iteration:uint;
+  body:[ubyte];
+}
+
+root_type WorkloadPayload;
+file_identifier "CBEN";

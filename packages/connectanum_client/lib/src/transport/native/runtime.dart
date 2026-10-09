@@ -3,8 +3,13 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/native_message_bytes.dart';
+import 'package:connectanum_core/connectanum_core.dart'
+    show AbstractMessageWithPayload;
 import 'package:ffi/ffi.dart';
+import 'package:meta/meta.dart';
+import 'package:connectanum_client/native_buffers.dart';
 
 import 'external_byte_buffer.dart';
 import 'ffi_bindings.dart';
@@ -49,35 +54,73 @@ typedef NativeDecryptedE2eePayload = ({
   bool directBinary,
 });
 
+enum NativeE2eePlaintextFormat { cborPpt, typedFlatBuffers }
+
 typedef _NativeE2eeDecryptRequest = ({
   int sessionHandle,
   String? keyId,
   String cipher,
+  NativeE2eePlaintextFormat plaintextFormat,
+});
+
+typedef _NativeMessageParts = ({
+  Object message,
+  Uint8List bytes,
+  Uint8List? argumentsBytes,
+  Uint8List? argumentsKeywordsBytes,
+  Uint8List? singleBinaryArgumentBytes,
 });
 
 class NativeIncomingMessage {
   NativeIncomingMessage._({
-    required this.message,
-    required this.bytes,
     required this.handle,
     required this.runtimeIdentity,
     required CtFfiBindings bindings,
     required Finalizer<_MessageFinalizerToken> messageFinalizer,
-    this.argumentsBytes,
-    this.argumentsKeywordsBytes,
-    this.singleBinaryArgumentBytes,
+    _NativeMessageParts? payload,
+    _NativeMessageParts Function()? materializePayload,
   }) : _bindings = bindings,
-       _messageFinalizer = messageFinalizer;
+       _messageFinalizer = messageFinalizer,
+       _payload = payload,
+       _materializePayload = materializePayload;
 
-  final Object message;
-  final Uint8List bytes;
+  _NativeMessageParts? _payload;
+  final _NativeMessageParts Function()? _materializePayload;
   final int handle;
   final Object runtimeIdentity;
-  final Uint8List? argumentsBytes;
-  final Uint8List? argumentsKeywordsBytes;
-  final Uint8List? singleBinaryArgumentBytes;
   final CtFfiBindings _bindings;
   final Finalizer<_MessageFinalizerToken> _messageFinalizer;
+
+  _NativeMessageParts get _materializedPayload {
+    final payload = _payload;
+    if (payload != null) return payload;
+    if (_released) {
+      throw StateError(
+        'Unexported native message payload was released or consumed',
+      );
+    }
+    try {
+      return _payload = _materializePayload!();
+    } catch (_) {
+      release();
+      rethrow;
+    }
+  }
+
+  /// Materializes all payload views once. Deferred, unexported views cannot be
+  /// accessed after release or consuming decrypt; exported views remain valid.
+  Object get message => _materializedPayload.message;
+  Object? _sessionMessage;
+
+  /// Routing-only wrapper for the opt-in typed E2EE Session receive path.
+  /// The ordinary [message] getter retains its original wire-export contract.
+  Object get sessionMessage => _sessionMessage ?? message;
+  Uint8List get bytes => _materializedPayload.bytes;
+  Uint8List? get argumentsBytes => _materializedPayload.argumentsBytes;
+  Uint8List? get argumentsKeywordsBytes =>
+      _materializedPayload.argumentsKeywordsBytes;
+  Uint8List? get singleBinaryArgumentBytes =>
+      _materializedPayload.singleBinaryArgumentBytes;
 
   bool _released = false;
   _NativeE2eeDecryptRequest? _e2eeDecryptRequest;
@@ -168,6 +211,155 @@ class NativeFileSegmentMetrics {
       current >= before ? current - before : current;
 }
 
+typedef _RustlsCopyMetricsSnapshot = ({
+  int outboundChunkCopyBytesTotal,
+  int queueReadCopyBytesTotal,
+  int deframerAppendCopyBytesTotal,
+  int deframerMoveCopyBytesTotal,
+  int recordBufferCopyBytesTotal,
+  int recordAppendCopyBytesTotal,
+});
+
+/// Cumulative copy-byte counters for the client process. Native counters may
+/// be null when the loaded library predates transport copy instrumentation.
+
+class NativeTransportCopyMetrics {
+  const NativeTransportCopyMetrics({
+    required this.dartToNativeCopiedBytesTotal,
+    required this.websocketMaskCopyBytesTotal,
+    required this.websocketCoalesceCopyBytesTotal,
+    required this.tlsPlaintextAcceptedBytesTotal,
+    this.ioBufferFrontCopyBytesTotal,
+    this.ioBufferedReadCopyBytesTotal,
+    this.rustlsOutboundChunkCopyBytesTotal,
+    this.rustlsQueueReadCopyBytesTotal,
+    this.rustlsDeframerAppendCopyBytesTotal,
+    this.rustlsDeframerMoveCopyBytesTotal,
+    this.rustlsRecordBufferCopyBytesTotal,
+    this.rustlsRecordAppendCopyBytesTotal,
+  });
+
+  final int dartToNativeCopiedBytesTotal;
+  final int? websocketMaskCopyBytesTotal;
+  final int? websocketCoalesceCopyBytesTotal;
+  final int? tlsPlaintextAcceptedBytesTotal;
+  final int? ioBufferFrontCopyBytesTotal;
+  final int? ioBufferedReadCopyBytesTotal;
+
+  /// Partial source observations; null means the library lacks the optional ABI.
+  final int? rustlsOutboundChunkCopyBytesTotal;
+  final int? rustlsQueueReadCopyBytesTotal;
+  final int? rustlsDeframerAppendCopyBytesTotal;
+  final int? rustlsDeframerMoveCopyBytesTotal;
+  final int? rustlsRecordBufferCopyBytesTotal;
+  final int? rustlsRecordAppendCopyBytesTotal;
+
+  NativeTransportCopyMetrics deltaFrom(NativeTransportCopyMetrics before) =>
+      NativeTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: _counterDelta(
+          dartToNativeCopiedBytesTotal,
+          before.dartToNativeCopiedBytesTotal,
+        ),
+        websocketMaskCopyBytesTotal: _nullableCounterDelta(
+          websocketMaskCopyBytesTotal,
+          before.websocketMaskCopyBytesTotal,
+        ),
+        websocketCoalesceCopyBytesTotal: _nullableCounterDelta(
+          websocketCoalesceCopyBytesTotal,
+          before.websocketCoalesceCopyBytesTotal,
+        ),
+        tlsPlaintextAcceptedBytesTotal: _nullableCounterDelta(
+          tlsPlaintextAcceptedBytesTotal,
+          before.tlsPlaintextAcceptedBytesTotal,
+        ),
+        ioBufferFrontCopyBytesTotal: _nullableCounterDelta(
+          ioBufferFrontCopyBytesTotal,
+          before.ioBufferFrontCopyBytesTotal,
+        ),
+        ioBufferedReadCopyBytesTotal: _nullableCounterDelta(
+          ioBufferedReadCopyBytesTotal,
+          before.ioBufferedReadCopyBytesTotal,
+        ),
+        rustlsOutboundChunkCopyBytesTotal: _nullableCounterDelta(
+          rustlsOutboundChunkCopyBytesTotal,
+          before.rustlsOutboundChunkCopyBytesTotal,
+        ),
+        rustlsQueueReadCopyBytesTotal: _nullableCounterDelta(
+          rustlsQueueReadCopyBytesTotal,
+          before.rustlsQueueReadCopyBytesTotal,
+        ),
+        rustlsDeframerAppendCopyBytesTotal: _nullableCounterDelta(
+          rustlsDeframerAppendCopyBytesTotal,
+          before.rustlsDeframerAppendCopyBytesTotal,
+        ),
+        rustlsDeframerMoveCopyBytesTotal: _nullableCounterDelta(
+          rustlsDeframerMoveCopyBytesTotal,
+          before.rustlsDeframerMoveCopyBytesTotal,
+        ),
+        rustlsRecordBufferCopyBytesTotal: _nullableCounterDelta(
+          rustlsRecordBufferCopyBytesTotal,
+          before.rustlsRecordBufferCopyBytesTotal,
+        ),
+        rustlsRecordAppendCopyBytesTotal: _nullableCounterDelta(
+          rustlsRecordAppendCopyBytesTotal,
+          before.rustlsRecordAppendCopyBytesTotal,
+        ),
+      );
+
+  static int _counterDelta(int current, int before) =>
+      current >= before ? current - before : current;
+
+  static int? _nullableCounterDelta(int? current, int? before) =>
+      current == null || before == null ? null : _counterDelta(current, before);
+}
+
+/// Bulk crypto staging copies in this process plus this runtime's Dart bridge
+/// and native-provider ciphertext coercion in the current isolate.
+/// Nonce/tag construction and serializer/framing work are excluded. Native
+/// counters are null unless the complete optional metrics ABI v1 is available.
+class NativeE2eeCopyMetrics {
+  const NativeE2eeCopyMetrics({
+    required this.dartToNativeCopiedBytesTotal,
+    required this.nativeToDartCopiedBytesTotal,
+    required this.plaintextStagingCopyBytesTotal,
+    required this.ciphertextStagingCopyBytesTotal,
+    this.ciphertextCoercionCopyBytesTotal = 0,
+  });
+
+  final int dartToNativeCopiedBytesTotal;
+  final int nativeToDartCopiedBytesTotal;
+  final int? plaintextStagingCopyBytesTotal;
+  final int? ciphertextStagingCopyBytesTotal;
+  final int ciphertextCoercionCopyBytesTotal;
+
+  NativeE2eeCopyMetrics deltaFrom(NativeE2eeCopyMetrics before) =>
+      NativeE2eeCopyMetrics(
+        dartToNativeCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
+          dartToNativeCopiedBytesTotal,
+          before.dartToNativeCopiedBytesTotal,
+        ),
+        nativeToDartCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
+          nativeToDartCopiedBytesTotal,
+          before.nativeToDartCopiedBytesTotal,
+        ),
+        plaintextStagingCopyBytesTotal:
+            NativeTransportCopyMetrics._nullableCounterDelta(
+              plaintextStagingCopyBytesTotal,
+              before.plaintextStagingCopyBytesTotal,
+            ),
+        ciphertextStagingCopyBytesTotal:
+            NativeTransportCopyMetrics._nullableCounterDelta(
+              ciphertextStagingCopyBytesTotal,
+              before.ciphertextStagingCopyBytesTotal,
+            ),
+        ciphertextCoercionCopyBytesTotal:
+            NativeTransportCopyMetrics._counterDelta(
+              ciphertextCoercionCopyBytesTotal,
+              before.ciphertextCoercionCopyBytesTotal,
+            ),
+      );
+}
+
 class NativeClientRuntime {
   factory NativeClientRuntime.instance({String? libraryPath}) {
     final current = _instance;
@@ -197,6 +389,9 @@ class NativeClientRuntime {
   final ffi.DynamicLibrary _library;
   final CtFfiBindings _bindings;
   final Finalizer<_MessageFinalizerToken> _messageFinalizer;
+  late final NativeBufferAllocator nativeBuffers = NativeBufferAllocator(
+    _library,
+  );
   late final NativeMessageBytes _messageBytes = NativeMessageBytes(_library);
   late final ffi.NativeFinalizer _externalByteBufferFinalizer =
       ffi.NativeFinalizer(
@@ -204,7 +399,17 @@ class NativeClientRuntime {
             .cast<ffi.NativeFinalizerFunction>(),
       );
   bool _started = false;
+  int _dartToNativeCopiedBytesTotal = 0;
+  int _e2eeDartToNativeCopiedBytesTotal = 0;
+  int _e2eeNativeToDartCopiedBytesTotal = 0;
+  int _e2eeCiphertextCoercionCopyBytesTotal = 0;
 
+  /// Releases the native owner attached to the returned root byte view.
+  ///
+  /// On `true`, [bytes] and every view derived from it must no longer be
+  /// accessed. Dart cannot revoke existing typed-data views. Prefer automatic
+  /// finalization when another consumer still needs a view. Returns `false`
+  /// for Dart-owned bytes, unregistered subviews and an already released owner.
   static bool releaseOwnedExternalBytes(Uint8List bytes) {
     final reference = _nativeExternalBytes[bytes];
     if (reference == null || reference.released) {
@@ -220,8 +425,22 @@ class NativeClientRuntime {
     return true;
   }
 
-  Uint8List _ownExternalBytes(CtExternalByteBuffer output) {
-    final bytes = output.ptr.asTypedList(output.len);
+  /// Allocation address for ownership identity assertions, without exporting or
+  /// retaining another native reference. Released and Dart-owned views return null.
+  @visibleForTesting
+  static int? debugExternalByteAddress(Uint8List bytes) {
+    final reference = _nativeExternalBytes[bytes];
+    return reference == null || reference.released
+        ? null
+        : reference.pointer.address;
+  }
+
+  Uint8List _ownExternalBytes(
+    CtExternalByteBuffer output, {
+    bool readOnly = false,
+  }) {
+    final backing = output.ptr.asTypedList(output.len);
+    final bytes = readOnly ? backing.asUnmodifiableView() : backing;
     final reference = _NativeExternalBytesReference(
       runtimeIdentity: this,
       pointer: output.ptr,
@@ -235,7 +454,12 @@ class NativeClientRuntime {
         detach: reference,
         externalSize: output.len,
       );
-      // The Expando keeps the finalizer target alive with the returned view.
+      // Derived typed-data views retain the backing external typed data. Keep
+      // its owner there as well as on the returned read-only wrapper, whose
+      // identity is used by explicit release and native ownership transfer.
+      if (!identical(backing, bytes)) {
+        _nativeExternalBytes[backing] = reference;
+      }
       _nativeExternalBytes[bytes] = reference;
       return bytes;
     } catch (_) {
@@ -287,6 +511,9 @@ class NativeClientRuntime {
     Duration? heartbeatInterval,
     Duration? heartbeatTimeout,
   }) {
+    if (serializer == NativeMessageSerializer.flatbuffers) {
+      _messageBytes.requireFlatbuffersBinding();
+    }
     ensureStarted();
     final hostPtr = host.toNativeUtf8().cast<ffi.Char>();
     try {
@@ -406,6 +633,7 @@ class NativeClientRuntime {
     final bufferPtr = calloc<CtByteBuffer>();
     try {
       plaintextPtr.asTypedList(plaintext.length).setAll(0, plaintext);
+      _e2eeDartToNativeCopiedBytesTotal += plaintext.length;
       final result = encrypt(
         sessionHandle,
         keyIdPtr,
@@ -417,13 +645,34 @@ class NativeClientRuntime {
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to encrypt native E2EE payload');
       }
-      return _copyAndFreeByteBuffer(bufferPtr.ref);
+      final bytes = _copyAndFreeByteBuffer(bufferPtr.ref);
+      _e2eeNativeToDartCopiedBytesTotal += bytes.length;
+      return bytes;
     } finally {
       if (keyIdPtr != ffi.nullptr) {
         malloc.free(keyIdPtr);
       }
       malloc.free(plaintextPtr);
       calloc.free(bufferPtr);
+    }
+  }
+
+  NativeOwnedBuffer encryptE2eeBuffer(
+    int sessionHandle,
+    NativeOwnedBuffer plaintext, {
+    String? keyId,
+    required String cipher,
+  }) {
+    ensureStarted();
+    try {
+      return nativeBuffers.encryptE2eeBuffer(
+        sessionHandle,
+        plaintext,
+        keyId: keyId,
+        cipher: cipher,
+      );
+    } on NativeBufferException catch (error) {
+      _throwForError(error.code, 'Failed to encrypt native E2EE buffer');
     }
   }
 
@@ -448,6 +697,7 @@ class NativeClientRuntime {
     final bufferPtr = calloc<CtByteBuffer>();
     try {
       ciphertextPtr.asTypedList(ciphertext.length).setAll(0, ciphertext);
+      _e2eeDartToNativeCopiedBytesTotal += ciphertext.length;
       final result = decrypt(
         sessionHandle,
         keyIdPtr,
@@ -459,7 +709,9 @@ class NativeClientRuntime {
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to decrypt native E2EE payload');
       }
-      return _copyAndFreeByteBuffer(bufferPtr.ref);
+      final bytes = _copyAndFreeByteBuffer(bufferPtr.ref);
+      _e2eeNativeToDartCopiedBytesTotal += bytes.length;
+      return bytes;
     } finally {
       if (keyIdPtr != ffi.nullptr) {
         malloc.free(keyIdPtr);
@@ -470,7 +722,126 @@ class NativeClientRuntime {
   }
 
   bool get supportsConsumingE2eeMessagePayloadDecrypt =>
-      _bindings.ctE2eeSessionDecryptMessagePayloadConsume != null;
+      _bindings.ctE2eeSessionDecryptMessagePayloadConsume != null ||
+      _bindings.ctE2eeSessionDecryptMessagePayloadConsumeFormat != null;
+
+  bool get supportsTypedConsumingE2eeMessagePayloadDecrypt =>
+      _bindings.ctE2eeSessionDecryptMessagePayloadConsumeFormat != null;
+
+  /// Whether native payload shape/length can be checked without byte exports.
+  bool get supportsMessageBinaryArgumentLengthInspection =>
+      _bindings.ctMessageSingleBinaryArgumentLength != null;
+
+  /// Validates typed ciphertext before key-policy callbacks without consuming it.
+  /// New runtimes inspect shape and size without exporting payload storage.
+  /// Older runtimes materialize the wire payload for this validation instead.
+  /// A previously authenticated matching cached payload needs no wire access.
+  void preflightTypedE2eeMessageCiphertext(
+    NativeIncomingMessage incoming, {
+    required String cipher,
+    required int minimumLength,
+    required int maximumLength,
+  }) {
+    ensureStarted();
+    if (!identical(incoming.runtimeIdentity, this)) {
+      _throwForError(
+        NativeTransportErrorCode.invalidArgument,
+        'Native E2EE payload belongs to another runtime',
+      );
+    }
+    final cached = incoming._e2eeDecryptedPayload;
+    if (cached != null) {
+      final request = incoming._e2eeDecryptRequest;
+      final owner = _nativeExternalBytes[cached.bytes];
+      if (request?.cipher != cipher ||
+          request?.plaintextFormat !=
+              NativeE2eePlaintextFormat.typedFlatBuffers ||
+          owner?.released == true) {
+        _throwForError(
+          NativeTransportErrorCode.handleUnavailable,
+          'Native E2EE cached payload is unavailable for this request',
+        );
+      }
+      // Typed format preserves the complete plaintext span. Authenticated
+      // ciphertext adds only the cipher's nonce and authentication tag.
+      _checkTypedCiphertextLength(
+        cached.bytes.length + (cipher == 'aes256gcm' ? 28 : 40),
+        minimumLength,
+        maximumLength,
+      );
+      return;
+    }
+    if (incoming._released) {
+      _throwForError(
+        NativeTransportErrorCode.handleUnavailable,
+        'Native message was released before E2EE preflight',
+      );
+    }
+    final inspect = _bindings.ctMessageSingleBinaryArgumentLength;
+    final int length;
+    if (inspect != null) {
+      final output = calloc<ffi.Size>();
+      try {
+        final code = inspect(incoming.handle, output);
+        if (code != NativeTransportErrorCode.success) {
+          _throwForError(
+            code,
+            'Native E2EE payload must be a single binary argument',
+          );
+        }
+        length = output.value;
+      } finally {
+        calloc.free(output);
+      }
+    } else {
+      if (incoming.argumentsKeywordsBytes != null) {
+        _throwForError(
+          NativeTransportErrorCode.invalidArgument,
+          'Native E2EE payload must not contain keyword arguments',
+        );
+      }
+      var binaryLength = incoming.singleBinaryArgumentBytes?.length;
+      if (binaryLength == null) {
+        final message = incoming.message;
+        if (message is NativeSessionMessage &&
+            message.serializer == NativeMessageSerializer.cbor) {
+          // CBOR's object conversion returns Uint8Buffer for byte strings.
+          // Preserve the wire kind so numeric arrays are not accepted as bytes.
+          final encoded = incoming.argumentsBytes;
+          final arguments = encoded == null ? null : cbor.cborDecode(encoded);
+          if (arguments is cbor.CborList &&
+              arguments.length == 1 &&
+              arguments.single is cbor.CborBytes) {
+            binaryLength = (arguments.single as cbor.CborBytes).bytes.length;
+          }
+        } else {
+          final arguments = message is AbstractMessageWithPayload
+              ? message.arguments
+              : null;
+          if (arguments?.length == 1 && arguments!.single is Uint8List) {
+            binaryLength = (arguments.single as Uint8List).length;
+          }
+        }
+      }
+      if (binaryLength == null) {
+        _throwForError(
+          NativeTransportErrorCode.invalidArgument,
+          'Native E2EE payload must be a single binary argument',
+        );
+      }
+      length = binaryLength;
+    }
+    _checkTypedCiphertextLength(length, minimumLength, maximumLength);
+  }
+
+  void _checkTypedCiphertextLength(int length, int minimum, int maximum) {
+    if (length < minimum || length > maximum) {
+      _throwForError(
+        NativeTransportErrorCode.invalidArgument,
+        'Typed E2EE ciphertext length is outside its limits',
+      );
+    }
+  }
 
   bool get supportsBase64NativeE2eeFileSegments =>
       _bindings.ctSendMessageNativeE2eeFileSegmentV2 != null;
@@ -480,6 +851,8 @@ class NativeClientRuntime {
     NativeIncomingMessage incoming, {
     String? keyId,
     String cipher = 'xsalsa20poly1305',
+    NativeE2eePlaintextFormat plaintextFormat =
+        NativeE2eePlaintextFormat.cborPpt,
   }) {
     ensureStarted();
     if (!identical(incoming.runtimeIdentity, this)) {
@@ -489,6 +862,7 @@ class NativeClientRuntime {
       sessionHandle: sessionHandle,
       keyId: keyId,
       cipher: cipher,
+      plaintextFormat: plaintextFormat,
     );
     final cached = incoming._e2eeDecryptedPayload;
     if (cached != null) {
@@ -513,6 +887,14 @@ class NativeClientRuntime {
         'Native message was released before E2EE decryption',
       );
     }
+    final formattedConsume =
+        _bindings.ctE2eeSessionDecryptMessagePayloadConsumeFormat;
+    if (plaintextFormat == NativeE2eePlaintextFormat.typedFlatBuffers &&
+        formattedConsume == null) {
+      // A caller can decrypt the complete ciphertext with the generic crypto
+      // API instead. The legacy message API would infer CBOR framing.
+      return null;
+    }
     final cipherCode = switch (cipher) {
       'xsalsa20poly1305' => 1,
       'aes256gcm' => 2,
@@ -528,17 +910,28 @@ class NativeClientRuntime {
     final outputKindPtr = calloc<ffi.Int32>();
     try {
       final consume = _bindings.ctE2eeSessionDecryptMessagePayloadConsume;
-      if (consume != null) {
+      if (consume != null || formattedConsume != null) {
         incoming._markConsumed();
-        final result = consume(
-          sessionHandle,
-          keyIdPtr,
-          keyIdBytes?.length ?? 0,
-          incoming.handle,
-          cipherCode,
-          outputPtr,
-          outputKindPtr,
-        );
+        final result = formattedConsume != null
+            ? formattedConsume(
+                sessionHandle,
+                keyIdPtr,
+                keyIdBytes?.length ?? 0,
+                incoming.handle,
+                cipherCode,
+                plaintextFormat.index,
+                outputPtr,
+                outputKindPtr,
+              )
+            : consume!(
+                sessionHandle,
+                keyIdPtr,
+                keyIdBytes?.length ?? 0,
+                incoming.handle,
+                cipherCode,
+                outputPtr,
+                outputKindPtr,
+              );
         if (result != NativeTransportErrorCode.success) {
           final failedOutput = outputPtr.ref;
           if (failedOutput.owner != ffi.nullptr) {
@@ -550,7 +943,9 @@ class NativeClientRuntime {
           );
         }
         final outputKind = outputKindPtr.value;
-        if (outputKind != 1 && outputKind != 2) {
+        if ((outputKind != 1 && outputKind != 2) ||
+            (plaintextFormat == NativeE2eePlaintextFormat.typedFlatBuffers &&
+                outputKind != 1)) {
           final invalidOutput = outputPtr.ref;
           if (invalidOutput.owner != ffi.nullptr) {
             _bindings.ctExternalByteBufferFree(invalidOutput.owner);
@@ -561,7 +956,11 @@ class NativeClientRuntime {
           );
         }
         final payload = (
-          bytes: _ownDecryptedExternalBytes(outputPtr.ref),
+          bytes: _ownDecryptedExternalBytes(
+            outputPtr.ref,
+            readOnly:
+                plaintextFormat == NativeE2eePlaintextFormat.typedFlatBuffers,
+          ),
           directBinary: outputKind == 1,
         );
         incoming._e2eeDecryptRequest = request;
@@ -601,7 +1000,10 @@ class NativeClientRuntime {
     }
   }
 
-  Uint8List _ownDecryptedExternalBytes(CtExternalByteBuffer output) {
+  Uint8List _ownDecryptedExternalBytes(
+    CtExternalByteBuffer output, {
+    bool readOnly = false,
+  }) {
     if (output.owner == ffi.nullptr) {
       throw NativeTransportException(
         NativeTransportErrorCode.handleUnavailable,
@@ -610,7 +1012,8 @@ class NativeClientRuntime {
     }
     if (output.len == 0) {
       _bindings.ctExternalByteBufferFree(output.owner);
-      return Uint8List(0);
+      final empty = Uint8List(0);
+      return readOnly ? empty.asUnmodifiableView() : empty;
     }
     if (output.ptr == ffi.nullptr) {
       _bindings.ctExternalByteBufferFree(output.owner);
@@ -619,7 +1022,7 @@ class NativeClientRuntime {
         'Native E2EE decrypt returned no external buffer bytes',
       );
     }
-    return _ownExternalBytes(output);
+    return _ownExternalBytes(output, readOnly: readOnly);
   }
 
   int connectWebSocket({
@@ -633,6 +1036,9 @@ class NativeClientRuntime {
     Duration? heartbeatInterval,
     Duration? heartbeatTimeout,
   }) {
+    if (serializer == NativeMessageSerializer.flatbuffers) {
+      _messageBytes.requireFlatbuffersBinding();
+    }
     ensureStarted();
     final hostPtr = host.toNativeUtf8().cast<ffi.Char>();
     final targetPtr = target.toNativeUtf8().cast<ffi.Char>();
@@ -726,6 +1132,149 @@ class NativeClientRuntime {
     }
   }
 
+  _RustlsCopyMetricsSnapshot? _rustlsCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctRustlsCopyMetricsSnapshot;
+    if (snapshot == null) return null;
+    final info = calloc<CtRustlsCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot partial Rustls copy metrics');
+      }
+      final value = info.ref;
+      return (
+        outboundChunkCopyBytesTotal: value.outboundChunkCopyBytesTotal,
+        queueReadCopyBytesTotal: value.queueReadCopyBytesTotal,
+        deframerAppendCopyBytesTotal: value.deframerAppendCopyBytesTotal,
+        deframerMoveCopyBytesTotal: value.deframerMoveCopyBytesTotal,
+        recordBufferCopyBytesTotal: value.recordBufferCopyBytesTotal,
+        recordAppendCopyBytesTotal: value.recordAppendCopyBytesTotal,
+      );
+    } finally {
+      calloc.free(info);
+    }
+  }
+
+  NativeTransportCopyMetrics transportCopyMetricsSnapshot() {
+    final rustls = _rustlsCopyMetricsSnapshot();
+    final snapshotV2 = _bindings.ctTransportCopyMetricsSnapshotV2;
+    if (snapshotV2 != null) {
+      final info = calloc<CtTransportCopyMetricsInfoV2>();
+      try {
+        final result = snapshotV2(info);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(result, 'snapshot transport copy metrics v2');
+        }
+        final value = info.ref;
+        return NativeTransportCopyMetrics(
+          dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+          rustlsOutboundChunkCopyBytesTotal:
+              rustls?.outboundChunkCopyBytesTotal,
+          rustlsQueueReadCopyBytesTotal: rustls?.queueReadCopyBytesTotal,
+          rustlsDeframerAppendCopyBytesTotal:
+              rustls?.deframerAppendCopyBytesTotal,
+          rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
+          rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
+          rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+
+          websocketMaskCopyBytesTotal: value.legacy.websocketMaskCopyBytesTotal,
+          websocketCoalesceCopyBytesTotal:
+              value.legacy.websocketCoalesceCopyBytesTotal,
+          tlsPlaintextAcceptedBytesTotal:
+              value.legacy.tlsPlaintextAcceptedBytesTotal,
+          ioBufferFrontCopyBytesTotal: value.ioBufferFrontCopyBytesTotal,
+          ioBufferedReadCopyBytesTotal: value.ioBufferedReadCopyBytesTotal,
+        );
+      } finally {
+        calloc.free(info);
+      }
+    }
+    final snapshot = _bindings.ctTransportCopyMetricsSnapshot;
+    if (snapshot == null) {
+      return NativeTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+        rustlsOutboundChunkCopyBytesTotal: rustls?.outboundChunkCopyBytesTotal,
+        rustlsQueueReadCopyBytesTotal: rustls?.queueReadCopyBytesTotal,
+        rustlsDeframerAppendCopyBytesTotal:
+            rustls?.deframerAppendCopyBytesTotal,
+        rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
+        rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
+        rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+
+        websocketMaskCopyBytesTotal: null,
+        websocketCoalesceCopyBytesTotal: null,
+        tlsPlaintextAcceptedBytesTotal: null,
+      );
+    }
+    final info = calloc<CtTransportCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot transport copy metrics');
+      }
+      final value = info.ref;
+      return NativeTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: _dartToNativeCopiedBytesTotal,
+        rustlsOutboundChunkCopyBytesTotal: rustls?.outboundChunkCopyBytesTotal,
+        rustlsQueueReadCopyBytesTotal: rustls?.queueReadCopyBytesTotal,
+        rustlsDeframerAppendCopyBytesTotal:
+            rustls?.deframerAppendCopyBytesTotal,
+        rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
+        rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
+        rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+
+        websocketMaskCopyBytesTotal: value.websocketMaskCopyBytesTotal,
+        websocketCoalesceCopyBytesTotal: value.websocketCoalesceCopyBytesTotal,
+        tlsPlaintextAcceptedBytesTotal: value.tlsPlaintextAcceptedBytesTotal,
+      );
+    } finally {
+      calloc.free(info);
+    }
+  }
+
+  /// Records copied header bytes in the native-owned segmented send path.
+  /// Payload construction has its own builder counters; this adds only bytes
+  /// copied while submitting a message, alongside the legacy send counters.
+  @internal
+  void recordOwnedSegmentHeaderCopy(int bytes) {
+    RangeError.checkNotNegative(bytes, 'bytes');
+    _dartToNativeCopiedBytesTotal += bytes;
+  }
+
+  /// Record bytes copied by the native provider before the crypto FFI bridge.
+  /// Existing Uint8List views require no coercion and never call this method.
+  @internal
+  void recordE2eeCiphertextCoercionCopy(int bytes) {
+    RangeError.checkNotNegative(bytes, 'bytes');
+    _e2eeCiphertextCoercionCopyBytesTotal += bytes;
+  }
+
+  NativeE2eeCopyMetrics e2eeCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctE2eeCopyMetricsSnapshot;
+    int? plaintext;
+    int? ciphertext;
+    if (snapshot != null && _bindings.ctE2eeCopyMetricsVersion?.call() == 1) {
+      final info = calloc<CtE2eeCopyMetricsInfo>();
+      try {
+        final result = snapshot(info);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(result, 'snapshot E2EE copy metrics');
+        }
+        plaintext = info.ref.plaintextStagingCopyBytesTotal;
+        ciphertext = info.ref.ciphertextStagingCopyBytesTotal;
+      } finally {
+        calloc.free(info);
+      }
+    }
+    return NativeE2eeCopyMetrics(
+      dartToNativeCopiedBytesTotal: _e2eeDartToNativeCopiedBytesTotal,
+      nativeToDartCopiedBytesTotal: _e2eeNativeToDartCopiedBytesTotal,
+      plaintextStagingCopyBytesTotal: plaintext,
+      ciphertextStagingCopyBytesTotal: ciphertext,
+      ciphertextCoercionCopyBytesTotal: _e2eeCiphertextCoercionCopyBytesTotal,
+    );
+  }
+
   void closeConnection(int connectionId) {
     ensureStarted();
     final result = _bindings.ctConnectionClose(connectionId);
@@ -747,6 +1296,7 @@ class NativeClientRuntime {
     final dataPtr = malloc<ffi.Uint8>(payload.length);
     try {
       dataPtr.asTypedList(payload.length).setAll(0, payload);
+      _dartToNativeCopiedBytesTotal += payload.length;
       final result = _bindings.ctSendMessage(
         connectionId,
         dataPtr,
@@ -758,6 +1308,22 @@ class NativeClientRuntime {
     } finally {
       malloc.free(dataPtr);
     }
+  }
+
+  /// Submit a frozen native frame without copying it from Dart storage.
+  /// Transfer consumes the buffer on every native submission result; Dart
+  /// validation or runtime-start failures occur before ownership is submitted.
+  /// The result is queue acceptance; completion semantics are separate.
+  void sendNativeBuffer(
+    int connectionId,
+    NativeOwnedBuffer buffer, {
+    bool transfer = false,
+  }) {
+    if (!nativeBuffers.isSupported) {
+      throw UnsupportedError('Native library lacks owned-buffer support');
+    }
+    ensureStarted();
+    nativeBuffers.send(connectionId, buffer, transfer: transfer);
   }
 
   void sendMessageFragmented(
@@ -791,6 +1357,7 @@ class NativeClientRuntime {
     final dataPtr = malloc<ffi.Uint8>(payload.length);
     try {
       dataPtr.asTypedList(payload.length).setAll(0, payload);
+      _dartToNativeCopiedBytesTotal += payload.length;
       final result = _bindings.ctSendMessageFragmented(
         connectionId,
         dataPtr,
@@ -850,6 +1417,7 @@ class NativeClientRuntime {
         allocated += 1;
         if (segment.isNotEmpty) {
           segmentPtr.asTypedList(segment.length).setAll(0, segment);
+          _dartToNativeCopiedBytesTotal += segment.length;
         }
       }
 
@@ -904,6 +1472,7 @@ class NativeClientRuntime {
     try {
       if (payload.isNotEmpty) {
         payloadPtr.asTypedList(payload.length).setAll(0, payload);
+        _dartToNativeCopiedBytesTotal += payload.length;
       }
       consumed = true;
       return fragmentSize == null
@@ -1284,8 +1853,82 @@ class NativeClientRuntime {
     }
   }
 
-  NativeIncomingMessage materialize(int handle) {
+  /// Takes ownership of [handle]. The default exports payload views eagerly.
+  ///
+  /// With [deferPayloadExports], no frame/argument view is exported until any
+  /// payload getter is read. Advanced consumers can decrypt the handle first;
+  /// native AES may reuse unique contiguous storage. Release or consuming
+  /// decrypt invalidates every unexported getter. Already exported immutable
+  /// views remain valid and force the native copied fallback. This does not
+  /// change transport/Session materialization or forwarding contracts.
+  NativeIncomingMessage materialize(
+    int handle, {
+    bool deferPayloadExports = false,
+    bool consumeTypedE2eePayloads = false,
+  }) {
     ensureStarted();
+    try {
+      final deferExports = deferPayloadExports || consumeTypedE2eePayloads;
+      NativeMessageMetadata? sessionMetadata;
+      NativeMessageSerializer? sessionSerializer;
+      if (deferExports) {
+        final info = calloc<CtMessageInfo>();
+        try {
+          final result = _bindings.ctMessagePeek(handle, info);
+          if (result != NativeTransportErrorCode.success) {
+            _throwForError(result, 'Failed to peek native message');
+          }
+          if (NativeMessageSerializer.fromId(info.ref.serializer) ==
+              NativeMessageSerializer.flatbuffers) {
+            _messageBytes.requireFlatbuffersBinding();
+          }
+          if (consumeTypedE2eePayloads) {
+            sessionSerializer = NativeMessageSerializer.fromId(
+              info.ref.serializer,
+            );
+            final metadata = _metadataFromFfi(
+              info.ref,
+              handle,
+              _messageBytes,
+              readTransparentPayload: false,
+            );
+            if (isNativeTypedE2eeSessionMetadata(metadata)) {
+              sessionMetadata = metadata;
+            }
+          }
+        } finally {
+          calloc.free(info);
+        }
+      }
+      final incoming = NativeIncomingMessage._(
+        handle: handle,
+        runtimeIdentity: this,
+        bindings: _bindings,
+        messageFinalizer: _messageFinalizer,
+        payload: deferExports ? null : _readMessagePayload(handle),
+        materializePayload: deferExports
+            ? () => _readMessagePayload(handle)
+            : null,
+      );
+      if (sessionMetadata != null) {
+        final sessionMessage = NativeSessionMessage.deferred(
+          serializer: sessionSerializer!,
+          metadata: sessionMetadata,
+          wireMessage: () => incoming.message as NativeSessionMessage,
+        );
+        attachSessionMessageAnchor(sessionMessage, incoming);
+        incoming._sessionMessage = sessionMessage;
+      }
+      final token = _MessageFinalizerToken(_bindings, handle);
+      _messageFinalizer.attach(incoming, token, detach: incoming);
+      return incoming;
+    } catch (_) {
+      _bindings.ctMessageRelease(handle);
+      rethrow;
+    }
+  }
+
+  _NativeMessageParts _readMessagePayload(int handle) {
     final infoPtr = calloc<CtMessageInfo>();
     try {
       var result = _bindings.ctMessagePeek(handle, infoPtr);
@@ -1294,6 +1937,9 @@ class NativeClientRuntime {
       }
       var info = infoPtr.ref;
       final serializer = NativeMessageSerializer.fromId(info.serializer);
+      if (serializer == NativeMessageSerializer.flatbuffers) {
+        _messageBytes.requireFlatbuffersBinding();
+      }
       final args = info.argsLen == 0
           ? null
           : _messageBytes.read(
@@ -1311,7 +1957,9 @@ class NativeClientRuntime {
               length: info.kwargsLen,
             );
       final metadata = _metadataFromFfi(info, handle, _messageBytes);
-      var singleBinaryArgument = info.binaryArgPtr == ffi.nullptr
+      var singleBinaryArgument =
+          metadata.hasFlag(NativeMessageMetadata.flagTransparentPayload) ||
+              info.binaryArgPtr == ffi.nullptr
           ? null
           : _messageBytes.read(
               handle,
@@ -1357,23 +2005,13 @@ class NativeClientRuntime {
           metadata: metadata,
         );
       }
-      final incoming = NativeIncomingMessage._(
+      return (
         message: message,
         bytes: frame,
-        handle: handle,
-        runtimeIdentity: this,
-        bindings: _bindings,
-        messageFinalizer: _messageFinalizer,
         argumentsBytes: args,
         argumentsKeywordsBytes: kwargs,
         singleBinaryArgumentBytes: singleBinaryArgument,
       );
-      final token = _MessageFinalizerToken(_bindings, handle);
-      _messageFinalizer.attach(incoming, token, detach: incoming);
-      return incoming;
-    } catch (_) {
-      _bindings.ctMessageRelease(handle);
-      rethrow;
     } finally {
       calloc.free(infoPtr);
     }
@@ -1590,10 +2228,21 @@ class NativeClientRuntime {
 NativeMessageMetadata _metadataFromFfi(
   CtMessageInfo info,
   int handle,
-  NativeMessageBytes bytes,
-) {
+  NativeMessageBytes bytes, {
+  bool readTransparentPayload = true,
+}) {
   final flags = info.flags;
   final metadataBind = (flags & NativeMessageMetadata.flagMetadataBind) != 0;
+  final transparent =
+      !readTransparentPayload ||
+          (flags & NativeMessageMetadata.flagTransparentPayload) == 0
+      ? null
+      : bytes.read(
+          handle,
+          NativeMessageBytePart.transparentPayload,
+          borrowed: info.binaryArgPtr,
+          length: info.binaryArgLen,
+        );
   NativeMessageMetadata build(Uint8List? details) => NativeMessageMetadata(
     messageCode: info.messageCode,
     primaryId: info.primaryId,
@@ -1602,6 +2251,7 @@ NativeMessageMetadata _metadataFromFfi(
     detailNumberB: info.detailNumberB,
     flags: flags,
     detailsBytes: details,
+    transparentPayloadBytes: transparent,
     stringA: metadataBind
         ? _readOptionalString(info.stringAPtr, info.stringALen)
         : null,

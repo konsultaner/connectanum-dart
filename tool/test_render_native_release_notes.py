@@ -45,6 +45,20 @@ class NativeReleaseNotesTest(unittest.TestCase):
             rendered,
         )
         self.assertIn("released separately", rendered)
+        for path in (
+            "docs/flatbuffers_binding.md",
+            "docs/research/2026-10-04-flatbuffers-live-peer-conformance.md",
+            "docs/flatbuffers_performance_acceptance.md",
+            "docs/native_buffer_ownership.md",
+        ):
+            self.assertIn(
+                f"https://github.com/konsultaner/connectanum-dart/blob/abc123/{path}",
+                rendered,
+            )
+        self.assertIn(
+            "https://github.com/konsultaner/connectanum-dart/commit/abc123/checks",
+            rendered,
+        )
         self.assertNotIn("## Changelog", rendered)
 
     def test_project_release_notes_append_generated_changelog(self) -> None:
@@ -63,6 +77,15 @@ class NativeReleaseNotesTest(unittest.TestCase):
 
         self.assertIn("current prebuilt native transport bundles", rendered)
         self.assertIn("https://github.example/example/connectanum-dart", rendered)
+        self.assertIn(
+            "https://github.example/example/connectanum-dart/blob/def456/"
+            "docs/flatbuffers_performance_acceptance.md",
+            rendered,
+        )
+        self.assertIn(
+            "https://github.example/example/connectanum-dart/commit/def456/checks",
+            rendered,
+        )
         self.assertIn("## Changelog", rendered)
         self.assertIn("* Fix release publishing", rendered)
 

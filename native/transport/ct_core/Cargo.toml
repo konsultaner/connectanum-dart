@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 socket2 = "0.5"
 tokio = { version = "1.40.0", features = ["rt-multi-thread", "net", "sync", "time", "macros", "io-util"] }
-tokio-rustls = { version = "0.26", default-features = false }
+tokio-rustls = { version = "=0.26.6", default-features = false, features = ["connectanum-copy-observer"] }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
@@ -16,10 +16,11 @@ serde_cbor = "0.11"
 serde_bytes = "0.11"
 serde_ubjson = "0.2"
 bytes = "1.7"
+flatbuffers = "=25.9.23"
 httparse = "1.9"
 quinn = { version = "0.11", default-features = false, features = ["rustls", "runtime-tokio"] }
 quinn-proto = { version = "0.11.15", default-features = false, features = ["rustls"] }
-rustls = { version = "0.23", default-features = false, features = ["std", "logging"] }
+rustls = { version = "=0.23.45", default-features = false, features = ["std", "logging", "connectanum-copy-observer"] }
 rustls-pemfile = "2.1"
 h3 = { version = "0.0.8", default-features = false }
 h3-quinn = { version = "0.0.10", default-features = false }

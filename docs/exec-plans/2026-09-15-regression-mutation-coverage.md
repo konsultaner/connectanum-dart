@@ -1,6 +1,6 @@
 # Regression And Mutation Coverage
 
-Status: active
+Status: deferred in this worktree by the explicit FlatBuffers milestone goal
 Started: 2026-09-15
 Baseline: `8248ad62` (PR #92 merged into master as `f3323e48`)
 

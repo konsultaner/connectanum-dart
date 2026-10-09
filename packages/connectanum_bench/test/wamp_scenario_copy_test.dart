@@ -109,6 +109,18 @@ void main() {
     expect(_values(source), _expected);
   });
 
+  test('copyWith overrides only payloadConstruction', () {
+    final source = _scenario();
+    final copied = source.copyWith(
+      payloadConstruction: WampPayloadConstruction.preEncodedSpan,
+    );
+    expect(_values(copied), {
+      ..._expected,
+      'payloadConstruction': WampPayloadConstruction.preEncodedSpan,
+    });
+    expect(_values(source), _expected);
+  });
+
   test(
     'copyWith explicitly clears peerSerializer without clearing other fields',
     () {
@@ -365,6 +377,7 @@ WampScenario _scenario() => WampScenario(
   concurrency: 3,
   inFlightPerSession: 7,
   peerCount: 13,
+  payloadConstruction: WampPayloadConstruction.nativeBuffer,
   payloadBytes: 1027,
   websocketFragmentSize: 256,
   fileChunkBytes: 4096,
@@ -393,6 +406,7 @@ const _expected = <String, Object?>{
   'concurrency': 3,
   'inFlightPerSession': 7,
   'peerCount': 13,
+  'payloadConstruction': WampPayloadConstruction.nativeBuffer,
   'payloadBytes': 1027,
   'websocketFragmentSize': 256,
   'fileChunkBytes': 4096,
@@ -421,6 +435,7 @@ Map<String, Object?> _values(WampScenario value) => {
   'concurrency': value.concurrency,
   'inFlightPerSession': value.inFlightPerSession,
   'peerCount': value.peerCount,
+  'payloadConstruction': value.payloadConstruction,
   'payloadBytes': value.payloadBytes,
   'websocketFragmentSize': value.websocketFragmentSize,
   'fileChunkBytes': value.fileChunkBytes,

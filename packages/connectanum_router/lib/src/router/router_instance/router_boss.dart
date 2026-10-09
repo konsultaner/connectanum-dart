@@ -1828,8 +1828,11 @@ class _RouterBoss {
     } else if (type == 'worker_send') {
       final connectionId = message['connectionId'] as int;
       final Uint8List payloadBytes = message['payload'] as Uint8List;
+      final acceptedReply = message['acceptedReply'] as SendPort?;
+      var accepted = false;
       try {
         runtime.sendMessage(connectionId, payloadBytes);
+        accepted = true;
         _lastActivityByConnection[connectionId] = DateTime.now();
         payload
           ..['type'] = 'worker_send'
@@ -1844,6 +1847,8 @@ class _RouterBoss {
           ..['type'] = 'worker_send_unsupported'
           ..['connectionId'] = connectionId
           ..['error'] = error.toString();
+      } finally {
+        acceptedReply?.send({'accepted': accepted});
       }
     } else if (type == 'worker_forward_message') {
       final connectionId = message['connectionId'] as int;

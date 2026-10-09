@@ -1,0 +1,679 @@
+{
+  "status": "passed",
+  "baseCommit": "a99071612df9fec651543c34d50afb6c9325f9fc",
+  "recordedUtc": "2026-10-06T20:43:37.950487+00:00",
+  "sdk": "3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_arm64\"",
+  "scope": "actual RawSocket PPT calls; not total SDK/TLS copies or parity",
+  "retryBoundary": "native SocketBase::Write loop; no forced Dart EAGAIN resumption",
+  "inputOwner": "calloc; not Rust or database memory",
+  "sourceSha256": {
+    "packages/connectanum_core/lib/src/serializer/flatbuffers/wire_writer.dart": "2a461fa2f37c63caffab93314f6003a85e846ea6f1286dcc4c98ce8a8eade333",
+    "packages/connectanum_core/lib/src/serializer/flatbuffers/message_writer.dart": "c08e59b841059e3a271746dbcbb09346d8e62f7a4f02d35b5ca6683c1216c191",
+    "packages/connectanum_core/lib/src/serializer/flatbuffers/serializer.dart": "2f5956cff26efff161157677acaf81d92f6b711010680be980e5322d383c262e",
+    "packages/connectanum_client/lib/src/transport/socket/socket_transport.dart": "8ffec640126283fcef7f6bac71da8914ff18aace936aee20a9194c9e11eb36e9",
+    "packages/connectanum_client/tool/rawsocket_copy_probe.dart": "5c7d14f834c409e08aa71ad5aefa051fc0b8f8c4468fc65165f9a385e808d4ef",
+    "tool/sdk_socket_copy_probe.c": "09b866d67fea343f70da4c2ad2378be11503a00fefcb2dd81ec0c5db09cbd229"
+  },
+  "rawObservationsSha256": "6844239805e3d16fd476e5b561efb74056e9b08762aecae5053b66016a2f4f11",
+  "cases": [
+    {
+      "codec": "cbor",
+      "bodyBytes": 23,
+      "shape": "full",
+      "forcedSyscallRetries": false,
+      "wireBytes": 97,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 93,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 23,
+      "shape": "full-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 97,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 93,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 23,
+      "shape": "partial",
+      "forcedSyscallRetries": false,
+      "wireBytes": 97,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 93,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 23,
+      "shape": "partial-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 97,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 93,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 23,
+      "shape": "full",
+      "forcedSyscallRetries": false,
+      "wireBytes": 96,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 92,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 23,
+      "shape": "full-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 96,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 92,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 23,
+      "shape": "partial",
+      "forcedSyscallRetries": false,
+      "wireBytes": 96,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 92,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 23,
+      "shape": "partial-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 96,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 92,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 23,
+      "shape": "full",
+      "forcedSyscallRetries": false,
+      "wireBytes": 219,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 215,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 23,
+      "shape": "full-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 219,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 215,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 23,
+      "shape": "partial",
+      "forcedSyscallRetries": false,
+      "wireBytes": 219,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 215,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 23,
+      "shape": "partial-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 219,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 215,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 65536,
+      "shape": "full",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65614,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65610,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 65536,
+      "shape": "full",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65614,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65610,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 65536,
+      "shape": "full-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65614,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65610,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 65536,
+      "shape": "full-readonly",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65614,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65610,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 65536,
+      "shape": "partial",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65614,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65610,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 65536,
+      "shape": "partial",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65614,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65610,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 65536,
+      "shape": "partial-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65614,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65610,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "cbor",
+      "bodyBytes": 65536,
+      "shape": "partial-readonly",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65614,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65610,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 65536,
+      "shape": "full",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65612,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65608,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 65536,
+      "shape": "full",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65612,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65608,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 65536,
+      "shape": "full-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65612,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65608,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 65536,
+      "shape": "full-readonly",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65612,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65608,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 65536,
+      "shape": "partial",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65612,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65608,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 65536,
+      "shape": "partial",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65612,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65608,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 65536,
+      "shape": "partial-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65612,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65608,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "msgpack",
+      "bodyBytes": 65536,
+      "shape": "partial-readonly",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65612,
+      "serializerHasFragments": false,
+      "fragmentCount": null,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 65608,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 65536,
+      "shape": "full",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65732,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 65536,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 0,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 65536,
+      "shape": "full",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65732,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 65536,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 0,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 65536,
+      "shape": "full-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65732,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 65536,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 0,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 65536,
+      "shape": "full-readonly",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65732,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 65536,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 0,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 65536,
+      "shape": "partial",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65732,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 0,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 65536,
+      "shape": "partial",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65732,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 0,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 65536,
+      "shape": "partial-readonly",
+      "forcedSyscallRetries": false,
+      "wireBytes": 65732,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 0,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    },
+    {
+      "codec": "flatbuffers",
+      "bodyBytes": 65536,
+      "shape": "partial-readonly",
+      "forcedSyscallRetries": true,
+      "wireBytes": 65732,
+      "serializerHasFragments": true,
+      "fragmentCount": 3,
+      "originalBodyBytesAtWrite": 0,
+      "connectanumCopies": {
+        "rawsocket_frame_payload_copy_bytes": 0,
+        "rawsocket_fragment_coalesce_copy_bytes": 0,
+        "rawsocket_pre_handshake_queue_copy_bytes": 0,
+        "websocket_fragment_coalesce_copy_bytes": 0
+      },
+      "wireEqual": true,
+      "bodyEqual": true
+    }
+  ],
+  "limitations": [
+    "not complete SDK/TLS/crypto copy accounting",
+    "not performance parity",
+    "partial views copied by SDK",
+    "small frames require one transport copy"
+  ],
+  "exactCiStep": {
+    "exit": 0,
+    "stepSha256": "f42182b31c57296174ae79c34c9d45cb325c8d984ca64e572f83af811010c6ce",
+    "sdkProbeAndMissingInterposerControl": true
+  }
+}
