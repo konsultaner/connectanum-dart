@@ -2,5 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
 cd_repo_root
+dart_workspace_bootstrap
 "$ROOT_DIR/bin/check-format"
-"$ROOT_DIR/bin/test-all"
+dart analyze
+"$ROOT_DIR/bin/test-tooling"

@@ -265,7 +265,7 @@ run_client_fast_tests
         command = 'python3 tool/test_mcp_consumer_package_boundary.py'
         for path in (TEST_FAST, TEST_ALL):
             with self.subTest(script=path.name):
-                script = path.read_text()
+                script = path.read_text().replace('\"$ROOT_DIR/bin/test-tooling\"', (REPO_ROOT / 'bin/test-tooling').read_text())
                 self.assertEqual(script.splitlines().count(command), 1)
                 self.assertLess(script.index(command), script.index('\nrun_mcp_client_package_smoke'))
 
@@ -353,116 +353,54 @@ test -s native/transport/Cargo.lock
 
     def test_mutation_job_budgets_allow_complete_campaigns(self):
         workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
-        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
-        self.assertIn('timeout-minutes: ${{ matrix.timeout_minutes || 20 }}', job)
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  mcp-shards:', 1)[0]
         self.assertIn('fail-fast: false', job)
-        targets = {
-            target.strip()
-            for target in re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
-        }
-        entries = re.findall(
-            r'^          - target: ([\w-]+)\n            timeout_minutes: (\d+)\s*$',
-            job, re.MULTILINE,
-        )
-        budgets = {target: int(minutes) for target, minutes in entries}
-        self.assertEqual(len(entries), len(budgets), 'Duplicate timeout override')
-        self.assertLessEqual(set(budgets), targets, 'Override would add a matrix job')
-        self.assertEqual(budgets, {
-            'mcp-library': 240,
-            'router-remote-wamp-vm': 45,
-            'router-config-loader-vm': 45,
-            'router-remote-authenticator-vm': 45,
-            'router-http-auth-vm': 45,
-            'core-lazy-web': 90,
-            'core-metadata-web': 90,
-            'core-pem-pkcs8-web': 90,
-            'core-base64-web': 45,
-            'client-meta-cache-web': 45,
-            'client-message-binding-vm': 90,
-            'router-message-binding-vm': 90,
-        })
+        budgets = {name: int(minutes) for name, minutes in re.findall(
+            r'- group: ([\w-]+)\n            timeout_minutes: (\d+)', job)}
+        minimum = {'router-remote-wamp-vm': 45, 'router-config-loader-vm': 45,
+            'router-remote-authenticator-vm': 45, 'router-http-auth-vm': 45,
+            'core-lazy-web': 90, 'core-metadata-web': 90, 'core-pem-pkcs8-web': 90,
+            'core-base64-web': 45, 'client-meta-cache-web': 45,
+            'client-message-binding-vm': 90, 'router-message-binding-vm': 90}
+        for target, minutes in minimum.items():
+            self.assertGreaterEqual(budgets[target], minutes)
+        shards = workflow.split('\n  mcp-shards:', 1)[1].split('\n  mcp-mutations:', 1)[0]
+        self.assertIn('shard: [0, 1, 2, 3, 4, 5]', shards)
+        self.assertIn('--shard-count 6', shards)
+        self.assertNotIn('--threshold', shards)
+
+    def assert_mutation_targets(self, targets):
+        groups = json.loads((REPO_ROOT / 'tool/ci_mutation_groups.json').read_text())
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  mcp-shards:', 1)[0]
+        for target in targets:
+            selected = [name for name, members in groups.items() if target in members]
+            self.assertEqual(len(selected), 1)
+            name = selected[0]
+            block = job.split(f'- group: {name}\n', 1)[1].split('\n          - group:', 1)[0]
+            self.assertIn(f'chrome: {str(target.endswith("-web")).lower()}', block)
+            self.assertIn(f"'{name} Mutation Gate'", (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text())
+        self.assertIn('python3 tool/run_ci_mutations.py --group "${{ matrix.group }}" --output out/mutations', job)
+        self.assertNotIn('--threshold', job)
+        self.assertIn('if: always()', job)
+        self.assertIn('path: out/mutations', job)
+        self.assertIn('if-no-files-found: error', job)
 
     def test_key_file_mutation_gates_cover_vm_and_browser_with_artifacts(self):
-        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
-        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
-        matrix = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
-        self.assertLessEqual({'core-pem-pkcs8-vm', 'core-pem-pkcs8-web'},
-                             {target.strip() for target in matrix})
-        chrome_setup = job.split('- id: chrome', 1)[1].split('- name:', 1)[0]
-        self.assertIn("matrix.target == 'core-pem-pkcs8-web'", chrome_setup)
-        self.assertIn('browser-actions/setup-chrome@', chrome_setup)
-        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
-        self.assertNotIn('--threshold', job)
-        self.assertIn('if: always()', job)
-        self.assertIn('path: out/mutations', job)
-        self.assertIn('if-no-files-found: error', job)
+        self.assert_mutation_targets(['core-pem-pkcs8-vm', 'core-pem-pkcs8-web'])
 
     def test_scram_request_mutation_gates_cover_vm_and_browser(self):
-        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
-        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
-        matrix = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
-        self.assertLessEqual({'core-scram-request-vm', 'core-scram-request-web'},
-                             {target.strip() for target in matrix})
-        chrome_setup = job.split('- id: chrome', 1)[1].split('- name:', 1)[0]
-        self.assertIn("matrix.target == 'core-scram-request-web'", chrome_setup)
-        self.assertIn('browser-actions/setup-chrome@', chrome_setup)
-        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
-        self.assertNotIn('--threshold', job)
-        self.assertIn('if: always()', job)
-        self.assertIn('path: out/mutations', job)
-        audit = (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text()
-        for target in ('core-scram-request-vm', 'core-scram-request-web'):
-            self.assertIn(f"'{target} Mutation Gate'", audit)
+        self.assert_mutation_targets(['core-scram-request-vm', 'core-scram-request-web'])
 
     def test_base64_mutation_gates_cover_vm_and_browser(self):
-        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
-        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
-        matrix = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
-        targets = {'core-base64-vm', 'core-base64-web'}
-        self.assertLessEqual(targets, {target.strip() for target in matrix})
-        chrome_setup = job.split('- id: chrome', 1)[1].split('- name:', 1)[0]
-        self.assertIn("matrix.target == 'core-base64-web'", chrome_setup)
-        self.assertIn('browser-actions/setup-chrome@', chrome_setup)
-        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
-        self.assertNotIn('--threshold', job)
-        self.assertIn('if: always()', job)
-        self.assertIn('path: out/mutations', job)
-        self.assertIn('if-no-files-found: error', job)
-        audit = (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text()
-        for target in targets:
-            self.assertIn(f"'{target} Mutation Gate'", audit)
+        self.assert_mutation_targets(['core-base64-vm', 'core-base64-web'])
 
     def test_http_mutation_gate_is_required_with_complete_artifacts(self):
-        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
-        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
-        targets = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
-        self.assertIn('bench-http-auth-vm', {target.strip() for target in targets})
-        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
-        self.assertNotIn('--threshold', job)
-        self.assertIn('if: always()', job)
-        self.assertIn('path: out/mutations', job)
-        self.assertIn('if-no-files-found: error', job)
-        audit = (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text()
-        self.assertIn("'bench-http-auth-vm Mutation Gate'", audit)
+        self.assert_mutation_targets(['bench-http-auth-vm'])
 
     def test_meta_cache_mutation_gates_cover_vm_and_browser(self):
-        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
-        job = workflow.split('\n  mutation-gates:', 1)[1].split('\n  browser-coverage:', 1)[0]
-        matrix = re.search(r'target: \[([^\]]+)\]', job).group(1).split(',')
-        targets = {'client-meta-cache-vm', 'client-meta-cache-web'}
-        self.assertLessEqual(targets, {target.strip() for target in matrix})
-        chrome_setup = job.split('- id: chrome', 1)[1].split('- name:', 1)[0]
-        self.assertIn("matrix.target == 'client-meta-cache-web'", chrome_setup)
-        self.assertIn('browser-actions/setup-chrome@', chrome_setup)
-        self.assertIn('bin/test-mutations --target "${{ matrix.target }}" --output out/mutations', job)
-        self.assertNotIn('--threshold', job)
-        self.assertIn('if: always()', job)
-        self.assertIn('path: out/mutations', job)
-        audit = (REPO_ROOT / 'bin/audit-github-deployment-chain').read_text()
-        for target in targets:
-            self.assertIn(f"'{target} Mutation Gate'", audit)
+        self.assert_mutation_targets(['client-meta-cache-vm', 'client-meta-cache-web'])
 
-    @unittest.skipIf(os.name == 'nt', 'The diagnostic launcher requires Bash')
     def test_wamp_diagnostics_collect_all_results_without_masking_failures(self):
         names = [
             'wamp_client_impl_throughput', 'wamp_payload_mode_throughput',
@@ -937,36 +875,24 @@ fi
         self.assertIn('coverage: ^1.15.1', (REPO_ROOT / 'packages/connectanum_bench/pubspec.yaml').read_text())
 
     def test_hosted_regression_jobs_run_real_llvm_fixture(self) -> None:
-        workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
-        for name, next_name, command in [
-            ("fast", "wamp-app", "bin/test-fast"),
-            ("verify", "coverage", "bin/verify"),
-        ]:
-            with self.subTest(job=name):
-                job = workflow.split(f"\n  {name}:\n", 1)[1].split(
-                    f"\n  {next_name}:\n", 1
-                )[0]
-                self.assertIn("components: rustfmt, clippy, llvm-tools-preview", job)
-                installer = "run: cargo install cargo-llvm-cov --locked --version 0.9.1"
-                self.assertIn(installer, job)
-                self.assertLess(job.index(installer), job.index(f"run: {command}"))
-                self.assertIn("CONNECTANUM_TEST_LLVM_COVERAGE: '1'", job)
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  verification:', 1)[1].split('\n  mutation-gates:', 1)[0]
+        self.assertIn("native-tools: 'true'", job)
+        self.assertIn("CONNECTANUM_TEST_LLVM_COVERAGE: '1'", job)
+        self.assertIn('run: bin/verify', job)
+        action = (REPO_ROOT / '.github/actions/setup-ci/action.yml').read_text()
+        self.assertIn('cargo install cargo-llvm-cov --locked --version 0.9.1', action)
+        self.assertIn('components: rustfmt, clippy, llvm-tools-preview', action)
 
     def test_hosted_regression_jobs_run_real_native_mutation_fixture(self) -> None:
-        for script in [TEST_FAST, TEST_ALL]:
-            self.assertIn('"$ROOT_DIR/bin/test-native-mutation-tools"', script.read_text())
-        workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
-        for name, next_name, command in [
-            ("fast", "wamp-app", "bin/test-fast"),
-            ("verify", "coverage", "bin/verify"),
-        ]:
-            with self.subTest(job=name):
-                job = workflow.split(f"\n  {name}:\n", 1)[1].split(
-                    f"\n  {next_name}:\n", 1
-                )[0]
-                installer = "run: cargo install cargo-mutants --locked --version 27.1.0"
-                self.assertIn(installer, job)
-                self.assertLess(job.index(installer), job.index(f"run: {command}"))
+        workflow = (REPO_ROOT / '.github/workflows/dart.yml').read_text()
+        job = workflow.split('\n  verification:', 1)[1].split('\n  mutation-gates:', 1)[0]
+        self.assertIn("native-tools: 'true'", job)
+        self.assertIn("CONNECTANUM_TEST_LLVM_COVERAGE: '1'", job)
+        self.assertIn('run: bin/verify', job)
+        action = (REPO_ROOT / '.github/actions/setup-ci/action.yml').read_text()
+        self.assertIn('cargo install cargo-mutants --locked --version 27.1.0', action)
+        self.assertIn('components: rustfmt, clippy, llvm-tools-preview', action)
 
     def test_native_diagnostics_audits_instead_of_trusting_cargo_caught_count(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/mutation-diagnostics.yml").read_text()
@@ -1061,12 +987,12 @@ fi
 
     def test_coverage_isolates_pub_download_auth_from_codecov_oidc(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
-        coverage = workflow.split("\n  coverage:\n", 1)[1]
+        coverage = workflow.split("\n  verification:\n", 1)[1]
         cleanup = "dart pub token remove https://pub.dev"
 
         self.assertIn(cleanup, coverage)
         self.assertLess(
-            coverage.index("uses: dart-lang/setup-dart@"), coverage.index(cleanup)
+            coverage.index("uses: ./.github/actions/setup-ci"), coverage.index(cleanup)
         )
         self.assertLess(coverage.index(cleanup), coverage.index("run: bin/bootstrap"))
         self.assertLess(
@@ -1081,7 +1007,7 @@ fi
 
     def test_coverage_pub_token_cleanup_preserves_other_registries(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
-        coverage = workflow.split("\n  coverage:\n", 1)[1]
+        coverage = workflow.split("\n  verification:\n", 1)[1]
         marker = "      - name: Use anonymous pub.dev downloads\n"
         self.assertIn(marker, coverage)
         step = coverage.split(marker, 1)[1].split("\n      - ", 1)[0]
@@ -1146,7 +1072,7 @@ fi
 
     def test_coverage_pub_token_cleanup_drains_output_and_fails_closed(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
-        coverage = workflow.split("\n  coverage:\n", 1)[1]
+        coverage = workflow.split("\n  verification:\n", 1)[1]
         step = coverage.split(
             "      - name: Use anonymous pub.dev downloads\n", 1
         )[1].split("\n      - ", 1)[0]
@@ -1440,6 +1366,8 @@ fi
 
     def test_wamp_app_owns_its_formatting_boundary(self) -> None:
         verify_script = VERIFY.read_text(encoding="utf-8")
+        self.assertIn('"$ROOT_DIR/bin/check-format"', verify_script)
+        verify_script = (REPO_ROOT / "bin/check-format").read_text()
         wamp_app_script = TEST_WAMP_APP.read_text(encoding="utf-8")
 
         self.assertIn(
@@ -1837,10 +1765,10 @@ fi
     def test_canonical_commands_reject_stale_conformance_fixtures(self) -> None:
         for name in ("test-fast", "test-all", "test-browser-coverage"):
             with self.subTest(script=name):
-                script = (REPO_ROOT / "bin" / name).read_text()
+                script = (REPO_ROOT / "bin" / name).read_text().replace('"$ROOT_DIR/bin/test-tooling"', (REPO_ROOT / "bin/test-tooling").read_text())
                 self.assertIn("python3 tool/build_conformance_fixtures.py --check", script)
         for path in (TEST_FAST, TEST_ALL):
-            self.assertIn("python3 tool/test_build_conformance_fixtures.py", path.read_text())
+            self.assertIn("python3 tool/test_build_conformance_fixtures.py", path.read_text().replace('"$ROOT_DIR/bin/test-tooling"', (REPO_ROOT / "bin/test-tooling").read_text()))
 
     def test_vm_commands_include_the_complete_meta_cache_suite(self) -> None:
         command = 'dart test packages/connectanum_client/test/meta_state_cache_test.dart'

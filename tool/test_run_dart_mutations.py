@@ -181,8 +181,9 @@ class MutationRunnerTests(unittest.TestCase):
             'packages/connectanum_router/test/http_auth_provider_regression_test.dart',
             'packages/connectanum_router/test/http_auth_claim_matching_test.dart'})
         workflow = (runner.ROOT / '.github/workflows/dart.yml').read_text()
-        matrix = workflow.split('target: [', 1)[1].split(']', 1)[0]
-        self.assertIn('router-http-auth-vm', [item.strip() for item in matrix.split(',')])
+        groups = json.loads((runner.ROOT / 'tool/ci_mutation_groups.json').read_text())
+        self.assertIn('router-http-auth-vm', {item for group in groups.values() for item in group})
+        self.assertIn('- group: router-http-auth-vm', workflow)
         audit = (runner.ROOT / 'bin/audit-github-deployment-chain').read_text()
         self.assertIn("'router-http-auth-vm Mutation Gate'", audit)
 

@@ -1,9 +1,39 @@
 # Project State
 
-Last updated: 2026-10-08.
+Last updated: 2026-10-09.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
+
+Current follow-up (2026-10-09): CI repair for [PR #108](https://github.com/konsultaner/connectanum-dart/pull/108).
+Branch `codex/ci-execution-sharing` starts from merged master `0e585405`;
+the beta.8 release branch/head remains preserved separately. The first run at
+`163699a0` fails before tests because setup-dart registers its matcher from the
+parent composite path. The explicit matcher opt-out at `15bbac7f` fixes shared
+setup; hosted Fast Checks, package dry runs, browser coverage, shared native
+build and completed mutation gates pass. Fresh local `bin/test-fast` and
+canonical `bin/verify` also pass (Rust, VM, consumers, Chrome/Dart2Wasm; 4,751
+core, 2,829 client, 20 unchanged native-only skips).
+
+The replacement [run 37850365570](https://github.com/konsultaner/connectanum-dart/actions/runs/37850365570)
+then exposes missing native benchmark coverage: its process intentionally
+clears `CONNECTANUM_NATIVE_LIB`, while the shared library only exists under
+`out/ci-native`. One ABI test fails and 230 native cases skip. Prepare now
+installs and verifies the same artifact at the conventional ffi-test location,
+using atomic replacement; dependency, source, toolchain, profile and digest
+checks remain enforced. The real Dart discovery regression fails before the
+fix and passes after it. All 14 CI execution contracts pass; the actual native
+copy ABI case passes with the override unset and no skips. Fresh verification
+of this artifact-path correction and replacement hosted acceptance are pending.
+
+All six hosted MCP shards and independently regenerated aggregation complete
+all 1,101 mutants; the adjusted assertion score is 97.37783075089392%, above
+the original 95% gate. This evidence is for `15bbac7f`. The separate macOS
+artifact job initially cannot acquire a runner; its targeted retry passes on
+unchanged artifact head `163699a0` (run 37810537255, attempt 2). Inventories,
+coverage scopes/floors and deadlines stay unchanged. Local companion attempts
+remain blocked by the active native mutation resource lease. Scope and proof:
+[CI plan](research/2026-10-08-ci-execution-sharing.md).
 
 Current follow-up (2026-10-08): PR #105 Codecov project regression.
 At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;

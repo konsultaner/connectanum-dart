@@ -218,46 +218,35 @@ fi
 
 build_native_ffi_test_release
 
-python3 tool/test_package_native_artifact.py
-python3 tool/test_native_artifact_consumers.py
-python3 tool/test_package_wamp_app.py
-python3 tool/test_run_wamp_app_lab.py
-python3 tool/test_check_wamp_app_benchmarks.py
-python3 tool/test_verification_scripts.py
-python3 tool/test_mcp_consumer_package_boundary.py
-python3 tool/build_conformance_fixtures.py --check
-python3 tool/test_build_conformance_fixtures.py
-python3 tool/generate_wamp_flatbuffers.py --verify-inputs-only
-python3 tool/test_generate_wamp_flatbuffers.py
-python3 tool/test_generate_bench_flatbuffers.py
-python3 tool/test_wamp_serializer_compare.py
-python3 tool/test_run_wamp_serializer_campaign.py
-python3 tool/check_public_artifact_references.py
-python3 tool/test_public_artifact_references.py
-python3 tool/test_dart_package_publish_dry_run.py
-python3 tool/test_audit_github_deployment_chain.py
-python3 tool/test_router_image_mcp_smoke.py
-python3 tool/test_check_coverage.py
-python3 tool/test_run_native_guardmalloc.py
-python3 tool/test_run_dart_mutations.py
-python3 tool/test_flutter_mutations.py
-python3 tool/test_websocket_integration.py
-python3 tool/test_dart_mutations.py
-dart test packages/connectanum_core/test
-dart test packages/connectanum_mcp/test
-dart test packages/connectanum/test
+if [[ "${CONNECTANUM_CI_VERIFY:-0}" != "1" ]]; then
+  "$ROOT_DIR/bin/test-tooling"
+fi
+if [[ "${CONNECTANUM_CI_VERIFY:-0}" == "1" ]]; then
+  # These are the complete VM suites, retaining every isolated runtime process.
+  "$ROOT_DIR/bin/test-coverage"
+else
+  dart test packages/connectanum_core/test
+  dart test packages/connectanum_mcp/test
+  dart test packages/connectanum/test
+  run_client_vm_tests
+  dart test packages/connectanum_auth_server/test
+  run_bench_vm_tests
+  run_router_vm_tests
+  run_router_zero_copy_publish_tests
+fi
 run_mcp_server_package_smoke
 run_mcp_client_package_smoke
 run_client_consumer_package_smoke
-run_client_vm_tests
-dart test packages/connectanum_auth_server/test
-run_bench_vm_tests
 run_bench_cli_consumer_package_smoke
 run_router_hosted_mcp_example_smoke
 run_mcp_consumer_package_smoke
 run_router_cli_consumer_package_smoke
-run_router_vm_tests
-run_router_zero_copy_publish_tests
+
+# The parallel browser coverage lane executes the full hosted JS inventory.
+if [[ "${CONNECTANUM_CI_VERIFY:-0}" == "1" ]]; then
+  printf 'CI browser suites are enforced by the parallel browser coverage lane.\n'
+  exit 0
+fi
 
 if ensure_chrome_env; then
   run_core_browser_tests

@@ -478,6 +478,15 @@ cargo_workspace_check() {
 }
 
 build_native_ffi_test_release() {
+  if [[ -n "${CONNECTANUM_CI_NATIVE_DIR:-}" ]]; then
+    # Only same-run source/toolchain/profile-verified test artifacts may bypass a build.
+    if ! CONNECTANUM_NATIVE_LIB="$(python3 "$ROOT_DIR/tool/ci_native_artifact.py" prepare \
+      --directory "$ROOT_DIR/$CONNECTANUM_CI_NATIVE_DIR")"; then
+      return 1
+    fi
+    export CONNECTANUM_NATIVE_LIB
+    return 0
+  fi
   local target_dir
   local built_lib
 
