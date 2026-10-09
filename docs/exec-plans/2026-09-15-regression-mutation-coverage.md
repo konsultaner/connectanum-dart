@@ -38,6 +38,43 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Work432 Transient Rejected Companion Confirmation
+
+Treat full432 as terminal partial evidence only. Its committed `41831b65`
+preflight passed canonical verification and froze exact inventories of 1,970
+Core and 1,297 FFI candidates. Default and lean controls independently audited
+the same 31 outcomes and 552 baseline tests; lean kept the lower measured cache
+footprint. The exact Core campaign retained 24 of 32 audited batches and stopped
+incomplete after 20,544.48 seconds. FFI never started, so neither the partial
+Core outcomes nor full432 establish a score or gate. Preserve all raw evidence.
+
+Full432 failed when three worker samplers saw PID 82229 as an active
+`ollama_companion.py tests` request in a single process-table snapshot. The
+exclusive campaign lease remained intact and rejected that request's shared
+lease; the contender exited immediately afterward. The independent process
+guard therefore needs to distinguish that bounded startup/lease-rejection race
+without accepting real overlap. Reproduce visible-then-gone snapshots before
+changing behavior. After an initial candidate only, wait 750 ms and require the
+same PID, parent, executable, script and role in a fresh successful snapshot.
+State changes do not change identity. Do not delay ordinary empty snapshots.
+Persistent matches still block; PID reuse, confirmation timeout and any
+non-timeout process-table failure stay fail-closed and uncredited.
+
+The fail-first race regression fails the prior one-snapshot implementation.
+Focused resource coverage now has 37 passing tests, including no-delay empty
+sampling, persistent/state-changing identity, disappearance, PID reuse,
+initial and confirmation snapshot failures. All 182 native mutation-tool tests
+pass, the pre-change `bin/test-fast` baseline passes and fresh exact-code
+`bin/verify` passes, including native, Dart, integration and Chrome/Dart2Wasm
+suites. Commit implementation/tests/plan state together, then use a new full433
+directory and matching immutable snapshot. Regenerate both
+exact inventories and repeat controls plus complete Core and FFI campaigns with
+unchanged candidates, operators, original tests, assertions, deadlines, four
+workers/four Cargo jobs, disk limits and independent 95% gates. The full432
+launchd service is unloaded, exact owners are absent and the global lease is
+free. Both gates and the detailed actual measurement report remain open; no
+push or publication.
+
 ### Work430/431 Admission-Safe Project Cache Reclamation
 
 Treat full430 as terminal, complete preflight evidence and a failed collection
@@ -89,13 +126,11 @@ seconds, the complete 15-test file in 47.393 seconds, and a fresh
 concurrency-free `bin/test-fast` exits zero including real Cargo, live WAMP,
 router, MCP and consumer smokes.
 
-Commit the fixture regression and plan state together, then launch full432 from
-that clean fingerprint. Require completed cleanup proof with matching tracked
-and stage inventories before accepting preflight. Freeze fresh exact
-inventories and run matching controls plus complete Core/FFI campaigns with the
-original tests, assertions, operators, deadlines, four workers/four Cargo jobs,
-evidence allowances and independent 95% gates. Both gates and the detailed
-actual runtime/resource report remain open; no push or publication.
+The fixture regression and plan state were committed together as `41831b65`.
+Full432 then launched from that clean fingerprint with the required completed
+cleanup proofs; its terminal partial outcome is recorded in Work432. Both gates
+and the detailed actual runtime/resource report remain open; no push or
+publication.
 
 ### Work429 TLS Regression Scheduling And Verified Cache Reclamation
 

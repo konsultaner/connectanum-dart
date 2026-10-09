@@ -9,7 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import native_mutation_resources as resources
 from run_dart_mutations import run
@@ -56,16 +56,50 @@ class ResourceTests(unittest.TestCase):
         self.assertNotIn('secret', json.dumps(detected))
         self.assertNotIn('/skills/', json.dumps(detected))
 
-    def test_detector_uses_a_bounded_process_snapshot(self):
-        completed = type('Completed', (), {'stdout':
-            ' 101 7 501 S /usr/bin/Python /skills/ollama_companion.py review\n'})()
+    def test_detector_empty_snapshot_avoids_confirmation_delay(self):
+        completed = type('Completed', (), {'stdout': ''})()
         with patch.object(resources.subprocess, 'run', return_value=completed) as run, \
                 patch.object(resources.time, 'sleep') as sleep:
-            self.assertEqual(self.real_competing_processes(), [self.companion()])
-        run.assert_called_once_with(
+            self.assertEqual(self.real_competing_processes(), [])
+        run.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_detector_uses_a_bounded_process_snapshot(self):
+        waiting = type('Completed', (), {'stdout':
+            ' 101 7 501 S /usr/bin/Python /skills/ollama_companion.py review\n'})()
+        running = type('Completed', (), {'stdout':
+            ' 101 7 501 R /usr/bin/Python /skills/ollama_companion.py review\n'})()
+        with patch.object(resources.subprocess, 'run', side_effect=(waiting, running)) as run, \
+                patch.object(resources.time, 'sleep') as sleep:
+            self.assertEqual(self.real_competing_processes(), [
+                {**self.companion(), 'state': 'R'},
+            ])
+        expected_snapshot = call(
             ['ps', '-ww', '-axo', 'pid=,ppid=,uid=,state=,args='],
             capture_output=True, text=True, check=True, timeout=5)
-        sleep.assert_not_called()
+        self.assertEqual(run.call_args_list, [expected_snapshot, expected_snapshot])
+        sleep.assert_called_once_with(resources.PROCESS_CONFIRMATION_SECONDS)
+
+    def test_detector_ignores_a_companion_that_exits_before_confirmation(self):
+        visible = type('Completed', (), {'stdout':
+            ' 101 7 501 S /usr/bin/Python /skills/ollama_companion.py review\n'})()
+        gone = type('Completed', (), {'stdout': ''})()
+        with patch.object(resources.subprocess, 'run', side_effect=(visible, gone)) as run, \
+                patch.object(resources.time, 'sleep') as sleep:
+            self.assertEqual(self.real_competing_processes(), [])
+        self.assertEqual(run.call_count, 2)
+        sleep.assert_called_once_with(resources.PROCESS_CONFIRMATION_SECONDS)
+
+    def test_detector_does_not_confirm_a_reused_pid_with_a_new_identity(self):
+        original = type('Completed', (), {'stdout':
+            ' 101 7 501 S /usr/bin/Python /skills/ollama_companion.py review\n'})()
+        reused = type('Completed', (), {'stdout':
+            ' 101 8 501 R /usr/bin/Python /skills/ollama_companion.py review\n'})()
+        with patch.object(resources.subprocess, 'run', side_effect=(original, reused)) as run, \
+                patch.object(resources.time, 'sleep') as sleep:
+            self.assertEqual(self.real_competing_processes(), [])
+        self.assertEqual(run.call_count, 2)
+        sleep.assert_called_once_with(resources.PROCESS_CONFIRMATION_SECONDS)
 
     def test_detector_retries_a_transient_snapshot_timeout_from_scratch(self):
         timed_out = resources.subprocess.TimeoutExpired(
@@ -74,12 +108,43 @@ class ResourceTests(unittest.TestCase):
         completed = type('Completed', (), {'stdout':
             ' 101 7 501 S /usr/bin/Python /skills/ollama_companion.py review\n'})()
         with patch.object(resources.subprocess, 'run',
-                          side_effect=(timed_out, completed)) as run, \
+                          side_effect=(timed_out, completed, completed)) as run, \
                 patch.object(resources.time, 'sleep') as sleep:
             self.assertEqual(self.real_competing_processes(), [self.companion()])
-        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_count, 3)
         self.assertEqual(run.call_args_list[0], run.call_args_list[1])
-        sleep.assert_called_once_with(resources.PROCESS_SNAPSHOT_RETRY_SECONDS)
+        self.assertEqual(run.call_args_list[1], run.call_args_list[2])
+        self.assertEqual(sleep.call_args_list, [
+            call(resources.PROCESS_SNAPSHOT_RETRY_SECONDS),
+            call(resources.PROCESS_CONFIRMATION_SECONDS),
+        ])
+
+    def test_detector_confirmation_timeout_still_fails_closed(self):
+        completed = type('Completed', (), {'stdout':
+            ' 101 7 501 S /usr/bin/Python /skills/ollama_companion.py review\n'})()
+        timed_out = resources.subprocess.TimeoutExpired(cmd=['ps'], timeout=5)
+        with patch.object(resources.subprocess, 'run',
+                          side_effect=(completed, timed_out, timed_out, timed_out)) as run, \
+                patch.object(resources.time, 'sleep') as sleep, \
+                self.assertRaises(resources.subprocess.TimeoutExpired):
+            self.real_competing_processes()
+        self.assertEqual(run.call_count, 1 + resources.PROCESS_SNAPSHOT_ATTEMPTS)
+        self.assertEqual(sleep.call_args_list, [
+            call(resources.PROCESS_CONFIRMATION_SECONDS),
+            call(resources.PROCESS_SNAPSHOT_RETRY_SECONDS),
+            call(resources.PROCESS_SNAPSHOT_RETRY_SECONDS),
+        ])
+
+    def test_detector_confirmation_error_still_fails_closed(self):
+        completed = type('Completed', (), {'stdout':
+            ' 101 7 501 S /usr/bin/Python /skills/ollama_companion.py review\n'})()
+        denied = resources.subprocess.CalledProcessError(1, ['ps'])
+        with patch.object(resources.subprocess, 'run', side_effect=(completed, denied)) as run, \
+                patch.object(resources.time, 'sleep') as sleep, \
+                self.assertRaises(resources.subprocess.CalledProcessError):
+            self.real_competing_processes()
+        self.assertEqual(run.call_count, 2)
+        sleep.assert_called_once_with(resources.PROCESS_CONFIRMATION_SECONDS)
 
     def test_detector_persistent_snapshot_timeout_still_fails_closed(self):
         timed_out = resources.subprocess.TimeoutExpired(cmd=['ps'], timeout=5)

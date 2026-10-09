@@ -19,6 +19,7 @@ COMPANION_SCRIPTS = frozenset(('ollama_companion.py', 'llama_companion.py'))
 COMPANION_ROLES = frozenset(('ask', 'debug', 'judge', 'review', 'summarize', 'tests'))
 PROCESS_SNAPSHOT_ATTEMPTS = 3
 PROCESS_SNAPSHOT_RETRY_SECONDS = .05
+PROCESS_CONFIRMATION_SECONDS = .75
 SCHEMA_VERSION = 3
 
 
@@ -87,7 +88,7 @@ def parse_competing_processes(output, uid=None):
     return [detected[pid] for pid in sorted(detected)]
 
 
-def competing_processes():
+def _process_snapshot():
     for attempt in range(PROCESS_SNAPSHOT_ATTEMPTS):
         try:
             result = subprocess.run(
@@ -101,6 +102,25 @@ def competing_processes():
             # A timed-out snapshot may be partial; retry the whole process table.
             time.sleep(PROCESS_SNAPSHOT_RETRY_SECONDS)
     return parse_competing_processes(result.stdout)
+
+
+def competing_processes():
+    initial = _process_snapshot()
+    if not initial:
+        return []
+
+    # A companion rejected by the exclusive mutation lease can be briefly visible
+    # before its process exits. Confirm the same process identity before cancelling.
+    time.sleep(PROCESS_CONFIRMATION_SECONDS)
+    confirmed = _process_snapshot()
+    identity_fields = ('pid', 'ppid', 'executable', 'script', 'role')
+    initial_identities = {
+        tuple(process[field] for field in identity_fields) for process in initial
+    }
+    return [
+        process for process in confirmed
+        if tuple(process[field] for field in identity_fields) in initial_identities
+    ]
 
 
 def tree_usage(path, children=()):

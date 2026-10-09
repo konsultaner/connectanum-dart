@@ -1,11 +1,40 @@
 # Project State
 
-Last updated: 2026-10-08
+Last updated: 2026-10-09
 Current branch: `codex/mutation-runner-speed`
 Current milestone: bound mutation-runner disk usage and measure complete native
 campaigns without narrowing inventories, test suites, deadlines or evidence gates.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work432: full432 is terminal, incomplete and unscored. Canonical verification
+passed at committed fingerprint `41831b65`, then the frozen snapshot generated
+the exact 1,970-Core and 1,297-FFI inventories. Default and lean 31-candidate
+Core controls had identical audited outcomes and 552 baseline tests; the lean
+profile retained the lower scratch footprint. The exact Core run completed and
+retained 24 of 32 audited batches before stopping after 20,544.48 seconds; FFI
+never started. These partial counts are neither a component score nor a gate.
+
+The terminal cause was the live-process guard observing PID 82229, a local
+companion request, in one process-table snapshot. The machine-wide exclusive
+mutation lease remained held: the companion was rejected by the shared lease
+and exited in under the next sampling interval, but three workers had already
+failed closed from the single transient sighting. A fail-first regression now
+reproduces visible-then-gone snapshots. The detector confirms the same
+PID/PPID/executable/script/role after a bounded 750-ms interval only when an
+initial candidate exists; persistent candidates still cancel, PID reuse is not
+accepted, and confirmation timeout or process-table failure remains fail-closed.
+Ordinary empty snapshots add no delay. The focused resource suite passes 37
+tests and all native mutation-tool suites pass 182 tests. The pre-change
+`bin/test-fast` baseline also passed. Fresh exact-code `bin/verify` passes,
+including the native, Dart, integration and Chrome/Dart2Wasm suites. Commit this
+implementation, tests and state together before starting a fresh full433
+campaign.
+
+Preserve all full432 raw evidence unchanged. Its launchd service is unloaded,
+the exact supervisor/coordinator/workers are absent and the global resource
+lease has no holder. Both independent 95% gates and the detailed final
+measurement report remain open; no push/publication.
 
 Work430/431: full430 completed canonical verification and froze exact
 inventories of 1,970 Core and 1,297 FFI candidates, but failed admission before
@@ -30,9 +59,9 @@ double maps each 100-ms poll to 10 ms while recording and asserting all exactly
 reverse cleanup, runtime-temp, process-escalation and released-port assertions
 remain. The focused case passes in 4.978 seconds, all 15 WAMP-app tests pass in
 47.393 seconds, and fresh concurrency-free `bin/test-fast` exits zero including
-real Cargo, live WAMP, router, MCP and consumer smokes. Commit the test and state
-together, then run a fresh full432 clean matching preflight and complete
-collection. Both native 95% gates and the detailed measurement report remain
+real Cargo, live WAMP, router, MCP and consumer smokes. The test and state were
+committed together at `41831b65`; full432's subsequent terminal outcome is
+recorded above. Both native 95% gates and the detailed measurement report remain
 open; no push/publication.
 
 Work429: full427 and full428 are terminal preflight failures; neither froze a
