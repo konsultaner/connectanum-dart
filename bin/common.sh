@@ -1532,6 +1532,8 @@ run_public_router_hosted_mcp_client_live_smoke() (
   local secure_endpoint
   local secure_json_endpoint
   local scram_summary
+  local server_dir
+  local server_executable
   local server_log
   local server_pid
   local status
@@ -1540,6 +1542,8 @@ run_public_router_hosted_mcp_client_live_smoke() (
   local wampcra_summary
 
   server_log="$(mktemp "${TMPDIR:-/tmp}/connectanum-router-hosted-mcp.XXXXXX")"
+  server_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-router-hosted-mcp-bin.XXXXXX")"
+  server_executable="$server_dir/router_hosted_mcp"
 
   cleanup() {
     local attempt
@@ -1567,11 +1571,21 @@ run_public_router_hosted_mcp_client_live_smoke() (
     if [[ -n "${server_log:-}" ]]; then
       rm -f "$server_log"
     fi
+    if [[ -n "${server_dir:-}" ]]; then
+      rm -rf "$server_dir"
+    fi
   }
   trap cleanup EXIT
 
-  dart run packages/connectanum_router/example/router_hosted_mcp.dart \
-    >"$server_log" 2>&1 &
+  # Build hooks finish before the endpoint-readiness deadline starts.
+  if ! dart compile exe packages/connectanum_router/example/router_hosted_mcp.dart \
+    -o "$server_executable" >"$server_log" 2>&1; then
+    printf 'Failed to compile the router-hosted MCP example.\n'
+    cat "$server_log"
+    return 1
+  fi
+
+  "$server_executable" "${CONNECTANUM_NATIVE_LIB:-}" >"$server_log" 2>&1 &
   server_pid="$!"
   timeout_at=$((SECONDS + 120))
 

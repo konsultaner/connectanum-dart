@@ -77,60 +77,62 @@ Future<void> main(List<String> args) async {
 
   try {
     await _registerExampleApi(serviceSession);
-    await _smokeMcpProtocolVersionCompatibility(binding, label: 'public');
-    await _smokeMcpEndpoint(
-      publicMcpClient,
-      label: 'public',
-      serviceSession: serviceSession,
-    );
+    if (smokeAndExit) {
+      await _smokeMcpProtocolVersionCompatibility(binding, label: 'public');
+      await _smokeMcpEndpoint(
+        publicMcpClient,
+        label: 'public',
+        serviceSession: serviceSession,
+      );
 
-    await _assertSecureMcpRequiresBearer(binding);
-    await _assertSecureMcpRequiresBearer(
-      binding,
-      endpoint: _secureJsonPostMcpEndpoint(binding),
-      routeLabel: 'Bearer-protected JSON-response MCP endpoint',
-    );
-    final grant = await _issueTicketHttpGrant(binding);
-    final otherGrant = await _issueTicketHttpGrant(
-      binding,
-      authId: _otherTicketAuthId,
-    );
-    await _smokeMcpProtocolVersionCompatibility(
-      binding,
-      label: 'secure',
-      secure: true,
-      authGrant: grant,
-    );
-    await _assertSecureMcpRejectsBearer(
-      binding,
-      'example-unknown-access-token',
-      endpoint: _secureJsonPostMcpEndpoint(binding),
-      acceptedMessage:
-          'Bearer-protected JSON-response MCP endpoint accepted an unknown '
-          'access token.',
-    );
-    await _smokeSecureJsonPostMcpEndpoint(
-      binding,
-      grant,
-      otherGrant: otherGrant,
-      serviceSession: serviceSession,
-    );
-    secureMcpClient = McpStreamableHttpClient.withAuthGrant(
-      _mcpEndpoint(binding, secure: true),
-      grant,
-    );
-    await _smokeMcpEndpoint(
-      secureMcpClient,
-      label: 'secure',
-      serviceSession: serviceSession,
-    );
-    await _smokeSecureMcpSessionIsolation(
-      binding,
-      grant,
-      otherGrant: otherGrant,
-      serviceSession: serviceSession,
-    );
-    await _smokeSecureMcpRefreshAndRevocation(binding, grant);
+      await _assertSecureMcpRequiresBearer(binding);
+      await _assertSecureMcpRequiresBearer(
+        binding,
+        endpoint: _secureJsonPostMcpEndpoint(binding),
+        routeLabel: 'Bearer-protected JSON-response MCP endpoint',
+      );
+      final grant = await _issueTicketHttpGrant(binding);
+      final otherGrant = await _issueTicketHttpGrant(
+        binding,
+        authId: _otherTicketAuthId,
+      );
+      await _smokeMcpProtocolVersionCompatibility(
+        binding,
+        label: 'secure',
+        secure: true,
+        authGrant: grant,
+      );
+      await _assertSecureMcpRejectsBearer(
+        binding,
+        'example-unknown-access-token',
+        endpoint: _secureJsonPostMcpEndpoint(binding),
+        acceptedMessage:
+            'Bearer-protected JSON-response MCP endpoint accepted an unknown '
+            'access token.',
+      );
+      await _smokeSecureJsonPostMcpEndpoint(
+        binding,
+        grant,
+        otherGrant: otherGrant,
+        serviceSession: serviceSession,
+      );
+      secureMcpClient = McpStreamableHttpClient.withAuthGrant(
+        _mcpEndpoint(binding, secure: true),
+        grant,
+      );
+      await _smokeMcpEndpoint(
+        secureMcpClient,
+        label: 'secure',
+        serviceSession: serviceSession,
+      );
+      await _smokeSecureMcpSessionIsolation(
+        binding,
+        grant,
+        otherGrant: otherGrant,
+        serviceSession: serviceSession,
+      );
+      await _smokeSecureMcpRefreshAndRevocation(binding, grant);
+    }
 
     final endpoint = _mcpEndpoint(binding);
     final secureEndpoint = _mcpEndpoint(binding, secure: true);

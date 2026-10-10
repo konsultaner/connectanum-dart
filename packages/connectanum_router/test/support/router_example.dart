@@ -11,6 +11,7 @@ class RouterExample {
   final Process process;
   final ready = Completer<void>();
   final subscriptions = <StreamSubscription<String>>[];
+  bool sawSelfSmokeOutput = false;
   Uri? address;
   Future<int>? _closing;
 
@@ -44,6 +45,9 @@ class RouterExample {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
+            if (line.startsWith('[public] Direct JSON-RPC result:')) {
+              fixture.sawSelfSmokeOutput = true;
+            }
             const prefix = 'Router-hosted MCP endpoint is running at ';
             if (line.startsWith(prefix)) {
               fixture.address = Uri.parse(line.substring(prefix.length));

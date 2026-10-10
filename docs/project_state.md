@@ -1,11 +1,30 @@
 # Project State
 
-Last updated: 2026-10-09
+Last updated: 2026-10-10
 Current branch: `codex/mutation-runner-speed`
 Current milestone: make full native campaigns restart-resumable, then measure
 both gates without narrowing inventories, tests, deadlines or evidence rules.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Work436 is terminal preflight evidence only: its canonical verification timed
+out waiting for the interactive router example to become ready within the
+unchanged 20-second lifecycle test deadline. No mutation inventory, collection
+or score from full436 counts toward either gate. The example now runs its
+exhaustive MCP self-smokes only in `--smoke-and-exit` mode, so interactive
+readiness follows API registration. A regression test rejects self-smoke output
+during interactive startup. The public shell smoke compiles the example before
+starting its unchanged endpoint-readiness clock; this prevents cold Dart build
+hooks from consuming that clock. Focused lifecycle, CLI and smoke checks pass,
+and complete `bin/verify` passes on 2026-10-10 (log
+`/tmp/connectanum-verify-aot-20261010.log`, SHA-256
+`1eb1ba7079665621117dbd460200db618f580da7516ab709abd17411f4ce92e1`).
+The earlier ad hoc router-suite native-runtime failures were caused by omitting
+the canonical `CONNECTANUM_NATIVE_LIB` setting; the canonical router suite
+passed 4,958 tests. A fresh full campaign requires this implementation's
+committed fingerprint and disk admission. Both strict 95% native gates and
+the Dart/browser/Flutter coverage objective remain open; preserve full436 raw
+evidence unchanged. No push or publication.
 
 Work434: the fresh campaign at `67749bea` completed canonical verification and
 both timing controls, then began its exact 1,970-candidate Core collection. It

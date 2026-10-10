@@ -1,6 +1,6 @@
 # Regression And Mutation Coverage
 
-Status: deferred in this worktree by the explicit FlatBuffers milestone goal
+Status: active; full436 preflight is terminal and a fresh campaign is pending
 Started: 2026-09-15
 Baseline: `8248ad62` (PR #92 merged into master as `f3323e48`)
 
@@ -37,6 +37,30 @@ applications. Report these scopes separately; never treat missing data as 100%.
 There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
+
+### Work436 Router Example Preflight And Fresh Campaign
+
+Full436 failed canonical preflight when the interactive router-hosted example
+did not report readiness inside the unchanged 20-second lifecycle test
+deadline. Its raw evidence is terminal, incomplete and unscored. No exact
+native collection started. Interactive example startup now registers the API
+and reports readiness without running the exhaustive self-smoke suite; the
+`--smoke-and-exit` path retains all checks. The lifecycle regression rejects
+self-smoke output during interactive startup. The public shell smoke compiles
+the example before starting its unchanged endpoint-readiness clock, so cold
+build hooks are setup work rather than endpoint latency. Focused lifecycle,
+CLI and smoke checks and complete `bin/verify` pass on 2026-10-10. The final
+verification log is `/tmp/connectanum-verify-aot-20261010.log`, SHA-256
+`1eb1ba7079665621117dbd460200db618f580da7516ab709abd17411f4ce92e1`.
+
+Use the committed implementation, regression test and state as the new
+fingerprint. Before starting a fresh campaign, use only the existing guarded
+project-cache reclamation path if necessary to satisfy the unchanged disk
+policy; do not touch full436 or any prior raw evidence. Repeat canonical
+preflight, exact inventories, controls, and both full Core/FFI gates with the
+original operators, tests, deadlines, 32 batches, four workers/four Cargo jobs,
+resource policy and independent 95% thresholds. No partial outcomes count.
+No push or publication; the detailed actual measurement report remains open.
 
 ### Work433 Host-Reboot Recovery And Immutable Resume
 
