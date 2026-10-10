@@ -1,9 +1,54 @@
 # Project State
 
-Last updated: 2026-10-09.
+Last updated: 2026-10-10.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
+
+Current follow-up (2026-10-10): synchronized beta.8 publication is complete.
+The user merges PR #107 through protected master at `73d840c9`; its tree exactly
+matches tested release head `b382b21c`. All eight release/package tags point to
+that merge. [Native release v3.0.0-beta.8](https://github.com/konsultaner/connectanum-dart/releases/tag/v3.0.0-beta.8)
+is published as a prerelease with 30 assets across five platforms.
+[Native workflow 38033155639](https://github.com/konsultaner/connectanum-dart/actions/runs/38033155639)
+passes all five builds, production consumers, signing and publication. Downloaded
+reports independently verify 170 profile cases with zero skips, exact source,
+log hashes, lifecycle and 48-byte ABI guards. All five published manifests match
+`73d840c9`; fresh client/router installation passes and both binary hashes match
+the production proof. Intel macOS initially queues, then passes on a runner.
+All seven `3.0.0-beta.8` packages are confirmed through the public pub.dev API:
+[core](https://pub.dev/packages/connectanum_core/versions/3.0.0-beta.8),
+[client](https://pub.dev/packages/connectanum_client/versions/3.0.0-beta.8),
+[MCP](https://pub.dev/packages/connectanum_mcp/versions/3.0.0-beta.8),
+[router](https://pub.dev/packages/connectanum_router/versions/3.0.0-beta.8),
+[facade](https://pub.dev/packages/connectanum/versions/3.0.0-beta.8),
+[auth server](https://pub.dev/packages/connectanum_auth_server/versions/3.0.0-beta.8)
+and [bench](https://pub.dev/packages/connectanum_bench/versions/3.0.0-beta.8).
+All seven tag-triggered publication workflows pass in dependency order; hosted
+constraints remain synchronized. An isolated consumer outside the repository
+uses a fresh public cache, all seven exact hosted versions and matching archive
+hashes. Its default hooks download the verified production library. Dart macOS
+bundling changes the install name/ad hoc signature, while all 14 code/data
+sections remain identical. The public native FlatBuffers example passes with
+116 frame bytes, three segments, zero application-input copies and zero
+control-growth copies. The initial benchmark index is stale; refreshing after
+public-index propagation resolves the clean install without changing versions.
+Evidence is retained under `out/beta8-publish-evidence/` and the standalone
+consumer under `/Users/konsultaner/.codex/release-checks/connectanum-beta8-20261010/`.
+Local full `bin/verify` passes on identical tree `b382b21c`; all 36 main jobs,
+seven strict archives and WampApp artifacts also pass there. Post-merge
+[CI 38032968401](https://github.com/konsultaner/connectanum-dart/actions/runs/38032968401)
+currently has 32 passing jobs, with VM coverage and two mutation gates pending
+and no failures. WAMP profile gates and kTLS validation pass on `73d840c9`.
+The closed release PR's separate Codecov comparison loses three hits in
+unchanged router WebSocket polling and MCP timer-identity branches (patch 100%;
+project 93.90% versus 93.91%). Actual LCOV differences are retained; no coverage
+floor is relaxed. Local companion triage is blocked by an active native mutation
+resource lease. The primary checkout and earlier local evidence stay preserved.
+This documentation checkpoint remains local on `codex/publish-3.0.0-beta.8`;
+published source/tags stay at `73d840c9`, avoiding another unchanged CI run.
+Issues #100–#104 and performance/copy acceptance remain open; no ObjectBox
+adapter or stable-release claim is included in this beta checkpoint.
 
 Current follow-up (2026-10-09): integrate merged CI into the beta.8 release.
 The user merges PR #108 at master `759d3d4c`. Release PR #107 then has one
