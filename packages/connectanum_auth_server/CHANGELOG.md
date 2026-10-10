@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.8
+
+- Consume the synchronized remote-authentication service and router graph,
+  including credential identity and rotation fixes.
+
 ## 3.0.0-beta.7
 
 - Consume the synchronized router release with isolated listener configuration

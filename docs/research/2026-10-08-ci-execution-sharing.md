@@ -154,3 +154,58 @@ The separate macOS WampApp job's annotations report hosted runner acquisition
 failure before any build step. A targeted retry succeeds on unchanged
 `163699a0` in run 37810537255, attempt 2; the other platform bundles already
 passed. This is a capacity recovery, distinct from either CI code correction.
+
+## Candidate acceptance evidence (2026-10-09)
+
+Source head `3efbba9957b446fcdf2fe9ccdf40dbdc46409438` is tested by
+[main run 37855378339](https://github.com/konsultaner/connectanum-dart/actions/runs/37855378339).
+Its PR merge commit is `3c7469f50608e0ad79e51bcdcbea148fe0de12ca`, with
+parents `0e58540543d16c842a63af5f626309714c03c86e` and that source head.
+All six MCP shards and aggregation pass. The downloaded
+[aggregate artifact 11585292641](https://github.com/konsultaner/connectanum-dart/actions/runs/37855378339/artifacts/11585292641)
+contains all 1,101 outcomes and the exact independently regenerated inventory;
+clean/restored baseline exit codes are zero, kill evidence is complete, and the
+assertion score is 97.37783075089392% against the unchanged 95% floor.
+All 36 main jobs pass, including Linux VM coverage, every mutation group and
+the required Full Verify aggregate. All 47 PR checks are green; required
+review remains the merge blocker. The package publishing dry run
+[37855378431](https://github.com/konsultaner/connectanum-dart/actions/runs/37855378431)
+and all WampApp platform artifacts
+[37855375300](https://github.com/konsultaner/connectanum-dart/actions/runs/37855375300)
+pass on the same source head.
+
+Observed candidate timings are 1.2 minutes for the shared ffi-test build,
+4.6 minutes for Fast Checks, and 38.8 minutes from MCP shard start through
+completed aggregation. The recorded historical single MCP job took 181.4
+minutes. The complete candidate workflow takes 71.5 minutes, including setup
+and all acceptance jobs. These observations do not establish a
+runner-independent speedup guarantee.
+
+The local CI coverage flow executes all 1,642 benchmark cases with zero skips.
+It fails the library policy on macOS at 3,024/3,111 benchmark lines (97.203%),
+against the hosted 98% floor. The preceding passing Linux artifact from run
+37799818750 covers 3,059/3,111 lines (98.329%). The exact 35-line difference is
+confined to Linux-only CPU/RSS helpers in `dart_vm_metrics.dart`; every other
+benchmark file has identical missing lines. This platform gap does not justify
+changing the floor or platform guards. Hosted Linux remains the acceptance
+check. Canonical `bin/verify`, with a shared artifact recorded at the candidate
+source head and without the CI coverage flag, passes at exit 0, including Rust,
+VM, consumers and Chrome/Dart2Wasm (4,751 core, 2,829 client; 20 unchanged
+native-only browser skips). Evidence:
+`/tmp/connectanum-ci-native-path-canonical-verify.log` and its `.exit` file.
+The final local companion review attempt is still blocked by the native
+mutation campaign's resource lease; neither backend is inferred unavailable.
+
+The completed hosted VM log reports all 1,642 benchmark tests passed with no
+test skips. Its [coverage artifact 11587025098](https://github.com/konsultaner/connectanum-dart/actions/runs/37855378339/artifacts/11587025098)
+measures the expected 3,059/3,111 benchmark lines (98.32851173256188%) and
+44,846/47,751 handwritten VM lines (93.91635777261209%). Both library and
+packaging summaries have empty policy findings. Thus the local macOS gap is
+confirmed as platform-specific; hosted floors remain enforced and pass.
+Required Fast Checks and Full Verify pass on exact published source head
+`3efbba9957b446fcdf2fe9ccdf40dbdc46409438`. The user merges PR #108 at master `759d3d4c` on 2026-10-09.
+
+This final evidence was retained locally during PR #108 review and is now
+recorded after the user merges that PR at master `759d3d4c`. The PR description
+contains its acceptance evidence. Beta.8 release PR #107 incorporates the merged
+CI change while retaining the separate release sequence and review gate.

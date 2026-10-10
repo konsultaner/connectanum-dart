@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 3.0.0-beta.8
 
+- Add native FlatBuffers routing and retained segmented payload forwarding,
+  with lifetime checks across asynchronous session and E2EE paths.
 - Replace short remote-authentication credential fingerprints with
   collision-resistant identities so distinct credentials do not share a
   delegate and file-backed credential rotation reconnects reliably.

@@ -3,7 +3,47 @@
 Last updated: 2026-10-09.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. Draft PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105).
+Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
+
+Current follow-up (2026-10-09): integrate merged CI into the beta.8 release.
+The user merges PR #108 at master `759d3d4c`. Release PR #107 then has one
+execution-plan documentation conflict. Fresh pre-merge `bin/test-fast` passes
+at exit 0 on `85b92916`; baseline evidence is retained under
+`out/ci-release-resync-evidence/`. The merge preserves both the release checklist
+and completed CI acceptance evidence. Package/runtime/crate changes remain the
+approved beta.8 graph; no package is published yet. Canonical `bin/verify`,
+strict package archives and replacement hosted acceptance are pending.
+Required review and protected-master promotion remain mandatory before native
+assets and dependency-ordered pub.dev tags are published. Companion summary
+was initially resource-lease blocked; review then times out on Ollama and cannot
+reach GLM. Manual version/tag review passes; the primary checkout is preserved.
+
+Current follow-up (2026-10-08): coordinated `3.0.0-beta.8` publication.
+The user authorizes another synchronized version bump and pub.dev deployment.
+All seven beta.7 packages are confirmed through the live pub.dev API; beta.8
+is not yet published. The release branch starts from merged master `0e585405`
+and synchronizes seven Dart manifests, their hosted constraints, three Rust
+crate versions, MCP runtime identities, hook fixtures and changelogs.
+Fresh baseline `bin/test-fast` passes at exit 0 before the version edits.
+All 37 release planner/tag/note/intent tests and all seven exact publish-tag
+checks pass. After committing the candidate, all seven strict archive dry runs
+report zero warnings. Full `bin/verify` passes at exit 0 on pushed `7ca882c6`,
+including Rust, VM, native, consumers, router and Chrome/Dart2Wasm (4,751 core,
+2,829 client; the same 20 native-only skips). Companion review is blocked by the
+active native mutation resource lease; manual diff review is complete.
+Ready-for-review [release PR #107](https://github.com/konsultaner/connectanum-dart/pull/107)
+requires one approving review and passing hosted Fast Checks/Full Verify.
+[Native dry run 37799443111](https://github.com/konsultaner/connectanum-dart/actions/runs/37799443111)
+passes all five platforms and the release preview, with publication skipped.
+Downloaded reports independently confirm commit `7ca882c6`, 170 passing public
+profile cases, zero skips, matching log hashes, lifecycle and 48-byte ABI guards.
+Hosted checks pass on original head `7ca882c6`. Its production-profile proof
+remains tied to that head; new integration verification is recorded above.
+Publish matching `v3.0.0-beta.8` native assets first, validate installation, then
+publish core, client, MCP, router, facade, auth server and benchmark package tags
+in dependency order and confirm every hosted version. Existing external-app
+pins remain unchanged until the new graph is published. Issues #100–#104 and
+performance/copy acceptance remain open; this is a beta release checkpoint.
 
 Current follow-up (2026-10-09): CI repair for [PR #108](https://github.com/konsultaner/connectanum-dart/pull/108).
 Branch `codex/ci-execution-sharing` starts from merged master `0e585405`;
@@ -23,17 +63,35 @@ installs and verifies the same artifact at the conventional ffi-test location,
 using atomic replacement; dependency, source, toolchain, profile and digest
 checks remain enforced. The real Dart discovery regression fails before the
 fix and passes after it. All 14 CI execution contracts pass; the actual native
-copy ABI case passes with the override unset and no skips. Fresh verification
-of this artifact-path correction and replacement hosted acceptance are pending.
+copy ABI case passes with the override unset and no skips. Local CI coverage
+executes all 1,642 benchmark cases with zero skips. Its macOS benchmark gate
+measures 97.203% against the 98% Linux CI floor: the exact 35-line difference
+from the passing Linux report is confined to Linux-only CPU/RSS metrics.
+No floor or platform guard is changed. Canonical `bin/verify` with shared
+artifact reuse passes at exit 0 (Rust, VM, consumers, Chrome/Dart2Wasm;
+4,751 core, 2,829 client, 20 unchanged native-only browser skips).
+Replacement hosted Linux acceptance passes on source head `3efbba99`:
+all 1,642 benchmark cases pass, benchmark coverage is 98.329%, handwritten
+VM coverage is 93.916%, and library/packaging policies report no findings.
 
-All six hosted MCP shards and independently regenerated aggregation complete
-all 1,101 mutants; the adjusted assertion score is 97.37783075089392%, above
-the original 95% gate. This evidence is for `15bbac7f`. The separate macOS
+At source head `3efbba99`, all six hosted MCP shards and independently
+regenerated aggregation complete all 1,101 mutants; the uploaded outcomes
+exactly match the fresh inventory, both baselines pass, and the assertion score
+is 97.37783075089392%, above the original 95% gate. The latest
+[main run 37855378339](https://github.com/konsultaner/connectanum-dart/actions/runs/37855378339)
+passes all 36 jobs, including Linux coverage and required Full Verify. All 47
+PR checks pass on source head `3efbba99`. The user merges PR #108 into master
+at `759d3d4c` on 2026-10-09. Package dry runs and every WampApp platform artifact pass on
+the same source head. The separate macOS
 artifact job initially cannot acquire a runner; its targeted retry passes on
 unchanged artifact head `163699a0` (run 37810537255, attempt 2). Inventories,
 coverage scopes/floors and deadlines stay unchanged. Local companion attempts
 remain blocked by the active native mutation resource lease. Scope and proof:
 [CI plan](research/2026-10-08-ci-execution-sharing.md).
+
+CI acceptance evidence was retained locally while PR #108 was under review;
+it is now recorded here after that PR is merged. The tested source head stays
+at `3efbba99`. The beta.8 release follows through PR #107.
 
 Current follow-up (2026-10-08): PR #105 Codecov project regression.
 At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;
@@ -50,8 +108,11 @@ Fresh baseline `bin/test-fast` and candidate `bin/verify` pass at exit 0,
 including Rust/VM/consumer/router checks and both browser suites (4,751 core,
 2,829 client; 20 unchanged native-only skips). All 110 coverage-policy/runner
 methods pass. Codecov's public validator accepts the exact generated-file scope.
-The functional fix is published as `7bf7dd4f`; current hosted acceptance is
-reported by [PR #105 checks](https://github.com/konsultaner/connectanum-dart/pull/105/checks).
+The functional fix is published as `7bf7dd4f`, followed by `ec675d59`.
+All 85 PR checks pass: Codecov project is 93.90% (+0.01 percentage points
+versus master), and Codecov patch, Full Verify and mutation checks pass.
+The verified PR is marked ready and merged at `0e585405`.
+Hosted acceptance: [PR #105 checks](https://github.com/konsultaner/connectanum-dart/pull/105/checks).
 Evidence: [coverage scope/proof](research/2026-10-08-codecov-project-coverage.md).
 
 Current follow-up (2026-10-07): coverage runtime ownership isolation.

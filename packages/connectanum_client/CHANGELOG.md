@@ -1,3 +1,10 @@
+## 3.0.0-beta.8
+
+- Support negotiated FlatBuffers profiles on native RawSocket and WebSocket
+  transports, including retained payload passthrough and typed E2EE.
+- Expose native-owned builders, frozen buffer views and external producer leases
+  with explicit disposal and send-completion ownership.
+
 ## 3.0.0-beta.7
 
 - Align native build-hook release selection and MCP client version metadata

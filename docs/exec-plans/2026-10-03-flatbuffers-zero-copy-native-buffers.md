@@ -2,13 +2,67 @@
 
 Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
-Feature branch: `codex/flatbuffers-zero-copy` (merged).
-Current CI branch: `codex/ci-execution-sharing` in the managed worktree.
-Release branch: `codex/release-3.0.0-beta.8`, preserved separately.
+Branch: `codex/release-3.0.0-beta.8` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
-Merged PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105), master `0e585405`.
+Merged PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105) at `0e585405`.
+
+Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), master `759d3d4c`.
 Pending release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107).
+
+Current follow-up (2026-10-09): integrate merged CI into the beta.8 release.
+The user merges PR #108 at master `759d3d4c`. Release PR #107 then has one
+execution-plan documentation conflict. Fresh pre-merge `bin/test-fast` passes
+at exit 0 on `85b92916`; baseline evidence is retained under
+`out/ci-release-resync-evidence/`. The merge preserves both the release checklist
+and completed CI acceptance evidence. Package/runtime/crate changes remain the
+approved beta.8 graph; no package is published yet. Canonical `bin/verify`,
+strict package archives and replacement hosted acceptance are pending.
+Required review and protected-master promotion remain mandatory before native
+assets and dependency-ordered pub.dev tags are published. Companion summary
+was initially resource-lease blocked; review then times out on Ollama and cannot
+reach GLM. Manual version/tag review passes; the primary checkout is preserved.
+
+## Coordinated beta.8 release checkpoint (2026-10-08)
+
+The user requests another version bump and pub.dev deployment after PR #105
+is merged at master `0e585405`. This supersedes the earlier publication hold.
+All seven beta.7 packages are live; beta.8 is available for the next synchronized
+Dart/native graph. Preserve all unfinished milestone and performance criteria.
+
+- [x] Start `codex/release-3.0.0-beta.8` from merged master, preserving the primary
+  mutation-runner checkout and the feature branch's local evidence commit.
+- [x] Run fresh baseline `bin/test-fast` at exit 0 before version edits.
+- [x] Advance seven package manifests/constraints, three crate versions,
+  runtime identities, hook fixtures, changelogs and current installation docs.
+- [x] Pass release-planner/tag/hook checks, seven zero-warning strict package
+  dry runs, manual review and full `bin/verify`.
+- [ ] Promote the release PR through protected master with required review and
+  passing hosted checks; do not bypass branch protection.
+- [ ] Publish `v3.0.0-beta.8` native assets and pass production consumers on all
+  five supported build platforms, then validate fresh native installation.
+- [ ] Publish all seven package tags in dependency order, confirm exact hosted
+  versions, and validate an isolated hosted-package consumer.
+
+No ObjectBox adapter, stable-release claim, performance parity acceptance or
+milestone closure is included in this beta checkpoint.
+
+All 37 planner/tag/note/intent tests and seven exact tag validators pass.
+The initial uncommitted-tree archive attempt stops on pub's dirty-file warning;
+the clean `7ca882c6` candidate passes all seven strict archives with zero warnings.
+Full `bin/verify` passes at exit 0, including Rust, VM/native, consumers, router
+and Chrome/Dart2Wasm (4,751 core and 2,829 client; 20 native-only skips).
+Companion review is attempted but blocked by the active native mutation resource
+lease; manual review is complete and the campaign remains untouched.
+[PR #107](https://github.com/konsultaner/connectanum-dart/pull/107) is ready for
+review. Hosted checks pass on original head `7ca882c6`; required review
+and protected-master promotion remain pending. The
+[five-platform native dry run](https://github.com/konsultaner/connectanum-dart/actions/runs/37799443111)
+passes its builds, consumers and release preview with publication skipped.
+Downloaded reports independently verify the exact `7ca882c6` commit, all 170
+profile cases with zero skips, log hashes, lifecycle and 48-byte ABI guards.
+These production-profile measurements belong to original head `7ca882c6`;
+they do not claim verification of the new integration commit.
 
 Current follow-up (2026-10-09): CI repair for [PR #108](https://github.com/konsultaner/connectanum-dart/pull/108).
 Branch `codex/ci-execution-sharing` starts from merged master `0e585405`;
@@ -28,17 +82,36 @@ installs and verifies the same artifact at the conventional ffi-test location,
 using atomic replacement; dependency, source, toolchain, profile and digest
 checks remain enforced. The real Dart discovery regression fails before the
 fix and passes after it. All 14 CI execution contracts pass; the actual native
-copy ABI case passes with the override unset and no skips. Fresh verification
-of this artifact-path correction and replacement hosted acceptance are pending.
+copy ABI case passes with the override unset and no skips. Local CI coverage
+executes all 1,642 benchmark cases with zero skips. Its macOS benchmark gate
+measures 97.203% against the 98% Linux CI floor: the exact 35-line difference
+from the passing Linux report is confined to Linux-only CPU/RSS metrics.
+No floor or platform guard is changed. Canonical `bin/verify` with shared
+artifact reuse passes at exit 0 (Rust, VM, consumers, Chrome/Dart2Wasm;
+4,751 core, 2,829 client, 20 unchanged native-only browser skips).
+Replacement hosted Linux acceptance passes on source head `3efbba99`:
+all 1,642 benchmark cases pass, benchmark coverage is 98.329%, handwritten
+VM coverage is 93.916%, and library/packaging policies report no findings.
 
-All six hosted MCP shards and independently regenerated aggregation complete
-all 1,101 mutants; the adjusted assertion score is 97.37783075089392%, above
-the original 95% gate. This evidence is for `15bbac7f`. The separate macOS
+At source head `3efbba99`, all six hosted MCP shards and independently
+regenerated aggregation complete all 1,101 mutants; the uploaded outcomes
+exactly match the fresh inventory, both baselines pass, and the assertion score
+is 97.37783075089392%, above the original 95% gate. The latest
+[main run 37855378339](https://github.com/konsultaner/connectanum-dart/actions/runs/37855378339)
+passes all 36 jobs, including Linux coverage and required Full Verify. All 47
+PR checks pass on source head `3efbba99`. The user merges PR #108 into master
+at `759d3d4c` on 2026-10-09. Package dry runs and every WampApp platform artifact pass on
+the same source head. The separate macOS
 artifact job initially cannot acquire a runner; its targeted retry passes on
 unchanged artifact head `163699a0` (run 37810537255, attempt 2). Inventories,
 coverage scopes/floors and deadlines stay unchanged. Local companion attempts
 remain blocked by the active native mutation resource lease. Scope and proof:
 [CI plan](../research/2026-10-08-ci-execution-sharing.md).
+
+CI acceptance evidence was retained locally while PR #108 was under review;
+it is now recorded here after that PR is merged. The tested source head stays
+at `3efbba99`. The beta.8 release follows through PR #107.
+
 
 Current follow-up (2026-10-08): PR #105 Codecov project regression.
 At `7b530d58`, hosted test/mutation, package and native-artifact checks pass;
@@ -55,8 +128,11 @@ Fresh baseline `bin/test-fast` and candidate `bin/verify` pass at exit 0,
 including Rust/VM/consumer/router checks and both browser suites (4,751 core,
 2,829 client; 20 unchanged native-only skips). All 110 coverage-policy/runner
 methods pass. Codecov's public validator accepts the exact generated-file scope.
-The functional fix is published as `7bf7dd4f`; current hosted acceptance is
-reported by [PR #105 checks](https://github.com/konsultaner/connectanum-dart/pull/105/checks).
+The functional fix is published as `7bf7dd4f`, followed by `ec675d59`.
+All 85 PR checks pass: Codecov project is 93.90% (+0.01 percentage points
+versus master), and Codecov patch, Full Verify and mutation checks pass.
+The verified PR is marked ready and merged at `0e585405`.
+Hosted acceptance: [PR #105 checks](https://github.com/konsultaner/connectanum-dart/pull/105/checks).
 Evidence: [coverage scope/proof](../research/2026-10-08-codecov-project-coverage.md).
 
 Current follow-up (2026-10-07): coverage runtime ownership isolation.
@@ -756,8 +832,8 @@ ObjectBox integration itself belongs to a separate adapter package.
 The primary checkout is independent and remains untouched. Feature commits,
 pushes and draft PR updates are authorized. The user requested merging current
 master into this working branch on 2026-10-06; both remotes are already integrated.
-Release publication, version bumps and merging the feature into master remain
-outside the authorized scope.
+The earlier release/publication hold is superseded by the user's 2026-10-08
+request for a synchronized beta.8 release, recorded in the checkpoint above.
 
 ## Issue acceptance status
 
@@ -1402,8 +1478,8 @@ incomplete: a typed application schema and worker/iteration validation must
 precede typed workloads, especially pub/sub where keyword containers are invalid.
 
 Finish public consumer and adapter-boundary docs, then audit each issue before
-closing issues and the milestone. Release publication and merging master remain
-outside authorization.
+closing issues and the milestone. The beta.8 release checkpoint above records
+the user's subsequent publication authorization without closing those criteria.
 
 ## Pushed checkpoint and research
 

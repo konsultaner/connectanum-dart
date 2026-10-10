@@ -1,3 +1,9 @@
+## 3.0.0-beta.8
+
+- Add the FlatBuffers WAMP serializer beside JSON, MessagePack and CBOR, with
+  pinned bindings, validated wire input and lazy payload views.
+- Add typed FlatBuffers payload contracts for payload passthrough and E2EE.
+
 ## 3.0.0-beta.7
 
 - Keep the shared protocol package synchronized with the router embedding and

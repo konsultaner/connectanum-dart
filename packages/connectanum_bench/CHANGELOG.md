@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-beta.8
+
+- Add FlatBuffers transport and typed-payload benchmark scenarios, native-owned
+  construction modes and source-observed copy metrics to the benchmark package.
+- Keep the existing budgets; FlatBuffers performance parity and complete copy
+  coverage remain unaccepted.
+
 ## 3.0.0-beta.7
 
 - Synchronize the Dart and native benchmark packages with the router lifecycle
