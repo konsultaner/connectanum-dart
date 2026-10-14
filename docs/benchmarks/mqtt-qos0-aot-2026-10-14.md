@@ -25,14 +25,14 @@ python3 tool/run_mqtt_benchmark_gate.py --output out/mqtt-qos0-gate/burst
 python3 tool/run_mqtt_benchmark_gate.py --budget tool/mqtt_sustained_benchmark_budget.json --output out/mqtt-qos0-gate/sustained
 ```
 
-Five local precommit calibration runs passed both gates on Apple M3 Ultra, Dart 3.13.1 and Mosquitto 2.1.2. They used Connectanum-first order before the pair-order reversal was added. All 10,000 burst and 100,000 sustained messages reached each target without duplicates.
+The clean-tree baseline at commit `078e85c7` passed both gates on Apple M3 Ultra, Dart 3.13.1 and Mosquitto 2.1.2. Each profile has five paired, order-balanced runs. All 10,000 burst and 1,000,000 sustained messages reached each target without duplicates or out-of-order delivery. Raw rows and full machine/binary provenance are checked in with the [burst raw](mqtt-qos0-aot-burst-2026-10-14.jsonl), [burst summary](mqtt-qos0-aot-burst-2026-10-14-summary.json), [sustained raw](mqtt-qos0-aot-sustained-2026-10-14.jsonl) and [sustained summary](mqtt-qos0-aot-sustained-2026-10-14-summary.json).
 
 | Profile | Connectanum delivered/s | Mosquitto delivered/s | Throughput ratio | p95 ratio | p99 ratio | Broker CPU ratio | Connectanum broker RSS |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Burst, 2,000/run | 341,647 | 356,189 | 0.959 | 1.072 | 1.069 | unresolved at 0.01 s CPU resolution | 19.3 MB |
-| Sustained, 20,000/run, window 512 | 409,693 | 422,565 | 0.970 | 1.083 | 1.136 | 1.25 | 19.8 MB |
+| Burst, 2,000/run | 356,379 | 361,533 | 0.986 | 1.045 | 1.034 | unresolved at 0.01 s CPU resolution | 19.0 MB |
+| Sustained, 200,000/run, window 512 | 449,937 | 452,853 | 0.994 | 1.012 | 0.993 | 1.184 | 19.8 MB |
 
-A single 200,000-message windowed probe also completed on both brokers without loss or duplicates, at about 410k versus 432k delivered/s and a 1.195 broker CPU ratio. The calibration tree was dirty at commit `216b936a`, so these measurements are not the immutable baseline. A clean-tree five-run 200,000-message baseline and hosted AOT artifacts are pending. The earlier [JIT coupled-process baseline](mqtt-qos0-2026-10-14.md) remains immutable; its numbers are not directly comparable to this AOT process-isolated method.
+The sustained profile delivered 54.9 MiB/s of payload through Connectanum versus 55.3 MiB/s through Mosquitto. Median broker CPU was 0.45 versus 0.38 seconds per 200,000-message run. Hosted AOT artifacts remain pending. The earlier [JIT coupled-process baseline](mqtt-qos0-2026-10-14.md) remains immutable; its numbers are not directly comparable to this AOT process-isolated method.
 
 ## Outstanding measurements
 
