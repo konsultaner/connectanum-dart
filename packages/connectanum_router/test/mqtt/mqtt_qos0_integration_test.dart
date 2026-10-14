@@ -89,6 +89,50 @@ void main() {
     expect((await parent).payload, [4]);
   });
 
+  test('batched wire publications arrive once and in order', () async {
+    final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
+    final subscriber = await MqttQos0Client.connect(
+      '127.0.0.1',
+      broker.port,
+      clientId: 'batch-sub',
+    );
+    final publisher = await Socket.connect('127.0.0.1', broker.port);
+    addTearDown(() async {
+      publisher.destroy();
+      await subscriber.close();
+      await broker.close();
+    });
+    await subscriber.subscribe('batch/topic');
+    final received = subscriber.messages
+        .take(64)
+        .toList()
+        .timeout(
+          const Duration(seconds: 3),
+        );
+    final wire = BytesBuilder(copy: false)
+      ..add(
+        MqttPacketCodec.encodeConnect(
+          const MqttConnect(version: MqttVersion.v5, clientId: 'batch-pub'),
+        ),
+      );
+    for (var id = 0; id < 64; id++) {
+      wire.add(
+        MqttPacketCodec.encodePublish(
+          MqttVersion.v5,
+          topic: 'batch/topic',
+          payload: Uint8List.fromList([id]),
+        ),
+      );
+    }
+    publisher.add(wire.takeBytes());
+    await publisher.flush();
+    await publisher.close();
+    expect(
+      (await received).map((message) => message.payload.single).toList(),
+      List<int>.generate(64, (id) => id),
+    );
+  });
+
   test(
     'malformed client packet does not take down another connection',
     () async {

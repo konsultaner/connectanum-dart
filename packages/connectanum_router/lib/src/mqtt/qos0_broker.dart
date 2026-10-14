@@ -33,6 +33,7 @@ final class MqttQos0Broker {
   int get port => _server.port;
 
   void _accept(Socket socket) {
+    socket.setOption(SocketOption.tcpNoDelay, true);
     final peer = _Peer(this, socket);
     _peers.add(peer);
     socket.listen(
@@ -61,7 +62,7 @@ final class MqttQos0Broker {
               topic: message.topic,
               payload: message.payload,
             ));
-      peer.socket.add(encoded);
+      peer._queuePublish(encoded);
     }
   }
 
@@ -92,9 +93,22 @@ final class _Peer {
   final Socket socket;
   final MqttFrameDecoder decoder = MqttFrameDecoder();
   final Set<String> filters = {};
+  final BytesBuilder _pendingPublishes = BytesBuilder(copy: false);
   MqttVersion? version;
   bool connected = false;
   bool closed = false;
+  bool _publishFlushScheduled = false;
+
+  void _queuePublish(Uint8List encoded) {
+    _pendingPublishes.add(encoded);
+    if (_publishFlushScheduled) return;
+    _publishFlushScheduled = true;
+    // Coalesce frames decoded in one socket event before the next TCP write.
+    scheduleMicrotask(() {
+      _publishFlushScheduled = false;
+      if (!closed) socket.add(_pendingPublishes.takeBytes());
+    });
+  }
 
   void _onData(Uint8List data) {
     try {
