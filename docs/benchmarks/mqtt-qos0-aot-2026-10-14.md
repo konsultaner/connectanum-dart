@@ -102,6 +102,18 @@ The [hosted Linux MQTT job](https://github.com/konsultaner/connectanum-dart/acti
 
 The matching hosted raw rows are preserved for [burst](mqtt-qos0-aot-ef3f02a1-hosted-burst-2026-10-14.jsonl), [MQTT 5 sequential](mqtt-qos0-aot-ef3f02a1-hosted-sustained-2026-10-14.jsonl), [MQTT 3.1.1 sequential](mqtt-qos0-aot-ef3f02a1-hosted-v311-sustained-2026-10-14.jsonl), [batch](mqtt-qos0-aot-ef3f02a1-hosted-batched-2026-10-14.jsonl) and [fan-out](mqtt-qos0-aot-ef3f02a1-hosted-fanout-2026-10-14.jsonl). The shorter hosted run's absolute rates differ from the M3 Ultra result, so these cross-machine rates are not compared as a regression claim.
 
+The [hosted Linux MQTT rerun](https://github.com/konsultaner/connectanum-dart/actions/runs/38592405378/job/115951146171) on source head `6ac3fb1e` checks out PR merge commit `45da3a4d`. Paho interoperability, 28 Python gate regressions, the burst correctness check and all four numeric profiles pass. The uploaded [Python coverage report](mqtt-qos0-aot-6ac3fb1e-hosted-python-coverage-2026-10-14.json) identifies the exact source and records 185/185 executable lines, zero missing and zero excluded. Each of the five ten-row benchmark artifacts has `git_dirty: false`, exact byte/order/delivery results and a passing gate.
+
+| Hosted Linux profile at source `6ac3fb1e` | Connectanum delivered/s | Mosquitto delivered/s | Throughput ratio | p95 ratio | p99 ratio | Broker CPU ratio | Connectanum broker RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| [Burst correctness](mqtt-qos0-aot-6ac3fb1e-hosted-burst-2026-10-14-summary.json) | 102,438 | 87,226 | 1.174 | 1.043 | 1.046 | CPU resolution too coarse | 10.7 MB |
+| [MQTT 5 sequential](mqtt-qos0-aot-6ac3fb1e-hosted-sustained-2026-10-14-summary.json) | 87,715 | 87,784 | 0.999 | 1.573 | 1.611 | 1.269 | 11.3 MB |
+| [MQTT 3.1.1 sequential](mqtt-qos0-aot-6ac3fb1e-hosted-v311-sustained-2026-10-14-summary.json) | 88,165 | 88,395 | 0.997 | 1.576 | 1.628 | 1.241 | 18.6 MB |
+| [MQTT 5 batch](mqtt-qos0-aot-6ac3fb1e-hosted-batched-2026-10-14-summary.json) | 563,301 | 79,903 | 7.050 | 0.149 | 0.158 | 0.074 | 18.8 MB |
+| [MQTT 5 four-subscriber fan-out](mqtt-qos0-aot-6ac3fb1e-hosted-fanout-2026-10-14-summary.json) | 918,476 | 106,189 | 8.649 | 0.096 | 0.114 | 0.055 | 10.9 MB |
+
+The rerun's raw rows are checked in for [burst](mqtt-qos0-aot-6ac3fb1e-hosted-burst-2026-10-14.jsonl), [MQTT 5 sequential](mqtt-qos0-aot-6ac3fb1e-hosted-sustained-2026-10-14.jsonl), [MQTT 3.1.1 sequential](mqtt-qos0-aot-6ac3fb1e-hosted-v311-sustained-2026-10-14.jsonl), [batch](mqtt-qos0-aot-6ac3fb1e-hosted-batched-2026-10-14.jsonl) and [fan-out](mqtt-qos0-aot-6ac3fb1e-hosted-fanout-2026-10-14.jsonl). This establishes a passing provisional shared-runner MQTT QoS 0 CI checkpoint. The 1.75× p95/p99 target on a pinned controlled runner and the remaining release profiles are still open.
+
 The checked-in burst summary records the relative thresholds that were active at baseline commit `078e85c7`. The later hosted 2,000-message AOT rows varied too widely for a reliable performance decision, so the current burst gate checks correctness only. The baseline artifact remains unchanged for provenance.
 
 ## Outstanding measurements
