@@ -16,7 +16,9 @@ final class MqttQos0Client {
     required String clientId,
     MqttVersion version = MqttVersion.v5,
   }) async {
-    final client = MqttQos0Client._(await Socket.connect(host, port), version);
+    final socket = await Socket.connect(host, port);
+    socket.setOption(SocketOption.tcpNoDelay, true);
+    final client = MqttQos0Client._(socket, version);
     client._socket.add(
       MqttPacketCodec.encodeConnect(
         MqttConnect(version: version, clientId: clientId),
@@ -68,6 +70,32 @@ final class MqttQos0Client {
     _socket.add(
       MqttPacketCodec.encodePublish(version, topic: topic, payload: payload),
     );
+    await _socket.flush();
+  }
+
+  /// Sends up to 512 QoS 0 publications in one write, preserving order.
+  Future<void> publishBatch(String topic, Iterable<Uint8List> payloads) async {
+    const maxPackets = 512;
+    const maxWireBytes = 1024 * 1024;
+    final wire = BytesBuilder(copy: false);
+    var count = 0;
+    for (final payload in payloads) {
+      if (count == maxPackets) {
+        throw RangeError('MQTT batch exceeds $maxPackets packets');
+      }
+      final packet = MqttPacketCodec.encodePublish(
+        version,
+        topic: topic,
+        payload: payload,
+      );
+      if (wire.length + packet.length > maxWireBytes) {
+        throw RangeError('MQTT batch exceeds $maxWireBytes wire bytes');
+      }
+      wire.add(packet);
+      count++;
+    }
+    if (count == 0) return;
+    _socket.add(wire.takeBytes());
     await _socket.flush();
   }
 

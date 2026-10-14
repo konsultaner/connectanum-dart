@@ -133,6 +133,60 @@ void main() {
     );
   });
 
+  test('client batch bounds and ordered delivery', () async {
+    final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
+    final subscriber = await MqttQos0Client.connect(
+      '127.0.0.1',
+      broker.port,
+      clientId: 'batch-api-sub',
+    );
+    final publisher = await MqttQos0Client.connect(
+      '127.0.0.1',
+      broker.port,
+      clientId: 'batch-api-pub',
+    );
+    addTearDown(() async {
+      await publisher.close();
+      await subscriber.close();
+      await broker.close();
+    });
+    await subscriber.subscribe('batch/api');
+    await publisher.publishBatch('batch/api', const []);
+    await expectLater(
+      publisher.publishBatch(
+        'batch/api',
+        List<Uint8List>.generate(513, (id) => Uint8List.fromList([id & 255])),
+      ),
+      throwsRangeError,
+    );
+    await expectLater(
+      publisher.publishBatch('batch/api', [
+        Uint8List(600000),
+        Uint8List(600000),
+      ]),
+      throwsRangeError,
+    );
+    final received = subscriber.messages
+        .take(512)
+        .toList()
+        .timeout(
+          const Duration(seconds: 3),
+        );
+    await publisher.publishBatch(
+      'batch/api',
+      List<Uint8List>.generate(
+        512,
+        (id) => Uint8List.fromList([id >> 8, id & 255]),
+      ),
+    );
+    expect(
+      (await received)
+          .map((message) => message.payload[0] << 8 | message.payload[1])
+          .toList(),
+      List<int>.generate(512, (id) => id),
+    );
+  });
+
   test(
     'malformed client packet does not take down another connection',
     () async {

@@ -88,6 +88,24 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "delivery"):
             compare(samples, budget)
 
+    def test_batch_profile_requires_batch_client_workload(self):
+        budget = dict(BUDGET,
+                      profile="mqtt5-tcp-qos0-one-subscriber-128B-window512-batch512",
+                      publish_mode="batch", messages_per_run=200_000,
+                      window_messages=512)
+        samples = rows()
+        for row in samples:
+            row.update(profile=budget["profile"], publish_mode="batch",
+                       sent=200_000, received=200_000, window_messages=512)
+        self.assertTrue(compare(samples, budget)["passed"])
+        samples[0]["publish_mode"] = "single"
+        with self.assertRaisesRegex(ValueError, "workload"):
+            compare(samples, budget)
+        single = rows()
+        single[0]["publish_mode"] = "batch"
+        with self.assertRaisesRegex(ValueError, "workload"):
+            compare(single, BUDGET)
+
     def test_throughput_and_tail_regressions_fail(self):
         self.assertFalse(compare(rows(connectanum_speed=60000), BUDGET)["passed"])
         self.assertFalse(compare(rows(connectanum_p99=180), BUDGET)["passed"])

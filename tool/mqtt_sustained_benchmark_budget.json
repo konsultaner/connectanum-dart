@@ -1,5 +1,6 @@
 {
   "profile": "mqtt5-tcp-qos0-one-subscriber-128B-window512",
+  "publish_mode": "single",
   "repetitions": 5,
   "messages_per_run": 200000,
   "payload_bytes": 128,

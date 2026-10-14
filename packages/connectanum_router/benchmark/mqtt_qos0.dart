@@ -38,11 +38,18 @@ Future<void> main(List<String> args) async {
         int.tryParse(Platform.environment['MQTT_BENCH_MESSAGES'] ?? '') ?? 2000;
     final window =
         int.tryParse(Platform.environment['MQTT_BENCH_WINDOW'] ?? '') ?? 0;
+    final publishMode = Platform.environment['MQTT_BENCH_MODE'] ?? 'single';
     if (count < 100) {
       throw ArgumentError.value(count, 'MQTT_BENCH_MESSAGES', 'minimum 100');
     }
     if (window < 0 || window > count) {
       throw ArgumentError.value(window, 'MQTT_BENCH_WINDOW', 'invalid window');
+    }
+    if (publishMode != 'single' && publishMode != 'batch') {
+      throw ArgumentError.value(publishMode, 'MQTT_BENCH_MODE', 'invalid mode');
+    }
+    if (publishMode == 'batch' && (window == 0 || window > 512)) {
+      throw ArgumentError.value(window, 'MQTT_BENCH_WINDOW', 'batch window');
     }
     const payloadSize = 128;
     final payload = Uint8List(payloadSize);
@@ -109,10 +116,19 @@ Future<void> main(List<String> args) async {
     }
     await warmupDone.future.timeout(const Duration(seconds: 10));
     stopwatch.reset();
+    final pendingPayloads = <Uint8List>[];
     for (var i = 0; i < count; i++) {
       data.setUint32(0, i);
       sentAt[i] = stopwatch.elapsedMicroseconds;
-      await publisher.publish('bench/one', payload);
+      if (publishMode == 'single') {
+        await publisher.publish('bench/one', payload);
+      } else {
+        pendingPayloads.add(Uint8List.fromList(payload));
+        if ((i + 1) % window == 0 || i + 1 == count) {
+          await publisher.publishBatch('bench/one', pendingPayloads);
+          pendingPayloads.clear();
+        }
+      }
       if (window > 0 && ((i + 1) % window == 0 || i + 1 == count)) {
         windowTarget = i + 1;
         if (received < windowTarget) {
@@ -142,9 +158,12 @@ Future<void> main(List<String> args) async {
     stdout.writeln(
       jsonEncode({
         'broker': broker == null ? '$host:$port' : 'connectanum-qos0',
-        'profile': window == 0
+        'profile': publishMode == 'batch'
+            ? 'mqtt5-tcp-qos0-one-subscriber-128B-window$window-batch$window'
+            : window == 0
             ? 'mqtt5-tcp-qos0-one-subscriber-128B'
             : 'mqtt5-tcp-qos0-one-subscriber-128B-window$window',
+        'publish_mode': publishMode,
         'window_messages': window,
         'payload_bytes': payloadSize,
         'warmup': warmup,
