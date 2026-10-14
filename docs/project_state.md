@@ -1,8 +1,15 @@
 # Project State
 
-Last updated: 2026-10-09.
-Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
-Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
+Last updated: 2026-10-14.
+Current milestone: [MQTT broker interoperability for Connectanum](https://github.com/konsultaner/connectanum-dart/milestone/2), explicitly prioritized by the user on 2026-10-14.
+Active plan: [MQTT broker interoperability execution plan](exec-plans/2026-10-14-mqtt-broker-interoperability.md) on `codex/mqtt-broker-interoperability` in a separate managed worktree based on GitHub master `73d840c9`.
+The pre-change `bin/test-fast` baseline and post-change `bin/verify` pass on this worktree. A bounded framing/packet codec, provisional TCP QoS 0 broker and Connectanum MQTT client pass focused tests, including binary Paho MQTT 5/3.1.1 side-by-side exchange. The [first live-path benchmark baseline](benchmarks/mqtt-qos0-2026-10-14.md) compares five matched local runs with Mosquitto. A conservative relative QoS 0 benchmark gate and CI lane are added; hosted evidence is pending. Focused tests reach 100% executable-line coverage in the four new MQTT production sources (core VM/Chrome, broker/client VM). The MQTT milestone remains open. Native listener negotiation, WAMP routing, TLS/WebSocket, QoS 1/2, persistence, full milestone coverage/regression matrix and release gates remain pending. The existing FlatBuffers and regression/mutation plans remain open in their own work; do not treat their historical evidence below as MQTT completion evidence.
+
+## MQTT implementation checkpoint (2026-10-14)
+
+The planned profile includes MQTT 5.0 and 3.1.1 over TCP/TLS and WebSocket, a Connectanum MQTT client, authorized MQTT↔WAMP publication, QoS 0/1/2, retained messages, wills and persistent sessions. GitHub sub-issues #110–#127 under parent #109 track implementation, interoperability, the 100% coverage/regression gate and real-path performance budgets; #124 is the final release gate. The first provisional live-path benchmark has raw throughput/latency/loss data but lacks broker CPU/RSS, native listener traffic, hosted CI and numeric budgets. Do not close the milestone on this checkpoint.
+
+## Prior FlatBuffers and release state (preserved)
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 Current follow-up (2026-10-09): integrate merged CI into the beta.8 release.

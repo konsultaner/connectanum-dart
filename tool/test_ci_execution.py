@@ -112,7 +112,7 @@ class RequiredGateTests(unittest.TestCase):
             capture_output=True, text=True, timeout=10)
 
     def test_required_gate_accepts_only_complete_success(self):
-        names = ('fast', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
+        names = ('fast', 'mqtt-qos0', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
                  'mutation-gates', 'mcp-mutations', 'browser-coverage')
         needs = {name: {'result': 'success'} for name in names}
         self.assertEqual(self.execute(needs).returncode, 0)
@@ -121,7 +121,9 @@ class RequiredGateTests(unittest.TestCase):
             broken['verification']['result'] = status
             with self.subTest(status=status):
                 self.assertNotEqual(self.execute(broken).returncode, 0)
-        for broken in ({}, {k: v for k, v in needs.items() if k != 'mcp-mutations'}):
+        for broken in ({},
+                       {k: v for k, v in needs.items() if k != 'mcp-mutations'},
+                       {k: v for k, v in needs.items() if k != 'mqtt-qos0'}):
             self.assertNotEqual(self.execute(broken).returncode, 0)
 
 

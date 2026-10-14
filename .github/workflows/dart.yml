@@ -174,6 +174,42 @@ jobs:
       - name: Format, analyze and verify tooling contracts
         run: bin/test-ci-fast
 
+  mqtt-qos0:
+    name: MQTT QoS 0 interoperability and benchmark gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - name: Bootstrap workspace and independent peers
+        run: |
+          set -euo pipefail
+          bin/bootstrap
+          sudo apt-get update
+          sudo apt-get install -y mosquitto
+          python3 -m venv "$RUNNER_TEMP/paho"
+          "$RUNNER_TEMP/paho/bin/pip" install paho-mqtt==2.1.0
+      - name: Verify Paho and Connectanum QoS 0 exchange
+        env:
+          PAHO_PYTHON: ${{ runner.temp }}/paho/bin/python
+        run: |
+          cd packages/connectanum_router
+          dart test test/mqtt/mqtt_qos0_integration_test.dart --reporter=expanded
+      - name: Verify benchmark gate controls and matched delivery
+        run: |
+          python3 tool/test_run_mqtt_benchmark_gate.py
+          python3 tool/run_mqtt_benchmark_gate.py \
+            --output out/mqtt-qos0-gate --mosquitto "$(command -v mosquitto)"
+      - name: Upload MQTT QoS 0 benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-qos0-benchmark
+          path: out/mqtt-qos0-gate
+          if-no-files-found: warn
+
   wamp-app:
     name: WampApp Consumer
     runs-on: ubuntu-latest
@@ -241,7 +277,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
-    needs: [fast, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, browser-coverage]
+    needs: [fast, mqtt-qos0, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, browser-coverage]
     steps:
       - uses: actions/checkout@v5
       - name: Require every validation lane to succeed

@@ -592,6 +592,14 @@
   - [x] Make public-facing benchmark artifacts human-readable enough for users
     to understand what passed, what regressed, and which transport/profile owns
     the failure.
+- [ ] MQTT broker and WAMP gateway interoperability ([milestone 2](https://github.com/konsultaner/connectanum-dart/milestone/2))
+  - [x] Add bounded MQTT 5/3.1.1 framing and the initial QoS 0 packet profile with 100% focused VM/Chrome source coverage.
+  - [x] Add a provisional TCP QoS 0 broker and Connectanum client, verify binary Paho side-by-side delivery, and gate four new source files at 100% focused executable-line coverage.
+  - [x] Capture a matched local Mosquitto baseline and add a provisional delivered-throughput and p95/p99 relative regression gate with raw CI artifacts.
+  - [ ] Negotiate MQTT on native listeners and bind MQTT over WebSocket/TLS without changing WAMP transport behavior.
+  - [ ] Route authorized MQTT and WAMP publications across a protocol-neutral boundary; retain `ppt_scheme: mqtt` as opaque unless an authorized gateway explicitly publishes it.
+  - [ ] Complete MQTT 5/3.1.1 properties, QoS 1/2, retained messages, wills, persistent sessions, conformance and recovery matrices.
+  - [ ] Set final sustained, fan-out and overload budgets with broker CPU/RSS, secure transports, hosted CI and consumer-package evidence before release.
 - [ ] Metrics & logging integration (Prometheus metrics, structured logs, CPU/RAM/throughput gauges)
   - [x] Always-on low-cost counters (native/Dart) exposed via on-demand snapshots for benchmark harnesses. `ct_router_metrics_snapshot` feeds `_RouterBoss` + `_MetricsService`, so the OpenMetrics payload now carries GOAWAY/backpressure/timeout totals.
   - [x] Prometheus/Grafana wiring documented; HTTP scrape regression added (metrics route bridged to `connectanum.metrics.openmetrics`) and CI now captures `CONNECTANUM_ARTIFACT_DIR` OpenMetrics/JSON snapshots from long-payload regressions.
