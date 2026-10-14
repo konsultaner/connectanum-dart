@@ -53,6 +53,16 @@ Final source head `e0c8bdf3` also passes the [hosted MQTT job](https://github.co
 
 The new [four-subscriber fan-out budget](../../tool/mqtt_fanout_benchmark_budget.json) uses the same 0.8 throughput, 1.75 p95/p99, 3.0 CPU and 64 MiB RSS tripwires as bounded batch, with five matched 50,000-publication runs per broker. Each run must deliver 50,000 ordered, byte-exact messages to each subscriber. Broker CPU seconds per million are divided by all 200,000 deliveries. The clean-tree Apple M3 Ultra baseline at `cbfb2960` passes at 1,311,510 versus 573,143 delivered/s, throughput ratio 2.288, p95 ratio 0.458, p99 ratio 0.386, CPU ratio 0.258 and 19.1 MB broker RSS. The [raw rows](mqtt-qos0-aot-fanout-2026-10-14.jsonl) and [summary with AOT binary and machine provenance](mqtt-qos0-aot-fanout-2026-10-14-summary.json) are checked in. This is a local baseline; the hosted gate and broader release matrix remain open.
 
+The MQTT 5 CONNACK capability and subscription-downgrade correction at clean code head `22fb5731` passes the unchanged burst correctness and three numeric performance budgets. Each numeric profile has five matched runs, exact ordered payload checks, and clean-tree binary/machine provenance. The raw and summary artifacts are checked in for [sequential](mqtt-qos0-aot-capabilities-sustained-2026-10-14.jsonl), [batch](mqtt-qos0-aot-capabilities-batched-2026-10-14.jsonl) and [fan-out](mqtt-qos0-aot-capabilities-fanout-2026-10-14.jsonl); each corresponding summary uses the same filename with `-summary.json` in place of `.jsonl`.
+
+| Clean local profile after MQTT 5 correction | Connectanum delivered/s | Mosquitto delivered/s | Throughput ratio | p95 ratio | p99 ratio | Broker CPU ratio | Connectanum broker RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Sequential, 200,000/run, window 512 | 409,236 | 410,428 | 0.997 | 1.015 | 1.040 | 1.095 | 19.5 MB |
+| Batch, 200,000/run, window 512 | 803,962 | 410,133 | 1.960 | 0.562 | 0.556 | 0.268 | 27.9 MB |
+| Four-subscriber fan-out, 50,000 publishes/run | 1,338,867 | 596,271 | 2.245 | 0.496 | 0.492 | 0.267 | 18.9 MB |
+
+The fan-out relative throughput remains near its pre-correction clean local baseline of 2.288. The hosted Linux gate and controlled release matrix are still required.
+
 The checked-in burst summary records the relative thresholds that were active at baseline commit `078e85c7`. The later hosted 2,000-message AOT rows varied too widely for a reliable performance decision, so the current burst gate checks correctness only. The baseline artifact remains unchanged for provenance.
 
 ## Outstanding measurements
