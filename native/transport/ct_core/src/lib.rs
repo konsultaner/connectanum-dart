@@ -42,7 +42,7 @@ use tokio::{
             error::{TryRecvError, TrySendError},
             UnboundedReceiver, UnboundedSender,
         },
-        oneshot,
+        oneshot, OwnedSemaphorePermit, Semaphore,
     },
     task::{AbortHandle, JoinHandle, JoinSet},
     time,
@@ -1791,6 +1791,46 @@ struct ConnectionEntry {
     record: ConnectionRecord,
 }
 
+const MQTT_OUTBOUND_QUEUE_MAX_CHUNKS: usize = 512;
+const MQTT_OUTBOUND_QUEUE_MAX_BYTES: usize = 8 * 1024 * 1024;
+
+type MqttOutboundChunk = (Bytes, OwnedSemaphorePermit);
+
+struct MqttOutboundQueue {
+    sender: mpsc::Sender<MqttOutboundChunk>,
+    byte_budget: Arc<Semaphore>,
+}
+
+impl MqttOutboundQueue {
+    fn new(configured_capacity: usize) -> (Self, mpsc::Receiver<MqttOutboundChunk>) {
+        let (sender, receiver) =
+            mpsc::channel(configured_capacity.min(MQTT_OUTBOUND_QUEUE_MAX_CHUNKS));
+        (
+            Self {
+                sender,
+                byte_budget: Arc::new(Semaphore::new(MQTT_OUTBOUND_QUEUE_MAX_BYTES)),
+            },
+            receiver,
+        )
+    }
+
+    fn enqueue(&self, connection_id: ConnectionId, bytes: Bytes) -> Result<(), Error> {
+        if bytes.len() > MQTT_OUTBOUND_QUEUE_MAX_BYTES {
+            return Err(Error::SendQueueFull(connection_id));
+        }
+        let permit = self
+            .byte_budget
+            .clone()
+            .try_acquire_many_owned(bytes.len() as u32)
+            .map_err(|_| Error::SendQueueFull(connection_id))?;
+        match self.sender.try_send((bytes, permit)) {
+            Ok(()) => Ok(()),
+            Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
+            Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
+        }
+    }
+}
+
 enum ConnectionRecord {
     RawSocket {
         _serializer: rawsocket::Serializer,
@@ -1806,7 +1846,7 @@ enum ConnectionRecord {
         version: u8,
         chunks: Arc<Mutex<mpsc::Receiver<Bytes>>>,
         notification_pending: Arc<AtomicBool>,
-        send_tx: mpsc::Sender<Bytes>,
+        outbound: MqttOutboundQueue,
         wakeup: Arc<Mutex<Option<extern "C" fn(i32)>>>,
         reader_abort: AbortHandle,
         writer_abort: AbortHandle,
@@ -2311,8 +2351,8 @@ impl ListenerRegistry {
         let reader_notification_pending = Arc::clone(&notification_pending);
         let wakeup: Arc<Mutex<Option<extern "C" fn(i32)>>> = Arc::new(Mutex::new(None));
         let reader_wakeup = Arc::clone(&wakeup);
-        let (send_tx, mut send_rx) =
-            mpsc::channel::<Bytes>(endpoint_config.outbound_send_queue_capacity.min(64));
+        let (outbound, mut send_rx) =
+            MqttOutboundQueue::new(endpoint_config.outbound_send_queue_capacity);
         let (close_tx, mut close_rx) = mpsc::unbounded_channel::<ConnectionTaskSignal>();
         let reader_close = close_tx.clone();
         let reader_task = handle.spawn(async move {
@@ -2338,7 +2378,7 @@ impl ListenerRegistry {
         });
         let writer_task = handle.spawn(async move {
             let mut writer = writer;
-            while let Some(bytes) = send_rx.recv().await {
+            while let Some((bytes, _permit)) = send_rx.recv().await {
                 if writer.write_all(&bytes).await.is_err() {
                     break;
                 }
@@ -2361,7 +2401,7 @@ impl ListenerRegistry {
                         version,
                         chunks: Arc::new(Mutex::new(chunk_rx)),
                         notification_pending,
-                        send_tx,
+                        outbound,
                         wakeup,
                         reader_abort: reader_task.abort_handle(),
                         writer_abort: writer_task.abort_handle(),
@@ -2912,11 +2952,7 @@ impl ListenerRegistry {
             .get(&connection_id)
             .ok_or(Error::ConnectionNotFound(connection_id))?;
         match &entry.record {
-            ConnectionRecord::Mqtt { send_tx, .. } => match send_tx.try_send(bytes) {
-                Ok(()) => Ok(()),
-                Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
-                Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
-            },
+            ConnectionRecord::Mqtt { outbound, .. } => outbound.enqueue(connection_id, bytes),
             _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
         }
     }
@@ -9361,6 +9397,71 @@ mod tests {
             client_chain_pem,
             client_key_pem,
         }
+    }
+
+    #[test]
+    fn mqtt_outbound_queue_buffers_one_window_and_caps_chunk_count() {
+        let (queue, mut receiver) = MqttOutboundQueue::new(1024);
+        let connection_id = ConnectionId(7);
+        for _ in 0..512 {
+            queue
+                .enqueue(connection_id, Bytes::from_static(b"publish"))
+                .expect("one 512-message window fits");
+        }
+        assert!(matches!(
+            queue.enqueue(connection_id, Bytes::from_static(b"extra")),
+            Err(Error::SendQueueFull(id)) if id == connection_id
+        ));
+        drop(receiver.try_recv().expect("first queued chunk"));
+        queue
+            .enqueue(connection_id, Bytes::from_static(b"next"))
+            .expect("released slot accepts the next chunk");
+    }
+
+    #[test]
+    fn mqtt_outbound_queue_caps_bytes_and_releases_writer_credit() {
+        let (queue, mut receiver) = MqttOutboundQueue::new(1024);
+        let connection_id = ConnectionId(8);
+        let packet = Bytes::from(vec![0; 1024 * 1024]);
+        for _ in 0..8 {
+            queue
+                .enqueue(connection_id, packet.clone())
+                .expect("8 MiB budget accepts eight packets");
+        }
+        assert!(matches!(
+            queue.enqueue(connection_id, packet.clone()),
+            Err(Error::SendQueueFull(id)) if id == connection_id
+        ));
+        drop(receiver.try_recv().expect("first queued packet"));
+        queue
+            .enqueue(connection_id, packet)
+            .expect("writer release returns byte credit");
+    }
+
+    #[test]
+    fn mqtt_outbound_queue_rejects_oversize_and_releases_closed_channel_credit() {
+        let (queue, receiver) = MqttOutboundQueue::new(1024);
+        let connection_id = ConnectionId(9);
+        assert!(matches!(
+            queue.enqueue(
+                connection_id,
+                Bytes::from(vec![0; MQTT_OUTBOUND_QUEUE_MAX_BYTES + 1])
+            ),
+            Err(Error::SendQueueFull(id)) if id == connection_id
+        ));
+        assert_eq!(
+            queue.byte_budget.available_permits(),
+            MQTT_OUTBOUND_QUEUE_MAX_BYTES
+        );
+        drop(receiver);
+        assert!(matches!(
+            queue.enqueue(connection_id, Bytes::from_static(b"closed")),
+            Err(Error::ConnectionNotFound(id)) if id == connection_id
+        ));
+        assert_eq!(
+            queue.byte_budget.available_permits(),
+            MQTT_OUTBOUND_QUEUE_MAX_BYTES
+        );
     }
 
     #[test]
