@@ -76,6 +76,20 @@ A [further hosted run at documentation-only head `f9b344ae`](https://github.com/
 
 The provisional shared-runner sequential MQTT 5 and 3.1.1 tripwires now admit the observed tail spread up to 2.0× p95 and 2.25× p99. They narrow the allowed throughput and CPU regressions to 0.75× minimum and 2.0× maximum respectively. The exact delivery, payload, ordering, duplicate, five-pair and 64 MiB checks remain unchanged. Unit regressions use the checked-in versioned budgets to confirm both an observed-variation case and a worse case for each limit. This adjustment is a CI noise-control decision only; the 1.75× tail target and a controlled, pinned release-performance environment are still required before closing [#127](https://github.com/konsultaner/connectanum-dart/issues/127). The Python benchmark gate itself now requires exact 100% executable-line coverage in CI, with its JSON report retained as an artifact.
 
+Clean local Apple M3 Ultra evidence at code head `ef3f02a1` runs the complete current five-profile gate after `bin/verify` passes. Every one of the 50 measured client runs has the expected byte-exact, ordered delivery count and no duplicates. The burst remains a correctness-only result; the four sustained profiles pass their checked-in numeric budgets. These are local loopback results, not substitutes for the queued hosted Linux run or the controlled release matrix.
+
+| Clean local profile at `ef3f02a1` | Connectanum delivered/s | Mosquitto delivered/s | Throughput ratio | p95 ratio | p99 ratio | Broker CPU ratio | Connectanum broker RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| [Burst correctness](mqtt-qos0-aot-ef3f02a1-burst-2026-10-14-summary.json) | 300,300 | 343,761 | 0.874 | 1.180 | 1.182 | CPU resolution too coarse | 18.9 MB |
+| [MQTT 5 sequential](mqtt-qos0-aot-ef3f02a1-v5-2026-10-14-summary.json) | 409,046 | 415,738 | 0.984 | 1.025 | 1.023 | 1.095 | 20.0 MB |
+| [MQTT 3.1.1 sequential](mqtt-qos0-aot-ef3f02a1-v311-2026-10-14-summary.json) | 410,872 | 413,671 | 0.993 | 1.016 | 1.018 | 1.070 | 27.0 MB |
+| [MQTT 5 batch](mqtt-qos0-aot-ef3f02a1-batched-2026-10-14-summary.json) | 859,568 | 412,474 | 2.084 | 0.534 | 0.532 | 0.262 | 28.0 MB |
+| [MQTT 5 four-subscriber fan-out](mqtt-qos0-aot-ef3f02a1-fanout-2026-10-14-summary.json) | 1,294,046 | 603,016 | 2.146 | 0.517 | 0.541 | 0.267 | 19.3 MB |
+
+The matching raw rows are checked in as [burst](mqtt-qos0-aot-ef3f02a1-burst-2026-10-14.jsonl), [MQTT 5 sequential](mqtt-qos0-aot-ef3f02a1-v5-2026-10-14.jsonl), [MQTT 3.1.1 sequential](mqtt-qos0-aot-ef3f02a1-v311-2026-10-14.jsonl), [batch](mqtt-qos0-aot-ef3f02a1-batched-2026-10-14.jsonl) and [fan-out](mqtt-qos0-aot-ef3f02a1-fanout-2026-10-14.jsonl). Each summary records the clean Git commit, AOT executable hashes, Dart/Mosquitto versions and machine provenance.
+
+Connectanum's median end-to-end p95/p99 latency is 1.111/1.169 ms for MQTT 5 sequential, 1.104/1.169 ms for MQTT 3.1.1 sequential, 0.624/0.673 ms for bounded batch, and 0.413/0.458 ms for four-subscriber fan-out on this local loopback host. These include the TCP stack and client callback; they are not broker-only or cross-machine latency claims.
+
 The checked-in burst summary records the relative thresholds that were active at baseline commit `078e85c7`. The later hosted 2,000-message AOT rows varied too widely for a reliable performance decision, so the current burst gate checks correctness only. The baseline artifact remains unchanged for provenance.
 
 ## Outstanding measurements
