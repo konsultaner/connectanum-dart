@@ -29,13 +29,13 @@ abstract final class BenchPayloadCodec {
   }) {
     _checkIdentity(worker, iteration);
     RangeError.checkValueInInterval(length, 0, 64 * 1024 * 1024, 'length');
-    return Uint8List.fromList(
-      List<int>.generate(
-        length,
-        (index) => (index * 31 + worker * 17 + iteration * 29) & 0xff,
-        growable: false,
-      ),
-    );
+    final bytes = Uint8List(length);
+    var value = (worker * 17 + iteration * 29) & 0xff;
+    for (var index = 0; index < length; index++) {
+      bytes[index] = value;
+      value = (value + 31) & 0xff;
+    }
+    return bytes;
   }
 
   static Uint8List encodeDart({
@@ -43,7 +43,10 @@ abstract final class BenchPayloadCodec {
     required int iteration,
     required int bodyBytes,
   }) {
-    final builder = fb.Builder(deduplicateTables: false);
+    final builder = fb.Builder(
+      initialSize: _initialFlatBufferSize(bodyBytes),
+      deduplicateTables: false,
+    );
     builder.finish(
       schema.WorkloadPayloadObjectBuilder(
         worker: worker,
@@ -60,9 +63,11 @@ abstract final class BenchPayloadCodec {
     required int worker,
     required int iteration,
     required int bodyBytes,
-    int initialSize = 1024,
+    int? initialSize,
   }) {
-    final builder = allocator.flatBuffers(initialSize: initialSize);
+    final builder = allocator.flatBuffers(
+      initialSize: initialSize ?? _initialFlatBufferSize(bodyBytes),
+    );
     try {
       builder.finish(
         schema.WorkloadPayloadObjectBuilder(
@@ -76,6 +81,18 @@ abstract final class BenchPayloadCodec {
     } finally {
       builder.dispose();
     }
+  }
+
+  // The pinned model needs at most 64 bytes beyond its byte vector. Keep the
+  // allocation aligned and avoid doubling to 128 KiB for a 64 KiB body.
+  static int _initialFlatBufferSize(int bodyBytes) {
+    RangeError.checkValueInInterval(
+      bodyBytes,
+      0,
+      64 * 1024 * 1024,
+      'bodyBytes',
+    );
+    return (bodyBytes + 64 + 7) & ~7;
   }
 
   static int _uintWidth(int value, bool cbor) => value <= (cbor ? 23 : 127)

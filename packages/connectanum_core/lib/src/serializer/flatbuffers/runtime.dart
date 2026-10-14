@@ -26,9 +26,47 @@ class WampUint64Reader extends fb.Reader<int> {
   }
 }
 
-fb.BufferContext bufferContext(List<int> bytes) {
+/// Retains the exact logical byte range when reading a FlatBuffer.
+/// The caller keeps externally owned storage valid for the reader's lifetime.
+fb.BufferContext flatBufferContext(List<int> bytes) {
   final data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
   return fb.BufferContext(ByteData.sublistView(data));
+}
+
+fb.BufferContext bufferContext(List<int> bytes) => flatBufferContext(bytes);
+
+/// Reads a byte vector as an immutable view without copying its contents.
+///
+/// A view of external storage has the same lifetime as that storage. This
+/// reader does not extend a database transaction or native buffer lease.
+class FlatBufferUint8ListReader extends fb.Reader<List<int>> {
+  const FlatBufferUint8ListReader();
+
+  @override
+  int get size => 4;
+
+  @override
+  @pragma('vm:prefer-inline')
+  Uint8List read(fb.BufferContext context, int offset) {
+    final data = context.buffer;
+    if (offset < 0 || offset > data.lengthInBytes - 4) {
+      throw const FormatException('Invalid FlatBuffers byte-vector reference');
+    }
+    final relative = data.getUint32(offset, Endian.little);
+    final vector = offset + relative;
+    if (relative < 4 || vector > data.lengthInBytes - 4) {
+      throw const FormatException('Invalid FlatBuffers byte-vector offset');
+    }
+    final length = data.getUint32(vector, Endian.little);
+    if (length > data.lengthInBytes - vector - 4) {
+      throw const FormatException('FlatBuffers byte vector exceeds its buffer');
+    }
+    return Uint8List.sublistView(
+      data,
+      vector + 4,
+      vector + 4 + length,
+    ).asUnmodifiableView();
+  }
 }
 
 /// Internal builder with portable uint64 writes and a replaceable allocator.

@@ -2,7 +2,7 @@
 
 Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
-Branch: `codex/finish-flatbuffers-milestone` in the managed FlatBuffers worktree.
+Branch: `codex/flatbuffers-byte-vector-views` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Merged PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105) at `0e585405`.
@@ -10,6 +10,31 @@ Merged PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105) at `
 Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), master `759d3d4c`.
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
+
+Current follow-up (2026-10-14): validate FlatBuffers byte-vector views.
+Branch `codex/flatbuffers-byte-vector-views` starts at scope checkpoint `fc808e92`;
+[PR #129](https://github.com/konsultaner/connectanum-dart/pull/129) retains the
+separate measurement/scope review. Fresh pre-change `bin/test-fast` passes.
+Immutable byte views retain exact input ranges and storage, with explicit native
+lifetime requirements. Both pinned generators select the same reader. Shared
+payload generation fills its byte buffer directly; FlatBuffers builders reserve
+the known model size. Focused VM and Chrome/Dart2Wasm binding/view cases pass.
+The initial root-level browser invocation fails its hybrid loader paths; the
+package-root retry passes 79 cases. A live diagnostic first rejects an outdated
+driver without executing rows; the driver is being rebuilt. No parity is claimed.
+Fresh pinned interop passes 33 upstream/42 extended fixtures and all 25
+public message types. Both 90-row before/after diagnostics complete; native
+FlatBuffers throughput improves roughly 5–6%, while the Dart-value case does
+not improve usefully and allocation/GC ratios still regress. Both diagnostics
+fail acceptance; Linux CPU/RSS and full duration/matrix evidence remain absent.
+The first full verify rejects the new test missing from serializer mutation
+inventories; all four target support lists and the shared suite now include it.
+Replacement full `bin/verify` passes at exit 0 with all 12 frozen
+code/test/config inputs unchanged; no mutation target or budget is reduced.
+PR #129 passes hosted native/profile/VM jobs, but Codecov patch coverage is
+red. Repair that before publishing this feature branch. Hosted byte-view
+acceptance remains pending. See [source and measured limits](../research/2026-10-14-flatbuffers-byte-vector-views.md).
+The primary mutation checkout stays untouched.
 
 Current follow-up (2026-10-14): complete the GitHub FlatBuffers milestone.
 Branch `codex/finish-flatbuffers-milestone` reuses the managed worktree; the

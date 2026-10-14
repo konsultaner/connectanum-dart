@@ -149,6 +149,31 @@ void main() {
 
   for (final bodyBytes in [0, 1, 1024, 64 * 1024]) {
     test(
+      'default native allocation avoids growth for $bodyBytes body bytes',
+      () {
+        final native = BenchPayloadCodec.encodeNative(
+          NativeBufferAllocator.instance(libraryPath: nativeLibrary),
+          worker: 7,
+          iteration: 19,
+          bodyBytes: bodyBytes,
+        );
+        addTearDown(native.dispose);
+        expect(native.growthCopiedBytes, 0);
+        expect(native.inputCopiedBytes, bodyBytes);
+        expect(
+          native.bytes,
+          BenchPayloadCodec.encodeDart(
+            worker: 7,
+            iteration: 19,
+            bodyBytes: bodyBytes,
+          ),
+        );
+      },
+      skip: nativeLibrary == null
+          ? 'Native transport artifact unavailable'
+          : false,
+    );
+    test(
       'Dart and native FlatBuffers match for $bodyBytes body bytes',
       () {
         final expectedWorker = 7;
@@ -222,7 +247,7 @@ void main() {
       throwsFormatException,
     );
     final decodedBody = BenchPayloadCodec.decode(bytes).body!;
-    expect(() => decodedBody[0] = 0, throwsStateError);
+    expect(() => decodedBody[0] = 0, throwsUnsupportedError);
     final bodyOffset = _findSubsequence(
       bytes,
       BenchPayloadCodec.body(worker: 2, iteration: 3, length: 16),

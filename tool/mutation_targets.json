@@ -492,7 +492,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_byte_view_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -542,7 +543,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_byte_view_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -593,7 +595,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_byte_view_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
@@ -646,7 +649,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_byte_view_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
