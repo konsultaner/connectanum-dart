@@ -54,13 +54,15 @@ and the new observer module. The published `Cargo.lock` is audited unchanged;
 only generated `target/` contents are excluded. Test keys are public upstream
 fixtures. The source checker verifies both packages.
 
-Four upstream files change: the optional feature, observer module export,
-the extraction hook and source tests. The observer counts `amount` immediately
-after the existing successful `ReadBuf::put_slice()` in `Stream::poll_read()`.
-It excludes the borrowed `Reader::into_first_chunk()` path, `AsyncBufRead`
-views and consumption, buffer growth, and crypto. Tests verify bounded/prefilled
-reads, pointer preservation after borrowed consumption, zero-length/EOF reads,
-pending reads and malformed TLS input. All eleven upstream and three observer
-tests run in canonical full verification. This additional partial observation
-does not change the six-field Rustls ABI or certify total TLS-copy coverage.
-Both packages' licenses, notices and source manifests ship in native bundles.
+Six upstream files change: the optional feature, observer module export,
+internal extraction hook, public client/server extraction hooks and source tests.
+The observer counts actual selected bytes immediately after successful
+`ReadBuf::put_slice()` in the internal `Stream::poll_read()` and both public
+`TlsStream::poll_read()` implementations, including their batched read loops.
+It excludes `AsyncBufRead` views and consumption, buffer growth, and crypto.
+Tests verify bounded/prefilled reads, pointer preservation after borrowed
+consumption, zero-length/EOF reads, pending reads and malformed TLS input.
+All eleven upstream and five observer tests run in canonical full verification.
+This additional partial observation does not change the six-field Rustls ABI
+or certify total TLS-copy coverage. Both packages' licenses, notices and source
+manifests ship in native bundles.

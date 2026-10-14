@@ -431,6 +431,11 @@ typedef CtTransportCopyMetricsSnapshotNative =
 typedef CtTransportCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
 
+typedef CtTokioRustlsCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint64>);
+typedef CtTokioRustlsCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<ffi.Uint64>);
+
 typedef CtRustlsCopyMetricsSnapshotNative =
     ffi.Int32 Function(ffi.Pointer<CtRustlsCopyMetricsInfo>);
 typedef CtRustlsCopyMetricsSnapshotDart =
@@ -1506,6 +1511,13 @@ class CtFfiBindings {
             CtRouterMetricsSnapshotNative,
             CtRouterMetricsSnapshotDart
           >('ct_router_metrics_snapshot'),
+      ctTokioRustlsCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTokioRustlsCopyMetricsSnapshotNative,
+              CtTokioRustlsCopyMetricsSnapshotDart
+            >('ct_tokio_rustls_copy_metrics_snapshot'),
+      ),
       ctRustlsCopyMetricsSnapshot = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1670,6 +1682,7 @@ class CtFfiBindings {
   final CtHttpConnectionEventGetDart ctHttpConnectionEventGet;
   final CtHttpConnectionEventReleaseDart ctHttpConnectionEventRelease;
   final CtRouterMetricsSnapshotDart ctRouterMetricsSnapshot;
+  final CtTokioRustlsCopyMetricsSnapshotDart? ctTokioRustlsCopyMetricsSnapshot;
   final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
   final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;
   final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;

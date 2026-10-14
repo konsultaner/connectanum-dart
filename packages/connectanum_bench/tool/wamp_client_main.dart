@@ -284,6 +284,8 @@ Map<String, Object?> _copyMetricsFor(
               nativeCopyMetrics.rustlsRecordBufferCopyBytesTotal,
           'rustls_record_append_copy_bytes':
               nativeCopyMetrics.rustlsRecordAppendCopyBytesTotal,
+          'tokio_rustls_plaintext_extract_copy_bytes':
+              nativeCopyMetrics.tokioRustlsPlaintextExtractCopyBytesTotal,
           'io_buffer_front_copy_bytes':
               nativeCopyMetrics.ioBufferFrontCopyBytesTotal,
           'io_buffered_read_copy_bytes':

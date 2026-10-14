@@ -164,6 +164,9 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   routerBreakdown['rustls_record_append_copy_bytes'] =
       _copyByteCount(routerDelta?.rustlsRecordAppendCopyBytesTotal) ??
       notMeasured('router partial Rustls source counter is unavailable');
+  routerBreakdown['tokio_rustls_plaintext_extract_copy_bytes'] =
+      _copyByteCount(routerDelta?.tokioRustlsPlaintextExtractCopyBytesTotal) ??
+      notMeasured('router partial Tokio-Rustls source counter is unavailable');
   routerBreakdown['dart_to_native_copy_bytes'] = routerDelta == null
       ? notMeasured('router transport copy snapshots are unavailable')
       : routerDelta.dartToNativeCopiedBytesTotal;

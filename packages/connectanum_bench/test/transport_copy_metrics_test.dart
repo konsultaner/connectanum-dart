@@ -21,6 +21,7 @@ void main() {
         'rustls_deframer_move_copy_bytes',
         'rustls_record_buffer_copy_bytes',
         'rustls_record_append_copy_bytes',
+        'tokio_rustls_plaintext_extract_copy_bytes',
       ]) {
         expect(router[field], isA<Map>());
         expect((router[field] as Map)['status'], 'not_measured');
@@ -45,6 +46,7 @@ void main() {
         expect(router['rustls_deframer_move_copy_bytes'], 20);
         expect(router['rustls_record_buffer_copy_bytes'], 25);
         expect(router['rustls_record_append_copy_bytes'], 30);
+        expect(router['tokio_rustls_plaintext_extract_copy_bytes'], 35);
         expect((metrics['tls_copy_bytes'] as Map)['status'], 'not_measured');
         expect(
           (metrics['transport_copy_bytes'] as Map)['status'],
@@ -62,6 +64,7 @@ void main() {
         'rustls_deframer_move_copy_bytes',
         'rustls_record_buffer_copy_bytes',
         'rustls_record_append_copy_bytes',
+        'tokio_rustls_plaintext_extract_copy_bytes',
       ]) {
         test(
           'missing partial Rustls counter $field on $transport stays unknown',
@@ -506,4 +509,5 @@ NativeRouterTransportCopyMetrics _routerSourceMetrics(int value) =>
       rustlsDeframerMoveCopyBytesTotal: value * 4,
       rustlsRecordBufferCopyBytesTotal: value * 5,
       rustlsRecordAppendCopyBytesTotal: value * 6,
+      tokioRustlsPlaintextExtractCopyBytesTotal: value * 7,
     );

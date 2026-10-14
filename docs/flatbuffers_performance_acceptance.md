@@ -156,6 +156,15 @@ remain null or explicitly unmeasured; the entries do not replace any of the
 eight mandatory copy fields, certify whole TLS coverage, or change acceptance
 budgets. See [the bridge scope and proof](research/2026-10-07-rustls-metrics-bridge.md).
 
+The optional scalar `ct_tokio_rustls_copy_metrics_snapshot` adds
+`tokio_rustls_plaintext_extract_copy_bytes` to both client/router breakdowns.
+It measures successful internal and public client/server `AsyncRead` extraction
+copies, including batched reads; borrowed `AsyncBufRead` views and consumption
+add zero. This fixes a reproduced undercount in the original source observer.
+It preserves the 48-byte Rustls ABI and leaves older libraries unavailable.
+This remains partial TLS evidence and does not make either mandatory TLS or
+transport total numeric. See [source tests and bridge](research/2026-10-14-tokio-rustls-public-copy-metrics.md).
+
 The client worker now snapshots optional native crypto staging counters separately
 from its transport counters. Native XSalsa encryption constructs the existing
 `nonce | tag | ciphertext` layout in one output allocation using detached crypto;
@@ -229,14 +238,30 @@ while resource ratios sum CPU, allocations and GC pauses per operation. The
 sample; it is not simultaneous combined RSS, because the process peaks may occur
 at different times. Each workload runs one throwaway iteration before the
 measurement window so lazy router isolates are present before server profiling
-starts. The collector profiles every application isolate present at the window
-start and rejects isolate-set changes or incomplete GC timelines. Process CPU
+starts. The collector monitors every application isolate present at the window
+start and profiles each shared heap once. It rejects isolate-set changes and
+unavailable native GC counter snapshots. Process CPU
 ticks and RSS sampling use Linux `/proc`; those fields remain missing on other
 platforms and block acceptance. The machine-readable policy is
 `native/bench/artifact_gate/wamp_flatbuffers_performance.json`. Scheduling and
-execution are provided by `tool/run_wamp_serializer_campaign.py`. No complete
-primary comparison result exists yet. The report must not be used
-to claim parity until the complete primary matrix runs with no missing metrics.
+execution are provided by `tool/run_wamp_serializer_campaign.py`. The [first full hosted primary campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/37582544124)
+records all 1,440 scheduled rows at source `a5c6aaf9`. Its unchanged-policy replay
+fails with 2,129 findings: 276 relative-gate failures, 1,512 missing copy metrics,
+336 zero-baseline GC findings and five short measured windows. All 48 cases
+fail throughput, latency, CPU and allocation gates; 36 also fail sampled RSS.
+The median of the 48 throughput ratios is 0.704 against the better binary
+baseline. This aggregate describes that failed source, rather than replacing
+per-case gates or measuring newer code. No parity is accepted.
+
+A forced-GC probe on Dart 3.13.1 subsequently reproduces the zero-GC measurement
+bug: the VM emits category `GC` collection names and paired `B`/`E` scopes,
+while the old parser requires names containing `gc` and `X` durations. The final repair samples native cumulative GC counts and foreground times
+once per shared isolate-group heap. Allocation profiles are also deduplicated by
+group; all application isolates remain monitored. Missing, invalid or rewound
+counter snapshots remain unavailable. See [native VM scope and proof](research/2026-10-14-dart-gc-metrics.md). A real forced-GC regression requires positive counts and pause
+microseconds. Historical rows retain their original zero values and failures;
+they are not rewritten as passing evidence. A new complete campaign remains
+required after performance and copy-instrumentation blockers are resolved.
 
 The relative gate currently requires no point-estimate regression versus the
 better binary baseline for CPU, allocations, GC pause and peak RSS as well as

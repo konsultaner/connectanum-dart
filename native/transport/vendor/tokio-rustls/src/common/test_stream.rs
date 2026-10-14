@@ -475,7 +475,9 @@ async fn copy_observer_pending_and_error_copy_nothing() -> io::Result<()> {
     let mut storage = [0x55; 7];
     let mut output = ReadBuf::new(&mut storage);
     let mut cx = Context::from_waker(noop_waker_ref());
-    assert!(Pin::new(&mut stream).poll_read(&mut cx, &mut output).is_pending());
+    assert!(Pin::new(&mut stream)
+        .poll_read(&mut cx, &mut output)
+        .is_pending());
     assert!(output.filled().is_empty());
     assert_eq!(observed_on_current_thread(), before);
     let mut invalid = Expected(Cursor::new(vec![0xff, 0x03, 0x03, 0x00, 0x00]));
@@ -487,6 +489,78 @@ async fn copy_observer_pending_and_error_copy_nothing() -> io::Result<()> {
     assert!(output.filled().is_empty());
     assert_eq!(observed_on_current_thread(), before);
     Ok(())
+}
+
+#[cfg(feature = "connectanum-copy-observer")]
+async fn check_public_extraction<T>(mut stream: T) -> io::Result<()>
+where
+    T: tokio::io::AsyncBufRead + AsyncRead + Unpin,
+{
+    use crate::copy_observer::observed_on_current_thread;
+    use tokio::io::AsyncBufReadExt;
+
+    let before = observed_on_current_thread();
+    let mut storage = [0x55; 5];
+    let mut output = ReadBuf::new(&mut storage);
+    output.put_slice(b"xx");
+    poll_fn(|cx| Pin::new(&mut stream).poll_read(cx, &mut output)).await?;
+    assert_eq!(output.filled(), b"xxaaa");
+    assert_eq!(observed_on_current_thread() - before, 3);
+    let pointer = stream.fill_buf().await?.as_ptr();
+    assert_eq!(stream.fill_buf().await?.as_ptr(), pointer);
+    Pin::new(&mut stream).consume(4);
+    assert_eq!(stream.fill_buf().await?.as_ptr(), pointer.wrapping_add(4));
+    assert_eq!(observed_on_current_thread() - before, 3);
+    let mut rest = Vec::new();
+    stream.read_to_end(&mut rest).await?;
+    assert_eq!(rest, vec![b'a'; 32769 - 7]);
+    assert_eq!(observed_on_current_thread() - before, 32769 - 4);
+    assert_eq!(stream.read(&mut []).await?, 0);
+    assert_eq!(stream.read(&mut storage).await?, 0);
+    assert_eq!(observed_on_current_thread() - before, 32769 - 4);
+    Ok(())
+}
+
+#[cfg(feature = "connectanum-copy-observer")]
+#[tokio::test]
+async fn copy_observer_public_client_reads() -> io::Result<()> {
+    let (server, mut client) = make_pair();
+    let mut server = Connection::from(server);
+    poll_fn(|cx| do_handshake(&mut client, &mut server, cx)).await?;
+    server.writer().write_all(&vec![b'a'; 32769])?;
+    server.send_close_notify();
+    check_public_extraction(crate::client::TlsStream {
+        io: Good(&mut server),
+        session: client,
+        state: super::TlsState::Stream,
+        need_flush: false,
+        error: None,
+        #[cfg(feature = "early-data")]
+        early_waker: None,
+    })
+    .await
+}
+
+#[cfg(feature = "connectanum-copy-observer")]
+#[tokio::test]
+async fn copy_observer_public_server_reads() -> io::Result<()> {
+    let (server, mut client) = make_pair();
+    let mut server = Connection::from(server);
+    poll_fn(|cx| do_handshake(&mut client, &mut server, cx)).await?;
+    client.writer().write_all(&vec![b'a'; 32769])?;
+    client.send_close_notify();
+    let Connection::Server(server) = server else {
+        unreachable!()
+    };
+    let mut client = Connection::from(client);
+    check_public_extraction(crate::server::TlsStream {
+        io: Good(&mut client),
+        session: server,
+        state: super::TlsState::Stream,
+        need_flush: false,
+        error: None,
+    })
+    .await
 }
 
 // Share `utils` module with integration tests

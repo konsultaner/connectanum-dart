@@ -1,9 +1,61 @@
 # Project State
 
-Last updated: 2026-10-10.
+Last updated: 2026-10-14.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
+Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
+
+
+Current follow-up (2026-10-14): complete the GitHub FlatBuffers milestone.
+Branch `codex/finish-flatbuffers-milestone` reuses the managed worktree; the
+primary mutation-runner checkout stays untouched. The released master remains
+`73d840c9`. Its main CI now passes all 36 jobs, and all five production native
+consumers pass 170 cases with zero skips. Issue #104 is closed after auditing
+its public examples, generic external-owner contract, ObjectBox boundary,
+seven hosted packages and linked release evidence. Issue #102 also closes on
+released-source CI: the downloaded GuardMalloc report verifies 87 cases and
+263 committed inputs, plus its separately recorded generated lock. The milestone description
+now reflects merged and published work.
+
+Fresh `bin/test-fast` initially fails on two absolute local paths in the
+unpublished beta.8 documentation checkpoint. Normalizing those references
+reproduces and repairs the policy failure; the replacement fast run passes.
+The independent peer moves to cbor2 5.9.0, the first patched release for
+GHSA-3c37-wwvx-h642. Fresh interop passes 33 upstream and 42 extended fixtures,
+both encoding directions and all 25 public message types; the negotiated
+RawSocket/WebSocket live peer also passes.
+
+A live extraction-counter test then reproduces an existing observation gap:
+Tokio-Rustls's public client/server reads bypass the instrumented internal
+`Stream::poll_read`. Four source hooks now observe both public initial and
+batched copies. Exact tests fail first at zero instead of three bytes and
+pass after the repair, including borrowed-pointer preservation and EOF.
+An additive optional scalar C API exposes this partial counter to both Dart
+runtimes and client/router benchmark breakdowns. The old 48-byte Rustls ABI
+is unchanged; the published beta.8 library correctly returns null for the
+new optional metric. Complete TLS/SDK/crypto/transcode totals remain unknown;
+no performance budget, mandatory metric or coverage label is weakened.
+The first full run reproduces the strengthened GC probe failure: actual
+collections produce paired category-GC collection scopes, but the old parser
+reports zero. Actual VM evidence also reproduces duplicated notifications and heap
+statistics for isolates sharing one group. The final collector reads native
+cumulative collection/time counters and profiles allocation once per shared
+heap, while retaining every isolate for lifecycle validation. Missing, malformed
+or rewound counters remain unavailable. All 35 focused forced-GC, heap/delta and
+live-worker cases pass. The first timeline-reconciliation experiment fails its
+stronger stream check and is retained as diagnostic evidence.
+See [GC source and scope](research/2026-10-14-dart-gc-metrics.md).
+Final canonical `bin/verify` passes at exit 0, including Rust, VM/native,
+consumers and Chrome/Dart2Wasm (4,751 core, 2,829 client; 20 declared native-only
+skips). All 22 recorded changed code/test inputs still match their frozen hashes.
+The completed local review identifies a missing-profiling-metadata fallback;
+it now leaves allocation/GC unavailable, and a real VM probe verifies that
+behavior. Other speculative review findings are checked against the actual SDK
+snapshot and stable-isolate tests. Hosted new-source acceptance is pending.
+A byte-vector construction prototype is prepared but its timed run is blocked
+by an active native-mutation resource lease; that lease and primary work stay
+untouched.
+See [scope and evidence](research/2026-10-14-tokio-rustls-public-copy-metrics.md).
 
 Current follow-up (2026-10-10): synchronized beta.8 publication is complete.
 The user merges PR #107 through protected master at `73d840c9`; its tree exactly
@@ -33,13 +85,12 @@ sections remain identical. The public native FlatBuffers example passes with
 116 frame bytes, three segments, zero application-input copies and zero
 control-growth copies. The initial benchmark index is stale; refreshing after
 public-index propagation resolves the clean install without changing versions.
-Evidence is retained under `out/beta8-publish-evidence/` and the standalone
-consumer under `/Users/konsultaner/.codex/release-checks/connectanum-beta8-20261010/`.
+Evidence is retained under `out/beta8-publish-evidence/`; the standalone
+consumer uses an isolated scratch directory outside the repository.
 Local full `bin/verify` passes on identical tree `b382b21c`; all 36 main jobs,
 seven strict archives and WampApp artifacts also pass there. Post-merge
 [CI 38032968401](https://github.com/konsultaner/connectanum-dart/actions/runs/38032968401)
-currently has 32 passing jobs, with VM coverage and two mutation gates pending
-and no failures. WAMP profile gates and kTLS validation pass on `73d840c9`.
+passes all 36 jobs, including VM coverage and both mutation gates. WAMP profile gates and kTLS validation pass on `73d840c9`.
 The closed release PR's separate Codecov comparison loses three hits in
 unchanged router WebSocket polling and MCP timer-identity branches (patch 100%;
 project 93.90% versus 93.91%). Actual LCOV differences are retained; no coverage

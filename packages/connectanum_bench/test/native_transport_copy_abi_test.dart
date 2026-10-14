@@ -212,6 +212,52 @@ void _probe() {
       );
     }
 
+    if (library.providesSymbol('ct_tokio_rustls_copy_metrics_snapshot')) {
+      final info = calloc<ffi.Uint64>(3);
+      try {
+        info[0] = 0x12345678;
+        info[2] = 0x76543210;
+        final snapshot = library
+            .lookupFunction<
+              client_ffi.CtTokioRustlsCopyMetricsSnapshotNative,
+              client_ffi.CtTokioRustlsCopyMetricsSnapshotDart
+            >(
+              'ct_tokio_rustls_copy_metrics_snapshot',
+            );
+        _equal(snapshot(info + 1), 0);
+        _equal(info[0], 0x12345678);
+        _equal(info[2], 0x76543210);
+        _equal(
+          clientMetrics.tokioRustlsPlaintextExtractCopyBytesTotal,
+          info[1],
+        );
+        _equal(
+          routerMetrics.tokioRustlsPlaintextExtractCopyBytesTotal,
+          info[1],
+        );
+        if (snapshot(ffi.nullptr) == 0) {
+          throw StateError('Null Tokio-Rustls snapshot must be rejected');
+        }
+      } finally {
+        calloc.free(info);
+      }
+    } else {
+      _equal(clientMetrics.tokioRustlsPlaintextExtractCopyBytesTotal, null);
+      _equal(routerMetrics.tokioRustlsPlaintextExtractCopyBytesTotal, null);
+      _equal(
+        clientMetrics
+            .deltaFrom(clientMetrics)
+            .tokioRustlsPlaintextExtractCopyBytesTotal,
+        null,
+      );
+      _equal(
+        routerMetrics
+            .deltaFrom(routerMetrics)
+            .tokioRustlsPlaintextExtractCopyBytesTotal,
+        null,
+      );
+    }
+
     final legacy = calloc<client_ffi.CtTransportCopyMetricsInfo>();
     try {
       final snapshot = library

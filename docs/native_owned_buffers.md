@@ -167,6 +167,7 @@ Ordinary native APIs still work with older libraries. Buffers from a different
 loaded native library cannot be submitted through this allocator.
 
 Actual ObjectBox integration belongs in a separate `connectanum_objectbox_adapter`
-package. Its transaction-borrowed memory must use a future external-owner lease
-contract; it cannot be passed to this owned-allocation ABI. No ObjectBox
+package. Its transaction-borrowed memory must use the external-owner lease
+contract documented in [native buffer ownership](native_buffer_ownership.md);
+it cannot be passed to this owned-allocation ABI. No ObjectBox
 library or dependency is added here.
