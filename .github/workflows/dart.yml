@@ -228,50 +228,46 @@ jobs:
           coverage="$RUNNER_TEMP/paho/bin/coverage"
           "$coverage" run --source=run_mqtt_benchmark_gate \
             -m unittest tool/test_run_mqtt_benchmark_gate.py
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate \
+          failed=0
+          run_profile() {
+            if ! "$coverage" run --append --source=run_mqtt_benchmark_gate \
+                -m run_mqtt_benchmark_gate "$@"; then
+              printf "MQTT benchmark profile failed: %s\n" "$*" >&2
+              failed=1
+            fi
+          }
+          run_profile \
             --output out/mqtt-qos0-gate/burst --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate \
+          run_profile \
             --budget tool/mqtt_sustained_benchmark_budget.json \
             --output out/mqtt-qos0-gate/sustained --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate \
+          run_profile \
             --budget tool/mqtt_batched_benchmark_budget.json \
             --output out/mqtt-qos0-gate/batched --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate \
+          run_profile \
             --budget tool/mqtt_fanout_benchmark_budget.json \
             --output out/mqtt-qos0-gate/fanout --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate \
+          run_profile \
             --budget tool/mqtt_v311_sustained_benchmark_budget.json \
             --output out/mqtt-qos0-gate/v311-sustained --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate --native-router \
+          run_profile --native-router \
             --output out/mqtt-qos0-gate/native-burst --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate --native-router \
+          run_profile --native-router \
             --budget tool/mqtt_native_sustained_benchmark_budget.json \
             --output out/mqtt-qos0-gate/native-sustained --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate --native-router \
+          run_profile --native-router \
             --budget tool/mqtt_native_v311_sustained_benchmark_budget.json \
             --output out/mqtt-qos0-gate/native-v311-sustained --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate --native-router \
+          run_profile --native-router \
             --budget tool/mqtt_batched_benchmark_budget.json \
             --output out/mqtt-qos0-gate/native-batched --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate --native-router \
+          run_profile --native-router \
             --budget tool/mqtt_fanout_benchmark_budget.json \
             --output out/mqtt-qos0-gate/native-fanout --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate --native-router \
+          run_profile --native-router \
             --budget tool/mqtt_native_tls_sustained_benchmark_budget.json \
             --output out/mqtt-qos0-gate/native-tls-sustained --mosquitto "$(command -v mosquitto)"
-          "$coverage" run --append --source=run_mqtt_benchmark_gate \
-            -m run_mqtt_benchmark_gate --native-router \
+          run_profile --native-router \
             --budget tool/mqtt_native_tls_v311_sustained_benchmark_budget.json \
             --output out/mqtt-qos0-gate/native-tls-v311-sustained --mosquitto "$(command -v mosquitto)"
           "$coverage" json --include='*/tool/run_mqtt_benchmark_gate.py' \
@@ -279,6 +275,7 @@ jobs:
           "$coverage" report --include='*/tool/run_mqtt_benchmark_gate.py' \
             --fail-under=100 -m
           python3 -c "from run_mqtt_benchmark_gate import require_exact_line_coverage; require_exact_line_coverage('out/mqtt-qos0-gate/python-coverage.json')"
+          exit "$failed"
       - name: Upload MQTT QoS 0 benchmark evidence
         if: always()
         uses: actions/upload-artifact@v7
