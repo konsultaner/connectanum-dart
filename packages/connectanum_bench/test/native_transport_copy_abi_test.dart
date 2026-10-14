@@ -1,6 +1,8 @@
 @TestOn('vm')
 library;
 
+import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
@@ -10,9 +12,12 @@ import 'package:connectanum_client/src/transport/native/ffi_bindings.dart'
 import 'package:connectanum_client/src/transport/native/runtime.dart' as client;
 import 'package:connectanum_router/src/native/ffi_bindings.dart' as router_ffi;
 import 'package:connectanum_router/src/native/runtime.dart' as router;
+import 'package:coverage/coverage.dart';
 import 'package:ffi/ffi.dart';
 import 'package:test/test.dart';
 
+import 'support/collect_benchmark_child_coverage.dart'
+    show writeChildCoverageReport;
 import 'support/native_library.dart';
 
 void _equal(Object? actual, Object? expected) {
@@ -22,6 +27,23 @@ void _equal(Object? actual, Object? expected) {
 void main() async {
   if (Platform.environment['CONNECTANUM_TRANSPORT_COPY_PROBE'] == '1') {
     _probe();
+    final coveragePath =
+        Platform.environment['CONNECTANUM_TRANSPORT_COPY_COVERAGE_FILE'];
+    if (coveragePath != null) {
+      final serviceUri = (await developer.Service.getInfo()).serverUri;
+      if (serviceUri == null) {
+        throw StateError('Transport ABI coverage requires the VM service');
+      }
+      final report = await collect(
+        serviceUri,
+        false,
+        false,
+        false,
+        {'connectanum_client', 'connectanum_router'},
+        timeout: const Duration(seconds: 15),
+      );
+      await writeChildCoverageReport(File(coveragePath), report);
+    }
     print('isolated transport copy snapshot passed');
     return;
   }
@@ -37,9 +59,22 @@ void main() async {
       final source = await Isolate.resolvePackageUri(
         Uri.parse('package:connectanum_bench/connectanum_bench.dart'),
       );
+      final coverageDirectory =
+          Platform.environment['CONNECTANUM_TEST_CHILD_COVERAGE_DIR'];
+      final coverageFile = coverageDirectory == null
+          ? null
+          : File('$coverageDirectory/transport-copy-abi.json').absolute;
+      if (coverageFile != null) {
+        expect(coverageFile.existsSync(), isFalse);
+        await coverageFile.parent.create(recursive: true);
+      }
       final result = await Process.run(
         Platform.resolvedExecutable,
         [
+          if (coverageFile != null) ...[
+            '--enable-vm-service=0/127.0.0.1',
+            '--no-serve-devtools',
+          ],
           'run',
           source!
               .resolve('../test/native_transport_copy_abi_test.dart')
@@ -48,6 +83,8 @@ void main() async {
         environment: {
           'CONNECTANUM_NATIVE_LIB': path!,
           'CONNECTANUM_TRANSPORT_COPY_PROBE': '1',
+          if (coverageFile != null)
+            'CONNECTANUM_TRANSPORT_COPY_COVERAGE_FILE': coverageFile.path,
         },
       );
       expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
@@ -55,6 +92,23 @@ void main() async {
         result.stdout,
         contains('isolated transport copy snapshot passed'),
       );
+      if (coverageFile != null) {
+        final report = jsonDecode(await coverageFile.readAsString()) as Map;
+        final entries = report['coverage'] as List;
+        for (final source in [
+          'package:connectanum_client/src/transport/native/runtime.dart',
+          'package:connectanum_router/src/native/runtime.dart',
+        ]) {
+          final entry = entries.where((entry) => entry['source'] == source);
+          expect(entry, hasLength(1), reason: source);
+          final hits = entry.single['hits'] as List;
+          expect(
+            [for (var index = 1; index < hits.length; index += 2) hits[index]],
+            contains(isPositive),
+            reason: source,
+          );
+        }
+      }
     },
   );
 }

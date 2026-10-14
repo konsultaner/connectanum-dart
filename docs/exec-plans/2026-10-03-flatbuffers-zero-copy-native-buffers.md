@@ -77,6 +77,20 @@ by an active native-mutation resource lease; that lease and primary work stay
 untouched.
 See [scope and evidence](../research/2026-10-14-tokio-rustls-public-copy-metrics.md).
 
+PR #129 coverage follow-up: the `fc808e92` VM coverage job passes, but
+Codecov patch coverage is 92.70% against 93.91%, with ten changed lines missed.
+The existing isolated transport ABI probe now exports real client/router hits
+through the canonical child-coverage directory. Its scalar/legacy ABI checks
+stay isolated from shared counters; collection does not pause the current
+isolate, and exclusive report creation prevents overwriting evidence. The
+coverage-enabled probe passes and records seven previously missed router
+lines. The normal probe plus collector regression suite passes 42 cases, and
+analysis is clean. Qwen review reports no confirmed issue; its speculative
+partial-write concern is covered by the existing exclusive writer tests. Full
+resulting-source `bin/verify` is running. Coverage floors and milestone
+performance/copy criteria remain unchanged; replacement hosted acceptance is
+pending.
+
 Current follow-up (2026-10-10): synchronized beta.8 publication is complete.
 The user merges PR #107 through protected master at `73d840c9`; its tree exactly
 matches tested release head `b382b21c`. All eight release/package tags point to
