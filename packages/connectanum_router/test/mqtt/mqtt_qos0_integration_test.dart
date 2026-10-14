@@ -111,6 +111,41 @@ void main() {
     expect(MqttFrameDecoder().add(sent[1]).single.type, MqttPacketType.suback);
   });
 
+  test('native MQTT new traffic drains a previously saturated queue', () async {
+    final broker = MqttQos0Broker.native();
+    addTearDown(broker.close);
+    final sent = <Uint8List>[];
+    var firstSend = true;
+    broker.attachNativeConnection(
+      50,
+      send: (bytes) {
+        if (firstSend) {
+          firstSend = false;
+          throw NativeTransportException(
+            NativeTransportErrorCode.sendQueueFull,
+            'queue full',
+          );
+        }
+        sent.add(bytes);
+      },
+      close: () {},
+    );
+    broker.receiveNativeChunk(
+      50,
+      MqttPacketCodec.encodeConnect(
+        const MqttConnect(version: MqttVersion.v5, clientId: 'eager-drain'),
+      ),
+    );
+    expect(sent, isEmpty);
+    broker.receiveNativeChunk(
+      50,
+      Uint8List.fromList([0x82, 7, 0, 1, 0, 0, 1, 0x61, 0]),
+    );
+    expect(sent, hasLength(2));
+    expect(MqttFrameDecoder().add(sent[0]).single.type, MqttPacketType.connack);
+    expect(MqttFrameDecoder().add(sent[1]).single.type, MqttPacketType.suback);
+  });
+
   test('native MQTT retry closes on a terminal send error', () async {
     final broker = MqttQos0Broker.native();
     addTearDown(broker.close);

@@ -154,8 +154,13 @@ final class _Peer {
   void _sendBytes(Uint8List bytes) {
     if (closed) return;
     if (_pendingOutbound.isNotEmpty) {
-      _queueOutbound(bytes);
-      return;
+      // Fresh traffic is another opportunity for the native writer to drain.
+      _drainOutbound();
+      if (closed) return;
+      if (_pendingOutbound.isNotEmpty) {
+        _queueOutbound(bytes);
+        return;
+      }
     }
     try {
       _send(bytes);
@@ -181,6 +186,7 @@ final class _Peer {
   }
 
   void _drainOutbound() {
+    _outboundRetry?.cancel();
     _outboundRetry = null;
     while (!closed && _pendingOutbound.isNotEmpty) {
       final bytes = _pendingOutbound.first;
