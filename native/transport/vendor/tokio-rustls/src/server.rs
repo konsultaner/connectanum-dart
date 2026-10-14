@@ -432,6 +432,8 @@ where
             return Poll::Ready(Ok(()));
         }
         buf.put_slice(&data[..len]);
+        #[cfg(feature = "connectanum-copy-observer")]
+        crate::copy_observer::plaintext_extract_copy(len);
         self.as_mut().consume(len);
 
         while buf.remaining() > 0 {
@@ -446,6 +448,8 @@ where
             };
             let len = Ord::min(data.len(), buf.remaining());
             buf.put_slice(&data[..len]);
+            #[cfg(feature = "connectanum-copy-observer")]
+            crate::copy_observer::plaintext_extract_copy(len);
             self.as_mut().consume(len);
         }
         Poll::Ready(Ok(()))

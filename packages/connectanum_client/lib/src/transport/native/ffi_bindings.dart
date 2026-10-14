@@ -228,6 +228,16 @@ typedef CtTransportCopyMetricsSnapshotNative =
 typedef CtTransportCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
 
+typedef CtFfiBorrowedSendCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint64>);
+typedef CtFfiBorrowedSendCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<ffi.Uint64>);
+
+typedef CtTokioRustlsCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint64>);
+typedef CtTokioRustlsCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<ffi.Uint64>);
+
 typedef CtRustlsCopyMetricsSnapshotNative =
     ffi.Int32 Function(ffi.Pointer<CtRustlsCopyMetricsInfo>);
 typedef CtRustlsCopyMetricsSnapshotDart =
@@ -807,6 +817,20 @@ class CtFfiBindings {
             CtFileSegmentMetricsSnapshotNative,
             CtFileSegmentMetricsSnapshotDart
           >('ct_file_segment_metrics_snapshot'),
+      ctFfiBorrowedSendCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtFfiBorrowedSendCopyMetricsSnapshotNative,
+              CtFfiBorrowedSendCopyMetricsSnapshotDart
+            >('ct_ffi_borrowed_send_copy_metrics_snapshot'),
+      ),
+      ctTokioRustlsCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTokioRustlsCopyMetricsSnapshotNative,
+              CtTokioRustlsCopyMetricsSnapshotDart
+            >('ct_tokio_rustls_copy_metrics_snapshot'),
+      ),
       ctRustlsCopyMetricsSnapshot = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1095,6 +1119,9 @@ class CtFfiBindings {
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionSupportsFileSegmentsDart ctConnectionSupportsFileSegments;
   final CtFileSegmentMetricsSnapshotDart ctFileSegmentMetricsSnapshot;
+  final CtFfiBorrowedSendCopyMetricsSnapshotDart?
+  ctFfiBorrowedSendCopyMetricsSnapshot;
+  final CtTokioRustlsCopyMetricsSnapshotDart? ctTokioRustlsCopyMetricsSnapshot;
   final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
   final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;
   final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;

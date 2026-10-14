@@ -6,6 +6,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_bench/src/dart_vm_metrics.dart';
+import 'package:vm_service/vm_service_io.dart';
 
 List<Uint8List> _retainedBuffers = <Uint8List>[];
 
@@ -41,6 +42,20 @@ Future<void> main() async {
     final window = await collector.beginWindow();
     workerPort.send('allocate');
     await allocationComplete.future.timeout(const Duration(seconds: 5));
+    // Force actual collections after allocation so zero is not a valid result.
+    final observer = await vmServiceConnectUri(
+      serviceUri.replace(scheme: 'ws').resolve('ws').toString(),
+    );
+    try {
+      final isolates = (await observer.getVM()).isolates!;
+      for (final isolate in isolates) {
+        if (isolate.isSystemIsolate != true) {
+          await observer.getAllocationProfile(isolate.id!, gc: true);
+        }
+      }
+    } finally {
+      await observer.dispose();
+    }
     final rssBytes = ProcessInfo.currentRss;
     final metrics = await collector.endWindow(
       window,
@@ -49,9 +64,23 @@ Future<void> main() async {
         peakRssBytes: rssBytes,
       ),
     );
+    final missingMetadata = await collector.endWindow(
+      DartVmMetricsWindow(
+        cpuUserTicks: null,
+        cpuSystemTicks: null,
+        isolateIds: window.isolateIds,
+      ),
+      rssSnapshot: DartVmMetricsRssSnapshot(
+        currentRssBytes: rssBytes,
+        peakRssBytes: rssBytes,
+      ),
+    );
     stdout.writeln(
       jsonEncode({
         'allocated_bytes_delta': metrics.allocatedBytes,
+        'missing_metadata_allocated_bytes': missingMetadata.allocatedBytes,
+        'missing_metadata_gc_count': missingMetadata.gcCount,
+        'missing_metadata_gc_pause_us': missingMetadata.gcPauseMicros,
         'gc_count_delta': metrics.gcCount,
         'gc_pause_us_delta': metrics.gcPauseMicros,
         'current_rss_bytes': metrics.currentRssBytes,

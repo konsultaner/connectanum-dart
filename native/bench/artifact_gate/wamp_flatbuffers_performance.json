@@ -73,6 +73,7 @@
     "The candidate point estimate must meet parity; the 5% allowance applies only to confidence interval bounds.",
     "For each paired repetition, throughput compares FlatBuffers with the faster CBOR/MessagePack result, and latency/resource metrics compare it with the lower CBOR/MessagePack result.",
     "CPU, allocation, GC pause and peak-memory point estimates may not regress against the best binary baseline; the 5% interval tolerance only expresses measurement noise.",
-    "Missing instrumentation, incomplete codec rows, insufficient samples, or overlapping runs fail acceptance."
-  ]
+    "Missing Connectanum boundary counters, incomplete codec rows, insufficient samples, or overlapping runs fail acceptance. Standard SDK/TLS internals may remain explicitly dependency-labelled and unmeasured; owned copies cannot use that exclusion."
+  ],
+  "copy_measurement_scope": "connectanum_buffer_boundaries_v1"
 }

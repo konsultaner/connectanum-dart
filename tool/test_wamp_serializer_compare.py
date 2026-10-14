@@ -36,6 +36,7 @@ class WampSerializerCompareTest(unittest.TestCase):
             "workload": workload,
             "protocol": "wamp_rawsocket_rpc",
             "client_impl": "dart",
+            "wamp_configuration": {"serializer": codec, "secure_transport": False},
             "concurrency": 1,
             "iterations": 25,
             "request_chunk_bytes": 65536,
@@ -76,19 +77,30 @@ class WampSerializerCompareTest(unittest.TestCase):
                 "peak_rss_during_bytes": peak * 2 // 5,
             },
             "copy_metrics": {
+                "measurement_scope": compare.COPY_MEASUREMENT_SCOPE,
                 "optimized_payload_copy_bytes": 0 if codec == "flatbuffers" else 512,
                 "builder_input_copy_bytes": 0,
                 "builder_growth_copy_bytes": 0,
                 "transport_copy_bytes": 512,
                 "known_own_copy_breakdown": {
+                    "client": {
+                        **{field: 0 for field in compare.DART_CLIENT_COPY_FIELDS},
+                        **{field: 0 for field in compare.NATIVE_CLIENT_COPY_FIELDS},
+                        "websocket_mask_copy_bytes": 0,
+                        "websocket_coalesce_copy_bytes": 0,
+                    },
                     "router": {
+                        "dart_to_native_copy_bytes": 512,
+                        "ffi_borrowed_send_input_copy_bytes": 0,
                         "io_buffer_front_copy_bytes": 0,
                         "io_buffered_read_copy_bytes": 0,
+                        "websocket_coalesce_copy_bytes": 0,
                     },
                 },
                 "coverage": {
                     "transport_copy_bytes": "complete_connectanum_owned_path",
                     "unknown_boundaries": [],
+                    "unmeasured_dependency_boundaries": ["dart_sdk_socket_io"],
                 },
                 "websocket_mask_copy_bytes": {
                     "status": "not_applicable",
@@ -105,6 +117,95 @@ class WampSerializerCompareTest(unittest.TestCase):
                 },
             },
         }
+
+    def test_standard_sdk_tls_internals_are_labelled_without_hiding_owned_copies(self):
+        report = self._report("tls", "flatbuffers", 1)
+        metrics = report["copy_metrics"]
+        report["wamp_configuration"] = {"secure_transport": True}
+        metrics["tls_copy_bytes"] = {
+            "status": "not_measured", "scope": "dependency_internals",
+            "dependency": "dart_sdk_tls_and_rustls_tokio_rustls",
+            "reason": "Standard SDK TLS internals remain unmeasured",
+        }
+        metrics["coverage"]["unmeasured_dependency_boundaries"] += [
+            "dart_sdk_tls", "rustls_tokio_rustls",
+        ]
+        self.assertEqual(compare._validate_evidence(report, label="tls"), [])
+        del metrics["known_own_copy_breakdown"]["router"]["io_buffer_front_copy_bytes"]
+        findings = compare._validate_evidence(report, label="tls")
+        self.assertTrue(any("router.io_buffer_front_copy_bytes" in f for f in findings))
+
+    def test_sdk_masking_exception_only_applies_to_dart_websockets(self):
+        report = self._report("mask", "flatbuffers", 1)
+        report["protocol"] = "wamp_websocket_rpc"
+        metrics = report["copy_metrics"]
+        metrics["websocket_mask_copy_bytes"] = {
+            "status": "not_measured", "scope": "dependency_internals",
+            "dependency": "dart_sdk_websocket_masking",
+            "reason": "SDK mask internals remain unmeasured",
+        }
+        metrics["coverage"]["unmeasured_dependency_boundaries"].append(
+            "dart_sdk_websocket_masking"
+        )
+        self.assertEqual(compare._validate_evidence(report, label="mask"), [])
+        report["client_impl"] = "native"
+        self.assertTrue(any("websocket_mask_copy_bytes" in f for f in
+                            compare._validate_evidence(report, label="mask")))
+
+    def test_rejects_legacy_scope_and_forged_owned_transport_totals(self):
+        report = self._report("scope", "flatbuffers", 1)
+        del report["copy_metrics"]["measurement_scope"]
+        self.assertTrue(any("measurement scope" in f for f in
+                            compare._validate_evidence(report, label="scope")))
+        report["copy_metrics"]["measurement_scope"] = compare.COPY_MEASUREMENT_SCOPE
+        report["copy_metrics"]["transport_copy_bytes"] = 0
+        self.assertTrue(any("does not equal" in f for f in
+                            compare._validate_evidence(report, label="scope")))
+
+    def test_legacy_policy_cannot_silently_reinterpret_new_reports(self):
+        policy = copy.deepcopy(self.policy)
+        del policy["copy_measurement_scope"]
+        result = compare.evaluate_campaign(self.manifest, self.root, policy)
+        self.assertEqual(result["status"], "failed")
+        self.assertTrue(any("versioned" in f for f in result["findings"]))
+
+    def test_standard_sdk_does_not_claim_zero_tls_internal_copies(self):
+        report = self._report("tls", "flatbuffers", 1)
+        report["wamp_configuration"]["secure_transport"] = True
+        report["copy_metrics"]["tls_copy_bytes"] = 0
+        self.assertTrue(any("TLS internals" in f for f in
+                            compare._validate_evidence(report, label="tls")))
+
+    def test_failed_copy_reports_still_render_their_findings(self):
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+        result["status"] = "failed"
+        result["findings"] = ["missing copy evidence"]
+        result["cases"][0]["evidence"] = {"cbor": [
+            {"copy_metrics": None},
+            {"copy_metrics": {"coverage": None}},
+            {"copy_metrics": {"coverage": {"unmeasured_dependency_boundaries": None}}},
+        ]}
+        rendered = compare.render_markdown(result)
+        self.assertIn("missing copy evidence", rendered)
+        self.assertIn("none reported", rendered)
+
+    def test_dependency_labels_do_not_excuse_owned_metrics(self):
+        for field in ("transport_copy_bytes", "transcode_copy_bytes", "e2ee_copy_bytes"):
+            report = self._report("owned", "flatbuffers", 1)
+            report["copy_metrics"][field] = {
+                "status": "not_measured", "scope": "dependency_internals",
+                "dependency": "dart_sdk_socket_io", "reason": "fake exclusion",
+            }
+            self.assertTrue(any(field in f for f in
+                                compare._validate_evidence(report, label="owned")))
+
+    def test_dependency_labels_require_the_active_path_and_explanation(self):
+        report = self._report("labels", "flatbuffers", 1)
+        metrics = report["copy_metrics"]
+        for labels in (None, [], ["dart_sdk_socket_io", "missing_own_counter"], [42]):
+            metrics["coverage"]["unmeasured_dependency_boundaries"] = labels
+            self.assertTrue(any("dependency boundary labels" in f for f in
+                                compare._validate_evidence(report, label="labels")))
 
     def _campaign(self, *, flatbuffer_speed: int = 1200) -> dict:
         codecs = ("flatbuffers", "cbor", "msgpack")
@@ -419,15 +520,14 @@ class WampSerializerCompareTest(unittest.TestCase):
 
     def test_rejects_missing_native_input_copy_breakdown(self) -> None:
         for process in ("router", "client"):
-            for field in ("io_buffer_front_copy_bytes", "io_buffered_read_copy_bytes"):
+            for field in ("io_buffer_front_copy_bytes", "io_buffered_read_copy_bytes", "ffi_borrowed_send_input_copy_bytes"):
                 for invalid in (None, True, -1, float("inf"), {"status": "not_measured"}):
                     with self.subTest(process=process, field=field, invalid=invalid):
                         report = self._report("case_flatbuffers", "flatbuffers", 0)
                         report["client_impl"] = "native"
                         breakdown = report["copy_metrics"]["known_own_copy_breakdown"]
                         breakdown["client"] = {
-                            "io_buffer_front_copy_bytes": 0,
-                            "io_buffered_read_copy_bytes": 0,
+                            field: 0 for field in compare.NATIVE_CLIENT_COPY_FIELDS
                         }
                         if invalid is None:
                             breakdown[process].pop(field)

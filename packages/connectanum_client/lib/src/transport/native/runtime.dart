@@ -237,6 +237,8 @@ class NativeTransportCopyMetrics {
     this.rustlsDeframerMoveCopyBytesTotal,
     this.rustlsRecordBufferCopyBytesTotal,
     this.rustlsRecordAppendCopyBytesTotal,
+    this.tokioRustlsPlaintextExtractCopyBytesTotal,
+    this.ffiBorrowedSendCopyBytesTotal,
   });
 
   final int dartToNativeCopiedBytesTotal;
@@ -253,6 +255,12 @@ class NativeTransportCopyMetrics {
   final int? rustlsDeframerMoveCopyBytesTotal;
   final int? rustlsRecordBufferCopyBytesTotal;
   final int? rustlsRecordAppendCopyBytesTotal;
+
+  /// Partial Tokio-Rustls plaintext extraction; null for older libraries.
+  final int? tokioRustlsPlaintextExtractCopyBytesTotal;
+
+  /// Actual Rust borrowed-send input copies; null without the optional ABI.
+  final int? ffiBorrowedSendCopyBytesTotal;
 
   NativeTransportCopyMetrics deltaFrom(NativeTransportCopyMetrics before) =>
       NativeTransportCopyMetrics(
@@ -303,6 +311,14 @@ class NativeTransportCopyMetrics {
         rustlsRecordAppendCopyBytesTotal: _nullableCounterDelta(
           rustlsRecordAppendCopyBytesTotal,
           before.rustlsRecordAppendCopyBytesTotal,
+        ),
+        tokioRustlsPlaintextExtractCopyBytesTotal: _nullableCounterDelta(
+          tokioRustlsPlaintextExtractCopyBytesTotal,
+          before.tokioRustlsPlaintextExtractCopyBytesTotal,
+        ),
+        ffiBorrowedSendCopyBytesTotal: _nullableCounterDelta(
+          ffiBorrowedSendCopyBytesTotal,
+          before.ffiBorrowedSendCopyBytesTotal,
         ),
       );
 
@@ -1132,6 +1148,36 @@ class NativeClientRuntime {
     }
   }
 
+  int? _tokioRustlsCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctTokioRustlsCopyMetricsSnapshot;
+    if (snapshot == null) return null;
+    final copiedBytes = calloc<ffi.Uint64>();
+    try {
+      final result = snapshot(copiedBytes);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot partial Tokio-Rustls copy metrics');
+      }
+      return copiedBytes.value;
+    } finally {
+      calloc.free(copiedBytes);
+    }
+  }
+
+  int? _ffiBorrowedSendCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctFfiBorrowedSendCopyMetricsSnapshot;
+    if (snapshot == null) return null;
+    final copiedBytes = calloc<ffi.Uint64>();
+    try {
+      final result = snapshot(copiedBytes);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot borrowed FFI send input copy metrics');
+      }
+      return copiedBytes.value;
+    } finally {
+      calloc.free(copiedBytes);
+    }
+  }
+
   _RustlsCopyMetricsSnapshot? _rustlsCopyMetricsSnapshot() {
     final snapshot = _bindings.ctRustlsCopyMetricsSnapshot;
     if (snapshot == null) return null;
@@ -1157,6 +1203,8 @@ class NativeClientRuntime {
 
   NativeTransportCopyMetrics transportCopyMetricsSnapshot() {
     final rustls = _rustlsCopyMetricsSnapshot();
+    final tokioRustls = _tokioRustlsCopyMetricsSnapshot();
+    final ffiBorrowed = _ffiBorrowedSendCopyMetricsSnapshot();
     final snapshotV2 = _bindings.ctTransportCopyMetricsSnapshotV2;
     if (snapshotV2 != null) {
       final info = calloc<CtTransportCopyMetricsInfoV2>();
@@ -1176,6 +1224,8 @@ class NativeClientRuntime {
           rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
           rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
           rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+          tokioRustlsPlaintextExtractCopyBytesTotal: tokioRustls,
+          ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 
           websocketMaskCopyBytesTotal: value.legacy.websocketMaskCopyBytesTotal,
           websocketCoalesceCopyBytesTotal:
@@ -1200,6 +1250,8 @@ class NativeClientRuntime {
         rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
         rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
         rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+        tokioRustlsPlaintextExtractCopyBytesTotal: tokioRustls,
+        ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 
         websocketMaskCopyBytesTotal: null,
         websocketCoalesceCopyBytesTotal: null,
@@ -1222,6 +1274,8 @@ class NativeClientRuntime {
         rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
         rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
         rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+        tokioRustlsPlaintextExtractCopyBytesTotal: tokioRustls,
+        ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 
         websocketMaskCopyBytesTotal: value.websocketMaskCopyBytesTotal,
         websocketCoalesceCopyBytesTotal: value.websocketCoalesceCopyBytesTotal,

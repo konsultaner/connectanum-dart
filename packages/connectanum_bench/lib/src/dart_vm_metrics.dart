@@ -55,22 +55,35 @@ class DartVmMetricsCollector {
   }
 
   Future<DartVmMetricsWindow> beginWindow() async {
-    final isolateIds = await _currentIsolateIds();
+    final isolates = (await _service.getVM()).isolates ?? const <IsolateRef>[];
+    final isolateIds = selectDartVmMetricIsolateIds(
+      isolates,
+      allIsolates: _allIsolates,
+    );
     if (isolateIds.isEmpty) {
       throw StateError('Observed WAMP process has no application isolates');
     }
+    final profiledIsolateIds = selectDartVmMetricHeapRepresentativeIds(
+      isolates,
+      isolateIds,
+    );
+    if (profiledIsolateIds == null) {
+      throw StateError('Observed VM has no reliable isolate-group metadata');
+    }
     await Future.wait(
-      isolateIds.map(
+      profiledIsolateIds.map(
         (isolateId) => _service.getAllocationProfile(isolateId, reset: true),
       ),
     );
     await _waitForGcEventDrain();
-    await _service.clearVMTimeline();
+    final gcSnapshots = await _gcHeapSnapshots(profiledIsolateIds);
     final cpuTicks = await _readLinuxCpuTicks(_pid);
     return DartVmMetricsWindow(
       cpuUserTicks: cpuTicks?.user,
       cpuSystemTicks: cpuTicks?.system,
       isolateIds: isolateIds,
+      gcSnapshots: gcSnapshots,
+      profiledIsolateIds: profiledIsolateIds,
     );
   }
 
@@ -80,9 +93,10 @@ class DartVmMetricsCollector {
   }) async {
     final isolateIds = await _currentIsolateIds();
     requireStableDartVmMetricIsolates(window.isolateIds, isolateIds);
+    final profiledIsolateIds = window.profiledIsolateIds;
     var allocatedBytes = 0;
-    var allocationComplete = true;
-    for (final isolateId in isolateIds) {
+    var allocationComplete = profiledIsolateIds?.isNotEmpty ?? false;
+    for (final isolateId in profiledIsolateIds ?? const <String>[]) {
       final allocation = await _service.getAllocationProfile(isolateId);
       final members = allocation.members;
       if (members == null) {
@@ -98,8 +112,10 @@ class DartVmMetricsCollector {
         allocatedBytes = (allocatedBytes + size).clamp(0, 1 << 62).toInt();
       }
     }
-    final timelineStable = await _waitForGcEventDrain();
-    final timeline = await _service.getVMTimeline();
+    final gcStable = await _waitForGcEventDrain();
+    final gcSnapshots = profiledIsolateIds == null || profiledIsolateIds.isEmpty
+        ? null
+        : await _gcHeapSnapshots(profiledIsolateIds);
     final cpuAfter = await _readLinuxCpuTicks(_pid);
     final userTicks = window.cpuUserTicks == null || cpuAfter == null
         ? null
@@ -110,7 +126,9 @@ class DartVmMetricsCollector {
     final tickRate = userTicks == null || systemTicks == null
         ? null
         : await _linuxClockTicksPerSecond();
-    final gcMetrics = _gcMetricsFromTimeline(timeline, stable: timelineStable);
+    final gcMetrics = gcStable
+        ? dartVmGcHeapDelta(window.gcSnapshots, gcSnapshots)
+        : null;
     return DartVmMetricsResult(
       allocatedBytes: allocationComplete ? allocatedBytes : null,
       gcCount: gcMetrics?.count,
@@ -125,6 +143,22 @@ class DartVmMetricsCollector {
       currentRssBytes: rssSnapshot.currentRssBytes,
       peakRssBytes: rssSnapshot.peakRssBytes,
     );
+  }
+
+  Future<Map<String, DartVmGcHeapSnapshot>?> _gcHeapSnapshots(
+    List<String> isolateIds,
+  ) async {
+    final snapshots = <String, DartVmGcHeapSnapshot>{};
+    for (final id in isolateIds) {
+      final isolate = await _service.getIsolate(id);
+      final groupId = isolate.isolateGroupId;
+      if (groupId == null || groupId.isEmpty) return null;
+      if (snapshots.containsKey(groupId)) continue;
+      final snapshot = DartVmGcHeapSnapshot.parse(isolate.json);
+      if (snapshot == null) return null;
+      snapshots[groupId] = snapshot;
+    }
+    return snapshots;
   }
 
   Future<List<String>> _currentIsolateIds() async =>
@@ -162,51 +196,116 @@ class DartVmMetricsWindow {
     required this.cpuUserTicks,
     required this.cpuSystemTicks,
     required this.isolateIds,
+    this.gcSnapshots,
+    this.profiledIsolateIds,
   });
 
   final int? cpuUserTicks;
   final int? cpuSystemTicks;
   final List<String> isolateIds;
+  final Map<String, DartVmGcHeapSnapshot>? gcSnapshots;
+  final List<String>? profiledIsolateIds;
 }
 
-class _DartVmGcMetrics {
-  const _DartVmGcMetrics(this.count, this.pauseMicros);
+/// Cumulative GC statistics for one shared VM isolate-group heap.
+///
+/// The pinned VM exposes its native collection count and foreground GC time
+/// through `_heaps`. Unsupported/malformed fields remain unavailable. Isolates
+/// sharing one group must use one representative snapshot to avoid counting the
+/// same heap twice; GC stream notifications are duplicated for every isolate.
+class DartVmGcHeapSnapshot {
+  const DartVmGcHeapSnapshot({
+    required this.newCollections,
+    required this.oldCollections,
+    required this.newPauseMicros,
+    required this.oldPauseMicros,
+  });
 
-  final int count;
-  final int pauseMicros;
+  final int newCollections;
+  final int oldCollections;
+  final int newPauseMicros;
+  final int oldPauseMicros;
+
+  static DartVmGcHeapSnapshot? parse(Map<String, dynamic>? isolate) {
+    final heaps = isolate?['_heaps'];
+    if (heaps is! Map) return null;
+    (int, int)? space(Object? value) {
+      if (value is! Map) return null;
+      final count = value['collections'];
+      final seconds = value['time'];
+      if (count is! int ||
+          count < 0 ||
+          seconds is! num ||
+          !seconds.isFinite ||
+          seconds < 0) {
+        return null;
+      }
+      final micros = seconds * 1000000;
+      if (!micros.isFinite || micros > (1 << 62)) return null;
+      return (count, micros.round());
+    }
+
+    final young = space(heaps['new']);
+    final old = space(heaps['old']);
+    if (young == null || old == null) return null;
+    return DartVmGcHeapSnapshot(
+      newCollections: young.$1,
+      oldCollections: old.$1,
+      newPauseMicros: young.$2,
+      oldPauseMicros: old.$2,
+    );
+  }
 }
 
-_DartVmGcMetrics? _gcMetricsFromTimeline(
-  Timeline timeline, {
-  required bool stable,
-}) {
-  final events = timeline.traceEvents;
-  if (!stable || events == null) return null;
+/// Sums native GC counter deltas once per observed isolate group.
+/// Missing groups, unsupported fields or a rewound counter cannot become zero.
+({int count, int pauseMicros})? dartVmGcHeapDelta(
+  Map<String, DartVmGcHeapSnapshot>? before,
+  Map<String, DartVmGcHeapSnapshot>? after,
+) {
+  if (before == null ||
+      after == null ||
+      before.isEmpty ||
+      before.length != after.length ||
+      before.keys.any((group) => !after.containsKey(group))) {
+    return null;
+  }
   var count = 0;
   var pauseMicros = 0;
-  var completeDurations = true;
-  for (final event in events) {
-    final json = event.json;
-    if (json == null) continue;
-    final name = json['name'];
-    final phase = json['ph'];
-    if (name is! String ||
-        !name.toLowerCase().contains('gc') ||
-        (phase != null && phase != 'X')) {
-      continue;
+  for (final entry in before.entries) {
+    final current = after[entry.key]!;
+    final old = entry.value;
+    final youngCount = current.newCollections - old.newCollections;
+    final oldCount = current.oldCollections - old.oldCollections;
+    final youngPause = current.newPauseMicros - old.newPauseMicros;
+    final oldPause = current.oldPauseMicros - old.oldPauseMicros;
+    if (youngCount < 0 || oldCount < 0 || youngPause < 0 || oldPause < 0) {
+      return null;
     }
-    count++;
-    final duration = json['dur'];
-    if (duration is num && duration.isFinite && duration >= 0) {
-      pauseMicros += duration.round();
-    } else {
-      completeDurations = false;
-    }
+    count += youngCount + oldCount;
+    pauseMicros += youngPause + oldPause;
   }
-  return completeDurations ? _DartVmGcMetrics(count, pauseMicros) : null;
+  return (count: count, pauseMicros: pauseMicros);
 }
 
-/// Returns the isolate IDs used for allocation profiling in a WAMP process.
+/// Chooses one representative for each shared application heap.
+/// All selected isolate IDs are still retained for lifecycle validation.
+List<String>? selectDartVmMetricHeapRepresentativeIds(
+  List<IsolateRef> isolates,
+  List<String> selectedIds,
+) {
+  final references = {for (final isolate in isolates) isolate.id: isolate};
+  final groups = <String>{};
+  final result = <String>[];
+  for (final id in selectedIds) {
+    final groupId = references[id]?.isolateGroupId;
+    if (groupId == null || groupId.isEmpty) return null;
+    if (groups.add(groupId)) result.add(id);
+  }
+  return result;
+}
+
+/// Returns all application isolate IDs monitored in a WAMP process.
 ///
 /// The client worker normally profiles only its main isolate. The router
 /// benchmark profiles every live isolate because routing work runs in the

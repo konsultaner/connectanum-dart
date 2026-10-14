@@ -4,7 +4,129 @@ import 'package:connectanum_router/connectanum_router.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('standard SDK client buffer boundaries', () {
+    for (final implementation in WampClientImplementation.values) {
+      for (final transport in WampTransport.values) {
+        for (final secure in [false, true]) {
+          test('$implementation $transport secure=$secure', () {
+            final scenario = _scenario(
+              implementation: implementation,
+              transport: transport,
+              secureTransport: secure,
+            );
+            final counters = <String, Object?>{
+              'dart_to_native_copy_bytes': 23,
+              'ffi_borrowed_send_input_copy_bytes': 12,
+              'io_buffer_front_copy_bytes': 3,
+              'io_buffered_read_copy_bytes': 7,
+              'websocket_mask_copy_bytes': 43,
+              'websocket_coalesce_copy_bytes': 17,
+              'rawsocket_frame_payload_copy_bytes': 101,
+              'rawsocket_frame_header_copy_bytes': 4,
+              'rawsocket_input_copy_bytes': 32,
+              'rawsocket_fragment_coalesce_copy_bytes': 8,
+              'rawsocket_pre_handshake_queue_copy_bytes': 11,
+              'websocket_fragment_coalesce_copy_bytes': 19,
+              'rustls_record_buffer_copy_bytes': 99999,
+            };
+            final original = Map<String, Object?>.from(counters);
+            final metrics = clientTransportCopyMetricsFor(scenario, counters);
+            final native = implementation == WampClientImplementation.native;
+            final ws = transport == WampTransport.websocket;
+            expect(
+              metrics['transport_copy_bytes'],
+              native ? (ws ? 105 : 45) : 175,
+            );
+            expect(
+              metrics['measurement_scope'],
+              connectanumCopyMeasurementScope,
+            );
+            expect((metrics['coverage'] as Map)['unknown_boundaries'], isEmpty);
+            expect(
+              (metrics['coverage'] as Map)['transport_copy_bytes'],
+              'complete_client_connectanum_path',
+            );
+            expect(
+              (metrics['tls_copy_bytes'] as Map)['status'],
+              secure ? 'not_measured' : 'not_applicable',
+            );
+            if (secure) {
+              expect(
+                (metrics['tls_copy_bytes'] as Map)['scope'],
+                'dependency_internals',
+              );
+            }
+            if (ws && !native) {
+              expect(
+                (metrics['websocket_mask_copy_bytes'] as Map)['dependency'],
+                'dart_sdk_websocket_masking',
+              );
+            }
+            expect(counters, original);
+          });
+        }
+      }
+    }
+    for (final implementation in WampClientImplementation.values) {
+      for (final invalid in <Object?>[null, -1, double.nan, 0.5, '0']) {
+        test(
+          '$implementation missing owned counter cannot be excluded: $invalid',
+          () {
+            final scenario = _scenario(
+              implementation: implementation,
+              transport: WampTransport.websocket,
+              secureTransport: true,
+            );
+            final counters = Map<String, Object?>.from(
+              (_clientMetrics()['known_own_copy_breakdown'] as Map)['client']
+                  as Map,
+            );
+            final field = implementation == WampClientImplementation.native
+                ? 'io_buffer_front_copy_bytes'
+                : 'websocket_fragment_coalesce_copy_bytes';
+            counters[field] = invalid;
+            final metrics = clientTransportCopyMetricsFor(scenario, counters);
+            expect(
+              (metrics['transport_copy_bytes'] as Map)['status'],
+              'not_measured',
+            );
+            expect(
+              (metrics['coverage'] as Map)['unknown_boundaries'],
+              contains('client $field is invalid or unavailable'),
+            );
+          },
+        );
+      }
+    }
+  });
   group('mergeRouterTransportCopyMetrics', () {
+    test('a forged client total cannot certify its measured breakdown', () {
+      final client = _clientMetrics(transportCopyBytes: 0);
+      final metrics = mergeRouterTransportCopyMetrics(
+        client,
+        scenario: _scenario(secureTransport: true),
+        before: _routerMetrics(),
+        after: _routerMetrics(),
+      );
+      expect(
+        (metrics['transport_copy_bytes'] as Map)['status'],
+        'not_measured',
+      );
+      expect((metrics['coverage'] as Map)['transport_copy_bytes'], 'partial');
+    });
+    test('a legacy client cannot silently adopt the new scope', () {
+      final client = _clientMetrics()..remove('measurement_scope');
+      final metrics = mergeRouterTransportCopyMetrics(
+        client,
+        scenario: _scenario(),
+        before: _routerMetrics(),
+        after: _routerMetrics(),
+      );
+      expect(
+        (metrics['transport_copy_bytes'] as Map)['status'],
+        'not_measured',
+      );
+    });
     test('invalid partial source byte counts remain unmeasured', () {
       final metrics = mergeRouterTransportCopyMetrics(
         _clientMetrics(),
@@ -21,6 +143,7 @@ void main() {
         'rustls_deframer_move_copy_bytes',
         'rustls_record_buffer_copy_bytes',
         'rustls_record_append_copy_bytes',
+        'tokio_rustls_plaintext_extract_copy_bytes',
       ]) {
         expect(router[field], isA<Map>());
         expect((router[field] as Map)['status'], 'not_measured');
@@ -45,12 +168,13 @@ void main() {
         expect(router['rustls_deframer_move_copy_bytes'], 20);
         expect(router['rustls_record_buffer_copy_bytes'], 25);
         expect(router['rustls_record_append_copy_bytes'], 30);
+        expect(router['tokio_rustls_plaintext_extract_copy_bytes'], 35);
         expect((metrics['tls_copy_bytes'] as Map)['status'], 'not_measured');
+        expect(metrics['transport_copy_bytes'], 40);
         expect(
-          (metrics['transport_copy_bytes'] as Map)['status'],
-          'not_measured',
+          (metrics['coverage'] as Map)['transport_copy_bytes'],
+          'complete_connectanum_owned_path',
         );
-        expect((metrics['coverage'] as Map)['transport_copy_bytes'], 'partial');
       },
     );
 
@@ -62,6 +186,7 @@ void main() {
         'rustls_deframer_move_copy_bytes',
         'rustls_record_buffer_copy_bytes',
         'rustls_record_append_copy_bytes',
+        'tokio_rustls_plaintext_extract_copy_bytes',
       ]) {
         test(
           'missing partial Rustls counter $field on $transport stays unknown',
@@ -80,10 +205,7 @@ void main() {
               (metrics['tls_copy_bytes'] as Map)['status'],
               'not_measured',
             );
-            expect(
-              (metrics['transport_copy_bytes'] as Map)['status'],
-              'not_measured',
-            );
+            expect(metrics['transport_copy_bytes'], 40);
           },
         );
       }
@@ -234,9 +356,13 @@ void main() {
       test(
         'exact nonnegative byte count $count preserves its integer value',
         () {
+          final client = _clientMetrics(transportCopyBytes: count)
+            ..['known_own_transport_copy_bytes'] = count;
+          ((client['known_own_copy_breakdown'] as Map)['client']
+                  as Map)['dart_to_native_copy_bytes'] =
+              count;
           final metrics = mergeRouterTransportCopyMetrics(
-            _clientMetrics(transportCopyBytes: count)
-              ..['known_own_transport_copy_bytes'] = count,
+            client,
             scenario: _scenario(),
             before: _routerMetrics(dartToNative: 10),
             after: _routerMetrics(dartToNative: 16),
@@ -294,6 +420,35 @@ void main() {
       );
       expect(metrics['tls_plaintext_accepted_bytes'], isA<Map>());
       expect(metrics['tls_copy_bytes'], isA<Map>());
+    });
+
+    test('borrowed FFI input copies are separate from Dart staging', () {
+      final metrics = mergeRouterTransportCopyMetrics(
+        _clientMetrics(),
+        scenario: _scenario(),
+        before: _routerMetrics(dartToNative: 10, ffiBorrowed: 20),
+        after: _routerMetrics(dartToNative: 16, ffiBorrowed: 29),
+      );
+      expect(metrics['transport_copy_bytes'], 55);
+      final router =
+          (metrics['known_own_copy_breakdown'] as Map)['router'] as Map;
+      expect(router['dart_to_native_copy_bytes'], 6);
+      expect(router['ffi_borrowed_send_input_copy_bytes'], 9);
+    });
+
+    test('absent borrowed FFI observation prevents complete coverage', () {
+      final metrics = mergeRouterTransportCopyMetrics(
+        _clientMetrics(),
+        scenario: _scenario(),
+        before: _routerMetrics(ffiBorrowed: null),
+        after: _routerMetrics(ffiBorrowed: null),
+      );
+      expect(metrics['transport_copy_bytes'], isA<Map>());
+      expect((metrics['coverage'] as Map)['transport_copy_bytes'], 'partial');
+      expect(
+        (metrics['coverage'] as Map)['unknown_boundaries'],
+        contains('router borrowed FFI send copy counter is unavailable'),
+      );
     });
 
     test('counts client and router cleartext RawSocket copies', () {
@@ -444,11 +599,12 @@ void main() {
 WampScenario _scenario({
   WampTransport transport = WampTransport.rawsocket,
   bool secureTransport = false,
+  WampClientImplementation implementation = WampClientImplementation.native,
 }) => WampScenario(
   transport: transport,
   secureTransport: secureTransport,
   serializer: WampSerializer.flatbuffers,
-  clientImplementation: WampClientImplementation.native,
+  clientImplementation: implementation,
   mode: WampMode.rpc,
   uri: 'bench.rpc.echo',
   iterations: 1,
@@ -460,18 +616,29 @@ Map<String, Object?> _clientMetrics({
   Object? transportCopyBytes = 40,
   Object? tlsPlaintextAcceptedBytes = 0,
 }) => {
+  'measurement_scope': connectanumCopyMeasurementScope,
   'transport_copy_bytes': transportCopyBytes,
   'known_own_transport_copy_bytes': 40,
   'known_own_copy_breakdown': <String, Object?>{
     'client': <String, Object?>{
       'dart_to_native_copy_bytes': 40,
+      'ffi_borrowed_send_input_copy_bytes': 0,
       'io_buffer_front_copy_bytes': 0,
       'io_buffered_read_copy_bytes': 0,
+      'websocket_mask_copy_bytes': 0,
+      'websocket_coalesce_copy_bytes': 0,
+      'rawsocket_frame_payload_copy_bytes': 0,
+      'rawsocket_frame_header_copy_bytes': 0,
+      'rawsocket_input_copy_bytes': 0,
+      'rawsocket_fragment_coalesce_copy_bytes': 0,
+      'rawsocket_pre_handshake_queue_copy_bytes': 0,
+      'websocket_fragment_coalesce_copy_bytes': 0,
     },
   },
   'coverage': <String, Object?>{
     'transport_copy_bytes': 'complete_client_connectanum_path',
     'unknown_boundaries': <String>[],
+    'unmeasured_dependency_boundaries': <String>[],
   },
   'tls_copy_bytes': {'status': 'not_applicable', 'reason': 'cleartext'},
   'tls_plaintext_accepted_bytes': tlsPlaintextAcceptedBytes,
@@ -483,6 +650,7 @@ NativeRouterTransportCopyMetrics _routerMetrics({
   int? tlsPlaintext = 0,
   int? ioFront = 0,
   int? ioRead = 0,
+  int? ffiBorrowed = 0,
 }) => NativeRouterTransportCopyMetrics(
   dartToNativeCopiedBytesTotal: dartToNative,
   websocketMaskCopyBytesTotal: 0,
@@ -490,6 +658,7 @@ NativeRouterTransportCopyMetrics _routerMetrics({
   tlsPlaintextAcceptedBytesTotal: tlsPlaintext,
   ioBufferFrontCopyBytesTotal: ioFront,
   ioBufferedReadCopyBytesTotal: ioRead,
+  ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 );
 
 NativeRouterTransportCopyMetrics _routerSourceMetrics(int value) =>
@@ -500,10 +669,12 @@ NativeRouterTransportCopyMetrics _routerSourceMetrics(int value) =>
       tlsPlaintextAcceptedBytesTotal: 0,
       ioBufferFrontCopyBytesTotal: 0,
       ioBufferedReadCopyBytesTotal: 0,
+      ffiBorrowedSendCopyBytesTotal: 0,
       rustlsOutboundChunkCopyBytesTotal: value * 1,
       rustlsQueueReadCopyBytesTotal: value * 2,
       rustlsDeframerAppendCopyBytesTotal: value * 3,
       rustlsDeframerMoveCopyBytesTotal: value * 4,
       rustlsRecordBufferCopyBytesTotal: value * 5,
       rustlsRecordAppendCopyBytesTotal: value * 6,
+      tokioRustlsPlaintextExtractCopyBytesTotal: value * 7,
     );

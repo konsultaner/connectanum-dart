@@ -2,13 +2,163 @@
 
 Status: active. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
-Branch: `codex/release-3.0.0-beta.8` in the managed FlatBuffers worktree.
+Branch: `codex/finish-flatbuffers-milestone` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Merged PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105) at `0e585405`.
 
 Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), master `759d3d4c`.
-Pending release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107).
+Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
+
+
+Current follow-up (2026-10-14): complete the GitHub FlatBuffers milestone.
+Branch `codex/finish-flatbuffers-milestone` reuses the managed worktree; the
+primary mutation-runner checkout stays untouched. The released master remains
+`73d840c9`. Its main CI now passes all 36 jobs, and all five production native
+consumers pass 170 cases with zero skips. Issue #104 is closed after auditing
+its public examples, generic external-owner contract, ObjectBox boundary,
+seven hosted packages and linked release evidence. Issue #102 also closes on
+released-source CI: the downloaded GuardMalloc report verifies 87 cases and
+263 committed inputs, plus its separately recorded generated lock. The milestone description
+now reflects merged and published work.
+
+Fresh `bin/test-fast` initially fails on two absolute local paths in the
+unpublished beta.8 documentation checkpoint. Normalizing those references
+reproduces and repairs the policy failure; the replacement fast run passes.
+The independent peer moves to cbor2 5.9.0, the first patched release for
+GHSA-3c37-wwvx-h642. Fresh interop passes 33 upstream and 42 extended fixtures,
+both encoding directions and all 25 public message types; the negotiated
+RawSocket/WebSocket live peer also passes.
+
+A live extraction-counter test then reproduces an existing observation gap:
+Tokio-Rustls's public client/server reads bypass the instrumented internal
+`Stream::poll_read`. Four source hooks now observe both public initial and
+batched copies. Exact tests fail first at zero instead of three bytes and
+pass after the repair, including borrowed-pointer preservation and EOF.
+An additive optional scalar C API exposes this partial counter to both Dart
+runtimes and client/router benchmark breakdowns. The old 48-byte Rustls ABI
+is unchanged; the published beta.8 library correctly returns null for the
+new optional metric. Complete dependency TLS/SDK/crypto totals remain unknown. On 2026-10-14
+the user explicitly selects the standard Dart SDK scope: prove Connectanum
+buffer boundaries and label unmeasured dependency internals. The follow-up
+uses a new versioned scope marker, validates owned totals against their
+client/router breakdowns, and permits only active, precisely labelled TLS/SDK
+masking exclusions. Missing owned counters, E2EE/transcode gaps and all numeric
+performance/resource budgets remain blockers. See [approved contract](../research/2026-10-14-standard-sdk-copy-scope.md).
+Resulting-source `bin/verify` passes at exit 0; all six scope code/test/policy
+inputs match their frozen hashes. The 32 comparison and 66 owned-counter cases
+pass, including forged totals and malformed evidence. Bounded Qwen test planning
+and review complete; the heavyweight GLM judge times out, so the contract is
+also checked manually against the actual transport/source boundaries. PR #129
+contains the measurement repairs and this approved scope update. At preceding
+head `7965857f`, all five production platforms pass 170 cases with zero skips;
+downloaded profile logs, ABI/lifecycle guards and source hashes are audited.
+WAMP profile gates, binding, GuardMalloc, fast checks and package dry run pass.
+New-head hosted acceptance remains pending; no parity is established.
+The first full run reproduces the strengthened GC probe failure: actual
+collections produce paired category-GC collection scopes, but the old parser
+reports zero. Actual VM evidence also reproduces duplicated notifications and heap
+statistics for isolates sharing one group. The final collector reads native
+cumulative collection/time counters and profiles allocation once per shared
+heap, while retaining every isolate for lifecycle validation. Missing, malformed
+or rewound counters remain unavailable. All 35 focused forced-GC, heap/delta and
+live-worker cases pass. The first timeline-reconciliation experiment fails its
+stronger stream check and is retained as diagnostic evidence.
+See [GC source and scope](../research/2026-10-14-dart-gc-metrics.md).
+Final canonical `bin/verify` passes at exit 0, including Rust, VM/native,
+consumers and Chrome/Dart2Wasm (4,751 core, 2,829 client; 20 declared native-only
+skips). All 22 recorded changed code/test inputs still match their frozen hashes.
+The completed local review identifies a missing-profiling-metadata fallback;
+it now leaves allocation/GC unavailable, and a real VM probe verifies that
+behavior. Other speculative review findings are checked against the actual SDK
+snapshot and stable-isolate tests. Hosted new-source acceptance is pending.
+A byte-vector construction prototype is prepared but its timed run is blocked
+by an active native-mutation resource lease; that lease and primary work stay
+untouched.
+See [scope and evidence](../research/2026-10-14-tokio-rustls-public-copy-metrics.md).
+
+PR #129 coverage follow-up: the `fc808e92` VM coverage job passes, but
+Codecov patch coverage is 92.70% against 93.91%, with ten changed lines missed.
+The existing isolated transport ABI probe now exports real client/router hits
+through the canonical child-coverage directory. Its scalar/legacy ABI checks
+stay isolated from shared counters; collection does not pause the current
+isolate, and exclusive report creation prevents overwriting evidence. The
+coverage-enabled probe passes and records seven previously missed router
+lines. The normal probe plus collector regression suite passes 42 cases, and
+analysis is clean. Qwen review reports no confirmed issue; its speculative
+partial-write concern is covered by the existing exclusive writer tests. Full
+resulting-source verification prints successful summaries for every suite,
+including Chrome/Dart2Wasm. Its zsh wrapper then fails when assigning the
+read-only `status` variable, so no clean canonical exit is recorded. The next
+run uses a dedicated exit-code variable and an explicit Bash wrapper. Coverage
+floors and milestone criteria remain unchanged; hosted acceptance is pending.
+A subsequent source audit identifies another actual owned copy: the router's
+borrowed send copies into Dart's native staging allocation, then
+`ct_send_message` copies that input again in Rust. The existing total covers
+only the first copy. Add direct Rust observation and conservative optional-ABI
+fallback, then use the established owned-send API to avoid that second copy
+when supported. Fresh pre-change `bin/test-fast` passes at exit 0. The Rust
+regression fails first in both actual borrowed-send and file-wrapper cases,
+then all five cases pass after eight source hooks. Both Dart runtimes expose
+the additive nullable scalar. Missing observation prevents complete native
+client/router coverage; staging and Rust bytes are retained separately. The
+real ABI/ownership probe and scoped merger pass 69 cases, including three
+borrowed bytes versus zero Rust copies on owned router rejection. All 32
+comparison tests pass. Resulting-source `bin/verify` now passes with a clean
+exit 0, including Rust, VM/native, consumers and Chrome/Dart2Wasm (4,751 core,
+2,829 client; 20 declared native-only skips). All 13 changed code/test hashes
+match their frozen inputs. The older production library passes the ABI probe,
+leaving the absent scalar and its deltas null. GuardMalloc passes all 87 cases;
+all 266 source/lock hashes, group logs and the executable are independently
+verified. Bounded GLM review completes without a confirmed finding; the broader
+Qwen review times out. The measurement PR remains ready for review with new-head
+hosted acceptance pending. E2EE/transcode pipeline gaps, parity and milestone
+closure remain open. See the FFI research note for source boundaries and the
+verified disposition of the local ownership advice.
+
+Current follow-up (2026-10-10): synchronized beta.8 publication is complete.
+The user merges PR #107 through protected master at `73d840c9`; its tree exactly
+matches tested release head `b382b21c`. All eight release/package tags point to
+that merge. [Native release v3.0.0-beta.8](https://github.com/konsultaner/connectanum-dart/releases/tag/v3.0.0-beta.8)
+is published as a prerelease with 30 assets across five platforms.
+[Native workflow 38033155639](https://github.com/konsultaner/connectanum-dart/actions/runs/38033155639)
+passes all five builds, production consumers, signing and publication. Downloaded
+reports independently verify 170 profile cases with zero skips, exact source,
+log hashes, lifecycle and 48-byte ABI guards. All five published manifests match
+`73d840c9`; fresh client/router installation passes and both binary hashes match
+the production proof. Intel macOS initially queues, then passes on a runner.
+All seven `3.0.0-beta.8` packages are confirmed through the public pub.dev API:
+[core](https://pub.dev/packages/connectanum_core/versions/3.0.0-beta.8),
+[client](https://pub.dev/packages/connectanum_client/versions/3.0.0-beta.8),
+[MCP](https://pub.dev/packages/connectanum_mcp/versions/3.0.0-beta.8),
+[router](https://pub.dev/packages/connectanum_router/versions/3.0.0-beta.8),
+[facade](https://pub.dev/packages/connectanum/versions/3.0.0-beta.8),
+[auth server](https://pub.dev/packages/connectanum_auth_server/versions/3.0.0-beta.8)
+and [bench](https://pub.dev/packages/connectanum_bench/versions/3.0.0-beta.8).
+All seven tag-triggered publication workflows pass in dependency order; hosted
+constraints remain synchronized. An isolated consumer outside the repository
+uses a fresh public cache, all seven exact hosted versions and matching archive
+hashes. Its default hooks download the verified production library. Dart macOS
+bundling changes the install name/ad hoc signature, while all 14 code/data
+sections remain identical. The public native FlatBuffers example passes with
+116 frame bytes, three segments, zero application-input copies and zero
+control-growth copies. The initial benchmark index is stale; refreshing after
+public-index propagation resolves the clean install without changing versions.
+Evidence is retained under `out/beta8-publish-evidence/`; the standalone
+consumer uses an isolated scratch directory outside the repository.
+Local full `bin/verify` passes on identical tree `b382b21c`; all 36 main jobs,
+seven strict archives and WampApp artifacts also pass there. Post-merge
+[CI 38032968401](https://github.com/konsultaner/connectanum-dart/actions/runs/38032968401)
+passes all 36 jobs, including VM coverage and both mutation gates. WAMP profile gates and kTLS validation pass on `73d840c9`.
+The closed release PR's separate Codecov comparison loses three hits in
+unchanged router WebSocket polling and MCP timer-identity branches (patch 100%;
+project 93.90% versus 93.91%). Actual LCOV differences are retained; no coverage
+floor is relaxed. Local companion triage is blocked by an active native mutation
+resource lease. The primary checkout and earlier local evidence stay preserved.
+This documentation checkpoint remains local on `codex/publish-3.0.0-beta.8`;
+published source/tags stay at `73d840c9`, avoiding another unchanged CI run.
+Issues #100–#104 and performance/copy acceptance remain open; no ObjectBox
+adapter or stable-release claim is included in this beta checkpoint.
 
 Current follow-up (2026-10-09): integrate merged CI into the beta.8 release.
 The user merges PR #108 at master `759d3d4c`. Release PR #107 then has one
@@ -37,11 +187,11 @@ Dart/native graph. Preserve all unfinished milestone and performance criteria.
   runtime identities, hook fixtures, changelogs and current installation docs.
 - [x] Pass release-planner/tag/hook checks, seven zero-warning strict package
   dry runs, manual review and full `bin/verify`.
-- [ ] Promote the release PR through protected master with required review and
+- [x] Promote the release PR through protected master with required review and
   passing hosted checks; do not bypass branch protection.
-- [ ] Publish `v3.0.0-beta.8` native assets and pass production consumers on all
+- [x] Publish `v3.0.0-beta.8` native assets and pass production consumers on all
   five supported build platforms, then validate fresh native installation.
-- [ ] Publish all seven package tags in dependency order, confirm exact hosted
+- [x] Publish all seven package tags in dependency order, confirm exact hosted
   versions, and validate an isolated hosted-package consumer.
 
 No ObjectBox adapter, stable-release claim, performance parity acceptance or

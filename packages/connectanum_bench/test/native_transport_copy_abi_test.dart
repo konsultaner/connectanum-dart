@@ -1,6 +1,8 @@
 @TestOn('vm')
 library;
 
+import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
@@ -10,9 +12,12 @@ import 'package:connectanum_client/src/transport/native/ffi_bindings.dart'
 import 'package:connectanum_client/src/transport/native/runtime.dart' as client;
 import 'package:connectanum_router/src/native/ffi_bindings.dart' as router_ffi;
 import 'package:connectanum_router/src/native/runtime.dart' as router;
+import 'package:coverage/coverage.dart';
 import 'package:ffi/ffi.dart';
 import 'package:test/test.dart';
 
+import 'support/collect_benchmark_child_coverage.dart'
+    show writeChildCoverageReport;
 import 'support/native_library.dart';
 
 void _equal(Object? actual, Object? expected) {
@@ -22,6 +27,23 @@ void _equal(Object? actual, Object? expected) {
 void main() async {
   if (Platform.environment['CONNECTANUM_TRANSPORT_COPY_PROBE'] == '1') {
     _probe();
+    final coveragePath =
+        Platform.environment['CONNECTANUM_TRANSPORT_COPY_COVERAGE_FILE'];
+    if (coveragePath != null) {
+      final serviceUri = (await developer.Service.getInfo()).serverUri;
+      if (serviceUri == null) {
+        throw StateError('Transport ABI coverage requires the VM service');
+      }
+      final report = await collect(
+        serviceUri,
+        false,
+        false,
+        false,
+        {'connectanum_client', 'connectanum_router'},
+        timeout: const Duration(seconds: 15),
+      );
+      await writeChildCoverageReport(File(coveragePath), report);
+    }
     print('isolated transport copy snapshot passed');
     return;
   }
@@ -37,9 +59,22 @@ void main() async {
       final source = await Isolate.resolvePackageUri(
         Uri.parse('package:connectanum_bench/connectanum_bench.dart'),
       );
+      final coverageDirectory =
+          Platform.environment['CONNECTANUM_TEST_CHILD_COVERAGE_DIR'];
+      final coverageFile = coverageDirectory == null
+          ? null
+          : File('$coverageDirectory/transport-copy-abi.json').absolute;
+      if (coverageFile != null) {
+        expect(coverageFile.existsSync(), isFalse);
+        await coverageFile.parent.create(recursive: true);
+      }
       final result = await Process.run(
         Platform.resolvedExecutable,
         [
+          if (coverageFile != null) ...[
+            '--enable-vm-service=0/127.0.0.1',
+            '--no-serve-devtools',
+          ],
           'run',
           source!
               .resolve('../test/native_transport_copy_abi_test.dart')
@@ -48,6 +83,8 @@ void main() async {
         environment: {
           'CONNECTANUM_NATIVE_LIB': path!,
           'CONNECTANUM_TRANSPORT_COPY_PROBE': '1',
+          if (coverageFile != null)
+            'CONNECTANUM_TRANSPORT_COPY_COVERAGE_FILE': coverageFile.path,
         },
       );
       expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
@@ -55,6 +92,23 @@ void main() async {
         result.stdout,
         contains('isolated transport copy snapshot passed'),
       );
+      if (coverageFile != null) {
+        final report = jsonDecode(await coverageFile.readAsString()) as Map;
+        final entries = report['coverage'] as List;
+        for (final source in [
+          'package:connectanum_client/src/transport/native/runtime.dart',
+          'package:connectanum_router/src/native/runtime.dart',
+        ]) {
+          final entry = entries.where((entry) => entry['source'] == source);
+          expect(entry, hasLength(1), reason: source);
+          final hits = entry.single['hits'] as List;
+          expect(
+            [for (var index = 1; index < hits.length; index += 2) hits[index]],
+            contains(isPositive),
+            reason: source,
+          );
+        }
+      }
     },
   );
 }
@@ -208,6 +262,118 @@ void _probe() {
       );
       _equal(
         routerMetrics.deltaFrom(routerMetrics).rustlsRecordAppendCopyBytesTotal,
+        null,
+      );
+    }
+
+    if (library.providesSymbol('ct_ffi_borrowed_send_copy_metrics_snapshot')) {
+      final info = calloc<ffi.Uint64>(3);
+      final input = calloc<ffi.Uint8>(3);
+      try {
+        input.asTypedList(3).setAll(0, [1, 2, 3]);
+        info[0] = 0x12345678;
+        info[2] = 0x76543210;
+        final snapshot = library
+            .lookupFunction<
+              client_ffi.CtFfiBorrowedSendCopyMetricsSnapshotNative,
+              client_ffi.CtFfiBorrowedSendCopyMetricsSnapshotDart
+            >('ct_ffi_borrowed_send_copy_metrics_snapshot');
+        _equal(snapshot(info + 1), 0);
+        _equal(info[0], 0x12345678);
+        _equal(info[2], 0x76543210);
+        _equal(clientMetrics.ffiBorrowedSendCopyBytesTotal, info[1]);
+        _equal(routerMetrics.ffiBorrowedSendCopyBytesTotal, info[1]);
+        _equal(snapshot(ffi.nullptr), -4);
+        final initial = info[1];
+        final borrowed = library
+            .lookupFunction<
+              client_ffi.CtSendMessageNative,
+              client_ffi.CtSendMessageDart
+            >('ct_send_message');
+        if (borrowed(0, input, 3) == 0) {
+          throw StateError('Reserved connection zero must reject sending');
+        }
+        _equal(snapshot(info + 1), 0);
+        _equal(info[1] - initial, 3);
+        _equal(
+          nativeClient
+              .transportCopyMetricsSnapshot()
+              .deltaFrom(clientMetrics)
+              .ffiBorrowedSendCopyBytesTotal,
+          3,
+        );
+        final beforeOwned = nativeRouter.transportCopyMetricsSnapshot();
+        var rejected = false;
+        try {
+          nativeRouter.sendMessage(0, input.asTypedList(3));
+        } on router.NativeTransportException {
+          rejected = true;
+        }
+        _equal(rejected, true);
+        final delta = nativeRouter.transportCopyMetricsSnapshot().deltaFrom(
+          beforeOwned,
+        );
+        _equal(delta.dartToNativeCopiedBytesTotal, 3);
+        _equal(delta.ffiBorrowedSendCopyBytesTotal, 0);
+      } finally {
+        calloc.free(input);
+        calloc.free(info);
+      }
+    } else {
+      _equal(clientMetrics.ffiBorrowedSendCopyBytesTotal, null);
+      _equal(routerMetrics.ffiBorrowedSendCopyBytesTotal, null);
+      _equal(
+        clientMetrics.deltaFrom(clientMetrics).ffiBorrowedSendCopyBytesTotal,
+        null,
+      );
+      _equal(
+        routerMetrics.deltaFrom(routerMetrics).ffiBorrowedSendCopyBytesTotal,
+        null,
+      );
+    }
+
+    if (library.providesSymbol('ct_tokio_rustls_copy_metrics_snapshot')) {
+      final info = calloc<ffi.Uint64>(3);
+      try {
+        info[0] = 0x12345678;
+        info[2] = 0x76543210;
+        final snapshot = library
+            .lookupFunction<
+              client_ffi.CtTokioRustlsCopyMetricsSnapshotNative,
+              client_ffi.CtTokioRustlsCopyMetricsSnapshotDart
+            >(
+              'ct_tokio_rustls_copy_metrics_snapshot',
+            );
+        _equal(snapshot(info + 1), 0);
+        _equal(info[0], 0x12345678);
+        _equal(info[2], 0x76543210);
+        _equal(
+          clientMetrics.tokioRustlsPlaintextExtractCopyBytesTotal,
+          info[1],
+        );
+        _equal(
+          routerMetrics.tokioRustlsPlaintextExtractCopyBytesTotal,
+          info[1],
+        );
+        if (snapshot(ffi.nullptr) == 0) {
+          throw StateError('Null Tokio-Rustls snapshot must be rejected');
+        }
+      } finally {
+        calloc.free(info);
+      }
+    } else {
+      _equal(clientMetrics.tokioRustlsPlaintextExtractCopyBytesTotal, null);
+      _equal(routerMetrics.tokioRustlsPlaintextExtractCopyBytesTotal, null);
+      _equal(
+        clientMetrics
+            .deltaFrom(clientMetrics)
+            .tokioRustlsPlaintextExtractCopyBytesTotal,
+        null,
+      );
+      _equal(
+        routerMetrics
+            .deltaFrom(routerMetrics)
+            .tokioRustlsPlaintextExtractCopyBytesTotal,
         null,
       );
     }

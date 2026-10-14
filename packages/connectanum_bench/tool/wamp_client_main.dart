@@ -232,46 +232,12 @@ Map<String, Object?> _copyMetricsFor(
   final websocket = scenario.transport == WampTransport.websocket;
   final nativeClient =
       scenario.clientImplementation == WampClientImplementation.native;
-  final websocketCountersAvailable =
-      nativeCopyMetrics.websocketMaskCopyBytesTotal != null &&
-      nativeCopyMetrics.websocketCoalesceCopyBytesTotal != null;
-  final inputCountersAvailable =
-      nativeCopyMetrics.ioBufferFrontCopyBytesTotal != null &&
-      nativeCopyMetrics.ioBufferedReadCopyBytesTotal != null;
-  final transportCountersAvailable =
-      nativeClient &&
-      inputCountersAvailable &&
-      (!websocket || websocketCountersAvailable);
-  final measuredTransportCopyBytes = transportCountersAvailable
-      ? nativeCopyMetrics.dartToNativeCopiedBytesTotal +
-            nativeCopyMetrics.ioBufferFrontCopyBytesTotal! +
-            nativeCopyMetrics.ioBufferedReadCopyBytesTotal! +
-            (websocket
-                ? nativeCopyMetrics.websocketMaskCopyBytesTotal! +
-                      nativeCopyMetrics.websocketCoalesceCopyBytesTotal!
-                : 0)
-      : null;
-  final clientTransportCopyCoverage =
-      nativeClient &&
-      inputCountersAvailable &&
-      !scenario.secureTransport &&
-      (!websocket || websocketCountersAvailable);
-  final transportCopyBytes = !clientTransportCopyCoverage
-      ? null
-      : measuredTransportCopyBytes;
-  final knownOwnTransportCopyBytes = nativeClient
-      ? nativeCopyMetrics.dartToNativeCopiedBytesTotal +
-            (nativeCopyMetrics.ioBufferFrontCopyBytesTotal ?? 0) +
-            (nativeCopyMetrics.ioBufferedReadCopyBytesTotal ?? 0) +
-            (websocket
-                ? (nativeCopyMetrics.websocketMaskCopyBytesTotal ?? 0) +
-                      (nativeCopyMetrics.websocketCoalesceCopyBytesTotal ?? 0)
-                : 0)
-      : dartCopyMetrics.knownOwnCopyBytes;
   final knownOwnCopyBreakdown = nativeClient
       ? <String, Object?>{
           'dart_to_native_copy_bytes':
               nativeCopyMetrics.dartToNativeCopiedBytesTotal,
+          'ffi_borrowed_send_input_copy_bytes':
+              nativeCopyMetrics.ffiBorrowedSendCopyBytesTotal,
           'rustls_outbound_chunk_copy_bytes':
               nativeCopyMetrics.rustlsOutboundChunkCopyBytesTotal,
           'rustls_queue_read_copy_bytes':
@@ -284,6 +250,8 @@ Map<String, Object?> _copyMetricsFor(
               nativeCopyMetrics.rustlsRecordBufferCopyBytesTotal,
           'rustls_record_append_copy_bytes':
               nativeCopyMetrics.rustlsRecordAppendCopyBytesTotal,
+          'tokio_rustls_plaintext_extract_copy_bytes':
+              nativeCopyMetrics.tokioRustlsPlaintextExtractCopyBytesTotal,
           'io_buffer_front_copy_bytes':
               nativeCopyMetrics.ioBufferFrontCopyBytesTotal,
           'io_buffered_read_copy_bytes':
@@ -296,21 +264,8 @@ Map<String, Object?> _copyMetricsFor(
               : 0,
         }
       : dartCopyMetrics.toJson();
-  final unknownTransportCopyBoundaries = <String>[
-    if (nativeClient && !inputCountersAvailable)
-      'native prefetched input copy counters are unavailable',
-    if (!nativeClient)
-      'Dart socket/WebSocket SDK write and framing behavior is not instrumented',
-    if (websocket && !nativeClient)
-      'Dart WebSocket masking behavior is not instrumented',
-    if (scenario.secureTransport)
-      nativeClient
-          ? 'Rustls TLS copy behavior is not measured by plaintext acceptance'
-          : 'Dart TLS copy behavior is not instrumented',
-    if (nativeClient && websocket && !websocketCountersAvailable)
-      'native WebSocket copy counters are unavailable',
-  ];
   return {
+    ...clientTransportCopyMetricsFor(scenario, knownOwnCopyBreakdown),
     ...e2eeCopyMetricsFor(
       scenario,
       e2eeMetrics,
@@ -328,34 +283,6 @@ Map<String, Object?> _copyMetricsFor(
     'builder_growth_copy_bytes': builderMeasurementsAvailable
         ? growthCopies
         : notApplicable('workload did not grow a Connectanum native builder'),
-    'transport_copy_bytes':
-        transportCopyBytes ??
-        notMeasured(
-          scenario.secureTransport
-              ? 'TLS copy behavior is not instrumented'
-              : nativeClient
-              ? 'an active transport copy counter is unavailable'
-              : 'Dart client transport copy paths are not instrumented',
-        ),
-    'known_own_transport_copy_bytes': knownOwnTransportCopyBytes,
-    'known_own_copy_breakdown': {'client': knownOwnCopyBreakdown},
-    'coverage': {
-      'transport_copy_bytes': clientTransportCopyCoverage
-          ? 'complete_client_connectanum_path'
-          : 'partial',
-      'unknown_boundaries': unknownTransportCopyBoundaries,
-    },
-    'websocket_mask_copy_bytes': websocket
-        ? (nativeClient
-              ? (nativeCopyMetrics.websocketMaskCopyBytesTotal ??
-                    notMeasured('WebSocket mask copy counter is unavailable'))
-              : notMeasured('Dart WebSocket mask copies are not instrumented'))
-        : notApplicable('RawSocket does not mask WebSocket frames'),
-    'tls_copy_bytes': scenario.secureTransport
-        ? notMeasured(
-            'TLS accepted-plaintext bytes do not measure memory copies',
-          )
-        : notApplicable('workload uses cleartext transport'),
     'tls_plaintext_accepted_bytes': scenario.secureTransport
         ? (nativeClient
               ? (nativeCopyMetrics.tlsPlaintextAcceptedBytesTotal ??

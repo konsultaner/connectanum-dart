@@ -182,8 +182,11 @@ void main() {
         result['allocated_bytes_delta'],
         greaterThan(16 * 1024 * 1024),
       );
-      expect(result['gc_count_delta'], isA<int>());
-      expect(result['gc_pause_us_delta'], isA<int>());
+      expect(result['gc_count_delta'], greaterThan(0));
+      expect(result['gc_pause_us_delta'], greaterThan(0));
+      expect(result['missing_metadata_allocated_bytes'], isNull);
+      expect(result['missing_metadata_gc_count'], isNull);
+      expect(result['missing_metadata_gc_pause_us'], isNull);
       expect(result['current_rss_bytes'], greaterThan(0));
       expect(
         result['peak_rss_bytes'],

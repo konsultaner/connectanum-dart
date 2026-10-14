@@ -451,13 +451,19 @@ pub struct TransportCopyMetricsSnapshot {
     pub io_buffered_read_copy_bytes_total: u64,
 }
 
-/// Process-wide observations at two audited Rustls byte-copy sites.
+/// Process-wide observations at audited Rustls byte-copy sites.
 ///
 /// This is partial TLS coverage. Record assembly, deframer movement, capacity
 /// growth and crypto-wrapper copies are not included. Concurrent TLS sessions
 /// contribute to these counters; deltas are not per-connection measurements.
 pub fn rustls_copy_metrics_snapshot() -> rustls::copy_observer::Snapshot {
     rustls::copy_observer::snapshot()
+}
+
+/// Process-wide bytes copied by Tokio-Rustls plaintext extraction only.
+/// Borrowed reads, buffer growth and crypto remain outside this observation.
+pub fn tokio_rustls_plaintext_extract_copy_bytes() -> u64 {
+    tokio_rustls::copy_observer::plaintext_extract_copy_bytes()
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -9869,8 +9875,13 @@ mod tests {
             .await
             .unwrap();
         let mut response = [0u8; 4];
+        let copies_before = tokio_rustls_plaintext_extract_copy_bytes();
         let read = tls_stream.read_exact(&mut response).await;
         assert!(read.is_ok());
+        assert!(
+            tokio_rustls_plaintext_extract_copy_bytes() >= copies_before + 4,
+            "AsyncRead must observe the four copied plaintext handshake bytes"
+        );
         assert_eq!(response[0], 0x7F);
         drop(tls_stream);
 
@@ -10272,6 +10283,7 @@ mod tests {
         let tls_plaintext_before =
             transport_copy_metrics_snapshot().tls_plaintext_accepted_bytes_total;
         let rustls_copies_before = rustls_copy_metrics_snapshot();
+        let tokio_copies_before = tokio_rustls_plaintext_extract_copy_bytes();
 
         assert!(connection_supports_file_segments(client_connection_id).unwrap());
         assert!(connection_supports_file_segments(server_connection_id).unwrap());
@@ -10320,6 +10332,11 @@ mod tests {
             rustls_copies_after.record_append_copy_bytes
                 > rustls_copies_before.record_append_copy_bytes,
             "the real native TLS records must observe appended bytes"
+        );
+
+        assert!(
+            tokio_rustls_plaintext_extract_copy_bytes() > tokio_copies_before,
+            "the real native TLS receive must observe plaintext extraction copies"
         );
 
         std::fs::remove_file(path).unwrap();

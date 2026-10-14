@@ -53,6 +53,26 @@ COPY_METRICS = (
     "transcode_copy_bytes",
     "e2ee_copy_bytes",
 )
+COPY_MEASUREMENT_SCOPE = "connectanum_buffer_boundaries_v1"
+NATIVE_CLIENT_COPY_FIELDS = (
+    "dart_to_native_copy_bytes", "ffi_borrowed_send_input_copy_bytes",
+    "io_buffer_front_copy_bytes",
+    "io_buffered_read_copy_bytes",
+)
+DART_CLIENT_COPY_FIELDS = (
+    "rawsocket_frame_payload_copy_bytes", "rawsocket_frame_header_copy_bytes",
+    "rawsocket_input_copy_bytes", "rawsocket_fragment_coalesce_copy_bytes",
+    "rawsocket_pre_handshake_queue_copy_bytes", "websocket_fragment_coalesce_copy_bytes",
+)
+
+
+def _copy_byte_count(value: Any) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(float(value)) and value >= 0 and value == int(value)
+    except OverflowError:
+        return False
 
 
 class CampaignError(ValueError):
@@ -345,8 +365,38 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
     copy_metrics = report.get("copy_metrics")
     if not isinstance(copy_metrics, dict):
         return missing + [f"{label}: missing copy_metrics"]
+    if copy_metrics.get("measurement_scope") != COPY_MEASUREMENT_SCOPE:
+        missing.append(f"{label}: missing or unsupported copy measurement scope")
+    config = report.get("wamp_configuration")
+    config = config if isinstance(config, dict) else {}
+    if not isinstance(config.get("secure_transport"), bool):
+        missing.append(f"{label}: copy applicability requires an explicit secure_transport boolean")
+    secure = config.get("secure_transport") is True
+    protocol = report.get("protocol")
+    if not isinstance(protocol, str) or not protocol.startswith(("wamp_rawsocket_", "wamp_websocket_")):
+        missing.append(f"{label}: copy applicability requires a WAMP transport protocol")
+    websocket = isinstance(protocol, str) and protocol.startswith("wamp_websocket_")
+    if report.get("client_impl") not in ("native", "dart"):
+        missing.append(f"{label}: copy applicability requires an explicit client implementation")
+    native = report.get("client_impl") == "native"
+    allowed_dependencies = {
+        "tls_copy_bytes": (
+            "rustls_tokio_rustls" if native
+            else "dart_sdk_tls_and_rustls_tokio_rustls"
+        ) if secure else None,
+        "websocket_mask_copy_bytes": "dart_sdk_websocket_masking"
+        if websocket and not native else None,
+    }
     for key in COPY_METRICS:
         value = copy_metrics.get(key)
+        if (
+            isinstance(value, dict) and value.get("status") == "not_measured"
+            and value.get("scope") == "dependency_internals"
+            and allowed_dependencies.get(key) is not None
+            and value.get("dependency") == allowed_dependencies[key]
+            and isinstance(value.get("reason"), str) and value["reason"].strip()
+        ):
+            continue
         if isinstance(value, dict) and value.get("status") == "not_applicable":
             if key == "transport_copy_bytes":
                 missing.append(f"{label}: transport_copy_bytes cannot be not_applicable")
@@ -358,10 +408,14 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
                 missing.append(f"{label}: encrypted e2ee_copy_bytes cannot be not_applicable")
             elif not isinstance(value.get("reason"), str) or not value["reason"].strip():
                 missing.append(f"{label}: {key} not-applicable entry needs a reason")
+            elif (key == "tls_copy_bytes" and secure) or (key == "websocket_mask_copy_bytes" and websocket):
+                missing.append(f"{label}: active {key} cannot be not_applicable")
         elif not isinstance(value, (int, float)) or isinstance(value, bool):
             missing.append(f"{label}: missing copy_metrics.{key}")
-        elif not math.isfinite(float(value)) or value < 0:
+        elif not _copy_byte_count(value):
             missing.append(f"{label}: invalid copy_metrics.{key}")
+        elif key == "tls_copy_bytes" and secure:
+            missing.append(f"{label}: standard-SDK TLS internals must remain explicitly labelled unmeasured")
     transport_copy_bytes = copy_metrics.get("transport_copy_bytes")
     if isinstance(transport_copy_bytes, (int, float)) and not isinstance(
         transport_copy_bytes, bool
@@ -378,20 +432,43 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
                 f"{label}: complete transport_copy_bytes coverage cannot have unknown boundaries"
             )
         breakdown = copy_metrics.get("known_own_copy_breakdown")
-        processes = ("router", "client") if report.get("client_impl") == "native" else ("router",)
-        for process in processes:
+        total = 0
+        complete = True
+        client_fields = NATIVE_CLIENT_COPY_FIELDS if native else DART_CLIENT_COPY_FIELDS
+        if native and websocket:
+            client_fields += ("websocket_mask_copy_bytes", "websocket_coalesce_copy_bytes")
+        router_fields = NATIVE_CLIENT_COPY_FIELDS
+        if websocket:
+            router_fields += ("websocket_coalesce_copy_bytes",)
+        for process, fields in (("client", client_fields), ("router", router_fields)):
             counters = breakdown.get(process) if isinstance(breakdown, dict) else None
-            for field in ("io_buffer_front_copy_bytes", "io_buffered_read_copy_bytes"):
+            for field in fields:
                 value = counters.get(field) if isinstance(counters, dict) else None
-                if (
-                    not isinstance(value, (int, float))
-                    or isinstance(value, bool)
-                    or not math.isfinite(float(value))
-                    or value < 0
-                ):
+                if not _copy_byte_count(value):
+                    complete = False
                     missing.append(
                         f"{label}: complete transport coverage requires measured {process}.{field}"
                     )
+                else:
+                    total += int(value)
+        if complete and transport_copy_bytes != total:
+            missing.append(f"{label}: transport_copy_bytes does not equal its owned boundary breakdown")
+        dependencies = coverage.get("unmeasured_dependency_boundaries") if isinstance(coverage, dict) else None
+        expected_dependencies = set()
+        if not native:
+            expected_dependencies.add("dart_sdk_socket_io")
+            if websocket:
+                expected_dependencies.add("dart_sdk_websocket_masking")
+        if secure:
+            expected_dependencies.add("rustls_tokio_rustls")
+            if not native:
+                expected_dependencies.add("dart_sdk_tls")
+        if (
+            not isinstance(dependencies, list)
+            or any(not isinstance(item, str) for item in dependencies)
+            or set(dependencies) != expected_dependencies
+        ):
+            missing.append(f"{label}: dependency boundary labels do not match the active path")
     e2ee_copy_bytes = copy_metrics.get("e2ee_copy_bytes")
     if isinstance(e2ee_copy_bytes, (int, float)) and not isinstance(e2ee_copy_bytes, bool):
         breakdown = copy_metrics.get("e2ee_copy_breakdown")
@@ -582,6 +659,8 @@ def evaluate_campaign(
         raise CampaignError("manifest must record a non-zero deterministic order_seed")
 
     findings: list[str] = _campaign_findings(manifest)
+    if policy.get("copy_measurement_scope") != COPY_MEASUREMENT_SCOPE:
+        findings.append("policy requires the approved versioned Connectanum copy measurement scope")
     metadata = manifest.get("metadata")
     configuration_required = isinstance(metadata, dict) and metadata.get("campaign_kind") is not None
     loaded_warmups: list[dict[str, dict[str, Any]]] = []
@@ -843,12 +922,29 @@ def evaluate_campaign(
 
 
 def render_markdown(result: dict[str, Any]) -> str:
+    dependencies = set()
+    for case in result["cases"]:
+        for rows in case.get("evidence", {}).values():
+            for row in rows:
+                copies = row.get("copy_metrics")
+                coverage = copies.get("coverage") if isinstance(copies, dict) else None
+                labels = coverage.get("unmeasured_dependency_boundaries") if isinstance(coverage, dict) else None
+                for dependency in labels if isinstance(labels, list) else ():
+                    if isinstance(dependency, str):
+                        dependencies.add(dependency)
     lines = [
         "# WAMP serializer performance comparison",
         "",
         f"Status: **{result['status'].upper()}**",
         "",
         f"Cases analyzed: {result['case_count']}",
+        "",
+        f"Copy scope: `{result['policy'].get('copy_measurement_scope', 'legacy')}`. "
+        "Transport totals cover the documented Connectanum buffer boundaries. "
+        "Dependency internals are excluded only where explicitly labelled unmeasured; "
+        "they are not zero-copy claims. Raw copy breakdowns remain in comparison.json.",
+        "",
+        "Unmeasured dependency internals: " + (", ".join(sorted(dependencies)) or "none reported") + ".",
         "",
         "| Case | Construction | Metric | Median ratio | Paired 95% CI | Gate |",
         "|---|---|---|---:|---:|---|",
