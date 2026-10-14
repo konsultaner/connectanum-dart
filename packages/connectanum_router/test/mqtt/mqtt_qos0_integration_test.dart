@@ -21,8 +21,30 @@ void main() {
     await broker.close();
   });
 
+  test('native close observer failure still destroys the peer', () async {
+    final broker = MqttQos0Broker.native(
+      onNativeClose: (_, _) => throw StateError('observer failed'),
+    );
+    var destroyed = false;
+    broker.attachNativeConnection(
+      47,
+      send: (_) {},
+      close: () => destroyed = true,
+    );
+    broker.closeNativeConnection(47, reason: 'native_poll_error');
+    expect(destroyed, isTrue);
+    expect(broker.nativeConnectionIds, isEmpty);
+    await broker.close();
+  });
+
   test('native MQTT send failure closes its peer', () async {
-    final broker = MqttQos0Broker.native();
+    final closeReasons = <String>[];
+    final broker = MqttQos0Broker.native(
+      onNativeClose: (connectionId, reason) {
+        expect(connectionId, 43);
+        closeReasons.add(reason);
+      },
+    );
     var closed = false;
     broker.attachNativeConnection(
       43,
@@ -36,6 +58,7 @@ void main() {
       ),
     );
     expect(closed, isTrue);
+    expect(closeReasons, ['send_error']);
     expect(broker.nativeConnectionIds, isEmpty);
     await broker.close();
   });

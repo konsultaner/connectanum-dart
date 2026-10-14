@@ -100,6 +100,8 @@ Future<void> main(List<String> args) async {
     final completed = Completer<void>();
     final warmupDone = Completer<void>();
     final warmupReceived = List.filled(subscriberCount, 0);
+    var warmupWindowTarget = 0;
+    Completer<void>? warmupWindowDone;
     final receivedPerSubscriber = List.filled(subscriberCount, 0);
     var received = 0;
     var duplicate = 0;
@@ -142,6 +144,12 @@ Future<void> main(List<String> args) async {
               return;
             }
             warmupReceived[index]++;
+            final waiting = warmupWindowDone;
+            if (waiting != null &&
+                warmupReceived.every((value) => value >= warmupWindowTarget) &&
+                !waiting.isCompleted) {
+              waiting.complete();
+            }
             if (warmupReceived.every((value) => value == warmup) &&
                 !warmupDone.isCompleted) {
               warmupDone.complete();
@@ -176,10 +184,23 @@ Future<void> main(List<String> args) async {
         }),
       );
     }
-    for (var i = 0; i < warmup; i++) {
-      data.setUint32(0, count + i);
-      await publisher.publish('bench/one', payload);
-    }
+    await publishMqttBenchmarkWarmup(
+      messageCount: warmup,
+      windowMessages: window,
+      publish: (index) async {
+        data.setUint32(0, count + index);
+        await publisher!.publish('bench/one', payload);
+      },
+      waitForDelivery: (target) async {
+        warmupWindowTarget = target;
+        if (warmupReceived.any((value) => value < warmupWindowTarget)) {
+          final waiting = Completer<void>();
+          warmupWindowDone = waiting;
+          await waiting.future.timeout(const Duration(seconds: 10));
+        }
+        warmupWindowDone = null;
+      },
+    );
     await warmupDone.future.timeout(const Duration(seconds: 10));
     stopwatch.reset();
     final pendingPayloads = <Uint8List>[];
@@ -261,5 +282,21 @@ Future<void> main(List<String> args) async {
       await subscriber.close();
     }
     await broker?.close();
+  }
+}
+
+/// Sends warmup traffic under the same in-flight window as the measured run.
+Future<void> publishMqttBenchmarkWarmup({
+  required int messageCount,
+  required int windowMessages,
+  required Future<void> Function(int index) publish,
+  required Future<void> Function(int target) waitForDelivery,
+}) async {
+  for (var index = 0; index < messageCount; index++) {
+    await publish(index);
+    if (windowMessages > 0 &&
+        ((index + 1) % windowMessages == 0 || index + 1 == messageCount)) {
+      await waitForDelivery(index + 1);
+    }
   }
 }

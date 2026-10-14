@@ -148,7 +148,14 @@ class _RouterBoss {
   final Map<int, RouterListener> _http3ConnectionListeners = {};
   final Map<int, _WebSocketSelection> _webSocketSelectionByConnection = {};
   final RouterStateStore _stateStore;
-  final MqttQos0Broker _mqttBroker = MqttQos0Broker.native();
+  late final MqttQos0Broker _mqttBroker = MqttQos0Broker.native(
+    onNativeClose: (connectionId, reason) => onEvent?.call({
+      'source': 'boss',
+      'type': 'mqtt_connection_closed',
+      'connectionId': connectionId,
+      'reason': reason,
+    }),
+  );
   late final Map<String, RealmSettings> _realmByName;
   final Map<int, DateTime> _lastActivityByConnection = {};
   final Map<int, String> _realmByConnection = {};
@@ -622,7 +629,10 @@ class _RouterBoss {
         try {
           bytes = mqttRuntime.pollMqttChunk(connectionId);
         } on NativeTransportException {
-          _mqttBroker.closeNativeConnection(connectionId);
+          _mqttBroker.closeNativeConnection(
+            connectionId,
+            reason: 'native_poll_error',
+          );
           break;
         }
         if (bytes == null) break;

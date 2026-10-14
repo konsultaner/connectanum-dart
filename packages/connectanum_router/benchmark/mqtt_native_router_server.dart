@@ -24,28 +24,36 @@ Future<void> main(List<String> args) async {
       ListenerSettingsBuilder('mqtt', '127.0.0.1:$port')
         ..addProtocol(ListenerProtocol.mqtt),
     );
-  final binding = Router(
-    RouterConfig(
-      endpoints: [
-        Endpoint(
-          host: '127.0.0.1',
-          port: port,
-          tlsMode: tls ? TlsMode.native : TlsMode.disabled,
-          maxRawSocketSizeExponent: 16,
-          sniCertificates: tls
-              ? [
-                  SniCertificate(
-                    hostname: 'localhost',
-                    certificateChainPem: File(args[1]).readAsStringSync(),
-                    privateKeyPem: File(args[2]).readAsStringSync(),
-                  ),
-                ]
-              : const [],
+  final binding =
+      Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: port,
+              tlsMode: tls ? TlsMode.native : TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: tls
+                  ? [
+                      SniCertificate(
+                        hostname: 'localhost',
+                        certificateChainPem: File(args[1]).readAsStringSync(),
+                        privateKeyPem: File(args[2]).readAsStringSync(),
+                      ),
+                    ]
+                  : const [],
+            ),
+          ],
         ),
-      ],
-    ),
-    settings: settings.build(),
-  ).start(runtime);
+        settings: settings.build(),
+      ).start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map && event['type'] == 'mqtt_connection_closed') {
+            stderr.writeln(event);
+          }
+        },
+      );
   stdout.writeln('ready ${binding.listeners.single.port}');
   await stdin.drain<void>();
   await binding.dispose();

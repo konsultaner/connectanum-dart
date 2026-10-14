@@ -234,9 +234,12 @@ def mosquitto_version(mosquitto):
     raise RuntimeError("Mosquitto help output did not contain a version")
 
 
-def checked_client_row(process, target, repeat):
+def checked_client_row(process, target, repeat, broker_log=None):
     if process.returncode:
-        raise RuntimeError(f"{target} run {repeat}: {process.stderr}")
+        details = process.stderr
+        if broker_log is not None:
+            details += "\nBroker stderr tail:\n" + Path(broker_log).read_text()[-4000:]
+        raise RuntimeError(f"{target} run {repeat}: {details}")
     return json.loads(process.stdout.strip().splitlines()[-1])
 
 
@@ -335,15 +338,20 @@ def main():
         config = Path(tmp) / "mosquitto.conf"
         config.write_text(mosquitto_config(port, transport))
         brokers = {}
+        broker_logs = {target: args.output / f"{target}-broker-stderr.log"
+                       for target in ("connectanum", "mosquitto")}
+        broker_stderr = {target: path.open("w")
+                         for target, path in broker_logs.items()}
         try:
             brokers["connectanum"] = subprocess.Popen(
                 [str(broker_exe), str(connectanum_port)] +
                 ([str(TLS_CERT), str(TLS_KEY)] if transport == "tls" else []),
                 stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE, text=True)
+                stderr=broker_stderr["connectanum"], text=True)
             brokers["mosquitto"] = subprocess.Popen(
                 [args.mosquitto, "-c", str(config)],
-                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+                stdout=subprocess.DEVNULL,
+                stderr=broker_stderr["mosquitto"], text=True)
             wait_for_listener(connectanum_port, brokers["connectanum"])
             wait_for_listener(port, brokers["mosquitto"])
             rows = []
@@ -359,7 +367,8 @@ def main():
                         env=env, capture_output=True, text=True, timeout=90)
                     after_cpu, _, after_peak_rss = process_metrics(
                         brokers[target].pid)
-                    row = checked_client_row(process, target, repeat)
+                    row = checked_client_row(
+                        process, target, repeat, broker_log=broker_logs[target])
                     row.update(target=target, run=repeat,
                                broker_cpu_seconds=round(after_cpu - before_cpu, 4),
                                broker_rss_bytes=max(before_peak_rss, after_peak_rss))
@@ -376,6 +385,8 @@ def main():
         finally:
             for broker in brokers.values():
                 stop_broker(broker)
+            for stderr in broker_stderr.values():
+                stderr.close()
 
 
 if __name__ == "__main__":

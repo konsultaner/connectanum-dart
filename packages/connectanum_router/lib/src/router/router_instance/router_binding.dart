@@ -1060,7 +1060,14 @@ class RouterBinding {
   final List<RouterListener> _listeners = [];
   final Map<int, RouterListener> _listenerById = {};
   final Map<int, _ConnectionState> _connections = {};
-  final MqttQos0Broker _mqttBroker = MqttQos0Broker.native();
+  late final MqttQos0Broker _mqttBroker = MqttQos0Broker.native(
+    onNativeClose: (connectionId, reason) => onEvent?.call({
+      'source': 'binding',
+      'type': 'mqtt_connection_closed',
+      'connectionId': connectionId,
+      'reason': reason,
+    }),
+  );
   final Set<void Function()> _nativeMessageWatchStops = {};
   final Set<RouterSession> _internalSessions = {};
   final Set<Future<void>> _internalSessionStarts = {};
@@ -1788,7 +1795,10 @@ class RouterBinding {
         try {
           bytes = mqttRuntime.pollMqttChunk(connectionId);
         } on NativeTransportException {
-          _mqttBroker.closeNativeConnection(connectionId);
+          _mqttBroker.closeNativeConnection(
+            connectionId,
+            reason: 'native_poll_error',
+          );
           break;
         }
         if (bytes == null) break;

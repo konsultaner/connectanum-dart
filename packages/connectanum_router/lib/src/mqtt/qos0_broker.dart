@@ -13,12 +13,13 @@ import '../native/runtime.dart';
 /// only numeric loopback addresses. A protocol-neutral WAMP publication
 /// boundary remains a later milestone stage.
 final class MqttQos0Broker {
-  MqttQos0Broker._(this._server) {
+  MqttQos0Broker._(this._server, {this.onNativeClose}) {
     _server?.listen(_accept);
   }
 
   /// Session owner for MQTT byte streams accepted by the native router listener.
-  MqttQos0Broker.native() : this._(null);
+  MqttQos0Broker.native({void Function(int, String)? onNativeClose})
+    : this._(null, onNativeClose: onNativeClose);
 
   static Future<MqttQos0Broker> bind(String host, int port) async {
     final address = InternetAddress.tryParse(host);
@@ -33,6 +34,7 @@ final class MqttQos0Broker {
   }
 
   final ServerSocket? _server;
+  final void Function(int connectionId, String reason)? onNativeClose;
   final Set<_Peer> _peers = {};
   final Map<int, _Peer> _nativePeers = {};
 
@@ -55,8 +57,11 @@ final class MqttQos0Broker {
     _nativePeers[connectionId]?._onData(bytes);
   }
 
-  void closeNativeConnection(int connectionId) {
-    _nativePeers[connectionId]?._close();
+  void closeNativeConnection(
+    int connectionId, {
+    String reason = 'native_closed',
+  }) {
+    _nativePeers[connectionId]?._close(reason);
   }
 
   Iterable<int> get nativeConnectionIds => _nativePeers.keys;
@@ -152,7 +157,7 @@ final class _Peer {
             encoded.length >
         _maxPendingOutboundBytes) {
       _publishOverflowed = true;
-      scheduleMicrotask(_close);
+      scheduleMicrotask(() => _close('publication_buffer_full'));
       return;
     }
     if (encoded.length >= 64 * 1024) {
@@ -178,7 +183,7 @@ final class _Peer {
     scheduleMicrotask(() {
       _publishFlushScheduled = false;
       if (_publishOverflowed) {
-        _close();
+        _close('publication_buffer_full');
         return;
       }
       while (!closed && _pendingPublishChunks.isNotEmpty) {
@@ -209,16 +214,16 @@ final class _Peer {
       if (error.code == NativeTransportErrorCode.sendQueueFull) {
         _queueOutbound(bytes);
       } else {
-        _close();
+        _close('send_error:${error.code}');
       }
     } catch (_) {
-      _close();
+      _close('send_error');
     }
   }
 
   void _queueOutbound(Uint8List bytes) {
     if (_pendingOutboundBytes + bytes.length > _maxPendingOutboundBytes) {
-      _close();
+      _close('outbound_buffer_full');
       return;
     }
     _pendingOutbound.addLast(bytes);
@@ -240,11 +245,11 @@ final class _Peer {
             _drainOutbound,
           );
         } else {
-          _close();
+          _close('send_error:${error.code}');
         }
         return;
       } catch (_) {
-        _close();
+        _close('send_error');
         return;
       }
       _pendingOutbound.removeFirst();
@@ -258,8 +263,8 @@ final class _Peer {
         if (closed) break;
         _handle(frame);
       }
-    } on MqttProtocolException {
-      _close();
+    } on MqttProtocolException catch (error) {
+      _close('protocol_error:${error.message}');
     }
   }
 
@@ -276,7 +281,7 @@ final class _Peer {
             reasonCode: connect.version == MqttVersion.v5 ? 0x87 : 5,
           ),
         );
-        _close();
+        _close('credentials_rejected');
         return;
       }
       version = connect.version;
@@ -323,7 +328,7 @@ final class _Peer {
           ).encode(),
         );
       case MqttPacketType.disconnect:
-        _close();
+        _close('client_disconnect');
       default:
         throw const MqttProtocolException('unsupported MQTT packet');
     }
@@ -353,7 +358,14 @@ final class _Peer {
     _pendingPublishes.takeBytes();
     broker._peers.remove(this);
     final id = nativeConnectionId;
-    if (id != null) broker._nativePeers.remove(id);
+    if (id != null) {
+      broker._nativePeers.remove(id);
+      try {
+        broker.onNativeClose?.call(id, error?.toString() ?? 'closed');
+      } catch (_) {
+        // An observer must not prevent transport cleanup.
+      }
+    }
     try {
       _destroy();
     } catch (_) {

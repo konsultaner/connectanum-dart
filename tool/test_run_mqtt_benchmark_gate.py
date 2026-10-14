@@ -207,6 +207,11 @@ class MqttBenchmarkGateTest(unittest.TestCase):
             ["client"], 7, stdout="", stderr="malformed CONNACK")
         with self.assertRaisesRegex(RuntimeError, "mosquitto run 2: malformed CONNACK"):
             gate.checked_client_row(failed, "mosquitto", 2)
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "broker.log"
+            log.write_text("mqtt_connection_closed: protocol_error\n")
+            with self.assertRaisesRegex(RuntimeError, "protocol_error"):
+                gate.checked_client_row(failed, "mosquitto", 2, broker_log=log)
         success = subprocess.CompletedProcess(
             ["client"], 0, stdout='diagnostic\n{"sent": 10}\n', stderr="")
         self.assertEqual(gate.checked_client_row(success, "connectanum", 1),
