@@ -11,6 +11,12 @@ Tracking: [MQTT milestone](https://github.com/konsultaner/connectanum-dart/miles
 - Frame extraction alone does not make a packet valid. The next codec layer must validate CONNECT-first sequencing, protocol name/version, packet-specific lengths, UTF-8, properties, packet IDs and capability limits before broker state changes. MQTT 3.1.1 packets have no MQTT 5 property-length fields. See the [MQTT 5 packet chapters](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html) and [MQTT 3.1.1 packet chapters](https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html).
 - MQTT topic filters use `/`, `+`, `#` and special `$` matching rules. A dot substitution into WAMP URIs is not reversible; explicit topic mapping and ACL evaluation are required. See [MQTT 5 §4.7](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html).
 
+### Provisional MQTT 5 capability response
+
+MQTT 5's absent CONNACK Maximum QoS property defaults to QoS 2; a server limited to QoS 0 **must** send property `0x24` with value `0`. Absent Retain Available defaults to supported, so the current no-retain listener sends `0x25` with value `0`. Its 1 MiB input-frame cap is advertised as Maximum Packet Size `0x27`. Subscription Identifiers and Shared Subscriptions default to supported if their availability properties are absent, so the listener sends `0x29=0` and `0x2a=0`. Wildcard subscriptions remain enabled by default. The fixed topic-alias default is zero. See [MQTT 5 §3.2.2.3.4–13](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html).
+
+Even when the server's Maximum QoS is zero, MQTT 5 requires it to accept SUBSCRIBE requests with requested QoS 0, 1 or 2. It may grant a lower maximum QoS in SUBACK, so the provisional broker grants QoS 0 for all valid filters. This is distinct from accepting QoS 1/2 PUBLISH packets, which remain unsupported. See [MQTT 5 §3.2.2.3.4](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html) and [§3.8.4](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html). MQTT 3.1.1 has no corresponding CONNACK capability properties; its provisional listener profile remains explicitly limited until full QoS/session behavior is implemented.
+
 ## Boundary decisions
 
 1. MQTT control packets stay in the MQTT adapter. The shared broker sees authorized application publications with raw payload bytes, topic, principal/realm, QoS, retain/properties and origin metadata; it does not see CONNECT, SUBSCRIBE or acknowledgement packets as WAMP events.

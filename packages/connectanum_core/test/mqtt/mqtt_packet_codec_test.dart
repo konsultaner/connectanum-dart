@@ -202,6 +202,38 @@ void main() {
       );
     });
 
+    test('encodes MQTT 5 QoS 0 server capability properties', () {
+      final wire = MqttPacketCodec.encodeConnack(
+        MqttVersion.v5,
+        reasonCode: 0,
+        advertiseQos0Limits: true,
+      );
+      expect(wire, [
+        0x20,
+        0x10,
+        0,
+        0,
+        13,
+        0x24,
+        0,
+        0x25,
+        0,
+        0x27,
+        0,
+        0x10,
+        0,
+        0,
+        0x29,
+        0,
+        0x2a,
+        0,
+      ]);
+      expect(
+        MqttPacketCodec.decodeConnack(frame(wire), MqttVersion.v5).reasonCode,
+        0,
+      );
+    });
+
     test('accepts Mosquitto MQTT 5 CONNACK capability properties', () {
       final packet = frame([
         0x20,

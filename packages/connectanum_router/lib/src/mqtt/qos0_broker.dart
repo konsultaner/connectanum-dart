@@ -138,7 +138,13 @@ final class _Peer {
       }
       version = connect.version;
       connected = true;
-      socket.add(MqttPacketCodec.encodeConnack(connect.version, reasonCode: 0));
+      socket.add(
+        MqttPacketCodec.encodeConnack(
+          connect.version,
+          reasonCode: 0,
+          advertiseQos0Limits: true,
+        ),
+      );
       return;
     }
     switch (frame.type) {
@@ -155,7 +161,7 @@ final class _Peer {
         final reasons = <int>[];
         for (var i = 0; i < subscribe.filters.length; i++) {
           final filter = subscribe.filters[i];
-          final supported = subscribe.qos[i] == 0 && _validFilter(filter);
+          final supported = _validFilter(filter);
           if (supported) filters.add(filter);
           reasons.add(supported ? 0 : 0x80);
         }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -8,6 +9,107 @@ import 'package:connectanum_router/mqtt.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('MQTT 5 CONNACK advertises the provisional QoS 0 limits', () async {
+    final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
+    final socket = await Socket.connect('127.0.0.1', broker.port);
+    addTearDown(() async {
+      socket.destroy();
+      await broker.close();
+    });
+    final frames = _decodedFrames(socket);
+    final connack = frames.first.timeout(const Duration(seconds: 3));
+    socket.add(
+      MqttPacketCodec.encodeConnect(
+        const MqttConnect(version: MqttVersion.v5, clientId: 'capabilities'),
+      ),
+    );
+    expect((await connack).body, [
+      0,
+      0,
+      13,
+      0x24,
+      0,
+      0x25,
+      0,
+      0x27,
+      0,
+      0x10,
+      0,
+      0,
+      0x29,
+      0,
+      0x2a,
+      0,
+    ]);
+  });
+
+  test('MQTT 5 QoS 1 and 2 subscription requests are granted QoS 0', () async {
+    final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
+    final socket = await Socket.connect('127.0.0.1', broker.port);
+    addTearDown(() async {
+      socket.destroy();
+      await broker.close();
+    });
+    final frames = _decodedFrames(socket);
+    final connack = frames.first.timeout(const Duration(seconds: 3));
+    socket.add(
+      MqttPacketCodec.encodeConnect(
+        const MqttConnect(version: MqttVersion.v5, clientId: 'sub-downgrade'),
+      ),
+    );
+    expect(
+      MqttPacketCodec.decodeConnack(await connack, MqttVersion.v5).reasonCode,
+      0,
+    );
+    final suback = frames.first.timeout(const Duration(seconds: 3));
+    socket.add([0x82, 0x0b, 0, 1, 0, 0, 1, 0x61, 1, 0, 1, 0x62, 2]);
+    expect(
+      MqttPacketCodec.decodeSuback(await suback, MqttVersion.v5).grantedQos,
+      [0, 0],
+    );
+    final publisher = await MqttQos0Client.connect(
+      '127.0.0.1',
+      broker.port,
+      clientId: 'downgrade-pub',
+    );
+    addTearDown(publisher.close);
+    final publication = frames.first.timeout(const Duration(seconds: 3));
+    await publisher.publish('a', Uint8List.fromList([0, 255]));
+    final received = MqttPacketCodec.decodePublish(
+      await publication,
+      MqttVersion.v5,
+    );
+    expect(received.qos, 0);
+    expect(received.topic, 'a');
+    expect(received.payload, [0, 255]);
+  });
+
+  test('MQTT 3.1.1 QoS 1 and 2 requests are granted QoS 0', () async {
+    final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
+    final socket = await Socket.connect('127.0.0.1', broker.port);
+    addTearDown(() async {
+      socket.destroy();
+      await broker.close();
+    });
+    final frames = _decodedFrames(socket);
+    final connack = frames.first.timeout(const Duration(seconds: 3));
+    socket.add(
+      MqttPacketCodec.encodeConnect(
+        const MqttConnect(version: MqttVersion.v311, clientId: 'v311-qos'),
+      ),
+    );
+    expect(
+      MqttPacketCodec.decodeConnack(await connack, MqttVersion.v311).reasonCode,
+      0,
+    );
+    final suback = frames.first.timeout(const Duration(seconds: 3));
+    socket.add([0x82, 0x0a, 0, 1, 0, 1, 0x61, 1, 0, 1, 0x62, 2]);
+    expect(
+      MqttPacketCodec.decodeSuback(await suback, MqttVersion.v311).grantedQos,
+      [0, 0],
+    );
+  });
+
   test(
     'anonymous provisional listener binds only a loopback address',
     () async {
@@ -341,4 +443,19 @@ void main() {
         ? 'set PAHO_PYTHON to a Python with paho-mqtt 2.1.0'
         : false,
   );
+}
+
+Stream<MqttFrame> _decodedFrames(Socket socket) {
+  final controller = StreamController<MqttFrame>.broadcast();
+  final decoder = MqttFrameDecoder();
+  socket.listen(
+    (data) {
+      for (final frame in decoder.add(data)) {
+        controller.add(frame);
+      }
+    },
+    onError: controller.addError,
+    onDone: controller.close,
+  );
+  return controller.stream;
 }

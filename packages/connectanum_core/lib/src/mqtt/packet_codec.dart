@@ -123,11 +123,35 @@ abstract final class MqttPacketCodec {
   static Uint8List encodeConnack(
     MqttVersion version, {
     required int reasonCode,
+    bool advertiseQos0Limits = false,
   }) {
     final writer = _Writer()
       ..byte(0)
       ..byte(reasonCode);
-    if (version == MqttVersion.v5) writer.byte(0);
+    if (version == MqttVersion.v5) {
+      if (advertiseQos0Limits) {
+        // Maximum QoS 0, no retain, 1 MiB input cap, no subscription IDs or
+        // shared subscriptions. Wildcards remain available by default.
+        writer.raw(const [
+          13,
+          0x24,
+          0,
+          0x25,
+          0,
+          0x27,
+          0,
+          0x10,
+          0,
+          0,
+          0x29,
+          0,
+          0x2a,
+          0,
+        ]);
+      } else {
+        writer.byte(0);
+      }
+    }
     return _encode(MqttPacketType.connack, 0, writer);
   }
 
