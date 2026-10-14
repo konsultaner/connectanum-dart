@@ -65,6 +65,10 @@ The MQTT 5 CONNACK capability and subscription-downgrade correction at clean cod
 
 The fan-out relative throughput remains near its pre-correction clean local baseline of 2.288. The capability correction's hosted Linux gate and controlled release matrix are still required.
 
+The first [hosted run after the capability correction](https://github.com/konsultaner/connectanum-dart/actions/runs/38581146416/job/115912182614) at source head `edc98458` passes Paho interoperability and exact burst and sustained delivery but fails the unchanged sequential p95/p99 limit: ratios 1.842 and 1.922 exceed 1.75. Throughput ratio 0.811, broker CPU ratio 1.515 and 11.1 MB RSS pass. Both brokers' absolute sustained rates are below the preceding hosted run, and the source correction changes only CONNECT and SUBACK handling, not the per-publication path. The partial raw artifact is retained. This is a CI blocker until a repeat matched Linux run or a source-backed root cause resolves it; no threshold has been widened.
+
+A separate [MQTT 3.1.1 sustained budget](../../tool/mqtt_v311_sustained_benchmark_budget.json) now uses the same 200,000-message, window-512 sequential workload and numeric limits. The benchmark reports its wire protocol version, and the gate rejects mismatched versions or profile names. The first local five-pair run passes at 402,910 versus 417,877 delivered/s, throughput ratio 0.964, p95 ratio 1.053, p99 ratio 1.030, CPU ratio 1.098 and 27.6 MB RSS; this run had uncommitted source and remains diagnostic until repeated on a clean tree and in CI.
+
 The checked-in burst summary records the relative thresholds that were active at baseline commit `078e85c7`. The later hosted 2,000-message AOT rows varied too widely for a reliable performance decision, so the current burst gate checks correctness only. The baseline artifact remains unchanged for provenance.
 
 ## Outstanding measurements
