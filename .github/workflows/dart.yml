@@ -266,6 +266,14 @@ jobs:
             -m run_mqtt_benchmark_gate --native-router \
             --budget tool/mqtt_fanout_benchmark_budget.json \
             --output out/mqtt-qos0-gate/native-fanout --mosquitto "$(command -v mosquitto)"
+          "$coverage" run --append --source=run_mqtt_benchmark_gate \
+            -m run_mqtt_benchmark_gate --native-router \
+            --budget tool/mqtt_native_tls_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-tls-sustained --mosquitto "$(command -v mosquitto)"
+          "$coverage" run --append --source=run_mqtt_benchmark_gate \
+            -m run_mqtt_benchmark_gate --native-router \
+            --budget tool/mqtt_native_tls_v311_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-tls-v311-sustained --mosquitto "$(command -v mosquitto)"
           "$coverage" json --include='*/tool/run_mqtt_benchmark_gate.py' \
             -o out/mqtt-qos0-gate/python-coverage.json
           "$coverage" report --include='*/tool/run_mqtt_benchmark_gate.py' \

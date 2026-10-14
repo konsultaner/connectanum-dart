@@ -1,6 +1,6 @@
 # Native router MQTT QoS 0 benchmark checkpoint
 
-Date: 2026-10-14. Status: clean-tree local gate passes; hosted evidence pending.
+Date: 2026-10-14. Status: clean-tree local and hosted shared-runner gates pass; controlled release evidence pending.
 
 The benchmark runs a Dart AOT router process on the native `ct_ffi` MQTT TCP listener and a separate Dart AOT client process. Five order-balanced Connectanum/Mosquitto pairs use the same ports, client executable and 128-byte payload. Every run checks exact payload bytes, order, per-subscriber counts and zero duplicates before considering speed. The reported throughput is delivered messages per second; p95/p99 measure client publish-to-delivery latency. Broker process CPU time and high-water RSS are measured separately. The native library and both AOT binaries are hashed in each summary. Run with `--native-router` and `CONNECTANUM_NATIVE_LIB`; the existing Dart-only broker gate remains independent.
 
@@ -27,4 +27,18 @@ Commit `db3ebe354b37be12e3828ad718cf4430071aaa27` passes all five profiles on th
 | MQTT 5 batch, 200,000/run | 808,940 | 404,893 | 1.998 | 0.542 | 0.552 | 0.310 | 32.2 MB |
 | MQTT 5 fan-out, 50,000 publications/200,000 deliveries per run | 1,281,402 | 596,978 | 2.146 | 0.508 | 0.531 | 0.267 | 31.3 MB |
 
-The checked-in [burst summary](mqtt-native-qos0-db3ebe35-burst-summary.json), [MQTT 5 sustained summary](mqtt-native-qos0-db3ebe35-sustained-summary.json), [MQTT 3.1.1 sustained summary](mqtt-native-qos0-db3ebe35-v311-sustained-summary.json), [batch summary](mqtt-native-qos0-db3ebe35-batched-summary.json), and [fan-out summary](mqtt-native-qos0-db3ebe35-fanout-summary.json) include budgets and provenance. Matching `-raw.jsonl` files preserve all 50 broker/client samples. The shared-runner CI gate and controlled release targets remain to be established for this native path.
+The checked-in [burst summary](mqtt-native-qos0-db3ebe35-burst-summary.json), [MQTT 5 sustained summary](mqtt-native-qos0-db3ebe35-sustained-summary.json), [MQTT 3.1.1 sustained summary](mqtt-native-qos0-db3ebe35-v311-sustained-summary.json), [batch summary](mqtt-native-qos0-db3ebe35-batched-summary.json), and [fan-out summary](mqtt-native-qos0-db3ebe35-fanout-summary.json) include budgets and provenance. Matching `-raw.jsonl` files preserve all 50 broker/client samples. Controlled release targets remain to be established for this native path.
+
+## Hosted Linux gate
+
+The [MQTT CI job](https://github.com/konsultaner/connectanum-dart/actions/runs/38609198123/job/116007870420) passes native build, Paho MQTT 5/3.1.1 exchange, the five original broker profiles and all five native-router profiles. GitHub checked out the PR merge commit `82bc05cf5bd1764ce5272a331eba1d04771dd3ae` for branch head `97a7cb83`; every summary records that checked-out commit and a clean tree. The native library SHA-256 is `e2320d0f8272d12a9d900a78bd872c883da404c2f3e766aebed35029b3ac6efe`. The runner is Linux x86-64 with four logical CPUs, Dart 3.13.1 and Mosquitto 2.0.18. These are shared CI runner measurements, not controlled release benchmarks.
+
+| Hosted native profile | Connectanum delivered/s | Mosquitto delivered/s | Throughput ratio | p95 ratio | p99 ratio | CPU ratio | Connectanum RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| MQTT 5 burst, 2,000/run | 121,411 | 114,982 | 1.056 | 0.927 | 0.945 | correctness only | 22.3 MB |
+| MQTT 5 sequential, 200,000/run | 118,873 | 117,288 | 1.014 | 0.997 | 1.040 | 1.273 | 35.5 MB |
+| MQTT 3.1.1 sequential, 200,000/run | 119,699 | 119,510 | 1.002 | 1.011 | 1.056 | 1.278 | 34.8 MB |
+| MQTT 5 batch, 200,000/run | 752,086 | 114,819 | 6.550 | 0.160 | 0.193 | 0.093 | 23.6 MB |
+| MQTT 5 fan-out, 50,000 publications/200,000 deliveries per run | 1,252,207 | 169,041 | 7.408 | 0.115 | 0.123 | 0.090 | 23.5 MB |
+
+All 50 native broker/client raw samples have exact ordered delivery and zero duplicates. The CI artifact reports 526/526 executable lines in the five scoped MQTT Dart sources and 198/198 executable Python benchmark-gate lines, with no missing lines. Rust and broader shared-source coverage are outside this focused gate and remain part of the milestone's 100% coverage work. [Hosted burst summary](mqtt-native-qos0-hosted-38609198123-native-burst-summary.json), [MQTT 5 sustained summary](mqtt-native-qos0-hosted-38609198123-native-sustained-summary.json), [MQTT 3.1.1 sustained summary](mqtt-native-qos0-hosted-38609198123-native-v311-sustained-summary.json), [batch summary](mqtt-native-qos0-hosted-38609198123-native-batched-summary.json), and [fan-out summary](mqtt-native-qos0-hosted-38609198123-native-fanout-summary.json) are checked in with the matching raw JSONL samples. The full Dart LCOV and Python coverage reports remain in the CI artifact.

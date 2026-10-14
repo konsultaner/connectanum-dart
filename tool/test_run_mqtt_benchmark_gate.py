@@ -73,6 +73,29 @@ class MqttBenchmarkGateTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 gate.main()
 
+    def test_tls_budget_requires_native_router_and_known_transport(self):
+        with tempfile.TemporaryDirectory() as directory:
+            budget = Path(directory) / "budget.json"
+            argv = ["run_mqtt_benchmark_gate", "--output", str(Path(directory) / "out"),
+                    "--budget", str(budget)]
+            for transport, expected in (("tls", "requires --native-router"),
+                                        ("quic", "invalid MQTT transport")):
+                budget.write_text(json.dumps(dict(BUDGET, transport=transport)))
+                errors = io.StringIO()
+                with (mock.patch.object(gate.sys, "argv", argv),
+                      contextlib.redirect_stderr(errors)):
+                    with self.assertRaisesRegex(SystemExit, "2"):
+                        gate.main()
+                self.assertIn(expected, errors.getvalue())
+                self.assertFalse((Path(directory) / "out").exists())
+
+    def test_tls_reference_config_selects_certificates(self):
+        plain = gate.mosquitto_config(1883, "tcp")
+        secure = gate.mosquitto_config(8883, "tls")
+        self.assertNotIn("certfile", plain)
+        self.assertIn(f"certfile {gate.TLS_CERT}", secure)
+        self.assertIn(f"keyfile {gate.TLS_KEY}", secure)
+
     def test_exact_line_coverage_gate_rejects_missing_or_excluded_source(self):
         source = "tool/run_mqtt_benchmark_gate.py"
         report = {
@@ -212,7 +235,9 @@ class MqttBenchmarkGateTest(unittest.TestCase):
     def test_native_router_sustained_budgets_bound_ffi_cpu_overhead(self):
         for filename, version in (
                 ("mqtt_native_sustained_benchmark_budget.json", "5"),
-                ("mqtt_native_v311_sustained_benchmark_budget.json", "311")):
+                ("mqtt_native_v311_sustained_benchmark_budget.json", "311"),
+                ("mqtt_native_tls_sustained_benchmark_budget.json", "5"),
+                ("mqtt_native_tls_v311_sustained_benchmark_budget.json", "311")):
             with self.subTest(filename=filename):
                 budget = json.loads((gate.ROOT / "tool" / filename).read_text())
                 pair = rows(connectanum_speed=80_000, connectanum_p99=220)[:2]
@@ -220,6 +245,7 @@ class MqttBenchmarkGateTest(unittest.TestCase):
                            for row in pair]
                 for row in samples:
                     row.update(profile=budget["profile"], mqtt_version=version,
+                               transport=budget.get("transport", "tcp"),
                                sent=200_000, received=200_000,
                                received_per_subscriber=[200_000],
                                window_messages=512)
@@ -262,10 +288,26 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         for row in samples:
             row["mqtt_version"] = "311"
         self.assertTrue(compare(samples, budget)["passed"])
-        with self.assertRaisesRegex(ValueError, "profile/version mismatch"):
+        with self.assertRaisesRegex(ValueError, "profile/version/transport mismatch"):
             compare(samples, dict(budget, profile=BUDGET["profile"]))
         with self.assertRaisesRegex(ValueError, "invalid MQTT version"):
             compare(samples, dict(budget, mqtt_version="31"))
+
+    def test_tls_gate_rejects_plaintext_samples_and_invalid_transport(self):
+        budget = dict(BUDGET, transport="tls",
+                      profile="mqtt5-tls-qos0-one-subscriber-128B")
+        samples = rows()
+        for row in samples:
+            row["profile"] = budget["profile"]
+            row["transport"] = "tls"
+        self.assertTrue(compare(samples, budget)["passed"])
+        samples[0]["transport"] = "tcp"
+        with self.assertRaisesRegex(ValueError, "workload"):
+            compare(samples, budget)
+        with self.assertRaisesRegex(ValueError, "profile/version/transport mismatch"):
+            compare(samples, dict(budget, transport="tcp"))
+        with self.assertRaisesRegex(ValueError, "invalid MQTT transport"):
+            compare(samples, dict(budget, transport="quic"))
 
     def test_fanout_requires_exact_delivery_on_every_subscriber(self):
         budget = dict(BUDGET, profile="mqtt5-tcp-qos0-fanout4-128B-window128-batch128",

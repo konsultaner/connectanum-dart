@@ -18,15 +18,22 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BUDGET = ROOT / "tool" / "mqtt_benchmark_budget.json"
+TLS_CERT_DIR = ROOT / "packages" / "connectanum_router" / "test" / "certs"
+TLS_CA = TLS_CERT_DIR / "remote_auth_ca_cert.pem"
+TLS_CERT = TLS_CERT_DIR / "remote_auth_server_cert.pem"
+TLS_KEY = TLS_CERT_DIR / "remote_auth_server_key.pem"
 
 
 def compare(rows, budget):
     profile = budget["profile"]
     mqtt_version = budget.get("mqtt_version", "5")
+    transport = budget.get("transport", "tcp")
     if mqtt_version not in ("5", "311"):
         raise ValueError(f"invalid MQTT version: {mqtt_version}")
-    if not profile.startswith(f"mqtt{mqtt_version}-"):
-        raise ValueError(f"MQTT benchmark profile/version mismatch: {profile}")
+    if transport not in ("tcp", "tls"):
+        raise ValueError(f"invalid MQTT transport: {transport}")
+    if not profile.startswith(f"mqtt{mqtt_version}-{transport}-"):
+        raise ValueError(f"MQTT benchmark profile/version/transport mismatch: {profile}")
     publish_mode = budget.get("publish_mode", "single")
     gate = budget["gate"]
     if gate not in ("correctness", "performance"):
@@ -51,6 +58,7 @@ def compare(rows, budget):
         for row in samples:
             if (row["profile"] != profile or
                     row.get("mqtt_version") != mqtt_version or
+                    row.get("transport", "tcp") != transport or
                     row.get("publish_mode", "single") != publish_mode or
                     row.get("window_messages", 0) != window or
                     row["payload_bytes"] != payload_bytes or
@@ -81,6 +89,7 @@ def compare(rows, budget):
     result = {
         "profile": profile,
         "mqtt_version": mqtt_version,
+        "transport": transport,
         "publish_mode": publish_mode,
         "gate": gate,
         "runs_per_target": repeats,
@@ -233,7 +242,8 @@ def require_exact_line_coverage(report_path):
     return totals["num_statements"]
 
 
-def provenance(broker_exe, client_exe, mosquitto, native_lib=None):
+def provenance(broker_exe, client_exe, mosquitto, native_lib=None,
+               transport="tcp"):
     def command_output(argv):
         process = subprocess.run(argv, cwd=ROOT, capture_output=True,
                                  text=True, check=True, timeout=10)
@@ -258,7 +268,19 @@ def provenance(broker_exe, client_exe, mosquitto, native_lib=None):
     }
     if native_lib is not None:
         result["native_lib_sha256"] = digest(native_lib)
+    if transport == "tls":
+        result["tls_ca_sha256"] = digest(TLS_CA)
+        result["tls_cert_sha256"] = digest(TLS_CERT)
+        result["tls_key_sha256"] = digest(TLS_KEY)
     return result
+
+
+def mosquitto_config(port, transport):
+    config = (f"listener {port} 127.0.0.1\nallow_anonymous true\n"
+              "persistence false\nlog_dest none\n")
+    if transport == "tls":
+        config += f"certfile {TLS_CERT}\nkeyfile {TLS_KEY}\n"
+    return config
 
 
 def main():
@@ -278,6 +300,11 @@ def main():
         if not native_lib.is_file():
             parser.error(f"native library not found: {native_lib}")
     budget = json.loads(args.budget.read_text())
+    transport = budget.get("transport", "tcp")
+    if transport not in ("tcp", "tls"):
+        parser.error(f"invalid MQTT transport: {transport}")
+    if transport == "tls" and not args.native_router:
+        parser.error("TLS benchmark requires --native-router")
     args.output.mkdir(parents=True, exist_ok=True)
     port, connectanum_port = choose_broker_ports()
     with tempfile.TemporaryDirectory() as tmp:
@@ -292,12 +319,12 @@ def main():
                 cwd=ROOT / "packages" / "connectanum_router", check=True,
                 capture_output=True, text=True)
         config = Path(tmp) / "mosquitto.conf"
-        config.write_text(f"listener {port} 127.0.0.1\nallow_anonymous true\n"
-                          "persistence false\nlog_dest none\n")
+        config.write_text(mosquitto_config(port, transport))
         brokers = {}
         try:
             brokers["connectanum"] = subprocess.Popen(
-                [str(broker_exe), str(connectanum_port)],
+                [str(broker_exe), str(connectanum_port)] +
+                ([str(TLS_CERT), str(TLS_KEY)] if transport == "tls" else []),
                 stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE, text=True)
             brokers["mosquitto"] = subprocess.Popen(
@@ -310,12 +337,15 @@ def main():
             for repeat in range(1, budget["repetitions"] + 1):
                 for target, target_port in targets_for_repeat(
                         repeat, connectanum_port, port):
-                    env = dict(os.environ,
-                               MQTT_BENCH_VERSION=budget.get("mqtt_version", "5"),
+                    env = dict(os.environ)
+                    env.pop("MQTT_BENCH_TLS_CA", None)
+                    env.update(MQTT_BENCH_VERSION=budget.get("mqtt_version", "5"),
                                MQTT_BENCH_MESSAGES=str(budget["messages_per_run"]),
                                MQTT_BENCH_WINDOW=str(budget.get("window_messages", 0)),
                                MQTT_BENCH_SUBSCRIBERS=str(budget.get("subscribers", 1)),
                                MQTT_BENCH_MODE=budget.get("publish_mode", "single"))
+                    if transport == "tls":
+                        env["MQTT_BENCH_TLS_CA"] = str(TLS_CA)
                     before_cpu, _, before_peak_rss = process_metrics(
                         brokers[target].pid)
                     process = subprocess.run(
@@ -332,7 +362,7 @@ def main():
                                            for item in rows))
             summary = compare(rows, budget)
             summary["provenance"] = provenance(
-                broker_exe, client_exe, args.mosquitto, native_lib)
+                broker_exe, client_exe, args.mosquitto, native_lib, transport)
             (args.output / "summary.json").write_text(
                 json.dumps(summary, indent=2, sort_keys=True) + "\n")
             print(json.dumps(summary, sort_keys=True))

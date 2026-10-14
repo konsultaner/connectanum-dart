@@ -7,6 +7,7 @@ import paho.mqtt.client as mqtt
 
 
 port = int(sys.argv[1])
+ca_certs = sys.argv[2] if len(sys.argv) > 2 else None
 subscribed = threading.Event()
 received = threading.Event()
 failure = []
@@ -36,12 +37,16 @@ subscriber = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, protocol=mqtt.MQTTv5)
 subscriber.on_connect = on_connect
 subscriber.on_subscribe = on_subscribe
 subscriber.on_message = on_message
+if ca_certs:
+    subscriber.tls_set(ca_certs=ca_certs)
 subscriber.connect("127.0.0.1", port, 10)
 subscriber.loop_start()
 if not subscribed.wait(5) or failure:
     raise SystemExit(failure or ["Paho SUBACK timeout"])
 
 publisher = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, protocol=mqtt.MQTTv311)
+if ca_certs:
+    publisher.tls_set(ca_certs=ca_certs)
 publisher.connect("127.0.0.1", port, 10)
 publisher.loop_start()
 publisher.publish("test/from-paho", bytes([0, 255, 0, 17]), qos=0).wait_for_publish(5)

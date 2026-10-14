@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum_core/mqtt.dart';
 
-/// A TCP MQTT client for the property-free QoS 0 interoperability profile.
+/// A TCP or TLS MQTT client for the property-free QoS 0 interoperability profile.
 final class MqttQos0Client {
   MqttQos0Client._(this._socket, this.version) {
     _socket.listen(_onData, onDone: _onDone, onError: _onError);
@@ -20,6 +20,28 @@ final class MqttQos0Client {
     bool? tcpNoDelay,
   }) async {
     final socket = await Socket.connect(host, port);
+    return _connectSocket(socket, clientId, version, tcpNoDelay);
+  }
+
+  /// Opens MQTT over TLS using the supplied trust context or system roots.
+  static Future<MqttQos0Client> connectSecure(
+    String host,
+    int port, {
+    required String clientId,
+    MqttVersion version = MqttVersion.v5,
+    SecurityContext? context,
+    bool? tcpNoDelay,
+  }) async {
+    final socket = await SecureSocket.connect(host, port, context: context);
+    return _connectSocket(socket, clientId, version, tcpNoDelay);
+  }
+
+  static Future<MqttQos0Client> _connectSocket(
+    Socket socket,
+    String clientId,
+    MqttVersion version,
+    bool? tcpNoDelay,
+  ) async {
     if (tcpNoDelay ?? Platform.isLinux) {
       socket.setOption(SocketOption.tcpNoDelay, true);
     }

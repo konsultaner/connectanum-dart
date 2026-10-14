@@ -1,7 +1,7 @@
 # MQTT native listener boundary
 
 Date: 2026-10-14
-Status: opt-in MQTT 5/3.1.1 TCP negotiation and bounded FFI byte dispatch implemented for [#112](https://github.com/konsultaner/connectanum-dart/issues/112); TLS, WebSocket and WAMP routing remain open
+Status: opt-in MQTT 5/3.1.1 TCP/TLS negotiation and bounded FFI byte dispatch implemented for [#112](https://github.com/konsultaner/connectanum-dart/issues/112); WebSocket and WAMP routing remain open
 
 ## Wire contract
 
@@ -13,9 +13,11 @@ For MQTT over WebSocket, the client must offer and the server must select `mqtt`
 
 The native listener owns accepted TCP/TLS streams, WebSocket framing, handshake deadlines, connection IDs, drain and bounded inbound/outbound byte queues. It reports an MQTT connection and byte chunks through dedicated FFI operations. The Dart MQTT adapter owns CONNECT acceptance, authentication, keep-alive, subscriptions, packet IDs, QoS state and broker publications. It feeds native chunks into the existing bounded `MqttFrameDecoder` and writes encoded MQTT bytes through the native queue. No MQTT packet is converted to a WAMP frame during transport negotiation.
 
-The first end-to-end slice is opt-in MQTT 5/3.1.1 TCP on a mixed native listener, with exact preamble replay and a Paho/Connectanum exchange. The next slice adds TLS and `mqtt` WebSocket upgrades using the same Dart session owner. Disabled MQTT listeners reject MQTT preambles without changing HTTP, RawSocket or WAMP WebSocket handling. Native close and listener drain must release both queue ends and the Dart peer state.
+The first end-to-end slice is opt-in MQTT 5/3.1.1 TCP on a mixed native listener, with exact preamble replay and a Paho/Connectanum exchange. TLS uses the same Dart session owner and native negotiator; the next transport slice adds `mqtt` WebSocket upgrades. Disabled MQTT listeners reject MQTT preambles without changing HTTP, RawSocket or WAMP WebSocket handling. Native close and listener drain must release both queue ends and the Dart peer state.
 
 The implemented TCP slice uses 64 bounded inbound read chunks per connection and caps the configured outbound queue at 64 chunks for MQTT. A native read notification wakes the Dart router loop and is coalesced until Dart drains the queue; unregistering or closing a connection waits for any in-flight native callback before Dart releases it. The 1 ms periodic poll remains a fallback. A mixed MQTT/HTTP listener, CONNECT byte replay, real Paho and Connectanum pub/sub, and the callback path have focused integration tests. The listener accepts anonymous MQTT only on numeric loopback until authentication and authorization are implemented.
+
+The TLS follow-up uses the existing native TLS acceptor before the same MQTT/HTTP protocol negotiator. A `TlsMode.native` loopback endpoint serves MQTT and HTTPS on one port with the configured SNI certificate. `MqttQos0Client.connectSecure` uses Dart's certificate validation with an explicit trust context for the test CA; an untrusted certificate fails the handshake. Paho 2.1.0 MQTT 5 and 3.1.1 clients verify the same CA and exchange exact binary publications with the Connectanum client. The benchmark reference uses Mosquitto `certfile` and `keyfile` on its loopback listener, as specified by the [official Mosquitto configuration manual](https://mosquitto.org/man/mosquitto-conf-5.html). Fixed checked-in test certificates and their hashes are part of the matched benchmark provenance. This establishes transport encryption and server authentication only; MQTT principal authentication and authorization remain open.
 
 ## Performance and regression gates
 
