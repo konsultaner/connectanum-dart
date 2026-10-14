@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/mqtt.dart';
+
+import '../native/runtime.dart';
 
 /// An anonymous MQTT QoS 0 broker with bounded incoming packet framing.
 ///
@@ -113,6 +116,8 @@ final class MqttQos0Broker {
 }
 
 final class _Peer {
+  static const int _maxPendingOutboundBytes = 4 * 1024 * 1024;
+
   _Peer(
     this.broker,
     this._send,
@@ -127,6 +132,9 @@ final class _Peer {
   final MqttFrameDecoder decoder = MqttFrameDecoder();
   final Set<String> filters = {};
   final BytesBuilder _pendingPublishes = BytesBuilder(copy: false);
+  final Queue<Uint8List> _pendingOutbound = Queue<Uint8List>();
+  int _pendingOutboundBytes = 0;
+  Timer? _outboundRetry;
   MqttVersion? version;
   bool connected = false;
   bool closed = false;
@@ -145,10 +153,55 @@ final class _Peer {
 
   void _sendBytes(Uint8List bytes) {
     if (closed) return;
+    if (_pendingOutbound.isNotEmpty) {
+      _queueOutbound(bytes);
+      return;
+    }
     try {
       _send(bytes);
+    } on NativeTransportException catch (error) {
+      if (error.code == NativeTransportErrorCode.sendQueueFull) {
+        _queueOutbound(bytes);
+      } else {
+        _close();
+      }
     } catch (_) {
       _close();
+    }
+  }
+
+  void _queueOutbound(Uint8List bytes) {
+    if (_pendingOutboundBytes + bytes.length > _maxPendingOutboundBytes) {
+      _close();
+      return;
+    }
+    _pendingOutbound.addLast(bytes);
+    _pendingOutboundBytes += bytes.length;
+    _outboundRetry ??= Timer(const Duration(milliseconds: 1), _drainOutbound);
+  }
+
+  void _drainOutbound() {
+    _outboundRetry = null;
+    while (!closed && _pendingOutbound.isNotEmpty) {
+      final bytes = _pendingOutbound.first;
+      try {
+        _send(bytes);
+      } on NativeTransportException catch (error) {
+        if (error.code == NativeTransportErrorCode.sendQueueFull) {
+          _outboundRetry = Timer(
+            const Duration(milliseconds: 1),
+            _drainOutbound,
+          );
+        } else {
+          _close();
+        }
+        return;
+      } catch (_) {
+        _close();
+        return;
+      }
+      _pendingOutbound.removeFirst();
+      _pendingOutboundBytes -= bytes.length;
     }
   }
 
@@ -245,6 +298,9 @@ final class _Peer {
   void _close([Object? error]) {
     if (closed) return;
     closed = true;
+    _outboundRetry?.cancel();
+    _pendingOutbound.clear();
+    _pendingOutboundBytes = 0;
     broker._peers.remove(this);
     final id = nativeConnectionId;
     if (id != null) broker._nativePeers.remove(id);

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:connectanum_client/mqtt.dart';
 import 'package:connectanum_core/mqtt.dart';
 import 'package:connectanum_router/mqtt.dart';
+import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -37,6 +38,187 @@ void main() {
     expect(closed, isTrue);
     expect(broker.nativeConnectionIds, isEmpty);
     await broker.close();
+  });
+
+  test('native MQTT queue saturation retries without disconnecting', () async {
+    final broker = MqttQos0Broker.native();
+    addTearDown(broker.close);
+    final sent = <Uint8List>[];
+    var attempts = 0;
+    var closed = false;
+    broker.attachNativeConnection(
+      44,
+      send: (bytes) {
+        if (attempts++ == 0) {
+          throw NativeTransportException(
+            NativeTransportErrorCode.sendQueueFull,
+            'queue full',
+          );
+        }
+        sent.add(bytes);
+      },
+      close: () => closed = true,
+    );
+    broker.receiveNativeChunk(
+      44,
+      MqttPacketCodec.encodeConnect(
+        const MqttConnect(version: MqttVersion.v5, clientId: 'backpressure'),
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(closed, isFalse);
+    expect(sent, hasLength(1));
+    expect(
+      MqttPacketCodec.decodeConnack(
+        MqttFrameDecoder().add(sent.single).single,
+        MqttVersion.v5,
+      ).reasonCode,
+      0,
+    );
+  });
+
+  test('native MQTT queued control packets retain wire order', () async {
+    final broker = MqttQos0Broker.native();
+    addTearDown(broker.close);
+    final sent = <Uint8List>[];
+    var attempts = 0;
+    broker.attachNativeConnection(
+      45,
+      send: (bytes) {
+        if (attempts++ < 2) {
+          throw NativeTransportException(
+            NativeTransportErrorCode.sendQueueFull,
+            'queue full',
+          );
+        }
+        sent.add(bytes);
+      },
+      close: () {},
+    );
+    broker.receiveNativeChunk(
+      45,
+      MqttPacketCodec.encodeConnect(
+        const MqttConnect(version: MqttVersion.v5, clientId: 'ordered'),
+      ),
+    );
+    broker.receiveNativeChunk(
+      45,
+      Uint8List.fromList([0x82, 7, 0, 1, 0, 0, 1, 0x61, 0]),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(sent, hasLength(2));
+    expect(MqttFrameDecoder().add(sent[0]).single.type, MqttPacketType.connack);
+    expect(MqttFrameDecoder().add(sent[1]).single.type, MqttPacketType.suback);
+  });
+
+  test('native MQTT retry closes on a terminal send error', () async {
+    final broker = MqttQos0Broker.native();
+    addTearDown(broker.close);
+    var attempts = 0;
+    var closed = false;
+    broker.attachNativeConnection(
+      46,
+      send: (_) {
+        if (attempts++ == 0) {
+          throw NativeTransportException(
+            NativeTransportErrorCode.sendQueueFull,
+            'queue full',
+          );
+        }
+        throw StateError('writer closed');
+      },
+      close: () => closed = true,
+    );
+    broker.receiveNativeChunk(
+      46,
+      MqttPacketCodec.encodeConnect(
+        const MqttConnect(version: MqttVersion.v5, clientId: 'closed-writer'),
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(closed, isTrue);
+    expect(broker.nativeConnectionIds, isEmpty);
+  });
+
+  test(
+    'native MQTT terminal transport errors close on send and retry',
+    () async {
+      for (final failuresBeforeTerminal in [0, 1]) {
+        final broker = MqttQos0Broker.native();
+        var attempts = 0;
+        var closed = false;
+        broker.attachNativeConnection(
+          47,
+          send: (_) {
+            if (attempts++ < failuresBeforeTerminal) {
+              throw NativeTransportException(
+                NativeTransportErrorCode.sendQueueFull,
+                'queue full',
+              );
+            }
+            throw NativeTransportException(
+              NativeTransportErrorCode.connectionNotFound,
+              'closed',
+            );
+          },
+          close: () => closed = true,
+        );
+        broker.receiveNativeChunk(
+          47,
+          MqttPacketCodec.encodeConnect(
+            const MqttConnect(version: MqttVersion.v5, clientId: 'terminal'),
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(closed, isTrue);
+        await broker.close();
+      }
+    },
+  );
+
+  test('native MQTT slow subscriber has a bounded outbound backlog', () async {
+    final broker = MqttQos0Broker.native();
+    addTearDown(broker.close);
+    var closed = false;
+    var queuedPublications = 0;
+    broker.attachNativeConnection(
+      48,
+      send: (bytes) {
+        if (bytes.first >> 4 == MqttPacketType.publish.wireValue) {
+          throw NativeTransportException(
+            NativeTransportErrorCode.sendQueueFull,
+            'queue full',
+          );
+        }
+      },
+      close: () => closed = true,
+    );
+    broker.attachNativeConnection(49, send: (_) {}, close: () {});
+    for (final id in [48, 49]) {
+      broker.receiveNativeChunk(
+        id,
+        MqttPacketCodec.encodeConnect(
+          MqttConnect(version: MqttVersion.v5, clientId: 'client-$id'),
+        ),
+      );
+    }
+    broker.receiveNativeChunk(
+      48,
+      Uint8List.fromList([0x82, 7, 0, 1, 0, 0, 1, 0x61, 0]),
+    );
+    final publish = MqttPacketCodec.encodePublish(
+      MqttVersion.v5,
+      topic: 'a',
+      payload: Uint8List(256 * 1024),
+    );
+    for (var i = 0; i < 20 && !closed; i++) {
+      broker.receiveNativeChunk(49, publish);
+      queuedPublications++;
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(closed, isTrue);
+    expect(queuedPublications, 16);
+    expect(broker.nativeConnectionIds, isNot(contains(48)));
   });
 
   test('MQTT 5 CONNACK advertises the provisional QoS 0 limits', () async {
