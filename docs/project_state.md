@@ -97,6 +97,45 @@ by an active native-mutation resource lease; that lease and primary work stay
 untouched.
 See [scope and evidence](research/2026-10-14-tokio-rustls-public-copy-metrics.md).
 
+PR #129 coverage follow-up: the `fc808e92` VM coverage job passes, but
+Codecov patch coverage is 92.70% against 93.91%, with ten changed lines missed.
+The existing isolated transport ABI probe now exports real client/router hits
+through the canonical child-coverage directory. Its scalar/legacy ABI checks
+stay isolated from shared counters; collection does not pause the current
+isolate, and exclusive report creation prevents overwriting evidence. The
+coverage-enabled probe passes and records seven previously missed router
+lines. The normal probe plus collector regression suite passes 42 cases, and
+analysis is clean. Qwen review reports no confirmed issue; its speculative
+partial-write concern is covered by the existing exclusive writer tests. Full
+resulting-source verification prints successful summaries for every suite,
+including Chrome/Dart2Wasm. Its zsh wrapper then fails when assigning the
+read-only `status` variable, so no clean canonical exit is recorded. The next
+run uses a dedicated exit-code variable and an explicit Bash wrapper. Coverage
+floors and milestone criteria remain unchanged; hosted acceptance is pending.
+A subsequent source audit identifies another actual owned copy: the router's
+borrowed send copies into Dart's native staging allocation, then
+`ct_send_message` copies that input again in Rust. The existing total covers
+only the first copy. Add direct Rust observation and conservative optional-ABI
+fallback, then use the established owned-send API to avoid that second copy
+when supported. Fresh pre-change `bin/test-fast` passes at exit 0. The Rust
+regression fails first in both actual borrowed-send and file-wrapper cases,
+then all five cases pass after eight source hooks. Both Dart runtimes expose
+the additive nullable scalar. Missing observation prevents complete native
+client/router coverage; staging and Rust bytes are retained separately. The
+real ABI/ownership probe and scoped merger pass 69 cases, including three
+borrowed bytes versus zero Rust copies on owned router rejection. All 32
+comparison tests pass. Resulting-source `bin/verify` now passes with a clean
+exit 0, including Rust, VM/native, consumers and Chrome/Dart2Wasm (4,751 core,
+2,829 client; 20 declared native-only skips). All 13 changed code/test hashes
+match their frozen inputs. The older production library passes the ABI probe,
+leaving the absent scalar and its deltas null. GuardMalloc passes all 87 cases;
+all 266 source/lock hashes, group logs and the executable are independently
+verified. Bounded GLM review completes without a confirmed finding; the broader
+Qwen review times out. The measurement PR remains ready for review with new-head
+hosted acceptance pending. E2EE/transcode pipeline gaps, parity and milestone
+closure remain open. See the FFI research note for source boundaries and the
+verified disposition of the local ownership advice.
+
 Current follow-up (2026-10-10): synchronized beta.8 publication is complete.
 The user merges PR #107 through protected master at `73d840c9`; its tree exactly
 matches tested release head `b382b21c`. All eight release/package tags point to

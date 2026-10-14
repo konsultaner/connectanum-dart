@@ -236,6 +236,8 @@ Map<String, Object?> _copyMetricsFor(
       ? <String, Object?>{
           'dart_to_native_copy_bytes':
               nativeCopyMetrics.dartToNativeCopiedBytesTotal,
+          'ffi_borrowed_send_input_copy_bytes':
+              nativeCopyMetrics.ffiBorrowedSendCopyBytesTotal,
           'rustls_outbound_chunk_copy_bytes':
               nativeCopyMetrics.rustlsOutboundChunkCopyBytesTotal,
           'rustls_queue_read_copy_bytes':

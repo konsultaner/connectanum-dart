@@ -55,7 +55,8 @@ COPY_METRICS = (
 )
 COPY_MEASUREMENT_SCOPE = "connectanum_buffer_boundaries_v1"
 NATIVE_CLIENT_COPY_FIELDS = (
-    "dart_to_native_copy_bytes", "io_buffer_front_copy_bytes",
+    "dart_to_native_copy_bytes", "ffi_borrowed_send_input_copy_bytes",
+    "io_buffer_front_copy_bytes",
     "io_buffered_read_copy_bytes",
 )
 DART_CLIENT_COPY_FIELDS = (

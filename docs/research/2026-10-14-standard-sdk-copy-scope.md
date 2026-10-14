@@ -17,6 +17,9 @@ transport buffer boundaries. The client records all six Dart transport
 counters, or its native Dart-to-Rust bridge and both prefetched-input counters,
 plus native WebSocket mask/coalescing copies when active. The router records
 its Dart-to-Rust bridge, both input counters and active WebSocket coalescing.
+Both native paths additionally require the actual borrowed-send FFI input
+copy counter; the staging and Rust copies are separate. See the
+[FFI source audit](2026-10-14-ffi-borrowed-send-copies.md).
 The total must equal these independently retained breakdowns. An absent,
 invalid, fractional or negative counter still prevents complete coverage.
 Builder input/growth, optimized payload reuse and transcodes stay separate.
