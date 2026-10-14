@@ -266,6 +266,9 @@ void main() {
       broker.attachNativeConnection(
         51,
         send: (bytes) {
+          if (bytes.isEmpty) {
+            throw ArgumentError.value(bytes.length, 'bytes', 'empty FFI send');
+          }
           if (bytes.length > 1 << 20) {
             throw ArgumentError.value(bytes.length, 'bytes', 'FFI send limit');
           }
@@ -305,6 +308,81 @@ void main() {
       expect(
         frames.every((frame) => frame.type == MqttPacketType.publish),
         isTrue,
+      );
+      sent.clear();
+      final medium = MqttPacketCodec.encodePublish(
+        MqttVersion.v5,
+        topic: 'a',
+        payload: Uint8List(32768),
+      );
+      final mediumBurst = BytesBuilder(copy: false);
+      for (var i = 0; i < 33; i++) {
+        mediumBurst.add(medium);
+      }
+      broker.receiveNativeChunk(52, mediumBurst.takeBytes());
+      await Future<void>.delayed(Duration.zero);
+      expect(subscriberClosed, isFalse);
+      expect(sent.every((chunk) => chunk.length <= 1 << 20), isTrue);
+      expect(sent.expand(decoder.add), hasLength(33));
+    },
+  );
+
+  test(
+    'native MQTT preserves order across small and large publications',
+    () async {
+      final broker = MqttQos0Broker.native();
+      addTearDown(broker.close);
+      final sent = <Uint8List>[];
+      broker.attachNativeConnection(57, send: sent.add, close: () {});
+      broker.attachNativeConnection(58, send: (_) {}, close: () {});
+      for (final id in [57, 58]) {
+        broker.receiveNativeChunk(
+          id,
+          MqttPacketCodec.encodeConnect(
+            MqttConnect(version: MqttVersion.v5, clientId: 'mixed-$id'),
+          ),
+        );
+      }
+      broker.receiveNativeChunk(
+        57,
+        Uint8List.fromList([0x82, 7, 0, 1, 0, 0, 1, 0x61, 0]),
+      );
+      sent.clear();
+      final burst = BytesBuilder(copy: false)
+        ..add(
+          MqttPacketCodec.encodePublish(
+            MqttVersion.v5,
+            topic: 'a',
+            payload: Uint8List.fromList([1]),
+          ),
+        )
+        ..add(
+          MqttPacketCodec.encodePublish(
+            MqttVersion.v5,
+            topic: 'a',
+            payload: Uint8List(65536)..[0] = 2,
+          ),
+        )
+        ..add(
+          MqttPacketCodec.encodePublish(
+            MqttVersion.v5,
+            topic: 'a',
+            payload: Uint8List.fromList([3]),
+          ),
+        );
+      broker.receiveNativeChunk(58, burst.takeBytes());
+      await Future<void>.delayed(Duration.zero);
+      expect(sent.every((chunk) => chunk.isNotEmpty), isTrue);
+      final decoder = MqttFrameDecoder();
+      final frames = sent.expand(decoder.add).toList();
+      expect(frames, hasLength(3));
+      expect(
+        frames
+            .map(
+              (frame) => MqttPacketCodec.decodePublish(frame, MqttVersion.v5),
+            )
+            .map((message) => message.payload.first),
+        [1, 2, 3],
       );
     },
   );

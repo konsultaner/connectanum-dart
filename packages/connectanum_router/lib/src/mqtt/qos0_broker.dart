@@ -155,12 +155,23 @@ final class _Peer {
       scheduleMicrotask(_close);
       return;
     }
-    if (_pendingPublishes.length + encoded.length > _maxOutboundChunkBytes) {
+    if (encoded.length >= 64 * 1024) {
+      if (_pendingPublishes.isNotEmpty) {
+        final chunk = _pendingPublishes.takeBytes();
+        _pendingPublishChunks.addLast(chunk);
+        _pendingPublishChunkBytes += chunk.length;
+      }
+      _pendingPublishChunks.addLast(encoded);
+      _pendingPublishChunkBytes += encoded.length;
+    } else if (_pendingPublishes.length + encoded.length >
+        _maxOutboundChunkBytes) {
       final chunk = _pendingPublishes.takeBytes();
       _pendingPublishChunks.addLast(chunk);
       _pendingPublishChunkBytes += chunk.length;
+      _pendingPublishes.add(encoded);
+    } else {
+      _pendingPublishes.add(encoded);
     }
-    _pendingPublishes.add(encoded);
     if (_publishFlushScheduled) return;
     _publishFlushScheduled = true;
     // Coalesce frames decoded in one socket event before the next TCP write.
@@ -175,7 +186,9 @@ final class _Peer {
         _pendingPublishChunkBytes -= chunk.length;
         _sendBytes(chunk);
       }
-      if (!closed) _sendBytes(_pendingPublishes.takeBytes());
+      if (!closed && _pendingPublishes.isNotEmpty) {
+        _sendBytes(_pendingPublishes.takeBytes());
+      }
     });
   }
 
