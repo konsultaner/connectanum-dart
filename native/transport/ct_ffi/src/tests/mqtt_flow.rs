@@ -100,6 +100,43 @@ fn mqtt_native_byte_channel_preserves_connect_and_response() {
         2
     );
     assert_eq!(&buffer[..2], &[0xc0, 0x00]);
+
+    let large_payload: Vec<u8> = (0..64 * 1024).map(|index| (index / 251) as u8).collect();
+    client.write_all(&large_payload).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut legacy_received = Vec::with_capacity(large_payload.len());
+    while legacy_received.len() < large_payload.len() {
+        let count = ct_poll_mqtt_chunk(connection, buffer.as_mut_ptr(), buffer.len() as i32);
+        assert!(count >= 0, "legacy poll failed: {count}");
+        if count > 0 {
+            legacy_received.extend_from_slice(&buffer[..count as usize]);
+        } else {
+            assert!(Instant::now() < deadline, "large MQTT read was lost");
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    assert_eq!(legacy_received, large_payload);
+
+    client.write_all(&large_payload).unwrap();
+    let mut large_buffer = vec![0; 64 * 1024];
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut large_received = Vec::with_capacity(large_payload.len());
+    while large_received.len() < large_payload.len() {
+        let count = ct_poll_mqtt_chunk(
+            connection,
+            large_buffer.as_mut_ptr(),
+            large_buffer.len() as i32,
+        );
+        assert!(count >= 0, "large poll failed: {count}");
+        if count > 0 {
+            large_received.extend_from_slice(&large_buffer[..count as usize]);
+        } else {
+            assert!(Instant::now() < deadline, "large MQTT read was lost");
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    assert_eq!(large_received, large_payload);
+
     assert_eq!(ct_set_mqtt_wakeup(connection, None), SUCCESS);
     assert_eq!(ct_set_mqtt_wakeup(0, None), ERR_INVALID_ARGUMENT);
 

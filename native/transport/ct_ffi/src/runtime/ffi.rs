@@ -3264,7 +3264,8 @@ pub extern "C" fn ct_set_mqtt_wakeup(
     }
 }
 
-/// Copies one native MQTT read chunk into a caller-owned 16 KiB buffer.
+/// Copies one native MQTT read chunk into a caller-owned buffer. Older callers
+/// using 16 KiB buffers receive larger reads in consecutive bounded slices.
 /// Returns byte count, zero when no chunk is ready, or a negative error code.
 #[no_mangle]
 pub extern "C" fn ct_poll_mqtt_chunk(
@@ -3275,7 +3276,7 @@ pub extern "C" fn ct_poll_mqtt_chunk(
     if connection_id <= 0 || out_ptr.is_null() || out_capacity < 16 * 1024 {
         return ERR_INVALID_ARGUMENT;
     }
-    match poll_mqtt_chunk(ConnectionId(connection_id as u32)) {
+    match poll_mqtt_chunk(ConnectionId(connection_id as u32), out_capacity as usize) {
         Ok(Some(bytes)) => {
             if bytes.len() > out_capacity as usize {
                 return ERR_INVALID_ARGUMENT;

@@ -2829,8 +2829,8 @@ class NativeTransportRuntime
     if (call == null) {
       throw UnsupportedError('Native MQTT transport unavailable');
     }
-    final buffer = _mqttReadBuffer ??= calloc<ffi.Uint8>(16 * 1024);
-    final result = call(connectionId, buffer, 16 * 1024);
+    final buffer = _mqttReadBuffer ??= calloc<ffi.Uint8>(64 * 1024);
+    final result = call(connectionId, buffer, 64 * 1024);
     if (result < 0) {
       _throwForError(result, 'Failed to poll MQTT bytes');
     }

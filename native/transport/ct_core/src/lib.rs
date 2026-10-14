@@ -1831,6 +1831,31 @@ impl MqttOutboundQueue {
     }
 }
 
+struct MqttInbound {
+    receiver: mpsc::Receiver<Bytes>,
+    pending: Option<Bytes>,
+}
+
+impl MqttInbound {
+    fn new(receiver: mpsc::Receiver<Bytes>) -> Self {
+        Self {
+            receiver,
+            pending: None,
+        }
+    }
+
+    fn try_recv_limited(&mut self, max_bytes: usize) -> Result<Bytes, TryRecvError> {
+        let mut bytes = match self.pending.take() {
+            Some(bytes) => bytes,
+            None => self.receiver.try_recv()?,
+        };
+        if bytes.len() > max_bytes {
+            self.pending = Some(bytes.split_off(max_bytes));
+        }
+        Ok(bytes)
+    }
+}
+
 enum ConnectionRecord {
     RawSocket {
         _serializer: rawsocket::Serializer,
@@ -1844,7 +1869,7 @@ enum ConnectionRecord {
     },
     Mqtt {
         version: u8,
-        chunks: Arc<Mutex<mpsc::Receiver<Bytes>>>,
+        chunks: Arc<Mutex<MqttInbound>>,
         notification_pending: Arc<AtomicBool>,
         outbound: MqttOutboundQueue,
         wakeup: Arc<Mutex<Option<extern "C" fn(i32)>>>,
@@ -2358,7 +2383,7 @@ impl ListenerRegistry {
         let reader_task = handle.spawn(async move {
             let mut reader = reader;
             loop {
-                let mut buffer = BytesMut::with_capacity(16 * 1024);
+                let mut buffer = BytesMut::with_capacity(64 * 1024);
                 match reader.read_buf(&mut buffer).await {
                     Ok(0) | Err(_) => break,
                     Ok(_) => {
@@ -2399,7 +2424,7 @@ impl ListenerRegistry {
                     stats: None,
                     record: ConnectionRecord::Mqtt {
                         version,
-                        chunks: Arc::new(Mutex::new(chunk_rx)),
+                        chunks: Arc::new(Mutex::new(MqttInbound::new(chunk_rx))),
                         notification_pending,
                         outbound,
                         wakeup,
@@ -2909,7 +2934,11 @@ impl ListenerRegistry {
         }
     }
 
-    fn poll_mqtt_chunk(&self, connection_id: ConnectionId) -> Result<Option<Bytes>, Error> {
+    fn poll_mqtt_chunk(
+        &self,
+        connection_id: ConnectionId,
+        max_bytes: usize,
+    ) -> Result<Option<Bytes>, Error> {
         let (chunks, notification_pending) = {
             let connections = self
                 .connections
@@ -2928,13 +2957,13 @@ impl ListenerRegistry {
             }
         };
         let mut receiver = chunks.lock().unwrap();
-        match receiver.try_recv() {
+        match receiver.try_recv_limited(max_bytes) {
             Ok(bytes) => Ok(Some(bytes)),
             Err(TryRecvError::Empty) => {
                 // Retry after clearing the flag so a producer racing this
                 // empty observation cannot leave bytes asleep in the queue.
                 notification_pending.store(false, Ordering::Release);
-                match receiver.try_recv() {
+                match receiver.try_recv_limited(max_bytes) {
                     Ok(bytes) => Ok(Some(bytes)),
                     Err(TryRecvError::Empty | TryRecvError::Disconnected) => Ok(None),
                 }
@@ -5973,8 +6002,12 @@ pub fn set_mqtt_wakeup(
 }
 
 /// Retrieves a bounded raw MQTT byte chunk without WAMP packet conversion.
-pub fn poll_mqtt_chunk(connection_id: ConnectionId) -> Result<Option<Bytes>, Error> {
-    RuntimeManager::global().with_state(|state| state.registry.poll_mqtt_chunk(connection_id))
+pub fn poll_mqtt_chunk(
+    connection_id: ConnectionId,
+    max_bytes: usize,
+) -> Result<Option<Bytes>, Error> {
+    RuntimeManager::global()
+        .with_state(|state| state.registry.poll_mqtt_chunk(connection_id, max_bytes))
 }
 
 /// Enqueues encoded MQTT bytes for the native TCP/TLS writer.
@@ -8952,6 +8985,33 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::sync::mpsc::error::TryRecvError;
     use tokio_rustls::TlsConnector;
+
+    #[test]
+    fn mqtt_inbound_chunks_fit_legacy_and_large_poll_buffers() {
+        let (sender, receiver) = mpsc::channel(2);
+        let payload: Vec<u8> = (0..64 * 1024).map(|index| (index / 251) as u8).collect();
+        sender.try_send(Bytes::copy_from_slice(&payload)).unwrap();
+        let mut inbound = MqttInbound::new(receiver);
+        let mut received = Vec::new();
+        for _ in 0..4 {
+            let chunk = inbound.try_recv_limited(16 * 1024).unwrap();
+            assert_eq!(chunk.len(), 16 * 1024);
+            received.extend_from_slice(&chunk);
+        }
+        assert_eq!(received, payload);
+        assert!(inbound.pending.is_none());
+        assert!(matches!(
+            inbound.try_recv_limited(16 * 1024),
+            Err(TryRecvError::Empty)
+        ));
+
+        sender.try_send(Bytes::copy_from_slice(&payload)).unwrap();
+        assert_eq!(
+            inbound.try_recv_limited(64 * 1024).unwrap(),
+            Bytes::copy_from_slice(&payload)
+        );
+        assert!(inbound.pending.is_none());
+    }
 
     fn test_guard() -> std::sync::MutexGuard<'static, ()> {
         static GUARD: OnceLock<Mutex<()>> = OnceLock::new();
