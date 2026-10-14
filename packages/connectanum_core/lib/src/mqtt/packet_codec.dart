@@ -243,10 +243,31 @@ abstract final class MqttPacketCodec {
     bool retain = false,
   }) {
     _validateTopic(topic);
-    final writer = _Writer()..string(topic);
-    if (version == MqttVersion.v5) writer.byte(0);
-    writer.raw(payload);
-    return _encode(MqttPacketType.publish, retain ? 1 : 0, writer);
+    final topicBytes = utf8.encode(topic);
+    if (topicBytes.length > 65535) {
+      throw const MqttProtocolException('16-bit field out of range');
+    }
+    final bodyLength =
+        2 +
+        topicBytes.length +
+        (version == MqttVersion.v5 ? 1 : 0) +
+        payload.length;
+    final lengthBytes = encodeMqttVariableByteInteger(bodyLength);
+    final packetSize = 1 + lengthBytes.length + bodyLength;
+    if (packetSize > 1024 * 1024) {
+      throw const MqttProtocolException('packet exceeds configured size limit');
+    }
+    final result = Uint8List(packetSize);
+    result[0] = retain ? 0x31 : 0x30;
+    result.setRange(1, 1 + lengthBytes.length, lengthBytes);
+    var offset = 1 + lengthBytes.length;
+    result[offset++] = topicBytes.length >> 8;
+    result[offset++] = topicBytes.length & 0xff;
+    result.setRange(offset, offset + topicBytes.length, topicBytes);
+    offset += topicBytes.length;
+    if (version == MqttVersion.v5) result[offset++] = 0;
+    result.setRange(offset, packetSize, payload);
+    return result;
   }
 
   static void _validateTopic(String topic) {

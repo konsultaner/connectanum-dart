@@ -184,6 +184,89 @@ void main() {
       );
     });
 
+    test(
+      'large PUBLISH encoding owns bytes and preserves version and retain',
+      () {
+        for (final version in MqttVersion.values) {
+          for (final retain in [false, true]) {
+            final payload = Uint8List(65536);
+            for (var i = 0; i < payload.length; i++) {
+              payload[i] = (i * 29 + 7) & 0xff;
+            }
+            final expected = Uint8List.fromList(payload);
+            final encoded = MqttPacketCodec.encodePublish(
+              version,
+              topic: 'sensor/é',
+              payload: payload,
+              retain: retain,
+            );
+            payload[0] = 0;
+            final decoded = MqttPacketCodec.decodePublish(
+              MqttFrameDecoder().add(encoded).single,
+              version,
+            );
+            expect(decoded.topic, 'sensor/é');
+            expect(decoded.payload, expected);
+            expect(decoded.retain, retain);
+            expect(encoded[0], retain ? 0x31 : 0x30);
+          }
+        }
+      },
+    );
+
+    test('PUBLISH encoding enforces exact topic and packet limits', () {
+      final maxTopic = String.fromCharCodes(List<int>.filled(65535, 0x61));
+      expect(
+        MqttPacketCodec.decodePublish(
+          MqttFrameDecoder()
+              .add(
+                MqttPacketCodec.encodePublish(
+                  MqttVersion.v5,
+                  topic: maxTopic,
+                  payload: Uint8List(0),
+                ),
+              )
+              .single,
+          MqttVersion.v5,
+        ).topic,
+        maxTopic,
+      );
+      final largest = MqttPacketCodec.encodePublish(
+        MqttVersion.v5,
+        topic: 'a',
+        payload: Uint8List((1 << 20) - 8),
+      );
+      expect(largest, hasLength(1 << 20));
+      expect(
+        () => MqttPacketCodec.encodePublish(
+          MqttVersion.v5,
+          topic: 'a',
+          payload: Uint8List((1 << 20) - 7),
+        ),
+        throwsA(
+          isA<MqttProtocolException>().having(
+            (error) => error.message,
+            'message',
+            'packet exceeds configured size limit',
+          ),
+        ),
+      );
+      expect(
+        () => MqttPacketCodec.encodePublish(
+          MqttVersion.v5,
+          topic: String.fromCharCodes(List<int>.filled(65536, 0x61)),
+          payload: Uint8List(0),
+        ),
+        throwsA(
+          isA<MqttProtocolException>().having(
+            (error) => error.message,
+            'message',
+            '16-bit field out of range',
+          ),
+        ),
+      );
+    });
+
     test('encodes and decodes CONNACK by version', () {
       expect(
         MqttPacketCodec.encodeConnack(MqttVersion.v5, reasonCode: 0),
