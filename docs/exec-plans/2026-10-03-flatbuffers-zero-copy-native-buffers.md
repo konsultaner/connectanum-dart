@@ -31,9 +31,17 @@ The first full verify rejects the new test missing from serializer mutation
 inventories; all four target support lists and the shared suite now include it.
 Replacement full `bin/verify` passes at exit 0 with all 12 frozen
 code/test/config inputs unchanged; no mutation target or budget is reduced.
-PR #129 passes hosted native/profile/VM jobs, but Codecov patch coverage is
-red. Repair that before publishing this feature branch. Hosted byte-view
-acceptance remains pending. See [source and measured limits](../research/2026-10-14-flatbuffers-byte-vector-views.md).
+The measurement branch's child ABI probe now contributes real coverage, and
+preceding head `e55d36cf` passes all main CI jobs. The subsequent borrowed-FFI
+observation/router-owned-send fix is merged here from `ef9f605c`; that head passes
+all five production platforms (170 cases, zero skips), audited source/log/ABI/
+lifecycle evidence, a production-library ABI probe, WAMP profiles and package
+dry run. Its main CI/Codecov checks remain pending. The combined branch initially
+fails deployment-audit tests because the local disk is full, not because scripts
+changed. Clearing only this worktree's rebuildable caches restores all 28 tests.
+Fresh combined `bin/verify` passes at exit 0 with all 38 frozen code/test/config
+inputs unchanged; source, native executables and prior evidence stay preserved.
+Hosted byte-view acceptance remains pending. See [source and measured limits](../research/2026-10-14-flatbuffers-byte-vector-views.md).
 The primary mutation checkout stays untouched.
 
 Current follow-up (2026-10-14): complete the GitHub FlatBuffers milestone.
