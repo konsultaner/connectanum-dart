@@ -100,6 +100,12 @@ def compare(rows, budget):
                  median("mosquitto", "latency_p95_us"))
     p99_ratio = (median("connectanum", "latency_p99_us") /
                  median("mosquitto", "latency_p99_us"))
+    paired = {name: {row["run"]: row for row in samples}
+              for name, samples in grouped.items()}
+    paired_throughput_ratios = [
+        paired["connectanum"][run]["throughput_delivered_per_sec"] /
+        paired["mosquitto"][run]["throughput_delivered_per_sec"]
+        for run in range(1, repeats + 1)]
     result = {
         "profile": profile,
         "mqtt_version": mqtt_version,
@@ -121,6 +127,9 @@ def compare(rows, budget):
             median("mosquitto", "throughput_delivered_per_sec") *
             payload_bytes / 1048576),
         "throughput_ratio": throughput_ratio,
+        "paired_throughput_ratio_median": statistics.median(paired_throughput_ratios),
+        "paired_throughput_ratio_min": min(paired_throughput_ratios),
+        "paired_throughput_ratio_max": max(paired_throughput_ratios),
         "p95_ratio": p95_ratio,
         "p99_ratio": p99_ratio,
         "connectanum_broker_cpu_seconds_median": median(

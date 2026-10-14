@@ -146,6 +146,28 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         self.assertIn(f"certfile {gate.TLS_CERT}", secure)
         self.assertIn(f"keyfile {gate.TLS_KEY}", secure)
 
+    def test_native_tls_provenance_hashes_binaries_and_trust_material(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = [Path(directory) / name for name in ("broker", "client", "native")]
+            for path, contents in zip(paths, (b"broker", b"client", b"native")):
+                path.write_bytes(contents)
+            outputs = [subprocess.CompletedProcess([], 0, stdout=value, stderr="")
+                       for value in ("commit\n", "", "Dart test\n")]
+            with (mock.patch.object(gate.subprocess, "run", side_effect=outputs),
+                  mock.patch.object(gate, "mosquitto_version", return_value="2.1.2")):
+                result = gate.provenance(*paths[:2], "mosquitto", paths[2], "tls")
+            self.assertEqual(result["broker_mode"], "native-router")
+            self.assertEqual(result["git_commit"], "commit")
+            self.assertFalse(result["git_dirty"])
+            self.assertEqual(result["mosquitto_version"], "2.1.2")
+            self.assertEqual(result["native_lib_sha256"], gate.hashlib.sha256(b"native").hexdigest())
+            self.assertEqual(result["tls_ca_sha256"],
+                             gate.hashlib.sha256(gate.TLS_CA.read_bytes()).hexdigest())
+            self.assertEqual(result["tls_cert_sha256"],
+                             gate.hashlib.sha256(gate.TLS_CERT.read_bytes()).hexdigest())
+            self.assertEqual(result["tls_key_sha256"],
+                             gate.hashlib.sha256(gate.TLS_KEY.read_bytes()).hexdigest())
+
     def test_exact_line_coverage_gate_rejects_missing_or_excluded_source(self):
         source = "tool/run_mqtt_benchmark_gate.py"
         report = {
@@ -243,6 +265,22 @@ class MqttBenchmarkGateTest(unittest.TestCase):
 
     def test_good_matched_delivery_passes(self):
         self.assertTrue(compare(rows(), BUDGET)["passed"])
+
+    def test_reports_paired_throughput_spread_hidden_by_pooled_medians(self):
+        samples = rows()
+        rates = {
+            "connectanum": (250_000, 145_000, 155_000),
+            "mosquitto": (100_000, 200_000, 300_000),
+        }
+        for row in samples:
+            row["throughput_delivered_per_sec"] = rates[row["target"]][row["run"] - 1]
+        summary = compare(samples, dict(BUDGET,
+                                        min_delivered_throughput_ratio_vs_mosquitto=0.75))
+        self.assertEqual(summary["throughput_ratio"], 0.775)
+        self.assertTrue(summary["passed"])
+        self.assertEqual(summary["paired_throughput_ratio_median"], 0.725)
+        self.assertAlmostEqual(summary["paired_throughput_ratio_min"], 155 / 300)
+        self.assertEqual(summary["paired_throughput_ratio_max"], 2.5)
 
     def test_sustained_profile_requires_its_full_workload_and_resource_budgets(self):
         budget = dict(BUDGET, profile="mqtt5-tcp-qos0-one-subscriber-128B-window512",
