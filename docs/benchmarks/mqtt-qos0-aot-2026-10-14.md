@@ -16,7 +16,7 @@ Broker CPU seconds are cumulative process CPU deltas across each client run, inc
 
 ## Budgets and evidence
 
-The short burst retains the conservative relative throughput and p95/p99 budgets in [`mqtt_benchmark_budget.json`](../../tool/mqtt_benchmark_budget.json). The [sustained budget](../../tool/mqtt_sustained_benchmark_budget.json) also requires Connectanum broker CPU at most 3× Mosquitto's and resident memory at most 64 MiB. These are initial regression tripwires for one profile, not release targets or claims for TLS, WebSocket, fan-out, QoS 1/2 or mixed WAMP traffic.
+The short [burst profile](../../tool/mqtt_benchmark_budget.json) is an exact-delivery and byte/order correctness smoke check; its throughput and latency ratios remain reported but are too volatile on a hosted runner to be release gates. The [sustained budget](../../tool/mqtt_sustained_benchmark_budget.json) requires at least 0.65× Mosquitto delivered throughput, at most 1.75× p95/p99 latency, at most 3× broker CPU and Connectanum broker RSS at most 64 MiB. These are initial regression tripwires for one profile, not release targets or claims for TLS, WebSocket, fan-out, QoS 1/2 or mixed WAMP traffic.
 
 From the repository root after `bin/bootstrap`, with Mosquitto installed:
 
@@ -33,6 +33,8 @@ The clean-tree baseline at commit `078e85c7` passed both gates on Apple M3 Ultra
 | Sustained, 200,000/run, window 512 | 449,937 | 452,853 | 0.994 | 1.012 | 0.993 | 1.184 | 19.8 MB |
 
 The sustained profile delivered 54.9 MiB/s of payload through Connectanum versus 55.3 MiB/s through Mosquitto. Median broker CPU was 0.45 versus 0.38 seconds per 200,000-message run. Hosted AOT artifacts remain pending. The earlier [JIT coupled-process baseline](mqtt-qos0-2026-10-14.md) remains immutable; its numbers are not directly comparable to this AOT process-isolated method.
+
+The checked-in burst summary records the relative thresholds that were active at baseline commit `078e85c7`. The later hosted 2,000-message AOT rows varied too widely for a reliable performance decision, so the current burst gate checks correctness only. The baseline artifact remains unchanged for provenance.
 
 ## Outstanding measurements
 

@@ -3,7 +3,5 @@
   "repetitions": 5,
   "messages_per_run": 2000,
   "payload_bytes": 128,
-  "min_delivered_throughput_ratio_vs_mosquitto": 0.65,
-  "max_p95_latency_ratio_vs_mosquitto": 1.75,
-  "max_p99_latency_ratio_vs_mosquitto": 1.75
+  "gate": "correctness"
 }

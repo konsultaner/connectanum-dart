@@ -22,6 +22,9 @@ DEFAULT_BUDGET = ROOT / "tool" / "mqtt_benchmark_budget.json"
 
 def compare(rows, budget):
     profile = budget["profile"]
+    gate = budget["gate"]
+    if gate not in ("correctness", "performance"):
+        raise ValueError(f"invalid MQTT benchmark gate: {gate}")
     repeats = budget["repetitions"]
     count = budget["messages_per_run"]
     payload_bytes = budget["payload_bytes"]
@@ -61,6 +64,7 @@ def compare(rows, budget):
                  median("mosquitto", "latency_p99_us"))
     result = {
         "profile": profile,
+        "gate": gate,
         "runs_per_target": repeats,
         "messages_per_run": count,
         "connectanum_delivered_per_sec_median": median(
@@ -94,15 +98,17 @@ def compare(rows, budget):
         result["connectanum_broker_cpu_seconds_median"] * 1_000_000 / count)
     result["mosquitto_broker_cpu_seconds_per_million"] = (
         mosquitto_cpu * 1_000_000 / count)
-    result["passed"] = (
-        throughput_ratio >= budget["min_delivered_throughput_ratio_vs_mosquitto"] and
-        p95_ratio <= budget["max_p95_latency_ratio_vs_mosquitto"] and
-        p99_ratio <= budget["max_p99_latency_ratio_vs_mosquitto"] and
-        result["connectanum_broker_rss_bytes_max"] <=
-        budget.get("max_connectanum_broker_rss_bytes", float("inf")) and
-        ("max_broker_cpu_ratio_vs_mosquitto" not in budget or
-         result["broker_cpu_ratio"] is not None and
-         result["broker_cpu_ratio"] <= budget["max_broker_cpu_ratio_vs_mosquitto"]))
+    if gate == "correctness":
+        result["passed"] = True
+    else:
+        result["passed"] = (
+            throughput_ratio >= budget["min_delivered_throughput_ratio_vs_mosquitto"] and
+            p95_ratio <= budget["max_p95_latency_ratio_vs_mosquitto"] and
+            p99_ratio <= budget["max_p99_latency_ratio_vs_mosquitto"] and
+            result["connectanum_broker_rss_bytes_max"] <=
+            budget["max_connectanum_broker_rss_bytes"] and
+            result["broker_cpu_ratio"] is not None and
+            result["broker_cpu_ratio"] <= budget["max_broker_cpu_ratio_vs_mosquitto"])
     return result
 
 
@@ -166,6 +172,17 @@ def stop_broker(broker):
         broker.wait()
 
 
+def mosquitto_version(mosquitto):
+    # Some Mosquitto builds print help and a version while exiting with code 3.
+    process = subprocess.run([mosquitto, "-h"], cwd=ROOT, capture_output=True,
+                             text=True, timeout=10)
+    for line in (process.stdout + process.stderr).splitlines():
+        version = line.strip()
+        if version.startswith("mosquitto version "):
+            return version
+    raise RuntimeError("Mosquitto help output did not contain a version")
+
+
 def provenance(broker_exe, client_exe, mosquitto):
     def command_output(argv):
         process = subprocess.run(argv, cwd=ROOT, capture_output=True,
@@ -179,7 +196,7 @@ def provenance(broker_exe, client_exe, mosquitto):
         "git_commit": command_output(["git", "rev-parse", "HEAD"]),
         "git_dirty": bool(command_output(["git", "status", "--porcelain"])),
         "dart_version": command_output(["dart", "--version"]),
-        "mosquitto_version": command_output([mosquitto, "-h"]).splitlines()[0],
+        "mosquitto_version": mosquitto_version(mosquitto),
         "os": platform.system(),
         "architecture": platform.machine(),
         "logical_cpus": os.cpu_count(),

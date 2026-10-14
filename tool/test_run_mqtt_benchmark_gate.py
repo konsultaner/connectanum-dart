@@ -1,4 +1,5 @@
 import os
+import subprocess
 import unittest
 from unittest import mock
 
@@ -16,9 +17,12 @@ BUDGET = {
     "repetitions": 3,
     "messages_per_run": 2000,
     "payload_bytes": 128,
+    "gate": "performance",
     "min_delivered_throughput_ratio_vs_mosquitto": 0.65,
     "max_p95_latency_ratio_vs_mosquitto": 1.75,
     "max_p99_latency_ratio_vs_mosquitto": 1.75,
+    "max_broker_cpu_ratio_vs_mosquitto": 3.0,
+    "max_connectanum_broker_rss_bytes": 67_108_864,
 }
 
 
@@ -46,6 +50,21 @@ def rows(connectanum_speed=80000, connectanum_p99=120, received=2000):
 
 
 class MqttBenchmarkGateTest(unittest.TestCase):
+    def test_short_correctness_gate_records_noisy_rates_without_failing(self):
+        budget = {key: BUDGET[key] for key in (
+            "profile", "repetitions", "messages_per_run", "payload_bytes")}
+        budget["gate"] = "correctness"
+        noisy = rows(connectanum_speed=20_000, connectanum_p99=500)
+        result = compare(noisy, budget)
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["gate"], "correctness")
+        noisy[0]["received"] = 1999
+        with self.assertRaisesRegex(ValueError, "delivery"):
+            compare(noisy, budget)
+        budget["gate"] = "unknown"
+        with self.assertRaisesRegex(ValueError, "invalid MQTT benchmark gate"):
+            compare(rows(), budget)
+
     def test_target_order_balances_repeated_runs(self):
         self.assertEqual(targets_for_repeat(1, 11, 22),
                          (("connectanum", 11), ("mosquitto", 22)))
@@ -161,6 +180,24 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         self.assertEqual(_parse_cpu_time("1:02:03.45"), 3723.45)
         with self.assertRaisesRegex(ValueError, "invalid ps CPU time"):
             _parse_cpu_time("1")
+
+    def test_mosquitto_help_exit_code_does_not_hide_its_version(self):
+        help_result = subprocess.CompletedProcess(
+            ["mosquitto", "-h"], 3, stdout="  mosquitto version 2.0.18\n",
+            stderr="usage text\n")
+        with mock.patch.object(gate.subprocess, "run", return_value=help_result):
+            self.assertEqual(gate.mosquitto_version("mosquitto"),
+                             "mosquitto version 2.0.18")
+        help_result = subprocess.CompletedProcess(
+            ["mosquitto", "-h"], 3, stdout="", stderr="mosquitto version 2.0.18\n")
+        with mock.patch.object(gate.subprocess, "run", return_value=help_result):
+            self.assertEqual(gate.mosquitto_version("mosquitto"),
+                             "mosquitto version 2.0.18")
+        help_result = subprocess.CompletedProcess(
+            ["mosquitto", "-h"], 3, stdout="usage only", stderr="")
+        with mock.patch.object(gate.subprocess, "run", return_value=help_result):
+            with self.assertRaisesRegex(RuntimeError, "did not contain a version"):
+                gate.mosquitto_version("mosquitto")
 
 
 if __name__ == "__main__":
