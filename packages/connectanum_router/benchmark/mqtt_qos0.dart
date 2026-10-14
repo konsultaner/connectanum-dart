@@ -19,20 +19,34 @@ Future<void> main(List<String> args) async {
       : null;
   final host = args.isEmpty ? '127.0.0.1' : args[0];
   final port = broker?.port ?? int.parse(args[1]);
-  final subscriber = await MqttQos0Client.connect(
-    host,
-    port,
-    clientId: 'bench-sub',
-    version: MqttVersion.v5,
-  );
-  final publisher = await MqttQos0Client.connect(
-    host,
-    port,
-    clientId: 'bench-pub',
-    version: MqttVersion.v5,
-  );
+  final subscriberCount =
+      int.tryParse(Platform.environment['MQTT_BENCH_SUBSCRIBERS'] ?? '') ?? 1;
+  if (subscriberCount < 1 || subscriberCount > 16) {
+    throw ArgumentError.value(
+      subscriberCount,
+      'MQTT_BENCH_SUBSCRIBERS',
+      'expected 1 through 16',
+    );
+  }
+  final subscribers = <MqttQos0Client>[];
+  MqttQos0Client? publisher;
   try {
-    await subscriber.subscribe('bench/one');
+    for (var i = 0; i < subscriberCount; i++) {
+      final subscriber = await MqttQos0Client.connect(
+        host,
+        port,
+        clientId: 'bench-sub-$i',
+        version: MqttVersion.v5,
+      );
+      subscribers.add(subscriber);
+      await subscriber.subscribe('bench/one');
+    }
+    publisher = await MqttQos0Client.connect(
+      host,
+      port,
+      clientId: 'bench-pub',
+      version: MqttVersion.v5,
+    );
     const warmup = 100;
     final count =
         int.tryParse(Platform.environment['MQTT_BENCH_MESSAGES'] ?? '') ?? 2000;
@@ -58,58 +72,87 @@ Future<void> main(List<String> args) async {
     }
     final data = ByteData.sublistView(payload);
     final sentAt = Int64List(count);
-    final latencies = Int64List(count);
-    final seen = Uint8List(count);
+    final latencies = Int64List(count * subscriberCount);
+    final seen = List.generate(subscriberCount, (_) => Uint8List(count));
     final completed = Completer<void>();
     final warmupDone = Completer<void>();
-    var warmupReceived = 0;
+    final warmupReceived = List.filled(subscriberCount, 0);
+    final receivedPerSubscriber = List.filled(subscriberCount, 0);
     var received = 0;
     var duplicate = 0;
     var windowTarget = 0;
     Completer<void>? windowDone;
     final stopwatch = Stopwatch()..start();
-    final subscription = subscriber.messages.listen((message) {
-      if (message.topic != 'bench/one' ||
-          message.payload.length != payloadSize) {
-        if (!completed.isCompleted) {
-          completed.completeError(StateError('unexpected publication'));
-        }
-        return;
-      }
-      for (var i = 4; i < payloadSize; i++) {
-        if (message.payload[i] != payload[i]) {
-          if (!completed.isCompleted) {
-            completed.completeError(StateError('corrupt payload byte $i'));
+    final subscriptions = <StreamSubscription<MqttPublish>>[];
+    for (
+      var subscriberIndex = 0;
+      subscriberIndex < subscriberCount;
+      subscriberIndex++
+    ) {
+      final index = subscriberIndex;
+      subscriptions.add(
+        subscribers[index].messages.listen((message) {
+          if (message.topic != 'bench/one' ||
+              message.payload.length != payloadSize) {
+            if (!completed.isCompleted) {
+              completed.completeError(StateError('unexpected publication'));
+            }
+            return;
           }
-          return;
-        }
-      }
-      final id = ByteData.sublistView(message.payload).getUint32(0);
-      if (id >= count) {
-        warmupReceived++;
-        if (warmupReceived == warmup) warmupDone.complete();
-        return;
-      }
-      if (seen[id] != 0) {
-        duplicate++;
-        return;
-      }
-      if (id != received) {
-        if (!completed.isCompleted) {
-          completed.completeError(StateError('out-of-order publication $id'));
-        }
-        return;
-      }
-      seen[id] = 1;
-      latencies[id] = stopwatch.elapsedMicroseconds - sentAt[id];
-      received++;
-      if (windowDone != null &&
-          received >= windowTarget &&
-          !windowDone.isCompleted) {
-        windowDone.complete();
-      }
-      if (received == count && !completed.isCompleted) completed.complete();
-    });
+          for (var i = 4; i < payloadSize; i++) {
+            if (message.payload[i] != payload[i]) {
+              if (!completed.isCompleted) {
+                completed.completeError(StateError('corrupt payload byte $i'));
+              }
+              return;
+            }
+          }
+          final id = ByteData.sublistView(message.payload).getUint32(0);
+          if (id >= count) {
+            if (id != count + warmupReceived[index] ||
+                warmupReceived[index] == warmup) {
+              if (!completed.isCompleted) {
+                completed.completeError(
+                  StateError('unexpected warmup publication'),
+                );
+              }
+              return;
+            }
+            warmupReceived[index]++;
+            if (warmupReceived.every((value) => value == warmup) &&
+                !warmupDone.isCompleted) {
+              warmupDone.complete();
+            }
+            return;
+          }
+          if (seen[index][id] != 0) {
+            duplicate++;
+            return;
+          }
+          if (id != receivedPerSubscriber[index]) {
+            if (!completed.isCompleted) {
+              completed.completeError(
+                StateError('out-of-order publication $id'),
+              );
+            }
+            return;
+          }
+          seen[index][id] = 1;
+          latencies[index * count + id] =
+              stopwatch.elapsedMicroseconds - sentAt[id];
+          receivedPerSubscriber[index]++;
+          received++;
+          if (windowDone != null &&
+              receivedPerSubscriber.every((value) => value >= windowTarget) &&
+              !windowDone.isCompleted) {
+            windowDone.complete();
+          }
+          if (received == count * subscriberCount && !completed.isCompleted) {
+            completed.complete();
+          }
+        }),
+      );
+    }
     for (var i = 0; i < warmup; i++) {
       data.setUint32(0, count + i);
       await publisher.publish('bench/one', payload);
@@ -131,7 +174,7 @@ Future<void> main(List<String> args) async {
       }
       if (window > 0 && ((i + 1) % window == 0 || i + 1 == count)) {
         windowTarget = i + 1;
-        if (received < windowTarget) {
+        if (receivedPerSubscriber.any((value) => value < windowTarget)) {
           windowDone = Completer<void>();
           await windowDone.future.timeout(const Duration(seconds: 10));
         }
@@ -142,7 +185,7 @@ Future<void> main(List<String> args) async {
       await completed.future.timeout(const Duration(seconds: 30));
     } on TimeoutException {
       throw StateError(
-        'timed out after delivering $received/$count; '
+        'timed out after delivering $received/${count * subscriberCount}; '
         'duplicates $duplicate',
       );
     }
@@ -150,37 +193,48 @@ Future<void> main(List<String> args) async {
     stopwatch.stop();
     // Keep observing briefly after the last distinct ID for late duplicates.
     await Future<void>.delayed(const Duration(milliseconds: 20));
-    await subscription.cancel();
-    if (received != count || duplicate != 0) {
-      throw StateError('delivered $received/$count; duplicates $duplicate');
+    for (final subscription in subscriptions) {
+      await subscription.cancel();
+    }
+    if (received != count * subscriberCount ||
+        duplicate != 0 ||
+        receivedPerSubscriber.any((value) => value != count)) {
+      throw StateError(
+        'delivered $received/${count * subscriberCount}; '
+        'per subscriber $receivedPerSubscriber; duplicates $duplicate',
+      );
     }
     final sorted = latencies.toList()..sort();
     stdout.writeln(
       jsonEncode({
         'broker': broker == null ? '$host:$port' : 'connectanum-qos0',
-        'profile': publishMode == 'batch'
-            ? 'mqtt5-tcp-qos0-one-subscriber-128B-window$window-batch$window'
-            : window == 0
-            ? 'mqtt5-tcp-qos0-one-subscriber-128B'
-            : 'mqtt5-tcp-qos0-one-subscriber-128B-window$window',
+        'profile':
+            'mqtt5-tcp-qos0-${subscriberCount == 1 ? 'one-subscriber' : 'fanout$subscriberCount'}-128B'
+            '${window == 0 ? '' : '-window$window'}'
+            '${publishMode == 'batch' ? '-batch$window' : ''}',
         'publish_mode': publishMode,
         'window_messages': window,
+        'subscribers': subscriberCount,
         'payload_bytes': payloadSize,
         'warmup': warmup,
         'sent': count,
         'received': received,
+        'received_per_subscriber': receivedPerSubscriber,
         'duplicates': duplicate,
         'elapsed_us': elapsedUs,
-        'throughput_delivered_per_sec': count * 1000000 / elapsedUs,
-        'latency_p50_us': sorted[(count * 0.50).ceil() - 1],
-        'latency_p95_us': sorted[(count * 0.95).ceil() - 1],
-        'latency_p99_us': sorted[(count * 0.99).ceil() - 1],
+        'throughput_delivered_per_sec':
+            count * subscriberCount * 1000000 / elapsedUs,
+        'latency_p50_us': sorted[(sorted.length * 0.50).ceil() - 1],
+        'latency_p95_us': sorted[(sorted.length * 0.95).ceil() - 1],
+        'latency_p99_us': sorted[(sorted.length * 0.99).ceil() - 1],
         'runner_rss_bytes': ProcessInfo.currentRss,
       }),
     );
   } finally {
-    await publisher.close();
-    await subscriber.close();
+    await publisher?.close();
+    for (final subscriber in subscribers) {
+      await subscriber.close();
+    }
     await broker?.close();
   }
 }

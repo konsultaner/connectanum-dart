@@ -36,6 +36,9 @@ def rows(connectanum_speed=80000, connectanum_p99=120, received=2000):
                 "profile": BUDGET["profile"],
                 "sent": 2000,
                 "received": received if target == "connectanum" else 2000,
+                "received_per_subscriber": [
+                    received if target == "connectanum" else 2000],
+                "subscribers": 1,
                 "duplicates": 0,
                 "window_messages": 0,
                 "payload_bytes": 128,
@@ -82,7 +85,7 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         samples = rows()
         for row in samples:
             row.update(profile=budget["profile"], sent=200_000, received=200_000,
-                       window_messages=512)
+                       received_per_subscriber=[200_000], window_messages=512)
         self.assertTrue(compare(samples, budget)["passed"])
         samples[0]["received"] = 199_999
         with self.assertRaisesRegex(ValueError, "delivery"):
@@ -96,7 +99,8 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         samples = rows()
         for row in samples:
             row.update(profile=budget["profile"], publish_mode="batch",
-                       sent=200_000, received=200_000, window_messages=512)
+                       sent=200_000, received=200_000,
+                       received_per_subscriber=[200_000], window_messages=512)
         self.assertTrue(compare(samples, budget)["passed"])
         samples[0]["publish_mode"] = "single"
         with self.assertRaisesRegex(ValueError, "workload"):
@@ -105,6 +109,38 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         single[0]["publish_mode"] = "batch"
         with self.assertRaisesRegex(ValueError, "workload"):
             compare(single, BUDGET)
+
+    def test_fanout_requires_exact_delivery_on_every_subscriber(self):
+        budget = dict(BUDGET, profile="mqtt5-tcp-qos0-fanout4-128B-window128-batch128",
+                      subscribers=4, messages_per_run=50_000,
+                      window_messages=128, publish_mode="batch")
+        samples = rows()
+        for row in samples:
+            row.update(profile=budget["profile"], sent=50_000, received=200_000,
+                       received_per_subscriber=[50_000] * 4,
+                       subscribers=4, window_messages=128,
+                       publish_mode="batch")
+        result = compare(samples, budget)
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["deliveries_per_run"], 200_000)
+        self.assertEqual(result["connectanum_broker_cpu_seconds_per_million"], 1)
+        samples[0]["received_per_subscriber"] = [50_001, 49_999, 50_000, 50_000]
+        with self.assertRaisesRegex(ValueError, "workload"):
+            compare(samples, budget)
+        samples[0]["received_per_subscriber"] = [50_000] * 4
+        samples[0]["subscribers"] = 1
+        with self.assertRaisesRegex(ValueError, "workload"):
+            compare(samples, budget)
+        samples[0]["subscribers"] = 4
+        samples[0]["duplicates"] = 1
+        with self.assertRaisesRegex(ValueError, "delivery"):
+            compare(samples, budget)
+
+    def test_fanout_budget_rejects_zero_subscribers(self):
+        with self.assertRaisesRegex(ValueError, "at least one subscriber"):
+            compare(rows(), dict(BUDGET, subscribers=0))
+        with self.assertRaisesRegex(ValueError, "at least one subscriber"):
+            compare(rows(), dict(BUDGET, subscribers=True))
 
     def test_throughput_and_tail_regressions_fail(self):
         self.assertFalse(compare(rows(connectanum_speed=60000), BUDGET)["passed"])

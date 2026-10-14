@@ -28,6 +28,10 @@ def compare(rows, budget):
         raise ValueError(f"invalid MQTT benchmark gate: {gate}")
     repeats = budget["repetitions"]
     count = budget["messages_per_run"]
+    subscribers = budget.get("subscribers", 1)
+    if type(subscribers) is not int or subscribers < 1:
+        raise ValueError("MQTT benchmark requires at least one subscriber")
+    deliveries = count * subscribers
     payload_bytes = budget["payload_bytes"]
     window = budget.get("window_messages", 0)
     if len(rows) != 2 * repeats:
@@ -44,8 +48,11 @@ def compare(rows, budget):
                     row.get("publish_mode", "single") != publish_mode or
                     row.get("window_messages", 0) != window or
                     row["payload_bytes"] != payload_bytes or
+                    row.get("subscribers") != subscribers or
                     row["sent"] != count or
-                    row["received"] != count or row["duplicates"] != 0):
+                    row["received"] != deliveries or
+                    row.get("received_per_subscriber") != [count] * subscribers or
+                    row["duplicates"] != 0):
                 raise ValueError(f"{name}: invalid workload or delivery result: {row}")
             cpu = row.get("broker_cpu_seconds", -1)
             rss = row.get("broker_rss_bytes", 0)
@@ -71,6 +78,8 @@ def compare(rows, budget):
         "gate": gate,
         "runs_per_target": repeats,
         "messages_per_run": count,
+        "subscribers": subscribers,
+        "deliveries_per_run": deliveries,
         "connectanum_delivered_per_sec_median": median(
             "connectanum", "throughput_delivered_per_sec"),
         "mosquitto_delivered_per_sec_median": median(
@@ -99,9 +108,9 @@ def compare(rows, budget):
         result["connectanum_broker_cpu_seconds_median"] / mosquitto_cpu
         if mosquitto_cpu > 0 else None)
     result["connectanum_broker_cpu_seconds_per_million"] = (
-        result["connectanum_broker_cpu_seconds_median"] * 1_000_000 / count)
+        result["connectanum_broker_cpu_seconds_median"] * 1_000_000 / deliveries)
     result["mosquitto_broker_cpu_seconds_per_million"] = (
-        mosquitto_cpu * 1_000_000 / count)
+        mosquitto_cpu * 1_000_000 / deliveries)
     if gate == "correctness":
         result["passed"] = True
     else:
@@ -254,6 +263,7 @@ def main():
                     env = dict(os.environ,
                                MQTT_BENCH_MESSAGES=str(budget["messages_per_run"]),
                                MQTT_BENCH_WINDOW=str(budget.get("window_messages", 0)),
+                               MQTT_BENCH_SUBSCRIBERS=str(budget.get("subscribers", 1)),
                                MQTT_BENCH_MODE=budget.get("publish_mode", "single"))
                     before_cpu, _, before_peak_rss = process_metrics(
                         brokers[target].pid)
