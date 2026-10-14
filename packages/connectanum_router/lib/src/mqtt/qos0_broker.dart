@@ -6,14 +6,16 @@ import 'package:connectanum_core/mqtt.dart';
 
 /// An anonymous MQTT QoS 0 broker with bounded incoming packet framing.
 ///
-/// The provisional listener only binds numeric loopback addresses.
-///
-/// A later milestone stage will attach this session owner to native transport
-/// negotiation and the protocol-neutral router publication boundary.
+/// The provisional Dart listener and the native MQTT listener currently bind
+/// only numeric loopback addresses. A protocol-neutral WAMP publication
+/// boundary remains a later milestone stage.
 final class MqttQos0Broker {
   MqttQos0Broker._(this._server) {
-    _server.listen(_accept);
+    _server?.listen(_accept);
   }
+
+  /// Session owner for MQTT byte streams accepted by the native router listener.
+  MqttQos0Broker.native() : this._(null);
 
   static Future<MqttQos0Broker> bind(String host, int port) async {
     final address = InternetAddress.tryParse(host);
@@ -27,14 +29,38 @@ final class MqttQos0Broker {
     return MqttQos0Broker._(await ServerSocket.bind(address, port));
   }
 
-  final ServerSocket _server;
+  final ServerSocket? _server;
   final Set<_Peer> _peers = {};
+  final Map<int, _Peer> _nativePeers = {};
 
-  int get port => _server.port;
+  int get port => _server?.port ?? 0;
+
+  void attachNativeConnection(
+    int connectionId, {
+    required void Function(Uint8List) send,
+    required void Function() close,
+  }) {
+    if (_nativePeers.containsKey(connectionId)) {
+      throw StateError('MQTT connection $connectionId already attached');
+    }
+    final peer = _Peer(this, send, close, nativeConnectionId: connectionId);
+    _nativePeers[connectionId] = peer;
+    _peers.add(peer);
+  }
+
+  void receiveNativeChunk(int connectionId, Uint8List bytes) {
+    _nativePeers[connectionId]?._onData(bytes);
+  }
+
+  void closeNativeConnection(int connectionId) {
+    _nativePeers[connectionId]?._close();
+  }
+
+  Iterable<int> get nativeConnectionIds => _nativePeers.keys;
 
   void _accept(Socket socket) {
     socket.setOption(SocketOption.tcpNoDelay, true);
-    final peer = _Peer(this, socket);
+    final peer = _Peer(this, (bytes) => socket.add(bytes), socket.destroy);
     _peers.add(peer);
     socket.listen(
       peer._onData,
@@ -82,15 +108,22 @@ final class MqttQos0Broker {
     for (final peer in _peers.toList()) {
       peer._close();
     }
-    await _server.close();
+    await _server?.close();
   }
 }
 
 final class _Peer {
-  _Peer(this.broker, this.socket);
+  _Peer(
+    this.broker,
+    this._send,
+    this._destroy, {
+    this.nativeConnectionId,
+  });
 
   final MqttQos0Broker broker;
-  final Socket socket;
+  final void Function(Uint8List) _send;
+  final void Function() _destroy;
+  final int? nativeConnectionId;
   final MqttFrameDecoder decoder = MqttFrameDecoder();
   final Set<String> filters = {};
   final BytesBuilder _pendingPublishes = BytesBuilder(copy: false);
@@ -106,13 +139,23 @@ final class _Peer {
     // Coalesce frames decoded in one socket event before the next TCP write.
     scheduleMicrotask(() {
       _publishFlushScheduled = false;
-      if (!closed) socket.add(_pendingPublishes.takeBytes());
+      if (!closed) _sendBytes(_pendingPublishes.takeBytes());
     });
+  }
+
+  void _sendBytes(Uint8List bytes) {
+    if (closed) return;
+    try {
+      _send(bytes);
+    } catch (_) {
+      _close();
+    }
   }
 
   void _onData(Uint8List data) {
     try {
       for (final frame in decoder.add(data)) {
+        if (closed) break;
         _handle(frame);
       }
     } on MqttProtocolException {
@@ -127,7 +170,7 @@ final class _Peer {
       }
       final connect = MqttPacketCodec.decodeConnect(frame);
       if (connect.username != null || connect.password != null) {
-        socket.add(
+        _sendBytes(
           MqttPacketCodec.encodeConnack(
             connect.version,
             reasonCode: connect.version == MqttVersion.v5 ? 0x87 : 5,
@@ -138,7 +181,7 @@ final class _Peer {
       }
       version = connect.version;
       connected = true;
-      socket.add(
+      _sendBytes(
         MqttPacketCodec.encodeConnack(
           connect.version,
           reasonCode: 0,
@@ -165,14 +208,14 @@ final class _Peer {
           if (supported) filters.add(filter);
           reasons.add(supported ? 0 : 0x80);
         }
-        socket.add(
+        _sendBytes(
           MqttPacketCodec.encodeSuback(version!, subscribe.packetId, reasons),
         );
       case MqttPacketType.pingreq:
         if (frame.body.isNotEmpty) {
           throw const MqttProtocolException('PINGREQ has a body');
         }
-        socket.add(
+        _sendBytes(
           MqttFrame(
             MqttPacketType.pingresp,
             flags: 0,
@@ -203,6 +246,12 @@ final class _Peer {
     if (closed) return;
     closed = true;
     broker._peers.remove(this);
-    socket.destroy();
+    final id = nativeConnectionId;
+    if (id != null) broker._nativePeers.remove(id);
+    try {
+      _destroy();
+    } catch (_) {
+      // The native connection can close before the broker observes its EOF.
+    }
   }
 }

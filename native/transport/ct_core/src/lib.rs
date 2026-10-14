@@ -8,7 +8,7 @@ use std::{
     ops::Deref,
     pin::Pin,
     sync::{
-        atomic::{AtomicI64, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, OnceLock, RwLock,
     },
     task::{Context, Poll},
@@ -1341,6 +1341,7 @@ fn protocol_sort_key(protocol: ConnectionProtocol) -> u8 {
         ConnectionProtocol::Http => 2,
         ConnectionProtocol::Http2 => 3,
         ConnectionProtocol::Http3 => 4,
+        ConnectionProtocol::Mqtt => 5,
     }
 }
 
@@ -1378,6 +1379,7 @@ pub struct ConnectionId(pub u32);
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum ConnectionProtocol {
     RawSocket,
+    Mqtt,
     WebSocket,
     Http,
     Http2,
@@ -1800,6 +1802,15 @@ enum ConnectionRecord {
         heartbeat_abort: Option<AbortHandle>,
         send_tx: mpsc::Sender<OutboundFrame>,
     },
+    Mqtt {
+        version: u8,
+        chunks: Arc<Mutex<mpsc::Receiver<Bytes>>>,
+        notification_pending: Arc<AtomicBool>,
+        send_tx: mpsc::Sender<Bytes>,
+        wakeup: Arc<Mutex<Option<extern "C" fn(i32)>>>,
+        reader_abort: AbortHandle,
+        writer_abort: AbortHandle,
+    },
     WebSocketPending {
         handshake: Mutex<Option<protocol::WebSocketHandshake>>,
     },
@@ -2069,6 +2080,16 @@ impl ListenerRegistry {
             .collect();
         for entry in connection_entries {
             match entry.record {
+                ConnectionRecord::Mqtt {
+                    wakeup,
+                    reader_abort,
+                    writer_abort,
+                    ..
+                } => {
+                    *wakeup.lock().unwrap() = None;
+                    reader_abort.abort();
+                    writer_abort.abort();
+                }
                 ConnectionRecord::RawSocket {
                     reader_abort,
                     writer_abort,
@@ -2109,6 +2130,16 @@ impl ListenerRegistry {
             .remove(&connection_id)
             .ok_or(Error::ConnectionNotFound(connection_id))?;
         match entry.record {
+            ConnectionRecord::Mqtt {
+                wakeup,
+                reader_abort,
+                writer_abort,
+                ..
+            } => {
+                *wakeup.lock().unwrap() = None;
+                reader_abort.abort();
+                writer_abort.abort();
+            }
             ConnectionRecord::RawSocket {
                 reader_abort,
                 writer_abort,
@@ -2262,6 +2293,86 @@ impl ListenerRegistry {
                     },
                 },
             );
+    }
+
+    fn register_mqtt_connection(
+        self: Arc<Self>,
+        handle: tokio::runtime::Handle,
+        listener_id: ListenerId,
+        connection_id: ConnectionId,
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        handshake: protocol::MqttHandshake,
+        peer_addr: SocketAddr,
+    ) {
+        let version = handshake.version;
+        let (reader, writer) = tokio::io::split(handshake.into_stream());
+        let (chunk_tx, chunk_rx) = mpsc::channel(64);
+        let notification_pending = Arc::new(AtomicBool::new(false));
+        let reader_notification_pending = Arc::clone(&notification_pending);
+        let wakeup: Arc<Mutex<Option<extern "C" fn(i32)>>> = Arc::new(Mutex::new(None));
+        let reader_wakeup = Arc::clone(&wakeup);
+        let (send_tx, mut send_rx) =
+            mpsc::channel::<Bytes>(endpoint_config.outbound_send_queue_capacity.min(64));
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel::<ConnectionTaskSignal>();
+        let reader_close = close_tx.clone();
+        let reader_task = handle.spawn(async move {
+            let mut reader = reader;
+            loop {
+                let mut buffer = BytesMut::with_capacity(16 * 1024);
+                match reader.read_buf(&mut buffer).await {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {
+                        if chunk_tx.send(buffer.freeze()).await.is_err() {
+                            break;
+                        }
+                        // One wake is enough until Dart drains the queue.
+                        if !reader_notification_pending.swap(true, Ordering::AcqRel) {
+                            if let Some(notify) = *reader_wakeup.lock().unwrap() {
+                                notify(connection_id.0 as i32);
+                            }
+                        }
+                    }
+                }
+            }
+            let _ = reader_close.send(ConnectionTaskSignal::ReaderClosed);
+        });
+        let writer_task = handle.spawn(async move {
+            let mut writer = writer;
+            while let Some(bytes) = send_rx.recv().await {
+                if writer.write_all(&bytes).await.is_err() {
+                    break;
+                }
+            }
+            let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
+        });
+        self.connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .insert(
+                connection_id,
+                ConnectionEntry {
+                    listener_id,
+                    peer_addr,
+                    protocol: ConnectionProtocol::Mqtt,
+                    websocket_protocol: None,
+                    endpoint_config,
+                    stats: None,
+                    record: ConnectionRecord::Mqtt {
+                        version,
+                        chunks: Arc::new(Mutex::new(chunk_rx)),
+                        notification_pending,
+                        send_tx,
+                        wakeup,
+                        reader_abort: reader_task.abort_handle(),
+                        writer_abort: writer_task.abort_handle(),
+                    },
+                },
+            );
+        let registry = Arc::clone(&self);
+        handle.spawn(async move {
+            let _ = close_rx.recv().await;
+            let _ = registry.close_connection(connection_id);
+        });
     }
 
     fn accept_websocket_connection(
@@ -2720,6 +2831,93 @@ impl ListenerRegistry {
             Ok(message) => Ok(Some(message)),
             Err(TryRecvError::Empty) => Ok(None),
             Err(TryRecvError::Disconnected) => Ok(None),
+        }
+    }
+
+    fn mqtt_version(&self, connection_id: ConnectionId) -> Result<u8, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::Mqtt { version, .. } => Ok(*version),
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+
+    fn set_mqtt_wakeup(
+        &self,
+        connection_id: ConnectionId,
+        callback: Option<extern "C" fn(i32)>,
+    ) -> Result<(), Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::Mqtt { wakeup, .. } => {
+                *wakeup.lock().unwrap() = callback;
+                Ok(())
+            }
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+
+    fn poll_mqtt_chunk(&self, connection_id: ConnectionId) -> Result<Option<Bytes>, Error> {
+        let (chunks, notification_pending) = {
+            let connections = self
+                .connections
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            let entry = connections
+                .get(&connection_id)
+                .ok_or(Error::ConnectionNotFound(connection_id))?;
+            match &entry.record {
+                ConnectionRecord::Mqtt {
+                    chunks,
+                    notification_pending,
+                    ..
+                } => (Arc::clone(chunks), Arc::clone(notification_pending)),
+                _ => return Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+            }
+        };
+        let mut receiver = chunks.lock().unwrap();
+        match receiver.try_recv() {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(TryRecvError::Empty) => {
+                // Retry after clearing the flag so a producer racing this
+                // empty observation cannot leave bytes asleep in the queue.
+                notification_pending.store(false, Ordering::Release);
+                match receiver.try_recv() {
+                    Ok(bytes) => Ok(Some(bytes)),
+                    Err(TryRecvError::Empty | TryRecvError::Disconnected) => Ok(None),
+                }
+            }
+            Err(TryRecvError::Disconnected) => Ok(None),
+        }
+    }
+
+    fn enqueue_mqtt_chunk(&self, connection_id: ConnectionId, bytes: Bytes) -> Result<(), Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::Mqtt { send_tx, .. } => match send_tx.try_send(bytes) {
+                Ok(()) => Ok(()),
+                Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
+                Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
+            },
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
         }
     }
 
@@ -5371,6 +5569,20 @@ async fn negotiate_accepted_connection(
             );
             let _ = tx.send(connection_id).await;
         }
+        Ok(protocol::NegotiatedConnection::Mqtt(handshake)) => {
+            let Ok(connection_id) = registry.next_connection_id() else {
+                return;
+            };
+            Arc::clone(&registry).register_mqtt_connection(
+                runtime_handle.clone(),
+                listener_id,
+                connection_id,
+                Arc::clone(&endpoint),
+                handshake,
+                addr,
+            );
+            let _ = tx.send(connection_id).await;
+        }
         Ok(protocol::NegotiatedConnection::WebSocket(handshake)) => {
             let Ok(connection_id) = registry.next_connection_id() else {
                 return;
@@ -5707,6 +5919,32 @@ pub fn connection_supports_file_segments(connection_id: ConnectionId) -> Result<
 pub fn connection_protocol(connection_id: ConnectionId) -> Result<ConnectionProtocol, Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| state.registry.connection_protocol(connection_id))
+}
+
+/// MQTT protocol level selected from the accepted CONNECT preamble.
+pub fn connection_mqtt_version(connection_id: ConnectionId) -> Result<u8, Error> {
+    RuntimeManager::global().with_state(|state| state.registry.mqtt_version(connection_id))
+}
+
+/// Registers a native-thread callback for MQTT read-queue wakeups. Clearing or
+/// closing a connection waits for any in-flight callback before returning.
+pub fn set_mqtt_wakeup(
+    connection_id: ConnectionId,
+    callback: Option<extern "C" fn(i32)>,
+) -> Result<(), Error> {
+    RuntimeManager::global()
+        .with_state(|state| state.registry.set_mqtt_wakeup(connection_id, callback))
+}
+
+/// Retrieves a bounded raw MQTT byte chunk without WAMP packet conversion.
+pub fn poll_mqtt_chunk(connection_id: ConnectionId) -> Result<Option<Bytes>, Error> {
+    RuntimeManager::global().with_state(|state| state.registry.poll_mqtt_chunk(connection_id))
+}
+
+/// Enqueues encoded MQTT bytes for the native TCP/TLS writer.
+pub fn send_mqtt_chunk(connection_id: ConnectionId, bytes: Bytes) -> Result<(), Error> {
+    RuntimeManager::global()
+        .with_state(|state| state.registry.enqueue_mqtt_chunk(connection_id, bytes))
 }
 
 /// The serializer actually selected by an established WAMP connection.

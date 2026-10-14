@@ -233,7 +233,7 @@ def require_exact_line_coverage(report_path):
     return totals["num_statements"]
 
 
-def provenance(broker_exe, client_exe, mosquitto):
+def provenance(broker_exe, client_exe, mosquitto, native_lib=None):
     def command_output(argv):
         process = subprocess.run(argv, cwd=ROOT, capture_output=True,
                                  text=True, check=True, timeout=10)
@@ -242,7 +242,8 @@ def provenance(broker_exe, client_exe, mosquitto):
     def digest(path):
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
-    return {
+    result = {
+        "broker_mode": "native-router" if native_lib is not None else "dart-broker",
         "git_commit": command_output(["git", "rev-parse", "HEAD"]),
         "git_dirty": bool(command_output(["git", "status", "--porcelain"])),
         "dart_version": command_output(["dart", "--version"]),
@@ -255,6 +256,9 @@ def provenance(broker_exe, client_exe, mosquitto):
         "broker_exe_sha256": digest(broker_exe),
         "client_exe_sha256": digest(client_exe),
     }
+    if native_lib is not None:
+        result["native_lib_sha256"] = digest(native_lib)
+    return result
 
 
 def main():
@@ -262,14 +266,26 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--budget", type=Path, default=DEFAULT_BUDGET)
     parser.add_argument("--mosquitto", default="mosquitto")
+    parser.add_argument("--native-router", action="store_true",
+                        help="benchmark native MQTT listener instead of Dart-only broker")
     args = parser.parse_args()
+    native_lib = None
+    if args.native_router:
+        configured = os.environ.get("CONNECTANUM_NATIVE_LIB")
+        if not configured:
+            parser.error("--native-router requires CONNECTANUM_NATIVE_LIB")
+        native_lib = Path(configured).resolve()
+        if not native_lib.is_file():
+            parser.error(f"native library not found: {native_lib}")
     budget = json.loads(args.budget.read_text())
     args.output.mkdir(parents=True, exist_ok=True)
     port, connectanum_port = choose_broker_ports()
     with tempfile.TemporaryDirectory() as tmp:
         broker_exe = Path(tmp) / "mqtt-broker"
         client_exe = Path(tmp) / "mqtt-bench-client"
-        for source, output in (("mqtt_broker_server.dart", broker_exe),
+        broker_source = ("mqtt_native_router_server.dart" if args.native_router
+                         else "mqtt_broker_server.dart")
+        for source, output in ((broker_source, broker_exe),
                                ("mqtt_qos0.dart", client_exe)):
             subprocess.run(
                 ["dart", "compile", "exe", f"benchmark/{source}", "-o", str(output)],
@@ -315,7 +331,8 @@ def main():
                     raw.write_text("".join(json.dumps(item, sort_keys=True) + "\n"
                                            for item in rows))
             summary = compare(rows, budget)
-            summary["provenance"] = provenance(broker_exe, client_exe, args.mosquitto)
+            summary["provenance"] = provenance(
+                broker_exe, client_exe, args.mosquitto, native_lib)
             (args.output / "summary.json").write_text(
                 json.dumps(summary, indent=2, sort_keys=True) + "\n")
             print(json.dumps(summary, sort_keys=True))

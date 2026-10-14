@@ -148,6 +148,7 @@ class _RouterBoss {
   final Map<int, RouterListener> _http3ConnectionListeners = {};
   final Map<int, _WebSocketSelection> _webSocketSelectionByConnection = {};
   final RouterStateStore _stateStore;
+  final MqttQos0Broker _mqttBroker = MqttQos0Broker.native();
   late final Map<String, RealmSettings> _realmByName;
   final Map<int, DateTime> _lastActivityByConnection = {};
   final Map<int, String> _realmByConnection = {};
@@ -288,6 +289,11 @@ class _RouterBoss {
     cleanup(_eventPort.close);
     cleanup(_commandPort.close);
     cleanup(_stateStore.dispose);
+    try {
+      await _mqttBroker.close();
+    } catch (error, stackTrace) {
+      recordCleanupFailure(error, stackTrace);
+    }
     // Detach ownership before worker teardown or native release callbacks.
     final connections = _http3Connections.values.toList(growable: false);
     _http3Connections.clear();
@@ -322,6 +328,7 @@ class _RouterBoss {
         didWork = await _acceptConnections(listener) || didWork;
       }
       didWork = _dispatchMessages() || didWork;
+      didWork = _drainMqtt() || didWork;
       didWork = _expireIdleConnections() || didWork;
       didWork = _drainHttpRequests() || didWork;
       didWork = _drainHttp2Requests() || didWork;
@@ -390,7 +397,29 @@ class _RouterBoss {
       }
 
       if (protocol != NativeConnectionProtocol.rawsocket) {
-        if (protocol == NativeConnectionProtocol.http ||
+        if (protocol == NativeConnectionProtocol.mqtt) {
+          _lastActivityByConnection.remove(connectionId);
+          final mqttRuntime = runtime is NativeRuntimeWithMqtt
+              ? runtime as NativeRuntimeWithMqtt
+              : null;
+          if (mqttRuntime == null) {
+            runtime.closeConnection(connectionId);
+            continue;
+          }
+          _mqttBroker.attachNativeConnection(
+            connectionId,
+            send: (bytes) => mqttRuntime.sendMqttChunk(connectionId, bytes),
+            close: () {
+              mqttRuntime.setMqttWake(connectionId, null);
+              runtime.closeConnection(connectionId);
+            },
+          );
+          mqttRuntime.setMqttWake(
+            connectionId,
+            (_) => _loopPacer.requestWake(),
+          );
+          continue;
+        } else if (protocol == NativeConnectionProtocol.http ||
             protocol == NativeConnectionProtocol.http2) {
           if (protocol == NativeConnectionProtocol.http) {
             _registerHttpConnection(listener, connectionId);
@@ -575,7 +604,35 @@ class _RouterBoss {
         return 'http2';
       case NativeConnectionProtocol.http3:
         return 'http3';
+      case NativeConnectionProtocol.mqtt:
+        return 'mqtt';
     }
+  }
+
+  bool _drainMqtt() {
+    final mqttRuntime = runtime is NativeRuntimeWithMqtt
+        ? runtime as NativeRuntimeWithMqtt
+        : null;
+    if (mqttRuntime == null) return false;
+    var didWork = false;
+    var remaining = 256;
+    for (final connectionId in _mqttBroker.nativeConnectionIds.toList()) {
+      while (remaining > 0) {
+        Uint8List? bytes;
+        try {
+          bytes = mqttRuntime.pollMqttChunk(connectionId);
+        } on NativeTransportException {
+          _mqttBroker.closeNativeConnection(connectionId);
+          break;
+        }
+        if (bytes == null) break;
+        _mqttBroker.receiveNativeChunk(connectionId, bytes);
+        didWork = true;
+        remaining--;
+      }
+      if (remaining == 0) break;
+    }
+    return didWork;
   }
 
   void _handleHttpConnectionEvent(NativeHttpConnectionEvent event) {

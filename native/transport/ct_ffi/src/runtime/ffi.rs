@@ -36,14 +36,15 @@ use ct_core::{
     accept_channel, apply_router_config, close_connection, close_listener, connect_rawsocket,
     connect_websocket, connection_accept_websocket, connection_http3_connection,
     connection_http3_poll_request, connection_http3_poll_stream, connection_http_poll_request,
-    connection_poll_http_event, connection_protocol, connection_rawsocket_max_exponent,
-    connection_reject_websocket, connection_supports_file_segments,
-    connection_take_http2_handshake, connection_take_http3_handshake,
-    connection_take_websocket_handshake, connection_websocket_protocol, listen,
-    listen_configured_endpoint, listen_router_endpoint, listener_http3_port, local_addr,
-    poll_connection_message, reload_router_tls, reload_tls, response_stream_channel,
-    send_wamp_base64_file_segment, send_wamp_deferred_segment_with_suffix, send_wamp_file_segment,
-    send_wamp_message, send_wamp_segments, shutdown, start_runtime, wait_connection_message,
+    connection_mqtt_version, connection_poll_http_event, connection_protocol,
+    connection_rawsocket_max_exponent, connection_reject_websocket,
+    connection_supports_file_segments, connection_take_http2_handshake,
+    connection_take_http3_handshake, connection_take_websocket_handshake,
+    connection_websocket_protocol, listen, listen_configured_endpoint, listen_router_endpoint,
+    listener_http3_port, local_addr, poll_connection_message, poll_mqtt_chunk, reload_router_tls,
+    reload_tls, response_stream_channel, send_mqtt_chunk, send_wamp_base64_file_segment,
+    send_wamp_deferred_segment_with_suffix, send_wamp_file_segment, send_wamp_message,
+    send_wamp_segments, set_mqtt_wakeup, shutdown, start_runtime, wait_connection_message,
     ConnectionId, ConnectionProtocol, Error as CoreError, FileSegmentMetricsSnapshot,
     HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
     HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
@@ -3225,11 +3226,84 @@ pub extern "C" fn ct_connection_protocol(connection_id: c_int) -> c_int {
     match connection_protocol(connection_id) {
         Ok(protocol) => match protocol {
             ConnectionProtocol::RawSocket => PROTOCOL_RAWSOCKET,
+            ConnectionProtocol::Mqtt => PROTOCOL_MQTT,
             ConnectionProtocol::WebSocket => PROTOCOL_WEBSOCKET,
             ConnectionProtocol::Http => PROTOCOL_HTTP,
             ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
             ConnectionProtocol::Http3 => PROTOCOL_HTTP3,
         },
+        Err(err) => map_error(err),
+    }
+}
+
+/// Returns MQTT protocol level 4 or 5, or a negative error code.
+#[no_mangle]
+pub extern "C" fn ct_connection_mqtt_version(connection_id: c_int) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match connection_mqtt_version(ConnectionId(connection_id as u32)) {
+        Ok(version) => c_int::from(version),
+        Err(err) => map_error(err),
+    }
+}
+
+/// Notify Dart when a native MQTT read chunk becomes available.
+/// A null callback unregisters and waits for any in-flight invocation.
+#[no_mangle]
+pub extern "C" fn ct_set_mqtt_wakeup(
+    connection_id: c_int,
+    callback: Option<extern "C" fn(c_int)>,
+) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match set_mqtt_wakeup(ConnectionId(connection_id as u32), callback) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+/// Copies one native MQTT read chunk into a caller-owned 16 KiB buffer.
+/// Returns byte count, zero when no chunk is ready, or a negative error code.
+#[no_mangle]
+pub extern "C" fn ct_poll_mqtt_chunk(
+    connection_id: c_int,
+    out_ptr: *mut u8,
+    out_capacity: c_int,
+) -> c_int {
+    if connection_id <= 0 || out_ptr.is_null() || out_capacity < 16 * 1024 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match poll_mqtt_chunk(ConnectionId(connection_id as u32)) {
+        Ok(Some(bytes)) => {
+            if bytes.len() > out_capacity as usize {
+                return ERR_INVALID_ARGUMENT;
+            }
+            unsafe { ptr::copy_nonoverlapping(bytes.as_ptr(), out_ptr, bytes.len()) };
+            bytes.len() as c_int
+        }
+        Ok(None) => 0,
+        Err(err) => map_error(err),
+    }
+}
+
+/// Enqueues an encoded MQTT byte chunk without WAMP framing.
+#[no_mangle]
+pub extern "C" fn ct_send_mqtt_chunk(
+    connection_id: c_int,
+    bytes_ptr: *const u8,
+    bytes_len: c_int,
+) -> c_int {
+    if connection_id <= 0 || bytes_ptr.is_null() || !(1..=1_048_576).contains(&bytes_len) {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let bytes = unsafe { slice::from_raw_parts(bytes_ptr, bytes_len as usize) };
+    match send_mqtt_chunk(
+        ConnectionId(connection_id as u32),
+        Bytes::copy_from_slice(bytes),
+    ) {
+        Ok(()) => SUCCESS,
         Err(err) => map_error(err),
     }
 }
@@ -3633,6 +3707,7 @@ pub extern "C" fn ct_http_connection_event_get(
         info_ref.connection_id = stored.connection_id.0 as i32;
         info_ref.protocol = match stored.protocol {
             ConnectionProtocol::RawSocket => PROTOCOL_RAWSOCKET,
+            ConnectionProtocol::Mqtt => PROTOCOL_MQTT,
             ConnectionProtocol::WebSocket => PROTOCOL_WEBSOCKET,
             ConnectionProtocol::Http => PROTOCOL_HTTP,
             ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
@@ -3911,6 +3986,7 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
                 listener_id: entry.listener_id.0,
                 protocol: match entry.protocol {
                     ConnectionProtocol::RawSocket => PROTOCOL_RAWSOCKET,
+                    ConnectionProtocol::Mqtt => PROTOCOL_MQTT,
                     ConnectionProtocol::WebSocket => PROTOCOL_WEBSOCKET,
                     ConnectionProtocol::Http => PROTOCOL_HTTP,
                     ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
@@ -5867,6 +5943,7 @@ pub extern "C" fn ct_test_push_http_connection_event(
     }
     let protocol = match protocol {
         PROTOCOL_RAWSOCKET => ConnectionProtocol::RawSocket,
+        PROTOCOL_MQTT => ConnectionProtocol::Mqtt,
         PROTOCOL_WEBSOCKET => ConnectionProtocol::WebSocket,
         PROTOCOL_HTTP => ConnectionProtocol::Http,
         PROTOCOL_HTTP2 => ConnectionProtocol::Http2,

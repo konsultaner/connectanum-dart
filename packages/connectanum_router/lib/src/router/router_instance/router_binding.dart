@@ -1060,6 +1060,7 @@ class RouterBinding {
   final List<RouterListener> _listeners = [];
   final Map<int, RouterListener> _listenerById = {};
   final Map<int, _ConnectionState> _connections = {};
+  final MqttQos0Broker _mqttBroker = MqttQos0Broker.native();
   final Set<void Function()> _nativeMessageWatchStops = {};
   final Set<RouterSession> _internalSessions = {};
   final Set<Future<void>> _internalSessionStarts = {};
@@ -1579,6 +1580,7 @@ class RouterBinding {
     for (final listener in listeners) {
       _acceptConnections(listener);
     }
+    _drainMqtt();
     final result = <RouterMessage>[];
     final handlesRuntime = runtime is NativeRuntimeWithHandles
         ? runtime as NativeRuntimeWithHandles
@@ -1709,6 +1711,19 @@ class RouterBinding {
       } on NativeTransportException {
         protocol = NativeConnectionProtocol.rawsocket;
       }
+      if (protocol == NativeConnectionProtocol.mqtt) {
+        final mqttRuntime = runtime;
+        if (mqttRuntime is! NativeRuntimeWithMqtt) {
+          runtime.closeConnection(connectionId);
+          continue;
+        }
+        _mqttBroker.attachNativeConnection(
+          connectionId,
+          send: (bytes) => mqttRuntime.sendMqttChunk(connectionId, bytes),
+          close: () => runtime.closeConnection(connectionId),
+        );
+        continue;
+      }
       final state = _connections.putIfAbsent(
         connectionId,
         () => _ConnectionState(listener),
@@ -1760,6 +1775,27 @@ class RouterBinding {
         final connectionHandle = runtime.takeHttp3Connection(connectionId);
         state.setHttp3Connection(connectionHandle);
       }
+    }
+  }
+
+  void _drainMqtt() {
+    final mqttRuntime = runtime;
+    if (mqttRuntime is! NativeRuntimeWithMqtt) return;
+    var remaining = 256;
+    for (final connectionId in _mqttBroker.nativeConnectionIds.toList()) {
+      while (remaining > 0) {
+        Uint8List? bytes;
+        try {
+          bytes = mqttRuntime.pollMqttChunk(connectionId);
+        } on NativeTransportException {
+          _mqttBroker.closeNativeConnection(connectionId);
+          break;
+        }
+        if (bytes == null) break;
+        _mqttBroker.receiveNativeChunk(connectionId, bytes);
+        remaining--;
+      }
+      if (remaining == 0) break;
     }
   }
 
@@ -1967,6 +2003,7 @@ class RouterBinding {
       await cleanup(state.dispose);
     }
     _connections.clear();
+    await cleanup(_mqttBroker.close);
     _internalBootstrap = null;
     _internalBootstrapError = null;
     _internalBootstrapStack = null;

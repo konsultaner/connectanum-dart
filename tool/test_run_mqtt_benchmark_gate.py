@@ -1,5 +1,7 @@
 import os
 import json
+import contextlib
+import io
 import subprocess
 import tempfile
 import unittest
@@ -57,6 +59,20 @@ def rows(connectanum_speed=80000, connectanum_p99=120, received=2000):
 
 
 class MqttBenchmarkGateTest(unittest.TestCase):
+    def test_native_router_requires_an_existing_library(self):
+        argv = ["run_mqtt_benchmark_gate", "--native-router", "--output", "unused"]
+        with (mock.patch.object(gate.sys, "argv", argv),
+              mock.patch.dict(gate.os.environ, {"CONNECTANUM_NATIVE_LIB": ""}),
+              contextlib.redirect_stderr(io.StringIO())):
+            with self.assertRaises(SystemExit):
+                gate.main()
+        with (mock.patch.object(gate.sys, "argv", argv),
+              mock.patch.dict(gate.os.environ,
+                              {"CONNECTANUM_NATIVE_LIB": "/missing/ct_ffi.so"}),
+              contextlib.redirect_stderr(io.StringIO())):
+            with self.assertRaises(SystemExit):
+                gate.main()
+
     def test_exact_line_coverage_gate_rejects_missing_or_excluded_source(self):
         source = "tool/run_mqtt_benchmark_gate.py"
         report = {
@@ -192,6 +208,29 @@ class MqttBenchmarkGateTest(unittest.TestCase):
                         if row["target"] == "connectanum":
                             row[key] = value
                     self.assertFalse(compare(changed, budget)["passed"], key)
+
+    def test_native_router_sustained_budgets_bound_ffi_cpu_overhead(self):
+        for filename, version in (
+                ("mqtt_native_sustained_benchmark_budget.json", "5"),
+                ("mqtt_native_v311_sustained_benchmark_budget.json", "311")):
+            with self.subTest(filename=filename):
+                budget = json.loads((gate.ROOT / "tool" / filename).read_text())
+                pair = rows(connectanum_speed=80_000, connectanum_p99=220)[:2]
+                samples = [dict(row, run=run) for run in range(1, 6)
+                           for row in pair]
+                for row in samples:
+                    row.update(profile=budget["profile"], mqtt_version=version,
+                               sent=200_000, received=200_000,
+                               received_per_subscriber=[200_000],
+                               window_messages=512)
+                    if row["target"] == "connectanum":
+                        row["latency_p95_us"] = 190
+                        row["broker_cpu_seconds"] = 0.24
+                self.assertTrue(compare(samples, budget)["passed"])
+                for row in samples:
+                    if row["target"] == "connectanum":
+                        row["broker_cpu_seconds"] = 0.26
+                self.assertFalse(compare(samples, budget)["passed"])
 
     def test_batch_profile_requires_batch_client_workload(self):
         budget = dict(BUDGET,

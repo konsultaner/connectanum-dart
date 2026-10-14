@@ -9,6 +9,36 @@ import 'package:connectanum_router/mqtt.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('native MQTT peer IDs cannot be attached twice', () async {
+    final broker = MqttQos0Broker.native();
+    broker.attachNativeConnection(42, send: (_) {}, close: () {});
+    expect(
+      () => broker.attachNativeConnection(42, send: (_) {}, close: () {}),
+      throwsStateError,
+    );
+    broker.closeNativeConnection(42);
+    await broker.close();
+  });
+
+  test('native MQTT send failure closes its peer', () async {
+    final broker = MqttQos0Broker.native();
+    var closed = false;
+    broker.attachNativeConnection(
+      43,
+      send: (_) => throw StateError('native send queue closed'),
+      close: () => closed = true,
+    );
+    broker.receiveNativeChunk(
+      43,
+      MqttPacketCodec.encodeConnect(
+        const MqttConnect(version: MqttVersion.v5, clientId: 'send-failure'),
+      ),
+    );
+    expect(closed, isTrue);
+    expect(broker.nativeConnectionIds, isEmpty);
+    await broker.close();
+  });
+
   test('MQTT 5 CONNACK advertises the provisional QoS 0 limits', () async {
     final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
     final socket = await Socket.connect('127.0.0.1', broker.port);
@@ -234,6 +264,45 @@ void main() {
       (await received).map((message) => message.payload.single).toList(),
       List<int>.generate(64, (id) => id),
     );
+  });
+
+  test('packets after DISCONNECT in the same read are ignored', () async {
+    final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
+    final subscriber = await MqttQos0Client.connect(
+      '127.0.0.1',
+      broker.port,
+      clientId: 'disconnect-sub',
+    );
+    final publisher = await Socket.connect('127.0.0.1', broker.port);
+    addTearDown(() async {
+      publisher.destroy();
+      await subscriber.close();
+      await broker.close();
+    });
+    await subscriber.subscribe('disconnect/topic');
+    final received = subscriber.messages.first.timeout(
+      const Duration(milliseconds: 250),
+    );
+    final wire = BytesBuilder(copy: false)
+      ..add(
+        MqttPacketCodec.encodeConnect(
+          const MqttConnect(
+            version: MqttVersion.v5,
+            clientId: 'disconnect-pub',
+          ),
+        ),
+      )
+      ..add([0xe0, 0x00])
+      ..add(
+        MqttPacketCodec.encodePublish(
+          MqttVersion.v5,
+          topic: 'disconnect/topic',
+          payload: Uint8List.fromList([1]),
+        ),
+      );
+    publisher.add(wire.takeBytes());
+    await publisher.flush();
+    await expectLater(received, throwsA(isA<TimeoutException>()));
   });
 
   test('client batch bounds and ordered delivery', () async {
