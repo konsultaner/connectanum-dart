@@ -117,6 +117,7 @@ final class MqttQos0Broker {
 
 final class _Peer {
   static const int _maxPendingOutboundBytes = 4 * 1024 * 1024;
+  static const int _maxOutboundChunkBytes = 1 << 20;
 
   _Peer(
     this.broker,
@@ -132,6 +133,9 @@ final class _Peer {
   final MqttFrameDecoder decoder = MqttFrameDecoder();
   final Set<String> filters = {};
   final BytesBuilder _pendingPublishes = BytesBuilder(copy: false);
+  final Queue<Uint8List> _pendingPublishChunks = Queue<Uint8List>();
+  int _pendingPublishChunkBytes = 0;
+  bool _publishOverflowed = false;
   final Queue<Uint8List> _pendingOutbound = Queue<Uint8List>();
   int _pendingOutboundBytes = 0;
   Timer? _outboundRetry;
@@ -141,12 +145,36 @@ final class _Peer {
   bool _publishFlushScheduled = false;
 
   void _queuePublish(Uint8List encoded) {
+    if (_publishOverflowed) return;
+    if (_pendingOutboundBytes +
+            _pendingPublishChunkBytes +
+            _pendingPublishes.length +
+            encoded.length >
+        _maxPendingOutboundBytes) {
+      _publishOverflowed = true;
+      scheduleMicrotask(_close);
+      return;
+    }
+    if (_pendingPublishes.length + encoded.length > _maxOutboundChunkBytes) {
+      final chunk = _pendingPublishes.takeBytes();
+      _pendingPublishChunks.addLast(chunk);
+      _pendingPublishChunkBytes += chunk.length;
+    }
     _pendingPublishes.add(encoded);
     if (_publishFlushScheduled) return;
     _publishFlushScheduled = true;
     // Coalesce frames decoded in one socket event before the next TCP write.
     scheduleMicrotask(() {
       _publishFlushScheduled = false;
+      if (_publishOverflowed) {
+        _close();
+        return;
+      }
+      while (!closed && _pendingPublishChunks.isNotEmpty) {
+        final chunk = _pendingPublishChunks.removeFirst();
+        _pendingPublishChunkBytes -= chunk.length;
+        _sendBytes(chunk);
+      }
       if (!closed) _sendBytes(_pendingPublishes.takeBytes());
     });
   }
@@ -307,6 +335,9 @@ final class _Peer {
     _outboundRetry?.cancel();
     _pendingOutbound.clear();
     _pendingOutboundBytes = 0;
+    _pendingPublishChunks.clear();
+    _pendingPublishChunkBytes = 0;
+    _pendingPublishes.takeBytes();
     broker._peers.remove(this);
     final id = nativeConnectionId;
     if (id != null) broker._nativePeers.remove(id);

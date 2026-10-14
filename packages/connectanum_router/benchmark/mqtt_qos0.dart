@@ -79,7 +79,16 @@ Future<void> main(List<String> args) async {
     if (publishMode == 'batch' && (window == 0 || window > 512)) {
       throw ArgumentError.value(window, 'MQTT_BENCH_WINDOW', 'batch window');
     }
-    const payloadSize = 128;
+    final payloadSize =
+        int.tryParse(Platform.environment['MQTT_BENCH_PAYLOAD_BYTES'] ?? '') ??
+        128;
+    if (payloadSize < 4 || payloadSize > 65536) {
+      throw ArgumentError.value(
+        payloadSize,
+        'MQTT_BENCH_PAYLOAD_BYTES',
+        'expected 4 through 65536',
+      );
+    }
     final payload = Uint8List(payloadSize);
     for (var i = 4; i < payloadSize; i++) {
       payload[i] = (i * 29 + 7) & 0xff;
@@ -223,7 +232,7 @@ Future<void> main(List<String> args) async {
       jsonEncode({
         'broker': broker == null ? '$host:$port' : 'connectanum-qos0',
         'profile':
-            'mqtt$versionLabel-${tlsCa == null ? 'tcp' : 'tls'}-qos0-${subscriberCount == 1 ? 'one-subscriber' : 'fanout$subscriberCount'}-128B'
+            'mqtt$versionLabel-${tlsCa == null ? 'tcp' : 'tls'}-qos0-${subscriberCount == 1 ? 'one-subscriber' : 'fanout$subscriberCount'}-${payloadSize}B'
             '${window == 0 ? '' : '-window$window'}'
             '${publishMode == 'batch' ? '-batch$window' : ''}',
         'transport': tlsCa == null ? 'tcp' : 'tls',

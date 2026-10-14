@@ -1,0 +1,14 @@
+{
+  "profile": "mqtt5-tcp-qos0-one-subscriber-65536B-window32",
+  "publish_mode": "single",
+  "repetitions": 5,
+  "messages_per_run": 5000,
+  "payload_bytes": 65536,
+  "window_messages": 32,
+  "gate": "performance",
+  "min_delivered_throughput_ratio_vs_mosquitto": 0.75,
+  "max_p95_latency_ratio_vs_mosquitto": 2.0,
+  "max_p99_latency_ratio_vs_mosquitto": 2.25,
+  "max_broker_cpu_ratio_vs_mosquitto": 4.0,
+  "max_connectanum_broker_rss_bytes": 100663296
+}

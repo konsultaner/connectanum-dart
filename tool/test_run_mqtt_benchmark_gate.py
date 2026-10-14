@@ -59,6 +59,56 @@ def rows(connectanum_speed=80000, connectanum_p99=120, received=2000):
 
 
 class MqttBenchmarkGateTest(unittest.TestCase):
+    def test_payload_size_is_passed_to_the_client_for_tcp_and_tls(self):
+        budget = dict(BUDGET, payload_bytes=1024)
+        with mock.patch.dict(gate.os.environ,
+                             {"MQTT_BENCH_PAYLOAD_BYTES": "65536"}):
+            tcp = gate.workload_environment(budget, "tcp")
+            tls = gate.workload_environment(budget, "tls")
+        self.assertEqual(tcp["MQTT_BENCH_PAYLOAD_BYTES"], "1024")
+        self.assertNotIn("MQTT_BENCH_TLS_CA", tcp)
+        self.assertEqual(tls["MQTT_BENCH_PAYLOAD_BYTES"], "1024")
+        self.assertEqual(tls["MQTT_BENCH_TLS_CA"], str(gate.TLS_CA))
+
+    def test_large_payload_profiles_require_their_exact_workload(self):
+        for size in (1024, 65536):
+            with self.subTest(size=size):
+                profile = f"mqtt5-tcp-qos0-one-subscriber-{size}B"
+                budget = dict(BUDGET, profile=profile, payload_bytes=size)
+                samples = rows()
+                for sample in samples:
+                    sample.update(profile=profile, payload_bytes=size)
+                self.assertEqual(compare(samples, budget)["profile"], profile)
+                samples[0]["payload_bytes"] = 128
+                with self.assertRaisesRegex(ValueError, "invalid workload"):
+                    compare(samples, budget)
+
+    def test_large_payload_budgets_enforce_delivery_and_cpu(self):
+        for filename in (
+                "mqtt_native_1k_sustained_benchmark_budget.json",
+                "mqtt_native_64k_sustained_benchmark_budget.json"):
+            with self.subTest(filename=filename):
+                budget = json.loads((gate.ROOT / "tool" / filename).read_text())
+                pair = rows(connectanum_speed=100_000)[:2]
+                samples = [dict(row, run=run) for run in range(1, 6)
+                           for row in pair]
+                for row in samples:
+                    row.update(profile=budget["profile"],
+                               sent=budget["messages_per_run"],
+                               received=budget["messages_per_run"],
+                               received_per_subscriber=[budget["messages_per_run"]],
+                               payload_bytes=budget["payload_bytes"],
+                               window_messages=budget["window_messages"])
+                self.assertTrue(compare(samples, budget)["passed"])
+                samples[0]["received"] -= 1
+                with self.assertRaisesRegex(ValueError, "invalid workload"):
+                    compare(samples, budget)
+                samples[0]["received"] += 1
+                for row in samples:
+                    if row["target"] == "connectanum":
+                        row["broker_cpu_seconds"] = 1.0
+                self.assertFalse(compare(samples, budget)["passed"])
+
     def test_native_router_requires_an_existing_library(self):
         argv = ["run_mqtt_benchmark_gate", "--native-router", "--output", "unused"]
         with (mock.patch.object(gate.sys, "argv", argv),

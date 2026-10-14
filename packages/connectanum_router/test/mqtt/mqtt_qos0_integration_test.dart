@@ -256,6 +256,246 @@ void main() {
     expect(broker.nativeConnectionIds, isNot(contains(48)));
   });
 
+  test(
+    'native MQTT large publications stay within the FFI send limit',
+    () async {
+      final broker = MqttQos0Broker.native();
+      addTearDown(broker.close);
+      final sent = <Uint8List>[];
+      var subscriberClosed = false;
+      broker.attachNativeConnection(
+        51,
+        send: (bytes) {
+          if (bytes.length > 1 << 20) {
+            throw ArgumentError.value(bytes.length, 'bytes', 'FFI send limit');
+          }
+          sent.add(bytes);
+        },
+        close: () => subscriberClosed = true,
+      );
+      broker.attachNativeConnection(52, send: (_) {}, close: () {});
+      for (final id in [51, 52]) {
+        broker.receiveNativeChunk(
+          id,
+          MqttPacketCodec.encodeConnect(
+            MqttConnect(version: MqttVersion.v5, clientId: 'large-$id'),
+          ),
+        );
+      }
+      broker.receiveNativeChunk(
+        51,
+        Uint8List.fromList([0x82, 7, 0, 1, 0, 0, 1, 0x61, 0]),
+      );
+      sent.clear();
+      final publication = MqttPacketCodec.encodePublish(
+        MqttVersion.v5,
+        topic: 'a',
+        payload: Uint8List(65536),
+      );
+      final burst = BytesBuilder(copy: false);
+      for (var i = 0; i < 17; i++) {
+        burst.add(publication);
+      }
+      broker.receiveNativeChunk(52, burst.takeBytes());
+      await Future<void>.delayed(Duration.zero);
+      expect(subscriberClosed, isFalse);
+      final decoder = MqttFrameDecoder();
+      final frames = sent.expand(decoder.add).toList();
+      expect(frames, hasLength(17));
+      expect(
+        frames.every((frame) => frame.type == MqttPacketType.publish),
+        isTrue,
+      );
+    },
+  );
+
+  test('native MQTT stops coalescing when the bounded writer closes', () async {
+    final broker = MqttQos0Broker.native();
+    addTearDown(broker.close);
+    var closed = false;
+    broker.attachNativeConnection(
+      53,
+      send: (bytes) {
+        if (bytes.length > 512 * 1024) throw StateError('writer closed');
+      },
+      close: () => closed = true,
+    );
+    broker.attachNativeConnection(54, send: (_) {}, close: () {});
+    for (final id in [53, 54]) {
+      broker.receiveNativeChunk(
+        id,
+        MqttPacketCodec.encodeConnect(
+          MqttConnect(version: MqttVersion.v5, clientId: 'closed-$id'),
+        ),
+      );
+    }
+    broker.receiveNativeChunk(
+      53,
+      Uint8List.fromList([0x82, 7, 0, 1, 0, 0, 1, 0x61, 0]),
+    );
+    final publication = MqttPacketCodec.encodePublish(
+      MqttVersion.v5,
+      topic: 'a',
+      payload: Uint8List(600 * 1024),
+    );
+    final burst = BytesBuilder(copy: false)
+      ..add(publication)
+      ..add(publication);
+    broker.receiveNativeChunk(54, burst.takeBytes());
+    await Future<void>.delayed(Duration.zero);
+    expect(closed, isTrue);
+    expect(broker.nativeConnectionIds, isNot(contains(53)));
+  });
+
+  test('native MQTT limits a coalesced large-payload burst', () async {
+    final broker = MqttQos0Broker.native();
+    addTearDown(broker.close);
+    var closed = false;
+    broker.attachNativeConnection(
+      55,
+      send: (_) {},
+      close: () => closed = true,
+    );
+    broker.attachNativeConnection(56, send: (_) {}, close: () {});
+    for (final id in [55, 56]) {
+      broker.receiveNativeChunk(
+        id,
+        MqttPacketCodec.encodeConnect(
+          MqttConnect(version: MqttVersion.v5, clientId: 'burst-$id'),
+        ),
+      );
+    }
+    broker.receiveNativeChunk(
+      55,
+      Uint8List.fromList([0x82, 7, 0, 1, 0, 0, 1, 0x61, 0]),
+    );
+    final publication = MqttPacketCodec.encodePublish(
+      MqttVersion.v5,
+      topic: 'a',
+      payload: Uint8List(65536),
+    );
+    final burst = BytesBuilder(copy: false);
+    for (var i = 0; i < 80; i++) {
+      burst.add(publication);
+    }
+    broker.receiveNativeChunk(56, burst.takeBytes());
+    await Future<void>.delayed(Duration.zero);
+    expect(closed, isTrue);
+    expect(broker.nativeConnectionIds, isNot(contains(55)));
+  });
+
+  test(
+    'native MQTT control reply cannot exceed a full outbound queue',
+    () async {
+      final broker = MqttQos0Broker.native();
+      addTearDown(broker.close);
+      var closed = false;
+      var saturated = false;
+      broker.attachNativeConnection(
+        57,
+        send: (_) {
+          if (saturated) {
+            throw NativeTransportException(
+              NativeTransportErrorCode.sendQueueFull,
+              'queue full',
+            );
+          }
+        },
+        close: () => closed = true,
+      );
+      broker.attachNativeConnection(58, send: (_) {}, close: () {});
+      for (final id in [57, 58]) {
+        broker.receiveNativeChunk(
+          id,
+          MqttPacketCodec.encodeConnect(
+            MqttConnect(version: MqttVersion.v5, clientId: 'full-$id'),
+          ),
+        );
+      }
+      broker.receiveNativeChunk(
+        57,
+        Uint8List.fromList([0x82, 7, 0, 1, 0, 0, 1, 0x61, 0]),
+      );
+      saturated = true;
+      final publication = MqttPacketCodec.encodePublish(
+        MqttVersion.v5,
+        topic: 'a',
+        payload: Uint8List((1 << 20) - 8),
+      );
+      expect(publication, hasLength(1 << 20));
+      final burst = BytesBuilder(copy: false);
+      for (var i = 0; i < 4; i++) {
+        burst.add(publication);
+      }
+      broker.receiveNativeChunk(58, burst.takeBytes());
+      await Future<void>.delayed(Duration.zero);
+      expect(closed, isFalse);
+      broker.receiveNativeChunk(57, Uint8List.fromList([0xc0, 0]));
+      expect(closed, isTrue);
+    },
+  );
+
+  test('native MQTT large chunks preserve order across queue retry', () async {
+    final broker = MqttQos0Broker.native();
+    addTearDown(broker.close);
+    final sent = <Uint8List>[];
+    var saturated = false;
+    var attempts = 0;
+    broker.attachNativeConnection(
+      59,
+      send: (bytes) {
+        if (saturated && attempts++ < 2) {
+          throw NativeTransportException(
+            NativeTransportErrorCode.sendQueueFull,
+            'queue full',
+          );
+        }
+        if (saturated) sent.add(bytes);
+      },
+      close: () {},
+    );
+    broker.attachNativeConnection(60, send: (_) {}, close: () {});
+    for (final id in [59, 60]) {
+      broker.receiveNativeChunk(
+        id,
+        MqttPacketCodec.encodeConnect(
+          MqttConnect(version: MqttVersion.v5, clientId: 'retry-$id'),
+        ),
+      );
+    }
+    broker.receiveNativeChunk(
+      59,
+      Uint8List.fromList([0x82, 7, 0, 1, 0, 0, 1, 0x61, 0]),
+    );
+    saturated = true;
+    final burst = BytesBuilder(copy: false);
+    for (var i = 0; i < 17; i++) {
+      final payload = Uint8List(65536);
+      ByteData.sublistView(payload).setUint32(0, i);
+      burst.add(
+        MqttPacketCodec.encodePublish(
+          MqttVersion.v5,
+          topic: 'a',
+          payload: payload,
+        ),
+      );
+    }
+    broker.receiveNativeChunk(60, burst.takeBytes());
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final decoder = MqttFrameDecoder();
+    final publications = sent
+        .expand(decoder.add)
+        .map((frame) => MqttPacketCodec.decodePublish(frame, MqttVersion.v5))
+        .toList();
+    expect(publications, hasLength(17));
+    expect(
+      publications
+          .map((message) => ByteData.sublistView(message.payload).getUint32(0))
+          .toList(),
+      List<int>.generate(17, (i) => i),
+    );
+  });
+
   test('MQTT 5 CONNACK advertises the provisional QoS 0 limits', () async {
     final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
     final socket = await Socket.connect('127.0.0.1', broker.port);

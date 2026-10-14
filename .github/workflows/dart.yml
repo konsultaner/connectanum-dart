@@ -259,6 +259,12 @@ jobs:
             --budget tool/mqtt_native_v311_sustained_benchmark_budget.json \
             --output out/mqtt-qos0-gate/native-v311-sustained --mosquitto "$(command -v mosquitto)"
           run_profile --native-router \
+            --budget tool/mqtt_native_1k_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-1k-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_64k_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-64k-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
             --budget tool/mqtt_batched_benchmark_budget.json \
             --output out/mqtt-qos0-gate/native-batched --mosquitto "$(command -v mosquitto)"
           run_profile --native-router \

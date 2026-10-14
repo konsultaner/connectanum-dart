@@ -24,6 +24,20 @@ TLS_CERT = TLS_CERT_DIR / "remote_auth_server_cert.pem"
 TLS_KEY = TLS_CERT_DIR / "remote_auth_server_key.pem"
 
 
+def workload_environment(budget, transport):
+    env = dict(os.environ)
+    env.pop("MQTT_BENCH_TLS_CA", None)
+    env.update(MQTT_BENCH_VERSION=budget.get("mqtt_version", "5"),
+               MQTT_BENCH_MESSAGES=str(budget["messages_per_run"]),
+               MQTT_BENCH_WINDOW=str(budget.get("window_messages", 0)),
+               MQTT_BENCH_SUBSCRIBERS=str(budget.get("subscribers", 1)),
+               MQTT_BENCH_PAYLOAD_BYTES=str(budget["payload_bytes"]),
+               MQTT_BENCH_MODE=budget.get("publish_mode", "single"))
+    if transport == "tls":
+        env["MQTT_BENCH_TLS_CA"] = str(TLS_CA)
+    return env
+
+
 def compare(rows, budget):
     profile = budget["profile"]
     mqtt_version = budget.get("mqtt_version", "5")
@@ -337,15 +351,7 @@ def main():
             for repeat in range(1, budget["repetitions"] + 1):
                 for target, target_port in targets_for_repeat(
                         repeat, connectanum_port, port):
-                    env = dict(os.environ)
-                    env.pop("MQTT_BENCH_TLS_CA", None)
-                    env.update(MQTT_BENCH_VERSION=budget.get("mqtt_version", "5"),
-                               MQTT_BENCH_MESSAGES=str(budget["messages_per_run"]),
-                               MQTT_BENCH_WINDOW=str(budget.get("window_messages", 0)),
-                               MQTT_BENCH_SUBSCRIBERS=str(budget.get("subscribers", 1)),
-                               MQTT_BENCH_MODE=budget.get("publish_mode", "single"))
-                    if transport == "tls":
-                        env["MQTT_BENCH_TLS_CA"] = str(TLS_CA)
+                    env = workload_environment(budget, transport)
                     before_cpu, _, before_peak_rss = process_metrics(
                         brokers[target].pid)
                     process = subprocess.run(
