@@ -9,6 +9,19 @@ import 'package:test/test.dart';
 
 void main() {
   test(
+    'anonymous provisional listener binds only a loopback address',
+    () async {
+      for (final host in ['0.0.0.0', '::', 'localhost']) {
+        await expectLater(
+          MqttQos0Broker.bind(host, 0),
+          throwsArgumentError,
+          reason: host,
+        );
+      }
+    },
+  );
+
+  test(
     'two Connectanum clients exchange exact binary QoS 0 payloads',
     () async {
       final broker = await MqttQos0Broker.bind('127.0.0.1', 0);

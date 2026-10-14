@@ -4,6 +4,7 @@
   "files": {
     "packages/connectanum_core/lib/src/mqtt/frame_codec.dart": 100,
     "packages/connectanum_core/lib/src/mqtt/packet_codec.dart": 100,
+    "packages/connectanum_core/lib/src/mqtt/topic_uri_mapper.dart": 100,
     "packages/connectanum_core/lib/src/authentication/cryptosign/pem.dart": 98,
     "packages/connectanum_core/lib/src/authentication/cryptosign/pkcs8.dart": 98,
     "packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart": 98,

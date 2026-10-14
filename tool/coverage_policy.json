@@ -67,6 +67,7 @@
     "packages/connectanum_core/lib/src/mcp/text_validation.dart",
     "packages/connectanum_core/lib/src/mqtt/frame_codec.dart",
     "packages/connectanum_core/lib/src/mqtt/packet_codec.dart",
+    "packages/connectanum_core/lib/src/mqtt/topic_uri_mapper.dart",
     "packages/connectanum_core/lib/src/message/abort.dart",
     "packages/connectanum_core/lib/src/message/abstract_message_with_payload.dart",
     "packages/connectanum_core/lib/src/message/abstract_ppt_options.dart",
@@ -210,6 +211,7 @@
   "files": {
     "packages/connectanum_core/lib/src/mqtt/frame_codec.dart": 100,
     "packages/connectanum_core/lib/src/mqtt/packet_codec.dart": 100,
+    "packages/connectanum_core/lib/src/mqtt/topic_uri_mapper.dart": 100,
     "packages/connectanum_client/lib/src/mqtt/qos0_client.dart": 100,
     "packages/connectanum_router/lib/src/mqtt/qos0_broker.dart": 100,
     "packages/connectanum_client/lib/src/mcp/oauth_token_exchange.dart": 98,

@@ -24,5 +24,5 @@ The first live QoS 0 path needs a pinned Connectanum baseline and a matched loca
 
 ## Open implementation choices
 
-- Exact reversible topic mapping, principal/realm policy and MQTT 5 property profile belong to the checked-in contract for #110 before gateway implementation.
+- The [versioned reversible topic contract](../mqtt-topic-contract.md) fixes the mapping. Principal/realm policy and the MQTT 5 property profile still require gateway implementation and conformance evidence.
 - Session storage format, recovery ordering and version-specific reason-code policy belong to #118–#123. No current codec work establishes those behaviors.

@@ -4,14 +4,16 @@ This document summarizes the current routing stack, the primary code locations, 
 
 ## MQTT checkpoint
 
-`packages/connectanum_core/lib/mqtt.dart` exports bounded MQTT framing and the
-initial property-free QoS 0 packet codec. `packages/connectanum_client/lib/mqtt.dart`
+`packages/connectanum_core/lib/mqtt.dart` exports bounded MQTT framing, the
+initial property-free QoS 0 packet codec and a versioned topic URI mapper.
+`packages/connectanum_client/lib/mqtt.dart`
 provides a TCP MQTT client, and `packages/connectanum_router/lib/mqtt.dart`
 provides a provisional standalone TCP broker. The broker is not yet attached
-to the native listener negotiation or WAMP authorization/routing stack.
-`packages/connectanum_router/benchmark/mqtt_qos0.dart` and
-`tool/run_mqtt_benchmark_gate.py` compare exact delivered publications with
-Mosquitto. The cross-package plan and measured baseline are under `docs/`.
+to the native listener negotiation or WAMP authorization/routing stack and
+binds numeric loopback addresses only. `packages/connectanum_router/benchmark/`
+has a separate AOT broker process and client workload; `tool/run_mqtt_benchmark_gate.py`
+compares it with Mosquitto and gates burst and sustained profiles.
+The cross-package plan and measured baselines are under `docs/`.
 
 ## Layered View
 

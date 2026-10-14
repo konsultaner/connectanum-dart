@@ -4,7 +4,9 @@ import 'dart:typed_data';
 
 import 'package:connectanum_core/mqtt.dart';
 
-/// A bounded, anonymous MQTT QoS 0 broker for the first live-path checkpoint.
+/// An anonymous MQTT QoS 0 broker with bounded incoming packet framing.
+///
+/// The provisional listener only binds numeric loopback addresses.
 ///
 /// A later milestone stage will attach this session owner to native transport
 /// negotiation and the protocol-neutral router publication boundary.
@@ -13,8 +15,17 @@ final class MqttQos0Broker {
     _server.listen(_accept);
   }
 
-  static Future<MqttQos0Broker> bind(String host, int port) async =>
-      MqttQos0Broker._(await ServerSocket.bind(host, port));
+  static Future<MqttQos0Broker> bind(String host, int port) async {
+    final address = InternetAddress.tryParse(host);
+    if (address == null || !address.isLoopback) {
+      throw ArgumentError.value(
+        host,
+        'host',
+        'the provisional anonymous broker is limited to loopback',
+      );
+    }
+    return MqttQos0Broker._(await ServerSocket.bind(address, port));
+  }
 
   final ServerSocket _server;
   final Set<_Peer> _peers = {};

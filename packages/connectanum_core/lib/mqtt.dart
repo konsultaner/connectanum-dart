@@ -3,3 +3,4 @@ library;
 
 export 'src/mqtt/frame_codec.dart';
 export 'src/mqtt/packet_codec.dart';
+export 'src/mqtt/topic_uri_mapper.dart';

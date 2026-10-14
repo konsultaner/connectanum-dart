@@ -594,8 +594,10 @@
     the failure.
 - [ ] MQTT broker and WAMP gateway interoperability ([milestone 2](https://github.com/konsultaner/connectanum-dart/milestone/2))
   - [x] Add bounded MQTT 5/3.1.1 framing and the initial QoS 0 packet profile with 100% focused VM/Chrome source coverage.
+  - [x] Define and test a versioned, reversible MQTT topic to strict WAMP URI mapping; gateway authorization and routing remain open.
   - [x] Add a provisional TCP QoS 0 broker and Connectanum client, verify binary Paho side-by-side delivery, and gate four new source files at 100% focused executable-line coverage.
   - [x] Capture a matched local Mosquitto baseline and add a provisional delivered-throughput and p95/p99 relative regression gate with raw CI artifacts.
+  - [x] Add process-isolated AOT burst and windowed sustained benchmarks with provisional broker CPU/RSS budgets; local calibration passes, hosted sustained evidence pending.
   - [ ] Negotiate MQTT on native listeners and bind MQTT over WebSocket/TLS without changing WAMP transport behavior.
   - [ ] Route authorized MQTT and WAMP publications across a protocol-neutral boundary; retain `ppt_scheme: mqtt` as opaque unless an authorized gateway explicitly publishes it.
   - [ ] Complete MQTT 5/3.1.1 properties, QoS 1/2, retained messages, wills, persistent sessions, conformance and recovery matrices.

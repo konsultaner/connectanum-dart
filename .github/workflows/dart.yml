@@ -201,7 +201,10 @@ jobs:
         run: |
           python3 tool/test_run_mqtt_benchmark_gate.py
           python3 tool/run_mqtt_benchmark_gate.py \
-            --output out/mqtt-qos0-gate --mosquitto "$(command -v mosquitto)"
+            --output out/mqtt-qos0-gate/burst --mosquitto "$(command -v mosquitto)"
+          python3 tool/run_mqtt_benchmark_gate.py \
+            --budget tool/mqtt_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/sustained --mosquitto "$(command -v mosquitto)"
       - name: Upload MQTT QoS 0 benchmark evidence
         if: always()
         uses: actions/upload-artifact@v7

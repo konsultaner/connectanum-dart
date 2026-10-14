@@ -36,10 +36,20 @@ Future<void> main(List<String> args) async {
     const warmup = 100;
     final count =
         int.tryParse(Platform.environment['MQTT_BENCH_MESSAGES'] ?? '') ?? 2000;
+    final window =
+        int.tryParse(Platform.environment['MQTT_BENCH_WINDOW'] ?? '') ?? 0;
     if (count < 100) {
       throw ArgumentError.value(count, 'MQTT_BENCH_MESSAGES', 'minimum 100');
     }
+    if (window < 0 || window > count) {
+      throw ArgumentError.value(window, 'MQTT_BENCH_WINDOW', 'invalid window');
+    }
     const payloadSize = 128;
+    final payload = Uint8List(payloadSize);
+    for (var i = 4; i < payloadSize; i++) {
+      payload[i] = (i * 29 + 7) & 0xff;
+    }
+    final data = ByteData.sublistView(payload);
     final sentAt = Int64List(count);
     final latencies = Int64List(count);
     final seen = Uint8List(count);
@@ -48,6 +58,8 @@ Future<void> main(List<String> args) async {
     var warmupReceived = 0;
     var received = 0;
     var duplicate = 0;
+    var windowTarget = 0;
+    Completer<void>? windowDone;
     final stopwatch = Stopwatch()..start();
     final subscription = subscriber.messages.listen((message) {
       if (message.topic != 'bench/one' ||
@@ -56,6 +68,14 @@ Future<void> main(List<String> args) async {
           completed.completeError(StateError('unexpected publication'));
         }
         return;
+      }
+      for (var i = 4; i < payloadSize; i++) {
+        if (message.payload[i] != payload[i]) {
+          if (!completed.isCompleted) {
+            completed.completeError(StateError('corrupt payload byte $i'));
+          }
+          return;
+        }
       }
       final id = ByteData.sublistView(message.payload).getUint32(0);
       if (id >= count) {
@@ -67,13 +87,22 @@ Future<void> main(List<String> args) async {
         duplicate++;
         return;
       }
+      if (id != received) {
+        if (!completed.isCompleted) {
+          completed.completeError(StateError('out-of-order publication $id'));
+        }
+        return;
+      }
       seen[id] = 1;
       latencies[id] = stopwatch.elapsedMicroseconds - sentAt[id];
       received++;
+      if (windowDone != null &&
+          received >= windowTarget &&
+          !windowDone.isCompleted) {
+        windowDone.complete();
+      }
       if (received == count && !completed.isCompleted) completed.complete();
     });
-    final payload = Uint8List(payloadSize);
-    final data = ByteData.sublistView(payload);
     for (var i = 0; i < warmup; i++) {
       data.setUint32(0, count + i);
       await publisher.publish('bench/one', payload);
@@ -84,6 +113,14 @@ Future<void> main(List<String> args) async {
       data.setUint32(0, i);
       sentAt[i] = stopwatch.elapsedMicroseconds;
       await publisher.publish('bench/one', payload);
+      if (window > 0 && ((i + 1) % window == 0 || i + 1 == count)) {
+        windowTarget = i + 1;
+        if (received < windowTarget) {
+          windowDone = Completer<void>();
+          await windowDone.future.timeout(const Duration(seconds: 10));
+        }
+        windowDone = null;
+      }
     }
     try {
       await completed.future.timeout(const Duration(seconds: 30));
@@ -94,8 +131,10 @@ Future<void> main(List<String> args) async {
       );
     }
     final elapsedUs = stopwatch.elapsedMicroseconds;
-    await subscription.cancel();
     stopwatch.stop();
+    // Keep observing briefly after the last distinct ID for late duplicates.
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await subscription.cancel();
     if (received != count || duplicate != 0) {
       throw StateError('delivered $received/$count; duplicates $duplicate');
     }
@@ -103,7 +142,11 @@ Future<void> main(List<String> args) async {
     stdout.writeln(
       jsonEncode({
         'broker': broker == null ? '$host:$port' : 'connectanum-qos0',
-        'profile': 'mqtt5-tcp-qos0-one-subscriber-128B',
+        'profile': window == 0
+            ? 'mqtt5-tcp-qos0-one-subscriber-128B'
+            : 'mqtt5-tcp-qos0-one-subscriber-128B-window$window',
+        'window_messages': window,
+        'payload_bytes': payloadSize,
         'warmup': warmup,
         'sent': count,
         'received': received,

@@ -3,10 +3,12 @@
 The user-prioritized MQTT milestone is active under
 `docs/exec-plans/2026-10-14-mqtt-broker-interoperability.md` and GitHub
 milestone 2. The first checkpoint has a bounded MQTT 5/3.1.1 codec,
-provisional TCP QoS 0 broker/client, independent Paho interop, focused 100%
-new-source coverage, and a matched Mosquitto benchmark gate. Continue with
-native listener negotiation, the authorized MQTT/WAMP publication boundary,
-full protocol/session behavior, transport matrix and hosted performance evidence.
+provisional TCP QoS 0 broker/client, reversible WAMP topic naming,
+independent Paho interop, focused 100% new-source coverage, and matched
+Mosquitto AOT burst/sustained gates with provisional broker CPU/RSS budgets.
+Continue with native listener negotiation, the authorized MQTT/WAMP publication
+boundary, full protocol/session behavior, the transport matrix and hosted
+sustained performance evidence.
 The provisional listener and its benchmark are not milestone completion.
 
 Deferred FlatBuffers work uses `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`
