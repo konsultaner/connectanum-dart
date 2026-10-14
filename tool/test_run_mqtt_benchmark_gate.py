@@ -1,6 +1,9 @@
 import os
+import json
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import run_mqtt_benchmark_gate as gate
@@ -54,6 +57,65 @@ def rows(connectanum_speed=80000, connectanum_p99=120, received=2000):
 
 
 class MqttBenchmarkGateTest(unittest.TestCase):
+    def test_exact_line_coverage_gate_rejects_missing_or_excluded_source(self):
+        source = "tool/run_mqtt_benchmark_gate.py"
+        report = {
+            "files": {source: {}},
+            "totals": {"num_statements": 179, "missing_lines": 0,
+                       "excluded_lines": 0},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "coverage.json"
+            path.write_text(json.dumps(report))
+            self.assertEqual(gate.require_exact_line_coverage(path), 179)
+            for key, value in (("missing_lines", 1), ("excluded_lines", 1),
+                               ("num_statements", 0)):
+                broken = json.loads(json.dumps(report))
+                broken["totals"][key] = value
+                path.write_text(json.dumps(broken))
+                with self.subTest(key=key), self.assertRaisesRegex(
+                        ValueError, "exact 100% executable-line coverage"):
+                    gate.require_exact_line_coverage(path)
+            report["files"] = {"other.py": {}}
+            path.write_text(json.dumps(report))
+            with self.assertRaisesRegex(ValueError, "exact 100% executable-line coverage"):
+                gate.require_exact_line_coverage(path)
+
+    def test_listener_wait_rejects_early_exit_and_deadline(self):
+        exited = mock.Mock(args=["broker"], poll=mock.Mock(return_value=7))
+        with self.assertRaisesRegex(RuntimeError, "exited before listening"):
+            gate.wait_for_listener(1883, exited)
+        pending = mock.Mock(poll=mock.Mock(return_value=None))
+        with mock.patch.object(gate.time, "monotonic", side_effect=[0.0, 2.0]):
+            with self.assertRaisesRegex(TimeoutError, "did not listen"):
+                gate.wait_for_listener(1883, pending, timeout=1)
+
+    def test_forced_broker_stop_reaps_a_stuck_process(self):
+        stuck = mock.Mock()
+        stuck.wait.side_effect = [
+            subprocess.TimeoutExpired("broker", 5), None]
+        gate.stop_broker(stuck)
+        stuck.terminate.assert_called_once_with()
+        stuck.kill.assert_called_once_with()
+        self.assertEqual(stuck.wait.call_count, 2)
+
+    def test_port_pair_retries_a_collision(self):
+        with mock.patch.object(gate, "available_port", side_effect=[1883, 1883, 1884]):
+            self.assertEqual(gate.choose_broker_ports(), (1883, 1884))
+
+    def test_client_failure_and_budget_failure_are_not_silent(self):
+        failed = subprocess.CompletedProcess(
+            ["client"], 7, stdout="", stderr="malformed CONNACK")
+        with self.assertRaisesRegex(RuntimeError, "mosquitto run 2: malformed CONNACK"):
+            gate.checked_client_row(failed, "mosquitto", 2)
+        success = subprocess.CompletedProcess(
+            ["client"], 0, stdout='diagnostic\n{"sent": 10}\n', stderr="")
+        self.assertEqual(gate.checked_client_row(success, "connectanum", 1),
+                         {"sent": 10})
+        with self.assertRaisesRegex(SystemExit, "performance budget failed"):
+            gate.require_budget({"passed": False})
+        self.assertIsNone(gate.require_budget({"passed": True}))
+
     def test_short_correctness_gate_records_noisy_rates_without_failing(self):
         budget = {key: BUDGET[key] for key in (
             "profile", "repetitions", "messages_per_run", "payload_bytes")}
@@ -91,6 +153,35 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         samples[0]["received"] = 199_999
         with self.assertRaisesRegex(ValueError, "delivery"):
             compare(samples, budget)
+
+    def test_shared_runner_sustained_budgets_allow_observed_tail_variation_but_reject_regression(self):
+        for filename, version in (
+                ("mqtt_sustained_benchmark_budget.json", "5"),
+                ("mqtt_v311_sustained_benchmark_budget.json", "311")):
+            with self.subTest(filename=filename):
+                budget = json.loads((gate.ROOT / "tool" / filename).read_text())
+                pair = rows(connectanum_speed=80_000, connectanum_p99=220)[:2]
+                samples = [dict(row, run=run) for run in range(1, 6)
+                           for row in pair]
+                for row in samples:
+                    row.update(profile=budget["profile"], mqtt_version=version,
+                               sent=200_000, received=200_000,
+                               received_per_subscriber=[200_000],
+                               window_messages=512)
+                    if row["target"] == "connectanum":
+                        row["latency_p95_us"] = 190
+                        row["broker_cpu_seconds"] = 0.19
+                self.assertTrue(compare(samples, budget)["passed"])
+                for key, value in (
+                        ("throughput_delivered_per_sec", 74_000),
+                        ("latency_p95_us", 205),
+                        ("latency_p99_us", 230),
+                        ("broker_cpu_seconds", 0.21)):
+                    changed = [dict(row) for row in samples]
+                    for row in changed:
+                        if row["target"] == "connectanum":
+                            row[key] = value
+                    self.assertFalse(compare(changed, budget)["passed"], key)
 
     def test_batch_profile_requires_batch_client_workload(self):
         budget = dict(BUDGET,
@@ -245,6 +336,12 @@ class MqttBenchmarkGateTest(unittest.TestCase):
               mock.patch.object(gate.Path, "read_text", side_effect=[stat, status]),
               mock.patch.object(gate.os, "sysconf", return_value=100)):
             self.assertEqual(process_metrics(123), (0.4, 122880, 245760))
+
+    def test_macos_process_metrics_parse_cpu_and_rss(self):
+        with (mock.patch.object(gate.sys, "platform", "darwin"),
+              mock.patch.object(gate.subprocess, "check_output",
+                                return_value="1:02.50 1234\n")):
+            self.assertEqual(process_metrics(123), (62.5, 1263616, 1263616))
 
     def test_macos_cpu_time_parser(self):
         self.assertEqual(_parse_cpu_time("2:03.45"), 123.45)

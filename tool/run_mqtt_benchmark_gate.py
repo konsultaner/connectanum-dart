@@ -138,6 +138,14 @@ def available_port():
         return probe.getsockname()[1]
 
 
+def choose_broker_ports():
+    mosquitto_port = available_port()
+    connectanum_port = available_port()
+    while connectanum_port == mosquitto_port:
+        connectanum_port = available_port()
+    return mosquitto_port, connectanum_port
+
+
 def targets_for_repeat(repeat, connectanum_port, mosquitto_port):
     targets = (("connectanum", connectanum_port),
                ("mosquitto", mosquitto_port))
@@ -203,6 +211,28 @@ def mosquitto_version(mosquitto):
     raise RuntimeError("Mosquitto help output did not contain a version")
 
 
+def checked_client_row(process, target, repeat):
+    if process.returncode:
+        raise RuntimeError(f"{target} run {repeat}: {process.stderr}")
+    return json.loads(process.stdout.strip().splitlines()[-1])
+
+
+def require_budget(summary):
+    if not summary["passed"]:
+        raise SystemExit("MQTT QoS 0 performance budget failed")
+
+
+def require_exact_line_coverage(report_path):
+    report = json.loads(Path(report_path).read_text())
+    totals = report.get("totals", {})
+    if (set(report.get("files", {})) != {"tool/run_mqtt_benchmark_gate.py"} or
+            totals.get("num_statements", 0) <= 0 or
+            totals.get("missing_lines") != 0 or
+            totals.get("excluded_lines") != 0):
+        raise ValueError("MQTT benchmark gate requires exact 100% executable-line coverage")
+    return totals["num_statements"]
+
+
 def provenance(broker_exe, client_exe, mosquitto):
     def command_output(argv):
         process = subprocess.run(argv, cwd=ROOT, capture_output=True,
@@ -235,10 +265,7 @@ def main():
     args = parser.parse_args()
     budget = json.loads(args.budget.read_text())
     args.output.mkdir(parents=True, exist_ok=True)
-    port = available_port()
-    connectanum_port = available_port()
-    while connectanum_port == port:
-        connectanum_port = available_port()
+    port, connectanum_port = choose_broker_ports()
     with tempfile.TemporaryDirectory() as tmp:
         broker_exe = Path(tmp) / "mqtt-broker"
         client_exe = Path(tmp) / "mqtt-bench-client"
@@ -280,9 +307,7 @@ def main():
                         env=env, capture_output=True, text=True, timeout=90)
                     after_cpu, _, after_peak_rss = process_metrics(
                         brokers[target].pid)
-                    if process.returncode:
-                        raise RuntimeError(f"{target} run {repeat}: {process.stderr}")
-                    row = json.loads(process.stdout.strip().splitlines()[-1])
+                    row = checked_client_row(process, target, repeat)
                     row.update(target=target, run=repeat,
                                broker_cpu_seconds=round(after_cpu - before_cpu, 4),
                                broker_rss_bytes=max(before_peak_rss, after_peak_rss))
@@ -294,8 +319,7 @@ def main():
             (args.output / "summary.json").write_text(
                 json.dumps(summary, indent=2, sort_keys=True) + "\n")
             print(json.dumps(summary, sort_keys=True))
-            if not summary["passed"]:
-                raise SystemExit("MQTT QoS 0 performance budget failed")
+            require_budget(summary)
         finally:
             for broker in brokers.values():
                 stop_broker(broker)

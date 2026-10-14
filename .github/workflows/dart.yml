@@ -190,7 +190,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mosquitto
           python3 -m venv "$RUNNER_TEMP/paho"
-          "$RUNNER_TEMP/paho/bin/pip" install paho-mqtt==2.1.0
+          "$RUNNER_TEMP/paho/bin/pip" install paho-mqtt==2.1.0 coverage==7.16.2
       - name: Verify Paho and Connectanum QoS 0 exchange
         env:
           PAHO_PYTHON: ${{ runner.temp }}/paho/bin/python
@@ -198,22 +198,38 @@ jobs:
           cd packages/connectanum_router
           dart test test/mqtt/mqtt_qos0_integration_test.dart --reporter=expanded
       - name: Verify benchmark gate controls and matched delivery
+        env:
+          PYTHONPATH: tool
+          COVERAGE_FILE: ${{ runner.temp }}/mqtt-benchmark-coverage
         run: |
-          python3 tool/test_run_mqtt_benchmark_gate.py
-          python3 tool/run_mqtt_benchmark_gate.py \
+          set -euo pipefail
+          coverage="$RUNNER_TEMP/paho/bin/coverage"
+          "$coverage" run --source=run_mqtt_benchmark_gate \
+            -m unittest tool/test_run_mqtt_benchmark_gate.py
+          "$coverage" run --append --source=run_mqtt_benchmark_gate \
+            -m run_mqtt_benchmark_gate \
             --output out/mqtt-qos0-gate/burst --mosquitto "$(command -v mosquitto)"
-          python3 tool/run_mqtt_benchmark_gate.py \
+          "$coverage" run --append --source=run_mqtt_benchmark_gate \
+            -m run_mqtt_benchmark_gate \
             --budget tool/mqtt_sustained_benchmark_budget.json \
             --output out/mqtt-qos0-gate/sustained --mosquitto "$(command -v mosquitto)"
-          python3 tool/run_mqtt_benchmark_gate.py \
+          "$coverage" run --append --source=run_mqtt_benchmark_gate \
+            -m run_mqtt_benchmark_gate \
             --budget tool/mqtt_batched_benchmark_budget.json \
             --output out/mqtt-qos0-gate/batched --mosquitto "$(command -v mosquitto)"
-          python3 tool/run_mqtt_benchmark_gate.py \
+          "$coverage" run --append --source=run_mqtt_benchmark_gate \
+            -m run_mqtt_benchmark_gate \
             --budget tool/mqtt_fanout_benchmark_budget.json \
             --output out/mqtt-qos0-gate/fanout --mosquitto "$(command -v mosquitto)"
-          python3 tool/run_mqtt_benchmark_gate.py \
+          "$coverage" run --append --source=run_mqtt_benchmark_gate \
+            -m run_mqtt_benchmark_gate \
             --budget tool/mqtt_v311_sustained_benchmark_budget.json \
             --output out/mqtt-qos0-gate/v311-sustained --mosquitto "$(command -v mosquitto)"
+          "$coverage" json --include='*/tool/run_mqtt_benchmark_gate.py' \
+            -o out/mqtt-qos0-gate/python-coverage.json
+          python3 -c "from run_mqtt_benchmark_gate import require_exact_line_coverage; require_exact_line_coverage('out/mqtt-qos0-gate/python-coverage.json')"
+          "$coverage" report --include='*/tool/run_mqtt_benchmark_gate.py' \
+            --fail-under=100 -m
       - name: Upload MQTT QoS 0 benchmark evidence
         if: always()
         uses: actions/upload-artifact@v7
