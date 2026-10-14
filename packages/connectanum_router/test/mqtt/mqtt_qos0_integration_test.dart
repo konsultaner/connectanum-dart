@@ -36,6 +36,7 @@ void main() {
         broker.port,
         clientId: 'publisher',
         version: MqttVersion.v311,
+        tcpNoDelay: true,
       );
       addTearDown(() async {
         await publisher.close();

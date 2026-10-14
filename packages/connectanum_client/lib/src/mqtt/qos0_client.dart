@@ -10,14 +10,19 @@ final class MqttQos0Client {
     _socket.listen(_onData, onDone: _onDone, onError: _onError);
   }
 
+  /// TCP_NODELAY defaults on Linux to avoid delayed-ACK stalls.
+  /// Other platforms keep their native default unless [tcpNoDelay] is set.
   static Future<MqttQos0Client> connect(
     String host,
     int port, {
     required String clientId,
     MqttVersion version = MqttVersion.v5,
+    bool? tcpNoDelay,
   }) async {
     final socket = await Socket.connect(host, port);
-    socket.setOption(SocketOption.tcpNoDelay, true);
+    if (tcpNoDelay ?? Platform.isLinux) {
+      socket.setOption(SocketOption.tcpNoDelay, true);
+    }
     final client = MqttQos0Client._(socket, version);
     client._socket.add(
       MqttPacketCodec.encodeConnect(
