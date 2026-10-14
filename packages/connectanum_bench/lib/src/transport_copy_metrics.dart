@@ -6,6 +6,7 @@ const connectanumCopyMeasurementScope = 'connectanum_buffer_boundaries_v1';
 
 const _nativeClientCopyFields = [
   'dart_to_native_copy_bytes',
+  'ffi_borrowed_send_input_copy_bytes',
   'io_buffer_front_copy_bytes',
   'io_buffered_read_copy_bytes',
 ];
@@ -181,6 +182,9 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   final routerReplayCopies = _copyByteCount(
     routerDelta?.ioBufferedReadCopyBytesTotal,
   );
+  final routerFfiCopies = _copyByteCount(
+    routerDelta?.ffiBorrowedSendCopyBytesTotal,
+  );
   final routerInputMeasured =
       routerFrontCopies != null && routerReplayCopies != null;
   final completePath =
@@ -190,7 +194,8 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
       clientTransport != null &&
       routerDelta != null &&
       routerWebSocketMeasured &&
-      routerInputMeasured;
+      routerInputMeasured &&
+      routerFfiCopies != null;
 
   final unknownBoundaries = clientUnknownBoundaries;
   void addUnknownBoundary(String value) {
@@ -218,6 +223,9 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   if (routerDelta != null && !routerInputMeasured) {
     addUnknownBoundary('router prefetched input copy counters are unavailable');
   }
+  if (routerDelta != null && routerFfiCopies == null) {
+    addUnknownBoundary('router borrowed FFI send copy counter is unavailable');
+  }
 
   final clientKnownOwnBytes = _copyByteCount(
     metrics['known_own_transport_copy_bytes'],
@@ -229,7 +237,8 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
                 ? (routerDelta.websocketCoalesceCopyBytesTotal ?? 0)
                 : 0) +
             (routerFrontCopies ?? 0) +
-            (routerReplayCopies ?? 0);
+            (routerReplayCopies ?? 0) +
+            (routerFfiCopies ?? 0);
   metrics['known_own_transport_copy_bytes'] =
       (clientKnownOwnBytes ?? 0) + routerKnownOwnBytes;
 
@@ -267,6 +276,9 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   routerBreakdown['dart_to_native_copy_bytes'] = routerDelta == null
       ? notMeasured('router transport copy snapshots are unavailable')
       : routerDelta.dartToNativeCopiedBytesTotal;
+  routerBreakdown['ffi_borrowed_send_input_copy_bytes'] =
+      routerFfiCopies ??
+      notMeasured('router borrowed FFI send copy counter is unavailable');
   routerBreakdown['websocket_coalesce_copy_bytes'] = !needsWebSocket
       ? 0
       : routerDelta?.websocketCoalesceCopyBytesTotal ??
@@ -285,7 +297,8 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
                 ? routerDelta.websocketCoalesceCopyBytesTotal!
                 : 0) +
             routerFrontCopies +
-            routerReplayCopies
+            routerReplayCopies +
+            routerFfiCopies
       : notMeasured(
           !clientCoverageComplete || clientTransport == null
               ? 'client transport copy coverage is incomplete'

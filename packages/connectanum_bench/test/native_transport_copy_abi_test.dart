@@ -266,6 +266,72 @@ void _probe() {
       );
     }
 
+    if (library.providesSymbol('ct_ffi_borrowed_send_copy_metrics_snapshot')) {
+      final info = calloc<ffi.Uint64>(3);
+      final input = calloc<ffi.Uint8>(3);
+      try {
+        input.asTypedList(3).setAll(0, [1, 2, 3]);
+        info[0] = 0x12345678;
+        info[2] = 0x76543210;
+        final snapshot = library
+            .lookupFunction<
+              client_ffi.CtFfiBorrowedSendCopyMetricsSnapshotNative,
+              client_ffi.CtFfiBorrowedSendCopyMetricsSnapshotDart
+            >('ct_ffi_borrowed_send_copy_metrics_snapshot');
+        _equal(snapshot(info + 1), 0);
+        _equal(info[0], 0x12345678);
+        _equal(info[2], 0x76543210);
+        _equal(clientMetrics.ffiBorrowedSendCopyBytesTotal, info[1]);
+        _equal(routerMetrics.ffiBorrowedSendCopyBytesTotal, info[1]);
+        _equal(snapshot(ffi.nullptr), -4);
+        final initial = info[1];
+        final borrowed = library
+            .lookupFunction<
+              client_ffi.CtSendMessageNative,
+              client_ffi.CtSendMessageDart
+            >('ct_send_message');
+        if (borrowed(0, input, 3) == 0) {
+          throw StateError('Reserved connection zero must reject sending');
+        }
+        _equal(snapshot(info + 1), 0);
+        _equal(info[1] - initial, 3);
+        _equal(
+          nativeClient
+              .transportCopyMetricsSnapshot()
+              .deltaFrom(clientMetrics)
+              .ffiBorrowedSendCopyBytesTotal,
+          3,
+        );
+        final beforeOwned = nativeRouter.transportCopyMetricsSnapshot();
+        var rejected = false;
+        try {
+          nativeRouter.sendMessage(0, input.asTypedList(3));
+        } on router.NativeTransportException {
+          rejected = true;
+        }
+        _equal(rejected, true);
+        final delta = nativeRouter.transportCopyMetricsSnapshot().deltaFrom(
+          beforeOwned,
+        );
+        _equal(delta.dartToNativeCopiedBytesTotal, 3);
+        _equal(delta.ffiBorrowedSendCopyBytesTotal, 0);
+      } finally {
+        calloc.free(input);
+        calloc.free(info);
+      }
+    } else {
+      _equal(clientMetrics.ffiBorrowedSendCopyBytesTotal, null);
+      _equal(routerMetrics.ffiBorrowedSendCopyBytesTotal, null);
+      _equal(
+        clientMetrics.deltaFrom(clientMetrics).ffiBorrowedSendCopyBytesTotal,
+        null,
+      );
+      _equal(
+        routerMetrics.deltaFrom(routerMetrics).ffiBorrowedSendCopyBytesTotal,
+        null,
+      );
+    }
+
     if (library.providesSymbol('ct_tokio_rustls_copy_metrics_snapshot')) {
       final info = calloc<ffi.Uint64>(3);
       try {

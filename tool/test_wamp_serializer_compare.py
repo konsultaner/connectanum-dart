@@ -91,6 +91,7 @@ class WampSerializerCompareTest(unittest.TestCase):
                     },
                     "router": {
                         "dart_to_native_copy_bytes": 512,
+                        "ffi_borrowed_send_input_copy_bytes": 0,
                         "io_buffer_front_copy_bytes": 0,
                         "io_buffered_read_copy_bytes": 0,
                         "websocket_coalesce_copy_bytes": 0,
@@ -519,15 +520,14 @@ class WampSerializerCompareTest(unittest.TestCase):
 
     def test_rejects_missing_native_input_copy_breakdown(self) -> None:
         for process in ("router", "client"):
-            for field in ("io_buffer_front_copy_bytes", "io_buffered_read_copy_bytes"):
+            for field in ("io_buffer_front_copy_bytes", "io_buffered_read_copy_bytes", "ffi_borrowed_send_input_copy_bytes"):
                 for invalid in (None, True, -1, float("inf"), {"status": "not_measured"}):
                     with self.subTest(process=process, field=field, invalid=invalid):
                         report = self._report("case_flatbuffers", "flatbuffers", 0)
                         report["client_impl"] = "native"
                         breakdown = report["copy_metrics"]["known_own_copy_breakdown"]
                         breakdown["client"] = {
-                            "io_buffer_front_copy_bytes": 0,
-                            "io_buffered_read_copy_bytes": 0,
+                            field: 0 for field in compare.NATIVE_CLIENT_COPY_FIELDS
                         }
                         if invalid is None:
                             breakdown[process].pop(field)

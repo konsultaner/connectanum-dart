@@ -5932,7 +5932,7 @@ pub extern "C" fn ct_send_message(
             return ERR_INVALID_ARGUMENT;
         }
         let slice = unsafe { std::slice::from_raw_parts(payload_ptr, payload_len as usize) };
-        Bytes::copy_from_slice(slice)
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(slice)
     };
     match send_wamp_message(connection_id, payload) {
         Ok(()) => SUCCESS,
@@ -6091,7 +6091,7 @@ pub extern "C" fn ct_send_message_fragmented(
             return ERR_INVALID_ARGUMENT;
         }
         let slice = unsafe { std::slice::from_raw_parts(payload_ptr, payload_len as usize) };
-        Bytes::copy_from_slice(slice)
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(slice)
     };
     if payload.is_empty() || fragment_len as usize >= payload.len() {
         return match send_wamp_message(connection_id, payload) {
@@ -6204,14 +6204,18 @@ pub extern "C" fn ct_send_message_file_segment(
     } else if prefix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(prefix_ptr, prefix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(prefix_ptr, prefix_len as usize)
+        })
     };
     let suffix = if suffix_len == 0 {
         Bytes::new()
     } else if suffix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(suffix_ptr, suffix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(suffix_ptr, suffix_len as usize)
+        })
     };
     let file_len = match usize::try_from(file_len) {
         Ok(file_len) => file_len,
@@ -6253,14 +6257,18 @@ pub extern "C" fn ct_send_message_base64_file_segment(
     } else if prefix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(prefix_ptr, prefix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(prefix_ptr, prefix_len as usize)
+        })
     };
     let suffix = if suffix_len == 0 {
         Bytes::new()
     } else if suffix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(suffix_ptr, suffix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(suffix_ptr, suffix_len as usize)
+        })
     };
     let file_len = match usize::try_from(file_len) {
         Ok(file_len) => file_len,
@@ -6371,7 +6379,9 @@ fn send_message_native_e2ee_file_segment_impl(
     } else if prefix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(prefix_ptr, prefix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(prefix_ptr, prefix_len as usize)
+        })
     };
     if suffix_len < 0 {
         return ERR_INVALID_ARGUMENT;
@@ -6381,7 +6391,9 @@ fn send_message_native_e2ee_file_segment_impl(
     } else if suffix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(suffix_ptr, suffix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(suffix_ptr, suffix_len as usize)
+        })
     };
     let file_len = match usize::try_from(file_len) {
         Ok(value) => value,

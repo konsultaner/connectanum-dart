@@ -16,6 +16,7 @@ void main() {
             );
             final counters = <String, Object?>{
               'dart_to_native_copy_bytes': 23,
+              'ffi_borrowed_send_input_copy_bytes': 12,
               'io_buffer_front_copy_bytes': 3,
               'io_buffered_read_copy_bytes': 7,
               'websocket_mask_copy_bytes': 43,
@@ -34,7 +35,7 @@ void main() {
             final ws = transport == WampTransport.websocket;
             expect(
               metrics['transport_copy_bytes'],
-              native ? (ws ? 93 : 33) : 175,
+              native ? (ws ? 105 : 45) : 175,
             );
             expect(
               metrics['measurement_scope'],
@@ -421,6 +422,35 @@ void main() {
       expect(metrics['tls_copy_bytes'], isA<Map>());
     });
 
+    test('borrowed FFI input copies are separate from Dart staging', () {
+      final metrics = mergeRouterTransportCopyMetrics(
+        _clientMetrics(),
+        scenario: _scenario(),
+        before: _routerMetrics(dartToNative: 10, ffiBorrowed: 20),
+        after: _routerMetrics(dartToNative: 16, ffiBorrowed: 29),
+      );
+      expect(metrics['transport_copy_bytes'], 55);
+      final router =
+          (metrics['known_own_copy_breakdown'] as Map)['router'] as Map;
+      expect(router['dart_to_native_copy_bytes'], 6);
+      expect(router['ffi_borrowed_send_input_copy_bytes'], 9);
+    });
+
+    test('absent borrowed FFI observation prevents complete coverage', () {
+      final metrics = mergeRouterTransportCopyMetrics(
+        _clientMetrics(),
+        scenario: _scenario(),
+        before: _routerMetrics(ffiBorrowed: null),
+        after: _routerMetrics(ffiBorrowed: null),
+      );
+      expect(metrics['transport_copy_bytes'], isA<Map>());
+      expect((metrics['coverage'] as Map)['transport_copy_bytes'], 'partial');
+      expect(
+        (metrics['coverage'] as Map)['unknown_boundaries'],
+        contains('router borrowed FFI send copy counter is unavailable'),
+      );
+    });
+
     test('counts client and router cleartext RawSocket copies', () {
       final metrics = mergeRouterTransportCopyMetrics(
         _clientMetrics(),
@@ -592,6 +622,7 @@ Map<String, Object?> _clientMetrics({
   'known_own_copy_breakdown': <String, Object?>{
     'client': <String, Object?>{
       'dart_to_native_copy_bytes': 40,
+      'ffi_borrowed_send_input_copy_bytes': 0,
       'io_buffer_front_copy_bytes': 0,
       'io_buffered_read_copy_bytes': 0,
       'websocket_mask_copy_bytes': 0,
@@ -619,6 +650,7 @@ NativeRouterTransportCopyMetrics _routerMetrics({
   int? tlsPlaintext = 0,
   int? ioFront = 0,
   int? ioRead = 0,
+  int? ffiBorrowed = 0,
 }) => NativeRouterTransportCopyMetrics(
   dartToNativeCopiedBytesTotal: dartToNative,
   websocketMaskCopyBytesTotal: 0,
@@ -626,6 +658,7 @@ NativeRouterTransportCopyMetrics _routerMetrics({
   tlsPlaintextAcceptedBytesTotal: tlsPlaintext,
   ioBufferFrontCopyBytesTotal: ioFront,
   ioBufferedReadCopyBytesTotal: ioRead,
+  ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 );
 
 NativeRouterTransportCopyMetrics _routerSourceMetrics(int value) =>
@@ -636,6 +669,7 @@ NativeRouterTransportCopyMetrics _routerSourceMetrics(int value) =>
       tlsPlaintextAcceptedBytesTotal: 0,
       ioBufferFrontCopyBytesTotal: 0,
       ioBufferedReadCopyBytesTotal: 0,
+      ffiBorrowedSendCopyBytesTotal: 0,
       rustlsOutboundChunkCopyBytesTotal: value * 1,
       rustlsQueueReadCopyBytesTotal: value * 2,
       rustlsDeframerAppendCopyBytesTotal: value * 3,
