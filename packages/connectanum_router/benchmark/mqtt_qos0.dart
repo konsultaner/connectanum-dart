@@ -14,6 +14,16 @@ Future<void> main(List<String> args) async {
   if (args.isNotEmpty && args.length != 2) {
     throw ArgumentError('use no arguments or host port');
   }
+  final versionLabel = Platform.environment['MQTT_BENCH_VERSION'] ?? '5';
+  final version = switch (versionLabel) {
+    '5' => MqttVersion.v5,
+    '311' => MqttVersion.v311,
+    _ => throw ArgumentError.value(
+      versionLabel,
+      'MQTT_BENCH_VERSION',
+      'expected 5 or 311',
+    ),
+  };
   final broker = args.isEmpty
       ? await MqttQos0Broker.bind('127.0.0.1', 0)
       : null;
@@ -36,7 +46,7 @@ Future<void> main(List<String> args) async {
         host,
         port,
         clientId: 'bench-sub-$i',
-        version: MqttVersion.v5,
+        version: version,
       );
       subscribers.add(subscriber);
       await subscriber.subscribe('bench/one');
@@ -45,7 +55,7 @@ Future<void> main(List<String> args) async {
       host,
       port,
       clientId: 'bench-pub',
-      version: MqttVersion.v5,
+      version: version,
     );
     const warmup = 100;
     final count =
@@ -209,10 +219,11 @@ Future<void> main(List<String> args) async {
       jsonEncode({
         'broker': broker == null ? '$host:$port' : 'connectanum-qos0',
         'profile':
-            'mqtt5-tcp-qos0-${subscriberCount == 1 ? 'one-subscriber' : 'fanout$subscriberCount'}-128B'
+            'mqtt$versionLabel-tcp-qos0-${subscriberCount == 1 ? 'one-subscriber' : 'fanout$subscriberCount'}-128B'
             '${window == 0 ? '' : '-window$window'}'
             '${publishMode == 'batch' ? '-batch$window' : ''}',
         'publish_mode': publishMode,
+        'mqtt_version': versionLabel,
         'window_messages': window,
         'subscribers': subscriberCount,
         'payload_bytes': payloadSize,

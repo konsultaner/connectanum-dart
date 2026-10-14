@@ -34,6 +34,7 @@ def rows(connectanum_speed=80000, connectanum_p99=120, received=2000):
                 "target": target,
                 "run": run,
                 "profile": BUDGET["profile"],
+                "mqtt_version": "5",
                 "sent": 2000,
                 "received": received if target == "connectanum" else 2000,
                 "received_per_subscriber": [
@@ -109,6 +110,22 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         single[0]["publish_mode"] = "batch"
         with self.assertRaisesRegex(ValueError, "workload"):
             compare(single, BUDGET)
+
+    def test_mqtt311_budget_requires_actual_mqtt311_client_runs(self):
+        budget = dict(BUDGET, mqtt_version="311",
+                      profile="mqtt311-tcp-qos0-one-subscriber-128B")
+        samples = rows()
+        for row in samples:
+            row["profile"] = budget["profile"]
+        with self.assertRaisesRegex(ValueError, "workload"):
+            compare(samples, budget)
+        for row in samples:
+            row["mqtt_version"] = "311"
+        self.assertTrue(compare(samples, budget)["passed"])
+        with self.assertRaisesRegex(ValueError, "profile/version mismatch"):
+            compare(samples, dict(budget, profile=BUDGET["profile"]))
+        with self.assertRaisesRegex(ValueError, "invalid MQTT version"):
+            compare(samples, dict(budget, mqtt_version="31"))
 
     def test_fanout_requires_exact_delivery_on_every_subscriber(self):
         budget = dict(BUDGET, profile="mqtt5-tcp-qos0-fanout4-128B-window128-batch128",

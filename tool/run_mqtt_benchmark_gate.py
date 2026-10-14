@@ -22,6 +22,11 @@ DEFAULT_BUDGET = ROOT / "tool" / "mqtt_benchmark_budget.json"
 
 def compare(rows, budget):
     profile = budget["profile"]
+    mqtt_version = budget.get("mqtt_version", "5")
+    if mqtt_version not in ("5", "311"):
+        raise ValueError(f"invalid MQTT version: {mqtt_version}")
+    if not profile.startswith(f"mqtt{mqtt_version}-"):
+        raise ValueError(f"MQTT benchmark profile/version mismatch: {profile}")
     publish_mode = budget.get("publish_mode", "single")
     gate = budget["gate"]
     if gate not in ("correctness", "performance"):
@@ -45,6 +50,7 @@ def compare(rows, budget):
             raise ValueError(f"{name}: missing or duplicate run identifiers")
         for row in samples:
             if (row["profile"] != profile or
+                    row.get("mqtt_version") != mqtt_version or
                     row.get("publish_mode", "single") != publish_mode or
                     row.get("window_messages", 0) != window or
                     row["payload_bytes"] != payload_bytes or
@@ -74,6 +80,7 @@ def compare(rows, budget):
                  median("mosquitto", "latency_p99_us"))
     result = {
         "profile": profile,
+        "mqtt_version": mqtt_version,
         "publish_mode": publish_mode,
         "gate": gate,
         "runs_per_target": repeats,
@@ -261,6 +268,7 @@ def main():
                 for target, target_port in targets_for_repeat(
                         repeat, connectanum_port, port):
                     env = dict(os.environ,
+                               MQTT_BENCH_VERSION=budget.get("mqtt_version", "5"),
                                MQTT_BENCH_MESSAGES=str(budget["messages_per_run"]),
                                MQTT_BENCH_WINDOW=str(budget.get("window_messages", 0)),
                                MQTT_BENCH_SUBSCRIBERS=str(budget.get("subscribers", 1)),
