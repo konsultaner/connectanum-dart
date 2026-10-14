@@ -90,6 +90,16 @@ class MqttBenchmarkGateTest(unittest.TestCase):
             with self.assertRaisesRegex(TimeoutError, "did not listen"):
                 gate.wait_for_listener(1883, pending, timeout=1)
 
+    def test_listener_wait_retries_connection_refusal(self):
+        pending = mock.Mock(poll=mock.Mock(return_value=None))
+        with (mock.patch.object(gate.socket, "create_connection",
+                                side_effect=[OSError("refused"), mock.MagicMock()])
+              as connect,
+              mock.patch.object(gate.time, "sleep") as sleep):
+            gate.wait_for_listener(1883, pending)
+        self.assertEqual(connect.call_count, 2)
+        sleep.assert_called_once_with(0.05)
+
     def test_forced_broker_stop_reaps_a_stuck_process(self):
         stuck = mock.Mock()
         stuck.wait.side_effect = [

@@ -90,6 +90,18 @@ The matching raw rows are checked in as [burst](mqtt-qos0-aot-ef3f02a1-burst-202
 
 Connectanum's median end-to-end p95/p99 latency is 1.111/1.169 ms for MQTT 5 sequential, 1.104/1.169 ms for MQTT 3.1.1 sequential, 0.624/0.673 ms for bounded batch, and 0.413/0.458 ms for four-subscriber fan-out on this local loopback host. These include the TCP stack and client callback; they are not broker-only or cross-machine latency claims.
 
+The [hosted Linux MQTT job](https://github.com/konsultaner/connectanum-dart/actions/runs/38586753441/job/115933028492) for source head `ef3f02a1` checks out PR merge commit `a5b96440` and passes Paho interoperability and all five real benchmark profiles. Each summary reports `git_dirty: false`. The overall job fails afterward at the exact Python coverage gate: the [coverage JSON](mqtt-qos0-aot-ef3f02a1-hosted-python-coverage-2026-10-14.json) shows 183/185 executable lines, with only lines 163–164 of the listener's transient connection-refusal retry unobserved on this fast-starting Linux runner. The next source change adds a deterministic refusal-then-success regression; no production path, numeric budget or coverage exclusion changes.
+
+| Hosted Linux profile at source `ef3f02a1` | Connectanum delivered/s | Mosquitto delivered/s | Throughput ratio | p95 ratio | p99 ratio | Broker CPU ratio | Connectanum broker RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| [Burst correctness](mqtt-qos0-aot-ef3f02a1-hosted-burst-2026-10-14-summary.json) | 81,370 | 86,192 | 0.944 | 1.314 | 1.325 | CPU resolution too coarse | 17.3 MB |
+| [MQTT 5 sequential](mqtt-qos0-aot-ef3f02a1-hosted-sustained-2026-10-14-summary.json) | 86,496 | 89,473 | 0.967 | 1.600 | 1.606 | 1.258 | 11.3 MB |
+| [MQTT 3.1.1 sequential](mqtt-qos0-aot-ef3f02a1-hosted-v311-sustained-2026-10-14-summary.json) | 96,419 | 90,589 | 1.064 | 1.468 | 1.597 | 1.105 | 11.2 MB |
+| [MQTT 5 batch](mqtt-qos0-aot-ef3f02a1-hosted-batched-2026-10-14-summary.json) | 566,832 | 83,587 | 6.781 | 0.145 | 0.162 | 0.070 | 18.5 MB |
+| [MQTT 5 four-subscriber fan-out](mqtt-qos0-aot-ef3f02a1-hosted-fanout-2026-10-14-summary.json) | 893,583 | 97,891 | 9.128 | 0.102 | 0.117 | 0.052 | 10.8 MB |
+
+The matching hosted raw rows are preserved for [burst](mqtt-qos0-aot-ef3f02a1-hosted-burst-2026-10-14.jsonl), [MQTT 5 sequential](mqtt-qos0-aot-ef3f02a1-hosted-sustained-2026-10-14.jsonl), [MQTT 3.1.1 sequential](mqtt-qos0-aot-ef3f02a1-hosted-v311-sustained-2026-10-14.jsonl), [batch](mqtt-qos0-aot-ef3f02a1-hosted-batched-2026-10-14.jsonl) and [fan-out](mqtt-qos0-aot-ef3f02a1-hosted-fanout-2026-10-14.jsonl). The shorter hosted run's absolute rates differ from the M3 Ultra result, so these cross-machine rates are not compared as a regression claim.
+
 The checked-in burst summary records the relative thresholds that were active at baseline commit `078e85c7`. The later hosted 2,000-message AOT rows varied too widely for a reliable performance decision, so the current burst gate checks correctness only. The baseline artifact remains unchanged for provenance.
 
 ## Outstanding measurements
