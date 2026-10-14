@@ -38,8 +38,23 @@ pass after the repair, including borrowed-pointer preservation and EOF.
 An additive optional scalar C API exposes this partial counter to both Dart
 runtimes and client/router benchmark breakdowns. The old 48-byte Rustls ABI
 is unchanged; the published beta.8 library correctly returns null for the
-new optional metric. Complete TLS/SDK/crypto/transcode totals remain unknown;
-no performance budget, mandatory metric or coverage label is weakened.
+new optional metric. Complete dependency TLS/SDK/crypto totals remain unknown. On 2026-10-14
+the user explicitly selects the standard Dart SDK scope: prove Connectanum
+buffer boundaries and label unmeasured dependency internals. The follow-up
+uses a new versioned scope marker, validates owned totals against their
+client/router breakdowns, and permits only active, precisely labelled TLS/SDK
+masking exclusions. Missing owned counters, E2EE/transcode gaps and all numeric
+performance/resource budgets remain blockers. See [approved contract](../research/2026-10-14-standard-sdk-copy-scope.md).
+Resulting-source `bin/verify` passes at exit 0; all six scope code/test/policy
+inputs match their frozen hashes. The 32 comparison and 66 owned-counter cases
+pass, including forged totals and malformed evidence. Bounded Qwen test planning
+and review complete; the heavyweight GLM judge times out, so the contract is
+also checked manually against the actual transport/source boundaries. PR #129
+contains the measurement repairs and this approved scope update. At preceding
+head `7965857f`, all five production platforms pass 170 cases with zero skips;
+downloaded profile logs, ABI/lifecycle guards and source hashes are audited.
+WAMP profile gates, binding, GuardMalloc, fast checks and package dry run pass.
+New-head hosted acceptance remains pending; no parity is established.
 The first full run reproduces the strengthened GC probe failure: actual
 collections produce paired category-GC collection scopes, but the old parser
 reports zero. Actual VM evidence also reproduces duplicated notifications and heap

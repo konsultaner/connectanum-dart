@@ -130,19 +130,30 @@ The comparator rejects older complete-coverage labels without this evidence.
 The prepend path copies an unread remainder once instead of twice; this does
 not establish performance parity. See [source and checks](research/2026-10-07-native-prefetched-input-copies.md).
 
-`transport_copy_bytes` sums measured copy operations across the client worker
-and router process for the active cleartext path. A payload can be counted
+On 2026-10-14 the user approves the standard Dart SDK scope: complete evidence
+at Connectanum's documented buffer boundaries, with unmeasured dependency
+internals explicitly labelled. [The versioned contract](research/2026-10-14-standard-sdk-copy-scope.md)
+records this decision. Every numeric performance/resource budget and primary
+case remains unchanged; earlier results retain their original interpretation.
+
+`transport_copy_bytes` sums measured owned buffer-copy operations across the client worker
+and router process for the active cleartext or TLS path. A payload can be counted
 again at a later layer, so this aggregate is copy traffic, not unique
 application bytes. Builder input/growth and any transcode copies stay
 separate. Each report includes a `known_own_transport_copy_bytes` lower bound
 and a per-path breakdown even when the full transport total cannot be measured.
 The evaluator accepts a numeric transport total only when
 `coverage.transport_copy_bytes` is `complete_connectanum_owned_path` and
-`coverage.unknown_boundaries` is empty. Missing or partial coverage fails the
-campaign gate.
+`coverage.unknown_boundaries` is empty, all required client/router boundary
+counters are valid, and the total equals their sum. The new
+`measurement_scope: connectanum_buffer_boundaries_v1` marker is mandatory.
+Missing owned counters or partial coverage still fail the campaign gate.
+Dependency exclusions live separately in `unmeasured_dependency_boundaries`
+and must match the actual client, transport and TLS configuration.
 
-TLS rows keep `transport_copy_bytes` and `tls_copy_bytes` as `not_measured`
-because complete Rustls/Tokio-Rustls and SDK copy coverage remains missing;
+TLS rows can report a numeric owned `transport_copy_bytes` while keeping
+`tls_copy_bytes` explicitly dependency-labelled `not_measured`,
+because complete Rustls/Tokio-Rustls and SDK internal coverage remains missing;
 `tls_plaintext_accepted_bytes` measures acceptance and remains a throughput
 diagnostic. Mixed-serializer
 router transcodes are also not measured. Snapshots use before/after deltas
@@ -162,8 +173,9 @@ It measures successful internal and public client/server `AsyncRead` extraction
 copies, including batched reads; borrowed `AsyncBufRead` views and consumption
 add zero. This fixes a reproduced undercount in the original source observer.
 It preserves the 48-byte Rustls ABI and leaves older libraries unavailable.
-This remains partial TLS evidence and does not make either mandatory TLS or
-transport total numeric. See [source tests and bridge](research/2026-10-14-tokio-rustls-public-copy-metrics.md).
+This remains partial TLS evidence and does not make a whole TLS total numeric.
+The owned transport total is established independently under the approved scope.
+See [source tests and bridge](research/2026-10-14-tokio-rustls-public-copy-metrics.md).
 
 The client worker now snapshots optional native crypto staging counters separately
 from its transport counters. Native XSalsa encryption constructs the existing
@@ -382,7 +394,10 @@ using pointer/allocation identity or independently checked copied-byte counters.
 Report builder growth, cryptography, TLS, masking, coalescing and transcoding
 separately. A retained frame owner or fragment count alone is not copy evidence.
 Report CPU, allocations/GC, live and peak retained bytes, wire bytes and latency
-distributions. Missing metrics cannot pass. CPU/memory point-estimate
+distributions. Missing owned metrics cannot pass. Only active TLS internals and
+Dart SDK WebSocket masking may use the versioned dependency-labelled exclusion;
+native masking, owned transport, E2EE staging and transcodes cannot use it.
+CPU/memory point-estimate
 regressions fail the declared relative budgets; the 5% confidence-bound allowance
 does not waive a regression.
 
