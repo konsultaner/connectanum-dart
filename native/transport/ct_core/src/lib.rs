@@ -2506,17 +2506,9 @@ impl ListenerRegistry {
                 }
                 let _ = reader_close.send(ConnectionTaskSignal::ReaderClosed);
             });
-            let writer_task = handle.spawn(async move {
-                let mut writer = writer;
-                let mut send_rx = send_rx;
-                while let Some((bytes, _permit)) = send_rx.recv().await {
-                    if writer.write_all(&bytes).await.is_err() {
-                        break;
-                    }
-                }
-                let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
-            });
-            (reader_task.abort_handle(), writer_task.abort_handle())
+            let writer_abort =
+                spawn_mqtt_tcp_writer(handle.clone(), writer, send_rx, close_tx.clone());
+            (reader_task.abort_handle(), writer_abort)
         };
         self.connections
             .lock()
@@ -4126,6 +4118,23 @@ fn spawn_connection_heartbeat(
     task.abort_handle()
 }
 
+fn spawn_mqtt_tcp_writer<W: AsyncWrite + Unpin + Send + 'static>(
+    handle: tokio::runtime::Handle,
+    mut writer: W,
+    mut send_rx: mpsc::Receiver<MqttOutboundChunk>,
+    close_tx: UnboundedSender<ConnectionTaskSignal>,
+) -> AbortHandle {
+    let task = handle.spawn(async move {
+        while let Some((bytes, _permit)) = send_rx.recv().await {
+            if writer.write_all(&bytes).await.is_err() {
+                break;
+            }
+        }
+        let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
+    });
+    task.abort_handle()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn spawn_mqtt_websocket_reader(
     handle: tokio::runtime::Handle,
@@ -4367,9 +4376,9 @@ fn websocket_buffer_contains_complete_frame(buffer: &[u8]) -> bool {
     payload_length <= (buffer.len() - header_length) as u64
 }
 
-fn spawn_mqtt_websocket_writer(
+fn spawn_mqtt_websocket_writer<W: AsyncWrite + Unpin + Send + 'static>(
     handle: tokio::runtime::Handle,
-    mut writer: IoWriteHalf,
+    mut writer: W,
     mut send_rx: mpsc::Receiver<MqttOutboundChunk>,
     mut control_rx: mpsc::Receiver<(u8, Bytes)>,
     close_tx: UnboundedSender<ConnectionTaskSignal>,
@@ -9533,6 +9542,59 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mqtt_tcp_reader_notifies_registered_wakeup_for_inbound_bytes() {
+        static WAKEUP_COUNT: AtomicU64 = AtomicU64::new(0);
+        extern "C" fn wakeup(_: i32) {
+            WAKEUP_COUNT.fetch_add(1, Ordering::AcqRel);
+        }
+
+        WAKEUP_COUNT.store(0, Ordering::Release);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (server, peer_addr) = listener.accept().await.unwrap();
+        let registry = Arc::new(ListenerRegistry::default());
+        let connection_id = ConnectionId(45);
+        Arc::clone(&registry).register_mqtt_stream_connection(
+            tokio::runtime::Handle::current(),
+            ListenerId(1),
+            connection_id,
+            Arc::new(build_client_endpoint_config(
+                "127.0.0.1",
+                0,
+                false,
+                TransportProtocol::Mqtt,
+                config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+                None,
+                None,
+            )),
+            IoStream::plain(server),
+            5,
+            peer_addr,
+            false,
+        );
+        registry
+            .set_mqtt_wakeup(connection_id, Some(wakeup))
+            .unwrap();
+
+        client.write_all(b"inbound").await.unwrap();
+        time::timeout(Duration::from_secs(5), async {
+            while WAKEUP_COUNT.load(Ordering::Acquire) == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(WAKEUP_COUNT.load(Ordering::Acquire), 1);
+        assert_eq!(
+            registry.poll_mqtt_chunk(connection_id, 64).unwrap(),
+            Some(Bytes::from_static(b"inbound"))
+        );
+        registry.shutdown();
+    }
+
+    #[tokio::test]
     async fn mqtt_registry_reports_no_chunk_after_inbound_disconnect() {
         let registry = ListenerRegistry::default();
         let connection_id = ConnectionId(44);
@@ -10038,6 +10100,100 @@ mod tests {
         );
         drop(control_tx);
         drop(outbound);
+        assert_eq!(
+            time::timeout(Duration::from_secs(5), close_rx.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::WriterClosed)
+        );
+        writer_abort.abort();
+    }
+
+    #[tokio::test]
+    async fn mqtt_tcp_writer_signals_close_when_the_peer_rejects_a_write() {
+        let (writer, peer) = tokio::io::duplex(16);
+        drop(peer);
+        let (outbound, send_rx) = MqttOutboundQueue::new(1);
+        outbound
+            .enqueue(ConnectionId(46), Bytes::from_static(b"mqtt"))
+            .unwrap();
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+        let writer_abort =
+            spawn_mqtt_tcp_writer(tokio::runtime::Handle::current(), writer, send_rx, close_tx);
+        assert_eq!(
+            time::timeout(Duration::from_secs(5), close_rx.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::WriterClosed)
+        );
+        writer_abort.abort();
+    }
+
+    #[tokio::test]
+    async fn mqtt_websocket_writer_signals_close_when_the_peer_rejects_a_frame() {
+        let (writer, peer) = tokio::io::duplex(16);
+        drop(peer);
+        let (outbound, send_rx) = MqttOutboundQueue::new(1);
+        outbound
+            .enqueue(ConnectionId(47), Bytes::from_static(b"mqtt"))
+            .unwrap();
+        let (control_tx, control_rx) = mpsc::channel(1);
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+        let writer_abort = spawn_mqtt_websocket_writer(
+            tokio::runtime::Handle::current(),
+            writer,
+            send_rx,
+            control_rx,
+            close_tx,
+        );
+        assert_eq!(
+            time::timeout(Duration::from_secs(5), close_rx.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::WriterClosed)
+        );
+        drop(control_tx);
+        writer_abort.abort();
+    }
+
+    #[tokio::test]
+    async fn mqtt_websocket_writer_signals_close_when_flush_fails() {
+        struct FailingFlushWriter;
+
+        impl AsyncWrite for FailingFlushWriter {
+            fn poll_write(
+                self: Pin<&mut Self>,
+                _: &mut Context<'_>,
+                bytes: &[u8],
+            ) -> Poll<io::Result<usize>> {
+                Poll::Ready(Ok(bytes.len()))
+            }
+
+            fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
+                Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::BrokenPipe,
+                    "flush failed",
+                )))
+            }
+
+            fn poll_shutdown(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
+                Poll::Ready(Ok(()))
+            }
+        }
+
+        let (outbound, send_rx) = MqttOutboundQueue::new(1);
+        outbound
+            .enqueue(ConnectionId(48), Bytes::from_static(b"mqtt"))
+            .unwrap();
+        let (_control_tx, control_rx) = mpsc::channel(1);
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+        let writer_abort = spawn_mqtt_websocket_writer(
+            tokio::runtime::Handle::current(),
+            FailingFlushWriter,
+            send_rx,
+            control_rx,
+            close_tx,
+        );
         assert_eq!(
             time::timeout(Duration::from_secs(5), close_rx.recv())
                 .await
