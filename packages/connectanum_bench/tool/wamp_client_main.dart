@@ -7,6 +7,7 @@ import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/transport_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_bench/src/e2ee_copy_metrics.dart';
+import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
 import 'package:connectanum_client/src/transport/dart_transport_copy_metrics.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
@@ -131,6 +132,8 @@ Future<void> main(List<String> args) async {
         final fileMetricsBefore = nativeRuntime.fileSegmentMetricsSnapshot();
         final copyMetricsBefore = nativeRuntime.transportCopyMetricsSnapshot();
         final e2eeMetricsBefore = nativeRuntime.e2eeCopyMetricsSnapshot();
+        final rawFrameMetricsBefore = nativeRuntime
+            .rawFrameCopyMetricsSnapshot();
         final rssBeforeBytes = ProcessInfo.currentRss;
         late final List<WampSample> samples;
         late final DartTransportCopyMetricsSnapshot dartCopyMetrics;
@@ -155,6 +158,10 @@ Future<void> main(List<String> args) async {
         final e2eeMetrics = nativeRuntime.e2eeCopyMetricsSnapshot().deltaFrom(
           e2eeMetricsBefore,
         );
+        final rawFrameMetrics = rawFrameCopyMetricsDelta(
+          rawFrameMetricsBefore,
+          nativeRuntime.rawFrameCopyMetricsSnapshot(),
+        );
         stdout.writeln(
           jsonEncode({
             'samples': samples.map((sample) => sample.toJson()).toList(),
@@ -176,6 +183,7 @@ Future<void> main(List<String> args) async {
               e2eeMetrics,
               portableE2eeMetrics,
               pptMetrics,
+              rawFrameMetrics,
             ),
             'process_metrics': {
               'pid': pid,
@@ -207,6 +215,7 @@ Map<String, Object?> _copyMetricsFor(
   NativeE2eeCopyMetrics e2eeMetrics,
   PortableE2eeCopyMetricsSnapshot portableE2eeMetrics,
   PptCopyMetricsSnapshot pptMetrics,
+  Map<String, Object?> rawFrameMetrics,
 ) {
   Map<String, Object?> notApplicable(String reason) => {
     'status': 'not_applicable',
@@ -272,6 +281,7 @@ Map<String, Object?> _copyMetricsFor(
         }
       : dartCopyMetrics.toJson();
   return {
+    'raw_frame_copy_breakdown': {'client': rawFrameMetrics},
     ...clientTransportCopyMetricsFor(scenario, knownOwnCopyBreakdown),
     ...e2eeCopyMetricsFor(
       scenario,

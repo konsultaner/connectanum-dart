@@ -1360,8 +1360,9 @@ pub use rawsocket::Serializer as RawSocketSerializer;
 pub use wamp::{
     compose_flatbuffers_message_segments, encode_flatbuffers_message,
     encode_flatbuffers_message_segments, parse_message, parse_message_segments,
-    validate_flatbuffers_payload, ParseError as WampParseError, ParsedMessage,
-    Payload as WampPayload, RawFrame as WampRawFrame, WampMessage,
+    raw_frame_copy_metrics_snapshot, validate_flatbuffers_payload, ParseError as WampParseError,
+    ParsedMessage, Payload as WampPayload, RawFrame as WampRawFrame, RawFrameCopyMetricsSnapshot,
+    WampMessage,
 };
 
 static RUNTIME_MANAGER: OnceLock<RuntimeManager> = OnceLock::new();

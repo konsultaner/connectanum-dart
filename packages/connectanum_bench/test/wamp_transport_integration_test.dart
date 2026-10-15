@@ -13,6 +13,7 @@ import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
+import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/connectanum.dart' as client;
 import 'package:connectanum_client/native_buffers.dart' as native_buffers;
@@ -51,6 +52,64 @@ void main() {
     tearDownAll(() async {
       await harness?.close();
     });
+
+    for (final serializer in [
+      WampSerializer.cbor,
+      WampSerializer.msgpack,
+      WampSerializer.flatbuffers,
+    ]) {
+      test(
+        'native raw-frame observation retains $serializer process scope',
+        () async {
+          final before = harness!.runtime.rawFrameCopyMetricsSnapshot();
+          final result = await harness!.nativeWorker.runWithMetrics(
+            WampScenario(
+              transport: WampTransport.rawsocket,
+              clientImplementation: WampClientImplementation.native,
+              serializer: serializer,
+              peerSerializer: serializer,
+              mode: WampMode.rpc,
+              uri: 'bench.rpc.echo',
+              iterations: 2,
+              concurrency: 1,
+              payloadBytes: 65536,
+              payloadConstruction: WampPayloadConstruction.nativeBuffer,
+              pptScheme: 'x_connectanum_bench_typed',
+              pptSerializer: serializer.name,
+            ),
+          );
+          final router = rawFrameCopyMetricsDelta(
+            before,
+            harness!.runtime.rawFrameCopyMetricsSnapshot(),
+          );
+          final client =
+              (result.copyMetrics['raw_frame_copy_breakdown'] as Map)['client']
+                  as Map;
+          expect(result.samples, hasLength(2));
+          for (final observed in [client, router]) {
+            expect(observed['status'], 'measured');
+            expect(
+              observed['known_copy_bytes'],
+              (observed['coalescing_copy_bytes'] as int) +
+                  (observed['range_copy_bytes'] as int),
+            );
+            expect(
+              observed['single_segment_contiguous_requests'],
+              greaterThanOrEqualTo(0),
+            );
+            expect(
+              observed['multi_segment_contiguous_requests'],
+              greaterThanOrEqualTo(0),
+            );
+          }
+          print(
+            'RAW_FRAME_OBSERVATION ${jsonEncode({'codec': serializer.name, 'client': client, 'router': router})}',
+          );
+        },
+        skip: skipReason,
+        timeout: const Timeout(Duration(seconds: 45)),
+      );
+    }
 
     for (final transport in WampTransport.values) {
       for (final mode in [WampMode.rpc, WampMode.pubsub]) {

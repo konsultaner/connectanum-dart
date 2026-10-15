@@ -83,8 +83,9 @@ abstract final class BenchPayloadCodec {
     }
   }
 
-  // The pinned model needs at most 64 bytes beyond its byte vector. Keep the
-  // allocation aligned and avoid doubling to 128 KiB for a 64 KiB body.
+  // The pinned model writes all three slots and needs 40 bytes beyond its
+  // byte vector, padded to the builder's eight-byte alignment. Exact sizing
+  // also produces a whole Dart backing array rather than a partial view.
   static int _initialFlatBufferSize(int bodyBytes) {
     RangeError.checkValueInInterval(
       bodyBytes,
@@ -92,7 +93,7 @@ abstract final class BenchPayloadCodec {
       64 * 1024 * 1024,
       'bodyBytes',
     );
-    return (bodyBytes + 64 + 7) & ~7;
+    return ((bodyBytes + 7) & ~7) + 40;
   }
 
   static int _uintWidth(int value, bool cbor) => value <= (cbor ? 23 : 127)

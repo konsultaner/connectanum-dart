@@ -3729,6 +3729,32 @@ class NativeTransportRuntime
     }
   }
 
+  /// Cumulative native parser copies and contiguity requests, or unavailable.
+  Map<String, int>? rawFrameCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctRawFrameCopyMetricsSnapshot;
+    if (_bindings.ctRawFrameCopyMetricsVersion?.call() != 1 ||
+        snapshot == null) {
+      return null;
+    }
+    final info = calloc<CtRawFrameCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot raw-frame copy metrics');
+      }
+      return {
+        'coalescing_copy_bytes': info.ref.coalescingCopyBytesTotal,
+        'range_copy_bytes': info.ref.rangeCopyBytesTotal,
+        'single_segment_contiguous_requests':
+            info.ref.singleSegmentContiguousRequestsTotal,
+        'multi_segment_contiguous_requests':
+            info.ref.multiSegmentContiguousRequestsTotal,
+      };
+    } finally {
+      calloc.free(info);
+    }
+  }
+
   NativeRouterTransportCopyMetrics transportCopyMetricsSnapshot() {
     final rustls = _rustlsCopyMetricsSnapshot();
     final tokioRustls = _tokioRustlsCopyMetricsSnapshot();

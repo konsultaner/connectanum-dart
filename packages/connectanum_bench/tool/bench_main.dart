@@ -15,6 +15,7 @@ import 'package:connectanum_bench/src/dart_vm_metrics.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/remote_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/transport_copy_metrics.dart';
+import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
@@ -129,6 +130,11 @@ void _configureLogging({required bool verbose}) {
       }
     });
 }
+
+Map<String, int>? _routerRawFrameCopyMetrics(NativeRuntime runtime) =>
+    runtime is NativeTransportRuntime
+    ? runtime.rawFrameCopyMetricsSnapshot()
+    : null;
 
 NativeRouterTransportCopyMetrics? _routerTransportCopyMetrics(
   NativeRuntime runtime,
@@ -719,6 +725,7 @@ class _BenchControlRegistry {
       } catch (_) {
         baselineMetrics = null;
       }
+      final rawFrameMetricsBefore = _routerRawFrameCopyMetrics(binding.runtime);
       final routerCopyMetricsBefore = _routerTransportCopyMetrics(
         binding.runtime,
       );
@@ -763,6 +770,16 @@ class _BenchControlRegistry {
         before: routerCopyMetricsBefore,
         after: routerCopyMetricsAfter,
       );
+      final rawFrameMetrics = rawFrameCopyMetricsDelta(
+        rawFrameMetricsBefore,
+        _routerRawFrameCopyMetrics(binding.runtime),
+      );
+      final previousRawBreakdown = copyMetrics['raw_frame_copy_breakdown'];
+      copyMetrics['raw_frame_copy_breakdown'] = {
+        if (previousRawBreakdown is Map)
+          ...Map<String, Object?>.from(previousRawBreakdown),
+        'router': rawFrameMetrics,
+      };
       final dataWindow = WampSampleWindow.fromSamples(samples);
       context.sendJson(
         body: {

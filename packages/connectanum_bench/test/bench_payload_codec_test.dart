@@ -9,11 +9,54 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/cbor_serializer.dart' as cbor;
 import 'package:connectanum_core/msgpack_serializer.dart' as msgpack;
 import 'package:test/test.dart';
+import 'package:flat_buffers/flat_buffers.dart' as fb;
+import 'package:connectanum_bench/src/bench_payload/generated/workload_payload_connectanum.bench_generated.dart'
+    as schema;
 
 import 'support/native_library.dart';
 
 void main() {
   final nativeLibrary = nativeBenchTestLibrary();
+
+  test(
+    'Dart FlatBuffers fixture fills its backing array with unchanged wire bytes',
+    () {
+      for (final size in [0, 1, 2, 3, 4, 5, 7, 8, 9, 16, 65535, 65536]) {
+        for (final worker in [0, 1, 0xffffffff]) {
+          for (final iteration in [0, 1, 0xffffffff]) {
+            final expectedBuilder = fb.Builder(
+              initialSize: (size + 128 + 7) & ~7,
+              deduplicateTables: false,
+            );
+            expectedBuilder.finish(
+              schema.WorkloadPayloadObjectBuilder(
+                worker: worker,
+                iteration: iteration,
+                body: BenchPayloadCodec.body(
+                  worker: worker,
+                  iteration: iteration,
+                  length: size,
+                ),
+              ).finish(expectedBuilder),
+              'CBEN',
+            );
+            final bytes = BenchPayloadCodec.encodeDart(
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: size,
+            );
+            expect(bytes, orderedEquals(expectedBuilder.buffer));
+            expect(
+              bytes.offsetInBytes,
+              0,
+              reason: 'body=$size worker=$worker iteration=$iteration',
+            );
+            expect(bytes.buffer.lengthInBytes, bytes.length);
+          }
+        }
+      }
+    },
+  );
 
   for (final codec in [
     ('cbor', cbor.Serializer()),

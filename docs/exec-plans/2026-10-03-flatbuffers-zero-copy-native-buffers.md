@@ -11,6 +11,16 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Raw-frame follow-up (2026-10-15): single-span native frames now retain their
+owner instead of copying, and reversed ranges return unavailable instead of
+panicking. Fail-first regressions, all 366 Rust core tests, the additive 32-byte
+ABI guard, 46 fixture/report cases, 117 public router/native PPT cases and three
+live codec observations pass. Those unfragmented live rows report zero raw-frame
+copies; no macro performance improvement is claimed. Exact pinned benchmark
+buffer sizing preserves wire bytes and avoids a partial Dart backing view.
+Fresh full verification, production artifacts, complete E2EE/transcode owned
+totals and parity remain pending. See [source and limits](../research/2026-10-15-raw-frame-copy-observations.md).
+
 Verification checkpoint (2026-10-15): `CARGO_INCREMENTAL=0 bin/verify`
 passes at `7976a464` with Git HEAD and all 3,052 tracked input hashes unchanged.
 The resulting complete 315-mutant E2EE target also passes at 95.3125%, retaining

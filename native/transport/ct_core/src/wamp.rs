@@ -21,6 +21,10 @@ mod flatbuffers_projection;
 mod flatbuffers_schema;
 mod flatbuffers_wire;
 mod flatbuffers_writer;
+mod raw_frame_copy_metrics;
+pub use raw_frame_copy_metrics::{
+    snapshot as raw_frame_copy_metrics_snapshot, RawFrameCopyMetricsSnapshot,
+};
 
 pub use flatbuffers_encoder::compose_segments as compose_flatbuffers_message_segments;
 pub use flatbuffers_encoder::encode as encode_flatbuffers_message;
@@ -277,10 +281,15 @@ impl RawFrame {
     pub fn into_bytes(self) -> Bytes {
         match self {
             RawFrame::Contiguous(bytes) => bytes,
-            RawFrame::Segmented { segments, len } => {
+            RawFrame::Segmented { mut segments, len } => {
+                raw_frame_copy_metrics::record_contiguous_request(segments.len());
+                if let [single] = segments.as_mut_slice() {
+                    return std::mem::take(single);
+                }
                 let mut flattened = Vec::with_capacity(len);
                 for segment in segments {
                     flattened.extend_from_slice(segment.as_ref());
+                    raw_frame_copy_metrics::record_coalescing_copy(segment.len());
                 }
                 Bytes::from(flattened)
             }
@@ -311,7 +320,7 @@ impl RawFrame {
     }
 
     fn slice_or_copy(&self, range: &Range<usize>) -> Result<Bytes, ParseError> {
-        if range.end > self.len() {
+        if range.start > range.end || range.end > self.len() {
             return Err(ParseError::Deserialize(
                 "payload range exceeds message bounds".into(),
             ));
@@ -338,6 +347,7 @@ impl RawFrame {
                     let end = range.end.min(segment_end);
                     if start < end {
                         copied.extend_from_slice(&segment[(start - absolute)..(end - absolute)]);
+                        raw_frame_copy_metrics::record_range_copy(end - start);
                     }
                     if end == range.end {
                         break;
