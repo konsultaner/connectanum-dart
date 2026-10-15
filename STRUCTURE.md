@@ -2,6 +2,23 @@
 
 This document summarizes the current routing stack, the primary code locations, and the major initiatives already tracked in `ROADMAP.md`. The diagrams use Mermaid to visualize both the layered components and a typical HTTP ingestion workflow.
 
+## MQTT checkpoint
+
+`packages/connectanum_core/lib/mqtt.dart` exports bounded MQTT framing, the
+initial property-free QoS 0 packet codec and a versioned topic URI mapper.
+`packages/connectanum_client/lib/mqtt.dart` provides TCP/TLS/WS/WSS MQTT
+client connections. `packages/connectanum_router/lib/mqtt.dart` owns the QoS 0
+broker session state for both its provisional standalone TCP listener and the
+opt-in native TCP/TLS/WS/WSS listener in `native/transport/ct_core`. MQTT and
+WebSocket must both be enabled on an endpoint for the native listener to select
+the `mqtt` WebSocket subprotocol. The anonymous broker binds numeric loopback
+addresses only and is not yet attached to WAMP authorization/routing.
+`packages/connectanum_router/benchmark/` has separate AOT broker/router and
+client workloads; `tool/run_mqtt_benchmark_gate.py` compares them with
+Mosquitto and gates exact delivery plus burst and sustained profiles, including
+provisional WS/WSS budgets.
+The cross-package plan and measured baselines are under `docs/`.
+
 ## Layered View
 
 ```mermaid

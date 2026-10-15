@@ -1,6 +1,6 @@
 # FlatBuffers and zero-copy native buffers
 
-Status: active. Started: 2026-10-03.
+Status: deferred in the MQTT worktree by the user's explicit MQTT milestone priority on 2026-10-14; the FlatBuffers work remains open. Started: 2026-10-03.
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/release-3.0.0-beta.8` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;

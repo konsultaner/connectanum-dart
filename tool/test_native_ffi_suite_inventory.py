@@ -27,6 +27,7 @@ class NativeSuiteInventoryTests(unittest.TestCase):
             "test/publish_ack_test.dart",
             "test/router_integration_cancel_test.dart",
             "test/router_integration_websocket_test.dart",
+            "test/mqtt/mqtt_native_router_integration_test.dart",
             "test/native/ffi_test_mode_test.dart",
         ):
             with self.subTest(path=path):

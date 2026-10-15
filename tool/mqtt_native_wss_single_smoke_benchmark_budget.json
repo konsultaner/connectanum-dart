@@ -1,0 +1,11 @@
+{
+  "profile": "mqtt5-wss-qos0-one-subscriber-128B-window64",
+  "transport": "wss",
+  "publish_mode": "single",
+  "repetitions": 3,
+  "messages_per_run": 2000,
+  "payload_bytes": 128,
+  "window_messages": 64,
+  "gate": "correctness",
+  "mqtt_version": "5"
+}

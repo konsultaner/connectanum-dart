@@ -1,0 +1,15 @@
+{
+  "profile": "mqtt5-tcp-qos0-fanout4-128B-window128-batch128",
+  "publish_mode": "batch",
+  "repetitions": 5,
+  "messages_per_run": 50000,
+  "subscribers": 4,
+  "payload_bytes": 128,
+  "window_messages": 128,
+  "gate": "performance",
+  "min_delivered_throughput_ratio_vs_mosquitto": 0.8,
+  "max_p95_latency_ratio_vs_mosquitto": 1.75,
+  "max_p99_latency_ratio_vs_mosquitto": 1.75,
+  "max_broker_cpu_ratio_vs_mosquitto": 3.0,
+  "max_connectanum_broker_rss_bytes": 67108864
+}

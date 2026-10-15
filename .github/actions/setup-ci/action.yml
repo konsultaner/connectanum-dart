@@ -32,6 +32,8 @@ runs:
     - uses: dtolnay/rust-toolchain@stable
       if: inputs.rust == 'true'
       with:
+        # Shared native artifacts may be consumed after the stable channel advances.
+        toolchain: 1.99.0
         components: rustfmt, clippy, llvm-tools-preview
     - id: rust
       if: inputs.rust == 'true'
