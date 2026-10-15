@@ -11,8 +11,11 @@ and native TCP 3.1.1 throughput floors despite exact delivery. The native WS
 read-ahead/coalescing optimization passes full local verification and five
 clean-source matched profiles with unchanged budgets. Its hosted run keeps all
 176 deliveries exact but misses six TCP/WS throughput floors. A native WS
-buffered-frame batching candidate cuts measured Dart/native chunk crossings and
-passes local matched gates; full verification and hosted proof are pending.
+buffered-frame batching candidate cuts measured Dart/native chunk crossings,
+passes full verification and Paho integration, and passes five clean-source
+matched gates with 46 exact rows. Its WS throughput remains level with the
+previous clean source, so the diagnostic dirty-tree gain is unconfirmed;
+hosted proof and a controlled release margin are pending.
 The Mosquitto WSS MQTT 3.1.1 reference path still stalls with the Connectanum
 client under load and needs diagnosis. Continue with the authorized MQTT/WAMP
 publication boundary, QoS 1/2, retained/will/session behavior, full regression
