@@ -238,6 +238,65 @@ void main() {
     });
   });
 
+  for (final (format, createProvider, nonceLength)
+      in <(String, WampE2eeProvider Function(), int)>[
+        (
+          'CBOR AES-GCM',
+          () => WampCborAes256GcmProvider.single(
+            keyId: 'test-key',
+            key: _testKey(),
+          ),
+          12,
+        ),
+        (
+          'FlatBuffers AES-GCM',
+          () => WampFlatBuffersAes256GcmProvider(
+            keys: {'test-key': _testKey()},
+            defaultKeyId: 'test-key',
+          ),
+          12,
+        ),
+        (
+          'CBOR XSalsa20',
+          () => WampCborXsalsa20Poly1305Provider.single(
+            keyId: 'test-key',
+            key: _testKey(),
+          ),
+          24,
+        ),
+        (
+          'FlatBuffers XSalsa20',
+          () => WampFlatBuffersXsalsa20Poly1305Provider(
+            keys: {'test-key': _testKey()},
+            defaultKeyId: 'test-key',
+          ),
+          24,
+        ),
+      ]) {
+    test('$format uses a fresh nonce for repeated plaintext and key', () {
+      final provider = expectE2eeSuccess(createProvider);
+      final plaintext = Uint8List.fromList([1, 2, 3]);
+      Uint8List encrypt() =>
+          expectE2eeSuccess(
+                () => provider.packPayload(
+                  [plaintext],
+                  null,
+                  PublishOptions(pptScheme: 'wamp'),
+                ),
+              ).single
+              as Uint8List;
+
+      final first = encrypt();
+      final second = encrypt();
+      expect(first.length, greaterThan(nonceLength));
+      expect(second.length, first.length);
+      expect(
+        Uint8List.sublistView(first, 0, nonceLength),
+        isNot(orderedEquals(Uint8List.sublistView(second, 0, nonceLength))),
+      );
+    });
+  }
+
   group('WampE2eeKeySelectionPolicies', () {
     test(
       'uses negotiated session key ids for outbound and inbound fallback',

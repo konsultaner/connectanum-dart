@@ -240,6 +240,18 @@ assets and dependency-ordered pub.dev tags are published. Companion summary
 was initially resource-lease blocked; review then times out on Ollama and cannot
 reach GLM. Manual version/tag review passes; the primary checkout is preserved.
 
+
+Nonce-freshness CI repair (2026-10-15): four repeated-plaintext/key checks cover
+both ciphers and both plaintext profiles. The exact skipped-initialization CI
+mutant fails first; all 168 focused E2EE cases and sixteen Chrome/Dart2Wasm
+cases pass. The unchanged complete 315-mutant target passes at 95.3125% with
+zero errors/timeouts and the original 95% floor. An initial test-setup attempt
+constructs providers during discovery and produces loader errors; its failed
+run is retained. The final tests construct providers inside their test cases.
+Bounded Qwen review completes without a confirmed issue. All other preceding
+head hosted jobs pass; resulting-head CI and fresh full verification are pending.
+No performance or complete copy-acceptance claim is added.
+
 ## Coordinated beta.8 release checkpoint (2026-10-08)
 
 The user requests another version bump and pub.dev deployment after PR #105

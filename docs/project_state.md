@@ -6,6 +6,17 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Nonce-freshness CI repair (2026-10-15): four repeated-plaintext/key checks cover
+both ciphers and both plaintext profiles. The exact skipped-initialization CI
+mutant fails first; all 168 focused E2EE cases and sixteen Chrome/Dart2Wasm
+cases pass. The unchanged complete 315-mutant target passes at 95.3125% with
+zero errors/timeouts and the original 95% floor. An initial test-setup attempt
+constructs providers during discovery and produces loader errors; its failed
+run is retained. The final tests construct providers inside their test cases.
+Bounded Qwen review completes without a confirmed issue. All other preceding
+head hosted jobs pass; resulting-head CI and fresh full verification are pending.
+No performance or complete copy-acceptance claim is added.
+
 Current follow-up (2026-10-15): finish remaining FlatBuffers issues.
 The frozen full run preserves all 20 input hashes and reaches the benchmark
 suite, where a stale live assertion expects zero AES assembly bytes rather than
