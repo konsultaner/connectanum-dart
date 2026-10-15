@@ -189,7 +189,7 @@ jobs:
           bin/bootstrap
           sudo apt-get update
           sudo apt-get install -y mosquitto
-          mosquitto_version="$(mosquitto -h 2>&1)"
+          mosquitto_version="$(mosquitto -h 2>&1 || true)"
           [[ "$mosquitto_version" == *'mosquitto version 2.0.18'* ]] || {
             printf 'MQTT reference broker changed; rebaseline required: %s\n' "$mosquitto_version" >&2
             exit 1
