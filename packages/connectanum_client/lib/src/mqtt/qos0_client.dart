@@ -6,6 +6,8 @@ import 'package:connectanum_core/mqtt.dart';
 
 /// A TCP, TLS, WebSocket or secure WebSocket MQTT QoS 0 client.
 final class MqttQos0Client {
+  static const int _maxUnflushedSocketBytes = 64 * 1024;
+
   MqttQos0Client._(this._socket, this._webSocket, this.version) {
     _socket?.listen(_onData, onDone: _onDone, onError: _onError);
     _webSocket?.listen(_onWebSocketData, onDone: _onDone, onError: _onError);
@@ -119,6 +121,7 @@ final class MqttQos0Client {
   final Map<int, Completer<List<int>>> _subacks = {};
   Completer<void>? _ping;
   int _nextId = 1;
+  int _unflushedSocketBytes = 0;
   bool _closed = false;
 
   Stream<MqttPublish> get messages => _messages.stream;
@@ -153,12 +156,24 @@ final class MqttQos0Client {
     }
   }
 
+  /// Queues one QoS 0 packet and periodically flushes TCP/TLS for backpressure.
+  ///
+  /// Completion does not acknowledge delivery. Call [close] to drain queued
+  /// packets before closing a healthy connection.
   Future<void> publish(String topic, Uint8List payload) async {
-    _send(
-      MqttPacketCodec.encodePublish(version, topic: topic, payload: payload),
+    final wire = MqttPacketCodec.encodePublish(
+      version,
+      topic: topic,
+      payload: payload,
     );
-    // WebSocket.add queues the frame; avoid a completed-future await per send.
-    if (_socket != null) await _flush();
+    _send(wire);
+    if (_socket case final socket?) {
+      _unflushedSocketBytes += wire.length;
+      if (_unflushedSocketBytes >= _maxUnflushedSocketBytes) {
+        _unflushedSocketBytes = 0;
+        await socket.flush();
+      }
+    }
   }
 
   /// Sends up to 512 QoS 0 publications in one write, preserving order.
@@ -184,7 +199,10 @@ final class MqttQos0Client {
     }
     if (count == 0) return;
     _send(wire.takeBytes());
-    if (_socket != null) await _flush();
+    if (_socket != null) {
+      _unflushedSocketBytes = 0;
+      await _flush();
+    }
   }
 
   Future<void> ping() async {

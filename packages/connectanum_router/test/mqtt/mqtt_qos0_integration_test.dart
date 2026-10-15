@@ -1019,6 +1019,55 @@ void main() {
     );
   });
 
+  test('queued client publishes flush under load and drain on close', () async {
+    final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
+    final subscriber = await MqttQos0Client.connect(
+      '127.0.0.1',
+      broker.port,
+      clientId: 'queued-publish-sub',
+    );
+    final publisher = await MqttQos0Client.connect(
+      '127.0.0.1',
+      broker.port,
+      clientId: 'queued-publish-pub',
+    );
+    addTearDown(() async {
+      await publisher.close();
+      await subscriber.close();
+      await broker.close();
+    });
+    await subscriber.subscribe('queued/publish');
+    Uint8List payload(int id) {
+      final bytes = Uint8List(128);
+      bytes[0] = id >> 8;
+      bytes[1] = id & 0xff;
+      return bytes;
+    }
+
+    final received = subscriber.messages
+        .take(705)
+        .toList()
+        .timeout(const Duration(seconds: 5));
+    for (var id = 0; id < 700; id++) {
+      await publisher.publish('queued/publish', payload(id));
+    }
+    await publisher.publishBatch('queued/publish', [
+      payload(700),
+      payload(701),
+    ]);
+    for (var id = 702; id < 705; id++) {
+      await publisher.publish('queued/publish', payload(id));
+    }
+    await publisher.close();
+
+    final messages = await received;
+    expect(messages, hasLength(705));
+    for (var id = 0; id < messages.length; id++) {
+      expect(messages[id].topic, 'queued/publish');
+      expect(messages[id].payload, payload(id), reason: 'publication $id');
+    }
+  });
+
   test(
     'malformed client packet does not take down another connection',
     () async {
