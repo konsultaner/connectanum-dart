@@ -22,6 +22,31 @@ void main() {
       expect(decoder.bufferedBytes, 0);
     });
 
+    test('complete frames own their bodies after caller input changes', () {
+      final input = bytes([0x30, 0x02, 0xa1, 0xb2, 0x30, 0x02, 0xc3, 0xd4]);
+      final decoder = MqttFrameDecoder(maxPacketSize: 5);
+      final frames = decoder.add(input);
+      input.fillRange(0, input.length, 0);
+
+      expect(frames, hasLength(2));
+      expect(frames.first.body, [0xa1, 0xb2]);
+      expect(frames.last.body, [0xc3, 0xd4]);
+      frames.first.body[0] = 0xee;
+      expect(frames.last.body, [0xc3, 0xd4]);
+      expect(decoder.bufferedBytes, 0);
+    });
+
+    test('copies a trailing partial frame before caller input changes', () {
+      final input = bytes([0x30, 0x02, 0xa1, 0xb2, 0x30, 0x03, 0xc3]);
+      final decoder = MqttFrameDecoder(maxPacketSize: 5);
+      expect(decoder.add(input).single.body, [0xa1, 0xb2]);
+      expect(decoder.bufferedBytes, 3);
+      input.fillRange(0, input.length, 0);
+
+      expect(decoder.add(bytes([0xd4, 0xe5])).single.body, [0xc3, 0xd4, 0xe5]);
+      expect(decoder.bufferedBytes, 0);
+    });
+
     test('accepts canonical two-byte remaining length split across chunks', () {
       final decoder = MqttFrameDecoder(maxPacketSize: 131);
       expect(decoder.add(bytes([0x30, 0x80])), isEmpty);

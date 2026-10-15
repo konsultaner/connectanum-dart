@@ -9,7 +9,10 @@ interoperability, exact scoped Dart/Python coverage, and three provisional
 clean-tree numeric WebSocket profiles. The first hosted run misses narrow WS
 and native TCP 3.1.1 throughput floors despite exact delivery. The native WS
 read-ahead/coalescing optimization passes full local verification and five
-clean-source matched profiles with unchanged budgets; hosted proof is next.
+clean-source matched profiles with unchanged budgets. Its hosted run keeps all
+176 deliveries exact but misses six TCP/WS throughput floors. A native WS
+buffered-frame batching candidate cuts measured Dart/native chunk crossings and
+passes local matched gates; full verification and hosted proof are pending.
 The Mosquitto WSS MQTT 3.1.1 reference path still stalls with the Connectanum
 client under load and needs diagnosis. Continue with the authorized MQTT/WAMP
 publication boundary, QoS 1/2, retained/will/session behavior, full regression
