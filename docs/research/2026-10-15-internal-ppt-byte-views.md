@@ -50,3 +50,35 @@ comparisons from those profiled runs remain excluded.
 A separate unprofiled, paired before/after diagnostic and frozen full
 verification are pending. All existing performance budgets, matrix dimensions,
 copy counters, sample requirements and acceptance conditions remain unchanged.
+
+## Unprofiled diagnostic result
+
+Both 90-row campaigns complete with three warmups and seven measured passes on
+three RawSocket cases, one-second windows and a 150-sample minimum. Source
+`25e0d41f` precedes router views; `12165961` contains them. The same production
+library, prebuilt driver, package paths and balanced codec schedule are retained.
+Both comparisons correctly fail acceptance: short windows, only three cases,
+macOS without Linux CPU/RSS, and remaining relative regressions.
+
+FlatBuffers/best-binary throughput ratios change from 0.6546 to 0.8040 for Dart
+values, 0.7965 to 0.7979 for native construction, and 0.8131 to 0.7768 for native
+pre-encoded spans. Absolute FlatBuffers throughput changes by +23.2%, +1.6% and
+-2.2%, respectively. Allocation/GC and latency gates still fail. The change is
+useful on the Dart case; it does not establish native parity.
+
+## Native receive follow-up
+
+A second real regression reproduces opaque-body materialization in the native
+client: CBOR produces a new Uint8Buffer, and FlatBuffers produces an exact-sized
+byte allocation; MessagePack already preserves its view. The helper is shared
+from core and used by the built-in native PPT argument decoder only. Ordinary
+argument mutability/copy behavior and custom decoder behavior stay intact. The
+FlatBuffers path runs the same CBOR validator before exposing a view, including
+the original 64 MiB encoded-byte limit. No serializer interface changes.
+
+All 1,906 focused client/core cases pass, including wrapped/materialized native
+PPT, ordinary copy semantics and the unchanged limit. All twenty core view cases
+also pass Chrome/Dart2Wasm. New receive-source timing, broad native regressions
+and frozen complete verification remain pending. Advisory review's general
+CBOR-validation concern does not reproduce: the helper validates an exact binary
+singleton; its body is opaque, while FlatBuffers retains its additional limits.

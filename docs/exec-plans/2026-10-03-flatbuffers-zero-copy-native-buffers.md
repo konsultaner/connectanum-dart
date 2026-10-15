@@ -12,6 +12,17 @@ Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107)
 
 
 Current follow-up (2026-10-15): finish remaining FlatBuffers issues.
+Both unprofiled 90-row router-view diagnostics complete. Dart-value FlatBuffers
+throughput improves 23.2% (best-binary ratio 0.6546 to 0.8040); native construction
+and pre-encoded cases show no useful gain. All remain failed acceptance evidence.
+The next native receive regression reproduces another opaque-body clone. Shared
+core byte views now serve only the built-in native PPT decoder, preserving ordinary
+copy semantics, custom decoders and FlatBuffers' 64 MiB encoded limit. All 1,906
+focused client/core cases and twenty Chrome/Dart2Wasm cases pass. Full-source
+verification and new-source measurements remain pending. PR #130's hosted
+core-E2EE mutation gate is red at 94.921875% against 95%; the nonce-loop `<' to `>'
+mutant survives. Nonce freshness coverage is the immediate CI priority.
+
 Performance follow-up now uses `codex/flatbuffers-lazy-ppt-views` based on
 `25e0d41f`; PR #130 retains the E2EE/counter and verified-shard review. A server
 CPU diagnostic identifies eager CBOR decoding just to unwrap an opaque PPT body.

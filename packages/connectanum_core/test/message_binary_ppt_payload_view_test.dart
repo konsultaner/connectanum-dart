@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart'
     show LazyPayloadEncoding;
-import 'package:connectanum_router/src/router/binary_ppt_payload_view.dart';
+import 'package:connectanum_core/src/message/binary_ppt_payload_view.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 

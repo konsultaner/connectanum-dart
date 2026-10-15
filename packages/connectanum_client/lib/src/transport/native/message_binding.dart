@@ -7,6 +7,12 @@ import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/json_serializer.dart' show decodeBase64Bytes;
+// Reuse the pinned codec's view and validation rules at the native boundary.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/message/binary_ppt_payload_view.dart';
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart'
+    show validateFlatBufferCbor;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
 import 'message_protocol.dart';
@@ -1013,6 +1019,25 @@ Error _bindError(List<dynamic> message) {
   return Error(requestTypeId, requestId, details, error);
 }
 
+bool _canBorrowBinaryPptArgument(AbstractMessageWithPayload message) {
+  if (message is NativeSessionMessage) {
+    final metadata = message.metadata;
+    return metadata.hasFlag(NativeMessageMetadata.flagDirectBind) &&
+        (metadata.messageCode == MessageTypes.codeEvent ||
+            metadata.messageCode == MessageTypes.codeResult ||
+            metadata.messageCode == MessageTypes.codeInvocation ||
+            metadata.messageCode == MessageTypes.codeError) &&
+        _nativeTypedE2eeFields(metadata).$1 != null;
+  }
+  return switch (message) {
+    Event value => value.details.pptScheme != null,
+    Result value => value.details.pptScheme != null,
+    Invocation value => value.details.pptScheme != null,
+    Error value => value.details['ppt_scheme'] is String,
+    _ => false,
+  };
+}
+
 void _applyLazyPayload(
   AbstractMessageWithPayload message,
   NativeMessageSerializer serializer,
@@ -1027,7 +1052,19 @@ void _applyLazyPayload(
     argumentsBytes: argsBytes,
     argumentsDecoder: argsBytes == null
         ? null
-        : (fragment) => _decodeArgumentList(serializer, fragment),
+        : (fragment) {
+            final encoding = _lazyPayloadEncodingForSerializer(serializer);
+            if (encoding != null && _canBorrowBinaryPptArgument(message)) {
+              final view = binaryPptArgumentView(encoding, fragment);
+              if (view != null) {
+                if (serializer == NativeMessageSerializer.flatbuffers) {
+                  validateFlatBufferCbor(fragment);
+                }
+                return <dynamic>[view];
+              }
+            }
+            return _decodeArgumentList(serializer, fragment);
+          },
     argumentsKeywordsBytes: kwargsBytes,
     argumentsKeywordsDecoder: kwargsBytes == null
         ? null
