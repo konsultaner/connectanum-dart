@@ -139,6 +139,7 @@ fn mqtt_native_byte_channel_preserves_connect_and_response() {
 
     assert_eq!(ct_set_mqtt_wakeup(connection, None), SUCCESS);
     assert_eq!(ct_set_mqtt_wakeup(0, None), ERR_INVALID_ARGUMENT);
+    assert_eq!(ct_connection_mqtt_version(0), ERR_INVALID_ARGUMENT);
 
     assert_eq!(
         ct_poll_mqtt_chunk(connection, std::ptr::null_mut(), 0),
@@ -151,6 +152,10 @@ fn mqtt_native_byte_channel_preserves_connect_and_response() {
     assert_eq!(ct_connection_close(connection), SUCCESS);
     assert_eq!(
         ct_connection_mqtt_version(connection),
+        ERR_CONNECTION_NOT_FOUND
+    );
+    assert_eq!(
+        ct_send_mqtt_chunk(connection, CONNACK.as_ptr(), CONNACK.len() as i32),
         ERR_CONNECTION_NOT_FOUND
     );
     assert_eq!(ct_shutdown(), SUCCESS);

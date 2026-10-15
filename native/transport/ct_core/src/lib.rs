@@ -9436,6 +9436,46 @@ mod tests {
     }
 
     #[test]
+    fn mqtt_registry_apis_reject_a_non_mqtt_connection() {
+        assert_eq!(protocol_sort_key(ConnectionProtocol::Mqtt), 5);
+        let registry = ListenerRegistry::default();
+        let connection_id = ConnectionId(42);
+        registry.connections.lock().unwrap().insert(
+            connection_id,
+            ConnectionEntry {
+                listener_id: ListenerId(1),
+                peer_addr: "127.0.0.1:12345".parse().unwrap(),
+                protocol: ConnectionProtocol::Http,
+                websocket_protocol: None,
+                endpoint_config: Arc::new(build_client_endpoint_config(
+                    "127.0.0.1",
+                    0,
+                    false,
+                    TransportProtocol::Http,
+                    config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+                    None,
+                    None,
+                )),
+                stats: None,
+                record: ConnectionRecord::HttpPending {
+                    pending_requests: Mutex::new(VecDeque::new()),
+                },
+            },
+        );
+        for result in [
+            registry.mqtt_version(connection_id).map(|_| ()),
+            registry.set_mqtt_wakeup(connection_id, None),
+            registry.poll_mqtt_chunk(connection_id, 64).map(|_| ()),
+            registry.enqueue_mqtt_chunk(connection_id, Bytes::from_static(b"x")),
+        ] {
+            assert!(matches!(
+                result,
+                Err(Error::UnsupportedProtocol(id, ConnectionProtocol::Http)) if id == connection_id
+            ));
+        }
+    }
+
+    #[test]
     fn mqtt_inbound_coalesces_queued_small_chunks_with_bounded_pending_tail() {
         let (sender, receiver) = mpsc::channel(4);
         sender.try_send(Bytes::from_static(b"ab")).unwrap();

@@ -215,6 +215,27 @@ class MqttBenchmarkGateTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "invalid workload"):
                     compare(samples, budget)
 
+    def test_wss_v311_sustained_profile_keeps_a_long_run_visible(self):
+        budget = json.loads((gate.ROOT / "tool" /
+                             "mqtt_native_wss_v311_sustained_benchmark_budget.json").read_text())
+        self.assertEqual(budget["mqtt_version"], "311")
+        self.assertEqual(budget["transport"], "wss")
+        self.assertEqual(budget["gate"], "correctness")
+        self.assertGreaterEqual(budget["messages_per_run"], 200_000)
+        self.assertEqual(budget["repetitions"], 5)
+        samples = [dict(row, run=run) for run in range(1, 6)
+                   for row in rows()[:2]]
+        for row in samples:
+            row.update(profile=budget["profile"], mqtt_version="311",
+                       transport="wss", sent=budget["messages_per_run"],
+                       received=budget["messages_per_run"],
+                       received_per_subscriber=[budget["messages_per_run"]],
+                       window_messages=budget["window_messages"])
+        self.assertTrue(compare(samples, budget)["passed"])
+        samples[0]["received"] -= 1
+        with self.assertRaisesRegex(ValueError, "invalid workload"):
+            compare(samples, budget)
+
     def test_native_tls_provenance_hashes_binaries_and_trust_material(self):
         with tempfile.TemporaryDirectory() as directory:
             paths = [Path(directory) / name for name in ("broker", "client", "native")]
