@@ -22,7 +22,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         declared = re.findall(r'^          - group: ([\w-]+)$', workflow, re.MULTILINE)
         self.assertEqual(set(declared), set(groups))
         self.assertEqual(len(declared), len(groups))
-        workflow_jobs = [f'{name} Mutation Gate' for name in declared] + ['mcp-library Mutation Gate']
+        workflow_jobs = [f'{name} Mutation Gate' for name in declared] + ['mcp-library Mutation Gate', 'router-message-binding-vm Mutation Gate']
         expected_jobs = re.findall(r"'([^']+ Mutation Gate)'", AUDIT_SCRIPT.read_text())
         self.assertEqual(len(expected_jobs), len(set(expected_jobs)))
         self.assertEqual(set(expected_jobs), set(workflow_jobs))

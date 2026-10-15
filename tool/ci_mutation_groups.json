@@ -50,9 +50,6 @@
   "client-message-binding-vm": [
     "client-message-binding-vm"
   ],
-  "router-message-binding-vm": [
-    "router-message-binding-vm"
-  ],
   "bench-remote-auth-native": [
     "bench-remote-auth-native"
   ],

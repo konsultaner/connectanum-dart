@@ -1,10 +1,22 @@
 # Project State
 
-Last updated: 2026-10-14.
+Last updated: 2026-10-15.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
+
+Current follow-up (2026-10-15): finish remaining FlatBuffers issues.
+PR #129 now passes every hosted job and both Codecov gates. PR #130 passes
+both coverage gates, but its router message-binding mutation job reaches its
+90-minute deadline after 622 of 699 mutants, cancelling Full Verify. A rerun
+is dispatched. The follow-up partitions the unchanged full inventory into two
+shards and requires independently regenerated union scoring plus successful
+shard jobs in Full Verify, using the existing MCP mechanism. No timeout,
+mutation inventory or score threshold is relaxed. Focused CI checks are running;
+complete new-head verification is pending. E2EE/transcode owned-boundary totals
+and all performance parity budgets remain open. The shared local native resource
+lease temporarily blocks timed diagnostics; no other campaign is interrupted.
 
 Current follow-up (2026-10-14): validate FlatBuffers byte-vector views.
 Branch `codex/flatbuffers-byte-vector-views` starts at scope checkpoint `fc808e92`;

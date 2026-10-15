@@ -11,6 +11,18 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Current follow-up (2026-10-15): finish remaining FlatBuffers issues.
+PR #129 now passes every hosted job and both Codecov gates. PR #130 passes
+both coverage gates, but its router message-binding mutation job reaches its
+90-minute deadline after 622 of 699 mutants, cancelling Full Verify. A rerun
+is dispatched. The follow-up partitions the unchanged full inventory into two
+shards and requires independently regenerated union scoring plus successful
+shard jobs in Full Verify, using the existing MCP mechanism. No timeout,
+mutation inventory or score threshold is relaxed. Focused CI checks are running;
+complete new-head verification is pending. E2EE/transcode owned-boundary totals
+and all performance parity budgets remain open. The shared local native resource
+lease temporarily blocks timed diagnostics; no other campaign is interrupted.
+
 Current follow-up (2026-10-14): validate FlatBuffers byte-vector views.
 Branch `codex/flatbuffers-byte-vector-views` starts at scope checkpoint `fc808e92`;
 [PR #129](https://github.com/konsultaner/connectanum-dart/pull/129) retains the

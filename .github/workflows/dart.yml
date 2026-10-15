@@ -241,7 +241,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
-    needs: [fast, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, browser-coverage]
+    needs: [fast, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, router-mutations, browser-coverage]
     steps:
       - uses: actions/checkout@v5
       - name: Require every validation lane to succeed
@@ -359,9 +359,6 @@ jobs:
           - group: client-message-binding-vm
             timeout_minutes: 90
             chrome: false
-          - group: router-message-binding-vm
-            timeout_minutes: 90
-            chrome: false
           - group: bench-remote-auth-native
             timeout_minutes: 30
             chrome: false
@@ -457,6 +454,53 @@ jobs:
         with:
           name: mutations-mcp-aggregate
           path: out/mcp-aggregate
+          if-no-files-found: error
+
+  router-shards:
+    name: Router Message Binding Mutation Shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+      - name: Execute the assigned complete-inventory partition
+        run: bin/test-mutations --target router-message-binding-vm --shard-index "${{ matrix.shard }}" --shard-count 2 --output out/mutations
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutations-router-binding-shard-${{ matrix.shard }}
+          path: out/mutations
+          if-no-files-found: error
+
+  router-mutations:
+    name: router-message-binding-vm Mutation Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: router-shards
+    if: always()
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+      - run: dart pub get
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: mutations-router-binding-shard-*
+          path: out/router-shards
+      - name: Regenerate the full inventory and enforce its original assertion gate
+        run: python3 tool/merge_dart_mutation_shards.py --input out/router-shards --output out/router-binding-aggregate --target router-message-binding-vm --shard-count 2
+      - name: Require all shard jobs to have succeeded
+        env:
+          SHARD_RESULT: ${{ needs.router-shards.result }}
+        run: test "$SHARD_RESULT" = success
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutations-router-binding-aggregate
+          path: out/router-binding-aggregate
           if-no-files-found: error
 
   browser-coverage:
