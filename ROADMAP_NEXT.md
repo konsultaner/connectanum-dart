@@ -6,7 +6,7 @@ milestone 2. The bounded MQTT 5/3.1.1 QoS 0 codec and broker have native
 TCP/TLS listeners with hosted matched Mosquitto performance gates. An opt-in
 WS/WSS listener and public Connectanum WS/WSS client now pass local Paho
 interoperability, exact scoped Dart/Python coverage, and three provisional
-local numeric WebSocket profiles; clean-tree and hosted WS evidence is next.
+clean-tree numeric WebSocket profiles; hosted Linux WS evidence is next.
 The Mosquitto WSS MQTT 3.1.1 reference path still stalls with the Connectanum
 client under load and needs diagnosis. Continue with the authorized MQTT/WAMP
 publication boundary, QoS 1/2, retained/will/session behavior, full regression
