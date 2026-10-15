@@ -11,6 +11,20 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Raw-frame verification and exact-capacity diagnostic (2026-10-15): full
+`bin/verify` passes at `fc1881d3` with all 3,057 tracked inputs and HEAD unchanged.
+Both 90-row paired runs complete using the same production library. Throughput
+ratios remain around 0.80 of the better binary baseline; exact fixture capacity
+does not establish a useful speed improvement. Allocation and latency still
+regress. Required Linux CPU/RSS evidence remains unavailable; diagnostic ratio
+placeholders are not measurements. A five-platform production dry run targets
+`fc1881d3` (run 38773856451). The next controlled change reserves 256 bytes for
+native controls and caches immutable Dart schema field-name sets. All 366 Rust
+core cases, 514 Dart FlatBuffers cases, pinned Python/Dart/Rust interop and
+separate client/router counter suites (83/34) pass. Local review finds no confirmed
+issue. New-source timing and final full verification remain pending. See
+[control construction and evidence](../research/2026-10-15-flatbuffers-control-construction.md).
+
 Raw-frame follow-up (2026-10-15): single-span native frames now retain their
 owner instead of copying, and reversed ranges return unavailable instead of
 panicking. Fail-first regressions, all 366 Rust core tests, the additive 32-byte

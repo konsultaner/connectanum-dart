@@ -33,6 +33,12 @@ class _Writer {
   final fb.Builder builder;
   final List<DeferredFlatBufferVector>? deferredVectors;
 
+  // The pinned schema is constant; reuse field-name sets across frames.
+  static final _fieldNames = [
+    for (final table in wampValidationTables)
+      {for (final field in table.fields) field.name},
+  ];
+
   static final enums = <String, Map<String, int>>{
     'msg_type': {
       for (final value in wire.AnyMessageTypeId.values) value.name: value.value,
@@ -117,7 +123,7 @@ class _Writer {
 
   int table(int reference, Map<String, Object?> fields) {
     final spec = wampValidationTables[reference];
-    final names = {for (final field in spec.fields) field.name};
+    final names = _fieldNames[reference];
     if (fields.keys.any((key) => !names.contains(key))) invalid();
     final offsets = <int, int>{};
     final scalars = <int, int>{};

@@ -74,6 +74,40 @@ void main() {
   });
 
   group('NativeTransportRuntime', () {
+    test('raw-frame snapshots preserve named cumulative counters', () {
+      final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
+      addTearDown(runtime.dispose);
+      final before = runtime.rawFrameCopyMetricsSnapshot();
+      final after = runtime.rawFrameCopyMetricsSnapshot();
+      final library = ffi.DynamicLibrary.open(libraryPath);
+      final advertised =
+          library.providesSymbol('ct_raw_frame_copy_metrics_abi_version') &&
+          library.providesSymbol('ct_raw_frame_copy_metrics_snapshot') &&
+          library.lookupFunction<ffi.Uint32 Function(), int Function()>(
+                'ct_raw_frame_copy_metrics_abi_version',
+              )() ==
+              1;
+      if (!advertised) {
+        expect(before, isNull);
+        expect(after, isNull);
+        return;
+      }
+      expect(before, isNotNull);
+      expect(
+        before!.keys,
+        unorderedEquals([
+          'coalescing_copy_bytes',
+          'range_copy_bytes',
+          'single_segment_contiguous_requests',
+          'multi_segment_contiguous_requests',
+        ]),
+      );
+      for (final key in before.keys) {
+        expect(before[key], greaterThanOrEqualTo(0));
+        expect(after![key], greaterThanOrEqualTo(before[key]!));
+      }
+    }, skip: skipReason);
+
     test(
       'router-scoped capability validates arguments and fails closed on old ABI',
       () {

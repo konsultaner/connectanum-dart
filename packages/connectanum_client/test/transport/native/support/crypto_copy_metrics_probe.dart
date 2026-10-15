@@ -1,4 +1,5 @@
 // A fresh VM isolates the process-wide native counters from parallel tests.
+import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart';
@@ -23,11 +24,27 @@ void main(List<String> args) {
     return;
   }
   if (args.isNotEmpty) {
+    _equal(
+      runtime.rawFrameCopyMetricsSnapshot(),
+      null,
+      'unknown raw-frame ABI',
+    );
     final metrics = runtime.e2eeCopyMetricsSnapshot();
     _equal(metrics.plaintextStagingCopyBytesTotal, null, 'old ABI plaintext');
     _equal(metrics.ciphertextStagingCopyBytesTotal, null, 'old ABI ciphertext');
     print('crypto-copy-metrics: unsupported ABI safely unavailable');
     return;
+  }
+  final rawFrame = runtime.rawFrameCopyMetricsSnapshot();
+  final library = ffi.DynamicLibrary.open(runtime.libraryPath);
+  if (library.providesSymbol('ct_raw_frame_copy_metrics_abi_version')) {
+    if (rawFrame == null ||
+        rawFrame.length != 4 ||
+        rawFrame.values.any((value) => value < 0)) {
+      throw StateError('Raw-frame snapshot is unavailable or malformed');
+    }
+  } else {
+    _equal(rawFrame, null, 'legacy raw-frame observation unavailable');
   }
   final keyring = runtime.createE2eeKeyring();
   int? session;

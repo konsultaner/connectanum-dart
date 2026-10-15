@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -22,6 +23,40 @@ void main() {
 
   _nativeTypedProviderCases(nativeClientRuntimeUnavailableReason);
   _nativePolicyCallbackContractCases(nativeClientRuntimeUnavailableReason);
+
+  test('raw-frame snapshots preserve named cumulative counters', () {
+    final runtime = NativeClientRuntime.instance();
+    addTearDown(NativeClientRuntime.shutdownShared);
+    final before = runtime.rawFrameCopyMetricsSnapshot();
+    final after = runtime.rawFrameCopyMetricsSnapshot();
+    final library = ffi.DynamicLibrary.open(runtime.libraryPath);
+    final advertised =
+        library.providesSymbol('ct_raw_frame_copy_metrics_abi_version') &&
+        library.providesSymbol('ct_raw_frame_copy_metrics_snapshot') &&
+        library.lookupFunction<ffi.Uint32 Function(), int Function()>(
+              'ct_raw_frame_copy_metrics_abi_version',
+            )() ==
+            1;
+    if (!advertised) {
+      expect(before, isNull);
+      expect(after, isNull);
+      return;
+    }
+    expect(before, isNotNull);
+    expect(
+      before!.keys,
+      unorderedEquals([
+        'coalescing_copy_bytes',
+        'range_copy_bytes',
+        'single_segment_contiguous_requests',
+        'multi_segment_contiguous_requests',
+      ]),
+    );
+    for (final key in before.keys) {
+      expect(before[key], greaterThanOrEqualTo(0));
+      expect(after![key], greaterThanOrEqualTo(before[key]!));
+    }
+  }, skip: nativeClientRuntimeUnavailableReason);
 
   test('crypto staging and Dart bridge counts match actual operations', () async {
     final source = await Isolate.resolvePackageUri(
@@ -49,7 +84,7 @@ void main() {
   }, skip: nativeClientRuntimeUnavailableReason);
 
   test(
-    'unknown crypto metrics ABI never calls the snapshot',
+    'unknown crypto and raw-frame ABIs never call snapshots',
     () async {
       final source = await Isolate.resolvePackageUri(
         Uri.parse('package:connectanum_client/connectanum.dart'),

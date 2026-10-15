@@ -7,9 +7,11 @@ use super::{
 use bytes::Bytes;
 use flatbuffers::{FlatBufferBuilder, TableFinishedWIPOffset, UnionWIPOffset, WIPOffset};
 
+// The common opaque-PPT control frame fits in 256 bytes. Starting at that
+// size avoids repeated growth while retaining its previous final allocation.
 pub(super) fn write(fields: &Fields) -> Result<Bytes, ParseError> {
     let mut writer = Writer {
-        builder: FlatBufferBuilder::new(),
+        builder: FlatBufferBuilder::with_capacity(256),
         strings: 0,
         elements: 0,
         tables: 0,
@@ -48,7 +50,7 @@ struct Writer<'a> {
 /// newly built envelope. Only bounded metadata and vector headers are allocated.
 pub(super) fn write_segments(fields: &Fields) -> Result<Vec<Bytes>, ParseError> {
     let mut writer = Writer {
-        builder: FlatBufferBuilder::new(),
+        builder: FlatBufferBuilder::with_capacity(256),
         strings: 0,
         elements: 0,
         tables: 0,
