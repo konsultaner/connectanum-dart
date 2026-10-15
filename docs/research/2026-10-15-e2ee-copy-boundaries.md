@@ -58,3 +58,12 @@ portable providers are alternative implementations, reported in separate fields;
 there is no required synchronization or double counting. A real round-trip with
 all ciphertext integers increased by 256 verifies legacy wrapping, and partial
 malformed-list probes preserve TypeError. Neither concern reproduces.
+
+The first frozen full verification keeps all twenty recorded input hashes but
+fails one old live assertion (zero instead of 48 portable AES assembly bytes).
+The live regression now verifies both RPC legs and exact native nonce/tag totals;
+all four implementation/cipher combinations pass. Production artifacts on all
+five platforms pass 170 visible cases with zero skips. Twenty-two downloaded
+proof/log/archive/library hashes, ABI guards and lifecycle records are audited,
+and the production library passes the fresh-process crypto probe. A fresh full
+verification remains required after the assertion update.

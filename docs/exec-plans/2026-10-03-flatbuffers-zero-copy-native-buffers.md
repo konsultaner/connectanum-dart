@@ -12,6 +12,16 @@ Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107)
 
 
 Current follow-up (2026-10-15): finish remaining FlatBuffers issues.
+The frozen full run preserves all 20 input hashes and reaches the benchmark
+suite, where a stale live assertion expects zero AES assembly bytes rather than
+48. The repaired test checks both RPC legs: four portable/native and cipher
+combinations now pass, including exact 48-byte portable AES and 160-byte native
+nonce/tag totals for two RPCs. This first full run exits 1 and is retained; a
+fresh full rerun is still required. New-source production artifacts pass all five
+platforms: downloaded logs verify 170 visible cases, zero skips, 22 file hashes,
+ABI guards and lifecycle. The downloaded production library passes the actual
+crypto copy probe. No E2EE/transcode total or parity acceptance is added.
+
 E2EE follow-up reproduces and repairs unobserved portable AES nonce assembly,
 partial failed native legacy CBOR coercion, and Rust nonce/tag framing copies.
 An additive optional scalar preserves the 16-byte v1 ABI; eight Rust crypto

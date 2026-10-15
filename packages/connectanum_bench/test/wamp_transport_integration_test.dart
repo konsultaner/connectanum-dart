@@ -729,7 +729,23 @@ void main() {
             final portable =
                 breakdown['client_worker_isolate_portable_provider'] as Map;
             expect(portable['plaintext_wrapping_copy_bytes'], 0);
-            expect(portable['ciphertext_assembly_copy_bytes'], 0);
+            expect(
+              portable['ciphertext_assembly_copy_bytes'],
+              implementation == WampClientImplementation.dart &&
+                      cipher == 'aes256gcm'
+                  ? result.samples.length * 2 * 12
+                  : 0,
+              reason: 'each RPC encrypts a request and a reply nonce',
+            );
+            expect(
+              breakdown['client_process_nonce_tag_copy_bytes'],
+              implementation == WampClientImplementation.native
+                  ? result.samples.length * 2 * 40
+                  : 0,
+              reason:
+                  'each native encrypted leg copies forty nonce/tag bytes '
+                  'across encryption and decryption',
+            );
             expect(portable['ciphertext_coercion_copy_bytes'], 0);
             expect(
               portable['ciphertext_wrapping_copy_bytes'],
