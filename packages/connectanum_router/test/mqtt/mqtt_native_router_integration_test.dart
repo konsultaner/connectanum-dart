@@ -189,6 +189,53 @@ void main() {
         : false,
   );
 
+  for (final tls in [false, true]) {
+    for (final version in [MqttVersion.v5, MqttVersion.v311]) {
+      test(
+        'native ${tls ? 'WSS' : 'WS'} MQTT ${version == MqttVersion.v5 ? '5' : '3.1.1'} exchanges exact bytes between Connectanum clients',
+        () async {
+          final port = await _startRouter(
+            protocols: [ListenerProtocol.mqtt, ListenerProtocol.websocket],
+            tls: tls,
+          );
+          final context = SecurityContext(withTrustedRoots: false)
+            ..setTrustedCertificates('test/certs/remote_auth_ca_cert.pem');
+          final uri = Uri.parse(
+            '${tls ? 'wss' : 'ws'}://127.0.0.1:$port/mqtt',
+          );
+          final subscriber = await MqttQos0Client.connectWebSocket(
+            uri,
+            clientId: 'native-${tls ? 'wss' : 'ws'}-sub',
+            version: version,
+            context: tls ? context : null,
+          );
+          final publisher = await MqttQos0Client.connectWebSocket(
+            uri,
+            clientId: 'native-${tls ? 'wss' : 'ws'}-pub',
+            version: version,
+            context: tls ? context : null,
+          );
+          addTearDown(() async {
+            await publisher.close();
+            await subscriber.close();
+          });
+          await subscriber.subscribe('native/websocket/raw');
+          final received = subscriber.messages.first.timeout(
+            const Duration(seconds: 5),
+          );
+          await publisher.publish(
+            'native/websocket/raw',
+            Uint8List.fromList([0, 255, 17, 0]),
+          );
+          final publication = await received;
+          expect(publication.topic, 'native/websocket/raw');
+          expect(publication.payload, [0, 255, 17, 0]);
+          expect(publication.qos, 0);
+        },
+      );
+    }
+  }
+
   test('native TLS MQTT exchanges exact QoS 0 bytes across versions', () async {
     final port = await _startRouter(tls: true);
     final context = SecurityContext(withTrustedRoots: false)
