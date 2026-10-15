@@ -11,6 +11,17 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Lazy mutation startup repair (2026-10-15): hosted `b43a0a56` rejects stale
+source-bound equivalence records before running `core-lazy-vm` and web. All eight
+previous predicates map uniquely to unchanged text in the full current
+356-mutant inventory. Their reasons and count are revalidated; only IDs and
+source hashes change. Full target execution and replacement hosted CI are
+pending. Production dry run 38798749509 passes all five platforms and 170
+consumer cases with zero skips and audited log hashes. The two paired 90-row
+reply diagnostics complete cleanly but still show roughly 0.84 throughput
+ratios; no parity is established. Dirty aggregate/native copy follow-up remains
+unverified as a whole. See [proof refresh](../research/2026-10-15-lazy-mutation-proof-refresh.md).
+
 Allocation measurement audit (2026-10-15): pinned Dart 3.13.1 source and a
 forced-GC repro show `accumulatedSize` is live heap inventory, not allocation
 volume. Prior allocation ratios cannot establish that resource gate. A standard
