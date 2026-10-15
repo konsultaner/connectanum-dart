@@ -6,6 +6,13 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Allocation measurement audit (2026-10-15): pinned Dart 3.13.1 source and a
+forced-GC repro show `accumulatedSize` is live heap inventory, not allocation
+volume. Prior allocation ratios cannot establish that resource gate. A standard
+SDK native heap-callback prototype preserves 128 MiB of allocation history after
+GC, but small-allocation weighting and observer isolation still need validation.
+No numeric budget changes. See [allocation research](research/2026-10-15-dart-allocation-volume-research.md).
+
 Owned-copy CI checkpoint (2026-10-15): all 633 client binding mutants
 complete with zero errors/timeouts, clean/restored baselines and a 95.9302325581%
 assertion score against the unchanged 95% floor. Pinned client/core inputs stay
@@ -16,7 +23,11 @@ run reaches three JSON mixed-PPT failures, exposing an opaque-body conversion
 gap. A router-only view wraps the same bytes in one Arguments item, retaining the
 original message/owner. All fourteen fail-first control/body cases and all 107
 public mixed PPT/E2EE cases now pass. The legacy JSON codec stays unchanged.
-Fresh full verification and hosted CI are pending; copy totals/parity stay open.
+Frozen full `bin/verify` passes at `03524853` with HEAD and all 3,070
+tracked/intended-new input hashes unchanged. This includes Rust, VM/live and
+packaging smoke tests, core Chrome/Dart2Wasm and 2,859 client browser cases
+with twenty declared native-only skips. Replacement hosted CI and production
+consumers are pending; complete owned copy totals and parity stay open.
 
 Hosted CI repair in progress (2026-10-15): `fc1881d3` finishes with 39
 successful checks and one root failure: client message-binding mutation score
