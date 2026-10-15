@@ -1695,6 +1695,17 @@ fn allocate_connection_id(sequence: &AtomicU32) -> Result<ConnectionId, Error> {
     Ok(ConnectionId(id))
 }
 
+#[inline]
+async fn with_mqtt_connection_id<F, Fut>(result: Result<ConnectionId, Error>, accept: F)
+where
+    F: FnOnce(ConnectionId) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    if let Ok(connection_id) = result {
+        accept(connection_id).await;
+    }
+}
+
 struct ListenerRegistry {
     listeners: Mutex<HashMap<ListenerId, ListenerEntry>>,
     connections: Mutex<HashMap<ConnectionId, ConnectionEntry>>,
@@ -1876,6 +1887,26 @@ impl MqttInbound {
             }
         }
         Ok(combined.map(BytesMut::freeze).unwrap_or(bytes))
+    }
+
+    #[inline]
+    fn poll_with_wake_reset<F: FnOnce()>(
+        &mut self,
+        max_bytes: usize,
+        notification_pending: &AtomicBool,
+        after_reset: F,
+    ) -> Option<Bytes> {
+        match self.try_recv_limited(max_bytes) {
+            Ok(bytes) => Some(bytes),
+            Err(TryRecvError::Empty) => {
+                // Retry after clearing the flag so a producer racing this
+                // empty observation cannot leave bytes asleep in the queue.
+                notification_pending.store(false, Ordering::Release);
+                after_reset();
+                self.try_recv_limited(max_bytes).ok()
+            }
+            Err(TryRecvError::Disconnected) => None,
+        }
     }
 }
 
@@ -3062,19 +3093,7 @@ impl ListenerRegistry {
             }
         };
         let mut receiver = chunks.lock().unwrap();
-        match receiver.try_recv_limited(max_bytes) {
-            Ok(bytes) => Ok(Some(bytes)),
-            Err(TryRecvError::Empty) => {
-                // Retry after clearing the flag so a producer racing this
-                // empty observation cannot leave bytes asleep in the queue.
-                notification_pending.store(false, Ordering::Release);
-                match receiver.try_recv_limited(max_bytes) {
-                    Ok(bytes) => Ok(Some(bytes)),
-                    Err(TryRecvError::Empty | TryRecvError::Disconnected) => Ok(None),
-                }
-            }
-            Err(TryRecvError::Disconnected) => Ok(None),
-        }
+        Ok(receiver.poll_with_wake_reset(max_bytes, &notification_pending, || {}))
     }
 
     fn enqueue_mqtt_chunk(&self, connection_id: ConnectionId, bytes: Bytes) -> Result<(), Error> {
@@ -4220,12 +4239,13 @@ fn spawn_mqtt_websocket_reader(
                         {
                             break;
                         }
-                        if let Some(code) = error.close_code() {
-                            graceful = control_tx
-                                .send((0x8, Bytes::copy_from_slice(&code.to_be_bytes())))
-                                .await
-                                .is_ok();
-                        }
+                        // Accumulator failures are framing errors and always
+                        // warrant a protocol close, including future variants.
+                        let code = error.close_code().unwrap_or(1002);
+                        graceful = control_tx
+                            .send((0x8, Bytes::copy_from_slice(&code.to_be_bytes())))
+                            .await
+                            .is_ok();
                         break;
                     }
                     if let Some(message) = accumulator.take_complete() {
@@ -6044,18 +6064,19 @@ async fn negotiate_accepted_connection(
             let _ = tx.send(connection_id).await;
         }
         Ok(protocol::NegotiatedConnection::Mqtt(handshake)) => {
-            let Ok(connection_id) = registry.next_connection_id() else {
-                return;
-            };
-            Arc::clone(&registry).register_mqtt_connection(
-                runtime_handle.clone(),
-                listener_id,
-                connection_id,
-                Arc::clone(&endpoint),
-                handshake,
-                addr,
-            );
-            let _ = tx.send(connection_id).await;
+            let next_id = registry.next_connection_id();
+            with_mqtt_connection_id(next_id, |connection_id| async move {
+                Arc::clone(&registry).register_mqtt_connection(
+                    runtime_handle.clone(),
+                    listener_id,
+                    connection_id,
+                    Arc::clone(&endpoint),
+                    handshake,
+                    addr,
+                );
+                let _ = tx.send(connection_id).await;
+            })
+            .await;
         }
         Ok(protocol::NegotiatedConnection::WebSocket(handshake)) => {
             let Ok(connection_id) = registry.next_connection_id() else {
@@ -9595,6 +9616,150 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn websocket_reader_closes_when_no_frame_arrives_before_idle_timeout() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (server, _) = listener.accept().await.unwrap();
+        let (reader, _writer) = tokio::io::split(IoStream::plain(server));
+        let mut endpoint = build_client_endpoint_config(
+            "127.0.0.1",
+            0,
+            false,
+            TransportProtocol::Websocket,
+            config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+            None,
+            None,
+        );
+        endpoint.idle_timeout = Some(Duration::from_millis(20));
+        let (frame_tx, _frame_rx) = mpsc::channel(1);
+        let (send_tx, _send_rx) = mpsc::channel(1);
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+        let reader_abort = spawn_websocket_reader(
+            tokio::runtime::Handle::current(),
+            ConnectionId(46),
+            rawsocket::Serializer::Json,
+            Arc::new(endpoint),
+            reader,
+            frame_tx,
+            send_tx,
+            None,
+            close_tx,
+            true,
+        );
+        assert_eq!(
+            time::timeout(Duration::from_secs(5), close_rx.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::ReaderClosed)
+        );
+        reader_abort.abort();
+        drop(client);
+    }
+
+    #[tokio::test]
+    async fn websocket_reader_handles_frame_before_idle_timeout() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (server, _) = listener.accept().await.unwrap();
+        let (reader, _writer) = tokio::io::split(IoStream::plain(server));
+        let mut endpoint = build_client_endpoint_config(
+            "127.0.0.1",
+            0,
+            false,
+            TransportProtocol::Websocket,
+            config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+            None,
+            None,
+        );
+        endpoint.idle_timeout = Some(Duration::from_secs(1));
+        let (frame_tx, _frame_rx) = mpsc::channel(1);
+        let (send_tx, mut send_rx) = mpsc::channel(1);
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+        let reader_abort = spawn_websocket_reader(
+            tokio::runtime::Handle::current(),
+            ConnectionId(49),
+            rawsocket::Serializer::Json,
+            Arc::new(endpoint),
+            reader,
+            frame_tx,
+            send_tx,
+            None,
+            close_tx,
+            true,
+        );
+        client
+            .write_all(&[0x88, 0x80, 1, 2, 3, 4])
+            .await
+            .unwrap();
+        assert!(
+            time::timeout(Duration::from_secs(5), send_rx.recv())
+                .await
+                .unwrap()
+                .is_some()
+        );
+        assert_eq!(
+            time::timeout(Duration::from_secs(5), close_rx.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::ReaderGracefulClose)
+        );
+        reader_abort.abort();
+    }
+
+    #[tokio::test]
+    async fn mqtt_tcp_reader_stops_when_inbound_receiver_is_dropped() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (server, peer_addr) = listener.accept().await.unwrap();
+        let registry = Arc::new(ListenerRegistry::default());
+        let connection_id = ConnectionId(47);
+        Arc::clone(&registry).register_mqtt_stream_connection(
+            tokio::runtime::Handle::current(),
+            ListenerId(1),
+            connection_id,
+            Arc::new(build_client_endpoint_config(
+                "127.0.0.1",
+                0,
+                false,
+                TransportProtocol::Mqtt,
+                config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+                None,
+                None,
+            )),
+            IoStream::plain(server),
+            5,
+            peer_addr,
+            false,
+        );
+        let entry = registry
+            .connections
+            .lock()
+            .unwrap()
+            .remove(&connection_id)
+            .unwrap();
+        let reader_abort = match &entry.record {
+            ConnectionRecord::Mqtt { reader_abort, .. } => reader_abort.clone(),
+            _ => unreachable!(),
+        };
+        drop(entry);
+        client.write_all(b"receiver dropped").await.unwrap();
+        time::timeout(Duration::from_secs(5), async {
+            while !reader_abort.is_finished() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        registry.shutdown();
+    }
+
+    #[tokio::test]
     async fn mqtt_registry_reports_no_chunk_after_inbound_disconnect() {
         let registry = ListenerRegistry::default();
         let connection_id = ConnectionId(44);
@@ -9672,6 +9837,18 @@ mod tests {
             inbound.try_recv_limited(5),
             Err(TryRecvError::Disconnected)
         ));
+    }
+
+    #[test]
+    fn mqtt_empty_poll_rechecks_chunk_sent_after_wake_reset() {
+        let (sender, receiver) = mpsc::channel(1);
+        let mut inbound = MqttInbound::new(receiver);
+        let notification_pending = AtomicBool::new(true);
+        let bytes = inbound.poll_with_wake_reset(64, &notification_pending, || {
+            sender.try_send(Bytes::from_static(b"racing chunk")).unwrap();
+        });
+        assert_eq!(bytes, Some(Bytes::from_static(b"racing chunk")));
+        assert!(!notification_pending.load(Ordering::Acquire));
     }
 
     #[tokio::test]
@@ -10044,6 +10221,47 @@ mod tests {
                 .unwrap(),
             Some(ConnectionTaskSignal::ReaderClosed)
         );
+        reader_abort.abort();
+    }
+
+    #[tokio::test]
+    async fn mqtt_websocket_reader_rejects_orphan_continuation_frame() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (stream, _) = listener.accept().await.unwrap();
+        let (reader, _writer) = tokio::io::split(IoStream::plain(stream));
+        let (chunk_tx, mut chunk_rx) = mpsc::channel(1);
+        let (control_tx, mut control_rx) = mpsc::channel(1);
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+        let reader_abort = spawn_mqtt_websocket_reader(
+            tokio::runtime::Handle::current(),
+            ConnectionId(48),
+            reader,
+            chunk_tx,
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(Mutex::new(None)),
+            control_tx,
+            close_tx,
+        );
+        client
+            .write_all(&masked_mqtt_websocket_test_frame(0x0, true, b"orphan"))
+            .await
+            .unwrap();
+        assert_eq!(
+            time::timeout(Duration::from_secs(5), control_rx.recv())
+                .await
+                .unwrap(),
+            Some((0x8, Bytes::from_static(&[0x03, 0xea])))
+        );
+        assert_eq!(
+            time::timeout(Duration::from_secs(5), close_rx.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::ReaderGracefulClose)
+        );
+        assert!(chunk_rx.try_recv().is_err());
         reader_abort.abort();
     }
 
@@ -13218,6 +13436,27 @@ mod flatbuffers_websocket_profile_tests {
 #[cfg(test)]
 mod connection_id_lifetime_tests {
     use super::*;
+
+    #[tokio::test]
+    async fn mqtt_id_gate_skips_registration_when_capacity_is_exhausted() {
+        let accepted = AtomicU32::new(0);
+        with_mqtt_connection_id(
+            Err(Error::Io(io::Error::other("connection id exhausted"))),
+            |id| {
+                accepted.store(id.0, Ordering::SeqCst);
+                std::future::ready(())
+            },
+        )
+        .await;
+        assert_eq!(accepted.load(Ordering::SeqCst), 0);
+
+        with_mqtt_connection_id(Ok(ConnectionId(7)), |id| {
+            accepted.store(id.0, Ordering::SeqCst);
+            std::future::ready(())
+        })
+        .await;
+        assert_eq!(accepted.load(Ordering::SeqCst), 7);
+    }
 
     #[test]
     fn recreated_registries_cannot_reuse_connection_ids() {

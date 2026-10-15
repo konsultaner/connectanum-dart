@@ -3277,16 +3277,23 @@ pub extern "C" fn ct_poll_mqtt_chunk(
         return ERR_INVALID_ARGUMENT;
     }
     match poll_mqtt_chunk(ConnectionId(connection_id as u32), out_capacity as usize) {
-        Ok(Some(bytes)) => {
-            if bytes.len() > out_capacity as usize {
-                return ERR_INVALID_ARGUMENT;
-            }
-            unsafe { ptr::copy_nonoverlapping(bytes.as_ptr(), out_ptr, bytes.len()) };
-            bytes.len() as c_int
-        }
+        Ok(Some(bytes)) => unsafe { copy_mqtt_chunk(&bytes, out_ptr, out_capacity as usize) },
         Ok(None) => 0,
         Err(err) => map_error(err),
     }
+}
+
+/// Copies a polled MQTT chunk after validating the destination capacity.
+///
+/// # Safety
+/// `out_ptr` must point to `out_capacity` writable bytes.
+#[inline]
+unsafe fn copy_mqtt_chunk(bytes: &[u8], out_ptr: *mut u8, out_capacity: usize) -> c_int {
+    if bytes.len() > out_capacity {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe { ptr::copy_nonoverlapping(bytes.as_ptr(), out_ptr, bytes.len()) };
+    bytes.len() as c_int
 }
 
 /// Enqueues an encoded MQTT byte chunk without WAMP framing.
@@ -8211,6 +8218,33 @@ mod tests {
     }
 
     #[test]
+    fn mqtt_chunk_copy_rejects_oversize_without_writing_and_accepts_exact_fit() {
+        let mut output = [0_u8; 4];
+        assert_eq!(
+            unsafe { copy_mqtt_chunk(b"five!", output.as_mut_ptr(), output.len()) },
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(output, [0; 4]);
+        assert_eq!(
+            unsafe { copy_mqtt_chunk(b"four", output.as_mut_ptr(), output.len()) },
+            4
+        );
+        assert_eq!(&output, b"four");
+    }
+
+    #[test]
+    fn mqtt_chunk_poll_maps_missing_connection_error() {
+        let _guard = test_guard();
+        let started = ct_start_runtime();
+        assert!(started == SUCCESS || started == ERR_ALREADY_STARTED);
+        let mut output = [0_u8; 16 * 1024];
+        assert_eq!(
+            ct_poll_mqtt_chunk(i32::MAX, output.as_mut_ptr(), output.len() as c_int),
+            ERR_CONNECTION_NOT_FOUND
+        );
+    }
+
+    #[test]
     fn configured_listener_ffi_rejects_invalid_arguments() {
         let _guard = test_guard();
         let host = std::ffi::CString::new("127.0.0.1").unwrap();
@@ -11155,6 +11189,44 @@ mod tests {
         );
 
         assert_eq!(ct_shutdown(), SUCCESS);
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[test]
+    fn mqtt_connection_event_and_metrics_keep_mqtt_protocol_identity() {
+        let _guard = test_guard();
+        let start_result = ct_start_runtime();
+        assert!(
+            start_result == SUCCESS
+                || start_result == crate::runtime::constants::ERR_ALREADY_STARTED
+        );
+        let event = HttpConnectionEvent {
+            connection_id: ConnectionId(91006),
+            protocol: ConnectionProtocol::Mqtt,
+            reason: HttpConnectionCloseReason::Graceful,
+            request_count: 0,
+            idle_timeouts: 0,
+            body_timeouts: 0,
+            backpressure_events: 0,
+            max_backpressure_depth: 0,
+            goaway_events: 0,
+            detail: None,
+        };
+        let handle = resource_handle_result(store_http_connection_event(event.clone()));
+        assert!(handle > 0);
+        let mut info = CtHttpConnectionEventInfo::default();
+        assert_eq!(ct_http_connection_event_get(handle, &mut info), SUCCESS);
+        assert_eq!(info.protocol, PROTOCOL_MQTT);
+        assert_eq!(ct_http_connection_event_release(handle), SUCCESS);
+
+        let before = snapshot_router_metrics();
+        push_http_connection_event(ListenerId(9104), event);
+        let after = snapshot_router_metrics();
+        assert_eq!(after.total_events, before.total_events + 1);
+        assert_eq!(
+            after.breakdown_for(9104, PROTOCOL_MQTT).total_events,
+            before.breakdown_for(9104, PROTOCOL_MQTT).total_events + 1
+        );
     }
 
     #[cfg(feature = "ffi-test")]
