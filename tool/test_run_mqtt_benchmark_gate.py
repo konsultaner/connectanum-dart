@@ -200,17 +200,20 @@ class MqttBenchmarkGateTest(unittest.TestCase):
                 self.assertFalse(compare(samples, budget)["passed"])
 
     def test_wss_single_packet_smoke_requires_exact_delivery(self):
-        budget = json.loads((gate.ROOT / "tool" /
-                             "mqtt_native_wss_single_smoke_benchmark_budget.json").read_text())
-        self.assertEqual(budget["mqtt_version"], "5")
-        samples = rows()
-        for row in samples:
-            row.update(profile=budget["profile"], transport="wss",
-                       window_messages=64)
-        self.assertTrue(compare(samples, budget)["passed"])
-        samples[0]["duplicates"] = 1
-        with self.assertRaisesRegex(ValueError, "invalid workload"):
-            compare(samples, budget)
+        for filename, version, window in (
+                ("mqtt_native_wss_single_smoke_benchmark_budget.json", "5", 64),
+                ("mqtt_native_wss_v311_single_smoke_benchmark_budget.json", "311", 32)):
+            with self.subTest(filename=filename):
+                budget = json.loads((gate.ROOT / "tool" / filename).read_text())
+                self.assertEqual(budget["mqtt_version"], version)
+                samples = rows()
+                for row in samples:
+                    row.update(profile=budget["profile"], mqtt_version=version,
+                               transport="wss", window_messages=window)
+                self.assertTrue(compare(samples, budget)["passed"])
+                samples[0]["duplicates"] = 1
+                with self.assertRaisesRegex(ValueError, "invalid workload"):
+                    compare(samples, budget)
 
     def test_native_tls_provenance_hashes_binaries_and_trust_material(self):
         with tempfile.TemporaryDirectory() as directory:

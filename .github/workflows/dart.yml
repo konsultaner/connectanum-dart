@@ -176,7 +176,7 @@ jobs:
 
   mqtt-qos0:
     name: MQTT QoS 0 interoperability and benchmark gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
@@ -189,6 +189,11 @@ jobs:
           bin/bootstrap
           sudo apt-get update
           sudo apt-get install -y mosquitto
+          mosquitto_version="$(mosquitto -h 2>&1)"
+          [[ "$mosquitto_version" == *'mosquitto version 2.0.18'* ]] || {
+            printf 'MQTT reference broker changed; rebaseline required: %s\n' "$mosquitto_version" >&2
+            exit 1
+          }
           python3 -m venv "$RUNNER_TEMP/paho"
           "$RUNNER_TEMP/paho/bin/pip" install paho-mqtt==2.1.0 coverage==7.16.2
       - name: Build native MQTT transport
@@ -288,6 +293,9 @@ jobs:
           run_profile --native-router \
             --budget tool/mqtt_native_wss_single_smoke_benchmark_budget.json \
             --output out/mqtt-qos0-gate/native-wss-single-smoke --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_wss_v311_single_smoke_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-wss-v311-single-smoke --mosquitto "$(command -v mosquitto)"
           "$coverage" json --include='*/tool/run_mqtt_benchmark_gate.py' \
             -o out/mqtt-qos0-gate/python-coverage.json
           "$coverage" report --include='*/tool/run_mqtt_benchmark_gate.py' \

@@ -15,12 +15,16 @@ buffered-frame batching candidate cuts measured Dart/native chunk crossings,
 passes full verification and Paho integration, and passes five clean-source
 matched gates with 46 exact rows. Its WS throughput remains level with the
 previous clean source, so the diagnostic dirty-tree gain is unconfirmed;
-hosted Linux passes fourteen of eighteen profiles with exact delivery, but
-misses four throughput floors including both native WS versions. The MQTT
+the first hosted Linux run passes fourteen of eighteen profiles with exact
+delivery; a same-source rerun passes fifteen of eighteen, but still misses
+native TCP 3.1.1 and both native WS throughput floors. The MQTT
 CI performance gate and controlled release margin remain open.
 The Mosquitto WSS MQTT 3.1.1 reference path still stalls with the Connectanum
-client under load and needs diagnosis. Continue with the authorized MQTT/WAMP
-publication boundary, QoS 1/2, retained/will/session behavior, full regression
+client on 2.1.2; the same client passes 20,000 WSS publications against official
+Mosquitto 2.0.18 and the native Connectanum listener. A versioned WSS 3.1.1
+correctness smoke is queued for hosted CI, while the 2.1.2 interaction remains
+open. Continue with the authorized MQTT/WAMP publication boundary, QoS 1/2,
+retained/will/session behavior, full regression
 matrix and controlled release benchmarks. The current QoS 0 checkpoint is not
 milestone completion.
 
