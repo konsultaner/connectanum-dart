@@ -6536,7 +6536,9 @@ fn read_native_e2ee_file_payload(
     let binary_header = cbor_byte_string_header(file_len)?;
     let mut plaintext = Vec::with_capacity(file_len + binary_header.len() + 15);
     plaintext.extend_from_slice(&[0xa2, 0x64, b'a', b'r', b'g', b's', 0x81]);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(7);
     plaintext.extend_from_slice(&binary_header);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(binary_header.len());
     let payload_start = plaintext.len();
     plaintext.resize(payload_start + file_len, 0);
     read_file_exact_at_sync(
@@ -6546,6 +6548,7 @@ fn read_native_e2ee_file_payload(
     )
     .map_err(|_| ERR_IO)?;
     plaintext.extend_from_slice(&[0x66, b'k', b'w', b'a', b'r', b'g', b's', 0xf6]);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(8);
     Ok(plaintext)
 }
 
@@ -6580,7 +6583,9 @@ fn encrypt_e2ee_aes256_gcm_file_payload(
     combined.extend_from_slice(&nonce_bytes);
     super::crypto_copy_metrics::record_nonce_tag_copy(nonce_bytes.len());
     combined.extend_from_slice(&[0xa2, 0x64, b'a', b'r', b'g', b's', 0x81]);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(7);
     combined.extend_from_slice(&binary_header);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(binary_header.len());
     let payload_start = combined.len();
     let payload_end = payload_start
         .checked_add(file_len)
@@ -6589,6 +6594,7 @@ fn encrypt_e2ee_aes256_gcm_file_payload(
     read_file_exact_at_sync(file, file_offset, &mut combined[payload_start..payload_end])
         .map_err(|_| ERR_IO)?;
     combined.extend_from_slice(&[0x66, b'k', b'w', b'a', b'r', b'g', b's', 0xf6]);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(8);
 
     let tag = cipher
         .seal_in_place_separate_tag(
@@ -6610,18 +6616,24 @@ fn cbor_byte_string_header(length: usize) -> Result<Vec<u8>, c_int> {
         return Ok(vec![0x58, value]);
     }
     if let Ok(value) = u16::try_from(length) {
-        let mut header = vec![0x59];
+        let mut header = Vec::with_capacity(3);
+        header.push(0x59);
         header.extend_from_slice(&value.to_be_bytes());
+        super::crypto_copy_metrics::record_plaintext_framing_copy(2);
         return Ok(header);
     }
     if let Ok(value) = u32::try_from(length) {
-        let mut header = vec![0x5a];
+        let mut header = Vec::with_capacity(5);
+        header.push(0x5a);
         header.extend_from_slice(&value.to_be_bytes());
+        super::crypto_copy_metrics::record_plaintext_framing_copy(4);
         return Ok(header);
     }
     let value = u64::try_from(length).map_err(|_| ERR_INVALID_ARGUMENT)?;
-    let mut header = vec![0x5b];
+    let mut header = Vec::with_capacity(9);
+    header.push(0x5b);
     header.extend_from_slice(&value.to_be_bytes());
+    super::crypto_copy_metrics::record_plaintext_framing_copy(8);
     Ok(header)
 }
 

@@ -341,6 +341,7 @@ class NativeE2eeCopyMetrics {
     required this.ciphertextStagingCopyBytesTotal,
     this.ciphertextCoercionCopyBytesTotal = 0,
     this.nonceTagCopyBytesTotal,
+    this.plaintextFramingCopyBytesTotal,
   });
 
   final int dartToNativeCopiedBytesTotal;
@@ -349,6 +350,9 @@ class NativeE2eeCopyMetrics {
   final int? ciphertextStagingCopyBytesTotal;
   final int ciphertextCoercionCopyBytesTotal;
   final int? nonceTagCopyBytesTotal;
+
+  /// Explicit CBOR wrapper/header copies; null without the optional scalar.
+  final int? plaintextFramingCopyBytesTotal;
 
   NativeE2eeCopyMetrics deltaFrom(
     NativeE2eeCopyMetrics before,
@@ -375,6 +379,11 @@ class NativeE2eeCopyMetrics {
       nonceTagCopyBytesTotal,
       before.nonceTagCopyBytesTotal,
     ),
+    plaintextFramingCopyBytesTotal:
+        NativeTransportCopyMetrics._nullableCounterDelta(
+          plaintextFramingCopyBytesTotal,
+          before.plaintextFramingCopyBytesTotal,
+        ),
     ciphertextCoercionCopyBytesTotal: NativeTransportCopyMetrics._counterDelta(
       ciphertextCoercionCopyBytesTotal,
       before.ciphertextCoercionCopyBytesTotal,
@@ -1340,8 +1349,27 @@ class NativeClientRuntime {
         calloc.free(out);
       }
     }
+    int? plaintextFraming;
+    final plaintextFramingSnapshot =
+        _bindings.ctE2eePlaintextFramingCopyMetricsSnapshot;
+    if (plaintextFramingSnapshot != null) {
+      final out = calloc<ffi.Uint64>();
+      try {
+        final result = plaintextFramingSnapshot(out);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(
+            result,
+            'snapshot E2EE plaintext framing copy metrics',
+          );
+        }
+        plaintextFraming = out.value;
+      } finally {
+        calloc.free(out);
+      }
+    }
     return NativeE2eeCopyMetrics(
       nonceTagCopyBytesTotal: nonceTag,
+      plaintextFramingCopyBytesTotal: plaintextFraming,
       dartToNativeCopiedBytesTotal: _e2eeDartToNativeCopiedBytesTotal,
       nativeToDartCopiedBytesTotal: _e2eeNativeToDartCopiedBytesTotal,
       plaintextStagingCopyBytesTotal: plaintext,

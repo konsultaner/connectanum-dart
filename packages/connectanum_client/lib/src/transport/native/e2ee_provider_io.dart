@@ -1,5 +1,9 @@
 import 'dart:typed_data';
 
+// Observe the shared built-in PPT serializer boundaries.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/message/ppt_copy_metrics.dart';
+
 import 'package:connectanum_core/cbor_serializer.dart' as cbor_serializer;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/flatbuffers_serializer.dart'
@@ -179,10 +183,12 @@ abstract class _NativeWampE2eeCipherProvider
     final segment = _prepareEncryption(options, runtimeContext: runtimeContext);
     final plaintext =
         typedPlaintext ??
-        _serializer.serializePPT(
-          PPTPayload(
-            arguments: arguments,
-            argumentsKeywords: argumentsKeywords,
+        PptCopyMetrics.measure<Uint8List>(
+          () => _serializer.serializePPT(
+            PPTPayload(
+              arguments: arguments,
+              argumentsKeywords: argumentsKeywords,
+            ),
           ),
         );
     try {
@@ -219,8 +225,10 @@ abstract class _NativeWampE2eeCipherProvider
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
   ) {
-    final bytes = _serializer.serializePPT(
-      PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
+    final bytes = PptCopyMetrics.measure<Uint8List>(
+      () => _serializer.serializePPT(
+        PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
+      ),
     );
     final overhead = _cipher == ConnectanumE2eeProfile.aes256Gcm ? 28 : 40;
     if (bytes.length >
@@ -358,7 +366,9 @@ abstract class _NativeWampE2eeCipherProvider
   }
 
   PPTPayload _decodePlaintext(Uint8List plaintext, PPTOptions options) {
-    final decoded = _serializer.deserializePPT(plaintext);
+    final decoded = PptCopyMetrics.measure(
+      () => _serializer.deserializePPT(plaintext),
+    );
     if (decoded == null) {
       throw WampE2eeInvalidPayloadException(
         'unpack',

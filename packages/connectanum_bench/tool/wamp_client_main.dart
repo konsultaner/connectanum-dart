@@ -12,6 +12,8 @@ import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 // ignore: implementation_imports
 import 'package:connectanum_core/src/message/e2ee_copy_metrics.dart';
+// ignore: implementation_imports
+import 'package:connectanum_core/src/message/ppt_copy_metrics.dart';
 import 'package:logging/logging.dart';
 
 Future<void> main(List<String> args) async {
@@ -133,13 +135,16 @@ Future<void> main(List<String> args) async {
         late final List<WampSample> samples;
         late final DartTransportCopyMetricsSnapshot dartCopyMetrics;
         late final PortableE2eeCopyMetricsSnapshot portableE2eeMetrics;
+        late final PptCopyMetricsSnapshot pptMetrics;
         DartTransportCopyMetrics.beginWindow();
         PortableE2eeCopyMetrics.beginWindow();
+        PptCopyMetrics.beginWindow();
         try {
           samples = await runner.run(scenario);
         } finally {
           dartCopyMetrics = DartTransportCopyMetrics.endWindow();
           portableE2eeMetrics = PortableE2eeCopyMetrics.endWindow();
+          pptMetrics = PptCopyMetrics.endWindow();
         }
         final fileMetrics = nativeRuntime
             .fileSegmentMetricsSnapshot()
@@ -170,6 +175,7 @@ Future<void> main(List<String> args) async {
               dartCopyMetrics,
               e2eeMetrics,
               portableE2eeMetrics,
+              pptMetrics,
             ),
             'process_metrics': {
               'pid': pid,
@@ -200,6 +206,7 @@ Map<String, Object?> _copyMetricsFor(
   DartTransportCopyMetricsSnapshot dartCopyMetrics,
   NativeE2eeCopyMetrics e2eeMetrics,
   PortableE2eeCopyMetricsSnapshot portableE2eeMetrics,
+  PptCopyMetricsSnapshot pptMetrics,
 ) {
   Map<String, Object?> notApplicable(String reason) => {
     'status': 'not_applicable',
@@ -270,6 +277,7 @@ Map<String, Object?> _copyMetricsFor(
       scenario,
       e2eeMetrics,
       portableMetrics: portableE2eeMetrics,
+      pptMetrics: pptMetrics,
     ),
     // This counter covers only the application payload after the explicit
     // native FlatBuffers owner is frozen and submitted through the owned-view

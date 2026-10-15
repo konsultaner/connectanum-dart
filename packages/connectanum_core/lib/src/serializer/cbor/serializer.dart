@@ -6,6 +6,7 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
 
 import '../limits.dart';
+import '../../message/ppt_copy_metrics.dart';
 
 /// This is a serializer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
@@ -14,15 +15,26 @@ class Serializer extends AbstractSerializer {
   static final Uint8List _emptyListBytes = Uint8List.fromList(
     cbor.encode(CborValue(const [])),
   );
-  static final Uint8List _pptArgsKeyBytes = Uint8List.fromList(
+  static final Uint8List _pptArgsKeyBytes = _copyPptMetadataBytes(
     cbor.encode(CborValue('args')),
   );
-  static final Uint8List _pptKwargsKeyBytes = Uint8List.fromList(
+  static final Uint8List _pptKwargsKeyBytes = _copyPptMetadataBytes(
     cbor.encode(CborValue('kwargs')),
   );
-  static final Uint8List _nullBytes = Uint8List.fromList(
+  static final Uint8List _nullBytes = _copyPptMetadataBytes(
     cbor.encode(CborValue(null)),
   );
+  static final Uint8List _pptMapHeaderBytes = _copyPptMetadataBytes([0xa2]);
+  static final Uint8List _pptBinaryArrayHeaderBytes = _copyPptMetadataBytes([
+    0x81,
+  ]);
+
+  static Uint8List _copyPptMetadataBytes(List<int> bytes) {
+    final copied = Uint8List.fromList(bytes);
+    PptCopyMetrics.recordMetadataSetupCopy(copied.length);
+    return copied;
+  }
+
   static const Set<String> _invocationDetailKeys = {
     'caller',
     'procedure',
@@ -1470,17 +1482,23 @@ class Serializer extends AbstractSerializer {
   }
 
   Uint8List _encodeCborValue(Object? value) {
-    return Uint8List.fromList(
+    return _copyPptEncodedBytes(
       cbor.encode(CborValue(_cborEncodablePayloadFragment(value))),
     );
   }
 
+  Uint8List _copyPptEncodedBytes(List<int> bytes) {
+    final copied = Uint8List.fromList(bytes);
+    PptCopyMetrics.recordEncodeWrappingCopy(copied.length);
+    return copied;
+  }
+
   Uint8List _encodeCborByteStringHeader(int length) {
     if (length < 24) {
-      return Uint8List.fromList(<int>[0x40 | length]);
+      return _copyPptEncodedBytes(<int>[0x40 | length]);
     }
     if (length <= 0xff) {
-      return Uint8List.fromList(<int>[0x58, length]);
+      return _copyPptEncodedBytes(<int>[0x58, length]);
     }
     if (length <= 0xffff) {
       final bytes = Uint8List(3)..[0] = 0x59;
@@ -1612,7 +1630,9 @@ class Serializer extends AbstractSerializer {
 
   Object? _cborValueToDart(Object? value) {
     if (value is CborBytes) {
-      return Uint8List.fromList(value.bytes);
+      final copied = Uint8List.fromList(value.bytes);
+      PptCopyMetrics.recordDecodedBinaryCopy(copied.length);
+      return copied;
     }
     if (value is CborList) {
       return _cborListToDart(value);
@@ -2177,26 +2197,31 @@ class Serializer extends AbstractSerializer {
         ? arguments.single as Uint8List
         : null;
     if (binaryArgument != null) {
-      return (BytesBuilder(copy: false)
-            ..add(const [0xa2])
-            ..add(_pptArgsKeyBytes)
-            ..add(const [0x81])
-            ..add(_encodeCborByteStringHeader(binaryArgument.length))
-            ..add(binaryArgument)
-            ..add(_pptKwargsKeyBytes)
-            ..add(_nullBytes))
-          .takeBytes();
+      final encoded =
+          (BytesBuilder(copy: false)
+                ..add(_pptMapHeaderBytes)
+                ..add(_pptArgsKeyBytes)
+                ..add(_pptBinaryArrayHeaderBytes)
+                ..add(_encodeCborByteStringHeader(binaryArgument.length))
+                ..add(binaryArgument)
+                ..add(_pptKwargsKeyBytes)
+                ..add(_nullBytes))
+              .takeBytes();
+      PptCopyMetrics.recordCoalescingCopy(encoded.length);
+      return encoded;
     }
     final argsBytes = argumentsBytes ?? _encodeCborValue(arguments);
     final kwargsBytes =
         argumentsKeywordsBytes ?? _encodeCborValue(argumentsKeywords);
     final builder = BytesBuilder(copy: false)
-      ..add([0xa2])
+      ..add(_pptMapHeaderBytes)
       ..add(_pptArgsKeyBytes)
       ..add(argsBytes.isEmpty ? _nullBytes : argsBytes)
       ..add(_pptKwargsKeyBytes)
       ..add(kwargsBytes.isEmpty ? _nullBytes : kwargsBytes);
-    return builder.takeBytes();
+    final encoded = builder.takeBytes();
+    PptCopyMetrics.recordCoalescingCopy(encoded.length);
+    return encoded;
   }
 
   PPTPayload? _deserializeSingleBinaryPpt(Uint8List bytes) {

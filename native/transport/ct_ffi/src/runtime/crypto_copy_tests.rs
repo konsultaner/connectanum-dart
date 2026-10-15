@@ -246,3 +246,72 @@ fn crypto_nonce_tag_in_place_and_file_paths_keep_exact_counts() {
     drop(file);
     std::fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn crypto_plaintext_framing_observes_exact_header_and_file_wrapper_copies() {
+    use super::super::crypto_copy_metrics::observed_plaintext_framing_on_current_thread as observed;
+    let path = std::env::temp_dir().join(format!(
+        "ct-plaintext-framing-{}-{}.bin",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .unwrap();
+    let body = vec![42_u8; 65_536];
+    std::io::Write::write_all(&mut file, &body).unwrap();
+    let key = [7_u8; 32];
+    for (length, header_len, header_copies) in [(0, 1, 0), (24, 2, 0), (256, 3, 2), (65_536, 5, 4)]
+    {
+        let header = cbor_byte_string_header(length).unwrap();
+        let before = observed();
+        assert_eq!(cbor_byte_string_header(length).unwrap(), header);
+        assert_eq!(observed() - before, header_copies);
+        let before = observed();
+        let plaintext = read_native_e2ee_file_payload(&file, 0, length).unwrap();
+        assert_eq!(observed() - before, 15 + header_len + header_copies);
+        assert_eq!(plaintext.len(), length + header_len as usize + 15);
+        assert_eq!(
+            &plaintext[7 + header_len as usize..7 + header_len as usize + length],
+            &body[..length]
+        );
+        let before = observed();
+        let ciphertext = encrypt_e2ee_aes256_gcm_file_payload(&key, &file, 0, length).unwrap();
+        assert_eq!(observed() - before, 15 + header_len + header_copies);
+        assert_eq!(
+            decrypt_e2ee_aes256_gcm_payload(&key, &ciphertext).unwrap(),
+            plaintext
+        );
+    }
+    let before = observed();
+    assert_eq!(
+        read_native_e2ee_file_payload(&file, 1, body.len()),
+        Err(ERR_INVALID_ARGUMENT)
+    );
+    assert_eq!(
+        encrypt_e2ee_aes256_gcm_file_payload(&key, &file, 1, body.len()),
+        Err(ERR_INVALID_ARGUMENT)
+    );
+    assert_eq!(observed(), before);
+    drop(file);
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn crypto_plaintext_framing_scalar_preserves_legacy_abi_and_adjacent_storage() {
+    use super::super::crypto_copy_metrics::{
+        ct_e2ee_plaintext_framing_copy_metrics_snapshot as snapshot, CtE2eeCopyMetricsInfo,
+    };
+    assert_eq!(std::mem::size_of::<CtE2eeCopyMetricsInfo>(), 16);
+    assert_eq!(snapshot(ptr::null_mut()), ERR_INVALID_ARGUMENT);
+    let mut guarded = [0x123456789abcdef_u64; 3];
+    assert_eq!(snapshot(&mut guarded[1]), SUCCESS);
+    assert_eq!(guarded[0], 0x123456789abcdef);
+    assert_eq!(guarded[2], 0x123456789abcdef);
+}

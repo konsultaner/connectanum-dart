@@ -716,6 +716,14 @@ void main() {
             );
             final breakdown = result.copyMetrics['e2ee_copy_breakdown'] as Map;
             expect(breakdown['coverage'], 'known_staging_only');
+            expect(breakdown['client_worker_isolate_ppt_serializer'], {
+              'encode_wrapping_copy_bytes': 0,
+              'decoded_binary_copy_bytes': 0,
+              'coalescing_copy_bytes': 0,
+              'metadata_setup_copy_bytes': 0,
+            });
+            expect(breakdown['client_process_plaintext_framing_copy_bytes'], 0);
+
             expect(
               breakdown['client_process_plaintext_staging_copy_bytes'],
               implementation == WampClientImplementation.native
@@ -753,6 +761,42 @@ void main() {
                       cipher == 'xsalsa20poly1305'
                   ? greaterThan(0)
                   : 0,
+            );
+          },
+          skip: skipReason,
+          timeout: const Timeout(Duration(seconds: 45)),
+        );
+
+        test(
+          'encrypted CBOR worker $implementation reports $cipher PPT copies',
+          () async {
+            final result = await harness!.nativeWorker.runWithMetrics(
+              WampScenario(
+                transport: WampTransport.rawsocket,
+                clientImplementation: implementation,
+                serializer: WampSerializer.flatbuffers,
+                peerSerializer: WampSerializer.flatbuffers,
+                mode: WampMode.rpc,
+                uri: 'bench.rpc.echo',
+                iterations: 2,
+                concurrency: 1,
+                payloadBytes: 1024,
+                pptScheme: 'wamp',
+                pptSerializer: 'cbor',
+                pptCipher: cipher,
+                pptKeyId: 'benchmark-key',
+              ),
+            );
+            expect(result.samples, hasLength(2));
+            final breakdown = result.copyMetrics['e2ee_copy_breakdown'] as Map;
+            final ppt =
+                breakdown['client_worker_isolate_ppt_serializer'] as Map;
+            expect(ppt['encode_wrapping_copy_bytes'], greaterThan(0));
+            expect(ppt['coalescing_copy_bytes'], greaterThan(0));
+            expect(ppt['decoded_binary_copy_bytes'], greaterThanOrEqualTo(0));
+            expect(
+              (result.copyMetrics['e2ee_copy_bytes'] as Map)['status'],
+              'not_measured',
             );
           },
           skip: skipReason,
@@ -823,7 +867,7 @@ void main() {
     test(
       'native CBOR E2EE file transfer uses native file segments',
       () async {
-        final samples = await harness!.runNative(
+        final result = await harness!.nativeWorker.runWithMetrics(
           WampScenario(
             transport: WampTransport.rawsocket,
             clientImplementation: WampClientImplementation.native,
@@ -842,8 +886,18 @@ void main() {
           ),
         );
 
+        final samples = result.samples;
         expect(samples, hasLength(1));
         expect(samples.single.requestBytes, 2 * 1024 * 1024);
+        final breakdown = result.copyMetrics['e2ee_copy_breakdown'] as Map;
+        expect(
+          breakdown['client_process_plaintext_framing_copy_bytes'],
+          greaterThan(0),
+        );
+        expect(
+          (result.copyMetrics['e2ee_copy_bytes'] as Map)['status'],
+          'not_measured',
+        );
       },
       skip: skipReason,
       timeout: const Timeout(Duration(seconds: 45)),

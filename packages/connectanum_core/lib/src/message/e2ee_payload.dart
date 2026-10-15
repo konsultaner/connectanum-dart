@@ -8,6 +8,7 @@ import 'package:pointycastle/export.dart'
 
 import 'abstract_ppt_options.dart';
 import 'e2ee_copy_metrics.dart';
+import 'ppt_copy_metrics.dart';
 import '../message/ppt_payload.dart';
 import '../serializer/cbor/serializer.dart' as cbor_serializer;
 import '../serializer/abstract_serializer.dart';
@@ -536,10 +537,12 @@ abstract class _WampE2eeCipherProvider
 
     final plaintext =
         typedPlaintext ??
-        _serializer.serializePPT(
-          PPTPayload(
-            arguments: arguments,
-            argumentsKeywords: argumentsKeywords,
+        PptCopyMetrics.measure<Uint8List>(
+          () => _serializer.serializePPT(
+            PPTPayload(
+              arguments: arguments,
+              argumentsKeywords: argumentsKeywords,
+            ),
           ),
         );
     final encrypted = _encryptPayload(plaintext, _keys[keyId]!);
@@ -555,8 +558,10 @@ abstract class _WampE2eeCipherProvider
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
   ) {
-    final bytes = _serializer.serializePPT(
-      PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
+    final bytes = PptCopyMetrics.measure<Uint8List>(
+      () => _serializer.serializePPT(
+        PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
+      ),
     );
     // Typed serialization returns the application span unchanged. These are
     // exactly nonce + tag bytes, with no additional plaintext framing.
@@ -629,7 +634,9 @@ abstract class _WampE2eeCipherProvider
 
     PPTPayload? decoded;
     try {
-      decoded = _serializer.deserializePPT(plaintext);
+      decoded = PptCopyMetrics.measure(
+        () => _serializer.deserializePPT(plaintext),
+      );
     } catch (_) {
       // Parser errors can retain decrypted input; expose only the envelope
       // failure, not the parser exception or plaintext.

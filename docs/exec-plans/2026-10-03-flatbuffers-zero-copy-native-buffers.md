@@ -11,6 +11,20 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+PPT/framing observation follow-up (2026-10-15): fresh pre-change
+`bin/test-fast` passes on unchanged combined head `8f1fbfb9`. Actual CBOR PPT
+wrapping, binary cloning, coalescing and cold metadata setup now have separate
+scoped counters for native and portable providers. An optional native plaintext
+framing scalar observes file wrappers and canonical headers while preserving
+the sixteen-byte v1 ABI. Fail-first observations reproduce the undercounts;
+nine Rust and 131 randomized focused VM/native cases pass. Fresh-process probes verify the
+new scalar and the preceding production library's null fallback. All 30 randomized
+Chrome/Dart2Wasm cases and nine live RPC/file cases pass. Full frozen
+`bin/verify` is pending. See
+[PPT/framing source and limits](../research/2026-10-15-ppt-serializer-copy-observations.md).
+Outer WAMP serialization, transcode totals and all performance acceptance stay
+open. No milestone issue is closed by these partial observations.
+
 Current follow-up (2026-10-15): finish remaining FlatBuffers issues.
 Both unprofiled 90-row router-view diagnostics complete. Dart-value FlatBuffers
 throughput improves 23.2% (best-binary ratio 0.6546 to 0.8040); native construction
@@ -20,8 +34,8 @@ core byte views now serve only the built-in native PPT decoder, preserving ordin
 copy semantics, custom decoders and FlatBuffers' 64 MiB encoded limit. All 1,906
 focused client/core cases and twenty Chrome/Dart2Wasm cases pass. Full-source
 verification and new-source measurements remain pending. PR #130's hosted
-core-E2EE mutation gate is red at 94.921875% against 95%; the nonce-loop `<' to `>'
-mutant survives. Nonce freshness coverage is the immediate CI priority.
+core-E2EE mutation failure at 94.921875% is repaired in `ef1fc548` without
+changing its 95% floor; replacement hosted CI is pending.
 
 Performance follow-up now uses `codex/flatbuffers-lazy-ppt-views` based on
 `25e0d41f`; PR #130 retains the E2EE/counter and verified-shard review. A server
