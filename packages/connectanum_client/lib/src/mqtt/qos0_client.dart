@@ -157,7 +157,8 @@ final class MqttQos0Client {
     _send(
       MqttPacketCodec.encodePublish(version, topic: topic, payload: payload),
     );
-    await _flush();
+    // WebSocket.add queues the frame; avoid a completed-future await per send.
+    if (_socket != null) await _flush();
   }
 
   /// Sends up to 512 QoS 0 publications in one write, preserving order.
@@ -183,7 +184,7 @@ final class MqttQos0Client {
     }
     if (count == 0) return;
     _send(wire.takeBytes());
-    await _flush();
+    if (_socket != null) await _flush();
   }
 
   Future<void> ping() async {
