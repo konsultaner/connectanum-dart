@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import run_mqtt_benchmark_gate as gate
@@ -54,11 +55,51 @@ def rows(connectanum_speed=80000, connectanum_p99=120, received=2000):
                 "latency_p99_us": connectanum_p99 if target == "connectanum" else 100,
                 "broker_cpu_seconds": 0.2 if target == "connectanum" else 0.1,
                 "broker_rss_bytes": 20_000_000 if target == "connectanum" else 4_000_000,
+                "client_cpu_seconds": 0.3 if target == "connectanum" else 0.2,
             })
     return result
 
 
 class MqttBenchmarkGateTest(unittest.TestCase):
+    def test_client_cpu_is_measured_for_only_the_waited_client_process(self):
+        usage = SimpleNamespace(ru_utime=0.4, ru_stime=0.1)
+        with mock.patch.object(gate.resource, "getrusage", return_value=usage) as getrusage:
+            self.assertEqual(gate.child_cpu_seconds(), 0.5)
+        getrusage.assert_called_once_with(gate.resource.RUSAGE_CHILDREN)
+
+        completed = subprocess.CompletedProcess([], 0, stdout="{}", stderr="")
+        with (mock.patch.object(gate, "child_cpu_seconds", side_effect=[5.25, 5.50]),
+              mock.patch.object(gate.subprocess, "run", return_value=completed) as run):
+            result, cpu = gate.run_client_with_cpu(Path("client"), 1883, {"TEST": "1"})
+        self.assertIs(result, completed)
+        self.assertEqual(cpu, 0.25)
+        run.assert_called_once_with(
+            ["client", "127.0.0.1", "1883"], env={"TEST": "1"},
+            capture_output=True, text=True, timeout=90)
+
+        with (mock.patch.object(gate, "child_cpu_seconds", side_effect=[5.5, 5.0]),
+              mock.patch.object(gate.subprocess, "run", return_value=completed)):
+            with self.assertRaisesRegex(RuntimeError, "client CPU counter regressed"):
+                gate.run_client_with_cpu(Path("client"), 1883, {})
+
+    def test_client_cpu_is_required_but_does_not_change_the_budget_verdict(self):
+        samples = rows()
+        summary = compare(samples, BUDGET)
+        self.assertTrue(summary["passed"])
+        self.assertEqual(summary["connectanum_client_cpu_seconds_median"], 0.3)
+        self.assertEqual(summary["mosquitto_client_cpu_seconds_median"], 0.2)
+        samples[0]["client_cpu_seconds"] = 1000.0
+        self.assertTrue(compare(samples, BUDGET)["passed"])
+        for value in (None, -0.1, float("nan"), float("inf"), "bad"):
+            with self.subTest(value=value):
+                broken = [dict(row) for row in samples]
+                if value is None:
+                    broken[0].pop("client_cpu_seconds")
+                else:
+                    broken[0]["client_cpu_seconds"] = value
+                with self.assertRaisesRegex(ValueError, "client process CPU"):
+                    compare(broken, BUDGET)
+
     def test_payload_size_and_transport_are_passed_to_the_client(self):
         budget = dict(BUDGET, payload_bytes=1024)
         with mock.patch.dict(gate.os.environ,

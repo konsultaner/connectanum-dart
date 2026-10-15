@@ -8,6 +8,7 @@ import math
 import os
 from pathlib import Path
 import platform
+import resource
 import socket
 import statistics
 import subprocess
@@ -88,6 +89,10 @@ def compare(rows, budget):
             if (not math.isfinite(cpu) or cpu < 0 or
                     not math.isfinite(rss) or rss <= 0):
                 raise ValueError(f"{name}: missing broker process metrics: {row}")
+            client_cpu = row.get("client_cpu_seconds")
+            if (not isinstance(client_cpu, (int, float)) or
+                    not math.isfinite(client_cpu) or client_cpu < 0):
+                raise ValueError(f"{name}: missing client process CPU: {row}")
             for metric in ("throughput_delivered_per_sec", "latency_p95_us",
                            "latency_p99_us"):
                 if not math.isfinite(row[metric]) or row[metric] <= 0:
@@ -137,6 +142,10 @@ def compare(rows, budget):
             "connectanum", "broker_cpu_seconds"),
         "mosquitto_broker_cpu_seconds_median": median(
             "mosquitto", "broker_cpu_seconds"),
+        "connectanum_client_cpu_seconds_median": median(
+            "connectanum", "client_cpu_seconds"),
+        "mosquitto_client_cpu_seconds_median": median(
+            "mosquitto", "client_cpu_seconds"),
         "connectanum_broker_rss_bytes_max": max(
             row["broker_rss_bytes"] for row in grouped["connectanum"]),
         "mosquitto_broker_rss_bytes_max": max(
@@ -222,6 +231,23 @@ def process_metrics(pid):
     cpu_raw, rss_kib = output.split()
     rss = int(rss_kib) * 1024
     return _parse_cpu_time(cpu_raw), rss, rss
+
+
+def child_cpu_seconds():
+    """CPU of waited children; the serial harness waits only for this client."""
+    usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+    return usage.ru_utime + usage.ru_stime
+
+
+def run_client_with_cpu(client_exe, port, env):
+    before = child_cpu_seconds()
+    process = subprocess.run(
+        [str(client_exe), "127.0.0.1", str(port)],
+        env=env, capture_output=True, text=True, timeout=90)
+    elapsed = child_cpu_seconds() - before
+    if elapsed < 0:
+        raise RuntimeError("client CPU counter regressed")
+    return process, round(elapsed, 4)
 
 
 def stop_broker(broker):
@@ -399,16 +425,16 @@ def main():
                     env = workload_environment(budget, transport)
                     before_cpu, _, before_peak_rss = process_metrics(
                         brokers[target].pid)
-                    process = subprocess.run(
-                        [str(client_exe), "127.0.0.1", str(target_port)],
-                        env=env, capture_output=True, text=True, timeout=90)
+                    process, client_cpu = run_client_with_cpu(
+                        client_exe, target_port, env)
                     after_cpu, _, after_peak_rss = process_metrics(
                         brokers[target].pid)
                     row = checked_client_row(
                         process, target, repeat, broker_log=broker_logs[target])
                     row.update(target=target, run=repeat,
                                broker_cpu_seconds=round(after_cpu - before_cpu, 4),
-                               broker_rss_bytes=max(before_peak_rss, after_peak_rss))
+                               broker_rss_bytes=max(before_peak_rss, after_peak_rss),
+                               client_cpu_seconds=client_cpu)
                     rows.append(row)
                     raw.write_text("".join(json.dumps(item, sort_keys=True) + "\n"
                                            for item in rows))
